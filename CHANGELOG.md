@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.1.2] — 2026-05-12
+
+### Added
+- **Activity timeline** (`/activity`) — workspace-wide event log with type and app filters, cursor pagination
+- **`fibre-platform` app slug** — the platform itself is now a registered app. Resolves the long-standing TODO of using `fibre-suite` as a placeholder.
+- **`user_created` events** — written automatically when a person is created (in the API). Backfilled for existing users.
+- API: `GET /api/v1/activities` now accepts either a UUID or a slug for `app_id` and joins the app name into responses
+
+### Changed
+- `lib/api.ts` `PLATFORM_APP_ID` switched from `fibre-suite` to `fibre-platform`
+- `packages/shared` `APP_IDS` includes `fibre-platform`
+- API middleware `VALID_APP_IDS` includes `fibre-platform`
+
 ## [0.1.1] — 2026-05-12
 
 ### Added

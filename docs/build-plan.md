@@ -15,7 +15,8 @@ Everything tagged in the changelog is verified working end-to-end.
 ## Now (current sprint)
 
 - [x] Org list, detail, add form (parallel to contacts)
-- [ ] Activity page — workspace-wide timeline (the spine of the product, brief §1)
+- [x] Activity page — workspace-wide timeline (the spine of the product, brief §1)
+- [x] Introduce `fibre-platform` app slug (was `fibre-suite` placeholder)
 - [ ] Privacy page — consent records, erasure request flow (brief §10)
 - [ ] Settings page — workspace + profile basics
 - [ ] **Deploy web to Vercel** — fix framework preset to Next.js, root `apps/web`; add env vars
@@ -41,7 +42,6 @@ Everything tagged in the changelog is verified working end-to-end.
 - [ ] App membership management UI (assign role + permissions per app per user)
 - [ ] Workspace creation + switching (currently single seeded workspace)
 - [ ] Invite by email (magic link flow, brief §5.5b)
-- [ ] Introduce `fibre-platform` app slug — landing currently reuses `fibre-suite` for X-App-ID
 
 ### SSO providers
 - [ ] Microsoft OAuth
@@ -118,7 +118,6 @@ Everything tagged in the changelog is verified working end-to-end.
 
 ## Code-level TODOs we've left in place
 
-- `apps/web/lib/api.ts`: `PLATFORM_APP_ID = 'fibre-suite'` is a placeholder — replace with `fibre-platform` once the slug is added
 - `apps/web/app/auth/callback/route.ts`: workspace resolution falls back to `DEFAULT_WORKSPACE_ID` — replace with invite/magic-link/domain-matching logic
 - `apps/api/src/routes/sso.ts`: gated by `SSO_INTERNAL_SECRET` — rotate before prod and store securely
 

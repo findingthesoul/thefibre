@@ -7,7 +7,8 @@ export const activitiesRoutes = new Hono();
 
 const ListQuery = z.object({
   person_id: z.string().uuid().optional(),
-  app_id: z.string().uuid().optional(),
+  // Either a UUID or a slug (e.g. "fibre-platform").
+  app_id: z.string().min(1).max(64).optional(),
   type: z.enum(ACTIVITY_TYPES).optional(),
   after: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
@@ -22,13 +23,22 @@ activitiesRoutes.get('/', async (c) => {
 
   let q = db
     .from('activity')
-    .select('id, person_id, app_id, type, subject, occurred_at, created_by')
+    .select('id, person_id, app_id, type, subject, occurred_at, created_by, app:app_id (slug, name)')
     .order('occurred_at', { ascending: false })
     .order('id', { ascending: false })
     .limit(parsed.data.limit + 1);
 
   if (parsed.data.person_id) q = q.eq('person_id', parsed.data.person_id);
-  if (parsed.data.app_id) q = q.eq('app_id', parsed.data.app_id);
+  if (parsed.data.app_id) {
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.data.app_id);
+    if (isUuid) {
+      q = q.eq('app_id', parsed.data.app_id);
+    } else {
+      const { data: app } = await db.from('app').select('id').eq('slug', parsed.data.app_id).single();
+      if (app) q = q.eq('app_id', app.id);
+      else return c.json({ items: [], next: null });
+    }
+  }
   if (parsed.data.type) q = q.eq('type', parsed.data.type);
   if (parsed.data.after) q = q.lt('id', parsed.data.after);
 

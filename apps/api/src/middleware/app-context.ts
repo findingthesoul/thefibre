@@ -1,9 +1,15 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 
-export type AppId = 'fibre-suite' | 'the-thread' | 'fibre-sales' | 'fibre-learn';
+export type AppId =
+  | 'fibre-platform'
+  | 'fibre-suite'
+  | 'the-thread'
+  | 'fibre-sales'
+  | 'fibre-learn';
 
 const VALID_APP_IDS: ReadonlySet<AppId> = new Set([
+  'fibre-platform',
   'fibre-suite',
   'the-thread',
   'fibre-sales',

@@ -1,8 +1,6 @@
 import { serverSupabase } from './supabase/server';
 
-// TODO: add 'fibre-platform' as a real app slug. For now the landing platform
-// reuses 'fibre-suite' membership for its own admin contact graph view.
-const PLATFORM_APP_ID = 'fibre-suite';
+const PLATFORM_APP_ID = 'fibre-platform';
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 

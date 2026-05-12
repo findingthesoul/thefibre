@@ -54,6 +54,9 @@ importers:
       '@supabase/supabase-js':
         specifier: ^2.45.0
         version: 2.105.4
+      '@thefibre/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
       lucide-react:
         specifier: ^0.460.0
         version: 0.460.0(react@19.2.6)

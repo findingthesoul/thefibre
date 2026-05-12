@@ -25,9 +25,11 @@ type Activity = {
   subject: string;
   occurred_at: string;
   app_id: string;
+  app: { slug: string; name: string } | null;
 };
 
 const APP_NAMES: Record<string, string> = {
+  'fibre-platform': 'Platform',
   'fibre-suite': 'Fibre Suite',
   'the-thread': 'The Thread',
   'fibre-sales': 'Fibre Sales',
@@ -106,7 +108,7 @@ export default async function ContactDetail({
                     timeStyle: 'short',
                   })}
                   {' · '}
-                  {APP_NAMES[a.app_id] ?? a.app_id}
+                  {a.app ? APP_NAMES[a.app.slug] ?? a.app.name : a.app_id}
                   {' · '}
                   {a.type}
                 </div>

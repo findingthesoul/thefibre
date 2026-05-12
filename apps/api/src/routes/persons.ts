@@ -62,6 +62,25 @@ personsRoutes.post('/', async (c) => {
     .single();
 
   if (error) return c.json({ error: error.message }, 500);
+
+  // Write a platform activity event. Non-fatal if it fails.
+  const { data: platformApp } = await db
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-platform')
+    .single();
+  if (platformApp) {
+    const name = [data.first_name, data.last_name].filter(Boolean).join(' ') || data.email;
+    await db.from('activity').insert({
+      workspace_id: ctx.workspaceId,
+      person_id: data.id,
+      app_id: platformApp.id,
+      type: 'user_created',
+      subject: `Added ${name} to the workspace`,
+      created_by: ctx.userId,
+    });
+  }
+
   return c.json(data, 201);
 });
 
