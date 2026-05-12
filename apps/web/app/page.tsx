@@ -1,3 +1,6 @@
+import Link from 'next/link';
+import { SignInButton } from './sign-in-button';
+
 const apps = [
   { slug: 'fibre-suite', name: 'Fibre Suite', desc: 'Meeting platform — agenda, facilitation, outcomes.', status: 'Active' },
   { slug: 'the-thread', name: 'The Thread', desc: 'Events and journeys — conferences and personal arcs.', status: 'Active' },
@@ -12,6 +15,13 @@ export default function LandingPage() {
       <p className="mt-3 text-ink-500 text-lg">
         Relationship intelligence for purpose-driven work. EU-hosted. GDPR-native. Cooperative-owned.
       </p>
+
+      <div className="mt-10 flex items-center gap-3">
+        <SignInButton />
+        <Link href="/dashboard" className="text-sm text-ink-500 hover:text-ink-900">
+          Already signed in? Open dashboard →
+        </Link>
+      </div>
 
       <section className="mt-16">
         <h2 className="text-sm uppercase tracking-wider text-ink-500">Apps</h2>
@@ -28,8 +38,9 @@ export default function LandingPage() {
         </ul>
       </section>
 
-      <footer className="mt-24 border-t border-ink-700/10 pt-6 text-xs text-ink-500">
-        thefibre.app · One Soul Community Coöperatief U.A. · Hosted in the EU
+      <footer className="mt-24 border-t border-ink-700/10 pt-6 text-xs text-ink-500 leading-relaxed">
+        thefibre.app · One Soul Community Coöperatief U.A. · Hosted in the EU<br />
+        No advertising. No profiling. No data sold. <Link className="underline" href="/privacy">Privacy</Link>.
       </footer>
     </main>
   );
