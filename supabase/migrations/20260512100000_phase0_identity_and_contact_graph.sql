@@ -26,19 +26,7 @@ as $$
   select nullif(((current_setting('request.jwt.claims', true))::jsonb ->> 'sub'), '')::uuid
 $$;
 
-create or replace function public.has_app_membership(p_app_slug text)
-returns boolean
-language sql
-stable
-as $$
-  select exists (
-    select 1
-      from public.app_membership am
-      join public.app a on a.id = am.app_id
-     where am.user_id = public.current_user_id()
-       and a.slug = p_app_slug
-  )
-$$;
+-- has_app_membership() is defined after the app_membership table exists.
 
 -- ---------------------------------------------------------------------------
 -- Domain 1: identity and tenancy
@@ -118,6 +106,20 @@ create table public.app_membership (
   granted_at   timestamptz not null default now(),
   unique (user_id, app_id)
 );
+
+create or replace function public.has_app_membership(p_app_slug text)
+returns boolean
+language sql
+stable
+as $$
+  select exists (
+    select 1
+      from public.app_membership am
+      join public.app a on a.id = am.app_id
+     where am.user_id = public.current_user_id()
+       and a.slug = p_app_slug
+  )
+$$;
 
 create table public.session (
   id          uuid primary key default gen_random_uuid(),
