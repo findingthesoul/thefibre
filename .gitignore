@@ -10,11 +10,13 @@ build/
 out/
 *.tsbuildinfo
 
-# Env
+# Env — NEVER commit. Personal data / service keys.
 .env
 .env.local
 .env.*.local
 !.env.example
+apps/*/.env
+apps/*/.env.local
 
 # Supabase
 supabase/.temp/
