@@ -40,6 +40,10 @@ export default async function Dashboard() {
         <SignOutButton />
       </header>
 
+      <nav className="mt-8 flex gap-4 text-sm">
+        <Link href="/contacts" className="underline underline-offset-2 hover:text-ink-700">Contacts</Link>
+      </nav>
+
       <section className="mt-12">
         <h2 className="text-sm uppercase tracking-wider text-ink-500">Your apps</h2>
         {memberships.length === 0 ? (
