@@ -27,7 +27,7 @@ export function SignInButton() {
     <button
       onClick={signIn}
       disabled={busy}
-      className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-paper-50 hover:bg-ink-700 disabled:opacity-50"
+      className="rounded-md bg-ink text-ink-inverse px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
     >
       {busy ? 'Redirecting…' : 'Sign in with Google'}
     </button>

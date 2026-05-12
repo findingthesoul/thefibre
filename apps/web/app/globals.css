@@ -3,9 +3,39 @@
 @tailwind utilities;
 
 :root {
-  color-scheme: light;
+  --surface: 255 255 255;          /* page bg */
+  --surface-sunken: 247 247 244;   /* sidebar / inset */
+  --surface-raised: 255 255 255;   /* cards, menus */
+  --ink: 17 20 24;                 /* primary text */
+  --ink-subtle: 75 85 99;          /* secondary text */
+  --ink-muted: 156 163 175;        /* tertiary text */
+  --ink-inverse: 250 250 247;
+  --line: 229 231 235;
+  --line-strong: 209 213 219;
+  --accent: 17 20 24;
+}
+
+.dark {
+  --surface: 13 15 18;
+  --surface-sunken: 9 11 13;
+  --surface-raised: 23 26 31;
+  --ink: 240 241 243;
+  --ink-subtle: 156 163 175;
+  --ink-muted: 107 114 128;
+  --ink-inverse: 13 15 18;
+  --line: 39 42 48;
+  --line-strong: 55 60 68;
+  --accent: 240 241 243;
 }
 
 html, body {
-  @apply bg-paper-50 text-ink-900;
+  background: rgb(var(--surface));
+  color: rgb(var(--ink));
+}
+
+html {
+  color-scheme: light;
+}
+.dark html, html.dark {
+  color-scheme: dark;
 }

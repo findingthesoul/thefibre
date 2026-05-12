@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { notFound, redirect } from 'next/navigation';
+import { notFound } from 'next/navigation';
+import { ChevronLeft } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
-import { serverSupabase } from '@/lib/supabase/server';
 
 type Person = {
   id: string;
@@ -39,10 +39,6 @@ export default async function ContactDetail({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const supabase = await serverSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) redirect('/');
-
   const { id } = await params;
 
   let person: Person;
@@ -59,26 +55,32 @@ export default async function ContactDetail({
     );
     activities = data.items;
   } catch {
-    // Non-fatal: render the contact even if activity fetch fails.
+    // Non-fatal.
   }
 
-  const fullName = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email || 'Unnamed';
+  const fullName =
+    [person.first_name, person.last_name].filter(Boolean).join(' ') ||
+    person.email ||
+    'Unnamed';
   const location = [person.city, person.region, person.country].filter(Boolean).join(', ');
 
   return (
-    <main className="mx-auto max-w-4xl px-6 py-16">
-      <nav className="mb-10 text-sm text-ink-500">
-        <Link href="/contacts" className="hover:text-ink-900">← Contacts</Link>
+    <div className="mx-auto max-w-4xl px-8 py-10">
+      <nav className="mb-8 text-sm">
+        <Link href="/contacts" className="inline-flex items-center gap-1 text-ink-subtle hover:text-ink">
+          <ChevronLeft size={14} strokeWidth={1.75} />
+          Contacts
+        </Link>
       </nav>
 
       <header>
-        <h1 className="text-3xl font-medium tracking-tight">{fullName}</h1>
+        <h1 className="text-2xl font-medium tracking-tight">{fullName}</h1>
         {person.preferred_name && (
-          <p className="text-sm text-ink-500 mt-1">Goes by {person.preferred_name}</p>
+          <p className="text-sm text-ink-subtle mt-1">Goes by {person.preferred_name}</p>
         )}
       </header>
 
-      <section className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-x-6 gap-y-4 text-sm">
+      <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
         <Field label="Email" value={person.email} />
         <Field label="Phone" value={person.phone} />
         <Field label="LinkedIn" value={person.linkedin_url} link />
@@ -88,17 +90,17 @@ export default async function ContactDetail({
       </section>
 
       <section className="mt-14">
-        <h2 className="text-sm uppercase tracking-wider text-ink-500">Timeline</h2>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">Timeline</div>
         {activities.length === 0 ? (
-          <div className="mt-4 rounded-md border border-ink-700/10 bg-paper-100 p-4 text-sm text-ink-500">
+          <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
             No activity yet. Events written by apps will appear here.
           </div>
         ) : (
-          <ol className="mt-4 border-l border-ink-700/15 pl-6 space-y-6">
+          <ol className="mt-4 border-l border-line pl-6 space-y-6">
             {activities.map((a) => (
               <li key={a.id} className="relative">
-                <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink-900" />
-                <div className="text-xs uppercase tracking-wider text-ink-500">
+                <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink" />
+                <div className="text-xs uppercase tracking-wider text-ink-muted">
                   {new Date(a.occurred_at).toLocaleString('en-GB', {
                     dateStyle: 'medium',
                     timeStyle: 'short',
@@ -114,14 +116,14 @@ export default async function ContactDetail({
           </ol>
         )}
       </section>
-    </main>
+    </div>
   );
 }
 
 function Field({ label, value, link = false }: { label: string; value: string | null; link?: boolean }) {
   return (
     <div>
-      <div className="text-xs uppercase tracking-wider text-ink-500">{label}</div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</div>
       <div className="mt-1">
         {value ? (
           link ? (
@@ -132,7 +134,7 @@ function Field({ label, value, link = false }: { label: string; value: string | 
             value
           )
         ) : (
-          <span className="text-ink-500/50">—</span>
+          <span className="text-ink-muted">—</span>
         )}
       </div>
     </div>

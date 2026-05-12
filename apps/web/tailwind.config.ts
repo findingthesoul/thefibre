@@ -1,15 +1,39 @@
 import type { Config } from 'tailwindcss';
 
 export default {
+  darkMode: 'class',
   content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
   theme: {
     extend: {
       fontFamily: {
-        sans: ['ui-sans-serif', 'system-ui', '-apple-system', 'Inter', 'sans-serif'],
+        sans: [
+          'ui-sans-serif',
+          'system-ui',
+          '-apple-system',
+          'Inter',
+          'sans-serif',
+        ],
       },
       colors: {
-        ink: { 900: '#0b0d10', 700: '#1f2328', 500: '#5b6470' },
-        paper: { 50: '#fafaf7', 100: '#f4f3ee' },
+        // Surface tokens. Use these instead of raw white/black/gray.
+        surface: {
+          DEFAULT: 'rgb(var(--surface) / <alpha-value>)',
+          sunken: 'rgb(var(--surface-sunken) / <alpha-value>)',
+          raised: 'rgb(var(--surface-raised) / <alpha-value>)',
+        },
+        ink: {
+          DEFAULT: 'rgb(var(--ink) / <alpha-value>)',
+          subtle: 'rgb(var(--ink-subtle) / <alpha-value>)',
+          muted: 'rgb(var(--ink-muted) / <alpha-value>)',
+          inverse: 'rgb(var(--ink-inverse) / <alpha-value>)',
+        },
+        line: {
+          DEFAULT: 'rgb(var(--line) / <alpha-value>)',
+          strong: 'rgb(var(--line-strong) / <alpha-value>)',
+        },
+        accent: {
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+        },
       },
     },
   },

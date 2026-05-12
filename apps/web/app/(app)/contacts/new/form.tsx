@@ -15,7 +15,7 @@ export function NewPersonForm() {
       <Field name="country" label="Country (ISO 2-letter)" placeholder="NL" maxLength={2} errors={state.fieldErrors?.country} />
 
       {state.error && (
-        <div className="rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+        <div className="rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
           {state.error}
         </div>
       )}
@@ -44,17 +44,22 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-sm text-ink-700">{label}{required && <span className="text-red-600"> *</span>}</span>
+      <span className="text-sm text-ink-subtle">
+        {label}
+        {required && <span className="text-red-600"> *</span>}
+      </span>
       <input
         name={name}
         type={type}
         required={required}
         placeholder={placeholder}
         maxLength={maxLength}
-        className="mt-1 w-full rounded-md border border-ink-700/15 bg-white px-3 py-2 text-sm focus:border-ink-900/40 focus:outline-none"
+        className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
       />
       {errors?.map((e) => (
-        <span key={e} className="mt-1 block text-xs text-red-700">{e}</span>
+        <span key={e} className="mt-1 block text-xs text-red-700">
+          {e}
+        </span>
       ))}
     </label>
   );
@@ -66,7 +71,7 @@ function Submit() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-md bg-ink-900 px-4 py-2 text-sm font-medium text-paper-50 hover:bg-ink-700 disabled:opacity-50"
+      className="rounded-md bg-ink text-ink-inverse px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
     >
       {pending ? 'Saving…' : 'Add person'}
     </button>
