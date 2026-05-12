@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   if (ssoSecret && identity) {
     try {
-      await fetch(`${apiBase}/api/v1/sso/resolve`, {
+      const res = await fetch(`${apiBase}/api/v1/sso/resolve`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -52,6 +52,10 @@ export async function GET(req: NextRequest) {
           provider_metadata: identity.identity_data ?? {},
         }),
       });
+      if (!res.ok) console.error('sso resolve non-2xx', res.status, await res.text());
+      // Refresh the session so the access-token hook re-runs and picks up
+      // the newly-created public.user → workspace_id claim.
+      await supabase.auth.refreshSession();
     } catch (e) {
       console.error('sso resolve failed', e);
       // Non-fatal — the Supabase session is valid; we'll retry on next sign-in.

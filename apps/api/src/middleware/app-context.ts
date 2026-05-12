@@ -28,7 +28,11 @@ declare module 'hono' {
   }
 }
 
-const PUBLIC_PATHS = new Set(['/api/v1/auth/login', '/api/v1/auth/refresh']);
+const PUBLIC_PATHS = new Set([
+  '/api/v1/auth/login',
+  '/api/v1/auth/refresh',
+  '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
+]);
 
 export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) return next();
