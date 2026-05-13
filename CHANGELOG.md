@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.3.3] — 2026-05-14
+
+Fixes the silent-save issue on edit dialogs.
+
+### Changed
+- **URL fields no longer require `https://` prefix.** Was: `z.string().url()` rejected `thefibre.app` or `linkedin.com/company/x` with a generic 400. Now: accept any string up to 500 chars; the display layer prepends `https://` when needed. Affects: organisation `website` + `linkedin_url`, person `linkedin_url`, user `avatar_url`.
+
+### Fixed
+- **All field errors now display.** Was: only `name` / `first_name` / `last_name` / `email` showed per-field errors — every other field surfaced only a generic "API 400" with no clue what to fix. Now: every input in both the contact and organisation Edit dialogs is wired to `state.fieldErrors`. If you mistype a country code or leave a malformed field, you'll see exactly which one.
+- Country fields now include a hint ("Two letters or leave blank") so users don't accidentally type a single character.
+
 ## [0.3.2] — 2026-05-14
 
 Organisation profile tabs — the org-graph counterpart to v0.3.0's person tabs.

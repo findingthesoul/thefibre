@@ -77,8 +77,10 @@ const OrgUpdate = z.object({
   name: z.string().min(1).max(200).optional(),
   legal_name: z.string().max(200).nullable().optional(),
   domain: z.string().max(255).nullable().optional(),
-  website: z.string().url().nullable().optional(),
-  linkedin_url: z.string().url().nullable().optional(),
+  // Accept any string (display layer prepends https://). Brief intent was a URL
+  // but strict .url() validation rejects "thefibre.app" — bad UX.
+  website: z.string().max(500).nullable().optional(),
+  linkedin_url: z.string().max(500).nullable().optional(),
   vat_number: z.string().max(50).nullable().optional(),
   city: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),

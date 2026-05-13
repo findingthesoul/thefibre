@@ -105,7 +105,8 @@ const PersonUpdate = z.object({
   email: z.string().email().optional(),
   email_secondary: z.string().email().nullable().optional(),
   phone: z.string().max(50).nullable().optional(),
-  linkedin_url: z.string().url().nullable().optional(),
+  // Accept any string; display layer prepends https:// if needed.
+  linkedin_url: z.string().max(500).nullable().optional(),
   city: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),
   country: z.string().length(2).nullable().optional(),

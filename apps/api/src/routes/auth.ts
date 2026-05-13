@@ -33,7 +33,7 @@ authRoutes.get('/me', async (c) => {
 
 const MeUpdate = z.object({
   full_name: z.string().min(1).max(200).optional(),
-  avatar_url: z.string().url().nullable().optional(),
+  avatar_url: z.string().max(500).nullable().optional(),
 });
 
 authRoutes.patch('/me', async (c) => {

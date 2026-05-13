@@ -107,14 +107,22 @@ function EditDialog({
       <form id="edit-person-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="First name" name="first_name" defaultValue={person.first_name ?? ''} required errors={state.fieldErrors?.first_name} />
         <TextField label="Last name" name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
-        <TextField label="Preferred name" name="preferred_name" defaultValue={person.preferred_name ?? ''} />
-        <TextField label="Pronouns" name="pronouns" defaultValue={person.pronouns ?? ''} placeholder="she/her, they/them, …" />
+        <TextField label="Preferred name" name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />
+        <TextField label="Pronouns" name="pronouns" defaultValue={person.pronouns ?? ''} placeholder="she/her, they/them, …" errors={state.fieldErrors?.pronouns} />
         <TextField label="Email" name="email" type="email" defaultValue={person.email ?? ''} required errors={state.fieldErrors?.email} />
-        <TextField label="Phone" name="phone" defaultValue={person.phone ?? ''} />
-        <TextField label="LinkedIn URL" name="linkedin_url" defaultValue={person.linkedin_url ?? ''} placeholder="https://linkedin.com/in/…" />
-        <TextField label="City" name="city" defaultValue={person.city ?? ''} />
-        <TextField label="Region" name="region" defaultValue={person.region ?? ''} />
-        <TextField label="Country (ISO 2)" name="country" maxLength={2} defaultValue={person.country ?? ''} placeholder="NL" />
+        <TextField label="Phone" name="phone" defaultValue={person.phone ?? ''} errors={state.fieldErrors?.phone} />
+        <TextField label="LinkedIn" name="linkedin_url" defaultValue={person.linkedin_url ?? ''} placeholder="linkedin.com/in/…" errors={state.fieldErrors?.linkedin_url} />
+        <TextField label="City" name="city" defaultValue={person.city ?? ''} errors={state.fieldErrors?.city} />
+        <TextField label="Region" name="region" defaultValue={person.region ?? ''} errors={state.fieldErrors?.region} />
+        <TextField
+          label="Country (ISO 2-letter)"
+          name="country"
+          maxLength={2}
+          defaultValue={person.country ?? ''}
+          placeholder="NL"
+          hint="Two letters or leave blank"
+          errors={state.fieldErrors?.country}
+        />
 
         {state.error && (
           <div className="md:col-span-2 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">

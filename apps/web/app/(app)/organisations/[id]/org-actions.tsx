@@ -120,17 +120,25 @@ function EditDialog({
     >
       <form id="edit-org-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="Name" name="name" defaultValue={org.name} required errors={state.fieldErrors?.name} />
-        <TextField label="Legal name" name="legal_name" defaultValue={org.legal_name ?? ''} />
-        <TextField label="Domain" name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" />
-        <TextField label="Website" name="website" type="url" defaultValue={org.website ?? ''} placeholder="https://…" />
-        <TextField label="LinkedIn" name="linkedin_url" defaultValue={org.linkedin_url ?? ''} placeholder="https://linkedin.com/company/…" />
-        <TextField label="Sector" name="sector" defaultValue={org.sector ?? ''} />
-        <TextField label="Industry" name="industry" defaultValue={org.industry ?? ''} />
-        <SelectField label="Type" name="org_type" defaultValue={org.org_type ?? ''} options={ORG_TYPES} />
-        <SelectField label="Size" name="size_band" defaultValue={org.size_band ?? ''} options={SIZE_BANDS} />
-        <TextField label="City" name="city" defaultValue={org.city ?? ''} />
-        <TextField label="Region" name="region" defaultValue={org.region ?? ''} />
-        <TextField label="Country (ISO 2)" name="country" maxLength={2} defaultValue={org.country ?? ''} placeholder="NL" />
+        <TextField label="Legal name" name="legal_name" defaultValue={org.legal_name ?? ''} errors={state.fieldErrors?.legal_name} />
+        <TextField label="Domain" name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" errors={state.fieldErrors?.domain} />
+        <TextField label="Website" name="website" defaultValue={org.website ?? ''} placeholder="thefibre.app or https://thefibre.app" errors={state.fieldErrors?.website} />
+        <TextField label="LinkedIn" name="linkedin_url" defaultValue={org.linkedin_url ?? ''} placeholder="linkedin.com/company/…" errors={state.fieldErrors?.linkedin_url} />
+        <TextField label="Sector" name="sector" defaultValue={org.sector ?? ''} errors={state.fieldErrors?.sector} />
+        <TextField label="Industry" name="industry" defaultValue={org.industry ?? ''} errors={state.fieldErrors?.industry} />
+        <SelectField label="Type" name="org_type" defaultValue={org.org_type ?? ''} options={ORG_TYPES} errors={state.fieldErrors?.org_type} />
+        <SelectField label="Size" name="size_band" defaultValue={org.size_band ?? ''} options={SIZE_BANDS} errors={state.fieldErrors?.size_band} />
+        <TextField label="City" name="city" defaultValue={org.city ?? ''} errors={state.fieldErrors?.city} />
+        <TextField label="Region" name="region" defaultValue={org.region ?? ''} errors={state.fieldErrors?.region} />
+        <TextField
+          label="Country (ISO 2-letter)"
+          name="country"
+          maxLength={2}
+          defaultValue={org.country ?? ''}
+          placeholder="NL"
+          hint="Two letters or leave blank"
+          errors={state.fieldErrors?.country}
+        />
 
         {state.error && (
           <div className="md:col-span-2 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
