@@ -6,6 +6,13 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.3.11] — 2026-05-14
+
+### Fixed
+- **Page didn't refresh after save.** PATCH succeeded, dialog closed, but the read view stayed on the empty state because the dialog closes client-side and Next.js's `revalidatePath` from inside the server action didn't trigger the client to re-fetch. Now every edit dialog calls `router.refresh()` after a successful save, before closing — the page re-renders with fresh data immediately.
+
+Applied to all 10 dialogs (contact + 4 person tabs, org + 3 org tabs, add-member).
+
 ## [0.3.10] — 2026-05-14
 
 ### Fixed

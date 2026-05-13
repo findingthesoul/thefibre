@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -91,6 +92,7 @@ function EditDialog({
   initial: OrgRelationshipRow | null;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
@@ -100,7 +102,10 @@ function EditDialog({
     startSave(async () => {
       const res = await updateOrgRelationship(orgId, {}, fd);
       setState(res);
-      if (res.ok) onClose();
+      if (res.ok) {
+        router.refresh();
+        onClose();
+      }
     });
   }
 
@@ -110,7 +115,10 @@ function EditDialog({
     startSave(async () => {
       const res = await updateOrgRelationship(orgId, {}, fd);
       setState(res);
-      if (res.ok) onClose();
+      if (res.ok) {
+        router.refresh();
+        onClose();
+      }
     });
   }
 

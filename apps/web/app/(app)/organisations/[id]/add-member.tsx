@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -33,6 +34,7 @@ const INFLUENCE = [
 export function AddMemberButton({ orgId, people }: { orgId: string; people: PersonOption[] }) {
   const [open, setOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+  const router = useRouter();
   const [pending, start] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
@@ -43,6 +45,7 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
       const res = await addMember(orgId, {}, fd);
       setState(res);
       if (res.ok) {
+        router.refresh();
         setOpen(false);
         setState({});
       }
