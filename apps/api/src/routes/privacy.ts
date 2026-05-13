@@ -37,6 +37,19 @@ privacyRoutes.post('/consent', async (c) => {
   return c.json(data, 201);
 });
 
+privacyRoutes.get('/consent', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // List the caller's own consent records (most recent first per purpose).
+  const { data, error } = await db
+    .from('consent_record')
+    .select('id, purpose_code, legal_basis, granted_at, revoked_at, text_version')
+    .eq('user_id', ctx.userId)
+    .order('granted_at', { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
 privacyRoutes.delete('/consent/:purpose_code', async (c) => {
   const purpose = c.req.param('purpose_code');
   if (!(CONSENT_PURPOSES as readonly string[]).includes(purpose)) {
@@ -56,20 +69,53 @@ privacyRoutes.delete('/consent/:purpose_code', async (c) => {
 });
 
 const ErasureRequest = z.object({
-  person_id: z.string().uuid(),
+  person_id: z.string().uuid().optional(),
   notes: z.string().max(500).optional(),
 });
 
+privacyRoutes.get('/requests', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Caller's own person → their requests.
+  const { data: me } = await db
+    .from('user')
+    .select('person_id')
+    .eq('id', ctx.userId)
+    .single();
+  if (!me?.person_id) return c.json({ items: [] });
+
+  const { data, error } = await db
+    .from('data_subject_request')
+    .select('id, type, status, requested_at, due_at, completed_at, notes')
+    .eq('person_id', me.person_id)
+    .order('requested_at', { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
 privacyRoutes.post('/erasure-request', async (c) => {
-  const body = ErasureRequest.safeParse(await c.req.json().catch(() => null));
+  const body = ErasureRequest.safeParse(await c.req.json().catch(() => ({})));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
+  // Default to the caller's own person — self-service erasure.
+  let personId = body.data.person_id;
+  if (!personId) {
+    const { data: me } = await db
+      .from('user')
+      .select('person_id')
+      .eq('id', ctx.userId)
+      .single();
+    if (!me?.person_id) return c.json({ error: 'no person record for caller' }, 400);
+    personId = me.person_id;
+  }
+
   const { data, error } = await db
     .from('data_subject_request')
     .insert({
-      person_id: body.data.person_id,
+      person_id: personId,
       type: 'erasure',
       notes: body.data.notes ?? null,
     })

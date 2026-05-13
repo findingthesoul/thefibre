@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.2.2] — 2026-05-13
+
+### Added
+- **Privacy page** (`/privacy`) — three sections:
+  - **Active consents** with per-purpose Revoke buttons (only for `consent` legal basis; contract / legitimate_interest are noted but not revokable)
+  - **Data subject requests** with status (Article 15/17)
+  - **Actions** — Export (placeholder, Article 15 coming soon) + Request erasure dialog (Article 17 self-service)
+- **API:**
+  - `GET /api/v1/privacy/consent` — list the caller's own consent records
+  - `GET /api/v1/privacy/requests` — list the caller's own data subject requests
+  - `POST /api/v1/privacy/erasure-request` — `person_id` is now optional; defaults to the caller's own person (self-service)
+
 ## [0.2.1] — 2026-05-13
 
 ### Added

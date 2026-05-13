@@ -19,7 +19,7 @@ Everything tagged in the changelog is verified working end-to-end.
 - [x] Introduce `fibre-platform` app slug (was `fibre-suite` placeholder)
 - [x] Design-system primitives + Edit/Delete on contacts (v0.2.0)
 - [x] Edit/Delete on organisations (v0.2.1)
-- [ ] Privacy page — consent records, erasure request flow (brief §10)
+- [x] Privacy page — consent records, erasure request flow (v0.2.2)
 - [ ] Settings page — workspace + profile basics
 - [ ] **Deploy web to Vercel** — fix framework preset to Next.js, root `apps/web`; add env vars
 - [ ] **Deploy API to Fly.io Frankfurt** (or Railway EU)
@@ -66,9 +66,9 @@ Everything tagged in the changelog is verified working end-to-end.
 
 ## Phase 3 — GDPR UX (brief §10) — schema is in
 
-- [ ] Privacy dashboard for the participant: my data, my consents, my activity
+- [x] Privacy dashboard for the participant (v0.2.2): my consents (with revoke), my requests
 - [ ] Article 15 export — JSON of everything held about you
-- [ ] Article 17 erasure flow — request, status tracking, cross-app webhook fan-out
+- [x] Article 17 erasure request UI (v0.2.2) — file + track. Cross-app webhook fan-out still TODO.
 - [ ] Article 16 rectification — self-edit profile fields
 - [ ] Article 20 portability — same as export with schema definition
 - [ ] Consent grant / revoke UI per purpose code, unbundled
