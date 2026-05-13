@@ -177,3 +177,132 @@ organisationsRoutes.post('/members/:membership_id/end', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   return c.body(null, 204);
 });
+
+// ============================================================================
+// Profile sub-resources — one row per organisation each.
+// Same upsert-on-PATCH pattern as person profile tabs.
+// ============================================================================
+
+async function upsertOrgProfile<T extends Record<string, unknown>>(
+  c: import('hono').Context,
+  table: string,
+  body: T,
+) {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  const { data: org, error: oErr } = await db
+    .from('organisation')
+    .select('id')
+    .eq('id', orgId)
+    .is('deleted_at', null)
+    .single();
+  if (oErr || !org) return c.json({ error: 'organisation not found' }, 404);
+
+  const { data, error } = await db
+    .from(table)
+    .upsert({ org_id: orgId, ...body }, { onConflict: 'org_id' })
+    .select('*')
+    .single();
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+}
+
+async function getOrgProfile(c: import('hono').Context, table: string) {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from(table)
+    .select('*')
+    .eq('org_id', c.req.param('id'))
+    .maybeSingle();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data ?? null);
+}
+
+// --- org_identity ----------------------------------------------------------
+const GOVERNANCE = ['hierarchical', 'flat', 'matrix', 'holacracy', 'cooperative'] as const;
+const OWNERSHIP = ['private', 'public', 'family', 'employee', 'state', 'ngo'] as const;
+const DECISION_STYLE = ['top_down', 'consultative', 'consensus', 'delegated'] as const;
+const MATURITY = ['startup', 'growth', 'established', 'legacy', 'transitioning'] as const;
+
+const IdentityUpdate = z.object({
+  mission_statement: z.string().max(2000).nullable().optional(),
+  vision_statement: z.string().max(2000).nullable().optional(),
+  stated_values: z.array(z.string().max(100)).nullable().optional(),
+  cultural_descriptors: z.array(z.string().max(100)).nullable().optional(),
+  governance_model: z.enum(GOVERNANCE).nullable().optional(),
+  ownership_type: z.enum(OWNERSHIP).nullable().optional(),
+  decision_making_style: z.enum(DECISION_STYLE).nullable().optional(),
+  languages_of_operation: z.array(z.string().max(50)).nullable().optional(),
+  maturity_stage: z.enum(MATURITY).nullable().optional(),
+  identity_notes: z.string().max(5000).nullable().optional(),
+});
+
+organisationsRoutes.get('/:id/identity', (c) => getOrgProfile(c, 'org_identity'));
+organisationsRoutes.patch('/:id/identity', async (c) => {
+  const body = IdentityUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  return upsertOrgProfile(c, 'org_identity', body.data);
+});
+
+// --- org_system_context (political_landscape is sensitive — brief §5.D3) --
+const TRANSFORMATION_STAGE = ['pre_awareness', 'exploring', 'committed', 'in_programme', 'sustaining', 'alumni'] as const;
+const LEADERSHIP_STABILITY = ['stable', 'transitioning', 'turbulent'] as const;
+const CHANGE_READINESS = ['not_ready', 'cautious', 'open', 'ready', 'driving'] as const;
+
+const SystemContextUpdate = z.object({
+  transformation_stage: z.enum(TRANSFORMATION_STAGE).nullable().optional(),
+  active_change_themes: z.array(z.string().max(100)).nullable().optional(),
+  structural_tensions: z.array(z.string().max(200)).nullable().optional(),
+  strategic_priorities: z.string().max(2000).nullable().optional(),
+  current_challenges: z.string().max(2000).nullable().optional(),
+  political_landscape: z.string().max(5000).nullable().optional(),
+  leadership_stability: z.enum(LEADERSHIP_STABILITY).nullable().optional(),
+  change_readiness: z.enum(CHANGE_READINESS).nullable().optional(),
+  previous_interventions: z.array(z.string().max(200)).nullable().optional(),
+  lessons_from_previous_work: z.string().max(2000).nullable().optional(),
+  blockers: z.array(z.string().max(200)).nullable().optional(),
+  enablers: z.array(z.string().max(200)).nullable().optional(),
+});
+
+organisationsRoutes.get('/:id/system-context', (c) => getOrgProfile(c, 'org_system_context'));
+organisationsRoutes.patch('/:id/system-context', async (c) => {
+  const body = SystemContextUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  return upsertOrgProfile(c, 'org_system_context', {
+    ...body.data,
+    notes_updated_at: new Date().toISOString(),
+    notes_updated_by: ctx.userId,
+  });
+});
+
+// --- org_relationship ------------------------------------------------------
+const RELATIONSHIP_STAGE = ['prospect', 'engaged', 'active_client', 'alumni', 'dormant', 'lost'] as const;
+const HEALTH_STATUS = ['active', 'at_risk', 'dormant', 'lost', 'never_converted'] as const;
+const ENGAGEMENT_TYPE = ['facilitation', 'learning', 'advisory', 'speaking', 'mixed'] as const;
+
+const OrgRelationshipUpdate = z.object({
+  primary_owner: z.string().uuid().nullable().optional(),
+  secondary_owner: z.string().uuid().nullable().optional(),
+  relationship_stage: z.enum(RELATIONSHIP_STAGE).nullable().optional(),
+  health_status: z.enum(HEALTH_STATUS).nullable().optional(),
+  engagement_type: z.enum(ENGAGEMENT_TYPE).nullable().optional(),
+  programmes_completed: z.array(z.string().max(200)).nullable().optional(),
+  total_participants_reached: z.number().int().min(0).nullable().optional(),
+  touchpoints_count: z.number().int().min(0).nullable().optional(),
+  relationship_history: z.string().max(5000).nullable().optional(),
+  next_opportunity: z.string().max(1000).nullable().optional(),
+  last_touchpoint_at: z.string().date().nullable().optional(),
+  next_planned_contact: z.string().date().nullable().optional(),
+});
+
+organisationsRoutes.get('/:id/relationship', (c) => getOrgProfile(c, 'org_relationship'));
+organisationsRoutes.patch('/:id/relationship', async (c) => {
+  const body = OrgRelationshipUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  return upsertOrgProfile(c, 'org_relationship', body.data);
+});

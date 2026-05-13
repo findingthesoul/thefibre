@@ -1,20 +1,23 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
-import { PageContainer, Breadcrumb, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
+import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { OrgActions, type EditableOrg } from './org-actions';
 import { AddMemberButton, type PersonOption } from './add-member';
 import { EndMemberButton } from './end-member';
 
-type Organisation = EditableOrg & {
-  org_identity?: { mission_statement?: string | null } | null;
-  org_system_context?: { transformation_stage?: string | null } | null;
-  org_relationship?: {
-    relationship_stage?: string | null;
-    health_status?: string | null;
-    last_touchpoint_at?: string | null;
-  } | null;
+type Organisation = {
+  id: string;
+  name: string;
+  domain: string | null;
+  website: string | null;
+  linkedin_url: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
+  sector: string | null;
+  size_band: string | null;
+  org_type: string | null;
 };
 
 type Member = {
@@ -28,7 +31,7 @@ type Member = {
   person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
 };
 
-export default async function OrganisationDetail({
+export default async function OrganisationOverview({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -55,21 +58,14 @@ export default async function OrganisationDetail({
     const memberIds = new Set(members.map((m) => m.person.id));
     people = data.items.filter((p) => !memberIds.has(p.id));
   } catch {
-    // Non-fatal — Add member dialog will show no options.
+    // Non-fatal.
   }
 
   const location = [org.city, org.region, org.country].filter(Boolean).join(', ');
 
   return (
-    <PageContainer max="4xl">
-      <Breadcrumb href="/organisations" label="Organisations" />
-      <PageHeader
-        title={org.name}
-        description={org.legal_name && org.legal_name !== org.name ? org.legal_name : undefined}
-        actions={<OrgActions org={org} />}
-      />
-
-      <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
+    <>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
         <Field label="Domain" value={org.domain} />
         <Field label="Website" value={org.website} link />
         <Field label="LinkedIn" value={org.linkedin_url} link />
@@ -77,8 +73,6 @@ export default async function OrganisationDetail({
         <Field label="Sector" value={org.sector} />
         <Field label="Size" value={org.size_band} />
         <Field label="Type" value={org.org_type} />
-        <Field label="Stage" value={org.org_relationship?.relationship_stage ?? null} />
-        <Field label="Health" value={org.org_relationship?.health_status ?? null} />
       </section>
 
       <section className="mt-12">
@@ -109,7 +103,7 @@ export default async function OrganisationDetail({
           </ListGroup>
         )}
       </section>
-    </PageContainer>
+    </>
   );
 }
 
