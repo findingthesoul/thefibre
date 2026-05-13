@@ -1,12 +1,17 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
-import { PageContainer, Breadcrumb, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
-import { ContactActions, type EditablePerson } from './contact-actions';
+import { SectionLabel, EmptyState } from '@/components/ui/page';
 
-type Person = EditablePerson & {
+type Person = {
+  email: string | null;
+  phone: string | null;
+  linkedin_url: string | null;
+  city: string | null;
+  region: string | null;
+  country: string | null;
   preferred_language: string | null;
-  created_at: string;
+  pronouns: string | null;
 };
 
 type Activity = {
@@ -26,7 +31,7 @@ const APP_NAMES: Record<string, string> = {
   'fibre-learn': 'Fibre Learn',
 };
 
-export default async function ContactDetail({
+export default async function ContactOverview({
   params,
 }: {
   params: Promise<{ id: string }>;
@@ -50,22 +55,11 @@ export default async function ContactDetail({
     // Non-fatal.
   }
 
-  const fullName =
-    [person.first_name, person.last_name].filter(Boolean).join(' ') ||
-    person.email ||
-    'Unnamed';
   const location = [person.city, person.region, person.country].filter(Boolean).join(', ');
 
   return (
-    <PageContainer max="4xl">
-      <Breadcrumb href="/contacts" label="Contacts" />
-      <PageHeader
-        title={fullName}
-        description={person.preferred_name ? `Goes by ${person.preferred_name}` : undefined}
-        actions={<ContactActions person={person} />}
-      />
-
-      <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
+    <>
+      <section className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
         <Field label="Email" value={person.email} />
         <Field label="Phone" value={person.phone} />
         <Field label="LinkedIn" value={person.linkedin_url} link />
@@ -99,7 +93,7 @@ export default async function ContactDetail({
           </ol>
         )}
       </section>
-    </PageContainer>
+    </>
   );
 }
 
