@@ -4,6 +4,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { OrgActions, type EditableOrg } from './org-actions';
+import { AddMemberButton, type PersonOption } from './add-member';
+import { EndMemberButton } from './end-member';
 
 type Organisation = EditableOrg & {
   org_identity?: { mission_statement?: string | null } | null;
@@ -35,6 +37,7 @@ export default async function OrganisationDetail({
 
   let org: Organisation;
   let members: Member[] = [];
+  let people: PersonOption[] = [];
   try {
     org = await apiFetch<Organisation>(`/api/v1/organisations/${id}`);
   } catch (e) {
@@ -46,6 +49,13 @@ export default async function OrganisationDetail({
     members = data.items;
   } catch {
     // Non-fatal.
+  }
+  try {
+    const data = await apiFetch<{ items: PersonOption[] }>(`/api/v1/persons?limit=100`);
+    const memberIds = new Set(members.map((m) => m.person.id));
+    people = data.items.filter((p) => !memberIds.has(p.id));
+  } catch {
+    // Non-fatal — Add member dialog will show no options.
   }
 
   const location = [org.city, org.region, org.country].filter(Boolean).join(', ');
@@ -72,9 +82,12 @@ export default async function OrganisationDetail({
       </section>
 
       <section className="mt-12">
-        <SectionLabel>Members</SectionLabel>
+        <div className="flex items-center justify-between">
+          <SectionLabel>Members</SectionLabel>
+          <AddMemberButton orgId={org.id} people={people} />
+        </div>
         {members.length === 0 ? (
-          <EmptyState>No members linked yet.</EmptyState>
+          <EmptyState>No members linked yet. Click Add member to link a contact.</EmptyState>
         ) : (
           <ListGroup>
             {members.map((m) => {
@@ -88,7 +101,8 @@ export default async function OrganisationDetail({
                   href={`/contacts/${m.person.id}`}
                   primary={name}
                   secondary={[m.title, m.department].filter(Boolean).join(' · ') || '—'}
-                  meta={m.is_primary ? 'PRIMARY' : ''}
+                  meta={m.is_primary ? <span className="uppercase">Primary</span> : null}
+                  trailing={<EndMemberButton orgId={org.id} membershipId={m.id} personLabel={name} />}
                 />
               );
             })}

@@ -30,7 +30,7 @@ Everything tagged in the changelog is verified working end-to-end.
 ## Next (foundation completion)
 
 ### Contact graph deepening
-- [ ] Add-member-to-org form — link `person` ↔ `organisation` with title, role, dates
+- [x] Add-member-to-org form (v0.3.1) — link `person` ↔ `organisation` with title, role, dates; End-membership button on each row
 - [ ] Relationship form — person ↔ person, with type + strength
 - [ ] Tags — create, assign, filter by
 - [x] Person edit form (Dialog-based) — v0.2.0

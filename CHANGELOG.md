@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.3.1] — 2026-05-14
+
+The relational glue between contacts and organisations.
+
+### Added
+- **Add member to org** — popup dialog on the org detail page with a person picker (dropdown of unaffiliated workspace contacts), title, department, employment type, influence, started date, and four flags (Primary / Decision maker / Budget holder / Champion). Writes to `org_membership`.
+- **End membership** — inline button on each member row, opens a confirm dialog and stamps `ended_at` (soft end — historical link preserved per brief §5.D3).
+- **API:**
+  - `POST /api/v1/organisations/:id/members`
+  - `POST /api/v1/organisations/members/:membership_id/end`
+
 ## [0.3.0] — 2026-05-14
 
 Contact-graph deepening — the four profile sub-resources from brief §5.D2 are now editable in the UI.

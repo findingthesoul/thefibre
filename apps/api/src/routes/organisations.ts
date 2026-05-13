@@ -134,3 +134,46 @@ organisationsRoutes.get('/:id/members', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ items: data ?? [] });
 });
+
+const MemberCreate = z.object({
+  person_id: z.string().uuid(),
+  title: z.string().max(200).nullable().optional(),
+  department: z.string().max(200).nullable().optional(),
+  employment_type: z.enum(['permanent', 'interim', 'consultant', 'board', 'volunteer']).nullable().optional(),
+  influence_level: z.enum(['formal', 'informal', 'both']).nullable().optional(),
+  is_primary: z.boolean().optional(),
+  is_decision_maker: z.boolean().optional(),
+  is_budget_holder: z.boolean().optional(),
+  is_champion: z.boolean().optional(),
+  started_at: z.string().date().nullable().optional(),
+});
+
+organisationsRoutes.post('/:id/members', async (c) => {
+  const body = MemberCreate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const { data, error } = await db
+    .from('org_membership')
+    .insert({ org_id: c.req.param('id'), ...body.data })
+    .select('id')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data, 201);
+});
+
+// End an active membership by stamping ended_at. We never hard-delete —
+// historical context is part of the contact graph (brief §5.D3).
+organisationsRoutes.post('/members/:membership_id/end', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db
+    .from('org_membership')
+    .update({ ended_at: new Date().toISOString().slice(0, 10) })
+    .eq('id', c.req.param('membership_id'))
+    .is('ended_at', null);
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});
