@@ -102,8 +102,14 @@ function EditDialog({
     });
   }
 
-  function triggerSubmit() {
-    formRef.current?.requestSubmit();
+  function doSave() {
+    if (!formRef.current) return;
+    const fd = new FormData(formRef.current);
+    startSave(async () => {
+      const res = await updateRelationship(personId, {}, fd);
+      setState(res);
+      if (res.ok) onClose();
+    });
   }
 
   const dtDefault = initial?.first_contact_at
@@ -121,7 +127,7 @@ function EditDialog({
           <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={triggerSubmit} disabled={pending}>
+          <Button onClick={doSave} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>

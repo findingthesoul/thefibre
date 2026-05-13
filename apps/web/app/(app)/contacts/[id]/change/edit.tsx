@@ -100,8 +100,14 @@ function EditDialog({
     });
   }
 
-  function triggerSubmit() {
-    formRef.current?.requestSubmit();
+  function doSave() {
+    if (!formRef.current) return;
+    const fd = new FormData(formRef.current);
+    startSave(async () => {
+      const res = await updateChange(personId, {}, fd);
+      setState(res);
+      if (res.ok) onClose();
+    });
   }
 
   return (
@@ -115,7 +121,7 @@ function EditDialog({
           <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={triggerSubmit} disabled={pending}>
+          <Button onClick={doSave} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>

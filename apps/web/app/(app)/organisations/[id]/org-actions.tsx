@@ -94,9 +94,12 @@ function EditDialog({
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
+  function doSave() {
+    if (!formRef.current) {
+      console.error('[edit-org] formRef is null');
+      return;
+    }
+    const fd = new FormData(formRef.current);
     startSave(async () => {
       const res = await updateOrganisation(org.id, {}, fd);
       setState(res);
@@ -104,8 +107,9 @@ function EditDialog({
     });
   }
 
-  function triggerSubmit() {
-    formRef.current?.requestSubmit();
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    doSave();
   }
 
   return (
@@ -117,7 +121,7 @@ function EditDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button onClick={triggerSubmit} disabled={pending}>
+          <Button onClick={doSave} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
