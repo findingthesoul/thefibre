@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.3.4] — 2026-05-14
+
+### Fixed
+- **Save buttons in all Edit dialogs now actually save.** Was: the submit `<Button>` lived in the Dialog footer (outside the form) and used `form="…-edit-form"` to point at the form. This is HTML-spec but unreliable in some browser/React combos — clicking Save did nothing. Now: each form uses a `ref`, and the Save button calls `formRef.current?.requestSubmit()` directly. Reliable everywhere.
+
+Applies to all 9 Edit dialogs:
+- Contact main (`contact-actions.tsx`)
+- Contact tabs: Professional, Relationship, Change context, Learning
+- Organisation main (`org-actions.tsx`)
+- Organisation tabs: Identity, System context, Relationship
+- Add member dialog on org detail
+
 ## [0.3.3] — 2026-05-14
 
 Fixes the silent-save issue on edit dialogs.

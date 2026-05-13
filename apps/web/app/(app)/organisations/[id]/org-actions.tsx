@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
@@ -90,6 +90,7 @@ function EditDialog({
   onClose: () => void;
   org: EditableOrg;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
@@ -103,6 +104,10 @@ function EditDialog({
     });
   }
 
+  function triggerSubmit() {
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <Dialog
       open={open}
@@ -112,13 +117,13 @@ function EditDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button form="edit-org-form" type="submit" disabled={pending}>
+          <Button onClick={triggerSubmit} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
-      <form id="edit-org-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="Name" name="name" defaultValue={org.name} required errors={state.fieldErrors?.name} />
         <TextField label="Legal name" name="legal_name" defaultValue={org.legal_name ?? ''} errors={state.fieldErrors?.legal_name} />
         <TextField label="Domain" name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" errors={state.fieldErrors?.domain} />

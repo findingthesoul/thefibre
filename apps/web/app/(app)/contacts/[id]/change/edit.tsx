@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
@@ -86,6 +86,7 @@ function EditDialog({
   personId: string;
   initial: ChangeRow | null;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
@@ -99,6 +100,10 @@ function EditDialog({
     });
   }
 
+  function triggerSubmit() {
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <Dialog
       open={open}
@@ -110,14 +115,14 @@ function EditDialog({
           <Button variant="ghost" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button form="change-edit-form" type="submit" disabled={pending}>
+          <Button onClick={triggerSubmit} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
       <form
-        id="change-edit-form"
+        ref={formRef}
         onSubmit={onSubmit}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
@@ -76,6 +76,7 @@ function EditDialog({
   onClose: () => void;
   person: EditablePerson;
 }) {
+  const formRef = useRef<HTMLFormElement>(null);
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
 
@@ -89,6 +90,10 @@ function EditDialog({
     });
   }
 
+  function triggerSubmit() {
+    formRef.current?.requestSubmit();
+  }
+
   return (
     <Dialog
       open={open}
@@ -98,13 +103,13 @@ function EditDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button form="edit-person-form" type="submit" disabled={pending}>
+          <Button onClick={triggerSubmit} disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
-      <form id="edit-person-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="First name" name="first_name" defaultValue={person.first_name ?? ''} required errors={state.fieldErrors?.first_name} />
         <TextField label="Last name" name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
         <TextField label="Preferred name" name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />
