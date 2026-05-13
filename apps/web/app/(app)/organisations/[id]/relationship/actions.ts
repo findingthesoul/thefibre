@@ -29,14 +29,10 @@ function intOrNull(v: FormDataEntryValue | null): number | null {
   return Number.isFinite(n) && n >= 0 ? n : null;
 }
 
-function parseList(v: FormDataEntryValue | null): string[] | null {
+function parseList(v: FormDataEntryValue | null): string[] {
   const s = String(v ?? '').trim();
-  if (!s) return null;
-  const items = s
-    .split(',')
-    .map((x) => x.trim())
-    .filter(Boolean);
-  return items.length ? items : null;
+  if (!s) return [];
+  return s.split(',').map((x) => x.trim()).filter(Boolean);
 }
 
 export async function updateOrgRelationship(
