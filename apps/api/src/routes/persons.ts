@@ -96,3 +96,52 @@ personsRoutes.get('/:id', async (c) => {
   if (error) return c.json({ error: error.message }, 404);
   return c.json(data);
 });
+
+const PersonUpdate = z.object({
+  first_name: z.string().min(1).max(100).optional(),
+  last_name: z.string().min(1).max(100).optional(),
+  preferred_name: z.string().max(100).nullable().optional(),
+  pronouns: z.string().max(50).nullable().optional(),
+  email: z.string().email().optional(),
+  email_secondary: z.string().email().nullable().optional(),
+  phone: z.string().max(50).nullable().optional(),
+  linkedin_url: z.string().url().nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  region: z.string().max(100).nullable().optional(),
+  country: z.string().length(2).nullable().optional(),
+  preferred_language: z.string().max(10).nullable().optional(),
+});
+
+personsRoutes.patch('/:id', async (c) => {
+  const body = PersonUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const { data, error } = await db
+    .from('person')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null)
+    .select('*')
+    .single();
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+personsRoutes.delete('/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Soft delete only — brief §13.3.
+  const { error } = await db
+    .from('person')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});

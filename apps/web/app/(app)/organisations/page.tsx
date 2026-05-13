@@ -1,6 +1,8 @@
-import Link from 'next/link';
 import { Plus, Search } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
+import { ButtonLink } from '@/components/ui/button';
+import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
+import { ListGroup, ListRow } from '@/components/ui/list';
 
 type Organisation = {
   id: string;
@@ -31,17 +33,15 @@ export default async function OrganisationsPage({
   }
 
   return (
-    <div className="mx-auto max-w-5xl px-8 py-10">
-      <header className="flex items-baseline justify-between gap-4">
-        <h1 className="text-2xl font-medium tracking-tight">Organisations</h1>
-        <Link
-          href="/organisations/new"
-          className="inline-flex items-center gap-1.5 rounded-md bg-ink text-ink-inverse px-3 py-1.5 text-sm font-medium hover:opacity-90"
-        >
-          <Plus size={14} strokeWidth={2.25} />
-          Add organisation
-        </Link>
-      </header>
+    <PageContainer>
+      <PageHeader
+        title="Organisations"
+        actions={
+          <ButtonLink href="/organisations/new" leading={<Plus size={14} strokeWidth={2.25} />}>
+            Add organisation
+          </ButtonLink>
+        }
+      />
 
       <form className="mt-6 relative" action="/organisations">
         <Search size={15} strokeWidth={1.75} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
@@ -53,39 +53,28 @@ export default async function OrganisationsPage({
         />
       </form>
 
-      {error && (
-        <div className="mt-6 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
-          Couldn't load organisations: {error}
-        </div>
-      )}
+      {error && <ErrorBanner>Couldn't load organisations: {error}</ErrorBanner>}
 
       {!error && items.length === 0 && (
-        <div className="mt-10 rounded-lg border border-line bg-surface-sunken p-6 text-sm text-ink-subtle">
+        <EmptyState>
           No organisations yet.{' '}
-          <Link href="/organisations/new" className="underline">Add the first one</Link>.
-        </div>
+          <a href="/organisations/new" className="underline">Add the first one</a>.
+        </EmptyState>
       )}
 
       {items.length > 0 && (
-        <ul className="mt-6 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
+        <ListGroup>
           {items.map((o) => (
-            <li key={o.id}>
-              <Link
-                href={`/organisations/${o.id}`}
-                className="flex items-baseline justify-between gap-4 px-5 py-4 hover:bg-surface-sunken"
-              >
-                <div className="min-w-0">
-                  <div className="font-medium truncate">{o.name}</div>
-                  <div className="text-sm text-ink-subtle truncate">
-                    {o.domain ?? [o.sector, o.org_type].filter(Boolean).join(' · ') ?? '—'}
-                  </div>
-                </div>
-                <div className="text-xs text-ink-muted shrink-0">{o.country ?? ''}</div>
-              </Link>
-            </li>
+            <ListRow
+              key={o.id}
+              href={`/organisations/${o.id}`}
+              primary={o.name}
+              secondary={o.domain ?? [o.sector, o.org_type].filter(Boolean).join(' · ') ?? '—'}
+              meta={o.country ?? ''}
+            />
           ))}
-        </ul>
+        </ListGroup>
       )}
-    </div>
+    </PageContainer>
   );
 }

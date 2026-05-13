@@ -17,6 +17,8 @@ Everything tagged in the changelog is verified working end-to-end.
 - [x] Org list, detail, add form (parallel to contacts)
 - [x] Activity page — workspace-wide timeline (the spine of the product, brief §1)
 - [x] Introduce `fibre-platform` app slug (was `fibre-suite` placeholder)
+- [x] Design-system primitives + Edit/Delete on contacts (v0.2.0)
+- [ ] Edit/Delete on organisations (parallel to contacts)
 - [ ] Privacy page — consent records, erasure request flow (brief §10)
 - [ ] Settings page — workspace + profile basics
 - [ ] **Deploy web to Vercel** — fix framework preset to Next.js, root `apps/web`; add env vars
@@ -31,8 +33,8 @@ Everything tagged in the changelog is verified working end-to-end.
 - [ ] Add-member-to-org form — link `person` ↔ `organisation` with title, role, dates
 - [ ] Relationship form — person ↔ person, with type + strength
 - [ ] Tags — create, assign, filter by
-- [ ] Person edit form (currently view-only after creation)
-- [ ] Organisation edit form
+- [x] Person edit form (Dialog-based) — v0.2.0
+- [ ] Organisation edit form (Dialog-based)
 - [ ] Person profile tabs: Professional, Relationship context, Change context, Learning
 - [ ] Org profile tabs: Identity, System context, Relationship
 - [ ] Sensitive-field gating: `facilitator_notes`, `political_landscape` (brief §5)

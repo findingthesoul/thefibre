@@ -6,6 +6,27 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.2.0] — 2026-05-13
+
+Design-system milestone. Single source of truth for buttons, fields, dialogs, list rows, and page chrome.
+
+### Added
+- **Edit / delete on contacts** — Pencil opens an Edit dialog (popup); Trash opens a Confirm dialog and soft-deletes via the API.
+- **API:** `PATCH /api/v1/persons/:id` (partial update with strict Zod schema), `DELETE /api/v1/persons/:id` (soft delete via `deleted_at`).
+- **UI primitives** under `components/ui/`:
+  - `Button` + `ButtonLink` with variants (primary / secondary / ghost / danger), sizes, leading icon
+  - `TextField`, `SelectField`, `TextAreaField` — single label/input/errors shell
+  - `Dialog`, `ConfirmDialog` — popup pattern with Esc-to-close, click-outside-to-close, body-scroll lock
+  - `PageContainer`, `PageHeader`, `Breadcrumb`, `SectionLabel`, `EmptyState`, `ErrorBanner`
+  - `ListGroup` + `ListRow` — the repeated list pattern
+
+### Changed
+- All existing pages (dashboard, contacts list/detail/new, organisations list/detail/new) refactored onto the primitives. Tailwind class strings are no longer duplicated.
+- Server actions for contacts unified under one `ActionResult` type with a shared error unwrapper.
+
+### Note on history / undo
+The 10-step undo idea is deferred — see conversation. Save / cancel / delete shipped first; history can layer in once we know which fields people actually change.
+
 ## [0.1.2] — 2026-05-12
 
 ### Added
