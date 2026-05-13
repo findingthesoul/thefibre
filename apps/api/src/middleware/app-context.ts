@@ -22,7 +22,10 @@ const jwks = supabaseUrl
   : null;
 
 export type RequestContext = {
+  /** `public.user.id` — the platform user. Use this for any FK to `user(id)`. */
   userId: string;
+  /** `auth.users.id` (JWT `sub`). Use only when interacting with Supabase Auth itself. */
+  authUserId: string;
   workspaceId: string;
   appId: AppId;
   jwt: string;
@@ -62,11 +65,13 @@ export const appContext: MiddlewareHandler = async (c, next) => {
       audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
     });
     const workspaceId = payload.workspace_id as string | undefined;
-    if (!payload.sub || !workspaceId) {
-      return problem(c, 401, 'invalid-claims', 'sub and workspace_id required');
+    const appUserId = payload.app_user_id as string | undefined;
+    if (!payload.sub || !workspaceId || !appUserId) {
+      return problem(c, 401, 'invalid-claims', 'sub, workspace_id, and app_user_id required (sign out and sign back in to refresh)');
     }
     c.set('ctx', {
-      userId: payload.sub,
+      userId: appUserId,
+      authUserId: payload.sub,
       workspaceId,
       appId: appHeader as AppId,
       jwt,
