@@ -36,7 +36,7 @@ Everything tagged in the changelog is verified working end-to-end.
 - [x] Person edit form (Dialog-based) — v0.2.0
 - [x] Organisation edit form (Dialog-based) — v0.2.1
 - [x] Person profile tabs: Professional, Relationship context, Change context, Learning (v0.3.0)
-- [ ] Org profile tabs: Identity, System context, Relationship
+- [x] Org profile tabs: Identity, System context, Relationship (v0.3.2)
 - [ ] Sensitive-field gating: `facilitator_notes`, `political_landscape` — visually marked in v0.3.0; access-control still TODO (brief §5)
 - [ ] CSV import for contacts
 
