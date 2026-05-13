@@ -20,7 +20,7 @@ Everything tagged in the changelog is verified working end-to-end.
 - [x] Design-system primitives + Edit/Delete on contacts (v0.2.0)
 - [x] Edit/Delete on organisations (v0.2.1)
 - [x] Privacy page — consent records, erasure request flow (v0.2.2)
-- [ ] Settings page — workspace + profile basics
+- [x] Settings page — workspace + profile basics (v0.2.3)
 - [ ] **Deploy web to Vercel** — fix framework preset to Next.js, root `apps/web`; add env vars
 - [ ] **Deploy API to Fly.io Frankfurt** (or Railway EU)
 - [ ] **Connect `thefibre.app` domain** once Vercel deploy is green

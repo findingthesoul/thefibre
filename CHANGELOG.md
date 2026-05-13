@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.2.3] — 2026-05-13
+
+### Added
+- **Settings page** (`/settings`):
+  - **Profile** form (full name, avatar URL) using the design-system primitives
+  - Read-only details: email (managed by provider), sign-in method, last sign-in
+  - **Workspace** card (name, slug, plan, created date) — multi-workspace switching noted as roadmap
+  - **App access** list per `app_membership` with role
+  - Link back to `/privacy`
+- **API:**
+  - `PATCH /api/v1/auth/me` — update own profile (full_name, avatar_url)
+  - `GET /api/v1/auth/me` now also returns the workspace and `primary_auth_method` / `last_sign_in`
+
 ## [0.2.2] — 2026-05-13
 
 ### Added
