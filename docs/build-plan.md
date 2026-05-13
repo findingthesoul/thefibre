@@ -121,6 +121,7 @@ Everything tagged in the changelog is verified working end-to-end.
 ## Code-level TODOs we've left in place
 
 - `apps/web/app/auth/callback/route.ts`: workspace resolution falls back to `DEFAULT_WORKSPACE_ID` — replace with invite/magic-link/domain-matching logic
+- `apps/web/lib/supabase/server.ts`: `setAll` swallows server-component cookie write errors. Add a Next middleware that calls `supabase.auth.getUser()` so sessions auto-refresh between requests.
 - `apps/api/src/routes/sso.ts`: gated by `SSO_INTERNAL_SECRET` — rotate before prod and store securely
 
 ---
