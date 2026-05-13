@@ -73,6 +73,56 @@ organisationsRoutes.get('/:id', async (c) => {
   return c.json(data);
 });
 
+const OrgUpdate = z.object({
+  name: z.string().min(1).max(200).optional(),
+  legal_name: z.string().max(200).nullable().optional(),
+  domain: z.string().max(255).nullable().optional(),
+  website: z.string().url().nullable().optional(),
+  linkedin_url: z.string().url().nullable().optional(),
+  vat_number: z.string().max(50).nullable().optional(),
+  city: z.string().max(100).nullable().optional(),
+  region: z.string().max(100).nullable().optional(),
+  country: z.string().length(2).nullable().optional(),
+  sector: z.string().max(100).nullable().optional(),
+  industry: z.string().max(100).nullable().optional(),
+  org_type: z.enum(['private', 'public', 'ngo', 'cooperative', 'government', 'education']).nullable().optional(),
+  size_band: z.enum(['1-10', '11-50', '51-200', '201-1000', '1000+']).nullable().optional(),
+});
+
+organisationsRoutes.patch('/:id', async (c) => {
+  const body = OrgUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const { data, error } = await db
+    .from('organisation')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null)
+    .select('*')
+    .single();
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+organisationsRoutes.delete('/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Soft delete — brief §13.3.
+  const { error } = await db
+    .from('organisation')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null);
+
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});
+
 organisationsRoutes.get('/:id/members', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);

@@ -6,6 +6,12 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.2.1] — 2026-05-13
+
+### Added
+- **Edit / delete on organisations** — same Dialog + ConfirmDialog pattern as contacts
+- **API:** `PATCH /api/v1/organisations/:id`, `DELETE /api/v1/organisations/:id` (soft delete)
+
 ## [0.2.0] — 2026-05-13
 
 Design-system milestone. Single source of truth for buttons, fields, dialogs, list rows, and page chrome.
