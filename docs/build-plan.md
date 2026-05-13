@@ -5,7 +5,22 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md) — every shipped version is recorded there.
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.3.md`](fibre-technical-brief-v0.3.md).
 
-Current version: **v0.3.2** — both core entities (persons + organisations) have full tabbed profiles, edit/delete, members glue, privacy controls, settings. The contact graph from brief §5 + §6 is **functionally complete in the UI**.
+Current version: **v0.3.11**. Both core entities (persons + organisations) have full tabbed profiles, edit/delete, members glue, privacy controls, settings. The contact graph from brief §5 + §6 is **functionally complete in the UI** — but the platform has almost no data in it yet, so most screens read as empty containers. The brief's promise ("the fullest picture of a human being") only manifests when there's accumulated history.
+
+## Honest state check (after the v0.3.x session)
+
+What works:
+- End-to-end Google sign-in, JWT with workspace_id + app_user_id claims, RLS enforced on every table
+- CRUD on persons and organisations, including 4 profile tabs each (Professional / Relationship / Change / Learning for people; Identity / System context / Relationship for orgs)
+- Org membership (add + end), activity timeline, privacy + settings pages
+
+What's missing for the platform to *feel* real:
+- It's not reachable at thefibre.app (Vercel deploy still misconfigured)
+- The API only runs on Sjoerd's laptop
+- There's one user, one org, ~1 activity event. The "intelligence layer" (brief §1) only shows when there's history to show. We've built a lot of empty containers.
+- No programmes, no enrolments, no activity events from delivery apps (because no delivery apps exist yet)
+
+What's clear in retrospect: building more contact-graph fields without populating data made the product feel abstract. The next session is probably better spent on either (a) deploying, (b) seeding realistic sample data, or (c) one end-to-end workflow (e.g. EBBF programme + a few enrolments) — anything that makes the screens *show* something.
 
 ---
 
