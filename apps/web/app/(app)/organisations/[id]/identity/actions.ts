@@ -11,8 +11,20 @@ export type ActionResult = {
 
 function unwrapApiError(e: unknown): ActionResult {
   if (e instanceof ApiError) {
-    const apiBody = e.body as { error?: { fieldErrors?: Record<string, string[]> } } | undefined;
-    return { error: `API ${e.status}`, fieldErrors: apiBody?.error?.fieldErrors };
+    const apiBody = e.body as
+      | { error?: string | { fieldErrors?: Record<string, string[]>; message?: string }; details?: string; hint?: string }
+      | undefined;
+    const err = apiBody?.error;
+    const message =
+      typeof err === 'string' ? err
+      : typeof err === 'object' ? err?.message
+      : undefined;
+    const fieldErrors = typeof err === 'object' ? err?.fieldErrors : undefined;
+    const detail = apiBody?.details ? ` (${apiBody.details})` : '';
+    return {
+      error: message ? `${message}${detail}` : `API ${e.status}`,
+      fieldErrors,
+    };
   }
   return { error: 'Unknown error' };
 }

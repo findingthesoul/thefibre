@@ -200,7 +200,10 @@ async function upsertOrgProfile<T extends Record<string, unknown>>(
     .eq('id', orgId)
     .is('deleted_at', null)
     .single();
-  if (oErr || !org) return c.json({ error: 'organisation not found' }, 404);
+  if (oErr || !org) {
+    console.error('[upsertOrgProfile] org not found', { table, orgId, oErr });
+    return c.json({ error: 'organisation not found' }, 404);
+  }
 
   const { data, error } = await db
     .from(table)
@@ -208,7 +211,10 @@ async function upsertOrgProfile<T extends Record<string, unknown>>(
     .select('*')
     .single();
 
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[upsertOrgProfile] upsert failed', { table, orgId, body, error });
+    return c.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, 500);
+  }
   return c.json(data);
 }
 
