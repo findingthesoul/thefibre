@@ -188,6 +188,7 @@ organisationsRoutes.post('/members/:membership_id/end', async (c) => {
 async function upsertOrgProfile<T extends Record<string, unknown>>(
   c: import('hono').Context,
   table: string,
+  appSlug: 'fibre-platform' | 'fibre-suite' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
   body: T,
 ) {
   const ctx = c.get('ctx');
@@ -205,14 +206,25 @@ async function upsertOrgProfile<T extends Record<string, unknown>>(
     return c.json({ error: 'organisation not found' }, 404);
   }
 
+  // Resolve the owning app's uuid. RLS gates by app_id since v0.4.
+  const { data: app, error: aErr } = await db
+    .from('app')
+    .select('id')
+    .eq('slug', appSlug)
+    .single();
+  if (aErr || !app) {
+    console.error('[upsertOrgProfile] app not found', { table, appSlug, aErr });
+    return c.json({ error: `app not found: ${appSlug}` }, 500);
+  }
+
   const { data, error } = await db
     .from(table)
-    .upsert({ org_id: orgId, ...body }, { onConflict: 'org_id' })
+    .upsert({ org_id: orgId, app_id: app.id, ...body }, { onConflict: 'org_id' })
     .select('*')
     .single();
 
   if (error) {
-    console.error('[upsertOrgProfile] upsert failed', { table, orgId, body, error });
+    console.error('[upsertOrgProfile] upsert failed', { table, orgId, appSlug, body, error });
     return c.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, 500);
   }
   return c.json(data);
@@ -253,7 +265,7 @@ organisationsRoutes.get('/:id/identity', (c) => getOrgProfile(c, 'org_identity')
 organisationsRoutes.patch('/:id/identity', async (c) => {
   const body = IdentityUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertOrgProfile(c, 'org_identity', body.data);
+  return upsertOrgProfile(c, 'org_identity', 'fibre-platform', body.data);
 });
 
 // --- org_system_context (political_landscape is sensitive — brief §5.D3) --
@@ -281,7 +293,7 @@ organisationsRoutes.patch('/:id/system-context', async (c) => {
   const body = SystemContextUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  return upsertOrgProfile(c, 'org_system_context', {
+  return upsertOrgProfile(c, 'org_system_context', 'fibre-suite', {
     ...body.data,
     notes_updated_at: new Date().toISOString(),
     notes_updated_by: ctx.userId,
@@ -312,5 +324,27 @@ organisationsRoutes.get('/:id/relationship', (c) => getOrgProfile(c, 'org_relati
 organisationsRoutes.patch('/:id/relationship', async (c) => {
   const body = OrgRelationshipUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertOrgProfile(c, 'org_relationship', body.data);
+  return upsertOrgProfile(c, 'org_relationship', 'fibre-sales', body.data);
+});
+
+// Apps-discovery: which apps have data on this org?
+organisationsRoutes.get('/:id/apps', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  const [idQ, sysQ, relQ] = await Promise.all([
+    db.from('org_identity').select('app:app_id (slug)').eq('org_id', orgId),
+    db.from('org_system_context').select('app:app_id (slug)').eq('org_id', orgId),
+    db.from('org_relationship').select('app:app_id (slug)').eq('org_id', orgId),
+  ]);
+
+  const slugs = new Set<string>();
+  for (const q of [idQ, sysQ, relQ]) {
+    for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
+      const app = Array.isArray(row.app) ? row.app[0] : row.app;
+      if (app?.slug) slugs.add(app.slug);
+    }
+  }
+  return c.json({ apps: Array.from(slugs).sort() });
 });

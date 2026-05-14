@@ -156,14 +156,14 @@ personsRoutes.delete('/:id', async (c) => {
 async function upsertProfile<T extends Record<string, unknown>>(
   c: import('hono').Context,
   table: string,
+  appSlug: 'fibre-platform' | 'fibre-suite' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
   body: T,
 ) {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const personId = c.req.param('id');
 
-  // Confirm the person exists in this workspace (RLS already enforces, but
-  // gives us a clean 404 if not).
+  // Confirm the person exists in this workspace.
   const { data: person, error: pErr } = await db
     .from('person')
     .select('id')
@@ -175,14 +175,26 @@ async function upsertProfile<T extends Record<string, unknown>>(
     return c.json({ error: 'person not found' }, 404);
   }
 
+  // Resolve the owning app's uuid. Required since v0.4 — the row must declare
+  // who owns it. RLS checks the user has membership for that app.
+  const { data: app, error: aErr } = await db
+    .from('app')
+    .select('id')
+    .eq('slug', appSlug)
+    .single();
+  if (aErr || !app) {
+    console.error('[upsertProfile] app not found', { table, appSlug, aErr });
+    return c.json({ error: `app not found: ${appSlug}` }, 500);
+  }
+
   const { data, error } = await db
     .from(table)
-    .upsert({ person_id: personId, ...body }, { onConflict: 'person_id' })
+    .upsert({ person_id: personId, app_id: app.id, ...body }, { onConflict: 'person_id' })
     .select('*')
     .single();
 
   if (error) {
-    console.error('[upsertProfile] upsert failed', { table, personId, body, error });
+    console.error('[upsertProfile] upsert failed', { table, personId, appSlug, body, error });
     return c.json({ error: error.message, code: error.code, details: error.details, hint: error.hint }, 500);
   }
   return c.json(data);
@@ -222,7 +234,7 @@ personsRoutes.get('/:id/professional', (c) => getProfile(c, 'person_professional
 personsRoutes.patch('/:id/professional', async (c) => {
   const body = ProfessionalUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertProfile(c, 'person_professional', body.data);
+  return upsertProfile(c, 'person_professional', 'fibre-platform', body.data);
 });
 
 // --- person_relationship_context -------------------------------------------
@@ -247,7 +259,7 @@ personsRoutes.get('/:id/relationship', (c) => getProfile(c, 'person_relationship
 personsRoutes.patch('/:id/relationship', async (c) => {
   const body = RelationshipUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertProfile(c, 'person_relationship_context', body.data);
+  return upsertProfile(c, 'person_relationship_context', 'fibre-sales', body.data);
 });
 
 // --- person_change_context (facilitator_notes is sensitive — brief §5.D2) --
@@ -272,7 +284,7 @@ personsRoutes.patch('/:id/change', async (c) => {
   const body = ChangeUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  return upsertProfile(c, 'person_change_context', {
+  return upsertProfile(c, 'person_change_context', 'fibre-suite', {
     ...body.data,
     notes_updated_at: new Date().toISOString(),
     notes_updated_by: ctx.userId,
@@ -295,8 +307,36 @@ const LearningUpdate = z.object({
 });
 
 personsRoutes.get('/:id/learning', (c) => getProfile(c, 'person_learning'));
+
+// Apps-discovery: which apps have any data on this person?
+// Union of: (a) any curator-profile row exists, (b) any activity event written
+// for this person by that app. Returns a list of app slugs in stable order.
+personsRoutes.get('/:id/apps', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('id');
+
+  // Apps with curator-profile rows (these are RLS-gated, so we'll only see ones
+  // the caller has membership for).
+  const [profQ, relQ, chgQ, lrnQ, actQ] = await Promise.all([
+    db.from('person_professional').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('person_relationship_context').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('person_change_context').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('person_learning').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('activity').select('app:app_id (slug)').eq('person_id', personId),
+  ]);
+
+  const slugs = new Set<string>();
+  for (const q of [profQ, relQ, chgQ, lrnQ, actQ]) {
+    for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
+      const app = Array.isArray(row.app) ? row.app[0] : row.app;
+      if (app?.slug) slugs.add(app.slug);
+    }
+  }
+  return c.json({ apps: Array.from(slugs).sort() });
+});
 personsRoutes.patch('/:id/learning', async (c) => {
   const body = LearningUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertProfile(c, 'person_learning', body.data);
+  return upsertProfile(c, 'person_learning', 'fibre-learn', body.data);
 });
