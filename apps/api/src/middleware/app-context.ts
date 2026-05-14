@@ -41,10 +41,20 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/refresh',
   '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
+  '/api/v1/signup-requests', // POST only — applicants have no account yet
+]);
+
+const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
+  ['/api/v1/signup-requests', new Set(['POST'])],
 ]);
 
 export const appContext: MiddlewareHandler = async (c, next) => {
-  if (PUBLIC_PATHS.has(c.req.path)) return next();
+  if (PUBLIC_PATHS.has(c.req.path)) {
+    const allowedMethods = PUBLIC_PATH_METHODS.get(c.req.path);
+    if (!allowedMethods || allowedMethods.has(c.req.method)) {
+      return next();
+    }
+  }
 
   const appHeader = c.req.header('x-app-id');
   if (!appHeader || !VALID_APP_IDS.has(appHeader as AppId)) {

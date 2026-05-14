@@ -10,6 +10,7 @@ import { activitiesRoutes } from './routes/activities.js';
 import { programsRoutes } from './routes/programs.js';
 import { privacyRoutes } from './routes/privacy.js';
 import { ssoRoutes } from './routes/sso.js';
+import { signupRequestsRoutes } from './routes/signup-requests.js';
 
 const app = new Hono();
 
@@ -35,6 +36,7 @@ v1.route('/activities', activitiesRoutes);
 v1.route('/programs', programsRoutes);
 v1.route('/privacy', privacyRoutes);
 v1.route('/sso', ssoRoutes);
+v1.route('/signup-requests', signupRequestsRoutes);
 app.route('/', v1);
 
 const port = Number(process.env.API_PORT ?? 8080);

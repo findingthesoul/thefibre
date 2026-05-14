@@ -26,13 +26,13 @@ const SsoResolve = z.object({
   provider_metadata: z.record(z.unknown()).optional(),
 });
 
-ssoRoutes.post('/resolve', async (c) => {
-  // This endpoint is callable only by trusted server-to-server flows.
-  // For now, require a shared secret header.
+function requireSsoSecret(c: import('hono').Context) {
   const secret = c.req.header('x-sso-secret');
-  if (!secret || secret !== process.env.SSO_INTERNAL_SECRET) {
-    return c.json({ error: 'forbidden' }, 403);
-  }
+  return secret && secret === process.env.SSO_INTERNAL_SECRET;
+}
+
+ssoRoutes.post('/resolve', async (c) => {
+  if (!requireSsoSecret(c)) return c.json({ error: 'forbidden' }, 403);
 
   const body = SsoResolve.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -48,4 +48,52 @@ ssoRoutes.post('/resolve', async (c) => {
   });
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data?.[0] ?? null);
+});
+
+// ---------------------------------------------------------------------------
+// POST /sso/access-check — given an email, returns one of:
+//   { status: 'existing',  workspace_id }      user.email already exists
+//   { status: 'approved',  workspace_id }      signup_request approved
+//   { status: 'pending'   }                    signup_request awaiting review
+//   { status: 'denied'    }                    signup_request denied
+//   { status: 'unknown'   }                    no record at all
+//
+// Called by the web auth callback to decide whether to (a) call /sso/resolve
+// into the right workspace, or (b) bounce the user to /access-pending.
+// ---------------------------------------------------------------------------
+const AccessCheck = z.object({ email: z.string().email().toLowerCase() });
+
+ssoRoutes.post('/access-check', async (c) => {
+  if (!requireSsoSecret(c)) return c.json({ error: 'forbidden' }, 403);
+  const body = AccessCheck.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const email = body.data.email;
+
+  // 1. Does a user already exist for this email? (returning user)
+  const { data: user } = await adminClient
+    .from('user')
+    .select('workspace_id')
+    .eq('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (user?.workspace_id) {
+    return c.json({ status: 'existing', workspace_id: user.workspace_id });
+  }
+
+  // 2. Most recent signup_request for this email (any status)
+  const { data: req } = await adminClient
+    .from('signup_request')
+    .select('status, workspace_id')
+    .eq('email', email)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (!req) return c.json({ status: 'unknown' });
+  if (req.status === 'approved' && req.workspace_id) {
+    return c.json({ status: 'approved', workspace_id: req.workspace_id });
+  }
+  if (req.status === 'pending') return c.json({ status: 'pending' });
+  if (req.status === 'denied') return c.json({ status: 'denied' });
+  return c.json({ status: 'unknown' });
 });

@@ -12,6 +12,7 @@ import {
   HelpCircle,
   Settings,
   CalendarRange,
+  UserCheck,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -49,7 +50,15 @@ const NAV: NavSection[] = [
 const RAIL_W = 'w-14';
 const PANEL_W = 'w-60';
 
-export function Sidebar({ mode, version }: { mode: SidebarMode; version: string }) {
+export function Sidebar({
+  mode,
+  version,
+  isPlatformAdmin = false,
+}: {
+  mode: SidebarMode;
+  version: string;
+  isPlatformAdmin?: boolean;
+}) {
   const [hovered, setHovered] = useState(false);
 
   // Expanded means the wide panel is visible.
@@ -80,6 +89,21 @@ export function Sidebar({ mode, version }: { mode: SidebarMode; version: string 
           {NAV.map((section, i) => (
             <NavGroup key={i} section={section} expanded={showPanel} />
           ))}
+          {isPlatformAdmin && (
+            <NavGroup
+              section={{
+                label: 'Admin',
+                items: [
+                  {
+                    href: '/admin/access-requests',
+                    label: 'Access requests',
+                    icon: UserCheck,
+                  },
+                ],
+              }}
+              expanded={showPanel}
+            />
+          )}
         </nav>
 
         <Footer expanded={showPanel} version={version} />

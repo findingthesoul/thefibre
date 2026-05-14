@@ -1,48 +1,84 @@
 import Link from 'next/link';
-import { SignInButton } from './sign-in-button';
-
-const apps = [
-  { slug: 'fibre-meet', name: 'Fibre Meet', desc: 'Meeting platform — agenda, facilitation, outcomes.', status: 'Active' },
-  { slug: 'the-thread', name: 'The Thread', desc: 'Events and journeys — conferences and personal arcs.', status: 'Active' },
-  { slug: 'fibre-sales', name: 'Fibre Sales', desc: 'Sales pipeline and account management.', status: 'Building' },
-  { slug: 'fibre-learn', name: 'Fibre Learn', desc: 'Self-paced content — modules and assessments.', status: 'Planned' },
-];
+import { SignInLink } from './sign-in-button';
 
 export default function LandingPage() {
   return (
-    <main className="mx-auto max-w-3xl px-6 py-20">
-      <h1 className="text-4xl font-medium tracking-tight">The Fibre</h1>
-      <p className="mt-3 text-ink-subtle text-lg">
-        Relationship intelligence for purpose-driven work. EU-hosted. GDPR-native. Cooperative-owned.
-      </p>
+    <main className="min-h-screen bg-white text-neutral-900">
+      <div className="mx-auto max-w-3xl px-6 py-20">
+        <header>
+          <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">The Fibre</div>
+          <h1 className="mt-3 text-5xl font-medium tracking-tight leading-tight">
+            Relationships, kept honestly.
+          </h1>
+          <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
+            A platform for the people, organisations and programmes behind
+            purpose-driven work. EU-hosted, GDPR-native, cooperative-owned.
+            One place for the relationships your work depends on — without
+            the surveillance most software adds.
+          </p>
 
-      <div className="mt-10 flex items-center gap-3">
-        <SignInButton />
-        <Link href="/dashboard" className="text-sm text-ink-subtle hover:text-ink">
-          Already signed in? Open dashboard →
-        </Link>
+          <div className="mt-10 flex items-center gap-5">
+            <Link
+              href="/request-access"
+              className="rounded-md bg-neutral-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-neutral-800"
+            >
+              Request access
+            </Link>
+            <SignInLink />
+          </div>
+        </header>
+
+        <section className="mt-24 grid gap-8 md:grid-cols-2">
+          <Feature
+            title="One profile per person"
+            body="The same contact across meetings, journeys, sales and learning — one identity, kept in the EU, owned by you."
+          />
+          <Feature
+            title="Apps that earn their data"
+            body="Every field stored on a person exists because a specific app needs it. No “might be useful later”. GDPR Article 5(1)(c) by construction."
+          />
+          <Feature
+            title="The data wall"
+            body="Each app keeps its own content. Only short event records (“meeting attended”, “session completed”) cross the wall. Sensitive notes never leave."
+          />
+          <Feature
+            title="Cooperatively owned"
+            body="One Soul Community Coöperatief U.A. — members are users. No advertising, no profiling, no third-party trackers."
+          />
+        </section>
+
+        <section className="mt-20">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
+            What it currently does
+          </div>
+          <ul className="mt-4 space-y-3 text-sm text-neutral-700 leading-relaxed">
+            <li>· Identity, contact graph, organisations and programmes</li>
+            <li>· Per-app profile tabs that appear only when an app has data on the person</li>
+            <li>· Activity timeline across all installed apps</li>
+            <li>· Privacy dashboard — consents, erasure, full transparency</li>
+            <li>· Fibre Meet (formerly Suite) and The Thread coming as first-party apps</li>
+          </ul>
+        </section>
+
+        <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
+          thefibre.app · One Soul Community Coöperatief U.A. · Hosted in the EU
+          <br />
+          No advertising. No profiling. No data sold.{' '}
+          <Link className="underline" href="/privacy">
+            Privacy
+          </Link>
+          .
+        </footer>
       </div>
-
-      <section className="mt-16">
-        <h2 className="text-[10px] uppercase tracking-wider text-ink-muted">Apps</h2>
-        <ul className="mt-4 divide-y divide-line">
-          {apps.map((app) => (
-            <li key={app.slug} className="py-4 flex items-baseline justify-between gap-6">
-              <div>
-                <div className="font-medium">{app.name}</div>
-                <div className="text-sm text-ink-subtle">{app.desc}</div>
-              </div>
-              <span className="text-xs text-ink-muted">{app.status}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-
-      <footer className="mt-24 border-t border-line pt-6 text-xs text-ink-muted leading-relaxed">
-        thefibre.app · One Soul Community Coöperatief U.A. · Hosted in the EU
-        <br />
-        No advertising. No profiling. No data sold. <Link className="underline" href="/privacy">Privacy</Link>.
-      </footer>
     </main>
+  );
+}
+
+function Feature({ title, body }: { title: string; body: string }) {
+  return (
+    <div>
+      <h3 className="text-base font-medium">{title}</h3>
+      <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{body}</p>
+    </div>
   );
 }

@@ -1,10 +1,15 @@
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { readPrefs } from '@/lib/prefs';
+import { apiFetch } from '@/lib/api';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 
-const VERSION = '0.4.8';
+const VERSION = '0.5.0';
+
+type Me = {
+  memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
+};
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await serverSupabase();
@@ -18,9 +23,21 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     (user.user_metadata?.name as string | undefined) ??
     email;
 
+  // Cheap admin check for nav-rendering. Best-effort; non-fatal if it fails.
+  let isPlatformAdmin = false;
+  try {
+    const me = await apiFetch<Me>('/api/v1/auth/me');
+    isPlatformAdmin = me.memberships.some((m) => {
+      const app = Array.isArray(m.app) ? m.app[0] : m.app;
+      return app?.slug === 'fibre-platform' && m.role === 'admin';
+    });
+  } catch {
+    // Stay non-admin if the API call fails — the admin pages still gate themselves.
+  }
+
   return (
     <div className="h-screen flex bg-surface">
-      <Sidebar mode={prefs.sidebar} version={VERSION} />
+      <Sidebar mode={prefs.sidebar} version={VERSION} isPlatformAdmin={isPlatformAdmin} />
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar email={email} fullName={fullName} prefs={prefs} />
         <main className="flex-1 overflow-y-auto">{children}</main>
