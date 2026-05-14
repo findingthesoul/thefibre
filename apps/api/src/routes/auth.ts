@@ -10,7 +10,7 @@ authRoutes.get('/me', async (c) => {
 
   const { data: user, error } = await db
     .from('user')
-    .select('id, email, full_name, avatar_url, person_id, workspace_id, primary_auth_method, last_sign_in')
+    .select('id, email, full_name, avatar_url, person_id, workspace_id, primary_auth_method, last_sign_in, is_super_admin')
     .eq('id', ctx.userId)
     .is('deleted_at', null)
     .single();

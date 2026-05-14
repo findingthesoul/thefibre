@@ -16,6 +16,7 @@ type SignupRequest = {
 };
 
 type Me = {
+  user: { is_super_admin?: boolean };
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 
@@ -26,14 +27,10 @@ export default async function AdminAccessRequestsPage({
 }) {
   const { status = 'pending' } = await searchParams;
 
-  // Gate at the page level — RLS will also reject non-admins, but a clean
-  // 403-style redirect is nicer than a 500 from the API.
+  // Gate at the page level — RLS will also reject non-super-admins, but a
+  // clean 403-style redirect is nicer than a 500 from the API.
   const me = await apiFetch<Me>('/api/v1/auth/me');
-  const isAdmin = me.memberships.some((m) => {
-    const app = Array.isArray(m.app) ? m.app[0] : m.app;
-    return app?.slug === 'fibre-platform' && m.role === 'admin';
-  });
-  if (!isAdmin) redirect('/dashboard');
+  if (!me.user.is_super_admin) redirect('/dashboard');
 
   let items: SignupRequest[] = [];
   try {

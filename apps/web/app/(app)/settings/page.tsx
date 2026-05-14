@@ -41,6 +41,11 @@ export default async function SettingsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
+  const isWorkspaceAdmin =
+    me?.memberships?.some(
+      (m) => m.app.slug === 'fibre-platform' && m.role === 'admin',
+    ) ?? false;
+
   return (
     <PageContainer max="4xl">
       <PageHeader
@@ -101,7 +106,17 @@ export default async function SettingsPage() {
           </section>
 
           <section className="mt-14">
-            <SectionLabel>App access</SectionLabel>
+            <div className="flex items-baseline justify-between">
+              <SectionLabel>App access</SectionLabel>
+              {isWorkspaceAdmin && (
+                <Link
+                  href="/settings/apps"
+                  className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+                >
+                  Manage workspace apps →
+                </Link>
+              )}
+            </div>
             {me.memberships.length === 0 ? (
               <p className="mt-3 text-sm text-ink-subtle">No app memberships.</p>
             ) : (

@@ -28,6 +28,11 @@ type Activity = {
 type Programme = { id: string; title: string; format: string; status: string; starts_on: string | null; ends_on: string | null };
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 type Org = { id: string; name: string };
+type WorkspaceApp = {
+  id: string;
+  deactivated_at: string | null;
+  app: { slug: string; name: string; base_url: string | null } | null;
+};
 
 export default async function Dashboard() {
   const supabase = await serverSupabase();
@@ -53,12 +58,19 @@ export default async function Dashboard() {
   }).format(new Date());
 
   // Fire all snapshot fetches in parallel. Each is non-fatal.
-  const [activity, programmes, persons, orgs] = await Promise.all([
+  const [activity, programmes, persons, orgs, workspaceApps] = await Promise.all([
     safeFetch<{ items: Activity[] }>('/api/v1/activities?limit=6'),
     safeFetch<{ items: Programme[] }>('/api/v1/programs'),
     safeFetch<{ items: Person[] }>('/api/v1/persons?limit=4'),
     safeFetch<{ items: Org[] }>('/api/v1/organisations?limit=4'),
+    safeFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps'),
   ]);
+
+  const activeAppSlugs = new Set(
+    (workspaceApps?.items ?? [])
+      .filter((w) => !w.deactivated_at && w.app?.slug)
+      .map((w) => w.app!.slug),
+  );
 
   const activeProgrammes = (programmes?.items ?? []).filter((p) => p.status === 'active' || p.status === 'draft');
 
@@ -123,15 +135,27 @@ export default async function Dashboard() {
       </div>
 
       <section className="mt-14">
-        <div className="text-[10px] uppercase tracking-wider text-ink-muted">Your apps</div>
-        {memberships.length === 0 ? (
+        <div className="flex items-baseline justify-between">
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">Your apps</div>
+          <Link
+            href="/settings/apps"
+            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+          >
+            Manage →
+          </Link>
+        </div>
+        {activeAppSlugs.size === 0 ? (
           <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
-            You don&apos;t have access to any apps yet.
+            No apps activated yet for this workspace.{' '}
+            <Link href="/settings/apps" className="underline">
+              Turn on an app
+            </Link>{' '}
+            to get started.
           </div>
         ) : (
           <ul className="mt-3 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
-            {memberships
-              .filter((slug) => slug !== 'fibre-platform')
+            {Array.from(activeAppSlugs)
+              .filter((slug) => memberships.includes(slug))
               .map((slug) => (
                 <li key={slug}>
                   <Link

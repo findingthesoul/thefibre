@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import { useState } from 'react';
 import {
   LayoutDashboard,
+  LayoutGrid,
   Users,
   Building2,
   Activity,
@@ -53,11 +54,13 @@ const PANEL_W = 'w-60';
 export function Sidebar({
   mode,
   version,
-  isPlatformAdmin = false,
+  isSuperAdmin = false,
+  isWorkspaceAdmin = false,
 }: {
   mode: SidebarMode;
   version: string;
-  isPlatformAdmin?: boolean;
+  isSuperAdmin?: boolean;
+  isWorkspaceAdmin?: boolean;
 }) {
   const [hovered, setHovered] = useState(false);
 
@@ -89,16 +92,23 @@ export function Sidebar({
           {NAV.map((section, i) => (
             <NavGroup key={i} section={section} expanded={showPanel} />
           ))}
-          {isPlatformAdmin && (
+          {(isSuperAdmin || isWorkspaceAdmin) && (
             <NavGroup
               section={{
                 label: 'Admin',
                 items: [
-                  {
-                    href: '/admin/access-requests',
-                    label: 'Access requests',
-                    icon: UserCheck,
-                  },
+                  ...(isWorkspaceAdmin
+                    ? [{ href: '/settings/apps', label: 'Apps', icon: LayoutGrid }]
+                    : []),
+                  ...(isSuperAdmin
+                    ? [
+                        {
+                          href: '/admin/access-requests',
+                          label: 'Access requests',
+                          icon: UserCheck,
+                        },
+                      ]
+                    : []),
                 ],
               }}
               expanded={showPanel}
