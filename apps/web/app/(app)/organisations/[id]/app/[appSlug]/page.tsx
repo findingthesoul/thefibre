@@ -87,10 +87,56 @@ export default async function OrgAppTab({ params }: Props) {
       )}
 
       <section className="mt-12">
-        <SectionLabel>Timeline</SectionLabel>
-        <EmptyState>No activity yet. Events written by {app.label} will appear here.</EmptyState>
+        <SectionLabel>Timeline — {app.label}</SectionLabel>
+        <OrgAppTimeline orgId={id} appSlug={appSlug} />
       </section>
     </>
+  );
+}
+
+type ActivityRow = {
+  id: string;
+  person_id: string;
+  type: string;
+  subject: string;
+  occurred_at: string;
+};
+
+async function OrgAppTimeline({ orgId, appSlug }: { orgId: string; appSlug: string }) {
+  let items: ActivityRow[] = [];
+  try {
+    const data = await apiFetch<{ items: ActivityRow[] }>(
+      `/api/v1/activities?organisation_id=${orgId}&app_id=${appSlug}&limit=50`,
+    );
+    items = data.items;
+  } catch {
+    // Non-fatal.
+  }
+
+  if (items.length === 0) {
+    return (
+      <EmptyState>
+        No activity yet. Events from current members of this organisation written by this app will appear here.
+      </EmptyState>
+    );
+  }
+
+  return (
+    <ol className="mt-4 border-l border-line pl-6 space-y-5">
+      {items.map((a) => (
+        <li key={a.id} className="relative">
+          <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink" />
+          <div className="text-xs uppercase tracking-wider text-ink-muted">
+            {new Date(a.occurred_at).toLocaleString('en-GB', {
+              dateStyle: 'medium',
+              timeStyle: 'short',
+            })}
+            {' · '}{a.type}
+          </div>
+          <div className="mt-1 text-sm">{a.subject}</div>
+        </li>
+      ))}
+    </ol>
   );
 }
 

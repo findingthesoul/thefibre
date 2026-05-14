@@ -7,6 +7,9 @@ export const activitiesRoutes = new Hono();
 
 const ListQuery = z.object({
   person_id: z.string().uuid().optional(),
+  // Organisation activity = union of activity for all current org members.
+  // Joins through org_membership where ended_at IS NULL.
+  organisation_id: z.string().uuid().optional(),
   // Either a UUID or a slug (e.g. "fibre-platform").
   app_id: z.string().min(1).max(64).optional(),
   type: z.enum(ACTIVITY_TYPES).optional(),
@@ -21,6 +24,22 @@ activitiesRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
+  // If organisation_id is given, resolve to the list of current member person_ids
+  // and use those as an `in` filter. Two-step query — no Postgres-side join.
+  let memberPersonIds: string[] | null = null;
+  if (parsed.data.organisation_id) {
+    const { data: members, error: mErr } = await db
+      .from('org_membership')
+      .select('person_id')
+      .eq('org_id', parsed.data.organisation_id)
+      .is('ended_at', null);
+    if (mErr) return c.json({ error: mErr.message }, 500);
+    memberPersonIds = (members ?? []).map((m) => m.person_id as string);
+    if (memberPersonIds.length === 0) {
+      return c.json({ items: [], next: null });
+    }
+  }
+
   let q = db
     .from('activity')
     .select('id, person_id, app_id, type, subject, occurred_at, created_by, app:app_id (slug, name)')
@@ -29,6 +48,7 @@ activitiesRoutes.get('/', async (c) => {
     .limit(parsed.data.limit + 1);
 
   if (parsed.data.person_id) q = q.eq('person_id', parsed.data.person_id);
+  if (memberPersonIds) q = q.in('person_id', memberPersonIds);
   if (parsed.data.app_id) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.data.app_id);
     if (isUuid) {
