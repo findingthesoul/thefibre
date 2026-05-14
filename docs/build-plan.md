@@ -20,6 +20,7 @@ Current version: **v0.4.8**. Live in production at https://thefibre.app (web on 
 ## Next — feature gaps now that the platform feels real
 
 ### Quick wins (under an hour each)
+- [ ] **App switcher in the top nav** — dropdown showing The Fibre / Fibre Meet / The Thread (only the apps activated for this workspace + the user has membership for). Surfaces in apps/web's Topbar and apps/meet's header. Each entry links to the relevant subdomain.
 - [ ] Activity filter by `organisation_id` — join through `org_membership`. Unblocks org per-app tab timelines (currently EmptyState).
 - [ ] Tags — create, assign, filter persons and orgs by them.
 - [ ] Person ↔ person relationship form (the `relationship` table already exists, no UI).
