@@ -10,6 +10,8 @@ import {
   OrgRelationshipEdit,
   type OrgRelationshipRow,
 } from '../../relationship/edit';
+import { OrgBillingEdit, type OrgBillingRow } from '../../billing/edit';
+import { countryName } from '@/lib/countries';
 
 const STAGE_LABELS: Record<string, string> = {
   pre_awareness: 'Pre-awareness',
@@ -73,7 +75,12 @@ export default async function OrgAppTab({ params }: Props) {
         <SystemContextSection orgId={id} />
       )}
       {appSlug === 'fibre-sales' && (
-        <RelationshipSection orgId={id} />
+        <>
+          <RelationshipSection orgId={id} />
+          <div className="mt-14">
+            <BillingSection orgId={id} />
+          </div>
+        </>
       )}
       {(appSlug === 'fibre-platform' ||
         appSlug === 'the-thread' ||
@@ -387,6 +394,72 @@ async function RelationshipSection({ orgId }: { orgId: string }) {
               {row?.relationship_history ?? <span className="text-ink-muted">—</span>}
             </p>
           </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+async function BillingSection({ orgId }: { orgId: string }) {
+  let row: OrgBillingRow | null = null;
+  try {
+    row = await apiFetch<OrgBillingRow | null>(`/api/v1/organisations/${orgId}/billing`);
+  } catch {
+    // Non-fatal.
+  }
+
+  const allEmpty =
+    !row ||
+    (!row.legal_name && !row.tax_id && !row.billing_email && !row.billing_street &&
+      !row.billing_postal_code && !row.billing_city && !row.billing_region &&
+      !row.billing_country && row.payment_terms_days === null && !row.currency &&
+      row.po_required === null && !row.notes);
+
+  const addressLine = [row?.billing_street, row?.billing_postal_code].filter(Boolean).join(', ');
+  const billingLocation = [row?.billing_city, row?.billing_region, countryName(row?.billing_country)]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <section>
+      <div className="flex items-center justify-between">
+        <SectionLabel>Invoicing</SectionLabel>
+        <OrgBillingEdit orgId={orgId} initial={row} />
+      </div>
+      {allEmpty ? (
+        <div className="mt-4">
+          <EmptyState>Nothing recorded yet. Click Edit to fill it in.</EmptyState>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
+            <Field label="Legal name" value={row?.legal_name ?? null} />
+            <Field label="Tax / VAT ID" value={row?.tax_id ?? null} />
+            <Field label="Billing email" value={row?.billing_email ?? null} />
+            <Field label="Currency" value={row?.currency ?? null} />
+            <Field
+              label="Payment terms"
+              value={
+                row?.payment_terms_days !== null && row?.payment_terms_days !== undefined
+                  ? `${row.payment_terms_days} days`
+                  : null
+              }
+            />
+            <Field
+              label="PO required"
+              value={row?.po_required === null || row?.po_required === undefined
+                ? null
+                : row.po_required ? 'Yes' : 'No'}
+            />
+            <Field label="Billing address" value={addressLine || null} />
+            <Field label="Billing location" value={billingLocation || null} />
+          </div>
+          {row?.notes && (
+            <div className="mt-10">
+              <SectionLabel>Notes</SectionLabel>
+              <p className="mt-2 text-sm whitespace-pre-wrap">{row.notes}</p>
+            </div>
+          )}
         </>
       )}
     </section>

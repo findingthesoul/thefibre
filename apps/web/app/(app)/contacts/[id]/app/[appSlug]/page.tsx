@@ -6,6 +6,8 @@ import { APPS, isAppSlug, type PersonSubResource } from '@/lib/apps';
 import { ChangeEdit, type ChangeRow } from '../../change/edit';
 import { RelationshipEdit, type RelationshipRow } from '../../relationship/edit';
 import { LearningEdit, type LearningRow } from '../../learning/edit';
+import { PersonBillingEdit, type PersonBillingRow } from '../../billing/edit';
+import { countryName } from '@/lib/countries';
 
 type Activity = {
   id: string;
@@ -93,12 +95,89 @@ async function SubResourceSection({
       return <RelationshipSection personId={personId} />;
     case 'learning':
       return <LearningSection personId={personId} />;
+    case 'billing':
+      return <BillingSection personId={personId} />;
     case 'professional':
       // Professional lives on the Profile tab; not expected here but guard anyway.
       return null;
     default:
       return null;
   }
+}
+
+async function BillingSection({ personId }: { personId: string }) {
+  let row: PersonBillingRow | null = null;
+  try {
+    row = await apiFetch<PersonBillingRow | null>(`/api/v1/persons/${personId}/billing`);
+  } catch {
+    // Non-fatal.
+  }
+
+  const allEmpty =
+    !row ||
+    (!row.legal_name && !row.tax_id && !row.billing_email && !row.billing_street &&
+      !row.billing_postal_code && !row.billing_city && !row.billing_region &&
+      !row.billing_country && row.payment_terms_days === null && !row.currency &&
+      row.po_required === null && !row.notes);
+
+  const addressLine = [row?.billing_street, row?.billing_postal_code].filter(Boolean).join(', ');
+  const billingLocation = [row?.billing_city, row?.billing_region, countryName(row?.billing_country)]
+    .filter(Boolean)
+    .join(', ');
+
+  return (
+    <section>
+      <div className="flex items-center justify-between">
+        <SectionLabel>Invoicing</SectionLabel>
+        <PersonBillingEdit personId={personId} initial={row} />
+      </div>
+      {allEmpty ? (
+        <div className="mt-4">
+          <EmptyState>Nothing recorded yet. Click Edit to fill it in.</EmptyState>
+        </div>
+      ) : (
+        <>
+          <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
+            <BillingField label="Legal name" value={row?.legal_name ?? null} />
+            <BillingField label="Tax / VAT ID" value={row?.tax_id ?? null} />
+            <BillingField label="Billing email" value={row?.billing_email ?? null} />
+            <BillingField label="Currency" value={row?.currency ?? null} />
+            <BillingField
+              label="Payment terms"
+              value={
+                row?.payment_terms_days !== null && row?.payment_terms_days !== undefined
+                  ? `${row.payment_terms_days} days`
+                  : null
+              }
+            />
+            <BillingField
+              label="PO required"
+              value={row?.po_required === null || row?.po_required === undefined
+                ? null
+                : row.po_required ? 'Yes' : 'No'}
+            />
+            <BillingField label="Billing address" value={addressLine || null} />
+            <BillingField label="Billing location" value={billingLocation || null} />
+          </div>
+          {row?.notes && (
+            <div className="mt-10">
+              <SectionLabel>Notes</SectionLabel>
+              <p className="mt-2 text-sm whitespace-pre-wrap">{row.notes}</p>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+function BillingField({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</div>
+      <div className="mt-1">{value ? value : <span className="text-ink-muted">—</span>}</div>
+    </div>
+  );
 }
 
 // ---------- Change ----------

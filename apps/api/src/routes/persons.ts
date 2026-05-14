@@ -107,6 +107,8 @@ const PersonUpdate = z.object({
   phone: z.string().max(50).nullable().optional(),
   // Accept any string; display layer prepends https:// if needed.
   linkedin_url: z.string().max(500).nullable().optional(),
+  street: z.string().max(200).nullable().optional(),
+  postal_code: z.string().max(20).nullable().optional(),
   city: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),
   country: z.string().length(2).nullable().optional(),
@@ -308,6 +310,32 @@ const LearningUpdate = z.object({
 
 personsRoutes.get('/:id/learning', (c) => getProfile(c, 'person_learning'));
 
+// --- person_billing (fibre-sales) ------------------------------------------
+const BillingUpdate = z.object({
+  legal_name: z.string().max(200).nullable().optional(),
+  tax_id: z.string().max(50).nullable().optional(),
+  billing_email: z.string().email().nullable().optional(),
+  billing_street: z.string().max(200).nullable().optional(),
+  billing_postal_code: z.string().max(20).nullable().optional(),
+  billing_city: z.string().max(100).nullable().optional(),
+  billing_region: z.string().max(100).nullable().optional(),
+  billing_country: z.string().length(2).nullable().optional(),
+  payment_terms_days: z.number().int().min(0).max(365).nullable().optional(),
+  currency: z.string().length(3).nullable().optional(),
+  po_required: z.boolean().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+personsRoutes.get('/:id/billing', (c) => getProfile(c, 'person_billing'));
+personsRoutes.patch('/:id/billing', async (c) => {
+  const body = BillingUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  return upsertProfile(c, 'person_billing', 'fibre-sales', {
+    ...body.data,
+    updated_at: new Date().toISOString(),
+  });
+});
+
 // Apps-discovery: which apps have any data on this person?
 // Union of: (a) any curator-profile row exists, (b) any activity event written
 // for this person by that app. Returns a list of app slugs in stable order.
@@ -318,16 +346,17 @@ personsRoutes.get('/:id/apps', async (c) => {
 
   // Apps with curator-profile rows (these are RLS-gated, so we'll only see ones
   // the caller has membership for).
-  const [profQ, relQ, chgQ, lrnQ, actQ] = await Promise.all([
+  const [profQ, relQ, chgQ, lrnQ, billQ, actQ] = await Promise.all([
     db.from('person_professional').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_relationship_context').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_change_context').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_learning').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('person_billing').select('app:app_id (slug)').eq('person_id', personId),
     db.from('activity').select('app:app_id (slug)').eq('person_id', personId),
   ]);
 
   const slugs = new Set<string>();
-  for (const q of [profQ, relQ, chgQ, lrnQ, actQ]) {
+  for (const q of [profQ, relQ, chgQ, lrnQ, billQ, actQ]) {
     for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
       const app = Array.isArray(row.app) ? row.app[0] : row.app;
       if (app?.slug) slugs.add(app.slug);

@@ -67,6 +67,8 @@ export async function updatePerson(
     email: strOrNull(formData.get('email')) ?? undefined,
     phone: strOrNull(formData.get('phone')),
     linkedin_url: strOrNull(formData.get('linkedin_url')),
+    street: strOrNull(formData.get('street')),
+    postal_code: strOrNull(formData.get('postal_code')),
     city: strOrNull(formData.get('city')),
     region: strOrNull(formData.get('region')),
     country: strOrNull(formData.get('country'))?.toUpperCase() ?? null,

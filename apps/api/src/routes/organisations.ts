@@ -82,6 +82,8 @@ const OrgUpdate = z.object({
   website: z.string().max(500).nullable().optional(),
   linkedin_url: z.string().max(500).nullable().optional(),
   vat_number: z.string().max(50).nullable().optional(),
+  street: z.string().max(200).nullable().optional(),
+  postal_code: z.string().max(20).nullable().optional(),
   city: z.string().max(100).nullable().optional(),
   region: z.string().max(100).nullable().optional(),
   country: z.string().length(2).nullable().optional(),
@@ -327,20 +329,47 @@ organisationsRoutes.patch('/:id/relationship', async (c) => {
   return upsertOrgProfile(c, 'org_relationship', 'fibre-sales', body.data);
 });
 
+// --- org_billing (fibre-sales) ---------------------------------------------
+const OrgBillingUpdate = z.object({
+  legal_name: z.string().max(200).nullable().optional(),
+  tax_id: z.string().max(50).nullable().optional(),
+  billing_email: z.string().email().nullable().optional(),
+  billing_street: z.string().max(200).nullable().optional(),
+  billing_postal_code: z.string().max(20).nullable().optional(),
+  billing_city: z.string().max(100).nullable().optional(),
+  billing_region: z.string().max(100).nullable().optional(),
+  billing_country: z.string().length(2).nullable().optional(),
+  payment_terms_days: z.number().int().min(0).max(365).nullable().optional(),
+  currency: z.string().length(3).nullable().optional(),
+  po_required: z.boolean().nullable().optional(),
+  notes: z.string().max(2000).nullable().optional(),
+});
+
+organisationsRoutes.get('/:id/billing', (c) => getOrgProfile(c, 'org_billing'));
+organisationsRoutes.patch('/:id/billing', async (c) => {
+  const body = OrgBillingUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  return upsertOrgProfile(c, 'org_billing', 'fibre-sales', {
+    ...body.data,
+    updated_at: new Date().toISOString(),
+  });
+});
+
 // Apps-discovery: which apps have data on this org?
 organisationsRoutes.get('/:id/apps', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const orgId = c.req.param('id');
 
-  const [idQ, sysQ, relQ] = await Promise.all([
+  const [idQ, sysQ, relQ, billQ] = await Promise.all([
     db.from('org_identity').select('app:app_id (slug)').eq('org_id', orgId),
     db.from('org_system_context').select('app:app_id (slug)').eq('org_id', orgId),
     db.from('org_relationship').select('app:app_id (slug)').eq('org_id', orgId),
+    db.from('org_billing').select('app:app_id (slug)').eq('org_id', orgId),
   ]);
 
   const slugs = new Set<string>();
-  for (const q of [idQ, sysQ, relQ]) {
+  for (const q of [idQ, sysQ, relQ, billQ]) {
     for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
       const app = Array.isArray(row.app) ? row.app[0] : row.app;
       if (app?.slug) slugs.add(app.slug);

@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
+import { CountryCombobox } from '@/components/ui/country-combobox';
 import { updateOrganisation, deleteOrganisation, type ActionResult } from '../actions';
 
 export type EditableOrg = {
@@ -15,6 +16,8 @@ export type EditableOrg = {
   domain: string | null;
   website: string | null;
   linkedin_url: string | null;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
   region: string | null;
   country: string | null;
@@ -142,15 +145,14 @@ function EditDialog({
         <TextField label="Industry" name="industry" defaultValue={org.industry ?? ''} errors={state.fieldErrors?.industry} />
         <SelectField label="Type" name="org_type" defaultValue={org.org_type ?? ''} options={ORG_TYPES} errors={state.fieldErrors?.org_type} />
         <SelectField label="Size" name="size_band" defaultValue={org.size_band ?? ''} options={SIZE_BANDS} errors={state.fieldErrors?.size_band} />
+        <TextField label="Street" name="street" defaultValue={org.street ?? ''} errors={state.fieldErrors?.street} />
+        <TextField label="Postal code" name="postal_code" defaultValue={org.postal_code ?? ''} errors={state.fieldErrors?.postal_code} />
         <TextField label="City" name="city" defaultValue={org.city ?? ''} errors={state.fieldErrors?.city} />
         <TextField label="Region" name="region" defaultValue={org.region ?? ''} errors={state.fieldErrors?.region} />
-        <TextField
-          label="Country (ISO 2-letter)"
+        <CountryCombobox
+          label="Country"
           name="country"
-          maxLength={2}
-          defaultValue={org.country ?? ''}
-          placeholder="NL"
-          hint="Two letters or leave blank"
+          defaultValue={org.country}
           errors={state.fieldErrors?.country}
         />
 

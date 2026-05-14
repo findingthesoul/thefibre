@@ -69,6 +69,8 @@ export async function updateOrganisation(
     domain: strOrNull(formData.get('domain')),
     website: strOrNull(formData.get('website')),
     linkedin_url: strOrNull(formData.get('linkedin_url')),
+    street: strOrNull(formData.get('street')),
+    postal_code: strOrNull(formData.get('postal_code')),
     city: strOrNull(formData.get('city')),
     region: strOrNull(formData.get('region')),
     country: strOrNull(formData.get('country'))?.toUpperCase() ?? null,

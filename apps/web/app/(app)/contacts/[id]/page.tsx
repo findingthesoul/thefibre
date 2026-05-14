@@ -2,11 +2,14 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
+import { countryName } from '@/lib/countries';
 
 type Person = {
   email: string | null;
   phone: string | null;
   linkedin_url: string | null;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
   region: string | null;
   country: string | null;
@@ -55,7 +58,8 @@ export default async function ContactOverview({
     // Non-fatal.
   }
 
-  const location = [person.city, person.region, person.country].filter(Boolean).join(', ');
+  const addressLine = [person.street, person.postal_code].filter(Boolean).join(', ');
+  const location = [person.city, person.region, countryName(person.country)].filter(Boolean).join(', ');
 
   return (
     <>
@@ -63,6 +67,7 @@ export default async function ContactOverview({
         <Field label="Email" value={person.email} />
         <Field label="Phone" value={person.phone} />
         <Field label="LinkedIn" value={person.linkedin_url} link />
+        <Field label="Address" value={addressLine || null} />
         <Field label="Location" value={location || null} />
         <Field label="Language" value={person.preferred_language} />
         <Field label="Pronouns" value={person.pronouns} />

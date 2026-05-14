@@ -6,6 +6,7 @@ import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField } from '@/components/ui/field';
+import { CountryCombobox } from '@/components/ui/country-combobox';
 import { updatePerson, deletePerson, type ActionResult } from '../actions';
 
 export type EditablePerson = {
@@ -17,6 +18,8 @@ export type EditablePerson = {
   email: string | null;
   phone: string | null;
   linkedin_url: string | null;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
   region: string | null;
   country: string | null;
@@ -131,15 +134,14 @@ function EditDialog({
         <TextField label="Email" name="email" type="email" defaultValue={person.email ?? ''} required errors={state.fieldErrors?.email} />
         <TextField label="Phone" name="phone" defaultValue={person.phone ?? ''} errors={state.fieldErrors?.phone} />
         <TextField label="LinkedIn" name="linkedin_url" defaultValue={person.linkedin_url ?? ''} placeholder="linkedin.com/in/…" errors={state.fieldErrors?.linkedin_url} />
+        <TextField label="Street" name="street" defaultValue={person.street ?? ''} errors={state.fieldErrors?.street} />
+        <TextField label="Postal code" name="postal_code" defaultValue={person.postal_code ?? ''} errors={state.fieldErrors?.postal_code} />
         <TextField label="City" name="city" defaultValue={person.city ?? ''} errors={state.fieldErrors?.city} />
         <TextField label="Region" name="region" defaultValue={person.region ?? ''} errors={state.fieldErrors?.region} />
-        <TextField
-          label="Country (ISO 2-letter)"
+        <CountryCombobox
+          label="Country"
           name="country"
-          maxLength={2}
-          defaultValue={person.country ?? ''}
-          placeholder="NL"
-          hint="Two letters or leave blank"
+          defaultValue={person.country}
           errors={state.fieldErrors?.country}
         />
 

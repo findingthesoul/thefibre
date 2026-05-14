@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { countryName } from '@/lib/countries';
 import { AddMemberButton, type PersonOption } from './add-member';
 import { EndMemberButton } from './end-member';
 
@@ -12,6 +13,8 @@ type Organisation = {
   domain: string | null;
   website: string | null;
   linkedin_url: string | null;
+  street: string | null;
+  postal_code: string | null;
   city: string | null;
   region: string | null;
   country: string | null;
@@ -61,7 +64,8 @@ export default async function OrganisationOverview({
     // Non-fatal.
   }
 
-  const location = [org.city, org.region, org.country].filter(Boolean).join(', ');
+  const addressLine = [org.street, org.postal_code].filter(Boolean).join(', ');
+  const location = [org.city, org.region, countryName(org.country)].filter(Boolean).join(', ');
 
   return (
     <>
@@ -69,6 +73,7 @@ export default async function OrganisationOverview({
         <Field label="Domain" value={org.domain} />
         <Field label="Website" value={org.website} link />
         <Field label="LinkedIn" value={org.linkedin_url} link />
+        <Field label="Address" value={addressLine || null} />
         <Field label="Location" value={location || null} />
         <Field label="Sector" value={org.sector} />
         <Field label="Size" value={org.size_band} />

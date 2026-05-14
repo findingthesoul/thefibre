@@ -19,8 +19,8 @@ export type AppDescriptor = {
   orgSubResources: OrgSubResource[];
 };
 
-export type PersonSubResource = 'professional' | 'relationship' | 'change' | 'learning';
-export type OrgSubResource = 'identity' | 'system-context' | 'relationship';
+export type PersonSubResource = 'professional' | 'relationship' | 'change' | 'learning' | 'billing';
+export type OrgSubResource = 'identity' | 'system-context' | 'relationship' | 'billing';
 
 export const APPS: Record<AppSlug, AppDescriptor> = {
   'fibre-platform': {
@@ -44,8 +44,8 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   'fibre-sales': {
     slug: 'fibre-sales',
     label: 'Fibre Sales',
-    personSubResources: ['relationship'],
-    orgSubResources: ['relationship'],
+    personSubResources: ['relationship', 'billing'],
+    orgSubResources: ['relationship', 'billing'],
   },
   'fibre-learn': {
     slug: 'fibre-learn',
