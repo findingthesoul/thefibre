@@ -17,12 +17,10 @@ COPY packages/shared/src/ packages/shared/src/
 # Install all deps (workspace)
 RUN pnpm install --frozen-lockfile
 
-# Build shared first so its dist/ exists when api imports from it
-RUN pnpm --filter @thefibre/shared build
-
-# Copy api source and build
+# Build the API. The `...` filter modifier tells pnpm "and its workspace deps"
+# so @thefibre/shared is compiled first in topological order.
 COPY apps/api/src/ apps/api/src/
-RUN pnpm --filter @thefibre/api build
+RUN pnpm --filter @thefibre/api... build
 
 # Produce a self-contained deploy folder (resolves workspace:* deps,
 # strips devDependencies). Lives at /deploy.
