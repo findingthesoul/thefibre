@@ -72,6 +72,7 @@ export async function updatePerson(
     city: strOrNull(formData.get('city')),
     region: strOrNull(formData.get('region')),
     country: strOrNull(formData.get('country'))?.toUpperCase() ?? null,
+    preferred_language: strOrNull(formData.get('preferred_language')),
   };
 
   try {

@@ -23,6 +23,7 @@ export type EditablePerson = {
   city: string | null;
   region: string | null;
   country: string | null;
+  preferred_language: string | null;
 };
 
 export function ContactActions({ person }: { person: EditablePerson }) {
@@ -143,6 +144,15 @@ function EditDialog({
           name="country"
           defaultValue={person.country}
           errors={state.fieldErrors?.country}
+        />
+        <TextField
+          label="Preferred language"
+          name="preferred_language"
+          defaultValue={person.preferred_language ?? ''}
+          placeholder="en, nl, fr…"
+          hint="ISO 639 code, e.g. nl or en-GB"
+          maxLength={10}
+          errors={state.fieldErrors?.preferred_language}
         />
 
         {state.error && (
