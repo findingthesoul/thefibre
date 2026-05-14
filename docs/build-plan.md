@@ -26,15 +26,22 @@ What's clear in retrospect: building more contact-graph fields without populatin
 
 ## Profile redesign — pending (proposed at end of v0.3.x)
 
-Sjoerd's idea: the four static profile tabs (Professional / Relationship / Change / Learning) collapse into **one "Fibre / Profile" tab**, and a person's profile grows **one tab per app they've interacted with** (The Thread, Fibre Suite, Fibre Sales, Fibre Learn). Tabs appear only when there's data — emergent from interaction, not predefined.
+Sjoerd's idea, two parts:
 
-This matches brief §1's "living portrait" framing better than the current curator-centric structure. Honours the data wall: per-app tabs read only from `enrolment` + `activity` (filtered by `app_id`), never from another app's content schema.
+**Part 1 — Per-app tabs.** The four static profile tabs (Professional / Relationship / Change / Learning) collapse into **one "Fibre / Profile" tab**, and a person's profile grows **one tab per app they've interacted with** (The Thread, Fibre Suite, Fibre Sales, Fibre Learn). Tabs appear only when there's data — emergent from interaction, not predefined.
 
-Build order:
-1. Collapse current 4 tabs into accordion sections of a "Profile" tab — no schema change; RLS-sensitive fields (`facilitator_notes`, `post_programme_reflection`) stay in their own tables.
-2. Dynamic per-app tabs: union of (a) `app_membership` rows for this person, (b) `app_id`s with activity events for this person, (c) apps with `enrolment` rows. Render one tab per app present.
-3. Per-app tab content: enrolments + activity events filtered by `app_id`. Sales tab gated by viewer's own `has_app_membership('fibre-sales')`.
-4. Mirror for organisations.
+**Part 2 — The app justifies the field (data minimisation).** Every stored field must be traceable to a specific app and a specific processing purpose. If no app needs `political_landscape` or `change_themes`, they shouldn't be collected or shown — GDPR Article 5(1)(c). This tightens the platform to a *minimum identity layer*; each app owns the curator fields it justifies.
+
+Tension with the current brief: §5 lists rich curator fields on the platform. Part 2 says those should belong to apps. **Decide whether to revise brief to v0.4 before changing code.**
+
+Build order (assuming we go ahead):
+1. Decide brief revision first. If yes: write `docs/fibre-technical-brief-v0.4.md` with the new structure (platform = thin identity layer; apps register their own field-groups).
+2. Collapse current 4 tabs into accordion sections of a "Profile" tab — no schema change; RLS-sensitive fields stay in their own tables.
+3. Tag each profile section with the `app_id` that justifies it. Hide the section unless the workspace has at least one user with `app_membership` for that app.
+4. Dynamic per-app tabs: union of (a) `app_membership` rows for this person, (b) `app_id`s with activity events for this person, (c) apps with `enrolment` rows.
+5. Per-app tab content: app-specific curator fields + enrolments + activity events filtered by `app_id`.
+6. Mirror for organisations.
+7. Schema migration (move curator tables into app-specific schemas) deferred until delivery apps actually exist.
 
 This also partially solves the empty-state feel — even before delivery-app frontends exist, any activity event written to the platform appears in the right app tab.
 
