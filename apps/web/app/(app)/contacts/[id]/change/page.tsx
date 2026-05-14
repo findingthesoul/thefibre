@@ -6,5 +6,5 @@ export default async function ChangeRedirect({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  redirect(`/contacts/${id}/app/fibre-suite`);
+  redirect(`/contacts/${id}/app/fibre-meet`);
 }

@@ -36,7 +36,7 @@ Current version: **v0.4.3**. Per-app profile tabs and data-minimisation are live
 
 ### Bigger (one of the delivery apps)
 - [ ] The Thread frontend at `apps/thread/` — events + journeys + sessions. Best-specified in the brief (§8 EBBF Athens example). Once one delivery app exists writing activity events back, the full architecture loop closes.
-- [ ] Fibre Suite frontend at `apps/suite/` — meetings + agendas + outcomes.
+- [ ] Fibre Meet frontend at `apps/meet/` — meetings + agendas + outcomes.
 - [ ] Fibre Sales — sovereign app, gated, deal pipeline + handover webhook on `deal_won`.
 - [ ] Fibre Learn — future, blocked on a content authoring system.
 

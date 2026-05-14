@@ -113,8 +113,8 @@ No deploy needed — the project is already running. Two things to keep in sync:
 
 1. Hit `https://thefibre.app` — should show the landing page
 2. Click **Sign in with Google** — should redirect through Google, back to `/auth/callback`, then to `/dashboard`
-3. The dashboard should list your apps (Fibre Suite, The Thread, Fibre Sales, Fibre Learn) — these come from the JWT's `app_memberships` claim
-4. Open Contacts — you should see the 8 seeded people. Open Marja → her profile tabs render including Fibre Suite (Change context) and Fibre Learn (Learning).
+3. The dashboard should list your apps (Fibre Meet, The Thread, Fibre Sales, Fibre Learn) — these come from the JWT's `app_memberships` claim
+4. Open Contacts — you should see the 8 seeded people. Open Marja → her profile tabs render including Fibre Meet (Change context) and Fibre Learn (Learning).
 
 If the dashboard shows "Not linked to a workspace" or you get redirected back to `/`, that's the JWT custom-access-token hook not firing. Check Supabase Auth → Hooks.
 

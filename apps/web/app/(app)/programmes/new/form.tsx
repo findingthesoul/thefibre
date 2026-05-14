@@ -8,7 +8,7 @@ import { createProgramme } from '../actions';
 
 const FORMATS = [
   { value: '', label: '—' },
-  { value: 'meeting', label: 'Meeting — Fibre Suite' },
+  { value: 'meeting', label: 'Meeting — Fibre Meet' },
   { value: 'event', label: 'Event — The Thread' },
   { value: 'journey', label: 'Journey — The Thread' },
   { value: 'self_paced', label: 'Self-paced — Fibre Learn' },

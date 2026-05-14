@@ -4,14 +4,14 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 
 const APP_DOMAINS: Record<string, string> = {
-  'fibre-suite': 'https://suite.thefibre.app',
+  'fibre-meet': 'https://meet.thefibre.app',
   'the-thread': 'https://thread.thefibre.app',
   'fibre-sales': 'https://sales.thefibre.app',
   'fibre-learn': 'https://learn.thefibre.app',
 };
 const APP_NAMES: Record<string, string> = {
   'fibre-platform': 'The Fibre Platform',
-  'fibre-suite': 'Fibre Suite',
+  'fibre-meet': 'Fibre Meet',
   'the-thread': 'The Thread',
   'fibre-sales': 'Fibre Sales',
   'fibre-learn': 'Fibre Learn',

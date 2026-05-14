@@ -82,7 +82,7 @@ Worktree isolation isn't available in this repo — agents share the working dir
 
 ### What works end-to-end
 - Sign in via Google → land on dashboard → see your apps
-- Contacts (8 seeded people) → click one → Overview + Profile + per-app tabs that exist (Fibre Suite, Fibre Sales, Fibre Learn — emergent from actual data)
+- Contacts (8 seeded people) → click one → Overview + Profile + per-app tabs that exist (Fibre Meet, Fibre Sales, Fibre Learn — emergent from actual data)
 - Edit basic identity, edit per-app curator data. All saves persist.
 - Organisations → EBBF → Overview + members + per-app tabs
 - Programmes (3 seeded: Athens, post-Athens journey, board session) → enrol people → see enrolment list with status + progress
@@ -92,7 +92,7 @@ Worktree isolation isn't available in this repo — agents share the working dir
 
 ### Not yet shipped
 - **Public deploy.** Configs are in place (`vercel.json`, `apps/api/Dockerfile`, `apps/api/fly.toml`). Run [`docs/deploy.md`](docs/deploy.md) — ~15 min. **This is the single biggest gap.**
-- The four delivery-app frontends (suite.thefibre.app, thread.thefibre.app, sales.thefibre.app, learn.thefibre.app).
+- The four delivery-app frontends (meet.thefibre.app, thread.thefibre.app, sales.thefibre.app, learn.thefibre.app).
 - Article 15 export, retention policy admin, cross-app erasure webhook handlers.
 - Activity filter by `organisation_id` (only person_id today — org per-app tab timelines render EmptyState).
 - Microsoft / LinkedIn OAuth.

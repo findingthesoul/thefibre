@@ -18,7 +18,7 @@ This is the one step that requires clicking around in Google Cloud and Supabase 
    - **Authorized JavaScript origins:**
      - `http://localhost:3000`
      - `https://thefibre.app`
-     - `https://suite.thefibre.app`
+     - `https://meet.thefibre.app`
      - `https://thread.thefibre.app`
      - `https://sales.thefibre.app`
      - `https://zfsyyokepyycefbxiblc.supabase.co`

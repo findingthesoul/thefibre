@@ -188,7 +188,7 @@ organisationsRoutes.post('/members/:membership_id/end', async (c) => {
 async function upsertOrgProfile<T extends Record<string, unknown>>(
   c: import('hono').Context,
   table: string,
-  appSlug: 'fibre-platform' | 'fibre-suite' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
+  appSlug: 'fibre-platform' | 'fibre-meet' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
   body: T,
 ) {
   const ctx = c.get('ctx');
@@ -293,7 +293,7 @@ organisationsRoutes.patch('/:id/system-context', async (c) => {
   const body = SystemContextUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  return upsertOrgProfile(c, 'org_system_context', 'fibre-suite', {
+  return upsertOrgProfile(c, 'org_system_context', 'fibre-meet', {
     ...body.data,
     notes_updated_at: new Date().toISOString(),
     notes_updated_by: ctx.userId,

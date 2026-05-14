@@ -7,7 +7,7 @@ export const programsRoutes = new Hono();
 
 // Brief §3 + §5 Domain 5: each format belongs to a specific app.
 const FORMAT_TO_APP_SLUG: Record<ProgramFormat, string> = {
-  meeting: 'fibre-suite',
+  meeting: 'fibre-meet',
   event: 'the-thread',
   journey: 'the-thread',
   self_paced: 'fibre-learn',

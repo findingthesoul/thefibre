@@ -36,7 +36,7 @@ The platform itself owns:
 
 Each **app** owns:
 - Its own content (notes, responses, scores, agendas, reflections — never platform)
-- The **curator-data extension fields** it specifically needs on persons and orgs (e.g. learning style for Fibre Learn; change context for Fibre Suite; relationship context for Fibre Sales)
+- The **curator-data extension fields** it specifically needs on persons and orgs (e.g. learning style for Fibre Learn; change context for Fibre Meet; relationship context for Fibre Sales)
 
 The platform does not store any app-specific content. What happens inside an app stays inside that app. Only events cross the wall. But those events, accumulated over time across all apps, are the intelligence that makes a contact record worth opening.
 
@@ -47,7 +47,7 @@ The platform does not store any app-specific content. What happens inside an app
 | App | Slug | Domain | Description | Format values | Status |
 |-----|------|--------|-------------|---------------|--------|
 | Fibre Platform | `fibre-platform` | thefibre.app | The platform itself — identity, contact graph, activity, privacy | — | Active |
-| Fibre Suite | `fibre-suite` | suite.thefibre.app | Meeting platform — agenda, facilitation, outcomes | `meeting` | Active |
+| Fibre Meet | `fibre-meet` | meet.thefibre.app | Meeting platform — agenda, facilitation, outcomes | `meeting` | Active |
 | The Thread | `the-thread` | thread.thefibre.app | Event and journey platform — conferences, personal arcs | `event`, `journey` | Active |
 | Fibre Sales | `fibre-sales` | sales.thefibre.app | Sales pipeline and account management — sovereign, gated | n/a | To be built |
 | Fibre Learn | `fibre-learn` | learn.thefibre.app | Self-paced content platform — modules, assessments | `self_paced`, `blended` | Future |
@@ -75,7 +75,7 @@ A person's or organisation's profile in The Fibre is composed of:
 - **One Identity tab** (Fibre Platform) — name, contact details, location, languages, org membership
 - **One tab per app** the person/org has actually interacted with. Tabs appear emergently:
   - The Thread → event registrations, sessions attended, journey progress
-  - Fibre Suite → meetings attended/facilitated, action items, change-context observations
+  - Fibre Meet → meetings attended/facilitated, action items, change-context observations
   - Fibre Sales → deal contacts, relationship context, engagement summary (gated by app membership)
   - Fibre Learn → learning profile, lessons completed, assessments
 
@@ -99,15 +99,15 @@ Fibre Platform is the identity and contact-graph layer. It owns:
 
 It does *not* own facilitator observations, sales relationships, or learning styles — those are app-owned.
 
-### Fibre Suite — meeting platform
+### Fibre Meet — meeting platform
 
-Fibre Suite's unit of work is the meeting. A meeting has a before (agenda design), a during (live facilitation), and an after (outcomes, decisions, action items).
+Fibre Meet's unit of work is the meeting. A meeting has a before (agenda design), a during (live facilitation), and an after (outcomes, decisions, action items).
 
-Fibre Suite owns internally: agenda items and structure, meeting outcomes and decisions, action items with owners and due dates, exercise responses (sensitive — never leaves Fibre Suite), room logistics.
+Fibre Meet owns internally: agenda items and structure, meeting outcomes and decisions, action items with owners and due dates, exercise responses (sensitive — never leaves Fibre Meet), room logistics.
 
-Fibre Suite owns on the platform (via `app_id = 'fibre-suite'` rows in shared profile tables): **change context** — role in change, blockers, motivators, facilitator notes (Sensitive), readiness level.
+Fibre Meet owns on the platform (via `app_id = 'fibre-meet'` rows in shared profile tables): **change context** — role in change, blockers, motivators, facilitator notes (Sensitive), readiness level.
 
-Fibre Suite writes to the activity log: `meeting_attended`, `meeting_facilitated`, `action_item_assigned`, `programme_completed` — type + subject only.
+Fibre Meet writes to the activity log: `meeting_attended`, `meeting_facilitated`, `action_item_assigned`, `programme_completed` — type + subject only.
 
 ### The Thread — event and journey platform
 
@@ -119,7 +119,7 @@ The Thread writes to the activity log: `event_registered`, `session_attended`, `
 
 ### Fibre Sales — sovereign, gated
 
-Fibre Sales is gated behind its own `app_membership`. A facilitator in Fibre Suite has no access. A participant in The Thread has no access.
+Fibre Sales is gated behind its own `app_membership`. A facilitator in Fibre Meet has no access. A participant in The Thread has no access.
 
 Fibre Sales owns exclusively (in its own schema): deals and pipeline stages, deal contacts and roles, line items and proposals, revenue data, sales notes (full body, never exposed to platform activity log), forecasting, touchpoint history.
 
@@ -278,7 +278,7 @@ org_app_profile
 
 Each app defines its own validation schema for `fields`. Examples of what apps register:
 
-- `app_id = fibre-suite` person fields: `role_in_change`, `stance_on_change`, `change_themes` (text[]), `blockers` (text[]), `motivators` (text[]), `current_challenge`, `facilitator_notes` (**Sensitive**, access-controlled), `readiness_level`
+- `app_id = fibre-meet` person fields: `role_in_change`, `stance_on_change`, `change_themes` (text[]), `blockers` (text[]), `motivators` (text[]), `current_challenge`, `facilitator_notes` (**Sensitive**, access-controlled), `readiness_level`
 - `app_id = the-thread` person fields: `dietary_requirements`, `accessibility_needs`, `cohort_directory_visible` (boolean), `preferred_session_tracks` (text[])
 - `app_id = fibre-sales` person fields: `source`, `source_detail`, `introduced_by` (uuid), `relationship_strength`, `communication_preference`, `best_time_to_reach`, `is_key_contact` (boolean), `is_ambassador` (boolean), `first_contact_notes`, `first_contact_at`
 - `app_id = fibre-learn` person fields: `learning_interests` (text[]), `prior_programmes` (text[]), `learning_style`, `group_role_tendency`, `development_goals`, `post_programme_reflection` (**Participant-owned**), `open_to_coaching`, `open_to_peer_exchange`
@@ -428,10 +428,10 @@ v0.4 introduces `person_app_profile` and `org_app_profile` as the *new* canonica
 2. Backfill `app_id` based on the field group's logical home:
    - `person_professional` → `fibre-platform` (general professional info accepted as platform-level for now; could be moved to a future "Fibre People" app)
    - `person_relationship_context` → `fibre-sales`
-   - `person_change_context` → `fibre-suite`
+   - `person_change_context` → `fibre-meet`
    - `person_learning` → `fibre-learn`
    - `org_identity` → `fibre-platform`
-   - `org_system_context` → `fibre-suite`
+   - `org_system_context` → `fibre-meet`
    - `org_relationship` → `fibre-sales`
 3. Update RLS policies so each curator table is only visible to users with `app_membership` for the table's `app_id`.
 4. The UI surfaces these fields under the relevant app's profile tab. Sections vanish when the workspace has no users for that app.

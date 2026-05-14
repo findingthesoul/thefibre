@@ -6,6 +6,11 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.4.6] — 2026-05-14
+
+### Changed
+- **Renamed Fibre Suite → Fibre Meet** across the entire codebase. Slug `fibre-suite` → `fibre-meet`, subdomain `suite.thefibre.app` → `meet.thefibre.app`, display label `Fibre Suite` → `Fibre Meet`. New migration `20260514120000_rename_fibre_suite_to_meet.sql` updates the `app` row and refreshes the `app.slug` CHECK constraint. All TypeScript type unions (`AppId`, `AppSlug`), the API `VALID_APP_IDS` set, `FORMAT_TO_APP_SLUG`, profile-routing helpers, dashboard `APP_DOMAINS`/`APP_NAMES`, settings, activity, contacts and organisation per-app tabs, redirect shims (`/contacts/[id]/change` and `/organisations/[id]/system-context` now point at `/app/fibre-meet`), the EBBF seed script, and the technical brief have all been updated. Historical migrations and the v0.3 brief are intentionally left as-is.
+
 ## [0.4.5] — 2026-05-15
 
 ### Added
@@ -33,7 +38,7 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 ### Added
 - **Programme + enrolment UI.** `/programmes` list, `/programmes/new` create form, `/programmes/[id]` detail with enrolments and Enrol-person dialog.
 - API: `GET /api/v1/programs/:id` (detail), `GET /api/v1/programs/:id/enrolments` (with person info).
-- `POST /api/v1/programs` now derives the owning app from the format (meeting → fibre-suite, event/journey → the-thread, *learn → fibre-learn) per brief §5 Domain 5.
+- `POST /api/v1/programs` now derives the owning app from the format (meeting → fibre-meet, event/journey → the-thread, *learn → fibre-learn) per brief §5 Domain 5.
 - Sidebar gets a new "Programmes" section with Programmes + Activity.
 
 ## [0.4.0] — 2026-05-14
@@ -42,7 +47,7 @@ Brief revised to v0.4. Two structural principles formalised: **per-app profile t
 
 ### Schema (additive — nothing dropped, all reversible)
 - Curator tables (`person_professional`, `person_relationship_context`, `person_change_context`, `person_learning`, `org_identity`, `org_system_context`, `org_relationship`) now carry an `app_id` FK declaring which app owns each row.
-- Backfilled with sensible defaults: person_professional → fibre-platform, person_change_context → fibre-suite, person_learning → fibre-learn, person_relationship_context → fibre-sales, org_identity → fibre-platform, org_system_context → fibre-suite, org_relationship → fibre-sales.
+- Backfilled with sensible defaults: person_professional → fibre-platform, person_change_context → fibre-meet, person_learning → fibre-learn, person_relationship_context → fibre-sales, org_identity → fibre-platform, org_system_context → fibre-meet, org_relationship → fibre-sales.
 - RLS rewritten to require `has_app_id(app_id)` — a user only sees curator rows for apps they have membership for. The principle is enforced at the database layer, not just the UI.
 
 ### API
@@ -236,12 +241,12 @@ The 10-step undo idea is deferred — see conversation. Save / cancel / delete s
 
 ### Added
 - **Activity timeline** (`/activity`) — workspace-wide event log with type and app filters, cursor pagination
-- **`fibre-platform` app slug** — the platform itself is now a registered app. Resolves the long-standing TODO of using `fibre-suite` as a placeholder.
+- **`fibre-platform` app slug** — the platform itself is now a registered app. Resolves the long-standing TODO of using `fibre-meet` as a placeholder.
 - **`user_created` events** — written automatically when a person is created (in the API). Backfilled for existing users.
 - API: `GET /api/v1/activities` now accepts either a UUID or a slug for `app_id` and joins the app name into responses
 
 ### Changed
-- `lib/api.ts` `PLATFORM_APP_ID` switched from `fibre-suite` to `fibre-platform`
+- `lib/api.ts` `PLATFORM_APP_ID` switched from `fibre-meet` to `fibre-platform`
 - `packages/shared` `APP_IDS` includes `fibre-platform`
 - API middleware `VALID_APP_IDS` includes `fibre-platform`
 

@@ -6,7 +6,7 @@
 
 export type AppSlug =
   | 'fibre-platform'
-  | 'fibre-suite'
+  | 'fibre-meet'
   | 'the-thread'
   | 'fibre-sales'
   | 'fibre-learn';
@@ -29,9 +29,9 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     personSubResources: ['professional'],
     orgSubResources: ['identity'],
   },
-  'fibre-suite': {
-    slug: 'fibre-suite',
-    label: 'Fibre Suite',
+  'fibre-meet': {
+    slug: 'fibre-meet',
+    label: 'Fibre Meet',
     personSubResources: ['change'],
     orgSubResources: ['system-context'],
   },
@@ -57,7 +57,7 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
 
 export const APP_ORDER: AppSlug[] = [
   'fibre-platform',
-  'fibre-suite',
+  'fibre-meet',
   'the-thread',
   'fibre-sales',
   'fibre-learn',

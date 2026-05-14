@@ -1,4 +1,4 @@
-export const APP_IDS = ['fibre-platform', 'fibre-suite', 'the-thread', 'fibre-sales', 'fibre-learn'] as const;
+export const APP_IDS = ['fibre-platform', 'fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
 export const PROGRAM_FORMATS = ['meeting', 'event', 'journey', 'self_paced', 'blended'] as const;
@@ -18,7 +18,7 @@ export const CONSENT_PURPOSES = [
 export type ConsentPurpose = (typeof CONSENT_PURPOSES)[number];
 
 export const ACTIVITY_TYPES = [
-  // Fibre Suite
+  // Fibre Meet
   'meeting_attended',
   'meeting_facilitated',
   'action_item_assigned',

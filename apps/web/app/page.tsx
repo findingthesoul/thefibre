@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { SignInButton } from './sign-in-button';
 
 const apps = [
-  { slug: 'fibre-suite', name: 'Fibre Suite', desc: 'Meeting platform — agenda, facilitation, outcomes.', status: 'Active' },
+  { slug: 'fibre-meet', name: 'Fibre Meet', desc: 'Meeting platform — agenda, facilitation, outcomes.', status: 'Active' },
   { slug: 'the-thread', name: 'The Thread', desc: 'Events and journeys — conferences and personal arcs.', status: 'Active' },
   { slug: 'fibre-sales', name: 'Fibre Sales', desc: 'Sales pipeline and account management.', status: 'Building' },
   { slug: 'fibre-learn', name: 'Fibre Learn', desc: 'Self-paced content — modules and assessments.', status: 'Planned' },

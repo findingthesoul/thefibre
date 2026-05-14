@@ -21,7 +21,7 @@ type Person = {
 
 const APP_LABEL: Record<string, string> = {
   'fibre-platform': 'Platform',
-  'fibre-suite': 'Fibre Suite',
+  'fibre-meet': 'Fibre Meet',
   'the-thread': 'The Thread',
   'fibre-sales': 'Fibre Sales',
   'fibre-learn': 'Fibre Learn',

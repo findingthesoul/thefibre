@@ -2,7 +2,7 @@
 // Seed realistic sample data for the default workspace.
 //
 // Worked example from brief §8: EBBF "Reorienting Towards Hope" Athens
-// conference, plus a follow-on journey, plus a Fibre Suite working session.
+// conference, plus a follow-on journey, plus a Fibre Meet working session.
 // A handful of people are added, linked to EBBF as members, enrolled in the
 // programmes, and have activity events spread across recent weeks.
 //
@@ -166,7 +166,7 @@ if (ebbfId) {
     log('  org_identity (created)');
   }
 
-  // EBBF system context (Fibre Suite owns this)
+  // EBBF system context (Fibre Meet owns this)
   const { data: existing2 } = await db
     .from('org_system_context')
     .select('id')
@@ -175,7 +175,7 @@ if (ebbfId) {
   if (!existing2) {
     await db.from('org_system_context').insert({
       org_id: ebbfId,
-      app_id: apps['fibre-suite'],
+      app_id: apps['fibre-meet'],
       transformation_stage: 'in_programme',
       active_change_themes: ['leadership for transformation', 'meaningful work'],
       strategic_priorities: 'Strengthen the annual conference programme; develop alumni journeys; deepen cohort connection.',
@@ -273,7 +273,7 @@ const journeyId = await upsertProgramme({
 const workingSessionId = await upsertProgramme({
   title: 'EBBF Board working session — March 2026',
   format: 'meeting',
-  ownerSlug: 'fibre-suite',
+  ownerSlug: 'fibre-meet',
   starts_on: '2026-03-12',
   ends_on: '2026-03-12',
   status: 'completed',
@@ -339,9 +339,9 @@ const ACTIVITY = [
   { person: 0, app: 'the-thread', type: 'programme_completed', subject: 'Completed: EBBF Athens 2026', when: 18 },
 
   // Working session
-  { person: 0, app: 'fibre-suite', type: 'meeting_facilitated', subject: 'Facilitated: EBBF Board working session — March', when: 64 },
-  { person: 2, app: 'fibre-suite', type: 'meeting_attended', subject: 'Attended: EBBF Board working session — March', when: 64 },
-  { person: 0, app: 'fibre-suite', type: 'action_item_assigned', subject: 'Action: Draft cohort design for post-Athens journey', when: 64 },
+  { person: 0, app: 'fibre-meet', type: 'meeting_facilitated', subject: 'Facilitated: EBBF Board working session — March', when: 64 },
+  { person: 2, app: 'fibre-meet', type: 'meeting_attended', subject: 'Attended: EBBF Board working session — March', when: 64 },
+  { person: 0, app: 'fibre-meet', type: 'action_item_assigned', subject: 'Action: Draft cohort design for post-Athens journey', when: 64 },
 
   // Journey starts
   { person: 0, app: 'the-thread', type: 'journey_step_completed', subject: 'Completed step: First reflection — Vertrouwen als de Basis', when: 7 },
@@ -387,7 +387,7 @@ if (personIds[0]) {
   if (!cc) {
     await db.from('person_change_context').insert({
       person_id: personIds[0],
-      app_id: apps['fibre-suite'],
+      app_id: apps['fibre-meet'],
       role_in_change: 'champion',
       stance_on_change: 'driving',
       readiness_level: 'driving',

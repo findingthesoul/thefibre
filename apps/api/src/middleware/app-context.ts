@@ -3,14 +3,14 @@ import { jwtVerify, createRemoteJWKSet } from 'jose';
 
 export type AppId =
   | 'fibre-platform'
-  | 'fibre-suite'
+  | 'fibre-meet'
   | 'the-thread'
   | 'fibre-sales'
   | 'fibre-learn';
 
 const VALID_APP_IDS: ReadonlySet<AppId> = new Set([
   'fibre-platform',
-  'fibre-suite',
+  'fibre-meet',
   'the-thread',
   'fibre-sales',
   'fibre-learn',

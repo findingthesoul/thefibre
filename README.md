@@ -9,7 +9,7 @@ The Fibre is a multi-tenant identity, contact, and relationship platform for a f
 | App | Slug | Domain | Status |
 |-----|------|--------|--------|
 | Landing | — | thefibre.app | Phase 1 |
-| Fibre Suite | `fibre-suite` | suite.thefibre.app | Phase 5 |
+| Fibre Meet | `fibre-meet` | meet.thefibre.app | Phase 5 |
 | The Thread | `the-thread` | thread.thefibre.app | Phase 5 |
 | Fibre Sales | `fibre-sales` | sales.thefibre.app | Phase 4 |
 | Fibre Learn | `fibre-learn` | learn.thefibre.app | Future |
@@ -20,7 +20,7 @@ The Fibre is a multi-tenant identity, contact, and relationship platform for a f
 apps/
   web/        Landing platform (Next.js, Vercel) — stateless, no personal data
   api/        Backend API (Hono/Fastify, Fly.io Frankfurt or Railway EU) — all PII
-  suite/      Fibre Suite frontend (future)
+  meet/       Fibre Meet frontend (future)
   thread/     The Thread frontend (future)
   sales/      Fibre Sales frontend (future)
 packages/

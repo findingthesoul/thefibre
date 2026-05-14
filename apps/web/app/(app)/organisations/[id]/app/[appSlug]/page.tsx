@@ -69,7 +69,7 @@ export default async function OrgAppTab({ params }: Props) {
 
   return (
     <>
-      {appSlug === 'fibre-suite' && (
+      {appSlug === 'fibre-meet' && (
         <SystemContextSection orgId={id} />
       )}
       {appSlug === 'fibre-sales' && (

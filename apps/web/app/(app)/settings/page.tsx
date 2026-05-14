@@ -26,7 +26,7 @@ type Me = {
 
 const APP_LABEL: Record<string, string> = {
   'fibre-platform': 'The Fibre Platform',
-  'fibre-suite': 'Fibre Suite',
+  'fibre-meet': 'Fibre Meet',
   'the-thread': 'The Thread',
   'fibre-sales': 'Fibre Sales',
   'fibre-learn': 'Fibre Learn',

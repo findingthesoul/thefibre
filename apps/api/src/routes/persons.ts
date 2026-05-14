@@ -156,7 +156,7 @@ personsRoutes.delete('/:id', async (c) => {
 async function upsertProfile<T extends Record<string, unknown>>(
   c: import('hono').Context,
   table: string,
-  appSlug: 'fibre-platform' | 'fibre-suite' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
+  appSlug: 'fibre-platform' | 'fibre-meet' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
   body: T,
 ) {
   const ctx = c.get('ctx');
@@ -284,7 +284,7 @@ personsRoutes.patch('/:id/change', async (c) => {
   const body = ChangeUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  return upsertProfile(c, 'person_change_context', 'fibre-suite', {
+  return upsertProfile(c, 'person_change_context', 'fibre-meet', {
     ...body.data,
     notes_updated_at: new Date().toISOString(),
     notes_updated_by: ctx.userId,
