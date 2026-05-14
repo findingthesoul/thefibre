@@ -30,10 +30,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     isSuperAdmin = !!me.user.is_super_admin;
-    isWorkspaceAdmin = me.memberships.some((m) => {
+    const explicitWorkspaceAdmin = me.memberships.some((m) => {
       const app = Array.isArray(m.app) ? m.app[0] : m.app;
       return app?.slug === 'fibre-platform' && m.role === 'admin';
     });
+    // Super admins govern everything, including workspace surfaces.
+    isWorkspaceAdmin = explicitWorkspaceAdmin || isSuperAdmin;
   } catch {
     // Stay non-admin if the API call fails — the admin pages still gate themselves.
   }

@@ -13,6 +13,7 @@ type Me = {
     primary_auth_method: string | null;
     last_sign_in: string | null;
     person_id: string | null;
+    is_super_admin?: boolean;
   };
   workspace: {
     id: string;
@@ -41,10 +42,11 @@ export default async function SettingsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const isWorkspaceAdmin =
+  const explicitAdmin =
     me?.memberships?.some(
       (m) => m.app.slug === 'fibre-platform' && m.role === 'admin',
     ) ?? false;
+  const isWorkspaceAdmin = explicitAdmin || !!me?.user.is_super_admin;
 
   return (
     <PageContainer max="4xl">

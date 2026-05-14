@@ -18,7 +18,7 @@ type WorkspaceApp = {
 };
 
 type Me = {
-  user: { id: string };
+  user: { id: string; is_super_admin?: boolean };
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 
@@ -67,11 +67,12 @@ export default async function WorkspaceAppsPage() {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
-  const isWorkspaceAdmin =
+  const explicitAdmin =
     me?.memberships?.some((m) => {
       const app = Array.isArray(m.app) ? m.app[0] : m.app;
       return app?.slug === 'fibre-platform' && m.role === 'admin';
     }) ?? false;
+  const isWorkspaceAdmin = explicitAdmin || !!me?.user.is_super_admin;
 
   if (me && !isWorkspaceAdmin) {
     // Settings → Apps is admin-only. Non-admins go back to Settings.
