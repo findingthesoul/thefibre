@@ -1,9 +1,18 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient } from '../db.js';
-import { PROGRAM_FORMATS, ENROLMENT_STATUSES } from '@thefibre/shared';
+import { PROGRAM_FORMATS, ENROLMENT_STATUSES, type ProgramFormat } from '@thefibre/shared';
 
 export const programsRoutes = new Hono();
+
+// Brief §3 + §5 Domain 5: each format belongs to a specific app.
+const FORMAT_TO_APP_SLUG: Record<ProgramFormat, string> = {
+  meeting: 'fibre-suite',
+  event: 'the-thread',
+  journey: 'the-thread',
+  self_paced: 'fibre-learn',
+  blended: 'fibre-learn',
+};
 
 programsRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
@@ -30,12 +39,14 @@ programsRoutes.post('/', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
+  // Derive the owning app from the format (brief §5 Domain 5).
+  const ownerSlug = FORMAT_TO_APP_SLUG[body.data.format];
   const { data: app, error: appErr } = await db
     .from('app')
     .select('id')
-    .eq('slug', ctx.appId)
+    .eq('slug', ownerSlug)
     .single();
-  if (appErr || !app) return c.json({ error: 'app not found' }, 500);
+  if (appErr || !app) return c.json({ error: `owning app not found: ${ownerSlug}` }, 500);
 
   const { data, error } = await db
     .from('program')
@@ -49,8 +60,35 @@ programsRoutes.post('/', async (c) => {
     })
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[programs.create] failed', { body: body.data, error });
+    return c.json({ error: error.message }, 500);
+  }
   return c.json(data, 201);
+});
+
+programsRoutes.get('/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('program')
+    .select('id, title, format, status, starts_on, ends_on, created_at, app:app_id (slug, name)')
+    .eq('id', c.req.param('id'))
+    .single();
+  if (error) return c.json({ error: error.message }, 404);
+  return c.json(data);
+});
+
+programsRoutes.get('/:id/enrolments', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('enrolment')
+    .select('id, status, progress_pct, enrolled_at, completed_at, person:person_id (id, first_name, last_name, email)')
+    .eq('program_id', c.req.param('id'))
+    .order('enrolled_at', { ascending: false, nullsFirst: false });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
 });
 
 const EnrolmentCreate = z.object({

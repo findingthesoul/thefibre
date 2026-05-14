@@ -11,6 +11,7 @@ import {
   Shield,
   HelpCircle,
   Settings,
+  CalendarRange,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -30,8 +31,11 @@ const NAV: NavSection[] = [
     ],
   },
   {
-    label: 'Intelligence',
-    items: [{ href: '/activity', label: 'Activity', icon: Activity }],
+    label: 'Programmes',
+    items: [
+      { href: '/programmes', label: 'Programmes', icon: CalendarRange },
+      { href: '/activity', label: 'Activity', icon: Activity },
+    ],
   },
   {
     label: 'Workspace',
