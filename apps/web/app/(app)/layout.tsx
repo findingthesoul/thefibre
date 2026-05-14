@@ -4,7 +4,7 @@ import { readPrefs } from '@/lib/prefs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 
-const VERSION = '0.4.0';
+const VERSION = '0.4.4';
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const supabase = await serverSupabase();
