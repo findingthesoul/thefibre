@@ -24,6 +24,22 @@ What's clear in retrospect: building more contact-graph fields without populatin
 
 ---
 
+## Profile redesign — pending (proposed at end of v0.3.x)
+
+Sjoerd's idea: the four static profile tabs (Professional / Relationship / Change / Learning) collapse into **one "Fibre / Profile" tab**, and a person's profile grows **one tab per app they've interacted with** (The Thread, Fibre Suite, Fibre Sales, Fibre Learn). Tabs appear only when there's data — emergent from interaction, not predefined.
+
+This matches brief §1's "living portrait" framing better than the current curator-centric structure. Honours the data wall: per-app tabs read only from `enrolment` + `activity` (filtered by `app_id`), never from another app's content schema.
+
+Build order:
+1. Collapse current 4 tabs into accordion sections of a "Profile" tab — no schema change; RLS-sensitive fields (`facilitator_notes`, `post_programme_reflection`) stay in their own tables.
+2. Dynamic per-app tabs: union of (a) `app_membership` rows for this person, (b) `app_id`s with activity events for this person, (c) apps with `enrolment` rows. Render one tab per app present.
+3. Per-app tab content: enrolments + activity events filtered by `app_id`. Sales tab gated by viewer's own `has_app_membership('fibre-sales')`.
+4. Mirror for organisations.
+
+This also partially solves the empty-state feel — even before delivery-app frontends exist, any activity event written to the platform appears in the right app tab.
+
+---
+
 ## Now — the next thing to ship
 
 The platform isn't reachable at `thefibre.app` yet. Everything else is secondary until that's fixed.
