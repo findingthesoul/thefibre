@@ -41,6 +41,7 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/auth/login',
   '/api/v1/auth/refresh',
   '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
+  '/api/v1/sso/access-check', // same — server-to-server, secret-gated
   '/api/v1/signup-requests', // POST only — applicants have no account yet
 ]);
 
