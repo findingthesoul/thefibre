@@ -1,7 +1,7 @@
 # The Fibre — Technical Briefing
 **Version:** 0.4
 **Supersedes:** v0.3 (kept in repo for traceability)
-**Owner:** Sjoerd / Soul.com / One Soul Community Coöperatief U.A.
+**Owner:** Sjoerd / Solidarity Lab B.V.
 **Domain:** thefibre.app
 **Purpose:** Reference document for Claude Code implementation
 **Changes from v0.3:** Two structural principles formalised — per-app profile tabs (§2 + §6) and *the app justifies the field* (§5 + §10). Curator-data tables (`person_professional`, `person_change_context`, `person_learning`, `org_identity`, `org_system_context`, `person_relationship_context`, `org_relationship`) are now app-owned via an `app_id` foreign key — they remain in the platform schema for storage and RLS, but each row is justified by a specific app. The platform itself only owns identity, contact graph (person + org core), enrolment state, activity events, and consent.

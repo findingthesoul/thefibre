@@ -42,8 +42,8 @@ export default function LandingPage() {
             body="Each app keeps its own content. Only short event records (“meeting attended”, “session completed”) cross the wall. Sensitive notes never leave."
           />
           <Feature
-            title="Cooperatively owned"
-            body="One Soul Community Coöperatief U.A. — members are users. No advertising, no profiling, no third-party trackers."
+            title="Independently owned"
+            body="Solidarity Lab B.V. — built to last, not to flip. No advertising, no profiling, no third-party trackers."
           />
         </section>
 
@@ -61,7 +61,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          thefibre.app · One Soul Community Coöperatief U.A. · Hosted in the EU
+          thefibre.app · Solidarity Lab B.V. · Hosted in the EU
           <br />
           No advertising. No profiling. No data sold.{' '}
           <Link className="underline" href="/privacy">
