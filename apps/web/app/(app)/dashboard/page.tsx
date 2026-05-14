@@ -28,11 +28,16 @@ type Activity = {
 type Programme = { id: string; title: string; format: string; status: string; starts_on: string | null; ends_on: string | null };
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 type Org = { id: string; name: string };
+type AppRef = { slug: string; name: string; base_url: string | null };
 type WorkspaceApp = {
   id: string;
   deactivated_at: string | null;
-  app: { slug: string; name: string; base_url: string | null } | null;
+  app: AppRef | AppRef[] | null;
 };
+function appOf(w: WorkspaceApp): AppRef | null {
+  if (!w.app) return null;
+  return Array.isArray(w.app) ? w.app[0] ?? null : w.app;
+}
 
 export default async function Dashboard() {
   const supabase = await serverSupabase();
@@ -68,8 +73,8 @@ export default async function Dashboard() {
 
   const activeAppSlugs = new Set(
     (workspaceApps?.items ?? [])
-      .filter((w) => !w.deactivated_at && w.app?.slug)
-      .map((w) => w.app!.slug),
+      .map((w) => (!w.deactivated_at ? appOf(w)?.slug : null))
+      .filter((s): s is string => !!s),
   );
 
   const activeProgrammes = (programmes?.items ?? []).filter((p) => p.status === 'active' || p.status === 'draft');

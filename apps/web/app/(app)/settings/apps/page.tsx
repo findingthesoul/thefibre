@@ -9,13 +9,21 @@ import {
 } from '@/components/ui/page';
 import { AppToggle } from './toggle';
 
+type AppRef = { slug: string; name: string; base_url: string | null };
 type WorkspaceApp = {
   id: string;
   app_id: string;
   activated_at: string;
   deactivated_at: string | null;
-  app: { slug: string; name: string; base_url: string | null } | null;
+  // PostgREST returns embedded FKs as either an object or a single-element array,
+  // depending on relationship inference. Handle both.
+  app: AppRef | AppRef[] | null;
 };
+
+function appOf(w: WorkspaceApp): AppRef | null {
+  if (!w.app) return null;
+  return Array.isArray(w.app) ? w.app[0] ?? null : w.app;
+}
 
 type Me = {
   user: { id: string; is_super_admin?: boolean };
@@ -87,7 +95,7 @@ export default async function WorkspaceAppsPage() {
   }
 
   const installedBySlug = new Map(
-    installed.map((w) => [w.app?.slug ?? '', w] as const),
+    installed.map((w) => [appOf(w)?.slug ?? '', w] as const),
   );
 
   return (
