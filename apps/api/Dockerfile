@@ -17,25 +17,23 @@ COPY packages/shared/src/ packages/shared/src/
 # Install all deps (workspace)
 RUN pnpm install --frozen-lockfile
 
+# Build shared first so its dist/ exists when api imports from it
+RUN pnpm --filter @thefibre/shared build
+
 # Copy api source and build
 COPY apps/api/src/ apps/api/src/
 RUN pnpm --filter @thefibre/api build
 
+# Produce a self-contained deploy folder (resolves workspace:* deps,
+# strips devDependencies). Lives at /deploy.
+RUN pnpm --filter @thefibre/api deploy --prod /deploy
+
 # ----- Runtime stage ------------------------------------------------------
 FROM node:22-alpine AS runtime
 
-RUN corepack enable && corepack prepare pnpm@9.12.0 --activate
-
 WORKDIR /app
 
-# Bring over just the things needed at runtime
-COPY --from=build /repo/apps/api/dist ./dist
-COPY --from=build /repo/apps/api/package.json ./package.json
-COPY --from=build /repo/packages/shared/src ./node_modules/@thefibre/shared/src
-COPY --from=build /repo/packages/shared/package.json ./node_modules/@thefibre/shared/package.json
-
-# Production-only deps (the tsc-compiled dist still needs these runtime libs)
-RUN pnpm install --prod --no-frozen-lockfile
+COPY --from=build /deploy /app
 
 ENV NODE_ENV=production
 ENV API_PORT=8080
