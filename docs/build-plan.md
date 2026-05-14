@@ -5,14 +5,15 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.4.3**. Per-app profile tabs and data-minimisation are live. Realistic seed data is in. Deploy config is ready — just needs Sjoerd to run [`docs/deploy.md`](deploy.md).
+Current version: **v0.4.8**. Live in production at https://thefibre.app (web on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
 
 ---
 
-## Now — the only thing blocking public visibility
+## Now — closing the post-deploy loop
 
-- [ ] **Run [`docs/deploy.md`](deploy.md)** — ~15 min. Vercel deploy fix (framework preset Next.js, root `apps/web`), env vars, custom domain. Then Fly.io deploy for the API.
-- [ ] **Wire OAuth redirect URLs in Supabase** to include the production domains once Vercel deploy is green.
+- [ ] **Tighten CORS** in `apps/api/src/server.ts` — currently allows any origin. Restrict to the production web origins before opening to outside traffic.
+- [ ] **Custom API domain** — `fly certs add api.thefibre.app --config fly.toml`, add the CNAME at the registrar, then update Vercel's `NEXT_PUBLIC_API_BASE_URL` and redeploy. (Web is already at `thefibre.app`.)
+- [ ] **Supabase Auth redirect URLs** — confirm `https://thefibre.app/**` and `https://*.thefibre.app/**` are listed (sign-in already works, so likely fine — verify).
 
 ---
 
@@ -103,6 +104,9 @@ Current version: **v0.4.3**. Per-app profile tabs and data-minimisation are live
 - **Next.js dev server + rapid file changes** (parallel agents): every route 500s. Fix: `Ctrl+C` and restart `pnpm dev` after a parallel batch.
 - **Server Components + cookie writes:** Next.js 15 forbids cookie writes outside Route Handlers / Server Actions. Wrap Supabase SSR's `setAll` in try/catch.
 - **`activity` has no `organisation_id`** — org per-app tabs render their curator section but EmptyState the timeline. Future fix via join through `org_membership`.
+- **Workspace packages must emit compiled JS.** `@thefibre/shared` used to point `main` at `src/index.ts`; this works under tsx (dev) but Node 22 in production refuses to strip types from files under `node_modules`. Fix: emit a `dist/`, point `main` at it, and use the pnpm topological filter (`--filter @thefibre/web... build`) so consumers' build commands build deps first. (Fixed v0.4.8.)
+- **Supabase migrations are tracked by filename, not checksum.** Editing an already-applied migration is a no-op on remote. Write a fresh migration (with a new timestamp) to re-apply. (Hit this for the relax-NOT-NULL change; see `20260514140000_relax_text_arrays_again.sql`.)
+- **Fly machine leases can stall a redeploy** if an earlier deploy half-completed and the lease is held by a different (now-expired-on-our-end) token. `--force destroy` won't release it. Wait for the lease to expire (~15 min), then redeploy. The new deploy succeeds cleanly.
 
 ---
 

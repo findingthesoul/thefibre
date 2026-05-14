@@ -71,43 +71,54 @@ Worktree isolation isn't available in this repo — agents share the working dir
 ### Gotchas (from hard-won experience)
 
 - Supabase migration filenames need 14-digit timestamps. Shorter prefixes collide same-day.
+- Supabase tracks applied migrations by filename, not checksum. Editing a previously-applied migration file is a no-op on remote — write a fresh migration to re-apply changes (see `20260514140000_relax_text_arrays_again.sql` for an example).
 - `custom_access_token_hook` must be enabled in the Supabase dashboard. Without it, RLS denies everything authenticated.
 - JWT `sub` is `auth.users.id` — NOT `public.user.id`. Use the `app_user_id` claim (added v0.3.8) for any FK to `user(id)`. The hook injects this.
 - text[] and integer counters that were `NOT NULL DEFAULT` are now nullable so the UI can clear them.
 - `revalidatePath` from a server action doesn't auto-refresh the client route in this flow. Call `router.refresh()` from the dialog after a successful save (added v0.3.11).
 - `userClient` MUST use the anon key as base apikey, not the service-role key. Otherwise PostgREST elevates to service_role and ignores the user JWT for RLS (fixed v0.3.6).
 - After parallel agent runs, the Next.js dev server can wedge. Kill + restart.
+- `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
+- Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## State as of v0.4.3 (end of seeding + deploy-config session)
+## State as of v0.4.8 (live in production)
+
+### Live URLs
+- **Web** — https://thefibre.app (Vercel, fra1) and the project's preview deployments
+- **API** — https://thefibre-api.fly.dev (Fly.io, fra region, 1 shared-cpu-1x 1GB machine)
+- **DB + Auth** — Supabase project `zfsyyokepyycefbxiblc`, West EU (Ireland)
+- Google OAuth signed-in user (sjoerd@soul.com) hits the real API; RLS scopes data; the 8 seeded contacts render.
 
 ### What works end-to-end
 - Sign in via Google → land on dashboard → see your apps
 - Contacts (8 seeded people) → click one → Overview + Profile + per-app tabs that exist (Fibre Meet, Fibre Sales, Fibre Learn — emergent from actual data)
-- Edit basic identity, edit per-app curator data. All saves persist.
-- Organisations → EBBF → Overview + members + per-app tabs
+- Edit basic identity (with searchable country picker, address, language), edit per-app curator data. All saves persist.
+- Organisations → EBBF → Overview + members + per-app tabs (including invoicing on Fibre Sales)
 - Programmes (3 seeded: Athens, post-Athens journey, board session) → enrol people → see enrolment list with status + progress
 - Workspace-wide Activity timeline (~21 events across 90 days), filterable by app + type
 - Privacy page (consents + erasure request)
 - Settings page (profile + workspace + app memberships)
 
 ### Not yet shipped
-- **Public deploy.** Configs are in place (`vercel.json`, `apps/api/Dockerfile`, `apps/api/fly.toml`). Run [`docs/deploy.md`](docs/deploy.md) — ~15 min. **This is the single biggest gap.**
 - The four delivery-app frontends (meet.thefibre.app, thread.thefibre.app, sales.thefibre.app, learn.thefibre.app).
 - Article 15 export, retention policy admin, cross-app erasure webhook handlers.
 - Activity filter by `organisation_id` (only person_id today — org per-app tab timelines render EmptyState).
 - Microsoft / LinkedIn OAuth.
+- Custom `api.thefibre.app` CNAME (API is reachable at `thefibre-api.fly.dev` for now).
+- Tightened CORS on the API — currently allows any origin (`apps/api/src/server.ts`).
 
 ### Data state
 Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample people, 1 org (EBBF), 3 programmes, ~11 enrolments, ~21 activity events.
 
 ## Suggested next moves (in priority order)
 
-1. **Deploy.** Follow [`docs/deploy.md`](docs/deploy.md). ~15 minutes. Public URL changes the feeling of the product from "side project" to "real thing".
-2. **Activity filter by organisation_id.** Small API + UI change; unblocks org tab timelines.
-3. **One delivery app frontend.** Pick The Thread (best-specified). A real `thread.thefibre.app` that writes `session_attended` events back through the platform demonstrates the full architecture.
-4. **Microsoft + LinkedIn OAuth.** Supabase Auth config; new `user_identity_provider` rows. Trivial.
-5. **Article 15 export.** GDPR table-stakes; the data is all there.
-6. **Tags + person↔person relationships UI.**
+1. **One delivery app frontend.** Pick The Thread (best-specified). A real `thread.thefibre.app` that writes `session_attended` events back through the platform demonstrates the full architecture.
+2. **Tighten CORS** on the API to the production web origins before opening to outside traffic. One line in `apps/api/src/server.ts`.
+3. **Custom API domain.** `fly certs add api.thefibre.app --config fly.toml` + a CNAME at the registrar, then update Vercel's `NEXT_PUBLIC_API_BASE_URL`.
+4. **Activity filter by organisation_id.** Small API + UI change; unblocks org tab timelines.
+5. **Microsoft + LinkedIn OAuth.** Supabase Auth config; new `user_identity_provider` rows.
+6. **Article 15 export.** GDPR table-stakes; the data is all there.
+7. **Tags + person↔person relationships UI.**
 
 ## Reviewer's note
 
