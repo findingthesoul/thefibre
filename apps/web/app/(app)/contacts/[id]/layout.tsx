@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
 import { TabNav } from '@/components/ui/tabs';
+import { APPS, APP_ORDER, isAppSlug } from '@/lib/apps';
 import { ContactActions, type EditablePerson } from './contact-actions';
 
 export default async function ContactLayout({
@@ -21,6 +22,18 @@ export default async function ContactLayout({
     throw e;
   }
 
+  let appSlugs: string[] = [];
+  try {
+    const r = await apiFetch<{ apps: string[] }>(`/api/v1/persons/${id}/apps`);
+    appSlugs = r.apps;
+  } catch {
+    // Non-fatal — no app tabs if endpoint fails.
+  }
+
+  const orderedApps = APP_ORDER.filter(
+    (slug) => appSlugs.includes(slug) && isAppSlug(slug),
+  );
+
   const fullName =
     [person.first_name, person.last_name].filter(Boolean).join(' ') ||
     person.email ||
@@ -28,10 +41,13 @@ export default async function ContactLayout({
 
   const tabs = [
     { href: `/contacts/${id}`, label: 'Overview' },
-    { href: `/contacts/${id}/professional`, label: 'Professional' },
-    { href: `/contacts/${id}/relationship`, label: 'Relationship' },
-    { href: `/contacts/${id}/change`, label: 'Change context' },
-    { href: `/contacts/${id}/learning`, label: 'Learning' },
+    { href: `/contacts/${id}/profile`, label: 'Profile' },
+    ...orderedApps
+      .filter((slug) => slug !== 'fibre-platform')
+      .map((slug) => ({
+        href: `/contacts/${id}/app/${slug}`,
+        label: APPS[slug].label,
+      })),
   ];
 
   return (

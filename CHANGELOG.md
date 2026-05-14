@@ -6,6 +6,31 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.4.0] — 2026-05-14
+
+Brief revised to v0.4. Two structural principles formalised: **per-app profile tabs** and **the app justifies the field** (GDPR Article 5(1)(c) data minimisation).
+
+### Schema (additive — nothing dropped, all reversible)
+- Curator tables (`person_professional`, `person_relationship_context`, `person_change_context`, `person_learning`, `org_identity`, `org_system_context`, `org_relationship`) now carry an `app_id` FK declaring which app owns each row.
+- Backfilled with sensible defaults: person_professional → fibre-platform, person_change_context → fibre-suite, person_learning → fibre-learn, person_relationship_context → fibre-sales, org_identity → fibre-platform, org_system_context → fibre-suite, org_relationship → fibre-sales.
+- RLS rewritten to require `has_app_id(app_id)` — a user only sees curator rows for apps they have membership for. The principle is enforced at the database layer, not just the UI.
+
+### API
+- PATCH endpoints stamp the correct `app_id` server-side based on the endpoint.
+- New: `GET /api/v1/persons/:id/apps` and `GET /api/v1/organisations/:id/apps` — returns the set of app slugs that have data on this entity (curator rows + activity events for persons). The UI uses this to render dynamic per-app tabs.
+
+### UI
+- Person profile now has: **Overview** → **Profile** (identity fields + Professional curator section) → one tab per app that has data.
+- Organisation profile mirrors: **Overview** (basic identity + members) → **Profile** (org_identity curator) → per-app tabs.
+- Old sub-routes are now redirect shims so existing bookmarks still work.
+- `apps/web/lib/apps.ts` is the catalogue mapping each app slug → label and which curator sub-resources it owns.
+
+### How this was built
+Foundation by me sequentially. Two parallel sub-agents then refactored person and org profile pages on disjoint folders. Combined typecheck clean.
+
+### Known gap (deferred)
+- Activities filter by `organisation_id` isn't supported yet (`activity` schema only has `person_id`). Per-app org tabs render curator section + EmptyState for timeline. Future: join through `org_membership`.
+
 ## [0.3.11] — 2026-05-14
 
 ### Fixed

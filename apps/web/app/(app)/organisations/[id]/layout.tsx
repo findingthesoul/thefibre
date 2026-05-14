@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
 import { TabNav } from '@/components/ui/tabs';
+import { APPS, APP_ORDER, isAppSlug } from '@/lib/apps';
 import { OrgActions, type EditableOrg } from './org-actions';
 
 export default async function OrgLayout({
@@ -21,11 +22,27 @@ export default async function OrgLayout({
     throw e;
   }
 
+  let appSlugs: string[] = [];
+  try {
+    const r = await apiFetch<{ apps: string[] }>(`/api/v1/organisations/${id}/apps`);
+    appSlugs = r.apps;
+  } catch {
+    // Non-fatal — no app tabs if endpoint fails.
+  }
+
+  const orderedApps = APP_ORDER.filter(
+    (slug) => appSlugs.includes(slug) && isAppSlug(slug),
+  );
+
   const tabs = [
     { href: `/organisations/${id}`, label: 'Overview' },
-    { href: `/organisations/${id}/identity`, label: 'Identity' },
-    { href: `/organisations/${id}/system-context`, label: 'System context' },
-    { href: `/organisations/${id}/relationship`, label: 'Relationship' },
+    { href: `/organisations/${id}/profile`, label: 'Profile' },
+    ...orderedApps
+      .filter((slug) => slug !== 'fibre-platform')
+      .map((slug) => ({
+        href: `/organisations/${id}/app/${slug}`,
+        label: APPS[slug].label,
+      })),
   ];
 
   return (
