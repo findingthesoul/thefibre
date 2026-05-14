@@ -1,0 +1,63 @@
+# Fly.io config for The Fibre API.
+#
+# IMPORTANT: build context MUST be the repo root (the Dockerfile copies
+# pnpm-workspace.yaml, packages/shared, etc.). All commands below are run
+# from the repo root, passing this config file explicitly.
+#
+# First-time setup (from repo root):
+#   fly launch --name thefibre-api --region fra --no-deploy --copy-config \
+#              --config apps/api/fly.toml --dockerfile apps/api/Dockerfile
+#   fly secrets set --config apps/api/fly.toml \
+#     NEXT_PUBLIC_SUPABASE_URL="https://zfsyyokepyycefbxiblc.supabase.co" \
+#     NEXT_PUBLIC_SUPABASE_ANON_KEY="..." \
+#     SUPABASE_SERVICE_ROLE_KEY="..." \
+#     SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
+#   fly deploy --config apps/api/fly.toml
+#
+# Subsequent deploys (from repo root):
+#   fly deploy --config apps/api/fly.toml
+
+app = "thefibre-api"
+primary_region = "fra"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[[services]]
+  internal_port = 8080
+  protocol = "tcp"
+  auto_stop_machines = "stop"
+  auto_start_machines = true
+  min_machines_running = 0
+
+  [[services.ports]]
+    port = 80
+    handlers = ["http"]
+    force_https = true
+
+  [[services.ports]]
+    port = 443
+    handlers = ["tls", "http"]
+
+  [services.concurrency]
+    type = "requests"
+    hard_limit = 200
+    soft_limit = 100
+
+  [[services.tcp_checks]]
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+[[services.http_checks]]
+  interval = "30s"
+  timeout = "3s"
+  grace_period = "10s"
+  method = "get"
+  path = "/health"
+
+[env]
+  API_PORT = "8080"
+
+[deploy]
+  release_command = "echo 'Migrations are pushed manually via supabase CLI from the dev machine — see docs.'"
