@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
+import { buildAppList } from '@/lib/available-apps';
 
 const VERSION = '0.5.2';
 
@@ -54,12 +55,22 @@ export default async function MeetAppLayout({
   const prefs = await readPrefs();
   const email = me.user.email;
   const fullName = me.user.full_name ?? email;
+  const switcherApps = buildAppList({
+    memberships: me.memberships,
+    workspaceApps: apps,
+  });
 
   return (
     <div className="h-screen flex bg-surface">
       <Sidebar mode={prefs.sidebar} version={VERSION} />
       <div className="flex-1 flex flex-col min-w-0">
-        <Topbar email={email} fullName={fullName} prefs={prefs} />
+        <Topbar
+          email={email}
+          fullName={fullName}
+          prefs={prefs}
+          current={{ slug: 'fibre-meet', name: 'Fibre Meet' }}
+          apps={switcherApps}
+        />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>
