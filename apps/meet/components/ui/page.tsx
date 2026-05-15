@@ -9,7 +9,9 @@ export function PageContainer({ children, max = '5xl' }: { children: ReactNode; 
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
   };
-  return <div className={`mx-auto ${MAX[max]} px-8 py-10`}>{children}</div>;
+  // Left-aligned to sit close to the sidebar (matches Suite). Content sits at
+  // a fixed offset rather than being centered in the viewport.
+  return <div className={`${MAX[max]} px-10 py-10`}>{children}</div>;
 }
 
 export function PageHeader({

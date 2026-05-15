@@ -1,13 +1,15 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   User,
   Users,
   Repeat,
   UsersRound,
   Plus,
+  CalendarPlus,
+  ListChecks,
   type LucideIcon,
 } from 'lucide-react';
 
@@ -21,6 +23,7 @@ type EventTypeOption = {
   Icon: LucideIcon;
   teamOnly: boolean;
   disabled?: boolean;
+  group?: 'event' | 'more';
 };
 
 const EVENT_TYPES: EventTypeOption[] = [
@@ -56,6 +59,26 @@ const EVENT_TYPES: EventTypeOption[] = [
     desc: 'Panel interviews, group sales calls.',
     Icon: UsersRound,
     teamOnly: true,
+  },
+  {
+    value: 'one_off',
+    label: 'One-off meeting',
+    sub: 'A single time, outside your schedule',
+    desc: 'Offer a single time outside your normal schedule.',
+    Icon: CalendarPlus,
+    teamOnly: false,
+    disabled: true,
+    group: 'more',
+  },
+  {
+    value: 'poll',
+    label: 'Meeting poll',
+    sub: 'Invitees vote on a time',
+    desc: 'Let invitees vote on a time to meet.',
+    Icon: ListChecks,
+    teamOnly: false,
+    disabled: true,
+    group: 'more',
   },
 ];
 
@@ -98,7 +121,7 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
             Event type
           </div>
           <ul className="divide-y divide-line">
-            {EVENT_TYPES.map((opt) => {
+            {EVENT_TYPES.map((opt, i) => {
               const isDisabled = opt.disabled;
               const needsTeam = opt.teamOnly && leadTeams.length === 0;
               const muted = isDisabled || needsTeam;
@@ -110,8 +133,19 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
                   window.location.href = hrefFor(opt.value);
                 }
               };
+              const prev = i > 0 ? EVENT_TYPES[i - 1] : null;
+              const isFirstOfMore =
+                opt.group === 'more' && prev?.group !== 'more';
               return (
-                <li key={opt.value}>
+                <Fragment key={opt.value}>
+                  {isFirstOfMore && (
+                    <li className="bg-surface-sunken">
+                      <div className="px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+                        More ways to meet
+                      </div>
+                    </li>
+                  )}
+                <li>
                   <button
                     type="button"
                     disabled={muted}
@@ -153,6 +187,7 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
                     </div>
                   )}
                 </li>
+                </Fragment>
               );
             })}
           </ul>
