@@ -3,7 +3,8 @@
 import { useActionState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
-import { TextField, TextAreaField } from '@/components/ui/field';
+import { TextAreaField } from '@/components/ui/field';
+import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { createTeam, updateTeam, type SaveResult } from './actions';
 
 export type TeamFormValues = {
@@ -24,18 +25,12 @@ export function TeamForm({ initial }: { initial: TeamFormValues }) {
 
   return (
     <form action={formAction} className="space-y-5 max-w-2xl">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextField label="Team name" name="name" defaultValue={initial.name ?? ''} required />
-        <TextField
-          label="URL slug"
-          name="slug"
-          defaultValue={initial.slug ?? ''}
-          placeholder="my-team"
-          pattern="[a-z0-9-]+"
-          required
-          hint="meet.thefibre.app/<this>"
-        />
-      </div>
+      <NameAndSlugFields
+        nameLabel="Team name"
+        initialName={initial.name ?? ''}
+        initialSlug={initial.slug ?? ''}
+        slugHint="meet.thefibre.app/<this>"
+      />
       <TextAreaField
         label="Description"
         name="description"

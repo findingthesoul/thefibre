@@ -4,6 +4,7 @@ import { useActionState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
+import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { createMeetingType, updateMeetingType, type SaveResult } from './actions';
 
 export type MeetingTypeFormValues = {
@@ -63,18 +64,12 @@ export function MeetingTypeForm({
           hint="Personal types live at /your-handle/<slug>. Team types live at /team-slug/<slug>."
         />
       )}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextField label="Name" name="name" defaultValue={initial.name ?? ''} required />
-        <TextField
-          label="URL slug"
-          name="slug"
-          defaultValue={initial.slug ?? ''}
-          placeholder="intro"
-          pattern="[a-z0-9-]+"
-          required
-          hint="meet.thefibre.app/your-handle/<this>"
-        />
-      </div>
+      <NameAndSlugFields
+        nameLabel="Name"
+        initialName={initial.name ?? ''}
+        initialSlug={initial.slug ?? ''}
+        slugHint="meet.thefibre.app/your-handle/<this>"
+      />
 
       <TextAreaField
         label="Description"
