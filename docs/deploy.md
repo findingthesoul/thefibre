@@ -53,6 +53,10 @@ Once the deploy is green:
 
 ### One-time setup (run all commands **from the repo root**)
 
+The canonical `fly.toml` lives **at the repo root** — Fly resolves the
+Dockerfile path relative to fly.toml's directory, and the monorepo
+Dockerfile needs the repo root as build context.
+
 ```bash
 # Create the app (Frankfurt region, no managed Postgres — we use Supabase)
 fly launch \
@@ -60,18 +64,21 @@ fly launch \
   --region fra \
   --no-deploy \
   --copy-config \
-  --config apps/api/fly.toml \
   --dockerfile apps/api/Dockerfile
 
 # Set secrets — pulls from your local apps/api/.env
-fly secrets set --config apps/api/fly.toml \
+fly secrets set \
   NEXT_PUBLIC_SUPABASE_URL="https://zfsyyokepyycefbxiblc.supabase.co" \
   NEXT_PUBLIC_SUPABASE_ANON_KEY="<paste from Supabase dashboard>" \
   SUPABASE_SERVICE_ROLE_KEY="<paste from Supabase dashboard>" \
+  GOOGLE_CLIENT_ID="<paste from Supabase Auth → Google provider>" \
+  GOOGLE_CLIENT_SECRET="<paste from Supabase Auth → Google provider>" \
+  RESEND_API_KEY="<paste from Resend dashboard>" \
+  EMAIL_FROM="The Fibre <noreply@thefibre.app>" \
   SSO_INTERNAL_SECRET="$(openssl rand -hex 32)"
 
 # First deploy
-fly deploy --config apps/api/fly.toml
+fly deploy --remote-only
 ```
 
 After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl https://thefibre-api.fly.dev/health` → `{"ok":true}`.
@@ -79,13 +86,14 @@ After this the API is at `https://thefibre-api.fly.dev`. Health check: `curl htt
 ### Subsequent deploys
 
 ```bash
-fly deploy --config apps/api/fly.toml
+# from the repo root
+fly deploy --remote-only
 ```
 
 ### Custom domain
 
 ```bash
-fly certs add api.thefibre.app --config apps/api/fly.toml
+fly certs add api.thefibre.app
 # Add the CNAME record Fly gives you at your registrar
 ```
 
@@ -123,5 +131,5 @@ If the dashboard shows "Not linked to a workspace" or you get redirected back to
 ## Roll-back
 
 Vercel: Deployments tab → previous deployment → "Promote to Production".
-Fly: `fly releases --config apps/api/fly.toml` then `fly deploy --image <previous>`.
+Fly: `fly releases` then `fly deploy --image <previous>`.
 Supabase: every schema change is a migration file in `supabase/migrations/`. To roll back, write an inverse migration (we don't auto-roll because every shipped version is meant to be additive — see brief §13).
