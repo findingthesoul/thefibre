@@ -30,6 +30,71 @@ function meetAppUrl(): string {
   return process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
 }
 
+// ---------------------------------------------------------------------------
+// Identity helpers — every workspace user must have a paired person row in
+// the platform contact graph (brief §2). These helpers keep that invariant.
+// ---------------------------------------------------------------------------
+
+function splitName(full: string | null): { first: string | null; last: string | null } {
+  if (!full) return { first: null, last: null };
+  const parts = full.trim().split(/\s+/);
+  const first = parts[0] ?? null;
+  const last = parts.length > 1 ? parts.slice(1).join(' ') : null;
+  return { first, last };
+}
+
+/** Find-or-create a person for (workspace, email). Returns the person id. */
+async function ensurePersonForEmail(
+  workspaceId: string,
+  email: string,
+  fullName: string | null,
+): Promise<string | null> {
+  const { data: existing } = await adminClient
+    .from('person')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (existing) return existing.id;
+  const { first, last } = splitName(fullName);
+  const { data: created, error } = await adminClient
+    .from('person')
+    .insert({
+      workspace_id: workspaceId,
+      email,
+      first_name: first,
+      last_name: last,
+    })
+    .select('id')
+    .single();
+  if (error || !created) {
+    console.error('[identity] person create failed', error);
+    return null;
+  }
+  return created.id;
+}
+
+/** Heal old user rows that were created before the user↔person invariant
+ *  was enforced. No-op if already linked. */
+async function linkPersonIfMissing(
+  userId: string,
+  workspaceId: string,
+  email: string,
+  fullName: string | null,
+): Promise<void> {
+  const { data: u } = await adminClient
+    .from('user')
+    .select('person_id')
+    .eq('id', userId)
+    .maybeSingle();
+  if (u?.person_id) return;
+  const pid = await ensurePersonForEmail(workspaceId, email, fullName);
+  if (!pid) return;
+  await adminClient.from('user').update({ person_id: pid }).eq('id', userId);
+  await adminClient.from('person').update({ user_id: userId }).eq('id', pid);
+}
+
 export const meetRoutes = new Hono();
 
 // Helper: state-signing secret for the Google OAuth flow.
@@ -864,10 +929,16 @@ meetRoutes.post('/internal-team', async (c) => {
   let invited = false;
   if (!u) {
     invited = true;
+    const personId = await ensurePersonForEmail(
+      ctx.workspaceId,
+      body.data.email,
+      body.data.name ?? null,
+    );
     const { data: created, error: cErr } = await adminClient
       .from('user')
       .insert({
         workspace_id: ctx.workspaceId,
+        person_id: personId,
         email: body.data.email,
         full_name: body.data.name ?? null,
         primary_auth_method: 'google',
@@ -880,6 +951,14 @@ meetRoutes.post('/internal-team', async (c) => {
       return c.json({ error: cErr?.message ?? 'create failed' }, 500);
     }
     u = created;
+    if (personId) {
+      await adminClient
+        .from('person')
+        .update({ user_id: u.id })
+        .eq('id', personId);
+    }
+  } else {
+    await linkPersonIfMissing(u.id, ctx.workspaceId, u.email, u.full_name);
   }
   // Grant fibre-meet app_membership (member role).
   const { data: meetApp } = await adminClient
@@ -929,54 +1008,60 @@ meetRoutes.get('/contacts', async (c) => {
   const url = new URL(c.req.url);
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
 
-  // Pull bookings in this workspace; group in JS. With a few hundred rows this
-  // is fine; we'll move to a SQL view once volume warrants it.
-  const { data: rows, error } = await adminClient
-    .from('meet_booking')
-    .select('invitee_email, invitee_name, starts_at, status, workspace_id')
+  // Source of truth: public.person — the platform contact graph (brief §2).
+  // Meet decorates each person with its own booking summary (the curator
+  // data that Meet justifies).
+  const { data: people, error } = await adminClient
+    .from('person')
+    .select('id, email, first_name, last_name, user_id')
     .eq('workspace_id', ctx.workspaceId)
-    .order('starts_at', { ascending: false })
-    .limit(2000);
+    .is('deleted_at', null)
+    .limit(5000);
   if (error) return c.json({ error: error.message }, 500);
 
-  const byEmail = new Map<
-    string,
-    {
-      email: string;
-      name: string | null;
-      last_booked_at: string;
-      bookings: number;
-      domain: string | null;
-    }
-  >();
-  for (const r of rows ?? []) {
-    const email = r.invitee_email;
+  // Booking summary per email in this workspace.
+  const { data: bookings } = await adminClient
+    .from('meet_booking')
+    .select('invitee_email, starts_at, status')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('starts_at', { ascending: false })
+    .limit(5000);
+  const summary = new Map<string, { last: string; count: number }>();
+  for (const b of bookings ?? []) {
+    const email = b.invitee_email;
     if (!email) continue;
-    const cur = byEmail.get(email);
-    if (cur) {
-      cur.bookings += 1;
-      continue;
-    }
-    const domain = email.includes('@') ? email.split('@')[1] ?? null : null;
-    byEmail.set(email, {
-      email,
-      name: r.invitee_name ?? null,
-      last_booked_at: r.starts_at,
-      bookings: 1,
-      domain,
-    });
+    const cur = summary.get(email);
+    if (!cur) summary.set(email, { last: b.starts_at, count: 1 });
+    else cur.count += 1;
   }
-  let items = Array.from(byEmail.values()).sort((a, b) =>
-    (b.name ?? b.email).localeCompare(a.name ?? a.email),
-  );
+
+  let items = (people ?? []).map((p) => {
+    const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ');
+    const name = fullName.length ? fullName : null;
+    const s = p.email ? summary.get(p.email) : undefined;
+    const domain = p.email && p.email.includes('@')
+      ? p.email.split('@')[1] ?? null
+      : null;
+    return {
+      id: p.id,
+      name,
+      email: p.email,
+      domain,
+      is_user: !!p.user_id,
+      meet_bookings: s?.count ?? 0,
+      meet_last_booked_at: s?.last ?? null,
+    };
+  });
+
   if (q) {
     items = items.filter(
       (c) =>
         (c.name ?? '').toLowerCase().includes(q) ||
-        c.email.includes(q) ||
-        (c.domain ?? '').includes(q),
+        (c.email ?? '').toLowerCase().includes(q) ||
+        (c.domain ?? '').toLowerCase().includes(q),
     );
   }
+  items.sort((a, b) => (a.name ?? a.email ?? '').localeCompare(b.name ?? b.email ?? ''));
   return c.json({ items });
 });
 
@@ -1493,12 +1578,21 @@ meetRoutes.post('/teams/:id/members', async (c) => {
   }
 
   if (!u) {
-    // 2. Create a pending user in this workspace.
+    // 2. Create a pending user + matching person in this workspace, and
+    //    link them. Everybody in the workspace shows up in the platform
+    //    contact graph (brief §2): user is "can sign in", person is
+    //    "presence in the workspace's contact graph". Both, always linked.
     invited = true;
+    const personId = await ensurePersonForEmail(
+      ctx.workspaceId,
+      body.data.email,
+      body.data.name ?? null,
+    );
     const { data: created, error: cErr } = await adminClient
       .from('user')
       .insert({
         workspace_id: ctx.workspaceId,
+        person_id: personId,
         email: body.data.email,
         full_name: body.data.name ?? null,
         primary_auth_method: 'google',
@@ -1511,6 +1605,13 @@ meetRoutes.post('/teams/:id/members', async (c) => {
       return c.json({ error: cErr?.message ?? 'create failed' }, 500);
     }
     u = created;
+    // Backfill person.user_id (the contact graph row points back to the user).
+    if (personId) {
+      await adminClient
+        .from('person')
+        .update({ user_id: u.id })
+        .eq('id', personId);
+    }
 
     // 3. Grant fibre-meet app_membership so they land with Meet on first sign-in.
     const { data: meetApp } = await adminClient
@@ -1526,6 +1627,10 @@ meetRoutes.post('/teams/:id/members', async (c) => {
           { onConflict: 'user_id,app_id' },
         );
     }
+  } else {
+    // Existing user — make sure they have a linked person row too (heal old
+    // rows created before this fix).
+    await linkPersonIfMissing(u.id, ctx.workspaceId, u.email, u.full_name);
   }
 
   // 4. Add to the team.

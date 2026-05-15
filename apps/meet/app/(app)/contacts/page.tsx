@@ -8,11 +8,13 @@ import {
 import { ContactsSearch } from './search';
 
 type Contact = {
-  email: string;
+  id: string;
+  email: string | null;
   name: string | null;
   domain: string | null;
-  last_booked_at: string;
-  bookings: number;
+  is_user: boolean;
+  meet_bookings: number;
+  meet_last_booked_at: string | null;
 };
 
 export default async function ContactsPage({
@@ -35,7 +37,7 @@ export default async function ContactsPage({
     <PageContainer max="4xl">
       <PageHeader
         title="Contacts"
-        description="People who've booked with anyone in your workspace."
+        description="The workspace's contact graph, with Meet's booking history surfaced. Managed in The Fibre platform; Meet adds the booking column."
       />
 
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
@@ -51,20 +53,32 @@ export default async function ContactsPage({
           <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {items.map((c) => (
               <li
-                key={c.email}
-                className="grid grid-cols-[1fr_1fr_auto_auto] items-center gap-4 px-5 py-4 text-sm"
+                key={c.id}
+                className="grid grid-cols-[1fr_1fr_auto_auto_auto] items-center gap-4 px-5 py-4 text-sm"
               >
-                <div className="font-medium truncate">{c.name ?? '—'}</div>
-                <div className="text-ink-subtle truncate">{c.email}</div>
+                <div className="font-medium truncate flex items-center gap-2">
+                  {c.name ?? '—'}
+                  {c.is_user && (
+                    <span className="text-[9px] uppercase tracking-wider text-ink-muted border border-line rounded px-1 py-0.5">
+                      Member
+                    </span>
+                  )}
+                </div>
+                <div className="text-ink-subtle truncate">{c.email ?? '—'}</div>
                 <div className="text-xs text-ink-muted truncate">
                   {c.domain ?? '—'}
                 </div>
                 <div className="text-xs text-ink-muted whitespace-nowrap">
-                  {new Date(c.last_booked_at).toLocaleDateString(undefined, {
-                    day: '2-digit',
-                    month: '2-digit',
-                    year: 'numeric',
-                  })}
+                  {c.meet_bookings > 0 ? `${c.meet_bookings} booking${c.meet_bookings === 1 ? '' : 's'}` : '—'}
+                </div>
+                <div className="text-xs text-ink-muted whitespace-nowrap">
+                  {c.meet_last_booked_at
+                    ? new Date(c.meet_last_booked_at).toLocaleDateString(undefined, {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric',
+                      })
+                    : '—'}
                 </div>
               </li>
             ))}
