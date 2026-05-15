@@ -909,7 +909,15 @@ meetRoutes.get('/teams', async (c) => {
     .from('meet_team_member')
     .select('role, team:team_id (id, slug, name, description, is_active, created_at)')
     .eq('user_id', ctx.userId);
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[meet/teams] list failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code, details: error.details }, 500);
+  }
   const items = (memberships ?? [])
     .map((m) => {
       const t = Array.isArray(m.team) ? m.team[0] : m.team;
