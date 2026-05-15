@@ -31,22 +31,20 @@ export function SettingsForm({ initial }: { initial: Initial }) {
 
   return (
     <form action={formAction} className="space-y-5">
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextField
-          label="URL slug"
-          name="slug"
-          defaultValue={initial.slug}
-          pattern="[a-z0-9-]+"
-          required
-          hint={`meet.thefibre.app/${initial.slug}`}
-        />
-        <TextField
-          label="Timezone"
-          name="timezone"
-          defaultValue={initial.timezone}
-          placeholder="Europe/Amsterdam"
-        />
-      </div>
+      <TextField
+        label="URL slug"
+        name="slug"
+        defaultValue={initial.slug}
+        pattern="[a-z0-9-]+"
+        required
+        hint={`Changing this updates your public booking link: meet.thefibre.app/${initial.slug}`}
+      />
+      <TextField
+        label="Timezone"
+        name="timezone"
+        defaultValue={initial.timezone}
+        placeholder="Europe/Amsterdam"
+      />
 
       <TextAreaField
         label="Bio"
