@@ -51,7 +51,10 @@ const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
 
 // Path prefixes that bypass auth entirely. /meet/public/* serves the
 // public booking-page flow where invitees have no Fibre account.
-const PUBLIC_PREFIXES = ['/api/v1/meet/public/'];
+const PUBLIC_PREFIXES = [
+  '/api/v1/meet/public/',
+  '/api/v1/meet/google/auth-callback',
+];
 
 export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {

@@ -1,13 +1,31 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { SignJWT, jwtVerify } from 'jose';
 import { adminClient, userClient } from '../db.js';
 import {
   generateSlots,
   type Schedule as WorkingSchedule,
   type Interval as BusyInterval,
 } from '../lib/availability/engine.js';
+import {
+  buildAuthUrl,
+  exchangeCode,
+  listCalendars,
+  freeBusy,
+  createEvent,
+  deleteEvent,
+} from '../lib/google/client.js';
 
 export const meetRoutes = new Hono();
+
+// Helper: state-signing secret for the Google OAuth flow.
+function stateSecret(): Uint8Array {
+  const s =
+    process.env.SSO_INTERNAL_SECRET ??
+    process.env.GOOGLE_STATE_SECRET ??
+    'dev-only-state-secret';
+  return new TextEncoder().encode(s);
+}
 
 // ===========================================================================
 // PUBLIC endpoints — used by the booking-page (no auth, invitees have no Fibre
@@ -115,15 +133,19 @@ meetRoutes.post('/public/bookings', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const data = body.data;
 
-  // Resolve meeting type + host (workspace_id, duration)
+  // Resolve meeting type + host (workspace_id, duration, name + the host's
+  // google refresh token + primary calendar id so we can create a GCal event).
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
-    .select('id, host_id, workspace_id, duration_minutes, conferencing_provider, default_location, is_active')
+    .select(
+      'id, host_id, workspace_id, name, description, duration_minutes, conferencing_provider, default_location, is_active, host:host_id (google_refresh_token, timezone)',
+    )
     .eq('id', data.meeting_type_id)
     .single();
   if (mErr || !mt || !mt.is_active) {
     return c.json({ error: 'meeting type not available' }, 404);
   }
+  const hostRow = Array.isArray(mt.host) ? mt.host[0] : mt.host;
 
   // Find or create a person in the host's workspace for this email.
   let personId: string | null = null;
@@ -194,6 +216,45 @@ meetRoutes.post('/public/bookings', async (c) => {
     return c.json({ error: bErr.message }, 500);
   }
 
+  // If the host has Google Calendar connected, create the event there now.
+  // Failure is non-fatal — the booking is already recorded; the host can
+  // re-sync later. We do update the booking row with the resulting ids.
+  if (hostRow?.google_refresh_token && booking) {
+    try {
+      // Find the primary write target.
+      const { data: cal } = await adminClient
+        .from('meet_calendar')
+        .select('google_calendar_id')
+        .eq('host_id', mt.host_id)
+        .in('role', ['primary', 'write_target'])
+        .limit(1)
+        .maybeSingle();
+      const calendarId = cal?.google_calendar_id ?? 'primary';
+      const withMeet = mt.conferencing_provider === 'google_meet';
+      const { eventId, meetUrl } = await createEvent(hostRow.google_refresh_token, {
+        calendarId,
+        summary: mt.name,
+        description: mt.description ?? null,
+        startsAt: starts,
+        endsAt: ends,
+        attendeeEmail: data.invitee_email,
+        attendeeName: data.invitee_name,
+        withMeet,
+        location: mt.default_location ?? null,
+      });
+      await adminClient
+        .from('meet_booking')
+        .update({
+          google_event_id: eventId,
+          meet_url: meetUrl,
+          conferencing_provider: mt.conferencing_provider,
+        })
+        .eq('id', booking.id);
+    } catch (e) {
+      console.error('[meet bookings] google event create failed (non-fatal)', e);
+    }
+  }
+
   // Write an activity event so The Fibre's timeline knows a meeting was booked.
   // Non-fatal.
   const { data: app } = await adminClient
@@ -227,7 +288,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 
   const { data: host } = await adminClient
     .from('meet_host')
-    .select('id, workspace_id, timezone, working_hours')
+    .select('id, workspace_id, timezone, working_hours, google_refresh_token')
     .eq('slug', hostSlug)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
@@ -276,6 +337,27 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
     end: new Date(b.ends_at),
   }));
 
+  // Layer in the host's Google Calendar freebusy if they're connected. We
+  // freebusy-query the calendars they marked as primary or conflict_check.
+  if (host.google_refresh_token) {
+    const { data: cals } = await adminClient
+      .from('meet_calendar')
+      .select('google_calendar_id, role')
+      .eq('host_id', host.id)
+      .in('role', ['primary', 'conflict_check']);
+    const ids = (cals ?? [])
+      .map((c) => c.google_calendar_id)
+      .filter((id): id is string => !!id);
+    if (ids.length > 0) {
+      try {
+        const gbusy = await freeBusy(host.google_refresh_token, ids, from, cappedTo);
+        busy.push(...gbusy);
+      } catch (e) {
+        console.error('[slots] freebusy failed (non-fatal)', e);
+      }
+    }
+  }
+
   const workingHours = (host.working_hours as WorkingSchedule | null) ?? {};
 
   const slots = generateSlots({
@@ -306,6 +388,130 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
     .single();
   if (error || !data) return c.json({ error: 'booking not found' }, 404);
   return c.json(data);
+});
+
+// ===========================================================================
+// Google Calendar OAuth — connect, callback, disconnect.
+// auth-callback is public (Google posts back with code+state — no JWT) but
+// the state is signed and includes the user_id, so we know which host to
+// attach the tokens to.
+// ===========================================================================
+
+// GET /api/v1/meet/google/auth-start — authenticated. Returns Google's consent
+// URL. The caller's browser navigates to the URL; Google then redirects back
+// to our /auth-callback with `code` and our `state`.
+meetRoutes.get('/google/auth-start', async (c) => {
+  const ctx = c.get('ctx');
+  const state = await new SignJWT({
+    user_id: ctx.userId,
+    workspace_id: ctx.workspaceId,
+  })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(stateSecret());
+  try {
+    const url = buildAuthUrl(state);
+    return c.json({ url });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'oauth not configured';
+    return c.json({ error: msg }, 500);
+  }
+});
+
+// GET /api/v1/meet/google/auth-callback — public. Receives code+state from
+// Google, exchanges code for tokens, persists refresh_token on meet_host,
+// upserts the user's calendars into meet_calendar, then redirects the
+// browser back to the Meet settings page.
+meetRoutes.get('/google/auth-callback', async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const meetUrl = process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+  if (!code || !state) {
+    return c.redirect(`${meetUrl}/settings?google=error&reason=missing`);
+  }
+  let userId: string;
+  let workspaceId: string;
+  try {
+    const { payload } = await jwtVerify(state, stateSecret());
+    userId = payload.user_id as string;
+    workspaceId = payload.workspace_id as string;
+    if (!userId || !workspaceId) throw new Error('bad state');
+  } catch {
+    return c.redirect(`${meetUrl}/settings?google=error&reason=state`);
+  }
+
+  let tokens;
+  try {
+    tokens = await exchangeCode(code);
+  } catch (e) {
+    console.error('[google/auth-callback] exchange', e);
+    return c.redirect(`${meetUrl}/settings?google=error&reason=exchange`);
+  }
+
+  // Persist refresh_token on the host row.
+  const { error: hErr } = await adminClient
+    .from('meet_host')
+    .update({ google_refresh_token: tokens.refreshToken })
+    .eq('user_id', userId);
+  if (hErr) {
+    console.error('[google/auth-callback] update host', hErr);
+    return c.redirect(`${meetUrl}/settings?google=error&reason=db`);
+  }
+
+  // Sync the user's own calendars into meet_calendar. The primary calendar
+  // gets role=primary; others get role=conflict_check by default.
+  try {
+    const calendars = await listCalendars(tokens.refreshToken);
+    const { data: host } = await adminClient
+      .from('meet_host')
+      .select('id')
+      .eq('user_id', userId)
+      .single();
+    if (host) {
+      for (const cal of calendars) {
+        if (!cal.id) continue;
+        await adminClient
+          .from('meet_calendar')
+          .upsert(
+            {
+              host_id: host.id,
+              workspace_id: workspaceId,
+              google_calendar_id: cal.id,
+              summary: cal.summary,
+              role: cal.primary ? 'primary' : 'conflict_check',
+            },
+            { onConflict: 'host_id,google_calendar_id' },
+          );
+      }
+    }
+  } catch (e) {
+    console.error('[google/auth-callback] list/sync calendars', e);
+    // Non-fatal — they can hit re-sync later
+  }
+
+  return c.redirect(`${meetUrl}/settings?google=connected`);
+});
+
+// POST /api/v1/meet/google/disconnect — authenticated. Clears the host's
+// refresh token and removes the meet_calendar rows.
+meetRoutes.post('/google/disconnect', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: host } = await db
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (host) {
+    await db.from('meet_calendar').delete().eq('host_id', host.id);
+    await db
+      .from('meet_host')
+      .update({ google_refresh_token: null })
+      .eq('user_id', ctx.userId);
+  }
+  return c.json({ ok: true });
 });
 
 // ===========================================================================
@@ -357,7 +563,11 @@ meetRoutes.get('/me', async (c) => {
     host = created;
   }
 
-  return c.json(host);
+  // Don't return the raw refresh token. Surface a boolean.
+  const { google_refresh_token, ...safe } = host as Record<string, unknown> & {
+    google_refresh_token: string | null;
+  };
+  return c.json({ ...safe, google_connected: !!google_refresh_token });
 });
 
 // PATCH /api/v1/meet/me — update host config

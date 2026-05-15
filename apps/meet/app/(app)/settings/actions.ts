@@ -46,3 +46,22 @@ export async function updateHost(
   revalidatePath('/dashboard');
   return { ok: true };
 }
+
+export async function startGoogleAuth(): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ url: string }>('/api/v1/meet/google/auth-start');
+    return { url: r.url };
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+}
+
+export async function disconnectGoogle(): Promise<SaveResult> {
+  try {
+    await apiFetch('/api/v1/meet/google/disconnect', { method: 'POST' });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath('/settings');
+  return { ok: true };
+}
