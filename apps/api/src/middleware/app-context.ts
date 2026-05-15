@@ -49,6 +49,10 @@ const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
   ['/api/v1/signup-requests', new Set(['POST'])],
 ]);
 
+// Path prefixes that bypass auth entirely. /meet/public/* serves the
+// public booking-page flow where invitees have no Fibre account.
+const PUBLIC_PREFIXES = ['/api/v1/meet/public/'];
+
 export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     const allowedMethods = PUBLIC_PATH_METHODS.get(c.req.path);
@@ -56,6 +60,7 @@ export const appContext: MiddlewareHandler = async (c, next) => {
       return next();
     }
   }
+  if (PUBLIC_PREFIXES.some((p) => c.req.path.startsWith(p))) return next();
 
   const appHeader = c.req.header('x-app-id');
   if (!appHeader || !VALID_APP_IDS.has(appHeader as AppId)) {

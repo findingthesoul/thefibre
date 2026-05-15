@@ -12,6 +12,7 @@ import { privacyRoutes } from './routes/privacy.js';
 import { ssoRoutes } from './routes/sso.js';
 import { signupRequestsRoutes } from './routes/signup-requests.js';
 import { workspaceAppsRoutes } from './routes/workspace-apps.js';
+import { meetRoutes } from './routes/meet.js';
 
 const app = new Hono();
 
@@ -39,6 +40,7 @@ v1.route('/privacy', privacyRoutes);
 v1.route('/sso', ssoRoutes);
 v1.route('/signup-requests', signupRequestsRoutes);
 v1.route('/workspace-apps', workspaceAppsRoutes);
+v1.route('/meet', meetRoutes);
 app.route('/', v1);
 
 const port = Number(process.env.API_PORT ?? 8080);
