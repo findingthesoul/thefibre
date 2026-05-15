@@ -132,3 +132,79 @@ function overlapsBusy(
   }
   return false;
 }
+
+// ---------------------------------------------------------------------------
+// Multi-host slot composition. For round-robin we want the UNION across all
+// eligible hosts (a slot is bookable if any host is free); for collective we
+// want the INTERSECTION (every host must be free). Each host contributes a
+// single-host slot set computed independently with their own working_hours
+// and busy intervals.
+// ---------------------------------------------------------------------------
+
+export type MultiHostMode = 'round_robin' | 'collective';
+
+export type PerHostArgs = Omit<Args, 'busy'> & {
+  /** Stable identifier (e.g. user_id) — used to keep track of which host
+   * each slot belongs to in round-robin mode. */
+  hostKey: string;
+  busy: Interval[];
+};
+
+export function generateMultiHostSlots(
+  mode: MultiHostMode,
+  hosts: PerHostArgs[],
+): Date[] {
+  if (hosts.length === 0) return [];
+  // Compute each host's slot set as ms-since-epoch for set arithmetic.
+  const perHostMs: Set<number>[] = hosts.map((h) => {
+    const slots = generateSlots(h);
+    return new Set(slots.map((s) => s.getTime()));
+  });
+
+  let resultMs: Set<number>;
+  if (mode === 'round_robin') {
+    resultMs = new Set<number>();
+    for (const s of perHostMs) for (const t of s) resultMs.add(t);
+  } else {
+    // collective — intersection
+    const first = perHostMs[0];
+    if (!first) return [];
+    resultMs = new Set(first);
+    for (let i = 1; i < perHostMs.length; i++) {
+      const next = perHostMs[i];
+      if (!next) continue;
+      for (const t of resultMs) if (!next.has(t)) resultMs.delete(t);
+    }
+  }
+  return Array.from(resultMs)
+    .sort((a, b) => a - b)
+    .map((t) => new Date(t));
+}
+
+/** For round-robin booking: among the assignees who are free for the given
+ *  slot (considering working hours + busy), return the keys sorted by
+ *  least-loaded first. Caller supplies the load count per host. */
+export function rankAssigneesForSlot(
+  slotStart: Date,
+  durationMinutes: number,
+  hosts: PerHostArgs[],
+  loadByKey: Record<string, number>,
+): string[] {
+  const durMs = durationMinutes * 60_000;
+  const slotEnd = new Date(slotStart.getTime() + durMs);
+  const free = hosts.filter((h) => {
+    // Quick check: the slot must appear in this host's set.
+    const set = new Set(generateSlots(h).map((s) => s.getTime()));
+    if (!set.has(slotStart.getTime())) return false;
+    // Defensive: re-check buffer-overlap against busy.
+    return !overlapsBusy(
+      slotStart,
+      slotEnd,
+      h.busy,
+      h.bufferBeforeMinutes,
+      h.bufferAfterMinutes,
+    );
+  });
+  free.sort((a, b) => (loadByKey[a.hostKey] ?? 0) - (loadByKey[b.hostKey] ?? 0));
+  return free.map((h) => h.hostKey);
+}

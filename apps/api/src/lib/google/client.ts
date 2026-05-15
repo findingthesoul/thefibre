@@ -136,6 +136,9 @@ export type CreateEventInput = {
   endsAt: Date;
   attendeeEmail: string;
   attendeeName?: string | null;
+  /** Additional attendees beyond the invitee — used for collective bookings
+   * where every team member is on the same calendar event. */
+  extraAttendees?: { email: string; name?: string | null }[];
   /** When true, creates a Google Meet conferencing entry on the event. */
   withMeet?: boolean;
   /** Free-form location string (in_person flow). */
@@ -149,11 +152,17 @@ export async function createEvent(
   const cal = calendarFor(refreshToken);
   const attendee: calendar_v3.Schema$EventAttendee = { email: input.attendeeEmail };
   if (input.attendeeName) attendee.displayName = input.attendeeName;
+  const attendees: calendar_v3.Schema$EventAttendee[] = [attendee];
+  for (const ex of input.extraAttendees ?? []) {
+    const a: calendar_v3.Schema$EventAttendee = { email: ex.email };
+    if (ex.name) a.displayName = ex.name;
+    attendees.push(a);
+  }
   const requestBody: calendar_v3.Schema$Event = {
     summary: input.summary,
     start: { dateTime: input.startsAt.toISOString() },
     end: { dateTime: input.endsAt.toISOString() },
-    attendees: [attendee],
+    attendees,
   };
   if (input.description) requestBody.description = input.description;
   if (input.location) requestBody.location = input.location;

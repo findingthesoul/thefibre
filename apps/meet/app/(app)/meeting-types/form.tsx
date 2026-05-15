@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState } from 'react';
+import { useActionState, useState } from 'react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
@@ -21,9 +21,28 @@ export type MeetingTypeFormValues = {
   default_location?: string | null;
   is_active?: boolean;
   team_id?: string | null;
+  event_type?: string;
 };
 
 export type TeamOption = { id: string; name: string };
+
+const EVENT_TYPES = [
+  {
+    value: 'one_on_one',
+    label: 'One-on-one',
+    hint: 'Single host. The classic booking.',
+  },
+  {
+    value: 'round_robin',
+    label: 'Round-robin',
+    hint: 'Multiple eligible hosts; bookings rotate to the least-loaded one.',
+  },
+  {
+    value: 'collective',
+    label: 'Collective',
+    hint: 'Every assigned host attends. Slots intersect their availability.',
+  },
+];
 
 const PROVIDERS = [
   { value: 'google_meet', label: 'Google Meet' },
@@ -49,6 +68,11 @@ export function MeetingTypeForm({
     action as (prev: SaveResult, fd: FormData) => Promise<SaveResult>,
     {},
   );
+  const [teamId, setTeamId] = useState<string>(initial.team_id ?? 'personal');
+  const [eventType, setEventType] = useState<string>(initial.event_type ?? 'one_on_one');
+  const teamSelected = teamId !== 'personal';
+  const showEventType = teamSelected && teams.length > 0;
+  const effectiveEventType = teamSelected ? eventType : 'one_on_one';
 
   return (
     <form action={formAction} className="space-y-5 max-w-2xl">
@@ -56,13 +80,28 @@ export function MeetingTypeForm({
         <SelectField
           label="Owned by"
           name="team_id"
-          defaultValue={initial.team_id ?? 'personal'}
+          value={teamId}
+          onChange={(e) => setTeamId(e.target.value)}
           options={[
             { value: 'personal', label: 'Personal (your booking page)' },
             ...teams.map((t) => ({ value: t.id, label: `Team — ${t.name}` })),
           ]}
           hint="Personal types live at /your-handle/<slug>. Team types live at /team-slug/<slug>."
         />
+      )}
+      {showEventType && (
+        <SelectField
+          label="Event type"
+          name="event_type"
+          value={effectiveEventType}
+          onChange={(e) => setEventType(e.target.value)}
+          options={EVENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+          hint={EVENT_TYPES.find((t) => t.value === effectiveEventType)?.hint}
+        />
+      )}
+      {/* When personal, the server still needs a value. */}
+      {!showEventType && (
+        <input type="hidden" name="event_type" value="one_on_one" />
       )}
       <NameAndSlugFields
         nameLabel="Name"

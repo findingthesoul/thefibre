@@ -4,8 +4,11 @@ import { SignJWT, jwtVerify } from 'jose';
 import { adminClient, userClient } from '../db.js';
 import {
   generateSlots,
+  generateMultiHostSlots,
+  rankAssigneesForSlot,
   type Schedule as WorkingSchedule,
   type Interval as BusyInterval,
+  type PerHostArgs,
 } from '../lib/availability/engine.js';
 import {
   buildAuthUrl,
@@ -149,14 +152,83 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, workspace_id, name, description, duration_minutes, conferencing_provider, default_location, is_active, host:host_id (google_refresh_token, timezone, slug, user:user_id (full_name, email))',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active',
     )
     .eq('id', data.meeting_type_id)
     .single();
   if (mErr || !mt || !mt.is_active) {
     return c.json({ error: 'meeting type not available' }, 404);
   }
-  const hostRow = Array.isArray(mt.host) ? mt.host[0] : mt.host;
+
+  const starts0 = new Date(data.starts_at);
+  const ends0 = new Date(starts0.getTime() + mt.duration_minutes * 60 * 1000);
+
+  // Determine which host runs this booking.
+  //  - one_on_one / group : mt.host_id
+  //  - collective         : the primary assignee (first in resolveAssigneeHostIds)
+  //  - round_robin        : the least-loaded assignee free at this slot
+  let chosenHostId: string = mt.host_id;
+  let collectiveExtras: { host_id: string; user_id: string }[] = [];
+  if (mt.event_type === 'round_robin' || mt.event_type === 'collective') {
+    const hostIds = await resolveAssigneeHostIds(mt);
+    if (mt.event_type === 'collective') {
+      chosenHostId = hostIds[0] ?? mt.host_id;
+    } else {
+      // Round-robin: pick least-loaded free host.
+      const window = {
+        from: new Date(starts0.getTime() - 24 * 60 * 60 * 1000),
+        to: new Date(starts0.getTime() + 30 * 24 * 60 * 60 * 1000),
+      };
+      const args = await buildPerHostArgs(hostIds, mt, window.from, window.to, new Date());
+      // Count upcoming confirmed bookings per host as the "load".
+      const { data: counts } = await adminClient
+        .from('meet_booking')
+        .select('host_id')
+        .in('host_id', hostIds)
+        .eq('status', 'confirmed')
+        .gte('starts_at', new Date().toISOString());
+      const loadByKey: Record<string, number> = {};
+      for (const r of counts ?? []) {
+        loadByKey[r.host_id] = (loadByKey[r.host_id] ?? 0) + 1;
+      }
+      const ranked = rankAssigneesForSlot(starts0, mt.duration_minutes, args, loadByKey);
+      if (ranked.length === 0) {
+        return c.json({ error: 'no host available for this slot' }, 409);
+      }
+      chosenHostId = ranked[0] ?? mt.host_id;
+    }
+    if (mt.event_type === 'collective') {
+      // The other assignees' user ids — used to add them as event attendees.
+      const { data: assignees } = await adminClient
+        .from('meet_meeting_type_assignee')
+        .select('user_id')
+        .eq('meeting_type_id', mt.id);
+      const otherUserIds = (assignees ?? [])
+        .map((a) => a.user_id)
+        // Strip the primary (already on the event as organiser).
+        .filter(Boolean);
+      if (otherUserIds.length > 0) {
+        const { data: theirHosts } = await adminClient
+          .from('meet_host')
+          .select('id, user_id')
+          .in('user_id', otherUserIds);
+        const primaryHost = (theirHosts ?? []).find((h) => h.id === chosenHostId);
+        collectiveExtras = (theirHosts ?? [])
+          .filter((h) => h.id !== primaryHost?.id)
+          .map((h) => ({ host_id: h.id, user_id: h.user_id }));
+      }
+    }
+  }
+
+  // Now load the chosen host (refresh token, slug, user info — for emails + GCal).
+  const { data: chosenHostRow } = await adminClient
+    .from('meet_host')
+    .select(
+      'id, google_refresh_token, timezone, slug, user:user_id (full_name, email)',
+    )
+    .eq('id', chosenHostId)
+    .single();
+  const hostRow = chosenHostRow;
   const hostUser = hostRow?.user
     ? Array.isArray(hostRow.user)
       ? hostRow.user[0]
@@ -195,15 +267,15 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
   }
 
-  const starts = new Date(data.starts_at);
-  const ends = new Date(starts.getTime() + mt.duration_minutes * 60 * 1000);
+  const starts = starts0;
+  const ends = ends0;
 
   const { data: booking, error: bErr } = await adminClient
     .from('meet_booking')
     .insert({
       workspace_id: mt.workspace_id,
       meeting_type_id: mt.id,
-      host_id: mt.host_id,
+      host_id: chosenHostId,
       invitee_person_id: personId,
       invitee_email: data.invitee_email,
       invitee_name: data.invitee_name,
@@ -238,16 +310,28 @@ meetRoutes.post('/public/bookings', async (c) => {
   let resolvedMeetUrl: string | null = null;
   if (hostRow?.google_refresh_token && booking) {
     try {
-      // Find the primary write target.
+      // Find the primary write target on the chosen host's calendars.
       const { data: cal } = await adminClient
         .from('meet_calendar')
         .select('google_calendar_id')
-        .eq('host_id', mt.host_id)
+        .eq('host_id', chosenHostId)
         .in('role', ['primary', 'write_target'])
         .limit(1)
         .maybeSingle();
       const calendarId = cal?.google_calendar_id ?? 'primary';
       const withMeet = mt.conferencing_provider === 'google_meet';
+      // For collective bookings, add the other team members as attendees.
+      let extras: { email: string; name?: string | null }[] = [];
+      if (collectiveExtras.length > 0) {
+        const { data: extraUsers } = await adminClient
+          .from('user')
+          .select('id, email, full_name')
+          .in(
+            'id',
+            collectiveExtras.map((e) => e.user_id),
+          );
+        extras = (extraUsers ?? []).map((u) => ({ email: u.email, name: u.full_name }));
+      }
       const { eventId, meetUrl } = await createEvent(hostRow.google_refresh_token, {
         calendarId,
         summary: mt.name,
@@ -256,6 +340,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         endsAt: ends,
         attendeeEmail: data.invitee_email,
         attendeeName: data.invitee_name,
+        extraAttendees: extras,
         withMeet,
         location: mt.default_location ?? null,
       });
@@ -318,6 +403,28 @@ meetRoutes.post('/public/bookings', async (c) => {
         });
       } catch (e) {
         console.error('[meet bookings] host email failed (non-fatal)', e);
+      }
+    }
+    // Collective: also notify the other assignees.
+    if (collectiveExtras.length > 0) {
+      const { data: extraUsers } = await adminClient
+        .from('user')
+        .select('id, email, full_name')
+        .in('id', collectiveExtras.map((e) => e.user_id));
+      for (const u of extraUsers ?? []) {
+        if (!u.email || u.email === common.hostEmail) continue;
+        try {
+          const m = bookingNotificationHost(common);
+          await sendEmail({
+            to: u.email,
+            subject: m.subject,
+            text: m.text,
+            html: m.html,
+            replyTo: data.invitee_email,
+          });
+        } catch (e) {
+          console.error('[meet bookings] collective host email failed (non-fatal)', e);
+        }
       }
     }
   }
@@ -817,9 +924,11 @@ const MeetingTypeUpsert = z.object({
   default_location: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional(),
   // When set, the meeting type lives under the team's slug instead of the
-  // host's. The caller must be a lead of the team. The host that runs the
-  // booking is still the current user (phase 1; round-robin in phase 2).
+  // host's. The caller must be a lead of the team.
   team_id: z.string().uuid().nullable().optional(),
+  // Event-routing strategy. Only team-owned types may use round_robin or
+  // collective in phase 1.
+  event_type: z.enum(['one_on_one', 'round_robin', 'collective', 'group']).optional(),
 });
 
 meetRoutes.post('/meeting-types', async (c) => {
@@ -1215,7 +1324,8 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
 });
 
 // GET /api/v1/meet/public/team/:team_slug/mt/:mt_slug/slots
-// Mirrors the host slots endpoint but resolves through the team.
+// Mirrors the host slots endpoint but resolves through the team and handles
+// round-robin (union of assignees' availability) and collective (intersection).
 meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const teamSlug = c.req.param('team_slug');
   const mtSlug = c.req.param('mt_slug');
@@ -1233,14 +1343,12 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, host:host_id (timezone, working_hours, google_refresh_token)',
+      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
     .single();
   if (!mt || !mt.is_active) return c.json({ error: 'meeting type not found' }, 404);
-  const hostRow = Array.isArray(mt.host) ? mt.host[0] : mt.host;
-  if (!hostRow) return c.json({ error: 'host not resolvable' }, 500);
 
   const now = new Date();
   const from = fromParam ? new Date(fromParam) : now;
@@ -1259,49 +1367,278 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
       ? new Date(from.getTime() + MAX_WINDOW_MS)
       : to;
 
-  const { data: bookings } = await adminClient
-    .from('meet_booking')
-    .select('starts_at, ends_at')
-    .eq('host_id', mt.host_id)
-    .eq('status', 'confirmed')
-    .gte('ends_at', from.toISOString())
-    .lte('starts_at', cappedTo.toISOString());
-  const busy: BusyInterval[] = (bookings ?? []).map((b) => ({
-    start: new Date(b.starts_at),
-    end: new Date(b.ends_at),
-  }));
-
-  if (hostRow.google_refresh_token) {
-    const { data: cals } = await adminClient
-      .from('meet_calendar')
-      .select('google_calendar_id, role')
-      .eq('host_id', mt.host_id)
-      .in('role', ['primary', 'conflict_check']);
-    const ids = (cals ?? [])
-      .map((c) => c.google_calendar_id)
-      .filter((id): id is string => !!id);
-    if (ids.length > 0) {
-      try {
-        const gbusy = await freeBusy(hostRow.google_refresh_token, ids, from, cappedTo);
-        busy.push(...gbusy);
-      } catch (e) {
-        console.error('[team slots] freebusy failed (non-fatal)', e);
-      }
-    }
+  // Resolve the eligible-host roster. For one_on_one we use mt.host_id alone;
+  // for round_robin / collective we union with the assignee table.
+  const hostIds = await resolveAssigneeHostIds(mt);
+  if (hostIds.length === 0) {
+    return c.json({ slots: [] });
   }
 
-  const workingHours = (hostRow.working_hours as WorkingSchedule | null) ?? {};
-  const slots = generateSlots({
-    hostTimezone: hostRow.timezone ?? 'UTC',
-    workingHours,
-    durationMinutes: mt.duration_minutes,
-    bufferBeforeMinutes: mt.buffer_before_minutes,
-    bufferAfterMinutes: mt.buffer_after_minutes,
-    minNoticeMinutes: mt.min_notice_minutes,
-    from,
-    to: cappedTo,
-    busy,
-    now,
-  });
+  const hostArgs = await buildPerHostArgs(hostIds, mt, from, cappedTo, now);
+  if (hostArgs.length === 0) return c.json({ slots: [] });
+
+  let slots: Date[];
+  if (mt.event_type === 'collective') {
+    slots = generateMultiHostSlots('collective', hostArgs);
+  } else if (mt.event_type === 'round_robin') {
+    slots = generateMultiHostSlots('round_robin', hostArgs);
+  } else {
+    // one_on_one (team-owned, single host) — defer to single-host generator.
+    const h = hostArgs[0];
+    if (!h) return c.json({ slots: [] });
+    slots = generateSlots(h);
+  }
+
   return c.json({ slots: slots.map((d) => d.toISOString()) });
+});
+
+// ---------------------------------------------------------------------------
+// Multi-host helpers — used by both the team slots endpoint and the team
+// booking POST. Pulled out to keep both code paths consistent.
+// ---------------------------------------------------------------------------
+
+type MeetingTypeForResolve = {
+  id: string;
+  host_id: string;
+  event_type: string;
+};
+
+/** Resolve the meet_host ids eligible to take a booking for this MT. */
+async function resolveAssigneeHostIds(mt: MeetingTypeForResolve): Promise<string[]> {
+  if (mt.event_type === 'one_on_one' || mt.event_type === 'group') {
+    return [mt.host_id];
+  }
+  const { data: rows } = await adminClient
+    .from('meet_meeting_type_assignee')
+    .select('user_id, is_primary')
+    .eq('meeting_type_id', mt.id);
+  const assignees = rows ?? [];
+  if (assignees.length === 0) return [mt.host_id]; // fallback
+  // Resolve each user_id to their meet_host row (one host per user).
+  const userIds = assignees.map((a) => a.user_id);
+  const { data: hosts } = await adminClient
+    .from('meet_host')
+    .select('id, user_id')
+    .in('user_id', userIds);
+  // Preserve primary-first ordering.
+  const primaryUserId = assignees.find((a) => a.is_primary)?.user_id ?? null;
+  const idsByUser = new Map((hosts ?? []).map((h) => [h.user_id, h.id]));
+  const ordered: string[] = [];
+  if (primaryUserId && idsByUser.has(primaryUserId)) {
+    ordered.push(idsByUser.get(primaryUserId)!);
+  }
+  for (const a of assignees) {
+    if (a.user_id === primaryUserId) continue;
+    const hid = idsByUser.get(a.user_id);
+    if (hid) ordered.push(hid);
+  }
+  return ordered;
+}
+
+type MeetingTypeForArgs = MeetingTypeForResolve & {
+  duration_minutes: number;
+  buffer_before_minutes: number;
+  buffer_after_minutes: number;
+  min_notice_minutes: number;
+};
+
+/** Load each host's working_hours + busy and shape into PerHostArgs. */
+async function buildPerHostArgs(
+  hostIds: string[],
+  mt: MeetingTypeForArgs,
+  from: Date,
+  to: Date,
+  now: Date,
+): Promise<PerHostArgs[]> {
+  const { data: hosts } = await adminClient
+    .from('meet_host')
+    .select('id, timezone, working_hours, google_refresh_token')
+    .in('id', hostIds);
+  if (!hosts || hosts.length === 0) return [];
+
+  // All confirmed bookings touching the window for any of these hosts.
+  const { data: bookings } = await adminClient
+    .from('meet_booking')
+    .select('host_id, starts_at, ends_at')
+    .in('host_id', hostIds)
+    .eq('status', 'confirmed')
+    .gte('ends_at', from.toISOString())
+    .lte('starts_at', to.toISOString());
+  const busyByHost = new Map<string, BusyInterval[]>();
+  for (const b of bookings ?? []) {
+    const list = busyByHost.get(b.host_id) ?? [];
+    list.push({ start: new Date(b.starts_at), end: new Date(b.ends_at) });
+    busyByHost.set(b.host_id, list);
+  }
+
+  // GCal calendars per host — only the ones we conflict-check against.
+  const { data: cals } = await adminClient
+    .from('meet_calendar')
+    .select('host_id, google_calendar_id, role')
+    .in('host_id', hostIds)
+    .in('role', ['primary', 'conflict_check']);
+  const calsByHost = new Map<string, string[]>();
+  for (const c of cals ?? []) {
+    if (!c.google_calendar_id) continue;
+    const list = calsByHost.get(c.host_id) ?? [];
+    list.push(c.google_calendar_id);
+    calsByHost.set(c.host_id, list);
+  }
+
+  const out: PerHostArgs[] = [];
+  // Run freebusy in parallel.
+  await Promise.all(
+    hosts.map(async (h) => {
+      const busy = busyByHost.get(h.id) ?? [];
+      const calendarIds = calsByHost.get(h.id) ?? [];
+      if (h.google_refresh_token && calendarIds.length > 0) {
+        try {
+          const gbusy = await freeBusy(
+            h.google_refresh_token,
+            calendarIds,
+            from,
+            to,
+          );
+          busy.push(...gbusy);
+        } catch (e) {
+          console.error('[multi-host slots] freebusy failed', e);
+        }
+      }
+      out.push({
+        hostKey: h.id,
+        hostTimezone: h.timezone ?? 'UTC',
+        workingHours: (h.working_hours as WorkingSchedule | null) ?? {},
+        durationMinutes: mt.duration_minutes,
+        bufferBeforeMinutes: mt.buffer_before_minutes,
+        bufferAfterMinutes: mt.buffer_after_minutes,
+        minNoticeMinutes: mt.min_notice_minutes,
+        from,
+        to,
+        busy,
+        now,
+      });
+    }),
+  );
+  // Preserve the input ordering so the primary stays first (matters for
+  // round-robin tie-breaking and for the canonical-host pick in collective).
+  out.sort(
+    (a, b) => hostIds.indexOf(a.hostKey) - hostIds.indexOf(b.hostKey),
+  );
+  return out;
+}
+
+// ===========================================================================
+// Assignees — team meeting types only. Leads of the meeting-type's team can
+// add or remove assignees. The meeting-type's host_id (the creator) is the
+// natural "primary"; we expose explicit primary marking through this API
+// because round-robin / collective semantics depend on it.
+// ===========================================================================
+
+// GET /api/v1/meet/meeting-types/:id/assignees
+meetRoutes.get('/meeting-types/:id/assignees', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('meet_meeting_type_assignee')
+    .select(
+      'user_id, is_primary, created_at, user:user_id (id, email, full_name, avatar_url)',
+    )
+    .eq('meeting_type_id', id);
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+const AssigneeBody = z.object({
+  user_id: z.string().uuid(),
+  is_primary: z.boolean().optional(),
+});
+
+// POST /api/v1/meet/meeting-types/:id/assignees — add or set primary.
+meetRoutes.post('/meeting-types/:id/assignees', async (c) => {
+  const id = c.req.param('id');
+  const body = AssigneeBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select('team_id')
+    .eq('id', id)
+    .single();
+  if (!mt || !mt.team_id) {
+    return c.json({ error: 'meeting type is not team-owned' }, 400);
+  }
+  // Lead-only.
+  const { data: lead } = await adminClient
+    .from('meet_team_member')
+    .select('role')
+    .eq('team_id', mt.team_id)
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!lead || lead.role !== 'lead') {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  // The target user must be a member of the same team.
+  const { data: target } = await adminClient
+    .from('meet_team_member')
+    .select('user_id')
+    .eq('team_id', mt.team_id)
+    .eq('user_id', body.data.user_id)
+    .maybeSingle();
+  if (!target) return c.json({ error: 'user is not on this team' }, 400);
+
+  // If is_primary=true, clear any existing primary on this MT first.
+  if (body.data.is_primary) {
+    await adminClient
+      .from('meet_meeting_type_assignee')
+      .update({ is_primary: false })
+      .eq('meeting_type_id', id)
+      .eq('is_primary', true);
+  }
+  const { data, error } = await adminClient
+    .from('meet_meeting_type_assignee')
+    .upsert(
+      {
+        meeting_type_id: id,
+        user_id: body.data.user_id,
+        is_primary: body.data.is_primary ?? false,
+      },
+      { onConflict: 'meeting_type_id,user_id' },
+    )
+    .select('user_id, is_primary')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data, 201);
+});
+
+// DELETE /api/v1/meet/meeting-types/:id/assignees/:userId
+meetRoutes.delete('/meeting-types/:id/assignees/:userId', async (c) => {
+  const id = c.req.param('id');
+  const userId = c.req.param('userId');
+  const ctx = c.get('ctx');
+
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select('team_id')
+    .eq('id', id)
+    .single();
+  if (!mt || !mt.team_id) {
+    return c.json({ error: 'meeting type is not team-owned' }, 400);
+  }
+  const { data: lead } = await adminClient
+    .from('meet_team_member')
+    .select('role')
+    .eq('team_id', mt.team_id)
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!lead || lead.role !== 'lead') {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  await adminClient
+    .from('meet_meeting_type_assignee')
+    .delete()
+    .eq('meeting_type_id', id)
+    .eq('user_id', userId);
+  return c.json({ ok: true });
 });

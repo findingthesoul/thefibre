@@ -32,6 +32,7 @@ function bodyFromForm(formData: FormData) {
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
     team_id: teamId && teamId !== 'personal' ? teamId : null,
+    event_type: strOrNull(formData.get('event_type')) ?? 'one_on_one',
   };
 }
 
@@ -51,6 +52,38 @@ export async function createMeetingType(
   }
   revalidatePath('/meeting-types');
   redirect(`/meeting-types/${created.id}`);
+}
+
+export async function addAssignee(
+  mtId: string,
+  userId: string,
+  isPrimary: boolean,
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${mtId}/assignees`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, is_primary: isPrimary }),
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath(`/meeting-types/${mtId}`);
+  return { ok: true };
+}
+
+export async function removeAssignee(
+  mtId: string,
+  userId: string,
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${mtId}/assignees/${userId}`, {
+      method: 'DELETE',
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath(`/meeting-types/${mtId}`);
+  return { ok: true };
 }
 
 export async function updateMeetingType(
