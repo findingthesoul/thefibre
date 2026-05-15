@@ -5,6 +5,7 @@ import { readPrefs } from '@/lib/prefs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
+import { APPS } from '@thefibre/shared';
 
 const VERSION = '0.5.2';
 
@@ -68,7 +69,7 @@ export default async function MeetAppLayout({
           email={email}
           fullName={fullName}
           prefs={prefs}
-          current={{ slug: 'fibre-meet', name: 'Fibre Meet' }}
+          current={{ slug: 'fibre-meet', name: APPS['fibre-meet'].name }}
           apps={switcherApps}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>

@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { SignInLink } from './sign-in-button';
+import { APPS, ENTITY } from '@thefibre/shared';
+
+const FIBRE = APPS['fibre-platform'];
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <header>
-          <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">The Fibre</div>
+          <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">{FIBRE.name}</div>
           <h1 className="mt-3 text-5xl font-medium tracking-tight leading-tight">
             Relationships, kept honestly.
           </h1>
@@ -43,7 +46,7 @@ export default function LandingPage() {
           />
           <Feature
             title="Independently owned"
-            body="Solidarity Lab B.V. — built to last, not to flip. No advertising, no profiling, no third-party trackers."
+            body={`${ENTITY.name} — built to last, not to flip. No advertising, no profiling, no third-party trackers.`}
           />
         </section>
 
@@ -61,7 +64,7 @@ export default function LandingPage() {
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          thefibre.app · Solidarity Lab B.V. · Hosted in the EU
+          {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.hostedLine}
           <br />
           No advertising. No profiling. No data sold.{' '}
           <Link className="underline" href="/privacy">

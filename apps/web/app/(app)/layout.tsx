@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
+import { APPS } from '@thefibre/shared';
 
 const VERSION = '0.5.1';
 
@@ -69,7 +70,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           email={email}
           fullName={fullName}
           prefs={prefs}
-          current={{ slug: 'fibre-platform', name: 'The Fibre' }}
+          current={{ slug: 'fibre-platform', name: APPS['fibre-platform'].name }}
           apps={apps}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>

@@ -5,6 +5,7 @@ import { readPrefs } from '@/lib/prefs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
+import { APPS } from '@thefibre/shared';
 
 const VERSION = '0.5.2';
 
@@ -67,7 +68,7 @@ export default async function ThreadAppLayout({
           email={email}
           fullName={fullName}
           prefs={prefs}
-          current={{ slug: 'the-thread', name: 'The Thread' }}
+          current={{ slug: 'the-thread', name: APPS['the-thread'].name }}
           apps={switcherApps}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>

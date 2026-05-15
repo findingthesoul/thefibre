@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeScript } from '@/components/shell/theme-script';
+import { APPS } from '@thefibre/shared';
 
 export const metadata: Metadata = {
-  title: 'Fibre Meet',
-  description: 'Meeting platform — agenda, facilitation, outcomes.',
+  title: APPS['fibre-meet'].name,
+  description: APPS['fibre-meet'].tagline,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

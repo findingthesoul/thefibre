@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { ThemeScript } from '@/components/shell/theme-script';
+import { APPS } from '@thefibre/shared';
 
 export const metadata: Metadata = {
-  title: 'The Thread',
-  description: 'Events and journeys — conferences, programmes, personal arcs.',
+  title: APPS['the-thread'].name,
+  description: APPS['the-thread'].tagline,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

@@ -1,6 +1,14 @@
 export const APP_IDS = ['fibre-platform', 'fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn'] as const;
 export type AppId = (typeof APP_IDS)[number];
 
+export {
+  APPS,
+  ENTITY,
+  appUrl,
+  cookieDomain,
+  type AppBrand,
+} from './branding.js';
+
 export const PROGRAM_FORMATS = ['meeting', 'event', 'journey', 'self_paced', 'blended'] as const;
 export type ProgramFormat = (typeof PROGRAM_FORMATS)[number];
 

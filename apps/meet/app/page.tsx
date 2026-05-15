@@ -2,6 +2,10 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
+import { APPS, ENTITY, appUrl } from '@thefibre/shared';
+
+const MEET = APPS['fibre-meet'];
+const FIBRE = APPS['fibre-platform'];
 
 export default async function MeetLanding() {
   // If already signed in, jump straight to the dashboard.
@@ -9,11 +13,13 @@ export default async function MeetLanding() {
   const { data } = await supabase.auth.getUser();
   if (data.user) redirect('/dashboard');
 
+  const fibreUrl = appUrl('fibre-platform', process.env);
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-          Fibre Meet
+          {MEET.name}
         </div>
         <h1 className="mt-3 text-5xl font-medium tracking-tight leading-tight">
           A meeting is a thing of its own.
@@ -48,11 +54,11 @@ export default async function MeetLanding() {
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          meet.thefibre.app · part of{' '}
-          <Link href="https://thefibre.app" className="underline">
-            The Fibre
+          {new URL(MEET.url).host} · part of{' '}
+          <Link href={fibreUrl} className="underline">
+            {FIBRE.name}
           </Link>{' '}
-          · Solidarity Lab B.V. · Hosted in the EU
+          · {ENTITY.name} · {ENTITY.hostedLine}
         </footer>
       </div>
     </main>

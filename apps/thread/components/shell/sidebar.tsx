@@ -12,6 +12,9 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
+import { APPS } from '@thefibre/shared';
+
+const BRAND = APPS['the-thread'];
 
 type NavItem = { href: string; label: string; icon: LucideIcon };
 type NavSection = { label?: string; items: NavItem[] };
@@ -82,11 +85,11 @@ function Brand({ showLabel }: { showLabel: boolean }) {
     <div className="h-14 flex items-center px-3 shrink-0">
       <Link href="/dashboard" className="flex items-center gap-2.5">
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-yellow-300 text-ink font-semibold text-[11px] tracking-tight shrink-0">
-          tt
+          {BRAND.brandLetters}
         </span>
         {showLabel && (
           <span className="text-sm font-medium tracking-tight whitespace-nowrap">
-            The Thread
+            {BRAND.name}
           </span>
         )}
       </Link>

@@ -2,17 +2,23 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
+import { APPS, ENTITY, appUrl } from '@thefibre/shared';
+
+const THREAD = APPS['the-thread'];
+const FIBRE = APPS['fibre-platform'];
 
 export default async function ThreadLanding() {
   const supabase = await serverSupabase();
   const { data } = await supabase.auth.getUser();
   if (data.user) redirect('/dashboard');
 
+  const fibreUrl = appUrl('fibre-platform', process.env);
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-          The Thread
+          {THREAD.name}
         </div>
         <h1 className="mt-3 text-5xl font-medium tracking-tight leading-tight">
           The arc that carries the work.
@@ -47,11 +53,11 @@ export default async function ThreadLanding() {
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          thread.thefibre.app · part of{' '}
-          <Link href="https://thefibre.app" className="underline">
-            The Fibre
+          {new URL(THREAD.url).host} · part of{' '}
+          <Link href={fibreUrl} className="underline">
+            {FIBRE.name}
           </Link>{' '}
-          · Solidarity Lab B.V. · Hosted in the EU
+          · {ENTITY.name} · {ENTITY.hostedLine}
         </footer>
       </div>
     </main>
