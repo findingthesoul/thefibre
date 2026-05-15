@@ -163,13 +163,16 @@ export function MeetingTypeForm({
 
   // Slug prefix depends on scope. For personal: meet.thefibre.app/<host-slug>/
   // For team: meet.thefibre.app/<team-slug>/
-  const teamSlugForPrefix = teams.find((t) => t.id === effectiveTeamId)?.slug;
+  // If the team scope is selected but no team is picked yet, fall back to
+  // the first team in the list (which is the visible default).
+  const fallbackTeamId = effectiveTeamId || teams[0]?.id;
+  const teamSlugForPrefix = teams.find((t) => t.id === fallbackTeamId)?.slug;
   const prefix =
     scope === 'team' && teamSlugForPrefix
       ? `meet.thefibre.app/${teamSlugForPrefix}/`
       : hostSlug
         ? `meet.thefibre.app/${hostSlug}/`
-        : `meet.thefibre.app/your-handle/`;
+        : 'meet.thefibre.app/';
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'basics', label: 'Basics' },

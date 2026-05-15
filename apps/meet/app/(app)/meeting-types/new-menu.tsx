@@ -1,6 +1,5 @@
 'use client';
 
-import Link from 'next/link';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import {
   User,
@@ -84,7 +83,6 @@ const EVENT_TYPES: EventTypeOption[] = [
 
 export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
   const [open, setOpen] = useState(false);
-  const [picking, setPicking] = useState<string | null>(null);
   const ref = useRef<HTMLDivElement | null>(null);
   const leadTeams = teams.filter((t) => t.my_role === 'lead');
 
@@ -92,17 +90,15 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
     function close(e: MouseEvent) {
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
-        setPicking(null);
       }
     }
     if (open) document.addEventListener('mousedown', close);
     return () => document.removeEventListener('mousedown', close);
   }, [open]);
 
-  function hrefFor(eventType: string, teamId?: string): string {
+  function hrefFor(eventType: string): string {
     const qs = new URLSearchParams();
     qs.set('event_type', eventType);
-    if (teamId) qs.set('team', teamId);
     return `/meeting-types/new?${qs.toString()}`;
   }
 
@@ -127,11 +123,8 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
               const muted = isDisabled || needsTeam;
               const onSelect = () => {
                 if (muted) return;
-                if (opt.teamOnly) setPicking(opt.value);
-                else {
-                  setOpen(false);
-                  window.location.href = hrefFor(opt.value);
-                }
+                setOpen(false);
+                window.location.href = hrefFor(opt.value);
               };
               const prev = i > 0 ? EVENT_TYPES[i - 1] : null;
               const isFirstOfMore =
@@ -167,25 +160,6 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
                       </div>
                     </div>
                   </button>
-                  {picking === opt.value && opt.teamOnly && (
-                    <div className="bg-surface-sunken px-4 py-2 border-t border-line">
-                      <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted mb-1">
-                        For which team?
-                      </div>
-                      <ul className="space-y-0.5">
-                        {leadTeams.map((t) => (
-                          <li key={t.id}>
-                            <Link
-                              href={hrefFor(opt.value, t.id)}
-                              className="block px-2 py-1.5 rounded text-sm hover:bg-surface-raised"
-                            >
-                              {t.name}
-                            </Link>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
                 </li>
                 </Fragment>
               );
