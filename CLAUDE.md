@@ -81,6 +81,64 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
+## Where we left off — 2026-05-16 (Fibre Meet @ v0.7.0+)
+
+The conversation that built most of Fibre Meet stretched too long; this section is the handoff so the next chat lands running. Live in production.
+
+### Recent commits to anchor on
+
+```
+d74dae9  New menu skips team sub-picker; cleaner slug-prefix fallback
+7341602  Unified slug UX (prefix + Alt), 2-card scope chooser, dropdown selects, Personal room → Connections
+16b912d  Tabbed meeting-type editor + per-MT availability/calendar overrides
+4b07a5a  Lucide icons everywhere; Calendars re-sync (Google API needed enabling)
+82f0c5f  Two-step team invites with accept page + copy-URL fallback
+92ea693  Every workspace user has a paired public.person row (identity invariant)
+88b02a4  Waves 8 + 9 — contacts + internal team
+9033aa8  Waves 5–7 — settings index, availability page, calendars w/ role mgmt
+eeeb0e3  Waves 2–4 — dashboard, bookings, new-MT menu (Suite layouts)
+b642315  Wave 1 — public booking page split-card layout
+5dffa50  Step 7 — round-robin + collective event types
+0d32baa  Step 5 + 6 — booking emails + cancel + Teams
+```
+
+### Where Fibre Meet is right now (the working app)
+
+- **Public booking** at `meet.thefibre.app/<slug>/<mt-slug>`: split card with month grid + time list + tz picker + 24h/AMPM. Cancel + reschedule link on the confirmation page.
+- **Dashboard**: Quick Links (top 3 active MTs, copy + open icons) + Today + Next Up.
+- **Bookings**: tabbed Upcoming/Past/All · List/Week/Month · scope filter · include-cancelled.
+- **Meeting types**: tabbed editor (Basics / Availability / Conferencing / Pricing / Intake). Basics has a 2-card Personal/Team scope chooser; Availability has a per-MT working-hours override; Conferencing has a per-MT conflict-calendar override.
+- **Teams**: members + pending invites (status='invited' until they sign in + Accept). `/invite/[token]` public accept page.
+- **Round-robin + Collective**: schema + engine + UI in place. Assignees list excludes pending invites.
+- **Calendars**: Google sync, role per calendar (primary / conflict_check / write_target / ignore), Re-sync button.
+- **Identity invariant**: every workspace user has a paired `public.person` row; both invite paths + the SSO resolver enforce it.
+
+### What's queued (in order)
+
+1. **Magic-link auth** — so invitees without Google can sign in. Supabase Auth supports it; needs an extra button on sign-in pages + a tiny tweak to the auth callback. NOT started yet — this is the right thing for the next chat to pick up.
+2. **Fibre web (apps/web) — label per-app curator data tabs.** The "Edit change context" modal on a person's profile shows fields owned by an external app, but the panel doesn't say which app. Add an app-name header to each curator-data section.
+3. **Cutover strategy conversation** with Sjoerd. Suite (suite.soul.com) is still live and in use by soul.com. Decide whether Meet runs parallel for a while or aims for a clean swap. Owner is Sjoerd; no code work yet.
+4. **Visual fidelity to Suite is still an active concern.** Going forward, read the actual Suite component before reimplementing (e.g. via `find "/Users/sjoerdair/Projects/souls calendar" …`), don't rebuild from a screenshot — Sjoerd has called this out twice.
+5. **Per-user permission tiers** (Sjoerd's longer-term ask): contacts visible only to people who are on the meetings/teams/orgs they belong to. Plus per-user "internal / external / team-member" status labels. Needs a brief amendment before any code.
+
+### Outstanding for Sjoerd (not code)
+
+- **Rotate the Resend API key** — the `re_AR5QNQot…` value ended up in a screenshot earlier in the conversation. Resend dashboard → API Keys → delete + create → `fly secrets set RESEND_API_KEY=…` from repo root.
+
+### Hot-button design feedback Sjoerd has flagged
+
+- **Icons must be lucide, never emoji.** Settings, bookings view toggle, new-MT menu, public booking meta — all converted in `4b07a5a`. Watch for any future drift.
+- **Slug UX is now centralised** in `apps/meet/components/ui/name-slug.tsx`: `[prefix/][input][Alt]`. Every form that takes a slug uses this. The Profile slug field in `apps/meet/app/(app)/settings/profile/form.tsx` follows the same visual pattern by hand.
+- **Content left-aligned, not centered.** `PageContainer` dropped `mx-auto` (commit `d4b2006`).
+- **Number-of-minutes fields are curated dropdowns**, not free-form inputs (Buffer / Notice / Advance).
+- **Personal vs Team is a 2-card chooser**, never a select. When Team is chosen, a Team picker dropdown appears below the cards (not a sub-picker inside the New menu).
+
+### A pinned note from Sjoerd
+
+> Suite was built in a week — by Claude. So "we got the design right in v1, the gap in v2 is on me, not on the time budget." Don't excuse design fidelity with timing. Study the source before reimplementing.
+
+---
+
 ## State as of v0.4.8 (live in production)
 
 ### Live URLs
