@@ -7,8 +7,12 @@ import {
   SectionLabel,
 } from '@/components/ui/page';
 import { GoogleConnect } from '../google';
+import { PersonalRoomForm } from './personal-room';
 
-type Host = { google_connected?: boolean };
+type Host = {
+  google_connected?: boolean;
+  personal_room_url: string | null;
+};
 
 export default async function IntegrationsPage({
   searchParams,
@@ -28,21 +32,35 @@ export default async function IntegrationsPage({
     <PageContainer max="3xl">
       <Breadcrumb href="/settings" label="Settings" />
       <PageHeader
-        title="Integrations"
+        title="Connections"
         description="Connect external services so Meet can read your calendar and create video links."
       />
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
       {host && (
-        <section className="mt-10">
-          <SectionLabel>Calendars</SectionLabel>
-          <div className="mt-4">
-            <GoogleConnect
-              connected={!!host.google_connected}
-              statusParam={googleStatus ?? null}
-              reasonParam={reason ?? null}
-            />
-          </div>
-        </section>
+        <>
+          <section className="mt-10">
+            <SectionLabel>Calendars</SectionLabel>
+            <div className="mt-4">
+              <GoogleConnect
+                connected={!!host.google_connected}
+                statusParam={googleStatus ?? null}
+                reasonParam={reason ?? null}
+              />
+            </div>
+          </section>
+
+          <section className="mt-12">
+            <SectionLabel>Personal meeting room</SectionLabel>
+            <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
+              Used by meeting types set to <strong>Personal room</strong>. A
+              static Zoom Personal Meeting Room URL, your Whereby link, anything
+              that lives at a fixed URL.
+            </p>
+            <div className="mt-4">
+              <PersonalRoomForm initial={host.personal_room_url ?? ''} />
+            </div>
+          </section>
+        </>
       )}
     </PageContainer>
   );

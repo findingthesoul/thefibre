@@ -6,7 +6,8 @@ import {
 import { apiFetch } from '@/lib/api';
 import { MeetingTypeForm, type TeamOption, type CalendarOption } from '../form';
 
-type Team = { id: string; name: string; my_role: 'lead' | 'member' };
+type Team = { id: string; slug: string; name: string; my_role: 'lead' | 'member' };
+type Host = { slug: string };
 
 export default async function NewMeetingTypePage({
   searchParams,
@@ -16,13 +17,18 @@ export default async function NewMeetingTypePage({
   const { team: teamParam, event_type: eventTypeParam } = await searchParams;
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
+  let hostSlug: string | null = null;
   try {
-    const [t, c] = await Promise.all([
+    const [t, c, h] = await Promise.all([
       apiFetch<{ items: Team[] }>('/api/v1/meet/teams'),
       apiFetch<{ items: CalendarOption[] }>('/api/v1/meet/calendars').catch(() => ({ items: [] })),
+      apiFetch<Host>('/api/v1/meet/me').catch(() => null),
     ]);
-    teams = t.items.filter((t) => t.my_role === 'lead').map((t) => ({ id: t.id, name: t.name }));
+    teams = t.items
+      .filter((t) => t.my_role === 'lead')
+      .map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
     calendars = c.items;
+    hostSlug = h?.slug ?? null;
   } catch {
     // Non-fatal — falls back to personal-only.
   }
@@ -45,6 +51,7 @@ export default async function NewMeetingTypePage({
           initial={{ team_id: teamParam ?? null, event_type: eventType }}
           teams={teams}
           calendars={calendars}
+          hostSlug={hostSlug}
         />
       </div>
     </PageContainer>

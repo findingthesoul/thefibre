@@ -1,10 +1,21 @@
 'use client';
 
-// Paired Name + URL slug inputs. On create (no initial slug) the slug
-// auto-syncs from the name as you type. The slug field shows as locked
-// (read-only) with an "Edit" button; clicking it unlocks the field and
-// stops the auto-sync so manual edits stick. On edit (initial slug set)
-// the field starts unlocked so the user can change it directly.
+// Single source of truth for "name + URL slug" pairs across the app.
+// Layout matches the Thread / Suite reference:
+//
+//   Name
+//   [______________________________]
+//
+//   Public URL
+//   [prefix/]  [slug                                       ]  [ALT]
+//
+// Behavior:
+//   * On create (no initial slug), the slug auto-fills from the name using
+//     slugify(). The user can click into the field to override.
+//   * On edit (initial slug present), auto-sync is off — typing in Name
+//     doesn't touch the slug.
+//   * ALT regenerates a slug variant (slugify(name) + 4-char random
+//     suffix). Useful when a base slug is taken.
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { TextField } from './field';
@@ -19,33 +30,48 @@ function slugify(s: string): string {
     .slice(0, 60);
 }
 
+function randomSuffix(len = 4): string {
+  return Math.random().toString(36).slice(2, 2 + len);
+}
+
 export function NameAndSlugFields({
   initialName = '',
   initialSlug = '',
   nameLabel = 'Name',
+  prefix = '',
   slugHint,
-  slugPlaceholder = 'auto-generated',
+  slugLabel = 'Public URL',
 }: {
   initialName?: string;
   initialSlug?: string;
   nameLabel?: string;
+  /** Read-only prefix shown to the left of the slug field, e.g. `meet.thefibre.app/sjoerd/`. */
+  prefix?: string;
   slugHint?: React.ReactNode;
-  slugPlaceholder?: string;
+  slugLabel?: string;
 }) {
   const isCreate = !initialSlug;
   const [name, setName] = useState(initialName);
   const [slug, setSlug] = useState(initialSlug || slugify(initialName));
-  const [locked, setLocked] = useState(isCreate);
+  // autoSync follows the name only until the user manually edits the slug or
+  // clicks ALT (both signal "I'm picking my own").
+  const [autoSync, setAutoSync] = useState(isCreate);
   const slugInputRef = useRef<HTMLInputElement | null>(null);
   const slugId = useId();
 
   useEffect(() => {
-    if (locked) setSlug(slugify(name));
-  }, [name, locked]);
+    if (autoSync) setSlug(slugify(name));
+  }, [name, autoSync]);
 
-  function unlock() {
-    setLocked(false);
-    // Focus after the input becomes editable.
+  function onSlugChange(value: string) {
+    setAutoSync(false);
+    setSlug(value.replace(/[^a-z0-9-]/g, ''));
+  }
+
+  function regenerate() {
+    setAutoSync(false);
+    const base = slugify(name) || 'meeting';
+    setSlug(`${base}-${randomSuffix()}`);
     requestAnimationFrame(() => slugInputRef.current?.focus());
   }
 
@@ -59,36 +85,35 @@ export function NameAndSlugFields({
         required
       />
       <div>
-        <div className="flex items-center justify-between">
-          <label htmlFor={slugId} className="text-sm text-ink-subtle">
-            URL slug <span className="text-red-600">*</span>
-          </label>
-          {locked && (
-            <button
-              type="button"
-              onClick={unlock}
-              className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-            >
-              Edit
-            </button>
+        <label htmlFor={slugId} className="block text-sm text-ink-subtle">
+          {slugLabel} <span className="text-red-600">*</span>
+        </label>
+        <div className="mt-1 flex items-stretch rounded-md border border-line bg-surface-raised overflow-hidden focus-within:border-line-strong">
+          {prefix && (
+            <span className="px-3 flex items-center text-sm text-ink-muted bg-surface-sunken border-r border-line whitespace-nowrap">
+              {prefix}
+            </span>
           )}
+          <input
+            id={slugId}
+            ref={slugInputRef}
+            name="slug"
+            value={slug}
+            onChange={(e) => onSlugChange(e.target.value)}
+            required
+            pattern="[a-z0-9-]+"
+            placeholder="auto-generated"
+            className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none placeholder:text-ink-muted min-w-0"
+          />
+          <button
+            type="button"
+            onClick={regenerate}
+            className="px-3 flex items-center text-xs uppercase tracking-wider text-ink-subtle hover:text-ink hover:bg-surface-sunken border-l border-line"
+            title="Suggest an alternative slug"
+          >
+            Alt
+          </button>
         </div>
-        <input
-          id={slugId}
-          ref={slugInputRef}
-          name="slug"
-          value={slug}
-          onChange={(e) => setSlug(e.target.value.replace(/[^a-z0-9-]/g, ''))}
-          readOnly={locked}
-          required
-          pattern="[a-z0-9-]+"
-          placeholder={slugPlaceholder}
-          className={`mt-1 w-full rounded-md border px-3 py-2 text-sm focus:outline-none ${
-            locked
-              ? 'border-line bg-surface-sunken text-ink-subtle cursor-default'
-              : 'border-line bg-surface-raised focus:border-line-strong'
-          }`}
-        />
         {slugHint && (
           <span className="mt-1 block text-xs text-ink-muted">{slugHint}</span>
         )}

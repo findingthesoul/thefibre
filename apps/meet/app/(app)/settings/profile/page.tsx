@@ -11,7 +11,6 @@ type Host = {
   slug: string;
   bio: string | null;
   location: string | null;
-  personal_room_url: string | null;
   photo_url: string | null;
 };
 

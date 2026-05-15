@@ -21,9 +21,11 @@ type MT = MeetingTypeFormValues & {
 };
 type Team = {
   id: string;
+  slug: string;
   name: string;
   my_role: 'lead' | 'member';
 };
+type Host = { slug: string };
 type TeamDetail = {
   id: string;
   members: {
@@ -42,15 +44,20 @@ export default async function EditMeetingTypePage({
   let mt: MT | null = null;
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
+  let hostSlug: string | null = null;
   try {
-    const [data, t, c] = await Promise.all([
+    const [data, t, c, h] = await Promise.all([
       apiFetch<{ items: MT[] }>('/api/v1/meet/meeting-types'),
       apiFetch<{ items: Team[] }>('/api/v1/meet/teams').catch(() => ({ items: [] })),
       apiFetch<{ items: CalendarOption[] }>('/api/v1/meet/calendars').catch(() => ({ items: [] })),
+      apiFetch<Host>('/api/v1/meet/me').catch(() => null),
     ]);
     mt = data.items.find((m) => m.id === id) ?? null;
-    teams = t.items.filter((x) => x.my_role === 'lead').map((x) => ({ id: x.id, name: x.name }));
+    teams = t.items
+      .filter((x) => x.my_role === 'lead')
+      .map((x) => ({ id: x.id, name: x.name, slug: x.slug }));
     calendars = c.items;
+    hostSlug = h?.slug ?? null;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -86,7 +93,12 @@ export default async function EditMeetingTypePage({
       <Breadcrumb href="/meeting-types" label="Meeting types" />
       <PageHeader title={mt.name!} description={`slug: ${mt.slug}`} />
       <div className="mt-10">
-        <MeetingTypeForm initial={mt} teams={teams} calendars={calendars} />
+        <MeetingTypeForm
+          initial={mt}
+          teams={teams}
+          calendars={calendars}
+          hostSlug={hostSlug}
+        />
       </div>
       {showAssignees && isLead && (
         <section className="mt-14">

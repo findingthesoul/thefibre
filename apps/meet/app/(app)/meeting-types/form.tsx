@@ -2,6 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
+import { User, Users as TeamIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
@@ -34,7 +35,7 @@ export type MeetingTypeFormValues = {
   price_currency?: string | null;
 };
 
-export type TeamOption = { id: string; name: string };
+export type TeamOption = { id: string; name: string; slug?: string };
 export type CalendarOption = {
   id: string;
   summary: string | null;
@@ -68,14 +69,60 @@ const PROVIDERS = [
   { value: 'none', label: 'No conferencing' },
 ];
 
+const DURATION_OPTIONS = [
+  { value: '15', label: '15 minutes' },
+  { value: '20', label: '20 minutes' },
+  { value: '30', label: '30 minutes' },
+  { value: '45', label: '45 minutes' },
+  { value: '60', label: '60 minutes' },
+  { value: '90', label: '90 minutes' },
+  { value: '120', label: '2 hours' },
+];
+
+const BUFFER_OPTIONS = [
+  { value: '0', label: 'None' },
+  { value: '5', label: '5 min' },
+  { value: '10', label: '10 min' },
+  { value: '15', label: '15 min' },
+  { value: '30', label: '30 min' },
+  { value: '60', label: '60 min' },
+];
+
+const NOTICE_OPTIONS = [
+  { value: '0', label: 'None' },
+  { value: '15', label: '15 min' },
+  { value: '30', label: '30 min' },
+  { value: '60', label: '1 hour' },
+  { value: '120', label: '2 hours' },
+  { value: '240', label: '4 hours' },
+  { value: '1440', label: '1 day' },
+  { value: '2880', label: '2 days' },
+  { value: '10080', label: '1 week' },
+];
+
+const ADVANCE_OPTIONS = [
+  { value: '1', label: '1 day' },
+  { value: '3', label: '3 days' },
+  { value: '7', label: '7 days' },
+  { value: '14', label: '14 days' },
+  { value: '30', label: '30 days' },
+  { value: '60', label: '60 days' },
+  { value: '90', label: '90 days' },
+  { value: '180', label: '180 days' },
+  { value: '365', label: '1 year' },
+];
+
 type Tab = 'basics' | 'availability' | 'conferencing' | 'pricing' | 'intake';
 
 export function MeetingTypeForm({
   initial,
+  hostSlug,
   teams = [],
   calendars = [],
 }: {
   initial: MeetingTypeFormValues;
+  /** The current user's own host slug — used to render the personal URL prefix. */
+  hostSlug?: string | null;
   teams?: TeamOption[];
   calendars?: CalendarOption[];
 }) {
@@ -88,9 +135,11 @@ export function MeetingTypeForm({
     {},
   );
 
-  // Controlled bits that need conditional rendering or input mode changes.
   const [tab, setTab] = useState<Tab>('basics');
-  const [teamId, setTeamId] = useState<string>(initial.team_id ?? 'personal');
+  const [scope, setScope] = useState<'personal' | 'team'>(
+    initial.team_id ? 'team' : 'personal',
+  );
+  const [teamId, setTeamId] = useState<string>(initial.team_id ?? '');
   const [eventType, setEventType] = useState<string>(initial.event_type ?? 'one_on_one');
   const [availabilityMode, setAvailabilityMode] = useState<'default' | 'custom'>(
     initial.working_hours_override ? 'custom' : 'default',
@@ -108,9 +157,19 @@ export function MeetingTypeForm({
     initial.price_cents && initial.price_cents > 0 ? 'paid' : 'free',
   );
 
-  const teamSelected = teamId !== 'personal';
-  const showEventType = teamSelected && teams.length > 0;
-  const effectiveEventType = teamSelected ? eventType : 'one_on_one';
+  const showEventType = scope === 'team' && teams.length > 0;
+  const effectiveEventType = scope === 'team' ? eventType : 'one_on_one';
+  const effectiveTeamId = scope === 'team' && teamId ? teamId : '';
+
+  // Slug prefix depends on scope. For personal: meet.thefibre.app/<host-slug>/
+  // For team: meet.thefibre.app/<team-slug>/
+  const teamSlugForPrefix = teams.find((t) => t.id === effectiveTeamId)?.slug;
+  const prefix =
+    scope === 'team' && teamSlugForPrefix
+      ? `meet.thefibre.app/${teamSlugForPrefix}/`
+      : hostSlug
+        ? `meet.thefibre.app/${hostSlug}/`
+        : `meet.thefibre.app/your-handle/`;
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'basics', label: 'Basics' },
@@ -122,7 +181,6 @@ export function MeetingTypeForm({
 
   return (
     <form action={formAction} className="space-y-6">
-      {/* Sticky tabs + Save bar at top, like Suite. */}
       <div className="sticky top-0 z-10 -mx-10 px-10 bg-surface/80 backdrop-blur border-b border-line">
         <div className="flex items-center justify-between gap-3 py-3">
           <nav className="flex items-center gap-1 text-sm">
@@ -142,12 +200,8 @@ export function MeetingTypeForm({
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {state.ok && (
-              <span className="text-xs text-emerald-700">Saved.</span>
-            )}
-            {state.error && (
-              <span className="text-xs text-red-700">{state.error}</span>
-            )}
+            {state.ok && <span className="text-xs text-emerald-700">Saved.</span>}
+            {state.error && <span className="text-xs text-red-700">{state.error}</span>}
             <Button type="submit" disabled={pending}>
               {pending ? 'Saving…' : isEdit ? 'Save changes' : 'Create'}
             </Button>
@@ -155,8 +209,8 @@ export function MeetingTypeForm({
         </div>
       </div>
 
-      {/* Hidden inputs that need to ship regardless of which tab is visible. */}
-      <input type="hidden" name="team_id" value={teamId} />
+      {/* Hidden inputs */}
+      <input type="hidden" name="team_id" value={effectiveTeamId} />
       <input type="hidden" name="event_type" value={effectiveEventType} />
       <input
         type="hidden"
@@ -171,142 +225,160 @@ export function MeetingTypeForm({
       <input type="hidden" name="pricing_mode" value={pricing} />
 
       {tab === 'basics' && (
-        <Section title="Details" desc="Name, slug, and duration are the essentials.">
-          {teams.length > 0 && (
-            <SelectField
-              label="Owned by"
-              name="team_id_visible"
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              options={[
-                { value: 'personal', label: 'Personal (your booking page)' },
-                ...teams.map((t) => ({ value: t.id, label: `Team — ${t.name}` })),
-              ]}
+        <>
+          <Section title="Scope" desc="Personal types live under your handle. Team types live under a team's URL — bookings show up in the team's shared view.">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <ScopeCard
+                Icon={User}
+                title="Personal"
+                desc="Just for you."
+                active={scope === 'personal'}
+                onClick={() => setScope('personal')}
+              />
+              <ScopeCard
+                Icon={TeamIcon}
+                title="Team"
+                desc={teams.length === 0 ? 'You aren’t a lead of any team yet.' : 'Owned by a team you lead.'}
+                active={scope === 'team'}
+                disabled={teams.length === 0}
+                onClick={() => setScope('team')}
+              />
+            </div>
+            {scope === 'team' && teams.length > 0 && (
+              <SelectField
+                label="Team"
+                name="team_id_visible"
+                value={teamId || teams[0]!.id}
+                onChange={(e) => setTeamId(e.target.value)}
+                options={teams.map((t) => ({ value: t.id, label: t.name }))}
+              />
+            )}
+            {showEventType && (
+              <SelectField
+                label="Event type"
+                name="event_type_visible"
+                value={effectiveEventType}
+                onChange={(e) => setEventType(e.target.value)}
+                options={EVENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                hint={EVENT_TYPES.find((t) => t.value === effectiveEventType)?.hint}
+              />
+            )}
+          </Section>
+
+          <Section title="Details" desc="Name, slug, and duration are the essentials.">
+            <NameAndSlugFields
+              nameLabel="Name"
+              initialName={initial.name ?? ''}
+              initialSlug={initial.slug ?? ''}
+              prefix={prefix}
             />
-          )}
-          {showEventType && (
-            <SelectField
-              label="Event type"
-              name="event_type_visible"
-              value={effectiveEventType}
-              onChange={(e) => setEventType(e.target.value)}
-              options={EVENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
-              hint={EVENT_TYPES.find((t) => t.value === effectiveEventType)?.hint}
+            <TextAreaField
+              label="Description (optional)"
+              name="description"
+              defaultValue={initial.description ?? ''}
+              rows={3}
             />
-          )}
-          <NameAndSlugFields
-            nameLabel="Name"
-            initialName={initial.name ?? ''}
-            initialSlug={initial.slug ?? ''}
-            slugHint="meet.thefibre.app/your-handle/<this>"
-          />
-          <TextAreaField
-            label="Description (optional)"
-            name="description"
-            defaultValue={initial.description ?? ''}
-            rows={3}
-          />
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <TextField
-              label="Duration (min)"
+            <SelectField
+              label="Duration"
               name="duration_minutes"
-              type="number"
-              min={5}
-              max={480}
-              defaultValue={initial.duration_minutes ?? 30}
+              defaultValue={String(initial.duration_minutes ?? 30)}
+              options={DURATION_OPTIONS}
               required
             />
-            <TextField
-              label="Min notice (min)"
-              name="min_notice_minutes"
-              type="number"
-              min={0}
-              defaultValue={initial.min_notice_minutes ?? 60}
-            />
-            <TextField
-              label="Bookable up to (days)"
-              name="max_advance_days"
-              type="number"
-              min={1}
-              max={365}
-              defaultValue={initial.max_advance_days ?? 60}
-            />
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <TextField
-              label="Buffer before (min)"
-              name="buffer_before_minutes"
-              type="number"
-              min={0}
-              defaultValue={initial.buffer_before_minutes ?? 0}
-            />
-            <TextField
-              label="Buffer after (min)"
-              name="buffer_after_minutes"
-              type="number"
-              min={0}
-              defaultValue={initial.buffer_after_minutes ?? 0}
-            />
-          </div>
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              name="is_active"
-              defaultChecked={initial.is_active ?? true}
-            />
-            <span>Active — accept new bookings</span>
-          </label>
-        </Section>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="is_active"
+                defaultChecked={initial.is_active ?? true}
+              />
+              <span>Active — accept new bookings</span>
+            </label>
+          </Section>
+        </>
       )}
 
       {tab === 'availability' && (
-        <Section
-          title="Availability"
-          desc={
-            <>
-              Defaults to your overall{' '}
-              <Link
-                href="/settings/availability"
-                className="underline underline-offset-2"
-              >
-                working hours
-              </Link>
-              . Override here when this meeting type only happens at specific times.
-            </>
-          }
-        >
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={availabilityMode === 'default'}
-                onChange={() => setAvailabilityMode('default')}
-              />
-              <span>Use my default working hours</span>
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                checked={availabilityMode === 'custom'}
-                onChange={() => setAvailabilityMode('custom')}
-              />
-              <span>Custom for this meeting type</span>
-            </label>
-          </div>
-          {availabilityMode === 'custom' && (
-            <div className="pt-2">
-              <WorkingHoursEditor value={hours} onChange={setHours} />
+        <>
+          <Section
+            title="Availability"
+            desc={
+              <>
+                Defaults to your overall{' '}
+                <Link href="/settings/availability" className="underline underline-offset-2">
+                  working hours
+                </Link>
+                . Override here when this meeting type only happens at specific times.
+              </>
+            }
+          >
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  checked={availabilityMode === 'default'}
+                  onChange={() => setAvailabilityMode('default')}
+                />
+                <span>Use my default working hours</span>
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  checked={availabilityMode === 'custom'}
+                  onChange={() => setAvailabilityMode('custom')}
+                />
+                <span>Custom for this meeting type</span>
+              </label>
             </div>
-          )}
-        </Section>
+            {availabilityMode === 'custom' && (
+              <div className="pt-2">
+                <WorkingHoursEditor value={hours} onChange={setHours} />
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title="Scheduling rules"
+            desc="Buffers, how soon people can book, and how far ahead."
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SelectField
+                label="Buffer before"
+                name="buffer_before_minutes"
+                defaultValue={String(initial.buffer_before_minutes ?? 0)}
+                options={BUFFER_OPTIONS}
+                hint="Quiet time reserved before the meeting starts."
+              />
+              <SelectField
+                label="Buffer after"
+                name="buffer_after_minutes"
+                defaultValue={String(initial.buffer_after_minutes ?? 0)}
+                options={BUFFER_OPTIONS}
+                hint="Quiet time reserved after the meeting ends."
+              />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <SelectField
+                label="Minimum notice"
+                name="min_notice_minutes"
+                defaultValue={String(initial.min_notice_minutes ?? 60)}
+                options={NOTICE_OPTIONS}
+                hint="How late someone can still book."
+              />
+              <SelectField
+                label="Bookable up to"
+                name="max_advance_days"
+                defaultValue={String(initial.max_advance_days ?? 60)}
+                options={ADVANCE_OPTIONS}
+                hint="How far in the future the calendar opens."
+              />
+            </div>
+          </Section>
+        </>
       )}
 
       {tab === 'conferencing' && (
         <>
-          <Section
-            title="Conferencing"
-            desc="Where the meeting happens. Zoom requires you to connect it in Settings."
-          >
+          <Section title="Conferencing" desc="Where the meeting happens. Zoom requires you to connect it in Settings.">
             <SelectField
               label="Provider"
               name="conferencing_provider"
@@ -320,17 +392,13 @@ export function MeetingTypeForm({
               placeholder="Address, room, link…"
             />
           </Section>
-
           <Section
             title="Conflict calendars"
             desc={
               <>
-                Which of your calendars block this meeting type. Default uses
-                every conflict source you set in{' '}
-                <Link
-                  href="/settings/calendars"
-                  className="underline underline-offset-2"
-                >
+                Which of your calendars block this meeting type. Default uses every
+                conflict source you set in{' '}
+                <Link href="/settings/calendars" className="underline underline-offset-2">
                   Settings → Calendars
                 </Link>
                 .
@@ -360,10 +428,7 @@ export function MeetingTypeForm({
                 {calendars.length === 0 ? (
                   <p className="text-sm text-ink-subtle">
                     No calendars synced yet. Connect Google in{' '}
-                    <Link
-                      href="/settings/integrations"
-                      className="underline underline-offset-2"
-                    >
+                    <Link href="/settings/integrations" className="underline underline-offset-2">
                       Integrations
                     </Link>
                     .
@@ -438,23 +503,10 @@ export function MeetingTypeForm({
           desc="Ask invitees structured questions when they book. Edit fields after creating the meeting type."
         >
           <p className="text-sm text-ink-subtle">
-            Intake-form editor coming in the next pass. Today every booking
-            accepts free-form notes via the Description field.
+            Intake-form editor coming in the next pass. Today every booking accepts free-form notes via the Description field.
           </p>
         </Section>
       )}
-
-      <div className="flex items-center gap-3 pt-2">
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : isEdit ? 'Save changes' : 'Create meeting type'}
-        </Button>
-        <Link
-          href="/meeting-types"
-          className="text-sm text-ink-subtle hover:text-ink underline underline-offset-2"
-        >
-          Cancel
-        </Link>
-      </div>
     </form>
   );
 }
@@ -476,5 +528,44 @@ function Section({
       </div>
       {children}
     </section>
+  );
+}
+
+function ScopeCard({
+  Icon,
+  title,
+  desc,
+  active,
+  disabled,
+  onClick,
+}: {
+  Icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
+  title: string;
+  desc: string;
+  active: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={disabled ? undefined : onClick}
+      disabled={disabled}
+      className={`text-left rounded-lg border p-4 transition-colors ${
+        disabled
+          ? 'border-line bg-surface opacity-50 cursor-not-allowed'
+          : active
+            ? 'border-ink bg-surface-sunken'
+            : 'border-line bg-surface hover:bg-surface-sunken'
+      }`}
+    >
+      <div className="flex items-start gap-3">
+        <Icon className="h-4 w-4 mt-1 text-ink-subtle" strokeWidth={1.5} />
+        <div className="min-w-0">
+          <div className="text-sm font-medium">{title}</div>
+          <div className="mt-0.5 text-xs text-ink-subtle">{desc}</div>
+        </div>
+      </div>
+    </button>
   );
 }
