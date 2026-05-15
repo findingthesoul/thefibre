@@ -33,15 +33,17 @@ type MeetingType = {
 };
 
 type HostMtResp = { host: Host; meeting_type: MeetingType };
-
 type TeamMtResp = MeetingType & {
   team: { id: string; slug: string; name: string; description: string | null };
-  host: { slug: string; user: { full_name: string | null; avatar_url: string | null } | { full_name: string | null; avatar_url: string | null }[] | null } | null;
+  host: {
+    slug: string;
+    user:
+      | { full_name: string | null; avatar_url: string | null }
+      | { full_name: string | null; avatar_url: string | null }[]
+      | null;
+  } | null;
 };
 
-// Resolve as host meeting type first; fall back to team meeting type. The
-// route segment is named `hostSlug` for historical reasons but now carries
-// either a host or a team slug.
 export default async function MeetingTypePage({
   params,
 }: {
@@ -60,11 +62,12 @@ export default async function MeetingTypePage({
   }
   if (asHost) {
     return (
-      <Page
+      <Card
         ownerSlug={asHost.host.slug}
         ownerKind="host"
-        title={asHost.meeting_type.name}
-        ownerLabel={asHost.host.full_name ?? asHost.host.slug}
+        ownerName={asHost.host.full_name ?? asHost.host.slug}
+        ownerAvatar={asHost.host.photo_url ?? asHost.host.avatar_url}
+        ownerLocation={asHost.host.location}
         backHref={`/${asHost.host.slug}`}
         hostTimezone={asHost.host.timezone}
         meetingType={asHost.meeting_type}
@@ -84,14 +87,13 @@ export default async function MeetingTypePage({
   }
   if (!asTeam) notFound();
 
-  // The team booking flow uses the host's timezone (the assigned facilitator).
-  // For now we fall back to UTC when the lookup didn't include a timezone.
   return (
-    <Page
+    <Card
       ownerSlug={asTeam.team.slug}
       ownerKind="team"
-      title={asTeam.name}
-      ownerLabel={asTeam.team.name}
+      ownerName={asTeam.team.name}
+      ownerAvatar={null}
+      ownerLocation={null}
       backHref={`/${asTeam.team.slug}`}
       hostTimezone={'UTC'}
       meetingType={asTeam}
@@ -99,73 +101,121 @@ export default async function MeetingTypePage({
   );
 }
 
-function Page({
+function Card({
   ownerSlug,
   ownerKind,
-  title,
-  ownerLabel,
+  ownerName,
+  ownerAvatar,
+  ownerLocation,
   backHref,
   hostTimezone,
   meetingType,
 }: {
   ownerSlug: string;
   ownerKind: 'host' | 'team';
-  title: string;
-  ownerLabel: string;
+  ownerName: string;
+  ownerAvatar: string | null;
+  ownerLocation: string | null;
   backHref: string;
   hostTimezone: string;
   meetingType: MeetingType;
 }) {
   return (
-    <main className="min-h-screen bg-white text-neutral-900">
-      <div className="mx-auto max-w-3xl px-6 py-12">
-        <Link
-          href={backHref}
-          className="text-sm text-neutral-500 hover:text-neutral-900"
-        >
-          ← {ownerLabel}
-        </Link>
+    <main className="min-h-screen bg-neutral-50 text-neutral-900">
+      <div className="mx-auto max-w-5xl px-4 sm:px-6 py-12">
+        <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+          <div className="grid grid-cols-1 md:grid-cols-[300px_1fr]">
+            <aside className="border-b md:border-b-0 md:border-r border-neutral-200 p-8 bg-white">
+              <Link
+                href={backHref}
+                className="text-xs text-neutral-500 hover:text-neutral-900 underline-offset-2 hover:underline"
+              >
+                ←{' '}
+                {ownerKind === 'team' ? 'All meetings' : 'Back to ' + ownerName}
+              </Link>
 
-        <header className="mt-6">
-          <h1 className="text-3xl font-medium tracking-tight">{title}</h1>
-          <div className="mt-2 text-sm text-neutral-500">
-            {meetingType.duration_minutes} minutes ·{' '}
-            {formatProvider(meetingType.conferencing_provider)}
+              <div className="mt-6 flex items-center gap-3">
+                {ownerAvatar ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={ownerAvatar}
+                    alt={ownerName}
+                    className="h-12 w-12 rounded-full object-cover"
+                  />
+                ) : (
+                  <div className="h-12 w-12 rounded-full bg-neutral-100 flex items-center justify-center text-neutral-400 text-sm">
+                    {ownerName.slice(0, 1).toUpperCase()}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-4 text-sm text-neutral-500">{ownerName}</div>
+              <h1 className="mt-1 text-2xl font-semibold tracking-tight leading-tight">
+                {meetingType.name}
+              </h1>
+
+              <ul className="mt-6 space-y-3 text-sm text-neutral-700">
+                <li className="flex items-center gap-2">
+                  <span aria-hidden="true">🕒</span>
+                  <span>{meetingType.duration_minutes} minutes</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span aria-hidden="true">📹</span>
+                  <span>{formatProvider(meetingType.conferencing_provider)}</span>
+                </li>
+                {(meetingType.default_location || ownerLocation) && (
+                  <li className="flex items-center gap-2">
+                    <span aria-hidden="true">📍</span>
+                    <span>
+                      {meetingType.default_location ?? ownerLocation}
+                    </span>
+                  </li>
+                )}
+              </ul>
+
+              {meetingType.description && (
+                <p className="mt-6 text-sm text-neutral-700 leading-relaxed whitespace-pre-wrap border-t border-neutral-200 pt-6">
+                  {meetingType.description}
+                </p>
+              )}
+            </aside>
+
+            <section className="p-8">
+              <BookingFlow
+                ownerSlug={ownerSlug}
+                ownerKind={ownerKind}
+                hostTimezone={hostTimezone}
+                meetingType={meetingType}
+              />
+            </section>
           </div>
-          {meetingType.description && (
-            <p className="mt-5 text-neutral-700 leading-relaxed whitespace-pre-wrap">
-              {meetingType.description}
-            </p>
-          )}
-        </header>
-
-        <div className="mt-12">
-          <BookingFlow
-            ownerSlug={ownerSlug}
-            ownerKind={ownerKind}
-            hostTimezone={hostTimezone}
-            meetingType={meetingType}
-          />
         </div>
+
+        <footer className="mt-8 text-center text-xs text-neutral-400">
+          Powered by{' '}
+          <Link href="https://meet.thefibre.app" className="underline">
+            Fibre Meet
+          </Link>
+        </footer>
       </div>
     </main>
   );
 }
 
-function formatProvider(p: string) {
+function formatProvider(p: string): string {
   switch (p) {
     case 'google_meet':
-      return 'Google Meet';
+      return 'Google Meet — link in invite';
     case 'zoom':
-      return 'Zoom';
+      return 'Zoom — link in invite';
     case 'teams':
-      return 'Microsoft Teams';
+      return 'Microsoft Teams — link in invite';
     case 'in_person':
       return 'In person';
     case 'personal_room':
       return 'Personal meeting room';
     case 'none':
-      return '';
+      return 'No conferencing';
     default:
       return p;
   }
