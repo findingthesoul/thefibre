@@ -88,33 +88,11 @@ export function Sidebar({
       >
         <Brand showLabel={showPanel} />
 
-        <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
-          {NAV.map((section, i) => (
-            <NavGroup key={i} section={section} expanded={showPanel} />
-          ))}
-          {(isSuperAdmin || isWorkspaceAdmin) && (
-            <NavGroup
-              section={{
-                label: 'Admin',
-                items: [
-                  ...(isWorkspaceAdmin
-                    ? [{ href: '/settings/apps', label: 'Apps', icon: LayoutGrid }]
-                    : []),
-                  ...(isSuperAdmin
-                    ? [
-                        {
-                          href: '/admin/access-requests',
-                          label: 'Access requests',
-                          icon: UserCheck,
-                        },
-                      ]
-                    : []),
-                ],
-              }}
-              expanded={showPanel}
-            />
-          )}
-        </nav>
+        <NavSections
+          isSuperAdmin={isSuperAdmin}
+          isWorkspaceAdmin={isWorkspaceAdmin}
+          expanded={showPanel}
+        />
 
         <Footer expanded={showPanel} version={version} />
       </aside>
@@ -139,7 +117,61 @@ function Brand({ showLabel }: { showLabel: boolean }) {
   );
 }
 
-function NavGroup({ section, expanded }: { section: NavSection; expanded: boolean }) {
+function NavSections({
+  isSuperAdmin,
+  isWorkspaceAdmin,
+  expanded,
+}: {
+  isSuperAdmin: boolean;
+  isWorkspaceAdmin: boolean;
+  expanded: boolean;
+}) {
+  const pathname = usePathname();
+
+  const sections: NavSection[] = [
+    ...NAV,
+    ...(isSuperAdmin || isWorkspaceAdmin
+      ? [
+          {
+            label: 'Admin',
+            items: [
+              ...(isWorkspaceAdmin
+                ? [{ href: '/settings/apps', label: 'Apps', icon: LayoutGrid }]
+                : []),
+              ...(isSuperAdmin
+                ? [{ href: '/admin/access-requests', label: 'Access requests', icon: UserCheck }]
+                : []),
+            ],
+          },
+        ]
+      : []),
+  ];
+
+  // Find the longest href that matches the current pathname. Only that one
+  // gets highlighted — prevents /settings + /settings/apps both lighting up.
+  const allHrefs = sections.flatMap((s) => s.items.map((i) => i.href));
+  const activeHref = allHrefs
+    .filter((h) => pathname === h || pathname.startsWith(`${h}/`))
+    .sort((a, b) => b.length - a.length)[0];
+
+  return (
+    <nav className="flex-1 overflow-y-auto px-2 py-2 space-y-3">
+      {sections.map((section, i) => (
+        <NavGroup key={i} section={section} expanded={expanded} activeHref={activeHref} />
+      ))}
+    </nav>
+  );
+}
+
+function NavGroup({
+  section,
+  expanded,
+  activeHref,
+}: {
+  section: NavSection;
+  expanded: boolean;
+  activeHref: string | undefined;
+}) {
   return (
     <div>
       {section.label && expanded && (
@@ -150,16 +182,27 @@ function NavGroup({ section, expanded }: { section: NavSection; expanded: boolea
       {section.label && !expanded && <div className="h-px bg-line/60 mx-2 my-2" />}
       <div className="space-y-0.5">
         {section.items.map((item) => (
-          <NavLink key={item.href} item={item} expanded={expanded} />
+          <NavLink
+            key={item.href}
+            item={item}
+            expanded={expanded}
+            active={item.href === activeHref}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function NavLink({ item, expanded }: { item: NavItem; expanded: boolean }) {
-  const pathname = usePathname();
-  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+function NavLink({
+  item,
+  expanded,
+  active,
+}: {
+  item: NavItem;
+  expanded: boolean;
+  active: boolean;
+}) {
   const Icon = item.icon;
   return (
     <Link

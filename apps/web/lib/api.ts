@@ -40,5 +40,8 @@ export async function apiFetch<T = unknown>(
     }
     throw new ApiError(res.status, `API ${res.status}: ${path}`, body);
   }
+  // 204 No Content has no body — return undefined cast through T for callers
+  // that don't read the response.
+  if (res.status === 204) return undefined as T;
   return res.json() as Promise<T>;
 }
