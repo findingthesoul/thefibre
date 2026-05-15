@@ -15,7 +15,12 @@ import type { IntakeField } from '@/lib/intake';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 
 type Props = {
-  host: { slug: string; timezone: string };
+  // The slug as it appears in the URL — either a host slug or a team slug.
+  ownerSlug: string;
+  // Used for the slots API: team types resolve through /public/team/...
+  ownerKind: 'host' | 'team';
+  // Display timezone for grouping slots into days.
+  hostTimezone: string;
   meetingType: {
     id: string;
     slug: string;
@@ -55,7 +60,14 @@ function formatTime(d: Date, timeZone: string): string {
   }).format(d);
 }
 
-export function BookingFlow({ host, meetingType }: Props) {
+export function BookingFlow({ ownerSlug, ownerKind, hostTimezone, meetingType }: Props) {
+  // Internal aliases to minimise churn in the rest of this file.
+  const host = { slug: ownerSlug, timezone: hostTimezone };
+  const slotsBasePath =
+    ownerKind === 'team'
+      ? `/api/v1/meet/public/team/${encodeURIComponent(ownerSlug)}/mt/${encodeURIComponent(meetingType.slug)}/slots`
+      : `/api/v1/meet/public/host/${encodeURIComponent(ownerSlug)}/mt/${encodeURIComponent(meetingType.slug)}/slots`;
+  void slotsBasePath; // used below
   const router = useRouter();
   const [pending, start] = useTransition();
   const [step, setStep] = useState<'pick' | 'details'>('pick');
@@ -79,7 +91,7 @@ export function BookingFlow({ host, meetingType }: Props) {
     setLoadingSlots(true);
     setSlotsError(null);
     publicFetch<{ slots: string[] }>(
-      `/api/v1/meet/public/host/${encodeURIComponent(host.slug)}/mt/${encodeURIComponent(meetingType.slug)}/slots?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+      `${slotsBasePath}?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
     )
       .then((r) => {
         if (cancelled) return;

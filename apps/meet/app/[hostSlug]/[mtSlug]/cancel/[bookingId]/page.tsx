@@ -1,32 +1,34 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { CancelForm } from './form';
 
-type Confirmation = {
+type Booking = {
   id: string;
   invitee_email: string;
   invitee_name: string;
   starts_at: string;
   ends_at: string;
   status: string;
-  conferencing_provider: string | null;
-  alternative_location: string | null;
   meeting_type: {
     name: string;
     duration_minutes: number;
-    host: { slug: string; user: { full_name: string | null } | { full_name: string | null }[] | null } | null;
+    host: {
+      slug: string;
+      user: { full_name: string | null } | { full_name: string | null }[] | null;
+    } | null;
   } | null;
 };
 
-export default async function ConfirmedPage({
+export default async function CancelPage({
   params,
 }: {
   params: Promise<{ hostSlug: string; mtSlug: string; bookingId: string }>;
 }) {
-  const { hostSlug, mtSlug, bookingId } = await params;
-  let booking: Confirmation;
+  const { hostSlug, bookingId } = await params;
+  let booking: Booking;
   try {
-    booking = await publicFetch<Confirmation>(
+    booking = await publicFetch<Booking>(
       `/api/v1/meet/public/bookings/${encodeURIComponent(bookingId)}`,
     );
   } catch (e) {
@@ -42,15 +44,18 @@ export default async function ConfirmedPage({
     : null;
   const hostName = hostUser?.full_name ?? mt?.host?.slug ?? null;
   const starts = new Date(booking.starts_at);
+  const alreadyCancelled = booking.status === 'cancelled';
 
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-xl px-6 py-20">
         <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-          Booking confirmed
+          {alreadyCancelled ? 'Booking cancelled' : 'Cancel booking'}
         </div>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">
-          You&apos;re booked, {booking.invitee_name.split(' ')[0]}.
+          {alreadyCancelled
+            ? 'This booking is already cancelled.'
+            : 'Cancel this booking?'}
         </h1>
 
         <dl className="mt-10 space-y-5 text-sm">
@@ -66,31 +71,19 @@ export default async function ConfirmedPage({
               minute: '2-digit',
             })}
           />
-          <Row
-            label="Duration"
-            value={mt ? `${mt.duration_minutes} minutes` : '—'}
-          />
           {hostName && <Row label="With" value={hostName} />}
-          {booking.alternative_location && (
-            <Row label="Where" value={booking.alternative_location} />
-          )}
         </dl>
 
-        <div className="mt-10 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700 leading-relaxed">
-          A confirmation email is on its way to{' '}
-          <span className="font-medium">{booking.invitee_email}</span>.
-        </div>
+        {!alreadyCancelled && (
+          <div className="mt-10">
+            <CancelForm bookingId={bookingId} hostSlug={hostSlug} />
+          </div>
+        )}
 
-        <div className="mt-10 flex flex-col gap-3 text-sm">
-          <Link
-            href={`/${hostSlug}/${mtSlug}/cancel/${bookingId}`}
-            className="text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
-          >
-            Need to cancel or reschedule?
-          </Link>
+        <div className="mt-10">
           <Link
             href={`/${hostSlug}`}
-            className="text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
+            className="text-sm text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
           >
             ← Back to {hostName ?? 'the booking page'}
           </Link>

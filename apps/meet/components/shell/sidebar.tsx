@@ -9,6 +9,7 @@ import {
   CalendarRange,
   HelpCircle,
   Settings,
+  Users,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -27,6 +28,7 @@ const NAV: NavSection[] = [
     label: 'Meet',
     items: [
       { href: '/meeting-types', label: 'Meeting types', icon: CalendarRange },
+      { href: '/teams', label: 'Teams', icon: Users },
       { href: '/bookings', label: 'Bookings', icon: CalendarClock },
     ],
   },

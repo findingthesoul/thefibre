@@ -18,6 +18,7 @@ function intOr(v: FormDataEntryValue | null, fallback: number): number {
 }
 
 function bodyFromForm(formData: FormData) {
+  const teamId = strOrNull(formData.get('team_id'));
   return {
     slug: strOrNull(formData.get('slug')) ?? '',
     name: strOrNull(formData.get('name')) ?? '',
@@ -30,6 +31,7 @@ function bodyFromForm(formData: FormData) {
     conferencing_provider: strOrNull(formData.get('conferencing_provider')) ?? 'google_meet',
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
+    team_id: teamId && teamId !== 'personal' ? teamId : null,
   };
 }
 

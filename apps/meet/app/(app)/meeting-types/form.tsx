@@ -19,7 +19,10 @@ export type MeetingTypeFormValues = {
   conferencing_provider?: string;
   default_location?: string | null;
   is_active?: boolean;
+  team_id?: string | null;
 };
+
+export type TeamOption = { id: string; name: string };
 
 const PROVIDERS = [
   { value: 'google_meet', label: 'Google Meet' },
@@ -30,7 +33,13 @@ const PROVIDERS = [
   { value: 'none', label: 'No conferencing' },
 ];
 
-export function MeetingTypeForm({ initial }: { initial: MeetingTypeFormValues }) {
+export function MeetingTypeForm({
+  initial,
+  teams = [],
+}: {
+  initial: MeetingTypeFormValues;
+  teams?: TeamOption[];
+}) {
   const isEdit = !!initial.id;
   const action = isEdit
     ? updateMeetingType.bind(null, initial.id!)
@@ -42,6 +51,18 @@ export function MeetingTypeForm({ initial }: { initial: MeetingTypeFormValues })
 
   return (
     <form action={formAction} className="space-y-5 max-w-2xl">
+      {teams.length > 0 && (
+        <SelectField
+          label="Owned by"
+          name="team_id"
+          defaultValue={initial.team_id ?? 'personal'}
+          options={[
+            { value: 'personal', label: 'Personal (your booking page)' },
+            ...teams.map((t) => ({ value: t.id, label: `Team — ${t.name}` })),
+          ]}
+          hint="Personal types live at /your-handle/<slug>. Team types live at /team-slug/<slug>."
+        />
+      )}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="Name" name="name" defaultValue={initial.name ?? ''} required />
         <TextField

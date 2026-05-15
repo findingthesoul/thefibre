@@ -15,6 +15,17 @@ import {
   createEvent,
   deleteEvent,
 } from '../lib/google/client.js';
+import { sendEmail } from '../lib/email/client.js';
+import {
+  bookingConfirmationInvitee,
+  bookingNotificationHost,
+  bookingCancellation,
+  type EmailCommon,
+} from '../lib/email/templates.js';
+
+function meetAppUrl(): string {
+  return process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+}
 
 export const meetRoutes = new Hono();
 
@@ -138,7 +149,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, workspace_id, name, description, duration_minutes, conferencing_provider, default_location, is_active, host:host_id (google_refresh_token, timezone)',
+      'id, slug, host_id, workspace_id, name, description, duration_minutes, conferencing_provider, default_location, is_active, host:host_id (google_refresh_token, timezone, slug, user:user_id (full_name, email))',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -146,6 +157,11 @@ meetRoutes.post('/public/bookings', async (c) => {
     return c.json({ error: 'meeting type not available' }, 404);
   }
   const hostRow = Array.isArray(mt.host) ? mt.host[0] : mt.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
 
   // Find or create a person in the host's workspace for this email.
   let personId: string | null = null;
@@ -219,6 +235,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   // If the host has Google Calendar connected, create the event there now.
   // Failure is non-fatal — the booking is already recorded; the host can
   // re-sync later. We do update the booking row with the resulting ids.
+  let resolvedMeetUrl: string | null = null;
   if (hostRow?.google_refresh_token && booking) {
     try {
       // Find the primary write target.
@@ -242,6 +259,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         withMeet,
         location: mt.default_location ?? null,
       });
+      resolvedMeetUrl = meetUrl;
       await adminClient
         .from('meet_booking')
         .update({
@@ -252,6 +270,55 @@ meetRoutes.post('/public/bookings', async (c) => {
         .eq('id', booking.id);
     } catch (e) {
       console.error('[meet bookings] google event create failed (non-fatal)', e);
+    }
+  }
+
+  // Send confirmation emails. Non-fatal — if email fails the booking still
+  // succeeded, we just log it. Google Calendar already emailed the invitee an
+  // ICS invite via sendUpdates:'all', but we send our own branded note too so
+  // the cancel link surfaces clearly.
+  if (booking && hostRow) {
+    const common: EmailCommon = {
+      inviteeName: data.invitee_name,
+      inviteeEmail: data.invitee_email,
+      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+      hostEmail: hostUser?.email ?? null,
+      meetingName: mt.name,
+      startsAt: starts,
+      endsAt: ends,
+      hostTimezone: hostRow.timezone ?? 'UTC',
+      meetUrl: resolvedMeetUrl,
+      location: mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: meetAppUrl(),
+      hostSlug: hostRow.slug ?? '',
+      meetingTypeSlug: mt.slug,
+    };
+    try {
+      const invitee = bookingConfirmationInvitee(common);
+      await sendEmail({
+        to: data.invitee_email,
+        subject: invitee.subject,
+        text: invitee.text,
+        html: invitee.html,
+        replyTo: common.hostEmail ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings] invitee email failed (non-fatal)', e);
+    }
+    if (common.hostEmail) {
+      try {
+        const host = bookingNotificationHost(common);
+        await sendEmail({
+          to: common.hostEmail,
+          subject: host.subject,
+          text: host.text,
+          html: host.html,
+          replyTo: data.invitee_email,
+        });
+      } catch (e) {
+        console.error('[meet bookings] host email failed (non-fatal)', e);
+      }
     }
   }
 
@@ -374,6 +441,112 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   });
 
   return c.json({ slots: slots.map((d) => d.toISOString()) });
+});
+
+// POST /api/v1/meet/public/bookings/:id/cancel — invitee-initiated cancel.
+// No auth — the booking id is a uuid (unguessable) and the only handle the
+// invitee has. Flips status, deletes the GCal event, and emails both sides.
+meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
+  const id = c.req.param('id');
+
+  const { data: booking, error } = await adminClient
+    .from('meet_booking')
+    .select(
+      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, google_refresh_token, user:user_id (full_name, email))',
+    )
+    .eq('id', id)
+    .single();
+  if (error || !booking) return c.json({ error: 'booking not found' }, 404);
+
+  if (booking.status === 'cancelled') {
+    return c.json({ ok: true, alreadyCancelled: true });
+  }
+
+  const { error: uErr } = await adminClient
+    .from('meet_booking')
+    .update({ status: 'cancelled' })
+    .eq('id', id);
+  if (uErr) {
+    console.error('[meet bookings/cancel] update failed', uErr);
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  const mt = Array.isArray(booking.meeting_type)
+    ? booking.meeting_type[0]
+    : booking.meeting_type;
+
+  // Best-effort GCal cleanup.
+  if (booking.google_event_id && hostRow?.google_refresh_token) {
+    try {
+      const { data: cal } = await adminClient
+        .from('meet_calendar')
+        .select('google_calendar_id')
+        .eq('host_id', booking.host_id)
+        .in('role', ['primary', 'write_target'])
+        .limit(1)
+        .maybeSingle();
+      await deleteEvent(
+        hostRow.google_refresh_token,
+        cal?.google_calendar_id ?? 'primary',
+        booking.google_event_id,
+      );
+    } catch (e) {
+      console.error('[meet bookings/cancel] google delete failed (non-fatal)', e);
+    }
+  }
+
+  // Cancellation emails.
+  if (mt && hostRow) {
+    const common: EmailCommon = {
+      inviteeName: booking.invitee_name,
+      inviteeEmail: booking.invitee_email,
+      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+      hostEmail: hostUser?.email ?? null,
+      meetingName: mt.name,
+      startsAt: new Date(booking.starts_at),
+      endsAt: new Date(booking.ends_at),
+      hostTimezone: hostRow.timezone ?? 'UTC',
+      meetUrl: booking.meet_url,
+      location: booking.alternative_location ?? mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: meetAppUrl(),
+      hostSlug: hostRow.slug ?? '',
+      meetingTypeSlug: mt.slug ?? '',
+    };
+    try {
+      const m = bookingCancellation(common, 'invitee');
+      await sendEmail({
+        to: booking.invitee_email,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        replyTo: common.hostEmail ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings/cancel] invitee email failed (non-fatal)', e);
+    }
+    if (common.hostEmail) {
+      try {
+        const m = bookingCancellation(common, 'host');
+        await sendEmail({
+          to: common.hostEmail,
+          subject: m.subject,
+          text: m.text,
+          html: m.html,
+        });
+      } catch (e) {
+        console.error('[meet bookings/cancel] host email failed (non-fatal)', e);
+      }
+    }
+  }
+
+  return c.json({ ok: true });
 });
 
 // GET /api/v1/meet/public/bookings/:id  → minimal confirmation payload
@@ -596,21 +769,34 @@ meetRoutes.patch('/me', async (c) => {
   return c.json(data);
 });
 
-// GET /api/v1/meet/meeting-types — list mine
+// GET /api/v1/meet/meeting-types — list mine.
+// Returns both personal types (host_id = my host) and team-owned types for
+// any team I'm a member of.
 meetRoutes.get('/meeting-types', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  // Resolve host id for current user
   const { data: host } = await db
     .from('meet_host')
     .select('id')
     .eq('user_id', ctx.userId)
     .maybeSingle();
-  if (!host) return c.json({ items: [] });
+
+  // Team ids the user is a member of.
+  const { data: memberships } = await db
+    .from('meet_team_member')
+    .select('team_id')
+    .eq('user_id', ctx.userId);
+  const teamIds = (memberships ?? []).map((m) => m.team_id);
+
+  // Build the OR filter. If neither personal nor team membership exists, no rows.
+  if (!host && teamIds.length === 0) return c.json({ items: [] });
+  const orParts: string[] = [];
+  if (host) orParts.push(`and(host_id.eq.${host.id},team_id.is.null)`);
+  if (teamIds.length > 0) orParts.push(`team_id.in.(${teamIds.join(',')})`);
   const { data, error } = await db
     .from('meet_meeting_type')
-    .select('*')
-    .eq('host_id', host.id)
+    .select('*, team:team_id (id, name, slug)')
+    .or(orParts.join(','))
     .order('created_at', { ascending: false });
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ items: data ?? [] });
@@ -630,6 +816,10 @@ const MeetingTypeUpsert = z.object({
     .optional(),
   default_location: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional(),
+  // When set, the meeting type lives under the team's slug instead of the
+  // host's. The caller must be a lead of the team. The host that runs the
+  // booking is still the current user (phase 1; round-robin in phase 2).
+  team_id: z.string().uuid().nullable().optional(),
 });
 
 meetRoutes.post('/meeting-types', async (c) => {
@@ -643,6 +833,22 @@ meetRoutes.post('/meeting-types', async (c) => {
     .eq('user_id', ctx.userId)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
+
+  // If team-owned, verify current user is a lead of that team. RLS would
+  // technically accept the row (only workspace+app-membership are checked on
+  // meet_meeting_type), so we have to enforce lead-ness here.
+  if (body.data.team_id) {
+    const { data: membership } = await adminClient
+      .from('meet_team_member')
+      .select('role')
+      .eq('team_id', body.data.team_id)
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if (!membership || membership.role !== 'lead') {
+      return c.json({ error: 'not a lead of this team' }, 403);
+    }
+  }
+
   const { data, error } = await db
     .from('meet_meeting_type')
     .insert({ ...body.data, host_id: host.id, workspace_id: host.workspace_id })
@@ -689,4 +895,405 @@ meetRoutes.get('/bookings', async (c) => {
     .limit(100);
   if (error) return c.json({ error: error.message }, 500);
   return c.json({ items: data ?? [] });
+});
+
+// ===========================================================================
+// TEAMS — authenticated CRUD + member management.
+// ===========================================================================
+
+// GET /api/v1/meet/teams — list teams I'm a member of, with my role.
+meetRoutes.get('/teams', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: memberships, error } = await db
+    .from('meet_team_member')
+    .select('role, team:team_id (id, slug, name, description, is_active, created_at)')
+    .eq('user_id', ctx.userId);
+  if (error) return c.json({ error: error.message }, 500);
+  const items = (memberships ?? [])
+    .map((m) => {
+      const t = Array.isArray(m.team) ? m.team[0] : m.team;
+      return t ? { ...t, my_role: m.role } : null;
+    })
+    .filter((x): x is NonNullable<typeof x> => !!x);
+  return c.json({ items });
+});
+
+const TeamUpsert = z.object({
+  slug: z.string().min(2).max(40),
+  name: z.string().min(1).max(200),
+  description: z.string().max(2000).nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+// POST /api/v1/meet/teams — create a team. Creator becomes lead.
+meetRoutes.post('/teams', async (c) => {
+  const body = TeamUpsert.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  // Use admin client so the team and the lead-membership row land atomically
+  // before RLS could trip on either. We re-check workspace + app-membership
+  // explicitly below.
+  const { data: hasMembership } = await adminClient
+    .from('app_membership')
+    .select('user_id, app:app_id (slug)')
+    .eq('user_id', ctx.userId);
+  const ok = (hasMembership ?? []).some((m) => {
+    const a = Array.isArray(m.app) ? m.app[0] : m.app;
+    return a?.slug === 'fibre-meet';
+  });
+  if (!ok) return c.json({ error: 'fibre-meet membership required' }, 403);
+
+  // Reject slug collisions with existing host slugs.
+  const { data: clash } = await adminClient
+    .from('meet_root_slug')
+    .select('slug')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('slug', body.data.slug)
+    .maybeSingle();
+  if (clash) return c.json({ error: 'slug taken' }, 409);
+
+  const { data: team, error } = await adminClient
+    .from('meet_team')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      slug: body.data.slug,
+      name: body.data.name,
+      description: body.data.description ?? null,
+      is_active: body.data.is_active ?? true,
+      created_by: ctx.userId,
+    })
+    .select('*')
+    .single();
+  if (error || !team) {
+    console.error('[teams] create failed', error);
+    return c.json({ error: error?.message ?? 'create failed' }, 500);
+  }
+  // Creator becomes lead.
+  const { error: mErr } = await adminClient
+    .from('meet_team_member')
+    .insert({ team_id: team.id, user_id: ctx.userId, role: 'lead' });
+  if (mErr) {
+    console.error('[teams] auto-lead failed', mErr);
+  }
+  return c.json(team, 201);
+});
+
+// Helper: assert current user is a lead of the team.
+async function assertLead(teamId: string, userId: string): Promise<boolean> {
+  const { data } = await adminClient
+    .from('meet_team_member')
+    .select('role')
+    .eq('team_id', teamId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  return data?.role === 'lead';
+}
+
+// GET /api/v1/meet/teams/:id — team detail + members + meeting types
+meetRoutes.get('/teams/:id', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: team, error } = await db
+    .from('meet_team')
+    .select('*')
+    .eq('id', id)
+    .single();
+  if (error || !team) return c.json({ error: 'team not found' }, 404);
+  const { data: members } = await db
+    .from('meet_team_member')
+    .select('role, created_at, user:user_id (id, email, full_name, avatar_url)')
+    .eq('team_id', id);
+  const { data: mts } = await db
+    .from('meet_meeting_type')
+    .select('*')
+    .eq('team_id', id)
+    .order('created_at', { ascending: true });
+  // What's my role?
+  const myMembership = (members ?? []).find((m) => {
+    const u = Array.isArray(m.user) ? m.user[0] : m.user;
+    return u?.id === ctx.userId;
+  });
+  return c.json({
+    ...team,
+    members: members ?? [],
+    meeting_types: mts ?? [],
+    my_role: myMembership?.role ?? null,
+  });
+});
+
+// PATCH /api/v1/meet/teams/:id — leads only
+meetRoutes.patch('/teams/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = TeamUpsert.partial().safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  if (!(await assertLead(id, ctx.userId))) {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  // Slug change -> recheck namespace.
+  if (body.data.slug) {
+    const { data: clash } = await adminClient
+      .from('meet_root_slug')
+      .select('slug, team_id, host_id')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('slug', body.data.slug)
+      .maybeSingle();
+    if (clash && clash.team_id !== id) {
+      return c.json({ error: 'slug taken' }, 409);
+    }
+  }
+  const { data, error } = await adminClient
+    .from('meet_team')
+    .update(body.data)
+    .eq('id', id)
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+// POST /api/v1/meet/teams/:id/members — add by email. Leads only.
+const AddMemberBody = z.object({
+  email: z.string().email().toLowerCase(),
+  role: z.enum(['lead', 'member']).optional(),
+});
+meetRoutes.post('/teams/:id/members', async (c) => {
+  const id = c.req.param('id');
+  const body = AddMemberBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  if (!(await assertLead(id, ctx.userId))) {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  // Resolve the email to a user in this workspace.
+  const { data: u } = await adminClient
+    .from('user')
+    .select('id, email, full_name')
+    .eq('email', body.data.email)
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!u) {
+    return c.json(
+      { error: 'no Fibre user with that email in this workspace' },
+      404,
+    );
+  }
+  const { data, error } = await adminClient
+    .from('meet_team_member')
+    .upsert({
+      team_id: id,
+      user_id: u.id,
+      role: body.data.role ?? 'member',
+    })
+    .select('role, user:user_id (id, email, full_name)')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data, 201);
+});
+
+// DELETE /api/v1/meet/teams/:id/members/:userId — leads only.
+// Refuse to remove the last lead.
+meetRoutes.delete('/teams/:id/members/:userId', async (c) => {
+  const id = c.req.param('id');
+  const userId = c.req.param('userId');
+  const ctx = c.get('ctx');
+  if (!(await assertLead(id, ctx.userId))) {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  const { data: target } = await adminClient
+    .from('meet_team_member')
+    .select('role')
+    .eq('team_id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!target) return c.json({ ok: true });
+  if (target.role === 'lead') {
+    const { count } = await adminClient
+      .from('meet_team_member')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('team_id', id)
+      .eq('role', 'lead');
+    if ((count ?? 0) <= 1) {
+      return c.json({ error: 'cannot remove the last lead' }, 400);
+    }
+  }
+  await adminClient
+    .from('meet_team_member')
+    .delete()
+    .eq('team_id', id)
+    .eq('user_id', userId);
+  return c.json({ ok: true });
+});
+
+// ===========================================================================
+// PUBLIC team booking routes.
+// /api/v1/meet/public/team/:teamSlug
+// /api/v1/meet/public/team/:teamSlug/mt/:mtSlug
+// /api/v1/meet/public/team/:teamSlug/mt/:mtSlug/slots
+//
+// Plus a resolver so the Meet front-end can do /<slug> lookup and learn
+// whether the root slug is a host or a team.
+// ===========================================================================
+
+// GET /api/v1/meet/public/resolve/:slug?workspace_id=...
+// Used by the Meet app's /[slug]/page.tsx to figure out which page to render.
+// Workspace_id is optional; if absent we resolve across all workspaces but
+// reject ambiguity (more than one match). For the public booking page we
+// have no workspace context so this is the simplest contract.
+meetRoutes.get('/public/resolve/:slug', async (c) => {
+  const slug = c.req.param('slug');
+  const { data, error } = await adminClient
+    .from('meet_root_slug')
+    .select('slug, kind, host_id, team_id, workspace_id')
+    .eq('slug', slug);
+  if (error) return c.json({ error: error.message }, 500);
+  const rows = data ?? [];
+  if (rows.length === 0) return c.json({ error: 'not found' }, 404);
+  if (rows.length > 1) return c.json({ error: 'ambiguous slug' }, 409);
+  return c.json(rows[0]);
+});
+
+// GET /api/v1/meet/public/team/:team_slug — team + active meeting types.
+meetRoutes.get('/public/team/:team_slug', async (c) => {
+  const slug = c.req.param('team_slug');
+  const { data: team, error } = await adminClient
+    .from('meet_team')
+    .select('id, slug, name, description, is_active, workspace_id')
+    .eq('slug', slug)
+    .single();
+  if (error || !team) return c.json({ error: 'team not found' }, 404);
+  if (!team.is_active) return c.json({ error: 'team is inactive' }, 404);
+  const { data: mts } = await adminClient
+    .from('meet_meeting_type')
+    .select(
+      'id, slug, name, description, duration_minutes, conferencing_provider, default_location',
+    )
+    .eq('team_id', team.id)
+    .eq('is_active', true)
+    .order('created_at', { ascending: true });
+  return c.json({
+    id: team.id,
+    slug: team.slug,
+    name: team.name,
+    description: team.description,
+    meeting_types: mts ?? [],
+  });
+});
+
+// GET /api/v1/meet/public/team/:team_slug/mt/:mt_slug
+meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
+  const teamSlug = c.req.param('team_slug');
+  const mtSlug = c.req.param('mt_slug');
+  const { data: team } = await adminClient
+    .from('meet_team')
+    .select('id, slug, name, description, is_active')
+    .eq('slug', teamSlug)
+    .single();
+  if (!team || !team.is_active) return c.json({ error: 'team not found' }, 404);
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select(
+      'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, host:host_id (slug, user:user_id (full_name, avatar_url))',
+    )
+    .eq('team_id', team.id)
+    .eq('slug', mtSlug)
+    .eq('is_active', true)
+    .single();
+  if (!mt) return c.json({ error: 'meeting type not found' }, 404);
+  return c.json({ ...mt, team });
+});
+
+// GET /api/v1/meet/public/team/:team_slug/mt/:mt_slug/slots
+// Mirrors the host slots endpoint but resolves through the team.
+meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
+  const teamSlug = c.req.param('team_slug');
+  const mtSlug = c.req.param('mt_slug');
+  const url = new URL(c.req.url);
+  const fromParam = url.searchParams.get('from');
+  const toParam = url.searchParams.get('to');
+
+  const { data: team } = await adminClient
+    .from('meet_team')
+    .select('id, workspace_id')
+    .eq('slug', teamSlug)
+    .single();
+  if (!team) return c.json({ error: 'team not found' }, 404);
+
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select(
+      'id, host_id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, host:host_id (timezone, working_hours, google_refresh_token)',
+    )
+    .eq('team_id', team.id)
+    .eq('slug', mtSlug)
+    .single();
+  if (!mt || !mt.is_active) return c.json({ error: 'meeting type not found' }, 404);
+  const hostRow = Array.isArray(mt.host) ? mt.host[0] : mt.host;
+  if (!hostRow) return c.json({ error: 'host not resolvable' }, 500);
+
+  const now = new Date();
+  const from = fromParam ? new Date(fromParam) : now;
+  const to = toParam
+    ? new Date(toParam)
+    : new Date(
+        now.getTime() + Math.min(mt.max_advance_days, 60) * 24 * 60 * 60 * 1000,
+      );
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return c.json({ error: 'invalid from/to' }, 400);
+  }
+  if (to <= from) return c.json({ slots: [] });
+  const MAX_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+  const cappedTo =
+    to.getTime() - from.getTime() > MAX_WINDOW_MS
+      ? new Date(from.getTime() + MAX_WINDOW_MS)
+      : to;
+
+  const { data: bookings } = await adminClient
+    .from('meet_booking')
+    .select('starts_at, ends_at')
+    .eq('host_id', mt.host_id)
+    .eq('status', 'confirmed')
+    .gte('ends_at', from.toISOString())
+    .lte('starts_at', cappedTo.toISOString());
+  const busy: BusyInterval[] = (bookings ?? []).map((b) => ({
+    start: new Date(b.starts_at),
+    end: new Date(b.ends_at),
+  }));
+
+  if (hostRow.google_refresh_token) {
+    const { data: cals } = await adminClient
+      .from('meet_calendar')
+      .select('google_calendar_id, role')
+      .eq('host_id', mt.host_id)
+      .in('role', ['primary', 'conflict_check']);
+    const ids = (cals ?? [])
+      .map((c) => c.google_calendar_id)
+      .filter((id): id is string => !!id);
+    if (ids.length > 0) {
+      try {
+        const gbusy = await freeBusy(hostRow.google_refresh_token, ids, from, cappedTo);
+        busy.push(...gbusy);
+      } catch (e) {
+        console.error('[team slots] freebusy failed (non-fatal)', e);
+      }
+    }
+  }
+
+  const workingHours = (hostRow.working_hours as WorkingSchedule | null) ?? {};
+  const slots = generateSlots({
+    hostTimezone: hostRow.timezone ?? 'UTC',
+    workingHours,
+    durationMinutes: mt.duration_minutes,
+    bufferBeforeMinutes: mt.buffer_before_minutes,
+    bufferAfterMinutes: mt.buffer_after_minutes,
+    minNoticeMinutes: mt.min_notice_minutes,
+    from,
+    to: cappedTo,
+    busy,
+    now,
+  });
+  return c.json({ slots: slots.map((d) => d.toISOString()) });
 });
