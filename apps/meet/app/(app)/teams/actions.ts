@@ -96,3 +96,19 @@ export async function removeMember(
   revalidatePath(`/teams/${teamId}`);
   return { ok: true };
 }
+
+export async function resendInvite(
+  teamId: string,
+  userId: string,
+): Promise<{ ok?: boolean; error?: string; invite_url?: string }> {
+  try {
+    const r = await apiFetch<{ invite_url: string }>(
+      `/api/v1/meet/teams/${teamId}/members/${userId}/resend-invite`,
+      { method: 'POST' },
+    );
+    revalidatePath(`/teams/${teamId}`);
+    return { ok: true, invite_url: r.invite_url };
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+}

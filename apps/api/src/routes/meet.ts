@@ -1376,14 +1376,16 @@ meetRoutes.get('/bookings', async (c) => {
 // TEAMS — authenticated CRUD + member management.
 // ===========================================================================
 
-// GET /api/v1/meet/teams — list teams I'm a member of, with my role.
+// GET /api/v1/meet/teams — list teams I'm an ACTIVE member of, with my role.
+// Pending invites don't count; the user sees the team only after accepting.
 meetRoutes.get('/teams', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data: memberships, error } = await db
     .from('meet_team_member')
     .select('role, team:team_id (id, slug, name, description, is_active, created_at)')
-    .eq('user_id', ctx.userId);
+    .eq('user_id', ctx.userId)
+    .eq('status', 'active');
   if (error) {
     console.error('[meet/teams] list failed', {
       code: error.code,
@@ -1486,7 +1488,9 @@ meetRoutes.get('/teams/:id', async (c) => {
   if (error || !team) return c.json({ error: 'team not found' }, 404);
   const { data: members } = await db
     .from('meet_team_member')
-    .select('role, created_at, user:user_id (id, email, full_name, avatar_url)')
+    .select(
+      'role, status, invite_token, invited_at, created_at, user:user_id (id, email, full_name, avatar_url)',
+    )
     .eq('team_id', id);
   const { data: mts } = await db
     .from('meet_meeting_type')
@@ -1634,18 +1638,35 @@ meetRoutes.post('/teams/:id/members', async (c) => {
   }
 
   // 4. Add to the team.
+  //   - For brand-new invites (the email didn't have a user row yet) the
+  //     membership starts as 'invited' with a token. They become 'active'
+  //     when they sign in and click Accept.
+  //   - For existing workspace users (no token needed; they're already in
+  //     this workspace and can be trusted) it's 'active' immediately.
+  const memberStatus = invited ? 'invited' : 'active';
+  const inviteToken = invited
+    ? `inv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`
+    : null;
   const { data, error } = await adminClient
     .from('meet_team_member')
     .upsert(
-      { team_id: id, user_id: u.id, role: body.data.role ?? 'member' },
+      {
+        team_id: id,
+        user_id: u.id,
+        role: body.data.role ?? 'member',
+        status: memberStatus,
+        invite_token: inviteToken,
+        invited_at: invited ? new Date().toISOString() : null,
+        accepted_at: invited ? null : new Date().toISOString(),
+      },
       { onConflict: 'team_id,user_id' },
     )
-    .select('role, user:user_id (id, email, full_name)')
+    .select('role, status, invite_token, user:user_id (id, email, full_name)')
     .single();
   if (error) return c.json({ error: error.message }, 500);
 
   // 5. Send invite email (best-effort, non-fatal). Only when newly created.
-  if (invited) {
+  if (invited && inviteToken) {
     try {
       const { data: team } = await adminClient
         .from('meet_team')
@@ -1659,13 +1680,16 @@ meetRoutes.post('/teams/:id/members', async (c) => {
         .single();
       const teamName = team?.name ?? 'a team';
       const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
+      const acceptUrl = `${meetAppUrl()}/invite/${inviteToken}`;
       const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
       await sendEmail({
         to: u.email,
         subject: `${inviterName} invited you to ${teamName} on The Fibre`,
-        text: `${inviterName} added you to the team "${teamName}" on Fibre Meet.
+        text: `${inviterName} invited you to the team "${teamName}" on Fibre Meet.
 
-Sign in with Google at ${signInUrl} (using ${u.email}) to accept and start receiving bookings.
+Accept the invite: ${acceptUrl}
+
+You'll be asked to sign in with Google (using ${u.email}) and then taken to a page to accept. After accepting you'll start receiving bookings.
 
 — The Fibre`,
         html: `<!doctype html><html><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#171717;">
@@ -1675,9 +1699,11 @@ Sign in with Google at ${signInUrl} (using ${u.email}) to accept and start recei
         <tr><td>
           <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#737373;">You've been invited</div>
           <h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${inviterName} added you to ${teamName}.</h1>
-          <p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">You're now part of the team on Fibre Meet. Sign in to accept the invite and start receiving bookings.</p>
-          <p style="margin-top:24px;"><a href="${signInUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Sign in to The Fibre</a></p>
+          <p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">Open the link below to review and accept. You'll be asked to sign in with Google.</p>
+          <p style="margin-top:24px;"><a href="${acceptUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Accept invite</a></p>
           <p style="margin-top:18px;font-size:12px;color:#737373;">Use your Google account for <strong>${u.email}</strong>.</p>
+          <p style="margin-top:24px;font-size:11px;color:#a3a3a3;word-break:break-all;">Or copy this link: ${acceptUrl}</p>
+          <p style="margin-top:18px;font-size:11px;color:#a3a3a3;">If you didn't expect this, just ignore the email. ${signInUrl}</p>
         </td></tr>
       </table>
       <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">The Fibre · Solidarity Lab B.V. · Hosted in the EU</div>
@@ -1691,6 +1717,167 @@ Sign in with Google at ${signInUrl} (using ${u.email}) to accept and start recei
   }
 
   return c.json({ ...data, invited }, 201);
+});
+
+// GET /api/v1/meet/public/invite/:token — read-only peek used by the accept
+// page. No auth required; the token itself is the capability. Returns just
+// enough to render the page; rejects expired/used tokens (status != 'invited').
+meetRoutes.get('/public/invite/:token', async (c) => {
+  const token = c.req.param('token');
+  const { data: row, error } = await adminClient
+    .from('meet_team_member')
+    .select(
+      'team_id, user_id, role, status, invite_token, team:team_id (id, name, slug, workspace_id), user:user_id (id, email, full_name)',
+    )
+    .eq('invite_token', token)
+    .maybeSingle();
+  if (error) return c.json({ error: error.message }, 500);
+  if (!row) return c.json({ error: 'invite not found' }, 404);
+  if (row.status !== 'invited') {
+    return c.json({ error: 'invite already used' }, 410);
+  }
+  const team = Array.isArray(row.team) ? row.team[0] : row.team;
+  const user = Array.isArray(row.user) ? row.user[0] : row.user;
+  // Inviter (best-effort).
+  const { data: log } = await adminClient
+    .from('meet_team_member')
+    .select('user_id')
+    .eq('team_id', row.team_id)
+    .eq('role', 'lead')
+    .limit(1);
+  let inviter: { full_name: string | null; email: string | null } | null = null;
+  if (log && log[0]) {
+    const { data: iu } = await adminClient
+      .from('user')
+      .select('full_name, email')
+      .eq('id', log[0].user_id)
+      .maybeSingle();
+    inviter = iu ?? null;
+  }
+  return c.json({
+    team: team ? { id: team.id, name: team.name, slug: team.slug } : null,
+    invitee: user ? { id: user.id, email: user.email, full_name: user.full_name } : null,
+    role: row.role,
+    inviter,
+  });
+});
+
+// POST /api/v1/meet/teams/accept-invite/:token — authenticated. The signed-in
+// user must have the same email as the invitee user row. On success the
+// membership flips to active, token is cleared, fibre-meet membership is
+// granted (the pre-creation step skipped it for invited users in some paths;
+// upsert is idempotent).
+meetRoutes.post('/teams/accept-invite/:token', async (c) => {
+  const token = c.req.param('token');
+  const ctx = c.get('ctx');
+  const { data: row } = await adminClient
+    .from('meet_team_member')
+    .select(
+      'team_id, user_id, role, status, team:team_id (id, slug, name)',
+    )
+    .eq('invite_token', token)
+    .maybeSingle();
+  if (!row) return c.json({ error: 'invite not found' }, 404);
+  if (row.status !== 'invited') return c.json({ error: 'invite already used' }, 410);
+  // The signed-in user must own the invitee row. We allow this either when
+  // the user IDs match directly, or when the emails match — the invite row
+  // gets retargeted to the signed-in user if email match is via a different
+  // user row (covers edge cases where the SSO created a new row).
+  const { data: signedIn } = await adminClient
+    .from('user')
+    .select('id, email')
+    .eq('id', ctx.userId)
+    .single();
+  const { data: invitee } = await adminClient
+    .from('user')
+    .select('id, email')
+    .eq('id', row.user_id)
+    .single();
+  if (!signedIn || !invitee) return c.json({ error: 'user not resolvable' }, 500);
+  const sameUser = signedIn.id === invitee.id;
+  const sameEmail =
+    signedIn.email &&
+    invitee.email &&
+    signedIn.email.toLowerCase() === invitee.email.toLowerCase();
+  if (!sameUser && !sameEmail) {
+    return c.json({ error: 'this invite is for a different email' }, 403);
+  }
+  // Update the row; if the user_id differs from the signed-in user, retarget.
+  const updates = {
+    status: 'active',
+    invite_token: null,
+    accepted_at: new Date().toISOString(),
+    ...(sameUser ? {} : { user_id: signedIn.id }),
+  };
+  const { error: uErr } = await adminClient
+    .from('meet_team_member')
+    .update(updates)
+    .eq('team_id', row.team_id)
+    .eq('user_id', invitee.id);
+  if (uErr) return c.json({ error: uErr.message }, 500);
+  // Make sure they have fibre-meet membership (idempotent).
+  const { data: meetApp } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (meetApp) {
+    await adminClient
+      .from('app_membership')
+      .upsert(
+        { user_id: signedIn.id, app_id: meetApp.id, role: 'member' },
+        { onConflict: 'user_id,app_id' },
+      );
+  }
+  const team = Array.isArray(row.team) ? row.team[0] : row.team;
+  return c.json({ ok: true, team_id: row.team_id, team_slug: team?.slug ?? null });
+});
+
+// POST /api/v1/meet/teams/:id/members/:userId/resend-invite — leads only.
+// Regenerates the invite token (invalidating the old link) and re-sends the
+// invite email. Useful when the invitee can't find the original.
+meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
+  const id = c.req.param('id');
+  const userId = c.req.param('userId');
+  const ctx = c.get('ctx');
+  if (!(await assertLead(id, ctx.userId))) {
+    return c.json({ error: 'leads only' }, 403);
+  }
+  const { data: row } = await adminClient
+    .from('meet_team_member')
+    .select('status, user:user_id (email, full_name)')
+    .eq('team_id', id)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!row || row.status !== 'invited') {
+    return c.json({ error: 'not a pending invite' }, 400);
+  }
+  const inviteToken = `inv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
+  await adminClient
+    .from('meet_team_member')
+    .update({ invite_token: inviteToken, invited_at: new Date().toISOString() })
+    .eq('team_id', id)
+    .eq('user_id', userId);
+  const u = Array.isArray(row.user) ? row.user[0] : row.user;
+  const acceptUrl = `${meetAppUrl()}/invite/${inviteToken}`;
+  if (u?.email) {
+    try {
+      const { data: team } = await adminClient
+        .from('meet_team')
+        .select('name')
+        .eq('id', id)
+        .single();
+      await sendEmail({
+        to: u.email,
+        subject: `Reminder: accept your invite to ${team?.name ?? 'a team'}`,
+        text: `Accept the invite: ${acceptUrl}\n\n— The Fibre`,
+        html: `<p>Open <a href="${acceptUrl}">${acceptUrl}</a> to accept the invite.</p>`,
+      });
+    } catch (e) {
+      console.error('[teams/resend-invite] email failed (non-fatal)', e);
+    }
+  }
+  return c.json({ ok: true, invite_url: acceptUrl });
 });
 
 // DELETE /api/v1/meet/teams/:id/members/:userId — leads only.
@@ -1890,12 +2077,34 @@ async function resolveAssigneeHostIds(mt: MeetingTypeForResolve): Promise<string
   if (mt.event_type === 'one_on_one' || mt.event_type === 'group') {
     return [mt.host_id];
   }
+  // Assignees who are currently ACTIVE members of the meeting type's team.
+  // Pending invites are excluded — they can't be routed to until they accept.
   const { data: rows } = await adminClient
     .from('meet_meeting_type_assignee')
-    .select('user_id, is_primary')
+    .select(
+      'user_id, is_primary, meeting_type:meeting_type_id (team_id)',
+    )
     .eq('meeting_type_id', mt.id);
-  const assignees = rows ?? [];
-  if (assignees.length === 0) return [mt.host_id]; // fallback
+  const allAssignees = rows ?? [];
+  if (allAssignees.length === 0) return [mt.host_id]; // fallback
+  const teamId = (() => {
+    const m = allAssignees[0]?.meeting_type;
+    const mt0 = Array.isArray(m) ? m[0] : m;
+    return mt0?.team_id ?? null;
+  })();
+  let assignees: { user_id: string; is_primary: boolean }[];
+  if (teamId) {
+    const { data: activeMembers } = await adminClient
+      .from('meet_team_member')
+      .select('user_id')
+      .eq('team_id', teamId)
+      .eq('status', 'active');
+    const activeIds = new Set((activeMembers ?? []).map((m) => m.user_id));
+    assignees = allAssignees.filter((a) => activeIds.has(a.user_id));
+    if (assignees.length === 0) return [mt.host_id];
+  } else {
+    assignees = allAssignees;
+  }
   // Resolve each user_id to their meet_host row (one host per user).
   const userIds = assignees.map((a) => a.user_id);
   const { data: hosts } = await adminClient

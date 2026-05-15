@@ -11,7 +11,7 @@ import {
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
 import { TeamForm } from '../form';
-import { AddMemberForm, RemoveMemberButton } from './members';
+import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
 
 type Team = {
   id: string;
@@ -22,6 +22,9 @@ type Team = {
   my_role: 'lead' | 'member' | null;
   members: {
     role: 'lead' | 'member';
+    status: 'active' | 'invited';
+    invite_token: string | null;
+    invited_at: string | null;
     user: { id: string; email: string; full_name: string | null } | { id: string; email: string; full_name: string | null }[] | null;
   }[];
   meeting_types: {
@@ -81,27 +84,29 @@ export default async function TeamDetailPage({
           <SectionLabel>Members</SectionLabel>
         </div>
         <ListGroup>
-          {team.members.map((m, i) => {
-            const u = Array.isArray(m.user) ? m.user[0] : m.user;
-            if (!u) return null;
-            return (
-              <ListRow
-                key={`${u.id}-${i}`}
-                primary={u.full_name ?? u.email}
-                secondary={u.email}
-                meta={
-                  <>
-                    <span className="uppercase tracking-wider text-ink-muted">
-                      {m.role}
-                    </span>
-                    {isLead && (
-                      <RemoveMemberButton teamId={team.id} userId={u.id} />
-                    )}
-                  </>
-                }
-              />
-            );
-          })}
+          {team.members
+            .filter((m) => m.status === 'active')
+            .map((m, i) => {
+              const u = Array.isArray(m.user) ? m.user[0] : m.user;
+              if (!u) return null;
+              return (
+                <ListRow
+                  key={`${u.id}-${i}`}
+                  primary={u.full_name ?? u.email}
+                  secondary={u.email}
+                  meta={
+                    <>
+                      <span className="uppercase tracking-wider text-ink-muted">
+                        {m.role}
+                      </span>
+                      {isLead && (
+                        <RemoveMemberButton teamId={team.id} userId={u.id} />
+                      )}
+                    </>
+                  }
+                />
+              );
+            })}
         </ListGroup>
         {isLead && (
           <div className="mt-6">
@@ -109,6 +114,38 @@ export default async function TeamDetailPage({
           </div>
         )}
       </section>
+
+      {isLead &&
+        team.members.some((m) => m.status === 'invited') && (
+          <section className="mt-14">
+            <SectionLabel>Pending invites</SectionLabel>
+            <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
+              These invitees haven&apos;t accepted yet. They&apos;ll start receiving
+              bookings only after they accept. Copy the link if the email
+              didn&apos;t land.
+            </p>
+            <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+              {team.members
+                .filter((m) => m.status === 'invited')
+                .map((m, i) => {
+                  const u = Array.isArray(m.user) ? m.user[0] : m.user;
+                  if (!u || !m.invite_token) return null;
+                  return (
+                    <PendingInviteRow
+                      key={`${u.id}-${i}`}
+                      teamId={team.id}
+                      userId={u.id}
+                      email={u.email}
+                      name={u.full_name}
+                      role={m.role}
+                      token={m.invite_token}
+                      invitedAt={m.invited_at}
+                    />
+                  );
+                })}
+            </ul>
+          </section>
+        )}
 
       <section className="mt-14">
         <div className="flex items-center justify-between">

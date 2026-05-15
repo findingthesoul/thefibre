@@ -4,7 +4,7 @@ import { useActionState, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
-import { addMember, removeMember, type SaveResult } from '../actions';
+import { addMember, removeMember, resendInvite, type SaveResult } from '../actions';
 
 export function AddMemberForm({ teamId }: { teamId: string }) {
   const router = useRouter();
@@ -99,5 +99,108 @@ export function RemoveMemberButton({
       </button>
       {error && <span className="text-xs text-red-700">{error}</span>}
     </span>
+  );
+}
+
+export function PendingInviteRow({
+  teamId,
+  userId,
+  email,
+  name,
+  role,
+  token,
+  invitedAt,
+}: {
+  teamId: string;
+  userId: string;
+  email: string;
+  name: string | null;
+  role: 'lead' | 'member';
+  token: string;
+  invitedAt: string | null;
+}) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [copied, setCopied] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const url =
+    typeof window !== 'undefined'
+      ? `${window.location.origin.replace(/\/+$/, '')}/invite/${token}`
+      : `/invite/${token}`;
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(url);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // ignore
+    }
+  }
+
+  function resend() {
+    setError(null);
+    startTransition(async () => {
+      const r = await resendInvite(teamId, userId);
+      if (r.error) setError(r.error);
+      else router.refresh();
+    });
+  }
+
+  function revoke() {
+    setError(null);
+    startTransition(async () => {
+      const r = await removeMember(teamId, userId);
+      if (r.error) setError(r.error);
+      else router.refresh();
+    });
+  }
+
+  return (
+    <li className="grid grid-cols-[1fr_auto] gap-4 px-5 py-4 text-sm">
+      <div className="min-w-0">
+        <div className="font-medium truncate">{name ?? email}</div>
+        <div className="mt-0.5 text-xs text-ink-muted truncate">
+          {email} ·{' '}
+          <span className="uppercase tracking-wider">{role}</span>
+          {invitedAt && (
+            <>
+              {' · invited '}
+              {new Date(invitedAt).toLocaleDateString(undefined, {
+                day: '2-digit',
+                month: '2-digit',
+              })}
+            </>
+          )}
+        </div>
+        {error && <div className="mt-1 text-xs text-red-700">{error}</div>}
+      </div>
+      <div className="flex shrink-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={copy}
+          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+          title={url}
+        >
+          {copied ? 'Copied' : 'Copy link'}
+        </button>
+        <button
+          type="button"
+          onClick={resend}
+          disabled={pending}
+          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
+        >
+          {pending ? '…' : 'Resend'}
+        </button>
+        <button
+          type="button"
+          onClick={revoke}
+          disabled={pending}
+          className="text-xs text-ink-subtle hover:text-red-700 underline underline-offset-2 disabled:opacity-50"
+        >
+          Revoke
+        </button>
+      </div>
+    </li>
   );
 }
