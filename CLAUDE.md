@@ -81,9 +81,16 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-05-16 (Fibre Meet @ v0.7.0+)
+## Where we left off — 2026-05-16 (v0.8.0)
 
-The conversation that built most of Fibre Meet stretched too long; this section is the handoff so the next chat lands running. Live in production.
+The conversation that built most of Fibre Meet stretched too long; this section + the new Meet docs are the handoff so the next chat lands running. Live in production.
+
+### Docs to read first
+- `docs/meet-architecture.md` — what's where in the Meet app, auth + identity, booking flow, routing strategies, design canon, gotchas.
+- `docs/meet-api.md` — endpoint reference for everything under `/api/v1/meet/...`.
+- `docs/meet-data-model.md` — schema for all `meet_*` tables, SQL helpers, RLS pattern, migration index.
+- `docs/build-plan.md` — current queue (the section "Where Fibre Meet is right now" is the live state).
+- `CHANGELOG.md` — full v0.8.0 entry covers everything shipped this session.
 
 ### Recent commits to anchor on
 
@@ -168,15 +175,12 @@ b642315  Wave 1 — public booking page split-card layout
 ### Data state
 Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample people, 1 org (EBBF), 3 programmes, ~11 enrolments, ~21 activity events.
 
-## Suggested next moves (in priority order)
+## Suggested next moves
 
-1. **One delivery app frontend.** Pick The Thread (best-specified). A real `thread.thefibre.app` that writes `session_attended` events back through the platform demonstrates the full architecture.
-2. **Tighten CORS** on the API to the production web origins before opening to outside traffic. One line in `apps/api/src/server.ts`.
-3. **Custom API domain.** `fly certs add api.thefibre.app --config fly.toml` + a CNAME at the registrar, then update Vercel's `NEXT_PUBLIC_API_BASE_URL`.
-4. **Activity filter by organisation_id.** Small API + UI change; unblocks org tab timelines.
-5. **Microsoft + LinkedIn OAuth.** Supabase Auth config; new `user_identity_provider` rows.
-6. **Article 15 export.** GDPR table-stakes; the data is all there.
-7. **Tags + person↔person relationships UI.**
+Superseded by `docs/build-plan.md` (the "Open queue" section under "Where Fibre Meet is right now"). Highest-priority items today:
+1. Magic-link auth (so non-Google invitees can sign in)
+2. Fibre web: label per-app curator-data tabs by app name
+3. Cutover plan for Meet ↔ Suite (Sjoerd owns)
 
 ## Reviewer's note
 

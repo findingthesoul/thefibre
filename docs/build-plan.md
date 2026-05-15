@@ -5,7 +5,65 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.4.8**. Live in production at https://thefibre.app (web on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+Current version: **v0.8.0**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+
+---
+
+## Where Fibre Meet is right now (2026-05-16)
+
+Most of the last week's work has been Fibre Meet. It's now a working scheduler — Suite v2, re-anchored on Fibre primitives. Full architecture: [`meet-architecture.md`](./meet-architecture.md). API reference: [`meet-api.md`](./meet-api.md). Data model: [`meet-data-model.md`](./meet-data-model.md).
+
+### Shipped (deployed)
+- Public booking page (split card, month grid + time list, tz picker, 24h/AMPM, cancel + reschedule link)
+- Dashboard (Welcome + Quick Links + Today + Next Up)
+- Bookings (Upcoming/Past/All · List/Week/Month · scope filter · include-cancelled)
+- Personal scheduling (meeting types list, tabbed editor: Basics / Availability / Conferencing / Pricing / Intake)
+- Per-MT availability override + conflict-calendar override
+- Teams (CRUD, members + lead/member, two-step invite flow with copy-URL fallback)
+- Round-robin + Collective event types (multi-host slot union/intersection, least-loaded routing)
+- Calendars page (role mgmt: primary / conflict_check / write_target / ignore; re-sync button)
+- Connections page (Google Calendar connect + Personal meeting room URL)
+- Contacts page (reads `public.person`, surfaces Meet booking history per row)
+- Internal team (workspace-level Meet members + invite-by-email)
+- Identity invariant: every workspace user has a paired `public.person`
+- Booking + cancellation emails (Resend, host timezone formatting)
+- Lucide icons across the board, no emoji
+
+### Open queue (in priority order)
+
+#### Magic-link auth — non-Google invitees can sign in
+Today every invitee needs a Google account. Supabase Auth supports magic-link natively. Needs:
+- A "Sign in with magic link" button on `meet.thefibre.app/` and `thefibre.app/`
+- Tiny callback tweak (Supabase already returns a code in the URL)
+- Schema already supports it (`user.primary_auth_method` accepts 'magic_link')
+
+#### Fibre web — label per-app curator-data tabs
+The "Edit change context" modal on a person's profile shows fields from some external app but doesn't say which app owns them. Add an app-name header to each curator-data block in `apps/web/app/(app)/contacts/[id]/`.
+
+#### Visual fidelity passes vs Suite
+Sjoerd has flagged this several times. Going forward, **read the equivalent component from `/Users/sjoerdair/Projects/souls calendar/` before rebuilding** — don't work from screenshots alone. The design canon is in [`meet-architecture.md`](./meet-architecture.md) under "Design canon".
+
+#### Per-user permission tiers (Sjoerd's longer-term ask)
+- Per-user visibility scopes ("only contacts from teams/events/sales-processes I'm part of")
+- Per-invite role labels ("internal", "external", "team member")
+- Needs a brief amendment before any code. Big scope.
+
+#### Cutover with `suite.soul.com`
+Suite v1 is still in production for soul.com. Decide whether Meet runs in parallel for a while or aims for a clean swap. Owner: Sjoerd; no code work yet.
+
+#### Future Meet features (parked)
+- Intake form editor (the tab placeholder is there; underlying `meet_intake_form` table works)
+- One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)
+- Stripe-based paid meetings + invoicing (Pricing tab shows a disabled Paid option)
+- Zoom OAuth (provider field accepts 'zoom'; auth not wired)
+- Reserved-slug validation (rejecting things like "settings", "invite")
+
+---
+
+## Outstanding for Sjoerd
+
+- **Rotate the Resend API key** — the `re_AR5QNQot…` value ended up in a screenshot earlier in chat history. Resend dashboard → API Keys → delete + create new → `fly secrets set RESEND_API_KEY=…` from repo root.
+- **Decide Meet ↔ Suite cutover** strategy.
 
 ---
 

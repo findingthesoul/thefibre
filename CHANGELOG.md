@@ -6,6 +6,67 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.8.0] — 2026-05-16
+
+### Suite v2 — Fibre Meet matures into a real scheduler
+
+This release lands the rest of the Suite UI port and the structural primitives
+underneath it. Most of the changes are visible in commits 92ea693 …
+through d74dae9 over the day. See `docs/meet-architecture.md` for the running
+reference and `docs/meet-api.md` / `docs/meet-data-model.md` for endpoint + schema docs.
+
+### Added — invite-by-email + two-step accept (team invites)
+- Inviting an email that doesn't yet have a workspace user pre-creates a `user` + paired `person`, grants `fibre-meet` membership, and writes a `meet_team_member` row with `status='invited'` plus a unique `invite_token`. The invitee gets an email pointing at `meet.thefibre.app/invite/<token>`.
+- New public `/invite/[token]` accept page peeks at the invite (no auth), prompts sign-in if needed, and on Accept flips status to `active`, clears the token, and seats the user in the right workspace.
+- Pending invites are excluded from round-robin / collective rosters and from the user's own `/teams` list — they only count once accepted.
+- Lead-only actions on the team detail page: **Copy link** (so the lead can DM the URL when email is unreliable), **Resend** (rotates the token + re-emails), **Revoke**.
+- API: `POST /teams/accept-invite/:token`, `GET /public/invite/:token`, `POST /teams/:id/members/:userId/resend-invite`.
+
+### Added — identity invariant: every workspace user has a paired `public.person`
+- Both invite paths (team-member + internal-team) now create a `person` and link `user.person_id` both ways.
+- New SECURITY DEFINER helper `public.ensure_user_person(user_id)` called from `resolve_sso_identity()` on every match path so the invite-then-signin flow completes the link.
+- Startup heal block in the migration cleans up legacy rows (`person_id IS NULL`).
+- Meet's `/contacts` page rewritten to read from `public.person` (workspace-scoped) instead of aggregating from `meet_booking`. Meet decorates each person with its booking summary — that's the curator data it justifies.
+
+### Added — meeting-type editor as tabs + per-MT overrides
+- Tabbed editor in the Suite layout: **Basics / Availability / Conferencing / Pricing / Intake**, with a sticky save bar at the top and white cards on a light grey background.
+- Personal vs Team is a 2-card chooser (clicking Team reveals a Team dropdown below — no select-in-a-select, no sub-picker in the New menu).
+- Duration / buffer / notice / advance are curated dropdowns (`None / 15 min / 30 min / …` / `1 day / 7 days / …`) instead of free-form number inputs.
+- New columns: `meet_meeting_type.working_hours_override jsonb`, `meet_meeting_type.conflict_calendar_ids uuid[]`. NULL falls back to host defaults. The single-host slots endpoint respects both overrides; team route uses `buildPerHostArgs` which picks them up automatically.
+
+### Added — Calendars role management + Re-sync
+- `POST /api/v1/meet/calendars/sync` re-pulls the calendar list from Google without re-doing OAuth.
+- `minAccessRole: 'reader'` so subscribed / shared calendars surface (previously only owner-tier rows did).
+- `meet_calendar.role` now accepts `ignore`; ignored calendars are excluded from freebusy.
+- Suite-style Calendars page: card list with a role dropdown per row (Primary / Conflict source / Write target / Ignore) and a Re-sync button.
+
+### Added — Connections (formerly Integrations) consolidates external services
+- Personal meeting room URL moved from Profile → Connections (it lives with Zoom/Whereby links, not personal identity).
+- Google Calendar connect/disconnect stays here.
+
+### Added — design canon
+- Lucide icons across the board (Settings cards, bookings view toggle, new-MT menu, public booking meta). No emoji icons anywhere.
+- Unified slug UX in `apps/meet/components/ui/name-slug.tsx`: `[prefix/]  [editable slug]  [Alt]`. Auto-fill from name; Alt regenerates a `<slug>-<rand>` variant. Profile slug field follows the same visual pattern.
+- `PageContainer` left-aligned (drops `mx-auto`) — content sits next to the sidebar instead of being centered in the viewport.
+- Public-booking page bg neutral-50 with a single white split-card; matches Suite's layout.
+
+### Migrations
+- `20260516000000_meet_calendar_ignore_role.sql` — adds 'ignore' to `meet_calendar.role`.
+- `20260516010000_sso_link_existing_person.sql` — `ensure_user_person()` helper + updated `resolve_sso_identity()` + startup heal.
+- `20260516020000_meet_team_member_pending.sql` — `status` + `invite_token` + `invited_at` + `accepted_at` on `meet_team_member`.
+- `20260516030000_meet_meeting_type_overrides.sql` — `working_hours_override jsonb` + `conflict_calendar_ids uuid[]`.
+
+### Fixed
+- The earlier "no calendars syncing" — Google Calendar API hadn't been enabled in the Cloud Console project. The error path now logs the underlying message; Sjoerd enabled the API and Re-sync works.
+- PKCE `code_verifier` mismatch on second sign-in — documented (stale cookies; use a fresh window).
+- Fly machine lease stuck after a half-completed deploy — documented (wait it out).
+
+### Required production secrets (Fly)
+Unchanged: `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, `SSO_INTERNAL_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `RESEND_API_KEY`, `EMAIL_FROM`.
+
+### Operational note
+The Resend API key used during this release ended up visible in a development screenshot. **It must be rotated** before the next release: Resend dashboard → API Keys → delete + recreate → `fly secrets set RESEND_API_KEY=…` from repo root.
+
 ## [0.7.0] — 2026-05-15
 
 ### Added — Fibre Meet step 7 (Round-robin + Collective)
