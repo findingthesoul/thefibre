@@ -1172,8 +1172,18 @@ meetRoutes.patch('/teams/:id', async (c) => {
 });
 
 // POST /api/v1/meet/teams/:id/members — add by email. Leads only.
+//
+// If no user exists for this email in the inviter's workspace, we create a
+// pending user row (no auth link yet), grant fibre-meet app_membership, and
+// send them an invite email. When they next sign in with Google, the
+// access-check route matches by email and places them in this workspace; the
+// SSO resolver then links the Google identity to the pre-created user row.
+//
+// Email addresses already present in OTHER workspaces are rejected — we
+// don't move users across workspaces silently.
 const AddMemberBody = z.object({
   email: z.string().email().toLowerCase(),
+  name: z.string().max(200).optional(),
   role: z.enum(['lead', 'member']).optional(),
 });
 meetRoutes.post('/teams/:id/members', async (c) => {
@@ -1184,31 +1194,117 @@ meetRoutes.post('/teams/:id/members', async (c) => {
   if (!(await assertLead(id, ctx.userId))) {
     return c.json({ error: 'leads only' }, 403);
   }
-  // Resolve the email to a user in this workspace.
-  const { data: u } = await adminClient
+
+  // 1. User already in this workspace?
+  let { data: u } = await adminClient
     .from('user')
-    .select('id, email, full_name')
+    .select('id, email, full_name, workspace_id')
     .eq('email', body.data.email)
-    .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (!u) {
+
+  let invited = false;
+  if (u && u.workspace_id !== ctx.workspaceId) {
     return c.json(
-      { error: 'no Fibre user with that email in this workspace' },
-      404,
+      { error: 'that email already belongs to another Fibre workspace' },
+      409,
     );
   }
+
+  if (!u) {
+    // 2. Create a pending user in this workspace.
+    invited = true;
+    const { data: created, error: cErr } = await adminClient
+      .from('user')
+      .insert({
+        workspace_id: ctx.workspaceId,
+        email: body.data.email,
+        full_name: body.data.name ?? null,
+        primary_auth_method: 'google',
+        email_verified: false,
+      })
+      .select('id, email, full_name, workspace_id')
+      .single();
+    if (cErr || !created) {
+      console.error('[teams/members] pending user create failed', cErr);
+      return c.json({ error: cErr?.message ?? 'create failed' }, 500);
+    }
+    u = created;
+
+    // 3. Grant fibre-meet app_membership so they land with Meet on first sign-in.
+    const { data: meetApp } = await adminClient
+      .from('app')
+      .select('id')
+      .eq('slug', 'fibre-meet')
+      .single();
+    if (meetApp) {
+      await adminClient
+        .from('app_membership')
+        .upsert(
+          { user_id: u.id, app_id: meetApp.id, role: 'member' },
+          { onConflict: 'user_id,app_id' },
+        );
+    }
+  }
+
+  // 4. Add to the team.
   const { data, error } = await adminClient
     .from('meet_team_member')
-    .upsert({
-      team_id: id,
-      user_id: u.id,
-      role: body.data.role ?? 'member',
-    })
+    .upsert(
+      { team_id: id, user_id: u.id, role: body.data.role ?? 'member' },
+      { onConflict: 'team_id,user_id' },
+    )
     .select('role, user:user_id (id, email, full_name)')
     .single();
   if (error) return c.json({ error: error.message }, 500);
-  return c.json(data, 201);
+
+  // 5. Send invite email (best-effort, non-fatal). Only when newly created.
+  if (invited) {
+    try {
+      const { data: team } = await adminClient
+        .from('meet_team')
+        .select('name')
+        .eq('id', id)
+        .single();
+      const { data: inviter } = await adminClient
+        .from('user')
+        .select('full_name, email')
+        .eq('id', ctx.userId)
+        .single();
+      const teamName = team?.name ?? 'a team';
+      const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
+      const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
+      await sendEmail({
+        to: u.email,
+        subject: `${inviterName} invited you to ${teamName} on The Fibre`,
+        text: `${inviterName} added you to the team "${teamName}" on Fibre Meet.
+
+Sign in with Google at ${signInUrl} (using ${u.email}) to accept and start receiving bookings.
+
+— The Fibre`,
+        html: `<!doctype html><html><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#171717;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 16px;">
+    <tr><td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:32px;">
+        <tr><td>
+          <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#737373;">You've been invited</div>
+          <h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${inviterName} added you to ${teamName}.</h1>
+          <p style="margin-top:18px;font-size:14px;line-height:1.6;color:#404040;">You're now part of the team on Fibre Meet. Sign in to accept the invite and start receiving bookings.</p>
+          <p style="margin-top:24px;"><a href="${signInUrl}" style="display:inline-block;background:#171717;color:#fff;text-decoration:none;font-size:14px;padding:10px 20px;border-radius:6px;">Sign in to The Fibre</a></p>
+          <p style="margin-top:18px;font-size:12px;color:#737373;">Use your Google account for <strong>${u.email}</strong>.</p>
+        </td></tr>
+      </table>
+      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">The Fibre · Solidarity Lab B.V. · Hosted in the EU</div>
+    </td></tr>
+  </table>
+</body></html>`,
+      });
+    } catch (e) {
+      console.error('[teams/members] invite email failed (non-fatal)', e);
+    }
+  }
+
+  return c.json({ ...data, invited }, 201);
 });
 
 // DELETE /api/v1/meet/teams/:id/members/:userId — leads only.

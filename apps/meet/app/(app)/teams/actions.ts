@@ -61,20 +61,25 @@ export async function addMember(
   teamId: string,
   _prev: SaveResult,
   formData: FormData,
-): Promise<SaveResult> {
+): Promise<SaveResult & { invited?: boolean }> {
   const email = strOrNull(formData.get('email'));
+  const name = strOrNull(formData.get('name'));
   const role = strOrNull(formData.get('role')) ?? 'member';
   if (!email) return { error: 'email is required' };
+  let result: { invited?: boolean } = {};
   try {
-    await apiFetch(`/api/v1/meet/teams/${teamId}/members`, {
-      method: 'POST',
-      body: JSON.stringify({ email, role }),
-    });
+    result = await apiFetch<{ invited?: boolean }>(
+      `/api/v1/meet/teams/${teamId}/members`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ email, name: name ?? undefined, role }),
+      },
+    );
   } catch (e) {
     return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
   }
   revalidatePath(`/teams/${teamId}`);
-  return { ok: true };
+  return { ok: true, invited: result.invited };
 }
 
 export async function removeMember(

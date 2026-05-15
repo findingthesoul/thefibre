@@ -9,8 +9,14 @@ import { addMember, removeMember, type SaveResult } from '../actions';
 export function AddMemberForm({ teamId }: { teamId: string }) {
   const router = useRouter();
   const action = addMember.bind(null, teamId);
-  const [state, formAction, pending] = useActionState<SaveResult, FormData>(
-    action as (prev: SaveResult, fd: FormData) => Promise<SaveResult>,
+  const [state, formAction, pending] = useActionState<
+    SaveResult & { invited?: boolean },
+    FormData
+  >(
+    action as (
+      prev: SaveResult & { invited?: boolean },
+      fd: FormData,
+    ) => Promise<SaveResult & { invited?: boolean }>,
     {},
   );
 
@@ -22,16 +28,23 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
       }}
       className="flex flex-wrap items-end gap-3 max-w-3xl"
     >
-      <div className="flex-1 min-w-[16rem]">
+      <div className="flex-1 min-w-[14rem]">
         <TextField
           label="Add a member"
           name="email"
           type="email"
-          placeholder="colleague@your-workspace.com"
+          placeholder="colleague@example.com"
           required
         />
       </div>
       <div className="w-40">
+        <TextField
+          label="Name (optional)"
+          name="name"
+          placeholder="If new to Fibre"
+        />
+      </div>
+      <div className="w-32">
         <SelectField
           label="Role"
           name="role"
@@ -47,6 +60,11 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
       </Button>
       {state.error && (
         <div className="basis-full text-sm text-red-700">{state.error}</div>
+      )}
+      {state.ok && state.invited && (
+        <div className="basis-full text-sm text-emerald-700">
+          Invite email sent. They're on the team — they'll start receiving bookings once they sign in to The Fibre.
+        </div>
       )}
     </form>
   );
