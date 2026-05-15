@@ -795,6 +795,192 @@ meetRoutes.post('/google/disconnect', async (c) => {
 });
 
 // ===========================================================================
+// Internal team — workspace-level users who can sign in to Meet. Read-only
+// list right now; invite goes through the team-member invite flow.
+// ===========================================================================
+
+meetRoutes.get('/internal-team', async (c) => {
+  const ctx = c.get('ctx');
+  // Resolve fibre-meet app id.
+  const { data: meetApp } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  // All users in this workspace, with whether they have a fibre-meet membership.
+  const { data: users, error } = await adminClient
+    .from('user')
+    .select('id, email, full_name, avatar_url, email_verified, created_at')
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+  if (error) return c.json({ error: error.message }, 500);
+  let memberships: { user_id: string }[] = [];
+  if (meetApp) {
+    const { data } = await adminClient
+      .from('app_membership')
+      .select('user_id')
+      .eq('app_id', meetApp.id);
+    memberships = data ?? [];
+  }
+  const meetUserIds = new Set(memberships.map((m) => m.user_id));
+  const items = (users ?? []).map((u) => ({
+    id: u.id,
+    email: u.email,
+    full_name: u.full_name,
+    avatar_url: u.avatar_url,
+    email_verified: u.email_verified,
+    has_meet: meetUserIds.has(u.id),
+  }));
+  return c.json({ items });
+});
+
+const InviteInternalBody = z.object({
+  email: z.string().email().toLowerCase(),
+  name: z.string().max(200).optional(),
+});
+
+// POST /api/v1/meet/internal-team — invite a workspace-level Meet user.
+// Mirrors the team-member invite flow but only grants fibre-meet; it does
+// not add them to any team.
+meetRoutes.post('/internal-team', async (c) => {
+  const body = InviteInternalBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+
+  // Existing user in this workspace?
+  let { data: u } = await adminClient
+    .from('user')
+    .select('id, email, full_name, workspace_id')
+    .eq('email', body.data.email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (u && u.workspace_id !== ctx.workspaceId) {
+    return c.json(
+      { error: 'that email already belongs to another Fibre workspace' },
+      409,
+    );
+  }
+  let invited = false;
+  if (!u) {
+    invited = true;
+    const { data: created, error: cErr } = await adminClient
+      .from('user')
+      .insert({
+        workspace_id: ctx.workspaceId,
+        email: body.data.email,
+        full_name: body.data.name ?? null,
+        primary_auth_method: 'google',
+        email_verified: false,
+      })
+      .select('id, email, full_name, workspace_id')
+      .single();
+    if (cErr || !created) {
+      console.error('[internal-team] pending user create failed', cErr);
+      return c.json({ error: cErr?.message ?? 'create failed' }, 500);
+    }
+    u = created;
+  }
+  // Grant fibre-meet app_membership (member role).
+  const { data: meetApp } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (meetApp) {
+    await adminClient
+      .from('app_membership')
+      .upsert(
+        { user_id: u.id, app_id: meetApp.id, role: 'member' },
+        { onConflict: 'user_id,app_id' },
+      );
+  }
+  // Best-effort invite email.
+  if (invited) {
+    try {
+      const { data: inviter } = await adminClient
+        .from('user')
+        .select('full_name, email')
+        .eq('id', ctx.userId)
+        .single();
+      const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
+      const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
+      await sendEmail({
+        to: u.email,
+        subject: `${inviterName} invited you to Fibre Meet`,
+        text: `${inviterName} added you to their Fibre workspace and granted you access to Fibre Meet.\n\nSign in at ${signInUrl} (using ${u.email}) to start using Meet.\n\n— The Fibre`,
+        html: `<p><strong>${inviterName}</strong> invited you to Fibre Meet.</p><p><a href="${signInUrl}">Sign in to The Fibre</a> using <strong>${u.email}</strong>.</p>`,
+      });
+    } catch (e) {
+      console.error('[internal-team] invite email failed (non-fatal)', e);
+    }
+  }
+  return c.json({ id: u.id, email: u.email, full_name: u.full_name, invited }, 201);
+});
+
+// ===========================================================================
+// Contacts — people who've booked with anyone in the workspace, with their
+// last-booked date. Aggregates over meet_booking; one row per invitee_email
+// in the workspace. Read-only for now.
+// ===========================================================================
+
+meetRoutes.get('/contacts', async (c) => {
+  const ctx = c.get('ctx');
+  const url = new URL(c.req.url);
+  const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
+
+  // Pull bookings in this workspace; group in JS. With a few hundred rows this
+  // is fine; we'll move to a SQL view once volume warrants it.
+  const { data: rows, error } = await adminClient
+    .from('meet_booking')
+    .select('invitee_email, invitee_name, starts_at, status, workspace_id')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('starts_at', { ascending: false })
+    .limit(2000);
+  if (error) return c.json({ error: error.message }, 500);
+
+  const byEmail = new Map<
+    string,
+    {
+      email: string;
+      name: string | null;
+      last_booked_at: string;
+      bookings: number;
+      domain: string | null;
+    }
+  >();
+  for (const r of rows ?? []) {
+    const email = r.invitee_email;
+    if (!email) continue;
+    const cur = byEmail.get(email);
+    if (cur) {
+      cur.bookings += 1;
+      continue;
+    }
+    const domain = email.includes('@') ? email.split('@')[1] ?? null : null;
+    byEmail.set(email, {
+      email,
+      name: r.invitee_name ?? null,
+      last_booked_at: r.starts_at,
+      bookings: 1,
+      domain,
+    });
+  }
+  let items = Array.from(byEmail.values()).sort((a, b) =>
+    (b.name ?? b.email).localeCompare(a.name ?? a.email),
+  );
+  if (q) {
+    items = items.filter(
+      (c) =>
+        (c.name ?? '').toLowerCase().includes(q) ||
+        c.email.includes(q) ||
+        (c.domain ?? '').includes(q),
+    );
+  }
+  return c.json({ items });
+});
+
+// ===========================================================================
 // Calendars — list the current user's meet_calendar rows + their role, and
 // update a row's role. Connected by the Google OAuth flow; users tune which
 // calendars block bookings and which receive new events.

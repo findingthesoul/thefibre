@@ -10,6 +10,8 @@ import {
   HelpCircle,
   Settings,
   Users,
+  Contact as ContactIcon,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -34,7 +36,11 @@ const NAV: NavSection[] = [
   },
   {
     label: 'Workspace',
-    items: [{ href: '/settings', label: 'Settings', icon: Settings }],
+    items: [
+      { href: '/contacts', label: 'Contacts', icon: ContactIcon },
+      { href: '/internal-team', label: 'Internal team', icon: UsersRound },
+      { href: '/settings', label: 'Settings', icon: Settings },
+    ],
   },
 ];
 
