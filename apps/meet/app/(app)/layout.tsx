@@ -53,21 +53,29 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     <div className="min-h-screen flex flex-col bg-surface">
       <header className="border-b border-line bg-surface-raised">
         <div className="mx-auto max-w-5xl px-8 py-4 flex items-center justify-between">
-          <div className="flex items-baseline gap-6">
+          <div className="flex items-baseline gap-8">
             <Link href="/dashboard" className="text-base font-medium">
               Fibre Meet
             </Link>
+            <nav className="flex items-baseline gap-5 text-sm">
+              <Link href="/dashboard" className="text-ink-subtle hover:text-ink">
+                Dashboard
+              </Link>
+              <Link href="/meeting-types" className="text-ink-subtle hover:text-ink">
+                Meeting types
+              </Link>
+              <Link href="/settings" className="text-ink-subtle hover:text-ink">
+                Settings
+              </Link>
+            </nav>
+          </div>
+          <div className="flex items-center gap-5 text-sm">
             {me.workspace && (
               <span className="text-xs text-ink-muted">
                 {me.workspace.name}
               </span>
             )}
-          </div>
-          <div className="flex items-center gap-5 text-sm">
-            <Link
-              href={fibreUrl}
-              className="text-ink-subtle hover:text-ink"
-            >
+            <Link href={fibreUrl} className="text-ink-subtle hover:text-ink">
               The Fibre ↗
             </Link>
             <span className="text-ink-subtle">{fullName}</span>
