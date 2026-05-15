@@ -19,6 +19,25 @@ function intOr(v: FormDataEntryValue | null, fallback: number): number {
 
 function bodyFromForm(formData: FormData) {
   const teamId = strOrNull(formData.get('team_id'));
+  const whRaw = strOrNull(formData.get('working_hours_override_json'));
+  let working_hours_override: unknown = null;
+  if (whRaw) {
+    try {
+      working_hours_override = JSON.parse(whRaw);
+    } catch {
+      // ignore
+    }
+  }
+  const calRaw = strOrNull(formData.get('conflict_calendar_ids_json'));
+  let conflict_calendar_ids: string[] | null = null;
+  if (calRaw) {
+    try {
+      const parsed = JSON.parse(calRaw);
+      if (Array.isArray(parsed)) conflict_calendar_ids = parsed;
+    } catch {
+      // ignore
+    }
+  }
   return {
     slug: strOrNull(formData.get('slug')) ?? '',
     name: strOrNull(formData.get('name')) ?? '',
@@ -33,6 +52,8 @@ function bodyFromForm(formData: FormData) {
     is_active: formData.get('is_active') === 'on',
     team_id: teamId && teamId !== 'personal' ? teamId : null,
     event_type: strOrNull(formData.get('event_type')) ?? 'one_on_one',
+    working_hours_override,
+    conflict_calendar_ids,
   };
 }
 

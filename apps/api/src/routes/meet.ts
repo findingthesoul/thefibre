@@ -535,7 +535,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active',
+      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, working_hours_override, conflict_calendar_ids',
     )
     .eq('host_id', host.id)
     .eq('slug', mtSlug)
@@ -576,14 +576,20 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
     end: new Date(b.ends_at),
   }));
 
-  // Layer in the host's Google Calendar freebusy if they're connected. We
-  // freebusy-query the calendars they marked as primary or conflict_check.
+  // Layer in the host's Google Calendar freebusy if they're connected. The
+  // meeting type can override which calendars to conflict-check; otherwise
+  // we use every primary / conflict_check calendar on the host.
   if (host.google_refresh_token) {
-    const { data: cals } = await adminClient
+    let calsQuery = adminClient
       .from('meet_calendar')
-      .select('google_calendar_id, role')
-      .eq('host_id', host.id)
-      .in('role', ['primary', 'conflict_check']);
+      .select('id, google_calendar_id, role')
+      .eq('host_id', host.id);
+    if (mt.conflict_calendar_ids && mt.conflict_calendar_ids.length > 0) {
+      calsQuery = calsQuery.in('id', mt.conflict_calendar_ids);
+    } else {
+      calsQuery = calsQuery.in('role', ['primary', 'conflict_check']);
+    }
+    const { data: cals } = await calsQuery;
     const ids = (cals ?? [])
       .map((c) => c.google_calendar_id)
       .filter((id): id is string => !!id);
@@ -597,7 +603,11 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
     }
   }
 
-  const workingHours = (host.working_hours as WorkingSchedule | null) ?? {};
+  // Use the meeting type's override if set, otherwise the host's default.
+  const workingHours =
+    (mt.working_hours_override as WorkingSchedule | null) ??
+    (host.working_hours as WorkingSchedule | null) ??
+    {};
 
   const slots = generateSlots({
     hostTimezone: host.timezone,
@@ -1308,6 +1318,13 @@ const MeetingTypeUpsert = z.object({
   // Event-routing strategy. Only team-owned types may use round_robin or
   // collective in phase 1.
   event_type: z.enum(['one_on_one', 'round_robin', 'collective', 'group']).optional(),
+  // Per-MT availability override (Schedule shape). NULL = use host's default.
+  working_hours_override: z
+    .record(z.array(z.object({ start: z.string(), end: z.string() })))
+    .nullable()
+    .optional(),
+  // Per-MT conflict-calendar override. NULL = use host's defaults.
+  conflict_calendar_ids: z.array(z.string().uuid()).nullable().optional(),
 });
 
 meetRoutes.post('/meeting-types', async (c) => {
