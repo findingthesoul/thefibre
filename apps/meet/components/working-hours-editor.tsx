@@ -93,7 +93,7 @@ export function WorkingHoursEditor({
   }
 
   return (
-    <div className="rounded-md border border-border divide-y divide-border">
+    <div className="rounded-md border border-line divide-y divide-border">
       {DAYS.map(({ key, label }) => {
         const ranges = value[key];
         const enabled = ranges.length > 0;
@@ -104,7 +104,7 @@ export function WorkingHoursEditor({
                 type="checkbox"
                 checked={enabled}
                 onChange={() => toggleDay(key)}
-                className="h-4 w-4 rounded border-border accent-foreground"
+                className="h-4 w-4 rounded border-line accent-ink"
               />
               {label}
             </label>
@@ -144,13 +144,13 @@ export function WorkingHoursEditor({
                     size="sm"
                     type="button"
                     onClick={() => addRange(key)}
-                    className="self-start text-xs text-muted-foreground hover:text-foreground"
+                    className="self-start text-xs text-muted-foreground hover:text-ink"
                   >
                     <Plus className="h-3 w-3" /> Add block
                   </Button>
                 </div>
               ) : (
-                <span className="text-sm text-subtle-foreground pt-1.5">Unavailable</span>
+                <span className="text-sm text-ink-muted pt-1.5">Unavailable</span>
               )}
             </div>
           </div>

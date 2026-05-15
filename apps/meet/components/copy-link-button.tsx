@@ -73,7 +73,7 @@ export function OpenBookingLink({ href, label = "Open booking page ↗" }: { hre
         e.stopPropagation();
         window.open(href, "_blank", "noopener,noreferrer");
       }}
-      className="text-xs text-muted-foreground underline hover:text-foreground shrink-0"
+      className="text-xs text-muted-foreground underline hover:text-ink shrink-0"
     >
       {label}
     </button>

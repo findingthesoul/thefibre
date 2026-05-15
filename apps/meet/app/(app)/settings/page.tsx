@@ -1,4 +1,5 @@
 import { apiFetch, ApiError } from '@/lib/api';
+import { PageContainer, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { SettingsForm } from './form';
 
 type Host = {
@@ -22,23 +23,19 @@ export default async function SettingsPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl px-8 py-12">
-      <h1 className="text-3xl font-medium tracking-tight">Settings</h1>
-      <p className="mt-1 text-sm text-ink-subtle">
-        How you appear on your public booking page.
-      </p>
+    <PageContainer max="3xl">
+      <PageHeader
+        title="Settings"
+        description="How you appear on your public booking page."
+      />
 
-      {error && (
-        <div className="mt-8 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          Couldn&apos;t load: {error}
-        </div>
-      )}
+      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
 
       {host && (
         <div className="mt-10">
           <SettingsForm initial={host} />
         </div>
       )}
-    </div>
+    </PageContainer>
   );
 }

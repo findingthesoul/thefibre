@@ -74,9 +74,9 @@ export function IntakeFieldsEditor({
     <div className="space-y-3">
       <ul className="space-y-3">
         {fields.map((field, idx) => (
-          <li key={idx} className="rounded-md border border-border bg-surface p-4 space-y-3">
+          <li key={idx} className="rounded-md border border-line bg-surface p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
-              <span className="text-xs uppercase tracking-wide text-subtle-foreground pt-1">
+              <span className="text-xs uppercase tracking-wide text-ink-muted pt-1">
                 Question {idx + 1}
               </span>
               <div className="flex items-center gap-1">
@@ -185,7 +185,7 @@ export function IntakeFieldsEditor({
                   type="checkbox"
                   checked={field.required}
                   onChange={(e) => update(idx, { required: e.target.checked })}
-                  className="h-4 w-4 rounded border-border accent-foreground"
+                  className="h-4 w-4 rounded border-line accent-ink"
                 />
                 Required
               </label>
@@ -222,7 +222,7 @@ function ConditionalEditor({
     : undefined;
 
   return (
-    <div className="space-y-2 rounded-md bg-surface-muted px-3 py-2">
+    <div className="space-y-2 rounded-md bg-surface-sunken px-3 py-2">
       <label className="flex items-center gap-2 text-sm">
         <input
           type="checkbox"
@@ -236,7 +236,7 @@ function ConditionalEditor({
               update(idx, { conditionalOn: undefined });
             }
           }}
-          className="h-4 w-4 rounded border-border accent-foreground"
+          className="h-4 w-4 rounded border-line accent-ink"
         />
         Only show this question if…
       </label>

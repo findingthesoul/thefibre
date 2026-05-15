@@ -1,5 +1,13 @@
-import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
+import {
+  PageContainer,
+  PageHeader,
+  SectionLabel,
+  EmptyState,
+  ErrorBanner,
+} from '@/components/ui/page';
+import { ListGroup, ListRow } from '@/components/ui/list';
+import { ButtonLink } from '@/components/ui/button';
 
 type MeetingType = {
   id: string;
@@ -30,74 +38,46 @@ export default async function MeetingTypesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-8 py-12">
-      <div className="flex items-baseline justify-between">
-        <div>
-          <h1 className="text-3xl font-medium tracking-tight">Meeting types</h1>
-          <p className="mt-1 text-sm text-ink-subtle">
-            What you offer to be booked for.
-          </p>
-        </div>
-        <Link
-          href="/meeting-types/new"
-          className="rounded-md bg-ink text-ink-inverse px-4 py-2 text-sm font-medium hover:opacity-90"
-        >
-          New meeting type
-        </Link>
-      </div>
+    <PageContainer max="4xl">
+      <PageHeader
+        title="Meeting types"
+        description="What you offer to be booked for."
+        actions={<ButtonLink href="/meeting-types/new">New meeting type</ButtonLink>}
+      />
 
-      {error && (
-        <div className="mt-8 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          Couldn&apos;t load: {error}
-        </div>
-      )}
+      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
 
-      {!error && items.length === 0 && (
-        <div className="mt-12 rounded-lg border border-line bg-surface-sunken p-8 text-center">
-          <p className="text-sm text-ink-subtle">
-            No meeting types yet. Create your first one.
-          </p>
-        </div>
-      )}
-
-      {items.length > 0 && (
-        <ul className="mt-10 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
-          {items.map((mt) => (
-            <li key={mt.id}>
-              <Link
+      <section className="mt-10">
+        <SectionLabel>Active and hidden</SectionLabel>
+        {items.length === 0 ? (
+          <EmptyState>No meeting types yet. Create your first one.</EmptyState>
+        ) : (
+          <ListGroup>
+            {items.map((mt) => (
+              <ListRow
+                key={mt.id}
                 href={`/meeting-types/${mt.id}`}
-                className="block px-5 py-4 hover:bg-surface-sunken"
-              >
-                <div className="flex items-baseline justify-between gap-6">
-                  <div className="min-w-0">
-                    <div className="flex items-baseline gap-3">
-                      <span className="font-medium">{mt.name}</span>
-                      {!mt.is_active && (
-                        <span className="text-[10px] uppercase tracking-wider text-ink-muted">
-                          Hidden
-                        </span>
-                      )}
-                    </div>
-                    {mt.description && (
-                      <p className="text-sm text-ink-subtle mt-1 truncate">
-                        {mt.description}
-                      </p>
+                primary={mt.name}
+                secondary={
+                  host
+                    ? `meet.thefibre.app/${host.slug}/${mt.slug}`
+                    : undefined
+                }
+                meta={
+                  <>
+                    {!mt.is_active && (
+                      <span className="uppercase tracking-wider text-ink-muted">
+                        Hidden
+                      </span>
                     )}
-                    {host && (
-                      <div className="text-xs text-ink-muted mt-1 font-mono">
-                        meet.thefibre.app/{host.slug}/{mt.slug}
-                      </div>
-                    )}
-                  </div>
-                  <div className="text-sm text-ink-subtle whitespace-nowrap">
-                    {mt.duration_minutes} min
-                  </div>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+                    <span>{mt.duration_minutes} min</span>
+                  </>
+                }
+              />
+            ))}
+          </ListGroup>
+        )}
+      </section>
+    </PageContainer>
   );
 }

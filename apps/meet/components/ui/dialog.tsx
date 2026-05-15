@@ -1,35 +1,47 @@
-"use client";
+'use client';
 
-import * as React from "react";
-import { X } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { useEffect, useRef, type ReactNode } from 'react';
+import { X } from 'lucide-react';
+import { Button } from './button';
 
-// Lightweight modal dialog. Hand-rolled (no Radix dep) since we only need a controlled
-// open/close panel with overlay, ESC-to-close, and focus on first input. Used by team-add
-// flows; can be reused for any "open a modal to do a thing" pattern.
-
-interface DialogProps {
+type Props = {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
-  children: React.ReactNode;
-  className?: string;
-}
+  onClose: () => void;
+  title: ReactNode;
+  description?: ReactNode;
+  children: ReactNode;
+  // Footer is rendered to the right; supply your own buttons.
+  footer?: ReactNode;
+  size?: 'sm' | 'md' | 'lg';
+};
 
-export function Dialog({ open, onOpenChange, children, className }: DialogProps) {
-  React.useEffect(() => {
+const SIZES: Record<NonNullable<Props['size']>, string> = {
+  sm: 'max-w-sm',
+  md: 'max-w-md',
+  lg: 'max-w-xl',
+};
+
+export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onOpenChange(false);
-    };
-    window.addEventListener("keydown", onKey);
-    // Lock body scroll while open.
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open, onClose]);
+
+  // Lock scroll while open.
+  useEffect(() => {
+    if (!open) return;
     const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
+    document.body.style.overflow = 'hidden';
     return () => {
-      window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onOpenChange]);
+  }, [open]);
 
   if (!open) return null;
 
@@ -37,56 +49,84 @@ export function Dialog({ open, onOpenChange, children, className }: DialogProps)
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-start justify-center p-4 sm:p-8"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
       onMouseDown={(e) => {
-        if (e.target === e.currentTarget) onOpenChange(false);
+        if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" aria-hidden="true" />
       <div
-        className={cn(
-          "relative z-10 w-full max-w-lg rounded-xl border border-border bg-surface shadow-xl mt-12",
-          className,
+        ref={ref}
+        className={`${SIZES[size]} w-full rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[85vh]`}
+      >
+        <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
+          <div>
+            <h2 className="text-base font-medium">{title}</h2>
+            {description && <p className="mt-0.5 text-sm text-ink-subtle">{description}</p>}
+          </div>
+          <button
+            onClick={onClose}
+            className="text-ink-muted hover:text-ink"
+            aria-label="Close"
+          >
+            <X size={18} strokeWidth={1.75} />
+          </button>
+        </header>
+        <div className="px-5 py-4 overflow-y-auto">{children}</div>
+        {footer && (
+          <footer className="px-5 py-3 border-t border-line flex items-center justify-end gap-2">
+            {footer}
+          </footer>
         )}
-        onMouseDown={(e) => e.stopPropagation()}
-      >
-        {children}
       </div>
     </div>
   );
 }
 
-export function DialogHeader({
+type ConfirmProps = {
+  open: boolean;
+  onCancel: () => void;
+  onConfirm: () => void;
+  title: ReactNode;
+  message: ReactNode;
+  confirmLabel?: string;
+  cancelLabel?: string;
+  destructive?: boolean;
+  pending?: boolean;
+};
+
+export function ConfirmDialog({
+  open,
+  onCancel,
+  onConfirm,
   title,
-  description,
-  onClose,
-}: {
-  title: string;
-  description?: string;
-  onClose: () => void;
-}) {
+  message,
+  confirmLabel = 'Confirm',
+  cancelLabel = 'Cancel',
+  destructive = false,
+  pending = false,
+}: ConfirmProps) {
   return (
-    <div className="flex items-start justify-between gap-3 p-5 border-b border-border">
-      <div className="space-y-0.5 min-w-0">
-        <h2 className="text-base font-semibold tracking-tight text-foreground">{title}</h2>
-        {description && <p className="text-sm text-muted-foreground">{description}</p>}
-      </div>
-      <button
-        type="button"
-        aria-label="Close"
-        onClick={onClose}
-        className="shrink-0 rounded-md p-1 text-muted-foreground hover:bg-surface-muted hover:text-foreground transition-colors"
-      >
-        <X className="h-4 w-4" />
-      </button>
-    </div>
+    <Dialog
+      open={open}
+      onClose={onCancel}
+      title={title}
+      size="sm"
+      footer={
+        <>
+          <Button variant="ghost" onClick={onCancel} disabled={pending}>
+            {cancelLabel}
+          </Button>
+          <Button
+            variant={destructive ? 'danger' : 'primary'}
+            onClick={onConfirm}
+            disabled={pending}
+          >
+            {pending ? 'Working…' : confirmLabel}
+          </Button>
+        </>
+      }
+    >
+      <p className="text-sm text-ink-subtle">{message}</p>
+    </Dialog>
   );
-}
-
-export function DialogBody({ children, className }: { children: React.ReactNode; className?: string }) {
-  return <div className={cn("p-5 space-y-4", className)}>{children}</div>;
-}
-
-export function DialogFooter({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center justify-end gap-2 p-5 border-t border-border">{children}</div>;
 }

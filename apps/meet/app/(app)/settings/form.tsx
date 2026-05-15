@@ -2,9 +2,12 @@
 
 import { useActionState, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { WorkingHoursEditor, defaultSchedule, type Schedule } from '@/components/working-hours-editor';
+import { TextField, TextAreaField } from '@/components/ui/field';
+import {
+  WorkingHoursEditor,
+  defaultSchedule,
+  type Schedule,
+} from '@/components/working-hours-editor';
 import { updateHost, type SaveResult } from './actions';
 
 type Initial = {
@@ -27,79 +30,56 @@ export function SettingsForm({ initial }: { initial: Initial }) {
   );
 
   return (
-    <form action={formAction} className="space-y-6">
+    <form action={formAction} className="space-y-5">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="slug">URL slug</Label>
-          <Input
-            id="slug"
-            name="slug"
-            defaultValue={initial.slug}
-            pattern="[a-z0-9-]+"
-            required
-          />
-          <p className="text-xs text-ink-muted mt-1">
-            meet.thefibre.app/<strong>{initial.slug}</strong>
-          </p>
-        </div>
-        <div>
-          <Label htmlFor="timezone">Timezone</Label>
-          <Input
-            id="timezone"
-            name="timezone"
-            defaultValue={initial.timezone}
-            placeholder="Europe/Amsterdam"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="bio">Bio</Label>
-        <textarea
-          id="bio"
-          name="bio"
-          defaultValue={initial.bio ?? ''}
-          rows={4}
-          className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
+        <TextField
+          label="URL slug"
+          name="slug"
+          defaultValue={initial.slug}
+          pattern="[a-z0-9-]+"
+          required
+          hint={`meet.thefibre.app/${initial.slug}`}
+        />
+        <TextField
+          label="Timezone"
+          name="timezone"
+          defaultValue={initial.timezone}
+          placeholder="Europe/Amsterdam"
         />
       </div>
 
+      <TextAreaField
+        label="Bio"
+        name="bio"
+        defaultValue={initial.bio ?? ''}
+        rows={4}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div>
-          <Label htmlFor="location">Location</Label>
-          <Input
-            id="location"
-            name="location"
-            defaultValue={initial.location ?? ''}
-            placeholder="Amsterdam, NL"
-          />
-        </div>
-        <div>
-          <Label htmlFor="photo_url">Photo URL</Label>
-          <Input
-            id="photo_url"
-            name="photo_url"
-            defaultValue={initial.photo_url ?? ''}
-            placeholder="https://…"
-          />
-        </div>
-      </div>
-
-      <div>
-        <Label htmlFor="personal_room_url">Personal meeting room URL</Label>
-        <Input
-          id="personal_room_url"
-          name="personal_room_url"
-          defaultValue={initial.personal_room_url ?? ''}
-          placeholder="https://zoom.us/j/…"
+        <TextField
+          label="Location"
+          name="location"
+          defaultValue={initial.location ?? ''}
+          placeholder="Amsterdam, NL"
         />
-        <p className="text-xs text-ink-muted mt-1">
-          Used for meeting types set to &ldquo;Personal room&rdquo;.
-        </p>
+        <TextField
+          label="Photo URL"
+          name="photo_url"
+          defaultValue={initial.photo_url ?? ''}
+          placeholder="https://…"
+        />
       </div>
 
+      <TextField
+        label="Personal meeting room URL"
+        name="personal_room_url"
+        defaultValue={initial.personal_room_url ?? ''}
+        placeholder="https://zoom.us/j/…"
+        hint="Used for meeting types set to “Personal room”."
+      />
+
       <div>
-        <Label>Working hours</Label>
+        <span className="text-sm text-ink-subtle">Working hours</span>
         <div className="mt-2">
           <WorkingHoursEditor value={hours} onChange={setHours} />
         </div>
