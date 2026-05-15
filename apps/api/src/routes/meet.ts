@@ -983,27 +983,60 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
   return c.json(data);
 });
 
-// GET /api/v1/meet/bookings — upcoming for current host
+// GET /api/v1/meet/bookings — bookings I host.
+//   ?scope=upcoming|past|all  (default upcoming)
+//   ?include_cancelled=1      (default 0 — confirmed only)
+//   ?team_id=<uuid>           (filter to one team's MTs; "personal" → host_id only, no team)
 meetRoutes.get('/bookings', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const url = new URL(c.req.url);
+  const scope = (url.searchParams.get('scope') ?? 'upcoming') as
+    | 'upcoming'
+    | 'past'
+    | 'all';
+  const includeCancelled = url.searchParams.get('include_cancelled') === '1';
+  const teamFilter = url.searchParams.get('team_id'); // uuid | 'personal' | null
+
   const { data: host } = await db
     .from('meet_host')
     .select('id')
     .eq('user_id', ctx.userId)
     .maybeSingle();
   if (!host) return c.json({ items: [] });
-  const { data, error } = await db
+
+  let q = db
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, meeting_type:meeting_type_id (name)',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (id, name, slug, team_id, team:team_id (id, name, slug))',
     )
-    .eq('host_id', host.id)
-    .gte('ends_at', new Date().toISOString())
-    .order('starts_at', { ascending: true })
-    .limit(100);
+    .eq('host_id', host.id);
+
+  const nowIso = new Date().toISOString();
+  if (scope === 'upcoming') q = q.gte('ends_at', nowIso);
+  else if (scope === 'past') q = q.lt('ends_at', nowIso);
+
+  if (!includeCancelled) q = q.eq('status', 'confirmed');
+
+  q = q
+    .order('starts_at', { ascending: scope !== 'past' })
+    .limit(200);
+
+  const { data, error } = await q;
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ items: data ?? [] });
+
+  let items = data ?? [];
+  if (teamFilter) {
+    items = items.filter((row) => {
+      const mt = Array.isArray(row.meeting_type)
+        ? row.meeting_type[0]
+        : row.meeting_type;
+      if (!mt) return false;
+      if (teamFilter === 'personal') return !mt.team_id;
+      return mt.team_id === teamFilter;
+    });
+  }
+  return c.json({ items });
 });
 
 // ===========================================================================

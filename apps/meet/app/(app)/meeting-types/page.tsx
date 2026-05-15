@@ -7,7 +7,9 @@ import {
   ErrorBanner,
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { ButtonLink } from '@/components/ui/button';
+import { NewMeetingTypeMenu } from './new-menu';
+
+type Team = { id: string; name: string; my_role: 'lead' | 'member' };
 
 type MeetingType = {
   id: string;
@@ -29,15 +31,18 @@ type Host = { slug: string };
 export default async function MeetingTypesPage() {
   let items: MeetingType[] = [];
   let host: Host | null = null;
+  let teams: Team[] = [];
   let error: string | null = null;
 
   try {
-    const [data, h] = await Promise.all([
+    const [data, h, t] = await Promise.all([
       apiFetch<{ items: MeetingType[] }>('/api/v1/meet/meeting-types'),
       apiFetch<Host>('/api/v1/meet/me'),
+      apiFetch<{ items: Team[] }>('/api/v1/meet/teams').catch(() => ({ items: [] })),
     ]);
     items = data.items;
     host = h;
+    teams = t.items;
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -83,7 +88,7 @@ export default async function MeetingTypesPage() {
       <PageHeader
         title="Meeting types"
         description="What you offer to be booked for."
-        actions={<ButtonLink href="/meeting-types/new">New meeting type</ButtonLink>}
+        actions={<NewMeetingTypeMenu teams={teams} />}
       />
 
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}

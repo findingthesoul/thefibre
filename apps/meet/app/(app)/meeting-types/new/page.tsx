@@ -11,9 +11,9 @@ type Team = { id: string; name: string; my_role: 'lead' | 'member' };
 export default async function NewMeetingTypePage({
   searchParams,
 }: {
-  searchParams: Promise<{ team?: string }>;
+  searchParams: Promise<{ team?: string; event_type?: string }>;
 }) {
-  const { team: teamParam } = await searchParams;
+  const { team: teamParam, event_type: eventTypeParam } = await searchParams;
   let teams: TeamOption[] = [];
   try {
     const r = await apiFetch<{ items: Team[] }>('/api/v1/meet/teams');
@@ -21,6 +21,12 @@ export default async function NewMeetingTypePage({
   } catch {
     // Non-fatal — falls back to personal-only.
   }
+
+  const eventType =
+    eventTypeParam &&
+    ['one_on_one', 'group', 'round_robin', 'collective'].includes(eventTypeParam)
+      ? eventTypeParam
+      : 'one_on_one';
 
   return (
     <PageContainer max="4xl">
@@ -31,7 +37,7 @@ export default async function NewMeetingTypePage({
       />
       <div className="mt-10">
         <MeetingTypeForm
-          initial={{ team_id: teamParam ?? null }}
+          initial={{ team_id: teamParam ?? null, event_type: eventType }}
           teams={teams}
         />
       </div>

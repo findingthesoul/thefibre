@@ -3,18 +3,26 @@ import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
   PageHeader,
-  SectionLabel,
-  EmptyState,
   ErrorBanner,
 } from '@/components/ui/page';
-import { ListGroup, ListRow } from '@/components/ui/list';
+import { QuickLinkRow, type QuickLink } from './quick-link';
 
 type Me = {
   user: { full_name: string | null; email: string };
-  workspace: { id: string; name: string } | null;
 };
 type Host = { id: string; slug: string };
-type MT = { id: string; slug: string; name: string; is_active: boolean };
+type MT = {
+  id: string;
+  slug: string;
+  name: string;
+  duration_minutes: number;
+  is_active: boolean;
+  team_id: string | null;
+  team:
+    | { id: string; name: string; slug: string }
+    | { id: string; name: string; slug: string }[]
+    | null;
+};
 type Booking = {
   id: string;
   invitee_email: string;
@@ -29,6 +37,21 @@ function mtName(b: Booking): string {
   if (!b.meeting_type) return '';
   const mt = Array.isArray(b.meeting_type) ? b.meeting_type[0] : b.meeting_type;
   return mt?.name ?? '';
+}
+
+function teamOf(mt: MT): { name: string; slug: string } | null {
+  if (!mt.team) return null;
+  return Array.isArray(mt.team) ? (mt.team[0] ?? null) : mt.team;
+}
+
+function isToday(iso: string): boolean {
+  const d = new Date(iso);
+  const today = new Date();
+  return (
+    d.getFullYear() === today.getFullYear() &&
+    d.getMonth() === today.getMonth() &&
+    d.getDate() === today.getDate()
+  );
 }
 
 export default async function MeetDashboard() {
@@ -55,97 +78,122 @@ export default async function MeetDashboard() {
 
   const firstName =
     me?.user.full_name?.split(/\s+/)[0] ?? me?.user.email?.split('@')[0] ?? '';
-  const today = new Intl.DateTimeFormat('en-GB', {
+  const today = new Intl.DateTimeFormat(undefined, {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
     year: 'numeric',
   }).format(new Date());
-  const activeMts = mts.filter((m) => m.is_active);
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+  const quickLinks: QuickLink[] = mts
+    .filter((m) => m.is_active)
+    .slice(0, 3)
+    .map((m) => {
+      const team = teamOf(m);
+      const path = team
+        ? `/${team.slug}/${m.slug}`
+        : host
+          ? `/${host.slug}/${m.slug}`
+          : '';
+      return {
+        id: m.id,
+        name: m.name,
+        team: team?.name ?? null,
+        durationMinutes: m.duration_minutes,
+        path,
+        url: path ? `${baseUrl}${path}` : '',
+      };
+    });
+
+  const todayBookings = bookings.filter((b) => isToday(b.starts_at));
+  const nextUp = bookings.filter((b) => !isToday(b.starts_at)).slice(0, 5);
 
   return (
-    <PageContainer>
-      <PageHeader title={`Welcome to Meet, ${firstName}`} description={today} />
+    <PageContainer max="4xl">
+      <PageHeader title={`Welcome, ${firstName}`} description={today} />
 
       {error && <ErrorBanner>Couldn&apos;t load some data: {error}</ErrorBanner>}
 
-      <section className="mt-10 grid grid-cols-2 md:grid-cols-3 gap-4">
-        <StatCard
-          label="Booking URL"
-          value={host ? `meet.thefibre.app/${host.slug}` : '—'}
-          mono
-          href="/settings"
-        />
-        <StatCard
-          label="Active meeting types"
-          value={String(activeMts.length)}
-          href="/meeting-types"
-        />
-        <StatCard
-          label="Upcoming bookings"
-          value={String(bookings.length)}
-        />
+      <section className="mt-10">
+        <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+          Quick links
+        </div>
+        <p className="mt-1 text-sm text-ink-subtle">
+          Your active meeting types — copy and share.
+        </p>
+
+        {quickLinks.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
+            No active meeting types yet.{' '}
+            <Link href="/meeting-types/new" className="underline">
+              Create one
+            </Link>
+            .
+          </div>
+        ) : (
+          <div className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+            {quickLinks.map((q) => (
+              <QuickLinkRow key={q.id} link={q} />
+            ))}
+          </div>
+        )}
       </section>
 
-      <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-10">
+      <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
         <section>
-          <SectionLabel>Upcoming bookings</SectionLabel>
-          {bookings.length === 0 ? (
-            <EmptyState>Nothing on the books.</EmptyState>
+          <div className="flex items-baseline justify-between">
+            <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+              Today
+            </div>
+            {bookings.length > 0 && (
+              <Link
+                href="/bookings"
+                className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+              >
+                View all
+              </Link>
+            )}
+          </div>
+          {todayBookings.length === 0 ? (
+            <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
+              Nothing on the calendar today.
+            </div>
           ) : (
-            <ol className="mt-4 border-l border-line pl-5 space-y-4">
-              {bookings.map((b) => (
-                <li key={b.id} className="relative">
-                  <span className="absolute -left-[22px] top-1.5 w-2 h-2 rounded-full bg-ink" />
-                  <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-                    {new Date(b.starts_at).toLocaleString(undefined, {
-                      day: 'numeric',
-                      month: 'short',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                    })}
-                    {' · '}
-                    {mtName(b)}
-                  </div>
-                  <div className="mt-0.5 text-sm">
-                    {b.invitee_name}{' '}
-                    <span className="text-ink-muted">({b.invitee_email})</span>
-                  </div>
-                </li>
+            <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+              {todayBookings.map((b) => (
+                <BookingRow key={b.id} booking={b} />
               ))}
-            </ol>
+            </ul>
           )}
         </section>
 
         <section>
           <div className="flex items-baseline justify-between">
-            <SectionLabel>Your meeting types</SectionLabel>
-            <Link
-              href="/meeting-types"
-              className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-            >
-              Manage →
-            </Link>
-          </div>
-          {activeMts.length === 0 ? (
-            <EmptyState>
-              No active meeting types.{' '}
-              <Link href="/meeting-types/new" className="underline">
-                Create one
+            <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+              Next up{' '}
+              <span className="text-ink-muted lowercase">({nextUp.length})</span>
+            </div>
+            {bookings.length > 0 && (
+              <Link
+                href="/bookings"
+                className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+              >
+                View all
               </Link>
-              .
-            </EmptyState>
+            )}
+          </div>
+          {nextUp.length === 0 ? (
+            <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
+              No upcoming bookings.
+            </div>
           ) : (
-            <ListGroup>
-              {activeMts.map((mt) => (
-                <ListRow
-                  key={mt.id}
-                  href={`/meeting-types/${mt.id}`}
-                  primary={mt.name}
-                  secondary={host ? `/${host.slug}/${mt.slug}` : undefined}
-                />
+            <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+              {nextUp.map((b) => (
+                <BookingRow key={b.id} booking={b} />
               ))}
-            </ListGroup>
+            </ul>
           )}
         </section>
       </div>
@@ -153,37 +201,33 @@ export default async function MeetDashboard() {
   );
 }
 
-function StatCard({
-  label,
-  value,
-  href,
-  mono,
-}: {
-  label: string;
-  value: string;
-  href?: string;
-  mono?: boolean;
-}) {
-  const inner = (
-    <div className="rounded-lg border border-line bg-surface-raised p-4 h-full">
-      <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-        {label}
+function BookingRow({ booking }: { booking: Booking }) {
+  const starts = new Date(booking.starts_at);
+  const ends = new Date(booking.ends_at);
+  const dateStr = new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(starts);
+  const timeStr = `${new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(starts)}–${new Intl.DateTimeFormat(undefined, {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(ends)}`;
+  return (
+    <li className="px-5 py-4 text-sm">
+      <div className="font-medium">
+        {booking.invitee_name}
+        <span className="text-ink-subtle font-normal">
+          {' · '}
+          {mtName(booking)}
+        </span>
       </div>
-      <div
-        className={`mt-2 ${mono ? 'font-mono text-sm' : 'text-2xl font-medium tracking-tight'}`}
-      >
-        {value}
+      <div className="mt-1 text-xs text-ink-muted">
+        {dateStr} · {timeStr}
       </div>
-    </div>
-  );
-  return href ? (
-    <Link
-      href={href}
-      className="block h-full hover:bg-surface-sunken transition-colors rounded-lg"
-    >
-      {inner}
-    </Link>
-  ) : (
-    inner
+    </li>
   );
 }
