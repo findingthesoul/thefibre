@@ -10,30 +10,41 @@ function strOrNull(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 
+/** PATCH the host with only the fields that appear in the submitted form.
+ *  Each split sub-form posts a subset; we never send keys whose field wasn't
+ *  in the form (so e.g. the Profile form never wipes working_hours). */
+function bodyFromForm(formData: FormData): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+
+  if (formData.has('slug')) {
+    const v = strOrNull(formData.get('slug'));
+    if (v) out.slug = v;
+  }
+  if (formData.has('timezone')) {
+    const v = strOrNull(formData.get('timezone'));
+    if (v) out.timezone = v;
+  }
+  for (const key of ['bio', 'location', 'personal_room_url', 'photo_url'] as const) {
+    if (formData.has(key)) out[key] = strOrNull(formData.get(key));
+  }
+  if (formData.has('working_hours_json')) {
+    const raw = strOrNull(formData.get('working_hours_json'));
+    if (raw) {
+      try {
+        out.working_hours = JSON.parse(raw);
+      } catch {
+        // ignore; backend will reject if needed
+      }
+    }
+  }
+  return out;
+}
+
 export async function updateHost(
   _prev: SaveResult,
   formData: FormData,
 ): Promise<SaveResult> {
-  let workingHours: Record<string, { start: string; end: string }[]> | null = null;
-  const raw = strOrNull(formData.get('working_hours_json'));
-  if (raw) {
-    try {
-      workingHours = JSON.parse(raw);
-    } catch {
-      return { error: 'working_hours JSON is invalid' };
-    }
-  }
-
-  const body = {
-    slug: strOrNull(formData.get('slug')) ?? undefined,
-    bio: strOrNull(formData.get('bio')),
-    location: strOrNull(formData.get('location')),
-    personal_room_url: strOrNull(formData.get('personal_room_url')),
-    timezone: strOrNull(formData.get('timezone')) ?? undefined,
-    working_hours: workingHours,
-    photo_url: strOrNull(formData.get('photo_url')),
-  };
-
+  const body = bodyFromForm(formData);
   try {
     await apiFetch('/api/v1/meet/me', {
       method: 'PATCH',
@@ -43,6 +54,8 @@ export async function updateHost(
     return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
   }
   revalidatePath('/settings');
+  revalidatePath('/settings/profile');
+  revalidatePath('/settings/availability');
   revalidatePath('/dashboard');
   return { ok: true };
 }
@@ -62,6 +75,7 @@ export async function disconnectGoogle(): Promise<SaveResult> {
   } catch (e) {
     return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
   }
+  revalidatePath('/settings/integrations');
   revalidatePath('/settings');
   return { ok: true };
 }

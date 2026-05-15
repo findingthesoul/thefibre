@@ -795,6 +795,68 @@ meetRoutes.post('/google/disconnect', async (c) => {
 });
 
 // ===========================================================================
+// Calendars — list the current user's meet_calendar rows + their role, and
+// update a row's role. Connected by the Google OAuth flow; users tune which
+// calendars block bookings and which receive new events.
+// ===========================================================================
+
+meetRoutes.get('/calendars', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: host } = await db
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!host) return c.json({ items: [] });
+  const { data, error } = await db
+    .from('meet_calendar')
+    .select('id, google_calendar_id, summary, role, created_at')
+    .eq('host_id', host.id)
+    .order('role', { ascending: true });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+const CalendarRolePatch = z.object({
+  role: z.enum(['primary', 'conflict_check', 'write_target', 'ignore']),
+});
+meetRoutes.patch('/calendars/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = CalendarRolePatch.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // Look up the host first so we can clear conflicting roles atomically.
+  const { data: host } = await db
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!host) return c.json({ error: 'host not found' }, 404);
+
+  // primary and write_target are at-most-one. If we're setting one of those,
+  // demote any existing holder to conflict_check first.
+  if (body.data.role === 'primary' || body.data.role === 'write_target') {
+    await db
+      .from('meet_calendar')
+      .update({ role: 'conflict_check' })
+      .eq('host_id', host.id)
+      .eq('role', body.data.role);
+  }
+
+  const { data, error } = await db
+    .from('meet_calendar')
+    .update({ role: body.data.role })
+    .eq('id', id)
+    .eq('host_id', host.id)
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+// ===========================================================================
 // AUTHENTICATED endpoints — facilitator UI (apps/meet dashboard). Gated by
 // the existing JWT middleware and RLS (workspace + fibre-meet membership).
 // ===========================================================================
@@ -1601,11 +1663,12 @@ async function buildPerHostArgs(
   }
 
   // GCal calendars per host — only the ones we conflict-check against.
+  // 'ignore' calendars are explicitly excluded.
   const { data: cals } = await adminClient
     .from('meet_calendar')
     .select('host_id, google_calendar_id, role')
     .in('host_id', hostIds)
-    .in('role', ['primary', 'conflict_check']);
+    .in('role', ['primary', 'conflict_check', 'write_target']);
   const calsByHost = new Map<string, string[]>();
   for (const c of cals ?? []) {
     if (!c.google_calendar_id) continue;
