@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { useMemo, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { List, LayoutGrid, CalendarDays, MapPin } from 'lucide-react';
 
 export type BookingRow = {
   id: string;
@@ -94,24 +95,22 @@ export function BookingsClient({
         <div className="inline-flex rounded-md border border-line bg-surface-raised p-0.5">
           {(
             [
-              { v: 'list', label: 'List', icon: '☰' },
-              { v: 'week', label: 'Week', icon: '▦' },
-              { v: 'month', label: 'Month', icon: '🗓' },
+              { v: 'list', label: 'List', Icon: List },
+              { v: 'week', label: 'Week', Icon: LayoutGrid },
+              { v: 'month', label: 'Month', Icon: CalendarDays },
             ] as const
           ).map((opt) => (
             <button
               key={opt.v}
               type="button"
               onClick={() => setParam('view', opt.v === 'list' ? null : opt.v)}
-              className={`px-3 py-1.5 text-sm rounded-[5px] inline-flex items-center gap-1 ${
+              className={`px-3 py-1.5 text-sm rounded-[5px] inline-flex items-center gap-1.5 ${
                 view === opt.v
                   ? 'bg-ink text-surface-raised'
                   : 'text-ink-subtle hover:text-ink'
               }`}
             >
-              <span aria-hidden="true" className="text-xs">
-                {opt.icon}
-              </span>
+              <opt.Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
               {opt.label}
             </button>
           ))}
@@ -227,7 +226,7 @@ function BookingItem({ b }: { b: BookingRow }) {
           </span>
           {b.alternative_location && (
             <span className="text-[10px] uppercase tracking-wider text-ink-muted border border-line rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-              📍 Location
+              <MapPin className="h-3 w-3" strokeWidth={1.5} /> Location
             </span>
           )}
           {b.meet_url && (

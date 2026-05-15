@@ -1,5 +1,15 @@
 import Link from 'next/link';
 import {
+  User,
+  Clock,
+  Calendar,
+  Video,
+  CreditCard,
+  Users,
+  ChevronRight,
+  type LucideIcon,
+} from 'lucide-react';
+import {
   PageContainer,
   PageHeader,
   SectionLabel,
@@ -9,7 +19,7 @@ type Card = {
   href: string;
   title: string;
   description: string;
-  icon: string;
+  Icon: LucideIcon;
   available?: boolean;
 };
 
@@ -18,35 +28,35 @@ const PERSONAL: Card[] = [
     href: '/settings/profile',
     title: 'Profile',
     description: 'Slug, bio, location, photo, personal meeting room.',
-    icon: '👤',
+    Icon: User,
     available: true,
   },
   {
     href: '/settings/availability',
     title: 'Availability',
     description: 'Timezone and weekly working hours.',
-    icon: '🕒',
+    Icon: Clock,
     available: true,
   },
   {
     href: '/settings/calendars',
     title: 'Calendars',
     description: 'Conflict-source calendars and the write target for new bookings.',
-    icon: '📅',
+    Icon: Calendar,
     available: true,
   },
   {
     href: '/settings/integrations',
-    title: 'Integrations',
+    title: 'Connections',
     description: 'Connect Google Calendar today; Zoom and Teams coming next.',
-    icon: '🔌',
+    Icon: Video,
     available: true,
   },
   {
     href: '/settings/payments',
     title: 'Payments',
     description: 'Connect Stripe so paid meeting types can collect payment.',
-    icon: '💳',
+    Icon: CreditCard,
     available: false,
   },
 ];
@@ -56,7 +66,7 @@ const WORKSPACE: Card[] = [
     href: '/teams',
     title: 'Teams',
     description: 'Shared groups with their own booking links and meeting types.',
-    icon: '👥',
+    Icon: Users,
     available: true,
   },
 ];
@@ -93,13 +103,9 @@ export default function SettingsIndex() {
 function SettingCard({ card }: { card: Card }) {
   const muted = card.available === false;
   const inner = (
-    <div
-      className={`flex items-center gap-4 px-5 py-4 ${
-        muted ? 'opacity-50' : ''
-      }`}
-    >
-      <div className="h-9 w-9 rounded-md bg-surface-sunken flex items-center justify-center text-base shrink-0">
-        {card.icon}
+    <div className="flex items-center gap-4 px-5 py-4">
+      <div className="h-9 w-9 rounded-md border border-line bg-surface flex items-center justify-center shrink-0">
+        <card.Icon className="h-4 w-4 text-ink-subtle" strokeWidth={1.5} />
       </div>
       <div className="min-w-0 flex-1">
         <div className="text-sm font-medium flex items-center gap-2">
@@ -112,11 +118,11 @@ function SettingCard({ card }: { card: Card }) {
         </div>
         <div className="mt-0.5 text-xs text-ink-subtle">{card.description}</div>
       </div>
-      <span className="text-ink-muted">›</span>
+      <ChevronRight className="h-4 w-4 text-ink-muted shrink-0" strokeWidth={1.5} />
     </div>
   );
   return muted ? (
-    inner
+    <div className="opacity-60">{inner}</div>
   ) : (
     <Link
       href={card.href}

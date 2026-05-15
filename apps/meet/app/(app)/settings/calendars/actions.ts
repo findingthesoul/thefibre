@@ -18,3 +18,21 @@ export async function setCalendarRole(
   revalidatePath('/settings/calendars');
   return { ok: true };
 }
+
+export async function resyncCalendars(): Promise<{
+  ok?: boolean;
+  error?: string;
+  found?: number;
+  added?: number;
+}> {
+  try {
+    const r = await apiFetch<{ found: number; added: number }>(
+      '/api/v1/meet/calendars/sync',
+      { method: 'POST' },
+    );
+    revalidatePath('/settings/calendars');
+    return { ok: true, found: r.found, added: r.added };
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+}

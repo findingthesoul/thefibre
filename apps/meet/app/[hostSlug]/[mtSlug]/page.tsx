@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { Clock, Video, MapPin } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { BookingFlow } from './flow';
 import type { IntakeField } from '@/lib/intake';
@@ -155,17 +156,17 @@ function Card({
               </h1>
 
               <ul className="mt-6 space-y-3 text-sm text-neutral-700">
-                <li className="flex items-center gap-2">
-                  <span aria-hidden="true">🕒</span>
+                <li className="flex items-center gap-2.5">
+                  <Clock className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
                   <span>{meetingType.duration_minutes} minutes</span>
                 </li>
-                <li className="flex items-center gap-2">
-                  <span aria-hidden="true">📹</span>
+                <li className="flex items-center gap-2.5">
+                  <Video className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
                   <span>{formatProvider(meetingType.conferencing_provider)}</span>
                 </li>
                 {(meetingType.default_location || ownerLocation) && (
-                  <li className="flex items-center gap-2">
-                    <span aria-hidden="true">📍</span>
+                  <li className="flex items-center gap-2.5">
+                    <MapPin className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
                     <span>
                       {meetingType.default_location ?? ownerLocation}
                     </span>

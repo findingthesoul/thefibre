@@ -1071,6 +1071,52 @@ meetRoutes.get('/contacts', async (c) => {
 // calendars block bookings and which receive new events.
 // ===========================================================================
 
+// POST /api/v1/meet/calendars/sync — re-pulls the calendar list from Google
+// and upserts any newly-visible calendars as conflict_check. Doesn't touch
+// rows the user has already assigned a role to.
+meetRoutes.post('/calendars/sync', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: host } = await adminClient
+    .from('meet_host')
+    .select('id, google_refresh_token, workspace_id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!host) return c.json({ error: 'host not found' }, 404);
+  if (!host.google_refresh_token) {
+    return c.json({ error: 'google not connected' }, 400);
+  }
+  try {
+    const remote = await listCalendars(host.google_refresh_token);
+    let added = 0;
+    for (const cal of remote) {
+      if (!cal.id) continue;
+      const role = cal.primary ? 'primary' : 'conflict_check';
+      const { data: existing } = await adminClient
+        .from('meet_calendar')
+        .select('id')
+        .eq('host_id', host.id)
+        .eq('google_calendar_id', cal.id)
+        .maybeSingle();
+      if (existing) continue;
+      const { error } = await adminClient.from('meet_calendar').insert({
+        host_id: host.id,
+        workspace_id: host.workspace_id,
+        google_calendar_id: cal.id,
+        summary: cal.summary,
+        role,
+      });
+      if (!error) added += 1;
+    }
+    return c.json({ ok: true, found: remote.length, added });
+  } catch (e) {
+    console.error('[meet/calendars/sync] failed', e);
+    return c.json(
+      { error: e instanceof Error ? e.message : 'sync failed' },
+      500,
+    );
+  }
+});
+
 meetRoutes.get('/calendars', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);

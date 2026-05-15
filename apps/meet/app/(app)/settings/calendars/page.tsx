@@ -7,6 +7,7 @@ import {
   EmptyState,
 } from '@/components/ui/page';
 import { CalendarRow, type Cal } from './row';
+import { ResyncButton } from './resync';
 
 export default async function CalendarsPage() {
   let items: Cal[] = [];
@@ -50,13 +51,21 @@ export default async function CalendarsPage() {
               Conflict sources block availability; the write target receives new bookings.
             </p>
             {items.length === 0 ? (
-              <EmptyState>No calendars synced yet.</EmptyState>
+              <>
+                <EmptyState>
+                  No calendars synced yet. Click Re-sync to pull them in from Google.
+                </EmptyState>
+                <ResyncButton />
+              </>
             ) : (
-              <ul className="mt-5 space-y-2">
-                {items.map((c) => (
-                  <CalendarRow key={c.id} cal={c} />
-                ))}
-              </ul>
+              <>
+                <ul className="mt-5 space-y-2">
+                  {items.map((c) => (
+                    <CalendarRow key={c.id} cal={c} />
+                  ))}
+                </ul>
+                <ResyncButton />
+              </>
             )}
           </div>
 

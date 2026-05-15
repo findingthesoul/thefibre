@@ -10,6 +10,7 @@
 
 import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -310,11 +311,7 @@ export function BookingFlow({
         )}
 
         <div className="pt-4 border-t border-neutral-200 flex flex-wrap items-center gap-3 text-sm">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-neutral-500">
-            <circle cx="12" cy="12" r="10" />
-            <line x1="2" y1="12" x2="22" y2="12" />
-            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
-          </svg>
+          <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
           <span className="text-neutral-500">Time zone:</span>
           <select
             value={tz}
@@ -491,7 +488,7 @@ function CalendarGrid({
             aria-label="Previous month"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
           >
-            ‹
+            <ChevronLeft className="h-4 w-4" strokeWidth={1.5} />
           </button>
           <button
             type="button"
@@ -499,7 +496,7 @@ function CalendarGrid({
             aria-label="Next month"
             className="inline-flex h-8 w-8 items-center justify-center rounded-md text-neutral-500 hover:bg-neutral-100 hover:text-neutral-900"
           >
-            ›
+            <ChevronRight className="h-4 w-4" strokeWidth={1.5} />
           </button>
         </div>
       </div>

@@ -2,16 +2,34 @@
 
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
+import {
+  User,
+  Users,
+  Repeat,
+  UsersRound,
+  Plus,
+  type LucideIcon,
+} from 'lucide-react';
 
 type Team = { id: string; name: string; my_role: 'lead' | 'member' };
 
-const EVENT_TYPES = [
+type EventTypeOption = {
+  value: string;
+  label: string;
+  sub: string;
+  desc: string;
+  Icon: LucideIcon;
+  teamOnly: boolean;
+  disabled?: boolean;
+};
+
+const EVENT_TYPES: EventTypeOption[] = [
   {
     value: 'one_on_one',
     label: 'One-on-one',
     sub: '1 host → 1 invitee',
     desc: 'Coffee chats, intro calls, 1:1 reviews.',
-    icon: '👤',
+    Icon: User,
     teamOnly: false,
   },
   {
@@ -19,7 +37,7 @@ const EVENT_TYPES = [
     label: 'Group',
     sub: '1 host → multiple invitees',
     desc: 'Webinars, office hours, classes.',
-    icon: '👥',
+    Icon: Users,
     teamOnly: false,
     disabled: true,
   },
@@ -28,7 +46,7 @@ const EVENT_TYPES = [
     label: 'Round-robin',
     sub: 'Rotating hosts → 1 invitee',
     desc: 'Distribute bookings across a team.',
-    icon: '↻',
+    Icon: Repeat,
     teamOnly: true,
   },
   {
@@ -36,7 +54,7 @@ const EVENT_TYPES = [
     label: 'Collective',
     sub: 'Multiple hosts → 1 invitee',
     desc: 'Panel interviews, group sales calls.',
-    icon: '⌘',
+    Icon: UsersRound,
     teamOnly: true,
   },
 ];
@@ -72,7 +90,7 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
         onClick={() => setOpen((v) => !v)}
         className="inline-flex items-center gap-1.5 rounded-md bg-ink text-surface-raised px-4 py-2 text-sm font-medium hover:bg-ink/90"
       >
-        <span aria-hidden="true">+</span> New
+        <Plus className="h-4 w-4" strokeWidth={1.5} /> New
       </button>
       {open && (
         <div className="absolute right-0 mt-2 w-[360px] rounded-lg border border-line bg-surface-raised shadow-lg z-30 overflow-hidden">
@@ -104,9 +122,7 @@ export function NewMeetingTypeMenu({ teams }: { teams: Team[] }) {
                         : 'hover:bg-surface-sunken'
                     }`}
                   >
-                    <span aria-hidden="true" className="text-base mt-0.5">
-                      {opt.icon}
-                    </span>
+                    <opt.Icon className="h-4 w-4 text-ink-subtle mt-0.5 shrink-0" strokeWidth={1.5} />
                     <div className="min-w-0">
                       <div className="text-sm font-medium">{opt.label}</div>
                       <div className="text-xs text-ink-subtle">{opt.sub}</div>

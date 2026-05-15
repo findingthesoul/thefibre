@@ -89,14 +89,17 @@ export function calendarFor(refreshToken: string): calendar_v3.Calendar {
   return google.calendar({ version: 'v3', auth: clientForRefresh(refreshToken) });
 }
 
-/** List the host's own calendars (primary + group calendars). */
+/** List every calendar the host can access (owned, subscribed, shared).
+ *  We later filter what's bookable via meet_calendar.role on our side; Google
+ *  shouldn't pre-filter or the user will be missing options. */
 export async function listCalendars(refreshToken: string) {
   const cal = calendarFor(refreshToken);
-  const r = await cal.calendarList.list({ minAccessRole: 'owner' });
+  const r = await cal.calendarList.list({ minAccessRole: 'reader' });
   return (r.data.items ?? []).map((c) => ({
     id: c.id ?? '',
     summary: c.summary ?? '',
     primary: !!c.primary,
+    accessRole: c.accessRole ?? null,
   }));
 }
 
