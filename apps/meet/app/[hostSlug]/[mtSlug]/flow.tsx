@@ -1,10 +1,11 @@
 'use client';
 
-// Minimal booking flow — date+time picker (any future weekday slot, no
-// calendar-conflict checking yet — that's step 4), intake form, submit.
-// Successful POST redirects to /[host]/[mt]/confirmed/[booking_id].
+// Booking flow — day list (built from real slots) → time list → details +
+// intake → submit. Slots come from /api/v1/meet/public/host/:slug/mt/:slug/slots
+// which applies the host's working_hours + meeting-type constraints + existing-booking
+// conflicts. Google Calendar conflict checking comes in step 4b.
 
-import { useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -25,7 +26,34 @@ type Props = {
   };
 };
 
-const SLOT_HOURS = [9, 10, 11, 13, 14, 15, 16];
+function dateKey(d: Date, timeZone: string): string {
+  // YYYY-MM-DD in the host's local timezone
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? '';
+  return `${get('year')}-${get('month')}-${get('day')}`;
+}
+
+function formatDayLabel(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(d);
+}
+
+function formatTime(d: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat(undefined, {
+    timeZone,
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(d);
+}
 
 export function BookingFlow({ host, meetingType }: Props) {
   const router = useRouter();
@@ -37,28 +65,69 @@ export function BookingFlow({ host, meetingType }: Props) {
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const days = useMemo(() => {
-    const out: Date[] = [];
+  const [slots, setSlots] = useState<Date[] | null>(null);
+  const [loadingSlots, setLoadingSlots] = useState(true);
+  const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
     const now = new Date();
-    const start = new Date(now);
-    start.setMinutes(start.getMinutes() + meetingType.min_notice_minutes);
-    start.setHours(0, 0, 0, 0);
-    for (let i = 0; i < Math.min(meetingType.max_advance_days, 14); i++) {
-      const d = new Date(start);
-      d.setDate(start.getDate() + i);
-      const dow = d.getDay();
-      if (dow === 0 || dow === 6) continue; // skip weekends in step 2
-      out.push(d);
+    const to = new Date(
+      now.getTime() +
+        Math.min(meetingType.max_advance_days, 30) * 24 * 60 * 60 * 1000,
+    );
+    setLoadingSlots(true);
+    setSlotsError(null);
+    publicFetch<{ slots: string[] }>(
+      `/api/v1/meet/public/host/${encodeURIComponent(host.slug)}/mt/${encodeURIComponent(meetingType.slug)}/slots?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
+    )
+      .then((r) => {
+        if (cancelled) return;
+        setSlots(r.slots.map((s) => new Date(s)));
+      })
+      .catch((e) => {
+        if (cancelled) return;
+        setSlotsError(
+          e instanceof PublicApiError ? `API ${e.status}` : 'Could not load slots.',
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSlots(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [host.slug, meetingType.slug, meetingType.max_advance_days]);
+
+  // Group slots by day in host timezone.
+  const slotsByDay = useMemo(() => {
+    if (!slots) return new Map<string, Date[]>();
+    const map = new Map<string, Date[]>();
+    for (const s of slots) {
+      const k = dateKey(s, host.timezone);
+      const arr = map.get(k) ?? [];
+      arr.push(s);
+      map.set(k, arr);
     }
-    return out;
-  }, [meetingType.min_notice_minutes, meetingType.max_advance_days]);
+    return map;
+  }, [slots, host.timezone]);
 
-  const [selectedDay, setSelectedDay] = useState<Date | null>(days[0] ?? null);
+  const days = useMemo(() => {
+    const keys = Array.from(slotsByDay.keys()).sort();
+    return keys.map((k) => slotsByDay.get(k)![0]).filter((d): d is Date => !!d);
+  }, [slotsByDay]);
 
-  function pickSlot(day: Date, hour: number) {
-    const d = new Date(day);
-    d.setHours(hour, 0, 0, 0);
-    setSelectedSlot(d);
+  const [selectedDayKey, setSelectedDayKey] = useState<string | null>(null);
+  useEffect(() => {
+    if (!selectedDayKey && days.length > 0 && days[0]) {
+      setSelectedDayKey(dateKey(days[0], host.timezone));
+    }
+  }, [days, selectedDayKey, host.timezone]);
+
+  const selectedDaySlots = selectedDayKey ? slotsByDay.get(selectedDayKey) ?? [] : [];
+
+  function pickSlot(s: Date) {
+    setSelectedSlot(s);
     setStep('details');
   }
 
@@ -103,48 +172,59 @@ export function BookingFlow({ host, meetingType }: Props) {
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 mb-3">
             Pick a day
           </div>
-          <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-lg overflow-hidden">
-            {days.map((d) => {
-              const sel = selectedDay?.toDateString() === d.toDateString();
-              return (
-                <li key={d.toISOString()}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedDay(d)}
-                    className={`block w-full text-left px-4 py-3 text-sm ${
-                      sel ? 'bg-neutral-900 text-white' : 'hover:bg-neutral-50'
-                    }`}
-                  >
-                    {d.toLocaleDateString(undefined, {
-                      weekday: 'short',
-                      day: 'numeric',
-                      month: 'short',
-                    })}
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+          {loadingSlots ? (
+            <p className="text-sm text-neutral-500">Loading…</p>
+          ) : slotsError ? (
+            <p className="text-sm text-red-700">{slotsError}</p>
+          ) : days.length === 0 ? (
+            <p className="text-sm text-neutral-500">
+              No availability in the next 30 days.
+            </p>
+          ) : (
+            <ul className="divide-y divide-neutral-200 border border-neutral-200 rounded-lg overflow-hidden">
+              {days.map((d) => {
+                const k = dateKey(d, host.timezone);
+                const sel = selectedDayKey === k;
+                return (
+                  <li key={k}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDayKey(k)}
+                      className={`block w-full text-left px-4 py-3 text-sm ${
+                        sel ? 'bg-neutral-900 text-white' : 'hover:bg-neutral-50'
+                      }`}
+                    >
+                      {formatDayLabel(d, host.timezone)}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
         </div>
         <div>
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500 mb-3">
             Pick a time ({host.timezone})
           </div>
-          {selectedDay ? (
-            <div className="grid grid-cols-2 gap-2">
-              {SLOT_HOURS.map((h) => (
+          {selectedDaySlots.length > 0 ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {selectedDaySlots.map((s) => (
                 <button
-                  key={h}
+                  key={s.toISOString()}
                   type="button"
-                  onClick={() => pickSlot(selectedDay, h)}
+                  onClick={() => pickSlot(s)}
                   className="rounded-md border border-neutral-300 px-3 py-2 text-sm hover:bg-neutral-50"
                 >
-                  {String(h).padStart(2, '0')}:00
+                  {formatTime(s, host.timezone)}
                 </button>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-neutral-500">Pick a day first.</p>
+            <p className="text-sm text-neutral-500">
+              {selectedDayKey
+                ? 'No times available on this day.'
+                : 'Pick a day first.'}
+            </p>
           )}
         </div>
       </div>
@@ -158,13 +238,15 @@ export function BookingFlow({ host, meetingType }: Props) {
           Selected
         </div>
         <div className="mt-1 font-medium">
-          {selectedSlot?.toLocaleString(undefined, {
-            weekday: 'long',
-            day: 'numeric',
-            month: 'long',
-            hour: '2-digit',
-            minute: '2-digit',
-          })}
+          {selectedSlot &&
+            new Intl.DateTimeFormat(undefined, {
+              timeZone: host.timezone,
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              hour: '2-digit',
+              minute: '2-digit',
+            }).format(selectedSlot)}
         </div>
         <button
           type="button"

@@ -1,6 +1,11 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
+import {
+  generateSlots,
+  type Schedule as WorkingSchedule,
+  type Interval as BusyInterval,
+} from '../lib/availability/engine.js';
 
 export const meetRoutes = new Hono();
 
@@ -208,6 +213,85 @@ meetRoutes.post('/public/bookings', async (c) => {
   }
 
   return c.json({ booking });
+});
+
+// GET /api/v1/meet/public/host/:host_slug/mt/:mt_slug/slots?from=&to=
+// Returns available start timestamps for booking. `from` and `to` are ISO
+// instants; defaults to "next 14 days from now".
+meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
+  const hostSlug = c.req.param('host_slug');
+  const mtSlug = c.req.param('mt_slug');
+  const url = new URL(c.req.url);
+  const fromParam = url.searchParams.get('from');
+  const toParam = url.searchParams.get('to');
+
+  const { data: host } = await adminClient
+    .from('meet_host')
+    .select('id, workspace_id, timezone, working_hours')
+    .eq('slug', hostSlug)
+    .single();
+  if (!host) return c.json({ error: 'host not found' }, 404);
+
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select(
+      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active',
+    )
+    .eq('host_id', host.id)
+    .eq('slug', mtSlug)
+    .single();
+  if (!mt || !mt.is_active) return c.json({ error: 'meeting type not found' }, 404);
+
+  const now = new Date();
+  const from = fromParam ? new Date(fromParam) : now;
+  const to = toParam
+    ? new Date(toParam)
+    : new Date(
+        now.getTime() + Math.min(mt.max_advance_days, 60) * 24 * 60 * 60 * 1000,
+      );
+
+  if (Number.isNaN(from.getTime()) || Number.isNaN(to.getTime())) {
+    return c.json({ error: 'invalid from/to' }, 400);
+  }
+  if (to <= from) return c.json({ slots: [] });
+  // Cap the range so noisy callers can't ask for years of slots.
+  const MAX_WINDOW_MS = 90 * 24 * 60 * 60 * 1000;
+  const cappedTo =
+    to.getTime() - from.getTime() > MAX_WINDOW_MS
+      ? new Date(from.getTime() + MAX_WINDOW_MS)
+      : to;
+
+  // Busy intervals from existing meet_bookings for this host (any meeting
+  // type). Confirmed only — cancelled bookings don't block.
+  const { data: bookings } = await adminClient
+    .from('meet_booking')
+    .select('starts_at, ends_at')
+    .eq('host_id', host.id)
+    .eq('status', 'confirmed')
+    .gte('ends_at', from.toISOString())
+    .lte('starts_at', cappedTo.toISOString());
+
+  const busy: BusyInterval[] = (bookings ?? []).map((b) => ({
+    start: new Date(b.starts_at),
+    end: new Date(b.ends_at),
+  }));
+
+  const workingHours = (host.working_hours as WorkingSchedule | null) ?? {};
+
+  const slots = generateSlots({
+    hostTimezone: host.timezone,
+    workingHours,
+    durationMinutes: mt.duration_minutes,
+    bufferBeforeMinutes: mt.buffer_before_minutes,
+    bufferAfterMinutes: mt.buffer_after_minutes,
+    minNoticeMinutes: mt.min_notice_minutes,
+    from,
+    to: cappedTo,
+    busy,
+    now,
+  });
+
+  return c.json({ slots: slots.map((d) => d.toISOString()) });
 });
 
 // GET /api/v1/meet/public/bookings/:id  → minimal confirmation payload
