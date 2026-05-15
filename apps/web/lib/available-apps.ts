@@ -1,23 +1,21 @@
 // Computes the list of apps to show in the app switcher: the ones (a)
-// activated for the current workspace AND (b) the current user has membership
-// for. The Fibre itself is always included (it's the platform).
+// activated for the current workspace, (b) the current user has membership
+// for, AND (c) actually live (a real subdomain serves them). Fibre Sales /
+// Fibre Learn are intentionally excluded until they're built.
 
 import type { AppEntry } from '@/components/shell/app-switcher';
 
-export const APP_META: Record<
-  string,
-  { name: string; url: string }
-> = {
-  'fibre-platform': { name: 'The Fibre', url: 'https://thefibre.app' },
-  'fibre-meet': { name: 'Fibre Meet', url: 'https://meet.thefibre.app' },
-  'the-thread': { name: 'The Thread', url: 'https://thread.thefibre.app' },
-  'fibre-sales': { name: 'Fibre Sales', url: 'https://sales.thefibre.app' },
-  'fibre-learn': { name: 'Fibre Learn', url: 'https://learn.thefibre.app' },
+type Meta = { name: string; url: string; available: boolean };
+
+export const APP_META: Record<string, Meta> = {
+  'fibre-platform': { name: 'The Fibre', url: 'https://thefibre.app', available: true },
+  'fibre-meet': { name: 'Fibre Meet', url: 'https://meet.thefibre.app', available: true },
+  'the-thread': { name: 'The Thread', url: 'https://thread.thefibre.app', available: true },
+  'fibre-sales': { name: 'Fibre Sales', url: 'https://sales.thefibre.app', available: false },
+  'fibre-learn': { name: 'Fibre Learn', url: 'https://learn.thefibre.app', available: false },
 };
 
-type Membership = {
-  app: { slug: string } | { slug: string }[] | null;
-};
+type Membership = { app: { slug: string } | { slug: string }[] | null };
 type WorkspaceApp = {
   deactivated_at: string | null;
   app: { slug: string } | { slug: string }[] | null;
@@ -47,9 +45,10 @@ export function buildAppList({
       .filter((s): s is string => !!s),
   );
 
-  // Platform is always shown.
   const slugs: string[] = ['fibre-platform'];
   for (const s of ['fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn']) {
+    const meta = APP_META[s];
+    if (!meta?.available) continue;
     if (activatedSlugs.has(s) && memberSlugs.has(s)) slugs.push(s);
   }
 
