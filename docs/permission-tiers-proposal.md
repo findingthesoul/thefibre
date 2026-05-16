@@ -71,26 +71,38 @@ Otherwise: not visible.
 
 ## Schema additions
 
-### `public.user`
+### `public.workspace_member` (new table)
+
+We introduce a pivot table so a person can be a `user` in multiple organisations cleanly:
 
 ```sql
-alter table public."user"
-  add column workspace_role text not null default 'member'
-    check (workspace_role in ('owner','admin','member')),
-  add column relationship_type text not null default 'internal'
-    check (relationship_type in ('internal','external'));
+create table public.workspace_member (
+  user_id            uuid not null references public."user"(id) on delete cascade,
+  workspace_id       uuid not null references public.workspace(id) on delete cascade,
+  workspace_role     text not null default 'member'
+                       check (workspace_role in ('admin','member')),
+  relationship_type  text not null default 'internal'
+                       check (relationship_type in ('internal','external')),
+  member_status      text,  -- cosmetic label for UX (e.g. "Volunteer", "Board") — not a permission
+  joined_at          timestamptz not null default now(),
+  primary key (user_id, workspace_id)
+);
 ```
 
 `workspace_role`:
-- `owner` — there's exactly one owner per org. First user, billing contact. Can transfer.
 - `admin` — manage members, install apps, change resource visibilities. Multiple per org.
 - `member` — default. Standard org-member rights.
 
-`relationship_type`:
-- `internal` — colleague, part of the org. Gets org-wide widening.
-- `external` — partner, freelancer, alumni-style access. Sees only what they're a direct member of.
+(Dropped `owner` — `admin` is enough today. We add `owner` later only when billing handoff scenarios materialise.)
 
-(Dropped `team_member`, `partner`, `alumnus` from the v1 draft — they were synonyms. The label can come back later as a richer "status" field if we need it for UX.)
+`relationship_type` (semantic, drives permissions):
+- `internal` — colleague, part of the org. Gets `org_wide` widening.
+- `external` — freelancer, partner, alumnus, anyone else with login. Only sees what they're a direct member of. Never gets the org_wide widening.
+
+`member_status` (cosmetic, no permission effect):
+- Free-form label shown as a chip (e.g. `Volunteer`, `Board`, `Alumni`). Workspaces can pick their own taxonomy without us touching code.
+
+`user.workspace_id` stays as a hint of the "primary" workspace (first one they joined), but RLS resolves access through `workspace_member` from now on.
 
 ### `meet_team`, `programme`, future `sales_team`
 
@@ -271,12 +283,18 @@ To keep this shippable in one focused session:
 
 Activity-feed visibility, organisation visibility, the multi-workspace `workspace_member` extraction — all defer to follow-ups.
 
-## What I want to confirm before coding
+## Decisions (resolved 2026-05-17)
 
-Three small ones, then I'll start:
+1. **`workspace_role` = `admin | member`.** Dropped `owner` until billing handoff exists.
+2. **External in an `org_wide` team**: external members only see the team itself, never the org-wide widening. `internal` is the only relationship that triggers it.
+3. **Team lead ≠ org admin**. Separate concepts; leads can manage their team but not the org.
+4. **Activity visibility follows subject visibility** via a `can_see_activity()` helper. Activities the user can't see are filtered out (not "blacked out in UI" — they just don't return from the query).
+5. **`relationship_type` is pinned at `internal | external`**. Cosmetic labels live in a separate `member_status` text field that doesn't affect permissions.
+6. **Schema shape = `workspace_member` table** from day one (future-proof for multi-org persons).
 
-1. **Owner vs admin**: do we need both today, or is `admin` enough? Owner adds complexity for billing-handoff scenarios we don't have yet. **Lean: admin only.**
-2. **External in an org_wide team**: today an external member of a team still sees the team. If the team flips to org_wide, do they additionally see the org-wide widening to other persons? **Lean: no — external means "only what I'm explicitly added to," period.**
-3. **Lead = automatic admin?**: a team lead doesn't automatically get org-admin rights. Confirmed. (You said so explicitly.)
+Caveats kept on the radar:
+- `can_see_person()` is a central function; new resource types extend it. Tolerable.
+- Performance: defer materialised-view optimisation until we see real workspaces in the 50k+ contacts range.
+- Activity-feed cost: same — denormalise via triggers later if needed.
 
-If you say "go" on these three I ship the slice.
+Ready to ship the slice.
