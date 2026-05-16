@@ -32,7 +32,7 @@ type AuthEmailActionType =
 
 type RenderArgs = {
   email: string;
-  /** 6-digit one-time code (when present). */
+  /** One-time code (when present). Supabase OTP length is configurable; we render whatever it gives us. */
   token: string | null;
   /** Magic-link URL fallback (when present). */
   confirmationUrl: string | null;

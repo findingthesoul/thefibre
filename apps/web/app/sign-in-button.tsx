@@ -141,24 +141,24 @@ export function SignInButton() {
           className="space-y-2"
         >
           <div className="text-xs text-neutral-600">
-            Check <strong>{email}</strong>. Enter the 6-digit code below, or
+            Check <strong>{email}</strong>. Enter the 8-digit code below, or
             click the link in the email.
           </div>
           <input
             type="text"
             inputMode="numeric"
             pattern="[0-9]*"
-            maxLength={6}
+            maxLength={8}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
-            placeholder="123456"
+            placeholder="12345678"
             required
             autoFocus
-            className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-base tracking-[0.4em] text-center font-mono focus:border-neutral-400 focus:outline-none"
+            className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-base tracking-[0.3em] text-center font-mono focus:border-neutral-400 focus:outline-none"
           />
           <button
             type="submit"
-            disabled={busy || code.length < 6}
+            disabled={busy || code.length < 8}
             className="w-full rounded-md bg-ink text-ink-inverse px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {busy ? 'Verifying…' : 'Sign in'}
@@ -184,7 +184,7 @@ export function SignInButton() {
 
 /** Quieter sign-in entry point — used on the public landing page where
  *  Request Access is the primary action. Points to /sign-in, which offers
- *  Google + the 6-digit email-code flow. */
+ *  Google + the 8-digit email-code flow. */
 export function SignInLink() {
   return (
     <a
