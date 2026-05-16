@@ -81,68 +81,122 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-05-16 (v0.8.0)
+## Where we left off — 2026-05-16 (v0.10.0)
 
-The conversation that built most of Fibre Meet stretched too long; this section + the new Meet docs are the handoff so the next chat lands running. Live in production.
+Two big landings since v0.8.0: **permission tiers** (v0.9.0, multi-org-ready
+workspace_member pivot + per-resource visibility) and **branded auth emails
+via Supabase Send Email Hook** (v0.10.0, packages/shared as the SPoT).
 
 ### Docs to read first
-- `docs/meet-architecture.md` — what's where in the Meet app, auth + identity, booking flow, routing strategies, design canon, gotchas.
-- `docs/meet-api.md` — endpoint reference for everything under `/api/v1/meet/...`.
-- `docs/meet-data-model.md` — schema for all `meet_*` tables, SQL helpers, RLS pattern, migration index.
-- `docs/build-plan.md` — current queue (the section "Where Fibre Meet is right now" is the live state).
-- `CHANGELOG.md` — full v0.8.0 entry covers everything shipped this session.
+- `CHANGELOG.md` — v0.9.0 + v0.10.0 entries cover everything new since v0.8.0.
+- `docs/meet-architecture.md` / `meet-api.md` / `meet-data-model.md` — still
+  the canonical maps of Fibre Meet.
+- `docs/permission-tiers-proposal.md` (v2, decisions resolved) — the
+  workspace_member + visibility model that landed in v0.9.0.
+- `docs/build-plan.md` — current queue.
 
 ### Recent commits to anchor on
 
 ```
-d74dae9  New menu skips team sub-picker; cleaner slug-prefix fallback
-7341602  Unified slug UX (prefix + Alt), 2-card scope chooser, dropdown selects, Personal room → Connections
-16b912d  Tabbed meeting-type editor + per-MT availability/calendar overrides
-4b07a5a  Lucide icons everywhere; Calendars re-sync (Google API needed enabling)
-82f0c5f  Two-step team invites with accept page + copy-URL fallback
-92ea693  Every workspace user has a paired public.person row (identity invariant)
-88b02a4  Waves 8 + 9 — contacts + internal team
-9033aa8  Waves 5–7 — settings index, availability page, calendars w/ role mgmt
-eeeb0e3  Waves 2–4 — dashboard, bookings, new-MT menu (Suite layouts)
-b642315  Wave 1 — public booking page split-card layout
-5dffa50  Step 7 — round-robin + collective event types
-0d32baa  Step 5 + 6 — booking emails + cancel + Teams
+8c04427  Fix team scope flipping back to personal; mirror MT list on team page
+69b5c07  Meeting types: copy + open icons per row; harden conflict-cal default
+a9c031e  Meet content area on soft-cream canvas (bg-surface-sunken)
+ba4fa17  v0.10.0 — branded auth emails via Send Email Hook
+1209a44  Auth-hook: warm Fly machine + accept v1,whsec_xxx secret format
+8623029  Sign-in code field accepts 8 digits (Supabase OTP length)
+ff8519c  Expose email-code sign-in on thefibre.app (/sign-in page)
+df067d3  Wire the Fibre wordmark into auth emails
+<earlier> v0.9.0 — permission tiers (workspace_member + visibility)
 ```
 
-### Where Fibre Meet is right now (the working app)
+### Where The Fibre + Fibre Meet are right now
 
-- **Public booking** at `meet.thefibre.app/<slug>/<mt-slug>`: split card with month grid + time list + tz picker + 24h/AMPM. Cancel + reschedule link on the confirmation page.
-- **Dashboard**: Quick Links (top 3 active MTs, copy + open icons) + Today + Next Up.
-- **Bookings**: tabbed Upcoming/Past/All · List/Week/Month · scope filter · include-cancelled.
-- **Meeting types**: tabbed editor (Basics / Availability / Conferencing / Pricing / Intake). Basics has a 2-card Personal/Team scope chooser; Availability has a per-MT working-hours override; Conferencing has a per-MT conflict-calendar override.
-- **Teams**: members + pending invites (status='invited' until they sign in + Accept). `/invite/[token]` public accept page.
-- **Round-robin + Collective**: schema + engine + UI in place. Assignees list excludes pending invites.
-- **Calendars**: Google sync, role per calendar (primary / conflict_check / write_target / ignore), Re-sync button.
-- **Identity invariant**: every workspace user has a paired `public.person` row; both invite paths + the SSO resolver enforce it.
+**Platform** (`thefibre.app` on Vercel · `thefibre-api.fly.dev` on Fly · v0.10.0)
+- Sign in works both ways: Google OAuth and 8-digit email code. `/sign-in` page
+  on `thefibre.app` mirrors the public sign-in on `meet.thefibre.app`.
+- Every Supabase auth email (signup / login / magiclink / invite / recovery /
+  email change × 2 / reauthentication) is rendered by our API from
+  `packages/shared/src/branding.ts`. Logo image lives at
+  `https://thefibre.app/brand/the-fibre.png`.
+- `workspace_member` pivot table with `relationship_type` (internal/external)
+  + per-resource `visibility` (members_only/org_wide) on `meet_team` + `program`.
+  RLS rewritten on `person` / `organisation` / `activity` / `meet_booking` with
+  SECURITY DEFINER predicates.
+
+**Fibre Meet** (`meet.thefibre.app`, v0.10.0)
+- Cream content canvas (`bg-surface-sunken`) so white cards lift cleanly.
+- Meeting-types list rows have Lucide Copy + ExternalLink icon buttons that
+  stop propagation. Team detail page mirrors the same row style.
+- Tabbed MT editor (Basics / Availability / Conferencing / Pricing / Intake).
+  Conflict-calendars override correctly defaults to "Use host default" even
+  when previously saved as `[]`.
+- Scope=Team now saves correctly even if the user trusts the visible default
+  in the Team dropdown (fix: `effectiveTeamId` falls back to `teams[0]?.id`).
+- Round-robin + Collective enabled when you're a lead of at least one team.
+  Group / One-off / Meeting poll are still hard-coded `disabled: true` stubs.
+
+### Infra invariants (don't regress)
+
+- Fly machine pinned warm: `min_machines_running = 1`,
+  `auto_stop_machines = off`. Required because Supabase auth hooks have a 5s
+  ceiling and cold starts blow it.
+- Auth-hook HMAC parser accepts `v1,whsec_xxx | whsec_xxx | bare base64` so
+  dashboard copy-paste of the webhook secret just works.
+- Supabase OTP length is **8** (configurable in Supabase dashboard →
+  Authentication → Sign In/Providers → Email). Both `sign-in-button.tsx` files
+  hardcode `maxLength={8}`; if Sjoerd changes OTP length, change both.
 
 ### What's queued (in order)
 
-1. **Magic-link auth** — so invitees without Google can sign in. Supabase Auth supports it; needs an extra button on sign-in pages + a tiny tweak to the auth callback. NOT started yet — this is the right thing for the next chat to pick up.
-2. **Fibre web (apps/web) — label per-app curator data tabs.** The "Edit change context" modal on a person's profile shows fields owned by an external app, but the panel doesn't say which app. Add an app-name header to each curator-data section.
-3. **Cutover strategy conversation** with Sjoerd. Suite (suite.soul.com) is still live and in use by soul.com. Decide whether Meet runs parallel for a while or aims for a clean swap. Owner is Sjoerd; no code work yet.
-4. **Visual fidelity to Suite is still an active concern.** Going forward, read the actual Suite component before reimplementing (e.g. via `find "/Users/sjoerdair/Projects/souls calendar" …`), don't rebuild from a screenshot — Sjoerd has called this out twice.
-5. **Per-user permission tiers** (Sjoerd's longer-term ask): contacts visible only to people who are on the meetings/teams/orgs they belong to. Plus per-user "internal / external / team-member" status labels. Needs a brief amendment before any code.
+1. **Fibre web — label per-app curator-data tabs.** Done in apps/web for
+   contacts (chip on each section), but verify the same lands on org pages.
+2. **Per-app curator data labelling: app chip on every "Edit X" dialog
+   title** — partially done (the four contact dialogs say "Edit change
+   context — Fibre Meet", etc.). Check org-side dialogs follow the pattern.
+3. **Cross-app entity mapping** — schema landed (`app_entity_mapping` +
+   `app_record_link`) with `/api/v1/apps/...` routes. Used internally by
+   Meet so far; needs documenting + a demo of how a third-party app would
+   register and link records.
+4. **Article 15 export / retention policy admin / cross-app erasure**
+   webhook handlers — still not started.
+5. **Group / One-off / Meeting poll** event types — stubs reserved in the
+   New-MT menu; not built. Easiest is Group (capacity + waitlist field).
+6. **Cutover plan: Suite → Fibre Meet** for `suite.soul.com`. Sjoerd owns
+   the timing/strategy decision; no code yet.
 
 ### Outstanding for Sjoerd (not code)
 
-- **Rotate the Resend API key** — the `re_AR5QNQot…` value ended up in a screenshot earlier in the conversation. Resend dashboard → API Keys → delete + create → `fly secrets set RESEND_API_KEY=…` from repo root.
+- **Rotate the Resend API key.** `re_AR5QNQot…` leaked in a screenshot during
+  v0.8.0. Now even more urgent — Send Email Hook depends on Resend in prod,
+  so anyone with the old key can blast emails as `noreply@thefibre.app`.
+  Resend dashboard → delete + create → `fly secrets set RESEND_API_KEY=… -a thefibre-api`.
 
-### Hot-button design feedback Sjoerd has flagged
+### Hot-button design feedback (still active)
 
-- **Icons must be lucide, never emoji.** Settings, bookings view toggle, new-MT menu, public booking meta — all converted in `4b07a5a`. Watch for any future drift.
-- **Slug UX is now centralised** in `apps/meet/components/ui/name-slug.tsx`: `[prefix/][input][Alt]`. Every form that takes a slug uses this. The Profile slug field in `apps/meet/app/(app)/settings/profile/form.tsx` follows the same visual pattern by hand.
-- **Content left-aligned, not centered.** `PageContainer` dropped `mx-auto` (commit `d4b2006`).
-- **Number-of-minutes fields are curated dropdowns**, not free-form inputs (Buffer / Notice / Advance).
-- **Personal vs Team is a 2-card chooser**, never a select. When Team is chosen, a Team picker dropdown appears below the cards (not a sub-picker inside the New menu).
+- **Lucide icons, never emoji.**
+- **Slug UX is centralised** in `apps/meet/components/ui/name-slug.tsx`.
+- **Content left-aligned, not centered.**
+- **Number-of-minutes fields are curated dropdowns**, not free-form inputs.
+- **Personal vs Team is a 2-card chooser**, never a select.
+- **Read the Suite source before reimplementing** — don't rebuild from a
+  screenshot. Sjoerd's pinned note: "Suite was built in a week — by Claude.
+  Don't excuse design fidelity with timing."
 
-### A pinned note from Sjoerd
+### Things proven this session worth remembering
 
-> Suite was built in a week — by Claude. So "we got the design right in v1, the gap in v2 is on me, not on the time budget." Don't excuse design fidelity with timing. Study the source before reimplementing.
+- **End-to-end auth email pipeline works**: Supabase Send Email Hook →
+  Fly API (`/api/v1/auth-hook/email`) → Resend, with branding from
+  `packages/shared`. A name change or white-label is one file edit.
+- **`branding.ts` is the SPoT** — `APPS`, `ENTITY`, `FOOTER_LINKS`,
+  `BRAND_ASSETS`, `appName()`, `legalFooterLine()`, `emailSignoff()`,
+  `defaultEmailFrom()` are the public surface. Public legal footer
+  intentionally excludes `ENTITY.name` (Solidarity Lab B.V.) — that
+  stays in branding.ts for internal billing only.
+- **Common pitfall pattern in this codebase**: a React `<select>` whose
+  visible default isn't the state's actual value. Always derive the
+  posted value with a fallback to the visible default — don't trust
+  that state matches what the user sees. (See the Scope=Team fix in
+  `8c04427`.)
 
 ---
 

@@ -9,16 +9,16 @@ Current version: **v0.8.0**. Live in production at https://thefibre.app (web on 
 
 ---
 
-## Where Fibre Meet is right now (2026-05-16)
+## Where Fibre Meet + The Fibre are right now (2026-05-16, v0.10.0)
 
-Most of the last week's work has been Fibre Meet. It's now a working scheduler — Suite v2, re-anchored on Fibre primitives. Full architecture: [`meet-architecture.md`](./meet-architecture.md). API reference: [`meet-api.md`](./meet-api.md). Data model: [`meet-data-model.md`](./meet-data-model.md).
+Working scheduler (Fibre Meet = Suite v2). Working platform (The Fibre = identity + contacts + orgs + programmes + activity + apps). Live in production. Full architecture: [`meet-architecture.md`](./meet-architecture.md). API reference: [`meet-api.md`](./meet-api.md). Data model: [`meet-data-model.md`](./meet-data-model.md).
 
 ### Shipped (deployed)
 - Public booking page (split card, month grid + time list, tz picker, 24h/AMPM, cancel + reschedule link)
 - Dashboard (Welcome + Quick Links + Today + Next Up)
 - Bookings (Upcoming/Past/All · List/Week/Month · scope filter · include-cancelled)
 - Personal scheduling (meeting types list, tabbed editor: Basics / Availability / Conferencing / Pricing / Intake)
-- Per-MT availability override + conflict-calendar override
+- Per-MT availability override + conflict-calendar override (defaults to "Use host default" even with empty arrays)
 - Teams (CRUD, members + lead/member, two-step invite flow with copy-URL fallback)
 - Round-robin + Collective event types (multi-host slot union/intersection, least-loaded routing)
 - Calendars page (role mgmt: primary / conflict_check / write_target / ignore; re-sync button)
@@ -28,17 +28,16 @@ Most of the last week's work has been Fibre Meet. It's now a working scheduler �
 - Identity invariant: every workspace user has a paired `public.person`
 - Booking + cancellation emails (Resend, host timezone formatting)
 - Lucide icons across the board, no emoji
+- **v0.9.0** — Permission tiers landed: `workspace_member` pivot, per-resource `visibility`, `relationship_type` (internal/external), SECURITY DEFINER predicates
+- **v0.10.0** — Branded auth emails via Supabase Send Email Hook. `/sign-in` page on `thefibre.app`. 8-digit OTP UI. Logo image (`thefibre.app/brand/the-fibre.png`) in emails. `branding.ts` is the SPoT. Fly machine pinned warm. Copy + Open icons on every meeting-type row. Cream content canvas. Scope=Team save fix.
 
 ### Open queue (in priority order)
 
-#### Magic-link auth — non-Google invitees can sign in
-Today every invitee needs a Google account. Supabase Auth supports magic-link natively. Needs:
-- A "Sign in with magic link" button on `meet.thefibre.app/` and `thefibre.app/`
-- Tiny callback tweak (Supabase already returns a code in the URL)
-- Schema already supports it (`user.primary_auth_method` accepts 'magic_link')
+#### Fibre web — verify per-app curator-data labelling on org pages
+Contact pages already show an app chip on each per-app data block and the four "Edit X" dialogs are titled "Edit change context — Fibre Meet" etc. Check the org-side dialogs follow the same pattern; if not, mirror them.
 
-#### Fibre web — label per-app curator-data tabs
-The "Edit change context" modal on a person's profile shows fields from some external app but doesn't say which app owns them. Add an app-name header to each curator-data block in `apps/web/app/(app)/contacts/[id]/`.
+#### Cross-app entity mapping — write the public-facing doc
+The schema + API (`app_entity_mapping`, `app_record_link`, `/api/v1/apps/...`) landed. Document the integration pattern (manifest format, link/lookup endpoints) so a third-party app builder can wire up against it without spelunking.
 
 #### Visual fidelity passes vs Suite
 Sjoerd has flagged this several times. Going forward, **read the equivalent component from `/Users/sjoerdair/Projects/souls calendar/` before rebuilding** — don't work from screenshots alone. The design canon is in [`meet-architecture.md`](./meet-architecture.md) under "Design canon".
