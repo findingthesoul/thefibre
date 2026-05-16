@@ -13,17 +13,27 @@ export async function GET(req: NextRequest) {
   const code = url.searchParams.get('code');
   const next = url.searchParams.get('next') ?? '/dashboard';
 
-  if (!code) {
-    return NextResponse.redirect(new URL('/?error=missing_code', url.origin));
-  }
-
   const supabase = await serverSupabase();
-  const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-  if (error || !data.session) {
-    return NextResponse.redirect(
-      new URL(`/?error=${error?.message ?? 'auth_failed'}`, url.origin),
-    );
+
+  // Two arrival paths: PKCE code (OAuth or magic-link click) OR an
+  // already-established session from verifyOtp() running client-side.
+  let session;
+  if (code) {
+    const { data: exchange, error } = await supabase.auth.exchangeCodeForSession(code);
+    if (error || !exchange.session) {
+      return NextResponse.redirect(
+        new URL(`/?error=${error?.message ?? 'auth_failed'}`, url.origin),
+      );
+    }
+    session = exchange.session;
+  } else {
+    const { data: sessData } = await supabase.auth.getSession();
+    if (!sessData.session) {
+      return NextResponse.redirect(new URL('/?error=no_session', url.origin));
+    }
+    session = sessData.session;
   }
+  const data = { session };
 
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
   const ssoSecret = process.env.SSO_INTERNAL_SECRET;
