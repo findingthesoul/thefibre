@@ -1,174 +1,182 @@
-# Permission tiers — design proposal
+# Permission tiers — resolved design
 
-_Draft, 2026-05-17. For discussion before any code._
+_v2, 2026-05-17. Reflects Sjoerd's answers to the first round of open questions._
 
-## The ask (from Sjoerd, 2026-05-16)
+## Mental model (brief-level)
 
-> "When I invite another team member, he logs into The Fibre — should I not be able to set per-user what they can see in The Fibre? For example:
-> 1. Only contacts of events/meetings/sales-processes he/she is part of
-> 2. Only contact info from teams he/she is part of
-> 3. Contacts info of the organisation he is part of."
+These three things are first-class on The Fibre platform:
 
-And, separately:
+1. **Organisation** — the tenant. Has app subscriptions, billing, admin. Can be formal (a registered company) or informal (a working group, a friendship circle).
+2. **Person** — a human in the contact graph. **A person belongs to one OR MORE organisations.** A person's data — name, email, contact info — is owned by the platform.
+3. **User** — a person who can sign in. Each user is anchored to an organisation; a single human (one `person`) can be a `user` in several organisations.
 
-> "When inviting someone, it should be stated what someone's status is: part of this team (in Meet), external, internal (colleague/part of the org)."
+People and organisations enter Fibre through an app — Meet, Sales, Updates (newsletter), The Thread, or a future third-party app. The first member of a new organisation becomes its admin.
 
-These are two intertwined asks. Both belong in the brief (this is platform-level, not Meet-specific).
+Once registered, an organisation can expand its app portfolio. Admins control which apps are installed at **org level** (every member gets them) vs **member level** (just for themselves).
 
----
+> **Brief delta**: the current `workspace` concept maps to `organisation`. We keep the column name `workspace_id` internally for now (less code churn), but the user-facing language everywhere becomes "organisation". A separate doc will eventually rename the column.
 
-## What today's model actually says
+## What gets seen — three layers
 
-The v0.4 brief has **one access axis** plus app-level gating:
+### Layer 1: personal data
 
-1. `user.workspace_id` decides which workspace's data RLS allows you to read.
-2. `app_membership(user_id, app_id, role)` decides which apps you can use.
-3. `workspace_app(workspace_id, app_id)` decides which apps the workspace has activated.
+Owned by the user. Not visible to anyone else, including org admins. Concretely:
 
-Inside a workspace, every member who has `fibre-platform` membership sees the whole contact graph. There's no "this user can see Marja but not Daniel."
+- **Personal bookings** — bookings on a meeting type with `team_id IS NULL`. Visible only to the host (and the invitee, via their email link).
+- **Personal contacts** — contacts a user surfaces via personal interactions (e.g. they hosted a booking with them) but that no other context exposes.
+- **Personal notes** — anywhere we add "private note" fields later, they live here.
 
-That's fine for soul.com today (everyone trusts everyone). It breaks the moment a workspace invites someone who shouldn't see the full graph — a freelancer, a partner-org contact, an alumnus.
+Privacy by default. Even an org admin can't see another user's personal bookings.
 
-Sjoerd's three tiers above are about adding a **second axis**: within-workspace visibility.
+### Layer 2: resource-scoped data (teams, threads, sales-teams)
 
----
+Every shared resource — a Meet team, a Thread programme, a Sales team, a future kind — carries an explicit **visibility** setting:
 
-## Two concerns, one solution? Or two?
+| Visibility | Meaning |
+|---|---|
+| `members_only` (default) | Only members of this resource see it. |
+| `org_wide` | Every `internal` member of the organisation sees it. (External members do **not**.) |
 
-### Concern A: Visibility scope per user
-"This person can only see contacts they're connected to."
+A resource's visibility can be changed by:
+- The creator
+- Any lead of that resource
+- Any org admin
 
-### Concern B: Invite-time status labelling
-"When I invite X, tell me whether they're team-member, internal, or external."
+Within a resource, every member is **lead** or **member**. Any lead can flip another member's role lead↔member, add or remove members.
 
-These look like the same thing but they're not.
+### Layer 3: organisation-wide data
 
-- **A is enforcement** — RLS-level, decides what queries return.
-- **B is metadata** — UX-level, helps inviters reason about what they're doing.
+Some platform data is org-wide by definition:
+- The list of organisations a person is in (the org_membership graph)
+- App subscriptions (`workspace_app`)
+- Org-level branding / settings
 
-We probably want both, and they reference each other (an "external" user defaults to the most restrictive visibility scope, an "internal" user defaults to full).
+Visible to `internal` org members. Org admins can edit.
 
----
+## Who sees a given person
 
-## Proposed model
+The platform contact graph (`public.person`) is the trickiest case because it aggregates across all the above. The rule:
 
-### 1. A new table: `workspace_member`
+A user sees `person P` if **any** of these is true:
 
-Today `user.workspace_id` is a foreign key — a user belongs to exactly one workspace. That worked when "workspace member" was a binary. Now we need attributes per (user × workspace) without exploding the schema.
+1. **They're admin** of the org P lives in.
+2. **They share a resource** — same Meet team, same Thread programme, same Sales team. (Visibility of that resource doesn't matter; co-membership is enough.)
+3. **P is in an `org_wide` resource** in their org, AND the user is `internal`.
+4. **They hosted a booking** with P. (Personal context — only the host sees it.)
+5. **P is the user themselves.**
 
-Two options:
+Otherwise: not visible.
 
-**Option α — Add columns to `user`**
+`internal` vs `external` only changes rule 3. Externals never get the org_wide widening; they only see what they've been explicitly added to.
+
+## Schema additions
+
+### `public.user`
 
 ```sql
 alter table public."user"
   add column workspace_role text not null default 'member'
-    check (workspace_role in ('owner','admin','member','restricted')),
+    check (workspace_role in ('owner','admin','member')),
   add column relationship_type text not null default 'internal'
-    check (relationship_type in ('internal','external','team_member','partner','alumnus'));
+    check (relationship_type in ('internal','external'));
 ```
 
-Simple. Works because we have a 1:1 user↔workspace today.
+`workspace_role`:
+- `owner` — there's exactly one owner per org. First user, billing contact. Can transfer.
+- `admin` — manage members, install apps, change resource visibilities. Multiple per org.
+- `member` — default. Standard org-member rights.
 
-**Option β — Introduce `workspace_member`**
+`relationship_type`:
+- `internal` — colleague, part of the org. Gets org-wide widening.
+- `external` — partner, freelancer, alumni-style access. Sees only what they're a direct member of.
+
+(Dropped `team_member`, `partner`, `alumnus` from the v1 draft — they were synonyms. The label can come back later as a richer "status" field if we need it for UX.)
+
+### `meet_team`, `programme`, future `sales_team`
 
 ```sql
-create table public.workspace_member (
-  user_id              uuid not null references public."user"(id),
-  workspace_id         uuid not null references public.workspace(id),
-  workspace_role       text not null default 'member'
-                          check (workspace_role in ('owner','admin','member','restricted')),
-  relationship_type    text not null default 'internal'
-                          check (relationship_type in ('internal','external','team_member','partner','alumnus')),
-  visibility_scope     text not null default 'full'
-                          check (visibility_scope in ('full','connected','team_only')),
-  joined_at            timestamptz not null default now(),
-  primary key (user_id, workspace_id)
-);
+alter table public.meet_team
+  add column visibility text not null default 'members_only'
+    check (visibility in ('members_only','org_wide'));
+
+alter table public.programme
+  add column visibility text not null default 'members_only'
+    check (visibility in ('members_only','org_wide'));
 ```
 
-More work today, but future-proofs the "user belongs to multiple workspaces" case (e.g. consultants serving multiple orgs). The brief flirts with this in §4 but doesn't commit.
+Same shape applied to every "team-shaped" resource we add.
 
-**Recommendation: α now, β later.** Adding columns to `user` is cheap and doesn't break the 1:1 invariant. When we hit the first multi-workspace user we promote to `workspace_member`. Document this in the brief.
+### Capacity for multi-org persons
 
-### 2. Visibility scopes
+We don't change `user.workspace_id` (still 1:1) but we tighten `public.person` ↔ `public.org_membership` so the contact graph supports a person belonging to many orgs cleanly. The schema already allows this (org_membership is a join table); we just need to make sure the UI and the RLS predicates don't assume a single org per person.
 
-Three scopes a user can have within a workspace:
+## RLS pattern
 
-| Scope | What they see |
-|---|---|
-| `full` | Everyone in the workspace's contact graph. Default for `internal` + admin. |
-| `connected` | Only people they have a direct context with — bookings they hosted, programmes they're enrolled in, teams they're on, orgs they're a member of. |
-| `team_only` | Only people on teams they belong to. Strictest. Defaults for `external`. |
-
-These are enforced by RLS on `public.person`, `public.organisation`, and the activity log. The predicates are non-trivial — they need to check existence across multiple tables (meet_booking, team_member, programme_enrolment, org_membership).
-
-**Implementation sketch — a SECURITY DEFINER helper:**
+A single SECURITY DEFINER helper handles the whole policy:
 
 ```sql
 create or replace function public.can_see_person(p_person_id uuid)
 returns boolean
-language sql
-stable
-security definer
+language sql stable security definer
 set search_path = public
 as $$
-  with me as (select id, workspace_role, visibility_scope from public."user" where id = current_user_id()),
-       p  as (select workspace_id from public.person where id = p_person_id)
+  with me_user as (
+    select id, person_id, workspace_id, workspace_role, relationship_type
+      from public."user"
+     where id = current_user_id()
+  ),
+  target as (
+    select id, workspace_id from public.person where id = p_person_id
+  )
   select case
-    when not exists (select 1 from me) then false
-    -- Workspace match is always required first
-    when (select workspace_id from p) is distinct from (select current_workspace_id()) then false
-    -- Admins + 'full' scope see everything in the workspace
-    when (select workspace_role from me) in ('owner','admin') then true
-    when (select visibility_scope from me) = 'full' then true
-    -- 'team_only': share a team
-    when (select visibility_scope from me) = 'team_only' then exists (
+    -- workspace match required
+    when (select workspace_id from target) is distinct from (select current_workspace_id()) then false
+    -- self
+    when (select person_id from me_user) = p_person_id then true
+    -- admin or owner of the org
+    when (select workspace_role from me_user) in ('owner','admin') then true
+    -- shared resource (Meet team, programme, future sales team)
+    when exists (
       select 1
         from public.meet_team_member tm1
         join public.meet_team_member tm2 on tm1.team_id = tm2.team_id
-        join public."user" u on u.id = tm2.user_id and u.person_id = p_person_id
-       where tm1.user_id = current_user_id()
-    )
-    -- 'connected': share a team OR a programme OR a booking OR an org membership
-    when (select visibility_scope from me) = 'connected' then (
-      -- shared team (via the linked user → person on tm2)
-      exists (
-        select 1
-          from public.meet_team_member tm1
-          join public.meet_team_member tm2 on tm1.team_id = tm2.team_id
-          join public."user" u on u.id = tm2.user_id and u.person_id = p_person_id
-         where tm1.user_id = current_user_id()
-      )
-      -- hosted a booking with this person as invitee
-      or exists (
-        select 1 from public.meet_booking b
-          join public.meet_host h on h.id = b.host_id
-         where b.invitee_person_id = p_person_id
-           and h.user_id = current_user_id()
-      )
-      -- shared programme enrolment
-      or exists (
-        select 1 from public.programme_enrolment e1
-          join public.programme_enrolment e2 on e1.programme_id = e2.programme_id
-          join public."user" u on u.person_id = p_person_id
-         where e1.person_id = (select person_id from public."user" where id = current_user_id())
-           and e2.person_id = p_person_id
-      )
-      -- shared org
-      or exists (
-        select 1 from public.org_membership om1
-          join public.org_membership om2 on om1.organisation_id = om2.organisation_id
-         where om1.person_id = (select person_id from public."user" where id = current_user_id())
-           and om2.person_id = p_person_id
-      )
-    )
+        join public."user" u2 on u2.id = tm2.user_id
+       where tm1.user_id = (select id from me_user)
+         and u2.person_id = p_person_id
+         and tm1.status = 'active' and tm2.status = 'active'
+    ) then true
+    when exists (
+      select 1
+        from public.programme_enrolment pe
+       where pe.programme_id in (
+               select programme_id from public.programme_enrolment
+                where person_id = (select person_id from me_user)
+             )
+         and pe.person_id = p_person_id
+    ) then true
+    -- in an org_wide resource AND I'm internal
+    when (select relationship_type from me_user) = 'internal' and exists (
+      select 1
+        from public.meet_team t
+        join public.meet_team_member tm on tm.team_id = t.id
+        join public."user" u on u.id = tm.user_id
+       where t.visibility = 'org_wide'
+         and t.workspace_id = (select workspace_id from me_user)
+         and u.person_id = p_person_id
+    ) then true
+    -- hosted a booking with them (personal context — only the host)
+    when exists (
+      select 1 from public.meet_booking b
+        join public.meet_host h on h.id = b.host_id
+       where b.invitee_person_id = p_person_id
+         and h.user_id = (select id from me_user)
+    ) then true
     else false
   end
 $$;
 ```
 
-The function returns true only when the visibility predicate passes. Then RLS on `public.person` becomes:
+Then the RLS policy on `public.person` becomes:
 
 ```sql
 alter policy person_scope on public.person
@@ -178,74 +186,97 @@ alter policy person_scope on public.person
   );
 ```
 
-Same shape for `public.organisation` (`can_see_org`) and the activity log (`can_see_activity`).
+Performance: each clause is `exists` against an indexed predicate. The function is called per row on SELECT, but Postgres will inline it and short-circuit. We need indexes on:
+- `meet_team_member (user_id)` ✓ (already)
+- `meet_team_member (team_id, user_id)` (compound, add)
+- `programme_enrolment (programme_id, person_id)` (compound)
+- `meet_booking (invitee_person_id)` ✓ partial index already
+- `meet_team (workspace_id) where visibility = 'org_wide'` (partial, add)
 
-**Performance**: the function evaluates per row on SELECT. Postgres should still inline + cache; with indexes on the relationship tables (`team_id, user_id`, `invitee_person_id`, `programme_id`, `organisation_id, person_id`) this is fast enough at our current scale. Will need EXPLAIN ANALYZE on the seeded workspace.
+Same helper shape for activity-feed visibility (`can_see_activity(activity_id)`) and organisation visibility.
 
-### 3. Invite-time `relationship_type`
+## What the booking visibility means concretely
 
-Five values cover the cases Sjoerd raised:
+- Personal MTs: only the host's name on the booking. `meet_booking.host_id` matches the host's user. No one else sees these rows.
+- Team MTs: members of that team see the booking. If the team is `org_wide`, all internal org members see it.
 
-| Value | Meaning | Default `workspace_role` | Default `visibility_scope` |
-|---|---|---|---|
-| `internal` | Colleague, part of the org running this workspace | `member` | `full` |
-| `team_member` | On one of the workspace's teams (e.g. Meet team) | `member` | `team_only` |
-| `external` | Freelancer, partner, consultant; needs login but minimal access | `member` | `connected` |
-| `partner` | Another org's contact who needs view-into-shared-work access | `member` | `connected` |
-| `alumnus` | Used to be team_member, still has access to their history | `member` | `team_only` |
+The booking-list RLS expands to:
 
-These are **defaults**. The inviter can override the visibility scope explicitly. The relationship_type stays as metadata + the label shown on /internal-team.
+```sql
+alter policy meet_booking_scope on public.meet_booking
+  using (
+    workspace_id = public.current_workspace_id()
+    and public.has_app_membership('fibre-meet')
+    and (
+      -- I'm the host
+      exists (select 1 from public.meet_host h
+                where h.id = meet_booking.host_id
+                  and h.user_id = public.current_user_id())
+      -- I'm a member of the team that owns the MT
+      or exists (select 1 from public.meet_meeting_type mt
+                   join public.meet_team_member tm on tm.team_id = mt.team_id
+                  where mt.id = meet_booking.meeting_type_id
+                    and tm.user_id = public.current_user_id()
+                    and tm.status = 'active')
+      -- The MT's team is org_wide and I'm internal
+      or exists (select 1 from public.meet_meeting_type mt
+                   join public.meet_team t on t.id = mt.team_id
+                   join public."user" u on u.id = public.current_user_id()
+                  where mt.id = meet_booking.meeting_type_id
+                    and t.visibility = 'org_wide'
+                    and u.relationship_type = 'internal')
+      -- I'm an org admin
+      or exists (select 1 from public."user" u
+                  where u.id = public.current_user_id()
+                    and u.workspace_role in ('owner','admin'))
+    )
+  );
+```
 
-### 4. UI surfaces
+## UI changes
 
-**On invite forms** (`/teams/[id]` invite + `/internal-team` invite):
-- Add a "Relationship" radio/select: `Internal · Team member · External · Partner · Alumnus`
-- Show derived default visibility scope as a sub-label
-- Advanced: an explicit "Visibility scope" select that overrides the default
+### Invite form (Meet team + internal-team + future apps)
 
-**On `/internal-team`**:
-- Each member row shows their relationship + visibility scope as small chips
-- Lead can edit (workspace_admin only)
+- **Relationship** select: `Internal · External`. Defaults to Internal.
+- Hint text: "Internal members see org-wide resources. External members only see things they're added to."
 
-**On `/contacts`** (Fibre web):
-- An empty-state explanation when a restricted user sees fewer contacts than they expected: "You see N contacts because of your visibility scope. Ask an admin to widen it."
+### Team detail page (`/teams/[id]`)
 
----
+- New **Visibility** card: radio `Members only` / `Org-wide (visible to all internal org members)`. Editable by lead or org admin.
+- Member rows show role chip (`Lead` / `Member`).
 
-## Open questions for Sjoerd
+### Internal team page (`/internal-team`)
 
-1. **`team_only` semantics** — does "team I belong to" mean Meet teams only, or Thread programmes too? Or any "group the platform knows about"?
-2. **Admin vs lead vs member** — should team-lead automatically widen scope to "everyone on your team" or stay independent?
-3. **Should `external` users see their OWN past bookings?** (Probably yes — even with `connected`, you should always see things you're directly part of.)
-4. **What about ACTIVITY rows?** Should restricted users see workspace-wide activity, or only activity that touches a person they can see?
-5. **Are these values fixed, or workspace-configurable?** (e.g. could a workspace add a custom relationship type `'volunteer'`?)
-6. **First migration scope** — ship α (columns on `user`) or jump to β (`workspace_member` table)?
+- Each row shows the relationship-type chip (`Internal` / `External`) and workspace role (`Owner` / `Admin` / `Member`).
+- Org admins can edit both.
 
----
+### Contacts page (`/contacts` in Fibre web)
 
-## What I'd build first (if you approve the model)
+- Empty-state copy explains visibility when the user sees fewer contacts than expected: "You see N contacts because of your relationships. Ask an admin to widen your access."
 
-A minimum-viable slice we could ship in one session:
+### Apps page (`/settings/apps`)
 
-1. Add `workspace_role` + `relationship_type` + `visibility_scope` columns to `public.user` (defaults: `member`, `internal`, `full`).
-2. Add the `can_see_person()` SECURITY DEFINER helper.
-3. Update RLS on `public.person` to call it.
-4. Update both invite endpoints to accept + store the new fields.
-5. Add the relationship-type select to the invite forms.
-6. Add chips to `/internal-team`.
-7. Ship.
+- App-install scope toggle: `Install for the organisation (everyone)` / `Install for me only`. Already exists conceptually via `workspace_app` + `app_membership` — we make it explicit.
+- A "Subscriptions" tab placeholder when billing lands.
 
-Then iterate: organisation visibility, activity visibility, the over-time tracking ("became alumnus on date X"), the multi-workspace `workspace_member` migration when we need it.
+## Migration ordering
 
----
+To keep this shippable in one focused session:
 
-## Why this matters for the brief
+1. **Schema** — add `workspace_role` + `relationship_type` to `user`; add `visibility` to `meet_team` + `programme`. Single migration.
+2. **Backfill** — set `workspace_role='owner'` for the first user in each workspace; everyone else `member`. Set `relationship_type='internal'` for current users. All resources `members_only`.
+3. **`can_see_person()` helper + RLS update** for `public.person` and `public.meet_booking`.
+4. **API updates** — invite endpoints accept the new fields; team PATCH accepts `visibility`.
+5. **UI updates** — invite forms, team detail card, internal-team chips.
 
-This is a §6 ("Data ownership and minimisation") amendment. Today the brief is silent on within-workspace visibility — implicitly everyone-sees-everything. With this proposal:
+Activity-feed visibility, organisation visibility, the multi-workspace `workspace_member` extraction — all defer to follow-ups.
 
-- Workspace admins still see everything.
-- Members default to full visibility but can be scoped.
-- External/partner/alumnus relationships default to restricted scope, configurable.
-- The platform formally enforces "an app justifies the field" AND now "a relationship justifies the visibility."
+## What I want to confirm before coding
 
-That's a coherent extension of the existing design philosophy.
+Three small ones, then I'll start:
+
+1. **Owner vs admin**: do we need both today, or is `admin` enough? Owner adds complexity for billing-handoff scenarios we don't have yet. **Lean: admin only.**
+2. **External in an org_wide team**: today an external member of a team still sees the team. If the team flips to org_wide, do they additionally see the org-wide widening to other persons? **Lean: no — external means "only what I'm explicitly added to," period.**
+3. **Lead = automatic admin?**: a team lead doesn't automatically get org-admin rights. Confirmed. (You said so explicitly.)
+
+If you say "go" on these three I ship the slice.
