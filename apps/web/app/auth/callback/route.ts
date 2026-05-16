@@ -33,8 +33,13 @@ export async function GET(req: NextRequest) {
   const ssoSecret = process.env.SSO_INTERNAL_SECRET;
   const user = data.session.user;
   const email = user.email;
-  const provider = user.app_metadata.provider ?? 'google';
-  const identity = user.identities?.find((i) => i.provider === provider);
+  // Supabase records magic-link sign-ins as provider='email'. Map to the
+  // platform's enum value 'magic_link' so the SSO resolver accepts it.
+  const rawProvider = user.app_metadata.provider ?? 'google';
+  const provider = rawProvider === 'email' ? 'magic_link' : rawProvider;
+  const identity =
+    user.identities?.find((i) => i.provider === rawProvider) ??
+    user.identities?.[0];
 
   // If our internal secret isn't configured we can't check access status —
   // fall back to the legacy default-workspace behaviour so dev doesn't break.
