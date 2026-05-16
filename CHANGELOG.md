@@ -6,6 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.10.1] — 2026-05-16
+
+### Per-app curator-data labelling reaches the org side
+
+The pattern shipped for contact profiles (chip on each curator-data
+section + app suffix on every "Edit X" dialog title) now lands on
+organisation profiles too — so a viewer always knows which app justifies
+a given field.
+
+### Changed
+- `organisations/[id]/app/[appSlug]` — "System context" gets a
+  `Fibre Meet` chip; "Commercial relationship" and "Invoicing" get a
+  `Fibre Sales` chip. Uses the same `AppChip` component as the contact
+  side.
+- Edit dialog titles: "Edit system context — Fibre Meet", "Edit
+  commercial relationship — Fibre Sales", "Edit invoicing details —
+  Fibre Sales".
+
 ## [0.10.0] — 2026-05-16
 
 ### Auth emails now route through our API — branded, with SPoT

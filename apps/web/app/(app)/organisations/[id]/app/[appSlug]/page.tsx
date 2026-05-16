@@ -1,7 +1,15 @@
 import { notFound } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
-import { APPS, isAppSlug } from '@/lib/apps';
+import { APPS, isAppSlug, type AppSlug } from '@/lib/apps';
+
+function AppChip({ slug }: { slug: AppSlug }) {
+  return (
+    <span className="ml-2 inline-block rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
+      {APPS[slug].label}
+    </span>
+  );
+}
 import {
   SystemContextEdit,
   type SystemContextRow,
@@ -175,7 +183,7 @@ async function SystemContextSection({ orgId }: { orgId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>System context</SectionLabel>
+        <SectionLabel>System context<AppChip slug="fibre-meet" /></SectionLabel>
         <SystemContextEdit orgId={orgId} initial={row} />
       </div>
 
@@ -328,7 +336,7 @@ async function RelationshipSection({ orgId }: { orgId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Commercial relationship</SectionLabel>
+        <SectionLabel>Commercial relationship<AppChip slug="fibre-sales" /></SectionLabel>
         <OrgRelationshipEdit orgId={orgId} initial={row} />
       </div>
 
@@ -423,7 +431,7 @@ async function BillingSection({ orgId }: { orgId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Invoicing</SectionLabel>
+        <SectionLabel>Invoicing<AppChip slug="fibre-sales" /></SectionLabel>
         <OrgBillingEdit orgId={orgId} initial={row} />
       </div>
       {allEmpty ? (
