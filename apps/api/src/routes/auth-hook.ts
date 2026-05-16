@@ -7,9 +7,12 @@
 //
 // Signature verification: Supabase signs with the "standard webhooks" spec.
 // We verify HMAC-SHA256(secret, "<webhook-id>.<webhook-timestamp>.<body>")
-// against the value in the `webhook-signature` header. The secret is set in
-// Supabase as `v1,whsec_…`; we store just the whsec_ part as
-// SUPABASE_AUTH_HOOK_SECRET on Fly.
+// against the value in the `webhook-signature` header. Supabase displays the
+// secret as `v1,whsec_<base64>` — we accept any of:
+//   v1,whsec_<base64>
+//   whsec_<base64>
+//   <base64>
+// so it's safe to copy-paste from the dashboard.
 
 import { Hono } from 'hono';
 import { createHmac, timingSafeEqual } from 'node:crypto';
@@ -68,11 +71,12 @@ function verifyStandardWebhook(
   const sig = headers.get('webhook-signature');
   if (!id || !ts || !sig) return false;
 
-  // Strip the leading "whsec_" if present (Supabase stores the secret with this prefix).
-  const secretBytes = Buffer.from(
-    secret.replace(/^whsec_/, ''),
-    'base64',
-  );
+  // Accept v1,whsec_xxx, whsec_xxx, or bare xxx — strip the prefixes that
+  // Supabase's dashboard displays alongside the secret.
+  const cleaned = secret
+    .replace(/^v\d+,/, '')   // strip "v1,"
+    .replace(/^whsec_/, ''); // strip "whsec_"
+  const secretBytes = Buffer.from(cleaned, 'base64');
   const signedPayload = `${id}.${ts}.${rawBody}`;
   const expected = createHmac('sha256', secretBytes)
     .update(signedPayload)
@@ -97,6 +101,18 @@ authHookRoutes.post('/email', async (c) => {
   // Read raw body BEFORE parsing JSON (signature is over the raw payload).
   const rawBody = await c.req.text();
   if (!verifyStandardWebhook(rawBody, c.req.raw.headers, secret)) {
+    console.error(
+      '[auth-hook] invalid signature',
+      JSON.stringify({
+        hasId: !!c.req.raw.headers.get('webhook-id'),
+        hasTs: !!c.req.raw.headers.get('webhook-timestamp'),
+        hasSig: !!c.req.raw.headers.get('webhook-signature'),
+        sigPrefix: c.req.raw.headers.get('webhook-signature')?.slice(0, 8),
+        bodyLen: rawBody.length,
+        secretLooksPrefixed:
+          secret.startsWith('v1,') || secret.startsWith('whsec_'),
+      }),
+    );
     return c.json({ error: 'invalid signature' }, 401);
   }
 
