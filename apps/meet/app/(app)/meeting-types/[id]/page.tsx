@@ -13,6 +13,7 @@ import {
   type CalendarOption,
 } from '../form';
 import { AssigneesEditor, type TeamMember, type Assignee } from './assignees';
+import { PollVotesMatrix } from './votes';
 
 type MT = MeetingTypeFormValues & {
   id: string;
@@ -67,6 +68,32 @@ export default async function EditMeetingTypePage({
   const showAssignees =
     !!mt.team_id && (mt.event_type === 'round_robin' || mt.event_type === 'collective');
 
+  // Poll: fetch the candidate slots + votes so we can render the matrix and
+  // seed the editor with the saved slots (so the form's PollSlotsEditor
+  // doesn't show empty inputs on edit).
+  type PollSlot = { starts_at: string; ends_at: string };
+  type PollVote = {
+    voter_email: string;
+    voter_name: string;
+    slot_starts_at: string;
+    created_at: string;
+  };
+  let pollSlots: PollSlot[] = [];
+  let pollVotes: PollVote[] = [];
+  if (mt.event_type === 'poll') {
+    try {
+      const poll = await apiFetch<{ slots: PollSlot[]; votes: PollVote[] }>(
+        `/api/v1/meet/meeting-types/${mt.id}/poll`,
+      );
+      pollSlots = poll.slots;
+      pollVotes = poll.votes;
+    } catch {
+      // Non-fatal — just show empty matrix.
+    }
+  }
+  // Seed the form with poll_slots so PollSlotsEditor preloads correctly.
+  const initialForForm = { ...mt, poll_slots: pollSlots };
+
   let members: TeamMember[] = [];
   let assignees: Assignee[] = [];
   let isLead = false;
@@ -94,12 +121,25 @@ export default async function EditMeetingTypePage({
       <PageHeader title={mt.name!} description={`slug: ${mt.slug}`} />
       <div className="mt-10">
         <MeetingTypeForm
-          initial={mt}
+          initial={initialForForm}
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
         />
       </div>
+      {mt.event_type === 'poll' && (
+        <section className="mt-14">
+          <SectionLabel>Votes</SectionLabel>
+          <p className="mt-2 text-sm text-ink-subtle max-w-2xl">
+            One row per invitee, one column per candidate slot. Tap "Confirm"
+            on the winning column to convert this poll into a fixed time —
+            the meeting type flips to one-off so the slot becomes bookable.
+          </p>
+          <div className="mt-4">
+            <PollVotesMatrix mtId={mt.id} slots={pollSlots} votes={pollVotes} />
+          </div>
+        </section>
+      )}
       {showAssignees && isLead && (
         <section className="mt-14">
           <SectionLabel>Assignees</SectionLabel>

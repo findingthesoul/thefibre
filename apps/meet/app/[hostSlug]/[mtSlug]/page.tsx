@@ -34,6 +34,9 @@ type MeetingType = {
   intake_form: IntakeForm | null;
   event_type?: string;
   capacity?: number | null;
+  fixed_starts_at?: string | null;
+  fixed_ends_at?: string | null;
+  poll_slots?: { starts_at: string; ends_at: string }[];
 };
 
 type HostMtResp = { host: Host; meeting_type: MeetingType };

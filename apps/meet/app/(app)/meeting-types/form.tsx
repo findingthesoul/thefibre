@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from 'react';
 import Link from 'next/link';
-import { User, Users as TeamIcon } from 'lucide-react';
+import { User, Users as TeamIcon, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
@@ -11,7 +11,7 @@ import {
   defaultSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
-import { createMeetingType, updateMeetingType, type SaveResult } from './actions';
+import { createMeetingType, savePollSlots, updateMeetingType, type SaveResult } from './actions';
 
 export type MeetingTypeFormValues = {
   id?: string;
@@ -29,6 +29,9 @@ export type MeetingTypeFormValues = {
   team_id?: string | null;
   event_type?: string;
   capacity?: number | null;
+  fixed_starts_at?: string | null;
+  fixed_ends_at?: string | null;
+  poll_slots?: { starts_at: string; ends_at: string }[];
   working_hours_override?: Schedule | null;
   conflict_calendar_ids?: string[] | null;
   intake_form_id?: string | null;
@@ -63,6 +66,16 @@ const EVENT_TYPES = [
     value: 'collective',
     label: 'Collective',
     hint: 'Every assigned host attends. Slots intersect their availability.',
+  },
+  {
+    value: 'one_off',
+    label: 'One-off',
+    hint: 'A single fixed date+time. Invitees confirm attendance instead of picking a slot.',
+  },
+  {
+    value: 'poll',
+    label: 'Meeting poll',
+    hint: 'You propose 2–5 candidate slots; invitees vote which they can attend.',
   },
 ];
 
@@ -181,13 +194,14 @@ export function MeetingTypeForm({
   );
 
   // Event-type chooser:
-  //  - Personal scope: pick between One-on-one and Group (single-host both).
-  //  - Team scope:     pick between One-on-one, Group, Round-robin, Collective.
+  //  - Personal scope: One-on-one, Group, One-off, Meeting poll (single-host all).
+  //  - Team scope:     adds Round-robin + Collective.
   const showEventType = scope === 'team' ? teams.length > 0 : true;
+  const PERSONAL_EVENT_TYPES = new Set(['one_on_one', 'group', 'one_off', 'poll']);
   const eventTypeOptions = (
     scope === 'team'
       ? EVENT_TYPES
-      : EVENT_TYPES.filter((t) => t.value === 'one_on_one' || t.value === 'group')
+      : EVENT_TYPES.filter((t) => PERSONAL_EVENT_TYPES.has(t.value))
   );
   const validEventType = eventTypeOptions.some((t) => t.value === eventType)
     ? eventType
@@ -212,13 +226,25 @@ export function MeetingTypeForm({
         ? `meet.thefibre.app/${hostSlug}/`
         : 'meet.thefibre.app/';
 
+  // Availability is hidden for one_off (single fixed time, nothing to schedule)
+  // and repurposed for poll into a candidate-slots editor (label changes).
+  const isOneOff = effectiveEventType === 'one_off';
+  const isPoll = effectiveEventType === 'poll';
   const tabs: { value: Tab; label: string }[] = [
     { value: 'basics', label: 'Basics' },
-    { value: 'availability', label: 'Availability' },
+    ...(isOneOff
+      ? []
+      : [
+          {
+            value: 'availability' as Tab,
+            label: isPoll ? 'Candidate slots' : 'Availability',
+          },
+        ]),
     { value: 'conferencing', label: 'Conferencing' },
     { value: 'pricing', label: 'Pricing' },
     { value: 'intake', label: 'Intake' },
   ];
+  const visibleTab: Tab = tabs.some((t) => t.value === tab) ? tab : 'basics';
 
   return (
     <form action={formAction} className="space-y-6">
@@ -231,7 +257,7 @@ export function MeetingTypeForm({
                 type="button"
                 onClick={() => setTab(t.value)}
                 className={`px-3 py-1.5 rounded-md ${
-                  tab === t.value
+                  visibleTab === t.value
                     ? 'bg-ink text-surface-raised'
                     : 'text-ink-subtle hover:text-ink hover:bg-surface-sunken'
                 }`}
@@ -265,7 +291,7 @@ export function MeetingTypeForm({
       />
       <input type="hidden" name="pricing_mode" value={pricing} />
 
-      {tab === 'basics' && (
+      {visibleTab === 'basics' && (
         <>
           <Section title="Scope" desc="Personal types live under your handle. Team types live under a team's URL — bookings show up in the team's shared view.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -336,6 +362,25 @@ export function MeetingTypeForm({
                 required
               />
             )}
+            {isOneOff && (
+              <>
+                <TextField
+                  label="Date & time"
+                  name="fixed_starts_at_local"
+                  type="datetime-local"
+                  defaultValue={toLocalDatetimeInput(initial.fixed_starts_at)}
+                  hint="The single, fixed time this meeting will run. Invitees confirm attendance instead of picking a slot."
+                  required
+                />
+                <SelectField
+                  label="Capacity"
+                  name="capacity"
+                  defaultValue={String(initial.capacity ?? 1)}
+                  options={[{ value: '1', label: '1 invitee (interview)' }, ...CAPACITY_OPTIONS]}
+                  hint="1 = traditional one-on-one. Higher = a small group event capped at N attendees."
+                />
+              </>
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"
@@ -348,7 +393,15 @@ export function MeetingTypeForm({
         </>
       )}
 
-      {tab === 'availability' && (
+      {visibleTab === 'availability' && isPoll && (
+        <PollSlotsEditor
+          mtId={initial.id}
+          duration={initial.duration_minutes ?? 30}
+          initial={initial.poll_slots ?? []}
+        />
+      )}
+
+      {visibleTab === 'availability' && !isPoll && (
         <>
           <Section
             title="Availability"
@@ -427,7 +480,7 @@ export function MeetingTypeForm({
         </>
       )}
 
-      {tab === 'conferencing' && (
+      {visibleTab === 'conferencing' && (
         <>
           <Section title="Conferencing" desc="Where the meeting happens. Zoom requires you to connect it in Settings.">
             <SelectField
@@ -518,7 +571,7 @@ export function MeetingTypeForm({
         </>
       )}
 
-      {tab === 'pricing' && (
+      {visibleTab === 'pricing' && (
         <Section
           title="Pricing"
           desc="Charge invitees through Stripe Checkout before the booking is confirmed. Free meetings skip payment entirely."
@@ -548,7 +601,7 @@ export function MeetingTypeForm({
         </Section>
       )}
 
-      {tab === 'intake' && (
+      {visibleTab === 'intake' && (
         <Section
           title="Intake form"
           desc="Ask invitees structured questions when they book. Edit fields after creating the meeting type."
@@ -618,5 +671,136 @@ function ScopeCard({
         </div>
       </div>
     </button>
+  );
+}
+
+// Convert an ISO timestamp into the "YYYY-MM-DDTHH:MM" string that a
+// <input type="datetime-local"> wants. Returns '' if input is empty.
+function toLocalDatetimeInput(iso: string | null | undefined): string {
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+// Poll candidate-slots editor. Out-of-band from the main form save — slots
+// are managed via PUT /meeting-types/:id/poll-slots once the MT exists.
+function PollSlotsEditor({
+  mtId,
+  duration,
+  initial,
+}: {
+  mtId: string | undefined;
+  duration: number;
+  initial: { starts_at: string; ends_at: string }[];
+}) {
+  const [slots, setSlots] = useState<string[]>(() =>
+    initial.length > 0
+      ? initial.map((s) => toLocalDatetimeInput(s.starts_at))
+      : ['', ''],
+  );
+  const [busy, setBusy] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  if (!mtId) {
+    return (
+      <section className="rounded-lg border border-line bg-surface-raised p-6">
+        <p className="text-sm text-ink-subtle">
+          Save the meeting type first, then add candidate slots here.
+        </p>
+      </section>
+    );
+  }
+
+  function setAt(i: number, v: string) {
+    const next = [...slots];
+    next[i] = v;
+    setSlots(next);
+  }
+  function add() {
+    if (slots.length >= 5) return;
+    setSlots([...slots, '']);
+  }
+  function remove(i: number) {
+    if (slots.length <= 2) return;
+    const next = [...slots];
+    next.splice(i, 1);
+    setSlots(next);
+  }
+  async function save() {
+    setMsg(null);
+    const valid = slots
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .map((s) => {
+        const start = new Date(s);
+        if (Number.isNaN(start.getTime())) return null;
+        return {
+          starts_at: start.toISOString(),
+          ends_at: new Date(start.getTime() + duration * 60_000).toISOString(),
+        };
+      })
+      .filter((x): x is { starts_at: string; ends_at: string } => x !== null);
+    if (valid.length < 2 || valid.length > 5) {
+      setMsg('Pick between 2 and 5 valid candidate slots.');
+      return;
+    }
+    setBusy(true);
+    const r = await savePollSlots(mtId!, valid);
+    setBusy(false);
+    setMsg(r.error ?? 'Saved.');
+  }
+
+  return (
+    <section className="rounded-lg border border-line bg-surface-raised p-6 space-y-4">
+      <div>
+        <div className="text-base font-medium">Candidate slots</div>
+        <p className="mt-1 text-sm text-ink-subtle">
+          Add 2–5 specific date/times. Invitees will tick the ones they can
+          attend; you confirm the winner from the votes view below.
+        </p>
+      </div>
+      <ul className="space-y-2">
+        {slots.map((v, i) => (
+          <li key={i} className="flex items-center gap-2">
+            <input
+              type="datetime-local"
+              value={v}
+              onChange={(e) => setAt(i, e.target.value)}
+              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => remove(i)}
+              disabled={slots.length <= 2}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-sunken disabled:opacity-30"
+              aria-label="Remove slot"
+            >
+              <X className="h-4 w-4" strokeWidth={1.5} />
+            </button>
+          </li>
+        ))}
+      </ul>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={add}
+          disabled={slots.length >= 5}
+          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm hover:bg-surface-sunken disabled:opacity-40"
+        >
+          <Plus className="h-4 w-4" strokeWidth={1.5} /> Add slot
+        </button>
+        <button
+          type="button"
+          onClick={save}
+          disabled={busy}
+          className="rounded-md bg-ink text-surface-raised px-4 py-1.5 text-sm font-medium hover:bg-ink/90 disabled:opacity-40"
+        >
+          {busy ? 'Saving…' : 'Save slots'}
+        </button>
+        {msg && <span className="text-xs text-ink-subtle">{msg}</span>}
+      </div>
+    </section>
   );
 }

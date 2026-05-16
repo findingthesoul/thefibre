@@ -65,7 +65,6 @@ const EVENT_TYPES: EventTypeOption[] = [
     desc: 'Offer a single time outside your normal schedule.',
     Icon: CalendarPlus,
     teamOnly: false,
-    disabled: true,
     group: 'more',
   },
   {
@@ -75,7 +74,6 @@ const EVENT_TYPES: EventTypeOption[] = [
     desc: 'Let invitees vote on a time to meet.',
     Icon: ListChecks,
     teamOnly: false,
-    disabled: true,
     group: 'more',
   },
 ];

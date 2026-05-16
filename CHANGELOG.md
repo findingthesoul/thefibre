@@ -6,6 +6,99 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.0] — 2026-05-17
+
+### Added: One-off and Meeting-poll event types
+
+The last two stubs in the New-Meeting-Type chooser ship for real. Fibre Meet
+now supports every event type drawn on the original wall: One-on-one, Group,
+Round-robin, Collective, **One-off**, and **Meeting poll**.
+
+### Changed
+- **New migration `supabase/migrations/20260517210000_meet_one_off_and_poll.sql`**
+  adds `fixed_starts_at`/`fixed_ends_at` (nullable timestamptz with paired
+  CHECK + window CHECK) to `meet_meeting_type`, and creates two tables for
+  polls: `meet_poll_slot` (composite PK `(meeting_type_id, starts_at)`) and
+  `meet_poll_vote` (one row per `(voter, slot)`, deduped via UNIQUE). RLS on
+  both poll tables defers to the parent meeting type — if you can see the
+  MT, you can see its slots and votes.
+
+- **API: `MeetingTypeUpsert` zod schema** accepts `one_off` and `poll` as
+  `event_type` values, plus optional `fixed_starts_at` / `fixed_ends_at`
+  datetimes.
+
+- **API: `POST /api/v1/meet/public/bookings`** validates `starts_at` against
+  the MT's `fixed_starts_at` for one-off bookings, rejects with
+  `409 wrong_fixed_time` on mismatch. Capacity from v0.11.1 is reused —
+  default 1 (single-attendee interview), but the editor offers the same
+  CAPACITY_OPTIONS dropdown so a one-off can also be a small group event.
+  Poll MTs are not bookable directly (`400 poll_not_bookable`).
+
+- **API: slots endpoints** (`/public/host/.../slots` and team variant)
+  short-circuit for `one_off` (return just the fixed slot with `slots_meta`)
+  and `poll` (return `{ slots: [] }`). Public MT GET endpoints attach
+  `poll_slots: [{starts_at, ends_at}]` when the MT is a poll.
+
+- **New auth'd endpoints** on `apps/api/src/routes/meet.ts`:
+  `GET /meeting-types/:id/poll` (slots + votes for the host),
+  `PUT /meeting-types/:id/poll-slots` (replace candidate slots, 2–5),
+  `POST /meeting-types/:id/confirm-poll-slot` (flip a poll into a one-off
+  with `fixed_starts_at` = winning slot — see "trimmed scope" below).
+
+- **New public endpoint** `POST /api/v1/meet/public/poll-votes` lets an
+  invitee submit `{ meeting_type_id, voter_email, voter_name,
+  slot_starts_ats[] }`. Re-submission from the same email replaces that
+  voter's existing rows (so changing your mind just works). Bypasses RLS
+  via `adminClient` like the rest of `/meet/public/*`.
+
+- **UI: Meeting-type editor** (`apps/meet/app/(app)/meeting-types/form.tsx`):
+  the event-type dropdown adds One-off and Meeting poll for personal scope
+  too. When One-off is selected, the Availability tab disappears and a
+  "Date & time" `<input type="datetime-local">` + Capacity dropdown appear
+  on Basics. When Meeting poll is selected, the Availability tab is
+  relabelled **Candidate slots** and renders a dedicated editor with 2–5
+  datetime rows + Add/Remove buttons. Slots save out-of-band via the new
+  `savePollSlots` server action.
+
+- **UI: MT detail page** (`apps/meet/app/(app)/meeting-types/[id]/page.tsx`)
+  loads `/meeting-types/:id/poll` for poll MTs and renders a new
+  **`PollVotesMatrix`** (`votes.tsx`) — voters down rows, candidate slots
+  across columns, ✓ in each cell where the voter ticked. Each column header
+  shows vote count + a "Confirm" button that calls the confirm-poll-slot
+  endpoint.
+
+- **UI: New-MT chooser** (`new-menu.tsx`): both `disabled: true` flags
+  removed; One-off + Meeting poll are now bookable from the menu.
+
+- **UI: Public booking page** (`apps/meet/app/[hostSlug]/[mtSlug]/`):
+  `BookingFlow` branches on `event_type`. One-off renders a single
+  "Scheduled for {datetime}" block + name/email + "Confirm attendance".
+  Poll renders a checkbox list of the candidate slots + name/email +
+  "Submit votes", with a thank-you state on success.
+
+### Trimmed scope (documented gap)
+"Confirm this slot" on a poll currently just flips the MT into `one_off`
+with the winning slot set as `fixed_starts_at`. **It does not auto-create
+bookings for every voter who ticked that slot, and it does not email the
+losing voters that the poll closed.** The host gets a stable one-off MT
+URL they can share again to collect attendance confirmations. Auto-booking
++ poll-close email notifications are the obvious next pass; they were
+trimmed because they triple the surface area (template wiring + Resend
+batch send + idempotency) without adding much for v1 use.
+
+### Gotchas
+- `<input type="datetime-local">` reads as local time. The form converts
+  to UTC ISO before sending so the API stores in UTC. Read-back goes
+  through `toLocalDatetimeInput()` which formats in the host's local tz.
+- Poll slot rows persist after a poll is "confirmed". They aren't read
+  by any active code path but show up in an erasure export — that's
+  fine and arguably useful (audit trail of which slots existed).
+- `meet_poll_vote.UNIQUE(meeting_type_id, voter_email, slot_starts_at)`
+  + the "delete-then-insert" replace pattern means a fast double-submit
+  could in theory cause a unique-violation on a race. The delete-then-
+  insert isn't wrapped in a transaction; if it surfaces we'll wrap in
+  one. Not a v1 blocker.
+
 ## [0.11.1] — 2026-05-17
 
 ### Added: Fibre Meet Group event type

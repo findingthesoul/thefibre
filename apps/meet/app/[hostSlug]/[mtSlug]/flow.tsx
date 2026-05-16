@@ -31,6 +31,9 @@ type Props = {
     intake_form: { fields: IntakeField[] } | null;
     event_type?: string;
     capacity?: number | null;
+    fixed_starts_at?: string | null;
+    fixed_ends_at?: string | null;
+    poll_slots?: { starts_at: string; ends_at: string }[];
   };
 };
 
@@ -106,6 +109,39 @@ function detectTz(fallback: string): string {
 }
 
 export function BookingFlow({
+  ownerSlug,
+  ownerKind,
+  hostTimezone,
+  meetingType,
+}: Props) {
+  if (meetingType.event_type === 'one_off') {
+    return (
+      <OneOffFlow
+        ownerSlug={ownerSlug}
+        meetingType={meetingType}
+        hostTimezone={hostTimezone}
+      />
+    );
+  }
+  if (meetingType.event_type === 'poll') {
+    return (
+      <PollFlow
+        meetingType={meetingType}
+        hostTimezone={hostTimezone}
+      />
+    );
+  }
+  return (
+    <SlotPickerFlow
+      ownerSlug={ownerSlug}
+      ownerKind={ownerKind}
+      hostTimezone={hostTimezone}
+      meetingType={meetingType}
+    />
+  );
+}
+
+function SlotPickerFlow({
   ownerSlug,
   ownerKind,
   hostTimezone,
@@ -570,6 +606,362 @@ function CalendarGrid({
             </button>
           );
         })}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// ONE-OFF — single fixed time. No slot picker; just a Confirm Attendance CTA.
+// ──────────────────────────────────────────────────────────────────────────
+function OneOffFlow({
+  ownerSlug,
+  meetingType,
+  hostTimezone,
+}: {
+  ownerSlug: string;
+  meetingType: Props['meetingType'];
+  hostTimezone: string;
+}) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  const [tz, setTz] = useState<string>(() => detectTz(hostTimezone));
+  const [clock, setClock] = useState<Clock>('24h');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [answers, setAnswers] = useState<Record<string, unknown>>({});
+  const [error, setError] = useState<string | null>(null);
+
+  const fixed = meetingType.fixed_starts_at
+    ? new Date(meetingType.fixed_starts_at)
+    : null;
+
+  function submit() {
+    setError(null);
+    if (!fixed || !name.trim() || !email.trim()) {
+      setError('Name and email are required.');
+      return;
+    }
+    const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    start(async () => {
+      try {
+        const r = await publicFetch<{ booking: { id: string } }>(
+          '/api/v1/meet/public/bookings',
+          {
+            method: 'POST',
+            body: JSON.stringify({
+              meeting_type_id: meetingType.id,
+              invitee_email: email.trim().toLowerCase(),
+              invitee_name: name.trim(),
+              invitee_answers: answers,
+              starts_at: fixed.toISOString(),
+              request_id: requestId,
+            }),
+          },
+        );
+        router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
+      } catch (e) {
+        if (e instanceof PublicApiError) {
+          if (e.status === 409) {
+            setError('This meeting is already full.');
+          } else {
+            setError(`Couldn't book (${e.status}). Please try again.`);
+          }
+        } else {
+          setError('Network error. Please try again.');
+        }
+      }
+    });
+  }
+
+  if (!fixed) {
+    return (
+      <p className="text-sm text-neutral-500">
+        The host hasn't set a time for this meeting yet.
+      </p>
+    );
+  }
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div className="rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm">
+        <div className="text-neutral-500 text-xs uppercase tracking-wider">
+          Scheduled for
+        </div>
+        <div className="mt-1 font-medium">
+          {new Intl.DateTimeFormat(undefined, {
+            timeZone: tz,
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: clock === 'ampm',
+          }).format(fixed)}{' '}
+          <span className="text-neutral-500">({tz})</span>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="b-name">Your name</Label>
+          <Input
+            id="b-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="b-email">Email</Label>
+          <Input
+            id="b-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+        {meetingType.intake_form && meetingType.intake_form.fields.length > 0 && (
+          <div className="pt-2 border-t border-neutral-200">
+            <IntakeFieldsRenderer
+              fields={meetingType.intake_form.fields}
+              answers={answers}
+              onChange={setAnswers}
+            />
+          </div>
+        )}
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-sm">
+          <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
+          <select
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
+          >
+            {tzOptions().map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setClock('24h')}
+              className={`px-2.5 py-1 rounded-[5px] font-medium ${clock === '24h' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
+            >
+              24h
+            </button>
+            <button
+              type="button"
+              onClick={() => setClock('ampm')}
+              className={`px-2.5 py-1 rounded-[5px] font-medium ${clock === 'ampm' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
+            >
+              AM/PM
+            </button>
+          </div>
+        </div>
+        <Button onClick={submit} disabled={pending}>
+          {pending ? 'Confirming…' : 'Confirm attendance'}
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────────────────────────────────
+// POLL — invitee ticks any subset of the host's candidate slots.
+// ──────────────────────────────────────────────────────────────────────────
+function PollFlow({
+  meetingType,
+  hostTimezone,
+}: {
+  meetingType: Props['meetingType'];
+  hostTimezone: string;
+}) {
+  const [pending, start] = useTransition();
+  const [tz, setTz] = useState<string>(() => detectTz(hostTimezone));
+  const [clock, setClock] = useState<Clock>('24h');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [picked, setPicked] = useState<Set<string>>(new Set());
+  const [error, setError] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  const slots = meetingType.poll_slots ?? [];
+
+  function toggle(iso: string) {
+    const next = new Set(picked);
+    if (next.has(iso)) next.delete(iso);
+    else next.add(iso);
+    setPicked(next);
+  }
+
+  function submit() {
+    setError(null);
+    if (!name.trim() || !email.trim()) {
+      setError('Name and email are required.');
+      return;
+    }
+    if (picked.size === 0) {
+      setError('Tick at least one slot you can attend.');
+      return;
+    }
+    start(async () => {
+      try {
+        await publicFetch('/api/v1/meet/public/poll-votes', {
+          method: 'POST',
+          body: JSON.stringify({
+            meeting_type_id: meetingType.id,
+            voter_email: email.trim().toLowerCase(),
+            voter_name: name.trim(),
+            slot_starts_ats: Array.from(picked),
+          }),
+        });
+        setDone(true);
+      } catch (e) {
+        setError(
+          e instanceof PublicApiError ? `Couldn't submit (${e.status}).` : 'Network error.',
+        );
+      }
+    });
+  }
+
+  if (slots.length === 0) {
+    return (
+      <p className="text-sm text-neutral-500">
+        The host hasn't added candidate slots yet. Check back soon.
+      </p>
+    );
+  }
+
+  if (done) {
+    return (
+      <div className="max-w-lg rounded-md border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+        Thanks — your vote is in. We'll email you once the host confirms a time.
+      </div>
+    );
+  }
+
+  return (
+    <div className="max-w-lg space-y-6">
+      <div>
+        <h2 className="text-base font-semibold tracking-tight text-neutral-900">
+          Which of these can you attend?
+        </h2>
+        <p className="mt-1 text-sm text-neutral-500">
+          Tick every slot that works. The host picks the winner from everyone's votes.
+        </p>
+      </div>
+
+      <ul className="space-y-2">
+        {slots.map((s) => {
+          const date = new Date(s.starts_at);
+          const iso = date.toISOString();
+          const checked = picked.has(iso);
+          return (
+            <li key={iso}>
+              <label
+                className={`flex items-center gap-3 rounded-md border px-3 py-2.5 text-sm cursor-pointer ${
+                  checked
+                    ? 'border-neutral-900 bg-neutral-100'
+                    : 'border-neutral-200 bg-white hover:bg-neutral-50'
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(iso)}
+                />
+                <span>
+                  {new Intl.DateTimeFormat(undefined, {
+                    timeZone: tz,
+                    weekday: 'short',
+                    day: 'numeric',
+                    month: 'short',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    hour12: clock === 'ampm',
+                  }).format(date)}
+                </span>
+              </label>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="space-y-4">
+        <div>
+          <Label htmlFor="p-name">Your name</Label>
+          <Input
+            id="p-name"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
+        </div>
+        <div>
+          <Label htmlFor="p-email">Email</Label>
+          <Input
+            id="p-email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+          />
+        </div>
+      </div>
+
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+          {error}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 text-sm">
+          <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
+          <select
+            value={tz}
+            onChange={(e) => setTz(e.target.value)}
+            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
+          >
+            {tzOptions().map((option) => (
+              <option key={option} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+          <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
+            <button
+              type="button"
+              onClick={() => setClock('24h')}
+              className={`px-2.5 py-1 rounded-[5px] font-medium ${clock === '24h' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
+            >
+              24h
+            </button>
+            <button
+              type="button"
+              onClick={() => setClock('ampm')}
+              className={`px-2.5 py-1 rounded-[5px] font-medium ${clock === 'ampm' ? 'bg-neutral-900 text-white' : 'text-neutral-600'}`}
+            >
+              AM/PM
+            </button>
+          </div>
+        </div>
+        <Button onClick={submit} disabled={pending}>
+          {pending ? 'Submitting…' : 'Submit votes'}
+        </Button>
       </div>
     </div>
   );

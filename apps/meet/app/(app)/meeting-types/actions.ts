@@ -39,13 +39,27 @@ function bodyFromForm(formData: FormData) {
     }
   }
   const eventType = strOrNull(formData.get('event_type')) ?? 'one_on_one';
-  // Capacity is only meaningful for group MTs. Null out otherwise so we don't
-  // store a stale value when an MT is converted away from group later.
+  // Capacity is meaningful for group + one_off MTs (single-attendee one-offs
+  // omit the field, which falls back to 1 on the server).
   const capacityRaw = strOrNull(formData.get('capacity'));
   const capacity =
-    eventType === 'group' && capacityRaw
+    (eventType === 'group' || eventType === 'one_off') && capacityRaw
       ? Math.max(1, parseInt(capacityRaw, 10) || 0) || null
       : null;
+  // One-off MTs carry a fixed date/time. Parse from local datetime-input value
+  // (YYYY-MM-DDTHH:MM) using the duration to derive ends_at. Null out for
+  // every other event type so a one-off→group conversion doesn't leave stale data.
+  const fixedRaw = strOrNull(formData.get('fixed_starts_at_local'));
+  const duration = intOr(formData.get('duration_minutes'), 30);
+  let fixed_starts_at: string | null = null;
+  let fixed_ends_at: string | null = null;
+  if (eventType === 'one_off' && fixedRaw) {
+    const start = new Date(fixedRaw);
+    if (!Number.isNaN(start.getTime())) {
+      fixed_starts_at = start.toISOString();
+      fixed_ends_at = new Date(start.getTime() + duration * 60_000).toISOString();
+    }
+  }
   return {
     slug: strOrNull(formData.get('slug')) ?? '',
     name: strOrNull(formData.get('name')) ?? '',
@@ -61,9 +75,45 @@ function bodyFromForm(formData: FormData) {
     team_id: teamId && teamId !== 'personal' ? teamId : null,
     event_type: eventType,
     capacity,
+    fixed_starts_at,
+    fixed_ends_at,
     working_hours_override,
     conflict_calendar_ids,
   };
+}
+
+// Replace the candidate-slot list on a poll MT.
+export async function savePollSlots(
+  mtId: string,
+  slots: { starts_at: string; ends_at: string }[],
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${mtId}/poll-slots`, {
+      method: 'PUT',
+      body: JSON.stringify({ slots }),
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath(`/meeting-types/${mtId}`);
+  return { ok: true };
+}
+
+// Host picks a winning poll slot — converts the MT into a one_off.
+export async function confirmPollSlot(
+  mtId: string,
+  starts_at: string,
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${mtId}/confirm-poll-slot`, {
+      method: 'POST',
+      body: JSON.stringify({ starts_at }),
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath(`/meeting-types/${mtId}`);
+  return { ok: true };
 }
 
 export async function createMeetingType(

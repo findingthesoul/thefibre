@@ -217,9 +217,20 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
 
   if (mErr || !mt) return c.json({ error: 'meeting type not found' }, 404);
 
+  // Poll MTs: attach candidate slots so the public page can render checkboxes.
+  let pollSlots: { starts_at: string; ends_at: string }[] | undefined;
+  if (mt.event_type === 'poll') {
+    const { data: ps } = await adminClient
+      .from('meet_poll_slot')
+      .select('starts_at, ends_at')
+      .eq('meeting_type_id', mt.id)
+      .order('starts_at', { ascending: true });
+    pollSlots = ps ?? [];
+  }
+
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
   return c.json({
-    meeting_type: mt,
+    meeting_type: { ...mt, poll_slots: pollSlots },
     host: {
       id: host.id,
       slug: host.slug,
@@ -255,7 +266,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -265,6 +276,39 @@ meetRoutes.post('/public/bookings', async (c) => {
 
   const starts0 = new Date(data.starts_at);
   const ends0 = new Date(starts0.getTime() + mt.duration_minutes * 60 * 1000);
+
+  // One-off: starts_at must equal the fixed window the host configured.
+  // Reject anything else so an invitee can't synthesise a non-fixed slot.
+  // Poll MTs don't accept direct bookings via this endpoint at all — the
+  // host converts a winning poll slot into a booking via a separate route.
+  if (mt.event_type === 'poll') {
+    return c.json({ error: 'poll meeting types are not booked directly', code: 'poll_not_bookable' }, 400);
+  }
+  if (mt.event_type === 'one_off') {
+    if (!mt.fixed_starts_at) {
+      return c.json({ error: 'one-off has no fixed time set', code: 'no_fixed_time' }, 409);
+    }
+    const fixed = new Date(mt.fixed_starts_at).toISOString();
+    if (starts0.toISOString() !== fixed) {
+      return c.json({ error: 'starts_at does not match the fixed slot', code: 'wrong_fixed_time' }, 409);
+    }
+    // Capacity check — reuse v0.11.1 semantics: count confirmed bookings on
+    // (mt.id, starts_at). If capacity is null, single-attendee (1) is the cap.
+    const cap = mt.capacity && mt.capacity > 0 ? mt.capacity : 1;
+    const { count: bookedCount, error: cntErr } = await adminClient
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('meeting_type_id', mt.id)
+      .eq('starts_at', starts0.toISOString())
+      .eq('status', 'confirmed');
+    if (cntErr) {
+      console.error('[meet bookings] one-off capacity count failed', cntErr);
+      return c.json({ error: 'capacity check failed' }, 500);
+    }
+    if ((bookedCount ?? 0) >= cap) {
+      return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
+    }
+  }
 
   // Group event types: enforce per-slot capacity. Multiple invitees share the
   // same (meeting_type_id, starts_at) tuple; once `capacity` confirmed
@@ -592,12 +636,35 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, working_hours_override, conflict_calendar_ids, event_type, capacity',
+      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, working_hours_override, conflict_calendar_ids, event_type, capacity, fixed_starts_at, fixed_ends_at',
     )
     .eq('host_id', host.id)
     .eq('slug', mtSlug)
     .single();
   if (!mt || !mt.is_active) return c.json({ error: 'meeting type not found' }, 404);
+
+  // One-off: there is exactly one slot. Skip working-hours generation
+  // entirely; just return the fixed window (subject to capacity).
+  if (mt.event_type === 'one_off') {
+    if (!mt.fixed_starts_at) return c.json({ slots: [] });
+    const cap = mt.capacity && mt.capacity > 0 ? mt.capacity : 1;
+    const { count } = await adminClient
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('meeting_type_id', mt.id)
+      .eq('starts_at', mt.fixed_starts_at)
+      .eq('status', 'confirmed');
+    const booked = count ?? 0;
+    if (booked >= cap) return c.json({ slots: [], slots_meta: [] });
+    const iso = new Date(mt.fixed_starts_at).toISOString();
+    return c.json({
+      slots: [iso],
+      slots_meta: [{ starts_at: iso, capacity: cap, booked, remaining: cap - booked }],
+    });
+  }
+
+  // Poll: no slots to book through this endpoint. Voters use /public/poll-votes.
+  if (mt.event_type === 'poll') return c.json({ slots: [] });
 
   const now = new Date();
   const from = fromParam ? new Date(fromParam) : now;
@@ -1507,7 +1574,13 @@ const MeetingTypeUpsert = z.object({
   team_id: z.string().uuid().nullable().optional(),
   // Event-routing strategy. Only team-owned types may use round_robin or
   // collective in phase 1.
-  event_type: z.enum(['one_on_one', 'round_robin', 'collective', 'group']).optional(),
+  event_type: z
+    .enum(['one_on_one', 'round_robin', 'collective', 'group', 'one_off', 'poll'])
+    .optional(),
+  // Fixed window for event_type='one_off'. Both must be present together,
+  // ends_at > starts_at. NULL otherwise.
+  fixed_starts_at: z.string().datetime().nullable().optional(),
+  fixed_ends_at: z.string().datetime().nullable().optional(),
   // Per-MT availability override (Schedule shape). NULL = use host's default.
   working_hours_override: z
     .record(z.array(z.object({ start: z.string(), end: z.string() })))
@@ -1570,6 +1643,179 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
     .single();
   if (error) return c.json({ error: error.message }, 500);
   return c.json(data);
+});
+
+// ===========================================================================
+// POLL — candidate slots + invitee votes for event_type='poll' meeting types.
+// ===========================================================================
+
+const PollSlotsReplace = z.object({
+  slots: z
+    .array(
+      z.object({
+        starts_at: z.string().datetime(),
+        ends_at: z.string().datetime(),
+      }),
+    )
+    .min(2)
+    .max(5),
+});
+
+// GET /api/v1/meet/meeting-types/:id/poll — slots + votes for the host UI.
+meetRoutes.get('/meeting-types/:id/poll', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // RLS on meet_meeting_type ensures this only works if the caller can see it.
+  const { data: mt, error: mErr } = await db
+    .from('meet_meeting_type')
+    .select('id, event_type')
+    .eq('id', id)
+    .single();
+  if (mErr || !mt) return c.json({ error: 'meeting type not found' }, 404);
+  const [{ data: slots }, { data: votes }] = await Promise.all([
+    db
+      .from('meet_poll_slot')
+      .select('starts_at, ends_at')
+      .eq('meeting_type_id', id)
+      .order('starts_at', { ascending: true }),
+    db
+      .from('meet_poll_vote')
+      .select('voter_email, voter_name, slot_starts_at, created_at')
+      .eq('meeting_type_id', id),
+  ]);
+  return c.json({ slots: slots ?? [], votes: votes ?? [] });
+});
+
+// PUT /api/v1/meet/meeting-types/:id/poll-slots — replace candidate slots.
+meetRoutes.put('/meeting-types/:id/poll-slots', async (c) => {
+  const id = c.req.param('id');
+  const body = PollSlotsReplace.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // Verify the caller can see the MT (RLS handles auth).
+  const { data: mt, error: mErr } = await db
+    .from('meet_meeting_type')
+    .select('id')
+    .eq('id', id)
+    .single();
+  if (mErr || !mt) return c.json({ error: 'meeting type not found' }, 404);
+  // Replace: drop existing slots then insert new. Votes cascade with slot
+  // removal? No — meet_poll_vote references the MT, not the slot. Stale votes
+  // for removed slots become orphaned; the host UI just ignores them.
+  const { error: dErr } = await adminClient
+    .from('meet_poll_slot')
+    .delete()
+    .eq('meeting_type_id', id);
+  if (dErr) return c.json({ error: dErr.message }, 500);
+  const rows = body.data.slots.map((s) => ({
+    meeting_type_id: id,
+    starts_at: s.starts_at,
+    ends_at: s.ends_at,
+  }));
+  const { error: iErr } = await adminClient.from('meet_poll_slot').insert(rows);
+  if (iErr) return c.json({ error: iErr.message }, 500);
+  return c.json({ ok: true, slots: rows });
+});
+
+// POST /api/v1/meet/meeting-types/:id/confirm-poll-slot — host picks the
+// winning slot. We create a normal meet_booking for one of the voters'
+// emails (the host can re-invite the others manually); for v1 the chosen
+// slot becomes one booking per voter who ticked it.
+const ConfirmPollBody = z.object({
+  starts_at: z.string().datetime(),
+});
+meetRoutes.post('/meeting-types/:id/confirm-poll-slot', async (c) => {
+  const id = c.req.param('id');
+  const body = ConfirmPollBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // RLS gate.
+  const { data: mt, error: mErr } = await db
+    .from('meet_meeting_type')
+    .select('id, event_type, host_id, workspace_id, duration_minutes')
+    .eq('id', id)
+    .single();
+  if (mErr || !mt) return c.json({ error: 'meeting type not found' }, 404);
+  if (mt.event_type !== 'poll') {
+    return c.json({ error: 'not a poll meeting type' }, 400);
+  }
+  // Verify the slot was one of the candidates.
+  const { data: slot } = await adminClient
+    .from('meet_poll_slot')
+    .select('starts_at, ends_at')
+    .eq('meeting_type_id', id)
+    .eq('starts_at', body.data.starts_at)
+    .maybeSingle();
+  if (!slot) return c.json({ error: 'slot is not a candidate' }, 404);
+  // Flip the MT into a one_off + capacity = (number of voters who picked
+  // this slot, max). We don't try to auto-create bookings here — the host
+  // can do that with normal flow now that the MT has a fixed time.
+  // Simpler v1: just mark the MT as one_off with the chosen window.
+  const { error: uErr } = await adminClient
+    .from('meet_meeting_type')
+    .update({
+      event_type: 'one_off',
+      fixed_starts_at: slot.starts_at,
+      fixed_ends_at: slot.ends_at,
+    })
+    .eq('id', id);
+  if (uErr) return c.json({ error: uErr.message }, 500);
+  // Clean up: votes + remaining poll slots stay in the table as history but
+  // the MT no longer reads them. (Erasure handled via cascading FK on delete.)
+  return c.json({ ok: true, converted_to: 'one_off' });
+});
+
+// POST /api/v1/meet/public/poll-votes — invitee submits their picks.
+// Bypasses auth (public endpoint, like /public/bookings). Body shape:
+//   { meeting_type_id, voter_email, voter_name, slot_starts_ats: string[] }
+const PublicPollVoteBody = z.object({
+  meeting_type_id: z.string().uuid(),
+  voter_email: z.string().email().toLowerCase(),
+  voter_name: z.string().min(1).max(200),
+  slot_starts_ats: z.array(z.string().datetime()).min(1).max(5),
+});
+meetRoutes.post('/public/poll-votes', async (c) => {
+  const body = PublicPollVoteBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const data = body.data;
+  // Verify MT exists and is a poll.
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select('id, event_type, is_active')
+    .eq('id', data.meeting_type_id)
+    .single();
+  if (!mt || !mt.is_active || mt.event_type !== 'poll') {
+    return c.json({ error: 'poll not available' }, 404);
+  }
+  // Verify each ticked slot is actually a candidate.
+  const { data: candidates } = await adminClient
+    .from('meet_poll_slot')
+    .select('starts_at')
+    .eq('meeting_type_id', data.meeting_type_id);
+  const valid = new Set((candidates ?? []).map((s) => new Date(s.starts_at).toISOString()));
+  const filtered = data.slot_starts_ats.filter((s) => valid.has(new Date(s).toISOString()));
+  if (filtered.length === 0) return c.json({ error: 'no valid slots ticked' }, 400);
+  // Replace this voter's existing rows so re-submission overrides.
+  await adminClient
+    .from('meet_poll_vote')
+    .delete()
+    .eq('meeting_type_id', data.meeting_type_id)
+    .eq('voter_email', data.voter_email);
+  const rows = filtered.map((s) => ({
+    meeting_type_id: data.meeting_type_id,
+    voter_email: data.voter_email,
+    voter_name: data.voter_name,
+    slot_starts_at: s,
+  }));
+  const { error: iErr } = await adminClient.from('meet_poll_vote').insert(rows);
+  if (iErr) {
+    console.error('[poll-votes] insert failed', iErr);
+    return c.json({ error: iErr.message }, 500);
+  }
+  return c.json({ ok: true, recorded: rows.length });
 });
 
 // GET /api/v1/meet/bookings — bookings I host.
@@ -2250,14 +2496,23 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, host:host_id (slug, user:user_id (full_name, avatar_url))',
+      'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, event_type, capacity, fixed_starts_at, fixed_ends_at, host:host_id (slug, user:user_id (full_name, avatar_url))',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
     .eq('is_active', true)
     .single();
   if (!mt) return c.json({ error: 'meeting type not found' }, 404);
-  return c.json({ ...mt, team });
+  let pollSlots: { starts_at: string; ends_at: string }[] | undefined;
+  if (mt.event_type === 'poll') {
+    const { data: ps } = await adminClient
+      .from('meet_poll_slot')
+      .select('starts_at, ends_at')
+      .eq('meeting_type_id', mt.id)
+      .order('starts_at', { ascending: true });
+    pollSlots = ps ?? [];
+  }
+  return c.json({ ...mt, poll_slots: pollSlots, team });
 });
 
 // GET /api/v1/meet/public/team/:team_slug/mt/:mt_slug/slots
@@ -2280,12 +2535,31 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity',
+      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, fixed_starts_at, fixed_ends_at',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
     .single();
   if (!mt || !mt.is_active) return c.json({ error: 'meeting type not found' }, 404);
+
+  if (mt.event_type === 'one_off') {
+    if (!mt.fixed_starts_at) return c.json({ slots: [] });
+    const cap = mt.capacity && mt.capacity > 0 ? mt.capacity : 1;
+    const { count } = await adminClient
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('meeting_type_id', mt.id)
+      .eq('starts_at', mt.fixed_starts_at)
+      .eq('status', 'confirmed');
+    const booked = count ?? 0;
+    if (booked >= cap) return c.json({ slots: [], slots_meta: [] });
+    const iso = new Date(mt.fixed_starts_at).toISOString();
+    return c.json({
+      slots: [iso],
+      slots_meta: [{ starts_at: iso, capacity: cap, booked, remaining: cap - booked }],
+    });
+  }
+  if (mt.event_type === 'poll') return c.json({ slots: [] });
 
   const now = new Date();
   const from = fromParam ? new Date(fromParam) : now;
