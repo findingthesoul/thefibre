@@ -72,7 +72,11 @@ export default async function MeetAppLayout({
           current={{ slug: 'fibre-meet', name: APPS['fibre-meet'].name }}
           apps={switcherApps}
         />
-        <main className="flex-1 overflow-y-auto">{children}</main>
+        {/* Soft-cream content surface so the white cards inside
+         (Scope, Details, lists, dialogs) lift cleanly off the page. */}
+        <main className="flex-1 overflow-y-auto bg-surface-sunken">
+          {children}
+        </main>
       </div>
     </div>
   );
