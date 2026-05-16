@@ -122,10 +122,13 @@ export function defaultEmailFrom(env?: Record<string, string | undefined>): stri
 }
 
 /** Single-line legal footer used at the bottom of public emails + landing
- *  pages. e.g. "The Fibre · Solidarity Lab B.V. · Hosted in the EU". */
+ *  pages. e.g. "The Fibre · Rotterdam, The Netherlands · Hosted in the EU".
+ *  Excludes the legal entity name (ENTITY.name) by design — it stays in
+ *  branding.ts for internal billing / invoicing but isn't on public brand
+ *  surfaces. */
 export function legalFooterLine(): string {
   const platform = APPS[PLATFORM_APP_ID];
-  return `${platform.name} · ${ENTITY.name} · ${ENTITY.hostedLine}`;
+  return `${platform.name} · ${ENTITY.address} · ${ENTITY.hostedLine}`;
 }
 
 /** The "— The Fibre" email sign-off. */

@@ -9,7 +9,13 @@
 // All copy reads from packages/shared/src/branding.ts so a rename or
 // white-label propagates without touching this file.
 
-import { APPS, ENTITY, FOOTER_LINKS, PLATFORM_APP_ID } from '@thefibre/shared';
+import {
+  APPS,
+  ENTITY,
+  FOOTER_LINKS,
+  PLATFORM_APP_ID,
+  legalFooterLine,
+} from '@thefibre/shared';
 
 const PLATFORM = APPS[PLATFORM_APP_ID];
 
@@ -164,7 +170,7 @@ function buildText({ args, copy }: { args: RenderArgs; copy: Copy }): string {
     `To make sure our emails arrive, please add ${ENTITY.whitelistEmail} to your contacts.`,
   );
   lines.push(
-    `${PLATFORM.name} · ${ENTITY.name} · ${ENTITY.address} · ${ENTITY.hostedLine}`,
+    legalFooterLine(),
   );
   return lines.join('\n');
 }
@@ -258,7 +264,7 @@ function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
           </p>
 
           <p style="margin: 8px 0 0; font-size: 12px; color: #a3a3a3;">
-            ${escape(PLATFORM.name)} · ${escape(ENTITY.name)} · ${escape(ENTITY.address)} · ${escape(ENTITY.hostedLine)}
+            ${escape(legalFooterLine())}
           </p>
         </td></tr>
       </table>
