@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
+import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { TeamForm } from '../form';
 import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
 import { VisibilityCard } from './visibility';
@@ -178,24 +179,38 @@ export default async function TeamDetailPage({
           </EmptyState>
         ) : (
           <ListGroup>
-            {team.meeting_types.map((mt) => (
-              <ListRow
-                key={mt.id}
-                href={`/meeting-types/${mt.id}`}
-                primary={mt.name}
-                secondary={`meet.thefibre.app/${team.slug}/${mt.slug}`}
-                meta={
-                  <>
-                    {!mt.is_active && (
-                      <span className="uppercase tracking-wider text-ink-muted">
-                        Hidden
-                      </span>
-                    )}
-                    <span>{mt.duration_minutes} min</span>
-                  </>
-                }
-              />
-            ))}
+            {team.meeting_types.map((mt) => {
+              const bookingPath = `/${team.slug}/${mt.slug}`;
+              return (
+                <ListRow
+                  key={mt.id}
+                  href={`/meeting-types/${mt.id}`}
+                  primary={mt.name}
+                  secondary={`meet.thefibre.app${bookingPath}`}
+                  meta={
+                    <>
+                      {!mt.is_active && (
+                        <span className="uppercase tracking-wider text-ink-muted">
+                          Hidden
+                        </span>
+                      )}
+                      <span>{mt.duration_minutes} min</span>
+                    </>
+                  }
+                  trailing={
+                    mt.is_active && (
+                      <div className="flex items-center gap-1">
+                        <CopyLinkButton
+                          url={bookingPath}
+                          label="Copy booking link"
+                        />
+                        <OpenBookingLink href={bookingPath} />
+                      </div>
+                    )
+                  }
+                />
+              );
+            })}
           </ListGroup>
         )}
       </section>

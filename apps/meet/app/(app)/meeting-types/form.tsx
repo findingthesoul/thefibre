@@ -163,7 +163,11 @@ export function MeetingTypeForm({
 
   const showEventType = scope === 'team' && teams.length > 0;
   const effectiveEventType = scope === 'team' ? eventType : 'one_on_one';
-  const effectiveTeamId = scope === 'team' && teamId ? teamId : '';
+  // Fall back to the first team when the user has flipped scope to "team"
+  // but hasn't actively changed the Team select. Without this fallback the
+  // hidden team_id input posts "" and the server stores the MT as personal.
+  const effectiveTeamId =
+    scope === 'team' ? teamId || teams[0]?.id || '' : '';
 
   // Slug prefix depends on scope. For personal: meet.thefibre.app/<host-slug>/
   // For team: meet.thefibre.app/<team-slug>/
