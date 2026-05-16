@@ -1,6 +1,12 @@
-# Cross-app entity mapping — design proposal
+# Cross-app entity mapping
 
-_Draft, 2026-05-17. For discussion before any code._
+_Originally proposed 2026-05-17. Tables, routes, and manifest format
+shipped in v0.10.x. The "Open questions" at the bottom are still open;
+the rest is built._
+
+**See also:** [`docs/third-party-app-guide.md`](third-party-app-guide.md)
+for the step-by-step "how do I integrate an external app?" walkthrough,
+and `apps/api/scripts/demo-third-party-app.mjs` for a runnable example.
 
 ## The question
 
@@ -271,3 +277,64 @@ Three reasons:
 **Defer:** the per-person "other apps" tab, the install-review screen, the per-scope permission UI. Those land when we wire the first 3rd-party connector.
 
 If you say go, I draft the tables + manifest format + the two API endpoints (`POST /apps/:slug/links`, `GET /persons/by-app-link/...`) in one commit. Migrating existing Meet entities to use `app_record_link` is a follow-up that doesn't touch behaviour.
+
+---
+
+## What actually shipped (status as of v0.10.1)
+
+### Tables — shipped
+`supabase/migrations/20260517100000_app_entity_mapping.sql` created both
+`app_entity_mapping` and `app_record_link` with the schemas above
+(`match_on` ended up as `text[]`, not the per-field jsonb originally
+sketched — apps pass field *names* in the manifest, field *values* at
+runtime). RLS: read for any workspace member, write via service_role
+(the API). Meet's three mappings are backfilled for every workspace at
+migration time.
+
+### Routes — shipped
+All under `apps/api/src/routes/apps.ts`, mounted at `/api/v1/apps`:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/:slug/links` | Link an app record to a person (creates the person if `create_if_missing=true`). |
+| `GET` | `/:slug/links/:app_entity/:app_record_id` | Reverse lookup → `{ platform_entity, platform_id, linked_at }`. |
+| `GET` | `/:slug/manifest` | Current entity mappings for the app in this workspace. |
+| `GET` | `/:slug/persons/:app_entity/:app_record_id` | Reverse lookup + fetch full person in one call. |
+
+All require the standard auth: `X-App-ID` header (one of the
+first-party slugs in `app-context.ts`) + Supabase JWT with
+`workspace_id` and `app_user_id` claims. `POST /links` only handles
+person mappings today; org mappings will follow when a sales-side app
+needs them.
+
+### Manifest format — shipped
+`apps/meet/fibre.app.json` is the canonical worked example.
+`fibre-app-manifest.v1.json` is referenced but the schema file itself
+isn't published yet — the doc above is the authoritative spec.
+
+### Still open (the gaps a third party hits today)
+1. **No external-app identity.** `X-App-ID` is a hardcoded enum of
+   first-party slugs (`fibre-platform`, `fibre-meet`, `the-thread`,
+   `fibre-sales`, `fibre-learn`). A truly external app can't pass its
+   own slug yet. Resolution likely: extend the enum from `public.app`
+   at startup, plus issue API keys per (workspace × app).
+2. **No app-registration endpoint.** New apps are inserted via
+   migrations. There's no `POST /api/v1/apps` for self-registration.
+3. **No bulk-link endpoint.** `POST /:slug/links:bulk` from the
+   original doc isn't built; initial syncs do one POST per record.
+4. **No curator-data write API.** `PATCH /api/v1/persons/:id/curator-data/:app_slug`
+   doesn't exist. Apps with curator fields write them via their own
+   table (e.g. `person_change_context`) — fine for first-party, opaque
+   for third party.
+5. **Scopes parsed but unenforced.** `scopes_requested` in the manifest
+   isn't checked against the calling JWT on platform reads/writes.
+6. **No install-review UI.** Manifests are read at startup for
+   first-party apps; admin-approval flow not built.
+7. **Meet doesn't yet write `app_record_link`.** `meet_booking` rows
+   carry `invitee_person_id` but the link table stays empty for
+   bookings. Filling it would let "what does Meet know about this
+   person?" queries hit the link table uniformly. Tracked as a
+   follow-up — behaviour-preserving wiring change.
+
+For the smallest demo that exercises everything that *is* built, see
+`apps/api/scripts/demo-third-party-app.mjs`.

@@ -6,6 +6,37 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.10.2] — 2026-05-16
+
+### Cross-app entity mapping — docs + runnable third-party demo
+
+The schema (`app_entity_mapping` + `app_record_link`) and the four
+`/api/v1/apps/...` routes have been live since v0.10.x but only Meet
+used them internally. This release closes the documentation gap so an
+external integrator can pick up the surface end-to-end, plus a worked
+example script.
+
+### Added
+- **`docs/third-party-app-guide.md`** — step-by-step walkthrough:
+  manifest format → register the app + mappings → link records → push
+  activities → reverse lookup. Honest about every gap a third party
+  hits today (no external `X-App-ID`, no API keys, no self-register
+  endpoint, no bulk linking, no curator-data write API, scopes
+  unenforced, custom activity types unmerged).
+- **`apps/api/scripts/demo-third-party-app.mjs`** — ~180-line idempotent
+  Node script that simulates a "Mailchimp" connector: registers the
+  app, declares an entity mapping, links three subscribers (two
+  existing EBBF persons + one created via `create_if_missing`), pushes
+  activities, and reverse-looks-up the link + full person row. Run
+  with `FIBRE_JWT=… node scripts/demo-third-party-app.mjs`.
+
+### Changed
+- **`docs/cross-app-entity-mapping.md`** — removed the "draft, before
+  any code" framing now that everything in §"The model" has shipped.
+  Added a "What actually shipped" section that maps each piece of the
+  proposal to a file (migration / route / manifest) and lists the seven
+  still-open gaps.
+
 ## [0.10.1] — 2026-05-16
 
 ### Per-app curator-data labelling reaches the org side
