@@ -1114,9 +1114,15 @@ meetRoutes.post('/internal-team', async (c) => {
 });
 
 // ===========================================================================
-// Contacts — people who've booked with anyone in the workspace, with their
-// last-booked date. Aggregates over meet_booking; one row per invitee_email
-// in the workspace. Read-only for now.
+// Contacts — people Meet has a reason to know about.
+//
+// Brief §5 ("the app justifies the field") and §13 (data wall): Meet is
+// scoped to its own slice of the contact graph, not the whole workspace.
+// A person appears here iff at least one of:
+//   * they've been an invitee on a meet_booking, OR
+//   * they're a member of a meet_team in this workspace
+// The `source` field on each row explains *why* they're surfaced, so the
+// UI can show the justification (and so future audits can replay it).
 // ===========================================================================
 
 meetRoutes.get('/contacts', async (c) => {
@@ -1124,37 +1130,64 @@ meetRoutes.get('/contacts', async (c) => {
   const url = new URL(c.req.url);
   const q = (url.searchParams.get('q') ?? '').trim().toLowerCase();
 
-  // Source of truth: public.person — the platform contact graph (brief §2).
-  // Meet decorates each person with its own booking summary (the curator
-  // data that Meet justifies).
+  // 1) Booking summary per invitee email in this workspace.
+  const { data: bookings } = await adminClient
+    .from('meet_booking')
+    .select('invitee_email, starts_at')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('starts_at', { ascending: false })
+    .limit(5000);
+  const bookingSummary = new Map<string, { last: string; count: number }>();
+  for (const b of bookings ?? []) {
+    const email = (b.invitee_email ?? '').toLowerCase();
+    if (!email) continue;
+    const cur = bookingSummary.get(email);
+    if (!cur) bookingSummary.set(email, { last: b.starts_at, count: 1 });
+    else cur.count += 1;
+  }
+
+  // 2) Team-member user_ids in this workspace.
+  const { data: teamRows } = await adminClient
+    .from('meet_team_member')
+    .select('user_id, team:meet_team!inner(workspace_id)')
+    .eq('team.workspace_id', ctx.workspaceId);
+  const teamUserIds = new Set<string>(
+    (teamRows ?? []).map((r) => r.user_id as string).filter(Boolean),
+  );
+
+  // 3) Fetch persons that match either source.
+  const bookingEmails = Array.from(bookingSummary.keys());
+  const teamIds = Array.from(teamUserIds);
+  if (bookingEmails.length === 0 && teamIds.length === 0) {
+    return c.json({ items: [] });
+  }
+
+  // PostgREST `or` filter: email in (...) or user_id in (...).
+  const orClauses: string[] = [];
+  if (bookingEmails.length) {
+    orClauses.push(`email.in.(${bookingEmails.map((e) => `"${e}"`).join(',')})`);
+  }
+  if (teamIds.length) {
+    orClauses.push(`user_id.in.(${teamIds.join(',')})`);
+  }
   const { data: people, error } = await adminClient
     .from('person')
     .select('id, email, first_name, last_name, user_id')
     .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)
+    .or(orClauses.join(','))
     .limit(5000);
   if (error) return c.json({ error: error.message }, 500);
-
-  // Booking summary per email in this workspace.
-  const { data: bookings } = await adminClient
-    .from('meet_booking')
-    .select('invitee_email, starts_at, status')
-    .eq('workspace_id', ctx.workspaceId)
-    .order('starts_at', { ascending: false })
-    .limit(5000);
-  const summary = new Map<string, { last: string; count: number }>();
-  for (const b of bookings ?? []) {
-    const email = b.invitee_email;
-    if (!email) continue;
-    const cur = summary.get(email);
-    if (!cur) summary.set(email, { last: b.starts_at, count: 1 });
-    else cur.count += 1;
-  }
 
   let items = (people ?? []).map((p) => {
     const fullName = [p.first_name, p.last_name].filter(Boolean).join(' ');
     const name = fullName.length ? fullName : null;
-    const s = p.email ? summary.get(p.email) : undefined;
+    const email = (p.email ?? '').toLowerCase();
+    const s = email ? bookingSummary.get(email) : undefined;
+    const isTeamMember = !!p.user_id && teamUserIds.has(p.user_id);
+    const sources: string[] = [];
+    if (s) sources.push('booking');
+    if (isTeamMember) sources.push('team');
     const domain = p.email && p.email.includes('@')
       ? p.email.split('@')[1] ?? null
       : null;
@@ -1164,8 +1197,10 @@ meetRoutes.get('/contacts', async (c) => {
       email: p.email,
       domain,
       is_user: !!p.user_id,
+      is_team_member: isTeamMember,
       meet_bookings: s?.count ?? 0,
       meet_last_booked_at: s?.last ?? null,
+      source: sources,
     };
   });
 

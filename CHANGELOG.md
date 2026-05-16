@@ -6,6 +6,34 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.10.4] — 2026-05-17
+
+### Fix: Meet was showing the full workspace contact graph
+
+Brief §5 ("the app justifies the field") and §13 (data wall) say each
+app sees what it has a reason to see. The Meet Contacts page was
+returning every `person` in the workspace — a quiet leak across the
+app boundary.
+
+### Changed
+- **`GET /api/v1/meet/contacts`** now scopes to persons Meet justifies
+  knowing about: invitees on any `meet_booking`, plus members of any
+  `meet_team` in the workspace. Two-source UNION, computed in the
+  route. Everyone else is no longer returned.
+- Each row carries a `source: ('booking' | 'team')[]` field plus
+  `is_team_member`, so the UI can explain *why* a person is surfaced
+  (and so future audits can replay the justification).
+- Meet Contacts page description updated to match. Two new chips on
+  each row: `Team` and `Booked`. Empty state now reads "No-one has
+  booked yet, and your teams have no members."
+
+### Why this matters
+This was the exact pattern the data wall is designed to prevent: an
+app sees data it didn't earn. The Fibre platform is the source of
+truth for identity; Meet only surfaces the slice tied to its own
+records. Sales, Learn, Thread will follow the same shape when they
+ship contact views.
+
 ## [0.10.3] — 2026-05-17
 
 ### Third-party apps can now identify themselves end-to-end

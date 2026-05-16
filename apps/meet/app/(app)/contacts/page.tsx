@@ -13,8 +13,10 @@ type Contact = {
   name: string | null;
   domain: string | null;
   is_user: boolean;
+  is_team_member: boolean;
   meet_bookings: number;
   meet_last_booked_at: string | null;
+  source: Array<'booking' | 'team'>;
 };
 
 export default async function ContactsPage({
@@ -37,7 +39,7 @@ export default async function ContactsPage({
     <PageContainer max="4xl">
       <PageHeader
         title="Contacts"
-        description="The workspace's contact graph, with Meet's booking history surfaced. Managed in The Fibre platform; Meet adds the booking column."
+        description="People Meet has a reason to know about — invitees on bookings, and members of your Meet teams. Identity is managed in The Fibre platform; Meet only surfaces the slice it justifies."
       />
 
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
@@ -48,7 +50,7 @@ export default async function ContactsPage({
 
       <section className="mt-6">
         {items.length === 0 ? (
-          <EmptyState>No bookings to surface contacts from yet.</EmptyState>
+          <EmptyState>No-one has booked yet, and your teams have no members — so Meet has no contacts to show.</EmptyState>
         ) : (
           <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {items.map((c) => (
@@ -58,9 +60,14 @@ export default async function ContactsPage({
               >
                 <div className="font-medium truncate flex items-center gap-2">
                   {c.name ?? '—'}
-                  {c.is_user && (
+                  {c.is_team_member && (
                     <span className="text-[9px] uppercase tracking-wider text-ink-muted border border-line rounded px-1 py-0.5">
-                      Member
+                      Team
+                    </span>
+                  )}
+                  {c.source.includes('booking') && (
+                    <span className="text-[9px] uppercase tracking-wider text-ink-muted border border-line rounded px-1 py-0.5">
+                      Booked
                     </span>
                   )}
                 </div>
