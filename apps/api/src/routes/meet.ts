@@ -255,7 +255,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -265,6 +265,25 @@ meetRoutes.post('/public/bookings', async (c) => {
 
   const starts0 = new Date(data.starts_at);
   const ends0 = new Date(starts0.getTime() + mt.duration_minutes * 60 * 1000);
+
+  // Group event types: enforce per-slot capacity. Multiple invitees share the
+  // same (meeting_type_id, starts_at) tuple; once `capacity` confirmed
+  // bookings exist for that tuple, reject with 409 "fully booked".
+  if (mt.event_type === 'group' && mt.capacity && mt.capacity > 0) {
+    const { count: bookedCount, error: cntErr } = await adminClient
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('meeting_type_id', mt.id)
+      .eq('starts_at', starts0.toISOString())
+      .eq('status', 'confirmed');
+    if (cntErr) {
+      console.error('[meet bookings] group capacity count failed', cntErr);
+      return c.json({ error: 'capacity check failed' }, 500);
+    }
+    if ((bookedCount ?? 0) >= mt.capacity) {
+      return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
+    }
+  }
 
   // Determine which host runs this booking.
   //  - one_on_one / group : mt.host_id
@@ -573,7 +592,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, working_hours_override, conflict_calendar_ids',
+      'id, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, working_hours_override, conflict_calendar_ids, event_type, capacity',
     )
     .eq('host_id', host.id)
     .eq('slug', mtSlug)
@@ -601,18 +620,33 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 
   // Busy intervals from existing meet_bookings for this host (any meeting
   // type). Confirmed only — cancelled bookings don't block.
+  // Group MTs: bookings on this MT itself do NOT block, since the slot
+  // stays open until capacity is reached. We track per-slot counts below.
   const { data: bookings } = await adminClient
     .from('meet_booking')
-    .select('starts_at, ends_at')
+    .select('starts_at, ends_at, meeting_type_id')
     .eq('host_id', host.id)
     .eq('status', 'confirmed')
     .gte('ends_at', from.toISOString())
     .lte('starts_at', cappedTo.toISOString());
 
-  const busy: BusyInterval[] = (bookings ?? []).map((b) => ({
-    start: new Date(b.starts_at),
-    end: new Date(b.ends_at),
-  }));
+  const isGroup = mt.event_type === 'group';
+  const busy: BusyInterval[] = (bookings ?? [])
+    .filter((b) => !(isGroup && b.meeting_type_id === mt.id))
+    .map((b) => ({
+      start: new Date(b.starts_at),
+      end: new Date(b.ends_at),
+    }));
+
+  // Per-slot booked counts for group MTs (keyed by starts_at ISO string).
+  const groupCounts: Record<string, number> = {};
+  if (isGroup) {
+    for (const b of bookings ?? []) {
+      if (b.meeting_type_id !== mt.id) continue;
+      const k = new Date(b.starts_at).toISOString();
+      groupCounts[k] = (groupCounts[k] ?? 0) + 1;
+    }
+  }
 
   // Layer in the host's Google Calendar freebusy if they're connected. The
   // meeting type can override which calendars to conflict-check; otherwise
@@ -660,7 +694,22 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
     now,
   });
 
-  return c.json({ slots: slots.map((d) => d.toISOString()) });
+  const slotsIso = slots.map((d) => d.toISOString());
+
+  if (isGroup && mt.capacity && mt.capacity > 0) {
+    const filtered: string[] = [];
+    const slotsMeta: { starts_at: string; capacity: number; booked: number; remaining: number }[] = [];
+    for (const s of slotsIso) {
+      const booked = groupCounts[s] ?? 0;
+      const remaining = mt.capacity - booked;
+      if (remaining <= 0) continue;
+      filtered.push(s);
+      slotsMeta.push({ starts_at: s, capacity: mt.capacity, booked, remaining });
+    }
+    return c.json({ slots: filtered, slots_meta: slotsMeta });
+  }
+
+  return c.json({ slots: slotsIso });
 });
 
 // POST /api/v1/meet/public/bookings/:id/cancel — invitee-initiated cancel.
@@ -1466,6 +1515,9 @@ const MeetingTypeUpsert = z.object({
     .optional(),
   // Per-MT conflict-calendar override. NULL = use host's defaults.
   conflict_calendar_ids: z.array(z.string().uuid()).nullable().optional(),
+  // Capacity for event_type='group' — max invitees per slot. NULL or absent
+  // means uncapped (only meaningful when event_type='group').
+  capacity: z.number().int().min(1).max(1000).nullable().optional(),
 });
 
 meetRoutes.post('/meeting-types', async (c) => {
@@ -2228,7 +2280,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active',
+      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
@@ -2274,7 +2326,35 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
     slots = generateSlots(h);
   }
 
-  return c.json({ slots: slots.map((d) => d.toISOString()) });
+  const slotsIso = slots.map((d) => d.toISOString());
+
+  // Group MTs (team-owned) — same capacity behaviour as the host endpoint.
+  if (mt.event_type === 'group' && mt.capacity && mt.capacity > 0) {
+    const { data: existing } = await adminClient
+      .from('meet_booking')
+      .select('starts_at')
+      .eq('meeting_type_id', mt.id)
+      .eq('status', 'confirmed')
+      .gte('starts_at', from.toISOString())
+      .lte('starts_at', cappedTo.toISOString());
+    const counts: Record<string, number> = {};
+    for (const b of existing ?? []) {
+      const k = new Date(b.starts_at).toISOString();
+      counts[k] = (counts[k] ?? 0) + 1;
+    }
+    const filtered: string[] = [];
+    const slotsMeta: { starts_at: string; capacity: number; booked: number; remaining: number }[] = [];
+    for (const s of slotsIso) {
+      const booked = counts[s] ?? 0;
+      const remaining = mt.capacity - booked;
+      if (remaining <= 0) continue;
+      filtered.push(s);
+      slotsMeta.push({ starts_at: s, capacity: mt.capacity, booked, remaining });
+    }
+    return c.json({ slots: filtered, slots_meta: slotsMeta });
+  }
+
+  return c.json({ slots: slotsIso });
 });
 
 // ---------------------------------------------------------------------------
@@ -2364,15 +2444,19 @@ async function buildPerHostArgs(
   if (!hosts || hosts.length === 0) return [];
 
   // All confirmed bookings touching the window for any of these hosts.
+  // For group MTs we omit bookings on the MT itself — the slot stays open
+  // (and shareable) until capacity is reached.
   const { data: bookings } = await adminClient
     .from('meet_booking')
-    .select('host_id, starts_at, ends_at')
+    .select('host_id, starts_at, ends_at, meeting_type_id')
     .in('host_id', hostIds)
     .eq('status', 'confirmed')
     .gte('ends_at', from.toISOString())
     .lte('starts_at', to.toISOString());
+  const isGroup = mt.event_type === 'group';
   const busyByHost = new Map<string, BusyInterval[]>();
   for (const b of bookings ?? []) {
+    if (isGroup && b.meeting_type_id === mt.id) continue;
     const list = busyByHost.get(b.host_id) ?? [];
     list.push({ start: new Date(b.starts_at), end: new Date(b.ends_at) });
     busyByHost.set(b.host_id, list);

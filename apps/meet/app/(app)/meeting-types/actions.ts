@@ -38,6 +38,14 @@ function bodyFromForm(formData: FormData) {
       // ignore
     }
   }
+  const eventType = strOrNull(formData.get('event_type')) ?? 'one_on_one';
+  // Capacity is only meaningful for group MTs. Null out otherwise so we don't
+  // store a stale value when an MT is converted away from group later.
+  const capacityRaw = strOrNull(formData.get('capacity'));
+  const capacity =
+    eventType === 'group' && capacityRaw
+      ? Math.max(1, parseInt(capacityRaw, 10) || 0) || null
+      : null;
   return {
     slug: strOrNull(formData.get('slug')) ?? '',
     name: strOrNull(formData.get('name')) ?? '',
@@ -51,7 +59,8 @@ function bodyFromForm(formData: FormData) {
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
     team_id: teamId && teamId !== 'personal' ? teamId : null,
-    event_type: strOrNull(formData.get('event_type')) ?? 'one_on_one',
+    event_type: eventType,
+    capacity,
     working_hours_override,
     conflict_calendar_ids,
   };

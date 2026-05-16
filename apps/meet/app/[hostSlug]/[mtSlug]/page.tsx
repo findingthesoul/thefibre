@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Clock, Video, MapPin } from 'lucide-react';
+import { Clock, Video, MapPin, Users } from 'lucide-react';
 import { APPS } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { BookingFlow } from './flow';
@@ -32,6 +32,8 @@ type MeetingType = {
   price_cents: number | null;
   price_currency: string | null;
   intake_form: IntakeForm | null;
+  event_type?: string;
+  capacity?: number | null;
 };
 
 type HostMtResp = { host: Host; meeting_type: MeetingType };
@@ -165,6 +167,12 @@ function Card({
                   <Video className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
                   <span>{formatProvider(meetingType.conferencing_provider)}</span>
                 </li>
+                {meetingType.event_type === 'group' && meetingType.capacity ? (
+                  <li className="flex items-center gap-2.5">
+                    <Users className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
+                    <span>Up to {meetingType.capacity} invitees per slot</span>
+                  </li>
+                ) : null}
                 {(meetingType.default_location || ownerLocation) && (
                   <li className="flex items-center gap-2.5">
                     <MapPin className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />

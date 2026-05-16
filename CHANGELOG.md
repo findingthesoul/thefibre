@@ -6,6 +6,48 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.11.1] — 2026-05-17
+
+### Added: Fibre Meet Group event type
+
+Fibre Meet's "Group" event type is no longer a stub. A single host can now
+offer slots that multiple invitees share until a per-MT capacity is reached.
+
+### Changed
+- **New column `meet_meeting_type.capacity`** (nullable integer, CHECK > 0)
+  in `supabase/migrations/20260517200000_meet_group_capacity.sql`. Only
+  meaningful when `event_type='group'`. Bookings are grouped by the
+  existing `(meeting_type_id, starts_at)` tuple — no extra `slot_key`
+  column needed.
+- **API: `POST /api/v1/meet/public/bookings`** now performs a capacity
+  check before insert when the MT is `event_type='group'`. If the
+  confirmed-booking count for `(meeting_type_id, starts_at)` already
+  meets capacity, the request is rejected with `409 { error: 'fully
+  booked', code: 'slot_full' }`. No waitlist yet — that's a follow-up
+  behind a per-MT toggle.
+- **API: slots endpoints** (`/public/host/.../slots` and
+  `/public/team/.../slots`) skip the MT's own bookings from the host's
+  busy intervals when `event_type='group'` (so the slot stays bookable
+  until full), and return a parallel `slots_meta` array with
+  `{ starts_at, capacity, booked, remaining }` per slot. Fully booked
+  slots are removed from `slots` entirely.
+- **API: `MeetingTypeUpsert` zod schema** accepts `capacity` (int 1–1000,
+  nullable). Server stores it on create + update.
+- **UI: Meeting-type editor** (`apps/meet/app/(app)/meeting-types/form.tsx`):
+  the event-type chooser now also shows up in Personal scope (since Group
+  is single-host). Personal scope offers One-on-one and Group; Team scope
+  adds Round-robin and Collective. When Group is selected, a curated
+  "Capacity" dropdown appears in Details (2/4/6/8/10/12/15/20/30/50,
+  default 12).
+- **UI: New-MT chooser** (`apps/meet/app/(app)/meeting-types/new-menu.tsx`):
+  the Group option is no longer `disabled: true`.
+- **UI: Public booking page** (`apps/meet/app/[hostSlug]/[mtSlug]/`):
+  Group MTs show a `Users` icon row in the sidebar ("Up to N invitees
+  per slot"), and each time-slot button shows "X of Y left" pulled
+  from `slots_meta`. If a slot happens to fill while the user is on
+  the page, the 409 surfaces as "This slot just filled up. Please
+  pick a different time."
+
 ## [0.11.0] — 2026-05-17
 
 ### Added: GDPR Article 15 self-service data export

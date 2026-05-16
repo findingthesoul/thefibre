@@ -29,6 +29,8 @@ type Props = {
     min_notice_minutes: number;
     max_advance_days: number;
     intake_form: { fields: IntakeField[] } | null;
+    event_type?: string;
+    capacity?: number | null;
   };
 };
 
@@ -121,8 +123,11 @@ export function BookingFlow({
       : `/api/v1/meet/public/host/${encodeURIComponent(ownerSlug)}/mt/${encodeURIComponent(meetingType.slug)}/slots`;
 
   const [slots, setSlots] = useState<Date[] | null>(null);
+  const [slotsMeta, setSlotsMeta] = useState<Record<string, { capacity: number; booked: number; remaining: number }>>({});
   const [loadingSlots, setLoadingSlots] = useState(true);
   const [slotsError, setSlotsError] = useState<string | null>(null);
+
+  const isGroup = meetingType.event_type === 'group';
 
   useEffect(() => {
     let cancelled = false;
@@ -133,12 +138,20 @@ export function BookingFlow({
     );
     setLoadingSlots(true);
     setSlotsError(null);
-    publicFetch<{ slots: string[] }>(
+    publicFetch<{
+      slots: string[];
+      slots_meta?: { starts_at: string; capacity: number; booked: number; remaining: number }[];
+    }>(
       `${slotsBasePath}?from=${encodeURIComponent(now.toISOString())}&to=${encodeURIComponent(to.toISOString())}`,
     )
       .then((r) => {
         if (cancelled) return;
         setSlots(r.slots.map((s) => new Date(s)));
+        const meta: Record<string, { capacity: number; booked: number; remaining: number }> = {};
+        for (const m of r.slots_meta ?? []) {
+          meta[m.starts_at] = { capacity: m.capacity, booked: m.booked, remaining: m.remaining };
+        }
+        setSlotsMeta(meta);
       })
       .catch((e) => {
         if (cancelled) return;
@@ -227,7 +240,13 @@ export function BookingFlow({
         router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
       } catch (e) {
         if (e instanceof PublicApiError) {
-          setError(`Couldn't book (${e.status}). Please try again.`);
+          if (e.status === 409) {
+            setError(
+              'This slot just filled up. Please pick a different time.',
+            );
+          } else {
+            setError(`Couldn't book (${e.status}). Please try again.`);
+          }
         } else {
           setError('Network error. Please try again.');
         }
@@ -279,18 +298,24 @@ export function BookingFlow({
                   </p>
                   {(slotsByDate.get(selectedDate) ?? []).map((s) => {
                     const isStaged = stagedSlot?.getTime() === s.getTime();
+                    const meta = isGroup ? slotsMeta[s.toISOString()] : undefined;
                     return (
                       <div key={s.toISOString()} className="flex gap-2">
                         <button
                           type="button"
                           onClick={() => setStagedSlot(isStaged ? null : s)}
-                          className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+                          className={`flex-1 rounded-md border px-3 py-2 text-sm font-medium transition-colors flex items-center justify-between gap-3 ${
                             isStaged
                               ? 'border-neutral-900 bg-neutral-100 text-neutral-900'
                               : 'border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50 hover:border-neutral-300'
                           }`}
                         >
-                          {formatTime(s, tz, clock)}
+                          <span>{formatTime(s, tz, clock)}</span>
+                          {meta ? (
+                            <span className="text-xs font-normal text-neutral-500">
+                              {meta.remaining} of {meta.capacity} left
+                            </span>
+                          ) : null}
                         </button>
                         {isStaged && (
                           <button

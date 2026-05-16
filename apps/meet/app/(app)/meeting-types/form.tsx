@@ -28,6 +28,7 @@ export type MeetingTypeFormValues = {
   is_active?: boolean;
   team_id?: string | null;
   event_type?: string;
+  capacity?: number | null;
   working_hours_override?: Schedule | null;
   conflict_calendar_ids?: string[] | null;
   intake_form_id?: string | null;
@@ -49,6 +50,11 @@ const EVENT_TYPES = [
     hint: 'Single host. The classic booking.',
   },
   {
+    value: 'group',
+    label: 'Group',
+    hint: 'Single host. Multiple invitees share each slot until capacity is reached.',
+  },
+  {
     value: 'round_robin',
     label: 'Round-robin',
     hint: 'Multiple eligible hosts; bookings rotate to the least-loaded one.',
@@ -58,6 +64,19 @@ const EVENT_TYPES = [
     label: 'Collective',
     hint: 'Every assigned host attends. Slots intersect their availability.',
   },
+];
+
+const CAPACITY_OPTIONS = [
+  { value: '2', label: '2 invitees' },
+  { value: '4', label: '4 invitees' },
+  { value: '6', label: '6 invitees' },
+  { value: '8', label: '8 invitees' },
+  { value: '10', label: '10 invitees' },
+  { value: '12', label: '12 invitees' },
+  { value: '15', label: '15 invitees' },
+  { value: '20', label: '20 invitees' },
+  { value: '30', label: '30 invitees' },
+  { value: '50', label: '50 invitees' },
 ];
 
 const PROVIDERS = [
@@ -161,8 +180,19 @@ export function MeetingTypeForm({
     initial.price_cents && initial.price_cents > 0 ? 'paid' : 'free',
   );
 
-  const showEventType = scope === 'team' && teams.length > 0;
-  const effectiveEventType = scope === 'team' ? eventType : 'one_on_one';
+  // Event-type chooser:
+  //  - Personal scope: pick between One-on-one and Group (single-host both).
+  //  - Team scope:     pick between One-on-one, Group, Round-robin, Collective.
+  const showEventType = scope === 'team' ? teams.length > 0 : true;
+  const eventTypeOptions = (
+    scope === 'team'
+      ? EVENT_TYPES
+      : EVENT_TYPES.filter((t) => t.value === 'one_on_one' || t.value === 'group')
+  );
+  const validEventType = eventTypeOptions.some((t) => t.value === eventType)
+    ? eventType
+    : 'one_on_one';
+  const effectiveEventType = validEventType;
   // Fall back to the first team when the user has flipped scope to "team"
   // but hasn't actively changed the Team select. Without this fallback the
   // hidden team_id input posts "" and the server stores the MT as personal.
@@ -270,7 +300,7 @@ export function MeetingTypeForm({
                 name="event_type_visible"
                 value={effectiveEventType}
                 onChange={(e) => setEventType(e.target.value)}
-                options={EVENT_TYPES.map((t) => ({ value: t.value, label: t.label }))}
+                options={eventTypeOptions.map((t) => ({ value: t.value, label: t.label }))}
                 hint={EVENT_TYPES.find((t) => t.value === effectiveEventType)?.hint}
               />
             )}
@@ -296,6 +326,16 @@ export function MeetingTypeForm({
               options={DURATION_OPTIONS}
               required
             />
+            {effectiveEventType === 'group' && (
+              <SelectField
+                label="Capacity"
+                name="capacity"
+                defaultValue={String(initial.capacity ?? 12)}
+                options={CAPACITY_OPTIONS}
+                hint="Max invitees who can share each slot. Once full, the slot disappears from the booking page."
+                required
+              />
+            )}
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="checkbox"

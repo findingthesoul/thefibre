@@ -41,7 +41,6 @@ const EVENT_TYPES: EventTypeOption[] = [
     desc: 'Webinars, office hours, classes.',
     Icon: Users,
     teamOnly: false,
-    disabled: true,
   },
   {
     value: 'round_robin',
