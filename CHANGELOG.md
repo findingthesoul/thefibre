@@ -6,6 +6,67 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.11.0] — 2026-05-17
+
+### Added: GDPR Article 15 self-service data export
+
+The Privacy page's "Export my data" card is no longer a "Coming soon"
+stub. One click downloads a single JSON file containing every piece of
+personal data The Fibre stores about the caller, across every app.
+
+### Changed
+- **New endpoint `GET /api/v1/privacy/export`** in `apps/api/src/routes/privacy.ts`.
+  Pulls in parallel from `user`, `person`, `user_identity_provider`,
+  `app_membership`, `workspace_member`, `org_membership`, `activity`,
+  `meet_booking`, `person_professional`, `person_change_context`,
+  `person_relationship_context`, `person_learning`, `person_billing`,
+  `person_tag`, `consent_record`, `data_subject_request`,
+  `app_record_link`, `relationship` (outgoing + incoming) and the
+  caller's `workspace`. Top-level `_meta.included_categories` lists
+  every category considered, so a receiver can verify completeness.
+- Uses `adminClient` (RLS bypass) with an explicit
+  `user_id`/`person_id`/`workspace_id` filter on every query. Article
+  15 supersedes UI-level app-membership scoping: a user is entitled
+  to their `person_billing` row even if they don't currently hold the
+  Sales app membership.
+- Side-effect: each successful export writes a `data_subject_request`
+  row of type `access`, status `completed`, for the audit trail.
+- Response sets `Content-Disposition: attachment;
+  filename="fibre-data-export-{email-slug}-{YYYY-MM-DD}.json"` so
+  browsers save the file with a meaningful name.
+
+- **New Next.js route handler** at `apps/web/app/(app)/privacy/export/route.ts`.
+  Vercel-side proxy that forwards the user's Supabase access token to
+  the API and streams the JSON response back. Hard rule §13 still
+  holds — Vercel forwards bytes, never reads the payload.
+
+- **`ExportButton` on the Privacy page.** Client component that
+  fetches `/privacy/export`, materialises the response into a Blob,
+  reads `Content-Disposition` for the filename and triggers a download
+  via a synthetic `<a download>`. Shows "Preparing…" while in flight
+  and an inline error if the export fails.
+
+### Why this matters
+Article 15 is the right of access. Until v0.10.4 we had the right of
+erasure (Article 17) wired up but no way for a user to *see* what we
+held about them — only what the UI surfaced. v0.11.0 closes that gap.
+"The app justifies the field" (brief §5) means every field has a
+reason to exist; Article 15 means every field also has to be
+disclosable on demand. The export covers both first-party apps
+(Platform, Meet) and any third-party app that has registered itself
+in `app` and written into `app_record_link`.
+
+### Gotchas / follow-ups
+- The export currently runs synchronously in a single request. Fine
+  for the current shape of data (one user, a few hundred rows at
+  most). If a workspace ever sees an activity log in the thousands
+  per person, move to a background job + presigned download URL.
+- `relationships` is split into `outgoing` / `incoming` to keep
+  semantics clear (some types like `introduced_by` are directional).
+- `_meta.subject` is the canonical identity bundle for the export —
+  if a receiver (e.g. a different controller) needs to know "who is
+  this file about", that's the block to read.
+
 ## [0.10.4] — 2026-05-17
 
 ### Fix: Meet was showing the full workspace contact graph

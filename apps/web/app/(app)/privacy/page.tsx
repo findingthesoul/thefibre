@@ -1,7 +1,7 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, EmptyState, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { RevokeButton, ErasureButton } from './buttons';
+import { RevokeButton, ErasureButton, ExportButton } from './buttons';
 
 type Consent = {
   id: string;
@@ -145,8 +145,8 @@ export default async function PrivacyPage() {
         <div className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-4">
           <ActionCard
             title="Export my data"
-            description="GDPR Article 15. Download everything we hold about you as JSON."
-            footer={<span className="text-xs text-ink-muted">Coming soon</span>}
+            description="GDPR Article 15. Download everything we hold about you as JSON — identity, profile, org memberships, activity, bookings, per-app curator data, consents and cross-app links."
+            footer={<ExportButton />}
           />
           <ActionCard
             title="Request erasure"

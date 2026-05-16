@@ -34,6 +34,50 @@ export function RevokeButton({ purposeCode, label }: { purposeCode: string; labe
   );
 }
 
+export function ExportButton() {
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function download() {
+    setError(null);
+    setPending(true);
+    try {
+      const res = await fetch('/privacy/export', { cache: 'no-store' });
+      if (!res.ok) {
+        setError(`Export failed (${res.status}). Try again or contact support.`);
+        return;
+      }
+      const blob = await res.blob();
+      const disposition = res.headers.get('Content-Disposition') ?? '';
+      const match = /filename="?([^"]+)"?/.exec(disposition);
+      const filename = match?.[1] ?? `fibre-data-export-${new Date().toISOString().slice(0, 10)}.json`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div>
+      <Button variant="primary" onClick={download} disabled={pending}>
+        {pending ? 'Preparing…' : 'Download my data'}
+      </Button>
+      {error && (
+        <div className="mt-2 text-xs text-rose-700">{error}</div>
+      )}
+    </div>
+  );
+}
+
 export function ErasureButton() {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
