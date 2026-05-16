@@ -10,8 +10,10 @@ export type EmailMessage = {
   replyTo?: string | undefined;
 };
 
+import { defaultEmailFrom } from '@thefibre/shared';
+
 function fromAddress(): string {
-  return process.env.EMAIL_FROM ?? 'The Fibre <noreply@thefibre.app>';
+  return defaultEmailFrom(process.env);
 }
 
 export async function sendEmail(msg: EmailMessage): Promise<void> {

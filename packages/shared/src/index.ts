@@ -4,8 +4,13 @@ export type AppId = (typeof APP_IDS)[number];
 export {
   APPS,
   ENTITY,
+  PLATFORM_APP_ID,
   appUrl,
+  appName,
   cookieDomain,
+  defaultEmailFrom,
+  emailSignoff,
+  legalFooterLine,
   type AppBrand,
 } from './branding.js';
 

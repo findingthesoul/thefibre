@@ -25,11 +25,19 @@ export type AppBrand = {
 };
 
 export const ENTITY = {
-  /** Legal entity that owns and operates The Fibre. */
+  /** Legal entity that owns and operates the platform. */
   name: 'Solidarity Lab B.V.',
   /** Footer line for public surfaces. */
   hostedLine: 'Hosted in the EU',
+  /** Default transactional "from" address. Override via EMAIL_FROM env. */
+  emailFromAddress: 'noreply@thefibre.app',
+  /** Default reply-to / support address. */
+  supportEmail: 'support@thefibre.app',
 };
+
+/** The platform-app entry, exposed as a constant for convenience. The
+ *  product's display name in legal / footer / email-signature contexts. */
+export const PLATFORM_APP_ID = 'fibre-platform' as const;
 
 export const APPS: Record<AppId, AppBrand> = {
   'fibre-platform': {
@@ -93,4 +101,29 @@ export function appUrl(slug: AppId, env?: Record<string, string | undefined>): s
 /** Domain to scope auth cookies to, for cross-subdomain SSO. */
 export function cookieDomain(env?: Record<string, string | undefined>): string | undefined {
   return env?.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
+}
+
+/** The "from" line we want emails to use. Mirrors `EMAIL_FROM` env or builds
+ *  a default from ENTITY. Use everywhere instead of hard-coding. */
+export function defaultEmailFrom(env?: Record<string, string | undefined>): string {
+  const platform = APPS[PLATFORM_APP_ID];
+  return env?.EMAIL_FROM || `${platform.name} <${ENTITY.emailFromAddress}>`;
+}
+
+/** Single-line legal footer used at the bottom of public emails + landing
+ *  pages. e.g. "The Fibre · Solidarity Lab B.V. · Hosted in the EU". */
+export function legalFooterLine(): string {
+  const platform = APPS[PLATFORM_APP_ID];
+  return `${platform.name} · ${ENTITY.name} · ${ENTITY.hostedLine}`;
+}
+
+/** The "— The Fibre" email sign-off. */
+export function emailSignoff(): string {
+  return `— ${APPS[PLATFORM_APP_ID].name}`;
+}
+
+/** App display name by slug. Drop-in for the duplicated `APP_NAMES` maps
+ *  scattered across the web app. */
+export function appName(slug: AppId): string {
+  return APPS[slug]?.name ?? slug;
 }

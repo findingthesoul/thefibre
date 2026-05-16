@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
@@ -23,14 +24,6 @@ type Me = {
     created_at: string;
   } | null;
   memberships: { app: { slug: string; name: string }; role: string }[];
-};
-
-const APP_LABEL: Record<string, string> = {
-  'fibre-platform': 'The Fibre Platform',
-  'fibre-meet': 'Fibre Meet',
-  'the-thread': 'The Thread',
-  'fibre-sales': 'Fibre Sales',
-  'fibre-learn': 'Fibre Learn',
 };
 
 export default async function SettingsPage() {
@@ -126,7 +119,7 @@ export default async function SettingsPage() {
                 {me.memberships.map((m) => (
                   <ListRow
                     key={m.app.slug}
-                    primary={APP_LABEL[m.app.slug] ?? m.app.name}
+                    primary={appName(m.app.slug as AppId) ?? m.app.name}
                     secondary={m.app.slug}
                     meta={<span className="uppercase">{m.role}</span>}
                   />

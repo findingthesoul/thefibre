@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
+import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { countryName } from '@/lib/countries';
@@ -24,14 +25,6 @@ type Activity = {
   occurred_at: string;
   app_id: string;
   app: { slug: string; name: string } | null;
-};
-
-const APP_NAMES: Record<string, string> = {
-  'fibre-platform': 'Platform',
-  'fibre-meet': 'Fibre Meet',
-  'the-thread': 'The Thread',
-  'fibre-sales': 'Fibre Sales',
-  'fibre-learn': 'Fibre Learn',
 };
 
 export default async function ContactOverview({
@@ -88,7 +81,7 @@ export default async function ContactOverview({
                     timeStyle: 'short',
                   })}
                   {' · '}
-                  {a.app ? APP_NAMES[a.app.slug] ?? a.app.name : a.app_id}
+                  {a.app ? appName(a.app.slug as AppId) ?? a.app.name : a.app_id}
                   {' · '}
                   {a.type}
                 </div>

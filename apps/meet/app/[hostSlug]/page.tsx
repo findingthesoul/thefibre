@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import { APPS } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 
 type MeetingType = {
@@ -177,7 +178,7 @@ function Footer() {
     <footer className="mt-20 border-t border-neutral-200 pt-6 text-xs text-neutral-500">
       Powered by{' '}
       <Link className="underline" href="https://meet.thefibre.app">
-        Fibre Meet
+        {APPS['fibre-meet'].name}
       </Link>
     </footer>
   );

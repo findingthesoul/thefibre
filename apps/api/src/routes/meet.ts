@@ -25,9 +25,18 @@ import {
   bookingCancellation,
   type EmailCommon,
 } from '../lib/email/templates.js';
+import {
+  APPS,
+  appUrl,
+  emailSignoff,
+  legalFooterLine,
+} from '@thefibre/shared';
+
+const MEET = APPS['fibre-meet'];
+const PLATFORM = APPS['fibre-platform'];
 
 function meetAppUrl(): string {
-  return process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+  return appUrl('fibre-meet', process.env);
 }
 
 // ---------------------------------------------------------------------------
@@ -1093,9 +1102,9 @@ meetRoutes.post('/internal-team', async (c) => {
       const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
       await sendEmail({
         to: u.email,
-        subject: `${inviterName} invited you to Fibre Meet`,
-        text: `${inviterName} added you to their Fibre workspace and granted you access to Fibre Meet.\n\nSign in at ${signInUrl} (using ${u.email}) to start using Meet.\n\n— The Fibre`,
-        html: `<p><strong>${inviterName}</strong> invited you to Fibre Meet.</p><p><a href="${signInUrl}">Sign in to The Fibre</a> using <strong>${u.email}</strong>.</p>`,
+        subject: `${inviterName} invited you to ${MEET.name}`,
+        text: `${inviterName} added you to their ${PLATFORM.name} workspace and granted you access to ${MEET.name}.\n\nSign in at ${signInUrl} (using ${u.email}) to start using ${MEET.shortName}.\n\n${emailSignoff()}`,
+        html: `<p><strong>${inviterName}</strong> invited you to ${MEET.name}.</p><p><a href="${signInUrl}">Sign in to ${PLATFORM.name}</a> using <strong>${u.email}</strong>.</p>`,
       });
     } catch (e) {
       console.error('[internal-team] invite email failed (non-fatal)', e);
@@ -1853,17 +1862,17 @@ meetRoutes.post('/teams/:id/members', async (c) => {
       const teamName = team?.name ?? 'a team';
       const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
       const acceptUrl = `${meetAppUrl()}/invite/${inviteToken}`;
-      const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
+      const signInUrl = appUrl('fibre-platform', process.env);
       await sendEmail({
         to: u.email,
-        subject: `${inviterName} invited you to ${teamName} on The Fibre`,
-        text: `${inviterName} invited you to the team "${teamName}" on Fibre Meet.
+        subject: `${inviterName} invited you to ${teamName} on ${PLATFORM.name}`,
+        text: `${inviterName} invited you to the team "${teamName}" on ${MEET.name}.
 
 Accept the invite: ${acceptUrl}
 
 You'll be asked to sign in with Google (using ${u.email}) and then taken to a page to accept. After accepting you'll start receiving bookings.
 
-— The Fibre`,
+${emailSignoff()}`,
         html: `<!doctype html><html><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#171717;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 16px;">
     <tr><td align="center">
@@ -1878,7 +1887,7 @@ You'll be asked to sign in with Google (using ${u.email}) and then taken to a pa
           <p style="margin-top:18px;font-size:11px;color:#a3a3a3;">If you didn't expect this, just ignore the email. ${signInUrl}</p>
         </td></tr>
       </table>
-      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">The Fibre · Solidarity Lab B.V. · Hosted in the EU</div>
+      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">${legalFooterLine()}</div>
     </td></tr>
   </table>
 </body></html>`,
@@ -2042,7 +2051,7 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
       await sendEmail({
         to: u.email,
         subject: `Reminder: accept your invite to ${team?.name ?? 'a team'}`,
-        text: `Accept the invite: ${acceptUrl}\n\n— The Fibre`,
+        text: `Accept the invite: ${acceptUrl}\n\n${emailSignoff()}`,
         html: `<p>Open <a href="${acceptUrl}">${acceptUrl}</a> to accept the invite.</p>`,
       });
     } catch (e) {

@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
-import { ACTIVITY_TYPES, APP_IDS } from '@thefibre/shared';
+import { ACTIVITY_TYPES, APP_IDS, appName, type AppId } from '@thefibre/shared';
 
 type Activity = {
   id: string;
@@ -17,14 +17,6 @@ type Person = {
   first_name: string | null;
   last_name: string | null;
   email: string | null;
-};
-
-const APP_LABEL: Record<string, string> = {
-  'fibre-platform': 'Platform',
-  'fibre-meet': 'Fibre Meet',
-  'the-thread': 'The Thread',
-  'fibre-sales': 'Fibre Sales',
-  'fibre-learn': 'Fibre Learn',
 };
 
 export default async function ActivityPage({
@@ -87,7 +79,7 @@ export default async function ActivityPage({
         </Select>
         <Select name="app_id" defaultValue={app_id ?? ''} placeholder="All apps">
           {APP_IDS.map((slug: string) => (
-            <option key={slug} value={slug}>{APP_LABEL[slug] ?? slug}</option>
+            <option key={slug} value={slug}>{appName(slug as AppId) ?? slug}</option>
           ))}
         </Select>
         <button
@@ -133,7 +125,7 @@ export default async function ActivityPage({
                     timeStyle: 'short',
                   })}
                   {' · '}
-                  {a.app ? APP_LABEL[a.app.slug] ?? a.app.name : 'Unknown app'}
+                  {a.app ? appName(a.app.slug as AppId) ?? a.app.name : 'Unknown app'}
                   {' · '}
                   <span>{a.type}</span>
                 </div>

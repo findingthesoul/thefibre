@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { Clock, Video, MapPin } from 'lucide-react';
+import { APPS } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { BookingFlow } from './flow';
 import type { IntakeField } from '@/lib/intake';
@@ -195,7 +196,7 @@ function Card({
         <footer className="mt-8 text-center text-xs text-neutral-400">
           Powered by{' '}
           <Link href="https://meet.thefibre.app" className="underline">
-            Fibre Meet
+            {APPS['fibre-meet'].name}
           </Link>
         </footer>
       </div>

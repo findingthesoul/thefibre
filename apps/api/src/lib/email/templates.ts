@@ -7,6 +7,8 @@
 // the invitee sees a referenceable instant. We avoid trying to guess the
 // invitee's tz from the request.
 
+import { emailSignoff, legalFooterLine } from '@thefibre/shared';
+
 type Common = {
   inviteeName: string;
   inviteeEmail: string;
@@ -62,7 +64,7 @@ function shell(title: string, bodyHtml: string): string {
           ${bodyHtml}
         </td></tr>
       </table>
-      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">The Fibre · Solidarity Lab B.V. · Hosted in the EU</div>
+      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">${legalFooterLine()}</div>
     </td></tr>
   </table>
 </body></html>`;
@@ -117,7 +119,7 @@ ${detailsText(c)}
 
 Need to cancel? ${cancel}
 
-— The Fibre`;
+${emailSignoff()}`;
   const html = shell(
     'Booking confirmed',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">You're booked, ${escapeHtml(c.inviteeName.split(' ')[0] ?? '')}.</h1>
@@ -137,7 +139,7 @@ export function bookingNotificationHost(c: Common): {
 
 ${detailsText(c)}
 
-— The Fibre`;
+${emailSignoff()}`;
   const html = shell(
     'New booking',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${escapeHtml(c.inviteeName)} booked ${escapeHtml(c.meetingName)}.</h1>
@@ -161,8 +163,8 @@ export function bookingCancellation(
       : `${escapeHtml(c.inviteeName)} cancelled ${escapeHtml(c.meetingName)}.`;
   const text =
     audience === 'invitee'
-      ? `Your booking has been cancelled.\n\n${detailsText(c)}\n\n— The Fibre`
-      : `${c.inviteeName} cancelled their booking.\n\n${detailsText(c)}\n\n— The Fibre`;
+      ? `Your booking has been cancelled.\n\n${detailsText(c)}\n\n${emailSignoff()}`
+      : `${c.inviteeName} cancelled their booking.\n\n${detailsText(c)}\n\n${emailSignoff()}`;
   const html = shell(
     'Booking cancelled',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>

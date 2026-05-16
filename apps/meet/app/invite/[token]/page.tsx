@@ -2,6 +2,7 @@
 // Accepting requires the signed-in user's email to match the invitee email.
 
 import Link from 'next/link';
+import { APPS, legalFooterLine } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { apiFetch, ApiError } from '@/lib/api';
 import { serverSupabase } from '@/lib/supabase/server';
@@ -69,7 +70,7 @@ export default async function AcceptInvitePage({
           href="https://meet.thefibre.app"
           className="mt-6 inline-block text-sm text-neutral-700 underline"
         >
-          Go to Fibre Meet →
+          Go to {APPS['fibre-meet'].name} →
         </Link>
       </Shell>
     );
@@ -186,7 +187,7 @@ function Shell({
           {children}
         </div>
         <div className="mt-6 text-center text-xs text-neutral-400">
-          The Fibre · Solidarity Lab B.V. · Hosted in the EU
+          {legalFooterLine()}
         </div>
       </div>
     </main>

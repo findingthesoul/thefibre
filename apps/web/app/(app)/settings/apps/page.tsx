@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation';
+import { APPS } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -30,39 +31,45 @@ type Me = {
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 
-const INSTALLABLE = [
-  {
-    slug: 'fibre-meet',
-    name: 'Fibre Meet',
-    tagline: 'Meeting platform — agenda, facilitation, outcomes.',
+// Display copy lives here (descriptions/status); names + taglines come from
+// the shared APPS registry so renames/white-labels propagate.
+const INSTALLABLE_META: Record<
+  string,
+  { body: string; status: 'Active' | 'Building' | 'Planned' }
+> = {
+  'fibre-meet': {
     body:
       'Run gatherings end-to-end: design the agenda, facilitate live, capture outcomes and action items. Curator data (change context, system context) lives in The Fibre, gated to Meet members.',
     status: 'Active',
   },
-  {
-    slug: 'the-thread',
-    name: 'The Thread',
-    tagline: 'Events and journeys — conferences and personal arcs.',
+  'the-thread': {
     body:
       'Multi-session programmes, conferences, post-event journeys. Writes enrolment + attendance events back to The Fibre.',
     status: 'Active',
   },
-  {
-    slug: 'fibre-sales',
-    name: 'Fibre Sales',
-    tagline: 'Account relationships, deals, invoicing.',
+  'fibre-sales': {
     body:
       'Sovereign app — gated behind its own app membership. Curates commercial relationship + billing fields on organisations.',
     status: 'Building',
   },
-  {
-    slug: 'fibre-learn',
-    name: 'Fibre Learn',
-    tagline: 'Self-paced learning — modules, reflections.',
+  'fibre-learn': {
     body: 'Asynchronous content + reflections. Curates learning profile fields on persons.',
     status: 'Planned',
   },
-] as const;
+};
+
+const INSTALLABLE = (['fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn'] as const).map(
+  (slug) => {
+    const meta = INSTALLABLE_META[slug]!;
+    return {
+      slug,
+      name: APPS[slug].name,
+      tagline: APPS[slug].tagline,
+      body: meta.body,
+      status: meta.status,
+    };
+  },
+);
 
 export default async function WorkspaceAppsPage() {
   let me: Me | null = null;

@@ -1,20 +1,14 @@
 import Link from 'next/link';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
+import { APPS, appName, type AppId } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 
 const APP_DOMAINS: Record<string, string> = {
-  'fibre-meet': 'https://meet.thefibre.app',
-  'the-thread': 'https://thread.thefibre.app',
-  'fibre-sales': 'https://sales.thefibre.app',
-  'fibre-learn': 'https://learn.thefibre.app',
-};
-const APP_NAMES: Record<string, string> = {
-  'fibre-platform': 'The Fibre Platform',
-  'fibre-meet': 'Fibre Meet',
-  'the-thread': 'The Thread',
-  'fibre-sales': 'Fibre Sales',
-  'fibre-learn': 'Fibre Learn',
+  'fibre-meet': APPS['fibre-meet'].url,
+  'the-thread': APPS['the-thread'].url,
+  'fibre-sales': APPS['fibre-sales'].url,
+  'fibre-learn': APPS['fibre-learn'].url,
 };
 
 type Activity = {
@@ -167,7 +161,7 @@ export default async function Dashboard() {
                     href={APP_DOMAINS[slug] ?? '#'}
                     className="flex items-baseline justify-between px-5 py-4 hover:bg-surface-sunken"
                   >
-                    <span className="font-medium">{APP_NAMES[slug] ?? slug}</span>
+                    <span className="font-medium">{appName(slug as AppId) ?? slug}</span>
                     <span className="text-sm text-ink-subtle">Open →</span>
                   </Link>
                 </li>
