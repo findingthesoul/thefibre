@@ -1,20 +1,6 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
-
-export type AppId =
-  | 'fibre-platform'
-  | 'fibre-meet'
-  | 'the-thread'
-  | 'fibre-sales'
-  | 'fibre-learn';
-
-const VALID_APP_IDS: ReadonlySet<AppId> = new Set([
-  'fibre-platform',
-  'fibre-meet',
-  'the-thread',
-  'fibre-sales',
-  'fibre-learn',
-]);
+import { adminClient } from '../db.js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const jwks = supabaseUrl
@@ -27,9 +13,45 @@ export type RequestContext = {
   /** `auth.users.id` (JWT `sub`). Use only when interacting with Supabase Auth itself. */
   authUserId: string;
   workspaceId: string;
-  appId: AppId;
+  /**
+   * The slug from the X-App-ID header. Validated against `public.app` —
+   * any registered app slug is accepted, not just first-party ones, so
+   * third-party connectors can identify themselves once an admin has
+   * inserted their app row.
+   */
+  appId: string;
   jwt: string;
 };
+
+// Cache of registered app slugs. Populated lazily; refreshed on miss so a
+// newly-inserted third-party app becomes accepted within one extra DB hit.
+let appSlugCache: Set<string> | null = null;
+let appSlugCacheLoadedAt = 0;
+const APP_SLUG_CACHE_TTL_MS = 5 * 60 * 1000;
+
+async function loadAppSlugs(): Promise<Set<string>> {
+  const { data, error } = await adminClient.from('app').select('slug');
+  if (error) {
+    console.error('[app-context] failed to load app slugs', error);
+    return appSlugCache ?? new Set();
+  }
+  const set = new Set((data ?? []).map((r) => r.slug as string));
+  appSlugCache = set;
+  appSlugCacheLoadedAt = Date.now();
+  return set;
+}
+
+async function isKnownAppSlug(slug: string): Promise<boolean> {
+  const stale = !appSlugCache || Date.now() - appSlugCacheLoadedAt > APP_SLUG_CACHE_TTL_MS;
+  let slugs = stale ? await loadAppSlugs() : appSlugCache!;
+  if (slugs.has(slug)) return true;
+  // Cache miss: refresh once in case a new app was just registered.
+  if (!stale) {
+    slugs = await loadAppSlugs();
+    return slugs.has(slug);
+  }
+  return false;
+}
 
 declare module 'hono' {
   interface ContextVariableMap {
@@ -68,8 +90,11 @@ export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PREFIXES.some((p) => c.req.path.startsWith(p))) return next();
 
   const appHeader = c.req.header('x-app-id');
-  if (!appHeader || !VALID_APP_IDS.has(appHeader as AppId)) {
+  if (!appHeader) {
     return problem(c, 400, 'missing-app-id', 'X-App-ID header required');
+  }
+  if (!(await isKnownAppSlug(appHeader))) {
+    return problem(c, 400, 'unknown-app-id', `X-App-ID "${appHeader}" not registered in public.app`);
   }
 
   const auth = c.req.header('authorization');
@@ -94,7 +119,7 @@ export const appContext: MiddlewareHandler = async (c, next) => {
       userId: appUserId,
       authUserId: payload.sub,
       workspaceId,
-      appId: appHeader as AppId,
+      appId: appHeader,
       jwt,
     });
     return next();

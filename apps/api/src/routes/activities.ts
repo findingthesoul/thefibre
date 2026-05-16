@@ -1,9 +1,19 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient } from '../db.js';
-import { ACTIVITY_TYPES } from '@thefibre/shared';
 
 export const activitiesRoutes = new Hono();
+
+// Activity `type` is a short machine label, not user content. We accept any
+// snake_case identifier so third-party apps can declare their own types in
+// their manifest (e.g. `newsletter_opened`) without us pre-registering them.
+// `subject` is where content goes and is length-limited per brief §6.
+const ACTIVITY_TYPE_RE = /^[a-z][a-z0-9_]{1,63}$/;
+const activityType = z
+  .string()
+  .min(2)
+  .max(64)
+  .regex(ACTIVITY_TYPE_RE, 'type must be snake_case (a-z, 0-9, _)');
 
 const ListQuery = z.object({
   person_id: z.string().uuid().optional(),
@@ -12,7 +22,7 @@ const ListQuery = z.object({
   organisation_id: z.string().uuid().optional(),
   // Either a UUID or a slug (e.g. "fibre-platform").
   app_id: z.string().min(1).max(64).optional(),
-  type: z.enum(ACTIVITY_TYPES).optional(),
+  type: activityType.optional(),
   after: z.string().uuid().optional(),
   limit: z.coerce.number().int().min(1).max(100).default(50),
 });
@@ -73,7 +83,7 @@ activitiesRoutes.get('/', async (c) => {
 
 const ActivityCreate = z.object({
   person_id: z.string().uuid(),
-  type: z.enum(ACTIVITY_TYPES),
+  type: activityType,
   // Subject must be short and never sensitive — see brief §6.
   subject: z.string().min(1).max(200),
   occurred_at: z.string().datetime().optional(),

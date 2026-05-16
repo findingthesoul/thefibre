@@ -65,11 +65,11 @@ const log = (...a) => console.log('·', ...a);
 const ok = (...a) => console.log('✓', ...a);
 const warn = (...a) => console.warn('⚠', ...a);
 
-// X-App-ID has to be a first-party slug today (see "Open gaps" in the
-// third-party guide). We call AS fibre-platform but link records FOR the
-// 'mailchimp' app slug in the URL path. Same DB rows, same contract.
+// We call AS the third-party app itself. The middleware accepts any slug
+// registered in `public.app`, so once Step 1 below inserts the row, the
+// API treats 'mailchimp' as a first-class caller.
 const APP_SLUG = 'mailchimp';
-const CALLING_APP = 'fibre-platform';
+const CALLING_APP = APP_SLUG;
 
 async function fetchJson(method, path, body) {
   const res = await fetch(`${API}${path}`, {
@@ -188,24 +188,16 @@ for (const sub of SUBSCRIBERS) {
 // --- Step 4 — push activities (HTTP) -------------------------------------
 //
 // /api/v1/activities expects { person_id, type, subject, occurred_at } and
-// stamps app_id from X-App-ID. Two known gaps the demo bumps into:
-//
-//   (a) activity `type` is a hardcoded enum in @thefibre/shared
-//       (ACTIVITY_TYPES). A manifest can declare its own types but they
-//       aren't merged into the enum yet — so the demo uses an existing
-//       value (`consent_granted`) instead of `newsletter_opened`.
-//   (b) X-App-ID can only be a first-party slug today, so the event
-//       attributes to fibre-platform, not mailchimp.
-//
-// Both gaps are tracked in docs/third-party-app-guide.md "Open gaps".
+// stamps app_id from X-App-ID. `type` accepts any snake_case identifier,
+// so a third-party app can use its own types straight from its manifest.
 
 for (const sub of linked) {
-  log(`POST /api/v1/activities  consent_granted for ${sub.email}`);
+  log(`POST /api/v1/activities  newsletter_opened for ${sub.email}`);
   try {
     await fetchJson('POST', `/api/v1/activities`, {
       person_id: sub.platform_id,
-      type: 'consent_granted',
-      subject: 'Subscribed to newsletter (demo)',
+      type: 'newsletter_opened',
+      subject: 'Opened May 2026 newsletter',
       occurred_at: new Date().toISOString(),
     });
     ok('  activity recorded');

@@ -6,6 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.10.3] — 2026-05-17
+
+### Third-party apps can now identify themselves end-to-end
+
+The two blockers a real third-party connector hits on day one are
+fixed. An external app registered in `public.app` can call the API as
+itself and push activities using its own type names.
+
+### Changed
+- **`X-App-ID` accepts any registered app slug.** The middleware's
+  hardcoded enum (`fibre-platform`, `fibre-meet`, etc.) is replaced
+  with a cached lookup against `public.app` (5-min TTL, refresh on
+  miss). Once `mailchimp` is in the table, `X-App-ID: mailchimp` works
+  on the second request at the latest. Unknown slugs now return a
+  clearer `unknown-app-id` problem instead of the generic
+  `missing-app-id`.
+- **`activity.type` is no longer enum-locked.** Replaced the
+  `z.enum(ACTIVITY_TYPES)` validator with a snake_case regex
+  (`^[a-z][a-z0-9_]{1,63}$`). Manifest-declared types like
+  `newsletter_opened` are accepted directly. `subject` is still
+  length-limited per brief §6 — type is just a machine label, content
+  belongs in subject.
+- **Demo script** now calls in as `mailchimp` with type
+  `newsletter_opened` — no more workaround comments.
+- **Third-party guide** trimmed: those two gaps moved from "Open gaps"
+  to "Done".
+
 ## [0.10.2] — 2026-05-16
 
 ### Cross-app entity mapping — docs + runnable third-party demo

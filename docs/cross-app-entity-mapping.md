@@ -313,13 +313,14 @@ needs them.
 isn't published yet — the doc above is the authoritative spec.
 
 ### Still open (the gaps a third party hits today)
-1. **No external-app identity.** `X-App-ID` is a hardcoded enum of
-   first-party slugs (`fibre-platform`, `fibre-meet`, `the-thread`,
-   `fibre-sales`, `fibre-learn`). A truly external app can't pass its
-   own slug yet. Resolution likely: extend the enum from `public.app`
-   at startup, plus issue API keys per (workspace × app).
-2. **No app-registration endpoint.** New apps are inserted via
-   migrations. There's no `POST /api/v1/apps` for self-registration.
+1. **No app-registration endpoint.** New apps are inserted via
+   migrations or direct SQL. There's no `POST /api/v1/apps` for
+   self-registration — a workspace admin still has to add the row.
+   `X-App-ID` itself now accepts any slug in `public.app` (cached for
+   ~5 min with refresh-on-miss).
+2. **No API keys per (workspace × app).** Calls still need a
+   user-scoped Supabase JWT; dedicated server-to-server keys aren't
+   built yet.
 3. **No bulk-link endpoint.** `POST /:slug/links:bulk` from the
    original doc isn't built; initial syncs do one POST per record.
 4. **No curator-data write API.** `PATCH /api/v1/persons/:id/curator-data/:app_slug`

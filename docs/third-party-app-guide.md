@@ -146,13 +146,10 @@ You should get back:
 }
 ```
 
-> **Caveat:** `X-App-ID` today only accepts first-party slugs
-> (`fibre-platform`, `fibre-meet`, `the-thread`, `fibre-sales`,
-> `fibre-learn` — see `apps/api/src/middleware/app-context.ts`). To
-> exercise the surface end-to-end before that enum is extended, the
-> demo script calls in as `fibre-platform` and links records *for* the
-> third-party app slug in the URL path. Same DB rows, same contract;
-> just be aware the calling-app identity isn't enforced yet.
+> `X-App-ID` accepts any slug present in `public.app` (cached for
+> ~5 minutes, with a refresh-on-miss so a freshly-inserted app row is
+> recognised on the second request). Once Step 2 inserts `mailchimp`,
+> the API treats it as a first-class caller.
 
 ---
 
@@ -263,8 +260,6 @@ mirrors the steps above one-to-one.
 
 ## Open gaps (what's not built yet)
 
-- **External `X-App-ID`.** The middleware accepts first-party slugs
-  only. Extending it from `public.app` is the next mechanical change.
 - **API keys per (workspace × app).** Today you need a user JWT.
   Server-to-server keys are designed (see `docs/cross-app-entity-mapping.md`
   §"Still open") but not implemented.
@@ -278,14 +273,10 @@ mirrors the steps above one-to-one.
   declarative only — not checked at request time.
 - **Org mappings on `POST /links`.** Person-only today; org coming
   with the first sales integration.
-- **Custom activity types from manifests aren't honoured yet.** The
-  `activity_types` block in your manifest is informational; the
-  `POST /api/v1/activities` endpoint validates `type` against a
-  hardcoded enum in `packages/shared` (`ACTIVITY_TYPES`). Until that
-  is merged with installed manifests, custom types like
-  `newsletter_opened` will be rejected — fall back to one of the
-  platform types (`consent_granted`, `correction`) or extend the
-  enum.
+- **`activity_types` in the manifest is informational.** The API
+  accepts any snake_case `type` value, so anything your manifest
+  declares will go through, but there's no validation that you only
+  use types you declared.
 
 If any of these block your integration, open an issue and tell us
 which one — that's how the priority order gets decided.
