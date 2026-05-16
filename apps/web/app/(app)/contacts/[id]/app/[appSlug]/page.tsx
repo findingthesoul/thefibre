@@ -1,13 +1,21 @@
 import { notFound } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
-import { APPS, isAppSlug, type PersonSubResource } from '@/lib/apps';
+import { APPS, isAppSlug, type AppSlug, type PersonSubResource } from '@/lib/apps';
 
 import { ChangeEdit, type ChangeRow } from '../../change/edit';
 import { RelationshipEdit, type RelationshipRow } from '../../relationship/edit';
 import { LearningEdit, type LearningRow } from '../../learning/edit';
 import { PersonBillingEdit, type PersonBillingRow } from '../../billing/edit';
 import { countryName } from '@/lib/countries';
+
+function AppChip({ slug }: { slug: AppSlug }) {
+  return (
+    <span className="ml-2 inline-block rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
+      {APPS[slug].label}
+    </span>
+  );
+}
 
 type Activity = {
   id: string;
@@ -42,14 +50,21 @@ export default async function ContactAppTab({
 
   return (
     <>
+      <div className="text-xs text-ink-subtle">
+        Curator fields below are owned by{' '}
+        <span className="text-ink font-medium">{app.label}</span> — they only
+        exist because this app justifies them. Workspace members without
+        access to {app.label} don&apos;t see them.
+      </div>
+
       {app.personSubResources.length === 0 ? (
         <EmptyState>
           No curator fields yet for {app.label}. Activity from this app will appear below.
         </EmptyState>
       ) : (
-        <div className="space-y-14">
+        <div className="mt-6 space-y-14">
           {app.personSubResources.map((sub) => (
-            <SubResourceSection key={sub} personId={id} sub={sub} />
+            <SubResourceSection key={sub} personId={id} sub={sub} appSlug={appSlug} />
           ))}
         </div>
       )}
@@ -84,19 +99,21 @@ export default async function ContactAppTab({
 async function SubResourceSection({
   personId,
   sub,
+  appSlug,
 }: {
   personId: string;
   sub: PersonSubResource;
+  appSlug: AppSlug;
 }) {
   switch (sub) {
     case 'change':
-      return <ChangeSection personId={personId} />;
+      return <ChangeSection personId={personId} appSlug={appSlug} />;
     case 'relationship':
-      return <RelationshipSection personId={personId} />;
+      return <RelationshipSection personId={personId} appSlug={appSlug} />;
     case 'learning':
-      return <LearningSection personId={personId} />;
+      return <LearningSection personId={personId} appSlug={appSlug} />;
     case 'billing':
-      return <BillingSection personId={personId} />;
+      return <BillingSection personId={personId} appSlug={appSlug} />;
     case 'professional':
       // Professional lives on the Profile tab; not expected here but guard anyway.
       return null;
@@ -105,7 +122,7 @@ async function SubResourceSection({
   }
 }
 
-async function BillingSection({ personId }: { personId: string }) {
+async function BillingSection({ personId, appSlug }: { personId: string; appSlug: AppSlug }) {
   let row: PersonBillingRow | null = null;
   try {
     row = await apiFetch<PersonBillingRow | null>(`/api/v1/persons/${personId}/billing`);
@@ -128,7 +145,7 @@ async function BillingSection({ personId }: { personId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Invoicing</SectionLabel>
+        <SectionLabel>Invoicing<AppChip slug={appSlug} /></SectionLabel>
         <PersonBillingEdit personId={personId} initial={row} />
       </div>
       {allEmpty ? (
@@ -204,7 +221,7 @@ const CHANGE_READINESS: Record<string, string> = {
   driving: 'Driving',
 };
 
-async function ChangeSection({ personId }: { personId: string }) {
+async function ChangeSection({ personId, appSlug }: { personId: string; appSlug: AppSlug }) {
   let row: ChangeRow | null = null;
   try {
     row = await apiFetch<ChangeRow | null>(`/api/v1/persons/${personId}/change`);
@@ -226,7 +243,7 @@ async function ChangeSection({ personId }: { personId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Change context</SectionLabel>
+        <SectionLabel>Change context<AppChip slug={appSlug} /></SectionLabel>
         <ChangeEdit personId={personId} initial={row} />
       </div>
       {empty ? (
@@ -331,7 +348,7 @@ const REL_COMM: Record<string, string> = {
   in_person: 'In person',
 };
 
-async function RelationshipSection({ personId }: { personId: string }) {
+async function RelationshipSection({ personId, appSlug }: { personId: string; appSlug: AppSlug }) {
   let row: RelationshipRow | null = null;
   try {
     row = await apiFetch<RelationshipRow | null>(
@@ -356,7 +373,7 @@ async function RelationshipSection({ personId }: { personId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Relationship context</SectionLabel>
+        <SectionLabel>Relationship context<AppChip slug={appSlug} /></SectionLabel>
         <RelationshipEdit personId={personId} initial={row} />
       </div>
       {empty ? (
@@ -422,7 +439,7 @@ const GROUP_ROLE: Record<string, string> = {
   observer: 'Observer',
 };
 
-async function LearningSection({ personId }: { personId: string }) {
+async function LearningSection({ personId, appSlug }: { personId: string; appSlug: AppSlug }) {
   let row: LearningRow | null = null;
   try {
     row = await apiFetch<LearningRow | null>(`/api/v1/persons/${personId}/learning`);
@@ -446,7 +463,7 @@ async function LearningSection({ personId }: { personId: string }) {
   return (
     <section>
       <div className="flex items-center justify-between">
-        <SectionLabel>Learning profile</SectionLabel>
+        <SectionLabel>Learning profile<AppChip slug={appSlug} /></SectionLabel>
         <LearningEdit personId={personId} initial={row} />
       </div>
       {empty ? (

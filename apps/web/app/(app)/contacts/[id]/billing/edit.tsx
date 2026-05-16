@@ -80,7 +80,7 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit invoicing details"
+      title="Edit invoicing details — Fibre Sales"
       size="lg"
       footer={
         <>

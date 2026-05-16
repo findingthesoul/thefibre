@@ -122,7 +122,7 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit change context"
+      title="Edit change context — Fibre Meet"
       size="lg"
       footer={
         <>

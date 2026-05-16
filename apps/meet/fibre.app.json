@@ -1,0 +1,59 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "fibre-meet",
+  "app_name": "Fibre Meet",
+  "version": "0.9.0",
+  "description": "Meeting platform — booking links, teams, round-robin, collective.",
+
+  "scopes_requested": [
+    "read:persons",
+    "read:organisations",
+    "write:persons",
+    "write:activities"
+  ],
+
+  "entity_mappings": [
+    {
+      "app_entity": "meet_booking",
+      "platform_entity": "person",
+      "mapping_kind": "reference",
+      "match_on": ["invitee_email"],
+      "description": "A booking references its invitee as a Fibre person via invitee_person_id."
+    },
+    {
+      "app_entity": "meet_host",
+      "platform_entity": "user",
+      "mapping_kind": "identity",
+      "match_on": ["user_id"],
+      "description": "A Meet host IS a Fibre user — one host row per user with meet-host config (slug, working_hours, google_refresh_token, etc.)."
+    },
+    {
+      "app_entity": "meet_team_member",
+      "platform_entity": "user",
+      "mapping_kind": "reference",
+      "match_on": ["user_id"],
+      "description": "Team membership references existing users; no identity creation."
+    }
+  ],
+
+  "curator_fields": [
+    {
+      "platform_entity": "person",
+      "table": "person_change_context",
+      "description": "Change-facilitation context (role, stance, readiness, themes, blockers, motivators, current challenge, facilitator notes) curated by Meet for each person it meets with."
+    }
+  ],
+
+  "activity_types": [
+    { "type": "meeting_booked",      "subject": "Booked {meeting_type}" },
+    { "type": "meeting_cancelled",   "subject": "Cancelled {meeting_type}" },
+    { "type": "meeting_rescheduled", "subject": "Rescheduled {meeting_type}" },
+    { "type": "meeting_attended",    "subject": "Attended {meeting_type}",  "future": true },
+    { "type": "meeting_no_show",     "subject": "No-show: {meeting_type}",   "future": true }
+  ],
+
+  "deactivation": {
+    "on_workspace_uninstall": "preserve_booking_history",
+    "on_user_revoke": "redirect_bookings_to_team_default"
+  }
+}

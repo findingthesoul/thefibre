@@ -128,7 +128,7 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit relationship context"
+      title="Edit relationship context — Fibre Sales"
       size="lg"
       footer={
         <>
