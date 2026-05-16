@@ -46,6 +46,17 @@ export const FOOTER_LINKS = {
   legal: 'https://thefibre.app/terms',
 };
 
+/** Hosted brand assets. Served from apps/web/public/brand/. */
+export const BRAND_ASSETS = {
+  /** Absolute URL of the handwritten "the fibre" wordmark. */
+  logoUrl: 'https://thefibre.app/brand/the-fibre.png',
+  /** Native pixel dimensions; used by emails for proper retina rendering. */
+  logoNativeWidth: 1404,
+  logoNativeHeight: 704,
+  /** Alt text for screen readers / image-off email clients. */
+  logoAlt: 'The Fibre',
+};
+
 /** The platform-app entry, exposed as a constant for convenience. The
  *  product's display name in legal / footer / email-signature contexts. */
 export const PLATFORM_APP_ID = 'fibre-platform' as const;

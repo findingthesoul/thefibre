@@ -5,6 +5,7 @@ export {
   APPS,
   ENTITY,
   FOOTER_LINKS,
+  BRAND_ASSETS,
   PLATFORM_APP_ID,
   appUrl,
   appName,

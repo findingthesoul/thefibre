@@ -11,6 +11,7 @@
 
 import {
   APPS,
+  BRAND_ASSETS,
   ENTITY,
   FOOTER_LINKS,
   PLATFORM_APP_ID,
@@ -223,9 +224,7 @@ function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
           <!-- Platform wordmark -->
-          <div style="font-size: 22px; font-weight: 600; letter-spacing: -0.01em; color: #171717; margin-bottom: 48px;">
-            ${escape(PLATFORM.name)}
-          </div>
+          <img src="${BRAND_ASSETS.logoUrl}" alt="${escape(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
 
           <h1 style="margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">
             ${escape(copy.headline)}
