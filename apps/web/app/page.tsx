@@ -1,16 +1,27 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { SignInLink } from './sign-in-button';
-import { APPS, ENTITY } from '@thefibre/shared';
+import { APPS, ENTITY, BRAND_ASSETS } from '@thefibre/shared';
 
 const FIBRE = APPS['fibre-platform'];
+// The logo lives in apps/web/public/brand/the-fibre.png and is served at
+// /brand/the-fibre.png. BRAND_ASSETS.logoUrl is the absolute URL used in
+// emails — same file, different surface.
 
 export default function LandingPage() {
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
         <header>
-          <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">{FIBRE.name}</div>
-          <h1 className="mt-3 text-5xl font-medium tracking-tight leading-tight">
+          <Image
+            src="/brand/the-fibre.png"
+            alt={BRAND_ASSETS.logoAlt}
+            width={BRAND_ASSETS.logoNativeWidth}
+            height={BRAND_ASSETS.logoNativeHeight}
+            priority
+            className="h-12 w-auto"
+          />
+          <h1 className="mt-8 text-5xl font-medium tracking-tight leading-tight">
             Relationships, kept honestly.
           </h1>
           <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
