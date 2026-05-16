@@ -43,10 +43,12 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
   '/api/v1/sso/access-check', // same — server-to-server, secret-gated
   '/api/v1/signup-requests', // POST only — applicants have no account yet
+  '/api/v1/auth-hook/email', // Supabase Send Email Hook; HMAC-verified
 ]);
 
 const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
   ['/api/v1/signup-requests', new Set(['POST'])],
+  ['/api/v1/auth-hook/email', new Set(['POST'])],
 ]);
 
 // Path prefixes that bypass auth entirely. /meet/public/* serves the

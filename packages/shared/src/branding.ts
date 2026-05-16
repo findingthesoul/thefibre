@@ -27,12 +27,23 @@ export type AppBrand = {
 export const ENTITY = {
   /** Legal entity that owns and operates the platform. */
   name: 'Solidarity Lab B.V.',
+  /** Postal address for the footer line of public emails. */
+  address: 'Rotterdam, The Netherlands',
   /** Footer line for public surfaces. */
   hostedLine: 'Hosted in the EU',
   /** Default transactional "from" address. Override via EMAIL_FROM env. */
   emailFromAddress: 'noreply@thefibre.app',
+  /** Address recipients should add to their address book to avoid spam filters. */
+  whitelistEmail: 'hello@thefibre.app',
   /** Default reply-to / support address. */
   supportEmail: 'support@thefibre.app',
+};
+
+/** URLs surfaced in the footer of public emails. */
+export const FOOTER_LINKS = {
+  help: 'https://thefibre.app/support',
+  about: 'https://thefibre.app/about',
+  legal: 'https://thefibre.app/terms',
 };
 
 /** The platform-app entry, exposed as a constant for convenience. The

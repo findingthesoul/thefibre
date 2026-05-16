@@ -4,6 +4,7 @@ export type AppId = (typeof APP_IDS)[number];
 export {
   APPS,
   ENTITY,
+  FOOTER_LINKS,
   PLATFORM_APP_ID,
   appUrl,
   appName,
