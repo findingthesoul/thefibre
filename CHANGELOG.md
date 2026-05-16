@@ -6,6 +6,45 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.10.0] — 2026-05-16
+
+### Auth emails now route through our API — branded, with SPoT
+
+Supabase's "Send Email" hook is configured to call our API for every
+auth email (signup, sign-in, magic link, invite, password reset, email
+change, reauthentication). The API renders the email from
+`packages/shared/src/branding.ts`, so a rename or white-label is one
+file change. End-to-end verified: logo, headline, 8-digit code box,
+CTA, and footer all arrive correctly.
+
+### Added
+- **`POST /api/v1/auth-hook/email`** — handles the Supabase Send Email
+  Hook. HMAC-SHA256 verification per the standardwebhooks spec; renders
+  via `auth-templates.ts`; sends via Resend.
+- **Eight auth email types** rendered in Thread-style identity: centred
+  Fibre wordmark, "Almost there" headline, big code box, optional CTA,
+  reassurance paragraph, divider, Help/About/Legal footer + whitelist
+  hint + legal address line.
+- **`BRAND_ASSETS`** on `packages/shared` — logo URL, native dimensions,
+  alt text. Single source of truth for the wordmark across web + emails.
+- **The Fibre wordmark** hosted at `https://thefibre.app/brand/the-fibre.png`
+  (1404×704 PNG, served from `apps/web/public/brand/`).
+- **`/sign-in` page** on `thefibre.app` exposing the same Google +
+  8-digit email-code flow Meet has on its landing.
+
+### Changed
+- Sign-in input accepts **8 digits** (matches Supabase OTP length).
+- `legalFooterLine()` no longer includes the legal entity name on public
+  surfaces. `ENTITY.name` (Solidarity Lab B.V.) remains in `branding.ts`
+  for internal billing / invoicing.
+- Fly machine pinned to `min_machines_running = 1`, `auto_stop_machines = off`
+  — Supabase auth hooks have a 5s ceiling, cold starts blow it.
+- HMAC secret parser accepts `v1,whsec_xxx`, `whsec_xxx`, or bare base64
+  so dashboard copy-paste just works.
+
+### Sjoerd action
+- Rotate the Resend API key still pending from v0.8.0.
+
 ## [0.9.0] — 2026-05-17
 
 ### Permission tiers — within-workspace visibility lands
