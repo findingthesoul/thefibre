@@ -6,6 +6,62 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.9.0] — 2026-05-17
+
+### Permission tiers — within-workspace visibility lands
+
+The platform's access model grows a second axis. Workspaces no longer treat
+every member as "sees everything"; visibility is per-resource (each Meet team,
+program, etc. carries `members_only | org_wide`) and users carry a
+`relationship_type` (`internal | external`) that decides whether they get the
+org-wide widening. See `docs/permission-tiers-proposal.md` for the resolved
+model and `docs/fibre-vs-app-data.md` for how this slots into the brief.
+
+### Added
+- **`public.workspace_member`** pivot table (`user_id`, `workspace_id`,
+  `workspace_role` = admin|member, `relationship_type` = internal|external,
+  `member_status`). Multi-org ready from day one — a person can be a user in
+  multiple organisations cleanly when we need it.
+- **`visibility` column** on `meet_team` and `program`, default `members_only`,
+  opt-in `org_wide`. Editable by leads / org admins via the team detail page.
+- **`can_see_person()`, `can_see_organisation()`, `can_see_activity()`,
+  `is_workspace_admin()`** — all `SECURITY DEFINER` SQL helpers, granted only
+  to `authenticated`. `can_see_person` covers six clauses (admin / self /
+  shared Meet team / shared program enrolment / org_wide widening for
+  internals / hosted-a-booking with them).
+- **RLS rewritten** on `public.person`, `public.organisation`, `public.activity`
+  (SELECT), and `public.meet_booking`. Workspace check stays as the cheap
+  pre-filter; the helper provides the per-row gate.
+- **API endpoints**:
+  - `POST /teams/:id/members` + `POST /internal-team` accept
+    `relationship_type` for new users.
+  - `PATCH /teams/:id` accepts `visibility`.
+  - `PATCH /internal-team/:userId` (admin-only) flips `workspace_role`,
+    `relationship_type`, `member_status`.
+  - `GET /internal-team` returns the per-row workspace_role +
+    relationship_type + member_status.
+- **UI**:
+  - Team invite form + Internal-team invite gain a Relationship select.
+  - Team detail page gains a Visibility card (radio: members_only / org_wide).
+  - Internal-team page renders role + relationship chips; admins see editable
+    selects.
+
+### Backfill
+- Every existing `user` row gets a `workspace_member` row.
+  `workspace_role='admin'` iff they hold a `fibre-platform` `app_membership`
+  with role `admin`; otherwise `member`. `relationship_type='internal'` for
+  all. All existing teams + programs start `members_only`.
+
+### Migration
+- `20260517000000_permission_tiers.sql` — schema + helpers + RLS + backfill.
+
+### Behavioural change to watch
+Workspaces that previously had everyone-sees-everything now scope per
+resource. The seeded `sjoerd@soul.com` workspace is unaffected (single admin
+sees everything via the admin shortcut). When you invite future members,
+choose Internal or External; Internal users see org-wide things, External
+only see resources they're explicitly added to.
+
 ## [0.8.0] — 2026-05-16
 
 ### Suite v2 — Fibre Meet matures into a real scheduler
