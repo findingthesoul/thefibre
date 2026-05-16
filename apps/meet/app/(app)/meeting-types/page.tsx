@@ -7,6 +7,7 @@ import {
   ErrorBanner,
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { NewMeetingTypeMenu } from './new-menu';
 
 type Team = { id: string; name: string; my_role: 'lead' | 'member' };
@@ -61,24 +62,37 @@ export default async function MeetingTypesPage() {
   function renderList(prefix: string, list: MeetingType[]) {
     return (
       <ListGroup>
-        {list.map((mt) => (
-          <ListRow
-            key={mt.id}
-            href={`/meeting-types/${mt.id}`}
-            primary={mt.name}
-            secondary={`meet.thefibre.app/${prefix}/${mt.slug}`}
-            meta={
-              <>
-                {!mt.is_active && (
-                  <span className="uppercase tracking-wider text-ink-muted">
-                    Hidden
-                  </span>
-                )}
-                <span>{mt.duration_minutes} min</span>
-              </>
-            }
-          />
-        ))}
+        {list.map((mt) => {
+          // The public booking path. We store it as a path (not absolute
+          // URL) so the icon buttons resolve it against window.location.
+          const bookingPath = `/${prefix}/${mt.slug}`;
+          return (
+            <ListRow
+              key={mt.id}
+              href={`/meeting-types/${mt.id}`}
+              primary={mt.name}
+              secondary={`meet.thefibre.app${bookingPath}`}
+              meta={
+                <>
+                  {!mt.is_active && (
+                    <span className="uppercase tracking-wider text-ink-muted">
+                      Hidden
+                    </span>
+                  )}
+                  <span>{mt.duration_minutes} min</span>
+                </>
+              }
+              trailing={
+                mt.is_active && (
+                  <div className="flex items-center gap-1">
+                    <CopyLinkButton url={bookingPath} label="Copy booking link" />
+                    <OpenBookingLink href={bookingPath} />
+                  </div>
+                )
+              }
+            />
+          );
+        })}
       </ListGroup>
     );
   }

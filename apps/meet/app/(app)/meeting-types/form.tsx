@@ -147,8 +147,12 @@ export function MeetingTypeForm({
   const [hours, setHours] = useState<Schedule>(
     (initial.working_hours_override as Schedule | null) ?? defaultSchedule(),
   );
+  // "Use host default" = null or empty array (we treat both the same so a
+  // previously-saved empty array doesn't visually flip into custom mode).
   const [calMode, setCalMode] = useState<'default' | 'custom'>(
-    initial.conflict_calendar_ids ? 'custom' : 'default',
+    initial.conflict_calendar_ids && initial.conflict_calendar_ids.length > 0
+      ? 'custom'
+      : 'default',
   );
   const [calIds, setCalIds] = useState<Set<string>>(
     new Set(initial.conflict_calendar_ids ?? []),

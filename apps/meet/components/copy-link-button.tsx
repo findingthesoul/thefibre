@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 // Reusable copy-to-clipboard button. Used in scheduling list rows to copy
@@ -59,23 +59,40 @@ export function CopyLinkButton({
   );
 }
 
-// Inline action button to open the public booking page in a new tab.
-// Rendered as a <button> (not <a>) because it sits inside a row-level
-// <Link>, and nested anchors are invalid HTML. Stops click propagation
-// so the row-level navigation doesn't fire. Lives alongside CopyLinkButton
-// because it's the same row-action pattern (client-side, stops propagation).
-export function OpenBookingLink({ href, label = "Open booking page ↗" }: { href: string; label?: string }) {
+// Icon button to open the public booking page in a new tab. Rendered
+// as a <button> (not <a>) because it sits inside a row-level <Link>,
+// and nested anchors are invalid HTML. Stops click propagation so the
+// row-level navigation doesn't fire. Mirrors CopyLinkButton — same
+// ghost-icon button shape, lucide icon, so the two read as a pair.
+export function OpenBookingLink({
+  href,
+  label = "Open booking page",
+  className,
+}: {
+  href: string;
+  label?: string;
+  className?: string;
+}) {
+  // Resolve path-style hrefs against window.location.origin at click time
+  // so that callers can pass either "/sjoerd/intro" or an absolute URL.
   return (
-    <button
+    <Button
+      variant="ghost"
+      size="icon"
       type="button"
       onClick={(e) => {
         e.preventDefault();
         e.stopPropagation();
-        window.open(href, "_blank", "noopener,noreferrer");
+        const absolute = href.startsWith("http")
+          ? href
+          : `${window.location.origin}${href.startsWith("/") ? href : `/${href}`}`;
+        window.open(absolute, "_blank", "noopener,noreferrer");
       }}
-      className="text-xs text-muted-foreground underline hover:text-ink shrink-0"
+      aria-label={label}
+      title={label}
+      className={className}
     >
-      {label}
-    </button>
+      <ExternalLink className="h-4 w-4" />
+    </Button>
   );
 }
