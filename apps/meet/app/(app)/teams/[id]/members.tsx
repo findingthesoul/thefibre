@@ -55,6 +55,18 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
           ]}
         />
       </div>
+      <div className="w-40">
+        <SelectField
+          label="Relationship"
+          name="relationship_type"
+          defaultValue="internal"
+          options={[
+            { value: 'internal', label: 'Internal' },
+            { value: 'external', label: 'External' },
+          ]}
+          hint="Internals get org-wide widening; externals only see what they're added to."
+        />
+      </div>
       <Button type="submit" disabled={pending}>
         {pending ? 'Adding…' : 'Add'}
       </Button>

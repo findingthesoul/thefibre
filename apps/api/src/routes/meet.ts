@@ -75,6 +75,35 @@ async function ensurePersonForEmail(
   return created.id;
 }
 
+/** Ensure a workspace_member row exists for (user, workspace). Idempotent.
+ *  Used by invite paths so every new user has explicit role + relationship.
+ *  If the row already exists, fields are NOT overwritten — callers can
+ *  upgrade an external to internal via the dedicated endpoint. */
+async function ensureWorkspaceMember(
+  userId: string,
+  workspaceId: string,
+  opts: {
+    role?: 'admin' | 'member';
+    relationship?: 'internal' | 'external';
+    memberStatus?: string | null;
+  } = {},
+): Promise<void> {
+  const { data: existing } = await adminClient
+    .from('workspace_member')
+    .select('user_id')
+    .eq('user_id', userId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (existing) return;
+  await adminClient.from('workspace_member').insert({
+    user_id: userId,
+    workspace_id: workspaceId,
+    workspace_role: opts.role ?? 'member',
+    relationship_type: opts.relationship ?? 'internal',
+    member_status: opts.memberStatus ?? null,
+  });
+}
+
 /** Heal old user rows that were created before the user↔person invariant
  *  was enforced. No-op if already linked. */
 async function linkPersonIfMissing(
@@ -899,20 +928,82 @@ meetRoutes.get('/internal-team', async (c) => {
     memberships = data ?? [];
   }
   const meetUserIds = new Set(memberships.map((m) => m.user_id));
-  const items = (users ?? []).map((u) => ({
-    id: u.id,
-    email: u.email,
-    full_name: u.full_name,
-    avatar_url: u.avatar_url,
-    email_verified: u.email_verified,
-    has_meet: meetUserIds.has(u.id),
-  }));
+  // Pull workspace_member attributes in one go.
+  const { data: wmRows } = await adminClient
+    .from('workspace_member')
+    .select('user_id, workspace_role, relationship_type, member_status')
+    .eq('workspace_id', ctx.workspaceId);
+  const wmByUser = new Map(
+    (wmRows ?? []).map((w) => [
+      w.user_id,
+      {
+        workspace_role: w.workspace_role as 'admin' | 'member',
+        relationship_type: w.relationship_type as 'internal' | 'external',
+        member_status: w.member_status as string | null,
+      },
+    ]),
+  );
+  const items = (users ?? []).map((u) => {
+    const wm = wmByUser.get(u.id);
+    return {
+      id: u.id,
+      email: u.email,
+      full_name: u.full_name,
+      avatar_url: u.avatar_url,
+      email_verified: u.email_verified,
+      has_meet: meetUserIds.has(u.id),
+      workspace_role: wm?.workspace_role ?? 'member',
+      relationship_type: wm?.relationship_type ?? 'internal',
+      member_status: wm?.member_status ?? null,
+    };
+  });
   return c.json({ items });
+});
+
+// PATCH /api/v1/meet/internal-team/:userId — admin-only edit of a workspace
+// member's role / relationship / cosmetic status. Used by the internal-team
+// page to flip Internal↔External or promote to admin.
+const PatchInternalBody = z.object({
+  workspace_role: z.enum(['admin', 'member']).optional(),
+  relationship_type: z.enum(['internal', 'external']).optional(),
+  member_status: z.string().max(80).nullable().optional(),
+});
+meetRoutes.patch('/internal-team/:userId', async (c) => {
+  const userId = c.req.param('userId');
+  const body = PatchInternalBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  // Admin-only.
+  const { data: me } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', ctx.userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!me || me.workspace_role !== 'admin') {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  // Ensure the row exists before patching.
+  await ensureWorkspaceMember(userId, ctx.workspaceId, { role: 'member' });
+  const updates: Record<string, unknown> = {};
+  if (body.data.workspace_role) updates.workspace_role = body.data.workspace_role;
+  if (body.data.relationship_type) updates.relationship_type = body.data.relationship_type;
+  if (body.data.member_status !== undefined) updates.member_status = body.data.member_status;
+  const { data, error } = await adminClient
+    .from('workspace_member')
+    .update(updates)
+    .eq('user_id', userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
 });
 
 const InviteInternalBody = z.object({
   email: z.string().email().toLowerCase(),
   name: z.string().max(200).optional(),
+  relationship_type: z.enum(['internal', 'external']).optional(),
 });
 
 // POST /api/v1/meet/internal-team — invite a workspace-level Meet user.
@@ -984,6 +1075,12 @@ meetRoutes.post('/internal-team', async (c) => {
         { onConflict: 'user_id,app_id' },
       );
   }
+  // Workspace membership: fresh users use the requested relationship_type
+  // (defaults to internal). Existing users keep whatever they had.
+  await ensureWorkspaceMember(u.id, ctx.workspaceId, {
+    role: 'member',
+    relationship: invited ? body.data.relationship_type ?? 'internal' : 'internal',
+  });
   // Best-effort invite email.
   if (invited) {
     try {
@@ -1472,6 +1569,7 @@ const TeamUpsert = z.object({
   name: z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional(),
   is_active: z.boolean().optional(),
+  visibility: z.enum(['members_only', 'org_wide']).optional(),
 });
 
 // POST /api/v1/meet/teams — create a team. Creator becomes lead.
@@ -1618,6 +1716,9 @@ const AddMemberBody = z.object({
   email: z.string().email().toLowerCase(),
   name: z.string().max(200).optional(),
   role: z.enum(['lead', 'member']).optional(),
+  // Workspace-level relationship (defaults to 'internal' if omitted).
+  // Only meaningful for brand-new users; ignored for existing workspace members.
+  relationship_type: z.enum(['internal', 'external']).optional(),
 });
 meetRoutes.post('/teams/:id/members', async (c) => {
   const id = c.req.param('id');
@@ -1694,10 +1795,18 @@ meetRoutes.post('/teams/:id/members', async (c) => {
           { onConflict: 'user_id,app_id' },
         );
     }
+    // 4. Workspace membership with the chosen relationship type. Defaults
+    //    to 'internal'. The inviter can pass 'external' to scope down access.
+    await ensureWorkspaceMember(u.id, ctx.workspaceId, {
+      role: 'member',
+      relationship: body.data.relationship_type ?? 'internal',
+    });
   } else {
     // Existing user — make sure they have a linked person row too (heal old
     // rows created before this fix).
     await linkPersonIfMissing(u.id, ctx.workspaceId, u.email, u.full_name);
+    // And a workspace_member row in case they pre-date the slice.
+    await ensureWorkspaceMember(u.id, ctx.workspaceId, { role: 'member' });
   }
 
   // 4. Add to the team.

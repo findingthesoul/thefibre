@@ -65,6 +65,7 @@ export async function addMember(
   const email = strOrNull(formData.get('email'));
   const name = strOrNull(formData.get('name'));
   const role = strOrNull(formData.get('role')) ?? 'member';
+  const relationship = strOrNull(formData.get('relationship_type')) ?? 'internal';
   if (!email) return { error: 'email is required' };
   let result: { invited?: boolean } = {};
   try {
@@ -72,7 +73,12 @@ export async function addMember(
       `/api/v1/meet/teams/${teamId}/members`,
       {
         method: 'POST',
-        body: JSON.stringify({ email, name: name ?? undefined, role }),
+        body: JSON.stringify({
+          email,
+          name: name ?? undefined,
+          role,
+          relationship_type: relationship,
+        }),
       },
     );
   } catch (e) {
@@ -80,6 +86,22 @@ export async function addMember(
   }
   revalidatePath(`/teams/${teamId}`);
   return { ok: true, invited: result.invited };
+}
+
+export async function setTeamVisibility(
+  teamId: string,
+  visibility: 'members_only' | 'org_wide',
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/teams/${teamId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ visibility }),
+    });
+  } catch (e) {
+    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+  }
+  revalidatePath(`/teams/${teamId}`);
+  return { ok: true };
 }
 
 export async function removeMember(

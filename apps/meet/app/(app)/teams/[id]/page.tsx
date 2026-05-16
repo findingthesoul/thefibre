@@ -12,6 +12,7 @@ import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
 import { TeamForm } from '../form';
 import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
+import { VisibilityCard } from './visibility';
 
 type Team = {
   id: string;
@@ -19,6 +20,7 @@ type Team = {
   name: string;
   description: string | null;
   is_active: boolean;
+  visibility: 'members_only' | 'org_wide';
   my_role: 'lead' | 'member' | null;
   members: {
     role: 'lead' | 'member';
@@ -78,6 +80,20 @@ export default async function TeamDetailPage({
           </div>
         </section>
       )}
+
+      <section className="mt-14">
+        <SectionLabel>Visibility</SectionLabel>
+        <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
+          Controls who can see this team and its bookings.
+        </p>
+        <div className="mt-4 rounded-lg border border-line bg-surface-raised p-5">
+          <VisibilityCard
+            teamId={team.id}
+            initial={team.visibility ?? 'members_only'}
+            disabled={!isLead}
+          />
+        </div>
+      </section>
 
       <section className="mt-14">
         <div className="flex items-center justify-between">

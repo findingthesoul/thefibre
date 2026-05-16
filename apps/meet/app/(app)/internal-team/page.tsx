@@ -6,25 +6,23 @@ import {
   SectionLabel,
 } from '@/components/ui/page';
 import { InviteForm } from './invite';
-
-type Member = {
-  id: string;
-  email: string;
-  full_name: string | null;
-  avatar_url: string | null;
-  email_verified: boolean;
-  has_meet: boolean;
-};
+import { MemberRow, type Member } from './row';
 
 export default async function InternalTeamPage() {
   let items: Member[] = [];
+  let me: { user: { id: string } } | null = null;
   let error: string | null = null;
   try {
-    const r = await apiFetch<{ items: Member[] }>('/api/v1/meet/internal-team');
-    items = r.items;
+    [items, me] = await Promise.all([
+      apiFetch<{ items: Member[] }>('/api/v1/meet/internal-team').then((r) => r.items),
+      apiFetch<{ user: { id: string } }>('/api/v1/auth/me').catch(() => null),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
+  const meId = me?.user.id ?? null;
+  const meRow = items.find((m) => m.id === meId);
+  const iAmAdmin = meRow?.workspace_role === 'admin';
 
   return (
     <PageContainer max="4xl">
@@ -38,37 +36,12 @@ export default async function InternalTeamPage() {
       <section className="mt-10">
         <SectionLabel>Internal team ({items.length})</SectionLabel>
         <p className="mt-1 text-sm text-ink-subtle">
-          Everyone who can sign in to Fibre Meet.
+          Everyone who can sign in to Fibre Meet. Admins can change roles and
+          relationship types.
         </p>
         <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
           {items.map((m) => (
-            <li
-              key={m.id}
-              className="flex items-center justify-between gap-4 px-5 py-4 text-sm"
-            >
-              <div className="min-w-0">
-                <div className="font-medium truncate">
-                  {m.full_name ?? m.email}
-                </div>
-                <div className="mt-0.5 text-xs text-ink-muted truncate">
-                  {m.email}
-                </div>
-              </div>
-              <div className="flex shrink-0 items-center gap-2 text-[10px] uppercase tracking-wider">
-                {!m.email_verified && (
-                  <span className="text-ink-muted border border-line rounded px-1.5 py-0.5">
-                    Pending
-                  </span>
-                )}
-                {m.has_meet ? (
-                  <span className="text-ink-muted">Member</span>
-                ) : (
-                  <span className="text-ink-muted border border-line rounded px-1.5 py-0.5">
-                    No Meet
-                  </span>
-                )}
-              </div>
-            </li>
+            <MemberRow key={m.id} member={m} editable={iAmAdmin && m.id !== meId} />
           ))}
         </ul>
       </section>

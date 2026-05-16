@@ -3,7 +3,7 @@
 import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { TextField } from '@/components/ui/field';
+import { TextField, SelectField } from '@/components/ui/field';
 import { inviteInternal, type InviteResult } from './actions';
 
 export function InviteForm() {
@@ -32,6 +32,17 @@ export function InviteForm() {
       </div>
       <div className="w-48">
         <TextField label="Name (optional)" name="name" placeholder="Full name" />
+      </div>
+      <div className="w-40">
+        <SelectField
+          label="Relationship"
+          name="relationship_type"
+          defaultValue="internal"
+          options={[
+            { value: 'internal', label: 'Internal' },
+            { value: 'external', label: 'External' },
+          ]}
+        />
       </div>
       <Button type="submit" disabled={pending}>
         {pending ? 'Inviting…' : 'Send invite'}
