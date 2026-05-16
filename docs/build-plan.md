@@ -61,8 +61,9 @@ Suite v1 is still in production for soul.com. Decide whether Meet runs in parall
 
 ## Outstanding for Sjoerd
 
-- **Rotate the Resend API key** — the `re_AR5QNQot…` value ended up in a screenshot earlier in chat history. Resend dashboard → API Keys → delete + create new → `fly secrets set RESEND_API_KEY=…` from repo root.
 - **Decide Meet ↔ Suite cutover** strategy.
+
+_(Resend API key rotation — done by Sjoerd. The leaked key is dead.)_
 
 ---
 

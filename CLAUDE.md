@@ -166,10 +166,9 @@ df067d3  Wire the Fibre wordmark into auth emails
 
 ### Outstanding for Sjoerd (not code)
 
-- **Rotate the Resend API key.** `re_AR5QNQot…` leaked in a screenshot during
-  v0.8.0. Now even more urgent — Send Email Hook depends on Resend in prod,
-  so anyone with the old key can blast emails as `noreply@thefibre.app`.
-  Resend dashboard → delete + create → `fly secrets set RESEND_API_KEY=… -a thefibre-api`.
+- _(Nothing outstanding as of v0.10.0. The Resend API key rotation that was
+  flagged from v0.8.0 was completed by Sjoerd; the leaked `re_AR5QNQot…`
+  value is dead.)_
 
 ### Hot-button design feedback (still active)
 
