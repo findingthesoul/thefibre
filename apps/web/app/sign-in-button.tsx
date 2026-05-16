@@ -183,21 +183,15 @@ export function SignInButton() {
 }
 
 /** Quieter sign-in entry point — used on the public landing page where
- *  Request Access is the primary action. Kicks off Google OAuth only. */
+ *  Request Access is the primary action. Points to /sign-in, which offers
+ *  Google + the 6-digit email-code flow. */
 export function SignInLink() {
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   return (
-    <div>
-      <button
-        type="button"
-        onClick={() => startGoogleSignIn(setBusy, setError)}
-        disabled={busy}
-        className="text-sm text-neutral-600 hover:text-neutral-900 underline underline-offset-4 disabled:opacity-50"
-      >
-        {busy ? 'Redirecting…' : 'Already invited? Sign in →'}
-      </button>
-      {error && <div className="mt-1 text-xs text-red-700">{error}</div>}
-    </div>
+    <a
+      href="/sign-in"
+      className="text-sm text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
+    >
+      Already invited? Sign in →
+    </a>
   );
 }
