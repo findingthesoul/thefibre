@@ -44,7 +44,9 @@ pnpm dev          # both API (:8080) and web (:3000) in parallel
 ```
 
 ### Version bumps
-Every shipped change updates **four** `package.json` files plus `apps/web/app/(app)/layout.tsx` (the `VERSION` constant shown in the sidebar footer). The CHANGELOG entry lands in the same commit.
+Every shipped change updates the **five** `package.json` files (web, api, meet, thread, shared) plus `apps/web/app/(app)/layout.tsx` (the `VERSION` constant shown in the Fibre sidebar footer). The CHANGELOG entry lands in the same commit.
+
+**Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work.
 
 ### Seed realistic data
 

@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.3] — 2026-05-17
+
+### Meet's display version decoupled — sidebar now shows v2.0.0
+
+Meet is the rebuild of Suite v1, so calling it `0.13.x` in the
+sidebar didn't reflect its lineage. Meet now has its own
+user-facing version, starting at **v2.0.0**, independent of the
+monorepo release cadence in `package.json` (which keeps tracking
+cross-package work).
+
+### Changed
+- `apps/meet/app/(app)/layout.tsx` `VERSION` constant → `'2.0.0'`.
+- `CLAUDE.md` "Version bumps" section updated: from now on, bump
+  Meet's VERSION independently when Meet-specific surfaces ship;
+  don't mass-bump in lockstep with platform-wide releases.
+
 ## [0.13.2] — 2026-05-17
 
 ### Booking approval — host default + per-MT override
