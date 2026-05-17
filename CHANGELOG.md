@@ -6,6 +6,23 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.1] — 2026-05-17
+
+### Fix: `/settings/availability` crashed in prod
+
+`WorkingHoursEditor` reads `value[day].length` for each of the seven
+days, but the three callers passed `working_hours` straight from the
+API with a `as Schedule` cast. Any saved row missing a day key
+(common — Saturday/Sunday often absent) crashed React on mount with
+"client-side exception."
+
+### Changed
+- All three callers (settings page, settings/availability, meeting-type
+  editor) now use the existing `coerceSchedule()` helper from
+  `components/working-hours-editor.tsx`, which guarantees all 7 day
+  keys are present (empty array per missing day) before the editor
+  ever reads them.
+
 ## [0.12.0] — 2026-05-17
 
 ### Added: One-off and Meeting-poll event types

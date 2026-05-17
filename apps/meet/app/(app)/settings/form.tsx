@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { TextField, TextAreaField } from '@/components/ui/field';
 import {
   WorkingHoursEditor,
-  defaultSchedule,
+  coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
 import { updateHost, type SaveResult } from './actions';
@@ -25,9 +25,7 @@ export function SettingsForm({ initial }: { initial: Initial }) {
     updateHost,
     {},
   );
-  const [hours, setHours] = useState<Schedule>(
-    (initial.working_hours as Schedule | null) ?? defaultSchedule(),
-  );
+  const [hours, setHours] = useState<Schedule>(coerceSchedule(initial.working_hours));
 
   return (
     <form action={formAction} className="space-y-5">

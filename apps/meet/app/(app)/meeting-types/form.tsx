@@ -8,7 +8,7 @@ import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import {
   WorkingHoursEditor,
-  defaultSchedule,
+  coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
 import { createMeetingType, savePollSlots, updateMeetingType, type SaveResult } from './actions';
@@ -176,9 +176,7 @@ export function MeetingTypeForm({
   const [availabilityMode, setAvailabilityMode] = useState<'default' | 'custom'>(
     initial.working_hours_override ? 'custom' : 'default',
   );
-  const [hours, setHours] = useState<Schedule>(
-    (initial.working_hours_override as Schedule | null) ?? defaultSchedule(),
-  );
+  const [hours, setHours] = useState<Schedule>(coerceSchedule(initial.working_hours_override));
   // "Use host default" = null or empty array (we treat both the same so a
   // previously-saved empty array doesn't visually flip into custom mode).
   const [calMode, setCalMode] = useState<'default' | 'custom'>(
