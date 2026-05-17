@@ -29,9 +29,18 @@ You already created a Vercel project named `thefibre` earlier. Fix the configura
    - `NEXT_PUBLIC_SUPABASE_URL` = `https://zfsyyokepyycefbxiblc.supabase.co`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY` = (from Supabase dashboard → Settings → API)
    - `NEXT_PUBLIC_API_BASE_URL` = `https://api.thefibre.app` (or the Fly app URL until DNS is wired; e.g. `https://thefibre-api.fly.dev`)
+   - `NEXT_PUBLIC_COOKIE_DOMAIN` = `.thefibre.app` — leading dot is intentional, that's what makes Supabase auth cookies valid for every `*.thefibre.app` subdomain so signing into `thefibre.app` also signs you into `meet.thefibre.app` and `thread.thefibre.app`. **Set this on EVERY app's Vercel project** (`thefibre`, `thefibre-meet`, `thefibre-thread`). Missing it on one project means users get prompted to re-login when switching subdomains.
    - `SSO_INTERNAL_SECRET` = match the value you set on Fly later (see below)
    - `DEFAULT_WORKSPACE_ID` = `eaf096f8-59f8-45d0-b3e3-3d31c8ebffeb`
 4. **Deployments tab → Redeploy.**
+
+> **First-login gotcha after enabling `NEXT_PUBLIC_COOKIE_DOMAIN`**: existing
+> sessions were stored with cookies scoped to a single subdomain. Setting the
+> env var doesn't retroactively re-scope them. Every existing user has to
+> sign in once more after the redeploy — that new login writes the cookie
+> with `domain=.thefibre.app`, and from then on cross-subdomain SSO works.
+> Verify in devtools → Application → Cookies → `sb-…-auth-token` should
+> show `Domain: .thefibre.app` (with the leading dot).
 
 ### Domain wiring
 
