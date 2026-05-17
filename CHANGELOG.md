@@ -6,6 +6,46 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.0] — 2026-05-17
+
+### Intake forms ship; pricing/payments roadmap published
+
+Sjoerd asked for the full Suite-equivalent Pricing + Payments surface
+(intake, price, Stripe + PayPal + Invoice, refunds, invoice emails,
+tax). That's ~5-6 days of focused work — see
+[`docs/meet-pricing-roadmap.md`](docs/meet-pricing-roadmap.md) for the
+phased plan. This release ships Phase 1 only.
+
+### Added (Phase 1 — Intake forms, end-to-end)
+- **API: `PUT /api/v1/meet/meeting-types/:id/intake`** — upserts
+  the `meet_intake_form` row and links it via `intake_form_id`.
+  Empty fields detaches and cleans up. Zod-validated.
+- **API: MT list endpoint** now also pulls
+  `intake_form:intake_form_id (id, name, fields)` so the editor can
+  preload.
+- **Editor: Intake tab** is wired up. The pre-existing
+  `IntakeFieldsEditor` component (5 field types, drag-reorder,
+  cascade-delete, conditional logic) is now mounted. Saves
+  out-of-band from the main MT PATCH via the new `saveIntakeFields`
+  server action.
+- **Public booking page** already rendered intake answers and
+  stored them on `meet_booking.invitee_answers` — confirmed working
+  end-to-end now that the editor exists.
+
+### Roadmap published
+- [`docs/meet-pricing-roadmap.md`](docs/meet-pricing-roadmap.md)
+  documents how Suite implements each piece (read fresh today), what
+  our schema already supports (it's already there from v0.10.x), and
+  the 8-phase implementation order. Two decision points flagged for
+  Sjoerd: Stripe Connect onboarding style (paste vs OAuth) and
+  whether PayPal ships at all (recommend skip).
+
+### Honest scope
+This commit ships Phase 1 only (intake). Phases 2-6 (Stripe Connect,
+Checkout, invoice mode, refunds, invoice numbering+email) are queued
+in priority order. PayPal (Phase 7) and Tax (Phase 8) are recommended
+as defer-unless-asked.
+
 ## [0.12.8] — 2026-05-17
 
 ### Click-to-open booking popup everywhere; Month calendar grid; per-contact appointment list

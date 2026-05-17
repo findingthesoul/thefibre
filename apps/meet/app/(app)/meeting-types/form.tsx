@@ -7,12 +7,14 @@ import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { EVENT_TYPES, EventTypePicker } from '@/components/event-type-picker';
+import { IntakeFieldsEditor } from '@/components/intake-fields-editor';
+import type { IntakeField } from '@/lib/intake';
 import {
   WorkingHoursEditor,
   coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
-import { createMeetingType, savePollSlots, updateMeetingType, type SaveResult } from './actions';
+import { createMeetingType, savePollSlots, saveIntakeFields, updateMeetingType, type SaveResult } from './actions';
 
 export type MeetingTypeFormValues = {
   id?: string;
@@ -37,6 +39,7 @@ export type MeetingTypeFormValues = {
   working_hours_override?: Schedule | null;
   conflict_calendar_ids?: string[] | null;
   intake_form_id?: string | null;
+  intake_form?: { id: string; name: string; fields: IntakeField[] } | null;
   price_cents?: number | null;
   price_currency?: string | null;
 };
@@ -598,11 +601,18 @@ export function MeetingTypeForm({
       <div className={visibleTab === 'intake' ? '' : 'hidden'}>
         <Section
           title="Intake form"
-          desc="Ask invitees structured questions when they book. Edit fields after creating the meeting type."
+          desc="Ask invitees structured questions when they book. Save the meeting type first, then add fields here."
         >
-          <p className="text-sm text-ink-subtle">
-            Intake-form editor coming in the next pass. Today every booking accepts free-form notes via the Description field.
-          </p>
+          {initial.id ? (
+            <IntakeEditorSection
+              mtId={initial.id}
+              initialFields={initial.intake_form?.fields ?? []}
+            />
+          ) : (
+            <p className="text-sm text-ink-subtle">
+              Create the meeting type first — the intake editor unlocks once it exists.
+            </p>
+          )}
         </Section>
       </div>
     </form>
@@ -796,5 +806,50 @@ function PollSlotsEditor({
         {msg && <span className="text-xs text-ink-subtle">{msg}</span>}
       </div>
     </section>
+  );
+}
+
+// Intake editor wrapper: state for the field array + an explicit Save button.
+// Saves out-of-band from the main MT PATCH so the form's "Save changes" stays
+// focused on the basics — adding/removing intake fields shouldn't have to
+// share a submit with slug/conferencing/etc.
+function IntakeEditorSection({
+  mtId,
+  initialFields,
+}: {
+  mtId: string;
+  initialFields: IntakeField[];
+}) {
+  const [fields, setFields] = useState<IntakeField[]>(initialFields);
+  const [pending, setPending] = useState(false);
+  const [msg, setMsg] = useState<string | null>(null);
+
+  async function save() {
+    setPending(true);
+    setMsg(null);
+    const r = await saveIntakeFields(mtId, fields);
+    setPending(false);
+    setMsg(r.error ? r.error : 'Saved.');
+  }
+
+  return (
+    <div className="space-y-4">
+      <IntakeFieldsEditor fields={fields} onChange={setFields} />
+      <div className="flex items-center gap-3">
+        <Button type="button" onClick={save} disabled={pending}>
+          {pending ? 'Saving…' : 'Save intake fields'}
+        </Button>
+        {msg && (
+          <span className={`text-xs ${msg === 'Saved.' ? 'text-emerald-700' : 'text-red-700'}`}>
+            {msg}
+          </span>
+        )}
+        {fields.length === 0 && (
+          <span className="text-xs text-ink-muted">
+            No questions yet — invitees just enter name + email.
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

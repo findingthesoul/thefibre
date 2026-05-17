@@ -99,6 +99,26 @@ function bodyFromForm(formData: FormData) {
   };
 }
 
+// Replace the intake-form fields attached to an MT. Out-of-band from the
+// main MT PATCH because the editor saves on click rather than waiting for
+// the global "Save changes" button — keeps the UX responsive when adding
+// or reordering fields.
+export async function saveIntakeFields(
+  mtId: string,
+  fields: import('@/lib/intake').IntakeField[],
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/meeting-types/${mtId}/intake`, {
+      method: 'PUT',
+      body: JSON.stringify({ fields }),
+    });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath(`/meeting-types/${mtId}`);
+  return { ok: true };
+}
+
 // Replace the candidate-slot list on a poll MT.
 export async function savePollSlots(
   mtId: string,

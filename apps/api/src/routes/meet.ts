@@ -1549,7 +1549,7 @@ meetRoutes.get('/meeting-types', async (c) => {
   if (teamIds.length > 0) orParts.push(`team_id.in.(${teamIds.join(',')})`);
   const { data, error } = await db
     .from('meet_meeting_type')
-    .select('*, team:team_id (id, name, slug)')
+    .select('*, team:team_id (id, name, slug), intake_form:intake_form_id (id, name, fields)')
     .or(orParts.join(','))
     .order('created_at', { ascending: false });
   if (error) return c.json({ error: error.message }, 500);
@@ -1631,6 +1631,90 @@ meetRoutes.post('/meeting-types', async (c) => {
     .single();
   if (error) return c.json({ error: error.message, code: error.code }, 500);
   return c.json(data, 201);
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/v1/meet/meeting-types/:id/intake — replace the intake-form fields
+// attached to this MT. Idempotent. Creates a new meet_intake_form row on
+// first save, then overwrites .fields on subsequent saves. Empty array =
+// detach the form (sets intake_form_id back to NULL).
+// ---------------------------------------------------------------------------
+const IntakeFieldsBody = z.object({
+  fields: z
+    .array(
+      z.object({
+        key: z.string().regex(/^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/),
+        label: z.string().trim().min(1).max(120),
+        type: z.enum(['short', 'long', 'email', 'select', 'checkbox']),
+        required: z.boolean(),
+        options: z.array(z.string().trim().min(1).max(80)).optional(),
+        conditionalOn: z
+          .object({ fieldKey: z.string().min(1), equals: z.string().min(1) })
+          .optional(),
+      }),
+    )
+    .max(40),
+});
+
+meetRoutes.put('/meeting-types/:id/intake', async (c) => {
+  const id = c.req.param('id');
+  const body = IntakeFieldsBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Find the MT + its current intake_form_id.
+  const { data: mt, error: mtErr } = await db
+    .from('meet_meeting_type')
+    .select('id, host_id, workspace_id, intake_form_id, name')
+    .eq('id', id)
+    .single();
+  if (mtErr || !mt) return c.json({ error: 'meeting type not found' }, 404);
+
+  // Empty fields → detach + clean up the old form row.
+  if (body.data.fields.length === 0) {
+    if (mt.intake_form_id) {
+      await db.from('meet_meeting_type').update({ intake_form_id: null }).eq('id', id);
+      await db.from('meet_intake_form').delete().eq('id', mt.intake_form_id);
+    }
+    return c.json({ ok: true, intake_form_id: null });
+  }
+
+  // Existing form: just overwrite the fields. New form: create + link.
+  if (mt.intake_form_id) {
+    const { error } = await db
+      .from('meet_intake_form')
+      .update({ fields: body.data.fields })
+      .eq('id', mt.intake_form_id);
+    if (error) {
+      console.error('[mt/intake] update form failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ ok: true, intake_form_id: mt.intake_form_id });
+  }
+  const { data: form, error: insErr } = await db
+    .from('meet_intake_form')
+    .insert({
+      workspace_id: mt.workspace_id,
+      host_id: mt.host_id,
+      name: `${mt.name} intake`,
+      fields: body.data.fields,
+    })
+    .select('id')
+    .single();
+  if (insErr || !form) {
+    console.error('[mt/intake] insert form failed', insErr);
+    return c.json({ error: insErr?.message ?? 'failed' }, 500);
+  }
+  const { error: linkErr } = await db
+    .from('meet_meeting_type')
+    .update({ intake_form_id: form.id })
+    .eq('id', id);
+  if (linkErr) {
+    console.error('[mt/intake] link form failed', linkErr);
+    return c.json({ error: linkErr.message }, 500);
+  }
+  return c.json({ ok: true, intake_form_id: form.id });
 });
 
 meetRoutes.patch('/meeting-types/:id', async (c) => {
