@@ -59,6 +59,20 @@ Schema + API landed; needs a guide for third-party app builders. Confirm in-fami
 #### Visual fidelity passes vs Suite
 Read the equivalent component from `/Users/sjoerdair/Projects/souls calendar/` before rebuilding — don't work from screenshots alone.
 
+#### Fibre Flow — fourth app (briefing + decisions locked 2026-05-17, Phase A landed 2026-05-17)
+Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). Review + gap analysis: [`fibreflow-review.md`](./fibreflow-review.md). Schema + scaffolding sketch: [`fibreflow-data-model.md`](./fibreflow-data-model.md). **Full build plan (10 phases, ~16–20 build-days):** [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
+
+**Decisions locked by Sjoerd 2026-05-17:**
+1. All seven §4 answers approved (gate logic configurable, snapshot versioning, new run on re-entry, default tasks yes, in-app notifications, manual Drive URLs).
+2. **Generalise `meet_team` → `team` at platform level.** Fibre Flow uses platform structures natively, not via the cross-app entity-mapping layer. That layer is for connecting *external* systems to Fibre; Flow is built from scratch on the same foundation as Meet, so it consumes the same primitives.
+3. **No terminology renaming.** "Workspace", "team", "person", "organisation" carry their platform meanings everywhere. If inconsistencies surface during build, flag them.
+4. **One big v1.** "Can only see how the interface functions once we have data to work with."
+
+**Phase status:**
+- [x] **Phase A — `meet_team` → `team` rename** (v0.13.12, migration `20260517220000_rename_meet_team_to_team.sql`). Pending: apply to remote Supabase + redeploy API/web/meet.
+- [ ] **Phase B — Fibre Flow shell** at `flow.thefibre.app` with sign-in.
+- [ ] Phases C–J — see the build plan.
+
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)
 - Zoom OAuth (provider field accepts 'zoom'; auth not wired)

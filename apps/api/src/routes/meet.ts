@@ -1441,7 +1441,7 @@ meetRoutes.post('/internal-team', async (c) => {
 // scoped to its own slice of the contact graph, not the whole workspace.
 // A person appears here iff at least one of:
 //   * they've been an invitee on a meet_booking, OR
-//   * they're a member of a meet_team in this workspace
+//   * they're a member of a team in this workspace
 // The `source` field on each row explains *why* they're surfaced, so the
 // UI can show the justification (and so future audits can replay it).
 // ===========================================================================
@@ -1469,8 +1469,8 @@ meetRoutes.get('/contacts', async (c) => {
 
   // 2) Team-member user_ids in this workspace.
   const { data: teamRows } = await adminClient
-    .from('meet_team_member')
-    .select('user_id, team:meet_team!inner(workspace_id)')
+    .from('team_member')
+    .select('user_id, team:team!inner(workspace_id)')
     .eq('team.workspace_id', ctx.workspaceId);
   const teamUserIds = new Set<string>(
     (teamRows ?? []).map((r) => r.user_id as string).filter(Boolean),
@@ -1765,7 +1765,7 @@ meetRoutes.get('/meeting-types', async (c) => {
 
   // Team ids the user is a member of.
   const { data: memberships } = await db
-    .from('meet_team_member')
+    .from('team_member')
     .select('team_id')
     .eq('user_id', ctx.userId);
   const teamIds = (memberships ?? []).map((m) => m.team_id);
@@ -1866,7 +1866,7 @@ meetRoutes.post('/meeting-types', async (c) => {
   // meet_meeting_type), so we have to enforce lead-ness here.
   if (body.data.team_id) {
     const { data: membership } = await adminClient
-      .from('meet_team_member')
+      .from('team_member')
       .select('role')
       .eq('team_id', body.data.team_id)
       .eq('user_id', ctx.userId)
@@ -2006,7 +2006,7 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
   // sub-policy interaction. Mirror the POST guard exactly.
   if (body.data.team_id) {
     const { data: membership } = await adminClient
-      .from('meet_team_member')
+      .from('team_member')
       .select('role')
       .eq('team_id', body.data.team_id)
       .eq('user_id', ctx.userId)
@@ -2681,7 +2681,7 @@ meetRoutes.get('/teams', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data: memberships, error } = await db
-    .from('meet_team_member')
+    .from('team_member')
     .select('role, team:team_id (id, slug, name, description, is_active, created_at)')
     .eq('user_id', ctx.userId)
     .eq('status', 'active');
@@ -2739,7 +2739,7 @@ meetRoutes.post('/teams', async (c) => {
   if (clash) return c.json({ error: 'slug taken' }, 409);
 
   const { data: team, error } = await adminClient
-    .from('meet_team')
+    .from('team')
     .insert({
       workspace_id: ctx.workspaceId,
       slug: body.data.slug,
@@ -2756,7 +2756,7 @@ meetRoutes.post('/teams', async (c) => {
   }
   // Creator becomes lead.
   const { error: mErr } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .insert({ team_id: team.id, user_id: ctx.userId, role: 'lead' });
   if (mErr) {
     console.error('[teams] auto-lead failed', mErr);
@@ -2767,7 +2767,7 @@ meetRoutes.post('/teams', async (c) => {
 // Helper: assert current user is a lead of the team.
 async function assertLead(teamId: string, userId: string): Promise<boolean> {
   const { data } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('role')
     .eq('team_id', teamId)
     .eq('user_id', userId)
@@ -2781,13 +2781,13 @@ meetRoutes.get('/teams/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data: team, error } = await db
-    .from('meet_team')
+    .from('team')
     .select('*')
     .eq('id', id)
     .single();
   if (error || !team) return c.json({ error: 'team not found' }, 404);
   const { data: members } = await db
-    .from('meet_team_member')
+    .from('team_member')
     .select(
       'role, status, invite_token, invited_at, created_at, user:user_id (id, email, full_name, avatar_url)',
     )
@@ -2832,7 +2832,7 @@ meetRoutes.patch('/teams/:id', async (c) => {
     }
   }
   const { data, error } = await adminClient
-    .from('meet_team')
+    .from('team')
     .update(body.data)
     .eq('id', id)
     .select('*')
@@ -2959,7 +2959,7 @@ meetRoutes.post('/teams/:id/members', async (c) => {
     ? `inv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`
     : null;
   const { data, error } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .upsert(
       {
         team_id: id,
@@ -2980,7 +2980,7 @@ meetRoutes.post('/teams/:id/members', async (c) => {
   if (invited && inviteToken) {
     try {
       const { data: team } = await adminClient
-        .from('meet_team')
+        .from('team')
         .select('name')
         .eq('id', id)
         .single();
@@ -3036,7 +3036,7 @@ ${emailSignoff()}`,
 meetRoutes.get('/public/invite/:token', async (c) => {
   const token = c.req.param('token');
   const { data: row, error } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select(
       'team_id, user_id, role, status, invite_token, team:team_id (id, name, slug, workspace_id), user:user_id (id, email, full_name)',
     )
@@ -3051,7 +3051,7 @@ meetRoutes.get('/public/invite/:token', async (c) => {
   const user = Array.isArray(row.user) ? row.user[0] : row.user;
   // Inviter (best-effort).
   const { data: log } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('user_id')
     .eq('team_id', row.team_id)
     .eq('role', 'lead')
@@ -3082,7 +3082,7 @@ meetRoutes.post('/teams/accept-invite/:token', async (c) => {
   const token = c.req.param('token');
   const ctx = c.get('ctx');
   const { data: row } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select(
       'team_id, user_id, role, status, team:team_id (id, slug, name)',
     )
@@ -3121,7 +3121,7 @@ meetRoutes.post('/teams/accept-invite/:token', async (c) => {
     ...(sameUser ? {} : { user_id: signedIn.id }),
   };
   const { error: uErr } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .update(updates)
     .eq('team_id', row.team_id)
     .eq('user_id', invitee.id);
@@ -3155,7 +3155,7 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
     return c.json({ error: 'leads only' }, 403);
   }
   const { data: row } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('status, user:user_id (email, full_name)')
     .eq('team_id', id)
     .eq('user_id', userId)
@@ -3165,7 +3165,7 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
   }
   const inviteToken = `inv_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 14)}`;
   await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .update({ invite_token: inviteToken, invited_at: new Date().toISOString() })
     .eq('team_id', id)
     .eq('user_id', userId);
@@ -3174,7 +3174,7 @@ meetRoutes.post('/teams/:id/members/:userId/resend-invite', async (c) => {
   if (u?.email) {
     try {
       const { data: team } = await adminClient
-        .from('meet_team')
+        .from('team')
         .select('name')
         .eq('id', id)
         .single();
@@ -3201,7 +3201,7 @@ meetRoutes.delete('/teams/:id/members/:userId', async (c) => {
     return c.json({ error: 'leads only' }, 403);
   }
   const { data: target } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('role')
     .eq('team_id', id)
     .eq('user_id', userId)
@@ -3209,7 +3209,7 @@ meetRoutes.delete('/teams/:id/members/:userId', async (c) => {
   if (!target) return c.json({ ok: true });
   if (target.role === 'lead') {
     const { count } = await adminClient
-      .from('meet_team_member')
+      .from('team_member')
       .select('user_id', { count: 'exact', head: true })
       .eq('team_id', id)
       .eq('role', 'lead');
@@ -3218,7 +3218,7 @@ meetRoutes.delete('/teams/:id/members/:userId', async (c) => {
     }
   }
   await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .delete()
     .eq('team_id', id)
     .eq('user_id', userId);
@@ -3257,7 +3257,7 @@ meetRoutes.get('/public/resolve/:slug', async (c) => {
 meetRoutes.get('/public/team/:team_slug', async (c) => {
   const slug = c.req.param('team_slug');
   const { data: team, error } = await adminClient
-    .from('meet_team')
+    .from('team')
     .select('id, slug, name, description, is_active, workspace_id')
     .eq('slug', slug)
     .single();
@@ -3286,7 +3286,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const teamSlug = c.req.param('team_slug');
   const mtSlug = c.req.param('mt_slug');
   const { data: team } = await adminClient
-    .from('meet_team')
+    .from('team')
     .select('id, slug, name, description, is_active')
     .eq('slug', teamSlug)
     .single();
@@ -3324,7 +3324,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const toParam = url.searchParams.get('to');
 
   const { data: team } = await adminClient
-    .from('meet_team')
+    .from('team')
     .select('id, workspace_id')
     .eq('slug', teamSlug)
     .single();
@@ -3463,7 +3463,7 @@ async function resolveAssigneeHostIds(mt: MeetingTypeForResolve): Promise<string
   let assignees: { user_id: string; is_primary: boolean }[];
   if (teamId) {
     const { data: activeMembers } = await adminClient
-      .from('meet_team_member')
+      .from('team_member')
       .select('user_id')
       .eq('team_id', teamId)
       .eq('status', 'active');
@@ -3635,7 +3635,7 @@ meetRoutes.post('/meeting-types/:id/assignees', async (c) => {
   }
   // Lead-only.
   const { data: lead } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('role')
     .eq('team_id', mt.team_id)
     .eq('user_id', ctx.userId)
@@ -3645,7 +3645,7 @@ meetRoutes.post('/meeting-types/:id/assignees', async (c) => {
   }
   // The target user must be a member of the same team.
   const { data: target } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('user_id')
     .eq('team_id', mt.team_id)
     .eq('user_id', body.data.user_id)
@@ -3691,7 +3691,7 @@ meetRoutes.delete('/meeting-types/:id/assignees/:userId', async (c) => {
     return c.json({ error: 'meeting type is not team-owned' }, 400);
   }
   const { data: lead } = await adminClient
-    .from('meet_team_member')
+    .from('team_member')
     .select('role')
     .eq('team_id', mt.team_id)
     .eq('user_id', ctx.userId)

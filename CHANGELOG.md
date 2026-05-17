@@ -6,6 +6,38 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.13] — 2026-05-18
+
+### Platform prep: rename `meet_team` → `team` (Phase A of Fibre Flow build)
+
+Teams are a Fibre primitive, not a Meet-private one. Sibling apps (Fibre
+Flow next) consume teams natively, so the table moves out of Meet's
+namespace. See [`docs/fibreflow-review.md` §2.2](docs/fibreflow-review.md)
+and [`docs/fibreflow-build-plan.md` Phase A](docs/fibreflow-build-plan.md).
+
+### Changed
+- `public.meet_team` → `public.team`, `public.meet_team_member` →
+  `public.team_member`. Indexes, triggers, and policies renamed in place
+  (FK constraints follow by OID).
+- `public.can_see_person` and `meet_booking_visibility` policy bodies
+  refreshed so their canonical source text uses the new names.
+- `public.meet_is_team_lead` body refreshed; function name kept for now
+  (rename deferred — the `meet_` prefix is historical baggage we can
+  drop in a later cleanup pass).
+- `apps/api/src/routes/meet.ts` and `apps/meet/fibre.app.json` updated.
+
+### Migration
+- `20260517220000_rename_meet_team_to_team.sql`.
+
+### Notes
+- Four companion docs landed first: brief, review (with locked
+  decisions), data model, full build plan. See
+  [`docs/fibreflow-build-plan.md`](docs/fibreflow-build-plan.md).
+- The `app_entity_mapping` seed row for `meet_team_member` is updated to
+  `team_member`; the entry will likely be removed entirely in a later
+  cleanup since team membership is now a platform concept and not a
+  Meet app entity.
+
 ## [0.13.12] — 2026-05-17 — Meet 2.1.4
 
 ### Paid bookings now generate real VAT invoices
@@ -58,7 +90,6 @@ to the invitee, and we surface it on the confirmation page.
 - **Historical paid bookings** (pre-migration) won't have an invoice
   URL stamped. Stripe still has the invoice on the host's account —
   we just don't backfill the link.
-
 ## [0.13.11] — 2026-05-17
 
 ### Same dormant-membership fix on /settings (App access list)

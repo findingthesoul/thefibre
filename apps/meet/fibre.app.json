@@ -28,11 +28,11 @@
       "description": "A Meet host IS a Fibre user — one host row per user with meet-host config (slug, working_hours, google_refresh_token, etc.)."
     },
     {
-      "app_entity": "meet_team_member",
+      "app_entity": "team_member",
       "platform_entity": "user",
       "mapping_kind": "reference",
       "match_on": ["user_id"],
-      "description": "Team membership references existing users; no identity creation."
+      "description": "Team membership references existing users; no identity creation. (Note: team + team_member are now platform-owned, not Meet-owned. Consider removing this entry — see fibreflow-review.md §2.2.)"
     }
   ],
 
