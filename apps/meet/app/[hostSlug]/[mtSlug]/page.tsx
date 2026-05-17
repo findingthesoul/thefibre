@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { Clock, Video, MapPin, Users } from 'lucide-react';
+import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
 import { APPS } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { BookingFlow } from './flow';
@@ -184,6 +184,18 @@ function Card({
                     </span>
                   </li>
                 )}
+                {meetingType.price_cents && meetingType.price_cents > 0 ? (
+                  <li className="flex items-center gap-2.5">
+                    <CreditCard className="h-4 w-4 text-neutral-400" strokeWidth={1.5} />
+                    <span>
+                      {new Intl.NumberFormat(undefined, {
+                        style: 'currency',
+                        currency: (meetingType.price_currency ?? 'eur').toUpperCase(),
+                      }).format(meetingType.price_cents / 100)}{' '}
+                      <span className="text-neutral-500">— paid at checkout</span>
+                    </span>
+                  </li>
+                ) : null}
               </ul>
 
               {meetingType.description && (

@@ -259,7 +259,11 @@ function SlotPickerFlow({
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     start(async () => {
       try {
-        const r = await publicFetch<{ booking: { id: string } }>(
+        const r = await publicFetch<{
+          booking: { id: string };
+          payment_required?: boolean;
+          checkout_url?: string;
+        }>(
           '/api/v1/meet/public/bookings',
           {
             method: 'POST',
@@ -273,6 +277,13 @@ function SlotPickerFlow({
             }),
           },
         );
+        if (r.payment_required && r.checkout_url) {
+          // Paid MT: hop to Stripe Checkout. On success Stripe redirects
+          // back to /confirmed/<bookingId>?stripe=success. The webhook
+          // marks payment_status='paid' before the user sees that page.
+          window.location.href = r.checkout_url;
+          return;
+        }
         router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
       } catch (e) {
         if (e instanceof PublicApiError) {
@@ -645,7 +656,11 @@ function OneOffFlow({
     const requestId = `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
     start(async () => {
       try {
-        const r = await publicFetch<{ booking: { id: string } }>(
+        const r = await publicFetch<{
+          booking: { id: string };
+          payment_required?: boolean;
+          checkout_url?: string;
+        }>(
           '/api/v1/meet/public/bookings',
           {
             method: 'POST',
@@ -659,6 +674,13 @@ function OneOffFlow({
             }),
           },
         );
+        if (r.payment_required && r.checkout_url) {
+          // Paid MT: hop to Stripe Checkout. On success Stripe redirects
+          // back to /confirmed/<bookingId>?stripe=success. The webhook
+          // marks payment_status='paid' before the user sees that page.
+          window.location.href = r.checkout_url;
+          return;
+        }
         router.push(`/${ownerSlug}/${meetingType.slug}/confirmed/${r.booking.id}`);
       } catch (e) {
         if (e instanceof PublicApiError) {

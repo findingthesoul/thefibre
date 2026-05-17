@@ -6,6 +6,62 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.5] — 2026-05-17 — Meet 2.1.0
+
+### Meet Phase 3: Stripe Checkout for paid bookings
+
+A paid meeting type now redirects the invitee to Stripe Checkout
+after they pick a slot. The booking sits as `payment_status='pending'`
+until Stripe's webhook fires `checkout.session.completed`; then the
+deferred side-effects (Google Calendar event, branded confirmation
+email, activity row) run automatically.
+
+### Added
+- **`apps/api/src/lib/stripe/client.ts`** — lazy-loaded Stripe SDK.
+  `stripeOrNull()` returns `null` when `STRIPE_SECRET_KEY` is unset
+  so the API still boots in environments without Stripe configured.
+- **Booking POST** detects paid MTs (`price_cents > 0`), creates a
+  **Stripe Connect Checkout Session** against the host's connected
+  account, and returns `{ booking, payment_required: true, checkout_url }`.
+- **`payment_intent_data.application_fee_amount`** set to 2% capped
+  at €2 per booking — the Free-workspace skim. Phase 7 will read the
+  workspace's plan and waive this for Pro/Org once Platform Billing
+  Phase 1 lands.
+- **New `POST /api/v1/meet/stripe-webhook`** (public, HMAC-verified).
+  Handles three events: `checkout.session.completed` (flip
+  payment_status to 'paid', run side-effects), `checkout.session.expired`
+  and `payment_intent.payment_failed` (cancel the booking).
+  Idempotent — same session id is safe to receive twice.
+- **`runConfirmationSideEffects(bookingId)`** helper centralises
+  Calendar + email + activity logic. The approve endpoint refactored
+  to call it; the webhook calls the same code so both paths produce
+  identical state.
+
+### Changed
+- **Public booking page** (`/[host]/[mt]`) now shows the price in
+  the sidebar (currency-localised) with "— paid at checkout".
+- **Public booking flow** (`flow.tsx`) detects `payment_required`
+  in the create-booking response and redirects to `checkout_url`
+  via `window.location.href`.
+- **Stripe webhook URL** registered in `apps/api/src/middleware/app-context.ts`
+  PUBLIC_PREFIXES so the route bypasses JWT auth — signature is the
+  trust mechanism.
+
+### Honest gaps
+- **Approval + payment combined**: a MT with both required is
+  treated as paid-only (payment is the hard gate; approval is
+  auto). If you want host-approval-then-pay, the combined flow is
+  a Phase 3b follow-up.
+- **No refund UI** yet — that's roadmap Phase 6.
+- **Application fee is hardcoded at 2%/€2** (Free-workspace rate)
+  for every booking because Platform Billing hasn't shipped. Once
+  Platform Billing Phase 1 seeds `workspace_subscription`, the
+  Meet POST reads the plan and applies 0% for Pro/Org.
+- **Untested in prod** until `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET`
+  are set on Fly per `docs/platform-billing-setup.md`. The code
+  ships dormant; the API returns 503 with `code: 'stripe_not_configured'`
+  on the create-booking path until then.
+
 ## [0.13.4] — 2026-05-17
 
 ### Booking email matches the auth-email visual; Google stops emailing invitees

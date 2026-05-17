@@ -19,6 +19,7 @@ import {
   deleteEvent,
 } from '../lib/google/client.js';
 import { sendEmail } from '../lib/email/client.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
 import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
@@ -268,7 +269,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -454,6 +455,15 @@ meetRoutes.post('/public/bookings', async (c) => {
   const starts = starts0;
   const ends = ends0;
 
+  // Phase 3: paid MTs pre-empt approval — payment is the hard gate, and
+  // once paid we auto-confirm. The host can still issue a refund if they
+  // need to reject after the fact. If a workspace really wants payment-
+  // AND-approval, we'll add a combined flow when someone asks for it.
+  const isPaidBooking = !!(mt.price_cents && mt.price_cents > 0);
+  const bookingStatus =
+    isPaidBooking ? 'confirmed' : effectiveRequiresApproval ? 'pending_approval' : 'confirmed';
+  const initialPaymentStatus = isPaidBooking ? 'pending' : 'not_required';
+
   const { data: booking, error: bErr } = await adminClient
     .from('meet_booking')
     .insert({
@@ -466,7 +476,8 @@ meetRoutes.post('/public/bookings', async (c) => {
       invitee_answers: data.invitee_answers ?? null,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
-      status: effectiveRequiresApproval ? 'pending_approval' : 'confirmed',
+      status: bookingStatus,
+      payment_status: initialPaymentStatus,
       conferencing_provider: mt.conferencing_provider,
       alternative_location: mt.default_location,
       request_id: data.request_id,
@@ -486,6 +497,100 @@ meetRoutes.post('/public/bookings', async (c) => {
     }
     console.error('[meet bookings] insert failed', bErr);
     return c.json({ error: bErr.message }, 500);
+  }
+
+  // Phase 3 — paid booking: create a Stripe Connect Checkout session
+  // against the host's stripe_account_id. Return the URL so the public
+  // flow can redirect the invitee to pay. The webhook flips
+  // payment_status='paid' and triggers the deferred side-effects
+  // (Calendar event, confirmation email, activity). See
+  // POST /meet/stripe-webhook below.
+  if (isPaidBooking && booking) {
+    const stripe = stripeOrNull();
+    if (!stripe) {
+      console.error('[meet bookings] STRIPE_SECRET_KEY missing — cannot collect payment');
+      return c.json(
+        { error: 'payment processor not configured', code: 'stripe_not_configured' },
+        503,
+      );
+    }
+    // Need the host's connected account.
+    const { data: ownerHost } = await adminClient
+      .from('meet_host')
+      .select('stripe_account_id, slug')
+      .eq('id', mt.host_id)
+      .single();
+    if (!ownerHost?.stripe_account_id) {
+      // Bookings UI should have prevented this — defence in depth.
+      return c.json(
+        { error: 'host has not connected Stripe', code: 'host_stripe_unconnected' },
+        409,
+      );
+    }
+    // Application fee: 2% capped at €2 — Free workspaces only. Pro/Org
+    // workspaces pay 0% (see docs/platform-billing-roadmap.md). For Phase 3
+    // we don't yet have workspace_subscription rows, so default to the Free
+    // rate. The check moves to a real subscription lookup once Platform
+    // Billing Phase 1 lands.
+    const grossCents = mt.price_cents!;
+    const feeBpsCap = 200; // 2% in basis points
+    const feeCapCents = 200; // €2
+    const computedFee = Math.floor((grossCents * feeBpsCap) / 10_000);
+    const applicationFeeCents = Math.min(computedFee, feeCapCents);
+
+    const successUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
+    const cancelUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;
+
+    try {
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: 'payment',
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: (mt.price_currency ?? 'eur').toLowerCase(),
+                unit_amount: grossCents,
+                product_data: {
+                  name: mt.name,
+                  description: mt.description ?? undefined,
+                },
+              },
+              quantity: 1,
+            },
+          ],
+          payment_intent_data: {
+            application_fee_amount: applicationFeeCents,
+            // Idempotent — same booking id ⇒ same payment intent metadata
+            // so duplicate webhooks find the right row.
+            metadata: { booking_id: booking.id, mt_slug: mt.slug },
+          },
+          customer_email: data.invitee_email,
+          metadata: { booking_id: booking.id, mt_slug: mt.slug },
+          success_url: successUrl,
+          cancel_url: cancelUrl,
+        },
+        { stripeAccount: ownerHost.stripe_account_id },
+      );
+      // Stash the session id so the webhook can find this booking.
+      await adminClient
+        .from('meet_booking')
+        .update({ stripe_session_id: session.id })
+        .eq('id', booking.id);
+      return c.json({
+        booking,
+        payment_required: true,
+        checkout_url: session.url,
+      });
+    } catch (e) {
+      console.error('[meet bookings] checkout session create failed', e);
+      // Roll the booking back so a stale 'pending' row doesn't block the slot.
+      await adminClient.from('meet_booking').delete().eq('id', booking.id);
+      return c.json(
+        { error: 'failed to start checkout', detail: (e as Error).message },
+        500,
+      );
+    }
   }
 
   // If the booking requires host approval, skip Google Calendar + the
@@ -2077,6 +2182,241 @@ meetRoutes.post('/public/poll-votes', async (c) => {
 });
 
 // ===========================================================================
+// Deferred confirmation side-effects.
+// Two flows write a booking with side-effects skipped:
+//   - Approval flow (requires_approval=true): host approves via /approve.
+//   - Paid flow (price_cents>0): invitee pays via Stripe Checkout, webhook
+//     fires checkout.session.completed.
+// Both ultimately call the same logic: create the Google Calendar event,
+// send the branded confirmation email, write a meeting_booked activity.
+// Extracted so the two paths stay in lockstep.
+// ===========================================================================
+
+async function runConfirmationSideEffects(
+  bookingId: string,
+): Promise<{ ok: boolean; meetUrl?: string | null }> {
+  const { data: booking, error } = await loadBookingWithJoins(bookingId);
+  if (error || !booking) {
+    console.error('[meet confirm-side-effects] booking not found', { bookingId, error });
+    return { ok: false };
+  }
+  const mt = Array.isArray(booking.meeting_type)
+    ? booking.meeting_type[0]
+    : booking.meeting_type;
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  if (!mt || !hostRow) return { ok: false };
+
+  let meetUrl: string | null = null;
+  if (hostRow.google_refresh_token) {
+    try {
+      const { data: cal } = await adminClient
+        .from('meet_calendar')
+        .select('google_calendar_id')
+        .eq('host_id', booking.host_id)
+        .in('role', ['primary', 'write_target'])
+        .limit(1)
+        .maybeSingle();
+      const calendarId = cal?.google_calendar_id ?? 'primary';
+      const withMeet = mt.conferencing_provider === 'google_meet';
+      const { eventId, meetUrl: m } = await createEvent(hostRow.google_refresh_token, {
+        calendarId,
+        summary: mt.name,
+        description: mt.description ?? null,
+        startsAt: new Date(booking.starts_at),
+        endsAt: new Date(booking.ends_at),
+        attendeeEmail: booking.invitee_email,
+        attendeeName: booking.invitee_name,
+        withMeet,
+        location: booking.alternative_location ?? mt.default_location ?? null,
+      });
+      meetUrl = m ?? null;
+      await adminClient
+        .from('meet_booking')
+        .update({ google_event_id: eventId, meet_url: meetUrl })
+        .eq('id', bookingId);
+    } catch (e) {
+      console.error('[meet confirm-side-effects] google event failed (non-fatal)', e);
+    }
+  }
+
+  // Confirmation email — branded shell, same as the auto-confirm path.
+  const common: EmailCommon = {
+    inviteeName: booking.invitee_name,
+    inviteeEmail: booking.invitee_email,
+    hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+    hostEmail: hostUser?.email ?? null,
+    meetingName: mt.name,
+    startsAt: new Date(booking.starts_at),
+    endsAt: new Date(booking.ends_at),
+    hostTimezone: hostRow.timezone ?? 'UTC',
+    meetUrl,
+    location: booking.alternative_location ?? mt.default_location ?? null,
+    bookingId: booking.id,
+    meetAppUrl: meetAppUrl(),
+    hostSlug: hostRow.slug ?? '',
+    meetingTypeSlug: mt.slug ?? '',
+  };
+  try {
+    const m = bookingConfirmationInvitee(common);
+    await sendEmail({
+      to: booking.invitee_email,
+      subject: m.subject,
+      text: m.text,
+      html: m.html,
+      replyTo: common.hostEmail ?? undefined,
+    });
+  } catch (e) {
+    console.error('[meet confirm-side-effects] invitee email failed (non-fatal)', e);
+  }
+  if (common.hostEmail) {
+    try {
+      const m = bookingNotificationHost(common);
+      await sendEmail({
+        to: common.hostEmail,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        replyTo: booking.invitee_email,
+      });
+    } catch (e) {
+      console.error('[meet confirm-side-effects] host email failed (non-fatal)', e);
+    }
+  }
+
+  // Activity event for the platform timeline.
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (app && booking.invitee_person_id) {
+    await adminClient.from('activity').insert({
+      workspace_id: booking.workspace_id,
+      person_id: booking.invitee_person_id,
+      app_id: app.id,
+      type: 'meeting_booked',
+      subject: `Meeting confirmed: ${booking.invitee_name}`,
+      occurred_at: new Date().toISOString(),
+    });
+  }
+  return { ok: true, meetUrl };
+}
+
+// ===========================================================================
+// Stripe webhook — paid bookings.
+//
+// PUBLIC endpoint (no JWT). Stripe POSTs here; we verify the signature
+// against STRIPE_WEBHOOK_SECRET before trusting any payload. The endpoint
+// is registered in apps/api/src/middleware/app-context.ts's PUBLIC_PATHS.
+//
+// We listen for three events on connected accounts (Stripe Connect):
+//   * checkout.session.completed       — flip payment_status='paid', confirm
+//   * checkout.session.expired         — abandon: cancel the booking
+//   * payment_intent.payment_failed    — same: cancel the booking
+// ===========================================================================
+meetRoutes.post('/stripe-webhook', async (c) => {
+  const stripe = stripeOrNull();
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe || !secret) {
+    console.error('[meet stripe-webhook] STRIPE_SECRET_KEY or STRIPE_WEBHOOK_SECRET missing');
+    return c.json({ error: 'webhook not configured' }, 503);
+  }
+  const sig = c.req.header('stripe-signature');
+  if (!sig) return c.json({ error: 'missing stripe-signature header' }, 400);
+  const raw = await c.req.text();
+
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(raw, sig, secret);
+  } catch (e) {
+    console.error('[meet stripe-webhook] signature verification failed', e);
+    return c.json({ error: 'invalid signature' }, 400);
+  }
+
+  async function abandonBookingForSession(sessionId: string, reason: string) {
+    const { data: booking } = await adminClient
+      .from('meet_booking')
+      .select('id, status, payment_status')
+      .eq('stripe_session_id', sessionId)
+      .maybeSingle();
+    if (!booking) {
+      console.warn('[meet stripe-webhook] no booking for session', { sessionId, reason });
+      return;
+    }
+    if (booking.status === 'cancelled') return; // already done
+    await adminClient
+      .from('meet_booking')
+      .update({ status: 'cancelled', payment_status: 'failed' })
+      .eq('id', booking.id);
+    console.log('[meet stripe-webhook] booking abandoned', { id: booking.id, reason });
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as { id: string; payment_intent?: string | null };
+      const { data: booking, error } = await adminClient
+        .from('meet_booking')
+        .select('id, payment_status, status')
+        .eq('stripe_session_id', session.id)
+        .maybeSingle();
+      if (error) console.error('[meet stripe-webhook] booking lookup failed', error);
+      if (!booking) {
+        console.warn('[meet stripe-webhook] checkout.completed for unknown session', session.id);
+        return c.json({ received: true });
+      }
+      if (booking.payment_status === 'paid') {
+        return c.json({ received: true, idempotent: true });
+      }
+      await adminClient
+        .from('meet_booking')
+        .update({
+          payment_status: 'paid',
+          stripe_payment_intent: session.payment_intent ?? null,
+        })
+        .eq('id', booking.id);
+      // Run the deferred side-effects exactly like the approve path.
+      await runConfirmationSideEffects(booking.id);
+      return c.json({ received: true });
+    }
+    if (event.type === 'checkout.session.expired') {
+      const session = event.data.object as { id: string };
+      await abandonBookingForSession(session.id, 'checkout.session.expired');
+      return c.json({ received: true });
+    }
+    if (event.type === 'payment_intent.payment_failed') {
+      const pi = event.data.object as { id: string };
+      // Try to find the booking via stripe_payment_intent if we already
+      // captured it (rare on failure since we only set it on success), else
+      // by the session that wraps this PI.
+      const { data: booking } = await adminClient
+        .from('meet_booking')
+        .select('id, status, payment_status, stripe_session_id')
+        .eq('stripe_payment_intent', pi.id)
+        .maybeSingle();
+      if (booking) {
+        await adminClient
+          .from('meet_booking')
+          .update({ status: 'cancelled', payment_status: 'failed' })
+          .eq('id', booking.id);
+      }
+      return c.json({ received: true });
+    }
+    // Unhandled event type — ack so Stripe doesn't retry.
+    return c.json({ received: true, ignored: event.type });
+  } catch (e) {
+    console.error('[meet stripe-webhook] handler error', e);
+    // Return 500 so Stripe retries — better than swallowing and losing the
+    // payment confirmation.
+    return c.json({ error: (e as Error).message }, 500);
+  }
+});
+
+// ===========================================================================
 // Booking approval — when a meeting type requires approval, the booking sits
 // in 'pending_approval'. The host then approves (runs the calendar + email
 // side-effects skipped at booking time) or rejects (flips to 'cancelled').
@@ -2101,7 +2441,6 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
   // we also want to surface the google_refresh_token for the calendar call.
   const { data: booking, error } = await loadBookingWithJoins(id);
   if (error || !booking) return c.json({ error: 'booking not found' }, 404);
-  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
   const { data: callerHost } = await adminClient
     .from('meet_host')
     .select('id')
@@ -2114,14 +2453,6 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
   if (booking.status !== 'pending_approval') {
     return c.json({ error: `cannot approve a booking in status ${booking.status}` }, 409);
   }
-  const mt = Array.isArray(booking.meeting_type)
-    ? booking.meeting_type[0]
-    : booking.meeting_type;
-  const hostUser = hostRow?.user
-    ? Array.isArray(hostRow.user)
-      ? hostRow.user[0]
-      : hostRow.user
-    : null;
 
   // Flip status first so subsequent fetches reflect the new state.
   const { error: uErr } = await adminClient
@@ -2133,88 +2464,8 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
     return c.json({ error: uErr.message }, 500);
   }
 
-  // Google Calendar event — best-effort, mirrors the auto-confirm path.
-  let resolvedMeetUrl: string | null = null;
-  if (hostRow?.google_refresh_token && mt) {
-    try {
-      const { data: cal } = await adminClient
-        .from('meet_calendar')
-        .select('google_calendar_id')
-        .eq('host_id', booking.host_id)
-        .in('role', ['primary', 'write_target'])
-        .limit(1)
-        .maybeSingle();
-      const calendarId = cal?.google_calendar_id ?? 'primary';
-      const withMeet = mt.conferencing_provider === 'google_meet';
-      const { eventId, meetUrl } = await createEvent(hostRow.google_refresh_token, {
-        calendarId,
-        summary: mt.name,
-        description: mt.description ?? null,
-        startsAt: new Date(booking.starts_at),
-        endsAt: new Date(booking.ends_at),
-        attendeeEmail: booking.invitee_email,
-        attendeeName: booking.invitee_name,
-        withMeet,
-        location: booking.alternative_location ?? mt.default_location ?? null,
-      });
-      resolvedMeetUrl = meetUrl ?? null;
-      await adminClient
-        .from('meet_booking')
-        .update({ google_event_id: eventId, meet_url: meetUrl ?? null })
-        .eq('id', id);
-    } catch (e) {
-      console.error('[meet bookings/approve] google event failed (non-fatal)', e);
-    }
-  }
-
-  // Confirmation emails — same templates as the auto-confirm path.
-  if (mt && hostRow) {
-    const common: EmailCommon = {
-      inviteeName: booking.invitee_name,
-      inviteeEmail: booking.invitee_email,
-      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
-      hostEmail: hostUser?.email ?? null,
-      meetingName: mt.name,
-      startsAt: new Date(booking.starts_at),
-      endsAt: new Date(booking.ends_at),
-      hostTimezone: hostRow.timezone ?? 'UTC',
-      meetUrl: resolvedMeetUrl,
-      location: booking.alternative_location ?? mt.default_location ?? null,
-      bookingId: booking.id,
-      meetAppUrl: meetAppUrl(),
-      hostSlug: hostRow.slug ?? '',
-      meetingTypeSlug: mt.slug ?? '',
-    };
-    try {
-      const m = bookingConfirmationInvitee(common);
-      await sendEmail({
-        to: booking.invitee_email,
-        subject: m.subject,
-        text: m.text,
-        html: m.html,
-        replyTo: common.hostEmail ?? undefined,
-      });
-    } catch (e) {
-      console.error('[meet bookings/approve] invitee email failed (non-fatal)', e);
-    }
-  }
-
-  // Activity: meeting_booked so timelines show confirmed bookings uniformly.
-  const { data: app } = await adminClient
-    .from('app')
-    .select('id')
-    .eq('slug', 'fibre-meet')
-    .single();
-  if (app && booking.invitee_person_id) {
-    await adminClient.from('activity').insert({
-      workspace_id: booking.workspace_id,
-      person_id: booking.invitee_person_id,
-      app_id: app.id,
-      type: 'meeting_booked',
-      subject: `Meeting approved: ${booking.invitee_name}`,
-      occurred_at: new Date().toISOString(),
-    });
-  }
+  // Calendar + email + activity via the shared helper.
+  await runConfirmationSideEffects(id);
   return c.json({ ok: true });
 });
 
