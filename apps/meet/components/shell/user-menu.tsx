@@ -110,9 +110,10 @@ export function UserMenu({
           </div>
 
           <Divider />
-          <Item icon={UserIcon} label="Profile" />
-          <Item icon={Settings} label="Settings" />
-          <Item icon={Compass} label="Take a tour" />
+          <Item icon={UserIcon} label="Profile" href="/settings/profile" onClick={() => setOpen(false)} />
+          <Item icon={Settings} label="Settings" href="/settings" onClick={() => setOpen(false)} />
+          {/* "Take a tour" stays as a dead placeholder until the tour exists. */}
+          <Item icon={Compass} label="Take a tour" disabled />
 
           <Divider />
           <SectionLabel>Sidebar</SectionLabel>
@@ -152,11 +153,40 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Item({ icon: Icon, label }: { icon: typeof UserIcon; label: string }) {
-  return (
-    <button className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-surface-sunken text-ink-subtle hover:text-ink">
+function Item({
+  icon: Icon,
+  label,
+  href,
+  onClick,
+  disabled,
+}: {
+  icon: typeof UserIcon;
+  label: string;
+  href?: string;
+  onClick?: () => void;
+  disabled?: boolean;
+}) {
+  const className =
+    'w-full text-left px-3 py-2 flex items-center gap-2.5 ' +
+    (disabled
+      ? 'text-ink-muted cursor-not-allowed opacity-60'
+      : 'text-ink-subtle hover:text-ink hover:bg-surface-sunken');
+  const inner = (
+    <>
       <Icon size={16} strokeWidth={1.75} />
       {label}
+    </>
+  );
+  if (href && !disabled) {
+    return (
+      <a href={href} onClick={onClick} className={className}>
+        {inner}
+      </a>
+    );
+  }
+  return (
+    <button type="button" disabled={disabled} onClick={onClick} className={className}>
+      {inner}
     </button>
   );
 }
