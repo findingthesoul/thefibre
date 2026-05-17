@@ -6,6 +6,31 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.2] — 2026-05-17
+
+### Harden PATCH /meeting-types/:id; trace what gets persisted
+
+User reports team scope flips back to personal after save+reload on
+prod. Couldn't reproduce from a code read — every path traces to "this
+should work." Two changes ship together:
+
+### Changed
+- **Mirror the POST guard on PATCH.** Previously only the create path
+  verified the caller is a lead of the destination team; the update
+  path accepted any team_id. Now PATCH 403s if the caller isn't a
+  lead. Defence-in-depth and removes one class of "silent succeed,
+  row not visible" scenarios.
+- **Structured logging on every PATCH outcome.** Logs the requested
+  team_id/event_type vs what came back from the DB. RLS failures get
+  full code/details/hint logged. Next time someone reports this, the
+  Fly log (`fly logs -a thefibre-api`) tells us in one line whether
+  the API even got the team_id, whether the DB accepted it, and what
+  came back.
+
+### Why this matters
+Brief reviewer note (v0.3 retro): "open the API log first, hypothesise
+second." This commit makes that possible for the MT save path.
+
 ## [0.12.1] — 2026-05-17
 
 ### Fix: `/settings/availability` crashed in prod

@@ -1632,16 +1632,62 @@ meetRoutes.post('/meeting-types', async (c) => {
 meetRoutes.patch('/meeting-types/:id', async (c) => {
   const id = c.req.param('id');
   const body = MeetingTypeUpsert.partial().safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (!body.success) {
+    console.error('[mt/patch] zod rejection', { id, errors: body.error.flatten() });
+    return c.json({ error: body.error.flatten() }, 400);
+  }
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+
+  // If the caller is moving the MT from personal → team (or between teams),
+  // verify they're a lead of the destination team. Without this the PATCH
+  // would silently succeed on a row they shouldn't own — and we previously
+  // saw cases where the column came back null after PATCH because of an RLS
+  // sub-policy interaction. Mirror the POST guard exactly.
+  if (body.data.team_id) {
+    const { data: membership } = await adminClient
+      .from('meet_team_member')
+      .select('role')
+      .eq('team_id', body.data.team_id)
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if (!membership || membership.role !== 'lead') {
+      console.warn('[mt/patch] not lead of destination team', {
+        id,
+        userId: ctx.userId,
+        team_id: body.data.team_id,
+        membership,
+      });
+      return c.json({ error: 'not a lead of this team' }, 403);
+    }
+  }
+
   const { data, error } = await db
     .from('meet_meeting_type')
     .update(body.data)
     .eq('id', id)
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[mt/patch] update failed', {
+      id,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code, details: error.details }, 500);
+  }
+  // Trace what got persisted vs what was asked for — catches silent column
+  // drops (RLS, missing CHECK alignment) without changing behaviour.
+  console.log('[mt/patch] saved', {
+    id,
+    requested: {
+      team_id: body.data.team_id,
+      event_type: body.data.event_type,
+    },
+    persisted: { team_id: data?.team_id, event_type: data?.event_type },
+  });
   return c.json(data);
 });
 
