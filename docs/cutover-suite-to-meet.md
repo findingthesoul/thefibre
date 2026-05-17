@@ -54,7 +54,11 @@ Strip Phase 1 + 2: just put a "Suite is moving — try Fibre Meet" banner on Sui
 
 - Phase 1 banner on Suite (one PR in `souls calendar/`)
 - Sign-in claim-flow on Meet (one PR in `thefibre/`)
-- Phase 3 migration script (one PR, only if Q4 answer is yes)
 - DNS 301 (you do this — it's not code I can run)
 
-None of these are big. Total: ~2 days of focused work spread across the 8 weeks.
+**Migration script is parked.** Sjoerd's call 2026-05-17: do the
+slug-preservation migration later, if/when it turns out to matter.
+Phase 3 hard-swap goes ahead without it; anyone who needs an old
+Suite booking link kept alive gets handled case-by-case.
+
+Total: ~1 day of focused work spread across the 8 weeks.
