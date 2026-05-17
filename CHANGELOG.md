@@ -6,6 +6,50 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.9] — 2026-05-17
+
+### Contact profile now shows org + workspace + app memberships
+
+Sjoerd: "Sjoerd@soul.com is an org owner ... in Fibre I don't see
+that in his profile (not the connection to the company, not his role
+in the workspace, not the workspaces he is part of...). This should
+be there no?" Yes — these are platform-owned facts (brief §2,
+"platform owns identity + contact graph edges"). Now surfaced.
+
+### Added
+- **`GET /api/v1/persons/:id/memberships`** — returns
+  `{ org_memberships, workspace_member, app_memberships, has_account }`.
+  Org memberships include title, department, seniority, decision-
+  maker / budget-holder / champion flags, primary org, and start/end
+  dates. Workspace member shows role + relationship_type (internal /
+  external). App memberships list which apps the person has a seat
+  for (only if they hold a Fibre user account).
+- **Contact overview page** gains two new sections between the
+  identity fields and the timeline:
+  - **Organisations**: cards per org membership with a "Primary"
+    chip on the main one, "Ended" chip on historical roles, plus
+    decision-maker / budget-holder / champion badges where set.
+    Clicks into `/organisations/<id>`.
+  - **Workspace access** (only when the person has a Fibre account):
+    workspace name, role (admin/member), relationship_type (internal
+    /external), and a row of app-name chips for the apps they hold.
+
+### On Sjoerd's other question
+
+**"Are contacts of an organisation shared between apps? That would
+be meaningful."** Yes, already. The `person` and `organisation`
+tables are platform-owned and workspace-scoped — every app with
+`app_membership` in the workspace sees the same identity rows (RLS
+on `person.workspace_id`). Apps own per-app *curator data* on top
+(host notes in Meet, lead score in HubSpot) — those don't cross
+the wall. So:
+
+- Identity, contact details, **org memberships**, contact-graph
+  relationships → all shared across apps in the workspace.
+- Curator data → per-app, gated by that app's membership.
+
+That's the brief §2 / §5 contract working as designed.
+
 ## [0.13.8] — 2026-05-17 — Meet 2.1.3
 
 ### Meet's contact tab finally shows what Meet actually justifies

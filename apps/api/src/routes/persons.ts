@@ -97,6 +97,89 @@ personsRoutes.get('/:id', async (c) => {
   return c.json(data);
 });
 
+// GET /api/v1/persons/:id/memberships
+// Platform-owned "where does this person belong" view:
+//   - org_memberships  (which organisations + title/role/seniority)
+//   - workspace_member (their role in this workspace, if they have a user
+//     account here)
+//   - app_memberships  (which apps they hold a seat for — empty for
+//     non-user contacts)
+// All visible to any workspace member; orgs + workspaces are platform-level
+// contact-graph edges per brief §2 ("platform owns the edges").
+personsRoutes.get('/:id/memberships', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('id');
+
+  // Person + user_id linkage (a user record represents the same human when
+  // they hold a Fibre account — meet_host, app_memberships etc. all live
+  // under user.id, not person.id).
+  const { data: person, error: pErr } = await db
+    .from('person')
+    .select('id, user_id, email')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .single();
+  if (pErr || !person) return c.json({ error: 'person not found' }, 404);
+
+  // Current + historical org memberships.
+  const { data: orgRows } = await db
+    .from('org_membership')
+    .select(
+      'id, title, department, seniority_level, employment_type, is_primary, is_decision_maker, is_budget_holder, is_champion, started_at, ended_at, organisation:org_id (id, name, slug, domain)',
+    )
+    .eq('person_id', personId)
+    .order('is_primary', { ascending: false })
+    .order('started_at', { ascending: false, nullsFirst: false });
+
+  let workspaceMember:
+    | {
+        workspace_id: string;
+        workspace_role: 'admin' | 'member';
+        relationship_type: 'internal' | 'external';
+        joined_at: string;
+        workspace: { id: string; name: string; slug: string } | null;
+      }
+    | null = null;
+  let appMemberships: { app: { slug: string; name: string }; role: string }[] = [];
+
+  if (person.user_id) {
+    const { data: wm } = await db
+      .from('workspace_member')
+      .select(
+        'workspace_id, workspace_role, relationship_type, joined_at, workspace:workspace_id (id, name, slug)',
+      )
+      .eq('user_id', person.user_id)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (wm) {
+      const ws = Array.isArray(wm.workspace) ? wm.workspace[0] : wm.workspace;
+      workspaceMember = {
+        workspace_id: wm.workspace_id,
+        workspace_role: wm.workspace_role,
+        relationship_type: wm.relationship_type,
+        joined_at: wm.joined_at,
+        workspace: ws ?? null,
+      };
+    }
+    const { data: ams } = await db
+      .from('app_membership')
+      .select('role, app:app_id (slug, name)')
+      .eq('user_id', person.user_id);
+    appMemberships = (ams ?? []).map((r) => ({
+      app: Array.isArray(r.app) ? r.app[0]! : r.app!,
+      role: r.role,
+    }));
+  }
+
+  return c.json({
+    org_memberships: orgRows ?? [],
+    workspace_member: workspaceMember,
+    app_memberships: appMemberships,
+    has_account: !!person.user_id,
+  });
+});
+
 const PersonUpdate = z.object({
   first_name: z.string().min(1).max(100).optional(),
   last_name: z.string().min(1).max(100).optional(),
