@@ -1596,6 +1596,8 @@ const MeetingTypeUpsert = z.object({
 meetRoutes.post('/meeting-types', async (c) => {
   const body = MeetingTypeUpsert.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  // Same NOT NULL coercion as PATCH — see comment there.
+  if (body.data.conflict_calendar_ids === null) body.data.conflict_calendar_ids = [];
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data: host } = await db
@@ -1636,6 +1638,11 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
     console.error('[mt/patch] zod rejection', { id, errors: body.error.flatten() });
     return c.json({ error: body.error.flatten() }, 400);
   }
+  // Schema gotcha: conflict_calendar_ids is NOT NULL DEFAULT '{}' but the
+  // UI sends `null` to mean "use host default". Same applies to a few other
+  // array columns the editor can clear. Coerce null → [] here so callers
+  // (web, third-party apps) don't have to know which columns are nullable.
+  if (body.data.conflict_calendar_ids === null) body.data.conflict_calendar_ids = [];
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 

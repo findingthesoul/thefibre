@@ -6,6 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.4] — 2026-05-17
+
+### Fix: MT save 500 — `conflict_calendar_ids` NOT NULL violation
+
+Save failed on team-flip with "null value in column
+conflict_calendar_ids violates not-null constraint". The column is
+`uuid[] not null default '{}'` but the UI sends `null` to mean "use
+host default."
+
+### Changed
+- **API: POST and PATCH `/meeting-types`** coerce
+  `conflict_calendar_ids: null` → `[]` server-side so third-party
+  callers don't have to know which columns are nullable. v0.12.3's
+  improved error surfacing made this diagnosable in one save attempt.
+- **Meet's sidebar VERSION constant** had been stuck at `0.9.0` while
+  package.json marched up. Both web and meet now bump in lockstep
+  (apps/meet/app/(app)/layout.tsx).
+
 ## [0.12.3] — 2026-05-17
 
 ### Surface API error detail on MT save instead of bare "API 500"
