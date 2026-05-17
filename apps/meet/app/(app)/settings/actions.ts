@@ -24,7 +24,13 @@ function bodyFromForm(formData: FormData): Record<string, unknown> {
     const v = strOrNull(formData.get('timezone'));
     if (v) out.timezone = v;
   }
-  for (const key of ['bio', 'location', 'personal_room_url', 'photo_url'] as const) {
+  for (const key of [
+    'bio',
+    'location',
+    'personal_room_url',
+    'photo_url',
+    'stripe_account_id',
+  ] as const) {
     if (formData.has(key)) out[key] = strOrNull(formData.get(key));
   }
   if (formData.has('working_hours_json')) {

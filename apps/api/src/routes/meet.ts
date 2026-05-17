@@ -1506,6 +1506,14 @@ const HostUpdate = z.object({
   timezone: z.string().max(100).optional(),
   working_hours: z.record(z.array(z.object({ start: z.string(), end: z.string() }))).nullable().optional(),
   photo_url: z.string().max(500).nullable().optional(),
+  // Stripe Connect account id (e.g. acct_1Nv...). Suite-style paste flow;
+  // see docs/meet-pricing-roadmap.md Phase 2. Empty string clears it.
+  stripe_account_id: z
+    .string()
+    .max(64)
+    .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
+    .nullable()
+    .optional(),
 });
 
 meetRoutes.patch('/me', async (c) => {
@@ -1571,6 +1579,15 @@ const MeetingTypeUpsert = z.object({
   default_location: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional(),
   is_public_listed: z.boolean().optional(),
+  // Pricing — Phase 2 of the payments roadmap. Free MTs send null/0.
+  // Stripe lower-bound is ~50¢; we keep validation simple here and let
+  // the Checkout API surface specific minimums later in Phase 3.
+  price_cents: z.number().int().min(0).max(100_000_00).nullable().optional(),
+  price_currency: z
+    .string()
+    .regex(/^[a-z]{3}$/, 'Currency must be a 3-letter ISO code (e.g. eur)')
+    .nullable()
+    .optional(),
   // When set, the meeting type lives under the team's slug instead of the
   // host's. The caller must be a lead of the team.
   team_id: z.string().uuid().nullable().optional(),
@@ -1604,10 +1621,22 @@ meetRoutes.post('/meeting-types', async (c) => {
   const db = userClient(ctx.jwt);
   const { data: host } = await db
     .from('meet_host')
-    .select('id, workspace_id')
+    .select('id, workspace_id, stripe_account_id')
     .eq('user_id', ctx.userId)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
+
+  // Phase 2 guard: a paid MT requires a Stripe Connect account on the host.
+  if (
+    body.data.price_cents &&
+    body.data.price_cents > 0 &&
+    !host.stripe_account_id
+  ) {
+    return c.json(
+      { error: 'connect Stripe in Settings → Payments before setting a price' },
+      400,
+    );
+  }
 
   // If team-owned, verify current user is a lead of that team. RLS would
   // technically accept the row (only workspace+app-membership are checked on
@@ -1731,6 +1760,21 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
   if (body.data.conflict_calendar_ids === null) body.data.conflict_calendar_ids = [];
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+
+  // Phase 2 guard: paid MT requires the host to have connected Stripe.
+  if (body.data.price_cents && body.data.price_cents > 0) {
+    const { data: host } = await adminClient
+      .from('meet_host')
+      .select('stripe_account_id')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if (!host?.stripe_account_id) {
+      return c.json(
+        { error: 'connect Stripe in Settings → Payments before setting a price' },
+        400,
+      );
+    }
+  }
 
   // If the caller is moving the MT from personal → team (or between teams),
   // verify they're a lead of the destination team. Without this the PATCH

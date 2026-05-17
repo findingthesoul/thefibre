@@ -89,6 +89,23 @@ function bodyFromForm(formData: FormData) {
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
     is_public_listed: formData.get('is_public_listed') === 'on',
+    // Pricing: the form posts price_major as a decimal string (e.g. "49.00")
+    // when paid mode is selected, or omits it for free. Convert to cents and
+    // null out for free so we don't store stale prices after a paid→free flip.
+    ...(() => {
+      const pricingMode = strOrNull(formData.get('pricing_visible')) ?? 'free';
+      if (pricingMode !== 'paid') {
+        return { price_cents: null, price_currency: null };
+      }
+      const major = strOrNull(formData.get('price_major'));
+      const cents = major ? Math.round(parseFloat(major) * 100) : 0;
+      const currency =
+        strOrNull(formData.get('price_currency'))?.toLowerCase() ?? 'eur';
+      return {
+        price_cents: Number.isFinite(cents) && cents > 0 ? cents : 0,
+        price_currency: currency,
+      };
+    })(),
     team_id: teamId && teamId !== 'personal' ? teamId : null,
     event_type: eventType,
     capacity,

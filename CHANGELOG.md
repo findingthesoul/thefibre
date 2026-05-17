@@ -6,6 +6,39 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.1] — 2026-05-17
+
+### Phase 2: Stripe Connect (paste flow) + price on MT
+
+Hosts can now connect Stripe and assign a price to a meeting type.
+The actual Stripe Checkout redirect on booking is Phase 3 — saving a
+price today reserves the field but doesn't yet trigger payment.
+
+### Added
+- **Settings → Payments page** (`/settings/payments`) — paste-style
+  Stripe Connect onboarding mirroring Suite. Pastes `acct_…`,
+  validates format, shows Connected/Not connected pill.
+- **MT editor → Pricing tab** is no longer the stub. Paid radio is
+  live; price input (decimal) + currency dropdown (EUR/USD/GBP)
+  appear when Paid is selected.
+- **API: `HostUpdate` zod** accepts `stripe_account_id` with regex
+  guard (`^acct_…`).
+- **API: `MeetingTypeUpsert` zod** accepts `price_cents`
+  (int 0–10,000,00) + `price_currency` (3-letter ISO).
+- **API: POST/PATCH `/meeting-types` guard** — if `price_cents > 0`
+  and the host has no `stripe_account_id`, returns a 400 with
+  "connect Stripe in Settings → Payments before setting a price"
+  (visible inline in the form thanks to v0.12.3's error pipeline).
+- **Action: `bodyFromForm`** converts `price_major` (decimal string
+  like "49.00") to cents, nulls out price columns on paid→free flip
+  so stale prices don't linger.
+
+### Honest gap
+This commit ships the *plumbing* for paid MTs — connection +
+price storage + guard. Phase 3 (Stripe Checkout redirect, webhook,
+payment_status updates) is next. A paid MT today still completes
+booking as if free; that changes in Phase 3.
+
 ## [0.13.0] — 2026-05-17
 
 ### Intake forms ship; pricing/payments roadmap published

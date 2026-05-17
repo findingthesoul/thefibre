@@ -57,7 +57,7 @@ const PERSONAL: Card[] = [
     title: 'Payments',
     description: 'Connect Stripe so paid meeting types can collect payment.',
     Icon: CreditCard,
-    available: false,
+    available: true,
   },
 ];
 

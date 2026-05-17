@@ -577,24 +577,61 @@ export function MeetingTypeForm({
             <label className="flex items-center gap-2 text-sm">
               <input
                 type="radio"
+                name="pricing_visible"
                 checked={pricing === 'free'}
                 onChange={() => setPricing('free')}
               />
               <span>Free</span>
             </label>
-            <label className="flex items-center gap-2 text-sm opacity-50">
+            <label className="flex items-center gap-2 text-sm">
               <input
                 type="radio"
+                name="pricing_visible"
                 checked={pricing === 'paid'}
-                disabled
                 onChange={() => setPricing('paid')}
               />
-              <span>
-                Paid (via Stripe Checkout) —{' '}
-                <span className="text-ink-muted">Coming when Stripe is wired</span>
-              </span>
+              <span>Paid (via Stripe Checkout)</span>
             </label>
           </div>
+
+          {pricing === 'paid' && (
+            <div className="mt-4 grid grid-cols-[1fr_140px] gap-3">
+              <TextField
+                label="Price"
+                name="price_major"
+                type="number"
+                inputMode="decimal"
+                min="0"
+                step="0.01"
+                defaultValue={
+                  initial.price_cents && initial.price_cents > 0
+                    ? (initial.price_cents / 100).toFixed(2)
+                    : ''
+                }
+                placeholder="49.00"
+                hint="Excluding tax. Stripe minimum is roughly 0.50 in most currencies."
+              />
+              <SelectField
+                label="Currency"
+                name="price_currency"
+                defaultValue={initial.price_currency ?? 'eur'}
+                options={[
+                  { value: 'eur', label: 'EUR' },
+                  { value: 'usd', label: 'USD' },
+                  { value: 'gbp', label: 'GBP' },
+                ]}
+              />
+            </div>
+          )}
+          <p className="mt-3 text-xs text-ink-muted">
+            Connect Stripe at{' '}
+            <Link href="/settings/payments" className="underline underline-offset-2">
+              Settings → Payments
+            </Link>{' '}
+            before saving a paid price. Stripe Checkout on the booking flow is
+            queued for Phase 3 — saving a price today reserves the field but
+            won't yet trigger payment.
+          </p>
         </Section>
       </div>
 
