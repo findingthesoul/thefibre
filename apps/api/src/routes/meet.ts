@@ -1695,7 +1695,10 @@ const HostUpdate = z.object({
 
 meetRoutes.patch('/me', async (c) => {
   const body = HostUpdate.safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (!body.success) {
+    console.error('[meet/me PATCH] zod rejection', body.error.flatten());
+    return c.json({ error: body.error.flatten() }, 400);
+  }
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data, error } = await db
@@ -1704,7 +1707,17 @@ meetRoutes.patch('/me', async (c) => {
     .eq('user_id', ctx.userId)
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[meet/me PATCH] update failed', {
+      userId: ctx.userId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+      keys: Object.keys(body.data),
+    });
+    return c.json({ error: error.message, code: error.code, details: error.details }, 500);
+  }
   return c.json(data);
 });
 

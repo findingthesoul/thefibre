@@ -81,16 +81,16 @@ export default function SettingsIndex() {
 
       <section className="mt-10">
         <SectionLabel>Personal</SectionLabel>
-        <div className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {PERSONAL.map((c) => (
             <SettingCard key={c.href} card={c} />
           ))}
         </div>
       </section>
 
-      <section className="mt-12">
+      <section className="mt-14">
         <SectionLabel>Workspace</SectionLabel>
-        <div className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+        <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3">
           {WORKSPACE.map((c) => (
             <SettingCard key={c.href} card={c} />
           ))}
@@ -103,8 +103,8 @@ export default function SettingsIndex() {
 function SettingCard({ card }: { card: Card }) {
   const muted = card.available === false;
   const inner = (
-    <div className="flex items-center gap-4 px-5 py-4">
-      <div className="h-9 w-9 rounded-md border border-line bg-surface flex items-center justify-center shrink-0">
+    <div className="flex items-start gap-4 p-5 h-full">
+      <div className="h-10 w-10 rounded-md border border-line bg-surface flex items-center justify-center shrink-0">
         <card.Icon className="h-4 w-4 text-ink-subtle" strokeWidth={1.5} />
       </div>
       <div className="min-w-0 flex-1">
@@ -116,18 +116,17 @@ function SettingCard({ card }: { card: Card }) {
             </span>
           )}
         </div>
-        <div className="mt-0.5 text-xs text-ink-subtle">{card.description}</div>
+        <div className="mt-1 text-xs text-ink-subtle leading-relaxed">{card.description}</div>
       </div>
-      <ChevronRight className="h-4 w-4 text-ink-muted shrink-0" strokeWidth={1.5} />
+      <ChevronRight className="h-4 w-4 text-ink-muted shrink-0 mt-1" strokeWidth={1.5} />
     </div>
   );
+  const baseClass =
+    'block rounded-lg border border-line bg-surface-raised overflow-hidden';
   return muted ? (
-    <div className="opacity-60">{inner}</div>
+    <div className={`${baseClass} opacity-60`}>{inner}</div>
   ) : (
-    <Link
-      href={card.href}
-      className="block hover:bg-surface-sunken transition-colors"
-    >
+    <Link href={card.href} className={`${baseClass} hover:bg-surface-sunken transition-colors`}>
       {inner}
     </Link>
   );

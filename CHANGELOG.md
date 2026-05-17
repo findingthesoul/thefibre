@@ -6,6 +6,28 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.6] — 2026-05-17 — Meet 2.1.1
+
+### Fix: Payments page saved silently but UI showed old value; settings cards spaced
+
+### Changed
+- **`apps/meet/app/(app)/settings/actions.ts`** — `updateHost`
+  revalidatePath list now includes `/settings/payments`. Previously
+  pasting `acct_…` and clicking Save flipped the row in DB but the
+  page re-rendered from cache, showing the field still empty.
+- Same action now uses `formatApiError()` (matches the v0.12.3
+  pattern) so any future zod/RLS error appears inline instead of
+  the bare "API 500".
+- **API `PATCH /api/v1/meet/me`** logs full Postgres error + zod
+  details + body keys on failure. Same diagnostic pattern as
+  v0.12.2 for MT save.
+
+### Settings cards — actual breathing room
+- Settings page now renders cards in a **2-column grid with `gap-3`**
+  instead of a single divided list. Each card is its own bordered
+  surface with `p-5` and a slightly larger icon tile (`h-10 w-10`).
+  The two sections (Personal / Workspace) separated by `mt-14`.
+
 ## [0.13.5] — 2026-05-17 — Meet 2.1.0
 
 ### Meet Phase 3: Stripe Checkout for paid bookings

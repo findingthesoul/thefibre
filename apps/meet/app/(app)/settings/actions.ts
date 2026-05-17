@@ -5,6 +5,21 @@ import { apiFetch, ApiError } from '@/lib/api';
 
 export type SaveResult = { ok?: boolean; error?: string };
 
+// Surface the API's error detail (zod flatten, RLS hint, Postgres message)
+// in the form's red banner so we don't lose the actual reason behind a
+// bare "API 500".
+function formatApiError(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'unknown error';
+  const body = e.body as { error?: unknown; details?: unknown; code?: string } | undefined;
+  const raw = body?.error ?? body?.details ?? body?.code;
+  let detail: string | undefined;
+  if (typeof raw === 'string') detail = raw;
+  else if (raw && typeof raw === 'object') {
+    try { detail = JSON.stringify(raw); } catch { /* ignore */ }
+  }
+  return detail ? `API ${e.status}: ${detail}` : `API ${e.status}`;
+}
+
 function strOrNull(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? '').trim();
   return s.length ? s : null;
@@ -61,11 +76,12 @@ export async function updateHost(
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath('/settings');
   revalidatePath('/settings/profile');
   revalidatePath('/settings/availability');
+  revalidatePath('/settings/payments');
   revalidatePath('/dashboard');
   return { ok: true };
 }
@@ -75,7 +91,7 @@ export async function startGoogleAuth(): Promise<{ url?: string; error?: string 
     const r = await apiFetch<{ url: string }>('/api/v1/meet/google/auth-start');
     return { url: r.url };
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
 }
 
@@ -83,7 +99,7 @@ export async function disconnectGoogle(): Promise<SaveResult> {
   try {
     await apiFetch('/api/v1/meet/google/disconnect', { method: 'POST' });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath('/settings/integrations');
   revalidatePath('/settings');
