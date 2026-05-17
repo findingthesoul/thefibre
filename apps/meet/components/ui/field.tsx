@@ -47,7 +47,7 @@ type SelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className
   label: ReactNode;
   errors?: string[] | undefined;
   hint?: ReactNode;
-  options: { value: string; label: string }[];
+  options: { value: string; label: string; disabled?: boolean }[];
 };
 
 export function SelectField({ label, required, errors, hint, options, ...rest }: SelectFieldProps) {
@@ -55,7 +55,9 @@ export function SelectField({ label, required, errors, hint, options, ...rest }:
     <FieldShell label={label} required={required} errors={errors} hint={hint}>
       <select className={INPUT_CLASS} required={required} {...rest}>
         {options.map((o) => (
-          <option key={o.value} value={o.value}>{o.label}</option>
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}{o.disabled ? ' — coming soon' : ''}
+          </option>
         ))}
       </select>
     </FieldShell>

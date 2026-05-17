@@ -62,8 +62,11 @@ const CAPACITY_OPTIONS = [
 
 const PROVIDERS = [
   { value: 'google_meet', label: 'Google Meet' },
-  { value: 'zoom', label: 'Zoom' },
-  { value: 'teams', label: 'Microsoft Teams' },
+  // Zoom + Teams need OAuth integrations not yet built; show them disabled
+  // so the user sees they're planned without being able to pick a broken
+  // option (which previously saved fine but generated no meeting URL).
+  { value: 'zoom', label: 'Zoom', disabled: true },
+  { value: 'teams', label: 'Microsoft Teams', disabled: true },
   { value: 'in_person', label: 'In person' },
   { value: 'personal_room', label: 'Personal room' },
   { value: 'none', label: 'No conferencing' },
@@ -257,7 +260,14 @@ export function MeetingTypeForm({
       />
       <input type="hidden" name="pricing_mode" value={pricing} />
 
-      {visibleTab === 'basics' && (
+      {/*
+        Each tab below stays in the DOM and is just hidden when inactive.
+        Mounting only the active tab caused name/slug to drop out of
+        FormData on Save when the user was on Conferencing / Availability
+        / etc., and the API rejected with 400 (slug too short, name
+        required). CSS hide preserves all inputs across tab switches.
+      */}
+      <div className={visibleTab === 'basics' ? '' : 'hidden'}>
         <>
           <Section title="Scope" desc="Personal types live under your handle. Team types live under a team's URL — bookings show up in the team's shared view.">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -354,17 +364,17 @@ export function MeetingTypeForm({
             </label>
           </Section>
         </>
-      )}
+      </div>
 
-      {visibleTab === 'availability' && isPoll && (
+      <div className={visibleTab === 'availability' && isPoll ? '' : 'hidden'}>
         <PollSlotsEditor
           mtId={initial.id}
           duration={initial.duration_minutes ?? 30}
           initial={initial.poll_slots ?? []}
         />
-      )}
+      </div>
 
-      {visibleTab === 'availability' && !isPoll && (
+      <div className={visibleTab === 'availability' && !isPoll ? '' : 'hidden'}>
         <>
           <Section
             title="Availability"
@@ -441,9 +451,9 @@ export function MeetingTypeForm({
             </div>
           </Section>
         </>
-      )}
+      </div>
 
-      {visibleTab === 'conferencing' && (
+      <div className={visibleTab === 'conferencing' ? '' : 'hidden'}>
         <>
           <Section title="Conferencing" desc="Where the meeting happens. Zoom requires you to connect it in Settings.">
             <SelectField
@@ -532,9 +542,9 @@ export function MeetingTypeForm({
             )}
           </Section>
         </>
-      )}
+      </div>
 
-      {visibleTab === 'pricing' && (
+      <div className={visibleTab === 'pricing' ? '' : 'hidden'}>
         <Section
           title="Pricing"
           desc="Charge invitees through Stripe Checkout before the booking is confirmed. Free meetings skip payment entirely."
@@ -562,9 +572,9 @@ export function MeetingTypeForm({
             </label>
           </div>
         </Section>
-      )}
+      </div>
 
-      {visibleTab === 'intake' && (
+      <div className={visibleTab === 'intake' ? '' : 'hidden'}>
         <Section
           title="Intake form"
           desc="Ask invitees structured questions when they book. Edit fields after creating the meeting type."
@@ -573,7 +583,7 @@ export function MeetingTypeForm({
             Intake-form editor coming in the next pass. Today every booking accepts free-form notes via the Description field.
           </p>
         </Section>
-      )}
+      </div>
     </form>
   );
 }

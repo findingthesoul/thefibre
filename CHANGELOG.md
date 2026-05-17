@@ -6,6 +6,29 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.6] — 2026-05-17
+
+### Fix: saving from any non-Basics tab returned 400 (slug/name missing)
+
+Each tab in the meeting-type editor was conditionally mounted, so
+switching to Conferencing/Availability/Pricing/Intake unmounted the
+Basics tab and dropped `name` + `slug` from FormData on submit. The
+API rejected with 400 (slug too short, name required) — exactly what
+the user saw clicking Save from the Conferencing or Availability
+tab.
+
+### Changed
+- **`apps/meet/app/(app)/meeting-types/form.tsx`** — every tab is now
+  rendered in the DOM at all times and just hidden via the `hidden`
+  Tailwind class when inactive. All form inputs are present in
+  FormData regardless of which tab the user is on.
+- **Zoom + Microsoft Teams** in the Conferencing provider dropdown
+  now show "— coming soon" and are unselectable (`<option disabled>`).
+  They had been pickable but generated no meeting URL on booking.
+- **`apps/meet/components/ui/field.tsx` `SelectField`** option shape
+  gains `disabled?: boolean` (and appends "— coming soon" automatically).
+  General-purpose so other forms can mark not-yet-built options too.
+
 ## [0.12.5] — 2026-05-17
 
 ### Editor Event-type dropdown now mirrors the "+ New" menu
