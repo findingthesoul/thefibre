@@ -177,10 +177,13 @@ export async function createEvent(
       },
     };
   }
+  // sendUpdates: 'none' — Fibre Meet sends its own branded confirmation
+  // email; we don't want Google to also email the invitee. The attendee
+  // still appears on the host's calendar event so they see who's coming.
   const r = await cal.events.insert({
     calendarId: input.calendarId,
     conferenceDataVersion: input.withMeet ? 1 : 0,
-    sendUpdates: 'all',
+    sendUpdates: 'none',
     requestBody,
   });
   const meetUrl =
@@ -197,5 +200,7 @@ export async function deleteEvent(
   eventId: string,
 ): Promise<void> {
   const cal = calendarFor(refreshToken);
-  await cal.events.delete({ calendarId, eventId, sendUpdates: 'all' });
+  // Same reasoning as createEvent — Fibre Meet sends its own cancellation
+  // email pair; Google would otherwise email the invitee a second time.
+  await cal.events.delete({ calendarId, eventId, sendUpdates: 'none' });
 }

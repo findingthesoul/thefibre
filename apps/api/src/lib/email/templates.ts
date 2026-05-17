@@ -7,7 +7,13 @@
 // the invitee sees a referenceable instant. We avoid trying to guess the
 // invitee's tz from the request.
 
-import { emailSignoff, legalFooterLine } from '@thefibre/shared';
+import {
+  emailSignoff,
+  legalFooterLine,
+  BRAND_ASSETS,
+  ENTITY,
+  FOOTER_LINKS,
+} from '@thefibre/shared';
 
 type Common = {
   inviteeName: string;
@@ -54,17 +60,39 @@ function cancelUrl(c: Common): string {
   )}/cancel/${encodeURIComponent(c.bookingId)}`;
 }
 
+// Booking emails reuse the same visual shell as auth emails (v0.10.0):
+// centred wordmark, white canvas, Help / About / Legal footer, whitelist
+// hint, legal address line. Single source of truth so they look like one
+// product family.
 function shell(title: string, bodyHtml: string): string {
-  return `<!doctype html><html><body style="margin:0;padding:0;background:#fafafa;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#171717;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#fafafa;padding:40px 16px;">
+  return `<!doctype html>
+<html lang="en">
+<body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #171717;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background: #ffffff;">
     <tr><td align="center">
-      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border:1px solid #e5e5e5;border-radius:8px;padding:32px;">
-        <tr><td>
-          <div style="font-size:12px;letter-spacing:0.18em;text-transform:uppercase;color:#737373;">${title}</div>
-          ${bodyHtml}
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
+        <tr><td align="center">
+          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 32px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <div style="font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #737373; margin-bottom: 8px;">${escapeHtml(title)}</div>
+          <div style="text-align: left;">
+            ${bodyHtml}
+          </div>
+          <hr style="margin: 48px 0 24px; border: 0; border-top: 1px solid #e5e5e5;" />
+          <p style="margin: 0; font-size: 13px; color: #737373;">
+            <a href="${FOOTER_LINKS.help}" style="color: #525252; text-decoration: none;">Help</a>
+            &nbsp;·&nbsp;
+            <a href="${FOOTER_LINKS.about}" style="color: #525252; text-decoration: none;">About us</a>
+            &nbsp;·&nbsp;
+            <a href="${FOOTER_LINKS.legal}" style="color: #525252; text-decoration: none;">Legal</a>
+          </p>
+          <p style="margin: 16px 0 0; font-size: 12px; color: #a3a3a3;">
+            To make sure our emails arrive, please add
+            <a href="mailto:${escapeHtml(ENTITY.whitelistEmail)}" style="color: #737373;">${escapeHtml(ENTITY.whitelistEmail)}</a>
+            to your contacts.
+          </p>
+          <p style="margin: 12px 0 0; font-size: 11px; color: #a3a3a3;">${escapeHtml(legalFooterLine())}</p>
         </td></tr>
       </table>
-      <div style="margin-top:16px;font-size:11px;color:#a3a3a3;">${legalFooterLine()}</div>
     </td></tr>
   </table>
 </body></html>`;

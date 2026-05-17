@@ -6,6 +6,32 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.4] — 2026-05-17
+
+### Booking email matches the auth-email visual; Google stops emailing invitees
+
+### Changed
+- **`apps/api/src/lib/email/templates.ts` shell rewritten** to use the
+  same wordmark + footer pattern as the v0.10.0 auth emails. Centred
+  Fibre logo at the top, white canvas (no bordered card), Help /
+  About / Legal footer, whitelist-our-address hint, legal address
+  line. Booking + cancellation emails now read as one family with
+  sign-in / magic-link / etc.
+- **Google Calendar event creation** now passes `sendUpdates: 'none'`
+  so Google no longer emails the invitee a separate calendar invite.
+  Fibre Meet's branded confirmation email is the sole notification.
+  Same change applied to event deletion (cancel path) so Google
+  doesn't double up on cancellation either.
+- The invitee is still listed as an attendee on the host's Google
+  Calendar event, so the host's calendar shows who's coming. Just no
+  Google-sent email.
+
+### Honest gap
+- The Fibre confirmation email doesn't yet include an `.ics`
+  attachment. Invitees who relied on Google's invite to auto-populate
+  their calendar will need to add the meeting manually. Adding an
+  attached `.ics` is a clean follow-up — small.
+
 ## [0.13.3] — 2026-05-17
 
 ### Meet's display version decoupled — sidebar now shows v2.0.0
