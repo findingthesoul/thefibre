@@ -632,6 +632,7 @@ export function MeetingTypeForm({
               <input
                 type="radio"
                 name="pricing_visible"
+                value="free"
                 checked={pricing === 'free'}
                 onChange={() => setPricing('free')}
               />
@@ -641,6 +642,7 @@ export function MeetingTypeForm({
               <input
                 type="radio"
                 name="pricing_visible"
+                value="paid"
                 checked={pricing === 'paid'}
                 onChange={() => setPricing('paid')}
               />

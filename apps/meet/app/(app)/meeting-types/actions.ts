@@ -101,7 +101,15 @@ function bodyFromForm(formData: FormData) {
     // when paid mode is selected, or omits it for free. Convert to cents and
     // null out for free so we don't store stale prices after a paid→free flip.
     ...(() => {
-      const pricingMode = strOrNull(formData.get('pricing_visible')) ?? 'free';
+      // Prefer the hidden `pricing_mode` input (mirrors React state directly)
+      // over the radio. Pre-2.1.2 the radios had no value= attribute and
+      // posted 'on' for whichever was checked, which silently wiped prices
+      // on every save. Reading the hidden input is the safer authoritative
+      // source even now that the radios have proper values.
+      const pricingMode =
+        strOrNull(formData.get('pricing_mode')) ??
+        strOrNull(formData.get('pricing_visible')) ??
+        'free';
       if (pricingMode !== 'paid') {
         return { price_cents: null, price_currency: null };
       }

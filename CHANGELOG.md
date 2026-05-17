@@ -6,6 +6,27 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.7] — 2026-05-17 — Meet 2.1.2
+
+### Fix: paid MT silently reverted to Free on save
+
+Native `<input type="radio">` with no `value` attribute posts the
+literal string `"on"` for whichever radio is checked. The Pricing
+free/paid radios were unattributed — so both posted
+`pricing_visible: 'on'`, the action's `!== 'paid'` branch always
+fired, and `price_cents` was nulled out on every save. Then the
+form re-rendered with no price and the chooser jumped back to
+"Free".
+
+### Changed
+- **`apps/meet/app/(app)/meeting-types/form.tsx`** — Pricing radios
+  gain `value="free"` / `value="paid"`.
+- **`apps/meet/app/(app)/meeting-types/actions.ts` `bodyFromForm`**
+  now reads the existing hidden `pricing_mode` input (mirrors React
+  state directly) as the authoritative source, falling back to
+  `pricing_visible`. Belt-and-braces so a future radio regression
+  can't wipe prices again.
+
 ## [0.13.6] — 2026-05-17 — Meet 2.1.1
 
 ### Fix: Payments page saved silently but UI showed old value; settings cards spaced
