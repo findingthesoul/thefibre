@@ -1887,6 +1887,9 @@ meetRoutes.get('/bookings', async (c) => {
     | 'all';
   const includeCancelled = url.searchParams.get('include_cancelled') === '1';
   const teamFilter = url.searchParams.get('team_id'); // uuid | 'personal' | null
+  // Optional: ?invitee_email=foo@bar.com — used by the Meet contact popup
+  // to list a single person's bookings.
+  const inviteeEmail = url.searchParams.get('invitee_email')?.toLowerCase();
 
   const { data: host } = await db
     .from('meet_host')
@@ -1901,6 +1904,8 @@ meetRoutes.get('/bookings', async (c) => {
       'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (id, name, slug, team_id, team:team_id (id, name, slug))',
     )
     .eq('host_id', host.id);
+
+  if (inviteeEmail) q = q.eq('invitee_email', inviteeEmail);
 
   const nowIso = new Date().toISOString();
   if (scope === 'upcoming') q = q.gte('ends_at', nowIso);

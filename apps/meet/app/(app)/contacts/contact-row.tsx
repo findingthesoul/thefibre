@@ -1,10 +1,15 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ExternalLink } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { appUrl } from '@thefibre/shared';
+import {
+  BookingDetailsDialog,
+  type BookingForDialog,
+} from '@/components/booking-details-dialog';
+import { listContactBookings } from './actions';
 
 export type Contact = {
   id: string;
@@ -31,7 +36,19 @@ function fmtDate(s: string | null) {
 
 export function ContactRow({ contact }: { contact: Contact }) {
   const [open, setOpen] = useState(false);
+  const [bookings, setBookings] = useState<BookingForDialog[] | null>(null);
+  const [bookingsErr, setBookingsErr] = useState<string | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<BookingForDialog | null>(null);
   const profileUrl = `${FIBRE_BASE}/contacts/${contact.id}`;
+
+  // Lazy-load this contact's bookings the first time the popup opens.
+  useEffect(() => {
+    if (!open || bookings !== null || !contact.email) return;
+    listContactBookings(contact.email).then(({ items, error }) => {
+      if (error) setBookingsErr(error);
+      else setBookings(items);
+    });
+  }, [open, bookings, contact.email]);
 
   return (
     <>
@@ -110,13 +127,73 @@ export function ContactRow({ contact }: { contact: Contact }) {
           <Value>{contact.is_user ? 'Yes' : 'No'}</Value>
         </div>
 
+        {/* Appointments list — lazy-loaded once the popup opens. */}
+        <div className="mt-6">
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">
+            Appointments
+          </div>
+          {bookingsErr ? (
+            <div className="text-xs text-red-700">Couldn&apos;t load: {bookingsErr}</div>
+          ) : bookings === null ? (
+            <div className="text-xs text-ink-muted">Loading…</div>
+          ) : bookings.length === 0 ? (
+            <div className="text-xs text-ink-muted">No appointments yet.</div>
+          ) : (
+            <ul className="rounded-md border border-line divide-y divide-line overflow-hidden">
+              {bookings.map((b) => (
+                <li key={b.id}>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedBooking(b)}
+                    className="w-full text-left px-3 py-2 text-sm hover:bg-surface-sunken transition-colors"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate">
+                        {fmtBookingDate(b.starts_at)}
+                      </span>
+                      {b.status === 'cancelled' && (
+                        <span className="text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 shrink-0">
+                          Cancelled
+                        </span>
+                      )}
+                    </div>
+                    <div className="text-xs text-ink-muted truncate mt-0.5">
+                      {bookingMtName(b) ?? 'Meeting'}
+                    </div>
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <p className="mt-6 text-xs text-ink-muted leading-relaxed">
           Identity (name, email, address) and change-context fields are managed
           in The Fibre platform. Open the full profile to edit.
         </p>
       </Dialog>
+
+      <BookingDetailsDialog
+        booking={selectedBooking}
+        open={!!selectedBooking}
+        onClose={() => setSelectedBooking(null)}
+      />
     </>
   );
+}
+
+function fmtBookingDate(iso: string) {
+  return new Intl.DateTimeFormat(undefined, {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
+}
+function bookingMtName(b: BookingForDialog): string | null {
+  const mt = Array.isArray(b.meeting_type) ? b.meeting_type[0] : b.meeting_type;
+  return mt?.name ?? null;
 }
 
 function Label({ children }: { children: React.ReactNode }) {

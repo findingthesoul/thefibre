@@ -6,6 +6,43 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.8] — 2026-05-17
+
+### Click-to-open booking popup everywhere; Month calendar grid; per-contact appointment list
+
+### Added
+- **Shared `BookingDetailsDialog`** (`components/booking-details-dialog.tsx`)
+  — one modal renders booking info from any surface. Used by Dashboard
+  "Next up", Bookings list, and the Contact popup. Has Join, Cancel,
+  and Close buttons.
+- **`ClickableBookingRow`** wrapper — turns any server-rendered row
+  into a click target that opens the dialog. Reused across surfaces.
+- **Bookings → Month view** is now a real 6×7 calendar grid (Mon-first
+  weeks, days outside the month dimmed, today's number in a filled
+  pill). Each day cell shows up to 3 booking chips ("HH:MM Name")
+  plus "+N more" overflow. Chips click straight to the dialog.
+- **Contact popup → Appointments list.** Lazy-loaded via a new server
+  action `listContactBookings(email)` calling
+  `GET /api/v1/meet/bookings?invitee_email=…`. Each row clicks to
+  the same `BookingDetailsDialog`.
+- **API**: `GET /api/v1/meet/bookings` accepts `?invitee_email=` to
+  scope a result list to a single person.
+
+### Changed
+- **Bookings view toggle** (`List / Week / Month`) is now icon-only —
+  the labels are in `title` + `aria-label` for screen readers.
+- **Bookings list rows** lost the inline "Join" link (it's in the
+  popup now) and gained a `cursor-pointer` row hover.
+
+### Honest gap
+- **Week view** is still the previous day-grouped list, not a
+  Google-Calendar-style 7-column hour grid. The Month grid lands
+  first because it's the higher-leverage view; Week-as-hour-grid is
+  queued as a separate change (~half-day's work).
+- **Reschedule** still doesn't atomically cancel+rebook — same v0.12.7
+  caveat applies; the popup's cancel link routes to the existing
+  cancel page.
+
 ## [0.12.7] — 2026-05-17
 
 ### Booking confirmation gets a card + real buttons; per-MT "show on overview" toggle

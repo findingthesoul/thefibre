@@ -6,6 +6,7 @@ import {
   ErrorBanner,
 } from '@/components/ui/page';
 import { QuickLinkRow, type QuickLink } from './quick-link';
+import { ClickableBookingRow } from '@/components/clickable-booking-row';
 
 type Me = {
   user: { full_name: string | null; email: string };
@@ -217,7 +218,7 @@ function BookingRow({ booking }: { booking: Booking }) {
     minute: '2-digit',
   }).format(ends)}`;
   return (
-    <li className="px-5 py-4 text-sm">
+    <ClickableBookingRow booking={booking} as="li" className="px-5 py-4 text-sm">
       <div className="font-medium">
         {booking.invitee_name}
         <span className="text-ink-subtle font-normal">
@@ -228,6 +229,6 @@ function BookingRow({ booking }: { booking: Booking }) {
       <div className="mt-1 text-xs text-ink-muted">
         {dateStr} · {timeStr}
       </div>
-    </li>
+    </ClickableBookingRow>
   );
 }

@@ -1,9 +1,9 @@
 'use client';
 
-import Link from 'next/link';
 import { useMemo, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { List, LayoutGrid, CalendarDays, MapPin } from 'lucide-react';
+import { ClickableBookingRow } from '@/components/clickable-booking-row';
 
 export type BookingRow = {
   id: string;
@@ -95,23 +95,24 @@ export function BookingsClient({
         <div className="inline-flex rounded-md border border-line bg-surface-raised p-0.5">
           {(
             [
-              { v: 'list', label: 'List', Icon: List },
-              { v: 'week', label: 'Week', Icon: LayoutGrid },
-              { v: 'month', label: 'Month', Icon: CalendarDays },
+              { v: 'list', label: 'List view', Icon: List },
+              { v: 'week', label: 'Week view', Icon: LayoutGrid },
+              { v: 'month', label: 'Month view', Icon: CalendarDays },
             ] as const
           ).map((opt) => (
             <button
               key={opt.v}
               type="button"
               onClick={() => setParam('view', opt.v === 'list' ? null : opt.v)}
-              className={`px-3 py-1.5 text-sm rounded-[5px] inline-flex items-center gap-1.5 ${
+              aria-label={opt.label}
+              title={opt.label}
+              className={`p-2 rounded-[5px] inline-flex items-center ${
                 view === opt.v
                   ? 'bg-ink text-surface-raised'
                   : 'text-ink-subtle hover:text-ink'
               }`}
             >
-              <opt.Icon className="h-3.5 w-3.5" strokeWidth={1.5} />
-              {opt.label}
+              <opt.Icon className="h-4 w-4" strokeWidth={1.5} />
             </button>
           ))}
         </div>
@@ -192,7 +193,7 @@ function BookingItem({ b }: { b: BookingRow }) {
   const starts = new Date(b.starts_at);
   const ends = new Date(b.ends_at);
   return (
-    <li className="px-5 py-4 text-sm">
+    <ClickableBookingRow booking={b} as="li" className="px-5 py-4 text-sm">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="font-medium">
@@ -229,19 +230,9 @@ function BookingItem({ b }: { b: BookingRow }) {
               <MapPin className="h-3 w-3" strokeWidth={1.5} /> Location
             </span>
           )}
-          {b.meet_url && (
-            <Link
-              href={b.meet_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-            >
-              Join
-            </Link>
-          )}
         </div>
       </div>
-    </li>
+    </ClickableBookingRow>
   );
 }
 
@@ -297,39 +288,127 @@ function WeekList({ items }: { items: BookingRow[] }) {
 }
 
 function MonthGrid({ items }: { items: BookingRow[] }) {
-  // Group by month, then list days that have bookings.
-  const byMonth = useMemo(() => {
-    const map = new Map<string, BookingRow[]>();
+  // Group bookings by YYYY-MM, then within each month by day-of-month.
+  // Render each month as a 6×7 calendar grid (Mon-first) with booking
+  // chips in each day cell. Days outside the month are dimmed.
+  const months = useMemo(() => {
+    const monthMap = new Map<string, Map<number, BookingRow[]>>();
     for (const b of items) {
       const d = new Date(b.starts_at);
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
-      const a = map.get(k) ?? [];
-      a.push(b);
-      map.set(k, a);
+      const mKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      let dayMap = monthMap.get(mKey);
+      if (!dayMap) {
+        dayMap = new Map();
+        monthMap.set(mKey, dayMap);
+      }
+      const arr = dayMap.get(d.getDate()) ?? [];
+      arr.push(b);
+      dayMap.set(d.getDate(), arr);
     }
-    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+    // Sort bookings within each day by start time.
+    for (const dayMap of monthMap.values()) {
+      for (const arr of dayMap.values()) {
+        arr.sort((a, b) => a.starts_at.localeCompare(b.starts_at));
+      }
+    }
+    return Array.from(monthMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
   }, [items]);
+
   return (
     <div className="space-y-8">
-      {byMonth.map(([key, arr]) => {
+      {months.map(([key, dayMap]) => {
         const [y, m] = key.split('-').map(Number);
+        const year = y!;
+        const month = (m ?? 1) - 1;
         const monthLabel = new Intl.DateTimeFormat(undefined, {
           month: 'long',
           year: 'numeric',
-        }).format(new Date(y!, (m ?? 1) - 1, 1));
+        }).format(new Date(year, month, 1));
+        // First day of month, then back up to the Monday of that week.
+        const first = new Date(year, month, 1);
+        const dow = (first.getDay() + 6) % 7; // Mon=0
+        const gridStart = new Date(year, month, 1 - dow);
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
+        const cellsNeeded = Math.ceil((dow + daysInMonth) / 7) * 7;
+        const cells: Date[] = Array.from({ length: cellsNeeded }, (_, i) => {
+          const d = new Date(gridStart);
+          d.setDate(gridStart.getDate() + i);
+          return d;
+        });
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
         return (
           <div key={key}>
             <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted mb-2">
               {monthLabel}
             </div>
-            <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
-              {arr.map((b) => (
-                <BookingItem key={b.id} b={b} />
-              ))}
-            </ul>
+            <div className="rounded-lg border border-line bg-surface-raised overflow-hidden">
+              <div className="grid grid-cols-7 text-[10px] uppercase tracking-wider text-ink-muted bg-surface-sunken">
+                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
+                  <div key={d} className="px-2 py-1.5 text-center">{d}</div>
+                ))}
+              </div>
+              <div className="grid grid-cols-7">
+                {cells.map((d, i) => {
+                  const inMonth = d.getMonth() === month;
+                  const dayBookings = inMonth ? dayMap.get(d.getDate()) ?? [] : [];
+                  const isToday = d.getTime() === today.getTime();
+                  return (
+                    <div
+                      key={i}
+                      className={`min-h-[88px] border-t border-line p-1.5 ${
+                        i % 7 !== 0 ? 'border-l' : ''
+                      } ${inMonth ? '' : 'bg-surface-sunken/50'}`}
+                    >
+                      <div
+                        className={`text-xs ${
+                          isToday
+                            ? 'inline-flex h-5 w-5 items-center justify-center rounded-full bg-ink text-surface-raised font-medium'
+                            : inMonth
+                              ? 'text-ink'
+                              : 'text-ink-muted'
+                        }`}
+                      >
+                        {d.getDate()}
+                      </div>
+                      <div className="mt-1 space-y-0.5">
+                        {dayBookings.slice(0, 3).map((b) => (
+                          <MonthChip key={b.id} b={b} />
+                        ))}
+                        {dayBookings.length > 3 && (
+                          <div className="text-[10px] text-ink-muted px-1">
+                            +{dayBookings.length - 3} more
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
           </div>
         );
       })}
     </div>
+  );
+}
+
+function MonthChip({ b }: { b: BookingRow }) {
+  const starts = new Date(b.starts_at);
+  const mt = getMt(b);
+  const cancelled = b.status === 'cancelled';
+  return (
+    <ClickableBookingRow
+      booking={b}
+      as="div"
+      className={`rounded px-1.5 py-0.5 text-[10px] leading-tight truncate ${
+        cancelled
+          ? 'bg-red-50 text-red-700 line-through'
+          : 'bg-ink text-surface-raised'
+      }`}
+    >
+      <span className="font-medium">{fmtTime(starts)}</span>
+      {mt && <span className="ml-1 opacity-90">{mt.name}</span>}
+    </ClickableBookingRow>
   );
 }
