@@ -4,6 +4,13 @@ _Drafted 2026-05-17 after reading Suite's implementation. Sjoerd's
 ask spans nine distinct features; this is the phased plan, not a
 single commit. Each phase is independently shippable._
 
+> **Scope note**: this doc is about Meet's **hosts charging
+> invitees** through Stripe Connect. **Platform billing** — Fibre
+> charging workspaces to use the platform — is a separate roadmap:
+> [`docs/platform-billing-roadmap.md`](platform-billing-roadmap.md).
+> The only crossover is the paid-booking application fee that flows
+> into the platform's Stripe account (Meet Phase 7 = Platform Phase 7).
+
 ## Suite is the design reference
 
 Suite (`/Users/sjoerdair/Projects/souls calendar/`) already implements
