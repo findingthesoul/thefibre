@@ -178,7 +178,13 @@ personsRoutes.get('/:id/memberships', async (c) => {
       .select('app_id, role, app:app_id (slug, name)')
       .eq('user_id', person.user_id);
     appMemberships = (ams ?? [])
-      .filter((r) => activeAppIds.has(r.app_id as string))
+      .filter((r) => {
+        // fibre-platform is The Fibre itself — always present, even though
+        // there's no workspace_app row for it (matches /api/v1/auth/me).
+        const appRow = Array.isArray(r.app) ? r.app[0] : r.app;
+        if (appRow?.slug === 'fibre-platform') return true;
+        return activeAppIds.has(r.app_id as string);
+      })
       .map((r) => ({
         app: Array.isArray(r.app) ? r.app[0]! : r.app!,
         role: r.role,

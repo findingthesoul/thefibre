@@ -17,10 +17,31 @@ authRoutes.get('/me', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  const { data: memberships } = await db
-    .from('app_membership')
-    .select('app_id, role, permissions, app:app_id (slug, name)')
-    .eq('user_id', ctx.userId);
+  // Filter app_membership to apps the workspace has actually activated
+  // (workspace_app row with deactivated_at IS NULL). A leftover membership
+  // for an app that's currently off is dormant, not access — and showing
+  // it on /settings made the page contradict /settings/apps (v0.13.10
+  // fixed the same bug on the contact-profile endpoint).
+  const [{ data: rawMemberships }, { data: activeApps }] = await Promise.all([
+    db
+      .from('app_membership')
+      .select('app_id, role, permissions, app:app_id (slug, name)')
+      .eq('user_id', ctx.userId),
+    db
+      .from('workspace_app')
+      .select('app_id')
+      .eq('workspace_id', user.workspace_id)
+      .is('deactivated_at', null),
+  ]);
+  const activeAppIds = new Set((activeApps ?? []).map((r) => r.app_id as string));
+  // fibre-platform is The Fibre itself — there's no workspace_app row for it
+  // because you can't deactivate the platform from itself. Always include
+  // it so the workspace-admin gate on /settings/apps keeps working.
+  const memberships = (rawMemberships ?? []).filter((m) => {
+    const appRow = Array.isArray(m.app) ? m.app[0] : m.app;
+    if (appRow?.slug === 'fibre-platform') return true;
+    return activeAppIds.has(m.app_id as string);
+  });
 
   const { data: workspace } = await db
     .from('workspace')
@@ -28,7 +49,7 @@ authRoutes.get('/me', async (c) => {
     .eq('id', user.workspace_id)
     .single();
 
-  return c.json({ user, workspace, memberships: memberships ?? [], app_id: ctx.appId });
+  return c.json({ user, workspace, memberships, app_id: ctx.appId });
 });
 
 const MeUpdate = z.object({

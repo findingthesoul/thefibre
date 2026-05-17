@@ -6,6 +6,28 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.11] — 2026-05-17
+
+### Same dormant-membership fix on /settings (App access list)
+
+v0.13.10 fixed the contact-profile surface. The `/settings` page
+read from a separate endpoint (`/api/v1/auth/me`) and was still
+listing all 5 apps as ADMIN while `/settings/apps` showed only Fibre
+Meet activated.
+
+### Changed
+- **`GET /api/v1/auth/me`** now filters `memberships` to apps the
+  workspace has activated in `workspace_app` (deactivated_at IS NULL).
+  Sidebar app list, /settings App access section, and any other
+  consumer of `me.memberships` now matches the workspace's active
+  apps.
+- **`fibre-platform` always included** in both endpoints
+  (auth/me + persons/:id/memberships) — it's The Fibre itself,
+  no workspace_app row exists for it, but the workspace-admin gate
+  on /settings/apps reads `m.app.slug === 'fibre-platform' && m.role === 'admin'`,
+  so dropping it would lock admins out of managing apps. Special-cased
+  in code with a comment.
+
 ## [0.13.10] — 2026-05-17
 
 ### Fix: contact's "Apps they have access to" listed dormant memberships
