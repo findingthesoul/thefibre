@@ -9,51 +9,58 @@ Current version: **v0.8.0**. Live in production at https://thefibre.app (web on 
 
 ---
 
-## Where Fibre Meet + The Fibre are right now (2026-05-16, v0.10.0)
+## Where Fibre Meet + The Fibre are right now (2026-05-17, v0.13.11 · Meet 2.1.3)
 
-Working scheduler (Fibre Meet = Suite v2). Working platform (The Fibre = identity + contacts + orgs + programmes + activity + apps). Live in production. Full architecture: [`meet-architecture.md`](./meet-architecture.md). API reference: [`meet-api.md`](./meet-api.md). Data model: [`meet-data-model.md`](./meet-data-model.md).
+Working scheduler (Fibre Meet = Suite v2, now charging real money). Working platform (The Fibre = identity + contacts + orgs + programmes + activity + apps + per-person profile truthfulness). Live in production. Full architecture: [`meet-architecture.md`](./meet-architecture.md). API reference: [`meet-api.md`](./meet-api.md). Data model: [`meet-data-model.md`](./meet-data-model.md). Billing: [`billing/`](./billing/).
 
-### Shipped (deployed)
+### Shipped (deployed) — accumulated through v0.13.11
 - Public booking page (split card, month grid + time list, tz picker, 24h/AMPM, cancel + reschedule link)
-- Dashboard (Welcome + Quick Links + Today + Next Up)
-- Bookings (Upcoming/Past/All · List/Week/Month · scope filter · include-cancelled)
-- Personal scheduling (meeting types list, tabbed editor: Basics / Availability / Conferencing / Pricing / Intake)
-- Per-MT availability override + conflict-calendar override (defaults to "Use host default" even with empty arrays)
-- Teams (CRUD, members + lead/member, two-step invite flow with copy-URL fallback)
-- Round-robin + Collective event types (multi-host slot union/intersection, least-loaded routing)
-- Calendars page (role mgmt: primary / conflict_check / write_target / ignore; re-sync button)
-- Connections page (Google Calendar connect + Personal meeting room URL)
-- Contacts page (reads `public.person`, surfaces Meet booking history per row)
-- Internal team (workspace-level Meet members + invite-by-email)
+- Dashboard, Bookings (multi-view + filters), tabbed MT editor (Basics / Availability / Conferencing / Pricing / Intake)
+- Teams (CRUD, lead/member, two-step invite flow with copy-URL fallback)
+- Round-robin + Collective event types
+- Calendars role mgmt + re-sync; Google Calendar connect; Personal meeting room URL
 - Identity invariant: every workspace user has a paired `public.person`
-- Booking + cancellation emails (Resend, host timezone formatting)
-- Lucide icons across the board, no emoji
-- **v0.9.0** — Permission tiers landed: `workspace_member` pivot, per-resource `visibility`, `relationship_type` (internal/external), SECURITY DEFINER predicates
-- **v0.10.0** — Branded auth emails via Supabase Send Email Hook. `/sign-in` page on `thefibre.app`. 8-digit OTP UI. Logo image (`thefibre.app/brand/the-fibre.png`) in emails. `branding.ts` is the SPoT. Fly machine pinned warm. Copy + Open icons on every meeting-type row. Cream content canvas. Scope=Team save fix.
+- Booking + cancellation + branded auth emails (Resend, branding.ts SPoT)
+- Lucide icons everywhere, no emoji
+- **v0.9.0** — Permission tiers: `workspace_member` pivot, per-resource `visibility`, `relationship_type` (internal/external), SECURITY DEFINER predicates
+- **v0.10.0** — Branded auth emails via Supabase Send Email Hook. `/sign-in` on `thefibre.app`. 8-digit OTP. `branding.ts` SPoT. Logo asset wired. Fly pinned warm. Copy/Open icons on MT rows. Cream canvas. Scope=Team save fix.
+- **v0.11.x – v0.12.x** — Workspace plumbing, settings UX, error formatting, API diagnostics, deploy doc clarifications (`NEXT_PUBLIC_COOKIE_DOMAIN` per Vercel project).
+- **v0.13.0** — Intake forms end-to-end (editor + renderer + persisted answers).
+- **v0.13.1 – v0.13.5** — Stripe Connect onboarding (paste flow), price on MT, Stripe Checkout for paid bookings, webhook completes deferred side-effects, 2% platform skim capped at €2 per booking. Meet version decoupled to v2.0.0.
+- **v0.13.2** — Booking approval (host default + per-MT override).
+- **v0.13.4** — Branded booking emails; stopped Google's duplicate invite.
+- **v0.13.6 – v0.13.7** — Payments save cache fix; settings card 2-col grid; paid MT no longer silently reverts to Free (radio `value=` fix).
+- **v0.13.8** (Meet 2.1.3) — Meet's contact tab now uses `person_meet_profile` (host notes / VIP / blocked / tz) instead of change-facilitation fields (which belong to a future Fibre Change app).
+- **v0.13.9 – v0.13.11** — Contact profile now shows Org memberships + Workspace access + App memberships; dormant memberships no longer leak via `/persons/:id/memberships` or `/auth/me`.
 
 ### Open queue (in priority order)
 
-#### Fibre web — verify per-app curator-data labelling on org pages
-Contact pages already show an app chip on each per-app data block and the four "Edit X" dialogs are titled "Edit change context — Fibre Meet" etc. Check the org-side dialogs follow the same pattern; if not, mirror them.
+#### Drop `person_change_context` table + Meet manifest reference
+v0.13.8 stopped surfacing the table on the Meet contact tab; it's dead weight now. One migration to drop + remove from `apps/meet/fibre.app.json` manifest.
 
-#### Cross-app entity mapping — write the public-facing doc
-The schema + API (`app_entity_mapping`, `app_record_link`, `/api/v1/apps/...`) landed. Document the integration pattern (manifest format, link/lookup endpoints) so a third-party app builder can wire up against it without spelunking.
+#### Fibre Change app — proper home for the ejected fields
+Change-facilitation fields (Role in change, Stance, Readiness, Leadership style, Themes, Blockers, Motivators, Current challenge, Facilitator notes) need a new app: slug, manifest, curator tables, profile tab. Not started.
+
+#### Org-side per-app dialog labelling
+Contacts already say "Edit X — Fibre Meet" etc. Verify org-side dialogs (invoicing on Fibre Sales, etc.) follow the same convention; mirror if not.
+
+#### Group / One-off / Meeting poll event types
+Still hard-coded `disabled: true` in `apps/meet/app/(app)/meeting-types/new-menu.tsx`. Group is the cheapest to ship (invitee-capacity field).
+
+#### Platform billing Phase 1
+Workspace plan (Free / Pro / Org) + plan-aware skim (waive the 2%/€2 for Pro/Org). Roadmap in [`billing/`](./billing/).
+
+#### Article 15 export / retention admin / cross-app erasure
+Still not started.
+
+#### Cross-app entity mapping — public-facing doc
+Schema + API landed; needs a guide for third-party app builders. Confirm in-family apps (Meet/Thread/Flow) keep using platform tables natively — `app_entity_mapping` is for EXTERNAL apps only.
 
 #### Visual fidelity passes vs Suite
-Sjoerd has flagged this several times. Going forward, **read the equivalent component from `/Users/sjoerdair/Projects/souls calendar/` before rebuilding** — don't work from screenshots alone. The design canon is in [`meet-architecture.md`](./meet-architecture.md) under "Design canon".
-
-#### Per-user permission tiers (Sjoerd's longer-term ask)
-- Per-user visibility scopes ("only contacts from teams/events/sales-processes I'm part of")
-- Per-invite role labels ("internal", "external", "team member")
-- Needs a brief amendment before any code. Big scope.
-
-#### Cutover with `suite.soul.com`
-Suite v1 is still in production for soul.com. Decide whether Meet runs in parallel for a while or aims for a clean swap. Owner: Sjoerd; no code work yet.
+Read the equivalent component from `/Users/sjoerdair/Projects/souls calendar/` before rebuilding — don't work from screenshots alone.
 
 #### Future Meet features (parked)
-- Intake form editor (the tab placeholder is there; underlying `meet_intake_form` table works)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)
-- Stripe-based paid meetings + invoicing (Pricing tab shows a disabled Paid option)
 - Zoom OAuth (provider field accepts 'zoom'; auth not wired)
 - Reserved-slug validation (rejecting things like "settings", "invite")
 
@@ -61,9 +68,10 @@ Suite v1 is still in production for soul.com. Decide whether Meet runs in parall
 
 ## Outstanding for Sjoerd
 
-- **Decide Meet ↔ Suite cutover** strategy.
+- **Decide Meet ↔ Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
+- **Add yourself as an org_membership** on Solidarity Lab B.V. via the UI so your own profile's Organisations section populates.
 
-_(Resend API key rotation — done by Sjoerd. The leaked key is dead.)_
+_(Resend rotated; Stripe Connect onboarded.)_
 
 ---
 

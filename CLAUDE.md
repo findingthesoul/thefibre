@@ -83,94 +83,124 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-05-16 (v0.10.0)
+## Where we left off — 2026-05-17 (v0.13.11 · Meet 2.1.3)
 
-Two big landings since v0.8.0: **permission tiers** (v0.9.0, multi-org-ready
-workspace_member pivot + per-resource visibility) and **branded auth emails
-via Supabase Send Email Hook** (v0.10.0, packages/shared as the SPoT).
+Long sprint day. Three major slices landed since v0.10.0:
+
+1. **Intake forms end-to-end** (v0.13.0) — editor + renderer + storage,
+   answers attached to bookings.
+2. **Paid bookings via Stripe Connect** (v0.13.1 → v0.13.7) — Connect
+   onboarding (paste-flow), price on MT, Stripe Checkout for invitees,
+   webhook completes deferred side-effects, 2% platform skim capped at
+   €2 per booking (waived later by workspace plan). Branded booking
+   emails. Several bug fixes around save flow (radio without `value`,
+   revalidatePath cache, settings UX).
+3. **Contact profile becomes truthful** (v0.13.8 → v0.13.11) — Meet's
+   contact tab now shows only fields Meet justifies (`person_meet_profile`,
+   not the change-facilitation set, which belongs to a future Fibre
+   Change app). Profile gains Org memberships + Workspace access
+   sections. App-access list filters by `workspace_app.deactivated_at`
+   so dormant memberships don't render. Same fix applied to
+   `/api/v1/auth/me` so the sidebar app switcher matches Settings → Apps.
+
+Meet now has its own user-facing version (`v2.x` in the sidebar),
+decoupled from monorepo cadence — it's the rebuild of Suite v1.
 
 ### Docs to read first
-- `CHANGELOG.md` — v0.9.0 + v0.10.0 entries cover everything new since v0.8.0.
-- `docs/meet-architecture.md` / `meet-api.md` / `meet-data-model.md` — still
-  the canonical maps of Fibre Meet.
-- `docs/permission-tiers-proposal.md` (v2, decisions resolved) — the
-  workspace_member + visibility model that landed in v0.9.0.
-- `docs/build-plan.md` — current queue.
+- `CHANGELOG.md` — v0.11 onwards is dense; v0.13.x is today.
+- `docs/billing/` — platform billing roadmap + Stripe setup walkthrough
+  (Sjoerd onboarded Stripe today).
+- `docs/meet-architecture.md` / `meet-api.md` / `meet-data-model.md`.
+- `docs/permission-tiers-proposal.md` (v0.9.0 decisions resolved).
+- `docs/deploy.md` — note: `NEXT_PUBLIC_COOKIE_DOMAIN` must be set on
+  *every* Vercel project (e5e68ab clarified this — a missing env on
+  one app silently breaks cross-subdomain SSO).
 
 ### Recent commits to anchor on
 
 ```
-8c04427  Fix team scope flipping back to personal; mirror MT list on team page
-69b5c07  Meeting types: copy + open icons per row; harden conflict-cal default
-a9c031e  Meet content area on soft-cream canvas (bg-surface-sunken)
-ba4fa17  v0.10.0 — branded auth emails via Send Email Hook
-1209a44  Auth-hook: warm Fly machine + accept v1,whsec_xxx secret format
-8623029  Sign-in code field accepts 8 digits (Supabase OTP length)
-ff8519c  Expose email-code sign-in on thefibre.app (/sign-in page)
-df067d3  Wire the Fibre wordmark into auth emails
-<earlier> v0.9.0 — permission tiers (workspace_member + visibility)
+d861cc0  v0.13.11 — dormant-membership fix on /api/v1/auth/me (sidebar/settings match)
+438012e  v0.13.10 — fix: profile listed dormant app_memberships
+d598a64  v0.13.9  — contact profile shows org + workspace + app memberships
+870c151  v0.13.8  (Meet 2.1.3) — Meet contact tab uses person_meet_profile, not change-facilitation
+bb1930a  v0.13.7  (Meet 2.1.2) — fix paid MT reverting to Free on save (radio value=)
+968e7ec  v0.13.6  (Meet 2.1.1) — Payments save silently cached fix; settings 2-col grid
+7ddb26e  v0.13.5  — Meet Phase 3: Stripe Checkout for paid bookings
+6314c37  v0.13.1  — Phase 2: Stripe Connect (paste flow) + price on MT
+9787509  v0.13.0  — Intake forms end-to-end; pricing/payments roadmap
+fd14e13  v0.13.4  — branded booking emails; stop Google's duplicate invite
 ```
 
 ### Where The Fibre + Fibre Meet are right now
 
-**Platform** (`thefibre.app` on Vercel · `thefibre-api.fly.dev` on Fly · v0.10.0)
-- Sign in works both ways: Google OAuth and 8-digit email code. `/sign-in` page
-  on `thefibre.app` mirrors the public sign-in on `meet.thefibre.app`.
-- Every Supabase auth email (signup / login / magiclink / invite / recovery /
-  email change × 2 / reauthentication) is rendered by our API from
-  `packages/shared/src/branding.ts`. Logo image lives at
+**Platform** (`thefibre.app`, v0.13.11)
+- Sign-in: Google + 8-digit email code, on `/sign-in` (both web + meet).
+- Auth emails routed through our API via Supabase Send Email Hook, rendered
+  from `packages/shared/src/branding.ts`. Logo at
   `https://thefibre.app/brand/the-fibre.png`.
-- `workspace_member` pivot table with `relationship_type` (internal/external)
-  + per-resource `visibility` (members_only/org_wide) on `meet_team` + `program`.
-  RLS rewritten on `person` / `organisation` / `activity` / `meet_booking` with
-  SECURITY DEFINER predicates.
+- Contact profile shows: identity → org memberships → workspace access →
+  per-app curator tabs (only for activated apps) → activity timeline.
+- Apps list / sidebar / settings all agree on which apps are activated
+  for the workspace (workspace_app.deactivated_at IS NULL).
 
-**Fibre Meet** (`meet.thefibre.app`, v0.10.0)
-- Cream content canvas (`bg-surface-sunken`) so white cards lift cleanly.
-- Meeting-types list rows have Lucide Copy + ExternalLink icon buttons that
-  stop propagation. Team detail page mirrors the same row style.
-- Tabbed MT editor (Basics / Availability / Conferencing / Pricing / Intake).
-  Conflict-calendars override correctly defaults to "Use host default" even
-  when previously saved as `[]`.
-- Scope=Team now saves correctly even if the user trusts the visible default
-  in the Team dropdown (fix: `effectiveTeamId` falls back to `teams[0]?.id`).
-- Round-robin + Collective enabled when you're a lead of at least one team.
-  Group / One-off / Meeting poll are still hard-coded `disabled: true` stubs.
+**Fibre Meet** (`meet.thefibre.app`, **v2.1.3** — versioned independently)
+- Tabbed MT editor with Pricing tab fully wired: Free / Paid radio,
+  price in cents, Stripe Connect required on workspace.
+- Paid flow: invitee picks slot → booking row created with
+  `payment_status='pending'` → redirected to Stripe Checkout (Connect
+  Session against host's connected account, 2% capped at €2 application
+  fee) → webhook fires `checkout.session.completed` → Google Calendar
+  event + confirmation email + activity row run as deferred side-effects.
+- Intake form editor (per-MT) + renderer on the public booking page +
+  answers persisted to `meet_booking_intake`.
+- Booking approval (host default + per-MT override) added in v0.13.2.
+- Meet's contact tab shows only `person_meet_profile` (host notes, VIP,
+  blocked, invitee timezone) + live upcoming/past bookings.
+- Cream canvas (`bg-surface-sunken`), Lucide everywhere, Copy/Open icons
+  on every meeting-type row, scope-team save fix all still in place.
 
 ### Infra invariants (don't regress)
 
-- Fly machine pinned warm: `min_machines_running = 1`,
-  `auto_stop_machines = off`. Required because Supabase auth hooks have a 5s
-  ceiling and cold starts blow it.
-- Auth-hook HMAC parser accepts `v1,whsec_xxx | whsec_xxx | bare base64` so
-  dashboard copy-paste of the webhook secret just works.
-- Supabase OTP length is **8** (configurable in Supabase dashboard →
-  Authentication → Sign In/Providers → Email). Both `sign-in-button.tsx` files
-  hardcode `maxLength={8}`; if Sjoerd changes OTP length, change both.
+- Fly machine pinned warm (`min_machines_running = 1`,
+  `auto_stop_machines = off`) — Supabase auth hooks have a 5s ceiling.
+- Auth-hook HMAC parser accepts `v1,whsec_xxx | whsec_xxx | bare base64`.
+- Supabase OTP length is **8** — both `sign-in-button.tsx` files hardcode it.
+- `NEXT_PUBLIC_COOKIE_DOMAIN` must be set on every Vercel project (web,
+  meet, thread) — missing it on one app silently breaks cross-subdomain
+  SSO. See `docs/deploy.md`.
+- `branding.ts` is the SPoT. Public legal footer excludes `ENTITY.name`.
+- React `<select>` pitfall: visible default ≠ state value. Always derive
+  the posted value with a fallback (see Scope=Team fix from v0.10.x +
+  the pricing radio fix in v0.13.7 — same shape, different mechanism).
 
-### What's queued (in order)
+### Two new design contracts pinned today
 
-1. **Fibre web — label per-app curator-data tabs.** Done in apps/web for
-   contacts (chip on each section), but verify the same lands on org pages.
-2. **Per-app curator data labelling: app chip on every "Edit X" dialog
-   title** — partially done (the four contact dialogs say "Edit change
-   context — Fibre Meet", etc.). Check org-side dialogs follow the pattern.
-3. **Cross-app entity mapping** — schema landed (`app_entity_mapping` +
-   `app_record_link`) with `/api/v1/apps/...` routes. Used internally by
-   Meet so far; needs documenting + a demo of how a third-party app would
-   register and link records.
-4. **Article 15 export / retention policy admin / cross-app erasure**
-   webhook handlers — still not started.
-5. **Group / One-off / Meeting poll** event types — stubs reserved in the
-   New-MT menu; not built. Easiest is Group (capacity + waitlist field).
-6. **Cutover plan: Suite → Fibre Meet** for `suite.soul.com`. Sjoerd owns
-   the timing/strategy decision; no code yet.
+- **In-family apps use platform tables natively.** Meet/Thread/Flow
+  share `person` / `team` / `workspace` directly. `app_entity_mapping`
+  is for EXTERNAL apps only (think HubSpot, Notion). Don't reach for
+  the mapping layer for first-party apps. See `design_in_family_apps_use_platform_natively.md`.
+- **Suite → Meet cutover is a hard swap, no slug-preservation script.**
+  Handle case-by-case if anyone screams. See `feedback_cutover_migration.md`.
 
-### Outstanding for Sjoerd (not code)
+### What's queued (priority order)
 
-- _(Nothing outstanding as of v0.10.0. The Resend API key rotation that was
-  flagged from v0.8.0 was completed by Sjoerd; the leaked `re_AR5QNQot…`
-  value is dead.)_
+1. **Drop `person_change_context` table** (and Meet manifest reference).
+   v0.13.8 stopped surfacing it; the table is dead weight. One migration.
+2. **Sjoerd should add himself as an org member** on Solidarity Lab B.V.
+   in the UI so his own profile's Organisations section populates
+   (v0.13.10 note — the data wasn't wrong, the edge just didn't exist).
+3. **Fibre Change app** — properly home the change-facilitation fields
+   that v0.13.8 ejected from Meet. New app slug, manifest, curator
+   tables, tab. Not started.
+4. **Org-side per-app dialog labelling** — verify the org "Edit X"
+   dialogs follow the same "Edit X — Fibre Sales" pattern that
+   contacts do.
+5. **Article 15 export / retention admin / cross-app erasure** — still
+   not started.
+6. **Group / One-off / Meeting poll** event types — still hard-coded
+   `disabled: true` stubs in `new-menu.tsx`.
+7. **Platform billing Phase 1** — workspace plan + plan-aware skim
+   (waive 2% for Pro/Org). Roadmap doc lives in `docs/billing/`.
 
 ### Hot-button design feedback (still active)
 
@@ -183,21 +213,10 @@ df067d3  Wire the Fibre wordmark into auth emails
   screenshot. Sjoerd's pinned note: "Suite was built in a week — by Claude.
   Don't excuse design fidelity with timing."
 
-### Things proven this session worth remembering
+### Outstanding for Sjoerd (not code)
 
-- **End-to-end auth email pipeline works**: Supabase Send Email Hook →
-  Fly API (`/api/v1/auth-hook/email`) → Resend, with branding from
-  `packages/shared`. A name change or white-label is one file edit.
-- **`branding.ts` is the SPoT** — `APPS`, `ENTITY`, `FOOTER_LINKS`,
-  `BRAND_ASSETS`, `appName()`, `legalFooterLine()`, `emailSignoff()`,
-  `defaultEmailFrom()` are the public surface. Public legal footer
-  intentionally excludes `ENTITY.name` (Solidarity Lab B.V.) — that
-  stays in branding.ts for internal billing only.
-- **Common pitfall pattern in this codebase**: a React `<select>` whose
-  visible default isn't the state's actual value. Always derive the
-  posted value with a fallback to the visible default — don't trust
-  that state matches what the user sees. (See the Scope=Team fix in
-  `8c04427`.)
+- _(Nothing outstanding as of v0.13.11. Stripe Connect onboarded today;
+  Resend key rotated long ago.)_
 
 ---
 
