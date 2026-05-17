@@ -162,14 +162,27 @@ personsRoutes.get('/:id/memberships', async (c) => {
         workspace: ws ?? null,
       };
     }
+    // Only list apps the workspace has activated (workspace_app row with
+    // deactivated_at IS NULL). A leftover app_membership from before an
+    // app was deactivated is not "access" today — it's dormant. Without
+    // this filter the profile contradicts /settings/apps.
+    const { data: activeApps } = await db
+      .from('workspace_app')
+      .select('app_id')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deactivated_at', null);
+    const activeAppIds = new Set((activeApps ?? []).map((r) => r.app_id as string));
+
     const { data: ams } = await db
       .from('app_membership')
-      .select('role, app:app_id (slug, name)')
+      .select('app_id, role, app:app_id (slug, name)')
       .eq('user_id', person.user_id);
-    appMemberships = (ams ?? []).map((r) => ({
-      app: Array.isArray(r.app) ? r.app[0]! : r.app!,
-      role: r.role,
-    }));
+    appMemberships = (ams ?? [])
+      .filter((r) => activeAppIds.has(r.app_id as string))
+      .map((r) => ({
+        app: Array.isArray(r.app) ? r.app[0]! : r.app!,
+        role: r.role,
+      }));
   }
 
   return c.json({

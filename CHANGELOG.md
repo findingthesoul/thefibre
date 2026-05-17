@@ -6,6 +6,28 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.10] — 2026-05-17
+
+### Fix: contact's "Apps they have access to" listed dormant memberships
+
+Sjoerd: profile showed Fibre Meet + The Thread + Fibre Sales + Fibre
+Learn + The Fibre — but the workspace's Settings → Apps page had
+only Fibre Meet activated. The two pages contradicted each other.
+
+### Changed
+- **`GET /api/v1/persons/:id/memberships`** now joins `app_membership`
+  with `workspace_app` (where `deactivated_at IS NULL`) and drops
+  any app memberships for apps the workspace hasn't activated. So
+  the profile's app-access chips match Settings → Apps.
+
+### Note on the still-empty Organisations section
+"No organisations linked yet" on Sjoerd's own profile is accurate —
+there's no `org_membership` row connecting him to Solidarity Lab B.V.
+The relationship exists conceptually (the workspace belongs to the
+company) but the platform's contact-graph edge wasn't created. Fix
+by opening the org page (e.g. /organisations/<solidarity-lab-id>) →
+**Add member** → Sjoerd, with the appropriate title/role/dates.
+
 ## [0.13.9] — 2026-05-17
 
 ### Contact profile now shows org + workspace + app memberships
