@@ -6,6 +6,23 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.3] — 2026-05-17
+
+### Surface API error detail on MT save instead of bare "API 500"
+
+Sjoerd reported a 500 on flipping a personal one_on_one MT to team
+collective. The form just said "API 500" — no actionable detail.
+
+### Changed
+- `apps/meet/app/(app)/meeting-types/actions.ts` — both
+  `createMeetingType` and `updateMeetingType` now pull
+  `error`/`details`/`code` out of the response body via a shared
+  `formatApiError()` and render that string in the form's red banner.
+- Paired with the structured stderr logging from v0.12.2, the next
+  500 is fully diagnosable: the Postgres message (e.g. unique
+  index name, RLS hint, CHECK constraint name) shows up inline in
+  the UI **and** in `fly logs -a thefibre-api`.
+
 ## [0.12.2] — 2026-05-17
 
 ### Harden PATCH /meeting-types/:id; trace what gets persisted

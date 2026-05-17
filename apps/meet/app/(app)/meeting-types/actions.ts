@@ -6,6 +6,22 @@ import { apiFetch, ApiError } from '@/lib/api';
 
 export type SaveResult = { ok?: boolean; error?: string };
 
+// Surface the API's error detail (zod flatten, RLS hint, Postgres message)
+// in the form's red banner so we don't lose the actual reason behind a
+// bare "API 500". Without this, a 500 reads as "save failed somehow" and
+// you have to tail Fly logs to know more.
+function formatApiError(e: unknown): string {
+  if (!(e instanceof ApiError)) return 'unknown error';
+  const body = e.body as { error?: unknown; details?: unknown; code?: string } | undefined;
+  const raw = body?.error ?? body?.details ?? body?.code;
+  let detail: string | undefined;
+  if (typeof raw === 'string') detail = raw;
+  else if (raw && typeof raw === 'object') {
+    try { detail = JSON.stringify(raw); } catch { /* ignore */ }
+  }
+  return detail ? `API ${e.status}: ${detail}` : `API ${e.status}`;
+}
+
 function strOrNull(v: FormDataEntryValue | null): string | null {
   const s = String(v ?? '').trim();
   return s.length ? s : null;
@@ -93,7 +109,7 @@ export async function savePollSlots(
       body: JSON.stringify({ slots }),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath(`/meeting-types/${mtId}`);
   return { ok: true };
@@ -110,7 +126,7 @@ export async function confirmPollSlot(
       body: JSON.stringify({ starts_at }),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath(`/meeting-types/${mtId}`);
   return { ok: true };
@@ -128,7 +144,7 @@ export async function createMeetingType(
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath('/meeting-types');
   redirect(`/meeting-types/${created.id}`);
@@ -145,7 +161,7 @@ export async function addAssignee(
       body: JSON.stringify({ user_id: userId, is_primary: isPrimary }),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath(`/meeting-types/${mtId}`);
   return { ok: true };
@@ -160,7 +176,7 @@ export async function removeAssignee(
       method: 'DELETE',
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath(`/meeting-types/${mtId}`);
   return { ok: true };
@@ -178,7 +194,7 @@ export async function updateMeetingType(
       body: JSON.stringify(body),
     });
   } catch (e) {
-    return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
+    return { error: formatApiError(e) };
   }
   revalidatePath('/meeting-types');
   revalidatePath(`/meeting-types/${id}`);
