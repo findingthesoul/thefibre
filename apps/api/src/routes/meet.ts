@@ -173,6 +173,7 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
     )
     .eq('host_id', host.id)
     .eq('is_active', true)
+    .eq('is_public_listed', true)
     .order('created_at', { ascending: true });
 
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
@@ -1569,6 +1570,7 @@ const MeetingTypeUpsert = z.object({
     .optional(),
   default_location: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional(),
+  is_public_listed: z.boolean().optional(),
   // When set, the meeting type lives under the team's slug instead of the
   // host's. The caller must be a lead of the team.
   team_id: z.string().uuid().nullable().optional(),
@@ -2526,6 +2528,7 @@ meetRoutes.get('/public/team/:team_slug', async (c) => {
     )
     .eq('team_id', team.id)
     .eq('is_active', true)
+    .eq('is_public_listed', true)
     .order('created_at', { ascending: true });
   return c.json({
     id: team.id,

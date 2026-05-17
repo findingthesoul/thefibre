@@ -88,6 +88,7 @@ function bodyFromForm(formData: FormData) {
     conferencing_provider: strOrNull(formData.get('conferencing_provider')) ?? 'google_meet',
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
+    is_public_listed: formData.get('is_public_listed') === 'on',
     team_id: teamId && teamId !== 'personal' ? teamId : null,
     event_type: eventType,
     capacity,

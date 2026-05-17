@@ -6,6 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.7] — 2026-05-17
+
+### Booking confirmation gets a card + real buttons; per-MT "show on overview" toggle
+
+### Added
+- **`is_public_listed` on `meet_meeting_type`** (migration
+  `20260517230000_meet_mt_public_listed.sql`). Default `true`.
+  When `false`, the MT is bookable via its direct link but omitted
+  from `/api/v1/meet/public/host/:slug` and `/api/v1/meet/public/team/:slug`.
+- **Visibility section on the Availability tab** with a checkbox:
+  "Available on personal overview page". Wires to the new column.
+- **`MeetingTypeUpsert` zod schema** accepts `is_public_listed`.
+
+### Changed
+- **Booking confirmation page** (`/[hostSlug]/[mtSlug]/confirmed/[bookingId]`)
+  redesigned as a floating card on `bg-neutral-50` to match the
+  booking-page card style. Two real buttons replace the plain link:
+  **Reschedule** (goes to the booking page so the invitee can pick a
+  new time — the old booking persists, cancel separately) and
+  **Cancel** (goes to the existing cancel flow). "← Back to host" lives
+  in a subtle footer band.
+
+### Honest gap
+"Reschedule" currently just re-opens the booking flow; the old slot is
+not auto-cancelled. A proper reschedule (atomic cancel+rebook with a
+single email) is a follow-up.
+
 ## [0.12.6] — 2026-05-17
 
 ### Fix: saving from any non-Basics tab returned 400 (slug/name missing)

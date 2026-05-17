@@ -7,7 +7,7 @@ import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
 
-const VERSION = '0.12.6';
+const VERSION = '0.12.7';
 
 type Me = {
   user: { id: string; email: string; full_name: string | null };

@@ -27,6 +27,7 @@ export type MeetingTypeFormValues = {
   conferencing_provider?: string;
   default_location?: string | null;
   is_active?: boolean;
+  is_public_listed?: boolean;
   team_id?: string | null;
   event_type?: string;
   capacity?: number | null;
@@ -449,6 +450,26 @@ export function MeetingTypeForm({
                 hint="How far in the future the calendar opens."
               />
             </div>
+          </Section>
+
+          <Section
+            title="Visibility"
+            desc="Controls whether this meeting type shows up in your public booking page list. Either way the direct link keeps working."
+          >
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                name="is_public_listed"
+                defaultChecked={initial.is_public_listed ?? true}
+                className="mt-1"
+              />
+              <span>
+                <span className="font-medium">Available on personal overview page</span>
+                <span className="block text-xs text-ink-muted mt-0.5">
+                  When checked, this meeting type appears in the list at meet.thefibre.app/{prefix.replace('meet.thefibre.app/', '').replace(/\/$/, '') || 'your-slug'}. Uncheck to keep it bookable only via the direct link.
+                </span>
+              </span>
+            </label>
           </Section>
         </>
       </div>
