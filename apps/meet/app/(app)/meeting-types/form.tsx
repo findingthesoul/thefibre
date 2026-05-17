@@ -6,6 +6,7 @@ import { User, Users as TeamIcon, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
+import { EVENT_TYPES, EventTypePicker } from '@/components/event-type-picker';
 import {
   WorkingHoursEditor,
   coerceSchedule,
@@ -45,39 +46,6 @@ export type CalendarOption = {
   summary: string | null;
   role: 'primary' | 'conflict_check' | 'write_target' | 'ignore';
 };
-
-const EVENT_TYPES = [
-  {
-    value: 'one_on_one',
-    label: 'One-on-one',
-    hint: 'Single host. The classic booking.',
-  },
-  {
-    value: 'group',
-    label: 'Group',
-    hint: 'Single host. Multiple invitees share each slot until capacity is reached.',
-  },
-  {
-    value: 'round_robin',
-    label: 'Round-robin',
-    hint: 'Multiple eligible hosts; bookings rotate to the least-loaded one.',
-  },
-  {
-    value: 'collective',
-    label: 'Collective',
-    hint: 'Every assigned host attends. Slots intersect their availability.',
-  },
-  {
-    value: 'one_off',
-    label: 'One-off',
-    hint: 'A single fixed date+time. Invitees confirm attendance instead of picking a slot.',
-  },
-  {
-    value: 'poll',
-    label: 'Meeting poll',
-    hint: 'You propose 2–5 candidate slots; invitees vote which they can attend.',
-  },
-];
 
 const CAPACITY_OPTIONS = [
   { value: '2', label: '2 invitees' },
@@ -319,13 +287,10 @@ export function MeetingTypeForm({
               />
             )}
             {showEventType && (
-              <SelectField
-                label="Event type"
-                name="event_type_visible"
+              <EventTypePicker
                 value={effectiveEventType}
-                onChange={(e) => setEventType(e.target.value)}
-                options={eventTypeOptions.map((t) => ({ value: t.value, label: t.label }))}
-                hint={EVENT_TYPES.find((t) => t.value === effectiveEventType)?.hint}
+                onChange={setEventType}
+                hasTeams={scope === 'team' && teams.length > 0}
               />
             )}
           </Section>

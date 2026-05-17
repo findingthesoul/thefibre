@@ -6,6 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.12.5] — 2026-05-17
+
+### Editor Event-type dropdown now mirrors the "+ New" menu
+
+The in-editor Event-type select used to be a plain native dropdown
+showing only the label. Now it's a rich popover with the same icon,
+"1 host → N invitees" sub-line, and one-line description the user
+saw when creating the MT — so they can always tell what the meeting
+type actually does.
+
+### Changed
+- **New shared component** `apps/meet/components/event-type-picker.tsx`
+  — single source of truth for `EVENT_TYPES` metadata, the menu-row
+  presentation (`EventTypeMenuList`), and a controlled
+  `EventTypePicker` for the editor.
+- **`apps/meet/app/(app)/meeting-types/new-menu.tsx`** now imports
+  `EventTypeMenuList` instead of duplicating the rows. The "+ New"
+  menu UX is byte-identical; just deduplicated.
+- **`apps/meet/app/(app)/meeting-types/form.tsx`** — Event-type
+  `SelectField` replaced with `<EventTypePicker>`. The trigger button
+  shows the current event type's icon, label, and "1 host → 1 invitee"
+  sub; clicking opens the same six-row popover the New menu uses,
+  with team-only types disabled and labelled "Switch to Team scope to
+  use this." Hint text under the picker is the option's description
+  (e.g. "Coffee chats, intro calls, 1:1 reviews.").
+- Local duplicate `EVENT_TYPES` array in form.tsx deleted.
+
 ## [0.12.4] — 2026-05-17
 
 ### Fix: MT save 500 — `conflict_calendar_ids` NOT NULL violation
