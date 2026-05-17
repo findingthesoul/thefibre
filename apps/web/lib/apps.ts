@@ -32,7 +32,11 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   'fibre-meet': {
     slug: 'fibre-meet',
     label: 'Fibre Meet',
-    personSubResources: ['change'],
+    // No per-app sub-resources via SubResourceSection — the fibre-meet tab
+    // renders its own bespoke layout (profile + upcoming + past meetings).
+    // Change-context fields were removed v2.1.3 (they belong to a future
+    // Fibre Change app, not Meet — see brief §5).
+    personSubResources: [],
     orgSubResources: ['system-context'],
   },
   'the-thread': {

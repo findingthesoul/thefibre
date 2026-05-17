@@ -293,6 +293,114 @@ personsRoutes.patch('/:id/change', async (c) => {
   });
 });
 
+// --- person_meet_profile — what Meet actually justifies on a person -------
+// Replaces the change-facilitation fields on the contact's Fibre Meet tab.
+// GET returns the profile + the person's upcoming + past meet_bookings so
+// the platform's contact page can show the full Meet picture in one fetch.
+const MeetProfileUpdate = z.object({
+  host_notes: z.string().max(5000).nullable().optional(),
+  vip: z.boolean().optional(),
+  blocked: z.boolean().optional(),
+  invitee_timezone: z.string().max(100).nullable().optional(),
+});
+
+personsRoutes.get('/:id/meet', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('id');
+
+  const { data: person, error: pErr } = await db
+    .from('person')
+    .select('id, email')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .single();
+  if (pErr || !person) return c.json({ error: 'person not found' }, 404);
+
+  // Profile row — may not exist yet for a new contact.
+  const { data: profile } = await db
+    .from('person_meet_profile')
+    .select('host_notes, vip, blocked, invitee_timezone, updated_at')
+    .eq('person_id', personId)
+    .maybeSingle();
+
+  // Bookings the person has been an invitee on. Use email to match — that's
+  // the join key Meet uses on the booking side (a single canonical contact
+  // may have multiple aliased invitee_emails over time; v1 ignores that).
+  const nowIso = new Date().toISOString();
+  const baseSelect =
+    'id, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (id, name, slug, host:host_id (slug, user:user_id (full_name)))';
+  const { data: upcoming } = await db
+    .from('meet_booking')
+    .select(baseSelect)
+    .eq('invitee_email', person.email ?? '')
+    .gte('ends_at', nowIso)
+    .order('starts_at', { ascending: true })
+    .limit(50);
+  const { data: past } = await db
+    .from('meet_booking')
+    .select(baseSelect)
+    .eq('invitee_email', person.email ?? '')
+    .lt('ends_at', nowIso)
+    .order('starts_at', { ascending: false })
+    .limit(50);
+
+  return c.json({
+    profile: profile ?? null,
+    upcoming_bookings: upcoming ?? [],
+    past_bookings: past ?? [],
+  });
+});
+
+personsRoutes.patch('/:id/meet', async (c) => {
+  const body = MeetProfileUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('id');
+
+  const { data: person, error: pErr } = await db
+    .from('person')
+    .select('id, workspace_id')
+    .eq('id', personId)
+    .is('deleted_at', null)
+    .single();
+  if (pErr || !person) return c.json({ error: 'person not found' }, 404);
+
+  const { data: app, error: aErr } = await db
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (aErr || !app) return c.json({ error: 'fibre-meet app not found' }, 500);
+
+  const { data, error } = await db
+    .from('person_meet_profile')
+    .upsert(
+      {
+        workspace_id: person.workspace_id,
+        person_id: personId,
+        app_id: app.id,
+        ...body.data,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'workspace_id,person_id' },
+    )
+    .select('*')
+    .single();
+  if (error) {
+    console.error('[persons/meet PATCH] upsert failed', {
+      personId,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code, details: error.details }, 500);
+  }
+  return c.json(data);
+});
+
 // --- person_learning -------------------------------------------------------
 const LEARNING_STYLE = ['visual', 'auditory', 'reading', 'kinaesthetic', 'reflective'] as const;
 const GROUP_ROLE = ['connector', 'challenger', 'synthesiser', 'anchor', 'observer'] as const;
@@ -346,21 +454,37 @@ personsRoutes.get('/:id/apps', async (c) => {
 
   // Apps with curator-profile rows (these are RLS-gated, so we'll only see ones
   // the caller has membership for).
-  const [profQ, relQ, chgQ, lrnQ, billQ, actQ] = await Promise.all([
+  const [profQ, relQ, chgQ, lrnQ, billQ, meetProfQ, actQ] = await Promise.all([
     db.from('person_professional').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_relationship_context').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_change_context').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_learning').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_billing').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('person_meet_profile').select('app:app_id (slug)').eq('person_id', personId),
     db.from('activity').select('app:app_id (slug)').eq('person_id', personId),
   ]);
 
   const slugs = new Set<string>();
-  for (const q of [profQ, relQ, chgQ, lrnQ, billQ, actQ]) {
+  for (const q of [profQ, relQ, chgQ, lrnQ, billQ, meetProfQ, actQ]) {
     for (const row of (q.data ?? []) as unknown as { app: { slug?: string } | { slug?: string }[] | null }[]) {
       const app = Array.isArray(row.app) ? row.app[0] : row.app;
       if (app?.slug) slugs.add(app.slug);
     }
+  }
+
+  // Meet also surfaces when the person has been a booking invitee even
+  // without curator data. Match on email to mirror the contact-list rule.
+  const { data: person } = await db
+    .from('person')
+    .select('email')
+    .eq('id', personId)
+    .maybeSingle();
+  if (person?.email) {
+    const { count } = await db
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('invitee_email', person.email);
+    if ((count ?? 0) > 0) slugs.add('fibre-meet');
   }
   return c.json({ apps: Array.from(slugs).sort() });
 });

@@ -7,6 +7,7 @@ import { ChangeEdit, type ChangeRow } from '../../change/edit';
 import { RelationshipEdit, type RelationshipRow } from '../../relationship/edit';
 import { LearningEdit, type LearningRow } from '../../learning/edit';
 import { PersonBillingEdit, type PersonBillingRow } from '../../billing/edit';
+import { MeetTab } from '../../meet/tab';
 import { countryName } from '@/lib/countries';
 
 function AppChip({ slug }: { slug: AppSlug }) {
@@ -35,6 +36,12 @@ export default async function ContactAppTab({
   if (!isAppSlug(appSlug)) notFound();
   // Platform's content is folded into Profile.
   if (appSlug === 'fibre-platform') notFound();
+
+  // Fibre Meet has its own bespoke layout (Meet profile + upcoming/past
+  // meetings + activity), not the generic curator-section layout.
+  if (appSlug === 'fibre-meet') {
+    return <MeetTab personId={id} />;
+  }
 
   const app = APPS[appSlug];
 

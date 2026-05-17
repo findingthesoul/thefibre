@@ -6,6 +6,52 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.8] — 2026-05-17 — Meet 2.1.3
+
+### Meet's contact tab finally shows what Meet actually justifies
+
+Until now, the Fibre Meet tab on a contact profile rendered
+change-facilitation fields (Role in change, Stance, Readiness,
+Leadership style, Themes, Blockers, Motivators, Current challenge,
+Facilitator notes). Those fields belong to a future Fibre Change
+app, not to Meet. Per brief §5 ("the app justifies the field"),
+Meet should only persist what it has a reason to.
+
+### Changed
+- **Migration `20260517250000_meet_person_profile.sql`** — new
+  `person_meet_profile` table: workspace_id+person_id PK, host_notes
+  (private text), vip + blocked flags, invitee_timezone. RLS scoped
+  to fibre-meet membership.
+- **New `GET /api/v1/persons/:id/meet`** returns
+  `{ profile, upcoming_bookings, past_bookings }`. Bookings are live
+  from `meet_booking`, matched by `invitee_email`.
+- **New `PATCH /api/v1/persons/:id/meet`** upserts the profile.
+- **GET `/api/v1/persons/:id/apps`** now also lists `fibre-meet`
+  when a person has any `meet_booking` against their email — so the
+  tab appears even before any curator data exists.
+- **Web `apps/web/app/(app)/contacts/[id]/app/[appSlug]`** branches
+  for `appSlug === 'fibre-meet'` and renders `<MeetTab>` instead of
+  the generic curator layout.
+- **New `MeetTab`** (`contacts/[id]/meet/tab.tsx`) renders:
+  - Meet profile card with status chips (VIP / Blocked), preferred
+    timezone, host notes, total-meeting count
+  - Upcoming meetings list (live)
+  - Past meetings list (live)
+- **New `MeetProfileEdit`** dialog — clean, Meet-only fields. Title
+  reads "Edit Meet profile — Fibre Meet" matching the app-chip
+  convention from v0.10.1.
+
+### Honest gaps
+- The old `person_change_context` table is left in place. No data
+  loss; just no longer surfaced on the Meet tab. Drop is a separate
+  migration once you confirm no workspace relies on it.
+- The Meet manifest still references `person_change_context` as a
+  curator field for backward compat. Updating that is part of the
+  table-drop follow-up.
+- Booking rows on the contact page aren't clickable into a dialog
+  here (that lives in Meet). For deeper inspection users click
+  through to the meeting in Meet.
+
 ## [0.13.7] — 2026-05-17 — Meet 2.1.2
 
 ### Fix: paid MT silently reverted to Free on save
