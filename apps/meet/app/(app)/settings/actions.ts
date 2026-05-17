@@ -33,6 +33,10 @@ function bodyFromForm(formData: FormData): Record<string, unknown> {
   ] as const) {
     if (formData.has(key)) out[key] = strOrNull(formData.get(key));
   }
+  // Approval default — checkbox: 'on' = require, absent = don't.
+  if (formData.has('requires_approval') || formData.has('requires_approval_present')) {
+    out.requires_approval = formData.get('requires_approval') === 'on';
+  }
   if (formData.has('working_hours_json')) {
     const raw = strOrNull(formData.get('working_hours_json'));
     if (raw) {

@@ -6,6 +6,52 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.2] — 2026-05-17
+
+### Booking approval — host default + per-MT override
+
+A meeting type can now require host approval before a booking
+auto-confirms. Default is set on the host profile and individual
+MTs can override it.
+
+### Added
+- Migration `20260517240000_meet_booking_approval.sql`:
+  `meet_host.requires_approval` (bool default false) and
+  `meet_meeting_type.requires_approval` (nullable bool — null = inherit).
+  Booking status enum gains `pending_approval`.
+- **Booking POST** computes effective approval (MT-level wins; null
+  falls back to host default). When true:
+  - Booking inserted with `status='pending_approval'`
+  - Google Calendar event + confirmation emails are skipped
+  - Invitee gets "request received"; host gets "approval needed"
+  - Activity event is `meeting_requested` instead of `meeting_booked`
+- **`POST /api/v1/meet/bookings/:id/approve`** — host-only; creates the
+  Google Calendar event + sends the normal confirmation email + flips
+  status to `confirmed`. Mirrors the auto-confirm path exactly.
+- **`POST /api/v1/meet/bookings/:id/reject`** — host-only; flips to
+  `cancelled`, sends a "declined" email (optional reason).
+- **Settings → Profile** gains "Require my approval before a booking
+  is confirmed" checkbox (host-level default). Presence sentinel
+  hidden input so unchecking actually persists.
+- **MT editor → Availability tab** gains "Approval" section with
+  three radios: Use my default / Always require / Never require.
+- **Booking dialog** shows amber "Pending" status; when pending,
+  Approve and Reject buttons appear in the footer.
+- **Bookings list rows** show amber "Pending" pill alongside the
+  existing Confirmed/Cancelled.
+- **Public confirmation page** branches copy when status is
+  `pending_approval` — "Your request is in" instead of "You're booked",
+  with a line explaining the host will review.
+- **Bookings list query** keeps `pending_approval` rows visible even
+  when "Include cancelled" is off — hosts shouldn't have to opt in to
+  see bookings they need to act on.
+
+### Honest gap
+- Reject email is plain text; no "request a different time" loop yet.
+- No reminder if a pending request sits >24h. Easy follow-up.
+- Approval state is per-host (the MT owner), not per-team-lead — if
+  the MT is a team type, the owner-host's policy still governs.
+
 ## [0.13.1] — 2026-05-17
 
 ### Phase 2: Stripe Connect (paste flow) + price on MT

@@ -89,6 +89,14 @@ function bodyFromForm(formData: FormData) {
     default_location: strOrNull(formData.get('default_location')),
     is_active: formData.get('is_active') === 'on',
     is_public_listed: formData.get('is_public_listed') === 'on',
+    // approval_mode is a 3-way radio: 'default' (null = inherit), 'always'
+    // (true), 'never' (false). Stored on meet_meeting_type.requires_approval.
+    requires_approval: (() => {
+      const m = strOrNull(formData.get('approval_mode'));
+      if (m === 'always') return true;
+      if (m === 'never') return false;
+      return null;
+    })(),
     // Pricing: the form posts price_major as a decimal string (e.g. "49.00")
     // when paid mode is selected, or omits it for free. Convert to cents and
     // null out for free so we don't store stale prices after a paid→free flip.

@@ -220,10 +220,16 @@ function BookingItem({ b }: { b: BookingRow }) {
             className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 ${
               b.status === 'cancelled'
                 ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-ink text-surface-raised'
+                : b.status === 'pending_approval'
+                  ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                  : 'bg-ink text-surface-raised'
             }`}
           >
-            {b.status === 'cancelled' ? 'Cancelled' : 'Confirmed'}
+            {b.status === 'cancelled'
+              ? 'Cancelled'
+              : b.status === 'pending_approval'
+                ? 'Pending'
+                : 'Confirmed'}
           </span>
           {b.alternative_location && (
             <span className="text-[10px] uppercase tracking-wider text-ink-muted border border-line rounded px-1.5 py-0.5 inline-flex items-center gap-1">

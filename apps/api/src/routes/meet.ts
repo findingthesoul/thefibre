@@ -23,6 +23,7 @@ import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
   bookingCancellation,
+  escapeHtml,
   type EmailCommon,
 } from '../lib/email/templates.js';
 import {
@@ -267,12 +268,28 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval',
     )
     .eq('id', data.meeting_type_id)
     .single();
   if (mErr || !mt || !mt.is_active) {
     return c.json({ error: 'meeting type not available' }, 404);
+  }
+
+  // Approval mode: MT-level value wins; null falls back to the owner host's
+  // default. Computed up front so the rest of this handler can branch on it.
+  let effectiveRequiresApproval = false;
+  if (mt.requires_approval === true) {
+    effectiveRequiresApproval = true;
+  } else if (mt.requires_approval === false) {
+    effectiveRequiresApproval = false;
+  } else {
+    const { data: ownerHost } = await adminClient
+      .from('meet_host')
+      .select('requires_approval')
+      .eq('id', mt.host_id)
+      .maybeSingle();
+    effectiveRequiresApproval = !!ownerHost?.requires_approval;
   }
 
   const starts0 = new Date(data.starts_at);
@@ -449,12 +466,12 @@ meetRoutes.post('/public/bookings', async (c) => {
       invitee_answers: data.invitee_answers ?? null,
       starts_at: starts.toISOString(),
       ends_at: ends.toISOString(),
-      status: 'confirmed',
+      status: effectiveRequiresApproval ? 'pending_approval' : 'confirmed',
       conferencing_provider: mt.conferencing_provider,
       alternative_location: mt.default_location,
       request_id: data.request_id,
     })
-    .select('id, starts_at, ends_at, request_id')
+    .select('id, starts_at, ends_at, request_id, status')
     .single();
 
   if (bErr) {
@@ -471,10 +488,62 @@ meetRoutes.post('/public/bookings', async (c) => {
     return c.json({ error: bErr.message }, 500);
   }
 
+  // If the booking requires host approval, skip Google Calendar + the
+  // confirmation emails. Send a "request received" email pair instead and
+  // exit the side-effects block early — the host will trigger the rest via
+  // POST /meet/bookings/:id/approve.
+  let resolvedMeetUrl: string | null = null;
+  if (effectiveRequiresApproval && booking) {
+    const hostEmail = hostUser?.email ?? null;
+    const inviteeName = data.invitee_name;
+    const inviteeEmail = data.invitee_email;
+    const hostName = hostUser?.full_name ?? hostRow?.slug ?? 'your host';
+    try {
+      await sendEmail({
+        to: inviteeEmail,
+        subject: `Request received: ${mt.name}`,
+        text: `Hi ${inviteeName.split(' ')[0] ?? ''},\n\nYour booking request has been sent to ${hostName}. You'll get a confirmation email once it's approved.\n\n${emailSignoff()}`,
+        html: `<p>Hi ${escapeHtml(inviteeName.split(' ')[0] ?? '')},</p><p>Your booking request has been sent to ${escapeHtml(hostName)}. You'll get a confirmation email once it's approved.</p>`,
+        replyTo: hostEmail ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings] approval-pending invitee email failed (non-fatal)', e);
+    }
+    if (hostEmail) {
+      try {
+        await sendEmail({
+          to: hostEmail,
+          subject: `Approval needed: ${mt.name} — ${inviteeName}`,
+          text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${starts.toISOString()}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
+          html: `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Fibre Meet →</a></p>`,
+          replyTo: inviteeEmail,
+        });
+      } catch (e) {
+        console.error('[meet bookings] approval-pending host email failed (non-fatal)', e);
+      }
+    }
+    // Activity event: meeting_requested so the timeline shows the pending state.
+    const { data: app } = await adminClient
+      .from('app')
+      .select('id')
+      .eq('slug', 'fibre-meet')
+      .single();
+    if (app && personId) {
+      await adminClient.from('activity').insert({
+        workspace_id: mt.workspace_id,
+        person_id: personId,
+        app_id: app.id,
+        type: 'meeting_requested',
+        subject: `Meeting requested: ${data.invitee_name}`,
+        occurred_at: new Date().toISOString(),
+      });
+    }
+    return c.json({ booking });
+  }
+
   // If the host has Google Calendar connected, create the event there now.
   // Failure is non-fatal — the booking is already recorded; the host can
   // re-sync later. We do update the booking row with the resulting ids.
-  let resolvedMeetUrl: string | null = null;
   if (hostRow?.google_refresh_token && booking) {
     try {
       // Find the primary write target on the chosen host's calendars.
@@ -1514,6 +1583,9 @@ const HostUpdate = z.object({
     .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
     .nullable()
     .optional(),
+  // Host-level default for new MTs. Per-MT override lives on
+  // meet_meeting_type.requires_approval (nullable).
+  requires_approval: z.boolean().optional(),
 });
 
 meetRoutes.patch('/me', async (c) => {
@@ -1579,6 +1651,9 @@ const MeetingTypeUpsert = z.object({
   default_location: z.string().max(500).nullable().optional(),
   is_active: z.boolean().optional(),
   is_public_listed: z.boolean().optional(),
+  // Approval mode. NULL = inherit from meet_host.requires_approval;
+  // true/false = explicit override on this MT.
+  requires_approval: z.boolean().nullable().optional(),
   // Pricing — Phase 2 of the payments roadmap. Free MTs send null/0.
   // Stripe lower-bound is ~50¢; we keep validation simple here and let
   // the Checkout API surface specific minimums later in Phase 3.
@@ -2001,6 +2076,207 @@ meetRoutes.post('/public/poll-votes', async (c) => {
   return c.json({ ok: true, recorded: rows.length });
 });
 
+// ===========================================================================
+// Booking approval — when a meeting type requires approval, the booking sits
+// in 'pending_approval'. The host then approves (runs the calendar + email
+// side-effects skipped at booking time) or rejects (flips to 'cancelled').
+// ===========================================================================
+
+async function loadBookingWithJoins(id: string) {
+  return adminClient
+    .from('meet_booking')
+    .select(
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, google_refresh_token, user:user_id (full_name, email))',
+    )
+    .eq('id', id)
+    .single();
+}
+
+meetRoutes.post('/bookings/:id/approve', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+
+  // Verify the caller is the host on this booking. Use admin for the read
+  // because RLS would otherwise scope by app_membership which is fine — but
+  // we also want to surface the google_refresh_token for the calendar call.
+  const { data: booking, error } = await loadBookingWithJoins(id);
+  if (error || !booking) return c.json({ error: 'booking not found' }, 404);
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const { data: callerHost } = await adminClient
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!callerHost || callerHost.id !== booking.host_id) {
+    return c.json({ error: 'only the host can approve' }, 403);
+  }
+  if (booking.status === 'confirmed') return c.json({ ok: true, already: true });
+  if (booking.status !== 'pending_approval') {
+    return c.json({ error: `cannot approve a booking in status ${booking.status}` }, 409);
+  }
+  const mt = Array.isArray(booking.meeting_type)
+    ? booking.meeting_type[0]
+    : booking.meeting_type;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+
+  // Flip status first so subsequent fetches reflect the new state.
+  const { error: uErr } = await adminClient
+    .from('meet_booking')
+    .update({ status: 'confirmed' })
+    .eq('id', id);
+  if (uErr) {
+    console.error('[meet bookings/approve] status flip failed', uErr);
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  // Google Calendar event — best-effort, mirrors the auto-confirm path.
+  let resolvedMeetUrl: string | null = null;
+  if (hostRow?.google_refresh_token && mt) {
+    try {
+      const { data: cal } = await adminClient
+        .from('meet_calendar')
+        .select('google_calendar_id')
+        .eq('host_id', booking.host_id)
+        .in('role', ['primary', 'write_target'])
+        .limit(1)
+        .maybeSingle();
+      const calendarId = cal?.google_calendar_id ?? 'primary';
+      const withMeet = mt.conferencing_provider === 'google_meet';
+      const { eventId, meetUrl } = await createEvent(hostRow.google_refresh_token, {
+        calendarId,
+        summary: mt.name,
+        description: mt.description ?? null,
+        startsAt: new Date(booking.starts_at),
+        endsAt: new Date(booking.ends_at),
+        attendeeEmail: booking.invitee_email,
+        attendeeName: booking.invitee_name,
+        withMeet,
+        location: booking.alternative_location ?? mt.default_location ?? null,
+      });
+      resolvedMeetUrl = meetUrl ?? null;
+      await adminClient
+        .from('meet_booking')
+        .update({ google_event_id: eventId, meet_url: meetUrl ?? null })
+        .eq('id', id);
+    } catch (e) {
+      console.error('[meet bookings/approve] google event failed (non-fatal)', e);
+    }
+  }
+
+  // Confirmation emails — same templates as the auto-confirm path.
+  if (mt && hostRow) {
+    const common: EmailCommon = {
+      inviteeName: booking.invitee_name,
+      inviteeEmail: booking.invitee_email,
+      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+      hostEmail: hostUser?.email ?? null,
+      meetingName: mt.name,
+      startsAt: new Date(booking.starts_at),
+      endsAt: new Date(booking.ends_at),
+      hostTimezone: hostRow.timezone ?? 'UTC',
+      meetUrl: resolvedMeetUrl,
+      location: booking.alternative_location ?? mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: meetAppUrl(),
+      hostSlug: hostRow.slug ?? '',
+      meetingTypeSlug: mt.slug ?? '',
+    };
+    try {
+      const m = bookingConfirmationInvitee(common);
+      await sendEmail({
+        to: booking.invitee_email,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        replyTo: common.hostEmail ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings/approve] invitee email failed (non-fatal)', e);
+    }
+  }
+
+  // Activity: meeting_booked so timelines show confirmed bookings uniformly.
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (app && booking.invitee_person_id) {
+    await adminClient.from('activity').insert({
+      workspace_id: booking.workspace_id,
+      person_id: booking.invitee_person_id,
+      app_id: app.id,
+      type: 'meeting_booked',
+      subject: `Meeting approved: ${booking.invitee_name}`,
+      occurred_at: new Date().toISOString(),
+    });
+  }
+  return c.json({ ok: true });
+});
+
+const RejectBody = z.object({
+  reason: z.string().max(500).optional(),
+});
+
+meetRoutes.post('/bookings/:id/reject', async (c) => {
+  const id = c.req.param('id');
+  const ctx = c.get('ctx');
+  const body = RejectBody.safeParse(await c.req.json().catch(() => ({})));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: booking, error } = await loadBookingWithJoins(id);
+  if (error || !booking) return c.json({ error: 'booking not found' }, 404);
+  const { data: callerHost } = await adminClient
+    .from('meet_host')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!callerHost || callerHost.id !== booking.host_id) {
+    return c.json({ error: 'only the host can reject' }, 403);
+  }
+  if (booking.status === 'cancelled') return c.json({ ok: true, already: true });
+  if (booking.status !== 'pending_approval') {
+    return c.json({ error: `cannot reject a booking in status ${booking.status}` }, 409);
+  }
+  const { error: uErr } = await adminClient
+    .from('meet_booking')
+    .update({ status: 'cancelled' })
+    .eq('id', id);
+  if (uErr) return c.json({ error: uErr.message }, 500);
+
+  const hostRow = Array.isArray(booking.host) ? booking.host[0] : booking.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+  const mt = Array.isArray(booking.meeting_type)
+    ? booking.meeting_type[0]
+    : booking.meeting_type;
+  if (mt && hostRow) {
+    const hostName = hostUser?.full_name ?? hostRow.slug ?? 'your host';
+    const reasonLine = body.data.reason
+      ? `\n\nNote from ${hostName}: ${body.data.reason}\n`
+      : '';
+    try {
+      await sendEmail({
+        to: booking.invitee_email,
+        subject: `Declined: ${mt.name}`,
+        text: `Hi ${booking.invitee_name.split(' ')[0] ?? ''},\n\n${hostName} was unable to confirm your booking request for ${mt.name}.${reasonLine}\n${emailSignoff()}`,
+        html: `<p>Hi ${escapeHtml(booking.invitee_name.split(' ')[0] ?? '')},</p><p>${escapeHtml(hostName)} was unable to confirm your booking request for <strong>${escapeHtml(mt.name)}</strong>.</p>${body.data.reason ? `<p><em>${escapeHtml(body.data.reason)}</em></p>` : ''}`,
+        replyTo: hostUser?.email ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings/reject] invitee email failed (non-fatal)', e);
+    }
+  }
+  return c.json({ ok: true });
+});
+
 // GET /api/v1/meet/bookings — bookings I host.
 //   ?scope=upcoming|past|all  (default upcoming)
 //   ?include_cancelled=1      (default 0 — confirmed only)
@@ -2039,7 +2315,9 @@ meetRoutes.get('/bookings', async (c) => {
   if (scope === 'upcoming') q = q.gte('ends_at', nowIso);
   else if (scope === 'past') q = q.lt('ends_at', nowIso);
 
-  if (!includeCancelled) q = q.eq('status', 'confirmed');
+  // Pending_approval bookings are always shown (the host needs to act on
+  // them). "Include cancelled" just toggles whether cancelled rows appear.
+  if (!includeCancelled) q = q.in('status', ['confirmed', 'pending_approval']);
 
   q = q
     .order('starts_at', { ascending: scope !== 'past' })

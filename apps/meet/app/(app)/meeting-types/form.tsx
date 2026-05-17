@@ -30,6 +30,7 @@ export type MeetingTypeFormValues = {
   default_location?: string | null;
   is_active?: boolean;
   is_public_listed?: boolean;
+  requires_approval?: boolean | null;
   team_id?: string | null;
   event_type?: string;
   capacity?: number | null;
@@ -473,6 +474,59 @@ export function MeetingTypeForm({
                 </span>
               </span>
             </label>
+          </Section>
+
+          <Section
+            title="Approval"
+            desc="When approval is required, the booking sits as 'pending' and the invitee gets a request-received email. You approve or reject from the Bookings page."
+          >
+            {/* Radio group with 3 modes encoded as a string: default/always/never.
+                bodyFromForm maps to: null / true / false respectively. */}
+            <div className="space-y-2 text-sm">
+              {(
+                [
+                  {
+                    value: 'default',
+                    label: 'Use my default',
+                    hint: 'Follow the Approval setting on your Profile page.',
+                  },
+                  {
+                    value: 'always',
+                    label: 'Always require approval',
+                    hint: 'Every booking starts as pending until you approve it.',
+                  },
+                  {
+                    value: 'never',
+                    label: 'Never require approval',
+                    hint: 'Bookings auto-confirm even if your default is set.',
+                  },
+                ] as const
+              ).map((opt) => {
+                const checked =
+                  (initial.requires_approval === null || initial.requires_approval === undefined) && opt.value === 'default'
+                    ? true
+                    : initial.requires_approval === true && opt.value === 'always'
+                      ? true
+                      : initial.requires_approval === false && opt.value === 'never'
+                        ? true
+                        : false;
+                return (
+                  <label key={opt.value} className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="approval_mode"
+                      value={opt.value}
+                      defaultChecked={checked}
+                      className="mt-1"
+                    />
+                    <span>
+                      <span className="font-medium">{opt.label}</span>
+                      <span className="block text-xs text-ink-muted mt-0.5">{opt.hint}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
           </Section>
         </>
       </div>

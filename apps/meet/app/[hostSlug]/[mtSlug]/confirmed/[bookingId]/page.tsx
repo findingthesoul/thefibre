@@ -49,11 +49,19 @@ export default async function ConfirmedPage({
         <div className="rounded-2xl border border-neutral-200 bg-white overflow-hidden shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
           <div className="p-8 sm:p-10">
             <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-              Booking confirmed
+              {booking.status === 'pending_approval' ? 'Request received' : 'Booking confirmed'}
             </div>
             <h1 className="mt-3 text-3xl font-medium tracking-tight">
-              You&apos;re booked, {booking.invitee_name.split(' ')[0]}.
+              {booking.status === 'pending_approval'
+                ? `Your request is in, ${booking.invitee_name.split(' ')[0]}.`
+                : `You're booked, ${booking.invitee_name.split(' ')[0]}.`}
             </h1>
+            {booking.status === 'pending_approval' && (
+              <p className="mt-3 text-sm text-neutral-600 leading-relaxed">
+                {hostName ?? 'The host'} will review and confirm. You&apos;ll get
+                an email either way — usually within a day.
+              </p>
+            )}
 
             <dl className="mt-8 space-y-5 text-sm">
               <Row label="What" value={mt?.name ?? '—'} />

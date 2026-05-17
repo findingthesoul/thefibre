@@ -18,6 +18,7 @@ type Initial = {
   timezone: string;
   photo_url: string | null;
   working_hours: Record<string, { start: string; end: string }[]> | null;
+  requires_approval?: boolean;
 };
 
 export function SettingsForm({ initial }: { initial: Initial }) {
@@ -84,6 +85,30 @@ export function SettingsForm({ initial }: { initial: Initial }) {
           name="working_hours_json"
           value={JSON.stringify(hours)}
         />
+      </div>
+
+      <div className="border-t border-line pt-5">
+        <div className="text-sm font-medium">Approval default</div>
+        <p className="mt-1 text-sm text-ink-subtle">
+          Sets the default for new meeting types. Each meeting type can
+          still override this on its Availability tab.
+        </p>
+        {/* Presence sentinel so an unchecked box still updates the column. */}
+        <input type="hidden" name="requires_approval_present" value="1" />
+        <label className="mt-3 flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            name="requires_approval"
+            defaultChecked={initial.requires_approval ?? false}
+            className="mt-1"
+          />
+          <span>
+            Require my approval before a booking is confirmed
+            <span className="block text-xs text-ink-muted mt-0.5">
+              Invitees get a "request received" email; you approve or reject from the Bookings page.
+            </span>
+          </span>
+        </label>
       </div>
 
       {state.error && (

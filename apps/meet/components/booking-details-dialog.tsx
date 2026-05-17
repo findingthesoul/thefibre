@@ -1,9 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import { CalendarClock, User, Video, MapPin, ExternalLink } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { CalendarClock, User, Video, MapPin, ExternalLink, Check, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { approveBooking, rejectBooking } from './booking-actions';
 
 // Minimum shape every caller (Dashboard, Bookings list, Contact popup)
 // can satisfy. Each surface fetches a slightly different projection,
@@ -73,6 +76,10 @@ export function BookingDetailsDialog({
   open: boolean;
   onClose: () => void;
 }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+  const [err, setErr] = useState<string | null>(null);
+
   if (!booking) return null;
   const mt = getMt(booking);
   const team = getTeam(booking);
@@ -80,12 +87,44 @@ export function BookingDetailsDialog({
   const ends = new Date(booking.ends_at);
   const minutes = Math.round((ends.getTime() - starts.getTime()) / 60_000);
   const cancelled = booking.status === 'cancelled';
+  const pendingApproval = booking.status === 'pending_approval';
   const hostSlugForCancel = (team?.slug ?? mt?.slug)
     ? // The cancel route lives at /[hostSlug-or-teamSlug]/[mtSlug]/cancel/[bookingId].
       // We don't know the host slug from the booking projection, so we route
       // through the meeting-type slug only when the team is known.
       team?.slug ?? null
     : null;
+
+  function handleApprove() {
+    setErr(null);
+    startTransition(async () => {
+      const r = await approveBooking(booking!.id);
+      if (r.error) setErr(r.error);
+      else {
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+  function handleReject() {
+    if (!confirm('Reject this booking? The invitee will get a notification email.')) return;
+    setErr(null);
+    startTransition(async () => {
+      const r = await rejectBooking(booking!.id);
+      if (r.error) setErr(r.error);
+      else {
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+
+  const statusLabel = pendingApproval ? 'Pending approval' : cancelled ? 'Cancelled' : 'Confirmed';
+  const statusClass = pendingApproval
+    ? 'bg-amber-50 text-amber-800 border border-amber-200'
+    : cancelled
+      ? 'bg-red-50 text-red-700 border border-red-200'
+      : 'bg-ink text-surface-raised';
 
   return (
     <Dialog
@@ -94,14 +133,8 @@ export function BookingDetailsDialog({
       title={
         <div className="flex items-center gap-2">
           <span>{booking.invitee_name}</span>
-          <span
-            className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 ${
-              cancelled
-                ? 'bg-red-50 text-red-700 border border-red-200'
-                : 'bg-ink text-surface-raised'
-            }`}
-          >
-            {cancelled ? 'Cancelled' : 'Confirmed'}
+          <span className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 ${statusClass}`}>
+            {statusLabel}
           </span>
         </div>
       }
@@ -109,8 +142,29 @@ export function BookingDetailsDialog({
       size="md"
       footer={
         <>
+          {err && <span className="text-xs text-red-700 mr-auto">{err}</span>}
           <Button variant="ghost" onClick={onClose}>Close</Button>
-          {booking.meet_url && !cancelled && (
+          {pendingApproval && (
+            <>
+              <button
+                type="button"
+                onClick={handleReject}
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50"
+              >
+                <X className="h-3.5 w-3.5" /> Reject
+              </button>
+              <button
+                type="button"
+                onClick={handleApprove}
+                disabled={pending}
+                className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium hover:bg-emerald-800 disabled:opacity-50"
+              >
+                <Check className="h-3.5 w-3.5" /> {pending ? 'Approving…' : 'Approve'}
+              </button>
+            </>
+          )}
+          {booking.meet_url && !cancelled && !pendingApproval && (
             <a
               href={booking.meet_url}
               target="_blank"

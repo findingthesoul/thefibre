@@ -84,7 +84,7 @@ function detailsHtml(c: Common): string {
   return `<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:20px;">${rows.join('')}</table>`;
 }
 
-function escapeHtml(s: string): string {
+export function escapeHtml(s: string): string {
   return s
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
