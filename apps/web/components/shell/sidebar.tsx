@@ -107,13 +107,23 @@ function Brand({ showLabel }: { showLabel: boolean }) {
   return (
     <div className="h-14 flex items-center px-3 shrink-0">
       <Link href="/dashboard" className="flex items-center gap-2.5">
+        {/* Compact brand mark — always visible, anchors the collapsed
+         sidebar. The yellow tile is intentional: not a hand-drawn logo,
+         just a colour anchor that survives at any size. */}
         <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-yellow-300 text-ink font-semibold text-[11px] tracking-tight shrink-0">
           {BRAND.brandLetters}
         </span>
         {showLabel && (
-          <span className="text-sm font-medium tracking-tight whitespace-nowrap">
-            {BRAND.name}
-          </span>
+          // Handwritten wordmark instead of plain text when sidebar is
+          // open. Same asset as in the auth emails — single source of
+          // truth via packages/shared/branding.ts.
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src="/brand/the-fibre.png"
+            alt={BRAND.name}
+            className="h-6 w-auto select-none"
+            draggable={false}
+          />
         )}
       </Link>
     </div>

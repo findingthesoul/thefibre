@@ -44,8 +44,8 @@ Change-facilitation fields (Role in change, Stance, Readiness, Leadership style,
 #### Org-side per-app dialog labelling
 Contacts already say "Edit X — Fibre Meet" etc. Verify org-side dialogs (invoicing on Fibre Sales, etc.) follow the same convention; mirror if not.
 
-#### Group / One-off / Meeting poll event types
-Still hard-coded `disabled: true` in `apps/meet/app/(app)/meeting-types/new-menu.tsx`. Group is the cheapest to ship (invitee-capacity field).
+#### ~~Group / One-off / Meeting poll event types~~ ✓ Done
+Group landed in v0.11.1; One-off + Meeting poll in v0.12.0. All three are now selectable from "+ New".
 
 #### Platform billing Phase 1
 Workspace plan (Free / Pro / Org) + plan-aware skim (waive the 2%/€2 for Pro/Org). Roadmap in [`billing/`](./billing/).

@@ -6,6 +6,30 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.16] — 2026-05-18
+
+### The Fibre wordmark in the platform sidebar
+
+Until now the handwritten "the fibre" wordmark lived only in the
+auth emails (BRAND_ASSETS.logoUrl, v0.10.0). Inside the platform
+the sidebar showed plain text "The Fibre". This brings the brand
+into the app shell — same asset, same SPoT.
+
+### Changed
+- **`apps/web/components/shell/sidebar.tsx`** — when the sidebar is
+  expanded, the brand label is now the wordmark image (`/brand/the-fibre.png`)
+  instead of plain "The Fibre" text. The compact yellow "tf" tile stays
+  exactly as it was — it's the anchor when the sidebar is collapsed and
+  doesn't depend on image loading.
+- Meet sidebar untouched. Meet shows "Fibre Meet" specifically — the
+  Fibre wordmark belongs on the platform shell where it represents
+  the umbrella brand.
+
+### Also
+- **Build-plan cleanup.** The "Group / One-off / Meeting poll event
+  types" entry is marked done — Group shipped in v0.11.1, the other
+  two in v0.12.0. The stale entry was misleading me earlier today.
+
 ## [0.13.15] — 2026-05-18
 
 ### Verified-domain auto-attribution
