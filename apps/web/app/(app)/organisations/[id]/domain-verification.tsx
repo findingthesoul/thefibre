@@ -1,0 +1,228 @@
+'use client';
+
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { Check, Copy, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  startDomainVerification,
+  checkDomainVerification,
+  type DomainVerificationAction,
+} from './domain-actions';
+
+export type DomainVerificationState = {
+  domain: string | null;
+  domain_verified_at: string | null;
+  challenge: {
+    record_name: string;
+    record_value: string;
+    created_at: string;
+    verified_at: string | null;
+  } | null;
+};
+
+// Whole panel — drops into the org overview. Renders one of three states:
+//   - no domain on the org → tells the user to set one in Edit
+//   - verified → green chip + "Re-verify" link
+//   - unverified → shows the TXT challenge (or button to issue one) + Check
+export function DomainVerification({
+  orgId,
+  initial,
+}: {
+  orgId: string;
+  initial: DomainVerificationState;
+}) {
+  const router = useRouter();
+  const [busy, startBusy] = useTransition();
+  const [state, setState] = useState<DomainVerificationState>(initial);
+  const [error, setError] = useState<string | null>(null);
+  const [checkInfo, setCheckInfo] = useState<string | null>(null);
+
+  if (!state.domain) {
+    return (
+      <div className="text-sm text-ink-subtle">
+        Add a domain in the org edit dialog to enable DNS verification.
+      </div>
+    );
+  }
+
+  const verified = !!state.domain_verified_at;
+
+  function runStart() {
+    setError(null);
+    setCheckInfo(null);
+    startBusy(async () => {
+      const r: DomainVerificationAction = await startDomainVerification(orgId);
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
+      if (r.state) setState(r.state);
+    });
+  }
+
+  function runCheck() {
+    setError(null);
+    setCheckInfo(null);
+    startBusy(async () => {
+      const r: DomainVerificationAction = await checkDomainVerification(orgId);
+      if (r.error) setError(r.error);
+      if (r.message) setCheckInfo(r.message);
+      if (r.state) setState(r.state);
+      if (r.verified) router.refresh();
+    });
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm">
+        {verified ? (
+          <>
+            <ShieldCheck size={16} className="text-emerald-600" strokeWidth={1.75} />
+            <span className="font-medium">Verified</span>
+            <span className="text-ink-subtle">
+              on{' '}
+              {new Date(state.domain_verified_at!).toLocaleDateString(undefined, {
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric',
+              })}
+            </span>
+          </>
+        ) : (
+          <>
+            <ShieldAlert size={16} className="text-amber-600" strokeWidth={1.75} />
+            <span className="font-medium">Not verified</span>
+          </>
+        )}
+        <span className="text-ink-subtle">·</span>
+        <span className="font-mono text-xs text-ink-subtle">{state.domain}</span>
+      </div>
+
+      {!verified && !state.challenge && (
+        <div>
+          <Button onClick={runStart} disabled={busy} size="sm">
+            {busy ? 'Generating challenge…' : 'Start DNS verification'}
+          </Button>
+          <p className="mt-2 text-xs text-ink-subtle">
+            We&apos;ll generate a one-time challenge value. You publish it as a
+            TXT record on your DNS, then click Check.
+          </p>
+        </div>
+      )}
+
+      {!verified && state.challenge && (
+        <ChallengePanel
+          recordName={state.challenge.record_name}
+          recordValue={state.challenge.record_value}
+          onCheck={runCheck}
+          onRotate={runStart}
+          busy={busy}
+        />
+      )}
+
+      {verified && (
+        <button
+          type="button"
+          onClick={runStart}
+          disabled={busy}
+          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
+        >
+          {busy ? 'Re-issuing…' : 'Re-verify (issues a new challenge)'}
+        </button>
+      )}
+
+      {error && (
+        <div className="rounded-md border border-line bg-surface-sunken p-3 text-xs text-red-700">
+          {error}
+        </div>
+      )}
+      {checkInfo && !error && (
+        <div className="rounded-md border border-line bg-surface-sunken p-3 text-xs text-ink-subtle">
+          {checkInfo}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ChallengePanel({
+  recordName,
+  recordValue,
+  onCheck,
+  onRotate,
+  busy,
+}: {
+  recordName: string;
+  recordValue: string;
+  onCheck: () => void;
+  onRotate: () => void;
+  busy: boolean;
+}) {
+  return (
+    <div className="space-y-3 rounded-md border border-line bg-surface-raised p-4">
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+          Step 1 — add this TXT record
+        </div>
+        <div className="mt-2 grid grid-cols-[80px_1fr] gap-x-3 gap-y-2 text-xs">
+          <div className="text-ink-subtle">Type</div>
+          <div className="font-mono">TXT</div>
+          <div className="text-ink-subtle">Name / Host</div>
+          <CopyableMono value={recordName} />
+          <div className="text-ink-subtle">Value</div>
+          <CopyableMono value={recordValue} />
+          <div className="text-ink-subtle">TTL</div>
+          <div className="font-mono text-ink-subtle">300 (or your default)</div>
+        </div>
+      </div>
+
+      <div>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+          Step 2 — check
+        </div>
+        <p className="mt-1 text-xs text-ink-subtle">
+          DNS propagation usually takes a few minutes. If it fails, wait
+          and try again.
+        </p>
+        <div className="mt-2 flex items-center gap-2">
+          <Button onClick={onCheck} disabled={busy} size="sm">
+            {busy ? 'Checking…' : 'Check DNS'}
+          </Button>
+          <button
+            type="button"
+            onClick={onRotate}
+            disabled={busy}
+            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
+          >
+            Generate a new challenge
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CopyableMono({ value }: { value: string }) {
+  const [copied, setCopied] = useState(false);
+  function copy() {
+    void navigator.clipboard.writeText(value).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1200);
+    });
+  }
+  return (
+    <div className="flex items-center gap-2 min-w-0">
+      <span className="font-mono break-all">{value}</span>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? 'Copied!' : 'Copy'}
+        title={copied ? 'Copied!' : 'Copy'}
+        className="shrink-0 text-ink-subtle hover:text-ink"
+      >
+        {copied ? <Check size={14} /> : <Copy size={14} />}
+      </button>
+    </div>
+  );
+}

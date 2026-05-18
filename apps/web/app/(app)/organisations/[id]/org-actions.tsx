@@ -16,6 +16,7 @@ export type EditableOrg = {
   domain: string | null;
   website: string | null;
   linkedin_url: string | null;
+  logo_url: string | null;
   street: string | null;
   postal_code: string | null;
   city: string | null;
@@ -141,6 +142,16 @@ function EditDialog({
         <TextField label="Domain" name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" errors={state.fieldErrors?.domain} />
         <TextField label="Website" name="website" defaultValue={org.website ?? ''} placeholder="thefibre.app or https://thefibre.app" errors={state.fieldErrors?.website} />
         <TextField label="LinkedIn" name="linkedin_url" defaultValue={org.linkedin_url ?? ''} placeholder="linkedin.com/company/…" errors={state.fieldErrors?.linkedin_url} />
+        <div className="md:col-span-2">
+          <TextField
+            label="Logo URL"
+            name="logo_url"
+            defaultValue={org.logo_url ?? ''}
+            placeholder="https://… (PNG, JPG, or SVG)"
+            hint="Public URL of the org's logo. Hosted externally for now — file upload coming later."
+            errors={state.fieldErrors?.logo_url}
+          />
+        </div>
         <TextField label="Sector" name="sector" defaultValue={org.sector ?? ''} errors={state.fieldErrors?.sector} />
         <TextField label="Industry" name="industry" defaultValue={org.industry ?? ''} errors={state.fieldErrors?.industry} />
         <SelectField label="Type" name="org_type" defaultValue={org.org_type ?? ''} options={ORG_TYPES} errors={state.fieldErrors?.org_type} />

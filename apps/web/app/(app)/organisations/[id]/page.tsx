@@ -6,6 +6,10 @@ import { ListGroup, ListRow } from '@/components/ui/list';
 import { countryName } from '@/lib/countries';
 import { AddMemberButton, type PersonOption } from './add-member';
 import { EndMemberButton } from './end-member';
+import {
+  DomainVerification,
+  type DomainVerificationState,
+} from './domain-verification';
 
 type Organisation = {
   id: string;
@@ -21,6 +25,7 @@ type Organisation = {
   sector: string | null;
   size_band: string | null;
   org_type: string | null;
+  domain_verified_at: string | null;
 };
 
 type Member = {
@@ -64,6 +69,22 @@ export default async function OrganisationOverview({
     // Non-fatal.
   }
 
+  // Domain verification — fetch on the server so the panel renders with
+  // accurate state on first paint. Non-fatal: if the endpoint fails we
+  // fall back to "Not verified" and the panel offers a Start button.
+  let domainVerification: DomainVerificationState = {
+    domain: org.domain,
+    domain_verified_at: null,
+    challenge: null,
+  };
+  try {
+    domainVerification = await apiFetch<DomainVerificationState>(
+      `/api/v1/organisations/${id}/domain-verification`,
+    );
+  } catch {
+    // Non-fatal — leave the synthesised defaults above.
+  }
+
   const addressLine = [org.street, org.postal_code].filter(Boolean).join(', ');
   const location = [org.city, org.region, countryName(org.country)].filter(Boolean).join(', ');
 
@@ -79,6 +100,15 @@ export default async function OrganisationOverview({
         <Field label="Size" value={org.size_band} />
         <Field label="Type" value={org.org_type} />
       </section>
+
+      {org.domain && (
+        <section className="mt-12">
+          <SectionLabel>Domain verification</SectionLabel>
+          <div className="mt-3">
+            <DomainVerification orgId={org.id} initial={domainVerification} />
+          </div>
+        </section>
+      )}
 
       <section className="mt-12">
         <div className="flex items-center justify-between">

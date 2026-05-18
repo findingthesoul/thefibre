@@ -16,16 +16,22 @@ export function PageHeader({
   title,
   description,
   actions,
+  leading,
 }: {
   title: ReactNode;
   description?: ReactNode;
   actions?: ReactNode;
+  /** Optional element rendered to the left of the title — typically an avatar or logo. */
+  leading?: ReactNode;
 }) {
   return (
     <header className="flex items-start justify-between gap-4">
-      <div className="min-w-0">
-        <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
-        {description && <p className="mt-1 text-sm text-ink-subtle">{description}</p>}
+      <div className="flex items-start gap-4 min-w-0">
+        {leading && <div className="shrink-0">{leading}</div>}
+        <div className="min-w-0">
+          <h1 className="text-2xl font-medium tracking-tight">{title}</h1>
+          {description && <p className="mt-1 text-sm text-ink-subtle">{description}</p>}
+        </div>
       </div>
       {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
     </header>

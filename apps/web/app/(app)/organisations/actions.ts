@@ -78,6 +78,7 @@ export async function updateOrganisation(
     industry: strOrNull(formData.get('industry')),
     org_type: orgType,
     size_band: sizeBand,
+    logo_url: strOrNull(formData.get('logo_url')),
   };
 
   try {

@@ -6,6 +6,52 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.14] — 2026-05-18
+
+### Org branding + DNS-based domain verification
+
+Sjoerd: "branding is missing" and "setting for a DNS for an org with a
+domain name is missing". Both addressed in one slice — org logo + a
+TXT-challenge verification flow for the org's claimed domain.
+
+### Added
+- **Org logo on the profile header.** `logo_url` (already a column on
+  `organisation`) is now editable from the org edit dialog and renders
+  as a 48px avatar to the left of the org name on every org-detail
+  surface (Overview / Profile / per-app tabs). Falls back to a letter
+  tile when unset.
+- **`PageHeader` now supports a `leading` slot** — the avatar/logo
+  slot. Generic enough that contact profiles can use the same pattern
+  later.
+- **DNS verification panel** on the org overview (visible when a
+  domain is set). Three states: no challenge issued, in-flight (shows
+  the TXT name + value with copy icons + Check button), verified
+  (green chip + "Re-verify" link).
+- **Migration `20260517270000`** — adds `organisation.domain_verified_at`
+  and a new `org_domain_verification` table holding the one-time TXT
+  challenge per org. RLS scoped to workspace_member.
+- **Three API endpoints**:
+  - `GET    /api/v1/organisations/:id/domain-verification` — current
+    state (domain, verified-at, in-flight challenge if any).
+  - `POST   /api/v1/organisations/:id/domain-verification` — generate
+    or rotate a challenge. Returns `record_name` + `record_value`.
+  - `POST   /api/v1/organisations/:id/domain-verification/check` —
+    `dns.resolveTxt(_fibre-verify.<domain>)` and compare. On match:
+    stamps `domain_verified_at`.
+- **OrgUpdate schema** now accepts `logo_url`.
+
+### Honest gaps
+- **Logo upload is URL-only.** No file upload to Supabase Storage yet —
+  paste a public PNG/JPG/SVG URL. The "upload" UI is a follow-up
+  (probably aligned with workspace branding when we get there).
+- **No follow-on auto-attribution.** Verified domains don't yet auto-
+  link new persons whose email matches `@<domain>` to the org. The
+  trust signal is there; the wiring is the next slice.
+- **Workspace-level branding** (the Fibre app shell wordmark in topbar
+  / sidebar) is still untouched. The hand-written wordmark lives in
+  emails only; the sidebar shows the 2-letter brand tile. Worth a
+  separate decision before changing.
+
 ## [0.13.13] — 2026-05-18
 
 ### Platform prep: rename `meet_team` → `team` (Phase A of Fibre Flow build)

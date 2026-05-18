@@ -5,6 +5,29 @@ import { TabNav } from '@/components/ui/tabs';
 import { APPS, APP_ORDER, isAppSlug } from '@/lib/apps';
 import { OrgActions, type EditableOrg } from './org-actions';
 
+// Tiny header avatar — renders the org logo if the URL is set, otherwise a
+// neutral letter tile so the layout stays anchored. <img> not <Image>
+// because logo_url is user-supplied and may point at any host (no
+// allowlist on next.config.js makes Image throw).
+function OrgLogo({ logoUrl, name }: { logoUrl: string | null; name: string }) {
+  const initial = name.trim().charAt(0).toUpperCase() || '·';
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={`${name} logo`}
+        className="h-12 w-12 rounded-md object-contain bg-surface-raised border border-line"
+      />
+    );
+  }
+  return (
+    <div className="h-12 w-12 rounded-md bg-surface-sunken border border-line flex items-center justify-center text-base font-medium text-ink-subtle">
+      {initial}
+    </div>
+  );
+}
+
 export default async function OrgLayout({
   children,
   params,
@@ -52,6 +75,7 @@ export default async function OrgLayout({
         title={org.name}
         description={org.legal_name && org.legal_name !== org.name ? org.legal_name : undefined}
         actions={<OrgActions org={org} />}
+        leading={<OrgLogo logoUrl={org.logo_url} name={org.name} />}
       />
       <TabNav tabs={tabs} />
       <div className="mt-8">{children}</div>

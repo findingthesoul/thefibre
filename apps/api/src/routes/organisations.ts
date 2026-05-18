@@ -1,5 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { randomBytes } from 'node:crypto';
+import { promises as dns } from 'node:dns';
 import { userClient } from '../db.js';
 
 export const organisationsRoutes = new Hono();
@@ -91,6 +93,7 @@ const OrgUpdate = z.object({
   industry: z.string().max(100).nullable().optional(),
   org_type: z.enum(['private', 'public', 'ngo', 'cooperative', 'government', 'education']).nullable().optional(),
   size_band: z.enum(['1-10', '11-50', '51-200', '201-1000', '1000+']).nullable().optional(),
+  logo_url: z.string().max(2000).nullable().optional(),
 });
 
 organisationsRoutes.patch('/:id', async (c) => {
@@ -376,4 +379,169 @@ organisationsRoutes.get('/:id/apps', async (c) => {
     }
   }
   return c.json({ apps: Array.from(slugs).sort() });
+});
+
+// ===========================================================================
+// Domain verification — TXT-challenge ownership proof.
+//
+// Flow:
+//   1. Caller GETs /:id/domain-verification — returns existing challenge if
+//      any, else null.
+//   2. Caller POSTs /:id/domain-verification — generates (or rotates) a
+//      challenge, returns { record_name, record_value }. UI shows these to
+//      the user. User adds the TXT record to their DNS.
+//   3. Caller POSTs /:id/domain-verification/check — server does
+//      dns.resolveTxt(`_fibre-verify.<domain>`) and compares verbatim with
+//      the stored challenge. On match: stamps domain_verified_at on the org
+//      and verified_at on the challenge row, returns { verified: true }.
+//
+// The record lives under `_fibre-verify.<domain>` (not the root) so it
+// doesn't clutter the org's apex TXT records (SPF/DKIM/etc) and is namespaced
+// to us if multiple verification systems share the same DNS zone.
+// ===========================================================================
+
+const CHALLENGE_PREFIX = 'fibre-verify-';
+const CHALLENGE_HOST = '_fibre-verify';
+
+function newChallenge(): string {
+  return CHALLENGE_PREFIX + randomBytes(24).toString('base64url');
+}
+
+organisationsRoutes.get('/:id/domain-verification', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  // Pull the org so we can return the current `domain` + `domain_verified_at`
+  // alongside the challenge — saves the UI one round-trip.
+  const { data: org, error: orgErr } = await db
+    .from('organisation')
+    .select('id, domain, domain_verified_at')
+    .eq('id', orgId)
+    .is('deleted_at', null)
+    .single();
+  if (orgErr || !org) return c.json({ error: 'org not found' }, 404);
+
+  const { data: row } = await db
+    .from('org_domain_verification')
+    .select('domain, challenge, created_at, verified_at')
+    .eq('org_id', orgId)
+    .maybeSingle();
+
+  return c.json({
+    domain: org.domain,
+    domain_verified_at: org.domain_verified_at,
+    challenge: row && row.domain === org.domain
+      ? {
+          record_name: `${CHALLENGE_HOST}.${row.domain}`,
+          record_value: row.challenge,
+          created_at: row.created_at,
+          verified_at: row.verified_at,
+        }
+      : null,
+  });
+});
+
+organisationsRoutes.post('/:id/domain-verification', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  const { data: org, error: orgErr } = await db
+    .from('organisation')
+    .select('id, domain')
+    .eq('id', orgId)
+    .is('deleted_at', null)
+    .single();
+  if (orgErr || !org) return c.json({ error: 'org not found' }, 404);
+  if (!org.domain || !org.domain.trim()) {
+    return c.json(
+      { error: 'org has no domain set — add one on the edit form first' },
+      400,
+    );
+  }
+
+  const challenge = newChallenge();
+  const { error } = await db
+    .from('org_domain_verification')
+    .upsert(
+      {
+        org_id: orgId,
+        workspace_id: ctx.workspaceId,
+        domain: org.domain,
+        challenge,
+        created_at: new Date().toISOString(),
+        verified_at: null,
+      },
+      { onConflict: 'org_id' },
+    );
+  if (error) {
+    console.error('[org domain-verification] upsert failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+
+  return c.json({
+    record_name: `${CHALLENGE_HOST}.${org.domain}`,
+    record_value: challenge,
+  });
+});
+
+organisationsRoutes.post('/:id/domain-verification/check', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  const { data: row, error: rowErr } = await db
+    .from('org_domain_verification')
+    .select('domain, challenge')
+    .eq('org_id', orgId)
+    .single();
+  if (rowErr || !row) {
+    return c.json(
+      { verified: false, error: 'no challenge issued — call POST first' },
+      400,
+    );
+  }
+
+  const host = `${CHALLENGE_HOST}.${row.domain}`;
+  let txtRecords: string[][] = [];
+  try {
+    // dns.resolveTxt returns string[][] — one record can be split into
+    // multiple chunks; we join each record's chunks before compare.
+    txtRecords = await dns.resolveTxt(host);
+  } catch (e) {
+    const code = (e as { code?: string }).code ?? 'unknown';
+    return c.json({
+      verified: false,
+      error: `DNS lookup failed: ${code}`,
+      record_name: host,
+      record_value: row.challenge,
+    });
+  }
+
+  const flat = txtRecords.map((parts) => parts.join(''));
+  const matched = flat.some((v) => v.trim() === row.challenge);
+  if (!matched) {
+    return c.json({
+      verified: false,
+      error: 'TXT record found but value did not match',
+      record_name: host,
+      record_value: row.challenge,
+      found: flat,
+    });
+  }
+
+  const now = new Date().toISOString();
+  // Stamp both rows: the challenge for audit, and the org for the live
+  // "verified" badge.
+  await db
+    .from('org_domain_verification')
+    .update({ verified_at: now })
+    .eq('org_id', orgId);
+  await db
+    .from('organisation')
+    .update({ domain_verified_at: now })
+    .eq('id', orgId);
+
+  return c.json({ verified: true, verified_at: now });
 });
