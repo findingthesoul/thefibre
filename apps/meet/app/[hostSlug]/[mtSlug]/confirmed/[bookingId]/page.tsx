@@ -11,6 +11,8 @@ type Confirmation = {
   status: string;
   conferencing_provider: string | null;
   alternative_location: string | null;
+  payment_status: string | null;
+  stripe_invoice_url: string | null;
   meeting_type: {
     name: string;
     duration_minutes: number;
@@ -89,6 +91,30 @@ export default async function ConfirmedPage({
             <div className="mt-8 rounded-md border border-neutral-200 bg-neutral-50 p-4 text-sm text-neutral-700 leading-relaxed">
               A confirmation email is on its way to{' '}
               <span className="font-medium">{booking.invitee_email}</span>.
+              {booking.payment_status === 'paid' &&
+                booking.stripe_invoice_url && (
+                  <>
+                    {' '}A VAT invoice has been emailed too, and is also
+                    available here:{' '}
+                    <a
+                      href={booking.stripe_invoice_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="font-medium underline underline-offset-2 hover:text-neutral-900"
+                    >
+                      View invoice (PDF) ↗
+                    </a>
+                    .
+                  </>
+                )}
+              {booking.payment_status === 'paid' &&
+                !booking.stripe_invoice_url && (
+                  <>
+                    {' '}A receipt has been emailed too. (The host's
+                    Stripe account doesn&apos;t have automatic invoicing
+                    enabled yet — ask them if you need a VAT invoice.)
+                  </>
+                )}
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">

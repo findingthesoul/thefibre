@@ -6,6 +6,59 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.12] — 2026-05-17 — Meet 2.1.4
+
+### Paid bookings now generate real VAT invoices
+
+Sjoerd: "Is invoicing in?" Partly — billing fields (legal name, tax ID,
+address) existed on persons + orgs, and Stripe Connect was wired for
+paid bookings, but Stripe Checkout only emails its own receipt — that's
+not a legal VAT invoice. EU customers need one. Now Stripe auto-generates
+a finalised invoice for every paid booking, emails the hosted PDF link
+to the invitee, and we surface it on the confirmation page.
+
+### Added
+- **`invoice_creation.enabled = true`** on the Connect Checkout Session
+  in `POST /api/v1/meet/public/bookings`. Stripe creates a finalised
+  Invoice (with the connected host's branding, tax ID, business address),
+  emails a hosted PDF link to the invitee, and files it under the host's
+  Invoices dashboard. No new tables, no new render code.
+- **`billing_address_collection: 'required'`** — so the auto-generated
+  invoice has a "Bill to" block, mandatory for EU reverse-charge VAT.
+- **`invoice_data.description` + `metadata.booking_id`** stamped on the
+  invoice so it traces back to the booking row.
+- **Migration `20260517260000_meet_booking_invoice.sql`** — adds
+  `stripe_invoice_id` and `stripe_invoice_url` (hosted PDF) to
+  `meet_booking`. Both nullable; free bookings have neither.
+- **Webhook capture** — `checkout.session.completed` now also
+  `stripe.invoices.retrieve(session.invoice)` on the connected account
+  and stashes `id` + `hosted_invoice_url` on the booking. Best-effort:
+  a missing invoice doesn't block confirmation.
+- **Confirmation page** (`/<host>/<mt>/confirmed/<id>`) — when
+  `payment_status='paid'` and the invoice URL is present, shows a
+  "View invoice (PDF) ↗" link beside the confirmation-email note.
+  Graceful fallback copy when the host's connected account doesn't
+  have automatic invoicing enabled yet.
+
+### Also
+- **User menu fix** (web + meet): the Profile and Settings entries
+  were inert `<button>`s with no href/onClick. Both apps now route
+  them to `/settings` (resp. `/settings/profile` on Meet) and close
+  the menu on click. "Take a tour" stays as a muted placeholder.
+
+### Honest gaps
+- **No Stripe Tax.** Tax rates on the auto-invoice depend on the host
+  enabling Stripe Tax inside their connected account. We don't force
+  `automatic_tax: true` because the Session call would fail for hosts
+  who haven't onboarded it — a regression risk for existing paid
+  flows. Per-workspace opt-in once Platform Billing Phase 1 lands.
+- **No Fibre Sales surface** — there's still no in-product way to
+  issue arbitrary invoices (outside the Meet paid-booking flow). The
+  `fibre-sales` app slug exists; the app doesn't.
+- **Historical paid bookings** (pre-migration) won't have an invoice
+  URL stamped. Stripe still has the invoice on the host's account —
+  we just don't backfill the link.
+
 ## [0.13.11] — 2026-05-17
 
 ### Same dormant-membership fix on /settings (App access list)

@@ -567,6 +567,36 @@ meetRoutes.post('/public/bookings', async (c) => {
           },
           customer_email: data.invitee_email,
           metadata: { booking_id: booking.id, mt_slug: mt.slug },
+          // Automatic invoice generation. Stripe creates a finalised
+          // invoice (with the host's connected-account branding + tax
+          // ID + business address) once the payment succeeds, emails
+          // a hosted PDF link to the invitee, and stores the invoice
+          // on the connected account's Invoices dashboard. No extra
+          // tables or code on our side. EU VAT requires this — the
+          // Checkout receipt is not a legal invoice.
+          invoice_creation: {
+            enabled: true,
+            invoice_data: {
+              description: `${mt.name} — booking on Fibre Meet`,
+              metadata: {
+                booking_id: booking.id,
+                mt_slug: mt.slug,
+                booking_url: successUrl,
+              },
+              // The footer surfaces on the PDF beneath the line items —
+              // good place for the support address per ENTITY in
+              // packages/shared/branding.ts. Hard-coded here because
+              // this string ends up on the host's invoice, not ours.
+              footer: 'Issued automatically by Fibre Meet on behalf of the host.',
+            },
+          },
+          // Collect a billing address so the auto-generated invoice
+          // has a "Bill to" block — required for EU reverse-charge
+          // VAT. Stripe Tax is not enabled here; hosts who want
+          // automatic tax-rate calculation must turn it on inside
+          // their connected Stripe account, and we'll opt-in per
+          // workspace once Platform Billing Phase 1 lands.
+          billing_address_collection: 'required',
           success_url: successUrl,
           cancel_url: cancelUrl,
         },
@@ -1066,7 +1096,7 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
   const { data, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, meeting_type:meeting_type_id (name, duration_minutes, host:host_id (slug, user:user_id (full_name)))',
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, conferencing_provider, alternative_location, payment_status, stripe_invoice_url, meeting_type:meeting_type_id (name, duration_minutes, host:host_id (slug, user:user_id (full_name)))',
     )
     .eq('id', id)
     .single();
@@ -2371,7 +2401,11 @@ meetRoutes.post('/stripe-webhook', async (c) => {
 
   try {
     if (event.type === 'checkout.session.completed') {
-      const session = event.data.object as { id: string; payment_intent?: string | null };
+      const session = event.data.object as {
+        id: string;
+        payment_intent?: string | null;
+        invoice?: string | null;
+      };
       const { data: booking, error } = await adminClient
         .from('meet_booking')
         .select('id, payment_status, status')
@@ -2385,11 +2419,44 @@ meetRoutes.post('/stripe-webhook', async (c) => {
       if (booking.payment_status === 'paid') {
         return c.json({ received: true, idempotent: true });
       }
+
+      // Resolve the hosted invoice URL if Stripe auto-created one.
+      // invoice_creation.enabled=true on the session makes Stripe
+      // generate a finalised Invoice synchronously; the session
+      // carries the invoice id and we look up hosted_invoice_url.
+      // Best-effort: a missing invoice (e.g. host not yet eligible
+      // for invoice creation on their connected account) must not
+      // block the booking confirmation.
+      let stripeInvoiceId: string | null = null;
+      let stripeInvoiceUrl: string | null = null;
+      if (session.invoice && stripe) {
+        try {
+          // Fetch on the same connected account that created the session.
+          // The header lives on Stripe.RawRequestOptions via stripeAccount.
+          const ev = event as { account?: string };
+          const invoice = await stripe.invoices.retrieve(
+            session.invoice,
+            undefined,
+            ev.account ? { stripeAccount: ev.account } : undefined,
+          );
+          stripeInvoiceId = invoice.id ?? null;
+          stripeInvoiceUrl = invoice.hosted_invoice_url ?? null;
+        } catch (e) {
+          console.warn('[meet stripe-webhook] invoice lookup failed', {
+            session_id: session.id,
+            invoice_id: session.invoice,
+            err: (e as Error).message,
+          });
+        }
+      }
+
       await adminClient
         .from('meet_booking')
         .update({
           payment_status: 'paid',
           stripe_payment_intent: session.payment_intent ?? null,
+          stripe_invoice_id: stripeInvoiceId,
+          stripe_invoice_url: stripeInvoiceUrl,
         })
         .eq('id', booking.id);
       // Run the deferred side-effects exactly like the approve path.
