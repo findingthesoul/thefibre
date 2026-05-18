@@ -61,6 +61,19 @@ export async function startDomainVerification(
   }
 }
 
+export async function backfillDomainMembers(
+  orgId: string,
+): Promise<{ linked?: number; skipped?: number; total?: number; error?: string }> {
+  try {
+    return await apiFetch(
+      `/api/v1/organisations/${orgId}/domain-verification/backfill`,
+      { method: 'POST' },
+    );
+  } catch (e) {
+    return { error: unwrapError(e) };
+  }
+}
+
 export async function checkDomainVerification(
   orgId: string,
 ): Promise<DomainVerificationAction> {

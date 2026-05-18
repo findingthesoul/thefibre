@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import {
   startDomainVerification,
   checkDomainVerification,
+  backfillDomainMembers,
   type DomainVerificationAction,
 } from './domain-actions';
 
@@ -122,14 +123,17 @@ export function DomainVerification({
       )}
 
       {verified && (
-        <button
-          type="button"
-          onClick={runStart}
-          disabled={busy}
-          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
-        >
-          {busy ? 'Re-issuing…' : 'Re-verify (issues a new challenge)'}
-        </button>
+        <div className="space-y-3">
+          <BackfillRow orgId={orgId} />
+          <button
+            type="button"
+            onClick={runStart}
+            disabled={busy}
+            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
+          >
+            {busy ? 'Re-issuing…' : 'Re-verify (issues a new challenge)'}
+          </button>
+        </div>
       )}
 
       {error && (
@@ -199,6 +203,53 @@ function ChallengePanel({
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+// One-shot "scan existing contacts and link them to this org" button.
+// Shown only after the org's domain is verified. Idempotent — clicking
+// again after a successful run will just report 0 new links.
+function BackfillRow({ orgId }: { orgId: string }) {
+  const router = useRouter();
+  const [busy, startBusy] = useTransition();
+  const [result, setResult] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  function run() {
+    setResult(null);
+    setError(null);
+    startBusy(async () => {
+      const r = await backfillDomainMembers(orgId);
+      if (r.error) {
+        setError(r.error);
+        return;
+      }
+      const linked = r.linked ?? 0;
+      const skipped = r.skipped ?? 0;
+      setResult(
+        linked === 0
+          ? skipped === 0
+            ? 'No matching contacts to link.'
+            : `No new links — ${skipped} already linked.`
+          : `Linked ${linked} contact${linked === 1 ? '' : 's'}.`,
+      );
+      if (linked > 0) router.refresh();
+    });
+  }
+
+  return (
+    <div className="text-xs">
+      <button
+        type="button"
+        onClick={run}
+        disabled={busy}
+        className="rounded-md border border-line bg-surface-raised px-3 py-1.5 font-medium text-ink-subtle hover:text-ink disabled:opacity-50"
+      >
+        {busy ? 'Scanning contacts…' : 'Link existing contacts on this domain'}
+      </button>
+      {result && <span className="ml-3 text-ink-subtle">{result}</span>}
+      {error && <span className="ml-3 text-red-700">{error}</span>}
     </div>
   );
 }

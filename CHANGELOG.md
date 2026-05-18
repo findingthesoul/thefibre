@@ -6,6 +6,47 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.15] — 2026-05-18
+
+### Verified-domain auto-attribution
+
+The promised follow-up to v0.13.14. When a new person is created with
+an email whose domain matches a verified organisation in the workspace,
+we now auto-link them via `org_membership` (as primary, since brand-new
+persons have no existing primary). Plus a backfill endpoint to retro-
+link existing contacts after an org's domain is verified.
+
+### Added
+- **`POST /api/v1/persons/` auto-link.** On person create, looks up
+  `organisation` rows in the workspace where `domain` matches the
+  email's domain (case-insensitive) and `domain_verified_at IS NOT
+  NULL`. On a match: inserts an `org_membership` row with
+  `is_primary: true` and stamps an audit activity row.
+  - The response now includes `auto_linked_org_id` (nullable) so
+    callers can react in the UI.
+  - The activity row's subject reads
+    `"Added <Name> to the workspace · auto-linked to <Org> (verified domain)"`.
+- **`POST /api/v1/organisations/:id/domain-verification/backfill`**
+  — re-scans all persons in the workspace whose email matches the
+  org's verified domain, inserts an `org_membership` for each that
+  isn't already linked. `is_primary` is set only when the person
+  has no other active primary (doesn't fight existing curation).
+  Returns `{ linked, skipped, total }`. Idempotent: re-running just
+  reports 0 new links.
+- **"Link existing contacts on this domain" button** on the org
+  overview, shown once the domain is verified. Calls the backfill
+  endpoint and renders the count inline.
+
+### Safe by design
+- **Verification is the gate.** Unverified domains are ignored, so
+  a typoed/squatted org domain can't auto-attribute strangers.
+- **Audit trail.** Every auto-link writes an activity row, so an
+  admin can see exactly where a contact's org link came from and
+  end the membership if it's wrong.
+- **No PATCH-time auto-link.** Updating an existing person's email
+  doesn't trigger auto-attribution — keeps behaviour predictable
+  and avoids surprise re-links when emails change.
+
 ## [0.13.14] — 2026-05-18
 
 ### Org branding + DNS-based domain verification

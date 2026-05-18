@@ -545,3 +545,114 @@ organisationsRoutes.post('/:id/domain-verification/check', async (c) => {
 
   return c.json({ verified: true, verified_at: now });
 });
+
+// ===========================================================================
+// Backfill: snap existing persons to a verified-domain org.
+//
+// New persons are auto-linked on POST /persons (see persons.ts). This
+// endpoint handles the back-population case: an org's domain was just
+// verified, and several persons with @<domain> emails already exist in
+// the workspace without an org_membership for that org.
+//
+// We add a membership row for each match that doesn't already have one.
+// is_primary is set only when the person has *no other* primary org
+// (single-org common case); we don't fight existing primaries.
+// ===========================================================================
+
+organisationsRoutes.post('/:id/domain-verification/backfill', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const orgId = c.req.param('id');
+
+  const { data: org, error: orgErr } = await db
+    .from('organisation')
+    .select('id, name, domain, domain_verified_at')
+    .eq('id', orgId)
+    .is('deleted_at', null)
+    .single();
+  if (orgErr || !org) return c.json({ error: 'org not found' }, 404);
+  if (!org.domain_verified_at) {
+    return c.json(
+      { error: 'org domain is not verified — run /check first' },
+      400,
+    );
+  }
+  if (!org.domain) return c.json({ error: 'org has no domain' }, 400);
+
+  // Find candidate persons: same workspace, email ends with @<domain>,
+  // not soft-deleted, and not already linked to this org.
+  const domain = org.domain.toLowerCase();
+  const { data: candidates, error: candErr } = await db
+    .from('person')
+    .select('id, email')
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .ilike('email', `%@${domain}`);
+  if (candErr) return c.json({ error: candErr.message }, 500);
+
+  if (!candidates || candidates.length === 0) {
+    return c.json({ linked: 0, skipped: 0, total: 0 });
+  }
+
+  // Existing memberships for this org so we don't double-insert.
+  const candidateIds = candidates.map((p) => p.id);
+  const { data: existing } = await db
+    .from('org_membership')
+    .select('person_id')
+    .eq('org_id', orgId)
+    .in('person_id', candidateIds);
+  const linkedSet = new Set((existing ?? []).map((r) => r.person_id));
+
+  // Which candidates already have *any* primary org? Those we link as
+  // non-primary so we don't fight existing curation.
+  const toLink = candidates.filter((p) => !linkedSet.has(p.id));
+  if (toLink.length === 0) {
+    return c.json({ linked: 0, skipped: candidates.length, total: candidates.length });
+  }
+
+  const { data: primaries } = await db
+    .from('org_membership')
+    .select('person_id')
+    .in('person_id', toLink.map((p) => p.id))
+    .is('ended_at', null)
+    .eq('is_primary', true);
+  const hasPrimary = new Set((primaries ?? []).map((r) => r.person_id));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const rows = toLink.map((p) => ({
+    person_id: p.id,
+    org_id: orgId,
+    is_primary: !hasPrimary.has(p.id),
+    started_at: today,
+  }));
+
+  const { error: insErr } = await db.from('org_membership').insert(rows);
+  if (insErr) {
+    console.error('[org backfill] insert failed', insErr);
+    return c.json({ error: insErr.message }, 500);
+  }
+
+  // Audit activity rows — one per linked person, batched insert.
+  const { data: platformApp } = await db
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-platform')
+    .single();
+  if (platformApp) {
+    const acts = toLink.map((p) => ({
+      workspace_id: ctx.workspaceId,
+      person_id: p.id,
+      app_id: platformApp.id,
+      type: 'user_created' as const,
+      subject: `Backfill: linked to ${org.name} (verified domain ${domain})`,
+      created_by: ctx.userId,
+    }));
+    await db.from('activity').insert(acts);
+  }
+
+  return c.json({
+    linked: toLink.length,
+    skipped: candidates.length - toLink.length,
+    total: candidates.length,
+  });
+});

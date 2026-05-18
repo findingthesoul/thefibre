@@ -63,7 +63,64 @@ personsRoutes.post('/', async (c) => {
 
   if (error) return c.json({ error: error.message }, 500);
 
-  // Write a platform activity event. Non-fatal if it fails.
+  // ---------------------------------------------------------------------
+  // Verified-domain auto-attribution.
+  //
+  // If the new person's email domain matches a *verified* organisation
+  // in this workspace, snap them to that org with an org_membership
+  // row. Verified = domain_verified_at IS NOT NULL — i.e. someone
+  // proved ownership of the domain via DNS challenge (v0.13.14).
+  //
+  // Why this is safe:
+  //  - The org owner had to actively verify the domain via TXT record.
+  //    Unverified domains are ignored, so a typoed/squatted org domain
+  //    can't auto-attribute strangers.
+  //  - Brand-new person → no existing primary org → we can mark this
+  //    new membership as primary without conflict.
+  //  - An activity row makes the auto-link auditable; the user can
+  //    end the membership manually if it's wrong.
+  //
+  // Non-fatal: any failure here is logged and swallowed; the person
+  // create itself stays successful.
+  // ---------------------------------------------------------------------
+  let autoLinkedOrgId: string | null = null;
+  let autoLinkedOrgName: string | null = null;
+  try {
+    const at = (data.email ?? '').lastIndexOf('@');
+    const domain = at >= 0 ? data.email!.slice(at + 1).toLowerCase().trim() : '';
+    if (domain) {
+      const { data: org } = await db
+        .from('organisation')
+        .select('id, name')
+        .eq('workspace_id', ctx.workspaceId)
+        .ilike('domain', domain)
+        .not('domain_verified_at', 'is', null)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (org) {
+        const { error: memErr } = await db
+          .from('org_membership')
+          .insert({
+            person_id: data.id,
+            org_id: org.id,
+            is_primary: true,
+            started_at: new Date().toISOString().slice(0, 10),
+          });
+        if (memErr) {
+          console.warn('[person-create auto-link] insert failed', memErr);
+        } else {
+          autoLinkedOrgId = org.id;
+          autoLinkedOrgName = org.name;
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[person-create auto-link] error', (e as Error).message);
+  }
+
+  // Write a platform activity event. Non-fatal if it fails. When
+  // auto-attribution happened, the subject line says so — useful when
+  // auditing where a contact's org link came from.
   const { data: platformApp } = await db
     .from('app')
     .select('id')
@@ -71,17 +128,23 @@ personsRoutes.post('/', async (c) => {
     .single();
   if (platformApp) {
     const name = [data.first_name, data.last_name].filter(Boolean).join(' ') || data.email;
+    const subject = autoLinkedOrgName
+      ? `Added ${name} to the workspace · auto-linked to ${autoLinkedOrgName} (verified domain)`
+      : `Added ${name} to the workspace`;
     await db.from('activity').insert({
       workspace_id: ctx.workspaceId,
       person_id: data.id,
       app_id: platformApp.id,
       type: 'user_created',
-      subject: `Added ${name} to the workspace`,
+      subject,
       created_by: ctx.userId,
     });
   }
 
-  return c.json(data, 201);
+  return c.json(
+    { ...data, auto_linked_org_id: autoLinkedOrgId },
+    201,
+  );
 });
 
 personsRoutes.get('/:id', async (c) => {
