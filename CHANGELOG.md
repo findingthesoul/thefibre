@@ -6,6 +6,50 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.19] — 2026-05-19
+
+### Reserved-slug validation on host / team / meeting-type
+
+Until now nothing stopped a host from claiming the slug `settings` —
+the resulting URL `meet.thefibre.app/settings` would match Meet's
+`(app)/settings` route group instead of `[hostSlug]`, and the host
+would be silently unreachable. Same hazard for `meeting-types`,
+`teams`, `dashboard`, `confirmed`, `auth`, etc.
+
+Now denied at the API layer with a clean 400 + field error.
+
+### Added
+- **`apps/api/src/lib/reserved-slugs.ts`** — single source of truth:
+  - `TOP_LEVEL_ROUTES` — `auth`, `invite`, `no-access`, `sign-in`,
+    `signup`, `login`, `app`.
+  - `APP_GROUP_ROUTES` — `bookings`, `contacts`, `dashboard`,
+    `internal-team`, `meeting-types`, `organisations`, `persons`,
+    `programmes`/`programs`, `settings`, `teams`.
+  - `MT_SUBPATHS` — `confirmed`, `cancel`, `reschedule`.
+  - `INFRA` — conventional SaaS reserves: `api`, `admin`, `about`,
+    `brand`, `callback`, `docs`, `faq`, `health`, `help`, `legal`,
+    `oauth`, `privacy`, `pricing`, `public`, `robots`, `status`,
+    `support`, `terms`, `webhook`(s), `www`.
+- **`SLUG_PATTERN`** regex — lowercase alnum + hyphens, no leading/
+  trailing hyphen.
+
+### Changed
+- **`HostUpdate.slug`**, **`MeetingTypeUpsert.slug`**, **`TeamUpsert.slug`**
+  in `apps/api/src/routes/meet.ts` now go through `SLUG_PATTERN` +
+  `isReservedSlug` refinement. Error messages name the issue
+  ("reserved word — would collide with a Meet route") and list a
+  preview of reserved values.
+
+### Notes
+- The DB has no `CHECK` constraint mirroring the list — slugs are
+  validated at the API boundary only. Adding a generated-column
+  constraint would couple DB to UI route names; an API-layer check
+  is the right scope.
+- Web-side: the existing `name-slug.tsx` widget normalises input to
+  lowercase + hyphen, so the regex piece is already enforced
+  client-side; the reserved-word check is the only new server-only
+  rule. Web caller still sees the clean field error in dialogs.
+
 ## [0.13.18] — 2026-05-19
 
 ### Platform Billing Phase 1 — plan-aware Meet skim

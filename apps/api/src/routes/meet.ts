@@ -3,6 +3,11 @@ import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
 import { adminClient, userClient } from '../db.js';
 import {
+  RESERVED_SLUGS,
+  isReservedSlug,
+  SLUG_PATTERN,
+} from '../lib/reserved-slugs.js';
+import {
   generateSlots,
   generateMultiHostSlots,
   rankAssigneesForSlot,
@@ -1721,7 +1726,15 @@ meetRoutes.get('/me', async (c) => {
 
 // PATCH /api/v1/meet/me — update host config
 const HostUpdate = z.object({
-  slug: z.string().min(2).max(40).optional(),
+  slug: z
+    .string()
+    .min(2)
+    .max(40)
+    .regex(SLUG_PATTERN, 'lowercase letters, digits, hyphens; no leading/trailing hyphen')
+    .refine((s) => !isReservedSlug(s), {
+      message: `reserved word — pick something else (reserved: ${[...RESERVED_SLUGS].sort().slice(0, 8).join(', ')}…)`,
+    })
+    .optional(),
   bio: z.string().max(2000).nullable().optional(),
   location: z.string().max(200).nullable().optional(),
   personal_room_url: z.string().max(500).nullable().optional(),
@@ -1803,7 +1816,14 @@ meetRoutes.get('/meeting-types', async (c) => {
 });
 
 const MeetingTypeUpsert = z.object({
-  slug: z.string().min(2).max(60),
+  slug: z
+    .string()
+    .min(2)
+    .max(60)
+    .regex(SLUG_PATTERN, 'lowercase letters, digits, hyphens; no leading/trailing hyphen')
+    .refine((s) => !isReservedSlug(s), {
+      message: 'reserved word — would collide with a Meet route',
+    }),
   name: z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional(),
   duration_minutes: z.number().int().min(5).max(480),
@@ -2722,7 +2742,14 @@ meetRoutes.get('/teams', async (c) => {
 });
 
 const TeamUpsert = z.object({
-  slug: z.string().min(2).max(40),
+  slug: z
+    .string()
+    .min(2)
+    .max(40)
+    .regex(SLUG_PATTERN, 'lowercase letters, digits, hyphens; no leading/trailing hyphen')
+    .refine((s) => !isReservedSlug(s), {
+      message: 'reserved word — would collide with a Meet route',
+    }),
   name: z.string().min(1).max(200),
   description: z.string().max(2000).nullable().optional(),
   is_active: z.boolean().optional(),
