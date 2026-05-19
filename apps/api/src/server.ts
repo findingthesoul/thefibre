@@ -19,10 +19,63 @@ import { authHookRoutes } from './routes/auth-hook.js';
 const app = new Hono();
 
 app.use('*', logger());
+
+// CORS allowlist.
+//
+// Default-deny: only origins that match the workspace's subdomains and
+// optional dev hosts are reflected back. A reflective fallback to "*"
+// would defeat the purpose of credentials:true (browsers reject the
+// combination anyway), so we just don't set Access-Control-Allow-Origin
+// when the origin isn't recognised — the browser blocks the cross-site
+// request cleanly.
+//
+// Configurable via `CORS_ORIGINS` (comma-separated) for staging / extra
+// preview deploys. Empty `origin` (server-to-server, same-origin, native
+// fetch) is always allowed.
+const PROD_ORIGINS = new Set<string>([
+  'https://thefibre.app',
+  'https://meet.thefibre.app',
+  'https://thread.thefibre.app',
+  'https://sales.thefibre.app',
+  'https://learn.thefibre.app',
+]);
+const DEV_ORIGINS = new Set<string>([
+  'http://localhost:3000', // apps/web dev
+  'http://localhost:3001', // apps/meet dev
+  'http://localhost:3002', // apps/thread dev
+]);
+const EXTRA_ORIGINS = new Set<string>(
+  (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean),
+);
+
+// Match Vercel preview deploys like https://thefibre-web-git-feature-x-<hash>.vercel.app
+// Sjoerd's preview branches need to call the API; the public domain is
+// stable enough that we allowlist the entire *.vercel.app suffix only
+// for the projects we know we own.
+const VERCEL_PREVIEW_RE =
+  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread)-[a-z0-9-]+\.vercel\.app$/;
+
+function isAllowedOrigin(origin: string): boolean {
+  if (PROD_ORIGINS.has(origin)) return true;
+  if (DEV_ORIGINS.has(origin)) return true;
+  if (EXTRA_ORIGINS.has(origin)) return true;
+  if (VERCEL_PREVIEW_RE.test(origin)) return true;
+  return false;
+}
+
 app.use(
   '*',
   cors({
-    origin: (origin) => origin ?? '*',
+    // Hono's cors() treats a returned empty string as "don't add the
+    // header" — i.e. blocked. Same-origin / server-to-server requests
+    // (origin undefined) are unaffected.
+    origin: (origin) => {
+      if (!origin) return '';
+      return isAllowedOrigin(origin) ? origin : '';
+    },
     allowHeaders: ['Authorization', 'Content-Type', 'X-App-ID'],
     allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
     credentials: true,

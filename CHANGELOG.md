@@ -6,6 +6,37 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.17] — 2026-05-19
+
+### API CORS goes from "any origin" to an allowlist
+
+Until now the Hono CORS middleware reflected every Origin back ("any
+origin is allowed"). With paid bookings, branded auth, and Stripe
+webhooks all live in production, that was the last "we'll harden it
+later" item on the post-deploy loop. Done.
+
+### Changed
+- **`apps/api/src/server.ts`** — CORS now allowlists:
+  - The 5 prod subdomains: `thefibre.app`, `meet.thefibre.app`,
+    `thread.thefibre.app`, `sales.thefibre.app`, `learn.thefibre.app`.
+  - Local dev: `http://localhost:3000` / `:3001` / `:3002`.
+  - Our own Vercel previews — regex match on
+    `https://(thefibre-web|thefibre-meet|thefibre-thread)-<branch>.vercel.app`.
+  - Anything in `CORS_ORIGINS` (comma-separated env override) for
+    one-off staging hosts.
+- Unknown origins receive **no `Access-Control-Allow-Origin` header**
+  at all. The browser then blocks the cross-site request as the spec
+  requires. We deliberately don't reflect-and-allow because
+  `credentials: true` + `*` would have been rejected by browsers
+  anyway, and we want a clean deny rather than a noisy half-allow.
+- Server-to-server callers (Stripe webhook, Supabase Send Email Hook)
+  are unaffected — no `Origin` header, no CORS handshake.
+
+### Operations note
+- For any extra preview / staging origin Sjoerd wants to whitelist
+  without redeploying: `fly secrets set CORS_ORIGINS="https://extra.example.com" -a thefibre-api`.
+  Restart picks it up.
+
 ## [0.13.16] — 2026-05-18
 
 ### The Fibre wordmark in the platform sidebar
