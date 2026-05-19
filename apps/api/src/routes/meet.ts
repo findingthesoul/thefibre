@@ -527,16 +527,34 @@ meetRoutes.post('/public/bookings', async (c) => {
         409,
       );
     }
-    // Application fee: 2% capped at €2 — Free workspaces only. Pro/Org
-    // workspaces pay 0% (see docs/platform-billing-roadmap.md). For Phase 3
-    // we don't yet have workspace_subscription rows, so default to the Free
-    // rate. The check moves to a real subscription lookup once Platform
-    // Billing Phase 1 lands.
+    // Application fee — plan-aware as of v0.13.18 (Platform Billing
+    // Phase 1). Reads the workspace's plan via the `workspace_meet_fee`
+    // helper which returns (pct, cap_cents) from billing_plan:
+    //   - Free workspace: 0.0200 (2%), cap 200 cents (€2)
+    //   - Pro / Org:      0,            null
+    // If the helper returns nothing (workspace_subscription row missing
+    // for some pathological reason), default to the historical Free rate
+    // so we never under-skim. Conservative on the platform side; harmless
+    // on the host side.
     const grossCents = mt.price_cents!;
-    const feeBpsCap = 200; // 2% in basis points
-    const feeCapCents = 200; // €2
-    const computedFee = Math.floor((grossCents * feeBpsCap) / 10_000);
-    const applicationFeeCents = Math.min(computedFee, feeCapCents);
+    let feePct = 0.02;
+    let feeCapCents: number | null = 200;
+    try {
+      const { data: feeRows } = await adminClient
+        .rpc('workspace_meet_fee', { ws_id: mt.workspace_id });
+      const row = Array.isArray(feeRows) ? feeRows[0] : null;
+      if (row) {
+        // numeric returns as string in postgrest sometimes; coerce.
+        const rawPct = (row as { pct: number | string }).pct;
+        feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
+        feeCapCents = (row as { cap_cents: number | null }).cap_cents;
+      }
+    } catch (e) {
+      console.warn('[meet booking] workspace_meet_fee lookup failed, defaulting to Free rate', e);
+    }
+    const computedFee = Math.floor(grossCents * feePct);
+    const applicationFeeCents =
+      feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
 
     const successUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
     const cancelUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;

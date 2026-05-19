@@ -6,6 +6,65 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.18] — 2026-05-19
+
+### Platform Billing Phase 1 — plan-aware Meet skim
+
+Schema + free-by-default + plan-aware Meet fee. The 2%/€2 cap on paid
+Meet bookings is no longer hard-coded — it reads the workspace's plan.
+Free pays the skim; Pro / Org pay 0%, as decided in
+[`docs/platform-billing-roadmap.md`](docs/platform-billing-roadmap.md).
+Phases 3 + 4 (upgrade UI, Stripe Checkout for subscriptions) are
+deferred — they need Sjoerd to configure Products in Stripe first.
+
+### Added (Phase 1)
+- **Migration `20260519100000_platform_billing_phase1.sql`**:
+  - `billing_plan` table seeded with the three tiers from the roadmap
+    — Free (€0, 2%/€2 cap), Pro (€15/seat/mo, 0%), Org (€30/seat/mo, 0%).
+    Features stored as JSONB (`first_party_apps`, `sso`, `audit_log`,
+    `max_users`, `max_contacts`, etc.) so the UI can gate without code
+    changes when we add a tier.
+  - `workspace_subscription` table — FK to `workspace` and to
+    `billing_plan`, status enum incl. `comped`, Stripe customer +
+    subscription ids, billing interval, period boundaries, seat count.
+    RLS: workspace members can read their own row; writes via
+    service-role only (Stripe webhook handler in a later phase).
+  - `workspace_meet_fee(ws_id)` SQL helper returning
+    `(pct, cap_cents)` — the API reads this at Checkout time.
+
+### Added (Phase 2)
+- **Backfill** — every existing workspace gets a Free + `comped`
+  row tagged `comped_reason = 'pre-billing default'`, so we never
+  charge for legacy data.
+- **Trigger `on_workspace_insert_create_subscription`** — every new
+  workspace automatically gets a Free + comped row. UI never has to
+  remember to create one.
+
+### Changed (Phase 7)
+- **`POST /api/v1/meet/public/bookings`** — the Connect Checkout
+  Session's `application_fee_amount` now comes from
+  `workspace_meet_fee` instead of the hard-coded `(2%, cap €2)`. Pro
+  and Org workspaces send `application_fee_amount: 0` so the host
+  keeps 100% of the booking revenue. Defensive default: if the
+  lookup somehow fails, falls back to the Free rate (never under-
+  skim).
+
+### Added (UI hook)
+- **`GET /api/v1/workspace-apps/billing`** — returns
+  `{ plan, subscription }` for the current workspace. UI can use this
+  to render a plan badge / upgrade prompt / gate Pro-only features.
+  No UI consumer yet; landing it now keeps Phase 3 a 1-day build
+  instead of 1.5.
+
+### What's still out (Phases 3–8)
+- Workspace billing page (`/settings/workspace/billing`)
+- Stripe Checkout for upgrades + webhook lifecycle
+- Feature gates calling `requirePlan(min)` from API endpoints
+- Stripe Billing portal hand-off for invoice history / cancellation
+
+These need a Stripe Products + Prices walkthrough in the dashboard
+first — see [`docs/platform-billing-setup.md`](docs/platform-billing-setup.md).
+
 ## [0.13.17] — 2026-05-19
 
 ### API CORS goes from "any origin" to an allowlist

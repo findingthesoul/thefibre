@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient } from '../db.js';
+import { userClient, adminClient } from '../db.js';
 
 export const workspaceAppsRoutes = new Hono();
 
@@ -119,4 +119,49 @@ workspaceAppsRoutes.delete('/:slug', async (c) => {
     return c.json({ error: error.message }, 500);
   }
   return c.body(null, 204);
+});
+
+// ===========================================================================
+// GET /api/v1/workspace-apps/billing
+//
+// The workspace's current subscription + plan features. UI uses this to
+// gate features ("Pro required"), show the plan badge, and decide
+// whether to render an upgrade prompt. Service-role read because the
+// plan row (billing_plan) has no RLS — features are workspace-wide and
+// not private.
+// ===========================================================================
+workspaceAppsRoutes.get('/billing', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: sub, error: sErr } = await adminClient
+    .from('workspace_subscription')
+    .select(
+      'plan_id, status, billing_interval, current_period_end, cancel_at_period_end, trial_ends_at, seat_count, comped_reason, comped_until',
+    )
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (sErr) {
+    console.error('[workspace billing] sub lookup failed', sErr);
+    return c.json({ error: sErr.message }, 500);
+  }
+  if (!sub) {
+    // Pre-migration safety: workspace exists but has no subscription
+    // row (shouldn't happen post-Phase-2 backfill, but if it does we
+    // treat it as Free so callers don't have to special-case null).
+    return c.json({
+      plan: { id: 'free', name: 'Free', features: {} },
+      subscription: null,
+    });
+  }
+  const { data: plan, error: pErr } = await adminClient
+    .from('billing_plan')
+    .select(
+      'id, name, price_cents_user_month, meet_paid_pct, meet_paid_cap_cents, features',
+    )
+    .eq('id', sub.plan_id)
+    .single();
+  if (pErr) {
+    console.error('[workspace billing] plan lookup failed', pErr);
+    return c.json({ error: pErr.message }, 500);
+  }
+  return c.json({ plan, subscription: sub });
 });
