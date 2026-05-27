@@ -1,0 +1,31 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "fibre-flow",
+  "app_name": "Fibre Flow",
+  "version": "0.1.0",
+  "description": "People-flow platform — flows (state machines) holding contacts at gate-tasked steps. Sales, project intakes, partnerships, anywhere a person moves through a sequence over time.",
+
+  "scopes_requested": [
+    "read:persons",
+    "read:organisations",
+    "read:activities",
+    "write:activities"
+  ],
+
+  "entity_mappings": [],
+
+  "curator_fields": [],
+
+  "activity_types": [
+    { "type": "flow.run.started",        "subject": "Added to {flow_name}" },
+    { "type": "flow.run.step_changed",   "subject": "Moved to {step_name} in {flow_name}" },
+    { "type": "flow.run.completed",      "subject": "Completed {flow_name}" },
+    { "type": "flow.run.withdrawn",      "subject": "Withdrawn from {flow_name}" },
+    { "type": "flow.task.completed",     "subject": "Task done: {task_title}" }
+  ],
+
+  "deactivation": {
+    "on_workspace_uninstall": "preserve_run_history",
+    "on_user_revoke": "reassign_runs_to_workspace_default"
+  }
+}

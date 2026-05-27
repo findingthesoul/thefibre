@@ -6,6 +6,66 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.20] — 2026-05-20 — Fibre Flow v0.1.0
+
+### Fibre Flow lands as the fourth in-family app (Phase B)
+
+The platform's fourth sibling app — alongside Meet, Thread, and the
+gated Sales / Learn slots. Sales pipelines, project intakes, partnership
+arcs, anywhere a contact moves through a sequence over time. Conceptual
+spec: [`docs/fibreflow-brief-v0.3.md`](docs/fibreflow-brief-v0.3.md).
+Build plan: [`docs/fibreflow-build-plan.md`](docs/fibreflow-build-plan.md).
+
+Phase B closes Phase A (the `team` rename) and delivers the shell.
+
+### Added
+
+- **Schema** — nine new tables under `public.flow_*`:
+  `flow_definition`, `flow_version`, `flow_step`, `flow_transition`,
+  `flow_gate_task`, `flow_step_default_task`, `flow_run`,
+  `flow_task`, `flow_document_link`. Workspace + has-app-membership
+  RLS, mirroring the v0.9.0 Meet pattern. No platform schema changes —
+  Flow consumes `person`, `organisation`, `team`, `workspace`,
+  `activity`, `app_membership` natively. Migration
+  `20260520120000_fibre_flow_schema.sql`.
+
+- **`fibre-flow` app registered** in `public.app` (slug constraint
+  widened to include it). Branded via
+  `packages/shared/src/branding.ts`.
+
+- **`apps/flow/` skeleton** at `flow.thefibre.app` (Vercel project
+  + DNS land in Phase B3). Sidebar: Home / Flows / Tasks /
+  Contacts / Settings. Empty-state placeholders for the four content
+  pages — visible end-to-end so Sjoerd can see the shape before the
+  engine fills in. Phase B's job is to be empty-on-purpose.
+
+- **`fibre.app.json` manifest** declaring Flow's scopes
+  (read persons/orgs/activities, write activities) and the five
+  activity types it will emit: `flow.run.started`,
+  `flow.run.step_changed`, `flow.run.completed`,
+  `flow.run.withdrawn`, `flow.task.completed`.
+
+### Decisions baked in (per `docs/fibreflow-review.md` §4, locked 2026-05-17)
+
+- `gate_logic` is configurable per transition (`'all'` | `'any'`), default `'all'` (Q1)
+- `flow_version` is snapshot-pinned per run; published versions are immutable (Q2)
+- A contact re-entering a flow gets a new `flow_run` row (Q3)
+- `flow_step_default_task` materialises into `flow_task` rows on step entry (Q4)
+- `team_id` references `public.team` natively (Q5; Phase A enabled this)
+- In-app notifications first; email digest later (Q6)
+- Manual Google Drive URL paste in v1; OAuth picker later (Q7)
+
+### Not yet shipped (intentional — comes in Phases C–J)
+
+- The flow builder (Phase G), including a JSON-textarea fallback for
+  Phase C.
+- The runtime that moves contacts through flows (Phase D).
+- The task system + dashboards (Phase E).
+- Cross-app activity reading for contact-action gates (Phase F).
+- Flow Board kanban view (Phase H).
+- Lifecycle / hygiene / reports / docs (Phase I).
+- Seed data + v1.0 cutover (Phase J).
+
 ## [0.13.19] — 2026-05-19
 
 ### Reserved-slug validation on host / team / meeting-type

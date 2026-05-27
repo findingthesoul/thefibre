@@ -89,6 +89,15 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_THREAD_URL',
     available: true,
   },
+  'fibre-flow': {
+    name: 'Fibre Flow',
+    shortName: 'Flow',
+    brandLetters: 'ff',
+    tagline: 'People in motion — flows that hold the work.',
+    url: 'https://flow.thefibre.app',
+    urlEnv: 'NEXT_PUBLIC_FLOW_URL',
+    available: true,
+  },
   'fibre-sales': {
     name: 'Fibre Sales',
     shortName: 'Sales',

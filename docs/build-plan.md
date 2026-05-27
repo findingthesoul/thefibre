@@ -69,9 +69,11 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 4. **One big v1.** "Can only see how the interface functions once we have data to work with."
 
 **Phase status:**
-- [x] **Phase A — `meet_team` → `team` rename** (v0.13.12, migration `20260517220000_rename_meet_team_to_team.sql`). Pending: apply to remote Supabase + redeploy API/web/meet.
-- [ ] **Phase B — Fibre Flow shell** at `flow.thefibre.app` with sign-in.
-- [ ] Phases C–J — see the build plan.
+- [x] **Phase A — `meet_team` → `team` rename** (v0.13.13, deployed 2026-05-17). Migration `20260517220000_rename_meet_team_to_team.sql` live; API + web + meet redeployed.
+- [x] **Phase B1+B2 — Schema + app shell** (v0.13.20, 2026-05-20). Nine `flow_*` tables, `fibre-flow` registered, `apps/flow/` skeleton typechecks + builds clean. Migration `20260520120000_fibre_flow_schema.sql` is in the tree, **not yet applied to remote**.
+- [ ] **Phase B3 — Vercel project + DNS** for `flow.thefibre.app`. Sjoerd-action: create Vercel project rooted at `apps/flow`, set the same env vars Meet has, add CNAME for `flow.thefibre.app`. Once that's in place, deploy + apply migration together.
+- [ ] **Phase B4 — Verify in production** with the new shell.
+- [ ] Phases C–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
 
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)
