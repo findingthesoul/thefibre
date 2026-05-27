@@ -13,6 +13,22 @@ This is the proposed schema and the order of operations to scaffold `apps/flow`.
 Two namespaces:
 
 - **`public` (platform):** Fibre Flow reads `person`, `organisation`, `user`, `team` (renamed from `meet_team` in the prep migration — see §6 Step 0), `activity`, `app_membership`. Writes only to `activity` and (optionally) `person_app_profile`.
+
+**Naming convention (revised 2026-05-20):** Flow tables live in `public` with the `flow_` prefix, matching the Meet pattern (`meet_team`, `meet_booking`, …). The schema sketch below originally used a dedicated `flow.` schema; the actual migration uses `public.flow_*` for RLS / PostgREST simplicity. The conceptual mapping:
+
+| Conceptual name (this doc) | Actual table              |
+| -------------------------- | ------------------------- |
+| `flow.flow`                | `public.flow_definition`  |
+| `flow.flow_version`        | `public.flow_version`     |
+| `flow.step`                | `public.flow_step`        |
+| `flow.transition`          | `public.flow_transition`  |
+| `flow.gate_task_template`  | `public.flow_gate_task`   |
+| `flow.step_default_task`   | `public.flow_step_default_task` |
+| `flow.flow_run`            | `public.flow_run`         |
+| `flow.task`                | `public.flow_task`        |
+| `flow.document_link`       | `public.flow_document_link` |
+
+`flow.flow` was renamed to `flow_definition` to avoid the awkward `flow.flow_*` namespace clash. Authoritative schema lives in [`supabase/migrations/20260520120000_fibre_flow_schema.sql`](../supabase/migrations/20260520120000_fibre_flow_schema.sql).
 - **`flow` (app-private):** new schema. Holds flow definitions, runs, tasks, document links.
 
 Register the app:
