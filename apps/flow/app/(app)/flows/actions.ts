@@ -203,3 +203,14 @@ export async function repositionRun(runId: string, stepKey: string, reason?: str
     return { error: formatApiError(e) };
   }
 }
+
+export async function toggleFavorite(flowId: string, favorite: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/flows/${flowId}/favorite`, { method: favorite ? 'PUT' : 'DELETE' });
+    revalidatePath('/flows');
+    revalidatePath('/dashboard');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

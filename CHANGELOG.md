@@ -6,6 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.32] — 2026-05-29 — Fibre Flow v0.9.0
+
+### Fibre Flow — favourites + tab reorder
+
+- **Flows tab first.** On a flow's detail page the tabs are now **Flows** (the
+  contacts moving through, the default) then **Builder** — you build when you
+  set up, but day-to-day you want the live view first.
+- **Favourite flows.** Tap the ☆ on any flow in the library to favourite it
+  (per-user). Favourites pin to the top of **Home**, so your go-to flows are
+  one click away.
+
+### Added
+- `flow_favorite` table (per-user, RLS-scoped). Migration
+  `20260529160000_flow_favorite.sql`.
+- API: `PUT`/`DELETE /flow/flows/:id/favorite`; `GET /flow/flows` now returns
+  `is_favorite` and accepts `?favorite=1`.
+- `apps/flow/app/(app)/flows/favorite-star.tsx`; Home dashboard "Favourite
+  flows" section; `toggleFavorite` action.
+
 ## [0.13.31] — 2026-05-29 — Fibre Flow v0.8.0
 
 ### Fibre Flow — revert / manual move (move a contact to any step)

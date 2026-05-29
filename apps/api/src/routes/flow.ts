@@ -123,9 +123,58 @@ flowRoutes.get('/flows', async (c) => {
     for (const r of runs ?? []) counts[r.flow_id] = (counts[r.flow_id] ?? 0) + 1;
   }
 
-  return c.json({
-    items: (data ?? []).map((f) => ({ ...f, active_run_count: counts[f.id] ?? 0 })),
-  });
+  // Which of these the caller has favourited.
+  const favs = new Set<string>();
+  if (ids.length) {
+    const { data: favRows } = await db
+      .from('flow_favorite')
+      .select('flow_id')
+      .eq('user_id', ctx.userId)
+      .in('flow_id', ids);
+    for (const f of favRows ?? []) favs.add(f.flow_id);
+  }
+
+  let items = (data ?? []).map((f) => ({
+    ...f,
+    active_run_count: counts[f.id] ?? 0,
+    is_favorite: favs.has(f.id),
+  }));
+  if (c.req.query('favorite') === '1') items = items.filter((f) => f.is_favorite);
+
+  return c.json({ items });
+});
+
+// ---------------------------------------------------------------------------
+// PUT / DELETE /flows/:id/favorite — star / unstar a flow for the caller.
+// ---------------------------------------------------------------------------
+flowRoutes.put('/flows/:id/favorite', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const { error } = await db
+    .from('flow_favorite')
+    .upsert({ user_id: ctx.userId, flow_id: id }, { onConflict: 'user_id,flow_id' });
+  if (error) {
+    console.error('[flow] favorite', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true, is_favorite: true });
+});
+
+flowRoutes.delete('/flows/:id/favorite', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const { error } = await db
+    .from('flow_favorite')
+    .delete()
+    .eq('user_id', ctx.userId)
+    .eq('flow_id', id);
+  if (error) {
+    console.error('[flow] unfavorite', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true, is_favorite: false });
 });
 
 // ---------------------------------------------------------------------------

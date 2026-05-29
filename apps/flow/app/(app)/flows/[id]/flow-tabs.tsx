@@ -14,16 +14,16 @@ export function FlowTabs({
   flows: ReactNode;
   flowCount: number;
 }) {
-  const [tab, setTab] = useState<Tab>('builder');
+  const [tab, setTab] = useState<Tab>('flows');
 
   return (
     <div className="mt-6">
       <div className="flex items-center gap-1 border-b border-line">
-        <TabButton active={tab === 'builder'} onClick={() => setTab('builder')} icon={Workflow}>
-          Builder
-        </TabButton>
         <TabButton active={tab === 'flows'} onClick={() => setTab('flows')} icon={Users} count={flowCount}>
           Flows
+        </TabButton>
+        <TabButton active={tab === 'builder'} onClick={() => setTab('builder')} icon={Workflow}>
+          Builder
         </TabButton>
       </div>
 

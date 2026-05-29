@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { Workflow } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { NewFlowButton } from './new-flow';
+import { FavoriteStar } from './favorite-star';
 
 export const metadata = { title: 'Flows — Fibre Flow' };
 
@@ -12,6 +13,7 @@ type FlowRow = {
   scope: 'personal' | 'team' | 'workspace';
   lifecycle: 'draft' | 'active' | 'closed' | 'archived';
   active_run_count: number;
+  is_favorite: boolean;
   updated_at: string;
 };
 
@@ -61,34 +63,34 @@ export default async function FlowsPage() {
       {items.length > 0 && (
         <div className="mt-8 space-y-2">
           {items.map((f) => (
-            <Link
+            <div
               key={f.id}
-              href={`/flows/${f.id}`}
-              className="flex items-center gap-4 rounded-lg border border-line bg-white px-5 py-4 hover:border-line-strong transition-colors"
+              className="flex items-center gap-2 rounded-lg border border-line bg-white pr-3 hover:border-line-strong transition-colors"
             >
-              <Workflow size={20} strokeWidth={1.75} className="text-ink-muted shrink-0" />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium truncate">{f.name}</span>
-                  <span
-                    className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                      LIFECYCLE_STYLE[f.lifecycle] ?? ''
-                    }`}
-                  >
-                    {f.lifecycle}
-                  </span>
+              <Link href={`/flows/${f.id}`} className="flex items-center gap-4 flex-1 min-w-0 px-5 py-4">
+                <Workflow size={20} strokeWidth={1.75} className="text-ink-muted shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium truncate">{f.name}</span>
+                    <span
+                      className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                        LIFECYCLE_STYLE[f.lifecycle] ?? ''
+                      }`}
+                    >
+                      {f.lifecycle}
+                    </span>
+                  </div>
+                  {f.description && (
+                    <p className="mt-0.5 text-sm text-ink-subtle truncate">{f.description}</p>
+                  )}
                 </div>
-                {f.description && (
-                  <p className="mt-0.5 text-sm text-ink-subtle truncate">{f.description}</p>
-                )}
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-xs text-ink-muted">{SCOPE_LABEL[f.scope]}</div>
-                <div className="text-xs text-ink-subtle mt-0.5">
-                  {f.active_run_count} active
+                <div className="shrink-0 text-right">
+                  <div className="text-xs text-ink-muted">{SCOPE_LABEL[f.scope]}</div>
+                  <div className="text-xs text-ink-subtle mt-0.5">{f.active_run_count} active</div>
                 </div>
-              </div>
-            </Link>
+              </Link>
+              <FavoriteStar flowId={f.id} initial={f.is_favorite} />
+            </div>
           ))}
         </div>
       )}
