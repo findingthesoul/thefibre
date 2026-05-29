@@ -43,8 +43,8 @@ export async function saveGraph(flowId: string, graphJson: string): Promise<Acti
   let parsed: unknown;
   try {
     parsed = JSON.parse(graphJson);
-  } catch {
-    return { error: 'Graph is not valid JSON.' };
+  } catch (e) {
+    return { error: `Graph is not valid JSON — ${e instanceof Error ? e.message : 'parse failed'}` };
   }
   try {
     await apiFetch(`/api/v1/flow/flows/${flowId}/graph`, {

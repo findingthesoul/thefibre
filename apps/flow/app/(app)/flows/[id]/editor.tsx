@@ -67,7 +67,25 @@ export function FlowEditor({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
+  // Parse client-side first so a syntax error is reported instantly and
+  // precisely (with line/column), rather than as a bare "not valid JSON"
+  // after a server round-trip.
+  function checkJson(): string | null {
+    try {
+      JSON.parse(text);
+      return null;
+    } catch (e) {
+      return `Invalid JSON — ${e instanceof Error ? e.message : 'parse failed'}`;
+    }
+  }
+
   async function onSave() {
+    const jsonErr = checkJson();
+    if (jsonErr) {
+      setError(jsonErr);
+      setNotice(null);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -82,6 +100,12 @@ export function FlowEditor({
   }
 
   async function onPublish() {
+    const jsonErr = checkJson();
+    if (jsonErr) {
+      setError(jsonErr);
+      setNotice(null);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
