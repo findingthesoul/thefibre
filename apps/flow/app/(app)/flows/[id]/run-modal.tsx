@@ -14,7 +14,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, GripVertical, CheckCircle2, Circle, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
+import { X, GripVertical, CheckCircle2, Circle, AlertCircle, ArrowRight, ArrowLeft, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { getRunDetail, transitionRun, completeTask, repositionRun } from '../actions';
 
@@ -132,6 +132,27 @@ function RunStepNode({ data }: NodeProps) {
       <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
   );
+}
+
+// Longest-path depth of each step from the entry (cycle-safe). Used to tell
+// whether a manual move goes forward or backward in the flow.
+function stepDepths(steps: GraphStep[], transitions: GraphTransition[]): Map<string, number> {
+  const byKey = new Map(steps.map((s) => [s.key, s]));
+  const depth = new Map<string, number>();
+  for (const s of steps) depth.set(s.key, 0);
+  for (let pass = 0; pass < steps.length + 1; pass++) {
+    let changed = false;
+    for (const t of transitions) {
+      if (!byKey.has(t.from) || !byKey.has(t.to)) continue;
+      const nd = (depth.get(t.from) ?? 0) + 1;
+      if (nd > (depth.get(t.to) ?? 0) && nd <= steps.length) {
+        depth.set(t.to, nd);
+        changed = true;
+      }
+    }
+    if (!changed) break;
+  }
+  return depth;
 }
 
 function autoPositions(steps: GraphStep[], transitions: GraphTransition[]) {
@@ -482,13 +503,21 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
       )}
 
       {/* manual move (revert / sideways) sub-popup — no gate */}
-      {manualTarget && detail && (
+      {manualTarget &&
+        detail &&
+        (() => {
+          const depths = stepDepths(detail.graph.steps, detail.graph.transitions);
+          const curKey = detail.run.step?.key ?? '';
+          const isBackward = (depths.get(manualTarget.key) ?? 0) < (depths.get(curKey) ?? 0);
+          return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
           <div className="w-full max-w-md rounded-lg bg-white shadow-2xl">
             <div className="border-b border-line px-5 py-3.5">
-              <h3 className="text-base font-medium">Move to {manualTarget.name}?</h3>
+              <h3 className="text-base font-medium">
+                {isBackward ? 'Revert to' : 'Move to'} {manualTarget.name}?
+              </h3>
               <p className="text-xs text-ink-muted mt-0.5">
-                Manual move from {detail.run.step?.name} — no transition gate. Use this to revert or jump.
+                {isBackward ? 'Revert' : 'Manual move'} from {detail.run.step?.name} — no transition gate.
               </p>
             </div>
             <div className="px-5 py-4 space-y-3">
@@ -523,12 +552,21 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
                 disabled={busy}
                 className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
               >
-                Move <ArrowRight size={14} />
+                {isBackward ? (
+                  <>
+                    <ArrowLeft size={14} /> Revert
+                  </>
+                ) : (
+                  <>
+                    Move <ArrowRight size={14} />
+                  </>
+                )}
               </button>
             </div>
           </div>
         </div>
-      )}
+          );
+        })()}
     </div>
   );
 }

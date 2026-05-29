@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.34] — 2026-05-29 — Fibre Flow v0.10.1
+
+### Polish: revert direction in the manual-move popup
+
+A backward (revert) move now reads as a revert: the popup title says "Revert
+to …", and the action button shows a **left-pointing** arrow ("← Revert")
+instead of "Move →". Forward/sideways manual moves keep "Move →". Direction is
+derived from each step's depth from the entry.
+
 ## [0.13.33] — 2026-05-29 — Fibre Flow v0.10.0
 
 ### Fibre Flow Phase E — dashboard counts + actionable tasks
