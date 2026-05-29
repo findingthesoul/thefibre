@@ -6,6 +6,40 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.26] — 2026-05-29 — Fibre Flow v0.5.0
+
+### Fibre Flow — drag-and-drop visual builder (Phase G)
+
+The flow detail page now has a real **interactive canvas** (React Flow /
+xyflow). No JSON needed:
+
+- **Drag step cards** around a dotted grid; positions **snap** to 24px
+  columns/rows and persist (`flow_step.canvas_x/canvas_y`).
+- **Inline-edit a card's name** right on the card.
+- **Click a card** → side panel to set kind (entry / normal / end ✓ / end ✗),
+  description, expected duration, and the tasks auto-created when a contact
+  enters that step.
+- **Drag from a card's right edge to another's left** to create a transition;
+  **click an arrow** → side panel for its label, gate logic (all / any), and
+  gate tasks (title, actor type, contact-action type, required).
+- **Add step**, delete step/transition, **Save** / **Publish** from the toolbar.
+- Cards colour-coded by kind. Loop-backs render as curved edges.
+
+The JSON editor is preserved under a collapsed **"Advanced — edit graph as
+JSON"** disclosure for power edits / bulk paste.
+
+### Added
+- `apps/flow/app/(app)/flows/[id]/flow-canvas.tsx` — React Flow editor with
+  custom step-card nodes + step/transition side panels.
+- `@xyflow/react` dependency on `apps/flow`.
+
+### Changed — API
+- `PUT /flow/flows/:id/graph` now accepts + persists `canvas_x` / `canvas_y`
+  per step (optional — the JSON editor omits them and still validates).
+
+### Removed
+- The read-only `flow-diagram.tsx` (superseded by the interactive canvas).
+
 ## [0.13.25] — 2026-05-29 — Fibre Flow v0.4.0
 
 ### Fibre Flow — visual flow diagram (Phase G, slice 1)

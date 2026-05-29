@@ -74,8 +74,10 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 - [x] **Phase B3/B4 — Vercel project + DNS + verify** (2026-05-29). `flow.thefibre.app` live, schema applied, app activated, Sjoerd granted admin. Sign-in works cold + via shared SSO. Along the way: rotated `SSO_INTERNAL_SECRET` (Fly now matches all Vercel projects), fixed `thefibre.app` landing not redirecting signed-in users (v0.13.21), made theme/sidebar prefs persist server-side past Safari's 7-day cap (v0.13.22).
 - [x] **Phase C — definition layer** (v0.13.23, Flow v0.2.0, 2026-05-29). Flow CRUD API (`apps/api/src/routes/flow.ts`), Flow Library + create dialog, flow detail + JSON-textarea graph editor with validation + publish. Canvas still deferred to Phase G.
 - [x] **Phase D — runtime** (v0.13.24, Flow v0.3.0, 2026-05-29). Add contacts to flows; auto-materialise step + gate tasks; run detail with task complete/reopen + gate-validated transitions (+ override); withdraw; activity events (`flow.run.*`, `flow.task.completed`); My Tasks + Contacts-in-motion wired live. Deferred within D: the contact-detail tab on `apps/web` (Flow runs surfaced on a person's platform profile) + a `can_see_person` clause for shared flow_runs.
+- [x] **Phase G — visual builder** (v0.13.26, Flow v0.5.0, 2026-05-29; pulled forward at Sjoerd's request). React Flow canvas: drag + grid-snap (persisted positions), inline card-name editing, click-to-edit side panels for steps + transitions (incl. gate tasks), drag-to-connect, add/delete. JSON editor demoted to an "Advanced" disclosure. Still to refine: auto-layout button, validation hints in-canvas, richer edge routing.
 - [ ] **Phase E — tasks polish + dashboard** — team tasks, manual task creation, the personal dashboard (My Flows / Contacts in Motion / My Tasks).
-- [ ] Phases F–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md). (Phase G = the visual canvas builder.)
+- [ ] **Phase F — contact-action automation** — Meet/Thread activity auto-completes `contact` gate tasks.
+- [ ] Phases H–J — flow board (kanban), lifecycle/hygiene/reports, seed + v1.0. See [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
 
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)

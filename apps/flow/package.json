@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/flow",
-  "version": "0.13.25",
+  "version": "0.13.26",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
@@ -16,6 +16,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.0",
     "@thefibre/shared": "workspace:*",
+    "@xyflow/react": "^12.3.5",
     "zod": "^3.23.0",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
     "class-variance-authority": "^0.7.1",

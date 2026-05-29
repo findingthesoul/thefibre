@@ -46,6 +46,10 @@ const GraphStep = z.object({
   kind: StepKind.default('normal'),
   expected_duration_days: z.number().int().positive().optional().nullable(),
   default_assignee_role: z.string().max(64).optional().nullable(),
+  // Canvas coordinates from the visual builder (Phase G). Optional so the
+  // JSON editor (which omits them) still validates.
+  canvas_x: z.number().optional().nullable(),
+  canvas_y: z.number().optional().nullable(),
 });
 
 const GraphGateTask = z.object({
@@ -418,6 +422,8 @@ flowRoutes.put('/flows/:id/graph', async (c) => {
     kind: s.kind,
     expected_duration_days: s.expected_duration_days ?? null,
     default_assignee_role: s.default_assignee_role ?? null,
+    canvas_x: s.canvas_x ?? null,
+    canvas_y: s.canvas_y ?? null,
     ordinal: i,
   }));
   const { data: insertedSteps, error: sErr } = await db

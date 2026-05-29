@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
-import { FlowDiagram } from './flow-diagram';
+import { FlowCanvas } from './flow-canvas';
 import { RunsPanel, type Run } from './runs-panel';
 
 type Graph = {
@@ -84,19 +84,21 @@ export default async function FlowDetailPage({
       </div>
 
       <div className="mt-8">
-        <h2 className="text-sm font-medium mb-2">Diagram</h2>
-        <FlowDiagram
-          graph={graph as { steps: { key: string; name: string; kind: string }[]; transitions: { from: string; to: string; label: string; gate_logic: string; gate_tasks?: { title: string; actor_type: string }[] }[] }}
-        />
+        <h2 className="text-sm font-medium mb-2">Builder</h2>
+        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+        <FlowCanvas flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph as any} />
       </div>
 
       <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />
 
-      <FlowEditor
-        flowId={flow.id}
-        lifecycle={flow.lifecycle}
-        initialGraph={graph}
-      />
+      <details className="mt-10 group">
+        <summary className="cursor-pointer text-sm text-ink-muted hover:text-ink select-none">
+          Advanced — edit graph as JSON
+        </summary>
+        <div className="mt-2">
+          <FlowEditor flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph} />
+        </div>
+      </details>
     </div>
   );
 }
