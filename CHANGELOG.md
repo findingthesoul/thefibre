@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.31] — 2026-05-29 — Fibre Flow v0.8.0
+
+### Fibre Flow — revert / manual move (move a contact to any step)
+
+The run popup now lets you move a contact **anywhere**, not just forward:
+
+- **Forward** steps with a defined transition stay **amber** and run the gate check (complete tasks inline / override).
+- **Any other step** (backward to revert, or sideways) lights up **grey** as a **manual move** — a no-gate confirm popup that re-creates the destination step's tasks and logs the move as "(manual)" on the activity timeline.
+- Works from completed/withdrawn runs too, so a contact parked on Won/Lost can be reverted to an earlier step (which reopens the run).
+
+### Added — API
+- `POST /flow/runs/:id/move` `{ step_key, reason? }` — gate-free reposition to any step in the run's version.
+
+### Added — frontend
+- `repositionRun` action; unified the run popup's confirm flow into gated-transition vs. manual-move paths.
+
 ## [0.13.30] — 2026-05-29 — Fibre Flow v0.7.0
 
 ### Fibre Flow — Builder / Flows tabs on the flow detail page

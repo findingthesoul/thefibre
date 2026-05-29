@@ -999,6 +999,89 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /runs/:id/move — manual reposition to ANY step in the run's version,
+// bypassing transition/gate validation. This is the "revert / move back"
+// (or sideways) path. Records the move as an activity, noting it was manual.
+// ---------------------------------------------------------------------------
+const ManualMove = z.object({ step_key: z.string().min(1), reason: z.string().max(500).optional().nullable() });
+
+flowRoutes.post('/runs/:id/move', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const body = ManualMove.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: run } = await db
+    .from('flow_run')
+    .select('id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (!run) return c.json({ error: 'run not found' }, 404);
+
+  // Resolve the target step within the run's version.
+  const { data: target } = await db
+    .from('flow_step')
+    .select('id, name, kind')
+    .eq('flow_version_id', run.flow_version_id)
+    .eq('key', body.data.step_key)
+    .single();
+  if (!target) return c.json({ error: 'step not found in this flow version' }, 404);
+  if (target.id === run.current_step_id) return c.json({ error: 'already at this step' }, 400);
+
+  // Cancel open flow-generated tasks; manual tasks survive.
+  await db
+    .from('flow_task')
+    .update({ status: 'cancelled' })
+    .eq('flow_run_id', id)
+    .in('status', ['open', 'in_progress'])
+    .or('gate_task_id.not.is.null,step_default_task_id.not.is.null');
+
+  const isEnd = target.kind === 'end_positive' || target.kind === 'end_negative';
+  const { error: uErr } = await db
+    .from('flow_run')
+    .update({
+      current_step_id: target.id,
+      current_step_entered_at: new Date().toISOString(),
+      status: isEnd ? 'completed' : 'active',
+      completed_at: isEnd ? new Date().toISOString() : null,
+    })
+    .eq('id', id);
+  if (uErr) {
+    console.error('[flow] manual move', uErr);
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  if (!isEnd) {
+    const { data: flow } = await db.from('flow_definition').select('team_id').eq('id', run.flow_id).single();
+    await materialiseTasksForStep(db, {
+      workspaceId: ctx.workspaceId,
+      runId: id,
+      personId: run.person_id,
+      stepId: target.id,
+      versionId: run.flow_version_id,
+      ownerUserId: run.owner_user_id,
+      teamId: flow?.team_id ?? null,
+      createdBy: ctx.userId,
+    });
+  }
+
+  const appId = await resolveAppId(db, ctx.appId);
+  await writeActivity(
+    db,
+    appId,
+    ctx.workspaceId,
+    ctx.userId,
+    run.person_id,
+    isEnd ? 'flow.run.completed' : 'flow.run.step_changed',
+    isEnd ? `Completed at ${target.name} (manual)` : `Moved to ${target.name} (manual)`,
+  );
+
+  return c.json({ ok: true, to_step: target, completed: isEnd });
+});
+
+// ---------------------------------------------------------------------------
 // POST /runs/:id/withdraw — pull a contact out of a flow.
 // ---------------------------------------------------------------------------
 flowRoutes.post('/runs/:id/withdraw', async (c) => {

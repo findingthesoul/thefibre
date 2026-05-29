@@ -190,3 +190,16 @@ export async function getRunDetail(runId: string): Promise<ActionResult<unknown>
     return { error: formatApiError(e) };
   }
 }
+
+export async function repositionRun(runId: string, stepKey: string, reason?: string | null): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/runs/${runId}/move`, {
+      method: 'POST',
+      body: JSON.stringify({ step_key: stepKey, reason: reason ?? null }),
+    });
+    revalidatePath(`/runs/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

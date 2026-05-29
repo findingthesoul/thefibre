@@ -16,7 +16,7 @@ import {
 import '@xyflow/react/dist/style.css';
 import { X, GripVertical, CheckCircle2, Circle, AlertCircle, ArrowRight, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
-import { getRunDetail, transitionRun, completeTask } from '../actions';
+import { getRunDetail, transitionRun, completeTask, repositionRun } from '../actions';
 
 type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative';
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
@@ -75,7 +75,7 @@ type RunNodeData = {
   label: string;
   kind: string;
   isCurrent: boolean;
-  isTarget: boolean;
+  isTarget: boolean; // forward (gated) transition target
   dragging: boolean;
   picking: boolean;
   token: string | null;
@@ -88,25 +88,26 @@ type RunNodeData = {
 function RunStepNode({ data }: NodeProps) {
   const d = data as RunNodeData;
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
-  // A step is an active target while the user is dragging OR has "picked up"
-  // the token. Clicks are handled by React Flow's onNodeClick (reliable),
-  // not inner onClick (which the node wrapper swallows).
-  const active = (d.dragging || d.picking) && d.isTarget;
-  const clickable = d.isCurrent || active;
+  const moving = d.dragging || d.picking;
+  // Forward (gated) target → amber. Any other non-current step → a neutral
+  // "manual move" target (revert / sideways) while moving.
+  const forwardActive = moving && d.isTarget;
+  const manualActive = moving && !d.isCurrent && !d.isTarget;
+  const clickable = d.isCurrent || forwardActive || manualActive;
   return (
     <div
       onDragOver={(e) => {
-        if (d.isTarget) e.preventDefault();
+        if (!d.isCurrent) e.preventDefault();
       }}
       onDrop={(e) => {
         e.preventDefault();
-        if (d.isTarget) d.onDropToken(d.stepKey);
+        if (!d.isCurrent) d.onDropToken(d.stepKey);
       }}
       className={`rounded-lg border-2 ${style.bg} ${
         d.isCurrent ? 'border-neutral-800 ring-2 ring-neutral-300' : style.border
-      } ${active ? 'border-dashed border-amber-500 ring-2 ring-amber-300' : ''} ${
-        clickable ? 'cursor-pointer' : ''
-      } shadow-sm`}
+      } ${forwardActive ? 'border-dashed border-amber-500 ring-2 ring-amber-300' : ''} ${
+        manualActive ? 'border-dashed border-neutral-400 ring-1 ring-neutral-200' : ''
+      } ${clickable ? 'cursor-pointer' : ''} shadow-sm`}
       style={{ width: 176 }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -126,7 +127,7 @@ function RunStepNode({ data }: NodeProps) {
             {d.token}
           </span>
         )}
-        {active && <ArrowRight size={14} className="text-amber-600 shrink-0" />}
+        {forwardActive && <ArrowRight size={14} className="text-amber-600 shrink-0" />}
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
@@ -219,7 +220,8 @@ function Graph({
   const onNodeClick = (_: unknown, node: Node) => {
     if (node.id === currentKey) {
       setPicking(!picking);
-    } else if (picking && targetKeys.has(node.id)) {
+    } else if (picking) {
+      // Any non-current step is a target: forward (gated) or manual (revert).
       onDropToken(node.id);
     }
   };
@@ -252,7 +254,10 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [picking, setPicking] = useState(false);
+  // A pending move is either a forward (gated) transition or a manual move to
+  // any step (revert / sideways).
   const [confirmT, setConfirmT] = useState<Transition | null>(null);
+  const [manualTarget, setManualTarget] = useState<{ key: string; name: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
   const [override, setOverride] = useState('');
@@ -270,11 +275,19 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
   function onDropToken(targetKey: string) {
     setDragging(false);
     setPicking(false);
+    setMoveError(null);
+    setOverride('');
     const t = detail?.transitions.find((tr) => tr.to_step?.key === targetKey) ?? null;
     if (t) {
-      setMoveError(null);
-      setOverride('');
+      setManualTarget(null);
       setConfirmT(t);
+    } else {
+      // No forward transition → manual move (revert / sideways).
+      const step = detail?.graph.steps.find((s) => s.key === targetKey);
+      if (step) {
+        setConfirmT(null);
+        setManualTarget({ key: step.key, name: step.name });
+      }
     }
   }
 
@@ -298,6 +311,21 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
       return;
     }
     setConfirmT(null);
+    await refetch();
+    router.refresh();
+  }
+
+  async function onConfirmManual() {
+    if (!manualTarget) return;
+    setBusy(true);
+    setMoveError(null);
+    const res = await repositionRun(runId, manualTarget.key, override || null);
+    setBusy(false);
+    if (res.error) {
+      setMoveError(res.error);
+      return;
+    }
+    setManualTarget(null);
     await refetch();
     router.refresh();
   }
@@ -343,25 +371,19 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
 
         {detail && (
           <>
-            {detail.run.status === 'active' ? (
-              <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
-                {picking ? (
-                  <span className="text-amber-700 font-medium">
-                    Now click a highlighted step to move {initials(person)} there (or click the current step again
-                    to cancel).
-                  </span>
-                ) : (
-                  <>
-                    Click the <span className="font-medium">{detail.run.step?.name}</span> card to pick up{' '}
-                    {initials(person)}, then click a highlighted step. Reachable steps light up.
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="px-5 py-2 text-xs text-ink-muted text-center">
-                This run is {detail.run.status} — no moves available.
-              </div>
-            )}
+            <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
+              {picking ? (
+                <span className="text-amber-700 font-medium">
+                  Now click a step to move {initials(person)} there — amber = forward (gated), grey = manual move
+                  / revert. Click the current step again to cancel.
+                </span>
+              ) : (
+                <>
+                  Click the <span className="font-medium">{detail.run.step?.name}</span> card to pick up{' '}
+                  {initials(person)}, then click any step — forward to advance, or back to revert.
+                </>
+              )}
+            </div>
             <ReactFlowProvider>
               <Graph
                 detail={detail}
@@ -453,6 +475,55 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
                 className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
               >
                 {currentConfirmSatisfied ? 'Confirm move' : 'Move anyway'} <ArrowRight size={14} />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* manual move (revert / sideways) sub-popup — no gate */}
+      {manualTarget && detail && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
+          <div className="w-full max-w-md rounded-lg bg-white shadow-2xl">
+            <div className="border-b border-line px-5 py-3.5">
+              <h3 className="text-base font-medium">Move to {manualTarget.name}?</h3>
+              <p className="text-xs text-ink-muted mt-0.5">
+                Manual move from {detail.run.step?.name} — no transition gate. Use this to revert or jump.
+              </p>
+            </div>
+            <div className="px-5 py-4 space-y-3">
+              <div className="flex items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-ink-subtle">
+                <AlertCircle size={16} className="mt-0.5 shrink-0" />
+                <span>
+                  This skips gate checks and re-creates the destination step&apos;s tasks. The move is logged on
+                  the activity timeline as manual.
+                </span>
+              </div>
+              <input
+                value={override}
+                onChange={(e) => setOverride(e.target.value)}
+                placeholder="Reason (optional)"
+                className="w-full rounded-md border border-line px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+              />
+              {moveError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {moveError}
+                </div>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-line px-5 py-3.5">
+              <button
+                onClick={() => setManualTarget(null)}
+                className="rounded-md px-4 py-2 text-sm text-ink-subtle hover:text-ink"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onConfirmManual}
+                disabled={busy}
+                className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
+              >
+                Move <ArrowRight size={14} />
               </button>
             </div>
           </div>
