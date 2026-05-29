@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
+import { FlowDiagram } from './flow-diagram';
 import { RunsPanel, type Run } from './runs-panel';
 
 type Graph = {
@@ -80,6 +81,13 @@ export default async function FlowDetailPage({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="mt-8">
+        <h2 className="text-sm font-medium mb-2">Diagram</h2>
+        <FlowDiagram
+          graph={graph as { steps: { key: string; name: string; kind: string }[]; transitions: { from: string; to: string; label: string; gate_logic: string; gate_tasks?: { title: string; actor_type: string }[] }[] }}
+        />
       </div>
 
       <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />

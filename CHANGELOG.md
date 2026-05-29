@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.25] — 2026-05-29 — Fibre Flow v0.4.0
+
+### Fibre Flow — visual flow diagram (Phase G, slice 1)
+
+The flow detail page now renders the graph **visually**: steps as colour-coded
+cards (entry = blue, end_positive = green ✓, end_negative = red ✗, normal =
+white), transitions as labelled curved arrows with their gate summary
+(`all 2` / `any 1`). Auto-laid-out into columns by longest-path depth from the
+entry step; back-edges (loops) route below. Read-only for now — drag-to-edit
+and in-canvas gate editing are the next slice; the JSON editor remains below
+as the authoring surface in the meantime.
+
+- `apps/flow/app/(app)/flows/[id]/flow-diagram.tsx` — hand-rolled SVG
+  (no graph-library dependency, full design control). `foreignObject` for
+  on-brand node/label typography.
+
 ## [0.13.24] — 2026-05-29 — Fibre Flow v0.3.0
 
 ### Fibre Flow Phase D — the runtime
