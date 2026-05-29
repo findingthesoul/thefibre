@@ -6,6 +6,42 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.24] — 2026-05-29 — Fibre Flow v0.3.0
+
+### Fibre Flow Phase D — the runtime
+
+Flows now *do* something: contacts can be put into a flow, their gate and
+step tasks auto-materialise, and they move through steps with gate
+validation. Step transitions and task completions write platform activity
+events (type + subject only — across the data wall).
+
+### Added — API (`apps/api/src/routes/flow.ts`)
+- `POST /flows/:id/runs` — start a run for a person at the published version's entry step; materialises the entry step's tasks. Fires `flow.run.started`.
+- `GET /flows/:id/runs` — runs in a flow (person + current step).
+- `GET /runs` — all visible runs (Contacts "in motion" + dashboard); `?status=`.
+- `GET /runs/:id` — run detail: current step, tasks, and available transitions each annotated with `gate_satisfied`.
+- `POST /runs/:id/transition` — move along a transition. Validates the gate (all/any of the required gate tasks); blocks with `409 gate_unsatisfied` unless an `override_reason` is given. Cancels the old step's open generated tasks, materialises the destination step's tasks, fires `flow.run.step_changed` (or `flow.run.completed` at an end step).
+- `POST /runs/:id/withdraw` — pull a contact out; cancels open tasks; fires `flow.run.withdrawn`.
+- `PATCH /tasks/:id` — update/complete a task; completing a contact-actor task fires `flow.task.completed`.
+- `GET /tasks` — caller's open tasks across flows (`?scope=mine|all`, `?status=`).
+- `GET /contacts/:personId/runs` — a person's runs (for the future contact tab).
+
+### Added — Flow frontend (`apps/flow`)
+- **Flow detail → "Contacts in this flow"** — run list + Add-contact dialog (person search against the platform, start a run).
+- **Run detail** (`/runs/[id]`) — current step, tasks with one-click complete/reopen (actor-type icons, gate badges), and "Move to next step" buttons that enable only when the gate is satisfied — with an inline override-reason flow when it isn't. Withdraw action.
+- **My tasks** (`/tasks`) and **Contacts in motion** (`/contacts`) now wired to live data.
+
+### Known limitation
+- `can_see_person` (v0.9.0) has no "shares a flow_run" clause, so non-admin
+  users can't yet see contacts solely because they're in a shared flow. Fine
+  for the current admin-only workspace; a future migration adds the clause.
+
+### Task-materialisation model
+- Entering a step creates: that step's default tasks + the gate tasks on every
+  transition leaving it. Leaving a step cancels its open generated tasks
+  (manual tasks are preserved). Assignee resolves by actor type:
+  personal→run owner, team→flow team, contact→the person.
+
 ## [0.13.23] — 2026-05-29 — Fibre Flow v0.2.0
 
 ### Fibre Flow Phase C — the definition layer

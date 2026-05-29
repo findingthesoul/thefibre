@@ -560,3 +560,594 @@ flowRoutes.delete('/flows/:id', async (c) => {
   }
   return c.json({ ok: true });
 });
+
+// ===========================================================================
+// Phase D — runtime: flow_run + flow_task. Putting contacts into flows and
+// moving them through steps with gate validation.
+// ===========================================================================
+
+type Db = ReturnType<typeof userClient>;
+
+// Resolve the calling app's slug → app.id (for activity rows).
+async function resolveAppId(db: Db, slug: string): Promise<string | null> {
+  const { data } = await db.from('app').select('id').eq('slug', slug).single();
+  return data?.id ?? null;
+}
+
+// Append an activity event (type + subject only — never content body).
+async function writeActivity(
+  db: Db,
+  appId: string | null,
+  workspaceId: string,
+  userId: string,
+  personId: string,
+  type: string,
+  subject: string,
+) {
+  if (!appId) return;
+  const { error } = await db.from('activity').insert({
+    workspace_id: workspaceId,
+    person_id: personId,
+    app_id: appId,
+    type,
+    subject,
+    occurred_at: new Date().toISOString(),
+    created_by: userId,
+  });
+  if (error) console.error('[flow] writeActivity', type, error);
+}
+
+// Materialise the tasks for a step a run has just entered:
+//   - the step's default tasks
+//   - the gate tasks on every transition leaving the step (the things that
+//     must be done to move on).
+async function materialiseTasksForStep(
+  db: Db,
+  opts: {
+    workspaceId: string;
+    runId: string;
+    personId: string;
+    stepId: string;
+    versionId: string;
+    ownerUserId: string | null;
+    teamId: string | null;
+    createdBy: string;
+  },
+) {
+  const { workspaceId, runId, personId, stepId, versionId, ownerUserId, teamId, createdBy } = opts;
+
+  function assignee(actorType: string) {
+    if (actorType === 'personal') return { assignee_user_id: ownerUserId, assignee_team_id: null, contact_id: null };
+    if (actorType === 'team') return { assignee_user_id: null, assignee_team_id: teamId, contact_id: null };
+    return { assignee_user_id: null, assignee_team_id: null, contact_id: personId }; // contact
+  }
+
+  const rows: Record<string, unknown>[] = [];
+
+  // Step default tasks.
+  const { data: defaults } = await db
+    .from('flow_step_default_task')
+    .select('*')
+    .eq('step_id', stepId)
+    .order('ordinal');
+  for (const d of defaults ?? []) {
+    const due =
+      d.due_days_after_entry != null
+        ? new Date(Date.now() + d.due_days_after_entry * 86400000).toISOString()
+        : null;
+    rows.push({
+      workspace_id: workspaceId,
+      flow_run_id: runId,
+      step_default_task_id: d.id,
+      title: d.title,
+      description: d.description,
+      actor_type: d.actor_type,
+      ...assignee(d.actor_type),
+      due_at: due,
+      created_by: createdBy,
+    });
+  }
+
+  // Gate tasks on transitions leaving this step.
+  const { data: transitions } = await db
+    .from('flow_transition')
+    .select('id')
+    .eq('flow_version_id', versionId)
+    .eq('from_step_id', stepId);
+  const transIds = (transitions ?? []).map((t) => t.id);
+  if (transIds.length) {
+    const { data: gates } = await db
+      .from('flow_gate_task')
+      .select('*')
+      .in('transition_id', transIds)
+      .order('ordinal');
+    for (const g of gates ?? []) {
+      rows.push({
+        workspace_id: workspaceId,
+        flow_run_id: runId,
+        gate_task_id: g.id,
+        title: g.title,
+        description: g.description,
+        actor_type: g.actor_type,
+        ...assignee(g.actor_type),
+        contact_id: g.actor_type === 'contact' ? personId : assignee(g.actor_type).contact_id,
+        due_at: null,
+        created_by: createdBy,
+      });
+    }
+  }
+
+  if (rows.length) {
+    const { error } = await db.from('flow_task').insert(rows);
+    if (error) console.error('[flow] materialiseTasksForStep', error);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// POST /flows/:id/runs — add a person to a flow (start a run at the entry step).
+// ---------------------------------------------------------------------------
+const StartRun = z.object({ person_id: z.string().uuid() });
+
+flowRoutes.post('/flows/:id/runs', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const flowId = c.req.param('id');
+  const body = StartRun.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: flow } = await db
+    .from('flow_definition')
+    .select('id, name, scope, team_id, owner_user_id, current_version_id, lifecycle')
+    .eq('id', flowId)
+    .is('deleted_at', null)
+    .single();
+  if (!flow) return c.json({ error: 'flow not found' }, 404);
+  if (!flow.current_version_id) {
+    return c.json({ error: 'flow has no published version — publish it first' }, 400);
+  }
+  if (flow.lifecycle === 'closed' || flow.lifecycle === 'archived') {
+    return c.json({ error: `flow is ${flow.lifecycle} — no new contacts can enter` }, 400);
+  }
+
+  // Entry step of the published version.
+  const { data: entry } = await db
+    .from('flow_step')
+    .select('id, name')
+    .eq('flow_version_id', flow.current_version_id)
+    .eq('kind', 'entry')
+    .single();
+  if (!entry) return c.json({ error: 'published version has no entry step' }, 500);
+
+  const { data: run, error: rErr } = await db
+    .from('flow_run')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      flow_id: flowId,
+      flow_version_id: flow.current_version_id,
+      person_id: body.data.person_id,
+      current_step_id: entry.id,
+      owner_user_id: ctx.userId,
+      status: 'active',
+    })
+    .select('id')
+    .single();
+  if (rErr || !run) {
+    console.error('[flow] start run', rErr);
+    return c.json({ error: rErr?.message ?? 'could not start run' }, 500);
+  }
+
+  await materialiseTasksForStep(db, {
+    workspaceId: ctx.workspaceId,
+    runId: run.id,
+    personId: body.data.person_id,
+    stepId: entry.id,
+    versionId: flow.current_version_id,
+    ownerUserId: ctx.userId,
+    teamId: flow.team_id,
+    createdBy: ctx.userId,
+  });
+
+  const appId = await resolveAppId(db, ctx.appId);
+  await writeActivity(db, appId, ctx.workspaceId, ctx.userId, body.data.person_id, 'flow.run.started', `Added to ${flow.name}`);
+
+  return c.json({ id: run.id }, 201);
+});
+
+// ---------------------------------------------------------------------------
+// GET /flows/:id/runs — runs in a flow, with person + current step.
+// ---------------------------------------------------------------------------
+flowRoutes.get('/flows/:id/runs', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const flowId = c.req.param('id');
+  const { data, error } = await db
+    .from('flow_run')
+    .select(
+      'id, status, entered_at, current_step_entered_at, completed_at, person:person_id (id, first_name, last_name, email), step:current_step_id (id, key, name, kind)',
+    )
+    .eq('flow_id', flowId)
+    .is('deleted_at', null)
+    .order('entered_at', { ascending: false });
+  if (error) {
+    console.error('[flow] list runs', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});
+
+// ---------------------------------------------------------------------------
+// Compute, for a transition, whether its gate is satisfied given the run's
+// current task states.
+// ---------------------------------------------------------------------------
+function gateSatisfied(
+  gateLogic: string,
+  gateTaskIds: string[],
+  doneGateTaskIds: Set<string>,
+  requiredByGateTaskId: Map<string, boolean>,
+): boolean {
+  const required = gateTaskIds.filter((id) => requiredByGateTaskId.get(id));
+  if (required.length === 0) return true; // no required tasks → always passable
+  if (gateLogic === 'any') return required.some((id) => doneGateTaskIds.has(id));
+  return required.every((id) => doneGateTaskIds.has(id)); // 'all'
+}
+
+// ---------------------------------------------------------------------------
+// GET /runs/:id — run detail: current step, open tasks, available transitions
+// with per-transition gate satisfaction.
+// ---------------------------------------------------------------------------
+flowRoutes.get('/runs/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+
+  const { data: run, error } = await db
+    .from('flow_run')
+    .select(
+      'id, flow_id, flow_version_id, status, entered_at, current_step_entered_at, completed_at, withdrawn_reason, owner_user_id, person:person_id (id, first_name, last_name, email), step:current_step_id (id, key, name, kind, description)',
+    )
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (error || !run) return c.json({ error: 'run not found' }, 404);
+
+  const step = Array.isArray(run.step) ? run.step[0] : run.step;
+
+  // Tasks for this run.
+  const { data: tasks } = await db
+    .from('flow_task')
+    .select('*')
+    .eq('flow_run_id', id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
+  const doneGate = new Set<string>();
+  for (const t of tasks ?? []) {
+    if (t.gate_task_id && t.status === 'done') doneGate.add(t.gate_task_id);
+  }
+
+  // Available transitions out of the current step.
+  let transitions: unknown[] = [];
+  if (step?.id) {
+    const { data: trans } = await db
+      .from('flow_transition')
+      .select('id, label, gate_logic, to_step_id, ordinal, to_step:to_step_id (key, name, kind)')
+      .eq('flow_version_id', run.flow_version_id)
+      .eq('from_step_id', step.id)
+      .order('ordinal');
+    const transIds = (trans ?? []).map((t) => t.id);
+    const gatesByTransition = new Map<string, { id: string; required: boolean }[]>();
+    if (transIds.length) {
+      const { data: gates } = await db
+        .from('flow_gate_task')
+        .select('id, transition_id, required, title, actor_type')
+        .in('transition_id', transIds);
+      for (const g of gates ?? []) {
+        const arr = gatesByTransition.get(g.transition_id) ?? [];
+        arr.push({ id: g.id, required: g.required });
+        gatesByTransition.set(g.transition_id, arr);
+      }
+    }
+    transitions = (trans ?? []).map((t) => {
+      const gts = gatesByTransition.get(t.id) ?? [];
+      const reqMap = new Map(gts.map((g) => [g.id, g.required]));
+      const satisfied = gateSatisfied(
+        t.gate_logic,
+        gts.map((g) => g.id),
+        doneGate,
+        reqMap,
+      );
+      return {
+        id: t.id,
+        label: t.label,
+        gate_logic: t.gate_logic,
+        to_step: Array.isArray(t.to_step) ? t.to_step[0] : t.to_step,
+        gate_satisfied: satisfied,
+        gate_task_count: gts.length,
+      };
+    });
+  }
+
+  return c.json({ run: { ...run, step }, tasks: tasks ?? [], transitions });
+});
+
+// ---------------------------------------------------------------------------
+// POST /runs/:id/transition — move the run along a transition.
+// Validates the gate unless override_reason is supplied.
+// ---------------------------------------------------------------------------
+const DoTransition = z.object({
+  transition_id: z.string().uuid(),
+  override_reason: z.string().max(500).optional().nullable(),
+});
+
+flowRoutes.post('/runs/:id/transition', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const body = DoTransition.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: run } = await db
+    .from('flow_run')
+    .select('id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (!run) return c.json({ error: 'run not found' }, 404);
+  if (run.status !== 'active') return c.json({ error: `run is ${run.status}` }, 400);
+
+  const { data: trans } = await db
+    .from('flow_transition')
+    .select('id, label, gate_logic, from_step_id, to_step_id')
+    .eq('id', body.data.transition_id)
+    .single();
+  if (!trans || trans.from_step_id !== run.current_step_id) {
+    return c.json({ error: 'transition does not start from the current step' }, 400);
+  }
+
+  // Gate check.
+  const { data: gates } = await db
+    .from('flow_gate_task')
+    .select('id, required')
+    .eq('transition_id', trans.id);
+  const gateTaskIds = (gates ?? []).map((g) => g.id);
+  const reqMap = new Map((gates ?? []).map((g) => [g.id, g.required]));
+  const { data: doneTasks } = await db
+    .from('flow_task')
+    .select('gate_task_id')
+    .eq('flow_run_id', id)
+    .eq('status', 'done')
+    .not('gate_task_id', 'is', null);
+  const doneSet = new Set((doneTasks ?? []).map((t) => t.gate_task_id as string));
+  const satisfied = gateSatisfied(trans.gate_logic, gateTaskIds, doneSet, reqMap);
+  if (!satisfied && !body.data.override_reason) {
+    return c.json({ error: 'gate not satisfied — complete the required tasks or provide an override reason', code: 'gate_unsatisfied' }, 409);
+  }
+
+  // Destination step.
+  const { data: toStep } = await db
+    .from('flow_step')
+    .select('id, name, kind')
+    .eq('id', trans.to_step_id)
+    .single();
+  if (!toStep) return c.json({ error: 'destination step missing' }, 500);
+
+  // Cancel open flow-generated tasks (gate + step-default) for this run; manual
+  // tasks (no template link) are preserved.
+  await db
+    .from('flow_task')
+    .update({ status: 'cancelled' })
+    .eq('flow_run_id', id)
+    .in('status', ['open', 'in_progress'])
+    .or('gate_task_id.not.is.null,step_default_task_id.not.is.null');
+
+  const isEnd = toStep.kind === 'end_positive' || toStep.kind === 'end_negative';
+  const { error: uErr } = await db
+    .from('flow_run')
+    .update({
+      current_step_id: toStep.id,
+      current_step_entered_at: new Date().toISOString(),
+      status: isEnd ? 'completed' : 'active',
+      completed_at: isEnd ? new Date().toISOString() : null,
+    })
+    .eq('id', id);
+  if (uErr) {
+    console.error('[flow] transition update', uErr);
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  // Materialise the destination step's tasks (unless it's a terminal step).
+  if (!isEnd) {
+    const { data: flow } = await db
+      .from('flow_definition')
+      .select('team_id')
+      .eq('id', run.flow_id)
+      .single();
+    await materialiseTasksForStep(db, {
+      workspaceId: ctx.workspaceId,
+      runId: id,
+      personId: run.person_id,
+      stepId: toStep.id,
+      versionId: run.flow_version_id,
+      ownerUserId: run.owner_user_id,
+      teamId: flow?.team_id ?? null,
+      createdBy: ctx.userId,
+    });
+  }
+
+  const appId = await resolveAppId(db, ctx.appId);
+  const overrideNote = !satisfied ? ' (override)' : '';
+  await writeActivity(
+    db,
+    appId,
+    ctx.workspaceId,
+    ctx.userId,
+    run.person_id,
+    isEnd ? 'flow.run.completed' : 'flow.run.step_changed',
+    isEnd ? `Completed via ${toStep.name}` : `Moved to ${toStep.name}${overrideNote}`,
+  );
+
+  return c.json({ ok: true, to_step: toStep, completed: isEnd });
+});
+
+// ---------------------------------------------------------------------------
+// POST /runs/:id/withdraw — pull a contact out of a flow.
+// ---------------------------------------------------------------------------
+flowRoutes.post('/runs/:id/withdraw', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const body = z
+    .object({ reason: z.string().max(500).optional().nullable() })
+    .safeParse(await c.req.json().catch(() => ({})));
+  const reason = body.success ? body.data.reason ?? null : null;
+
+  const { data: run } = await db
+    .from('flow_run')
+    .select('id, person_id, flow_id, status')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (!run) return c.json({ error: 'run not found' }, 404);
+
+  const { error } = await db
+    .from('flow_run')
+    .update({ status: 'withdrawn', withdrawn_reason: reason, completed_at: new Date().toISOString() })
+    .eq('id', id);
+  if (error) return c.json({ error: error.message }, 500);
+
+  await db
+    .from('flow_task')
+    .update({ status: 'cancelled' })
+    .eq('flow_run_id', id)
+    .in('status', ['open', 'in_progress']);
+
+  const { data: flow } = await db.from('flow_definition').select('name').eq('id', run.flow_id).single();
+  const appId = await resolveAppId(db, ctx.appId);
+  await writeActivity(db, appId, ctx.workspaceId, ctx.userId, run.person_id, 'flow.run.withdrawn', `Withdrawn from ${flow?.name ?? 'flow'}`);
+
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// PATCH /tasks/:id — update a task (typically mark done).
+// ---------------------------------------------------------------------------
+const PatchTask = z.object({
+  status: z.enum(['open', 'in_progress', 'done', 'cancelled']).optional(),
+  title: z.string().min(1).max(200).optional(),
+  due_at: z.string().datetime().optional().nullable(),
+});
+
+flowRoutes.patch('/tasks/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const body = PatchTask.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const patch: Record<string, unknown> = {};
+  if (body.data.status !== undefined) {
+    patch.status = body.data.status;
+    if (body.data.status === 'done') {
+      patch.completed_at = new Date().toISOString();
+      patch.completed_by = ctx.userId;
+    }
+  }
+  if (body.data.title !== undefined) patch.title = body.data.title;
+  if (body.data.due_at !== undefined) patch.due_at = body.data.due_at;
+  if (Object.keys(patch).length === 0) return c.json({ error: 'nothing to update' }, 400);
+
+  const { data: task, error } = await db
+    .from('flow_task')
+    .update(patch)
+    .eq('id', id)
+    .is('deleted_at', null)
+    .select('id, status, contact_id, title')
+    .single();
+  if (error) {
+    console.error('[flow] patch task', error);
+    return c.json({ error: error.message }, 500);
+  }
+
+  if (body.data.status === 'done' && task?.contact_id) {
+    const appId = await resolveAppId(db, ctx.appId);
+    await writeActivity(db, appId, ctx.workspaceId, ctx.userId, task.contact_id, 'flow.task.completed', `Task done: ${task.title}`);
+  }
+
+  return c.json({ task });
+});
+
+// ---------------------------------------------------------------------------
+// GET /tasks — caller's open tasks across flows (Phase E uses this too).
+// ?scope=mine (default) | all
+// ---------------------------------------------------------------------------
+flowRoutes.get('/tasks', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const scope = c.req.query('scope') ?? 'mine';
+  const status = c.req.query('status') ?? 'open';
+
+  let q = db
+    .from('flow_task')
+    .select(
+      'id, title, description, actor_type, status, due_at, flow_run_id, contact_id, assignee_user_id, contact:contact_id (first_name, last_name)',
+    )
+    .is('deleted_at', null)
+    .order('due_at', { ascending: true, nullsFirst: false })
+    .order('created_at', { ascending: true });
+
+  if (status !== 'all') q = q.in('status', status === 'open' ? ['open', 'in_progress'] : [status]);
+  if (scope === 'mine') q = q.eq('assignee_user_id', ctx.userId);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error('[flow] list tasks', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});
+
+// ---------------------------------------------------------------------------
+// GET /contacts/:personId/runs — a person's runs across flows (contact tab).
+// ---------------------------------------------------------------------------
+flowRoutes.get('/contacts/:personId/runs', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const personId = c.req.param('personId');
+  const { data, error } = await db
+    .from('flow_run')
+    .select(
+      'id, status, entered_at, completed_at, flow:flow_id (id, name, scope), step:current_step_id (key, name, kind)',
+    )
+    .eq('person_id', personId)
+    .is('deleted_at', null)
+    .order('entered_at', { ascending: false });
+  if (error) {
+    console.error('[flow] contact runs', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});
+
+// ---------------------------------------------------------------------------
+// GET /runs — all visible runs (for Contacts "in motion" + dashboard).
+// ?status=active (default) | all
+// ---------------------------------------------------------------------------
+flowRoutes.get('/runs', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const status = c.req.query('status') ?? 'active';
+  let q = db
+    .from('flow_run')
+    .select(
+      'id, status, entered_at, current_step_entered_at, person:person_id (id, first_name, last_name, email), flow:flow_id (id, name), step:current_step_id (key, name, kind)',
+    )
+    .is('deleted_at', null)
+    .order('current_step_entered_at', { ascending: false });
+  if (status !== 'all') q = q.eq('status', status);
+  const { data, error } = await q;
+  if (error) {
+    console.error('[flow] list all runs', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});

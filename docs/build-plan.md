@@ -73,8 +73,9 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 - [x] **Phase B1+B2 — Schema + app shell** (v0.13.20, 2026-05-20). Nine `flow_*` tables, `fibre-flow` registered, `apps/flow/` skeleton typechecks + builds clean. Migration `20260520120000_fibre_flow_schema.sql` is in the tree, **not yet applied to remote**.
 - [x] **Phase B3/B4 — Vercel project + DNS + verify** (2026-05-29). `flow.thefibre.app` live, schema applied, app activated, Sjoerd granted admin. Sign-in works cold + via shared SSO. Along the way: rotated `SSO_INTERNAL_SECRET` (Fly now matches all Vercel projects), fixed `thefibre.app` landing not redirecting signed-in users (v0.13.21), made theme/sidebar prefs persist server-side past Safari's 7-day cap (v0.13.22).
 - [x] **Phase C — definition layer** (v0.13.23, Flow v0.2.0, 2026-05-29). Flow CRUD API (`apps/api/src/routes/flow.ts`), Flow Library + create dialog, flow detail + JSON-textarea graph editor with validation + publish. Canvas still deferred to Phase G.
-- [ ] **Phase D — runtime** — add contacts to flows, materialise step/gate tasks, manual step transitions, activity events, contact-detail tab on `apps/web`.
-- [ ] Phases E–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
+- [x] **Phase D — runtime** (v0.13.24, Flow v0.3.0, 2026-05-29). Add contacts to flows; auto-materialise step + gate tasks; run detail with task complete/reopen + gate-validated transitions (+ override); withdraw; activity events (`flow.run.*`, `flow.task.completed`); My Tasks + Contacts-in-motion wired live. Deferred within D: the contact-detail tab on `apps/web` (Flow runs surfaced on a person's platform profile) + a `can_see_person` clause for shared flow_runs.
+- [ ] **Phase E — tasks polish + dashboard** — team tasks, manual task creation, the personal dashboard (My Flows / Contacts in Motion / My Tasks).
+- [ ] Phases F–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md). (Phase G = the visual canvas builder.)
 
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
+import { RunsPanel, type Run } from './runs-panel';
 
 type Graph = {
   steps: unknown[];
@@ -39,6 +40,16 @@ export default async function FlowDetailPage({
 
   const { flow, version, is_draft, graph } = detail;
 
+  // Runs in this flow (best-effort — empty if the flow isn't published yet).
+  let runs: Run[] = [];
+  try {
+    const r = await apiFetch<{ items: Run[] }>(`/api/v1/flow/flows/${id}/runs`);
+    runs = r.items;
+  } catch {
+    runs = [];
+  }
+  const canAddContacts = !!flow.current_version_id && flow.lifecycle === 'active';
+
   return (
     <div className="px-6 py-8 max-w-4xl">
       <Link
@@ -70,6 +81,8 @@ export default async function FlowDetailPage({
           </div>
         </div>
       </div>
+
+      <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />
 
       <FlowEditor
         flowId={flow.id}

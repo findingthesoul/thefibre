@@ -95,3 +95,89 @@ export async function deleteFlow(flowId: string): Promise<ActionResult> {
     return { error: formatApiError(e) };
   }
 }
+
+// --- Phase D runtime actions ---
+
+export async function searchPersons(
+  q: string,
+): Promise<ActionResult<{ id: string; first_name: string | null; last_name: string | null; email: string | null }[]>> {
+  try {
+    const params = new URLSearchParams({ limit: '20' });
+    if (q.trim()) params.set('q', q.trim());
+    const r = await apiFetch<{ items: { id: string; first_name: string | null; last_name: string | null; email: string | null }[] }>(
+      `/api/v1/persons?${params.toString()}`,
+    );
+    return { ok: true, data: r.items };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function startRun(flowId: string, personId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ id: string }>(`/api/v1/flow/flows/${flowId}/runs`, {
+      method: 'POST',
+      body: JSON.stringify({ person_id: personId }),
+    });
+    revalidatePath(`/flows/${flowId}`);
+    return { ok: true, data: r };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function transitionRun(
+  runId: string,
+  transitionId: string,
+  overrideReason?: string | null,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/runs/${runId}/transition`, {
+      method: 'POST',
+      body: JSON.stringify({ transition_id: transitionId, override_reason: overrideReason ?? null }),
+    });
+    revalidatePath(`/runs/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function withdrawRun(runId: string, reason?: string | null): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/runs/${runId}/withdraw`, {
+      method: 'POST',
+      body: JSON.stringify({ reason: reason ?? null }),
+    });
+    revalidatePath(`/runs/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function completeTask(taskId: string, runId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'done' }),
+    });
+    revalidatePath(`/runs/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function reopenTask(taskId: string, runId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/tasks/${taskId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ status: 'open' }),
+    });
+    revalidatePath(`/runs/${runId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
