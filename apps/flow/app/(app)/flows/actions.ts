@@ -181,3 +181,12 @@ export async function reopenTask(taskId: string, runId: string): Promise<ActionR
     return { error: formatApiError(e) };
   }
 }
+
+export async function getRunDetail(runId: string): Promise<ActionResult<unknown>> {
+  try {
+    const data = await apiFetch(`/api/v1/flow/runs/${runId}`);
+    return { ok: true, data };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

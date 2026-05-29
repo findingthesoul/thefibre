@@ -6,6 +6,38 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.27] — 2026-05-29 — Fibre Flow v0.6.0
+
+### Fibre Flow — drag-a-contact-through-the-flow popup
+
+Clicking a contact (on a flow's "Contacts in this flow" list, or on the
+Contacts page) now opens a **popup that shows the whole flow** with the
+person positioned on their current step:
+
+- The person rides a **draggable token** on their current step card.
+- Steps reachable from here **light up** as drop targets; the current step's
+  outgoing edge animates.
+- **Drag the token onto a reachable step** → a **confirmation popup** runs the
+  gate check: if satisfied, confirm and move; if not, it lists the step's gate
+  tasks with one-click complete (the gate re-evaluates live) or an override
+  reason to move anyway.
+- Moving fires the same activity events as before; the popup refreshes to show
+  the person on their new step.
+
+Intuitive runtime — no buttons, you literally drag the person forward. The
+button-based `/runs/[id]` full view is still available via "Full view".
+
+### Added
+- `apps/flow/app/(app)/flows/[id]/run-modal.tsx` — React Flow read-only graph
+  with a draggable person token + confirm-move sub-popup.
+- `apps/flow/app/(app)/contacts/contacts-list.tsx` — opens the modal from the
+  Contacts page.
+- `getRunDetail` server action.
+
+### Changed — API
+- `GET /flow/runs/:id` now also returns the run's full version `graph`
+  (steps + transitions) so the popup can lay the flow out.
+
 ## [0.13.26] — 2026-05-29 — Fibre Flow v0.5.0
 
 ### Fibre Flow — drag-and-drop visual builder (Phase G)

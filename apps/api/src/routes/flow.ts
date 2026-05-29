@@ -873,7 +873,10 @@ flowRoutes.get('/runs/:id', async (c) => {
     });
   }
 
-  return c.json({ run: { ...run, step }, tasks: tasks ?? [], transitions });
+  // Full graph of the run's version, for visual layout in the contact popup.
+  const graph = await loadGraph(db, run.flow_version_id);
+
+  return c.json({ run: { ...run, step }, tasks: tasks ?? [], transitions, graph });
 });
 
 // ---------------------------------------------------------------------------

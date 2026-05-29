@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { UserPlus, X, ChevronRight, Search } from 'lucide-react';
 import { searchPersons, startRun } from '../actions';
+import { RunModal } from './run-modal';
 
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 export type Run = {
@@ -42,6 +42,7 @@ export function RunsPanel({
   canAdd: boolean;
 }) {
   const [adding, setAdding] = useState(false);
+  const [openRunId, setOpenRunId] = useState<string | null>(null);
 
   return (
     <div className="mt-10">
@@ -70,10 +71,10 @@ export function RunsPanel({
             const person = one(r.person);
             const step = one(r.step);
             return (
-              <Link
+              <button
                 key={r.id}
-                href={`/runs/${r.id}`}
-                className="flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3 hover:border-line-strong transition-colors"
+                onClick={() => setOpenRunId(r.id)}
+                className="w-full text-left flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3 hover:border-line-strong transition-colors"
               >
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{personName(person)}</div>
@@ -88,13 +89,14 @@ export function RunsPanel({
                   {r.status}
                 </span>
                 <ChevronRight size={16} className="text-ink-muted shrink-0" />
-              </Link>
+              </button>
             );
           })}
         </div>
       )}
 
       {adding && <AddContactDialog flowId={flowId} onClose={() => setAdding(false)} />}
+      {openRunId && <RunModal runId={openRunId} onClose={() => setOpenRunId(null)} />}
     </div>
   );
 }
