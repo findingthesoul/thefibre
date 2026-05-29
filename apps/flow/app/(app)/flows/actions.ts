@@ -214,3 +214,30 @@ export async function toggleFavorite(flowId: string, favorite: boolean): Promise
     return { error: formatApiError(e) };
   }
 }
+
+// --- Phase E: task list actions (revalidate the tasks + dashboard pages) ---
+
+export async function createManualTask(input: {
+  title: string;
+  due_at?: string | null;
+}): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/flow/tasks', { method: 'POST', body: JSON.stringify(input) });
+    revalidatePath('/tasks');
+    revalidatePath('/dashboard');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function setTaskStatus(taskId: string, status: 'open' | 'done'): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify({ status }) });
+    revalidatePath('/tasks');
+    revalidatePath('/dashboard');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

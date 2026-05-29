@@ -6,6 +6,23 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.33] — 2026-05-29 — Fibre Flow v0.10.0
+
+### Fibre Flow Phase E — dashboard counts + actionable tasks
+
+- **Home shows live counts** — the My-tasks card shows your open-task count, the
+  Contacts card shows how many people are in motion (active runs).
+- **Tasks are now actionable** — tick a task done (or reopen) right from the
+  list, and **quick-add** a personal task (type + Enter). Gate/flow tasks still
+  link out to their run.
+
+### Added — API
+- `POST /flow/tasks` — create a manual personal task.
+
+### Added — frontend
+- `apps/flow/app/(app)/tasks/tasks-list.tsx` (inline complete + quick-add);
+  dashboard task/motion counts; `createManualTask` + `setTaskStatus` actions.
+
 ## [0.13.32] — 2026-05-29 — Fibre Flow v0.9.0
 
 ### Fibre Flow — favourites + tab reorder

@@ -22,9 +22,17 @@ const LIFECYCLE_STYLE: Record<string, string> = {
 
 export default async function FlowDashboard() {
   let favorites: FlowRow[] = [];
+  let taskCount = 0;
+  let motionCount = 0;
   try {
-    const r = await apiFetch<{ items: FlowRow[] }>('/api/v1/flow/flows?favorite=1');
-    favorites = r.items;
+    const [favR, taskR, runR] = await Promise.all([
+      apiFetch<{ items: FlowRow[] }>('/api/v1/flow/flows?favorite=1'),
+      apiFetch<{ items: unknown[] }>('/api/v1/flow/tasks?scope=mine&status=open'),
+      apiFetch<{ items: unknown[] }>('/api/v1/flow/runs?status=active'),
+    ]);
+    favorites = favR.items;
+    taskCount = taskR.items.length;
+    motionCount = runR.items.length;
   } catch {
     /* non-fatal — dashboard still renders the quick-links */
   }
@@ -79,12 +87,16 @@ export default async function FlowDashboard() {
           href="/tasks"
           icon={CheckSquare}
           title="My tasks"
+          count={taskCount}
+          countLabel={taskCount === 1 ? 'open task' : 'open tasks'}
           body="The actionable layer. Tasks born from flow gates, plus anything you add manually."
         />
         <DashCard
           href="/contacts"
           icon={Users}
           title="Contacts"
+          count={motionCount}
+          countLabel={motionCount === 1 ? 'in motion' : 'in motion'}
           body="The people you have in motion. Their position in each flow, their open tasks, their activity."
         />
       </div>
@@ -97,19 +109,33 @@ function DashCard({
   icon: Icon,
   title,
   body,
+  count,
+  countLabel,
 }: {
   href: string;
   icon: typeof Workflow;
   title: string;
   body: string;
+  count?: number;
+  countLabel?: string;
 }) {
   return (
     <Link
       href={href}
       className="block rounded-lg border border-line bg-white p-5 hover:border-line-strong transition-colors"
     >
-      <Icon size={20} strokeWidth={1.75} className="text-ink-muted" />
-      <div className="mt-3 text-base font-medium">{title}</div>
+      <div className="flex items-center justify-between">
+        <Icon size={20} strokeWidth={1.75} className="text-ink-muted" />
+        {count != null && (
+          <span className="text-2xl font-medium tabular-nums leading-none">{count}</span>
+        )}
+      </div>
+      <div className="mt-3 text-base font-medium">
+        {title}
+        {count != null && countLabel && (
+          <span className="ml-1 text-xs font-normal text-ink-muted">· {countLabel}</span>
+        )}
+      </div>
       <p className="mt-1 text-sm text-ink-subtle leading-relaxed">{body}</p>
     </Link>
   );

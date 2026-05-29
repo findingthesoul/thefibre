@@ -1292,3 +1292,43 @@ flowRoutes.get('/runs', async (c) => {
   }
   return c.json({ items: data ?? [] });
 });
+
+// ---------------------------------------------------------------------------
+// POST /tasks — create a manual task (assigned to the caller by default).
+// ---------------------------------------------------------------------------
+const CreateTask = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(2000).optional().nullable(),
+  due_at: z.string().datetime().optional().nullable(),
+  contact_id: z.string().uuid().optional().nullable(),
+  flow_run_id: z.string().uuid().optional().nullable(),
+});
+
+flowRoutes.post('/tasks', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const body = CreateTask.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data, error } = await db
+    .from('flow_task')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      flow_run_id: body.data.flow_run_id ?? null,
+      title: body.data.title,
+      description: body.data.description ?? null,
+      actor_type: 'personal',
+      assignee_user_id: ctx.userId,
+      contact_id: body.data.contact_id ?? null,
+      due_at: body.data.due_at ?? null,
+      status: 'open',
+      created_by: ctx.userId,
+    })
+    .select('id, title, status')
+    .single();
+  if (error) {
+    console.error('[flow] create task', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ task: data }, 201);
+});
