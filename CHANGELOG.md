@@ -6,6 +6,29 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.22] — 2026-05-29
+
+### Fix: theme / sidebar preferences now persist across sessions (Safari)
+
+Theme and sidebar-mode choices were written client-side via
+`document.cookie`. Safari's ITP caps **all** JavaScript-set first-party
+cookies to a 7-day lifetime regardless of the requested max-age, so the
+preference silently reverted. The cookies were already host-only (no
+`domain`), so per-app isolation was fine — it was persistence that broke.
+
+### Changed
+- New `lib/prefs-actions.ts` Server Action (`savePref`) in web, meet, and
+  flow. Writes `thefibre.theme` / `thefibre.sidebar` from the server via
+  `Set-Cookie` (1-year max-age, host-only, `sameSite=lax`, not httpOnly so
+  the no-flash `ThemeScript` can still read it). Server-set cookies aren't
+  subject to Safari's 7-day script-cookie cap.
+- `user-menu.tsx` (all three apps) now calls `savePref` instead of writing
+  `document.cookie`. Theme still applies instantly client-side via
+  `applyTheme()`; sidebar awaits the save before `router.refresh()` so the
+  server layout re-reads the new value.
+- Each app keeps its own preference (host-only cookie, per subdomain) —
+  Meet can be dark while Flow is light.
+
 ## [0.13.21] — 2026-05-29
 
 ### Fix: returning to `thefibre.app` while signed in looked like a logout

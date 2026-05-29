@@ -22,10 +22,7 @@ import {
   type SidebarMode,
   type Theme,
 } from '@/lib/prefs-shared';
-
-function setCookie(name: string, value: string) {
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-}
+import { savePref } from '@/lib/prefs-actions';
 
 function applyTheme(theme: Theme) {
   const dark =
@@ -74,14 +71,17 @@ export function UserMenu({
 
   function pickTheme(t: Theme) {
     setTheme(t);
-    setCookie(COOKIE_THEME, t);
-    applyTheme(t);
+    applyTheme(t); // instant visual; cookie persists server-side
+    void savePref(COOKIE_THEME, t);
   }
 
   function pickSidebar(s: SidebarMode) {
     setSidebar(s);
-    setCookie(COOKIE_SIDEBAR, s);
-    startTransition(() => router.refresh());
+    // Persist server-side first, then refresh so the server layout re-reads it.
+    startTransition(async () => {
+      await savePref(COOKIE_SIDEBAR, s);
+      router.refresh();
+    });
   }
 
   async function signOut() {
