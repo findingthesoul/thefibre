@@ -71,9 +71,10 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 **Phase status:**
 - [x] **Phase A — `meet_team` → `team` rename** (v0.13.13, deployed 2026-05-17). Migration `20260517220000_rename_meet_team_to_team.sql` live; API + web + meet redeployed.
 - [x] **Phase B1+B2 — Schema + app shell** (v0.13.20, 2026-05-20). Nine `flow_*` tables, `fibre-flow` registered, `apps/flow/` skeleton typechecks + builds clean. Migration `20260520120000_fibre_flow_schema.sql` is in the tree, **not yet applied to remote**.
-- [ ] **Phase B3 — Vercel project + DNS** for `flow.thefibre.app`. Sjoerd-action: create Vercel project rooted at `apps/flow`, set the same env vars Meet has, add CNAME for `flow.thefibre.app`. Once that's in place, deploy + apply migration together.
-- [ ] **Phase B4 — Verify in production** with the new shell.
-- [ ] Phases C–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
+- [x] **Phase B3/B4 — Vercel project + DNS + verify** (2026-05-29). `flow.thefibre.app` live, schema applied, app activated, Sjoerd granted admin. Sign-in works cold + via shared SSO. Along the way: rotated `SSO_INTERNAL_SECRET` (Fly now matches all Vercel projects), fixed `thefibre.app` landing not redirecting signed-in users (v0.13.21), made theme/sidebar prefs persist server-side past Safari's 7-day cap (v0.13.22).
+- [x] **Phase C — definition layer** (v0.13.23, Flow v0.2.0, 2026-05-29). Flow CRUD API (`apps/api/src/routes/flow.ts`), Flow Library + create dialog, flow detail + JSON-textarea graph editor with validation + publish. Canvas still deferred to Phase G.
+- [ ] **Phase D — runtime** — add contacts to flows, materialise step/gate tasks, manual step transitions, activity events, contact-detail tab on `apps/web`.
+- [ ] Phases E–J — see [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
 
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)

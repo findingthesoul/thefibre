@@ -13,6 +13,7 @@ import { ssoRoutes } from './routes/sso.js';
 import { signupRequestsRoutes } from './routes/signup-requests.js';
 import { workspaceAppsRoutes } from './routes/workspace-apps.js';
 import { meetRoutes } from './routes/meet.js';
+import { flowRoutes } from './routes/flow.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
 
@@ -96,6 +97,7 @@ v1.route('/sso', ssoRoutes);
 v1.route('/signup-requests', signupRequestsRoutes);
 v1.route('/workspace-apps', workspaceAppsRoutes);
 v1.route('/meet', meetRoutes);
+v1.route('/flow', flowRoutes);
 v1.route('/apps', appsRoutes);
 v1.route('/auth-hook', authHookRoutes);
 app.route('/', v1);

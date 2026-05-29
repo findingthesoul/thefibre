@@ -6,6 +6,32 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.23] — 2026-05-29 — Fibre Flow v0.2.0
+
+### Fibre Flow Phase C — the definition layer
+
+Flows can now be created, defined, versioned, and published. The visual
+canvas is still deferred (Phase G); definitions are edited as JSON for now,
+against the same underlying graph the canvas will later render.
+
+### Added — API (`apps/api/src/routes/flow.ts`)
+- `GET /api/v1/flow/flows` — list visible flows (RLS-scoped) with active-run counts; `?lifecycle=` / `?scope=` filters.
+- `POST /api/v1/flow/flows` — create a draft flow + its first version.
+- `GET /api/v1/flow/flows/:id` — flow metadata + the editable (or current) version's full graph, round-tripped by step `key`.
+- `PATCH /api/v1/flow/flows/:id` — metadata + lifecycle (draft/active/closed/archived) + visibility.
+- `PUT /api/v1/flow/flows/:id/graph` — replace the draft version's graph from JSON. Validates: unique step keys, exactly one `entry` step, ≥1 end step, transitions reference real keys, contact gate tasks require `contact_action_type`. Wipes + re-inserts steps/transitions/gates/defaults atomically per draft.
+- `POST /api/v1/flow/flows/:id/publish` — publish the draft (must be non-empty), set `current_version_id`, flip lifecycle to `active`. Published versions are immutable; editing a published flow clones a fresh draft (version N+1).
+- `DELETE /api/v1/flow/flows/:id` — soft delete.
+
+### Added — Flow frontend (`apps/flow`)
+- **Flow Library** (`/flows`) — list with lifecycle chips, scope, active-run count; empty state; "New flow" dialog (Personal / Workspace; team scope deferred pending a team picker).
+- **Flow detail + JSON editor** (`/flows/[id]`) — edit the graph as JSON with a starter template, inline schema crib, Save draft / Publish, and full API error surfacing in the banner (per the read-the-error rule).
+
+### Notes
+- All flow routes run through `userClient(jwt)`; RLS enforces workspace +
+  `has_app_membership('fibre-flow')` + scope/visibility. No service-role.
+- Flow's user-facing version → **v0.2.0**.
+
 ## [0.13.22] — 2026-05-29
 
 ### Fix: theme / sidebar preferences now persist across sessions (Safari)
