@@ -81,7 +81,6 @@ type RunNodeData = {
   token: string | null;
   onTokenDragStart: () => void;
   onTokenDragEnd: () => void;
-  onPickToggle: () => void;
   onDropToken: (key: string) => void;
   stepKey: string;
 };
@@ -89,9 +88,11 @@ type RunNodeData = {
 function RunStepNode({ data }: NodeProps) {
   const d = data as RunNodeData;
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
-  // A step is an active drop/click target while the user is dragging OR has
-  // "picked up" the token (click-to-move — robust where HTML5 DnD isn't).
+  // A step is an active target while the user is dragging OR has "picked up"
+  // the token. Clicks are handled by React Flow's onNodeClick (reliable),
+  // not inner onClick (which the node wrapper swallows).
   const active = (d.dragging || d.picking) && d.isTarget;
+  const clickable = d.isCurrent || active;
   return (
     <div
       onDragOver={(e) => {
@@ -101,12 +102,11 @@ function RunStepNode({ data }: NodeProps) {
         e.preventDefault();
         if (d.isTarget) d.onDropToken(d.stepKey);
       }}
-      onClick={() => {
-        if (active) d.onDropToken(d.stepKey);
-      }}
       className={`rounded-lg border-2 ${style.bg} ${
         d.isCurrent ? 'border-neutral-800 ring-2 ring-neutral-300' : style.border
-      } ${active ? 'border-dashed border-amber-500 ring-2 ring-amber-300 cursor-pointer' : ''} shadow-sm`}
+      } ${active ? 'border-dashed border-amber-500 ring-2 ring-amber-300' : ''} ${
+        clickable ? 'cursor-pointer' : ''
+      } shadow-sm`}
       style={{ width: 176 }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -117,13 +117,8 @@ function RunStepNode({ data }: NodeProps) {
             draggable
             onDragStart={d.onTokenDragStart}
             onDragEnd={d.onTokenDragEnd}
-            onPointerDown={(e) => e.stopPropagation()}
-            onClick={(e) => {
-              e.stopPropagation();
-              d.onPickToggle();
-            }}
-            title="Click to pick up, then click a highlighted step — or drag"
-            className={`inline-flex items-center gap-1 rounded-full text-[11px] font-medium pl-1.5 pr-2 py-1 cursor-grab active:cursor-grabbing shrink-0 ${
+            title="Click the card to pick up / drop, then click a highlighted step — or drag"
+            className={`inline-flex items-center gap-1 rounded-full text-[11px] font-medium pl-1.5 pr-2 py-1 shrink-0 ${
               d.picking ? 'bg-amber-500 text-white ring-2 ring-amber-300 animate-pulse' : 'bg-neutral-900 text-white'
             }`}
           >
@@ -204,7 +199,6 @@ function Graph({
       token: s.key === currentKey ? initials(person) : null,
       onTokenDragStart: () => setDragging(true),
       onTokenDragEnd: () => setDragging(false),
-      onPickToggle: () => setPicking(!picking),
       onDropToken,
     } as RunNodeData,
   }));
@@ -219,15 +213,26 @@ function Graph({
 
   const nodeTypes = useMemo(() => ({ runStep: RunStepNode }), []);
 
+  // Reliable click handling via React Flow's own node-click event (inner-DOM
+  // onClick gets swallowed by the node wrapper). Click the current step to
+  // pick up / drop the token; while picking, click a reachable step to move.
+  const onNodeClick = (_: unknown, node: Node) => {
+    if (node.id === currentKey) {
+      setPicking(!picking);
+    } else if (picking && targetKeys.has(node.id)) {
+      onDropToken(node.id);
+    }
+  };
+
   return (
     <div style={{ height: 380 }}>
       <ReactFlow
         nodes={nodes}
         edges={edges}
         nodeTypes={nodeTypes}
+        onNodeClick={onNodeClick}
         nodesDraggable={false}
         nodesConnectable={false}
-        elementsSelectable={false}
         panOnDrag={false}
         zoomOnScroll={false}
         panOnScroll={false}
@@ -342,12 +347,13 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
               <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
                 {picking ? (
                   <span className="text-amber-700 font-medium">
-                    Now click a highlighted step to move {initials(person)} there.
+                    Now click a highlighted step to move {initials(person)} there (or click the current step again
+                    to cancel).
                   </span>
                 ) : (
                   <>
-                    Click <span className="font-medium">{initials(person)}</span> to pick them up, then click a
-                    highlighted step — or drag the token. Reachable steps light up.
+                    Click the <span className="font-medium">{detail.run.step?.name}</span> card to pick up{' '}
+                    {initials(person)}, then click a highlighted step. Reachable steps light up.
                   </>
                 )}
               </div>

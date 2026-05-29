@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.29] — 2026-05-29 — Fibre Flow v0.6.2
+
+### Fix: contact still wouldn't move (click handlers swallowed by React Flow nodes)
+
+The click-to-move handlers were on elements *inside* the React Flow node, which
+the node wrapper swallows — so neither the token click nor the target click
+fired (confirmed in Chrome too). Switched to React Flow's `onNodeClick` (the
+same reliable handler the builder canvas uses): click the **current step card**
+to pick up / drop the person, then click a highlighted reachable step to open
+the confirm-move popup. Removed `elementsSelectable={false}` (which could
+suppress node clicks).
+
 ## [0.13.28] — 2026-05-29 — Fibre Flow v0.6.1
 
 ### Fix: moving a contact didn't work in Safari (HTML5 drag unreliable in React Flow)
