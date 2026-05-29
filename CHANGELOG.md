@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.30] — 2026-05-29 — Fibre Flow v0.7.0
+
+### Fibre Flow — Builder / Flows tabs on the flow detail page
+
+Split the flow detail page into two tabs:
+- **Builder** — the visual canvas + the Advanced JSON disclosure (designing the flow).
+- **Flows** — the contacts moving through it (the runs panel; tab shows a count).
+
+Both panes stay mounted (CSS-hidden) so switching tabs never loses unsaved
+canvas edits.
+
+- `apps/flow/app/(app)/flows/[id]/flow-tabs.tsx`.
+
 ## [0.13.29] — 2026-05-29 — Fibre Flow v0.6.2
 
 ### Fix: contact still wouldn't move (click handlers swallowed by React Flow nodes)

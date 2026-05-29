@@ -45,7 +45,7 @@ export function RunsPanel({
   const [openRunId, setOpenRunId] = useState<string | null>(null);
 
   return (
-    <div className="mt-10">
+    <div className="mt-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-medium">Contacts in this flow</h2>
         {canAdd && (

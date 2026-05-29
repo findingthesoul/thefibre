@@ -4,6 +4,7 @@ import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
 import { FlowCanvas } from './flow-canvas';
+import { FlowTabs } from './flow-tabs';
 import { RunsPanel, type Run } from './runs-panel';
 
 type Graph = {
@@ -83,22 +84,28 @@ export default async function FlowDetailPage({
         </div>
       </div>
 
-      <div className="mt-8">
-        <h2 className="text-sm font-medium mb-2">Builder</h2>
-        {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-        <FlowCanvas flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph as any} />
-      </div>
-
-      <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />
-
-      <details className="mt-10 group">
-        <summary className="cursor-pointer text-sm text-ink-muted hover:text-ink select-none">
-          Advanced — edit graph as JSON
-        </summary>
-        <div className="mt-2">
-          <FlowEditor flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph} />
-        </div>
-      </details>
+      <FlowTabs
+        flowCount={runs.length}
+        builder={
+          <div className="mt-4 space-y-6">
+            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+            <FlowCanvas flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph as any} />
+            <details className="group">
+              <summary className="cursor-pointer text-sm text-ink-muted hover:text-ink select-none">
+                Advanced — edit graph as JSON
+              </summary>
+              <div className="mt-2">
+                <FlowEditor flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph} />
+              </div>
+            </details>
+          </div>
+        }
+        flows={
+          <div className="mt-2">
+            <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />
+          </div>
+        }
+      />
     </div>
   );
 }
