@@ -77,9 +77,11 @@ type RunNodeData = {
   isCurrent: boolean;
   isTarget: boolean;
   dragging: boolean;
+  picking: boolean;
   token: string | null;
   onTokenDragStart: () => void;
   onTokenDragEnd: () => void;
+  onPickToggle: () => void;
   onDropToken: (key: string) => void;
   stepKey: string;
 };
@@ -87,7 +89,9 @@ type RunNodeData = {
 function RunStepNode({ data }: NodeProps) {
   const d = data as RunNodeData;
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
-  const dropActive = d.dragging && d.isTarget;
+  // A step is an active drop/click target while the user is dragging OR has
+  // "picked up" the token (click-to-move — robust where HTML5 DnD isn't).
+  const active = (d.dragging || d.picking) && d.isTarget;
   return (
     <div
       onDragOver={(e) => {
@@ -97,9 +101,12 @@ function RunStepNode({ data }: NodeProps) {
         e.preventDefault();
         if (d.isTarget) d.onDropToken(d.stepKey);
       }}
+      onClick={() => {
+        if (active) d.onDropToken(d.stepKey);
+      }}
       className={`rounded-lg border-2 ${style.bg} ${
         d.isCurrent ? 'border-neutral-800 ring-2 ring-neutral-300' : style.border
-      } ${dropActive ? 'border-dashed border-neutral-800 ring-2 ring-amber-300' : ''} shadow-sm`}
+      } ${active ? 'border-dashed border-amber-500 ring-2 ring-amber-300 cursor-pointer' : ''} shadow-sm`}
       style={{ width: 176 }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -110,14 +117,21 @@ function RunStepNode({ data }: NodeProps) {
             draggable
             onDragStart={d.onTokenDragStart}
             onDragEnd={d.onTokenDragEnd}
-            title="Drag to a reachable step"
-            className="inline-flex items-center gap-1 rounded-full bg-neutral-900 text-white text-[11px] font-medium pl-1.5 pr-2 py-1 cursor-grab active:cursor-grabbing shrink-0"
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => {
+              e.stopPropagation();
+              d.onPickToggle();
+            }}
+            title="Click to pick up, then click a highlighted step — or drag"
+            className={`inline-flex items-center gap-1 rounded-full text-[11px] font-medium pl-1.5 pr-2 py-1 cursor-grab active:cursor-grabbing shrink-0 ${
+              d.picking ? 'bg-amber-500 text-white ring-2 ring-amber-300 animate-pulse' : 'bg-neutral-900 text-white'
+            }`}
           >
             <GripVertical size={11} />
             {d.token}
           </span>
         )}
-        {dropActive && <ArrowRight size={14} className="text-amber-600 shrink-0" />}
+        {active && <ArrowRight size={14} className="text-amber-600 shrink-0" />}
       </div>
       <Handle type="source" position={Position.Right} className="!opacity-0" />
     </div>
@@ -155,11 +169,15 @@ function Graph({
   detail,
   dragging,
   setDragging,
+  picking,
+  setPicking,
   onDropToken,
 }: {
   detail: Detail;
   dragging: boolean;
   setDragging: (v: boolean) => void;
+  picking: boolean;
+  setPicking: (v: boolean) => void;
   onDropToken: (key: string) => void;
 }) {
   const person = one(detail.run.person);
@@ -182,9 +200,11 @@ function Graph({
       isCurrent: s.key === currentKey,
       isTarget: targetKeys.has(s.key),
       dragging,
+      picking,
       token: s.key === currentKey ? initials(person) : null,
       onTokenDragStart: () => setDragging(true),
       onTokenDragEnd: () => setDragging(false),
+      onPickToggle: () => setPicking(!picking),
       onDropToken,
     } as RunNodeData,
   }));
@@ -226,6 +246,7 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  const [picking, setPicking] = useState(false);
   const [confirmT, setConfirmT] = useState<Transition | null>(null);
   const [busy, setBusy] = useState(false);
   const [moveError, setMoveError] = useState<string | null>(null);
@@ -243,6 +264,7 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
 
   function onDropToken(targetKey: string) {
     setDragging(false);
+    setPicking(false);
     const t = detail?.transitions.find((tr) => tr.to_step?.key === targetKey) ?? null;
     if (t) {
       setMoveError(null);
@@ -318,8 +340,16 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
           <>
             {detail.run.status === 'active' ? (
               <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
-                Drag <span className="font-medium">{initials(person)}</span> onto a highlighted step to move
-                them. Steps you can reach from here light up.
+                {picking ? (
+                  <span className="text-amber-700 font-medium">
+                    Now click a highlighted step to move {initials(person)} there.
+                  </span>
+                ) : (
+                  <>
+                    Click <span className="font-medium">{initials(person)}</span> to pick them up, then click a
+                    highlighted step — or drag the token. Reachable steps light up.
+                  </>
+                )}
               </div>
             ) : (
               <div className="px-5 py-2 text-xs text-ink-muted text-center">
@@ -327,7 +357,14 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
               </div>
             )}
             <ReactFlowProvider>
-              <Graph detail={detail} dragging={dragging} setDragging={setDragging} onDropToken={onDropToken} />
+              <Graph
+                detail={detail}
+                dragging={dragging}
+                setDragging={setDragging}
+                picking={picking}
+                setPicking={setPicking}
+                onDropToken={onDropToken}
+              />
             </ReactFlowProvider>
           </>
         )}

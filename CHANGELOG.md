@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.28] — 2026-05-29 — Fibre Flow v0.6.1
+
+### Fix: moving a contact didn't work in Safari (HTML5 drag unreliable in React Flow)
+
+The drag-the-token interaction relied on HTML5 drag-and-drop, which is flaky
+inside React Flow's transformed viewport — especially in Safari. Added a
+robust **click-to-move** path alongside drag: click the person token to "pick
+them up" (it turns amber and pulses, reachable steps highlight), then click a
+highlighted step to open the confirm-move popup. Drag still works where the
+browser supports it; both routes share the same confirmation. Token also
+`stopPropagation`s pointerdown so React Flow doesn't swallow the gesture.
+
 ## [0.13.27] — 2026-05-29 — Fibre Flow v0.6.0
 
 ### Fibre Flow — drag-a-contact-through-the-flow popup
