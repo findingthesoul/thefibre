@@ -6,6 +6,28 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.21] — 2026-05-29
+
+### Fix: returning to `thefibre.app` while signed in looked like a logout
+
+After signing in and visiting `meet`/`flow`, navigating back to
+`thefibre.app` showed the marketing landing page with a sign-in link —
+appearing as if the session had dropped. It hadn't: cross-subdomain SSO
+was working (the `.thefibre.app` cookie is shared, which is why meet/flow
+stayed logged in). The root page (`apps/web/app/page.tsx`) just rendered
+the public landing page **unconditionally**, with no auth check — unlike
+meet/flow, whose root pages redirect signed-in users to `/dashboard`.
+
+### Changed
+- `apps/web/app/page.tsx` is now an async server component that calls
+  `getUser()` and `redirect('/dashboard')` for authenticated users,
+  mirroring meet/flow. Signed-out visitors still get the marketing page.
+
+### Also
+- Bundle analysis confirmed `NEXT_PUBLIC_COOKIE_DOMAIN=.thefibre.app` is
+  correctly baked into all three frontends — the cookie scope was never
+  the issue.
+
 ## [0.13.20] — 2026-05-20 — Fibre Flow v0.1.0
 
 ### Fibre Flow lands as the fourth in-family app (Phase B)

@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { redirect } from 'next/navigation';
+import { serverSupabase } from '@/lib/supabase/server';
 import { SignInLink } from './sign-in-button';
 import { APPS, ENTITY, BRAND_ASSETS } from '@thefibre/shared';
 
@@ -8,7 +10,17 @@ const FIBRE = APPS['fibre-platform'];
 // /brand/the-fibre.png. BRAND_ASSETS.logoUrl is the absolute URL used in
 // emails — same file, different surface.
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  // If already signed in, jump straight to the dashboard — mirrors meet/flow.
+  // Without this, an authenticated user returning to thefibre.app/ sees the
+  // public marketing page and assumes they've been logged out (the session is
+  // actually intact — shared across .thefibre.app subdomains).
+  const supabase = await serverSupabase();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (user) redirect('/dashboard');
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
