@@ -582,6 +582,15 @@ function EdgePanel({
   const d = edge.data as EdgeData;
   return (
     <Drawer title="Transition" onClose={onClose}>
+      <datalist id="flow-contact-action-types">
+        <option value="meeting_booked">Booked a Fibre Meet</option>
+        <option value="meeting_requested">Requested a Meet (needs approval)</option>
+        <option value="meeting_attended">Attended a Meet</option>
+        <option value="thread.enrolment.attended">Attended a Thread session</option>
+        <option value="signed_contract">Signed a contract</option>
+        <option value="confirmed_attendance">Confirmed attendance</option>
+        <option value="submitted_form">Submitted a form</option>
+      </datalist>
       <Field label="Label">
         <input className={inputCls} value={d.label} onChange={(e) => onPatch({ label: e.target.value })} />
       </Field>
@@ -629,7 +638,7 @@ function EdgePanel({
                   next[i] = {
                     ...t,
                     actor_type: actor,
-                    contact_action_type: actor === 'contact' ? t.contact_action_type ?? 'action' : null,
+                    contact_action_type: actor === 'contact' ? t.contact_action_type ?? 'meeting_booked' : null,
                   };
                   onPatch({ gate_tasks: next });
                 }}
@@ -641,16 +650,23 @@ function EdgePanel({
                 ))}
               </select>
               {t.actor_type === 'contact' && (
-                <input
-                  className={inputCls}
-                  placeholder="contact action type (e.g. signed_contract)"
-                  value={t.contact_action_type ?? ''}
-                  onChange={(e) => {
-                    const next = [...d.gate_tasks];
-                    next[i] = { ...t, contact_action_type: e.target.value || null };
-                    onPatch({ gate_tasks: next });
-                  }}
-                />
+                <>
+                  <input
+                    className={inputCls}
+                    list="flow-contact-action-types"
+                    placeholder="action type — auto-completes from activity"
+                    value={t.contact_action_type ?? ''}
+                    onChange={(e) => {
+                      const next = [...d.gate_tasks];
+                      next[i] = { ...t, contact_action_type: e.target.value || null };
+                      onPatch({ gate_tasks: next });
+                    }}
+                  />
+                  <p className="text-[11px] text-ink-muted leading-snug">
+                    When an activity of this type is logged for the contact (e.g. they book a Meet), this
+                    task auto-completes. Pick a known type or type your own (logged manually).
+                  </p>
+                </>
               )}
               <div className="flex items-center justify-between">
                 <label className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">

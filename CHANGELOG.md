@@ -6,6 +6,29 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.35] — 2026-05-29 — Fibre Flow v0.11.0
+
+### Fibre Flow Phase F — contact gate tasks auto-complete from activity
+
+The cross-app magic: when any app writes an activity for a person (Meet logs a
+`meeting_booked`, Thread a session attendance, …), Flow closes any open
+**contact** gate task whose `contact_action_type` matches that activity type
+for that contact — so the gate turns green with no manual logging.
+
+- DB trigger `flow_autocomplete_on_activity` (AFTER INSERT on `public.activity`,
+  SECURITY DEFINER). Matches on `(contact_id = person_id, contact_action_type =
+  activity.type, workspace)`. Completes the task; does **not** auto-advance the
+  run (a human still confirms the move — the gate just shows satisfied).
+  Migration `20260529190000_flow_autocomplete_contact_tasks.sql`.
+- Builder: the gate-task `contact_action_type` field now offers a datalist of
+  known activity types (Meet booked / requested / attended, Thread attended,
+  signed contract, …) with an inline explanation; default is `meeting_booked`.
+
+### Note
+- Auto-advancing the run when a gate is fully satisfied is a deliberate future
+  step (which transition? branching?). For now the task completes and the
+  gate reads green.
+
 ## [0.13.34] — 2026-05-29 — Fibre Flow v0.10.1
 
 ### Polish: revert direction in the manual-move popup
