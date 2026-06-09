@@ -5,7 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
 import { FlowCanvas } from './flow-canvas';
 import { FlowTabs } from './flow-tabs';
-import { RunsPanel, type Run } from './runs-panel';
+import { RunsPanel, type Run, type Step } from './runs-panel';
 
 type Graph = {
   steps: unknown[];
@@ -102,7 +102,12 @@ export default async function FlowDetailPage({
         }
         flows={
           <div className="mt-2">
-            <RunsPanel flowId={flow.id} runs={runs} canAdd={canAddContacts} />
+            <RunsPanel
+              flowId={flow.id}
+              runs={runs}
+              steps={(graph.steps ?? []) as Step[]}
+              canAdd={canAddContacts}
+            />
           </div>
         }
       />

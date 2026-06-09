@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.36] — 2026-05-29 — Fibre Flow v0.12.0
+
+### Fibre Flow Phase H — kanban board
+
+The Flows tab now defaults to a **board**: one column per step (colour-accented
+by kind), contact cards grouped by their current step, with avatar, name, and
+time-at-step. A **Board / List** toggle switches views. Click any card → the
+move popup. Withdrawn runs show faded in their column; runs on an old flow
+version fall into an "Other" column.
+
+- `apps/flow/app/(app)/flows/[id]/runs-panel.tsx` gains the `Board` view +
+  toggle; the flow detail page passes the version's `steps` as columns.
+
 ## [0.13.35] — 2026-05-29 — Fibre Flow v0.11.0
 
 ### Fibre Flow Phase F — contact gate tasks auto-complete from activity

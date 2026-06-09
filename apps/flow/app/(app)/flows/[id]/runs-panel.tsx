@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, X, ChevronRight, Search } from 'lucide-react';
+import { UserPlus, X, ChevronRight, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
 import { searchPersons, startRun } from '../actions';
 import { RunModal } from './run-modal';
 
@@ -11,9 +11,12 @@ export type Run = {
   id: string;
   status: string;
   entered_at: string;
+  current_step_entered_at?: string | null;
   person: Person | Person[] | null;
   step: { key: string; name: string; kind: string } | { key: string; name: string; kind: string }[] | null;
 };
+
+export type Step = { key: string; name: string; kind: string };
 
 function one<T>(v: T | T[] | null): T | null {
   if (Array.isArray(v)) return v[0] ?? null;
@@ -26,37 +29,84 @@ function personName(p: Person | null): string {
   return n || p.email || 'Unknown';
 }
 
+function initials(p: Person | null): string {
+  if (!p) return '?';
+  return ((p.first_name?.[0] ?? '') + (p.last_name?.[0] ?? '') || p.email?.[0] || '?').toUpperCase();
+}
+
+function timeAtStep(iso?: string | null): string {
+  if (!iso) return '';
+  const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
+  if (days <= 0) return 'today';
+  if (days === 1) return '1 day';
+  if (days < 30) return `${days} days`;
+  const months = Math.floor(days / 30);
+  return months === 1 ? '1 mo' : `${months} mo`;
+}
+
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-100 text-emerald-800',
   completed: 'bg-blue-100 text-blue-800',
   withdrawn: 'bg-neutral-200 text-neutral-600',
 };
 
+const COL_ACCENT: Record<string, string> = {
+  entry: 'border-t-blue-300',
+  normal: 'border-t-neutral-300',
+  end_positive: 'border-t-emerald-300',
+  end_negative: 'border-t-red-300',
+};
+
 export function RunsPanel({
   flowId,
   runs,
+  steps,
   canAdd,
 }: {
   flowId: string;
   runs: Run[];
+  steps: Step[];
   canAdd: boolean;
 }) {
   const [adding, setAdding] = useState(false);
   const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const [view, setView] = useState<'board' | 'list'>('board');
 
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-medium">Contacts in this flow</h2>
-        {canAdd && (
-          <button
-            onClick={() => setAdding(true)}
-            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
-          >
-            <UserPlus size={15} strokeWidth={1.75} />
-            Add contact
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {runs.length > 0 && (
+            <div className="inline-flex rounded-md border border-line overflow-hidden">
+              <button
+                onClick={() => setView('board')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs ${
+                  view === 'board' ? 'bg-surface-sunken text-ink' : 'text-ink-subtle hover:text-ink'
+                }`}
+              >
+                <LayoutGrid size={14} /> Board
+              </button>
+              <button
+                onClick={() => setView('list')}
+                className={`inline-flex items-center gap-1 px-2.5 py-1.5 text-xs border-l border-line ${
+                  view === 'list' ? 'bg-surface-sunken text-ink' : 'text-ink-subtle hover:text-ink'
+                }`}
+              >
+                <ListIcon size={14} /> List
+              </button>
+            </div>
+          )}
+          {canAdd && (
+            <button
+              onClick={() => setAdding(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
+            >
+              <UserPlus size={15} strokeWidth={1.75} />
+              Add contact
+            </button>
+          )}
+        </div>
       </div>
 
       {runs.length === 0 ? (
@@ -65,6 +115,8 @@ export function RunsPanel({
             ? 'No contacts in this flow yet. Add one to start moving them through.'
             : 'Publish the flow before adding contacts.'}
         </div>
+      ) : view === 'board' ? (
+        <Board runs={runs} steps={steps} onOpen={setOpenRunId} />
       ) : (
         <div className="space-y-2">
           {runs.map((r) => {
@@ -97,6 +149,99 @@ export function RunsPanel({
 
       {adding && <AddContactDialog flowId={flowId} onClose={() => setAdding(false)} />}
       {openRunId && <RunModal runId={openRunId} onClose={() => setOpenRunId(null)} />}
+    </div>
+  );
+}
+
+function Board({
+  runs,
+  steps,
+  onOpen,
+}: {
+  runs: Run[];
+  steps: Step[];
+  onOpen: (id: string) => void;
+}) {
+  // Group active/completed runs by current step key. Withdrawn runs are shown
+  // faded in their step column. Runs whose step isn't in the current version
+  // fall into a trailing "Other" column.
+  const byStep = new Map<string, Run[]>();
+  for (const s of steps) byStep.set(s.key, []);
+  const orphans: Run[] = [];
+  for (const r of runs) {
+    const step = one(r.step);
+    const key = step?.key;
+    if (key && byStep.has(key)) byStep.get(key)!.push(r);
+    else orphans.push(r);
+  }
+
+  const columns: { step: Step; runs: Run[] }[] = steps.map((s) => ({ step: s, runs: byStep.get(s.key) ?? [] }));
+
+  return (
+    <div className="overflow-x-auto pb-2">
+      <div className="flex gap-3 min-w-min">
+        {columns.map(({ step, runs: col }) => (
+          <div key={step.key} className="w-60 shrink-0">
+            <div
+              className={`rounded-t-lg border border-b-0 border-line border-t-2 ${
+                COL_ACCENT[step.kind] ?? 'border-t-neutral-300'
+              } bg-surface-sunken px-3 py-2 flex items-center justify-between`}
+            >
+              <span className="text-xs font-medium truncate">{step.name}</span>
+              <span className="text-[11px] text-ink-muted tabular-nums">{col.length}</span>
+            </div>
+            <div className="rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px]">
+              {col.length === 0 && <div className="text-[11px] text-ink-muted px-1 py-2">—</div>}
+              {col.map((r) => {
+                const person = one(r.person);
+                const withdrawn = r.status === 'withdrawn';
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => onOpen(r.id)}
+                    className={`w-full text-left rounded-md border border-line bg-white px-3 py-2 hover:border-line-strong transition-colors ${
+                      withdrawn ? 'opacity-50' : ''
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white text-[10px] font-medium shrink-0">
+                        {initials(person)}
+                      </span>
+                      <span className="text-sm font-medium truncate flex-1">{personName(person)}</span>
+                    </div>
+                    <div className="mt-1 flex items-center justify-between text-[11px] text-ink-muted">
+                      <span>{timeAtStep(r.current_step_entered_at)}</span>
+                      {withdrawn && <span className="uppercase tracking-wider">withdrawn</span>}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+        {orphans.length > 0 && (
+          <div className="w-60 shrink-0">
+            <div className="rounded-t-lg border border-b-0 border-line border-t-2 border-t-neutral-300 bg-surface-sunken px-3 py-2 flex items-center justify-between">
+              <span className="text-xs font-medium truncate">Other</span>
+              <span className="text-[11px] text-ink-muted tabular-nums">{orphans.length}</span>
+            </div>
+            <div className="rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px]">
+              {orphans.map((r) => {
+                const person = one(r.person);
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => onOpen(r.id)}
+                    className="w-full text-left rounded-md border border-line bg-white px-3 py-2 hover:border-line-strong"
+                  >
+                    <span className="text-sm font-medium truncate">{personName(person)}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
