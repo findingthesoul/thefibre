@@ -1,17 +1,19 @@
 'use client';
 
 import { useState, type ReactNode } from 'react';
-import { Workflow, Users } from 'lucide-react';
+import { Workflow, Users, BarChart3 } from 'lucide-react';
 
-type Tab = 'builder' | 'flows';
+type Tab = 'builder' | 'flows' | 'reports';
 
 export function FlowTabs({
   builder,
   flows,
+  reports,
   flowCount,
 }: {
   builder: ReactNode;
   flows: ReactNode;
+  reports: ReactNode;
   flowCount: number;
 }) {
   const [tab, setTab] = useState<Tab>('flows');
@@ -25,12 +27,16 @@ export function FlowTabs({
         <TabButton active={tab === 'builder'} onClick={() => setTab('builder')} icon={Workflow}>
           Builder
         </TabButton>
+        <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={BarChart3}>
+          Reports
+        </TabButton>
       </div>
 
       {/* Both panes stay mounted (CSS-hidden) so unsaved canvas edits survive a
           tab switch. */}
       <div className={tab === 'builder' ? '' : 'hidden'}>{builder}</div>
       <div className={tab === 'flows' ? '' : 'hidden'}>{flows}</div>
+      <div className={tab === 'reports' ? '' : 'hidden'}>{reports}</div>
     </div>
   );
 }

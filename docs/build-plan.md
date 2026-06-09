@@ -77,7 +77,11 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 - [x] **Phase G — visual builder** (v0.13.26, Flow v0.5.0, 2026-05-29; pulled forward at Sjoerd's request). React Flow canvas: drag + grid-snap (persisted positions), inline card-name editing, click-to-edit side panels for steps + transitions (incl. gate tasks), drag-to-connect, add/delete. JSON editor demoted to an "Advanced" disclosure. Still to refine: auto-layout button, validation hints in-canvas, richer edge routing.
 - [x] **Phase E — dashboard + actionable tasks** (v0.13.33, Flow v0.10.0). Home: favourite flows + live my-tasks / contacts-in-motion counts. Tasks: inline complete/reopen + quick-add manual tasks. Still open within E: team-task view (filter by assignee across the workspace).
 - [x] **Phase F — contact-action automation** (v0.13.35, Flow v0.11.0). DB trigger on `activity` insert auto-completes matching `contact` gate tasks (by `contact_action_type` = activity type). Builder offers known action types. Auto-*advance* of the run when a gate fully satisfies is still a deliberate future step.
-- [ ] Phases H–J — flow board (kanban), lifecycle/hygiene/reports, seed + v1.0. See [`fibreflow-build-plan.md`](./fibreflow-build-plan.md).
+- [x] **Phase H — kanban board** (v0.13.36, Flow v0.12.0). Flows tab defaults to a board (column per step), Board/List toggle.
+- [x] **Phase I — lifecycle + reports** (v0.13.37). Flow-actions menu (close/reopen/archive/restore/delete with active-contact prompt); Reports tab (stat cards + current step distribution).
+- [x] **Phase J — seed + v1.0 cutover** (v0.13.37, **Flow v1.0.0**). `scripts/seed-flow.mjs` demo flow; user-facing version → 1.0.0.
+
+**Fibre Flow is at v1.0 — Phases C–J all shipped.** Remaining polish (not blocking v1): team-task view, `can_see_person` RLS clause for non-admins, flow-gate auto-advance, historical cohort funnel (needs step-history), team-scoped flows (needs a team picker).
 
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)

@@ -6,6 +6,35 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.37] — 2026-05-29 — Fibre Flow v1.0.0 🎉
+
+### Fibre Flow Phases I + J — lifecycle, reports, seed, v1.0
+
+Fibre Flow reaches **v1.0** — a complete people-flow app: design flows on a
+drag-and-drop canvas, put contacts in, move them through gated steps (manually
+or auto-completed by cross-app activity), revert, and watch a kanban board /
+report. Home + Tasks are the daily driver.
+
+#### Lifecycle (Phase I)
+- A flow-actions menu on the flow header: **Close to new contacts** (with an
+  "N contacts still active" prompt), **Reopen**, **Archive** / **Restore**, and
+  **Delete** (soft). Closed flows block new entries but let existing contacts
+  finish.
+
+#### Reports (Phase I)
+- A **Reports** tab per flow: total / active / completed / withdrawn stat
+  cards, plus a current-distribution bar chart across steps. (Honestly scoped:
+  current snapshot, not a historical cohort funnel — that needs step-history
+  tracking, noted inline.)
+
+#### Seed (Phase J)
+- `apps/api/scripts/seed-flow.mjs` — idempotent demo "Partnership Pipeline"
+  flow (5 steps, gated transitions) with a few seeded people placed across
+  steps and their gate tasks materialised. For fresh/demo workspaces.
+
+#### Cutover (Phase J)
+- Fibre Flow user-facing version → **v1.0.0**. Phases C–J all shipped.
+
 ## [0.13.36] — 2026-05-29 — Fibre Flow v0.12.0
 
 ### Fibre Flow Phase H — kanban board

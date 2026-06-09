@@ -5,6 +5,8 @@ import { apiFetch } from '@/lib/api';
 import { FlowEditor } from './editor';
 import { FlowCanvas } from './flow-canvas';
 import { FlowTabs } from './flow-tabs';
+import { FlowReport } from './flow-report';
+import { FlowLifecycleMenu } from './flow-lifecycle';
 import { RunsPanel, type Run, type Step } from './runs-panel';
 
 type Graph = {
@@ -82,6 +84,11 @@ export default async function FlowDetailPage({
             )}
           </div>
         </div>
+        <FlowLifecycleMenu
+          flowId={flow.id}
+          lifecycle={flow.lifecycle}
+          activeRunCount={runs.filter((r) => r.status === 'active').length}
+        />
       </div>
 
       <FlowTabs
@@ -110,6 +117,7 @@ export default async function FlowDetailPage({
             />
           </div>
         }
+        reports={<FlowReport runs={runs} steps={(graph.steps ?? []) as Step[]} />}
       />
     </div>
   );

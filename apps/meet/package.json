@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/meet",
-  "version": "0.13.36",
+  "version": "0.13.37",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3001",
