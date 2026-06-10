@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.49] — 2026-05-29 — Fibre Flow v1.5.0
+
+### Full-screen builder
+
+The builder toolbar gets a **maximise** button that expands the canvas to fill
+the whole screen (fixed overlay) for plenty of room to lay out big flows —
+**Esc** or the minimise button exits, and the view re-fits on toggle. Normal
+(in-page) mode unchanged.
+
 ## [0.13.48] — 2026-05-29 — Fibre Flow v1.4.0
 
 ### Cool-grey canvas + soft floating cards (matching the design references)

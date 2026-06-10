@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ReactFlow,
@@ -33,6 +33,8 @@ import {
   Grid3x3,
   Magnet,
   Check,
+  Maximize2,
+  Minimize2,
 } from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
 
@@ -185,6 +187,21 @@ function CanvasInner({
   const [showGrid, setShowGrid] = useState(true);
   const [snap, setSnap] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // Esc exits fullscreen; refit the canvas when entering/leaving.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const t = setTimeout(() => rf.fitView({ duration: 200, padding: 0.15 }), 80);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      clearTimeout(t);
+    };
+  }, [fullscreen, rf]);
 
   const renameRef = useRef<(id: string, name: string) => void>(() => {});
 
@@ -412,7 +429,13 @@ function CanvasInner({
   if (nodes.length > 0 && !hasEnd) readinessHints.push('Mark a step as an End (positive ✓ or negative ✗).');
 
   return (
-    <div className="rounded-lg border border-line bg-white overflow-hidden">
+    <div
+      className={
+        fullscreen
+          ? 'fixed inset-0 z-50 bg-white flex flex-col'
+          : 'rounded-2xl bg-white ring-1 ring-black/5 shadow-card overflow-hidden'
+      }
+    >
       {/* toolbar */}
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
         <div className="flex items-center gap-2">
@@ -452,6 +475,13 @@ function CanvasInner({
               </>
             )}
           </div>
+          <button
+            onClick={() => setFullscreen((v) => !v)}
+            title={fullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+            className="inline-flex items-center justify-center h-[34px] w-[34px] rounded-md border border-line bg-white hover:border-line-strong text-ink-subtle"
+          >
+            {fullscreen ? <Minimize2 size={15} strokeWidth={1.75} /> : <Maximize2 size={15} strokeWidth={1.75} />}
+          </button>
         </div>
         <div className="flex items-center gap-2">
           {notice && (
@@ -493,7 +523,7 @@ function CanvasInner({
         </div>
       )}
 
-      <div className="relative" style={{ height: 560 }}>
+      <div className={`relative ${fullscreen ? 'flex-1' : ''}`} style={fullscreen ? undefined : { height: 560 }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
