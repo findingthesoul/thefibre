@@ -13,13 +13,27 @@ import {
   addEdge,
   useNodesState,
   useEdgesState,
+  useReactFlow,
   type Node,
   type Edge,
   type Connection,
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { Plus, Save, Rocket, Trash2, X, AlertCircle, CheckCircle2 } from 'lucide-react';
+import {
+  Plus,
+  Save,
+  Rocket,
+  Trash2,
+  X,
+  AlertCircle,
+  CheckCircle2,
+  Wand2,
+  Settings2,
+  Grid3x3,
+  Magnet,
+  Check,
+} from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
 
 // ---------------------------------------------------------------------------
@@ -156,10 +170,15 @@ function CanvasInner({
   initialGraph: InGraph;
 }) {
   const router = useRouter();
+  const rf = useReactFlow();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<{ kind: 'node' | 'edge'; id: string } | null>(null);
+  // Canvas settings (Miro-like).
+  const [showGrid, setShowGrid] = useState(true);
+  const [snap, setSnap] = useState(true);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   const renameRef = useRef<(id: string, name: string) => void>(() => {});
 
@@ -254,6 +273,42 @@ function CanvasInner({
         } as StepData,
       },
     ]);
+  }
+
+  // Auto-arrange: lay nodes out in clean columns by longest-path depth from
+  // the entry step (cycle-safe), rows stacked within each column. Then fit.
+  function autoArrange() {
+    const COL_W = 264;
+    const ROW_H = 132;
+    const ids = nodes.map((n) => n.id);
+    const idSet = new Set(ids);
+    const depth = new Map<string, number>();
+    for (const id of ids) depth.set(id, 0);
+    // Seed entry (kind === 'entry') at depth 0; relax along edges.
+    for (let pass = 0; pass < ids.length + 1; pass++) {
+      let changed = false;
+      for (const e of edges) {
+        if (!idSet.has(e.source) || !idSet.has(e.target)) continue;
+        const nd = (depth.get(e.source) ?? 0) + 1;
+        if (nd > (depth.get(e.target) ?? 0) && nd <= ids.length) {
+          depth.set(e.target, nd);
+          changed = true;
+        }
+      }
+      if (!changed) break;
+    }
+    const rowByCol = new Map<number, number>();
+    setNodes((ns) =>
+      ns.map((n) => {
+        const d = depth.get(n.id) ?? 0;
+        const row = rowByCol.get(d) ?? 0;
+        rowByCol.set(d, row + 1);
+        return { ...n, position: { x: 40 + d * COL_W, y: 40 + row * ROW_H } };
+      }),
+    );
+    setNotice(null);
+    // Fit after the position update paints.
+    setTimeout(() => rf.fitView({ duration: 300, padding: 0.15 }), 60);
   }
 
   function patchNode(id: string, patch: Partial<StepData>) {
@@ -354,12 +409,44 @@ function CanvasInner({
     <div className="rounded-lg border border-line bg-white overflow-hidden">
       {/* toolbar */}
       <div className="flex items-center justify-between border-b border-line px-3 py-2">
-        <button
-          onClick={addStep}
-          className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
-        >
-          <Plus size={15} strokeWidth={2} /> Add step
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={addStep}
+            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
+          >
+            <Plus size={15} strokeWidth={2} /> Add step
+          </button>
+          <button
+            onClick={autoArrange}
+            title="Tidy cards into clean columns"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
+          >
+            <Wand2 size={15} strokeWidth={1.75} /> Auto-arrange
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setSettingsOpen((o) => !o)}
+              title="Canvas settings"
+              className="inline-flex items-center justify-center h-[34px] w-[34px] rounded-md border border-line bg-white hover:border-line-strong text-ink-subtle"
+            >
+              <Settings2 size={15} strokeWidth={1.75} />
+            </button>
+            {settingsOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
+                <div className="absolute left-0 mt-1 w-52 rounded-lg border border-line bg-white shadow-lg py-1 z-20 text-sm">
+                  <ToggleRow icon={Grid3x3} label="Grid" on={showGrid} onClick={() => setShowGrid((v) => !v)} />
+                  <ToggleRow
+                    icon={Magnet}
+                    label="Magnetic (snap)"
+                    on={snap}
+                    onClick={() => setSnap((v) => !v)}
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           {notice && (
             <span className="inline-flex items-center gap-1 text-xs text-emerald-700">
@@ -408,7 +495,7 @@ function CanvasInner({
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
-          snapToGrid
+          snapToGrid={snap}
           snapGrid={[24, 24]}
           onNodeClick={(_, n) => setSelected({ kind: 'node', id: n.id })}
           onEdgeClick={(_, e) => setSelected({ kind: 'edge', id: e.id })}
@@ -416,7 +503,7 @@ function CanvasInner({
           fitView
           proOptions={{ hideAttribution: true }}
         >
-          <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e5e7eb" />
+          {showGrid && <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e2e8f0" />}
           <Controls showInteractive={false} />
         </ReactFlow>
 
@@ -460,6 +547,29 @@ function Drawer({ title, onClose, children }: { title: string; onClose: () => vo
       </div>
       <div className="p-4 space-y-4">{children}</div>
     </div>
+  );
+}
+
+function ToggleRow({
+  icon: Icon,
+  label,
+  on,
+  onClick,
+}: {
+  icon: typeof Grid3x3;
+  label: string;
+  on: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-surface-sunken text-ink-subtle hover:text-ink"
+    >
+      <Icon size={15} strokeWidth={1.75} />
+      <span className="flex-1">{label}</span>
+      {on && <Check size={15} className="text-emerald-600" />}
+    </button>
   );
 }
 

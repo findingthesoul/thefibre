@@ -6,6 +6,16 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.40] — 2026-05-29 — Fibre Flow v1.1.0
+
+### Builder canvas — auto-arrange + grid/snap settings (Miro-like)
+
+- **Auto-arrange** button: tidies cards into clean columns by longest-path depth
+  from the entry step (rows stacked per column), then fits the view. One click
+  to make a messy canvas orderly.
+- **Canvas settings** popover (gear): toggle the **Grid** (dot background) on/off
+  and **Magnetic (snap-to-grid)** on/off — drag freely or snap to the 24px grid.
+
 ## [0.13.39] — 2026-05-29 — Fibre Flow v1.0.2
 
 ### Modernised colour palette
