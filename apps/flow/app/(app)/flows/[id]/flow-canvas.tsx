@@ -338,6 +338,18 @@ function CanvasInner({
   const selectedNode = selected?.kind === 'node' ? nodes.find((n) => n.id === selected.id) : null;
   const selectedEdge = selected?.kind === 'edge' ? edges.find((e) => e.id === selected.id) : null;
 
+  // Proactive publish-readiness hints (computed client-side so the user sees
+  // what's missing before hitting Publish, and how to fix it).
+  const entryCount = nodes.filter((n) => (n.data as StepData).kind === 'entry').length;
+  const hasEnd = nodes.some((n) => {
+    const k = (n.data as StepData).kind;
+    return k === 'end_positive' || k === 'end_negative';
+  });
+  const readinessHints: string[] = [];
+  if (nodes.length > 0 && entryCount === 0) readinessHints.push('Set one step’s Kind to "Entry".');
+  if (nodes.length > 0 && entryCount > 1) readinessHints.push('Only one step can be the Entry — change the extras.');
+  if (nodes.length > 0 && !hasEnd) readinessHints.push('Mark a step as an End (positive ✓ or negative ✗).');
+
   return (
     <div className="rounded-lg border border-line bg-white overflow-hidden">
       {/* toolbar */}
@@ -375,6 +387,16 @@ function CanvasInner({
         <div className="flex items-start gap-2 border-b border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span className="whitespace-pre-wrap">{error}</span>
+        </div>
+      )}
+
+      {!error && readinessHints.length > 0 && (
+        <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <AlertCircle size={16} className="mt-0.5 shrink-0" />
+          <span>
+            To publish: {readinessHints.join(' ')}{' '}
+            <span className="text-amber-700">Click a step card to open its panel and change its Kind.</span>
+          </span>
         </div>
       )}
 

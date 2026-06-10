@@ -6,6 +6,16 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.38] — 2026-05-29 — Fibre Flow v1.0.1
+
+### Builder: proactive publish-readiness hints
+
+Instead of only learning what's missing when Publish fails, the builder now
+shows an amber hint banner the moment the graph isn't publishable — "Mark a
+step as an End (positive ✓ / negative ✗)", "Set one step's Kind to Entry", etc.
+— with a pointer to click a card to open its panel and change its Kind. Makes
+the entry/end requirements discoverable rather than a surprise on publish.
+
 ## [0.13.37] — 2026-05-29 — Fibre Flow v1.0.0 🎉
 
 ### Fibre Flow Phases I + J — lifecycle, reports, seed, v1.0
