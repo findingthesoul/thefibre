@@ -18,9 +18,9 @@ type FlowRow = {
 };
 
 const LIFECYCLE_STYLE: Record<string, string> = {
-  draft: 'bg-amber-50 text-amber-700',
-  active: 'bg-emerald-50 text-emerald-700',
-  closed: 'bg-slate-100 text-slate-600',
+  draft: 'bg-amber-50 text-amber-600',
+  active: 'bg-emerald-50 text-emerald-600',
+  closed: 'bg-slate-100 text-slate-500',
   archived: 'bg-slate-50 text-slate-400',
 };
 
@@ -65,15 +65,17 @@ export default async function FlowsPage() {
           {items.map((f) => (
             <div
               key={f.id}
-              className="flex items-center gap-2 rounded-lg border border-line bg-white pr-3 hover:border-line-strong transition-colors"
+              className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow pr-3"
             >
-              <Link href={`/flows/${f.id}`} className="flex items-center gap-4 flex-1 min-w-0 px-5 py-4">
-                <Workflow size={20} strokeWidth={1.75} className="text-ink-muted shrink-0" />
+              <Link href={`/flows/${f.id}`} className="flex items-center gap-4 flex-1 min-w-0 px-4 py-4">
+                <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                  <Workflow size={18} strokeWidth={1.75} className="text-violet-600" />
+                </div>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="font-medium truncate">{f.name}</span>
                     <span
-                      className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                      className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
                         LIFECYCLE_STYLE[f.lifecycle] ?? ''
                       }`}
                     >
@@ -100,9 +102,11 @@ export default async function FlowsPage() {
 
 function EmptyState() {
   return (
-    <div className="mt-8 rounded-lg border border-line bg-white p-12 text-center">
-      <Workflow size={32} strokeWidth={1.5} className="mx-auto text-ink-muted" />
-      <h2 className="mt-4 text-lg font-medium">No flows yet</h2>
+    <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-12 text-center">
+      <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-violet-50 flex items-center justify-center">
+        <Workflow size={22} strokeWidth={1.5} className="text-violet-600" />
+      </div>
+      <h2 className="text-lg font-semibold tracking-tight">No flows yet</h2>
       <p className="mt-1 text-sm text-ink-subtle max-w-md mx-auto leading-relaxed">
         A flow is a sequence of steps with gate tasks. Create one, define its
         graph, and start moving contacts through it.

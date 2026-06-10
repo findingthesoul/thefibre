@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.45] — 2026-05-29 — Fibre Flow v1.3.1
+
+### Clean-dashboard card style rolled out across Flow
+
+Propagated the Home design language to every surface: Flows library, kanban
+board + list, Tasks (quick-add + rows), Reports stat cards, Contacts, and all
+empty states + dialogs. Hard borders → soft `ring-1 ring-black/5` + `shadow-sm`
+(hover `shadow-md`), `rounded-xl`/`rounded-2xl` corners, tinted rounded icon
+chips + avatar circles, pill-shaped status/lifecycle badges, modals at
+rounded-2xl. Consistent, modern, card-forward throughout.
+
 ## [0.13.44] — 2026-05-29 — Fibre Flow v1.3.0
 
 ### Home dashboard — clean-dashboard-card redesign (direction sample)

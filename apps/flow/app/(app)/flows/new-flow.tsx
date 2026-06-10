@@ -62,7 +62,7 @@ function NewFlowDialog({ onClose }: { onClose: () => void }) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-base font-medium">New flow</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink">

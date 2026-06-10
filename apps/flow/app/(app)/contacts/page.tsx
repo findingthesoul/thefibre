@@ -28,9 +28,11 @@ export default async function ContactsPage() {
       )}
 
       {!loadError && runs.length === 0 && (
-        <div className="mt-8 rounded-lg border border-line bg-white p-12 text-center">
-          <Users size={32} strokeWidth={1.5} className="mx-auto text-ink-muted" />
-          <h2 className="mt-4 text-lg font-medium">Nobody in a flow yet</h2>
+        <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-12 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
+            <Users size={22} strokeWidth={1.5} className="text-indigo-600" />
+          </div>
+          <h2 className="text-lg font-semibold tracking-tight">Nobody in a flow yet</h2>
           <p className="mt-1 text-sm text-ink-subtle max-w-md mx-auto">
             Add contacts to a flow from its page, and they&apos;ll appear here with their
             current step.

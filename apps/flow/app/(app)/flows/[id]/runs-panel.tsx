@@ -110,7 +110,7 @@ export function RunsPanel({
       </div>
 
       {runs.length === 0 ? (
-        <div className="rounded-lg border border-line bg-white p-8 text-center text-sm text-ink-subtle">
+        <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-8 text-center text-sm text-ink-subtle">
           {canAdd
             ? 'No contacts in this flow yet. Add one to start moving them through.'
             : 'Publish the flow before adding contacts.'}
@@ -126,15 +126,18 @@ export function RunsPanel({
               <button
                 key={r.id}
                 onClick={() => setOpenRunId(r.id)}
-                className="w-full text-left flex items-center gap-3 rounded-lg border border-line bg-white px-4 py-3 hover:border-line-strong transition-colors"
+                className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow px-4 py-3"
               >
+                <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium shrink-0">
+                  {initials(person)}
+                </span>
                 <div className="min-w-0 flex-1">
                   <div className="font-medium truncate">{personName(person)}</div>
                   {person?.email && <div className="text-xs text-ink-muted truncate">{person.email}</div>}
                 </div>
                 <div className="text-sm text-ink-subtle">{step?.name ?? '—'}</div>
                 <span
-                  className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
+                  className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
                     STATUS_STYLE[r.status] ?? ''
                   }`}
                 >
@@ -281,7 +284,7 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="w-full max-w-md rounded-lg bg-white shadow-xl">
+      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="text-base font-medium">Add a contact to the flow</h2>
           <button onClick={onClose} className="text-ink-muted hover:text-ink">

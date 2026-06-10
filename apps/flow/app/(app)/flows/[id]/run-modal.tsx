@@ -361,7 +361,7 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
-      <div className="w-full max-w-3xl rounded-lg bg-white shadow-2xl overflow-hidden">
+      <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div>
             <h2 className="text-base font-medium">{person ? personName(person) : 'Loading…'}</h2>
@@ -427,7 +427,7 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
       {/* confirm-move sub-popup */}
       {confirmT && detail && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
             <div className="border-b border-line px-5 py-3.5">
               <h3 className="text-base font-medium">
                 Move to {confirmT.to_step?.name}?
@@ -512,7 +512,7 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
           const isBackward = (depths.get(manualTarget.key) ?? 0) < (depths.get(curKey) ?? 0);
           return (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
-          <div className="w-full max-w-md rounded-lg bg-white shadow-2xl">
+          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
             <div className="border-b border-line px-5 py-3.5">
               <h3 className="text-base font-medium">
                 {isBackward ? 'Revert to' : 'Move to'} {manualTarget.name}?
