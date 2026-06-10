@@ -502,9 +502,11 @@ function CanvasInner({
           onPaneClick={() => setSelected(null)}
           fitView
           proOptions={{ hideAttribution: true }}
-          style={{ background: '#f1f5f9' }}
+          style={{ background: '#f8fafc' }}
         >
-          {showGrid && <Background variant={BackgroundVariant.Dots} gap={22} size={2.2} color="#94a3b8" />}
+          {showGrid && (
+            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#cbd5e1" />
+          )}
           <Controls showInteractive={false} />
         </ReactFlow>
 

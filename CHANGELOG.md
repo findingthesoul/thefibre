@@ -6,6 +6,13 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.43] — 2026-05-29 — Fibre Flow v1.2.1
+
+### Builder grid → visible lines
+
+The dot grid was too faint to read; switched to a proper **lines grid**
+(slate-300 on a slate-50 canvas) so it's clearly visible. Grid toggle unchanged.
+
 ## [0.13.42] — 2026-05-29 — Fibre Flow v1.2.0
 
 ### More modern, card-like canvas + visible grid
