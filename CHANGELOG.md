@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.44] — 2026-05-29 — Fibre Flow v1.3.0
+
+### Home dashboard — clean-dashboard-card redesign (direction sample)
+
+Reworked Home toward the "clean dashboard UI" references: pure-white cards
+floating on the canvas with soft shadows + hairline rings (no hard borders),
+rounded-2xl corners, tinted rounded icon chips, big bold stat numbers, and
+pill badges. Three stat cards (Open tasks / In motion / Favourite flows) +
+favourite-flow cards in a grid. Sample surface — to propagate across Flows,
+board, and Tasks once the direction's confirmed.
+
 ## [0.13.43] — 2026-05-29 — Fibre Flow v1.2.1
 
 ### Builder grid → visible lines

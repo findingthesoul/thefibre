@@ -1,4 +1,4 @@
-import { Workflow, CheckSquare, Users, Star } from 'lucide-react';
+import { Workflow, CheckSquare, Users, Star, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 
@@ -14,9 +14,9 @@ type FlowRow = {
 };
 
 const LIFECYCLE_STYLE: Record<string, string> = {
-  draft: 'bg-amber-50 text-amber-700',
-  active: 'bg-emerald-50 text-emerald-700',
-  closed: 'bg-slate-100 text-slate-600',
+  draft: 'bg-amber-50 text-amber-600',
+  active: 'bg-emerald-50 text-emerald-600',
+  closed: 'bg-slate-100 text-slate-500',
   archived: 'bg-slate-50 text-slate-400',
 };
 
@@ -38,105 +38,133 @@ export default async function FlowDashboard() {
   }
 
   return (
-    <div className="px-6 py-8 max-w-5xl">
-      <h1 className="text-2xl font-medium tracking-tight">Welcome</h1>
-      <p className="mt-1 text-sm text-ink-muted">Your favourite flows and quick links.</p>
+    <div className="px-6 py-10 max-w-5xl">
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Welcome back</h1>
+      <p className="mt-1 text-sm text-ink-muted">Here&apos;s what&apos;s moving today.</p>
 
-      <div className="mt-8">
-        <div className="flex items-center gap-2 mb-3">
+      {/* stat cards */}
+      <div className="mt-8 grid gap-4 sm:grid-cols-3">
+        <StatCard
+          href="/tasks"
+          icon={CheckSquare}
+          tint="indigo"
+          value={taskCount}
+          label="Open tasks"
+          sub="assigned to you"
+        />
+        <StatCard
+          href="/contacts"
+          icon={Users}
+          tint="emerald"
+          value={motionCount}
+          label="In motion"
+          sub="contacts across flows"
+        />
+        <StatCard
+          href="/flows"
+          icon={Workflow}
+          tint="violet"
+          value={favorites.length}
+          label="Favourite flows"
+          sub="pinned here"
+        />
+      </div>
+
+      {/* favourite flows */}
+      <div className="mt-10">
+        <div className="flex items-center gap-2 mb-4">
           <Star size={16} strokeWidth={1.75} className="fill-amber-400 text-amber-500" />
-          <h2 className="text-sm font-medium">Favourite flows</h2>
+          <h2 className="text-base font-semibold tracking-tight">Favourite flows</h2>
         </div>
         {favorites.length === 0 ? (
-          <div className="rounded-lg border border-line bg-white p-6 text-sm text-ink-subtle">
-            No favourites yet. Open <Link href="/flows" className="underline">Flows</Link> and tap the ☆ on the
-            ones you use most — they&apos;ll pin here.
+          <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-8 text-center">
+            <div className="mx-auto mb-3 h-11 w-11 rounded-2xl bg-amber-50 flex items-center justify-center">
+              <Star size={20} className="text-amber-500" />
+            </div>
+            <p className="text-sm text-ink-subtle max-w-sm mx-auto">
+              No favourites yet. Open{' '}
+              <Link href="/flows" className="text-ink font-medium underline underline-offset-2">
+                Flows
+              </Link>{' '}
+              and tap the ☆ on the ones you use most — they&apos;ll pin here.
+            </p>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="grid gap-4 sm:grid-cols-2">
             {favorites.map((f) => (
               <Link
                 key={f.id}
                 href={`/flows/${f.id}`}
-                className="flex items-center gap-3 rounded-lg border border-line bg-white px-5 py-3.5 hover:border-line-strong transition-colors"
+                className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow p-5"
               >
-                <Star size={16} className="fill-amber-400 text-amber-500 shrink-0" />
-                <span className="font-medium truncate flex-1">{f.name}</span>
-                <span
-                  className={`text-[10px] uppercase tracking-wider px-1.5 py-0.5 rounded ${
-                    LIFECYCLE_STYLE[f.lifecycle] ?? ''
-                  }`}
-                >
-                  {f.lifecycle}
-                </span>
-                <span className="text-xs text-ink-subtle shrink-0">{f.active_run_count} active</span>
+                <div className="flex items-start justify-between">
+                  <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center">
+                    <Workflow size={18} strokeWidth={1.75} className="text-violet-600" />
+                  </div>
+                  <ArrowUpRight
+                    size={18}
+                    className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity"
+                  />
+                </div>
+                <div className="mt-4 flex items-center gap-2">
+                  <span className="font-medium truncate">{f.name}</span>
+                  <span
+                    className={`text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full ${
+                      LIFECYCLE_STYLE[f.lifecycle] ?? ''
+                    }`}
+                  >
+                    {f.lifecycle}
+                  </span>
+                </div>
+                <p className="mt-1 text-xs text-ink-muted">{f.active_run_count} contacts in motion</p>
               </Link>
             ))}
           </div>
         )}
       </div>
-
-      <div className="mt-10 grid gap-4 md:grid-cols-3">
-        <DashCard
-          href="/flows"
-          icon={Workflow}
-          title="Flows"
-          body="Design and run people-flows. Sales, projects, partnerships — each is a sequence of steps held by gate tasks."
-        />
-        <DashCard
-          href="/tasks"
-          icon={CheckSquare}
-          title="My tasks"
-          count={taskCount}
-          countLabel={taskCount === 1 ? 'open task' : 'open tasks'}
-          body="The actionable layer. Tasks born from flow gates, plus anything you add manually."
-        />
-        <DashCard
-          href="/contacts"
-          icon={Users}
-          title="Contacts"
-          count={motionCount}
-          countLabel={motionCount === 1 ? 'in motion' : 'in motion'}
-          body="The people you have in motion. Their position in each flow, their open tasks, their activity."
-        />
-      </div>
     </div>
   );
 }
 
-function DashCard({
+const TINT: Record<string, { bg: string; fg: string }> = {
+  indigo: { bg: 'bg-indigo-50', fg: 'text-indigo-600' },
+  emerald: { bg: 'bg-emerald-50', fg: 'text-emerald-600' },
+  violet: { bg: 'bg-violet-50', fg: 'text-violet-600' },
+};
+
+function StatCard({
   href,
   icon: Icon,
-  title,
-  body,
-  count,
-  countLabel,
+  tint,
+  value,
+  label,
+  sub,
 }: {
   href: string;
   icon: typeof Workflow;
-  title: string;
-  body: string;
-  count?: number;
-  countLabel?: string;
+  tint: keyof typeof TINT;
+  value: number;
+  label: string;
+  sub: string;
 }) {
+  const t = TINT[tint];
   return (
     <Link
       href={href}
-      className="block rounded-lg border border-line bg-white p-5 hover:border-line-strong transition-colors"
+      className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow p-5"
     >
       <div className="flex items-center justify-between">
-        <Icon size={20} strokeWidth={1.75} className="text-ink-muted" />
-        {count != null && (
-          <span className="text-2xl font-medium tabular-nums leading-none">{count}</span>
-        )}
+        <div className={`h-10 w-10 rounded-xl ${t.bg} flex items-center justify-center`}>
+          <Icon size={18} strokeWidth={1.75} className={t.fg} />
+        </div>
+        <ArrowUpRight
+          size={18}
+          className="text-ink-muted opacity-0 group-hover:opacity-100 transition-opacity"
+        />
       </div>
-      <div className="mt-3 text-base font-medium">
-        {title}
-        {count != null && countLabel && (
-          <span className="ml-1 text-xs font-normal text-ink-muted">· {countLabel}</span>
-        )}
-      </div>
-      <p className="mt-1 text-sm text-ink-subtle leading-relaxed">{body}</p>
+      <div className="mt-4 text-3xl font-semibold tabular-nums tracking-tight">{value}</div>
+      <div className="mt-0.5 text-sm font-medium text-ink">{label}</div>
+      <div className="text-xs text-ink-muted">{sub}</div>
     </Link>
   );
 }
