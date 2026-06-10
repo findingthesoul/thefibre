@@ -84,11 +84,13 @@ type InGraph = {
   step_default_tasks?: { step: string; title: string; actor_type: ActorType }[];
 };
 
-const KIND_STYLE: Record<Kind, { bg: string; border: string; chip: string; chipText: string }> = {
-  entry: { bg: 'bg-indigo-50', border: 'border-indigo-200', chip: 'Entry', chipText: 'text-indigo-600' },
-  normal: { bg: 'bg-white', border: 'border-slate-200', chip: '', chipText: '' },
-  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-200', chip: '✓ End', chipText: 'text-emerald-600' },
-  end_negative: { bg: 'bg-rose-50', border: 'border-rose-200', chip: '✗ End', chipText: 'text-rose-600' },
+// Clean-dashboard style: cards are white with a soft ring + shadow; the step
+// kind shows as a tinted pill chip (not by colouring the whole card).
+const KIND_STYLE: Record<Kind, { chip: string; chipBg: string; chipText: string }> = {
+  entry: { chip: 'Entry', chipBg: 'bg-indigo-50', chipText: 'text-indigo-600' },
+  normal: { chip: 'Step', chipBg: 'bg-slate-100', chipText: 'text-slate-500' },
+  end_positive: { chip: '✓ End', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600' },
+  end_negative: { chip: '✗ End', chipBg: 'bg-rose-50', chipText: 'text-rose-600' },
 };
 
 // ---------------------------------------------------------------------------
@@ -99,16 +101,20 @@ function StepCardNode({ id, data, selected }: NodeProps) {
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
   return (
     <div
-      className={`rounded-xl border ${style.bg} ${style.border} ${
-        selected ? 'ring-2 ring-indigo-300 shadow-lg' : 'shadow-md'
-      } transition-shadow hover:shadow-lg`}
+      className={`rounded-2xl bg-white transition-shadow ${
+        selected
+          ? 'ring-2 ring-indigo-300 shadow-lg'
+          : 'ring-1 ring-black/5 shadow-md hover:shadow-lg'
+      }`}
       style={{ width: 184 }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-2.5 !h-2.5" />
-      <div className="px-3 py-2">
-        {style.chip && (
-          <div className={`text-[9px] uppercase tracking-wider mb-0.5 ${style.chipText}`}>{style.chip}</div>
-        )}
+      <Handle type="target" position={Position.Left} className="!bg-slate-300 !w-2.5 !h-2.5" />
+      <div className="px-3.5 py-3">
+        <span
+          className={`inline-block text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5 ${style.chipBg} ${style.chipText}`}
+        >
+          {style.chip}
+        </span>
         <input
           value={d.name}
           onChange={(e) => d.onRename(id, e.target.value)}
@@ -119,7 +125,7 @@ function StepCardNode({ id, data, selected }: NodeProps) {
         />
         <div className="text-[10px] text-ink-muted font-mono truncate">{d.key}</div>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-slate-400 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Right} className="!bg-slate-300 !w-2.5 !h-2.5" />
     </div>
   );
 }

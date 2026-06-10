@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.47] — 2026-05-29 — Fibre Flow v1.3.3
+
+### Builder + run-popup cards match the clean-dashboard style
+
+The canvas step cards were still the odd ones out — whole-card colour tint +
+heavy border. Reworked to match everything else: **white cards** with a soft
+`ring-1 ring-black/5` + shadow (lifting on hover/select), with the step kind
+shown as a **tinted pill chip** (Entry / Step / ✓ End / ✗ End) instead of
+colouring the whole card. Run-popup step cards likewise white with a small
+coloured kind dot; drop-target highlights now use a dashed outline.
+
 ## [0.13.46] — 2026-05-29 — Fibre Flow v1.3.2
 
 ### Consistent page headers across Flow

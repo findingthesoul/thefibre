@@ -64,11 +64,12 @@ function initials(p: Person | null): string {
   return (f + l || p.email?.[0] || '?').toUpperCase();
 }
 
-const KIND_STYLE: Record<string, { bg: string; border: string }> = {
-  entry: { bg: 'bg-indigo-50', border: 'border-indigo-200' },
-  normal: { bg: 'bg-white', border: 'border-slate-200' },
-  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-200' },
-  end_negative: { bg: 'bg-rose-50', border: 'border-rose-200' },
+// White cards; kind shown as a small coloured dot (clean-dashboard style).
+const KIND_DOT: Record<string, string> = {
+  entry: 'bg-indigo-500',
+  normal: 'bg-slate-300',
+  end_positive: 'bg-emerald-500',
+  end_negative: 'bg-rose-500',
 };
 
 type RunNodeData = {
@@ -87,7 +88,7 @@ type RunNodeData = {
 
 function RunStepNode({ data }: NodeProps) {
   const d = data as RunNodeData;
-  const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
+  const dot = KIND_DOT[d.kind] ?? KIND_DOT.normal;
   const moving = d.dragging || d.picking;
   // Forward (gated) target → amber. Any other non-current step → a neutral
   // "manual move" target (revert / sideways) while moving.
@@ -103,16 +104,19 @@ function RunStepNode({ data }: NodeProps) {
         e.preventDefault();
         if (!d.isCurrent) d.onDropToken(d.stepKey);
       }}
-      className={`rounded-xl border ${style.bg} ${
-        d.isCurrent ? 'border-slate-800 ring-2 ring-slate-300 shadow-lg' : `${style.border} shadow-md`
-      } ${forwardActive ? 'border-dashed border-amber-500 ring-2 ring-amber-300' : ''} ${
-        manualActive ? 'border-dashed border-slate-400 ring-1 ring-slate-200' : ''
+      className={`rounded-2xl bg-white transition-shadow ${
+        d.isCurrent ? 'ring-2 ring-slate-800 shadow-lg' : 'ring-1 ring-black/5 shadow-md'
+      } ${forwardActive ? 'outline outline-2 outline-dashed outline-amber-400' : ''} ${
+        manualActive ? 'outline outline-1 outline-dashed outline-slate-400' : ''
       } ${clickable ? 'cursor-pointer' : ''}`}
       style={{ width: 176 }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0" />
-      <div className="px-3 py-2.5 min-h-[52px] flex items-center justify-between gap-2">
-        <span className="text-[13px] font-medium leading-tight">{d.label}</span>
+      <div className="px-3.5 py-2.5 min-h-[52px] flex items-center justify-between gap-2">
+        <span className="flex items-center gap-2 min-w-0">
+          <span className={`h-2 w-2 rounded-full shrink-0 ${dot}`} />
+          <span className="text-[13px] font-medium leading-tight truncate">{d.label}</span>
+        </span>
         {d.token && (
           <span
             draggable
