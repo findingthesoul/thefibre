@@ -199,7 +199,7 @@ function Board({
                   <button
                     key={r.id}
                     onClick={() => onOpen(r.id)}
-                    className={`w-full text-left rounded-md border border-line bg-white px-3 py-2 hover:border-line-strong transition-colors ${
+                    className={`w-full text-left rounded-lg border border-line bg-white px-3 py-2 shadow-sm hover:shadow-md hover:border-line-strong transition-all ${
                       withdrawn ? 'opacity-50' : ''
                     }`}
                   >

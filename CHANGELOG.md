@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.42] — 2026-05-29 — Fibre Flow v1.2.0
+
+### More modern, card-like canvas + visible grid
+
+- **Visible grid.** Builder canvas now sits on a soft slate background
+  (`#f1f5f9`) with clearly-visible dots (slate-400, size 2.2) — the grid is
+  actually there now. Toggle still works.
+- **Floating cards.** Step cards are rounded-xl with a real drop shadow
+  (`shadow-md`, lifting to `shadow-lg` on hover/selected) and a thinner 1px
+  coloured border — they float on the tinted board instead of sitting flat.
+- Same treatment in the run popup (tinted pane + card shadows) and the kanban
+  board (cards gain a subtle shadow + hover lift).
+
 ## [0.13.41] — 2026-05-29 — Fibre Flow v1.1.1
 
 ### Removed the "Advanced — edit graph as JSON" escape hatch

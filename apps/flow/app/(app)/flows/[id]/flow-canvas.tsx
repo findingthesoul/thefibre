@@ -99,12 +99,12 @@ function StepCardNode({ id, data, selected }: NodeProps) {
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
   return (
     <div
-      className={`rounded-lg border-2 ${style.bg} ${style.border} ${
-        selected ? 'ring-2 ring-neutral-400' : ''
-      } shadow-sm`}
-      style={{ width: 180 }}
+      className={`rounded-xl border ${style.bg} ${style.border} ${
+        selected ? 'ring-2 ring-indigo-300 shadow-lg' : 'shadow-md'
+      } transition-shadow hover:shadow-lg`}
+      style={{ width: 184 }}
     >
-      <Handle type="target" position={Position.Left} className="!bg-neutral-400 !w-2.5 !h-2.5" />
+      <Handle type="target" position={Position.Left} className="!bg-slate-400 !w-2.5 !h-2.5" />
       <div className="px-3 py-2">
         {style.chip && (
           <div className={`text-[9px] uppercase tracking-wider mb-0.5 ${style.chipText}`}>{style.chip}</div>
@@ -119,7 +119,7 @@ function StepCardNode({ id, data, selected }: NodeProps) {
         />
         <div className="text-[10px] text-ink-muted font-mono truncate">{d.key}</div>
       </div>
-      <Handle type="source" position={Position.Right} className="!bg-neutral-400 !w-2.5 !h-2.5" />
+      <Handle type="source" position={Position.Right} className="!bg-slate-400 !w-2.5 !h-2.5" />
     </div>
   );
 }
@@ -502,8 +502,9 @@ function CanvasInner({
           onPaneClick={() => setSelected(null)}
           fitView
           proOptions={{ hideAttribution: true }}
+          style={{ background: '#f1f5f9' }}
         >
-          {showGrid && <Background variant={BackgroundVariant.Dots} gap={24} size={1} color="#e2e8f0" />}
+          {showGrid && <Background variant={BackgroundVariant.Dots} gap={22} size={2.2} color="#94a3b8" />}
           <Controls showInteractive={false} />
         </ReactFlow>
 

@@ -103,11 +103,11 @@ function RunStepNode({ data }: NodeProps) {
         e.preventDefault();
         if (!d.isCurrent) d.onDropToken(d.stepKey);
       }}
-      className={`rounded-lg border-2 ${style.bg} ${
-        d.isCurrent ? 'border-neutral-800 ring-2 ring-neutral-300' : style.border
+      className={`rounded-xl border ${style.bg} ${
+        d.isCurrent ? 'border-slate-800 ring-2 ring-slate-300 shadow-lg' : `${style.border} shadow-md`
       } ${forwardActive ? 'border-dashed border-amber-500 ring-2 ring-amber-300' : ''} ${
-        manualActive ? 'border-dashed border-neutral-400 ring-1 ring-neutral-200' : ''
-      } ${clickable ? 'cursor-pointer' : ''} shadow-sm`}
+        manualActive ? 'border-dashed border-slate-400 ring-1 ring-slate-200' : ''
+      } ${clickable ? 'cursor-pointer' : ''}`}
       style={{ width: 176 }}
     >
       <Handle type="target" position={Position.Left} className="!opacity-0" />
@@ -262,8 +262,9 @@ function Graph({
         zoomOnDoubleClick={false}
         fitView
         proOptions={{ hideAttribution: true }}
+        style={{ background: '#f8fafc' }}
       >
-        <Background variant={BackgroundVariant.Dots} gap={22} size={1} color="#eceff2" />
+        <Background variant={BackgroundVariant.Dots} gap={22} size={1.8} color="#cbd5e1" />
       </ReactFlow>
     </div>
   );
