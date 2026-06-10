@@ -16,7 +16,13 @@ export type Run = {
   step: { key: string; name: string; kind: string } | { key: string; name: string; kind: string }[] | null;
 };
 
-export type Step = { key: string; name: string; kind: string };
+export type Step = {
+  key: string;
+  name: string;
+  kind: string;
+  canvas_x?: number | null;
+  canvas_y?: number | null;
+};
 
 function one<T>(v: T | T[] | null): T | null {
   if (Array.isArray(v)) return v[0] ?? null;
@@ -50,12 +56,12 @@ const STATUS_STYLE: Record<string, string> = {
   withdrawn: 'bg-slate-100 text-slate-500',
 };
 
-const COL_ACCENT: Record<string, string> = {
-  entry: 'border-t-indigo-300',
-  normal: 'border-t-slate-300',
-  end_positive: 'border-t-emerald-300',
-  end_negative: 'border-t-rose-300',
-  loop: 'border-t-amber-300',
+const KIND_DOT: Record<string, string> = {
+  entry: 'bg-indigo-500',
+  normal: 'bg-slate-300',
+  end_positive: 'bg-emerald-500',
+  end_negative: 'bg-rose-500',
+  loop: 'bg-amber-500',
 };
 
 export function RunsPanel({
@@ -190,11 +196,19 @@ function Board({
   const [dragId, setDragId] = useState<string | null>(null);
   const [overKey, setOverKey] = useState<string | null>(null);
 
+  // Columns follow the builder's left-to-right layout (canvas_x, then
+  // canvas_y); steps without saved positions keep their stored order.
+  const ordered = [...steps].sort(
+    (a, b) =>
+      (a.canvas_x ?? Number.MAX_SAFE_INTEGER) - (b.canvas_x ?? Number.MAX_SAFE_INTEGER) ||
+      (a.canvas_y ?? 0) - (b.canvas_y ?? 0),
+  );
+
   // Group active/completed runs by current step key. Withdrawn runs are shown
   // faded in their step column. Runs whose step isn't in the current version
   // fall into a trailing "Other" column.
   const byStep = new Map<string, Run[]>();
-  for (const s of steps) byStep.set(s.key, []);
+  for (const s of ordered) byStep.set(s.key, []);
   const orphans: Run[] = [];
   for (const r of runs) {
     const step = one(r.step);
@@ -203,15 +217,14 @@ function Board({
     else orphans.push(r);
   }
 
-  const columns: { step: Step; runs: Run[] }[] = steps.map((s) => ({ step: s, runs: byStep.get(s.key) ?? [] }));
+  const columns: { step: Step; runs: Run[] }[] = ordered.map((s) => ({ step: s, runs: byStep.get(s.key) ?? [] }));
 
   return (
     <div className="overflow-x-auto pb-2">
-      <div className="flex gap-3 min-w-min">
+      <div className="flex gap-4 min-w-min">
         {columns.map(({ step, runs: col }) => (
           <div
             key={step.key}
-            className="w-60 shrink-0"
             onDragOver={(e) => {
               e.preventDefault();
               e.dataTransfer.dropEffect = 'move';
@@ -225,21 +238,25 @@ function Board({
               setDragId(null);
               if (id) onMove(id, step.key);
             }}
+            className={`w-64 shrink-0 rounded-2xl bg-slate-500/[0.07] p-2 transition-shadow ${
+              dragId && overKey === step.key ? 'ring-2 ring-indigo-300 bg-indigo-100/40' : ''
+            }`}
           >
-            <div
-              className={`rounded-t-lg border border-b-0 border-line border-t-2 ${
-                COL_ACCENT[step.kind] ?? 'border-t-neutral-300'
-              } bg-surface-sunken px-3 py-2 flex items-center justify-between`}
-            >
-              <span className="text-xs font-medium truncate">{step.name}</span>
-              <span className="text-[11px] text-ink-muted tabular-nums">{col.length}</span>
+            <div className="flex items-center justify-between px-2 pt-1 pb-2">
+              <span className="flex items-center gap-2 text-xs font-medium truncate">
+                <span className={`h-2 w-2 rounded-full shrink-0 ${KIND_DOT[step.kind] ?? KIND_DOT.normal}`} />
+                {step.name}
+              </span>
+              <span className="text-[11px] text-ink-subtle tabular-nums rounded-full bg-white ring-1 ring-black/5 px-2 py-0.5">
+                {col.length}
+              </span>
             </div>
-            <div
-              className={`rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px] transition-shadow ${
-                dragId && overKey === step.key ? 'ring-2 ring-indigo-300 bg-indigo-50/40' : ''
-              }`}
-            >
-              {col.length === 0 && <div className="text-[11px] text-ink-muted px-1 py-2">—</div>}
+            <div className="space-y-2 min-h-[72px]">
+              {col.length === 0 && (
+                <div className="rounded-xl border border-dashed border-slate-300/70 px-3 py-4 text-center text-[11px] text-ink-muted">
+                  No one here
+                </div>
+              )}
               {col.map((r) => {
                 const person = one(r.person);
                 const withdrawn = r.status === 'withdrawn';
@@ -257,17 +274,17 @@ function Board({
                       setOverKey(null);
                     }}
                     onClick={() => onOpen(r.id)}
-                    className={`w-full text-left rounded-lg border border-line bg-white px-3 py-2 shadow-card hover:shadow-card-hover hover:border-line-strong transition-all cursor-grab active:cursor-grabbing ${
+                    className={`w-full text-left rounded-xl bg-white ring-1 ring-black/5 px-3.5 py-2.5 shadow-card hover:shadow-card-hover transition-all cursor-grab active:cursor-grabbing ${
                       withdrawn ? 'opacity-50' : ''
                     } ${dragId === r.id ? 'opacity-40' : ''}`}
                   >
                     <div className="flex items-center gap-2">
-                      <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white text-[10px] font-medium shrink-0">
+                      <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-medium shrink-0">
                         {initials(person)}
                       </span>
                       <span className="text-sm font-medium truncate flex-1">{personName(person)}</span>
                     </div>
-                    <div className="mt-1 flex items-center justify-between text-[11px] text-ink-muted">
+                    <div className="mt-1.5 flex items-center justify-between text-[11px] text-ink-muted">
                       <span>{timeAtStep(r.current_step_entered_at)}</span>
                       {withdrawn && <span className="uppercase tracking-wider">withdrawn</span>}
                     </div>
@@ -278,19 +295,24 @@ function Board({
           </div>
         ))}
         {orphans.length > 0 && (
-          <div className="w-60 shrink-0">
-            <div className="rounded-t-lg border border-b-0 border-line border-t-2 border-t-neutral-300 bg-surface-sunken px-3 py-2 flex items-center justify-between">
-              <span className="text-xs font-medium truncate">Other</span>
-              <span className="text-[11px] text-ink-muted tabular-nums">{orphans.length}</span>
+          <div className="w-64 shrink-0 rounded-2xl bg-slate-500/[0.07] p-2">
+            <div className="flex items-center justify-between px-2 pt-1 pb-2">
+              <span className="flex items-center gap-2 text-xs font-medium truncate">
+                <span className="h-2 w-2 rounded-full shrink-0 bg-slate-300" />
+                Other
+              </span>
+              <span className="text-[11px] text-ink-subtle tabular-nums rounded-full bg-white ring-1 ring-black/5 px-2 py-0.5">
+                {orphans.length}
+              </span>
             </div>
-            <div className="rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px]">
+            <div className="space-y-2 min-h-[72px]">
               {orphans.map((r) => {
                 const person = one(r.person);
                 return (
                   <button
                     key={r.id}
                     onClick={() => onOpen(r.id)}
-                    className="w-full text-left rounded-md border border-line bg-white px-3 py-2 hover:border-line-strong"
+                    className="w-full text-left rounded-xl bg-white ring-1 ring-black/5 px-3.5 py-2.5 shadow-card hover:shadow-card-hover transition-all"
                   >
                     <span className="text-sm font-medium truncate">{personName(person)}</span>
                   </button>

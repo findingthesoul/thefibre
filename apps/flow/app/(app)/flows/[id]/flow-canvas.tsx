@@ -372,18 +372,23 @@ function CanvasInner({
   }
 
   function serialise(): InGraph {
-    const steps = nodes.map((n) => {
-      const d = n.data as StepData;
-      return {
-        key: d.key,
-        name: d.name,
-        kind: d.kind,
-        description: d.description ?? null,
-        expected_duration_days: d.expected_duration_days ?? null,
-        canvas_x: Math.round(n.position.x),
-        canvas_y: Math.round(n.position.y),
-      };
-    });
+    // Persist steps in visual (left-to-right, top-to-bottom) order so the
+    // stored ordinal matches how the flow reads — board columns and report
+    // bars then follow the builder layout.
+    const steps = [...nodes]
+      .sort((a, b) => a.position.x - b.position.x || a.position.y - b.position.y)
+      .map((n) => {
+        const d = n.data as StepData;
+        return {
+          key: d.key,
+          name: d.name,
+          kind: d.kind,
+          description: d.description ?? null,
+          expected_duration_days: d.expected_duration_days ?? null,
+          canvas_x: Math.round(n.position.x),
+          canvas_y: Math.round(n.position.y),
+        };
+      });
     const transitions = edges.map((e) => {
       const d = e.data as EdgeData;
       return {

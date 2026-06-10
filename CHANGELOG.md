@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.54] — 2026-05-29 — Fibre Flow v1.8.0
+
+### Board restyled + columns follow the builder layout
+
+- **Board columns match the card language**: each column is now a soft grey
+  rounded panel (no hard borders) with a kind dot, a white count pill, dashed
+  "No one here" empty slots, and white shadow-card contact cards with tinted
+  avatar circles inside.
+- **Column order = builder order.** Columns sort by the step's canvas position
+  (left-to-right, then top-to-bottom) instead of creation order, so the board
+  reads exactly like the flow in the Builder. Saving from the canvas now also
+  persists steps in visual order, so reports follow the same reading.
+
 ## [0.13.53] — 2026-05-29 — Fibre Flow v1.7.2
 
 ### Lighter builder grid
