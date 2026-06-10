@@ -55,6 +55,7 @@ const COL_ACCENT: Record<string, string> = {
   normal: 'border-t-slate-300',
   end_positive: 'border-t-emerald-300',
   end_negative: 'border-t-rose-300',
+  loop: 'border-t-amber-300',
 };
 
 export function RunsPanel({

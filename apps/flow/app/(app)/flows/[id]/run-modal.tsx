@@ -18,7 +18,7 @@ import { X, GripVertical, CheckCircle2, Circle, AlertCircle, ArrowRight, ArrowLe
 import Link from 'next/link';
 import { getRunDetail, transitionRun, completeTask, repositionRun } from '../actions';
 
-type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative';
+type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative' | 'loop';
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 type Task = {
   id: string;
@@ -70,6 +70,7 @@ const KIND_DOT: Record<string, string> = {
   normal: 'bg-slate-300',
   end_positive: 'bg-emerald-500',
   end_negative: 'bg-rose-500',
+  loop: 'bg-amber-500',
 };
 
 type RunNodeData = {

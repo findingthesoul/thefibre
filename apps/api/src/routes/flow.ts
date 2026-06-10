@@ -20,7 +20,7 @@ export const flowRoutes = new Hono();
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
-const StepKind = z.enum(['entry', 'normal', 'end_positive', 'end_negative']);
+const StepKind = z.enum(['entry', 'normal', 'end_positive', 'end_negative', 'loop']);
 const ActorType = z.enum(['personal', 'team', 'contact']);
 const GateLogic = z.enum(['all', 'any']);
 
@@ -989,6 +989,23 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
     .single();
   if (!toStep) return c.json({ error: 'destination step missing' }, 500);
 
+  // Loop steps close a cycle: entering one bounces the run straight back to
+  // the version's entry step (fresh entry tasks, logged as "looped back").
+  let dest = toStep;
+  let loopedVia: string | null = null;
+  if (toStep.kind === 'loop') {
+    const { data: entry } = await db
+      .from('flow_step')
+      .select('id, name, kind')
+      .eq('flow_version_id', run.flow_version_id)
+      .eq('kind', 'entry')
+      .single();
+    if (entry) {
+      loopedVia = toStep.name;
+      dest = entry;
+    }
+  }
+
   // Cancel open flow-generated tasks (gate + step-default) for this run; manual
   // tasks (no template link) are preserved.
   await db
@@ -998,11 +1015,11 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
     .in('status', ['open', 'in_progress'])
     .or('gate_task_id.not.is.null,step_default_task_id.not.is.null');
 
-  const isEnd = toStep.kind === 'end_positive' || toStep.kind === 'end_negative';
+  const isEnd = dest.kind === 'end_positive' || dest.kind === 'end_negative';
   const { error: uErr } = await db
     .from('flow_run')
     .update({
-      current_step_id: toStep.id,
+      current_step_id: dest.id,
       current_step_entered_at: new Date().toISOString(),
       status: isEnd ? 'completed' : 'active',
       completed_at: isEnd ? new Date().toISOString() : null,
@@ -1024,7 +1041,7 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
       workspaceId: ctx.workspaceId,
       runId: id,
       personId: run.person_id,
-      stepId: toStep.id,
+      stepId: dest.id,
       versionId: run.flow_version_id,
       ownerUserId: run.owner_user_id,
       teamId: flow?.team_id ?? null,
@@ -1041,10 +1058,14 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
     ctx.userId,
     run.person_id,
     isEnd ? 'flow.run.completed' : 'flow.run.step_changed',
-    isEnd ? `Completed via ${toStep.name}` : `Moved to ${toStep.name}${overrideNote}`,
+    isEnd
+      ? `Completed via ${dest.name}`
+      : loopedVia
+        ? `Looped back to ${dest.name} via ${loopedVia}${overrideNote}`
+        : `Moved to ${dest.name}${overrideNote}`,
   );
 
-  return c.json({ ok: true, to_step: toStep, completed: isEnd });
+  return c.json({ ok: true, to_step: dest, completed: isEnd, looped_via: loopedVia });
 });
 
 // ---------------------------------------------------------------------------
@@ -1079,6 +1100,22 @@ flowRoutes.post('/runs/:id/move', async (c) => {
   if (!target) return c.json({ error: 'step not found in this flow version' }, 404);
   if (target.id === run.current_step_id) return c.json({ error: 'already at this step' }, 400);
 
+  // Loop steps bounce straight back to the entry step (same as transitions).
+  let dest = target;
+  let loopedVia: string | null = null;
+  if (target.kind === 'loop') {
+    const { data: entry } = await db
+      .from('flow_step')
+      .select('id, name, kind')
+      .eq('flow_version_id', run.flow_version_id)
+      .eq('kind', 'entry')
+      .single();
+    if (entry) {
+      loopedVia = target.name;
+      dest = entry;
+    }
+  }
+
   // Cancel open flow-generated tasks; manual tasks survive.
   await db
     .from('flow_task')
@@ -1087,11 +1124,11 @@ flowRoutes.post('/runs/:id/move', async (c) => {
     .in('status', ['open', 'in_progress'])
     .or('gate_task_id.not.is.null,step_default_task_id.not.is.null');
 
-  const isEnd = target.kind === 'end_positive' || target.kind === 'end_negative';
+  const isEnd = dest.kind === 'end_positive' || dest.kind === 'end_negative';
   const { error: uErr } = await db
     .from('flow_run')
     .update({
-      current_step_id: target.id,
+      current_step_id: dest.id,
       current_step_entered_at: new Date().toISOString(),
       status: isEnd ? 'completed' : 'active',
       completed_at: isEnd ? new Date().toISOString() : null,
@@ -1108,7 +1145,7 @@ flowRoutes.post('/runs/:id/move', async (c) => {
       workspaceId: ctx.workspaceId,
       runId: id,
       personId: run.person_id,
-      stepId: target.id,
+      stepId: dest.id,
       versionId: run.flow_version_id,
       ownerUserId: run.owner_user_id,
       teamId: flow?.team_id ?? null,
@@ -1124,10 +1161,14 @@ flowRoutes.post('/runs/:id/move', async (c) => {
     ctx.userId,
     run.person_id,
     isEnd ? 'flow.run.completed' : 'flow.run.step_changed',
-    isEnd ? `Completed at ${target.name} (manual)` : `Moved to ${target.name} (manual)`,
+    isEnd
+      ? `Completed at ${dest.name} (manual)`
+      : loopedVia
+        ? `Looped back to ${dest.name} via ${loopedVia} (manual)`
+        : `Moved to ${dest.name} (manual)`,
   );
 
-  return c.json({ ok: true, to_step: target, completed: isEnd });
+  return c.json({ ok: true, to_step: dest, completed: isEnd, looped_via: loopedVia });
 });
 
 // ---------------------------------------------------------------------------

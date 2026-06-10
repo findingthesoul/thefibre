@@ -6,6 +6,21 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.51] — 2026-05-29 — Fibre Flow v1.7.0
+
+### New step kind: Loop — closes a cycle back to the start
+
+The briefing's "Waitlisted (loops back)" pattern, now first-class. A **Loop**
+step (amber chip, ↻ icon, "Loop — back to start" in the Kind dropdown) bounces
+the contact straight back to the flow's **Start** step the moment they enter
+it: fresh entry tasks are materialised and the activity timeline logs
+"Looped back to {start} via {loop step}". Works on gated transitions, manual
+moves, and board drag-and-drop alike — no need to hand-draw a return edge.
+
+- Migration `20260529230000_flow_step_loop_kind.sql` (relax `flow_step.kind`).
+- API: both move paths redirect loop destinations to the entry step.
+- Builder/run-popup/board pick up the amber loop styling.
+
 ## [0.13.50] — 2026-05-29 — Fibre Flow v1.6.0
 
 ### Board drag-and-drop, full-width flow page, builder polish

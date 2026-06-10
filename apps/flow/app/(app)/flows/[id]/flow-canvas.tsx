@@ -39,13 +39,14 @@ import {
   Circle,
   CircleCheck,
   CircleX,
+  Repeat,
 } from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
 
 // ---------------------------------------------------------------------------
 // Types mirroring the graph JSON the API round-trips.
 // ---------------------------------------------------------------------------
-type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative';
+type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative' | 'loop';
 type ActorType = 'personal' | 'team' | 'contact';
 type GateTask = {
   title: string;
@@ -100,6 +101,7 @@ const KIND_STYLE: Record<
   normal: { chip: 'Step', chipBg: 'bg-slate-100', chipText: 'text-slate-500', icon: Circle },
   end_positive: { chip: 'End', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600', icon: CircleCheck },
   end_negative: { chip: 'End', chipBg: 'bg-rose-50', chipText: 'text-rose-600', icon: CircleX },
+  loop: { chip: 'Loop', chipBg: 'bg-amber-50', chipText: 'text-amber-600', icon: Repeat },
 };
 
 // ---------------------------------------------------------------------------
@@ -629,6 +631,7 @@ const KIND_OPTIONS: { value: Kind; label: string }[] = [
   { value: 'normal', label: 'Normal' },
   { value: 'end_positive', label: 'End — positive ✓' },
   { value: 'end_negative', label: 'End — negative ✗' },
+  { value: 'loop', label: 'Loop — back to start' },
 ];
 const ACTOR_OPTIONS: { value: ActorType; label: string }[] = [
   { value: 'personal', label: 'You (personal)' },
