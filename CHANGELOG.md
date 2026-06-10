@@ -6,6 +6,13 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.41] — 2026-05-29 — Fibre Flow v1.1.1
+
+### Removed the "Advanced — edit graph as JSON" escape hatch
+
+The visual builder is now the single way to author flows — the JSON editor
+disclosure (and `editor.tsx`) is gone. Cleaner Builder tab.
+
 ## [0.13.40] — 2026-05-29 — Fibre Flow v1.1.0
 
 ### Builder canvas — auto-arrange + grid/snap settings (Miro-like)

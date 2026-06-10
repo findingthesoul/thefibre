@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
-import { FlowEditor } from './editor';
 import { FlowCanvas } from './flow-canvas';
 import { FlowTabs } from './flow-tabs';
 import { FlowReport } from './flow-report';
@@ -94,17 +93,9 @@ export default async function FlowDetailPage({
       <FlowTabs
         flowCount={runs.length}
         builder={
-          <div className="mt-4 space-y-6">
+          <div className="mt-4">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
             <FlowCanvas flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph as any} />
-            <details className="group">
-              <summary className="cursor-pointer text-sm text-ink-muted hover:text-ink select-none">
-                Advanced — edit graph as JSON
-              </summary>
-              <div className="mt-2">
-                <FlowEditor flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph} />
-              </div>
-            </details>
           </div>
         }
         flows={
