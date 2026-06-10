@@ -14,10 +14,10 @@ type FlowRow = {
 };
 
 const LIFECYCLE_STYLE: Record<string, string> = {
-  draft: 'bg-amber-100 text-amber-800',
-  active: 'bg-emerald-100 text-emerald-800',
-  closed: 'bg-neutral-200 text-neutral-700',
-  archived: 'bg-neutral-100 text-neutral-500',
+  draft: 'bg-amber-50 text-amber-700',
+  active: 'bg-emerald-50 text-emerald-700',
+  closed: 'bg-slate-100 text-slate-600',
+  archived: 'bg-slate-50 text-slate-400',
 };
 
 export default async function FlowDashboard() {

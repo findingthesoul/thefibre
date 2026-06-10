@@ -23,10 +23,10 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
   const maxCount = Math.max(1, ...steps.map((s) => byStep.get(s.key) ?? 0));
 
   const KIND_BAR: Record<string, string> = {
-    entry: 'bg-blue-400',
-    normal: 'bg-neutral-400',
+    entry: 'bg-indigo-400',
+    normal: 'bg-slate-300',
     end_positive: 'bg-emerald-400',
-    end_negative: 'bg-red-400',
+    end_negative: 'bg-rose-400',
   };
 
   if (total === 0) {
@@ -42,8 +42,8 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <Stat label="Total" value={total} />
         <Stat label="Active" value={active} accent="text-emerald-700" />
-        <Stat label="Completed" value={completed} accent="text-blue-700" />
-        <Stat label="Withdrawn" value={withdrawn} accent="text-neutral-500" />
+        <Stat label="Completed" value={completed} accent="text-indigo-600" />
+        <Stat label="Withdrawn" value={withdrawn} accent="text-slate-400" />
       </div>
 
       <div>

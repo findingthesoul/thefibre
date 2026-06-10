@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.39] — 2026-05-29 — Fibre Flow v1.0.2
+
+### Modernised colour palette
+
+Refreshed Flow's step/status colours to a cooler, more contemporary scheme,
+applied consistently across the canvas, board, run popup, reports, and chips:
+entry **blue → indigo**, end-negative **red → rose**, neutrals **→ slate**,
+softer **-200** borders, and lighter (-50/-100) lifecycle + status chips.
+
 ## [0.13.38] — 2026-05-29 — Fibre Flow v1.0.1
 
 ### Builder: proactive publish-readiness hints

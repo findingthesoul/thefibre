@@ -65,10 +65,10 @@ function initials(p: Person | null): string {
 }
 
 const KIND_STYLE: Record<string, { bg: string; border: string }> = {
-  entry: { bg: 'bg-blue-50', border: 'border-blue-300' },
-  normal: { bg: 'bg-white', border: 'border-neutral-300' },
-  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-300' },
-  end_negative: { bg: 'bg-red-50', border: 'border-red-300' },
+  entry: { bg: 'bg-indigo-50', border: 'border-indigo-200' },
+  normal: { bg: 'bg-white', border: 'border-slate-200' },
+  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-200' },
+  end_negative: { bg: 'bg-rose-50', border: 'border-rose-200' },
 };
 
 type RunNodeData = {

@@ -71,10 +71,10 @@ type InGraph = {
 };
 
 const KIND_STYLE: Record<Kind, { bg: string; border: string; chip: string; chipText: string }> = {
-  entry: { bg: 'bg-blue-50', border: 'border-blue-300', chip: 'Entry', chipText: 'text-blue-700' },
-  normal: { bg: 'bg-white', border: 'border-neutral-300', chip: '', chipText: '' },
-  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-300', chip: '✓ End', chipText: 'text-emerald-700' },
-  end_negative: { bg: 'bg-red-50', border: 'border-red-300', chip: '✗ End', chipText: 'text-red-700' },
+  entry: { bg: 'bg-indigo-50', border: 'border-indigo-200', chip: 'Entry', chipText: 'text-indigo-600' },
+  normal: { bg: 'bg-white', border: 'border-slate-200', chip: '', chipText: '' },
+  end_positive: { bg: 'bg-emerald-50', border: 'border-emerald-200', chip: '✓ End', chipText: 'text-emerald-600' },
+  end_negative: { bg: 'bg-rose-50', border: 'border-rose-200', chip: '✗ End', chipText: 'text-rose-600' },
 };
 
 // ---------------------------------------------------------------------------

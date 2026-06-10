@@ -45,16 +45,16 @@ function timeAtStep(iso?: string | null): string {
 }
 
 const STATUS_STYLE: Record<string, string> = {
-  active: 'bg-emerald-100 text-emerald-800',
-  completed: 'bg-blue-100 text-blue-800',
-  withdrawn: 'bg-neutral-200 text-neutral-600',
+  active: 'bg-emerald-50 text-emerald-700',
+  completed: 'bg-indigo-50 text-indigo-700',
+  withdrawn: 'bg-slate-100 text-slate-500',
 };
 
 const COL_ACCENT: Record<string, string> = {
-  entry: 'border-t-blue-300',
-  normal: 'border-t-neutral-300',
+  entry: 'border-t-indigo-300',
+  normal: 'border-t-slate-300',
   end_positive: 'border-t-emerald-300',
-  end_negative: 'border-t-red-300',
+  end_negative: 'border-t-rose-300',
 };
 
 export function RunsPanel({
