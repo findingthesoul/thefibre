@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   ReactFlow,
@@ -274,7 +274,17 @@ function Graph({
   );
 }
 
-export function RunModal({ runId, onClose }: { runId: string; onClose: () => void }) {
+export function RunModal({
+  runId,
+  onClose,
+  initialTargetKey,
+}: {
+  runId: string;
+  onClose: () => void;
+  /** When set (e.g. after a board drag-and-drop), immediately open the
+   *  confirm-move popup for this step once the run detail has loaded. */
+  initialTargetKey?: string | null;
+}) {
   const router = useRouter();
   const [detail, setDetail] = useState<Detail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -297,6 +307,15 @@ export function RunModal({ runId, onClose }: { runId: string; onClose: () => voi
   useEffect(() => {
     refetch();
   }, [refetch]);
+
+  // Board drag-and-drop entry: once the detail is in, fire the pending move.
+  const firedInitial = useRef(false);
+  useEffect(() => {
+    if (!detail || !initialTargetKey || firedInitial.current) return;
+    firedInitial.current = true;
+    if (detail.run.step?.key !== initialTargetKey) onDropToken(initialTargetKey);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detail, initialTargetKey]);
 
   function onDropToken(targetKey: string) {
     setDragging(false);

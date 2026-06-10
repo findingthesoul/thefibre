@@ -54,7 +54,7 @@ export default async function FlowDetailPage({
   const canAddContacts = !!flow.current_version_id && flow.lifecycle === 'active';
 
   return (
-    <div className="px-6 py-10 max-w-4xl">
+    <div className="px-6 py-10">
       <Link
         href="/flows"
         className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"

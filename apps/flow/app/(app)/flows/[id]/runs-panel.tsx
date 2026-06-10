@@ -70,7 +70,22 @@ export function RunsPanel({
 }) {
   const [adding, setAdding] = useState(false);
   const [openRunId, setOpenRunId] = useState<string | null>(null);
+  const [pendingKey, setPendingKey] = useState<string | null>(null);
   const [view, setView] = useState<'board' | 'list'>('board');
+
+  // Board drag-and-drop: open the run popup with the move pre-selected, so
+  // the existing gated-confirm / manual-move logic handles it.
+  function onBoardMove(runId: string, stepKey: string) {
+    const run = runs.find((r) => r.id === runId);
+    if (!run || one(run.step)?.key === stepKey) return;
+    setPendingKey(stepKey);
+    setOpenRunId(runId);
+  }
+
+  function closeModal() {
+    setOpenRunId(null);
+    setPendingKey(null);
+  }
 
   return (
     <div className="mt-4">
@@ -116,7 +131,7 @@ export function RunsPanel({
             : 'Publish the flow before adding contacts.'}
         </div>
       ) : view === 'board' ? (
-        <Board runs={runs} steps={steps} onOpen={setOpenRunId} />
+        <Board runs={runs} steps={steps} onOpen={setOpenRunId} onMove={onBoardMove} />
       ) : (
         <div className="space-y-2">
           {runs.map((r) => {
@@ -151,7 +166,9 @@ export function RunsPanel({
       )}
 
       {adding && <AddContactDialog flowId={flowId} onClose={() => setAdding(false)} />}
-      {openRunId && <RunModal runId={openRunId} onClose={() => setOpenRunId(null)} />}
+      {openRunId && (
+        <RunModal runId={openRunId} onClose={closeModal} initialTargetKey={pendingKey} />
+      )}
     </div>
   );
 }
@@ -160,11 +177,18 @@ function Board({
   runs,
   steps,
   onOpen,
+  onMove,
 }: {
   runs: Run[];
   steps: Step[];
   onOpen: (id: string) => void;
+  onMove: (runId: string, stepKey: string) => void;
 }) {
+  // Drag a card to another column → onMove opens the confirm popup (gated or
+  // manual) via the run modal.
+  const [dragId, setDragId] = useState<string | null>(null);
+  const [overKey, setOverKey] = useState<string | null>(null);
+
   // Group active/completed runs by current step key. Withdrawn runs are shown
   // faded in their step column. Runs whose step isn't in the current version
   // fall into a trailing "Other" column.
@@ -184,7 +208,23 @@ function Board({
     <div className="overflow-x-auto pb-2">
       <div className="flex gap-3 min-w-min">
         {columns.map(({ step, runs: col }) => (
-          <div key={step.key} className="w-60 shrink-0">
+          <div
+            key={step.key}
+            className="w-60 shrink-0"
+            onDragOver={(e) => {
+              e.preventDefault();
+              e.dataTransfer.dropEffect = 'move';
+              setOverKey(step.key);
+            }}
+            onDragLeave={() => setOverKey((k) => (k === step.key ? null : k))}
+            onDrop={(e) => {
+              e.preventDefault();
+              const id = e.dataTransfer.getData('text/plain') || dragId;
+              setOverKey(null);
+              setDragId(null);
+              if (id) onMove(id, step.key);
+            }}
+          >
             <div
               className={`rounded-t-lg border border-b-0 border-line border-t-2 ${
                 COL_ACCENT[step.kind] ?? 'border-t-neutral-300'
@@ -193,7 +233,11 @@ function Board({
               <span className="text-xs font-medium truncate">{step.name}</span>
               <span className="text-[11px] text-ink-muted tabular-nums">{col.length}</span>
             </div>
-            <div className="rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px]">
+            <div
+              className={`rounded-b-lg border border-line bg-surface-sunken/40 p-2 space-y-2 min-h-[80px] transition-shadow ${
+                dragId && overKey === step.key ? 'ring-2 ring-indigo-300 bg-indigo-50/40' : ''
+              }`}
+            >
               {col.length === 0 && <div className="text-[11px] text-ink-muted px-1 py-2">—</div>}
               {col.map((r) => {
                 const person = one(r.person);
@@ -201,10 +245,20 @@ function Board({
                 return (
                   <button
                     key={r.id}
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData('text/plain', r.id);
+                      e.dataTransfer.effectAllowed = 'move';
+                      setDragId(r.id);
+                    }}
+                    onDragEnd={() => {
+                      setDragId(null);
+                      setOverKey(null);
+                    }}
                     onClick={() => onOpen(r.id)}
-                    className={`w-full text-left rounded-lg border border-line bg-white px-3 py-2 shadow-sm hover:shadow-md hover:border-line-strong transition-all ${
+                    className={`w-full text-left rounded-lg border border-line bg-white px-3 py-2 shadow-card hover:shadow-card-hover hover:border-line-strong transition-all cursor-grab active:cursor-grabbing ${
                       withdrawn ? 'opacity-50' : ''
-                    }`}
+                    } ${dragId === r.id ? 'opacity-40' : ''}`}
                   >
                     <div className="flex items-center gap-2">
                       <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-neutral-900 text-white text-[10px] font-medium shrink-0">

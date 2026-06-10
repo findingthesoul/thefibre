@@ -35,6 +35,10 @@ import {
   Check,
   Maximize2,
   Minimize2,
+  Play,
+  Circle,
+  CircleCheck,
+  CircleX,
 } from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
 
@@ -87,12 +91,15 @@ type InGraph = {
 };
 
 // Clean-dashboard style: cards are white with a soft ring + shadow; the step
-// kind shows as a tinted pill chip (not by colouring the whole card).
-const KIND_STYLE: Record<Kind, { chip: string; chipBg: string; chipText: string }> = {
-  entry: { chip: 'Entry', chipBg: 'bg-indigo-50', chipText: 'text-indigo-600' },
-  normal: { chip: 'Step', chipBg: 'bg-slate-100', chipText: 'text-slate-500' },
-  end_positive: { chip: '✓ End', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600' },
-  end_negative: { chip: '✗ End', chipBg: 'bg-rose-50', chipText: 'text-rose-600' },
+// kind shows as a tinted pill chip with an icon (not by colouring the card).
+const KIND_STYLE: Record<
+  Kind,
+  { chip: string; chipBg: string; chipText: string; icon: typeof Play }
+> = {
+  entry: { chip: 'Start', chipBg: 'bg-indigo-50', chipText: 'text-indigo-600', icon: Play },
+  normal: { chip: 'Step', chipBg: 'bg-slate-100', chipText: 'text-slate-500', icon: Circle },
+  end_positive: { chip: 'End', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600', icon: CircleCheck },
+  end_negative: { chip: 'End', chipBg: 'bg-rose-50', chipText: 'text-rose-600', icon: CircleX },
 };
 
 // ---------------------------------------------------------------------------
@@ -101,6 +108,7 @@ const KIND_STYLE: Record<Kind, { chip: string; chipBg: string; chipText: string 
 function StepCardNode({ id, data, selected }: NodeProps) {
   const d = data as StepData;
   const style = KIND_STYLE[d.kind] ?? KIND_STYLE.normal;
+  const KindIcon = style.icon;
   return (
     <div
       className={`rounded-2xl bg-white transition-shadow ${
@@ -113,8 +121,9 @@ function StepCardNode({ id, data, selected }: NodeProps) {
       <Handle type="target" position={Position.Left} className="!bg-slate-300 !w-2.5 !h-2.5" />
       <div className="px-3.5 py-3">
         <span
-          className={`inline-block text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5 ${style.chipBg} ${style.chipText}`}
+          className={`inline-flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5 ${style.chipBg} ${style.chipText}`}
         >
+          <KindIcon size={10} strokeWidth={2.25} />
           {style.chip}
         </span>
         <input
@@ -523,7 +532,10 @@ function CanvasInner({
         </div>
       )}
 
-      <div className={`relative ${fullscreen ? 'flex-1' : ''}`} style={fullscreen ? undefined : { height: 560 }}>
+      <div
+        className={`relative ${fullscreen ? 'flex-1' : ''}`}
+        style={fullscreen ? undefined : { height: 'max(560px, calc(100vh - 340px))' }}
+      >
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -541,7 +553,7 @@ function CanvasInner({
           style={{ background: '#f8fafc' }}
         >
           {showGrid && (
-            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#cbd5e1" />
+            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#e2e8f0" />
           )}
           <Controls showInteractive={false} />
         </ReactFlow>

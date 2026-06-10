@@ -6,6 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.50] — 2026-05-29 — Fibre Flow v1.6.0
+
+### Board drag-and-drop, full-width flow page, builder polish
+
+- **Drag contacts across the board.** Kanban cards are draggable: drop one on
+  another column and the move popup opens with that step pre-selected — the
+  same gated-confirm / manual-move (revert) logic as in the run popup. The
+  target column highlights while dragging; the dragged card dims.
+- **Flow detail page is full width.** Dropped the `max-w-4xl` cap so the board
+  and builder use the whole screen (per the screenshot where the board was cut
+  off at the container edge).
+- **Builder canvas is much larger in-page** — grows with the viewport
+  (`calc(100vh - 340px)`, min 560px) instead of a fixed 560px; full-screen
+  toggle still available on top.
+- **Lighter grid** lines (slate-200).
+- **Kind icons on step cards** — the pill chip now carries an icon: ▶ Start,
+  ○ Step, ✓-circle End (positive), ✗-circle End (negative).
+
 ## [0.13.49] — 2026-05-29 — Fibre Flow v1.5.0
 
 ### Full-screen builder
