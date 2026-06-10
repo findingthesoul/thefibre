@@ -560,7 +560,7 @@ function CanvasInner({
           style={{ background: '#f8fafc' }}
         >
           {showGrid && (
-            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#e2e8f0" />
+            <Background variant={BackgroundVariant.Lines} gap={24} size={1} color="#eaeef4" />
           )}
           <Controls showInteractive={false} />
         </ReactFlow>

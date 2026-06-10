@@ -6,6 +6,13 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.53] — 2026-05-29 — Fibre Flow v1.7.2
+
+### Lighter builder grid
+
+Grid lines stepped down another notch (#eaeef4) so they read as a whisper
+under the cards rather than a visible lattice.
+
 ## [0.13.52] — 2026-05-29 — Fibre Flow v1.7.1
 
 ### Loop-back transitions easier to draw
