@@ -41,10 +41,10 @@ export default async function FlowsPage() {
   }
 
   return (
-    <div className="px-6 py-8 max-w-5xl">
-      <div className="flex items-center justify-between">
+    <div className="px-6 py-10 max-w-5xl">
+      <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight">Flows</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Flows</h1>
           <p className="mt-1 text-sm text-ink-muted">
             State machines your contacts move through. Each step is held by gate tasks.
           </p>

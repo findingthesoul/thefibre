@@ -15,8 +15,8 @@ export default async function ContactsPage() {
   }
 
   return (
-    <div className="px-6 py-8 max-w-3xl">
-      <h1 className="text-2xl font-medium tracking-tight">Contacts in motion</h1>
+    <div className="px-6 py-10 max-w-3xl">
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Contacts in motion</h1>
       <p className="mt-1 text-sm text-ink-muted">
         People currently moving through a flow. Identity comes from The Fibre.
       </p>

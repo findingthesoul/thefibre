@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.46] — 2026-05-29 — Fibre Flow v1.3.2
+
+### Consistent page headers across Flow
+
+Unified page chrome so every Flow page matches Home: same large semibold
+heading (`text-[28px]`), same top spacing (`py-10`), same subtitle treatment —
+Flows, the flow detail, Tasks, and Contacts were still on the older smaller
+medium-weight headers.
+
 ## [0.13.45] — 2026-05-29 — Fibre Flow v1.3.1
 
 ### Clean-dashboard card style rolled out across Flow

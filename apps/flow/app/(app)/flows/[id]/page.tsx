@@ -54,7 +54,7 @@ export default async function FlowDetailPage({
   const canAddContacts = !!flow.current_version_id && flow.lifecycle === 'active';
 
   return (
-    <div className="px-6 py-8 max-w-4xl">
+    <div className="px-6 py-10 max-w-4xl">
       <Link
         href="/flows"
         className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
@@ -64,7 +64,7 @@ export default async function FlowDetailPage({
 
       <div className="mt-4 flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight">{flow.name}</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">{flow.name}</h1>
           {flow.description && (
             <p className="mt-1 text-sm text-ink-muted max-w-2xl">{flow.description}</p>
           )}

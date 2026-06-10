@@ -14,8 +14,8 @@ export default async function TasksPage() {
   }
 
   return (
-    <div className="px-6 py-8 max-w-3xl">
-      <h1 className="text-2xl font-medium tracking-tight">My tasks</h1>
+    <div className="px-6 py-10 max-w-3xl">
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">My tasks</h1>
       <p className="mt-1 text-sm text-ink-muted">Open tasks assigned to you across all flows.</p>
 
       {loadError ? (
