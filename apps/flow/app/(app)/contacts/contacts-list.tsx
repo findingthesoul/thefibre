@@ -33,7 +33,7 @@ export function ContactsList({ runs }: { runs: Run[] }) {
           <button
             key={r.id}
             onClick={() => setOpenRunId(r.id)}
-            className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow px-4 py-3"
+            className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow px-4 py-3"
           >
             <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium shrink-0">
               {((person?.first_name?.[0] ?? '') + (person?.last_name?.[0] ?? '') || '?').toUpperCase()}

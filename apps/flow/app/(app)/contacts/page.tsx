@@ -28,7 +28,7 @@ export default async function ContactsPage() {
       )}
 
       {!loadError && runs.length === 0 && (
-        <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-12 text-center">
+        <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-12 text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-indigo-50 flex items-center justify-center">
             <Users size={22} strokeWidth={1.5} className="text-indigo-600" />
           </div>

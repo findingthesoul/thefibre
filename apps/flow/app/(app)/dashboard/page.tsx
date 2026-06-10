@@ -77,7 +77,7 @@ export default async function FlowDashboard() {
           <h2 className="text-base font-semibold tracking-tight">Favourite flows</h2>
         </div>
         {favorites.length === 0 ? (
-          <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-8 text-center">
+          <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
             <div className="mx-auto mb-3 h-11 w-11 rounded-2xl bg-amber-50 flex items-center justify-center">
               <Star size={20} className="text-amber-500" />
             </div>
@@ -95,7 +95,7 @@ export default async function FlowDashboard() {
               <Link
                 key={f.id}
                 href={`/flows/${f.id}`}
-                className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow p-5"
+                className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow p-5"
               >
                 <div className="flex items-start justify-between">
                   <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center">
@@ -151,7 +151,7 @@ function StatCard({
   return (
     <Link
       href={href}
-      className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow p-5"
+      className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow p-5"
     >
       <div className="flex items-center justify-between">
         <div className={`h-10 w-10 rounded-xl ${t.bg} flex items-center justify-center`}>

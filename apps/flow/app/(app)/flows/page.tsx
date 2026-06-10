@@ -65,7 +65,7 @@ export default async function FlowsPage() {
           {items.map((f) => (
             <div
               key={f.id}
-              className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow pr-3"
+              className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow pr-3"
             >
               <Link href={`/flows/${f.id}`} className="flex items-center gap-4 flex-1 min-w-0 px-4 py-4">
                 <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
@@ -102,7 +102,7 @@ export default async function FlowsPage() {
 
 function EmptyState() {
   return (
-    <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-12 text-center">
+    <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-12 text-center">
       <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-violet-50 flex items-center justify-center">
         <Workflow size={22} strokeWidth={1.5} className="text-violet-600" />
       </div>

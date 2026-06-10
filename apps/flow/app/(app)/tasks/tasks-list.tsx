@@ -55,7 +55,7 @@ export function TasksList({ initial }: { initial: Task[] }) {
   return (
     <div className="mt-6">
       {/* quick add */}
-      <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm px-4 py-2.5">
+      <div className="flex items-center gap-2 rounded-2xl bg-white ring-1 ring-black/5 shadow-card px-4 py-2.5">
         <Plus size={16} className="text-ink-muted shrink-0" />
         <input
           value={title}
@@ -78,7 +78,7 @@ export function TasksList({ initial }: { initial: Task[] }) {
       </div>
 
       {tasks.length === 0 ? (
-        <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-12 text-center">
+        <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-12 text-center">
           <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-emerald-50 flex items-center justify-center">
             <CheckCircle2 size={22} strokeWidth={1.5} className="text-emerald-600" />
           </div>
@@ -99,7 +99,7 @@ export function TasksList({ initial }: { initial: Task[] }) {
             return (
               <div
                 key={t.id}
-                className="flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-sm px-4 py-3"
+                className="flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-card px-4 py-3"
               >
                 <button onClick={() => toggle(t)} className="shrink-0" title={done ? 'Reopen' : 'Mark done'}>
                   {done ? (

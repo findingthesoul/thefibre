@@ -31,7 +31,7 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
 
   if (total === 0) {
     return (
-      <div className="mt-4 rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-8 text-center text-sm text-ink-subtle">
+      <div className="mt-4 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center text-sm text-ink-subtle">
         No contacts in this flow yet — nothing to report.
       </div>
     );
@@ -48,7 +48,7 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
 
       <div>
         <h3 className="text-sm font-medium mb-3">Current distribution across steps</h3>
-        <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-5 space-y-2.5">
+        <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-5 space-y-2.5">
           {steps.map((s) => {
             const n = byStep.get(s.key) ?? 0;
             const pct = Math.round((n / maxCount) * 100);
@@ -77,7 +77,7 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
 
 function Stat({ label, value, accent }: { label: string; value: number; accent?: string }) {
   return (
-    <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm px-5 py-4">
+    <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card px-5 py-4">
       <div className={`text-3xl font-semibold tabular-nums tracking-tight ${accent ?? ''}`}>{value}</div>
       <div className="text-xs text-ink-muted mt-0.5">{label}</div>
     </div>

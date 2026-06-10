@@ -104,7 +104,7 @@ function StepCardNode({ id, data, selected }: NodeProps) {
       className={`rounded-2xl bg-white transition-shadow ${
         selected
           ? 'ring-2 ring-indigo-300 shadow-lg'
-          : 'ring-1 ring-black/5 shadow-md hover:shadow-lg'
+          : 'ring-1 ring-black/5 shadow-card hover:shadow-card-hover'
       }`}
       style={{ width: 184 }}
     >

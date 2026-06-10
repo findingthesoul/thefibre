@@ -110,7 +110,7 @@ export function RunsPanel({
       </div>
 
       {runs.length === 0 ? (
-        <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-sm p-8 text-center text-sm text-ink-subtle">
+        <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center text-sm text-ink-subtle">
           {canAdd
             ? 'No contacts in this flow yet. Add one to start moving them through.'
             : 'Publish the flow before adding contacts.'}
@@ -126,7 +126,7 @@ export function RunsPanel({
               <button
                 key={r.id}
                 onClick={() => setOpenRunId(r.id)}
-                className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-sm hover:shadow-md transition-shadow px-4 py-3"
+                className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow px-4 py-3"
               >
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium shrink-0">
                   {initials(person)}

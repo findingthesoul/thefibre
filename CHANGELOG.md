@@ -6,6 +6,21 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.48] — 2026-05-29 — Fibre Flow v1.4.0
+
+### Cool-grey canvas + soft floating cards (matching the design references)
+
+Retuned Fibre Flow's theme to the clean-dashboard look from the shared
+references:
+- **Background** shifts from warm cream to a **cool light-grey** (`#eef1f6`);
+  ink/line tokens move to the **slate** family — cooler, crisper overall.
+- **Cards float** on the grey with a **soft, diffuse shadow** (new
+  `.shadow-card` / `.shadow-card-hover` utilities) instead of a tight
+  `shadow-sm` — pure-white cards lift off the canvas the way the references do.
+- Applied across Home, Flows, board, Tasks, Reports, Contacts, builder cards,
+  and the run popup. Flow has its own theme tokens, so Meet / The Fibre are
+  untouched.
+
 ## [0.13.47] — 2026-05-29 — Fibre Flow v1.3.3
 
 ### Builder + run-popup cards match the clean-dashboard style
