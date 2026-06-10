@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.52] — 2026-05-29 — Fibre Flow v1.7.1
+
+### Loop-back transitions easier to draw
+
+Backward transitions (e.g. `Nurture → First Contact`) were always supported by
+the model and runtime — but drawing one required hitting exactly the right
+handle pair. The builder now uses React Flow's **loose connection mode**: drag
+from any handle to any handle and the edge connects, making loop-backs (and
+everything else) much easier to draw. Self-connections (step → itself) are
+blocked client-side to match the DB constraint.
+
 ## [0.13.51] — 2026-05-29 — Fibre Flow v1.7.0
 
 ### New step kind: Loop — closes a cycle back to the start

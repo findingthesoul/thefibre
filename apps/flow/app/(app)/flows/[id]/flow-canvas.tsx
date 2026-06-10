@@ -14,6 +14,7 @@ import {
   useNodesState,
   useEdgesState,
   useReactFlow,
+  ConnectionMode,
   type Node,
   type Edge,
   type Connection,
@@ -271,6 +272,9 @@ function CanvasInner({
 
   const onConnect = useCallback(
     (c: Connection) => {
+      // Loop-back transitions (to any earlier step) are fine; a step
+      // connecting to itself is not (DB check from <> to).
+      if (c.source === c.target) return;
       setEdges((es) =>
         addEdge(
           {
@@ -545,6 +549,7 @@ function CanvasInner({
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
           nodeTypes={nodeTypes}
+          connectionMode={ConnectionMode.Loose}
           snapToGrid={snap}
           snapGrid={[24, 24]}
           onNodeClick={(_, n) => setSelected({ kind: 'node', id: n.id })}
