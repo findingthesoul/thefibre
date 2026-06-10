@@ -83,6 +83,13 @@ Founding-team briefing: [`fibreflow-brief-v0.3.md`](./fibreflow-brief-v0.3.md). 
 
 **Fibre Flow is at v1.0 — Phases C–J all shipped.** Remaining polish (not blocking v1): team-task view, `can_see_person` RLS clause for non-admins, flow-gate auto-advance, historical cohort funnel (needs step-history), team-scoped flows (needs a team picker).
 
+#### Fibre Flow — mobile runtime (backlog, Sjoerd 2026-05-29)
+The **builder canvas is desktop/iPad only** by design (drag-drop + connect needs the space) — fine to leave that way. But the **runtime** — taking a contact through a flow, completing gate tasks, advancing/reverting — is a phone-in-hand task (between meetings, on the move). It needs a **dedicated touch-first mobile UI**, not a shrunk canvas:
+- Mobile contact view: current step, the open gate tasks (big tap targets to tick), and a clear "advance to →" / "revert" action — no React Flow.
+- Mobile board: vertical stacked step sections or a swipeable column carousel.
+- Tasks + Home already mostly responsive; audit at small breakpoints.
+- Gate the builder/canvas behind a min-width with a "best on a larger screen" note on phones.
+
 #### Future Meet features (parked)
 - One-off meetings + meeting polls (UI shows them as "Soon" in the New dropdown)
 - Zoom OAuth (provider field accepts 'zoom'; auth not wired)
