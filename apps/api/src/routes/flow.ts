@@ -875,6 +875,14 @@ flowRoutes.get('/runs/:id', async (c) => {
     .is('deleted_at', null)
     .order('created_at', { ascending: true });
 
+  // Per-step notes (step resolved to its key so the UI can group them).
+  const { data: notes } = await db
+    .from('flow_run_note')
+    .select('id, body, created_at, step:step_id (key), author:created_by (full_name, email)')
+    .eq('flow_run_id', id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: true });
+
   const doneGate = new Set<string>();
   for (const t of tasks ?? []) {
     if (t.gate_task_id && t.status === 'done') doneGate.add(t.gate_task_id);
@@ -925,7 +933,56 @@ flowRoutes.get('/runs/:id', async (c) => {
   // Full graph of the run's version, for visual layout in the contact popup.
   const graph = await loadGraph(db, run.flow_version_id);
 
-  return c.json({ run: { ...run, step }, tasks: tasks ?? [], transitions, graph });
+  return c.json({ run: { ...run, step }, tasks: tasks ?? [], notes: notes ?? [], transitions, graph });
+});
+
+// ---------------------------------------------------------------------------
+// POST /runs/:id/notes — leave a note on a (run, step) pair.
+// ---------------------------------------------------------------------------
+const CreateNote = z.object({
+  step_key: z.string().min(1),
+  body: z.string().min(1).max(2000),
+});
+
+flowRoutes.post('/runs/:id/notes', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+  const parsed = CreateNote.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+
+  const { data: run } = await db
+    .from('flow_run')
+    .select('id, flow_version_id')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (!run) return c.json({ error: 'run not found' }, 404);
+
+  const { data: noteStep } = await db
+    .from('flow_step')
+    .select('id')
+    .eq('flow_version_id', run.flow_version_id)
+    .eq('key', parsed.data.step_key)
+    .single();
+  if (!noteStep) return c.json({ error: 'step not found in this flow version' }, 404);
+
+  const { data: note, error: nErr } = await db
+    .from('flow_run_note')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      flow_run_id: id,
+      step_id: noteStep.id,
+      body: parsed.data.body,
+      created_by: ctx.userId,
+    })
+    .select('id')
+    .single();
+  if (nErr || !note) {
+    console.error('[flow] create note', nErr);
+    return c.json({ error: nErr?.message ?? 'note create failed' }, 500);
+  }
+  return c.json({ id: note.id }, 201);
 });
 
 // ---------------------------------------------------------------------------

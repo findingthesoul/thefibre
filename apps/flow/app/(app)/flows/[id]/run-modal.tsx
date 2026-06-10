@@ -14,9 +14,23 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { X, GripVertical, CheckCircle2, Circle, AlertCircle, ArrowRight, ArrowLeft, ExternalLink } from 'lucide-react';
+import {
+  X,
+  GripVertical,
+  CheckCircle2,
+  Circle,
+  AlertCircle,
+  ArrowRight,
+  ArrowLeft,
+  ArrowDown,
+  ExternalLink,
+  List as ListIcon,
+  Workflow,
+  Send,
+  MoveRight,
+} from 'lucide-react';
 import Link from 'next/link';
-import { getRunDetail, transitionRun, completeTask, repositionRun } from '../actions';
+import { getRunDetail, transitionRun, completeTask, reopenTask, repositionRun, addRunNote } from '../actions';
 
 type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative' | 'loop';
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
@@ -46,8 +60,17 @@ type Detail = {
     step: { id: string; key: string; name: string; kind: string } | null;
   };
   tasks: Task[];
+  notes: Note[];
   transitions: Transition[];
   graph: { steps: GraphStep[]; transitions: GraphTransition[] };
+};
+
+type Note = {
+  id: string;
+  body: string;
+  created_at: string;
+  step: { key: string } | { key: string }[] | null;
+  author: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
 };
 
 function one<T>(v: T | T[] | null): T | null {
@@ -275,6 +298,164 @@ function Graph({
   );
 }
 
+// ---------------------------------------------------------------------------
+// Journey list view: steps stacked vertically (non-current muted), transition
+// labels on the connectors between them, the current step as a thick card
+// with its tasks, and a note composer on every step.
+// ---------------------------------------------------------------------------
+function JourneyList({
+  detail,
+  busy,
+  onMoveTo,
+  onToggleTask,
+  onAddNote,
+}: {
+  detail: Detail;
+  busy: boolean;
+  onMoveTo: (key: string) => void;
+  onToggleTask: (t: Task) => void;
+  onAddNote: (stepKey: string, body: string) => void;
+}) {
+  const steps = [...detail.graph.steps].sort(
+    (a, b) =>
+      (a.canvas_x ?? Number.MAX_SAFE_INTEGER) - (b.canvas_x ?? Number.MAX_SAFE_INTEGER) ||
+      (a.canvas_y ?? 0) - (b.canvas_y ?? 0),
+  );
+  const currentKey = detail.run.step?.key;
+  const tasks = detail.tasks.filter((t) => t.status !== 'cancelled');
+
+  const notesByStep = new Map<string, Note[]>();
+  for (const n of detail.notes ?? []) {
+    const key = one(n.step)?.key;
+    if (!key) continue;
+    notesByStep.set(key, [...(notesByStep.get(key) ?? []), n]);
+  }
+
+  return (
+    <div className="max-h-[62vh] overflow-y-auto px-5 py-4">
+      {steps.map((s, i) => {
+        const isCurrent = s.key === currentKey;
+        const between =
+          i > 0 ? detail.graph.transitions.filter((t) => t.from === steps[i - 1].key && t.to === s.key) : [];
+        const notes = notesByStep.get(s.key) ?? [];
+        return (
+          <div key={s.key}>
+            {i > 0 && (
+              <div className="flex items-center gap-2.5 py-1 ml-5">
+                <div className="h-7 w-px bg-slate-300" />
+                {between.length > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white ring-1 ring-black/5 px-2 py-0.5 text-[10px] text-ink-subtle">
+                    <ArrowDown size={10} />
+                    {between.map((t) => t.label).join(' · ')}
+                  </span>
+                )}
+              </div>
+            )}
+            <div
+              className={
+                isCurrent
+                  ? 'rounded-2xl bg-white ring-2 ring-slate-800 shadow-card px-4 py-3'
+                  : 'rounded-xl bg-white/70 ring-1 ring-black/5 px-4 py-2.5 opacity-70'
+              }
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="flex items-center gap-2 min-w-0">
+                  <span className={`h-2 w-2 rounded-full shrink-0 ${KIND_DOT[s.kind] ?? KIND_DOT.normal}`} />
+                  <span className={`truncate ${isCurrent ? 'text-sm font-semibold' : 'text-[13px] font-medium'}`}>
+                    {s.name}
+                  </span>
+                </span>
+                {isCurrent ? (
+                  <span className="rounded-full bg-slate-900 text-white text-[10px] px-2 py-0.5 shrink-0">
+                    Current
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => onMoveTo(s.key)}
+                    className="inline-flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink shrink-0"
+                  >
+                    Move here <MoveRight size={12} />
+                  </button>
+                )}
+              </div>
+
+              {isCurrent && tasks.length > 0 && (
+                <div className="mt-2.5 space-y-1.5">
+                  {tasks.map((t) => {
+                    const done = t.status === 'done';
+                    return (
+                      <button
+                        key={t.id}
+                        onClick={() => onToggleTask(t)}
+                        disabled={busy}
+                        className="w-full flex items-center gap-2 rounded-lg bg-slate-50 ring-1 ring-black/5 px-3 py-1.5 text-left text-xs hover:bg-slate-100 disabled:opacity-60"
+                      >
+                        {done ? (
+                          <CheckCircle2 size={14} className="text-emerald-600 shrink-0" />
+                        ) : (
+                          <Circle size={14} className="text-ink-muted shrink-0" />
+                        )}
+                        <span className={done ? 'line-through text-ink-muted' : ''}>{t.title}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {notes.length > 0 && (
+                <div className="mt-2 space-y-1.5">
+                  {notes.map((n) => {
+                    const author = one(n.author);
+                    return (
+                      <div key={n.id} className="rounded-lg bg-amber-50/70 px-3 py-1.5 text-xs">
+                        <p className="text-ink">{n.body}</p>
+                        <p className="mt-0.5 text-[10px] text-ink-muted">
+                          {author?.full_name ?? author?.email ?? 'Someone'} ·{' '}
+                          {new Date(n.created_at).toLocaleDateString()}
+                        </p>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <NoteComposer busy={busy} onSubmit={(body) => onAddNote(s.key, body)} />
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function NoteComposer({ busy, onSubmit }: { busy: boolean; onSubmit: (body: string) => void }) {
+  const [v, setV] = useState('');
+  function submit() {
+    const body = v.trim();
+    if (!body) return;
+    setV('');
+    onSubmit(body);
+  }
+  return (
+    <div className="mt-2 flex items-center gap-2">
+      <input
+        value={v}
+        onChange={(e) => setV(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') submit();
+        }}
+        placeholder="Add a note…"
+        className="flex-1 rounded-lg bg-slate-50 ring-1 ring-black/5 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300"
+      />
+      {v.trim() && (
+        <button onClick={submit} disabled={busy} className="text-ink-subtle hover:text-ink disabled:opacity-50">
+          <Send size={14} />
+        </button>
+      )}
+    </div>
+  );
+}
+
 export function RunModal({
   runId,
   onClose,
@@ -291,6 +472,7 @@ export function RunModal({
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [view, setView] = useState<'list' | 'flow'>('list');
   // A pending move is either a forward (gated) transition or a manual move to
   // any step (revert / sideways).
   const [confirmT, setConfirmT] = useState<Transition | null>(null);
@@ -339,9 +521,17 @@ export function RunModal({
 
   async function onToggleTask(t: Task) {
     setBusy(true);
-    await completeTask(t.id, runId);
+    if (t.status === 'done') await reopenTask(t.id, runId);
+    else await completeTask(t.id, runId);
     await refetch();
     // Refresh the confirm transition's gate status from the new detail.
+    setBusy(false);
+  }
+
+  async function onAddNote(stepKey: string, body: string) {
+    setBusy(true);
+    await addRunNote(runId, stepKey, body);
+    await refetch();
     setBusy(false);
   }
 
@@ -398,6 +588,26 @@ export function RunModal({
           </div>
           <div className="flex items-center gap-3">
             {detail && (
+              <div className="inline-flex rounded-lg ring-1 ring-black/5 overflow-hidden">
+                <button
+                  onClick={() => setView('list')}
+                  className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] ${
+                    view === 'list' ? 'bg-slate-100 text-ink' : 'text-ink-subtle hover:text-ink'
+                  }`}
+                >
+                  <ListIcon size={12} /> List
+                </button>
+                <button
+                  onClick={() => setView('flow')}
+                  className={`inline-flex items-center gap-1 px-2 py-1 text-[11px] border-l border-line ${
+                    view === 'flow' ? 'bg-slate-100 text-ink' : 'text-ink-subtle hover:text-ink'
+                  }`}
+                >
+                  <Workflow size={12} /> Flow
+                </button>
+              </div>
+            )}
+            {detail && (
               <Link
                 href={`/runs/${runId}`}
                 className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
@@ -415,7 +625,17 @@ export function RunModal({
           <div className="px-5 py-4 text-sm text-red-700 bg-red-50">{loadError}</div>
         )}
 
-        {detail && (
+        {detail && view === 'list' && (
+          <JourneyList
+            detail={detail}
+            busy={busy}
+            onMoveTo={onDropToken}
+            onToggleTask={onToggleTask}
+            onAddNote={onAddNote}
+          />
+        )}
+
+        {detail && view === 'flow' && (
           <>
             <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
               {picking ? (

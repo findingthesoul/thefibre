@@ -241,3 +241,15 @@ export async function setTaskStatus(taskId: string, status: 'open' | 'done'): Pr
     return { error: formatApiError(e) };
   }
 }
+
+export async function addRunNote(runId: string, stepKey: string, body: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/flow/runs/${runId}/notes`, {
+      method: 'POST',
+      body: JSON.stringify({ step_key: stepKey, body }),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

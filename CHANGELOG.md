@@ -6,6 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.55] — 2026-05-30 — Fibre Flow v1.9.0
+
+### Run popup: journey list view + per-step notes
+
+Clicking a contact now opens a **List / Flow** toggle (List is the default):
+
+- **List view** — the steps stacked vertically in builder order, non-current
+  steps muted, the **current step as a thick card** with its gate tasks
+  (tickable, and now re-openable) and a "Current" badge. Transition labels
+  ride the connectors between steps. Every step has a **"Move here →"**
+  action (same gated / revert confirm popups).
+- **Per-step notes** — every step card carries a comment composer; notes show
+  with author + date in soft amber. Stored in a new app-private
+  `flow_run_note` table (content never crosses the data wall into activity).
+- **Flow view** — the existing graph + token interaction, one click away.
+
+Migration `20260530100000_flow_run_note.sql`; API: notes embedded in
+`GET /flow/runs/:id`, new `POST /flow/runs/:id/notes`.
+
 ## [0.13.54] — 2026-05-29 — Fibre Flow v1.8.0
 
 ### Board restyled + columns follow the builder layout
