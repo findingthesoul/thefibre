@@ -38,8 +38,48 @@ const STATUS_META: Record<string, { label: string; cls: string }> = {
   archived: { label: 'Archived', cls: 'bg-surface-sunken text-ink-muted ring-line' },
 };
 
-function whenOf(e: EngagementRow): string | null {
-  return metaFor(e.type).family === 'activity' ? e.starts_at : e.scheduled_at;
+const LIFECYCLE_LABELS: Record<string, string> = {
+  on_enrolment: 'On enrolment',
+  on_approval: 'On approval',
+  on_completion: 'On completion',
+};
+
+/**
+ * Where an engagement sits in time. Activities use starts_at; fixed messages
+ * use scheduled_at; relative messages compute from the thread window;
+ * lifecycle-triggered messages have no date (they live in the Triggered group).
+ */
+function whenOf(
+  e: EngagementRow,
+  window?: { starts_on: string | null; ends_on: string | null } | null,
+): string | null {
+  if (metaFor(e.type).family === 'activity') return e.starts_at;
+  const kind = e.trigger_kind ?? 'fixed';
+  if (kind === 'fixed') return e.scheduled_at;
+  if (kind === 'relative') {
+    const anchor = e.trigger_anchor === 'end' ? window?.ends_on : window?.starts_on;
+    if (!anchor) return null;
+    const d = new Date(`${anchor}T${e.trigger_time ?? '09:00'}:00`);
+    d.setDate(d.getDate() + (e.trigger_offset_days ?? 0));
+    return d.toISOString();
+  }
+  return null; // lifecycle triggers
+}
+
+function isLifecycle(e: EngagementRow): boolean {
+  return e.trigger_kind in LIFECYCLE_LABELS;
+}
+
+/** Short human label for a message card's trigger. */
+function triggerLabel(e: EngagementRow): string | null {
+  const kind = e.trigger_kind ?? 'fixed';
+  if (kind === 'fixed') return e.scheduled_at ? `Sends ${fmtTime(e.scheduled_at)}` : 'Unscheduled';
+  if (kind === 'relative') {
+    const n = Math.abs(e.trigger_offset_days ?? 0);
+    const dir = (e.trigger_offset_days ?? 0) < 0 ? 'before' : 'after';
+    return `${n}d ${dir} ${e.trigger_anchor === 'end' ? 'end' : 'start'} · ${e.trigger_time ?? '09:00'}`;
+  }
+  return LIFECYCLE_LABELS[kind] ?? null;
 }
 
 function dayKey(iso: string): string {
@@ -85,21 +125,34 @@ export function ThreadTimeline({
     return () => document.removeEventListener('mousedown', onDown);
   }, [addMenuOpen]);
 
-  // Group: dated engagements by day (ascending), undated by position at the end.
-  const { groups, undated } = useMemo(() => {
-    const dated = engagements.filter((e) => whenOf(e));
-    const undatedList = engagements
-      .filter((e) => !whenOf(e))
+  // Group: lifecycle-triggered messages first (no date), then dated
+  // engagements by day (relative triggers get a computed date from the
+  // thread window), then undated by position.
+  const window = useMemo(
+    () => ({ starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null }),
+    [program?.starts_on, program?.ends_on],
+  );
+  const { triggered, groups, undated } = useMemo(() => {
+    const triggeredList = engagements
+      .filter(isLifecycle)
       .sort((a, b) => a.position - b.position);
-    dated.sort((a, b) => new Date(whenOf(a)!).getTime() - new Date(whenOf(b)!).getTime());
+    const rest = engagements.filter((e) => !isLifecycle(e));
+    const dated = rest.filter((e) => whenOf(e, window));
+    const undatedList = rest
+      .filter((e) => !whenOf(e, window))
+      .sort((a, b) => a.position - b.position);
+    dated.sort(
+      (a, b) =>
+        new Date(whenOf(a, window)!).getTime() - new Date(whenOf(b, window)!).getTime(),
+    );
     const map = new Map<string, EngagementRow[]>();
     for (const e of dated) {
-      const k = dayKey(whenOf(e)!);
+      const k = dayKey(whenOf(e, window)!);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
-    return { groups: [...map.entries()], undated: undatedList };
-  }, [engagements]);
+    return { triggered: triggeredList, groups: [...map.entries()], undated: undatedList };
+  }, [engagements, window]);
 
   const status = program?.status ?? 'draft';
   const statusMeta = STATUS_META[status] ?? STATUS_META.draft;
@@ -204,16 +257,41 @@ export function ThreadTimeline({
         {/* the vertical line */}
         <div className="absolute left-5 top-1 bottom-1 w-px bg-line" />
 
-        {groups.length === 0 && undated.length === 0 && (
+        {groups.length === 0 && undated.length === 0 && triggered.length === 0 && (
           <p className="text-sm text-ink-subtle py-6">
             Nothing on the timeline yet — add the first engagement below.
           </p>
         )}
 
         <div className="space-y-4">
+          {triggered.length > 0 && (
+            <div className="relative">
+              <div className="absolute -left-[57px] top-1 w-10 text-center">
+                <div
+                  className="rounded-md border border-line bg-surface-raised px-1 py-1.5 text-[9px] uppercase tracking-wide text-ink-muted leading-tight"
+                  title="Sent automatically when the trigger fires per participant"
+                >
+                  Auto
+                </div>
+              </div>
+              <div>
+                {triggered.map((e, i) => (
+                  <EngagementCard
+                    key={e.id}
+                    engagement={e}
+                    attachTop={i > 0}
+                    attachBottom={i < triggered.length - 1}
+                    onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
+                    onDelete={() => setDeleting(e)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
           {groups.map(([key, items]) => (
             <div key={key} className="relative">
-              <DateBadge iso={items[0] ? whenOf(items[0])! : key} />
+              <DateBadge iso={items[0] ? whenOf(items[0], window)! : key} />
               <div>
                 {items.map((e, i) => (
                   <EngagementCard
@@ -292,6 +370,9 @@ export function ThreadTimeline({
           threadId={thread.id}
           engagement={editorState.mode === 'edit' ? editorState.engagement : null}
           initialType={editorState.mode === 'new' ? editorState.type : undefined}
+          threadStartsOn={program?.starts_on ?? null}
+          threadEndsOn={program?.ends_on ?? null}
+          requiresApproval={thread.requires_approval}
           onClose={() => setEditorState({ mode: 'closed' })}
         />
       )}
@@ -381,7 +462,7 @@ function EngagementCard({
   onDelete: () => void;
 }) {
   const meta = metaFor(e.type);
-  const when = whenOf(e);
+  const when = metaFor(e.type).family === 'activity' ? e.starts_at : null;
   const rounded = `${attachTop ? 'rounded-t-none border-t-0' : 'rounded-t-lg'} ${
     attachBottom ? 'rounded-b-none' : 'rounded-b-lg'
   }`;
@@ -410,7 +491,7 @@ function EngagementCard({
                   {e.status}
                 </span>
               )}
-              {meta.family === 'message' && when && <span>Sends {fmtTime(when)}</span>}
+              {meta.family === 'message' && <span>{triggerLabel(e)}</span>}
             </div>
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
           </div>

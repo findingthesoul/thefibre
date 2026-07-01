@@ -64,6 +64,13 @@ export type EngagementType =
   | (typeof ACTIVITY_TYPES)[number]
   | (typeof MESSAGE_TYPES)[number];
 
+export type TriggerKind =
+  | 'fixed'
+  | 'on_enrolment'
+  | 'on_approval'
+  | 'on_completion'
+  | 'relative';
+
 export type EngagementRow = {
   id: string;
   thread_id: string;
@@ -76,6 +83,11 @@ export type EngagementRow = {
   location: string | null;
   meeting_url: string | null;
   scheduled_at: string | null;
+  // Message-family send trigger (see migration 20260702100000).
+  trigger_kind: TriggerKind;
+  trigger_anchor: 'start' | 'end' | null;
+  trigger_offset_days: number | null; // signed: negative = before anchor
+  trigger_time: string | null; // 'HH:MM' in the thread's timezone
   content: Record<string, unknown>;
   position: number;
   show_in_agenda: boolean;

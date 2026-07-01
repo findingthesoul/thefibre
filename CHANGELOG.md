@@ -6,7 +6,30 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.64] — 2026-07-02 — Thread 3.3.1: v3-style big editing modals
+## [0.13.65] — 2026-07-02 — Thread 3.4.0: engagement triggers + date-window rule
+
+Two structural rules from Sjoerd land together
+(migration `20260702100000_thread_engagement_triggers.sql`, applied):
+
+- **Activities stay inside the thread window.** Event / conversation /
+  workshop dates must fall between the thread's start and end — enforced
+  in the API on create + update, and in the editor via the date picker's
+  min/max (out-of-range days grey out).
+- **Messages get a "When to send" trigger** instead of only a fixed date:
+  *fixed date* · *relative to the thread dates* (N days before/after
+  start/end, at a chosen time — curated dropdowns) · *when someone
+  enrols* · *when their enrolment is approved* (only offered when the
+  thread requires approval) · *when they complete the thread*.
+- **On-enrolment messages are live now**: the public enrol flow sends
+  every published on-enrolment message to the new participant
+  immediately — personalisation tokens substituted, branded shell,
+  deduped per (engagement, person) via `thread_message_send`
+  insert-first. Approval/completion delivery hooks in when those flows
+  land; fixed + relative sends arrive with the Phase-6 scheduler.
+- **Timeline placement understands triggers**: lifecycle-triggered
+  messages sit in an "Auto" group at the top; relative messages get a
+  computed date from the thread window and sort chronologically; cards
+  show trigger labels ("On enrolment", "3d before start · 09:00").
 
 Editing popups grow into thethread-v3's roomy shape (decision: big
 centered modal over a side drawer). Dialog gains an `xl` size —

@@ -106,6 +106,25 @@ entirely (enrolment confirmed immediately).
 6. **Certificates** — designer, issuance, public page + print
 7. **Email sequences** — in-API scheduler, personalisation, send log
 
+## Engagement triggers (added 2026-07-02)
+
+Activities must fall **inside the thread's date window** (API-enforced +
+date-picker min/max). Message-family engagements carry a **trigger**
+(`trigger_kind` on `thread_engagement`):
+
+| Kind | Fires |
+|---|---|
+| `fixed` | at `scheduled_at` (the Phase-6 scheduler) |
+| `relative` | `trigger_offset_days` (signed) from `trigger_anchor` (thread start/end) at `trigger_time` — scheduler computes the moment |
+| `on_enrolment` | per person, immediately on enrol (live — wired into `/public/enrol`) |
+| `on_approval` | per person on approval — delivery lands with the approval flow; only offered in the UI when the thread `requires_approval` |
+| `on_completion` | per person on completion — delivery lands with the completion flow |
+
+All per-person sends go through `sendTriggeredMessages()` (thread.ts) and
+dedup via `thread_message_send` (insert-first, 23505 = already sent).
+The timeline shows lifecycle-triggered messages in an "Auto" group at the
+top; relative ones get a computed date and sit chronologically.
+
 ## v3 gotchas ported forward
 
 - Store engagement times in UTC; convert to thread timezone at display only.

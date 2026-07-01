@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
-import { enrolmentConfirmation } from '../lib/email/thread-templates.js';
+import { enrolmentConfirmation, engagementMessage } from '../lib/email/thread-templates.js';
 import { appUrl } from '@thefibre/shared';
 
 function threadAppUrl(): string {
@@ -456,9 +456,51 @@ const EngagementCreate = z.object({
   location: z.string().max(500).nullable().optional(),
   meeting_url: z.string().max(1000).nullable().optional(),
   scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // Message-family send triggers (see migration 20260702100000).
+  trigger_kind: z
+    .enum(['fixed', 'on_enrolment', 'on_approval', 'on_completion', 'relative'])
+    .optional(),
+  trigger_anchor: z.enum(['start', 'end']).nullable().optional(),
+  trigger_offset_days: z.number().int().min(-365).max(365).nullable().optional(),
+  trigger_time: z
+    .string()
+    .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'HH:MM')
+    .nullable()
+    .optional(),
   content: z.record(z.unknown()).optional(),
   show_in_agenda: z.boolean().optional(),
 });
+
+// Activities must fall inside the thread's date window (Sjoerd 2026-07-02).
+// Message-family items are exempt — their whole point is firing before/after
+// the thread (relative + lifecycle triggers).
+async function activityWindowError(
+  threadId: string,
+  type: string,
+  startsAt: string | null | undefined,
+  endsAt: string | null | undefined,
+): Promise<string | null> {
+  if (!(ACTIVITY_TYPES as readonly string[]).includes(type)) return null;
+  if (!startsAt && !endsAt) return null;
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select('program:program_id (starts_on, ends_on, title)')
+    .eq('id', threadId)
+    .maybeSingle();
+  const program = Array.isArray(thread?.program) ? thread?.program[0] : thread?.program;
+  if (!program) return null;
+  const min = program.starts_on ? new Date(`${program.starts_on}T00:00:00Z`) : null;
+  const max = program.ends_on ? new Date(`${program.ends_on}T23:59:59Z`) : null;
+  for (const iso of [startsAt, endsAt]) {
+    if (!iso) continue;
+    const d = new Date(iso);
+    if (min && d < min)
+      return `activities must fall inside the thread dates (starts ${program.starts_on})`;
+    if (max && d > max)
+      return `activities must fall inside the thread dates (ends ${program.ends_on})`;
+  }
+  return null;
+}
 
 threadRoutes.post('/threads/:id/engagements', async (c) => {
   const body = EngagementCreate.safeParse(await c.req.json().catch(() => null));
@@ -466,6 +508,14 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+
+  const windowErr = await activityWindowError(
+    threadId,
+    body.data.type,
+    body.data.starts_at,
+    body.data.ends_at,
+  );
+  if (windowErr) return c.json({ error: windowErr }, 400);
 
   // Next position = max + 1 within the thread.
   const { data: last } = await db
@@ -489,6 +539,10 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       location: body.data.location ?? null,
       meeting_url: body.data.meeting_url ?? null,
       scheduled_at: body.data.scheduled_at ?? null,
+      trigger_kind: body.data.trigger_kind ?? 'fixed',
+      trigger_anchor: body.data.trigger_anchor ?? null,
+      trigger_offset_days: body.data.trigger_offset_days ?? null,
+      trigger_time: body.data.trigger_time ?? null,
       content: body.data.content ?? {},
       show_in_agenda: body.data.show_in_agenda ?? true,
       position: (last?.position ?? -1) + 1,
@@ -515,14 +569,15 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
 
+  const { data: existing } = await db
+    .from('thread_engagement')
+    .select('type, thread_id, starts_at, ends_at')
+    .eq('id', id)
+    .single();
+  if (!existing) return c.json({ error: 'not found' }, 404);
+
   // Type may only move within its family after creation (v3 rule).
   if (body.data.type) {
-    const { data: existing } = await db
-      .from('thread_engagement')
-      .select('type')
-      .eq('id', id)
-      .single();
-    if (!existing) return c.json({ error: 'not found' }, 404);
     if (engagementFamily(existing.type) !== engagementFamily(body.data.type)) {
       return c.json(
         { error: 'type can only change within its family (activity ↔ activity, message ↔ message)' },
@@ -530,6 +585,14 @@ threadRoutes.patch('/engagements/:id', async (c) => {
       );
     }
   }
+
+  const windowErr = await activityWindowError(
+    existing.thread_id,
+    body.data.type ?? existing.type,
+    body.data.starts_at !== undefined ? body.data.starts_at : existing.starts_at,
+    body.data.ends_at !== undefined ? body.data.ends_at : existing.ends_at,
+  );
+  if (windowErr) return c.json({ error: windowErr }, 400);
 
   const { data, error } = await db
     .from('thread_engagement')
@@ -883,5 +946,120 @@ threadRoutes.post('/public/enrol', async (c) => {
     console.warn('[thread/public/enrol] confirmation email failed', e);
   }
 
+  // On-enrolment triggered messages — sent to this person right away.
+  // Non-fatal; each send is logged in thread_message_send (dedup).
+  try {
+    await sendTriggeredMessages({
+      threadId: thread.id,
+      trigger: 'on_enrolment',
+      personId: person.id,
+      email,
+      name: d.name.trim(),
+      threadTitle: program.title,
+      organiserName: organiser.display_name ?? '',
+      startsOn: program.starts_on,
+    });
+  } catch (e) {
+    console.warn('[thread/public/enrol] on_enrolment messages failed', e);
+  }
+
   return c.json({ ok: true, enrolment_id: threadEnrolment.id }, 201);
 });
+
+// ---------------------------------------------------------------------------
+// Triggered message delivery. Used by the enrol flow (on_enrolment) today;
+// approval and completion flows will call the same helper when they land.
+// ---------------------------------------------------------------------------
+
+function renderMessageBody(
+  type: string,
+  content: Record<string, unknown>,
+  description: string | null,
+): string {
+  const str = (k: string) => (typeof content[k] === 'string' ? (content[k] as string) : '');
+  const list = (k: string, prefix: string) =>
+    Array.isArray(content[k])
+      ? (content[k] as string[]).map((x, i) => `${prefix}${i + 1}. ${x}`).join('\n')
+      : '';
+  const parts: string[] = [];
+  if (description) parts.push(description);
+  switch (type) {
+    case 'reflection':
+      parts.push(list('questions', ''));
+      break;
+    case 'practice':
+      parts.push(list('assignments', ''));
+      break;
+    case 'document':
+    case 'inspiration':
+      if (str('body')) parts.push(str('body'));
+      if (str('external_url')) parts.push(str('external_url'));
+      break;
+    default:
+      if (str('body')) parts.push(str('body'));
+  }
+  return parts.filter(Boolean).join('\n\n');
+}
+
+export async function sendTriggeredMessages(opts: {
+  threadId: string;
+  trigger: 'on_enrolment' | 'on_approval' | 'on_completion';
+  personId: string;
+  email: string;
+  name: string;
+  threadTitle: string;
+  organiserName: string;
+  startsOn: string | null;
+}): Promise<void> {
+  const { data: messages } = await adminClient
+    .from('thread_engagement')
+    .select('id, title, type, description, content')
+    .eq('thread_id', opts.threadId)
+    .eq('status', 'published')
+    .eq('trigger_kind', opts.trigger)
+    .in('type', MESSAGE_TYPES as unknown as string[])
+    .order('position', { ascending: true });
+  if (!messages?.length) return;
+
+  const tokens: Record<string, string> = {
+    '{name}': opts.name.split(/\s+/)[0] ?? opts.name,
+    '{thread}': opts.threadTitle,
+    '{organiser}': opts.organiserName,
+    '{date}': opts.startsOn
+      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+          new Date(opts.startsOn),
+        )
+      : '',
+  };
+  const substitute = (s: string) =>
+    Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
+
+  for (const m of messages) {
+    // Dedup: one send per (engagement, person). Insert first — if the row
+    // already exists, skip (idempotent under retries).
+    const { error: logErr } = await adminClient.from('thread_message_send').insert({
+      engagement_id: m.id,
+      person_id: opts.personId,
+      email: opts.email,
+    });
+    if (logErr) {
+      if (logErr.code !== '23505') {
+        console.warn('[thread] message send log failed', logErr);
+      }
+      continue; // already sent (or unlogable) — don't email twice
+    }
+    const body = substitute(
+      renderMessageBody(m.type, (m.content ?? {}) as Record<string, unknown>, m.description),
+    );
+    const msg = engagementMessage({
+      title: substitute(m.title),
+      bodyText: body,
+      threadTitle: opts.threadTitle,
+    });
+    try {
+      await sendEmail({ to: opts.email, ...msg });
+    } catch (e) {
+      console.warn('[thread] triggered message send failed', { engagement: m.id, e });
+    }
+  }
+}
