@@ -6,7 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.58] — 2026-07-01 — The Thread v3.2.0 (Phase 3: public pages + enrolment)
+## [0.13.59] — 2026-07-01 — Apps catalog catches up with Flow; thread Vercel project
+
+- **Fibre web knew nothing about Fibre Flow** — `apps/web/lib/apps.ts`
+  (AppSlug, APPS, APP_ORDER) and Settings → Apps (`INSTALLABLE` +
+  descriptions) still listed only Meet / Thread / Sales / Learn. Flow now
+  appears as an Active app; Sales stays "Building", Learn "Planned".
+- **`thefibre-thread` Vercel project created** (it never existed — the
+  build-plan note that the skeleton was live turned out to be stale).
+  Root `apps/thread`, linked to the GitHub repo, fra1, all 7 env vars
+  copied from `thefibre-meet` (incl. `NEXT_PUBLIC_COOKIE_DOMAIN` per
+  deploy.md), domain `thread.thefibre.app` attached and verified. First
+  deploy rides this commit.
 
 ### The platform loop closes — first delivery app writing real enrolments
 

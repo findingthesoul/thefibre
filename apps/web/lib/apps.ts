@@ -8,6 +8,7 @@ export type AppSlug =
   | 'fibre-platform'
   | 'fibre-meet'
   | 'the-thread'
+  | 'fibre-flow'
   | 'fibre-sales'
   | 'fibre-learn';
 
@@ -45,6 +46,14 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     personSubResources: [],
     orgSubResources: [],
   },
+  'fibre-flow': {
+    slug: 'fibre-flow',
+    label: 'Fibre Flow',
+    // Flow's contact tab renders its own bespoke layout (runs + tasks);
+    // no SubResourceSection-driven curator tables.
+    personSubResources: [],
+    orgSubResources: [],
+  },
   'fibre-sales': {
     slug: 'fibre-sales',
     label: 'Fibre Sales',
@@ -63,6 +72,7 @@ export const APP_ORDER: AppSlug[] = [
   'fibre-platform',
   'fibre-meet',
   'the-thread',
+  'fibre-flow',
   'fibre-sales',
   'fibre-learn',
 ];

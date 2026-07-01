@@ -47,6 +47,11 @@ const INSTALLABLE_META: Record<
       'Multi-session programmes, conferences, post-event journeys. Writes enrolment + attendance events back to The Fibre.',
     status: 'Active',
   },
+  'fibre-flow': {
+    body:
+      'People-flow state machines: design a journey as a visual graph, move contacts through it, gate transitions on tasks. Writes step events back to The Fibre.',
+    status: 'Active',
+  },
   'fibre-sales': {
     body:
       'Sovereign app — gated behind its own app membership. Curates commercial relationship + billing fields on organisations.',
@@ -58,7 +63,7 @@ const INSTALLABLE_META: Record<
   },
 };
 
-const INSTALLABLE = (['fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn'] as const).map(
+const INSTALLABLE = (['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-sales', 'fibre-learn'] as const).map(
   (slug) => {
     const meta = INSTALLABLE_META[slug]!;
     return {
