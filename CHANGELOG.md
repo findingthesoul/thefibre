@@ -6,6 +6,30 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.63] — 2026-07-02 — Thread 3.3.0: v3-style timeline editor (no tabs)
+
+The thread editor drops its tabs for thethread-v3's layout (read from the
+v3 source, restyled in Fibre tokens): the thread is the **main item** up
+top, the engagements flow **immediately under it** as a vertical timeline.
+
+- **Header row** — back, start-date chip, **inline-editable title** (blur
+  or Enter saves), status pill (Draft / Published / Completed / Archived —
+  a disguised select), settings gear, open-public-page link. Intention
+  line beneath.
+- **Timeline** — left rail with a vertical line, **date badges** (MON/DD)
+  per day group, same-day cards visually attached (v3's rounded-t/-b
+  grouping), **coloured type dots** on the line per engagement type.
+  Cards show type, title, time (activities) or "Sends HH:MM" (messages),
+  location/online badges, hover-reveal delete. Undated items group under
+  a dashed "No date" badge.
+- **Add** — dashed button at the timeline's end opens a type menu
+  (Activities / Messages with their dots); picking one opens the editor
+  dialog with the type preselected.
+- **Thread settings** (name/slug, intention, dates, timezone, public
+  listing + registration questions) move behind the gear into a dialog.
+  Status was removed from that form — the header pill owns it, so saving
+  settings can no longer reset a published thread to draft.
+
 ## [0.13.62] — 2026-07-02 — Fibre-styled date fields everywhere (Meet 2.1.5 · Thread 3.2.1)
 
 Native `<input type="date">` / `datetime-local` (and their cramped,

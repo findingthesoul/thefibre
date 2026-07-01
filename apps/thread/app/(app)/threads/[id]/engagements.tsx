@@ -1,54 +1,25 @@
 'use client';
 
-import { useMemo, useState, useTransition } from 'react';
+// The engagement add/edit dialog. The timeline (timeline.tsx) opens it —
+// either blank with a preselected type (from the add-menu) or loaded with
+// an existing engagement.
+
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import {
-  Plus,
-  ChevronUp,
-  ChevronDown,
-  Pencil,
-  Trash2,
-  Video,
-  MapPin,
-  Clock,
-} from 'lucide-react';
-import {
-  createEngagement,
-  updateEngagement,
-  deleteEngagement,
-  moveEngagement,
-} from '../actions';
+import { createEngagement, updateEngagement } from '../actions';
 import type { EngagementRow, EngagementType } from '@/lib/thread-types';
 import {
   ENGAGEMENT_META,
   metaFor,
   type EngagementFamily,
 } from '@/lib/engagement-meta';
-import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/ui/dialog';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
-import { EmptyState, SectionLabel } from '@/components/ui/page';
-
-const STATUS_STYLES: Record<string, string> = {
-  draft: 'bg-surface-sunken text-ink-subtle ring-line',
-  published: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  closed: 'bg-surface-sunken text-ink-muted ring-line',
-};
-
-function fmtDateTime(iso: string | null): string | null {
-  if (!iso) return null;
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'short',
-    day: 'numeric',
-    month: 'short',
-    hour: '2-digit',
-    minute: '2-digit',
-  }).format(new Date(iso));
-}
 
 /** ISO → value for <input type="datetime-local"> in the browser's zone. */
-function toLocalInput(iso: string | null): string {
+export function toLocalInput(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -60,218 +31,23 @@ function fromLocalInput(v: string): string | null {
   return new Date(v).toISOString();
 }
 
-export function EngagementsPanel({
-  threadId,
-  engagements,
-}: {
-  threadId: string;
-  engagements: EngagementRow[];
-}) {
-  const router = useRouter();
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editing, setEditing] = useState<EngagementRow | null>(null);
-  const [deleting, setDeleting] = useState<EngagementRow | null>(null);
-  const [pending, startTransition] = useTransition();
-
-  const sorted = useMemo(
-    () => [...engagements].sort((a, b) => a.position - b.position),
-    [engagements],
-  );
-
-  function openNew() {
-    setEditing(null);
-    setEditorOpen(true);
-  }
-  function openEdit(e: EngagementRow) {
-    setEditing(e);
-    setEditorOpen(true);
-  }
-
-  function onMove(index: number, dir: -1 | 1) {
-    const a = sorted[index];
-    const b = sorted[index + dir];
-    if (!a || !b) return;
-    startTransition(async () => {
-      await moveEngagement(threadId, a, b);
-      router.refresh();
-    });
-  }
-
-  function onDelete() {
-    if (!deleting) return;
-    const target = deleting;
-    startTransition(async () => {
-      await deleteEngagement(threadId, target.id);
-      setDeleting(null);
-      router.refresh();
-    });
-  }
-
-  return (
-    <div>
-      <div className="flex items-center justify-between">
-        <SectionLabel>Timeline</SectionLabel>
-        <Button size="sm" variant="secondary" leading={<Plus size={15} />} onClick={openNew}>
-          Add engagement
-        </Button>
-      </div>
-
-      {sorted.length === 0 && (
-        <EmptyState>
-          Nothing on the timeline yet. Activities (events, conversations,
-          workshops) carry a time and place; messages (reflections, practices,
-          documents…) are sent to participants at a scheduled moment.
-        </EmptyState>
-      )}
-
-      {sorted.length > 0 && (
-        <ul className="mt-3 space-y-2">
-          {sorted.map((e, i) => {
-            const meta = metaFor(e.type);
-            const Icon = meta.icon;
-            const when =
-              meta.family === 'activity'
-                ? fmtDateTime(e.starts_at)
-                : e.scheduled_at
-                  ? `Sends ${fmtDateTime(e.scheduled_at)}`
-                  : 'Not scheduled';
-            return (
-              <li
-                key={e.id}
-                className="flex items-center gap-3 rounded-lg border border-line bg-surface-raised px-3.5 py-3"
-              >
-                <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
-                  <Icon size={16} strokeWidth={1.75} className="text-ink-subtle" />
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium truncate">{e.title}</span>
-                    <span
-                      className={`text-[10px] px-1.5 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
-                        STATUS_STYLES[e.status] ?? STATUS_STYLES.draft
-                      }`}
-                    >
-                      {e.status}
-                    </span>
-                  </div>
-                  <div className="mt-0.5 flex items-center gap-3 text-xs text-ink-subtle">
-                    <span>{meta.label}</span>
-                    {when && (
-                      <span className="inline-flex items-center gap-1">
-                        <Clock size={11} strokeWidth={1.75} />
-                        {when}
-                      </span>
-                    )}
-                    {e.meeting_url && (
-                      <span className="inline-flex items-center gap-1">
-                        <Video size={11} strokeWidth={1.75} />
-                        Online
-                      </span>
-                    )}
-                    {e.location && (
-                      <span className="inline-flex items-center gap-1 truncate">
-                        <MapPin size={11} strokeWidth={1.75} />
-                        {e.location}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="flex items-center gap-0.5 shrink-0">
-                  <IconBtn
-                    label="Move up"
-                    disabled={i === 0 || pending}
-                    onClick={() => onMove(i, -1)}
-                  >
-                    <ChevronUp size={15} />
-                  </IconBtn>
-                  <IconBtn
-                    label="Move down"
-                    disabled={i === sorted.length - 1 || pending}
-                    onClick={() => onMove(i, 1)}
-                  >
-                    <ChevronDown size={15} />
-                  </IconBtn>
-                  <IconBtn label="Edit" onClick={() => openEdit(e)}>
-                    <Pencil size={15} />
-                  </IconBtn>
-                  <IconBtn label="Delete" onClick={() => setDeleting(e)}>
-                    <Trash2 size={15} />
-                  </IconBtn>
-                </div>
-              </li>
-            );
-          })}
-        </ul>
-      )}
-
-      {editorOpen && (
-        <EngagementDialog
-          threadId={threadId}
-          engagement={editing}
-          onClose={() => setEditorOpen(false)}
-        />
-      )}
-
-      <ConfirmDialog
-        open={!!deleting}
-        onCancel={() => setDeleting(null)}
-        onConfirm={onDelete}
-        title="Delete engagement"
-        message={
-          <>
-            Delete <strong>{deleting?.title}</strong> from the timeline? This
-            can&apos;t be undone.
-          </>
-        }
-        confirmLabel="Delete"
-        destructive
-        pending={pending}
-      />
-    </div>
-  );
-}
-
-function IconBtn({
-  label,
-  disabled,
-  onClick,
-  children,
-}: {
-  label: string;
-  disabled?: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      disabled={disabled}
-      onClick={onClick}
-      className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken disabled:opacity-30 disabled:pointer-events-none"
-    >
-      {children}
-    </button>
-  );
-}
-
-// ---------------------------------------------------------------------------
-// Add / edit dialog
-// ---------------------------------------------------------------------------
-
-function EngagementDialog({
+export function EngagementDialog({
   threadId,
   engagement,
+  initialType,
   onClose,
 }: {
   threadId: string;
   engagement: EngagementRow | null;
+  /** Preselected type when creating (from the timeline's add-menu). */
+  initialType?: EngagementType;
   onClose: () => void;
 }) {
   const router = useRouter();
   const isNew = !engagement;
-  const [type, setType] = useState<EngagementType>(engagement?.type ?? 'event');
+  const [type, setType] = useState<EngagementType>(
+    engagement?.type ?? initialType ?? 'event',
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -279,7 +55,7 @@ function EngagementDialog({
   const family: EngagementFamily = meta.family;
   // Editing: only offer types within the same family (API enforces it too).
   const typeOptions = ENGAGEMENT_META.filter((m) =>
-    isNew ? true : m.family === metaFor(engagement.type).family,
+    isNew ? m.family === family : m.family === metaFor(engagement.type).family,
   );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -327,41 +103,20 @@ function EngagementDialog({
     <Dialog
       open
       onClose={onClose}
-      title={isNew ? 'Add engagement' : `Edit — ${engagement.title}`}
+      title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
       size="lg"
     >
       <form onSubmit={onSubmit} className="space-y-5">
-        {isNew && (
-          <div>
-            <SectionLabel>Type</SectionLabel>
-            <div className="mt-2 space-y-3">
-              <TypePickerRow
-                label="Activities"
-                items={ENGAGEMENT_META.filter((m) => m.family === 'activity')}
-                current={type}
-                onPick={setType}
-              />
-              <TypePickerRow
-                label="Messages"
-                items={ENGAGEMENT_META.filter((m) => m.family === 'message')}
-                current={type}
-                onPick={setType}
-              />
-            </div>
-            <p className="mt-2 text-xs text-ink-muted">{meta.description}</p>
-          </div>
-        )}
-
-        {!isNew && (
-          <div className="grid grid-cols-2 gap-4">
-            <SelectField
-              label="Type"
-              name="type_display"
-              value={type}
-              onChange={(e) => setType(e.target.value as EngagementType)}
-              options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
-              hint="Only types within the same family."
-            />
+        <div className="grid grid-cols-2 gap-4">
+          <SelectField
+            label="Type"
+            name="type_display"
+            value={type}
+            onChange={(e) => setType(e.target.value as EngagementType)}
+            options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
+            hint={isNew ? meta.description : 'Only types within the same family.'}
+          />
+          {!isNew && (
             <SelectField
               label="Status"
               name="status"
@@ -372,8 +127,8 @@ function EngagementDialog({
                 { value: 'closed', label: 'Closed' },
               ]}
             />
-          </div>
-        )}
+          )}
+        </div>
 
         <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
         <TextAreaField
@@ -453,47 +208,8 @@ function EngagementDialog({
   );
 }
 
-function TypePickerRow({
-  label,
-  items,
-  current,
-  onPick,
-}: {
-  label: string;
-  items: { type: EngagementType; label: string; icon: React.ComponentType<{ size?: number; strokeWidth?: number; className?: string }> }[];
-  current: EngagementType;
-  onPick: (t: EngagementType) => void;
-}) {
-  return (
-    <div>
-      <div className="text-xs text-ink-muted mb-1.5">{label}</div>
-      <div className="flex flex-wrap gap-1.5">
-        {items.map((m) => {
-          const Icon = m.icon;
-          const active = m.type === current;
-          return (
-            <button
-              key={m.type}
-              type="button"
-              onClick={() => onPick(m.type)}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-sm transition-colors ${
-                active
-                  ? 'border-ink bg-surface-sunken'
-                  : 'border-line bg-surface hover:bg-surface-sunken'
-              }`}
-            >
-              <Icon size={14} strokeWidth={1.75} className="text-ink-subtle" />
-              {m.label}
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
 // ---------------------------------------------------------------------------
-// Type-specific message content (kept deliberately simple in Phase 2)
+// Type-specific message content (kept deliberately simple)
 // ---------------------------------------------------------------------------
 
 function contentFromForm(type: EngagementType, fd: FormData): Record<string, unknown> {

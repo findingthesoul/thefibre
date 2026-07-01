@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
-import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
+import { TextField, TextAreaField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
@@ -13,14 +13,13 @@ import { SectionLabel } from '@/components/ui/page';
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
 
-const STATUS_OPTIONS = [
-  { value: 'draft', label: 'Draft — not visible publicly' },
-  { value: 'active', label: 'Active — published' },
-  { value: 'completed', label: 'Completed — visible, enrolment closed' },
-  { value: 'archived', label: 'Archived — hidden' },
-];
-
-export function ThreadEditorForm({ thread }: { thread: ThreadRow }) {
+export function ThreadEditorForm({
+  thread,
+  compact = false,
+}: {
+  thread: ThreadRow;
+  compact?: boolean;
+}) {
   const router = useRouter();
   const program = one(thread.program);
   const organiser = one(thread.organiser);
@@ -34,14 +33,11 @@ export function ThreadEditorForm({ thread }: { thread: ThreadRow }) {
     setSaved(false);
     const fd = new FormData(e.currentTarget);
 
+    // Status is deliberately NOT part of this form — the timeline header's
+    // status pill owns it. Including it here would reset it on every save.
     const patch = {
       title: String(fd.get('name') ?? '').trim(),
       slug: String(fd.get('slug') ?? '').trim(),
-      status: String(fd.get('status') ?? 'draft') as
-        | 'draft'
-        | 'active'
-        | 'completed'
-        | 'archived',
       intention: String(fd.get('intention') ?? '').trim() || null,
       starts_on: String(fd.get('starts_on') ?? '') || null,
       ends_on: String(fd.get('ends_on') ?? '') || null,
@@ -92,20 +88,12 @@ export function ThreadEditorForm({ thread }: { thread: ThreadRow }) {
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectField
-              label="Status"
-              name="status"
-              options={STATUS_OPTIONS}
-              defaultValue={program?.status ?? 'draft'}
-            />
-            <TextField
-              label="Timezone"
-              name="timezone"
-              defaultValue={thread.timezone}
-              hint="IANA name, e.g. Europe/Amsterdam."
-            />
-          </div>
+          <TextField
+            label="Timezone"
+            name="timezone"
+            defaultValue={thread.timezone}
+            hint="IANA name, e.g. Europe/Amsterdam."
+          />
 
           <label className="flex items-start gap-2.5">
             <input

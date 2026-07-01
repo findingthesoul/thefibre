@@ -1,13 +1,11 @@
 import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
-  one,
   type ThreadRow,
   type EngagementRow,
   type OrganiserCore,
 } from '@/lib/thread-types';
-import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
-import { ThreadEditor } from './editor';
+import { ThreadTimeline } from './timeline';
 
 type ThreadDetail = ThreadRow & {
   engagements: EngagementRow[];
@@ -29,19 +27,11 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const program = one(thread.program);
-  const organiser = one(thread.organiser);
-
+  // v3 layout: a single centred column, the thread as the main item, the
+  // engagements immediately under it. No tabs.
   return (
-    <PageContainer max="4xl">
-      <Breadcrumb href="/threads" label="Threads" />
-      <PageHeader
-        title={program?.title ?? thread.slug}
-        description={`${program?.format === 'journey' ? 'Journey' : 'Event'} · ${
-          organiser?.display_name ?? organiser?.slug ?? ''
-        }`}
-      />
-      <ThreadEditor thread={thread} engagements={thread.engagements} />
-    </PageContainer>
+    <div className="mx-auto max-w-3xl px-6 py-10">
+      <ThreadTimeline thread={thread} engagements={thread.engagements} />
+    </div>
   );
 }

@@ -25,6 +25,8 @@ export type EngagementMeta = {
   label: string;
   description: string;
   icon: LucideIcon;
+  /** Timeline dot colour (v3 had per-type coloured dots on the line). */
+  dot: string;
 };
 
 export const ENGAGEMENT_META: EngagementMeta[] = [
@@ -35,6 +37,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Event',
     description: 'A session at a set time — plenary, gathering, ceremony.',
     icon: Calendar,
+    dot: 'bg-sky-500',
   },
   {
     type: 'conversation',
@@ -42,6 +45,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Conversation',
     description: 'A guided group conversation or circle.',
     icon: MessagesSquare,
+    dot: 'bg-emerald-500',
   },
   {
     type: 'workshop',
@@ -49,6 +53,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Workshop',
     description: 'Hands-on working session with a facilitator.',
     icon: Presentation,
+    dot: 'bg-amber-500',
   },
   // Messages
   {
@@ -57,6 +62,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Message',
     description: 'An email to all participants, sent at a scheduled moment.',
     icon: Mail,
+    dot: 'bg-blue-500',
   },
   {
     type: 'reflection',
@@ -64,6 +70,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Reflection',
     description: 'Questions participants answer in their own words.',
     icon: PenLine,
+    dot: 'bg-violet-500',
   },
   {
     type: 'practice',
@@ -71,6 +78,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Practice',
     description: 'Assignments to complete before the next step.',
     icon: ListChecks,
+    dot: 'bg-teal-500',
   },
   {
     type: 'document',
@@ -78,6 +86,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Document',
     description: 'A file or link shared with participants.',
     icon: FileText,
+    dot: 'bg-slate-400',
   },
   {
     type: 'inspiration',
@@ -85,6 +94,7 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     label: 'Inspiration',
     description: 'A quote, video or idea to spark the thread.',
     icon: Sparkles,
+    dot: 'bg-pink-500',
   },
 ];
 
