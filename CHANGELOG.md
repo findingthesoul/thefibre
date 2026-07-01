@@ -6,7 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.68] — 2026-07-02 — Thread 3.7.0: certificate template builder + everything moves together
+## [0.13.69] — 2026-07-02 — Thread 3.8.0: Meet-parity — teams, contacts, internal team, settings
+
+The Thread grows the same workspace surfaces Meet has:
+
+- **Threads overview filter** — chips above the list: All · Personal ·
+  one per team; team name rides along in each row's meta.
+- **Teams** — create teams right in Thread (platform `team`, creator
+  becomes lead), team detail with member management (add from workspace
+  members with lead/member role, remove with confirm). Same primitive
+  Meet and Flow use.
+- **Contacts** — everyone who has enrolled in your threads, with their
+  thread chips and a link out to their Fibre profile.
+- **Internal team** — workspace members with their Thread access;
+  one-click "Grant access" gives the-thread app membership.
+- **Settings** becomes a real hub: Profile (organiser slug, display
+  name, bio, photo, timezone → your public page) and Emails & defaults
+  (sender name, footer note, default organiser revenue share). Payments
+  card waits for the payments phase.
+- Sidebar gains a People section: Contacts / Teams / Internal team.
 
 Two big pieces (migration `20260702120000_thread_templates_and_scoping.sql`,
 applied):

@@ -8,6 +8,9 @@ import {
   CalendarRange,
   Users,
   Award,
+  BookUser,
+  UsersRound,
+  ShieldCheck,
   HelpCircle,
   Settings,
   type LucideIcon,
@@ -30,6 +33,14 @@ const NAV: NavSection[] = [
       { href: '/threads', label: 'Threads', icon: CalendarRange },
       { href: '/enrolments', label: 'Enrolments', icon: Users },
       { href: '/certificates', label: 'Certificates', icon: Award },
+    ],
+  },
+  {
+    label: 'People',
+    items: [
+      { href: '/contacts', label: 'Contacts', icon: BookUser },
+      { href: '/teams', label: 'Teams', icon: UsersRound },
+      { href: '/internal-team', label: 'Internal team', icon: ShieldCheck },
     ],
   },
   {

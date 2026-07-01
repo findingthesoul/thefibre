@@ -693,6 +693,197 @@ threadRoutes.get('/teams', async (c) => {
   return c.json({ items: data ?? [] });
 });
 
+// POST /teams — create a team; creator becomes lead (Meet's pattern; team is
+// a platform primitive shared by all in-family apps).
+const TeamCreate = z.object({
+  name: z.string().min(1).max(200),
+  slug: slugField,
+  description: z.string().max(2000).nullable().optional(),
+});
+
+threadRoutes.post('/teams', async (c) => {
+  const body = TeamCreate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const { data: team, error } = await adminClient
+    .from('team')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      name: body.data.name,
+      slug: body.data.slug,
+      description: body.data.description ?? null,
+      created_by: ctx.userId,
+    })
+    .select('id, name, slug, description')
+    .single();
+  if (error) {
+    const s = error.code === '23505' ? 409 : 500;
+    return c.json({ error: error.code === '23505' ? 'slug already taken' : error.message }, s);
+  }
+  await adminClient
+    .from('team_member')
+    .insert({ team_id: team.id, user_id: ctx.userId, role: 'lead', status: 'active' });
+  return c.json(team, 201);
+});
+
+threadRoutes.get('/teams/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: team, error } = await db
+    .from('team')
+    .select('id, name, slug, description, is_active')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (error || !team) return c.json({ error: 'not found' }, 404);
+  const { data: members } = await adminClient
+    .from('team_member')
+    .select('user_id, role, status, user:user_id (id, full_name, email)')
+    .eq('team_id', team.id);
+  return c.json({
+    ...team,
+    members: (members ?? []).map((m) => {
+      const u = Array.isArray(m.user) ? m.user[0] : m.user;
+      return {
+        user_id: m.user_id,
+        role: m.role,
+        status: m.status,
+        full_name: u?.full_name ?? null,
+        email: u?.email ?? null,
+      };
+    }),
+  });
+});
+
+const TeamMemberAdd = z.object({
+  user_id: z.string().uuid(),
+  role: z.enum(['lead', 'member']).default('member'),
+});
+
+threadRoutes.post('/teams/:id/members', async (c) => {
+  const body = TeamMemberAdd.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { error } = await adminClient.from('team_member').upsert(
+    {
+      team_id: c.req.param('id'),
+      user_id: body.data.user_id,
+      role: body.data.role,
+      status: 'active',
+    },
+    { onConflict: 'team_id,user_id' },
+  );
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ ok: true }, 201);
+});
+
+threadRoutes.delete('/teams/:id/members/:userId', async (c) => {
+  const { error } = await adminClient
+    .from('team_member')
+    .delete()
+    .eq('team_id', c.req.param('id'))
+    .eq('user_id', c.req.param('userId'));
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});
+
+// GET /contacts — the people Thread knows: everyone with a thread enrolment.
+threadRoutes.get('/contacts', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_enrolment')
+    .select(
+      `person:person_id (id, first_name, last_name, email),
+       thread:thread_id (id, slug, program:program_id (title)),
+       enrolment:enrolment_id (status),
+       created_at`,
+    )
+    .order('created_at', { ascending: false })
+    .limit(500);
+  if (error) return c.json({ error: error.message }, 500);
+  // Group by person.
+  type ContactEntry = {
+    person: {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    };
+    threads: { id: string; title: string; status: string }[];
+    last_enrolled_at: string;
+  };
+  const byPerson = new Map<string, ContactEntry>();
+  for (const row of data ?? []) {
+    const p = Array.isArray(row.person) ? row.person[0] : row.person;
+    if (!p) continue;
+    const t = Array.isArray(row.thread) ? row.thread[0] : row.thread;
+    const prog = t ? (Array.isArray(t.program) ? t.program[0] : t.program) : null;
+    const enr = Array.isArray(row.enrolment) ? row.enrolment[0] : row.enrolment;
+    const e: ContactEntry =
+      byPerson.get(p.id) ?? { person: p, threads: [], last_enrolled_at: row.created_at };
+    if (t && prog) e.threads.push({ id: t.id, title: prog.title, status: enr?.status ?? '' });
+    byPerson.set(p.id, e);
+  }
+  return c.json({ items: [...byPerson.values()] });
+});
+
+// GET /internal-team — workspace members + the-thread app membership state.
+threadRoutes.get('/internal-team', async (c) => {
+  const ctx = c.get('ctx');
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'the-thread')
+    .single();
+  const { data: members, error } = await adminClient
+    .from('workspace_member')
+    .select('user_id, workspace_role, relationship_type, user:user_id (id, full_name, email)')
+    .eq('workspace_id', ctx.workspaceId);
+  if (error) return c.json({ error: error.message }, 500);
+  const { data: memberships } = await adminClient
+    .from('app_membership')
+    .select('user_id, role')
+    .eq('app_id', app?.id ?? '');
+  const roleByUser = new Map((memberships ?? []).map((m) => [m.user_id, m.role]));
+  return c.json({
+    items: (members ?? []).map((m) => {
+      const u = Array.isArray(m.user) ? m.user[0] : m.user;
+      return {
+        user_id: m.user_id,
+        full_name: u?.full_name ?? null,
+        email: u?.email ?? null,
+        workspace_role: m.workspace_role,
+        relationship_type: m.relationship_type,
+        thread_role: roleByUser.get(m.user_id) ?? null,
+      };
+    }),
+  });
+});
+
+// POST /internal-team — grant the-thread membership to a workspace member.
+const InternalGrant = z.object({
+  user_id: z.string().uuid(),
+  role: z.enum(['admin', 'member']).default('member'),
+});
+
+threadRoutes.post('/internal-team', async (c) => {
+  const body = InternalGrant.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'the-thread')
+    .single();
+  if (!app) return c.json({ error: 'app row missing' }, 500);
+  const { error } = await adminClient
+    .from('app_membership')
+    .upsert(
+      { user_id: body.data.user_id, app_id: app.id, role: body.data.role },
+      { onConflict: 'user_id,app_id' },
+    );
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ ok: true }, 201);
+});
+
 threadRoutes.get('/workspace-members', async (c) => {
   const ctx = c.get('ctx');
   // adminClient scoped by the JWT's validated workspace_id — same pattern as
