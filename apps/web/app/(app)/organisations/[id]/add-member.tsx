@@ -6,6 +6,7 @@ import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
+import { DateField } from '@/components/ui/date-field';
 import { addMember, type ActionResult } from './member-actions';
 
 export type PersonOption = {
@@ -107,7 +108,7 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
           <TextField label="Department" name="department" />
           <SelectField label="Employment type" name="employment_type" options={EMPLOYMENT_TYPES} />
           <SelectField label="Influence" name="influence_level" options={INFLUENCE} />
-          <TextField label="Started" name="started_at" type="date" />
+          <DateField label="Started" name="started_at" />
 
           <fieldset className="md:col-span-2 mt-2 space-y-2 text-sm">
             <Checkbox name="is_primary" label="Primary contact for this org" />

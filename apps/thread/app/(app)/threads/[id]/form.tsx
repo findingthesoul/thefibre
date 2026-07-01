@@ -6,6 +6,7 @@ import { updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
+import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -79,16 +80,14 @@ export function ThreadEditorForm({ thread }: { thread: ThreadRow }) {
           />
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <TextField
+            <DateField
               label="Starts on"
               name="starts_on"
-              type="date"
               defaultValue={program?.starts_on ?? ''}
             />
-            <TextField
+            <DateField
               label="Ends on"
               name="ends_on"
-              type="date"
               defaultValue={program?.ends_on ?? ''}
             />
           </div>

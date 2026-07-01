@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import { CalendarRange, Route, type LucideIcon } from 'lucide-react';
 import { createThread } from '../actions';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
-import { TextField, TextAreaField } from '@/components/ui/field';
+import { TextAreaField } from '@/components/ui/field';
+import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -81,8 +82,8 @@ export function NewThreadForm({ organiserSlug }: { organiserSlug: string }) {
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <TextField label="Starts on" name="starts_on" type="date" />
-        <TextField label="Ends on" name="ends_on" type="date" />
+        <DateField label="Starts on" name="starts_on" />
+        <DateField label="Ends on" name="ends_on" />
       </div>
 
       {error && (

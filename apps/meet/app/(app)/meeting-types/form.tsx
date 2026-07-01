@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { User, Users as TeamIcon, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
+import { DateTimeField } from '@/components/ui/date-field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { EVENT_TYPES, EventTypePicker } from '@/components/event-type-picker';
 import { IntakeFieldsEditor } from '@/components/intake-fields-editor';
@@ -342,10 +343,9 @@ export function MeetingTypeForm({
             )}
             {isOneOff && (
               <>
-                <TextField
+                <DateTimeField
                   label="Date & time"
                   name="fixed_starts_at_local"
-                  type="datetime-local"
                   defaultValue={toLocalDatetimeInput(initial.fixed_starts_at)}
                   hint="The single, fixed time this meeting will run. Invitees confirm attendance instead of picking a slot."
                   required
@@ -861,12 +861,9 @@ function PollSlotsEditor({
       <ul className="space-y-2">
         {slots.map((v, i) => (
           <li key={i} className="flex items-center gap-2">
-            <input
-              type="datetime-local"
-              value={v}
-              onChange={(e) => setAt(i, e.target.value)}
-              className="flex-1 rounded-md border border-line bg-surface px-3 py-2 text-sm"
-            />
+            <div className="flex-1 min-w-0">
+              <DateTimeField value={v} onChange={(nv) => setAt(i, nv)} />
+            </div>
             <button
               type="button"
               onClick={() => remove(i)}

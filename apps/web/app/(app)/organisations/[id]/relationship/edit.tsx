@@ -6,6 +6,7 @@ import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
+import { DateField } from '@/components/ui/date-field';
 import { updateOrgRelationship, type ActionResult } from './actions';
 
 export type OrgRelationshipRow = {
@@ -181,19 +182,15 @@ function EditDialog({
           defaultValue={initial?.touchpoints_count ?? ''}
           errors={state.fieldErrors?.touchpoints_count}
         />
-        <TextField
+        <DateField
           label="Last touchpoint at"
           name="last_touchpoint_at"
-          type="date"
           defaultValue={initial?.last_touchpoint_at ?? ''}
-          errors={state.fieldErrors?.last_touchpoint_at}
         />
-        <TextField
+        <DateField
           label="Next planned contact"
           name="next_planned_contact"
-          type="date"
           defaultValue={initial?.next_planned_contact ?? ''}
-          errors={state.fieldErrors?.next_planned_contact}
         />
         <TextField
           label="Programmes completed"

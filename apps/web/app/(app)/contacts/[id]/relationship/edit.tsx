@@ -6,6 +6,7 @@ import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
+import { DateTimeField } from '@/components/ui/date-field';
 import { updateRelationship, type ActionResult } from './actions';
 
 export type RelationshipRow = {
@@ -215,12 +216,10 @@ function EditDialog({
           options={YES_NO}
           errors={state.fieldErrors?.is_ambassador}
         />
-        <TextField
+        <DateTimeField
           label="First contact at"
           name="first_contact_at"
-          type="datetime-local"
           defaultValue={dtDefault}
-          errors={state.fieldErrors?.first_contact_at}
         />
         <div className="md:col-span-2">
           <TextAreaField

@@ -26,6 +26,7 @@ import {
 } from '@/lib/engagement-meta';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
+import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { EmptyState, SectionLabel } from '@/components/ui/page';
 
@@ -384,17 +385,15 @@ function EngagementDialog({
 
         {family === 'activity' ? (
           <>
-            <div className="grid grid-cols-2 gap-4">
-              <TextField
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DateTimeField
                 label="Starts"
                 name="starts_at"
-                type="datetime-local"
                 defaultValue={toLocalInput(engagement?.starts_at ?? null)}
               />
-              <TextField
+              <DateTimeField
                 label="Ends"
                 name="ends_at"
-                type="datetime-local"
                 defaultValue={toLocalInput(engagement?.ends_at ?? null)}
               />
             </div>
@@ -416,10 +415,9 @@ function EngagementDialog({
           </>
         ) : (
           <>
-            <TextField
+            <DateTimeField
               label="Send at"
               name="scheduled_at"
-              type="datetime-local"
               defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
               hint="When this goes out to enrolled participants. Leave empty to keep it unscheduled."
             />

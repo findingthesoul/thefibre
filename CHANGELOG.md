@@ -6,7 +6,26 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.61] — 2026-07-01 — user preferences follow the user across apps
+## [0.13.62] — 2026-07-02 — Fibre-styled date fields everywhere (Meet 2.1.5 · Thread 3.2.1)
+
+Native `<input type="date">` / `datetime-local` (and their cramped,
+unstylable browser popovers) replaced with a shared `DateField` /
+`DateTimeField` component in house style — Sjoerd: "higher UX quality,
+more spacious, bigger fonts."
+
+- **Spacious trigger** (44px tall, 15px type, formatted "Wed 2 Jul 2026",
+  calendar icon, inline clear ×) + **custom calendar popover**: 40px day
+  cells, month nav, today ring, selected fill, min/max disabling, Today +
+  Clear actions. Fixed-position so it never clips inside dialogs.
+- **Times are curated dropdowns** (hours + quarter-hour minutes) per the
+  house rule — no free-form time typing.
+- Zero new dependencies; hidden inputs keep every existing FormData form
+  working unchanged. Supports controlled mode for dynamic lists.
+- Converted: Thread (new/edit thread dates, engagement starts/ends/send-at),
+  Web (programme dates, org member started, org relationship touchpoints,
+  contact first-contact), Meet (one-off date & time, poll candidate slots).
+  Flow has no date inputs today; the component is ready to copy in when it
+  does.
 
 Theme + sidebar preferences were deliberately host-only per app (a
 documented earlier decision). Sjoerd reversed it: one user = one
