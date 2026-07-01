@@ -1,0 +1,99 @@
+// Shared shapes for The Thread's own API payloads.
+// PostgREST returns FK joins as object-or-array depending on the relation;
+// normalize with one() before use.
+
+export type ProgramCore = {
+  id: string;
+  title: string;
+  format: 'event' | 'journey';
+  status: 'draft' | 'active' | 'completed' | 'archived';
+  starts_on: string | null;
+  ends_on: string | null;
+};
+
+export type OrganiserCore = {
+  id: string;
+  slug: string;
+  display_name: string | null;
+  user_id: string;
+};
+
+export type ThreadRow = {
+  id: string;
+  workspace_id: string;
+  program_id: string;
+  organiser_id: string;
+  slug: string;
+  intention: string | null;
+  timezone: string;
+  cover_url: string | null;
+  is_public_listed: boolean;
+  requires_approval: boolean;
+  price_cents: number | null;
+  price_currency: string | null;
+  capacity: number | null;
+  registration_fields: RegistrationField[];
+  certificate_enabled: boolean;
+  certificate_criteria: string | null;
+  certificate_template_id: string | null;
+  created_at: string;
+  updated_at: string;
+  program: ProgramCore | ProgramCore[] | null;
+  organiser: OrganiserCore | OrganiserCore[] | null;
+};
+
+export type RegistrationField = {
+  key: string;
+  label: string;
+  type: 'short' | 'long' | 'select' | 'checkbox';
+  required: boolean;
+  options?: string[];
+};
+
+// Engagement families — mirror of the API's rule: type only changes within
+// its family after creation.
+export const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
+export const MESSAGE_TYPES = [
+  'reflection',
+  'practice',
+  'message',
+  'document',
+  'inspiration',
+] as const;
+export type EngagementType =
+  | (typeof ACTIVITY_TYPES)[number]
+  | (typeof MESSAGE_TYPES)[number];
+
+export type EngagementRow = {
+  id: string;
+  thread_id: string;
+  title: string;
+  description: string | null;
+  type: EngagementType;
+  status: 'draft' | 'published' | 'closed';
+  starts_at: string | null;
+  ends_at: string | null;
+  location: string | null;
+  meeting_url: string | null;
+  scheduled_at: string | null;
+  content: Record<string, unknown>;
+  position: number;
+  show_in_agenda: boolean;
+  created_at: string;
+  updated_at: string;
+};
+
+export type OrganiserRow = OrganiserCore & {
+  workspace_id: string;
+  bio: string | null;
+  photo_url: string | null;
+  timezone: string;
+  stripe_account_id: string | null;
+  vendor_cut_percent: number;
+};
+
+/** PostgREST join normalizer: object-or-array → object. */
+export function one<T>(v: T | T[] | null | undefined): T | null {
+  if (!v) return null;
+  return Array.isArray(v) ? (v[0] ?? null) : v;
+}

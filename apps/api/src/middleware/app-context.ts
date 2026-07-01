@@ -80,6 +80,10 @@ const PUBLIC_PREFIXES = [
   '/api/v1/meet/google/auth-callback',
   // Stripe webhook — signature-verified inside the handler.
   '/api/v1/meet/stripe-webhook',
+  // The Thread public pages (organiser page, thread page, enrolment flow)
+  // + its Stripe webhook (signature-verified inside the handler).
+  '/api/v1/thread/public/',
+  '/api/v1/thread/stripe-webhook',
 ];
 
 export const appContext: MiddlewareHandler = async (c, next) => {

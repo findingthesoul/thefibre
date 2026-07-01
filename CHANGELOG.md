@@ -6,6 +6,44 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.56] — 2026-07-01 — The Thread v3.0.0 (rebuild, Phase 1)
+
+### The Thread rebuilt from scratch — Fibre-native, simpler than v3
+
+The Thread starts over inside the monorepo: thethread-v3
+(`~/Projects/thethread-v3`) is the functional reference, the Fibre design
+system is the interface, and the platform is the core. Full design +
+phase plan in [`docs/thread-rebuild-plan.md`](docs/thread-rebuild-plan.md).
+Scope locked with Sjoerd: 8 features (typed engagements, paid enrolments +
+coupons, certificate designer, Zoom/Teams links, multi-organiser,
+per-organiser Stripe with v3's revenue split, public pages, email
+sequences). Thread's user-facing version is now **v3.x**, decoupled from
+the monorepo cadence — same rule as Meet's v2.x.
+
+**Phase 1 in this release:**
+
+- **Schema** — `20260701090000_thread_schema.sql`: `thread_organiser`
+  (per-user, Stripe account + vendor cut), `thread_settings`
+  (workspace-level Stripe + email branding), `thread_thread` (1:1 with a
+  platform `program` row — a thread IS a programme), co-organiser join,
+  `thread_engagement` (8 types in two families: activities event /
+  conversation / workshop with `meeting_url`; messages reflection /
+  practice / message / document / inspiration with `scheduled_at`),
+  `thread_enrolment` (1:1 companion to platform `enrolment`),
+  `thread_coupon`, `thread_certificate_template` + `thread_certificate`,
+  `thread_message_send`, `thread_payout`. Meet's RLS pattern throughout.
+- **API** — `apps/api/src/routes/thread.ts`: organiser auto-provision
+  (`GET/PATCH /thread/me`), workspace settings, threads CRUD (creates and
+  syncs the paired `program` row), engagements CRUD with the
+  family-locked type rule. Reserved-slug validation extends Meet's shared
+  list with Thread's route names. `/thread/public/*` +
+  `/thread/stripe-webhook` pre-registered as public prefixes.
+- **App** — `apps/thread` wakes up: Threads list, New thread
+  (Event/Journey 2-card chooser + `NameAndSlugFields`), thread editor
+  (Basics: name/slug, intention, dates, status, timezone, public
+  listing). Sidebar nav: Threads / Enrolments / Certificates (stubs where
+  phases are pending). Thread sidebar shows **v3.0.0**.
+
 ## [0.13.55] — 2026-05-30 — Fibre Flow v1.9.0
 
 ### Run popup: journey list view + per-step notes

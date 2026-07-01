@@ -7,6 +7,7 @@ import {
   LayoutDashboard,
   CalendarRange,
   Users,
+  Award,
   HelpCircle,
   Settings,
   type LucideIcon,
@@ -26,8 +27,9 @@ const NAV: NavSection[] = [
   {
     label: 'Thread',
     items: [
-      { href: '/programmes', label: 'Programmes', icon: CalendarRange },
-      { href: '/participants', label: 'Participants', icon: Users },
+      { href: '/threads', label: 'Threads', icon: CalendarRange },
+      { href: '/enrolments', label: 'Enrolments', icon: Users },
+      { href: '/certificates', label: 'Certificates', icon: Award },
     ],
   },
   {
