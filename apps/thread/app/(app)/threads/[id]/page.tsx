@@ -7,7 +7,7 @@ import {
   type OrganiserCore,
 } from '@/lib/thread-types';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
-import { ThreadEditorForm } from './form';
+import { ThreadEditor } from './editor';
 
 type ThreadDetail = ThreadRow & {
   engagements: EngagementRow[];
@@ -41,7 +41,7 @@ export default async function ThreadDetailPage({
           organiser?.display_name ?? organiser?.slug ?? ''
         }`}
       />
-      <ThreadEditorForm thread={thread} />
+      <ThreadEditor thread={thread} engagements={thread.engagements} />
     </PageContainer>
   );
 }

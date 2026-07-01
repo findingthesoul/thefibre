@@ -51,3 +51,75 @@ export async function updateThread(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Engagements
+// ---------------------------------------------------------------------------
+
+export async function createEngagement(
+  threadId: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    const created = await apiFetch<{ id: string }>(
+      `/api/v1/thread/threads/${threadId}/engagements`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: created.id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function updateEngagement(
+  threadId: string,
+  engagementId: string,
+  patch: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/engagements/${engagementId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: engagementId };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function deleteEngagement(
+  threadId: string,
+  engagementId: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/engagements/${engagementId}`, { method: 'DELETE' });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+/** Swap positions with the neighbour above/below. Two PATCHes; fine at this scale. */
+export async function moveEngagement(
+  threadId: string,
+  a: { id: string; position: number },
+  b: { id: string; position: number },
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/engagements/${a.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ position: b.position }),
+    });
+    await apiFetch(`/api/v1/thread/engagements/${b.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ position: a.position }),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

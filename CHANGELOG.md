@@ -6,7 +6,30 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.56] — 2026-07-01 — The Thread v3.0.0 (rebuild, Phase 1)
+## [0.13.57] — 2026-07-01 — The Thread v3.1.0 (Phase 2: engagements)
+
+### Engagements — the thread timeline
+
+The thread editor grows tabs (Meet's pattern: all tabs stay in the DOM).
+**Basics** is the existing form; **Engagements** is new:
+
+- **Timeline** — engagements ordered by position, one card each: type icon,
+  title, status chip, when (start time for activities, "Sends …" for
+  messages), online/location badges. Move up/down, edit, delete
+  (with confirm).
+- **Add engagement** — dialog with the 8 types grouped in their two
+  families (Activities: event / conversation / workshop · Messages:
+  message / reflection / practice / document / inspiration). Activities
+  carry starts/ends, location and a plain **meeting link** (Zoom / Teams /
+  Meet — the v3 approach, no OAuth). Messages carry **Send at**
+  (`scheduled_at`) plus type-specific content: reflection questions,
+  practice assignments, document link + note, inspiration text,
+  message body (with `{name}`/`{thread}`/`{organiser}`/`{date}` tokens
+  for the Phase 6 sender).
+- **Family lock respected** — editing offers only same-family types,
+  mirroring the API rule.
+- `lib/engagement-meta.ts` — single source for type labels, icons
+  (Lucide), families and descriptions.
 
 ### The Thread rebuilt from scratch — Fibre-native, simpler than v3
 
