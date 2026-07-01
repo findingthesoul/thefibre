@@ -6,7 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.66] — 2026-07-02 — Thread 3.5.0: timeline colour pass
+## [0.13.67] — 2026-07-02 — Thread 3.6.0: thread scope + hosts & facilitators
+
+Threads join the Fibre categories
+(migration `20260702110000_thread_scope_and_roles.sql`, applied):
+
+- **Personal / Team scope** on New thread (the 2-card chooser, platform
+  `team` — in-family apps use platform tables natively). Settings can
+  reassign the team and link an **organisation** as the thread's public
+  face. Both show as chips under the timeline header.
+- **Hosts & facilitators**: invite workspace members to a thread via the
+  new people button in the header — pick a member, pick a role (hosts
+  edit, facilitators run sessions), done. Invited users get a
+  thread_organiser profile auto-provisioned. Roles renamed
+  co_organiser → host.
+- API: `GET /thread/teams`, `GET /thread/workspace-members`,
+  `POST/DELETE /thread/threads/:id/members`.
 
 The timeline was too monochrome. Per-type colour now carries through:
 tinted icon chips on every card (sky event / emerald conversation /

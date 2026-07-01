@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange, Route, type LucideIcon } from 'lucide-react';
+import { CalendarRange, Route, User, Users, type LucideIcon } from 'lucide-react';
 import { createThread } from '../actions';
+import type { TeamOption } from '@/lib/thread-types';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
-import { TextAreaField } from '@/components/ui/field';
+import { TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
@@ -13,9 +14,16 @@ import { SectionLabel } from '@/components/ui/page';
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
 
-export function NewThreadForm({ organiserSlug }: { organiserSlug: string }) {
+export function NewThreadForm({
+  organiserSlug,
+  teams,
+}: {
+  organiserSlug: string;
+  teams: TeamOption[];
+}) {
   const router = useRouter();
   const [format, setFormat] = useState<'event' | 'journey'>('event');
+  const [scope, setScope] = useState<'personal' | 'team'>('personal');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -31,6 +39,9 @@ export function NewThreadForm({ organiserSlug }: { organiserSlug: string }) {
     if (!title) return setError('Give the thread a name.');
     if (!slug) return setError('Pick a URL slug.');
 
+    const teamId = scope === 'team' ? String(fd.get('team_id') ?? '') : '';
+    if (scope === 'team' && !teamId) return setError('Pick a team.');
+
     startTransition(async () => {
       const r = await createThread({
         title,
@@ -39,6 +50,7 @@ export function NewThreadForm({ organiserSlug }: { organiserSlug: string }) {
         intention: intention || null,
         starts_on: startsOn || null,
         ends_on: endsOn || null,
+        team_id: teamId || null,
       });
       if (!r.ok) return setError(r.error);
       router.push(`/threads/${r.id}`);
@@ -66,6 +78,39 @@ export function NewThreadForm({ organiserSlug }: { organiserSlug: string }) {
             onClick={() => setFormat('journey')}
           />
         </div>
+      </div>
+
+      <div>
+        <SectionLabel>Scope</SectionLabel>
+        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <KindCard
+            Icon={User}
+            title="Personal"
+            desc="You organise this thread; invite hosts and facilitators later."
+            active={scope === 'personal'}
+            onClick={() => setScope('personal')}
+          />
+          <KindCard
+            Icon={Users}
+            title="Team"
+            desc={
+              teams.length
+                ? 'Owned by one of your teams — members see and share it.'
+                : 'No teams in this workspace yet.'
+            }
+            active={scope === 'team'}
+            onClick={() => teams.length && setScope('team')}
+          />
+        </div>
+        {scope === 'team' && (
+          <div className="mt-3">
+            <SelectField
+              label="Team"
+              name="team_id"
+              options={teams.map((t) => ({ value: t.id, label: t.name }))}
+            />
+          </div>
+        )}
       </div>
 
       <NameAndSlugFields

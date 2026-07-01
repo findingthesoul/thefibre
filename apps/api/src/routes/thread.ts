@@ -224,12 +224,15 @@ threadRoutes.patch('/settings', async (c) => {
 // ---------------------------------------------------------------------------
 
 const THREAD_SELECT = `
-  id, workspace_id, program_id, organiser_id, slug, intention, timezone,
-  cover_url, is_public_listed, requires_approval, price_cents, price_currency,
-  capacity, registration_fields, certificate_enabled, certificate_criteria,
-  certificate_template_id, created_at, updated_at,
+  id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
+  intention, timezone, cover_url, is_public_listed, requires_approval,
+  price_cents, price_currency, capacity, registration_fields,
+  certificate_enabled, certificate_criteria, certificate_template_id,
+  created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
-  organiser:organiser_id (id, slug, display_name, user_id)
+  organiser:organiser_id (id, slug, display_name, user_id),
+  team:team_id (id, name),
+  organisation:organisation_id (id, name)
 `;
 
 // GET /api/v1/thread/threads — all threads in the workspace
@@ -257,6 +260,7 @@ const ThreadCreate = z.object({
   starts_on: z.string().date().nullable().optional(),
   ends_on: z.string().date().nullable().optional(),
   timezone: z.string().max(100).optional(),
+  team_id: z.string().uuid().nullable().optional(),
 });
 
 threadRoutes.post('/threads', async (c) => {
@@ -308,6 +312,7 @@ threadRoutes.post('/threads', async (c) => {
       slug: body.data.slug,
       intention: body.data.intention ?? null,
       timezone: body.data.timezone ?? 'Europe/Amsterdam',
+      team_id: body.data.team_id ?? null,
       created_by: ctx.userId,
     })
     .select(THREAD_SELECT)
@@ -367,6 +372,8 @@ const ThreadUpdate = z.object({
   slug: slugField.optional(),
   intention: z.string().max(2000).nullable().optional(),
   timezone: z.string().max(100).optional(),
+  team_id: z.string().uuid().nullable().optional(),
+  organisation_id: z.string().uuid().nullable().optional(),
   cover_url: z.string().max(500).nullable().optional(),
   is_public_listed: z.boolean().optional(),
   requires_approval: z.boolean().optional(),
@@ -615,6 +622,131 @@ threadRoutes.delete('/engagements/:id', async (c) => {
     console.error('[thread/engagements] delete failed', error);
     return c.json({ error: error.message }, 500);
   }
+  return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
+// Teams + workspace members (pickers for scope + invites)
+// ---------------------------------------------------------------------------
+
+threadRoutes.get('/teams', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('team')
+    .select('id, name, slug')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('is_active', true)
+    .order('name');
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+threadRoutes.get('/workspace-members', async (c) => {
+  const ctx = c.get('ctx');
+  // adminClient scoped by the JWT's validated workspace_id — same pattern as
+  // Meet's internal-team listing.
+  const { data, error } = await adminClient
+    .from('workspace_member')
+    .select('user_id, workspace_role, user:user_id (id, full_name, email)')
+    .eq('workspace_id', ctx.workspaceId);
+  if (error) return c.json({ error: error.message }, 500);
+  const items = (data ?? []).map((m) => {
+    const u = Array.isArray(m.user) ? m.user[0] : m.user;
+    return {
+      user_id: m.user_id,
+      full_name: u?.full_name ?? null,
+      email: u?.email ?? null,
+      workspace_role: m.workspace_role,
+    };
+  });
+  return c.json({ items });
+});
+
+// ---------------------------------------------------------------------------
+// Thread members — hosts + facilitators (thread_thread_organiser)
+// ---------------------------------------------------------------------------
+
+const ThreadMemberAdd = z.object({
+  user_id: z.string().uuid(),
+  role: z.enum(['host', 'facilitator']),
+});
+
+threadRoutes.post('/threads/:id/members', async (c) => {
+  const body = ThreadMemberAdd.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.param('id');
+
+  // Visibility check through RLS.
+  const { data: thread } = await db
+    .from('thread_thread')
+    .select('id, workspace_id')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'not found' }, 404);
+
+  // The invited user needs a thread_organiser row — auto-provision like /me.
+  let { data: organiser } = await adminClient
+    .from('thread_organiser')
+    .select('id')
+    .eq('user_id', body.data.user_id)
+    .maybeSingle();
+  if (!organiser) {
+    const { data: u } = await adminClient
+      .from('user')
+      .select('email, full_name')
+      .eq('id', body.data.user_id)
+      .single();
+    const seed =
+      (u?.full_name ?? u?.email ?? 'organiser')
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '')
+        .slice(0, 30) || 'organiser';
+    const { data: created, error: cErr } = await adminClient
+      .from('thread_organiser')
+      .insert({
+        user_id: body.data.user_id,
+        workspace_id: thread.workspace_id,
+        slug: `${seed}-${Math.random().toString(36).slice(2, 5)}`,
+        display_name: u?.full_name ?? null,
+      })
+      .select('id')
+      .single();
+    if (cErr || !created) {
+      console.error('[thread/members] organiser provision failed', cErr);
+      return c.json({ error: 'could not provision organiser profile' }, 500);
+    }
+    organiser = created;
+  }
+
+  const { data, error } = await adminClient
+    .from('thread_thread_organiser')
+    .upsert(
+      { thread_id: threadId, organiser_id: organiser.id, role: body.data.role },
+      { onConflict: 'thread_id,organiser_id' },
+    )
+    .select('role, organiser:organiser_id (id, slug, display_name, user_id)')
+    .single();
+  if (error) {
+    console.error('[thread/members] upsert failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data, 201);
+});
+
+threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // RLS-scoped delete through the join policy.
+  const { error } = await db
+    .from('thread_thread_organiser')
+    .delete()
+    .eq('thread_id', c.req.param('id'))
+    .eq('organiser_id', c.req.param('organiserId'));
+  if (error) return c.json({ error: error.message }, 500);
   return c.body(null, 204);
 });
 

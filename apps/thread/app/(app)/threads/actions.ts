@@ -22,6 +22,7 @@ export async function createThread(input: {
   intention?: string | null;
   starts_on?: string | null;
   ends_on?: string | null;
+  team_id?: string | null;
 }): Promise<ActionResult> {
   try {
     const created = await apiFetch<{ id: string }>('/api/v1/thread/threads', {
@@ -95,6 +96,38 @@ export async function deleteEngagement(
 ): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/thread/engagements/${engagementId}`, { method: 'DELETE' });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function addThreadMember(
+  threadId: string,
+  userId: string,
+  role: 'host' | 'facilitator',
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${threadId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ user_id: userId, role }),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function removeThreadMember(
+  threadId: string,
+  organiserId: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${threadId}/members/${organiserId}`, {
+      method: 'DELETE',
+    });
     revalidatePath(`/threads/${threadId}`);
     return { ok: true };
   } catch (e) {

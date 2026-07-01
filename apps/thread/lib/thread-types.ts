@@ -38,9 +38,27 @@ export type ThreadRow = {
   certificate_template_id: string | null;
   created_at: string;
   updated_at: string;
+  team_id: string | null;
+  organisation_id: string | null;
   program: ProgramCore | ProgramCore[] | null;
   organiser: OrganiserCore | OrganiserCore[] | null;
+  team: { id: string; name: string } | { id: string; name: string }[] | null;
+  organisation: { id: string; name: string } | { id: string; name: string }[] | null;
 };
+
+export type ThreadMember = {
+  role: 'host' | 'facilitator';
+  organiser: OrganiserCore | OrganiserCore[] | null;
+};
+
+export type WorkspaceMember = {
+  user_id: string;
+  full_name: string | null;
+  email: string | null;
+  workspace_role: string;
+};
+
+export type TeamOption = { id: string; name: string; slug: string };
 
 export type RegistrationField = {
   key: string;

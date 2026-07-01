@@ -18,11 +18,22 @@ import {
   Video,
   Trash2,
   ChevronLeft,
+  Users,
+  X,
 } from 'lucide-react';
-import { updateThread, deleteEngagement } from '../actions';
-import { one, type ThreadRow, type EngagementRow, type EngagementType } from '@/lib/thread-types';
+import { updateThread, deleteEngagement, addThreadMember, removeThreadMember } from '../actions';
+import {
+  one,
+  type ThreadRow,
+  type EngagementRow,
+  type EngagementType,
+  type ThreadMember,
+  type WorkspaceMember,
+  type TeamOption,
+} from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { EngagementDialog } from './engagements';
 import { ThreadEditorForm } from './form';
 import { RegistrationPanel } from './registration';
@@ -96,16 +107,27 @@ function fmtTime(iso: string): string {
 export function ThreadTimeline({
   thread,
   engagements,
+  members,
+  workspaceMembers,
+  teams,
+  organisations,
 }: {
   thread: ThreadRow;
   engagements: EngagementRow[];
+  members: ThreadMember[];
+  workspaceMembers: WorkspaceMember[];
+  teams: TeamOption[];
+  organisations: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const program = one(thread.program);
   const organiser = one(thread.organiser);
+  const team = one(thread.team);
+  const org = one(thread.organisation);
   const [, startTransition] = useTransition();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [editorState, setEditorState] = useState<
     | { mode: 'closed' }
@@ -229,6 +251,15 @@ export function ThreadTimeline({
 
         <button
           type="button"
+          onClick={() => setMembersOpen(true)}
+          className="inline-flex h-9 items-center gap-1.5 px-2 rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
+          title="Hosts & facilitators"
+        >
+          <Users size={17} strokeWidth={1.75} />
+          {members.length > 0 && <span className="text-xs tabular-nums">{members.length + 1}</span>}
+        </button>
+        <button
+          type="button"
           onClick={() => setSettingsOpen(true)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
           title="Thread settings"
@@ -246,10 +277,26 @@ export function ThreadTimeline({
         </a>
       </div>
 
-      {thread.intention && (
-        <p className="mt-2 ml-12 text-sm text-ink-subtle leading-relaxed max-w-xl">
-          {thread.intention}
-        </p>
+      {(thread.intention || team || org) && (
+        <div className="mt-2 ml-12 max-w-xl">
+          {thread.intention && (
+            <p className="text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
+          )}
+          {(team || org) && (
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-muted">
+              {team && (
+                <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
+                  Team · {team.name}
+                </span>
+              )}
+              {org && (
+                <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
+                  {org.name}
+                </span>
+              )}
+            </div>
+          )}
+        </div>
       )}
 
       {/* ── Timeline ─────────────────────────────────────────────────── */}
@@ -377,6 +424,16 @@ export function ThreadTimeline({
         />
       )}
 
+      {membersOpen && (
+        <MembersDialog
+          thread={thread}
+          organiserName={organiser?.display_name ?? organiser?.slug ?? ''}
+          members={members}
+          workspaceMembers={workspaceMembers}
+          onClose={() => setMembersOpen(false)}
+        />
+      )}
+
       {settingsOpen && (
         <Dialog
           open
@@ -386,7 +443,12 @@ export function ThreadTimeline({
           size="xl"
         >
           <div className="space-y-10 pb-2">
-            <ThreadEditorForm thread={thread} compact />
+            <ThreadEditorForm
+              thread={thread}
+              compact
+              teams={teams}
+              organisations={organisations}
+            />
             <div>
               <SectionLabel>Registration</SectionLabel>
               <div className="mt-3">
@@ -539,6 +601,127 @@ function EngagementCard({
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Hosts & facilitators
+// ---------------------------------------------------------------------------
+
+function MembersDialog({
+  thread,
+  organiserName,
+  members,
+  workspaceMembers,
+  onClose,
+}: {
+  thread: ThreadRow;
+  organiserName: string;
+  members: ThreadMember[];
+  workspaceMembers: WorkspaceMember[];
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const [pickUser, setPickUser] = useState('');
+  const [pickRole, setPickRole] = useState<'host' | 'facilitator'>('host');
+
+  const memberUserIds = new Set(
+    members.map((m) => one(m.organiser)?.user_id).filter(Boolean) as string[],
+  );
+  const primaryUserId = one(thread.organiser)?.user_id;
+  const candidates = workspaceMembers.filter(
+    (w) => w.user_id !== primaryUserId && !memberUserIds.has(w.user_id),
+  );
+
+  function add() {
+    if (!pickUser) return setError('Pick a member.');
+    setError(null);
+    startTransition(async () => {
+      const r = await addThreadMember(thread.id, pickUser, pickRole);
+      if (!r.ok) return setError(r.error);
+      setPickUser('');
+      router.refresh();
+    });
+  }
+
+  function remove(organiserId: string) {
+    startTransition(async () => {
+      await removeThreadMember(thread.id, organiserId);
+      router.refresh();
+    });
+  }
+
+  const select =
+    'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Hosts & facilitators"
+      description="Hosts can edit the thread; facilitators run sessions."
+    >
+      <ul className="space-y-2">
+        <li className="flex items-center gap-3 rounded-md border border-line bg-surface-sunken/50 px-3 py-2.5">
+          <span className="text-sm font-medium flex-1 truncate">{organiserName}</span>
+          <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink">
+            Organiser
+          </span>
+        </li>
+        {members.map((m) => {
+          const o = one(m.organiser);
+          if (!o) return null;
+          return (
+            <li
+              key={o.id}
+              className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5"
+            >
+              <span className="text-sm flex-1 truncate">{o.display_name ?? o.slug}</span>
+              <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken capitalize">
+                {m.role}
+              </span>
+              <button
+                type="button"
+                aria-label="Remove"
+                disabled={pending}
+                onClick={() => remove(o.id)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
+              >
+                <X size={14} strokeWidth={1.75} />
+              </button>
+            </li>
+          );
+        })}
+      </ul>
+
+      <div className="mt-5 border-t border-line pt-4">
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">Invite</div>
+        <div className="grid grid-cols-[1fr_auto_auto] gap-2">
+          <select value={pickUser} onChange={(e) => setPickUser(e.target.value)} className={select}>
+            <option value="">Choose a workspace member…</option>
+            {candidates.map((w) => (
+              <option key={w.user_id} value={w.user_id}>
+                {w.full_name ?? w.email}
+              </option>
+            ))}
+          </select>
+          <select
+            value={pickRole}
+            onChange={(e) => setPickRole(e.target.value as 'host' | 'facilitator')}
+            className={select}
+          >
+            <option value="host">Host</option>
+            <option value="facilitator">Facilitator</option>
+          </select>
+          <Button size="sm" onClick={add} disabled={pending} leading={<Plus size={14} />}>
+            Add
+          </Button>
+        </div>
+        {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
+      </div>
+    </Dialog>
   );
 }
 
