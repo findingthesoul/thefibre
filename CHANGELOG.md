@@ -6,7 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.57] — 2026-07-01 — The Thread v3.1.0 (Phase 2: engagements)
+## [0.13.58] — 2026-07-01 — The Thread v3.2.0 (Phase 3: public pages + enrolment)
+
+### The platform loop closes — first delivery app writing real enrolments
+
+Public front end + free enrolment, end-to-end tested against the real API
+(person → consent → enrolment → activity → email; idempotent retry
+verified; test data cleaned).
+
+- **Public pages** (no auth, service-role reads like Meet):
+  `/{organiserSlug}` — organiser profile + listed active threads;
+  `/{organiserSlug}/{threadSlug}` — cover, intention, capacity + certificate
+  badges, **agenda** (published activities only; meeting links hidden until
+  enrolment, shown as an "Online" badge), sticky enrol card.
+- **Enrolment flow** (`POST /thread/public/enrol`): platform person
+  create-or-match by email → consent records (`transactional_email`/contract
+  required, `marketing_email`/consent only on opt-in, per brief §9) →
+  platform `enrolment` (status enrolled) → `thread_enrolment` companion →
+  `event_registered` activity (type + subject only — the wall holds) →
+  branded confirmation email. Idempotent via client `request_id`; duplicate
+  signups collapse; capacity enforced; paid threads 409 until Phase 4.
+- **Registration tab** in the thread editor — custom enrolment questions
+  (short / long / choice / checkbox, required flag); answers stored on
+  `thread_enrolment.answers`, never on the platform.
+- **Enrolments page** in-app: everyone across your threads with platform
+  status + payment state.
+- `shell()` email template exported from Meet's module; Thread templates
+  share the same visual family (`thread-templates.ts`).
 
 ### Engagements — the thread timeline
 

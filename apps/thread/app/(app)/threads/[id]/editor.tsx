@@ -4,8 +4,9 @@ import { useState } from 'react';
 import type { ThreadRow, EngagementRow } from '@/lib/thread-types';
 import { ThreadEditorForm } from './form';
 import { EngagementsPanel } from './engagements';
+import { RegistrationPanel } from './registration';
 
-type Tab = 'basics' | 'engagements';
+type Tab = 'basics' | 'engagements' | 'registration';
 
 // Meet's tabbed-editor pattern: all tabs stay in the DOM, CSS hides the
 // inactive ones — form state survives tab switches.
@@ -21,6 +22,7 @@ export function ThreadEditor({
   const tabs: { value: Tab; label: string }[] = [
     { value: 'basics', label: 'Basics' },
     { value: 'engagements', label: `Engagements${engagements.length ? ` (${engagements.length})` : ''}` },
+    { value: 'registration', label: 'Registration' },
   ];
 
   return (
@@ -50,6 +52,12 @@ export function ThreadEditor({
       </div>
       <div className={`mt-8 ${tab === 'engagements' ? '' : 'hidden'}`}>
         <EngagementsPanel threadId={thread.id} engagements={engagements} />
+      </div>
+      <div className={`mt-8 ${tab === 'registration' ? '' : 'hidden'}`}>
+        <RegistrationPanel
+          threadId={thread.id}
+          fields={thread.registration_fields ?? []}
+        />
       </div>
     </div>
   );

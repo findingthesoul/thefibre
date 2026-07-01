@@ -63,8 +63,8 @@ function cancelUrl(c: Common): string {
 // Booking emails reuse the same visual shell as auth emails (v0.10.0):
 // centred wordmark, white canvas, Help / About / Legal footer, whitelist
 // hint, legal address line. Single source of truth so they look like one
-// product family.
-function shell(title: string, bodyHtml: string): string {
+// product family. Exported so other apps' templates (Thread) share it.
+export function shell(title: string, bodyHtml: string): string {
   return `<!doctype html>
 <html lang="en">
 <body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #171717;">

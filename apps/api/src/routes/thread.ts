@@ -2,6 +2,13 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
+import { sendEmail } from '../lib/email/client.js';
+import { enrolmentConfirmation } from '../lib/email/thread-templates.js';
+import { appUrl } from '@thefibre/shared';
+
+function threadAppUrl(): string {
+  return appUrl('the-thread', process.env as Record<string, string>);
+}
 
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
@@ -546,4 +553,335 @@ threadRoutes.delete('/engagements/:id', async (c) => {
     return c.json({ error: error.message }, 500);
   }
   return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
+// Enrolments (authenticated, workspace view)
+// ---------------------------------------------------------------------------
+
+threadRoutes.get('/enrolments', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.query('thread_id');
+
+  let q = db
+    .from('thread_enrolment')
+    .select(
+      `id, thread_id, payment_status, amount_cents, currency, answers, created_at,
+       person:person_id (id, first_name, last_name, email),
+       enrolment:enrolment_id (id, status, progress_pct, enrolled_at, completed_at),
+       thread:thread_id (id, slug, program:program_id (title, format, status))`,
+    )
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (threadId) q = q.eq('thread_id', threadId);
+
+  const { data, error } = await q;
+  if (error) {
+    console.error('[thread/enrolments] list failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});
+
+// ===========================================================================
+// PUBLIC endpoints — no JWT (see PUBLIC_PREFIXES in app-context.ts).
+// RLS blocks anon, so these read via adminClient and expose only what the
+// public page needs. Same pattern as Meet's /public routes.
+// ===========================================================================
+
+const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, photo_url, timezone';
+
+// GET /api/v1/thread/public/organiser/:slug — organiser page payload
+threadRoutes.get('/public/organiser/:slug', async (c) => {
+  const { data: organiser } = await adminClient
+    .from('thread_organiser')
+    .select(PUBLIC_ORGANISER_SELECT)
+    .eq('slug', c.req.param('slug'))
+    .maybeSingle();
+  if (!organiser) return c.json({ error: 'not found' }, 404);
+
+  const { data: threads } = await adminClient
+    .from('thread_thread')
+    .select(
+      `id, slug, intention, cover_url, price_cents, price_currency, capacity,
+       program:program_id (title, format, status, starts_on, ends_on)`,
+    )
+    .eq('organiser_id', organiser.id)
+    .eq('is_public_listed', true);
+
+  const listed = (threads ?? []).filter((t) => {
+    const p = Array.isArray(t.program) ? t.program[0] : t.program;
+    return p && (p.status === 'active' || p.status === 'completed');
+  });
+
+  return c.json({ organiser, threads: listed });
+});
+
+// GET /api/v1/thread/public/organiser/:slug/thread/:threadSlug — thread page
+threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
+  const { data: organiser } = await adminClient
+    .from('thread_organiser')
+    .select(PUBLIC_ORGANISER_SELECT)
+    .eq('slug', c.req.param('slug'))
+    .maybeSingle();
+  if (!organiser) return c.json({ error: 'not found' }, 404);
+
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select(
+      `id, slug, intention, timezone, cover_url, capacity, requires_approval,
+       price_cents, price_currency, registration_fields, certificate_enabled,
+       program:program_id (title, format, status, starts_on, ends_on)`,
+    )
+    .eq('organiser_id', organiser.id)
+    .eq('slug', c.req.param('threadSlug'))
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'not found' }, 404);
+
+  const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  // Draft/archived threads are not public, even by direct link.
+  if (!program || (program.status !== 'active' && program.status !== 'completed')) {
+    return c.json({ error: 'not found' }, 404);
+  }
+
+  // The public agenda: published activities flagged show_in_agenda.
+  // Messages are internal to the thread — never exposed here.
+  const { data: agenda } = await adminClient
+    .from('thread_engagement')
+    .select('id, title, description, type, starts_at, ends_at, location, meeting_url')
+    .eq('thread_id', thread.id)
+    .eq('status', 'published')
+    .eq('show_in_agenda', true)
+    .in('type', ['event', 'conversation', 'workshop'])
+    .order('starts_at', { ascending: true, nullsFirst: false });
+
+  // Enrolled count for the capacity indicator.
+  const { count } = await adminClient
+    .from('thread_enrolment')
+    .select('id', { count: 'exact', head: true })
+    .eq('thread_id', thread.id);
+
+  return c.json({
+    organiser,
+    thread: {
+      ...thread,
+      // meeting_url stays hidden until enrolment — strip it from the agenda.
+      agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
+        ...rest,
+        is_online: !!meeting_url,
+      })),
+      enrolled_count: count ?? 0,
+      enrolment_open: program.status === 'active',
+    },
+  });
+});
+
+// POST /api/v1/thread/public/enrol — free enrolment (paid flow lands Phase 4)
+const PublicEnrol = z.object({
+  organiser_slug: z.string().min(1),
+  thread_slug: z.string().min(1),
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(320),
+  answers: z.record(z.unknown()).optional(),
+  marketing_opt_in: z.boolean().optional(),
+  request_id: z.string().min(8).max(80),
+});
+
+threadRoutes.post('/public/enrol', async (c) => {
+  const body = PublicEnrol.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+
+  // Idempotency first: same request_id → same result.
+  const { data: existing } = await adminClient
+    .from('thread_enrolment')
+    .select('id, enrolment_id')
+    .eq('request_id', d.request_id)
+    .maybeSingle();
+  if (existing) return c.json({ ok: true, enrolment_id: existing.id, idempotent: true });
+
+  // Resolve organiser → thread → program.
+  const { data: organiser } = await adminClient
+    .from('thread_organiser')
+    .select('id, workspace_id, slug, display_name')
+    .eq('slug', d.organiser_slug)
+    .maybeSingle();
+  if (!organiser) return c.json({ error: 'thread not found' }, 404);
+
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select(
+      'id, workspace_id, program_id, slug, intention, capacity, price_cents, program:program_id (title, status, starts_on)',
+    )
+    .eq('organiser_id', organiser.id)
+    .eq('slug', d.thread_slug)
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+  const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  if (!program || program.status !== 'active') {
+    return c.json({ error: 'enrolment is closed for this thread' }, 409);
+  }
+  if (thread.price_cents && thread.price_cents > 0) {
+    // Paid enrolments arrive with the Stripe phase.
+    return c.json({ error: 'paid enrolment is not available yet' }, 409);
+  }
+
+  // Capacity check.
+  if (thread.capacity) {
+    const { count } = await adminClient
+      .from('thread_enrolment')
+      .select('id', { count: 'exact', head: true })
+      .eq('thread_id', thread.id);
+    if ((count ?? 0) >= thread.capacity) {
+      return c.json({ error: 'this thread is full' }, 409);
+    }
+  }
+
+  // Create-or-match the platform person (identity is platform-owned).
+  const email = d.email.trim().toLowerCase();
+  let { data: person } = await adminClient
+    .from('person')
+    .select('id, first_name')
+    .eq('workspace_id', thread.workspace_id)
+    .eq('email', email)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle();
+
+  if (!person) {
+    const parts = d.name.trim().split(/\s+/);
+    const firstName = parts[0] ?? d.name.trim();
+    const lastName = parts.slice(1).join(' ') || null;
+    const { data: created, error: pErr } = await adminClient
+      .from('person')
+      .insert({
+        workspace_id: thread.workspace_id,
+        first_name: firstName,
+        last_name: lastName,
+        email,
+      })
+      .select('id, first_name')
+      .single();
+    if (pErr || !created) {
+      console.error('[thread/public/enrol] person insert failed', pErr);
+      return c.json({ error: 'could not register you — try again' }, 500);
+    }
+    person = created;
+  }
+
+  // Platform enrolment (unique per program+person) — reuse if it exists.
+  let enrolmentId: string;
+  const { data: platEnrolment } = await adminClient
+    .from('enrolment')
+    .select('id')
+    .eq('program_id', thread.program_id)
+    .eq('person_id', person.id)
+    .maybeSingle();
+  if (platEnrolment) {
+    // Already enrolled on the platform; if the thread companion also exists,
+    // this is a duplicate signup.
+    const { data: dup } = await adminClient
+      .from('thread_enrolment')
+      .select('id')
+      .eq('enrolment_id', platEnrolment.id)
+      .maybeSingle();
+    if (dup) return c.json({ ok: true, enrolment_id: dup.id, already_enrolled: true });
+    enrolmentId = platEnrolment.id;
+  } else {
+    const { data: enr, error: eErr } = await adminClient
+      .from('enrolment')
+      .insert({
+        program_id: thread.program_id,
+        person_id: person.id,
+        status: 'enrolled',
+        enrolled_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (eErr || !enr) {
+      console.error('[thread/public/enrol] enrolment insert failed', eErr);
+      return c.json({ error: 'could not enrol you — try again' }, 500);
+    }
+    enrolmentId = enr.id;
+  }
+
+  const { data: threadEnrolment, error: teErr } = await adminClient
+    .from('thread_enrolment')
+    .insert({
+      workspace_id: thread.workspace_id,
+      thread_id: thread.id,
+      enrolment_id: enrolmentId,
+      person_id: person.id,
+      payment_status: 'not_required',
+      answers: d.answers ?? null,
+      request_id: d.request_id,
+    })
+    .select('id')
+    .single();
+  if (teErr || !threadEnrolment) {
+    console.error('[thread/public/enrol] thread_enrolment insert failed', teErr);
+    return c.json({ error: 'could not enrol you — try again' }, 500);
+  }
+
+  // Consent records (brief §9): transactional is contract-based; marketing
+  // only on explicit opt-in.
+  const consents: { purpose_code: string; legal_basis: string }[] = [
+    { purpose_code: 'transactional_email', legal_basis: 'contract' },
+  ];
+  if (d.marketing_opt_in) {
+    consents.push({ purpose_code: 'marketing_email', legal_basis: 'consent' });
+  }
+  for (const consent of consents) {
+    const { data: active } = await adminClient
+      .from('consent_record')
+      .select('id')
+      .eq('person_id', person.id)
+      .eq('purpose_code', consent.purpose_code)
+      .is('revoked_at', null)
+      .limit(1)
+      .maybeSingle();
+    if (!active) {
+      await adminClient.from('consent_record').insert({
+        person_id: person.id,
+        purpose_code: consent.purpose_code,
+        legal_basis: consent.legal_basis,
+      });
+    }
+  }
+
+  // Activity: type + subject only — the data wall (brief §3).
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'the-thread')
+    .single();
+  if (app) {
+    await adminClient.from('activity').insert({
+      workspace_id: thread.workspace_id,
+      person_id: person.id,
+      app_id: app.id,
+      type: 'event_registered',
+      subject: `Registered: ${program.title}`.slice(0, 200),
+      occurred_at: new Date().toISOString(),
+    });
+  }
+
+  // Confirmation email — non-fatal.
+  try {
+    const msg = enrolmentConfirmation({
+      participantName: d.name.trim(),
+      threadTitle: program.title,
+      intention: thread.intention,
+      organiserName: organiser.display_name ?? '',
+      startsOn: program.starts_on,
+      threadUrl: `${threadAppUrl()}/${organiser.slug}/${thread.slug}`,
+    });
+    await sendEmail({ to: email, ...msg });
+  } catch (e) {
+    console.warn('[thread/public/enrol] confirmation email failed', e);
+  }
+
+  return c.json({ ok: true, enrolment_id: threadEnrolment.id }, 201);
 });
