@@ -334,7 +334,7 @@ export function ThreadTimeline({
             <button
               type="button"
               onClick={() => setAddMenuOpen((o) => !o)}
-              className="w-full rounded-lg border-2 border-dashed border-line hover:border-line-strong text-ink-subtle hover:text-ink py-3 text-sm inline-flex items-center justify-center gap-2 transition-colors"
+              className="w-full rounded-lg border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-3 text-sm inline-flex items-center justify-center gap-2 transition-colors"
             >
               <Plus size={16} strokeWidth={1.75} />
               Add engagement
@@ -421,14 +421,15 @@ export function ThreadTimeline({
 
 // ---------------------------------------------------------------------------
 
+// Date chips carry the Thread brand yellow on the month bar (v3's accent).
 function DateChip({ iso }: { iso: string }) {
   const d = new Date(iso);
   return (
-    <div className="w-10 shrink-0 rounded-md border border-line bg-surface-raised text-center py-1 leading-tight">
-      <div className="text-[9px] uppercase tracking-wide text-ink-muted">
+    <div className="w-10 shrink-0 rounded-md border border-line bg-surface-raised text-center leading-tight overflow-hidden">
+      <div className="bg-yellow-300 text-ink text-[9px] uppercase tracking-wide py-0.5 font-medium">
         {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
       </div>
-      <div className="text-[15px] font-medium tabular-nums">{d.getDate()}</div>
+      <div className="text-[15px] font-medium tabular-nums py-0.5">{d.getDate()}</div>
     </div>
   );
 }
@@ -438,11 +439,11 @@ function DateBadge({ iso }: { iso: string }) {
   const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(d);
   return (
     <div className="absolute -left-[57px] top-1 w-10 text-center" title={weekday}>
-      <div className="rounded-md border border-line bg-surface-raised py-1 leading-tight">
-        <div className="text-[9px] uppercase tracking-wide text-ink-muted">
+      <div className="rounded-md border border-line bg-surface-raised leading-tight overflow-hidden">
+        <div className="bg-yellow-300 text-ink text-[9px] uppercase tracking-wide py-0.5 font-medium">
           {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
         </div>
-        <div className="text-[15px] font-medium tabular-nums">{d.getDate()}</div>
+        <div className="text-[15px] font-medium tabular-nums py-0.5">{d.getDate()}</div>
       </div>
     </div>
   );
@@ -462,6 +463,7 @@ function EngagementCard({
   onDelete: () => void;
 }) {
   const meta = metaFor(e.type);
+  const Icon = meta.icon;
   const when = metaFor(e.type).family === 'activity' ? e.starts_at : null;
   const rounded = `${attachTop ? 'rounded-t-none border-t-0' : 'rounded-t-lg'} ${
     attachBottom ? 'rounded-b-none' : 'rounded-b-lg'
@@ -471,7 +473,7 @@ function EngagementCard({
     <div className="relative group">
       {/* type dot on the line */}
       <span
-        className={`absolute -left-[27.5px] top-1/2 -translate-y-1/2 h-2.5 w-2.5 rounded-full ring-2 ring-surface-sunken ${meta.dot}`}
+        className={`absolute -left-[29px] top-1/2 -translate-y-1/2 h-3 w-3 rounded-full ring-[3px] ring-surface-sunken ${meta.dot}`}
       />
       <div
         role="button"
@@ -483,15 +485,22 @@ function EngagementCard({
         className={`w-full text-left border border-line bg-surface-raised px-4 py-3 cursor-pointer hover:shadow-sm hover:border-line-strong transition-all ${rounded}`}
       >
         <div className="flex items-center gap-3">
+          <span
+            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg ring-1 shrink-0 ${meta.chip}`}
+          >
+            <Icon size={16} strokeWidth={1.75} className={meta.text} />
+          </span>
           <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 text-[11px] text-ink-muted">
-              <span>{meta.label}</span>
+            <div className="flex items-center gap-2 text-[11px]">
+              <span className={`font-medium ${meta.text}`}>{meta.label}</span>
               {e.status !== 'published' && (
-                <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken capitalize">
+                <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken capitalize text-ink-muted">
                   {e.status}
                 </span>
               )}
-              {meta.family === 'message' && <span>{triggerLabel(e)}</span>}
+              {meta.family === 'message' && (
+                <span className="text-ink-muted">{triggerLabel(e)}</span>
+              )}
             </div>
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
           </div>

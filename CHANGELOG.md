@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.66] — 2026-07-02 — Thread 3.5.0: timeline colour pass
+
+The timeline was too monochrome. Per-type colour now carries through:
+tinted icon chips on every card (sky event / emerald conversation /
+amber workshop / blue message / violet reflection / teal practice /
+slate document / pink inspiration), matching coloured type labels,
+bigger dots on the rail. Date badges get the Thread brand-yellow month
+bar (v3's accent); the add-engagement button glows yellow on hover.
+
 ## [0.13.65] — 2026-07-02 — Thread 3.4.0: engagement triggers + date-window rule
 
 Two structural rules from Sjoerd land together
