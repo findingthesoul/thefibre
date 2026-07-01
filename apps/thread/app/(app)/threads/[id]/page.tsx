@@ -31,7 +31,7 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const [members, teams, orgs] = await Promise.all([
+  const [members, teams, orgs, certTemplates] = await Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
@@ -39,6 +39,9 @@ export default async function ThreadDetailPage({
     apiFetch<{ items: OrgOption[] }>('/api/v1/organisations?limit=100').catch(() => ({
       items: [],
     })),
+    apiFetch<{ items: { id: string; name: string }[] }>(
+      '/api/v1/thread/certificate-templates',
+    ).catch(() => ({ items: [] })),
   ]);
 
   // v3 layout: a single centred column, the thread as the main item, the
@@ -52,6 +55,7 @@ export default async function ThreadDetailPage({
         workspaceMembers={members.items}
         teams={teams.items}
         organisations={orgs.items}
+        certTemplates={certTemplates.items}
       />
     </div>
   );

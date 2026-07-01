@@ -18,11 +18,13 @@ export function ThreadEditorForm({
   compact = false,
   teams = [],
   organisations = [],
+  certTemplates = [],
 }: {
   thread: ThreadRow;
   compact?: boolean;
   teams?: { id: string; name: string }[];
   organisations?: { id: string; name: string }[];
+  certTemplates?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -49,6 +51,9 @@ export function ThreadEditorForm({
       is_public_listed: fd.get('is_public_listed') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
       organisation_id: String(fd.get('organisation_id') ?? '') || null,
+      certificate_enabled: fd.get('certificate_enabled') === 'on',
+      certificate_template_id: String(fd.get('certificate_template_id') ?? '') || null,
+      certificate_criteria: String(fd.get('certificate_criteria') ?? '').trim() || null,
     };
     if (!patch.title) return setError('The thread needs a name.');
     if (!patch.slug) return setError('The thread needs a URL slug.');
@@ -138,6 +143,50 @@ export function ThreadEditorForm({
               </span>
             </span>
           </label>
+
+          {/* Certificate (v3-style: enable + pick from template list) */}
+          <div className="rounded-lg border border-line bg-surface-sunken/50 p-4 space-y-4">
+            <label className="flex items-start gap-2.5">
+              <input
+                type="checkbox"
+                name="certificate_enabled"
+                defaultChecked={thread.certificate_enabled}
+                className="mt-0.5"
+              />
+              <span className="text-sm text-ink-subtle">
+                Award a certificate on completion
+              </span>
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <SelectField
+                label="Template"
+                name="certificate_template_id"
+                defaultValue={thread.certificate_template_id ?? ''}
+                options={[
+                  {
+                    value: '',
+                    label: certTemplates.length ? 'Choose a template…' : 'No templates yet',
+                  },
+                  ...certTemplates.map((t) => ({ value: t.id, label: t.name })),
+                ]}
+                hint={
+                  <>
+                    Designed under{' '}
+                    <a href="/certificates" className="underline underline-offset-2 hover:text-ink">
+                      Certificates
+                    </a>
+                    .
+                  </>
+                }
+              />
+              <TextField
+                label="Criteria / awarded for"
+                name="certificate_criteria"
+                defaultValue={thread.certificate_criteria ?? ''}
+                placeholder="Completed all sessions"
+              />
+            </div>
+          </div>
         </div>
       </div>
 

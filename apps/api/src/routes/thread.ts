@@ -419,6 +419,28 @@ threadRoutes.patch('/threads/:id', async (c) => {
   if (starts_on !== undefined) programPatch.starts_on = starts_on;
   if (ends_on !== undefined) programPatch.ends_on = ends_on;
 
+  // When the start date moves, everything moves with it (Sjoerd 2026-07-02,
+  // v3's shiftAllEngagementDates): fixed engagement dates shift by the same
+  // delta, and so does the end date — unless this same save explicitly
+  // changed it. Relative/lifecycle triggers follow automatically (computed).
+  let shiftDays = 0;
+  if (starts_on) {
+    const { data: prog } = await db
+      .from('program')
+      .select('starts_on, ends_on')
+      .eq('id', existing.program_id)
+      .single();
+    if (prog?.starts_on && starts_on !== prog.starts_on) {
+      shiftDays = Math.round(
+        (Date.parse(starts_on) - Date.parse(prog.starts_on)) / 86_400_000,
+      );
+      const endUnchanged = ends_on === undefined || ends_on === prog.ends_on;
+      if (shiftDays !== 0 && endUnchanged && prog.ends_on) {
+        programPatch.ends_on = shiftDateOnly(prog.ends_on, shiftDays);
+      }
+    }
+  }
+
   if (Object.keys(programPatch).length > 0) {
     const { error: pErr } = await db
       .from('program')
@@ -442,13 +464,42 @@ threadRoutes.patch('/threads/:id', async (c) => {
     }
   }
 
+  // Shift all fixed engagement dates by the same delta.
+  if (shiftDays !== 0) {
+    const { data: engagements } = await db
+      .from('thread_engagement')
+      .select('id, starts_at, ends_at, scheduled_at')
+      .eq('thread_id', id);
+    for (const e of engagements ?? []) {
+      const patch: Record<string, string> = {};
+      if (e.starts_at) patch.starts_at = shiftTimestamp(e.starts_at, shiftDays);
+      if (e.ends_at) patch.ends_at = shiftTimestamp(e.ends_at, shiftDays);
+      if (e.scheduled_at) patch.scheduled_at = shiftTimestamp(e.scheduled_at, shiftDays);
+      if (Object.keys(patch).length) {
+        await db.from('thread_engagement').update(patch).eq('id', e.id);
+      }
+    }
+  }
+
   const { data: updated } = await db
     .from('thread_thread')
     .select(THREAD_SELECT)
     .eq('id', id)
     .single();
-  return c.json(updated);
+  return c.json({ ...updated, shifted_engagement_days: shiftDays || undefined });
 });
+
+function shiftDateOnly(dateOnly: string, days: number): string {
+  const d = new Date(`${dateOnly}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
+function shiftTimestamp(iso: string, days: number): string {
+  const d = new Date(iso);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString();
+}
 
 // ---------------------------------------------------------------------------
 // Engagements
@@ -748,6 +799,228 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
     .eq('organiser_id', c.req.param('organiserId'));
   if (error) return c.json({ error: error.message }, 500);
   return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
+// Certificate templates — CRUD + personal/team/workspace visibility.
+// Scope rules (Sjoerd 2026-07-02): personal = owner only; team = team
+// members; workspace = everyone, unless shares exist — then only granted
+// users/teams (+ the creator).
+// ---------------------------------------------------------------------------
+
+async function userTeamIds(userId: string): Promise<Set<string>> {
+  const { data } = await adminClient
+    .from('team_member')
+    .select('team_id')
+    .eq('user_id', userId);
+  return new Set((data ?? []).map((r) => r.team_id));
+}
+
+type ScopedTemplate = {
+  id: string;
+  scope: string;
+  owner_user_id: string | null;
+  owner_team_id: string | null;
+  created_by: string | null;
+};
+
+async function filterVisibleTemplates<T extends ScopedTemplate>(
+  rows: T[],
+  kind: 'certificate' | 'thread',
+  userId: string,
+): Promise<T[]> {
+  const teamIds = await userTeamIds(userId);
+  const workspaceScoped = rows.filter((r) => r.scope === 'workspace').map((r) => r.id);
+  const sharesByTemplate = new Map<string, { users: Set<string>; teams: Set<string> }>();
+  if (workspaceScoped.length) {
+    const { data: shares } = await adminClient
+      .from('thread_template_share')
+      .select('template_id, grantee_user_id, grantee_team_id')
+      .eq('template_kind', kind)
+      .in('template_id', workspaceScoped);
+    for (const s of shares ?? []) {
+      const e = sharesByTemplate.get(s.template_id) ?? { users: new Set(), teams: new Set() };
+      if (s.grantee_user_id) e.users.add(s.grantee_user_id);
+      if (s.grantee_team_id) e.teams.add(s.grantee_team_id);
+      sharesByTemplate.set(s.template_id, e);
+    }
+  }
+  return rows.filter((r) => {
+    if (r.scope === 'personal') return r.owner_user_id === userId || r.created_by === userId;
+    if (r.scope === 'team') return !!r.owner_team_id && teamIds.has(r.owner_team_id);
+    // workspace
+    const share = sharesByTemplate.get(r.id);
+    if (!share) return true; // no grants = whole workspace
+    if (r.created_by === userId) return true;
+    if (share.users.has(userId)) return true;
+    return [...share.teams].some((t) => teamIds.has(t));
+  });
+}
+
+const CERT_TEMPLATE_SELECT =
+  'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, created_by, created_at, updated_at';
+
+threadRoutes.get('/certificate-templates', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .select(CERT_TEMPLATE_SELECT)
+    .order('updated_at', { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  const visible = await filterVisibleTemplates(data ?? [], 'certificate', ctx.userId);
+  return c.json({ items: visible });
+});
+
+const CertTemplateCreate = z.object({
+  name: z.string().min(1).max(200),
+  scope: z.enum(['personal', 'team', 'workspace']).default('personal'),
+  owner_team_id: z.string().uuid().nullable().optional(),
+});
+
+threadRoutes.post('/certificate-templates', async (c) => {
+  const body = CertTemplateCreate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  if (body.data.scope === 'team' && !body.data.owner_team_id) {
+    return c.json({ error: 'team-scoped templates need owner_team_id' }, 400);
+  }
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      name: body.data.name,
+      scope: body.data.scope,
+      owner_user_id: body.data.scope === 'personal' ? ctx.userId : null,
+      owner_team_id: body.data.scope === 'team' ? body.data.owner_team_id : null,
+      created_by: ctx.userId,
+    })
+    .select(CERT_TEMPLATE_SELECT)
+    .single();
+  if (error) {
+    console.error('[thread/cert-templates] insert failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data, 201);
+});
+
+threadRoutes.get('/certificate-templates/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .select(CERT_TEMPLATE_SELECT)
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (error || !data) return c.json({ error: 'not found' }, 404);
+  const [visible] = await filterVisibleTemplates([data], 'certificate', ctx.userId);
+  if (!visible) return c.json({ error: 'not found' }, 404);
+  return c.json(data);
+});
+
+const CertTemplateUpdate = z.object({
+  name: z.string().min(1).max(200).optional(),
+  page_size: z.enum(['a4', 'letter']).optional(),
+  orientation: z.enum(['portrait', 'landscape']).optional(),
+  background_url: z.string().max(1000).nullable().optional(),
+  elements: z.array(z.record(z.unknown())).optional(),
+  scope: z.enum(['personal', 'team', 'workspace']).optional(),
+  owner_team_id: z.string().uuid().nullable().optional(),
+});
+
+threadRoutes.patch('/certificate-templates/:id', async (c) => {
+  const body = CertTemplateUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  if (body.data.scope === 'personal') {
+    patch.owner_user_id = ctx.userId;
+    patch.owner_team_id = null;
+  } else if (body.data.scope === 'workspace') {
+    patch.owner_user_id = null;
+    patch.owner_team_id = null;
+  } else if (body.data.scope === 'team') {
+    patch.owner_user_id = null;
+  }
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .update(patch)
+    .eq('id', c.req.param('id'))
+    .select(CERT_TEMPLATE_SELECT)
+    .single();
+  if (error) {
+    console.error('[thread/cert-templates] update failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data);
+});
+
+threadRoutes.delete('/certificate-templates/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db
+    .from('thread_certificate_template')
+    .delete()
+    .eq('id', c.req.param('id'));
+  if (error) return c.json({ error: error.message }, 500);
+  await adminClient
+    .from('thread_template_share')
+    .delete()
+    .eq('template_kind', 'certificate')
+    .eq('template_id', c.req.param('id'));
+  return c.body(null, 204);
+});
+
+// Replace the grants on a workspace-scoped template.
+const SharesPut = z.object({
+  user_ids: z.array(z.string().uuid()).default([]),
+  team_ids: z.array(z.string().uuid()).default([]),
+});
+
+threadRoutes.put('/certificate-templates/:id/shares', async (c) => {
+  const body = SharesPut.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const id = c.req.param('id');
+  await adminClient
+    .from('thread_template_share')
+    .delete()
+    .eq('template_kind', 'certificate')
+    .eq('template_id', id);
+  const rows = [
+    ...body.data.user_ids.map((u) => ({
+      workspace_id: ctx.workspaceId,
+      template_kind: 'certificate',
+      template_id: id,
+      grantee_user_id: u,
+    })),
+    ...body.data.team_ids.map((t) => ({
+      workspace_id: ctx.workspaceId,
+      template_kind: 'certificate',
+      template_id: id,
+      grantee_team_id: t,
+    })),
+  ];
+  if (rows.length) {
+    const { error } = await adminClient.from('thread_template_share').insert(rows);
+    if (error) return c.json({ error: error.message }, 500);
+  }
+  return c.json({ ok: true, count: rows.length });
+});
+
+threadRoutes.get('/certificate-templates/:id/shares', async (c) => {
+  const { data, error } = await adminClient
+    .from('thread_template_share')
+    .select('grantee_user_id, grantee_team_id')
+    .eq('template_kind', 'certificate')
+    .eq('template_id', c.req.param('id'));
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({
+    user_ids: (data ?? []).map((r) => r.grantee_user_id).filter(Boolean),
+    team_ids: (data ?? []).map((r) => r.grantee_team_id).filter(Boolean),
+  });
 });
 
 // ---------------------------------------------------------------------------

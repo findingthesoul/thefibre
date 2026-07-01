@@ -111,6 +111,7 @@ export function ThreadTimeline({
   workspaceMembers,
   teams,
   organisations,
+  certTemplates,
 }: {
   thread: ThreadRow;
   engagements: EngagementRow[];
@@ -118,6 +119,7 @@ export function ThreadTimeline({
   workspaceMembers: WorkspaceMember[];
   teams: TeamOption[];
   organisations: { id: string; name: string }[];
+  certTemplates: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -448,6 +450,7 @@ export function ThreadTimeline({
               compact
               teams={teams}
               organisations={organisations}
+              certTemplates={certTemplates}
             />
             <div>
               <SectionLabel>Registration</SectionLabel>

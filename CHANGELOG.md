@@ -6,7 +6,38 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.67] — 2026-07-02 — Thread 3.6.0: thread scope + hosts & facilitators
+## [0.13.68] — 2026-07-02 — Thread 3.7.0: certificate template builder + everything moves together
+
+Two big pieces (migration `20260702120000_thread_templates_and_scoping.sql`,
+applied):
+
+### Certificate template builder — v3's designer, ported
+
+- **/certificates** — template list (scope chips, page size, updated) +
+  New template (name + Personal/Team/Workspace scope).
+- **/certificates/[id]** — the builder: white page canvas with aspect-true
+  A4/Letter portrait/landscape, background image URL, %-positioned
+  elements (field tokens · text with `{token}` substitution · image ·
+  line), click-select with yellow outline, drag to move, double-click to
+  edit text inline, properties strip (font family/size, width, bold /
+  italic, align, colour, opacity, z-order), 2s debounced auto-save +
+  manual Save, delete with confirm. Nine field tokens with sample-value
+  preview (recipient, thread title, org, dates, certificate number,
+  criteria, issued by).
+- **Template scoping**: personal / team / workspace; workspace templates
+  can be granted to selected members and teams via a Share dialog
+  (`thread_template_share`; no grants = whole workspace).
+- **Thread settings** gains the v3-style Certificate section: enable +
+  pick from the template list + criteria field.
+- Schema also lands `thread_template` (thread templates, next release).
+
+### Dates move together (v3's shiftAllEngagementDates)
+
+Change the thread's start date and **every fixed engagement date shifts
+by the same number of days** — start/end times, message send moments,
+and the thread's end date (unless the same save explicitly changed it).
+Relative and lifecycle triggers follow automatically since they're
+computed from the thread window.
 
 Threads join the Fibre categories
 (migration `20260702110000_thread_scope_and_roles.sql`, applied):
