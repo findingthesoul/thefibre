@@ -10,15 +10,18 @@ type Props = {
   title: ReactNode;
   description?: ReactNode;
   children: ReactNode;
-  // Footer is rendered to the right; supply your own buttons.
+  // Footer is rendered to the right; supply your own buttons. It sits
+  // outside the scroll area, so it behaves as a sticky save bar (v3 style).
   footer?: ReactNode;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'xl';
 };
 
 const SIZES: Record<NonNullable<Props['size']>, string> = {
   sm: 'max-w-sm',
   md: 'max-w-md',
   lg: 'max-w-xl',
+  // The v3 editor width — roomy, two-column-friendly.
+  xl: 'max-w-3xl',
 };
 
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
@@ -71,7 +74,9 @@ export function Dialog({ open, onClose, title, description, children, footer, si
             <X size={18} strokeWidth={1.75} />
           </button>
         </header>
-        <div className="px-5 py-4 overflow-y-auto">{children}</div>
+        <div className={`overflow-y-auto ${size === 'xl' ? 'px-7 py-6' : 'px-5 py-4'}`}>
+          {children}
+        </div>
         {footer && (
           <footer className="px-5 py-3 border-t border-line flex items-center justify-end gap-2">
             {footer}

@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.64] — 2026-07-02 — Thread 3.3.1: v3-style big editing modals
+
+Editing popups grow into thethread-v3's roomy shape (decision: big
+centered modal over a side drawer). Dialog gains an `xl` size —
+`max-w-3xl`, generous padding — and a footer slot that sits outside the
+scroll area, so Save/Cancel behave as a sticky save bar. The engagement
+editor and thread-settings dialog both move to it: two-column field
+grids, larger spacing, error message inline in the save bar.
+
 ## [0.13.63] — 2026-07-02 — Thread 3.3.0: v3-style timeline editor (no tabs)
 
 The thread editor drops its tabs for thethread-v3's layout (read from the

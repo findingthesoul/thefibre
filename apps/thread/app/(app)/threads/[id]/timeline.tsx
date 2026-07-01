@@ -302,7 +302,7 @@ export function ThreadTimeline({
           onClose={() => setSettingsOpen(false)}
           title="Thread settings"
           description="Basics, dates and the public registration form."
-          size="lg"
+          size="xl"
         >
           <div className="space-y-10 pb-2">
             <ThreadEditorForm thread={thread} compact />

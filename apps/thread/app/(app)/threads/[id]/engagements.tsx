@@ -104,10 +104,23 @@ export function EngagementDialog({
       open
       onClose={onClose}
       title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
-      size="lg"
+      size="xl"
+      footer={
+        <>
+          {error && (
+            <span className="mr-auto text-sm text-red-700 truncate max-w-md">{error}</span>
+          )}
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="engagement-form" disabled={pending}>
+            {pending ? 'Saving…' : isNew ? 'Add to timeline' : 'Save'}
+          </Button>
+        </>
+      }
     >
-      <form onSubmit={onSubmit} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+      <form id="engagement-form" onSubmit={onSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <SelectField
             label="Type"
             name="type_display"
@@ -134,13 +147,13 @@ export function EngagementDialog({
         <TextAreaField
           label="Description"
           name="description"
-          rows={2}
+          rows={3}
           defaultValue={engagement?.description ?? ''}
         />
 
         {family === 'activity' ? (
           <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <DateTimeField
                 label="Starts"
                 name="starts_at"
@@ -152,7 +165,7 @@ export function EngagementDialog({
                 defaultValue={toLocalInput(engagement?.ends_at ?? null)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
               <TextField
                 label="Location"
                 name="location"
@@ -170,12 +183,14 @@ export function EngagementDialog({
           </>
         ) : (
           <>
-            <DateTimeField
-              label="Send at"
-              name="scheduled_at"
-              defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
-              hint="When this goes out to enrolled participants. Leave empty to keep it unscheduled."
-            />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+              <DateTimeField
+                label="Send at"
+                name="scheduled_at"
+                defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
+                hint="When this goes out to enrolled participants. Leave empty to keep it unscheduled."
+              />
+            </div>
             <MessageContentFields type={type} content={engagement?.content ?? {}} />
           </>
         )}
@@ -188,21 +203,6 @@ export function EngagementDialog({
           />
           <span className="text-sm text-ink-subtle">Show on the public agenda</span>
         </label>
-
-        {error && (
-          <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
-            {error}
-          </p>
-        )}
-
-        <div className="flex items-center justify-end gap-2 pt-1">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : isNew ? 'Add to timeline' : 'Save'}
-          </Button>
-        </div>
       </form>
     </Dialog>
   );
