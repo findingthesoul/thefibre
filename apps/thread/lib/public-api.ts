@@ -20,10 +20,13 @@ export async function publicFetch<T = unknown>(
   });
   if (!res.ok) {
     let body: unknown;
+    // Read the body ONCE as text, then try JSON — res.json() followed by
+    // res.text() throws "Body is unusable" when the payload isn't JSON.
+    const raw = await res.text().catch(() => '');
     try {
-      body = await res.json();
+      body = JSON.parse(raw);
     } catch {
-      body = await res.text();
+      body = raw;
     }
     throw new PublicApiError(res.status, `API ${res.status}: ${path}`, body);
   }

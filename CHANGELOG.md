@@ -6,6 +6,20 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.60] — 2026-07-01 — fix: "Body is unusable" in every app's API client
+
+The error path of `apiFetch`/`publicFetch` read the response body twice
+(`res.json()` then `res.text()` in the catch) — when an API error payload
+wasn't valid JSON, the second read threw `TypeError: Body is unusable`,
+masking the real error. Now the body is read once as text and JSON-parsed
+best-effort. Fixed in all six copies (web, meet, thread, flow ×
+api.ts/public-api.ts). Spotted in thread.thefibre.app production logs.
+
+Also today, production got un-wedged: the API's "verified" Thread deploy
+turned out to be a false positive (a 401 from the auth middleware proves
+nothing about routes) — the real Fly release was still June 10. Redeployed;
+`/api/v1/thread/public/*` now serves real payloads and junk slugs 404.
+
 ## [0.13.59] — 2026-07-01 — Apps catalog catches up with Flow; thread Vercel project
 
 - **Fibre web knew nothing about Fibre Flow** — `apps/web/lib/apps.ts`
