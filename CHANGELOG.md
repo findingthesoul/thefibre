@@ -6,6 +6,20 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.61] — 2026-07-01 — user preferences follow the user across apps
+
+Theme + sidebar preferences were deliberately host-only per app (a
+documented earlier decision). Sjoerd reversed it: one user = one
+preference, everywhere. `savePref` now writes the cookies with
+`domain = NEXT_PUBLIC_COOKIE_DOMAIN` (`.thefibre.app`) — same mechanism
+as SSO — and evicts the legacy host-only cookie so it can't shadow the
+shared one. Applied to all four apps.
+
+Bonus: The Thread's user menu still wrote `document.cookie` directly
+(host-only AND capped to 7 days by Safari ITP — the very problem the
+server action solves). Now uses the shared `savePref` action like the
+other apps.
+
 ## [0.13.60] — 2026-07-01 — fix: "Body is unusable" in every app's API client
 
 The error path of `apiFetch`/`publicFetch` read the response body twice

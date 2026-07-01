@@ -7,9 +7,12 @@
 // Cookies written from the server via Set-Cookie are not subject to that cap,
 // so preferences actually persist "throughout sessions".
 //
-// No `domain` is set → the cookie is host-only → each app
-// (thefibre.app / meet.thefibre.app / flow.thefibre.app) keeps its own
-// preference. That's the desired per-app behaviour.
+// `domain` is set to NEXT_PUBLIC_COOKIE_DOMAIN (`.thefibre.app`) so ONE
+// preference follows the user across every app — thefibre.app, meet.,
+// thread., flow. (Sjoerd 2026-07-01: settings are per-user, not per-app;
+// this reverses the earlier host-only decision.) Locally the env var is
+// unset → host-only cookie, which localhost apps share anyway (cookies
+// ignore ports).
 //
 // Not httpOnly: the no-flash ThemeScript in <head> reads the cookie via
 // document.cookie before first paint, so it must be JS-readable.
@@ -23,8 +26,14 @@ const ALLOWED = new Set<string>([COOKIE_THEME, COOKIE_SIDEBAR]);
 export async function savePref(name: string, value: string) {
   if (!ALLOWED.has(name)) return; // ignore anything unexpected
   const store = await cookies();
+  const domain = process.env.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
+  if (domain) {
+    // Evict the legacy host-only cookie so it can't shadow the shared one.
+    store.set(name, '', { path: '/', maxAge: 0 });
+  }
   store.set(name, value, {
     path: '/',
+    ...(domain ? { domain } : {}),
     maxAge: ONE_YEAR,
     sameSite: 'lax',
     httpOnly: false,

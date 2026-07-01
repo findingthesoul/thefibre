@@ -22,10 +22,10 @@ import {
   type SidebarMode,
   type Theme,
 } from '@/lib/prefs-shared';
-
-function setCookie(name: string, value: string) {
-  document.cookie = `${name}=${encodeURIComponent(value)}; path=/; max-age=${60 * 60 * 24 * 365}; samesite=lax`;
-}
+// Server action — sets the cookie domain-wide (.thefibre.app) so the
+// preference follows the user across apps, and dodges Safari's 7-day
+// ITP cap on document.cookie writes.
+import { savePref } from '@/lib/prefs-actions';
 
 function applyTheme(theme: Theme) {
   const dark =
@@ -74,14 +74,16 @@ export function UserMenu({
 
   function pickTheme(t: Theme) {
     setTheme(t);
-    setCookie(COOKIE_THEME, t);
+    void savePref(COOKIE_THEME, t);
     applyTheme(t);
   }
 
   function pickSidebar(s: SidebarMode) {
     setSidebar(s);
-    setCookie(COOKIE_SIDEBAR, s);
-    startTransition(() => router.refresh());
+    startTransition(async () => {
+      await savePref(COOKIE_SIDEBAR, s);
+      router.refresh();
+    });
   }
 
   async function signOut() {
