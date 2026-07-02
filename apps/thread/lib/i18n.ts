@@ -258,6 +258,21 @@ const CATALOG = {
     de: 'Dieser Link ist abgelaufen — melde dich erneut an oder nutze eine neuere E-Mail.',
   },
 
+  whos_coming: {
+    en: "Who's coming",
+    nl: 'Wie komen er',
+    es: 'Quiénes vienen',
+    pt: 'Quem vem',
+    de: 'Wer kommt',
+  },
+  show_my_name: {
+    en: 'Show my name to other participants.',
+    nl: 'Toon mijn naam aan andere deelnemers.',
+    es: 'Mostrar mi nombre a otros participantes.',
+    pt: 'Mostrar meu nome aos outros participantes.',
+    de: 'Meinen Namen anderen Teilnehmenden zeigen.',
+  },
+
   // ── embeds ───────────────────────────────────────────────────────────
   view_and_enrol: {
     en: 'View & enrol',

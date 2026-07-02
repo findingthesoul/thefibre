@@ -281,7 +281,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, language, public_interaction, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -437,6 +437,9 @@ const ThreadUpdate = z.object({
   payment_destination: z.enum(['workspace', 'personal']).nullable().optional(),
   language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
   public_interaction: z.enum(['page', 'popup']).optional(),
+  payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).optional(),
+  share_participants_public: z.boolean().optional(),
+  share_participants_participants: z.boolean().optional(),
   capacity: z.number().int().positive().nullable().optional(),
   registration_fields: z
     .array(
@@ -1175,6 +1178,309 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Thread templates — v3 model: a thread + its engagements captured with
+// RELATIVE timing (day_offset from thread start, time_of_day, duration),
+// so instantiating rebases everything onto a new start date. Messages and
+// their triggers are captured too (Sjoerd 2026-07-02: "including messages").
+// ---------------------------------------------------------------------------
+
+const THREAD_TEMPLATE_SELECT =
+  'id, title, scope, owner_user_id, owner_team_id, structure, created_by, created_at, updated_at';
+
+threadRoutes.get('/thread-templates', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_template')
+    .select(THREAD_TEMPLATE_SELECT)
+    .order('updated_at', { ascending: false });
+  if (error) return c.json({ error: error.message }, 500);
+  const visible = await filterVisibleTemplates(data ?? [], 'thread', ctx.userId);
+  return c.json({ items: visible });
+});
+
+threadRoutes.get('/thread-templates/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data } = await db
+    .from('thread_template')
+    .select(THREAD_TEMPLATE_SELECT)
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!data) return c.json({ error: 'not found' }, 404);
+  const [visible] = await filterVisibleTemplates([data], 'thread', ctx.userId);
+  if (!visible) return c.json({ error: 'not found' }, 404);
+  return c.json(data);
+});
+
+const ThreadTemplatePatch = z.object({
+  title: z.string().min(1).max(200).optional(),
+  scope: z.enum(['personal', 'team', 'workspace']).optional(),
+  owner_team_id: z.string().uuid().nullable().optional(),
+  structure: z.record(z.unknown()).optional(),
+});
+
+threadRoutes.patch('/thread-templates/:id', async (c) => {
+  const body = ThreadTemplatePatch.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  if (body.data.scope === 'personal') {
+    patch.owner_user_id = ctx.userId;
+    patch.owner_team_id = null;
+  } else if (body.data.scope === 'workspace') {
+    patch.owner_user_id = null;
+    patch.owner_team_id = null;
+  } else if (body.data.scope === 'team') {
+    patch.owner_user_id = null;
+  }
+  const { data, error } = await db
+    .from('thread_template')
+    .update(patch)
+    .eq('id', c.req.param('id'))
+    .select(THREAD_TEMPLATE_SELECT)
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+threadRoutes.delete('/thread-templates/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('thread_template').delete().eq('id', c.req.param('id'));
+  if (error) return c.json({ error: error.message }, 500);
+  await adminClient
+    .from('thread_template_share')
+    .delete()
+    .eq('template_kind', 'thread')
+    .eq('template_id', c.req.param('id'));
+  return c.body(null, 204);
+});
+
+// POST /threads/:id/save-as-template — capture the thread with relative timing.
+const SaveAsTemplate = z.object({
+  title: z.string().min(1).max(200),
+  scope: z.enum(['personal', 'team', 'workspace']).default('personal'),
+});
+
+threadRoutes.post('/threads/:id/save-as-template', async (c) => {
+  const body = SaveAsTemplate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const { data: thread } = await db
+    .from('thread_thread')
+    .select('*, program:program_id (title, format, starts_on, ends_on)')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'not found' }, 404);
+  const prog = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+
+  const { data: engagements } = await db
+    .from('thread_engagement')
+    .select('*')
+    .eq('thread_id', thread.id)
+    .order('position');
+
+  const startMs = prog?.starts_on ? Date.parse(`${prog.starts_on}T00:00:00Z`) : null;
+  const dayOffset = (iso: string | null) =>
+    iso && startMs != null ? Math.round((Date.parse(iso) - startMs) / 86_400_000) : null;
+  const timeOf = (iso: string | null) => (iso ? iso.slice(11, 16) : null);
+  const durationMin = (a: string | null, b: string | null) =>
+    a && b ? Math.round((Date.parse(b) - Date.parse(a)) / 60_000) : null;
+
+  const structure = {
+    version: 1,
+    format: prog?.format ?? 'event',
+    intention: thread.intention,
+    timezone: thread.timezone,
+    language: thread.language,
+    cover_url: thread.cover_url,
+    requires_approval: thread.requires_approval,
+    public_interaction: thread.public_interaction,
+    price_cents: thread.price_cents,
+    price_currency: thread.price_currency,
+    payment_methods: thread.payment_methods,
+    capacity: thread.capacity,
+    registration_fields: thread.registration_fields,
+    certificate_enabled: thread.certificate_enabled,
+    certificate_criteria: thread.certificate_criteria,
+    certificate_template_id: thread.certificate_template_id,
+    duration_days:
+      prog?.starts_on && prog?.ends_on
+        ? Math.round((Date.parse(prog.ends_on) - Date.parse(prog.starts_on)) / 86_400_000)
+        : null,
+    engagements: (engagements ?? []).map((e) => ({
+      type: e.type,
+      title: e.title,
+      description: e.description,
+      position: e.position,
+      location: e.location,
+      location_url: e.location_url,
+      meeting_url: e.meeting_url,
+      meeting_provider: e.meeting_provider,
+      show_in_agenda: e.show_in_agenda,
+      content: e.content,
+      trigger_kind: e.trigger_kind,
+      trigger_anchor: e.trigger_anchor === 'engagement' ? 'start' : e.trigger_anchor,
+      trigger_offset_days: e.trigger_offset_days,
+      trigger_time: e.trigger_time,
+      day_offset: dayOffset(e.starts_at ?? e.scheduled_at),
+      time_of_day: timeOf(e.starts_at ?? e.scheduled_at),
+      duration_minutes: durationMin(e.starts_at, e.ends_at),
+    })),
+  };
+
+  const { data: tpl, error } = await db
+    .from('thread_template')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      title: body.data.title,
+      scope: body.data.scope,
+      owner_user_id: body.data.scope === 'personal' ? ctx.userId : null,
+      owner_team_id: body.data.scope === 'team' ? thread.team_id : null,
+      structure,
+      created_by: ctx.userId,
+    })
+    .select('id')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ id: tpl.id }, 201);
+});
+
+// POST /thread-templates/:id/instantiate — new thread from a template,
+// dates rebased onto the given start date.
+const Instantiate = z.object({
+  title: z.string().min(1).max(200),
+  slug: slugField,
+  starts_on: z.string().date().nullable().optional(),
+});
+
+threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
+  const body = Instantiate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const { data: tpl } = await db
+    .from('thread_template')
+    .select('structure')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!tpl) return c.json({ error: 'not found' }, 404);
+  const st = tpl.structure as Record<string, unknown>;
+
+  const { data: organiser } = await db
+    .from('thread_organiser')
+    .select('id')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  if (!organiser) return c.json({ error: 'no organiser profile' }, 400);
+
+  const { data: app } = await db.from('app').select('id').eq('slug', 'the-thread').single();
+  const startsOn = body.data.starts_on ?? null;
+  const endsOn =
+    startsOn && typeof st.duration_days === 'number'
+      ? shiftDateOnly(startsOn, st.duration_days)
+      : null;
+
+  const { data: program, error: pErr } = await db
+    .from('program')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      app_id: app!.id,
+      title: body.data.title,
+      format: (st.format as string) ?? 'event',
+      starts_on: startsOn,
+      ends_on: endsOn,
+      status: 'draft',
+    })
+    .select('id')
+    .single();
+  if (pErr || !program) return c.json({ error: pErr?.message ?? 'program failed' }, 500);
+
+  const { data: thread, error: tErr } = await db
+    .from('thread_thread')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      program_id: program.id,
+      organiser_id: organiser.id,
+      slug: body.data.slug,
+      intention: (st.intention as string) ?? null,
+      timezone: (st.timezone as string) ?? 'Europe/Amsterdam',
+      language: (st.language as string) ?? 'en',
+      cover_url: (st.cover_url as string) ?? null,
+      is_public_listed: false,
+      requires_approval: !!st.requires_approval,
+      public_interaction: (st.public_interaction as string) ?? 'page',
+      price_cents: (st.price_cents as number) ?? null,
+      price_currency: (st.price_currency as string) ?? null,
+      payment_methods: (st.payment_methods as string[]) ?? ['stripe'],
+      capacity: (st.capacity as number) ?? null,
+      registration_fields: st.registration_fields ?? [],
+      certificate_enabled: !!st.certificate_enabled,
+      certificate_criteria: (st.certificate_criteria as string) ?? null,
+      certificate_template_id: (st.certificate_template_id as string) ?? null,
+      created_by: ctx.userId,
+    })
+    .select('id')
+    .single();
+  if (tErr || !thread) {
+    await adminClient.from('program').delete().eq('id', program.id);
+    const status = tErr?.code === '23505' ? 409 : 500;
+    return c.json({ error: tErr?.code === '23505' ? 'slug already taken' : tErr?.message }, status);
+  }
+
+  const engagements = Array.isArray(st.engagements) ? (st.engagements as Record<string, unknown>[]) : [];
+  for (const e of engagements) {
+    let startsAt: string | null = null;
+    let endsAt: string | null = null;
+    let scheduledAt: string | null = null;
+    if (startsOn && typeof e.day_offset === 'number' && typeof e.time_of_day === 'string') {
+      const base = new Date(`${startsOn}T${e.time_of_day}:00Z`);
+      base.setUTCDate(base.getUTCDate() + e.day_offset);
+      const iso = base.toISOString();
+      const isActivity = ['event', 'conversation', 'workshop'].includes(String(e.type));
+      if (isActivity) {
+        startsAt = iso;
+        if (typeof e.duration_minutes === 'number') {
+          endsAt = new Date(base.getTime() + e.duration_minutes * 60_000).toISOString();
+        }
+      } else if (e.trigger_kind === 'fixed') {
+        scheduledAt = iso;
+      }
+    }
+    await db.from('thread_engagement').insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: thread.id,
+      title: e.title,
+      description: e.description ?? null,
+      type: e.type,
+      status: 'draft',
+      starts_at: startsAt,
+      ends_at: endsAt,
+      scheduled_at: scheduledAt,
+      location: e.location ?? null,
+      location_url: e.location_url ?? null,
+      meeting_url: e.meeting_url ?? null,
+      meeting_provider: e.meeting_provider ?? null,
+      trigger_kind: e.trigger_kind ?? 'fixed',
+      trigger_anchor: e.trigger_anchor ?? null,
+      trigger_offset_days: e.trigger_offset_days ?? null,
+      trigger_time: e.trigger_time ?? null,
+      content: e.content ?? {},
+      position: (e.position as number) ?? 0,
+      show_in_agenda: e.show_in_agenda ?? true,
+      created_by: ctx.userId,
+    });
+  }
+
+  return c.json({ id: thread.id }, 201);
+});
+
+// ---------------------------------------------------------------------------
 // Certificate issuance — numbers THR-YYYY-XXXXX, template snapshotted at
 // issue time so later edits never change issued certificates.
 // ---------------------------------------------------------------------------
@@ -1843,6 +2149,43 @@ function ownerSlugOf(thread: { team?: unknown }, organiserSlug: string | null): 
   return team?.slug ?? organiserSlug ?? '';
 }
 
+// Public price display: tickets are the source of truth when they exist —
+// the lowest active, non-expired ticket wins (Sjoerd 2026-07-02: a thread
+// had a €250 ticket yet the public card said Free, because the card read
+// the legacy thread.price_cents). Ticket *selection* at enrol lands with
+// the payments phase; until then the label is honest and paid enrolment
+// stays blocked on the derived price.
+async function ticketPrices(
+  threadIds: string[],
+): Promise<Map<string, { price_cents: number; price_currency: string }>> {
+  const map = new Map<string, { price_cents: number; price_currency: string }>();
+  if (!threadIds.length) return map;
+  const { data } = await adminClient
+    .from('thread_ticket')
+    .select('thread_id, price_cents, price_currency, available_until')
+    .in('thread_id', threadIds)
+    .eq('is_active', true);
+  const now = Date.now();
+  for (const t of data ?? []) {
+    if (t.available_until && new Date(t.available_until).getTime() < now) continue;
+    const cur = map.get(t.thread_id);
+    if (!cur || t.price_cents < cur.price_cents) {
+      map.set(t.thread_id, { price_cents: t.price_cents, price_currency: t.price_currency });
+    }
+  }
+  return map;
+}
+
+/** Effective public price: cheapest active ticket, else legacy price_cents. */
+function effectivePrice(
+  t: { id: string; price_cents: number | null; price_currency?: string | null },
+  tickets: Map<string, { price_cents: number; price_currency: string }>,
+): { price_cents: number | null; price_currency: string | null } {
+  const tk = tickets.get(t.id);
+  if (tk) return { price_cents: tk.price_cents, price_currency: tk.price_currency };
+  return { price_cents: t.price_cents, price_currency: t.price_currency ?? null };
+}
+
 // GET /api/v1/thread/public/organiser/:slug — organiser page payload
 threadRoutes.get('/public/organiser/:slug', async (c) => {
   const owner = await resolvePublicOwner(c.req.param('slug'));
@@ -1856,13 +2199,18 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
-  q = owner.kind === 'organiser' ? q.eq('organiser_id', owner.organiser.id) : q.eq('team_id', owner.team.id);
+  q =
+    owner.kind === 'organiser'
+      ? q.eq('organiser_id', owner.organiser.id).is('team_id', null)
+      : q.eq('team_id', owner.team.id);
   const { data: threads } = await q;
 
-  const listed = (threads ?? []).filter((t) => {
+  let listed = (threads ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
     return p && (p.status === 'active' || p.status === 'completed');
   });
+  const prices = await ticketPrices(listed.map((t) => t.id));
+  listed = listed.map((t) => ({ ...t, ...effectivePrice(t, prices) }));
 
   const organiser =
     owner.kind === 'organiser'
@@ -1889,10 +2237,14 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .select(
       `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
        price_cents, price_currency, registration_fields, certificate_enabled, organiser_id,
+       share_participants_public,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('slug', c.req.param('threadSlug'));
-  tq = owner.kind === 'organiser' ? tq.eq('organiser_id', owner.organiser.id) : tq.eq('team_id', owner.team.id);
+  tq =
+    owner.kind === 'organiser'
+      ? tq.eq('organiser_id', owner.organiser.id).is('team_id', null)
+      : tq.eq('team_id', owner.team.id);
   const { data: thread } = await tq.maybeSingle();
   if (!thread) return c.json({ error: 'not found' }, 404);
 
@@ -1917,6 +2269,34 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .select('id', { count: 'exact', head: true })
     .eq('thread_id', thread.id);
 
+  // Public participant list — first names only, and ONLY for people who
+  // opted into the cohort directory at enrolment (brief §9).
+  let participants: string[] = [];
+  if ((thread as { share_participants_public?: boolean }).share_participants_public) {
+    const { data: enrols } = await adminClient
+      .from('thread_enrolment')
+      .select('person:person_id (id, first_name, last_name)')
+      .eq('thread_id', thread.id)
+      .limit(60);
+    const personIds = (enrols ?? [])
+      .map((e) => (Array.isArray(e.person) ? e.person[0] : e.person)?.id)
+      .filter(Boolean) as string[];
+    if (personIds.length) {
+      const { data: consents } = await adminClient
+        .from('consent_record')
+        .select('person_id')
+        .eq('purpose_code', 'cohort_directory')
+        .is('revoked_at', null)
+        .in('person_id', personIds);
+      const consented = new Set((consents ?? []).map((c) => c.person_id));
+      participants = (enrols ?? [])
+        .map((e) => (Array.isArray(e.person) ? e.person[0] : e.person))
+        .filter((p) => p && consented.has(p.id))
+        .map((p) => `${p!.first_name ?? ''} ${(p!.last_name ?? '').slice(0, 1)}`.trim())
+        .filter(Boolean);
+    }
+  }
+
   const organiser =
     owner.kind === 'organiser'
       ? owner.organiser
@@ -1930,16 +2310,20 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
           timezone: 'Europe/Amsterdam',
         };
 
+  const prices = await ticketPrices([thread.id]);
+
   return c.json({
     organiser,
     thread: {
       ...thread,
+      ...effectivePrice(thread, prices),
       agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
         ...rest,
         is_online: !!meeting_url,
       })),
       enrolled_count: count ?? 0,
       enrolment_open: program.status === 'active',
+      participants,
     },
   });
 });
@@ -1979,11 +2363,13 @@ threadRoutes.get('/public/embed/threads', async (c) => {
 
   const { data, error } = await q;
   if (error) return c.json({ error: error.message }, 500);
-  const items = (data ?? [])
-    .filter((t) => {
-      const p = Array.isArray(t.program) ? t.program[0] : t.program;
-      return p && (p.status === 'active' || p.status === 'completed');
-    })
+  const live = (data ?? []).filter((t) => {
+    const p = Array.isArray(t.program) ? t.program[0] : t.program;
+    return p && (p.status === 'active' || p.status === 'completed');
+  });
+  const prices = await ticketPrices(live.map((t) => t.id));
+  const items = live
+    .map((t) => ({ ...t, ...effectivePrice(t, prices) }))
     .map((t) => {
       const p = Array.isArray(t.program) ? t.program[0] : t.program;
       const o = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
@@ -2077,6 +2463,7 @@ const PublicEnrol = z.object({
   email: z.string().email().max(320),
   answers: z.record(z.unknown()).optional(),
   marketing_opt_in: z.boolean().optional(),
+  cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),
   policy_version: z.string().max(200).optional(),
   request_id: z.string().min(8).max(80),
@@ -2110,7 +2497,10 @@ threadRoutes.post('/public/enrol', async (c) => {
       'id, workspace_id, program_id, organiser_id, slug, intention, language, capacity, price_cents, program:program_id (title, status, starts_on)',
     )
     .eq('slug', d.thread_slug);
-  eq = owner.kind === 'organiser' ? eq.eq('organiser_id', owner.organiser.id) : eq.eq('team_id', owner.team.id);
+  eq =
+    owner.kind === 'organiser'
+      ? eq.eq('organiser_id', owner.organiser.id).is('team_id', null)
+      : eq.eq('team_id', owner.team.id);
   const { data: thread } = await eq.maybeSingle();
   if (!thread) return c.json({ error: 'thread not found' }, 404);
 
@@ -2130,8 +2520,12 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (!program || program.status !== 'active') {
     return c.json({ error: 'enrolment is closed for this thread' }, 409);
   }
-  if (thread.price_cents && thread.price_cents > 0) {
-    // Paid enrolments arrive with the Stripe phase.
+  // Effective price includes tickets: a thread with only paid tickets is
+  // paid even when the legacy price_cents is empty. A free ticket keeps
+  // the free path open. Paid enrolments arrive with the Stripe phase.
+  const enrolPrices = await ticketPrices([thread.id]);
+  const eff = effectivePrice(thread, enrolPrices);
+  if (eff.price_cents && eff.price_cents > 0) {
     return c.json({ error: 'paid enrolment is not available yet' }, 409);
   }
 
@@ -2241,6 +2635,9 @@ threadRoutes.post('/public/enrol', async (c) => {
   ];
   if (d.marketing_opt_in) {
     consents.push({ purpose_code: 'marketing_email', legal_basis: 'consent' });
+  }
+  if (d.cohort_opt_in) {
+    consents.push({ purpose_code: 'cohort_directory', legal_basis: 'consent' });
   }
   for (const consent of consents) {
     const { data: active } = await adminClient

@@ -517,7 +517,7 @@ function TriggerFields({
 
   const kindOptions = [
     { value: 'fixed', label: 'On a fixed date' },
-    { value: 'relative', label: 'Relative to the thread dates' },
+    { value: 'relative', label: 'Relative to a date or event' },
     { value: 'on_enrolment', label: 'When someone enrols' },
     ...(requiresApproval
       ? [{ value: 'on_approval', label: 'When their enrolment is approved' }]

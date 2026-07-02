@@ -1,0 +1,53 @@
+'use server';
+
+// Server actions for the per-thread Registrations popup. Kept out of
+// ../actions.ts on purpose — that file is the shared thread CRUD surface;
+// this one exists only for the timeline's enrolment dialog.
+
+import { apiFetch, ApiError } from '@/lib/api';
+
+function errorMessage(e: unknown): string {
+  if (e instanceof ApiError) {
+    const body = e.body as { error?: unknown } | undefined;
+    if (typeof body?.error === 'string') return body.error;
+    if (body?.error) return JSON.stringify(body.error);
+    return e.message;
+  }
+  return e instanceof Error ? e.message : 'unknown error';
+}
+
+// Same item shape the /enrolments page consumes (PostgREST join:
+// object-or-array — normalize with one() on the client).
+export type ThreadEnrolmentItem = {
+  id: string;
+  thread_id: string;
+  payment_status: string;
+  amount_cents: number | null;
+  currency: string | null;
+  created_at: string;
+  person:
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null }
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null }[]
+    | null;
+  enrolment:
+    | { status: string; progress_pct: number; enrolled_at: string | null }
+    | { status: string; progress_pct: number; enrolled_at: string | null }[]
+    | null;
+  certificate:
+    | { certificate_number: string }
+    | { certificate_number: string }[]
+    | null;
+};
+
+export async function listThreadEnrolments(
+  threadId: string,
+): Promise<{ ok: true; items: ThreadEnrolmentItem[] } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ items: ThreadEnrolmentItem[] }>(
+      `/api/v1/thread/enrolments?thread_id=${encodeURIComponent(threadId)}`,
+    );
+    return { ok: true, items: r.items };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

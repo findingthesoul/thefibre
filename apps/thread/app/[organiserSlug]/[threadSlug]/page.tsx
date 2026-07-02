@@ -38,6 +38,8 @@ type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
+    participants?: string[];
+    share_participants_public?: boolean;
   };
 };
 
@@ -144,6 +146,24 @@ export default async function PublicThreadPage({
               )}
             </div>
 
+            {(thread.participants?.length ?? 0) > 0 && (
+              <section className="mt-8">
+                <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">
+                  {t(lang, 'whos_coming')}
+                </h2>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {thread.participants!.map((name, i) => (
+                    <span
+                      key={i}
+                      className="text-xs px-2 py-1 rounded-full ring-1 ring-line bg-surface-raised text-ink-subtle"
+                    >
+                      {name}
+                    </span>
+                  ))}
+                </div>
+              </section>
+            )}
+
             {thread.agenda.length > 0 && (
               <section className="mt-10">
                 <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">{t(lang, 'agenda')}</h2>
@@ -198,6 +218,9 @@ export default async function PublicThreadPage({
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
             locale={lang}
+            sharesParticipants={
+              !!thread.share_participants_public || false
+            }
           />
         </div>
 

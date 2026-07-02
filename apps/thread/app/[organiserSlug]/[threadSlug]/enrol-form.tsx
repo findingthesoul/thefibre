@@ -27,6 +27,7 @@ export function EnrolCard({
   registrationFields,
   enrolmentOpen,
   locale = DEFAULT_LOCALE,
+  sharesParticipants = false,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -36,6 +37,8 @@ export function EnrolCard({
   registrationFields: RegistrationField[];
   enrolmentOpen: boolean;
   locale?: Locale;
+  /** Thread shares participants — offer the cohort-directory opt-in. */
+  sharesParticipants?: boolean;
 }) {
   const [state, setState] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +79,7 @@ export function EnrolCard({
           email,
           answers,
           marketing_opt_in: fd.get('marketing_opt_in') === 'on',
+          cohort_opt_in: fd.get('cohort_opt_in') === 'on',
           policy_accepted: true,
           policy_version: policiesVersion(),
           request_id: requestId,
@@ -151,6 +155,15 @@ export function EnrolCard({
               </label>
             );
           })}
+
+          {sharesParticipants && (
+            <label className="flex items-start gap-2 pt-1">
+              <input type="checkbox" name="cohort_opt_in" className="mt-0.5" />
+              <span className="text-xs text-ink-subtle leading-relaxed">
+                {t(locale, 'show_my_name')}
+              </span>
+            </label>
+          )}
 
           <label className="flex items-start gap-2 pt-1">
             <input type="checkbox" name="marketing_opt_in" className="mt-0.5" />

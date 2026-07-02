@@ -16,6 +16,7 @@ import {
   Trash2,
   Copy,
   UserCheck,
+  LayoutTemplate,
   Clock,
   MapPin,
   Video,
@@ -47,6 +48,8 @@ import { Button } from '@/components/ui/button';
 import { DateTimeField } from '@/components/ui/date-field';
 import { EngagementDialog, toLocalInput } from './engagements';
 import { ThreadEditorForm } from './form';
+import { RegistrationsDialog } from './registrations-dialog';
+import { saveThreadAsTemplate } from '../../templates/threads/actions';
 import { RegistrationPanel } from './registration';
 import { PricingPanel } from './pricing-panel';
 import { CertificatePanel } from './certificate-panel';
@@ -153,6 +156,7 @@ export function ThreadTimeline({
   const [, startTransition] = useTransition();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [registrationsOpen, setRegistrationsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [editorState, setEditorState] = useState<
@@ -286,13 +290,14 @@ export function ThreadTimeline({
           </span>
         </div>
 
-        <Link
-          href={`/enrolments?thread=${thread.id}`}
+        <button
+          type="button"
+          onClick={() => setRegistrationsOpen(true)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
           title="Registrations"
         >
           <UserCheck size={17} strokeWidth={1.75} />
-        </Link>
+        </button>
         <button
           type="button"
           onClick={() => setMembersOpen(true)}
@@ -512,6 +517,24 @@ export function ThreadTimeline({
                 >
                   Duplicate
                 </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<LayoutTemplate size={14} />}
+                  disabled={threadActionPending}
+                  onClick={() =>
+                    startThreadAction(async () => {
+                      const r = await saveThreadAsTemplate(
+                        thread.id,
+                        program?.title ?? thread.slug,
+                      );
+                      if (r.ok) router.push('/templates/threads');
+                    })
+                  }
+                >
+                  Save as template
+                </Button>
               </div>
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
                 Close
@@ -558,6 +581,10 @@ export function ThreadTimeline({
           })
         }
       />
+
+      {registrationsOpen && (
+        <RegistrationsDialog threadId={thread.id} onClose={() => setRegistrationsOpen(false)} />
+      )}
 
       {quickTime && (
         <QuickTimeDialog
@@ -749,6 +776,8 @@ function SettingsTabs({
         <RegistrationPanel
           threadId={thread.id}
           fields={thread.registration_fields ?? []}
+          sharePublic={thread.share_participants_public ?? false}
+          shareParticipants={thread.share_participants_participants ?? false}
           onSaved={onSaved}
         />
       </div>

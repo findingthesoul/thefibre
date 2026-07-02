@@ -6,6 +6,42 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.78] — 2026-07-02 — Thread 3.16.0: templates, truthful pricing, participant sharing
+
+### Added
+- **Thread templates end-to-end** — "Save as template" in the thread settings
+  gear captures the whole design (engagements, messages, triggers) with
+  relative timing; `/templates/threads` lists them with edit (name + sharing:
+  personal / team / workspace), delete, and "Use template" which rebases every
+  date onto the new start. Templates hub card un-stubbed.
+- **Registrations popup** — the registrations icon on the timeline opens
+  everyone enrolled for *this* thread (status, payment, certificate badges)
+  without leaving the editor; links to the full enrolments page.
+- **Participant sharing** — Registration tab gains "share publicly" (Who's
+  coming on the public page) and "share with participants" toggles; names show
+  only for enrollees who opted into the cohort directory (consent-gated,
+  brief §9). Migration `20260702240000` + enrol-form opt-in checkbox, i18n ×5.
+- **Payment methods** on threads (`stripe` / `invoice`, migration
+  `20260702230000`) — stored now; the invoice flow ports from Meet with the
+  payments phase.
+- **Website embeds discoverable** — Settings → Website embeds shows the four
+  copy-paste snippets (script, list, single thread, enrol popup).
+
+### Fixed
+- **Public price now reads tickets** — a thread with a €250 ticket said "Free"
+  on the public page because the card read the legacy `price_cents`. The
+  organiser page, thread page, embed listing and the enrol guard now derive
+  the price from the cheapest active, non-expired ticket (fallback:
+  `price_cents`). Paid threads are blocked from free enrolment on the same
+  derived price; a genuinely free ticket keeps the free path open.
+- **User-menu Settings/Profile were dead buttons** in Thread — they never had
+  a link. Now: Profile → `/settings/profile`, Settings → `/settings`; "Take a
+  tour" visibly disabled until a tour exists. Flow's menu pointed at settings
+  pages Flow doesn't have — both entries now go to the platform settings.
+- **Team threads no longer leak** onto the organiser's personal public page —
+  organiser-kind public queries filter `team_id IS NULL` (listing, detail,
+  enrol).
+
 ## [0.13.77] — 2026-07-02 — Thread 3.15.0: certificate issuance + public certificate page
 
 Certificates close the loop from designer to artefact:

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { User, Building2, CreditCard, Cable, ChevronRight, type LucideIcon } from 'lucide-react';
+import { User, Building2, CreditCard, Cable, Code2, ChevronRight, type LucideIcon } from 'lucide-react';
 import { PageContainer, PageHeader, SectionLabel } from '@/components/ui/page';
 
 export default function SettingsPage() {
@@ -41,6 +41,12 @@ export default function SettingsPage() {
             title="Connections"
             desc="Google Calendar, personal meeting room — shared across the Fibre apps, managed in Fibre Meet."
             external
+          />
+          <Card
+            href="/settings/embeds"
+            Icon={Code2}
+            title="Website embeds"
+            desc="Copy-paste snippets to show your threads and take enrolments on any website — Webflow included."
           />
         </div>
       </section>

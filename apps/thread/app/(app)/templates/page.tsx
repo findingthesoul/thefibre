@@ -20,10 +20,10 @@ export default function TemplatesPage() {
           desc="Design certificates in the visual builder — threads pick one and issue it on completion."
         />
         <Card
+          href="/templates/threads"
           Icon={CalendarRange}
           title="Thread templates"
-          desc="Save a thread as a template and start new ones from it — dates rebase automatically. Coming next."
-          disabled
+          desc="Save a thread as a template and start new ones from it — dates rebase automatically."
         />
       </div>
     </PageContainer>

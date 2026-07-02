@@ -27,14 +27,20 @@ function keyFromLabel(label: string, taken: Set<string>): string {
 export function RegistrationPanel({
   threadId,
   fields: initial,
+  sharePublic: initialSharePublic = false,
+  shareParticipants: initialShareParticipants = false,
   onSaved,
 }: {
   threadId: string;
   fields: RegistrationField[];
+  sharePublic?: boolean;
+  shareParticipants?: boolean;
   onSaved?: () => void;
 }) {
   const router = useRouter();
   const [fields, setFields] = useState<RegistrationField[]>(initial);
+  const [sharePublic, setSharePublic] = useState(initialSharePublic);
+  const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -78,7 +84,11 @@ export function RegistrationPanel({
       });
     }
     startTransition(async () => {
-      const r = await updateThread(threadId, { registration_fields: cleaned });
+      const r = await updateThread(threadId, {
+        registration_fields: cleaned,
+        share_participants_public: sharePublic,
+        share_participants_participants: shareParticipants,
+      });
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
@@ -160,6 +170,46 @@ export function RegistrationPanel({
         </ul>
       )}
 
+      <div className="mt-8">
+        <SectionLabel>Participant visibility</SectionLabel>
+        <p className="mt-2 text-xs text-ink-muted">
+          Names show only for people who tick “show my name” when they enrol — opt-in, never
+          default.
+        </p>
+        <div className="mt-3 space-y-2.5">
+          <label className="flex items-start gap-2 text-sm text-ink-subtle">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={sharePublic}
+              onChange={(e) => {
+                setSharePublic(e.target.checked);
+                setSaved(false);
+              }}
+            />
+            <span>
+              Share participants <strong>publicly</strong> — a “Who&apos;s coming” list on the
+              public thread page (first name + initial).
+            </span>
+          </label>
+          <label className="flex items-start gap-2 text-sm text-ink-subtle">
+            <input
+              type="checkbox"
+              className="mt-0.5"
+              checked={shareParticipants}
+              onChange={(e) => {
+                setShareParticipants(e.target.checked);
+                setSaved(false);
+              }}
+            />
+            <span>
+              Share participants <strong>with other participants</strong> — the cohort sees each
+              other on their personal page.
+            </span>
+          </label>
+        </div>
+      </div>
+
       {error && (
         <p className="mt-4 text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
           {error}
@@ -168,7 +218,7 @@ export function RegistrationPanel({
 
       <div className="mt-5 flex items-center gap-3">
         <Button onClick={onSave} disabled={pending}>
-          {pending ? 'Saving…' : 'Save questions'}
+          {pending ? 'Saving…' : 'Save'}
         </Button>
         {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
       </div>

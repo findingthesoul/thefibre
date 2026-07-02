@@ -32,8 +32,11 @@ export type ThreadRow = {
   price_cents: number | null;
   price_currency: string | null;
   payment_destination: 'workspace' | 'personal' | null;
+  payment_methods: ('stripe' | 'invoice')[] | null;
   language: 'en' | 'nl' | 'es' | 'pt' | 'de';
   public_interaction: 'page' | 'popup';
+  share_participants_public: boolean | null;
+  share_participants_participants: boolean | null;
   capacity: number | null;
   registration_fields: RegistrationField[];
   certificate_enabled: boolean;
