@@ -43,7 +43,9 @@ export function EnrolCard({
   /** Thread shares participants — offer the cohort-directory opt-in. */
   sharesParticipants?: boolean;
 }) {
-  const [state, setState] = useState<'idle' | 'submitting' | 'done'>('idle');
+  // 'already' = this email is enrolled for this thread — point at /my
+  // instead of promising a confirmation email that won't be sent again.
+  const [state, setState] = useState<'idle' | 'submitting' | 'done' | 'already'>('idle');
   const [error, setError] = useState<string | null>(null);
   // Default to the first available ticket (organiser's position order).
   const [ticketId, setTicketId] = useState<string | null>(
@@ -84,7 +86,7 @@ export function EnrolCard({
 
     setState('submitting');
     try {
-      await publicFetch('/api/v1/thread/public/enrol', {
+      const res = await publicFetch<{ already_enrolled?: boolean }>('/api/v1/thread/public/enrol', {
         method: 'POST',
         body: JSON.stringify({
           organiser_slug: organiserSlug,
@@ -100,7 +102,7 @@ export function EnrolCard({
           request_id: requestId,
         }),
       });
-      setState('done');
+      setState(res.already_enrolled ? 'already' : 'done');
     } catch (err) {
       setState('idle');
       const body = err instanceof PublicApiError ? (err.body as { error?: unknown }) : null;
@@ -125,6 +127,26 @@ export function EnrolCard({
           <p>
 {t(locale, 'enrolled_success')}
           </p>
+        </div>
+      ) : state === 'already' ? (
+        <div className="mt-4 space-y-3">
+          <div className="flex items-start gap-2.5 text-sm text-ink-subtle">
+            <CheckCircle2
+              size={18}
+              strokeWidth={1.75}
+              className="text-emerald-600 shrink-0 mt-0.5"
+            />
+            <p>{t(locale, 'already_enrolled')}</p>
+          </div>
+          {/* New tab: inside a website embed the portal must not open in the iframe. */}
+          <a
+            href="/my"
+            target="_blank"
+            rel="noreferrer"
+            className="block w-full h-9 leading-9 text-center rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90"
+          >
+            {t(locale, 'open_personal_page')}
+          </a>
         </div>
       ) : !enrolmentOpen ? (
         <p className="mt-4 text-sm text-ink-subtle">

@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.82] — 2026-07-02 — Thread 3.17.1: honest "already enrolled" state
+
+### Fixed
+- **Enrolling twice with the same email now says so** — the API already
+  detected the duplicate (same person, same thread → no second enrolment, no
+  second email), but the form showed the standard "confirmation is on its
+  way" anyway. The form now reads the `already_enrolled` flag and shows
+  "You're already enrolled with this email address" plus an "Open your
+  personal page" button to `/my` (new tab — embeds must not open the portal
+  inside the iframe). i18n ×5. Person matching stays by email: no duplicate
+  contacts, and the personal page picks up all enrolments for the address
+  the moment they sign in.
+
 ## [0.13.81] — 2026-07-02 — Thread 3.17.0: ticket chooser on the public enrol form
 
 ### Added

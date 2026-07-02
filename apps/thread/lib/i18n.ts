@@ -176,6 +176,20 @@ const CATALOG = {
     pt: 'Você está inscrito. Uma confirmação está a caminho do seu e-mail — até logo no thread.',
     de: 'Du bist angemeldet. Eine Bestätigung ist auf dem Weg in dein Postfach — bis gleich im Thread.',
   },
+  already_enrolled: {
+    en: "You're already enrolled with this email address. Everything about this thread lives on your personal page.",
+    nl: 'Je bent al ingeschreven met dit e-mailadres. Alles over deze thread vind je op je persoonlijke pagina.',
+    es: 'Ya estás inscrito con este correo. Todo sobre este thread está en tu página personal.',
+    pt: 'Você já está inscrito com este e-mail. Tudo sobre este thread está na sua página pessoal.',
+    de: 'Du bist mit dieser E-Mail-Adresse bereits angemeldet. Alles zu diesem Thread findest du auf deiner persönlichen Seite.',
+  },
+  open_personal_page: {
+    en: 'Open your personal page',
+    nl: 'Open je persoonlijke pagina',
+    es: 'Abrir tu página personal',
+    pt: 'Abrir sua página pessoal',
+    de: 'Persönliche Seite öffnen',
+  },
   name_email_required: {
     en: 'Name and email are required.',
     nl: 'Naam en e-mail zijn verplicht.',
