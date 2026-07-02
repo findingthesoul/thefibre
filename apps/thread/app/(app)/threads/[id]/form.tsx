@@ -20,14 +20,20 @@ export function ThreadEditorForm({
   thread,
   compact = false,
   teams = [],
+  onSaved,
 }: {
   thread: ThreadRow;
   compact?: boolean;
   teams?: { id: string; name: string }[];
+  /** Popups close after save (Sjoerd 2026-07-02). */
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const program = one(thread.program);
   const organiser = one(thread.organiser);
+  const team = one(thread.team);
+  // Team threads live under the TEAM's public slug; personal under the organiser's.
+  const urlOwner = team?.slug ?? organiser?.slug ?? '';
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -82,6 +88,7 @@ export function ThreadEditorForm({
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
+      onSaved?.();
     });
   }
 
@@ -94,7 +101,7 @@ export function ThreadEditorForm({
             nameLabel="Name"
             initialName={program?.title ?? ''}
             initialSlug={thread.slug}
-            prefix={`${THREAD_HOST}/${organiser?.slug ?? ''}/`}
+            prefix={`${THREAD_HOST}/${urlOwner}/`}
           />
 
           <TextAreaField

@@ -36,6 +36,28 @@ export async function createThread(input: {
   }
 }
 
+export async function deleteThread(id: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${id}`, { method: 'DELETE' });
+    revalidatePath('/threads');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function duplicateThread(id: string): Promise<ActionResult> {
+  try {
+    const created = await apiFetch<{ id: string }>(`/api/v1/thread/threads/${id}/duplicate`, {
+      method: 'POST',
+    });
+    revalidatePath('/threads');
+    return { ok: true, id: created.id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updateThread(
   id: string,
   patch: Record<string, unknown>,

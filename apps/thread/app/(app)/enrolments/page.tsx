@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { X } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { one } from '@/lib/thread-types';
 import {
@@ -45,15 +46,29 @@ const PAYMENT_LABELS: Record<string, string> = {
   failed: 'Payment failed',
 };
 
-export default async function EnrolmentsPage() {
+export default async function EnrolmentsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ thread?: string }>;
+}) {
+  const { thread: threadFilter } = await searchParams;
   let items: EnrolmentItem[] = [];
   let error: string | null = null;
   try {
-    const r = await apiFetch<{ items: EnrolmentItem[] }>('/api/v1/thread/enrolments');
+    const r = await apiFetch<{ items: EnrolmentItem[] }>(
+      threadFilter
+        ? `/api/v1/thread/enrolments?thread_id=${encodeURIComponent(threadFilter)}`
+        : '/api/v1/thread/enrolments',
+    );
     items = r.items;
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
+
+  // Title of the filtered thread, resolved from the first item's join.
+  const filteredTitle = threadFilter
+    ? (one(one(items[0]?.thread ?? null)?.program ?? null)?.title ?? null)
+    : null;
 
   return (
     <PageContainer>
@@ -63,6 +78,21 @@ export default async function EnrolmentsPage() {
       />
 
       {error && <ErrorBanner>Couldn&apos;t load enrolments: {error}</ErrorBanner>}
+
+      {threadFilter && filteredTitle && (
+        <div className="mt-4">
+          <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-subtle">
+            Filtered: {filteredTitle}
+            <Link
+              href="/enrolments"
+              aria-label="Clear thread filter"
+              className="text-ink-muted hover:text-ink"
+            >
+              <X size={12} strokeWidth={1.75} />
+            </Link>
+          </span>
+        </div>
+      )}
 
       {!error && items.length === 0 && (
         <EmptyState>

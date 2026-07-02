@@ -15,6 +15,7 @@ import {
   type EngagementFamily,
 } from '@/lib/engagement-meta';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
@@ -81,6 +82,13 @@ export function EngagementDialog({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const [dirty, setDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  function requestClose() {
+    if (dirty) setConfirmDiscard(true);
+    else onClose();
+  }
 
   const meta = metaFor(type);
   const family: EngagementFamily = meta.family;
@@ -210,7 +218,7 @@ export function EngagementDialog({
   return (
     <Dialog
       open
-      onClose={onClose}
+      onClose={requestClose}
       title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
       size="xl"
       footer={
@@ -239,7 +247,7 @@ export function EngagementDialog({
             </div>
           )}
           {error && <span className="text-sm text-red-700 truncate max-w-xs">{error}</span>}
-          <Button type="button" variant="secondary" onClick={onClose}>
+          <Button type="button" variant="secondary" onClick={requestClose}>
             Cancel
           </Button>
           <Button type="submit" form="engagement-form" disabled={pending}>
@@ -248,7 +256,7 @@ export function EngagementDialog({
         </>
       }
     >
-      <form id="engagement-form" onSubmit={onSubmit}>
+      <form id="engagement-form" onSubmit={onSubmit} onInput={() => setDirty(true)}>
         <div className="mb-6">
           <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
         </div>
@@ -425,6 +433,19 @@ export function EngagementDialog({
       </form>
 
       <ConfirmDialog
+        open={confirmDiscard}
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={() => {
+          setConfirmDiscard(false);
+          onClose();
+        }}
+        title="Discard changes?"
+        message="You have unsaved changes in this engagement."
+        confirmLabel="Discard"
+        destructive
+      />
+
+      <DangerConfirmDialog
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doDelete}
@@ -435,8 +456,6 @@ export function EngagementDialog({
             undone.
           </>
         }
-        confirmLabel="Delete"
-        destructive
         pending={pending}
       />
     </Dialog>

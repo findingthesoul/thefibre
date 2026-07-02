@@ -6,12 +6,13 @@
 // server actions on mount (the caller stays a dumb layout).
 // Checkout + coupon redemption go live with the payments phase.
 
-import { useCallback, useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Ticket, TicketPercent, Gift, CreditCard } from 'lucide-react';
 import {
   listTickets,
   listCoupons,
+  createCoupon,
   updateThread,
   getPayoutInfo,
   type TicketRow,
@@ -19,7 +20,7 @@ import {
 } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TicketDialog } from './ticket-dialog';
-import { CouponDialog } from './coupon-dialog';
+import { CouponDialog, type ScopedCouponRow } from './coupon-dialog';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -67,6 +68,25 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
   const [dialog, setDialog] = useState<DialogState>(null);
   // Free/Paid stays a toggle (Sjoerd): Paid reveals the ticket + code lists.
   const [mode, setMode] = useState<'free' | 'paid' | null>(null);
+  // Seed one default discount code the first time the user flips to Paid
+  // with an empty coupon list — once per mount, never over existing codes.
+  const seededDefaultCode = useRef(false);
+
+  function choosePaid() {
+    setMode('paid');
+    if (seededDefaultCode.current || loading || coupons.length > 0) return;
+    seededDefaultCode.current = true;
+    void (async () => {
+      await createCoupon(thread.id, {
+        code: 'EARLYBIRD',
+        name: 'Early bird',
+        type: 'percentage',
+        discount_percentage: 10,
+        is_active: true,
+      });
+      void reload();
+    })();
+  }
 
   const reload = useCallback(async () => {
     const [t, c] = await Promise.all([listTickets(thread.id), listCoupons(thread.id)]);
@@ -110,7 +130,7 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
         </button>
         <button
           type="button"
-          onClick={() => setMode('paid')}
+          onClick={choosePaid}
           className={`text-left rounded-lg border p-3.5 transition-colors ${
             mode === 'paid'
               ? 'border-ink bg-surface-sunken'
@@ -200,6 +220,9 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
             {coupons.map((c) => {
               const expired = c.expires_at ? new Date(c.expires_at) < new Date() : false;
               const dim = !c.is_active || expired;
+              const scopedTicket = tickets.find(
+                (t) => t.id === (c as ScopedCouponRow).ticket_id,
+              );
               return (
                 <li key={c.id}>
                   <button
@@ -217,6 +240,7 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
                     </span>
                     <span className="text-sm text-ink-subtle">{couponSummary(c)}</span>
                     <span className="ml-auto flex items-center gap-1.5">
+                      {scopedTicket && <Chip muted>{scopedTicket.name} only</Chip>}
                       {c.usage_limit != null && (
                         <Chip>
                           {c.used_count}/{c.usage_limit}
@@ -267,6 +291,7 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
         <CouponDialog
           threadId={thread.id}
           coupon={dialog.coupon}
+          tickets={tickets}
           onClose={() => setDialog(null)}
           onSaved={onSaved}
         />

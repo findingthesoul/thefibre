@@ -6,7 +6,32 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.74] — 2026-07-02 — Thread 3.13.0: event-anchored triggers, Luma popups, filters
+## [0.13.75] — 2026-07-02 — Thread 3.14.0: destructive-action SPoT, team URLs, shared payments
+
+(Migrations `…200000_thread_coupon_ticket_scope` +
+`…210000_thread_email_from_mode`, applied.)
+
+- **Thread settings footer = engagement parity**: Delete · Duplicate ·
+  Close. **Duplicate** clones the thread + engagements as an unlisted
+  draft. **Delete** uses the new app-wide `DangerConfirmDialog` — type
+  DELETE to arm the button — now the single point of truth for every
+  hard delete (thread + engagement switched to it).
+- **Popups close after save**; closing with unsaved changes warns first
+  (settings + engagement dialogs).
+- **Public URLs group by owner**: team threads live under the **team's
+  slug** (`thread.thefibre.app/{team}/{thread}`), personal under the
+  organiser's. One root namespace, organiser-first resolution; public
+  pages, enrolment, embeds and email links all follow.
+- **Payments settings shared with Meet** (SPoT): Thread reads your Meet
+  Stripe account as the personal fallback; the Payments card links to
+  Meet's settings. Connections card likewise.
+- **Email sender selectable**: workspace name / the thread's team name /
+  the organiser's name / custom fill-in (Emails & defaults).
+- **Discount codes**: default EARLYBIRD 10% auto-created when a thread
+  goes Paid; codes can apply to **all tickets or one specific ticket**.
+- **Registrations at thread level** — header icon opens Enrolments
+  filtered to that thread. **Contacts rows open a popup** (threads,
+  status, link to the Fibre profile).
 
 (Migration `20260702190000_thread_event_anchor_and_interaction.sql`, applied.)
 

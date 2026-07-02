@@ -4,6 +4,7 @@ import { WorkspaceForm } from './form';
 
 type ThreadSettings = {
   workspace_id: string;
+  email_from_mode: 'workspace' | 'team' | 'personal' | 'custom';
   email_from_name: string | null;
   email_footer_note: string | null;
   default_vendor_cut_percent: number;

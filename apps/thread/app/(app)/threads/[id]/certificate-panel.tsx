@@ -13,9 +13,11 @@ import { Button } from '@/components/ui/button';
 export function CertificatePanel({
   thread,
   certTemplates,
+  onSaved,
 }: {
   thread: ThreadRow;
   certTemplates: { id: string; name: string }[];
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [enabled, setEnabled] = useState(thread.certificate_enabled);
@@ -37,6 +39,7 @@ export function CertificatePanel({
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
+      onSaved?.();
     });
   }
 

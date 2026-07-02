@@ -13,6 +13,9 @@ import {
   Plus,
   Settings,
   ExternalLink,
+  Trash2,
+  Copy,
+  UserCheck,
   Clock,
   MapPin,
   Video,
@@ -20,7 +23,14 @@ import {
   Users,
   X,
 } from 'lucide-react';
-import { updateThread, updateEngagement, addThreadMember, removeThreadMember } from '../actions';
+import {
+  updateThread,
+  updateEngagement,
+  addThreadMember,
+  removeThreadMember,
+  deleteThread,
+  duplicateThread,
+} from '../actions';
 import {
   one,
   type ThreadRow,
@@ -31,7 +41,8 @@ import {
   type TeamOption,
 } from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { Button } from '@/components/ui/button';
 import { DateTimeField } from '@/components/ui/date-field';
 import { EngagementDialog, toLocalInput } from './engagements';
@@ -150,6 +161,20 @@ export function ThreadTimeline({
     | { mode: 'edit'; engagement: EngagementRow }
   >({ mode: 'closed' });
   const [quickTime, setQuickTime] = useState<EngagementRow | null>(null);
+  const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
+  const [threadActionPending, startThreadAction] = useTransition();
+  const [settingsDirty, setSettingsDirty] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+
+  function requestCloseSettings() {
+    if (settingsDirty) setConfirmDiscard(true);
+    else setSettingsOpen(false);
+  }
+  function closeSettings() {
+    setConfirmDiscard(false);
+    setSettingsDirty(false);
+    setSettingsOpen(false);
+  }
   const addRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -261,6 +286,13 @@ export function ThreadTimeline({
           </span>
         </div>
 
+        <Link
+          href={`/enrolments?thread=${thread.id}`}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
+          title="Registrations"
+        >
+          <UserCheck size={17} strokeWidth={1.75} />
+        </Link>
         <button
           type="button"
           onClick={() => setMembersOpen(true)}
@@ -449,14 +481,83 @@ export function ThreadTimeline({
       {settingsOpen && (
         <Dialog
           open
-          onClose={() => setSettingsOpen(false)}
+          onClose={requestCloseSettings}
           title="Thread settings"
           description="Basics, dates and the public registration form."
           size="xl"
+          footer={
+            <>
+              <div className="mr-auto flex items-center gap-1.5">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<Trash2 size={14} />}
+                  onClick={() => setConfirmThreadDelete(true)}
+                >
+                  Delete
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<Copy size={14} />}
+                  disabled={threadActionPending}
+                  onClick={() =>
+                    startThreadAction(async () => {
+                      const r = await duplicateThread(thread.id);
+                      if (r.ok && r.id) router.push(`/threads/${r.id}`);
+                    })
+                  }
+                >
+                  Duplicate
+                </Button>
+              </div>
+              <Button type="button" variant="secondary" onClick={requestCloseSettings}>
+                Close
+              </Button>
+            </>
+          }
         >
-          <SettingsTabs thread={thread} teams={teams} certTemplates={certTemplates} />
+          <div onInput={() => setSettingsDirty(true)}>
+            <SettingsTabs
+              thread={thread}
+              teams={teams}
+              certTemplates={certTemplates}
+              onSaved={closeSettings}
+            />
+          </div>
         </Dialog>
       )}
+
+      <ConfirmDialog
+        open={confirmDiscard}
+        onCancel={() => setConfirmDiscard(false)}
+        onConfirm={closeSettings}
+        title="Discard changes?"
+        message="You have unsaved changes in the thread settings."
+        confirmLabel="Discard"
+        destructive
+      />
+
+      <DangerConfirmDialog
+        open={confirmThreadDelete}
+        title="Delete thread"
+        message={
+          <>
+            This deletes <strong>{program?.title}</strong> with all its engagements, tickets,
+            codes and registrations. There is no undo.
+          </>
+        }
+        pending={threadActionPending}
+        onCancel={() => setConfirmThreadDelete(false)}
+        onConfirm={() =>
+          startThreadAction(async () => {
+            const r = await deleteThread(thread.id);
+            if (r.ok) router.push('/threads');
+          })
+        }
+      />
 
       {quickTime && (
         <QuickTimeDialog
@@ -602,10 +703,12 @@ function SettingsTabs({
   thread,
   teams,
   certTemplates,
+  onSaved,
 }: {
   thread: ThreadRow;
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
+  onSaved?: () => void;
 }) {
   const [tab, setTab] = useState<'basics' | 'pricing' | 'registration' | 'certificate'>('basics');
   const tabs = [
@@ -637,16 +740,20 @@ function SettingsTabs({
         </ul>
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
-        <ThreadEditorForm thread={thread} compact teams={teams} />
+        <ThreadEditorForm thread={thread} compact teams={teams} onSaved={onSaved} />
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
         <PricingPanel thread={thread} />
       </div>
       <div className={`pt-5 ${tab === 'registration' ? '' : 'hidden'}`}>
-        <RegistrationPanel threadId={thread.id} fields={thread.registration_fields ?? []} />
+        <RegistrationPanel
+          threadId={thread.id}
+          fields={thread.registration_fields ?? []}
+          onSaved={onSaved}
+        />
       </div>
       <div className={`pt-5 ${tab === 'certificate' ? '' : 'hidden'}`}>
-        <CertificatePanel thread={thread} certTemplates={certTemplates} />
+        <CertificatePanel thread={thread} certTemplates={certTemplates} onSaved={onSaved} />
       </div>
     </div>
   );

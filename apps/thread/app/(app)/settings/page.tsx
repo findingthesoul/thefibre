@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { User, Building2, CreditCard, ChevronRight, type LucideIcon } from 'lucide-react';
+import { User, Building2, CreditCard, Cable, ChevronRight, type LucideIcon } from 'lucide-react';
 import { PageContainer, PageHeader, SectionLabel } from '@/components/ui/page';
 
 export default function SettingsPage() {
@@ -29,10 +29,18 @@ export default function SettingsPage() {
             desc="Sender name, email footer, default organiser revenue share."
           />
           <Card
+            href="https://meet.thefibre.app/settings/payments"
             Icon={CreditCard}
             title="Payments"
-            desc="Stripe accounts and payouts — lands with the payments phase."
-            disabled
+            desc="Your Stripe account — shared with Fibre Meet (one connection for all apps). Checkout lands with the payments phase."
+            external
+          />
+          <Card
+            href="https://meet.thefibre.app/settings"
+            Icon={Cable}
+            title="Connections"
+            desc="Google Calendar, personal meeting room — shared across the Fibre apps, managed in Fibre Meet."
+            external
           />
         </div>
       </section>
@@ -46,12 +54,14 @@ function Card({
   title,
   desc,
   disabled,
+  external,
 }: {
   href?: string;
   Icon: LucideIcon;
   title: string;
   desc: string;
   disabled?: boolean;
+  external?: boolean;
 }) {
   const inner = (
     <div
@@ -72,5 +82,12 @@ function Card({
     </div>
   );
   if (disabled || !href) return inner;
+  if (external) {
+    return (
+      <a href={href} target="_blank" rel="noreferrer">
+        {inner}
+      </a>
+    );
+  }
   return <Link href={href}>{inner}</Link>;
 }

@@ -6,13 +6,22 @@
 
 import { useState, useTransition } from 'react';
 import { Trash2, Percent, Coins, Gift } from 'lucide-react';
-import { createCoupon, updateCoupon, deleteCoupon, type CouponRow } from '../actions';
+import {
+  createCoupon,
+  updateCoupon,
+  deleteCoupon,
+  type CouponRow,
+  type TicketRow,
+} from '../actions';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 
 type CouponType = CouponRow['type'];
+
+// The API returns/accepts ticket_id on coupons; the shared row type predates it.
+export type ScopedCouponRow = CouponRow & { ticket_id?: string | null };
 
 // House rule: usage limit is a curated dropdown, never a free-form input.
 const USAGE_OPTIONS = ['10', '25', '50', '100', '250'];
@@ -33,11 +42,13 @@ function fromLocalInput(v: string): string | null {
 export function CouponDialog({
   threadId,
   coupon,
+  tickets,
   onClose,
   onSaved,
 }: {
   threadId: string;
-  coupon: CouponRow | null;
+  coupon: ScopedCouponRow | null;
+  tickets: TicketRow[];
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -56,6 +67,11 @@ export function CouponDialog({
       ? [...USAGE_OPTIONS, currentLimit].sort((a, b) => Number(a) - Number(b))
       : USAGE_OPTIONS
     ).map((u) => ({ value: u, label: `${u} uses` })),
+  ];
+
+  const ticketOptions = [
+    { value: '', label: 'All tickets' },
+    ...tickets.map((t) => ({ value: t.id, label: t.name })),
   ];
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -78,8 +94,10 @@ export function CouponDialog({
     }
 
     const limit = String(fd.get('usage_limit') ?? '');
+    const ticketId = String(fd.get('ticket_id') ?? '');
     const payload = {
       code,
+      ticket_id: ticketId || null,
       name: String(fd.get('name') ?? '').trim() || null,
       type,
       discount_percentage,
@@ -216,6 +234,14 @@ export function CouponDialog({
             The code makes enrolment free — no charge at checkout.
           </p>
         )}
+
+        <SelectField
+          label="Applies to"
+          name="ticket_id"
+          defaultValue={coupon?.ticket_id ?? ''}
+          options={ticketOptions}
+          hint="Scope the code to one ticket, or leave it valid for all."
+        />
 
         <div className="grid grid-cols-2 gap-4">
           <SelectField

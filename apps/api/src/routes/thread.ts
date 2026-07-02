@@ -143,15 +143,20 @@ threadRoutes.get('/me', async (c) => {
     organiser = created;
   }
 
-  // Meet's personal meeting room, if the user configured one there — the
-  // Fibre apps share connection settings (Sjoerd 2026-07-02).
+  // Meet's connection + payment settings are shared across the Fibre apps
+  // (Sjoerd 2026-07-02): personal room AND the personal Stripe account fall
+  // back to what the user configured in Meet.
   const { data: meetHost } = await adminClient
     .from('meet_host')
-    .select('personal_room_url')
+    .select('personal_room_url, stripe_account_id')
     .eq('user_id', ctx.userId)
     .maybeSingle();
 
-  return c.json({ ...organiser, personal_room_url: meetHost?.personal_room_url ?? null });
+  return c.json({
+    ...organiser,
+    personal_room_url: meetHost?.personal_room_url ?? null,
+    stripe_account_id: organiser.stripe_account_id ?? meetHost?.stripe_account_id ?? null,
+  });
 });
 
 // PATCH /api/v1/thread/me — update organiser config
@@ -231,6 +236,7 @@ const SettingsUpdate = z.object({
     .nullable()
     .optional(),
   default_vendor_cut_percent: z.number().min(0).max(100).optional(),
+  email_from_mode: z.enum(['workspace', 'team', 'personal', 'custom']).optional(),
   email_from_name: z.string().max(200).nullable().optional(),
   email_footer_note: z.string().max(1000).nullable().optional(),
 });
@@ -269,7 +275,7 @@ const THREAD_SELECT = `
   created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
   organiser:organiser_id (id, slug, display_name, user_id),
-  team:team_id (id, name),
+  team:team_id (id, name, slug),
   organisation:organisation_id (id, name)
 `;
 
@@ -541,6 +547,121 @@ function shiftTimestamp(iso: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString();
 }
+
+// DELETE /api/v1/thread/threads/:id — the thread, its engagements, tickets,
+// coupons and enrolment companions (cascade) + the paired program row.
+threadRoutes.delete('/threads/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: existing } = await db
+    .from('thread_thread')
+    .select('id, program_id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!existing) return c.json({ error: 'not found' }, 404);
+  const { error } = await db.from('thread_thread').delete().eq('id', existing.id);
+  if (error) return c.json({ error: error.message }, 500);
+  // Program second: deleting it cascades platform enrolments.
+  await adminClient.from('program').delete().eq('id', existing.program_id);
+  return c.body(null, 204);
+});
+
+// POST /api/v1/thread/threads/:id/duplicate — clone as a draft (title
+// "(copy)", fresh slug, engagements cloned; enrolments NOT copied).
+threadRoutes.post('/threads/:id/duplicate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: src } = await db
+    .from('thread_thread')
+    .select('*, program:program_id (title, format, starts_on, ends_on)')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!src) return c.json({ error: 'not found' }, 404);
+  const prog = Array.isArray(src.program) ? src.program[0] : src.program;
+
+  const { data: app } = await db.from('app').select('id').eq('slug', 'the-thread').single();
+  const { data: newProgram, error: pErr } = await db
+    .from('program')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      app_id: app!.id,
+      title: `${prog?.title ?? src.slug} (copy)`,
+      format: prog?.format ?? 'event',
+      starts_on: prog?.starts_on ?? null,
+      ends_on: prog?.ends_on ?? null,
+      status: 'draft',
+    })
+    .select('id')
+    .single();
+  if (pErr || !newProgram) return c.json({ error: pErr?.message ?? 'program failed' }, 500);
+
+  const slug = `${src.slug}-copy-${Math.random().toString(36).slice(2, 5)}`;
+  const { data: newThread, error: tErr } = await db
+    .from('thread_thread')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      program_id: newProgram.id,
+      organiser_id: src.organiser_id,
+      team_id: src.team_id,
+      slug,
+      intention: src.intention,
+      timezone: src.timezone,
+      language: src.language,
+      cover_url: src.cover_url,
+      is_public_listed: false,
+      requires_approval: src.requires_approval,
+      price_cents: src.price_cents,
+      price_currency: src.price_currency,
+      payment_destination: src.payment_destination,
+      public_interaction: src.public_interaction,
+      capacity: src.capacity,
+      registration_fields: src.registration_fields,
+      certificate_enabled: src.certificate_enabled,
+      certificate_criteria: src.certificate_criteria,
+      certificate_template_id: src.certificate_template_id,
+      created_by: ctx.userId,
+    })
+    .select('id')
+    .single();
+  if (tErr || !newThread) {
+    await adminClient.from('program').delete().eq('id', newProgram.id);
+    return c.json({ error: tErr?.message ?? 'thread failed' }, 500);
+  }
+
+  // Clone engagements (positions preserved; sends logs NOT copied).
+  const { data: engagements } = await db
+    .from('thread_engagement')
+    .select('*')
+    .eq('thread_id', src.id)
+    .order('position');
+  for (const e of engagements ?? []) {
+    await db.from('thread_engagement').insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: newThread.id,
+      title: e.title,
+      description: e.description,
+      type: e.type,
+      status: 'draft',
+      starts_at: e.starts_at,
+      ends_at: e.ends_at,
+      location: e.location,
+      location_url: e.location_url,
+      meeting_url: e.meeting_url,
+      meeting_provider: e.meeting_provider,
+      scheduled_at: e.scheduled_at,
+      trigger_kind: e.trigger_kind,
+      trigger_anchor: e.trigger_anchor,
+      trigger_offset_days: e.trigger_offset_days,
+      trigger_time: e.trigger_time,
+      content: e.content,
+      position: e.position,
+      show_in_agenda: e.show_in_agenda,
+      created_by: ctx.userId,
+    });
+  }
+
+  return c.json({ id: newThread.id }, 201);
+});
 
 // ---------------------------------------------------------------------------
 // Engagements
@@ -1129,6 +1250,7 @@ const CouponBody = z.object({
   is_early_bird: z.boolean().optional(),
   early_bird_deadline: z.string().datetime({ offset: true }).nullable().optional(),
   is_active: z.boolean().optional(),
+  ticket_id: z.string().uuid().nullable().optional(),
 });
 
 threadRoutes.get('/threads/:id/coupons', async (c) => {
@@ -1476,52 +1598,87 @@ threadRoutes.get('/enrolments', async (c) => {
 
 const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, photo_url, timezone';
 
-// GET /api/v1/thread/public/organiser/:slug — organiser page payload
-threadRoutes.get('/public/organiser/:slug', async (c) => {
+// Public URLs group by owner: personal threads live under the organiser's
+// slug, team threads under the TEAM's slug (Sjoerd 2026-07-02). One root
+// namespace, resolved organiser-first (Meet's pattern).
+type PublicOwner =
+  | { kind: 'organiser'; organiser: { id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
+  | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } };
+
+async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
   const { data: organiser } = await adminClient
     .from('thread_organiser')
     .select(PUBLIC_ORGANISER_SELECT)
-    .eq('slug', c.req.param('slug'))
+    .eq('slug', slug)
     .maybeSingle();
-  if (!organiser) return c.json({ error: 'not found' }, 404);
+  if (organiser) return { kind: 'organiser', organiser };
+  const { data: team } = await adminClient
+    .from('team')
+    .select('id, workspace_id, slug, name, description')
+    .eq('slug', slug)
+    .eq('is_active', true)
+    .maybeSingle();
+  if (team) return { kind: 'team', team };
+  return null;
+}
 
-  const { data: threads } = await adminClient
+/** The slug a thread's public URL lives under. */
+function ownerSlugOf(thread: { team?: unknown }, organiserSlug: string | null): string {
+  const team = Array.isArray(thread.team) ? (thread.team as { slug?: string }[])[0] : (thread.team as { slug?: string } | null);
+  return team?.slug ?? organiserSlug ?? '';
+}
+
+// GET /api/v1/thread/public/organiser/:slug — organiser page payload
+threadRoutes.get('/public/organiser/:slug', async (c) => {
+  const owner = await resolvePublicOwner(c.req.param('slug'));
+  if (!owner) return c.json({ error: 'not found' }, 404);
+
+  let q = adminClient
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
        public_interaction,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
-    .eq('organiser_id', organiser.id)
     .eq('is_public_listed', true);
+  q = owner.kind === 'organiser' ? q.eq('organiser_id', owner.organiser.id) : q.eq('team_id', owner.team.id);
+  const { data: threads } = await q;
 
   const listed = (threads ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
     return p && (p.status === 'active' || p.status === 'completed');
   });
 
-  return c.json({ organiser, threads: listed });
+  const organiser =
+    owner.kind === 'organiser'
+      ? owner.organiser
+      : {
+          id: owner.team.id,
+          workspace_id: owner.team.workspace_id,
+          slug: owner.team.slug,
+          display_name: owner.team.name,
+          bio: owner.team.description,
+          photo_url: null,
+          timezone: 'Europe/Amsterdam',
+        };
+  return c.json({ organiser, threads: listed, owner_kind: owner.kind });
 });
 
 // GET /api/v1/thread/public/organiser/:slug/thread/:threadSlug — thread page
 threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
-  const { data: organiser } = await adminClient
-    .from('thread_organiser')
-    .select(PUBLIC_ORGANISER_SELECT)
-    .eq('slug', c.req.param('slug'))
-    .maybeSingle();
-  if (!organiser) return c.json({ error: 'not found' }, 404);
+  const owner = await resolvePublicOwner(c.req.param('slug'));
+  if (!owner) return c.json({ error: 'not found' }, 404);
 
-  const { data: thread } = await adminClient
+  let tq = adminClient
     .from('thread_thread')
     .select(
       `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
-       price_cents, price_currency, registration_fields, certificate_enabled,
+       price_cents, price_currency, registration_fields, certificate_enabled, organiser_id,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
-    .eq('organiser_id', organiser.id)
-    .eq('slug', c.req.param('threadSlug'))
-    .maybeSingle();
+    .eq('slug', c.req.param('threadSlug'));
+  tq = owner.kind === 'organiser' ? tq.eq('organiser_id', owner.organiser.id) : tq.eq('team_id', owner.team.id);
+  const { data: thread } = await tq.maybeSingle();
   if (!thread) return c.json({ error: 'not found' }, 404);
 
   const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
@@ -1531,7 +1688,6 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   }
 
   // The public agenda: published activities flagged show_in_agenda.
-  // Messages are internal to the thread — never exposed here.
   const { data: agenda } = await adminClient
     .from('thread_engagement')
     .select('id, title, description, type, starts_at, ends_at, location, meeting_url')
@@ -1541,17 +1697,28 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .in('type', ['event', 'conversation', 'workshop'])
     .order('starts_at', { ascending: true, nullsFirst: false });
 
-  // Enrolled count for the capacity indicator.
   const { count } = await adminClient
     .from('thread_enrolment')
     .select('id', { count: 'exact', head: true })
     .eq('thread_id', thread.id);
 
+  const organiser =
+    owner.kind === 'organiser'
+      ? owner.organiser
+      : {
+          id: owner.team.id,
+          workspace_id: owner.team.workspace_id,
+          slug: owner.team.slug,
+          display_name: owner.team.name,
+          bio: owner.team.description,
+          photo_url: null,
+          timezone: 'Europe/Amsterdam',
+        };
+
   return c.json({
     organiser,
     thread: {
       ...thread,
-      // meeting_url stays hidden until enrolment — strip it from the agenda.
       agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
         ...rest,
         is_online: !!meeting_url,
@@ -1561,6 +1728,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     },
   });
 });
+
 
 // GET /api/v1/thread/public/embed/threads — listing for website embeds
 // (Webflow etc.). Filter by ?organiser=<slug> | ?team=<uuid> | ?org=<uuid>.
@@ -1577,6 +1745,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency,
        organiser:organiser_id (slug, display_name),
+       team:team_id (slug, name),
        organisation:organisation_id (id, name),
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
@@ -1648,6 +1817,7 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
        enrolment:enrolment_id (status, progress_pct),
        thread:thread_id (id, slug, intention, language, cover_url,
          organiser:organiser_id (slug, display_name),
+         team:team_id (slug, name),
          program:program_id (title, format, status, starts_on, ends_on))`,
     )
     .in('person_id', persons.map((p) => p.id))
@@ -1671,7 +1841,7 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
         cover_url: t.cover_url,
         language: (t as { language?: string }).language ?? 'en',
         enrolment_status: enr?.status ?? 'enrolled',
-        url: `${threadAppUrl()}/${org?.slug}/${t.slug}`,
+        url: `${threadAppUrl()}/${ownerSlugOf(t, org?.slug ?? null)}/${t.slug}`,
         enrolled_at: e.created_at,
       };
     })
@@ -1715,23 +1885,31 @@ threadRoutes.post('/public/enrol', async (c) => {
     .maybeSingle();
   if (existing) return c.json({ ok: true, enrolment_id: existing.id, idempotent: true });
 
-  // Resolve organiser → thread → program.
-  const { data: organiser } = await adminClient
-    .from('thread_organiser')
-    .select('id, workspace_id, slug, display_name')
-    .eq('slug', d.organiser_slug)
-    .maybeSingle();
-  if (!organiser) return c.json({ error: 'thread not found' }, 404);
+  // Resolve owner (organiser or team slug) → thread → program.
+  const owner = await resolvePublicOwner(d.organiser_slug);
+  if (!owner) return c.json({ error: 'thread not found' }, 404);
 
-  const { data: thread } = await adminClient
+  let eq = adminClient
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, slug, intention, language, capacity, price_cents, program:program_id (title, status, starts_on)',
+      'id, workspace_id, program_id, organiser_id, slug, intention, language, capacity, price_cents, program:program_id (title, status, starts_on)',
     )
-    .eq('organiser_id', organiser.id)
-    .eq('slug', d.thread_slug)
-    .maybeSingle();
+    .eq('slug', d.thread_slug);
+  eq = owner.kind === 'organiser' ? eq.eq('organiser_id', owner.organiser.id) : eq.eq('team_id', owner.team.id);
+  const { data: thread } = await eq.maybeSingle();
   if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+  // Display name for emails: the team for team threads, else the organiser.
+  const { data: primaryOrganiser } = await adminClient
+    .from('thread_organiser')
+    .select('slug, display_name')
+    .eq('id', thread.organiser_id)
+    .maybeSingle();
+  const organiser = {
+    slug: d.organiser_slug,
+    display_name:
+      owner.kind === 'team' ? owner.team.name : primaryOrganiser?.display_name ?? null,
+  };
 
   const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
   if (!program || program.status !== 'active') {

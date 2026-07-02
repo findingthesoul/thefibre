@@ -45,7 +45,7 @@ export type ThreadRow = {
   organisation_id: string | null;
   program: ProgramCore | ProgramCore[] | null;
   organiser: OrganiserCore | OrganiserCore[] | null;
-  team: { id: string; name: string } | { id: string; name: string }[] | null;
+  team: { id: string; name: string; slug?: string } | { id: string; name: string; slug?: string }[] | null;
   organisation: { id: string; name: string } | { id: string; name: string }[] | null;
 };
 

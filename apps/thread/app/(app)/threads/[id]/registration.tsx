@@ -27,9 +27,11 @@ function keyFromLabel(label: string, taken: Set<string>): string {
 export function RegistrationPanel({
   threadId,
   fields: initial,
+  onSaved,
 }: {
   threadId: string;
   fields: RegistrationField[];
+  onSaved?: () => void;
 }) {
   const router = useRouter();
   const [fields, setFields] = useState<RegistrationField[]>(initial);
@@ -80,6 +82,7 @@ export function RegistrationPanel({
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
+      onSaved?.();
     });
   }
 
