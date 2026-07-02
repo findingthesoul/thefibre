@@ -59,8 +59,19 @@ type DialogState =
   | { kind: 'coupon'; coupon: CouponRow | null }
   | null;
 
-export function PricingPanel({ thread }: { thread: ThreadRow }) {
+export function PricingPanel({
+  thread,
+  onSaved: onPanelSaved,
+}: {
+  thread: ThreadRow;
+  /** Called after the footer Save completes — the dialog closes on it. */
+  onSaved?: () => void;
+}) {
   const router = useRouter();
+  // The shared dialog footer submits this panel by form id; in Paid mode
+  // that runs the payout save (registered below), in Free mode it just
+  // confirms — tickets and codes save through their own popups.
+  const payoutSubmitRef = useRef<(() => void) | null>(null);
   const [tickets, setTickets] = useState<TicketRow[]>([]);
   const [coupons, setCoupons] = useState<CouponRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -109,6 +120,18 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
 
   return (
     <div className="space-y-8">
+      {/* Hidden sibling form — the shared dialog footer submits it by id.
+          NOT a wrapper: the ticket/coupon popups render their own forms in
+          this subtree and nesting forms breaks submit semantics. */}
+      <form
+        id="thread-pricing-form"
+        className="hidden"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (mode === 'paid' && payoutSubmitRef.current) payoutSubmitRef.current();
+          else onPanelSaved?.();
+        }}
+      />
       {/* ── Free / Paid toggle ────────────────────────────────────── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <button
@@ -273,7 +296,15 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
       )}
 
       {/* ── Payout ────────────────────────────────────────────────── */}
-      {mode === 'paid' && <PayoutSection thread={thread} />}
+      {mode === 'paid' && (
+        <PayoutSection
+          thread={thread}
+          onSaved={onPanelSaved}
+          registerSubmit={(fn) => {
+            payoutSubmitRef.current = fn;
+          }}
+        />
+      )}
 
       <p className="text-xs text-ink-muted">
         Checkout + coupon redemption go live with the payments phase.
@@ -320,7 +351,16 @@ function LoadingRows() {
 // Payout destination — kept from the previous panel, its own small save.
 // ---------------------------------------------------------------------------
 
-function PayoutSection({ thread }: { thread: ThreadRow }) {
+function PayoutSection({
+  thread,
+  onSaved,
+  registerSubmit,
+}: {
+  thread: ThreadRow;
+  onSaved?: () => void;
+  /** Hands the save function up so the panel's form submit can call it. */
+  registerSubmit?: (fn: () => void) => void;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -352,13 +392,24 @@ function PayoutSection({ thread }: { thread: ThreadRow }) {
   function save() {
     setError(null);
     setSaved(false);
+    // Nothing connected → nothing to persist; still confirm so the dialog closes.
+    if (!connected || (!connected.workspace && !connected.personal)) {
+      onSaved?.();
+      return;
+    }
     startTransition(async () => {
       const r = await updateThread(thread.id, { payment_destination: dest });
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
+      onSaved?.();
     });
   }
+
+  // Let the panel's form submit trigger this section's save.
+  useEffect(() => {
+    registerSubmit?.(save);
+  });
 
   const opt = (value: 'workspace' | 'personal', label: string, isConnected: boolean) => (
     <button
@@ -394,16 +445,9 @@ function PayoutSection({ thread }: { thread: ThreadRow }) {
         </p>
       )}
       <div className="mt-3 flex items-center gap-3">
-        <Button
-          type="button"
-          variant="secondary"
-          size="sm"
-          disabled={pending || !connected || (!connected.workspace && !connected.personal)}
-          onClick={save}
-        >
-          {pending ? 'Saving…' : 'Save payout'}
-        </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {(pending || saved) && (
+          <span className="text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</span>
+        )}
         {connected && !connected.workspace && !connected.personal && (
           <span className="text-xs text-ink-muted">
             Connect a Stripe account first (payments phase).

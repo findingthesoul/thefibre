@@ -93,7 +93,9 @@ export function ThreadEditorForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 space-y-8">
+    // In the settings dialog (compact) the Save button lives in the shared
+    // dialog footer and submits this form by id.
+    <form id="thread-basics-form" onSubmit={onSubmit} className="mt-8 space-y-8">
       <div>
         <SectionLabel>Basics</SectionLabel>
         <div className="mt-3 space-y-6">
@@ -267,12 +269,14 @@ export function ThreadEditorForm({
         </p>
       )}
 
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
-        </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
-      </div>
+      {!compact && (
+        <div className="flex items-center gap-3">
+          <Button type="submit" disabled={pending}>
+            {pending ? 'Saving…' : 'Save'}
+          </Button>
+          {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        </div>
+      )}
     </form>
   );
 }

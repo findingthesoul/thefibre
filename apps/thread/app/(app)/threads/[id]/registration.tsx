@@ -64,7 +64,8 @@ export function RegistrationPanel({
     setSaved(false);
   }
 
-  function onSave() {
+  function onSave(e?: React.FormEvent<HTMLFormElement>) {
+    e?.preventDefault();
     setError(null);
     const taken = new Set<string>();
     const cleaned: RegistrationField[] = [];
@@ -97,10 +98,11 @@ export function RegistrationPanel({
   }
 
   return (
-    <div>
+    // Saved from the shared dialog footer (submits by form id).
+    <form id="thread-registration-form" onSubmit={onSave}>
       <div className="flex items-center justify-between">
         <SectionLabel>Registration questions</SectionLabel>
-        <Button size="sm" variant="secondary" leading={<Plus size={15} />} onClick={addField}>
+        <Button type="button" size="sm" variant="secondary" leading={<Plus size={15} />} onClick={addField}>
           Add question
         </Button>
       </div>
@@ -216,12 +218,9 @@ export function RegistrationPanel({
         </p>
       )}
 
-      <div className="mt-5 flex items-center gap-3">
-        <Button onClick={onSave} disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
-        </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
-      </div>
-    </div>
+      {(pending || saved) && (
+        <p className="mt-4 text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</p>
+      )}
+    </form>
   );
 }

@@ -8,7 +8,6 @@ import { useRouter } from 'next/navigation';
 import { updateThread } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TextField, SelectField } from '@/components/ui/field';
-import { Button } from '@/components/ui/button';
 
 export function CertificatePanel({
   thread,
@@ -44,7 +43,8 @@ export function CertificatePanel({
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-5">
+    // Saved from the shared dialog footer (submits by form id).
+    <form id="thread-certificate-form" onSubmit={onSubmit} className="space-y-5">
       <label className="flex items-start gap-2.5">
         <input
           type="checkbox"
@@ -92,12 +92,9 @@ export function CertificatePanel({
           {error}
         </p>
       )}
-      <div className="flex items-center gap-3">
-        <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save certificate'}
-        </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
-      </div>
+      {(pending || saved) && (
+        <p className="text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</p>
+      )}
     </form>
   );
 }

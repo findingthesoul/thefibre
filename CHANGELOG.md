@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.80] — 2026-07-02 — Thread 3.16.2: one bottom bar in thread settings
+
+### Changed
+- **Save moved to the dialog footer** in thread settings — the Fibre dialog
+  contract: Delete · Duplicate · Save as template on the left, Cancel · Save
+  on the right. No more inline Save buttons floating inside the tabs. The
+  footer Save submits the active tab's form by id (`thread-{tab}-form`);
+  Basics, Registration, Certificate and Pricing (payout) all save-and-close
+  through it. Pricing uses a hidden sibling form — its ticket/coupon popups
+  carry their own forms and nesting would break submit semantics; their
+  buttons keep their own popup bottom bars, as before.
+
 ## [0.13.79] — 2026-07-02 — Thread 3.16.1: team threads open under the team's public URL
 
 ### Fixed

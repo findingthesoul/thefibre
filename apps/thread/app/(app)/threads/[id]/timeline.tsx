@@ -156,6 +156,9 @@ export function ThreadTimeline({
   const [, startTransition] = useTransition();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // Lifted out of SettingsTabs so the footer Save can submit the active
+  // tab's form (`thread-{tab}-form`) — one bottom bar, v3 style.
+  const [settingsTab, setSettingsTab] = useState<SettingsTab>('basics');
   const [registrationsOpen, setRegistrationsOpen] = useState(false);
   const [membersOpen, setMembersOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
@@ -311,7 +314,10 @@ export function ThreadTimeline({
         </button>
         <button
           type="button"
-          onClick={() => setSettingsOpen(true)}
+          onClick={() => {
+            setSettingsTab('basics');
+            setSettingsOpen(true);
+          }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
           title="Thread settings"
         >
@@ -539,7 +545,10 @@ export function ThreadTimeline({
                 </Button>
               </div>
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
-                Close
+                Cancel
+              </Button>
+              <Button type="submit" form={`thread-${settingsTab}-form`}>
+                Save
               </Button>
             </>
           }
@@ -549,6 +558,8 @@ export function ThreadTimeline({
               thread={thread}
               teams={teams}
               certTemplates={certTemplates}
+              tab={settingsTab}
+              onTabChange={setSettingsTab}
               onSaved={closeSettings}
             />
           </div>
@@ -728,18 +739,23 @@ function EngagementCard({
 // more tabs will come. All tabs stay in the DOM (Meet's pattern).
 // ---------------------------------------------------------------------------
 
+type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate';
+
 function SettingsTabs({
   thread,
   teams,
   certTemplates,
+  tab,
+  onTabChange,
   onSaved,
 }: {
   thread: ThreadRow;
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
+  tab: SettingsTab;
+  onTabChange: (t: SettingsTab) => void;
   onSaved?: () => void;
 }) {
-  const [tab, setTab] = useState<'basics' | 'pricing' | 'registration' | 'certificate'>('basics');
   const tabs = [
     { value: 'basics', label: 'Basics' },
     { value: 'pricing', label: 'Pricing' },
@@ -755,7 +771,7 @@ function SettingsTabs({
             <li key={t.value}>
               <button
                 type="button"
-                onClick={() => setTab(t.value)}
+                onClick={() => onTabChange(t.value)}
                 className={`inline-block px-3 py-2 text-sm border-b-2 transition-colors ${
                   tab === t.value
                     ? 'border-ink text-ink'
@@ -772,7 +788,7 @@ function SettingsTabs({
         <ThreadEditorForm thread={thread} compact teams={teams} onSaved={onSaved} />
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
-        <PricingPanel thread={thread} />
+        <PricingPanel thread={thread} onSaved={onSaved} />
       </div>
       <div className={`pt-5 ${tab === 'registration' ? '' : 'hidden'}`}>
         <RegistrationPanel
