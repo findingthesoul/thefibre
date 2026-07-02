@@ -6,7 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.73] — 2026-07-02 — Thread 3.12.0: sign-in personal page + pricing/dialog polish
+## [0.13.74] — 2026-07-02 — Thread 3.13.0: event-anchored triggers, Luma popups, filters
+
+(Migration `20260702190000_thread_event_anchor_and_interaction.sql`, applied.)
+
+- **Messages can anchor to an event**: "relative" triggers now offer the
+  thread's activities as anchors ("2d before *SDL — vertrouwen* · 09:00"),
+  next to thread start/end. The timeline computes their spot from the
+  anchor's date; labels show the event title.
+- **Timeline cards float** — subtle layered shadow (and Flow's card
+  shadow softened to match: less bulk, same lift).
+- **Threads overview filters**: status chips All · Active · Drafts ·
+  Past, next to the team chips.
+- **Thread page or enrol popup**: a Basics setting decides what an
+  overview click does — the full public page, or a **Luma-style popup**
+  with cover, info and direct enrolment (live on the organiser page;
+  embed lists follow the same setting via the thread detail).
+- **Pricing keeps the Free/Paid toggle** — Paid reveals the ticket +
+  discount-code lists; Free hides them. **Quantity is a plain number
+  field** now, not a dropdown.
 
 - **Personal page is login-based now** (Sjoerd: no email-token links).
   `/my` asks participants to **sign in** — Google SSO today, the

@@ -47,14 +47,15 @@ html.dark {
 /* Soft, diffuse card shadow (clean-dashboard look). White cards float on the
    cool-grey canvas with a gentle, spread shadow rather than a hard border. */
 @layer utilities {
+  /* Softened 2026-07-02 (Sjoerd: "shadow too big, too bulky — more subtle"). */
   .shadow-card {
     box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.04),
-      0 12px 28px -14px rgba(15, 23, 42, 0.16);
+      0 1px 2px rgba(15, 23, 42, 0.03),
+      0 6px 14px -10px rgba(15, 23, 42, 0.1);
   }
   .shadow-card-hover:hover {
     box-shadow:
-      0 2px 6px rgba(15, 23, 42, 0.06),
-      0 20px 40px -18px rgba(15, 23, 42, 0.26);
+      0 1px 3px rgba(15, 23, 42, 0.05),
+      0 10px 22px -12px rgba(15, 23, 42, 0.16);
   }
 }

@@ -64,14 +64,21 @@ const LIFECYCLE_LABELS: Record<string, string> = {
 function whenOf(
   e: EngagementRow,
   window?: { starts_on: string | null; ends_on: string | null } | null,
+  byId?: Map<string, EngagementRow>,
 ): string | null {
   if (metaFor(e.type).family === 'activity') return e.starts_at;
   const kind = e.trigger_kind ?? 'fixed';
   if (kind === 'fixed') return e.scheduled_at;
   if (kind === 'relative') {
-    const anchor = e.trigger_anchor === 'end' ? window?.ends_on : window?.starts_on;
-    if (!anchor) return null;
-    const d = new Date(`${anchor}T${e.trigger_time ?? '09:00'}:00`);
+    let anchorDate: string | null = null;
+    if (e.trigger_anchor === 'engagement' && e.trigger_engagement_id) {
+      const target = byId?.get(e.trigger_engagement_id);
+      anchorDate = target?.starts_at ? target.starts_at.slice(0, 10) : null;
+    } else {
+      anchorDate = e.trigger_anchor === 'end' ? window?.ends_on ?? null : window?.starts_on ?? null;
+    }
+    if (!anchorDate) return null;
+    const d = new Date(`${anchorDate}T${e.trigger_time ?? '09:00'}:00`);
     d.setDate(d.getDate() + (e.trigger_offset_days ?? 0));
     return d.toISOString();
   }
@@ -83,13 +90,19 @@ function isLifecycle(e: EngagementRow): boolean {
 }
 
 /** Short human label for a message card's trigger. */
-function triggerLabel(e: EngagementRow): string | null {
+function triggerLabel(e: EngagementRow, byId?: Map<string, EngagementRow>): string | null {
   const kind = e.trigger_kind ?? 'fixed';
   if (kind === 'fixed') return e.scheduled_at ? `Sends ${fmtTime(e.scheduled_at)}` : 'Unscheduled';
   if (kind === 'relative') {
     const n = Math.abs(e.trigger_offset_days ?? 0);
     const dir = (e.trigger_offset_days ?? 0) < 0 ? 'before' : 'after';
-    return `${n}d ${dir} ${e.trigger_anchor === 'end' ? 'end' : 'start'} · ${e.trigger_time ?? '09:00'}`;
+    const anchorLabel =
+      e.trigger_anchor === 'engagement'
+        ? byId?.get(e.trigger_engagement_id ?? '')?.title ?? 'event'
+        : e.trigger_anchor === 'end'
+          ? 'end'
+          : 'start';
+    return `${n}d ${dir} ${anchorLabel} · ${e.trigger_time ?? '09:00'}`;
   }
   return LIFECYCLE_LABELS[kind] ?? null;
 }
@@ -155,26 +168,33 @@ export function ThreadTimeline({
     () => ({ starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null }),
     [program?.starts_on, program?.ends_on],
   );
-  const { triggered, groups, undated } = useMemo(() => {
+  const { triggered, groups, undated, byId } = useMemo(() => {
+    const idMap = new Map(engagements.map((e) => [e.id, e]));
     const triggeredList = engagements
       .filter(isLifecycle)
       .sort((a, b) => a.position - b.position);
     const rest = engagements.filter((e) => !isLifecycle(e));
-    const dated = rest.filter((e) => whenOf(e, window));
+    const dated = rest.filter((e) => whenOf(e, window, idMap));
     const undatedList = rest
-      .filter((e) => !whenOf(e, window))
+      .filter((e) => !whenOf(e, window, idMap))
       .sort((a, b) => a.position - b.position);
     dated.sort(
       (a, b) =>
-        new Date(whenOf(a, window)!).getTime() - new Date(whenOf(b, window)!).getTime(),
+        new Date(whenOf(a, window, idMap)!).getTime() -
+        new Date(whenOf(b, window, idMap)!).getTime(),
     );
     const map = new Map<string, EngagementRow[]>();
     for (const e of dated) {
-      const k = dayKey(whenOf(e, window)!);
+      const k = dayKey(whenOf(e, window, idMap)!);
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
-    return { triggered: triggeredList, groups: [...map.entries()], undated: undatedList };
+    return {
+      triggered: triggeredList,
+      groups: [...map.entries()],
+      undated: undatedList,
+      byId: idMap,
+    };
   }, [engagements, window]);
 
   const status = program?.status ?? 'draft';
@@ -313,6 +333,7 @@ export function ThreadTimeline({
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < triggered.length - 1}
+                    triggerText={triggerLabel(e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -323,7 +344,7 @@ export function ThreadTimeline({
 
           {groups.map(([key, items]) => (
             <div key={key} className="relative">
-              <DateBadge iso={items[0] ? whenOf(items[0], window)! : key} />
+              <DateBadge iso={items[0] ? whenOf(items[0], window, byId)! : key} />
               <div>
                 {items.map((e, i) => (
                   <EngagementCard
@@ -331,6 +352,7 @@ export function ThreadTimeline({
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < items.length - 1}
+                    triggerText={triggerLabel(e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -353,6 +375,7 @@ export function ThreadTimeline({
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < undated.length - 1}
+                    triggerText={triggerLabel(e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -406,6 +429,9 @@ export function ThreadTimeline({
           threadEndsOn={program?.ends_on ?? null}
           requiresApproval={thread.requires_approval}
           personalRoomUrl={personalRoomUrl}
+          activities={engagements
+            .filter((e) => metaFor(e.type).family === 'activity')
+            .map((e) => ({ id: e.id, title: e.title }))}
           onClose={() => setEditorState({ mode: 'closed' })}
         />
       )}
@@ -479,12 +505,14 @@ function EngagementCard({
   engagement: e,
   attachTop,
   attachBottom,
+  triggerText,
   onEdit,
   onQuickTime,
 }: {
   engagement: EngagementRow;
   attachTop: boolean;
   attachBottom: boolean;
+  triggerText: string | null;
   onEdit: () => void;
   onQuickTime: () => void;
 }) {
@@ -508,7 +536,7 @@ function EngagementCard({
         onKeyDown={(ev) => {
           if (ev.key === 'Enter') onEdit();
         }}
-        className={`w-full text-left border border-line bg-surface-raised px-4 py-3 cursor-pointer hover:shadow-sm hover:border-line-strong transition-all ${rounded}`}
+        className={`w-full text-left border border-line bg-surface-raised px-4 py-3 cursor-pointer shadow-[0_1px_3px_rgb(0_0_0/0.05)] hover:shadow-[0_6px_16px_-6px_rgb(0_0_0/0.12)] hover:border-line-strong transition-all ${rounded}`}
       >
         <div className="flex items-center gap-3">
           <span
@@ -525,7 +553,7 @@ function EngagementCard({
                 </span>
               )}
               {meta.family === 'message' && (
-                <span className="text-ink-muted">{triggerLabel(e)}</span>
+                <span className="text-ink-muted">{triggerText}</span>
               )}
             </div>
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>

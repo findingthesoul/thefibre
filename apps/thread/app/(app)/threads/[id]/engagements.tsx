@@ -52,6 +52,7 @@ export function EngagementDialog({
   threadEndsOn,
   requiresApproval,
   personalRoomUrl,
+  activities = [],
   onClose,
 }: {
   threadId: string;
@@ -62,6 +63,8 @@ export function EngagementDialog({
   requiresApproval?: boolean;
   /** Meet's personal room, shared across the Fibre apps. */
   personalRoomUrl?: string | null;
+  /** The thread's activities — anchor options for relative message triggers. */
+  activities?: { id: string; title: string }[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -112,7 +115,14 @@ export function EngagementDialog({
     } else if (triggerKind === 'relative') {
       const days = Number(fd.get('trigger_days') ?? 3);
       const direction = String(fd.get('trigger_direction') ?? 'before');
-      trigger.trigger_anchor = String(fd.get('trigger_anchor') ?? 'start');
+      const anchor = String(fd.get('trigger_anchor') ?? 'start');
+      if (anchor.startsWith('eng:')) {
+        trigger.trigger_anchor = 'engagement';
+        trigger.trigger_engagement_id = anchor.slice(4);
+      } else {
+        trigger.trigger_anchor = anchor;
+        trigger.trigger_engagement_id = null;
+      }
       trigger.trigger_offset_days = direction === 'before' ? -days : days;
       trigger.trigger_time = String(fd.get('trigger_time') ?? '09:00');
     }
@@ -175,6 +185,7 @@ export function EngagementDialog({
         scheduled_at: engagement.scheduled_at,
         trigger_kind: engagement.trigger_kind,
         trigger_anchor: engagement.trigger_anchor,
+        trigger_engagement_id: engagement.trigger_engagement_id,
         trigger_offset_days: engagement.trigger_offset_days,
         trigger_time: engagement.trigger_time,
         content: engagement.content,
@@ -397,6 +408,7 @@ export function EngagementDialog({
                 onKindChange={setTriggerKind}
                 engagement={engagement}
                 requiresApproval={requiresApproval ?? false}
+                activities={activities}
               />
             )}
 
@@ -467,16 +479,21 @@ function TriggerFields({
   onKindChange,
   engagement,
   requiresApproval,
+  activities,
 }: {
   triggerKind: TriggerKind;
   onKindChange: (k: TriggerKind) => void;
   engagement: EngagementRow | null;
   requiresApproval: boolean;
+  activities: { id: string; title: string }[];
 }) {
   const off = engagement?.trigger_offset_days ?? -3;
   const defaultDays = String(Math.min(30, Math.max(1, Math.abs(off || 3))));
   const defaultDirection = (engagement?.trigger_offset_days ?? -3) < 0 ? 'before' : 'after';
-  const defaultAnchor = engagement?.trigger_anchor ?? 'start';
+  const defaultAnchor =
+    engagement?.trigger_anchor === 'engagement' && engagement.trigger_engagement_id
+      ? `eng:${engagement.trigger_engagement_id}`
+      : engagement?.trigger_anchor ?? 'start';
   const defaultTime = engagement?.trigger_time ?? '09:00';
 
   const kindOptions = [
@@ -533,6 +550,7 @@ function TriggerFields({
             options={[
               { value: 'start', label: 'thread start' },
               { value: 'end', label: 'thread end' },
+              ...activities.map((a) => ({ value: `eng:${a.id}`, label: a.title })),
             ]}
           />
           <SelectField

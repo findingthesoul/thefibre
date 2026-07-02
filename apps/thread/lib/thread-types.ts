@@ -33,6 +33,7 @@ export type ThreadRow = {
   price_currency: string | null;
   payment_destination: 'workspace' | 'personal' | null;
   language: 'en' | 'nl' | 'es' | 'pt' | 'de';
+  public_interaction: 'page' | 'popup';
   capacity: number | null;
   registration_fields: RegistrationField[];
   certificate_enabled: boolean;
@@ -107,7 +108,8 @@ export type EngagementRow = {
   scheduled_at: string | null;
   // Message-family send trigger (see migration 20260702100000).
   trigger_kind: TriggerKind;
-  trigger_anchor: 'start' | 'end' | null;
+  trigger_anchor: 'start' | 'end' | 'engagement' | null;
+  trigger_engagement_id: string | null;
   trigger_offset_days: number | null; // signed: negative = before anchor
   trigger_time: string | null; // 'HH:MM' in the thread's timezone
   content: Record<string, unknown>;

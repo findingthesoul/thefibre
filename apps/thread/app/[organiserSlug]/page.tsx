@@ -1,7 +1,6 @@
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { CalendarRange, Route } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { ThreadsGrid, type PublicThreadListItem } from './threads-grid';
 
 type PublicOrganiser = {
   id: string;
@@ -93,37 +92,7 @@ export default async function PublicOrganiserPage({
           {threads.length === 0 && (
             <p className="mt-3 text-sm text-ink-subtle">Nothing public right now.</p>
           )}
-          <ul className="mt-3 space-y-3">
-            {threads.map((t) => {
-              const p = one(t.program);
-              const Icon = p?.format === 'journey' ? Route : CalendarRange;
-              const dates = fmtDates(p?.starts_on ?? null, p?.ends_on ?? null);
-              return (
-                <li key={t.id}>
-                  <Link
-                    href={`/${organiser.slug}/${t.slug}`}
-                    className="flex items-start gap-4 rounded-xl border border-line bg-surface-raised p-5 hover:border-line-strong transition-colors"
-                  >
-                    <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken ring-1 ring-line shrink-0">
-                      <Icon size={18} strokeWidth={1.75} className="text-ink-subtle" />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-base font-medium">{p?.title ?? t.slug}</div>
-                      {t.intention && (
-                        <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                          {t.intention}
-                        </p>
-                      )}
-                      <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
-                        {dates && <span>{dates}</span>}
-                        <span>{fmtPrice(t.price_cents, t.price_currency)}</span>
-                      </div>
-                    </div>
-                  </Link>
-                </li>
-              );
-            })}
-          </ul>
+          <ThreadsGrid organiserSlug={organiser.slug} threads={threads as PublicThreadListItem[]} />
         </section>
 
         <footer className="mt-16 text-xs text-ink-muted">

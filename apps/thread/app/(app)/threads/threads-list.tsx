@@ -34,14 +34,38 @@ export function ThreadsList({
   teams: TeamOption[];
 }) {
   const [filter, setFilter] = useState<string>('all'); // 'all' | 'personal' | team id
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft' | 'past'>('all');
 
   // Only offer team chips for teams that actually own threads (+ all teams
   // so a freshly assigned team is findable).
   const filtered = useMemo(() => {
-    if (filter === 'all') return threads;
-    if (filter === 'personal') return threads.filter((t) => !t.team_id);
-    return threads.filter((t) => t.team_id === filter);
-  }, [threads, filter]);
+    let list = threads;
+    if (filter === 'personal') list = list.filter((t) => !t.team_id);
+    else if (filter !== 'all') list = list.filter((t) => t.team_id === filter);
+    if (statusFilter !== 'all') {
+      list = list.filter((t) => {
+        const status = one(t.program)?.status ?? 'draft';
+        if (statusFilter === 'past') return status === 'completed' || status === 'archived';
+        return status === statusFilter;
+      });
+    }
+    return list;
+  }, [threads, filter, statusFilter]);
+
+  const statusChip = (value: 'all' | 'active' | 'draft' | 'past', label: string) => (
+    <button
+      key={value}
+      type="button"
+      onClick={() => setStatusFilter(value)}
+      className={`px-3 py-1.5 rounded-full text-xs ring-1 transition-colors ${
+        statusFilter === value
+          ? 'bg-ink text-ink-inverse ring-ink'
+          : 'bg-surface-raised text-ink-subtle ring-line hover:text-ink'
+      }`}
+    >
+      {label}
+    </button>
+  );
 
   const chip = (value: string, label: string) => (
     <button
@@ -60,13 +84,20 @@ export function ThreadsList({
 
   return (
     <div>
-      {(teams.length > 0 || threads.some((t) => t.team_id)) && (
-        <div className="mt-6 flex flex-wrap items-center gap-2">
-          {chip('all', 'All')}
-          {chip('personal', 'Personal')}
-          {teams.map((t) => chip(t.id, t.name))}
-        </div>
-      )}
+      <div className="mt-6 flex flex-wrap items-center gap-2">
+        {statusChip('all', 'All')}
+        {statusChip('active', 'Active')}
+        {statusChip('draft', 'Drafts')}
+        {statusChip('past', 'Past')}
+        {(teams.length > 0 || threads.some((t) => t.team_id)) && (
+          <>
+            <span className="mx-1 h-4 w-px bg-line" />
+            {chip('all', 'Everyone')}
+            {chip('personal', 'Personal')}
+            {teams.map((t) => chip(t.id, t.name))}
+          </>
+        )}
+      </div>
 
       {filtered.length === 0 && (
         <EmptyState>

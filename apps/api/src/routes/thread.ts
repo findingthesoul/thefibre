@@ -264,7 +264,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, language, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, language, public_interaction, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -419,6 +419,7 @@ const ThreadUpdate = z.object({
   price_currency: z.string().length(3).nullable().optional(),
   payment_destination: z.enum(['workspace', 'personal']).nullable().optional(),
   language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
+  public_interaction: z.enum(['page', 'popup']).optional(),
   capacity: z.number().int().positive().nullable().optional(),
   registration_fields: z
     .array(
@@ -563,7 +564,8 @@ const EngagementCreate = z.object({
   trigger_kind: z
     .enum(['fixed', 'on_enrolment', 'on_approval', 'on_completion', 'relative'])
     .optional(),
-  trigger_anchor: z.enum(['start', 'end']).nullable().optional(),
+  trigger_anchor: z.enum(['start', 'end', 'engagement']).nullable().optional(),
+  trigger_engagement_id: z.string().uuid().nullable().optional(),
   trigger_offset_days: z.number().int().min(-365).max(365).nullable().optional(),
   trigger_time: z
     .string()
@@ -646,6 +648,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       scheduled_at: body.data.scheduled_at ?? null,
       trigger_kind: body.data.trigger_kind ?? 'fixed',
       trigger_anchor: body.data.trigger_anchor ?? null,
+      trigger_engagement_id: body.data.trigger_engagement_id ?? null,
       trigger_offset_days: body.data.trigger_offset_days ?? null,
       trigger_time: body.data.trigger_time ?? null,
       content: body.data.content ?? {},
@@ -1486,6 +1489,7 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, cover_url, price_cents, price_currency, capacity,
+       public_interaction,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('organiser_id', organiser.id)

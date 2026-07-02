@@ -9,7 +9,7 @@ import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { uploadAsset } from '@/lib/upload';
-import { ImagePlus, X } from 'lucide-react';
+import { ImagePlus, X, PanelTop, MousePointerClick } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -32,6 +32,9 @@ export function ThreadEditorForm({
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
   const [coverUrl, setCoverUrl] = useState<string | null>(thread.cover_url);
+  const [interaction, setInteraction] = useState<'page' | 'popup'>(
+    thread.public_interaction ?? 'page',
+  );
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -69,6 +72,7 @@ export function ThreadEditorForm({
       team_id: String(fd.get('team_id') ?? '') || null,
       language: String(fd.get('language') ?? 'en'),
       cover_url: coverUrl,
+      public_interaction: interaction,
     };
     if (!patch.title) return setError('The thread needs a name.');
     if (!patch.slug) return setError('The thread needs a URL slug.');
@@ -191,6 +195,47 @@ export function ThreadEditorForm({
               ]}
               hint="Team members share this thread."
             />
+
+          {/* How an overview opens this thread (Luma-style choice) */}
+          <div>
+            <span className="text-sm text-ink-subtle">When clicked in an overview</span>
+            <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setInteraction('page')}
+                className={`text-left rounded-lg border p-3.5 transition-colors ${
+                  interaction === 'page'
+                    ? 'border-ink bg-surface-sunken'
+                    : 'border-line bg-surface hover:bg-surface-sunken'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <PanelTop size={15} strokeWidth={1.75} className="text-ink-subtle" />
+                  <span className="text-sm font-medium">Thread page</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
+                  Opens the full public page with agenda and details.
+                </p>
+              </button>
+              <button
+                type="button"
+                onClick={() => setInteraction('popup')}
+                className={`text-left rounded-lg border p-3.5 transition-colors ${
+                  interaction === 'popup'
+                    ? 'border-ink bg-surface-sunken'
+                    : 'border-line bg-surface hover:bg-surface-sunken'
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <MousePointerClick size={15} strokeWidth={1.75} className="text-ink-subtle" />
+                  <span className="text-sm font-medium">Enrol popup</span>
+                </div>
+                <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
+                  Opens a popup with thread info and direct enrolment.
+                </p>
+              </button>
+            </div>
+          </div>
 
           <label className="flex items-start gap-2.5">
             <input

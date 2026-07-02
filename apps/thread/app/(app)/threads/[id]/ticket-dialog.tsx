@@ -152,12 +152,15 @@ export function TicketDialog({
             options={CURRENCIES}
           />
         </div>
-        <SelectField
-          label="Quantity limit"
-          name="quantity_limit"
-          defaultValue={currentLimit}
-          options={quantityOptions}
-        />
+        <TextField
+            label="Quantity limit"
+            name="quantity_limit"
+            type="number"
+            min={1}
+            placeholder="No limit"
+            defaultValue={ticket?.quantity_limit ?? ''}
+            hint="Leave empty for unlimited."
+          />
         <DateTimeField
           label="Available until"
           name="available_until"

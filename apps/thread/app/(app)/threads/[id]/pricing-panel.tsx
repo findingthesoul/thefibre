@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, Ticket, TicketPercent } from 'lucide-react';
+import { Plus, Ticket, TicketPercent, Gift, CreditCard } from 'lucide-react';
 import {
   listTickets,
   listCoupons,
@@ -65,6 +65,8 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  // Free/Paid stays a toggle (Sjoerd): Paid reveals the ticket + code lists.
+  const [mode, setMode] = useState<'free' | 'paid' | null>(null);
 
   const reload = useCallback(async () => {
     const [t, c] = await Promise.all([listTickets(thread.id), listCoupons(thread.id)]);
@@ -72,6 +74,7 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
     if (c.ok) setCoupons(c.items);
     setLoadError(!t.ok ? t.error : !c.ok ? c.error : null);
     setLoading(false);
+    setMode((m) => m ?? ((t.ok && t.items.length > 0) ? 'paid' : 'free'));
   }, [thread.id]);
 
   useEffect(() => {
@@ -86,6 +89,46 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
 
   return (
     <div className="space-y-8">
+      {/* ── Free / Paid toggle ────────────────────────────────────── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <button
+          type="button"
+          onClick={() => setMode('free')}
+          className={`text-left rounded-lg border p-3.5 transition-colors ${
+            mode === 'free'
+              ? 'border-ink bg-surface-sunken'
+              : 'border-line bg-surface hover:bg-surface-sunken'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <Gift size={15} strokeWidth={1.75} className="text-ink-subtle" />
+            <span className="text-sm font-medium">Free</span>
+          </div>
+          <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
+            Anyone can enrol without paying.
+          </p>
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('paid')}
+          className={`text-left rounded-lg border p-3.5 transition-colors ${
+            mode === 'paid'
+              ? 'border-ink bg-surface-sunken'
+              : 'border-line bg-surface hover:bg-surface-sunken'
+          }`}
+        >
+          <div className="flex items-center gap-2">
+            <CreditCard size={15} strokeWidth={1.75} className="text-ink-subtle" />
+            <span className="text-sm font-medium">Paid</span>
+          </div>
+          <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
+            Tickets and discount codes; checkout lands with the payments phase.
+          </p>
+        </button>
+      </div>
+
+      {mode === 'paid' && (
+      <>
       {/* ── Tickets ───────────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between">
@@ -202,8 +245,11 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
         </p>
       )}
 
+      </>
+      )}
+
       {/* ── Payout ────────────────────────────────────────────────── */}
-      <PayoutSection thread={thread} />
+      {mode === 'paid' && <PayoutSection thread={thread} />}
 
       <p className="text-xs text-ink-muted">
         Checkout + coupon redemption go live with the payments phase.
