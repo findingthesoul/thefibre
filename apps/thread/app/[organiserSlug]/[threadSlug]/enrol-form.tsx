@@ -47,17 +47,58 @@ export function EnrolCard({
   // instead of promising a confirmation email that won't be sent again.
   const [state, setState] = useState<'idle' | 'submitting' | 'done' | 'already'>('idle');
   const [error, setError] = useState<string | null>(null);
+  // Whether this email already has a Fibre account → "sign in" vs "create".
+  const [hasAccount, setHasAccount] = useState(false);
   // Default to the first available ticket (organiser's position order).
   const [ticketId, setTicketId] = useState<string | null>(
     () => tickets.find((tk) => !tk.sold_out)?.id ?? null,
   );
+  // Discount code — validated server-side via /public/validate-coupon.
+  const [couponOpen, setCouponOpen] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [applied, setApplied] = useState<{ code: string; price_cents: number } | null>(null);
   const selectedTicket = tickets.find((tk) => tk.id === ticketId) ?? null;
-  // The price the button and header show: the chosen ticket's when tickets
-  // exist, else the thread-level price.
-  const activePriceCents = tickets.length ? selectedTicket?.price_cents ?? null : priceCents;
+  // The price the button and header show: the applied code's result wins,
+  // else the chosen ticket's, else the thread-level price.
+  const basePriceCents = tickets.length ? selectedTicket?.price_cents ?? null : priceCents;
+  const activePriceCents = applied ? applied.price_cents : basePriceCents;
   const activeCurrency = tickets.length
     ? selectedTicket?.price_currency ?? 'EUR'
     : priceCurrency;
+
+  function pickTicket(id: string) {
+    setTicketId(id);
+    // A code can be scoped to one ticket — revalidate against the new choice.
+    setApplied(null);
+    setCouponError(null);
+  }
+
+  async function applyCoupon() {
+    const code = couponInput.trim();
+    if (!code) return;
+    setCouponError(null);
+    try {
+      const r = await publicFetch<
+        { valid: true; code: string; price_cents: number } | { valid: false; reason: string }
+      >('/api/v1/thread/public/validate-coupon', {
+        method: 'POST',
+        body: JSON.stringify({
+          organiser_slug: organiserSlug,
+          thread_slug: threadSlug,
+          code,
+          ...(ticketId ? { ticket_id: ticketId } : {}),
+        }),
+      });
+      if (r.valid) setApplied({ code: r.code, price_cents: r.price_cents });
+      else {
+        setApplied(null);
+        setCouponError(r.reason);
+      }
+    } catch {
+      setCouponError(t(locale, 'something_wrong'));
+    }
+  }
   // One idempotency key per page visit — double-submits collapse server-side.
   const requestId = useMemo(
     () => `enr_${Math.random().toString(36).slice(2)}${Date.now().toString(36)}`,
@@ -86,7 +127,7 @@ export function EnrolCard({
 
     setState('submitting');
     try {
-      const res = await publicFetch<{ already_enrolled?: boolean }>('/api/v1/thread/public/enrol', {
+      const res = await publicFetch<{ already_enrolled?: boolean; has_account?: boolean }>('/api/v1/thread/public/enrol', {
         method: 'POST',
         body: JSON.stringify({
           organiser_slug: organiserSlug,
@@ -94,6 +135,7 @@ export function EnrolCard({
           name,
           email,
           ...(ticketId ? { ticket_id: ticketId } : {}),
+          ...(applied ? { coupon_code: applied.code } : {}),
           answers,
           marketing_opt_in: fd.get('marketing_opt_in') === 'on',
           cohort_opt_in: fd.get('cohort_opt_in') === 'on',
@@ -102,6 +144,7 @@ export function EnrolCard({
           request_id: requestId,
         }),
       });
+      setHasAccount(res.has_account === true);
       setState(res.already_enrolled ? 'already' : 'done');
     } catch (err) {
       setState('idle');
@@ -121,14 +164,7 @@ export function EnrolCard({
         </span>
       </div>
 
-      {state === 'done' ? (
-        <div className="mt-4 flex items-start gap-2.5 text-sm text-ink-subtle">
-          <CheckCircle2 size={18} strokeWidth={1.75} className="text-emerald-600 shrink-0 mt-0.5" />
-          <p>
-{t(locale, 'enrolled_success')}
-          </p>
-        </div>
-      ) : state === 'already' ? (
+      {state === 'done' || state === 'already' ? (
         <div className="mt-4 space-y-3">
           <div className="flex items-start gap-2.5 text-sm text-ink-subtle">
             <CheckCircle2
@@ -136,17 +172,23 @@ export function EnrolCard({
               strokeWidth={1.75}
               className="text-emerald-600 shrink-0 mt-0.5"
             />
-            <p>{t(locale, 'already_enrolled')}</p>
+            <p>{t(locale, state === 'already' ? 'already_enrolled' : 'enrolled_success')}</p>
           </div>
-          {/* New tab: inside a website embed the portal must not open in the iframe. */}
+          {/* Existing Fibre account → sign in; none → create it (first
+              sign-in with this email creates it — no separate signup).
+              New tab: inside a website embed the portal must not open in
+              the iframe. */}
           <a
             href="/my"
             target="_blank"
             rel="noreferrer"
             className="block w-full h-9 leading-9 text-center rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90"
           >
-            {t(locale, 'open_personal_page')}
+            {t(locale, hasAccount ? 'sign_in_personal_page' : 'create_account')}
           </a>
+          <p className="text-[11px] text-ink-muted leading-relaxed">
+            {t(locale, 'account_note')}
+          </p>
         </div>
       ) : !enrolmentOpen ? (
         <p className="mt-4 text-sm text-ink-subtle">
@@ -175,7 +217,7 @@ export function EnrolCard({
                       className="mt-0.5"
                       disabled={tk.sold_out}
                       checked={ticketId === tk.id}
-                      onChange={() => setTicketId(tk.id)}
+                      onChange={() => pickTicket(tk.id)}
                     />
                     <span className="min-w-0 flex-1">
                       <span className="flex items-baseline justify-between gap-3">
@@ -198,6 +240,57 @@ export function EnrolCard({
                 ))}
               </div>
             </fieldset>
+          )}
+
+          {/* Discount code — only meaningful when something costs money. */}
+          {(basePriceCents ?? 0) > 0 && (
+            <div>
+              {!couponOpen && !applied ? (
+                <button
+                  type="button"
+                  onClick={() => setCouponOpen(true)}
+                  className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+                >
+                  {t(locale, 'discount_code')}?
+                </button>
+              ) : (
+                <div>
+                  <span className="text-xs text-ink-subtle">{t(locale, 'discount_code')}</span>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      value={couponInput}
+                      onChange={(e) => {
+                        setCouponInput(e.target.value.toUpperCase());
+                        setApplied(null);
+                        setCouponError(null);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          void applyCoupon();
+                        }
+                      }}
+                      className={`${INPUT} mt-0 font-mono uppercase`}
+                      autoComplete="off"
+                      spellCheck={false}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => void applyCoupon()}
+                      className="shrink-0 h-9 px-3 rounded-md border border-line text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken"
+                    >
+                      {t(locale, 'apply')}
+                    </button>
+                  </div>
+                  {applied && (
+                    <p className="mt-1.5 text-xs text-emerald-700">
+                      {t(locale, 'code_applied', { code: applied.code })}
+                    </p>
+                  )}
+                  {couponError && <p className="mt-1.5 text-xs text-red-700">{couponError}</p>}
+                </div>
+              )}
+            </div>
           )}
 
           <label className="block">

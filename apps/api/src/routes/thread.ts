@@ -2484,10 +2484,149 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
     })
     .filter(Boolean);
 
+  // The participant's own activity trail (type + subject — exactly what
+  // crosses the data wall, shown back to the person it's about).
+  const { data: activityRows } = await adminClient
+    .from('activity')
+    .select('type, subject, occurred_at, app:app_id (name)')
+    .in('person_id', persons.map((p) => p.id))
+    .order('occurred_at', { ascending: false })
+    .limit(20);
+  const activity = (activityRows ?? []).map((a) => {
+    const app = Array.isArray(a.app) ? a.app[0] : a.app;
+    return {
+      type: a.type,
+      subject: a.subject,
+      occurred_at: a.occurred_at,
+      app: app?.name ?? null,
+    };
+  });
+
   const first = persons[0]!;
   return c.json({
     person: { first_name: first.first_name, last_name: first.last_name, email },
     items,
+    activity,
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Public coupon validation — shared by the enrol form's "Apply" and the
+// enrol POST itself (never trust the client's price).
+// ---------------------------------------------------------------------------
+
+type CouponCheck = {
+  id: string;
+  code: string;
+  type: 'percentage' | 'amount' | 'free';
+  discount_percentage: number | null;
+  discount_amount_cents: number | null;
+  usage_limit: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_early_bird: boolean;
+  early_bird_deadline: string | null;
+  ticket_id: string | null;
+};
+
+function couponPrice(coupon: CouponCheck, baseCents: number): number {
+  if (coupon.type === 'free') return 0;
+  if (coupon.type === 'percentage') {
+    return Math.max(0, Math.round(baseCents * (1 - (coupon.discount_percentage ?? 0) / 100)));
+  }
+  return Math.max(0, baseCents - (coupon.discount_amount_cents ?? 0));
+}
+
+async function findValidCoupon(
+  threadId: string,
+  code: string,
+  ticketId: string | null,
+): Promise<{ coupon: CouponCheck } | { error: string }> {
+  // unique(thread_id, code); ilike without wildcards = case-insensitive match.
+  const { data: coupon } = await adminClient
+    .from('thread_coupon')
+    .select(
+      'id, code, type, discount_percentage, discount_amount_cents, usage_limit, used_count, expires_at, is_early_bird, early_bird_deadline, ticket_id',
+    )
+    .eq('thread_id', threadId)
+    .ilike('code', code.trim())
+    .eq('is_active', true)
+    .maybeSingle();
+  if (!coupon) return { error: 'this code is not valid' };
+  const nowMs = Date.now();
+  if (coupon.expires_at && new Date(coupon.expires_at).getTime() < nowMs) {
+    return { error: 'this code has expired' };
+  }
+  if (
+    coupon.is_early_bird &&
+    coupon.early_bird_deadline &&
+    new Date(coupon.early_bird_deadline).getTime() < nowMs
+  ) {
+    return { error: 'the early-bird period for this code is over' };
+  }
+  if (coupon.usage_limit && coupon.used_count >= coupon.usage_limit) {
+    return { error: 'this code has been fully used' };
+  }
+  if (coupon.ticket_id && coupon.ticket_id !== ticketId) {
+    return { error: 'this code applies to a different ticket' };
+  }
+  return { coupon: coupon as CouponCheck };
+}
+
+// POST /api/v1/thread/public/validate-coupon — live check for the enrol form.
+const ValidateCoupon = z.object({
+  organiser_slug: z.string().min(1),
+  thread_slug: z.string().min(1),
+  code: z.string().min(1).max(60),
+  ticket_id: z.string().uuid().optional(),
+});
+
+threadRoutes.post('/public/validate-coupon', async (c) => {
+  const body = ValidateCoupon.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+
+  const owner = await resolvePublicOwner(d.organiser_slug);
+  if (!owner) return c.json({ valid: false, reason: 'thread not found' });
+  let tq = adminClient
+    .from('thread_thread')
+    .select('id, price_cents, price_currency')
+    .eq('slug', d.thread_slug);
+  tq =
+    owner.kind === 'organiser'
+      ? tq.eq('organiser_id', owner.organiser.id).is('team_id', null)
+      : tq.eq('team_id', owner.team.id);
+  const { data: thread } = await tq.maybeSingle();
+  if (!thread) return c.json({ valid: false, reason: 'thread not found' });
+
+  // Base price: the chosen ticket's, else the thread's effective price.
+  let base = thread.price_cents ?? 0;
+  let currency = thread.price_currency ?? 'EUR';
+  if (d.ticket_id) {
+    const { data: ticket } = await adminClient
+      .from('thread_ticket')
+      .select('price_cents, price_currency')
+      .eq('id', d.ticket_id)
+      .eq('thread_id', thread.id)
+      .eq('is_active', true)
+      .maybeSingle();
+    if (!ticket) return c.json({ valid: false, reason: 'this ticket is not available' });
+    base = ticket.price_cents;
+    currency = ticket.price_currency;
+  } else {
+    const prices = await ticketPrices([thread.id]);
+    const eff = effectivePrice(thread, prices);
+    base = eff.price_cents ?? 0;
+    currency = eff.price_currency ?? currency;
+  }
+
+  const r = await findValidCoupon(thread.id, d.code, d.ticket_id ?? null);
+  if ('error' in r) return c.json({ valid: false, reason: r.error });
+  return c.json({
+    valid: true,
+    code: r.coupon.code,
+    price_cents: couponPrice(r.coupon, base),
+    price_currency: currency,
   });
 });
 
@@ -2499,6 +2638,7 @@ const PublicEnrol = z.object({
   email: z.string().email().max(320),
   answers: z.record(z.unknown()).optional(),
   ticket_id: z.string().uuid().optional(),
+  coupon_code: z.string().min(1).max(60).optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),
@@ -2571,6 +2711,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   const openTickets = (activeTickets ?? []).filter(
     (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
   );
+  let basePriceCents = 0;
   if (d.ticket_id) {
     const chosen = openTickets.find((t) => t.id === d.ticket_id);
     if (!chosen) return c.json({ error: 'this ticket is not available' }, 409);
@@ -2583,17 +2724,26 @@ threadRoutes.post('/public/enrol', async (c) => {
         return c.json({ error: 'this ticket is sold out' }, 409);
       }
     }
-    if (chosen.price_cents > 0) {
-      return c.json({ error: 'paid enrolment is not available yet' }, 409);
-    }
     ticketId = chosen.id;
+    basePriceCents = chosen.price_cents;
   } else if (openTickets.length) {
     const cheapest = [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]!;
-    if (cheapest.price_cents > 0) {
-      return c.json({ error: 'paid enrolment is not available yet' }, 409);
-    }
     ticketId = cheapest.id;
-  } else if (thread.price_cents && thread.price_cents > 0) {
+    basePriceCents = cheapest.price_cents;
+  } else {
+    basePriceCents = thread.price_cents ?? 0;
+  }
+
+  // Discount code — validated server-side, never trusting the form's price.
+  let coupon: CouponCheck | null = null;
+  if (d.coupon_code) {
+    const r = await findValidCoupon(thread.id, d.coupon_code, ticketId);
+    if ('error' in r) return c.json({ error: r.error }, 409);
+    coupon = r.coupon;
+  }
+  const finalPriceCents = coupon ? couponPrice(coupon, basePriceCents) : basePriceCents;
+  if (finalPriceCents > 0) {
+    // Paid checkout lands with the Stripe phase.
     return c.json({ error: 'paid enrolment is not available yet' }, 409);
   }
 
@@ -2610,6 +2760,11 @@ threadRoutes.post('/public/enrol', async (c) => {
 
   // Create-or-match the platform person (identity is platform-owned).
   const email = d.email.trim().toLowerCase();
+
+  // One Fibre account covers everything (Thread, Meet, …). Existing account
+  // → the form says "sign in"; none → "create your account" (created on
+  // first sign-in with this email — no separate signup step).
+  const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
   let { data: person } = await adminClient
     .from('person')
     .select('id, first_name')
@@ -2656,7 +2811,14 @@ threadRoutes.post('/public/enrol', async (c) => {
       .select('id')
       .eq('enrolment_id', platEnrolment.id)
       .maybeSingle();
-    if (dup) return c.json({ ok: true, enrolment_id: dup.id, already_enrolled: true });
+    if (dup) {
+      return c.json({
+        ok: true,
+        enrolment_id: dup.id,
+        already_enrolled: true,
+        has_account: hasAccount === true,
+      });
+    }
     enrolmentId = platEnrolment.id;
   } else {
     const { data: enr, error: eErr } = await adminClient
@@ -2684,6 +2846,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       enrolment_id: enrolmentId,
       person_id: person.id,
       ticket_id: ticketId,
+      coupon_id: coupon?.id ?? null,
+      amount_cents: coupon ? finalPriceCents : null,
       payment_status: 'not_required',
       answers: d.answers ?? null,
       request_id: d.request_id,
@@ -2695,6 +2859,14 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (teErr || !threadEnrolment) {
     console.error('[thread/public/enrol] thread_enrolment insert failed', teErr);
     return c.json({ error: 'could not enrol you — try again' }, 500);
+  }
+
+  // Coupon redemption bookkeeping — after the enrolment is committed.
+  if (coupon) {
+    await adminClient
+      .from('thread_coupon')
+      .update({ used_count: coupon.used_count + 1 })
+      .eq('id', coupon.id);
   }
 
   // Consent records (brief §9): transactional is contract-based; marketing
@@ -2776,7 +2948,10 @@ threadRoutes.post('/public/enrol', async (c) => {
     console.warn('[thread/public/enrol] on_enrolment messages failed', e);
   }
 
-  return c.json({ ok: true, enrolment_id: threadEnrolment.id }, 201);
+  return c.json(
+    { ok: true, enrolment_id: threadEnrolment.id, has_account: hasAccount === true },
+    201,
+  );
 });
 
 // ---------------------------------------------------------------------------

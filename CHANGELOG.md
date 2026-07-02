@@ -6,6 +6,32 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.83] — 2026-07-02 — Thread 3.18.0: account-aware enrolment, discount codes public, activity on /my
+
+### Added
+- **Register / sign in after enrolling** — the enrol endpoint checks whether
+  the email already has a Fibre account (`auth_user_exists`, service-role
+  only, migration `20260702250000`). The success and already-enrolled states
+  now end with "Sign in to your personal page" (account exists) or "Create
+  your account" (none — created on first sign-in, no separate signup), plus
+  the note that one Fibre account covers threads, bookings and certificates
+  across all apps. i18n ×5.
+- **Discount codes on the public enrol form** — a "Discount code?" reveal
+  under the ticket chooser, validated live via
+  `POST /public/validate-coupon` (active, not expired, early-bird window,
+  usage limit, ticket scope — all server-side). An applied code updates the
+  shown price and button; a code that brings the price to €0 (e.g. type
+  "free") enrols immediately — `coupon_id` + final `amount_cents` land on
+  the enrolment and `used_count` increments. Paid remainders still wait for
+  the Stripe phase. Switching tickets clears the applied code (scope).
+- **Recent activity on /my** — the personal page shows the participant's own
+  activity trail (subject, app, date; type + subject only — the same data
+  that crosses the wall, shown to the person it's about).
+- **Styling (CSS) instructions in the interface** — Settings → Website
+  embeds now documents how to style embeds: container CSS (iframes — your
+  site styles the frame), the `.thread-embed-wrap` snippet, and the
+  "build natively, embed only the enrol card / popup trigger" pattern.
+
 ## [0.13.82] — 2026-07-02 — Thread 3.17.1: honest "already enrolled" state
 
 ### Fixed

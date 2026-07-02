@@ -52,6 +52,31 @@ export default async function EmbedsSettingsPage() {
             </pre>
           </section>
         ))}
+        <section>
+          <SectionLabel>Styling (CSS)</SectionLabel>
+          <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
+            Embeds render inside iframes — your site&apos;s CSS styles the <em>frame</em>, the
+            inside stays Fibre (always light, on the cream canvas). Wrap the embed div in a
+            container with a class and style that. In Webflow: put the snippet in an Embed
+            element inside a styled Div Block, or add this to the page&apos;s custom code:
+          </p>
+          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
+{`.thread-embed-wrap {
+  max-width: 720px;
+  margin: 0 auto;
+  border-radius: 16px;
+  overflow: hidden;            /* clips the iframe to the radius */
+  box-shadow: 0 8px 30px rgba(0,0,0,.08);
+}`}
+          </pre>
+          <p className="mt-2 text-xs text-ink-subtle leading-relaxed">
+            For full design freedom, build the page natively in Webflow and embed only the
+            transactional piece: <code className="font-mono">data-elements=&quot;enrol&quot;</code>{' '}
+            renders just the enrol card, and the popup variant (snippet 4) turns any
+            Webflow-styled button into the trigger — our UI only appears as the overlay.
+          </p>
+        </section>
+
         <p className="text-xs text-ink-muted">
           Team threads live under the team&apos;s slug — use it as data-organiser. Enrolments made
           through embeds flow into Fibre exactly like the public page (consents, contacts,

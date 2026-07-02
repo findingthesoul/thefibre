@@ -24,9 +24,17 @@ type PortalItem = {
   enrolled_at: string;
 };
 
+type PortalActivity = {
+  type: string;
+  subject: string;
+  occurred_at: string;
+  app: string | null;
+};
+
 type PortalPayload = {
   person: { first_name: string | null; last_name: string | null; email: string | null };
   items: PortalItem[];
+  activity?: PortalActivity[];
 };
 
 const STATUS_STYLES: Record<string, string> = {
@@ -146,6 +154,29 @@ export default async function MyPage() {
           );
         })}
       </ul>
+
+      {(data.activity?.length ?? 0) > 0 && (
+        <section className="mt-12">
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">
+            {t(lang, 'recent_activity')}
+          </h2>
+          <ul className="mt-3 divide-y divide-line border border-line rounded-lg bg-surface-raised">
+            {data.activity!.map((a, i) => (
+              <li key={i} className="flex items-baseline gap-3 px-4 py-2.5">
+                <span className="text-sm flex-1 min-w-0 truncate">{a.subject}</span>
+                {a.app && <span className="text-xs text-ink-muted shrink-0">{a.app}</span>}
+                <span className="text-xs text-ink-muted shrink-0 tabular-nums">
+                  {new Intl.DateTimeFormat(lang === 'en' ? 'en-GB' : lang, {
+                    day: 'numeric',
+                    month: 'short',
+                    year: 'numeric',
+                  }).format(new Date(a.occurred_at))}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       <footer className="mt-16 text-xs text-ink-muted">
         {t(lang, 'powered_by')} <span className="font-medium">The Thread</span> · The Fibre
