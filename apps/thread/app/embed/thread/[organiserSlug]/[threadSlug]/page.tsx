@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
-import type { RegistrationField } from '@/lib/thread-types';
+import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 
 type AgendaItem = {
@@ -40,6 +40,7 @@ type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
+    tickets?: PublicTicket[];
   };
 };
 
@@ -218,6 +219,7 @@ export default async function EmbedThreadPage({
             organiserName={organiserName}
             threadSlug={thread.slug}
             priceCents={thread.price_cents}
+            tickets={thread.tickets ?? []}
             priceCurrency={thread.price_currency}
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}

@@ -66,6 +66,16 @@ export type WorkspaceMember = {
 
 export type TeamOption = { id: string; name: string; slug: string };
 
+/** Ticket as exposed on the public thread payload (enrol chooser). */
+export type PublicTicket = {
+  id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  price_currency: string;
+  sold_out: boolean;
+};
+
 export type RegistrationField = {
   key: string;
   label: string;

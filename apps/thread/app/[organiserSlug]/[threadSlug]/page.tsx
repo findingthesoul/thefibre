@@ -2,7 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
-import type { RegistrationField } from '@/lib/thread-types';
+import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from './enrol-form';
 import { t, type Locale } from '@/lib/i18n';
 
@@ -40,6 +40,7 @@ type PublicThreadDetail = {
     enrolment_open: boolean;
     participants?: string[];
     share_participants_public?: boolean;
+    tickets?: PublicTicket[];
   };
 };
 
@@ -215,6 +216,7 @@ export default async function PublicThreadPage({
             threadSlug={thread.slug}
             priceCents={thread.price_cents}
             priceCurrency={thread.price_currency}
+            tickets={thread.tickets ?? []}
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
             locale={lang}

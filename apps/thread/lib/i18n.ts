@@ -273,6 +273,21 @@ const CATALOG = {
     de: 'Meinen Namen anderen Teilnehmenden zeigen.',
   },
 
+  ticket: {
+    en: 'Ticket',
+    nl: 'Ticket',
+    es: 'Entrada',
+    pt: 'Ingresso',
+    de: 'Ticket',
+  },
+  sold_out: {
+    en: 'Sold out',
+    nl: 'Uitverkocht',
+    es: 'Agotado',
+    pt: 'Esgotado',
+    de: 'Ausverkauft',
+  },
+
   // ── embeds ───────────────────────────────────────────────────────────
   view_and_enrol: {
     en: 'View & enrol',

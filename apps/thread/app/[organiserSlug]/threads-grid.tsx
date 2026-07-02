@@ -8,7 +8,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarRange, Route, X } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
-import type { RegistrationField } from '@/lib/thread-types';
+import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from './[threadSlug]/enrol-form';
 
@@ -41,6 +41,7 @@ type PopupDetail = {
       | { title: string; starts_on: string | null; ends_on: string | null }[]
       | null;
     enrolment_open: boolean;
+    tickets?: PublicTicket[];
   };
 };
 
@@ -200,6 +201,7 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
             threadSlug={th.slug}
             priceCents={th.price_cents}
             priceCurrency={th.price_currency}
+            tickets={th.tickets ?? []}
             registrationFields={th.registration_fields ?? []}
             enrolmentOpen={th.enrolment_open}
             locale={lang}

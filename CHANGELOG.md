@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.81] — 2026-07-02 — Thread 3.17.0: ticket chooser on the public enrol form
+
+### Added
+- **Ticket selection at enrolment** — with multiple prices the enrol card
+  shows a radio-card list (name, description, price, sold-out state; never a
+  dropdown — the Fibre chooser pattern). The selection drives the header
+  price and the button label ("Enrol — €250"). Works on the public thread
+  page, the Luma popup and the website embeds — all three read the same
+  detail payload, which now carries `tickets` (active, non-expired, with
+  sold-out flags from `quantity_limit`).
+- **Enrol accepts `ticket_id`** — validated against the thread (active, open,
+  not sold out) and stored on the enrolment. Without one (older embeds) the
+  cheapest open ticket is assumed. Free tickets enrol directly; paid tickets
+  still return "paid enrolment is not available yet" until the Stripe phase,
+  which now has the chosen ticket to charge for.
+
 ## [0.13.80] — 2026-07-02 — Thread 3.16.2: one bottom bar in thread settings
 
 ### Changed

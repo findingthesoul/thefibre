@@ -2312,11 +2312,44 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
 
   const prices = await ticketPrices([thread.id]);
 
+  // Ticket list for the enrol form — active, non-expired, with sold-out
+  // flags so the form can grey them out (multiple prices → ticket chooser).
+  const { data: ticketRows } = await adminClient
+    .from('thread_ticket')
+    .select('id, name, description, price_cents, price_currency, quantity_limit, available_until')
+    .eq('thread_id', thread.id)
+    .eq('is_active', true)
+    .order('position');
+  const nowMs = Date.now();
+  const openTix = (ticketRows ?? []).filter(
+    (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
+  );
+  const soldPerTicket = new Map<string, number>();
+  if (openTix.some((t) => t.quantity_limit)) {
+    const { data: enrTix } = await adminClient
+      .from('thread_enrolment')
+      .select('ticket_id')
+      .eq('thread_id', thread.id)
+      .not('ticket_id', 'is', null);
+    for (const e of enrTix ?? []) {
+      if (e.ticket_id) soldPerTicket.set(e.ticket_id, (soldPerTicket.get(e.ticket_id) ?? 0) + 1);
+    }
+  }
+  const tickets = openTix.map((t) => ({
+    id: t.id,
+    name: t.name,
+    description: t.description,
+    price_cents: t.price_cents,
+    price_currency: t.price_currency,
+    sold_out: !!t.quantity_limit && (soldPerTicket.get(t.id) ?? 0) >= t.quantity_limit,
+  }));
+
   return c.json({
     organiser,
     thread: {
       ...thread,
       ...effectivePrice(thread, prices),
+      tickets,
       agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
         ...rest,
         is_online: !!meeting_url,
@@ -2465,6 +2498,7 @@ const PublicEnrol = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
   answers: z.record(z.unknown()).optional(),
+  ticket_id: z.string().uuid().optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),
@@ -2523,12 +2557,43 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (!program || program.status !== 'active') {
     return c.json({ error: 'enrolment is closed for this thread' }, 409);
   }
-  // Effective price includes tickets: a thread with only paid tickets is
-  // paid even when the legacy price_cents is empty. A free ticket keeps
-  // the free path open. Paid enrolments arrive with the Stripe phase.
-  const enrolPrices = await ticketPrices([thread.id]);
-  const eff = effectivePrice(thread, enrolPrices);
-  if (eff.price_cents && eff.price_cents > 0) {
+  // Resolve the ticket. Explicit ticket_id wins; without one (older embeds)
+  // fall back to the cheapest open ticket. Paid enrolment lands with the
+  // Stripe phase — only free tickets pass for now.
+  let ticketId: string | null = null;
+  const { data: activeTickets } = await adminClient
+    .from('thread_ticket')
+    .select('id, price_cents, quantity_limit, available_until')
+    .eq('thread_id', thread.id)
+    .eq('is_active', true)
+    .order('position');
+  const nowMs = Date.now();
+  const openTickets = (activeTickets ?? []).filter(
+    (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
+  );
+  if (d.ticket_id) {
+    const chosen = openTickets.find((t) => t.id === d.ticket_id);
+    if (!chosen) return c.json({ error: 'this ticket is not available' }, 409);
+    if (chosen.quantity_limit) {
+      const { count: soldCount } = await adminClient
+        .from('thread_enrolment')
+        .select('id', { count: 'exact', head: true })
+        .eq('ticket_id', chosen.id);
+      if ((soldCount ?? 0) >= chosen.quantity_limit) {
+        return c.json({ error: 'this ticket is sold out' }, 409);
+      }
+    }
+    if (chosen.price_cents > 0) {
+      return c.json({ error: 'paid enrolment is not available yet' }, 409);
+    }
+    ticketId = chosen.id;
+  } else if (openTickets.length) {
+    const cheapest = [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]!;
+    if (cheapest.price_cents > 0) {
+      return c.json({ error: 'paid enrolment is not available yet' }, 409);
+    }
+    ticketId = cheapest.id;
+  } else if (thread.price_cents && thread.price_cents > 0) {
     return c.json({ error: 'paid enrolment is not available yet' }, 409);
   }
 
@@ -2618,6 +2683,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       thread_id: thread.id,
       enrolment_id: enrolmentId,
       person_id: person.id,
+      ticket_id: ticketId,
       payment_status: 'not_required',
       answers: d.answers ?? null,
       request_id: d.request_id,
