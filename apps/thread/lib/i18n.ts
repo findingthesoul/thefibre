@@ -205,6 +205,59 @@ const CATALOG = {
     de: 'Wir mailen dir zu diesem Thread (das ist zur Teilnahme nötig). Sonst nichts ohne dein Einverständnis.',
   },
 
+  // ── policies ─────────────────────────────────────────────────────────
+  policy_privacy: {
+    en: 'privacy policy',
+    nl: 'privacybeleid',
+    es: 'política de privacidad',
+    pt: 'política de privacidade',
+    de: 'Datenschutzerklärung',
+  },
+  policy_agree: {
+    en: 'I agree to the {policy}.',
+    nl: 'Ik ga akkoord met het {policy}.',
+    es: 'Acepto la {policy}.',
+    pt: 'Concordo com a {policy}.',
+    de: 'Ich stimme der {policy} zu.',
+  },
+  policy_required: {
+    en: 'Please agree to the {policy} to enrol.',
+    nl: 'Ga akkoord met het {policy} om in te schrijven.',
+    es: 'Acepta la {policy} para inscribirte.',
+    pt: 'Aceite a {policy} para se inscrever.',
+    de: 'Bitte stimme der {policy} zu, um dich anzumelden.',
+  },
+
+  // ── participant portal ───────────────────────────────────────────────
+  portal_title: {
+    en: 'Your threads',
+    nl: 'Jouw threads',
+    es: 'Tus threads',
+    pt: 'Seus threads',
+    de: 'Deine Threads',
+  },
+  portal_hello: {
+    en: 'Hi {name} — everything you are enrolled in, in one place.',
+    nl: 'Hoi {name} — alles waarvoor je bent ingeschreven, op één plek.',
+    es: 'Hola {name} — todo en lo que estás inscrito, en un solo lugar.',
+    pt: 'Olá {name} — tudo em que você está inscrito, num só lugar.',
+    de: 'Hallo {name} — alles, wofür du angemeldet bist, an einem Ort.',
+  },
+  portal_none: {
+    en: 'No enrolments yet.',
+    nl: 'Nog geen inschrijvingen.',
+    es: 'Aún no hay inscripciones.',
+    pt: 'Ainda não há inscrições.',
+    de: 'Noch keine Anmeldungen.',
+  },
+  portal_expired: {
+    en: 'This link has expired — enrol again or use a newer email.',
+    nl: 'Deze link is verlopen — schrijf je opnieuw in of gebruik een nieuwere e-mail.',
+    es: 'Este enlace ha caducado — inscríbete de nuevo o usa un correo más reciente.',
+    pt: 'Este link expirou — inscreva-se novamente ou use um e-mail mais recente.',
+    de: 'Dieser Link ist abgelaufen — melde dich erneut an oder nutze eine neuere E-Mail.',
+  },
+
   // ── embeds ───────────────────────────────────────────────────────────
   view_and_enrol: {
     en: 'View & enrol',

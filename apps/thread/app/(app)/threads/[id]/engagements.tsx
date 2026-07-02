@@ -238,10 +238,12 @@ export function EngagementDialog({
       }
     >
       <form id="engagement-form" onSubmit={onSubmit}>
-        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-x-8 gap-y-6">
+        <div className="mb-6">
+          <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-x-8 gap-y-6">
           {/* ── Left: what it is ─────────────────────────────────────── */}
           <div className="space-y-5">
-            <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
             <RichTextField
               label="Description"
               name="description"
@@ -254,7 +256,7 @@ export function EngagementDialog({
 
           {/* ── Right: when + where ──────────────────────────────────── */}
           <div className="space-y-5">
-            <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-4">
               <SelectField
                 label="Type"
                 name="type_display"

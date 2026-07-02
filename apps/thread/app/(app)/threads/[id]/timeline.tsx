@@ -111,7 +111,6 @@ export function ThreadTimeline({
   members,
   workspaceMembers,
   teams,
-  organisations,
   certTemplates,
   personalRoomUrl,
 }: {
@@ -120,7 +119,6 @@ export function ThreadTimeline({
   members: ThreadMember[];
   workspaceMembers: WorkspaceMember[];
   teams: TeamOption[];
-  organisations: { id: string; name: string }[];
   certTemplates: { id: string; name: string }[];
   personalRoomUrl: string | null;
 }) {
@@ -128,7 +126,6 @@ export function ThreadTimeline({
   const program = one(thread.program);
   const organiser = one(thread.organiser);
   const team = one(thread.team);
-  const org = one(thread.organisation);
   const [, startTransition] = useTransition();
 
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -272,23 +269,16 @@ export function ThreadTimeline({
         </a>
       </div>
 
-      {(thread.intention || team || org) && (
+      {(thread.intention || team) && (
         <div className="mt-2 ml-12 max-w-xl">
           {thread.intention && (
             <p className="text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
           )}
-          {(team || org) && (
+          {team && (
             <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-muted">
-              {team && (
-                <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
-                  Team · {team.name}
-                </span>
-              )}
-              {org && (
-                <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
-                  {org.name}
-                </span>
-              )}
+              <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
+                Team · {team.name}
+              </span>
             </div>
           )}
         </div>
@@ -438,12 +428,7 @@ export function ThreadTimeline({
           description="Basics, dates and the public registration form."
           size="xl"
         >
-          <SettingsTabs
-            thread={thread}
-            teams={teams}
-            organisations={organisations}
-            certTemplates={certTemplates}
-          />
+          <SettingsTabs thread={thread} teams={teams} certTemplates={certTemplates} />
         </Dialog>
       )}
 
@@ -588,12 +573,10 @@ function EngagementCard({
 function SettingsTabs({
   thread,
   teams,
-  organisations,
   certTemplates,
 }: {
   thread: ThreadRow;
   teams: TeamOption[];
-  organisations: { id: string; name: string }[];
   certTemplates: { id: string; name: string }[];
 }) {
   const [tab, setTab] = useState<'basics' | 'pricing' | 'registration' | 'certificate'>('basics');
@@ -626,7 +609,7 @@ function SettingsTabs({
         </ul>
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
-        <ThreadEditorForm thread={thread} compact teams={teams} organisations={organisations} />
+        <ThreadEditorForm thread={thread} compact teams={teams} />
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
         <PricingPanel thread={thread} />

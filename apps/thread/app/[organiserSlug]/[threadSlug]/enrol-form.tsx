@@ -5,6 +5,7 @@ import { CheckCircle2 } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { RegistrationField } from '@/lib/thread-types';
 import { t, DEFAULT_LOCALE, type Locale } from '@/lib/i18n';
+import { POLICIES, policiesVersion } from '@/lib/policies';
 
 function fmtPrice(cents: number | null, currency: string | null): string {
   if (!cents) return '';
@@ -51,6 +52,9 @@ export function EnrolCard({
     const name = String(fd.get('name') ?? '').trim();
     const email = String(fd.get('email') ?? '').trim();
     if (!name || !email) return setError(t(locale, 'name_email_required'));
+    if (fd.get('policy_accepted') !== 'on') {
+      return setError(t(locale, 'policy_required', { policy: t(locale, 'policy_privacy') }));
+    }
 
     const answers: Record<string, unknown> = {};
     for (const f of registrationFields) {
@@ -72,6 +76,8 @@ export function EnrolCard({
           email,
           answers,
           marketing_opt_in: fd.get('marketing_opt_in') === 'on',
+          policy_accepted: true,
+          policy_version: policiesVersion(),
           request_id: requestId,
         }),
       });
@@ -119,6 +125,32 @@ export function EnrolCard({
           {registrationFields.map((f) => (
             <RegistrationFieldInput key={f.key} field={f} />
           ))}
+
+          {POLICIES.filter((pol) => pol.required).map((pol) => {
+            // Split the sentence around the {policy} placeholder so the
+            // policy name renders as a link in every language.
+            const [before = '', after = ''] = t(locale, 'policy_agree', {
+              policy: '|||',
+            }).split('|||');
+            return (
+              <label key={pol.key} className="flex items-start gap-2 pt-1">
+                <input type="checkbox" name="policy_accepted" required className="mt-0.5" />
+                <span className="text-xs text-ink-subtle leading-relaxed">
+                  {before}
+                  <a
+                    href={pol.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="underline underline-offset-2 hover:text-ink"
+                  >
+                    {t(locale, pol.labelKey)}
+                  </a>
+                  {after}
+                  <span className="text-red-600"> *</span>
+                </span>
+              </label>
+            );
+          })}
 
           <label className="flex items-start gap-2 pt-1">
             <input type="checkbox" name="marketing_opt_in" className="mt-0.5" />

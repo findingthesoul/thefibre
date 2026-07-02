@@ -6,7 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.71] — 2026-07-02 — Thread 3.10.0: uploads, embeds, languages, payout selector
+## [0.13.72] — 2026-07-02 — Thread 3.11.0: tickets & codes, policy consent, the personal page
+
+(Migrations `20260702170000_thread_tickets.sql` +
+`20260702180000_thread_policy_consent.sql`, applied.)
+
+- **Pricing, v3 model**: the Pricing tab is now a **list of tickets**
+  (name, price or Free, quantity limit, availability window, active) and
+  a **list of discount codes** (mono code, percentage/amount/free,
+  usage n/limit, early-bird deadline, expiry) — each row opens a popup
+  editor with Delete in the footer. Payout selector stays. Checkout +
+  redemption arrive with the payments phase.
+- **Privacy-policy consent at enrolment**: required (never pre-ticked)
+  checkbox linking the policy, in all five languages; the accepted
+  **versioned policy list** lives in `apps/thread/lib/policies.ts` and
+  the accepted version + timestamp are stored on the enrolment.
+- **The personal page** — email-based visitor identity: the
+  confirmation email's button now opens `/p/{signed-token}` — the
+  participant's own page listing everything they're enrolled in across
+  threads, localized, no account or password (the emailed link is the
+  credential; HMAC-signed, 180-day, refreshed by every new email).
+  Groundwork for the Fibre-wide visitor identity.
+- **Engagement dialog polish**: title spans the full width, Type/Status
+  stacked, right column narrower.
+- **Per-thread organisation dropped** (Sjoerd: an organiser practically
+  never organises for another org — teams cover intra-org, another
+  workspace covers the rest). UI + plumbing removed; the column stays
+  dormant.
 
 Four asks in one release (migrations
 `20260702150000_thread_payment_destination.sql` +

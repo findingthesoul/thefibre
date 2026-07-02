@@ -18,12 +18,10 @@ export function ThreadEditorForm({
   thread,
   compact = false,
   teams = [],
-  organisations = [],
 }: {
   thread: ThreadRow;
   compact?: boolean;
   teams?: { id: string; name: string }[];
-  organisations?: { id: string; name: string }[];
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -49,7 +47,6 @@ export function ThreadEditorForm({
       timezone: String(fd.get('timezone') ?? '').trim() || 'Europe/Amsterdam',
       is_public_listed: fd.get('is_public_listed') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
-      organisation_id: String(fd.get('organisation_id') ?? '') || null,
       language: String(fd.get('language') ?? 'en'),
     };
     if (!patch.title) return setError('The thread needs a name.');
@@ -112,8 +109,7 @@ export function ThreadEditorForm({
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <SelectField
+          <SelectField
               label="Team"
               name="team_id"
               defaultValue={thread.team_id ?? ''}
@@ -123,17 +119,6 @@ export function ThreadEditorForm({
               ]}
               hint="Team members share this thread."
             />
-            <SelectField
-              label="Organisation"
-              name="organisation_id"
-              defaultValue={thread.organisation_id ?? ''}
-              options={[
-                { value: '', label: 'None' },
-                ...organisations.map((o) => ({ value: o.id, label: o.name })),
-              ]}
-              hint="Shown as the thread's public face."
-            />
-          </div>
 
           <label className="flex items-start gap-2.5">
             <input

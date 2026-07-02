@@ -14,8 +14,6 @@ type ThreadDetail = ThreadRow & {
   co_organisers: ThreadMember[];
 };
 
-type OrgOption = { id: string; name: string };
-
 export default async function ThreadDetailPage({
   params,
 }: {
@@ -31,14 +29,11 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const [members, teams, orgs, certTemplates, me] = await Promise.all([
+  const [members, teams, certTemplates, me] = await Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
     apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({ items: [] })),
-    apiFetch<{ items: OrgOption[] }>('/api/v1/organisations?limit=100').catch(() => ({
-      items: [],
-    })),
     apiFetch<{ items: { id: string; name: string }[] }>(
       '/api/v1/thread/certificate-templates',
     ).catch(() => ({ items: [] })),
@@ -57,7 +52,6 @@ export default async function ThreadDetailPage({
         members={thread.co_organisers}
         workspaceMembers={members.items}
         teams={teams.items}
-        organisations={orgs.items}
         certTemplates={certTemplates.items}
         personalRoomUrl={me.personal_room_url}
       />

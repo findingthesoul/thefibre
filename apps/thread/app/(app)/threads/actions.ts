@@ -135,6 +135,151 @@ export async function removeThreadMember(
   }
 }
 
+// ---------------------------------------------------------------------------
+// Tickets (pricing tab — list of ticket prices, v3 model)
+// ---------------------------------------------------------------------------
+
+export type TicketRow = {
+  id: string;
+  name: string;
+  description: string | null;
+  price_cents: number;
+  price_currency: string;
+  quantity_limit: number | null;
+  available_until: string | null;
+  is_active: boolean;
+  position: number;
+};
+
+export type CouponRow = {
+  id: string;
+  code: string;
+  name: string | null;
+  type: 'percentage' | 'amount' | 'free';
+  discount_percentage: number | null;
+  discount_amount_cents: number | null;
+  usage_limit: number | null;
+  used_count: number;
+  expires_at: string | null;
+  is_early_bird: boolean;
+  early_bird_deadline: string | null;
+  is_active: boolean;
+};
+
+export type ListResult<T> = { ok: true; items: T[] } | { ok: false; error: string };
+
+export async function listTickets(threadId: string): Promise<ListResult<TicketRow>> {
+  try {
+    const res = await apiFetch<{ items: TicketRow[] }>(
+      `/api/v1/thread/threads/${threadId}/tickets`,
+    );
+    return { ok: true, items: res.items ?? [] };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function createTicket(
+  threadId: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    const created = await apiFetch<{ id: string }>(`/api/v1/thread/threads/${threadId}/tickets`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: created.id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function updateTicket(
+  threadId: string,
+  ticketId: string,
+  patch: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/tickets/${ticketId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: ticketId };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function deleteTicket(threadId: string, ticketId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/tickets/${ticketId}`, { method: 'DELETE' });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Coupons (discount codes — code is uppercased server-side; 409 = duplicate)
+// ---------------------------------------------------------------------------
+
+export async function listCoupons(threadId: string): Promise<ListResult<CouponRow>> {
+  try {
+    const res = await apiFetch<{ items: CouponRow[] }>(
+      `/api/v1/thread/threads/${threadId}/coupons`,
+    );
+    return { ok: true, items: res.items ?? [] };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function createCoupon(
+  threadId: string,
+  input: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    const created = await apiFetch<{ id: string }>(`/api/v1/thread/threads/${threadId}/coupons`, {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: created.id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function updateCoupon(
+  threadId: string,
+  couponId: string,
+  patch: Record<string, unknown>,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/coupons/${couponId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true, id: couponId };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function deleteCoupon(threadId: string, couponId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/coupons/${couponId}`, { method: 'DELETE' });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 /** Swap positions with the neighbour above/below. Two PATCHes; fine at this scale. */
 export async function moveEngagement(
   threadId: string,

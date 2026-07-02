@@ -10,6 +10,47 @@ function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
 }
 
+// ---------------------------------------------------------------------------
+// Participant portal tokens — email-based visitor identity across Fibre
+// (Sjoerd 2026-07-02). Signed link, no password: the email IS the login.
+// HMAC over person_id + expiry; the secret is SSO_INTERNAL_SECRET (already
+// provisioned on Fly). 180-day lifetime — every new thread email refreshes it.
+// ---------------------------------------------------------------------------
+
+import { createHmac } from 'node:crypto';
+
+function portalSecret(): string {
+  return process.env.SSO_INTERNAL_SECRET ?? 'dev-secret';
+}
+
+function b64url(s: string): string {
+  return Buffer.from(s).toString('base64url');
+}
+
+export function signPortalToken(personId: string, days = 180): string {
+  const exp = Date.now() + days * 86_400_000;
+  const payload = `${personId}.${exp}`;
+  const sig = createHmac('sha256', portalSecret()).update(payload).digest('base64url');
+  return `${b64url(payload)}.${sig}`;
+}
+
+function verifyPortalToken(token: string): { personId: string } | { error: 'invalid' | 'expired' } {
+  const dot = token.lastIndexOf('.');
+  if (dot < 0) return { error: 'invalid' };
+  const payload = Buffer.from(token.slice(0, dot), 'base64url').toString();
+  const sig = token.slice(dot + 1);
+  const expected = createHmac('sha256', portalSecret()).update(payload).digest('base64url');
+  if (sig !== expected) return { error: 'invalid' };
+  const [personId, expStr] = payload.split('.');
+  if (!personId || !expStr) return { error: 'invalid' };
+  if (Number(expStr) < Date.now()) return { error: 'expired' };
+  return { personId };
+}
+
+function portalUrl(personId: string): string {
+  return `${threadAppUrl()}/p/${signPortalToken(personId)}`;
+}
+
 // ===========================================================================
 // The Thread — rebuild of thethread-v3, Fibre-native.
 //
@@ -1010,6 +1051,154 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Tickets + coupons (v3-style pricing lists; editors open in popups)
+// ---------------------------------------------------------------------------
+
+const TicketBody = z.object({
+  name: z.string().min(1).max(200),
+  description: z.string().max(1000).nullable().optional(),
+  price_cents: z.number().int().min(0),
+  price_currency: z.string().length(3).default('EUR'),
+  quantity_limit: z.number().int().positive().nullable().optional(),
+  available_until: z.string().datetime({ offset: true }).nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+threadRoutes.get('/threads/:id/tickets', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_ticket')
+    .select('*')
+    .eq('thread_id', c.req.param('id'))
+    .order('position', { ascending: true });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+threadRoutes.post('/threads/:id/tickets', async (c) => {
+  const body = TicketBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.param('id');
+  const { data: last } = await db
+    .from('thread_ticket')
+    .select('position')
+    .eq('thread_id', threadId)
+    .order('position', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const { data, error } = await db
+    .from('thread_ticket')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: threadId,
+      ...body.data,
+      position: (last?.position ?? -1) + 1,
+    })
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data, 201);
+});
+
+threadRoutes.patch('/tickets/:id', async (c) => {
+  const body = TicketBody.partial().safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_ticket')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+threadRoutes.delete('/tickets/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('thread_ticket').delete().eq('id', c.req.param('id'));
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});
+
+const CouponBody = z.object({
+  code: z.string().min(2).max(60),
+  name: z.string().max(200).nullable().optional(),
+  type: z.enum(['percentage', 'amount', 'free']),
+  discount_percentage: z.number().min(0).max(100).nullable().optional(),
+  discount_amount_cents: z.number().int().min(0).nullable().optional(),
+  usage_limit: z.number().int().positive().nullable().optional(),
+  expires_at: z.string().datetime({ offset: true }).nullable().optional(),
+  is_early_bird: z.boolean().optional(),
+  early_bird_deadline: z.string().datetime({ offset: true }).nullable().optional(),
+  is_active: z.boolean().optional(),
+});
+
+threadRoutes.get('/threads/:id/coupons', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_coupon')
+    .select('*')
+    .eq('thread_id', c.req.param('id'))
+    .order('created_at', { ascending: true });
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+threadRoutes.post('/threads/:id/coupons', async (c) => {
+  const body = CouponBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_coupon')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: c.req.param('id'),
+      ...body.data,
+      code: body.data.code.trim().toUpperCase(),
+    })
+    .select('*')
+    .single();
+  if (error) {
+    const s = error.code === '23505' ? 409 : 500;
+    return c.json({ error: error.code === '23505' ? 'code already exists' : error.message }, s);
+  }
+  return c.json(data, 201);
+});
+
+threadRoutes.patch('/coupons/:id', async (c) => {
+  const body = CouponBody.partial().safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const patch = { ...body.data };
+  if (patch.code) patch.code = patch.code.trim().toUpperCase();
+  const { data, error } = await db
+    .from('thread_coupon')
+    .update(patch)
+    .eq('id', c.req.param('id'))
+    .select('*')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
+threadRoutes.delete('/coupons/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('thread_coupon').delete().eq('id', c.req.param('id'));
+  if (error) return c.json({ error: error.message }, 500);
+  return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
 // Asset upload — images for certificate backgrounds/elements (and covers).
 // Multipart form: field "file". Stored in the public thread-assets bucket.
 // ---------------------------------------------------------------------------
@@ -1442,6 +1631,67 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   return c.json({ items });
 });
 
+// GET /api/v1/thread/public/portal/:token — the participant's personal page
+// payload. Email-based visitor identity: the signed link in their inbox is
+// the credential.
+threadRoutes.get('/public/portal/:token', async (c) => {
+  const v = verifyPortalToken(c.req.param('token'));
+  if ('error' in v) return c.json({ error: v.error }, v.error === 'expired' ? 410 : 404);
+
+  const { data: person } = await adminClient
+    .from('person')
+    .select('id, first_name, last_name, email')
+    .eq('id', v.personId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!person) return c.json({ error: 'invalid' }, 404);
+
+  const { data: enrolments } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `id, created_at,
+       enrolment:enrolment_id (status, progress_pct),
+       thread:thread_id (id, slug, intention, language, cover_url,
+         organiser:organiser_id (slug, display_name),
+         program:program_id (title, format, status, starts_on, ends_on))`,
+    )
+    .eq('person_id', person.id)
+    .order('created_at', { ascending: false });
+
+  const items = (enrolments ?? [])
+    .map((e) => {
+      const t = Array.isArray(e.thread) ? e.thread[0] : e.thread;
+      if (!t) return null;
+      const prog = Array.isArray(t.program) ? t.program[0] : t.program;
+      const org = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
+      const enr = Array.isArray(e.enrolment) ? e.enrolment[0] : e.enrolment;
+      return {
+        thread_id: t.id,
+        title: prog?.title ?? t.slug,
+        format: prog?.format ?? 'event',
+        thread_status: prog?.status ?? 'active',
+        starts_on: prog?.starts_on ?? null,
+        ends_on: prog?.ends_on ?? null,
+        intention: t.intention,
+        cover_url: t.cover_url,
+        language: (t as { language?: string }).language ?? 'en',
+        enrolment_status: enr?.status ?? 'enrolled',
+        url: `${threadAppUrl()}/${org?.slug}/${t.slug}`,
+        enrolled_at: e.created_at,
+      };
+    })
+    .filter(Boolean);
+
+  return c.json({
+    person: {
+      first_name: person.first_name,
+      last_name: person.last_name,
+      email: person.email,
+    },
+    items,
+  });
+});
+
 // POST /api/v1/thread/public/enrol — free enrolment (paid flow lands Phase 4)
 const PublicEnrol = z.object({
   organiser_slug: z.string().min(1),
@@ -1450,6 +1700,8 @@ const PublicEnrol = z.object({
   email: z.string().email().max(320),
   answers: z.record(z.unknown()).optional(),
   marketing_opt_in: z.boolean().optional(),
+  policy_accepted: z.boolean().optional(),
+  policy_version: z.string().max(200).optional(),
   request_id: z.string().min(8).max(80),
 });
 
@@ -1457,6 +1709,11 @@ threadRoutes.post('/public/enrol', async (c) => {
   const body = PublicEnrol.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const d = body.data;
+
+  // Privacy-policy agreement is required to enrol (Sjoerd 2026-07-02).
+  if (!d.policy_accepted) {
+    return c.json({ error: 'privacy policy agreement is required' }, 400);
+  }
 
   // Idempotency first: same request_id → same result.
   const { data: existing } = await adminClient
@@ -1582,6 +1839,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       payment_status: 'not_required',
       answers: d.answers ?? null,
       request_id: d.request_id,
+      policy_version: d.policy_version ?? null,
+      policy_accepted_at: new Date().toISOString(),
     })
     .select('id')
     .single();
@@ -1641,7 +1900,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       intention: thread.intention,
       organiserName: organiser.display_name ?? '',
       startsOn: program.starts_on,
-      threadUrl: `${threadAppUrl()}/${organiser.slug}/${thread.slug}`,
+      threadUrl: portalUrl(person.id),
       locale: (thread as { language?: string }).language ?? 'en',
     });
     await sendEmail({ to: email, ...msg });
