@@ -7,6 +7,7 @@ import { one, type ThreadRow } from '@/lib/thread-types';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
+import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -49,6 +50,7 @@ export function ThreadEditorForm({
       is_public_listed: fd.get('is_public_listed') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
       organisation_id: String(fd.get('organisation_id') ?? '') || null,
+      language: String(fd.get('language') ?? 'en'),
     };
     if (!patch.title) return setError('The thread needs a name.');
     if (!patch.slug) return setError('The thread needs a URL slug.');
@@ -94,12 +96,21 @@ export function ThreadEditorForm({
             />
           </div>
 
-          <TextField
-            label="Timezone"
-            name="timezone"
-            defaultValue={thread.timezone}
-            hint="IANA name, e.g. Europe/Amsterdam."
-          />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <TextField
+              label="Timezone"
+              name="timezone"
+              defaultValue={thread.timezone}
+              hint="IANA name, e.g. Europe/Amsterdam."
+            />
+            <SelectField
+              label="Public language"
+              name="language"
+              defaultValue={thread.language ?? 'en'}
+              options={LOCALES.map((l) => ({ value: l, label: LOCALE_LABELS[l] }))}
+              hint="Public page, enrol form, embeds and participant emails."
+            />
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <SelectField

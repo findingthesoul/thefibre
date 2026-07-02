@@ -11,6 +11,67 @@ export type ThreadEnrolmentEmail = {
   organiserName: string;
   startsOn: string | null; // yyyy-mm-dd
   threadUrl: string;
+  /** Public-surface locale (thread.language). Defaults to en. */
+  locale?: string;
+};
+
+// Public emails follow the thread's language (the catalog for the web
+// surfaces lives in apps/thread/lib/i18n.ts — keep vocabularies aligned).
+const EMAIL_I18N: Record<
+  string,
+  { subject: string; hi: string; enrolled: string; starts: string; open: string }
+> = {
+  en: {
+    subject: "You're enrolled: {title}",
+    hi: 'Hi {name},',
+    enrolled: "You're enrolled in {title}{with}.",
+    starts: 'It starts {date}.',
+    open: 'Open the thread',
+  },
+  nl: {
+    subject: 'Je bent ingeschreven: {title}',
+    hi: 'Hoi {name},',
+    enrolled: 'Je bent ingeschreven voor {title}{with}.',
+    starts: 'Het begint op {date}.',
+    open: 'Open de thread',
+  },
+  es: {
+    subject: 'Estás inscrito: {title}',
+    hi: 'Hola {name}:',
+    enrolled: 'Estás inscrito en {title}{with}.',
+    starts: 'Comienza el {date}.',
+    open: 'Abrir el thread',
+  },
+  pt: {
+    subject: 'Você está inscrito: {title}',
+    hi: 'Olá {name},',
+    enrolled: 'Você está inscrito em {title}{with}.',
+    starts: 'Começa em {date}.',
+    open: 'Abrir o thread',
+  },
+  de: {
+    subject: 'Du bist angemeldet: {title}',
+    hi: 'Hallo {name},',
+    enrolled: 'Du bist für {title}{with} angemeldet.',
+    starts: 'Es beginnt am {date}.',
+    open: 'Thread öffnen',
+  },
+};
+
+const WITH_I18N: Record<string, string> = {
+  en: ' with {organiser}',
+  nl: ' bij {organiser}',
+  es: ' con {organiser}',
+  pt: ' com {organiser}',
+  de: ' bei {organiser}',
+};
+
+const EMAIL_DATE_LOCALE: Record<string, string> = {
+  en: 'en-GB',
+  nl: 'nl-NL',
+  es: 'es-ES',
+  pt: 'pt-PT',
+  de: 'de-DE',
 };
 
 function fmtDate(d: string): string {
@@ -47,26 +108,44 @@ export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   text: string;
   html: string;
 } {
-  const subject = `You're enrolled: ${c.threadTitle}`;
+  const loc = c.locale && EMAIL_I18N[c.locale] ? c.locale : 'en';
+  const L = EMAIL_I18N[loc] ?? EMAIL_I18N.en!;
   const first = c.participantName.split(/\s+/)[0] ?? '';
-  const startLine = c.startsOn ? `It starts ${fmtDate(c.startsOn)}.` : '';
+  const withPart = c.organiserName
+    ? (WITH_I18N[loc] ?? WITH_I18N.en!).replace('{organiser}', c.organiserName)
+    : '';
+  const startDate = c.startsOn
+    ? new Intl.DateTimeFormat(EMAIL_DATE_LOCALE[loc] ?? 'en-GB', {
+        weekday: 'long',
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+      }).format(new Date(c.startsOn))
+    : null;
 
-  const text = `Hi ${first},
+  const subject = L.subject.replace('{title}', c.threadTitle);
+  const hi = L.hi.replace('{name}', first);
+  const enrolledLine = L.enrolled.replace('{title}', c.threadTitle).replace('{with}', withPart);
+  const startLine = startDate ? L.starts.replace('{date}', startDate) : '';
 
-You're enrolled in ${c.threadTitle}${c.organiserName ? ` with ${c.organiserName}` : ''}.
+  const text = `${hi}
+
+${enrolledLine}
 ${startLine ? `\n${startLine}\n` : ''}
-${c.intention ? `${c.intention}\n\n` : ''}Follow the thread here: ${c.threadUrl}
+${c.intention ? `${c.intention}\n\n` : ''}${c.threadUrl}
 
 ${emailSignoff()}`;
 
+  const enrolledHtml = L.enrolled
+    .replace('{title}', `<strong>${escapeHtml(c.threadTitle)}</strong>`)
+    .replace('{with}', escapeHtml(withPart));
+
   const html = shell(
-    'Enrolment confirmed',
+    subject,
     `
-      <p style="margin:0 0 16px;font-size:15px;">Hi ${escapeHtml(first)},</p>
+      <p style="margin:0 0 16px;font-size:15px;">${escapeHtml(hi)}</p>
       <p style="margin:0 0 16px;font-size:15px;">
-        You're enrolled in <strong>${escapeHtml(c.threadTitle)}</strong>${
-          c.organiserName ? ` with ${escapeHtml(c.organiserName)}` : ''
-        }.${startLine ? ` ${escapeHtml(startLine)}` : ''}
+        ${enrolledHtml}${startLine ? ` ${escapeHtml(startLine)}` : ''}
       </p>
       ${
         c.intention
@@ -74,7 +153,7 @@ ${emailSignoff()}`;
           : ''
       }
       <p style="margin:24px 0;">
-        <a href="${c.threadUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Open the thread</a>
+        <a href="${c.threadUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(L.open)}</a>
       </p>
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,

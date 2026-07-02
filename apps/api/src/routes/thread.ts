@@ -234,7 +234,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, language, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -387,6 +387,8 @@ const ThreadUpdate = z.object({
   requires_approval: z.boolean().optional(),
   price_cents: z.number().int().min(0).nullable().optional(),
   price_currency: z.string().length(3).nullable().optional(),
+  payment_destination: z.enum(['workspace', 'personal']).nullable().optional(),
+  language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
   capacity: z.number().int().positive().nullable().optional(),
   registration_fields: z
     .array(
@@ -1008,6 +1010,33 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Asset upload — images for certificate backgrounds/elements (and covers).
+// Multipart form: field "file". Stored in the public thread-assets bucket.
+// ---------------------------------------------------------------------------
+
+threadRoutes.post('/uploads', async (c) => {
+  const ctx = c.get('ctx');
+  const body = await c.req.parseBody();
+  const file = body.file;
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  if (file.size > 5 * 1024 * 1024) return c.json({ error: 'max 5MB' }, 400);
+  const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await adminClient.storage
+    .from('thread-assets')
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
+  if (error) {
+    console.error('[thread/uploads] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  const { data } = adminClient.storage.from('thread-assets').getPublicUrl(path);
+  return c.json({ url: data.publicUrl }, 201);
+});
+
+// ---------------------------------------------------------------------------
 // Certificate templates — CRUD + personal/team/workspace visibility.
 // Scope rules (Sjoerd 2026-07-02): personal = owner only; team = team
 // members; workspace = everyone, unless shares exist — then only granted
@@ -1304,7 +1333,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   const { data: thread } = await adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, timezone, cover_url, capacity, requires_approval,
+      `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
        price_cents, price_currency, registration_fields, certificate_enabled,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
@@ -1351,6 +1380,68 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   });
 });
 
+// GET /api/v1/thread/public/embed/threads — listing for website embeds
+// (Webflow etc.). Filter by ?organiser=<slug> | ?team=<uuid> | ?org=<uuid>.
+threadRoutes.get('/public/embed/threads', async (c) => {
+  const organiserSlug = c.req.query('organiser');
+  const teamId = c.req.query('team');
+  const orgId = c.req.query('org');
+  if (!organiserSlug && !teamId && !orgId) {
+    return c.json({ error: 'pass organiser, team or org' }, 400);
+  }
+
+  let q = adminClient
+    .from('thread_thread')
+    .select(
+      `id, slug, intention, cover_url, price_cents, price_currency,
+       organiser:organiser_id (slug, display_name),
+       organisation:organisation_id (id, name),
+       program:program_id (title, format, status, starts_on, ends_on)`,
+    )
+    .eq('is_public_listed', true);
+  if (teamId) q = q.eq('team_id', teamId);
+  if (orgId) q = q.eq('organisation_id', orgId);
+  if (organiserSlug) {
+    const { data: org } = await adminClient
+      .from('thread_organiser')
+      .select('id')
+      .eq('slug', organiserSlug)
+      .maybeSingle();
+    if (!org) return c.json({ items: [] });
+    q = q.eq('organiser_id', org.id);
+  }
+
+  const { data, error } = await q;
+  if (error) return c.json({ error: error.message }, 500);
+  const items = (data ?? [])
+    .filter((t) => {
+      const p = Array.isArray(t.program) ? t.program[0] : t.program;
+      return p && (p.status === 'active' || p.status === 'completed');
+    })
+    .map((t) => {
+      const p = Array.isArray(t.program) ? t.program[0] : t.program;
+      const o = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
+      return {
+        id: t.id,
+        slug: t.slug,
+        organiser_slug: o?.slug ?? null,
+        organiser_name: o?.display_name ?? null,
+        title: p?.title ?? t.slug,
+        format: p?.format ?? 'event',
+        status: p?.status ?? 'active',
+        starts_on: p?.starts_on ?? null,
+        ends_on: p?.ends_on ?? null,
+        intention: t.intention,
+        cover_url: t.cover_url,
+        price_cents: t.price_cents,
+        price_currency: t.price_currency,
+        url: `${threadAppUrl()}/${o?.slug}/${t.slug}`,
+      };
+    })
+    .sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));
+  return c.json({ items });
+});
+
 // POST /api/v1/thread/public/enrol — free enrolment (paid flow lands Phase 4)
 const PublicEnrol = z.object({
   organiser_slug: z.string().min(1),
@@ -1386,7 +1477,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   const { data: thread } = await adminClient
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, slug, intention, capacity, price_cents, program:program_id (title, status, starts_on)',
+      'id, workspace_id, program_id, slug, intention, language, capacity, price_cents, program:program_id (title, status, starts_on)',
     )
     .eq('organiser_id', organiser.id)
     .eq('slug', d.thread_slug)
@@ -1551,6 +1642,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       organiserName: organiser.display_name ?? '',
       startsOn: program.starts_on,
       threadUrl: `${threadAppUrl()}/${organiser.slug}/${thread.slug}`,
+      locale: (thread as { language?: string }).language ?? 'en',
     });
     await sendEmail({ to: email, ...msg });
   } catch (e) {

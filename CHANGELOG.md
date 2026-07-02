@@ -6,7 +6,36 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.70] — 2026-07-02 — Thread 3.9.0: the big editing-UX pass
+## [0.13.71] — 2026-07-02 — Thread 3.10.0: uploads, embeds, languages, payout selector
+
+Four asks in one release (migrations
+`20260702150000_thread_payment_destination.sql` +
+`20260702160000_thread_language.sql`, applied; `thread-assets` storage
+bucket created):
+
+- **Certificate builder**: real background + element **image upload**
+  (drop-zone → public `thread-assets` bucket, thumbnail preview,
+  replace/remove, URL fallback); element **properties bar moved above the
+  canvas**; Share dialog gains **"Everyone in the workspace"** vs "Only
+  selected people and teams".
+- **Webflow embeds**: paste `<script src="https://thread.thefibre.app/embed.js">`
+  plus `data-thread-embed` divs — `list` (overview of an organiser, team
+  or org), `thread` with chosen elements (`cover,intention,agenda,price,enrol`),
+  `enrol` opening the subscription form in a popup overlay. Auto-resizing
+  iframes, origin-checked postMessage, framework-free, <200 lines. Bare
+  `/embed/*` pages reuse the real enrol flow. New public endpoint
+  `GET /thread/public/embed/threads?organiser=|team=|org=`.
+- **Language system**: every public string (organiser/thread pages, enrol
+  card, embeds, participant emails) lives in a **typed catalog**
+  (`apps/thread/lib/i18n.ts`) translated to **English, Dutch, Spanish,
+  Portuguese, German** — a key missing a translation fails typecheck,
+  which is how the list stays complete. Threads carry a `language`
+  (settings → Basics, default English); the enrolment confirmation email
+  localises subject, body and date formatting.
+- **Payout selector** (Pricing tab): Workspace / Personal / Auto —
+  auto = workspace for team/workspace-shared threads, personal (when
+  connected) for personal threads. Stored on the thread; Phase 4
+  checkout reads it.
 
 Nine interface improvements in one slice
 (migration `20260702140000_thread_engagement_location_provider.sql`, applied):

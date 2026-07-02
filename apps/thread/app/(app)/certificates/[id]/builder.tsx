@@ -3,7 +3,7 @@
 // The certificate template builder — port of thethread-v3's cert-builder
 // into the Fibre design system. One canvas, absolute-positioned elements in
 // page-percentage coordinates, drag to move, double-click text to edit
-// inline, a properties strip under the canvas, 2s debounced auto-save.
+// inline, a properties bar above the canvas, 2s debounced auto-save.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -19,6 +19,7 @@ import {
   ChevronsDown,
   ChevronsUp,
   Image as ImageIcon,
+  ImagePlus,
   Italic,
   Minus,
   Plus,
@@ -29,7 +30,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
-import { TextField } from '@/components/ui/field';
+import { uploadAsset } from '@/lib/upload';
 import type { TeamOption, WorkspaceMember } from '@/lib/thread-types';
 import {
   FIELD_OPTIONS,
@@ -66,6 +67,163 @@ function toggleCls(active: boolean): string {
       ? 'bg-ink text-ink-inverse border-ink'
       : 'border-line text-ink-subtle hover:text-ink hover:bg-surface-sunken'
   }`;
+}
+
+// Upload-first image picker. Block layout for the left panel (background),
+// inline layout for the horizontal properties bar (image elements).
+function ImageUpload({
+  value,
+  onChange,
+  buttonLabel,
+  hint,
+  inline = false,
+}: {
+  value: string;
+  onChange: (url: string) => void; // '' clears
+  buttonLabel: string;
+  hint?: string;
+  inline?: boolean;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showUrl, setShowUrl] = useState(false);
+
+  async function onPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const url = await uploadAsset(file);
+      onChange(url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  const fileInput = (
+    <input
+      ref={inputRef}
+      type="file"
+      accept="image/*"
+      className="hidden"
+      onChange={(e) => void onPick(e)}
+    />
+  );
+
+  const hasValue = value.trim() !== '';
+
+  if (inline) {
+    return (
+      <div className="flex items-center gap-2 flex-wrap">
+        {fileInput}
+        {hasValue && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={value.trim()}
+            alt=""
+            className="h-8 w-8 rounded-md border border-line object-cover bg-surface-sunken"
+          />
+        )}
+        <button
+          type="button"
+          onClick={() => inputRef.current?.click()}
+          disabled={uploading}
+          className="inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-line px-2.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors disabled:opacity-60"
+        >
+          <ImagePlus size={13} strokeWidth={1.75} className="shrink-0" />
+          {uploading ? 'Uploading…' : buttonLabel}
+        </button>
+        {hasValue && !uploading && (
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+          >
+            Remove
+          </button>
+        )}
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="or paste URL"
+          aria-label="Image URL"
+          className="h-8 w-40 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
+        />
+        {error && <span className="text-xs text-red-600">{error}</span>}
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      {fileInput}
+      {hasValue ? (
+        <div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={value.trim()}
+            alt=""
+            className="w-full h-20 rounded-md border border-line object-cover bg-surface-sunken"
+          />
+          <div className="mt-1.5 flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => inputRef.current?.click()}
+              disabled={uploading}
+              className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-60"
+            >
+              {uploading ? 'Uploading…' : 'Replace'}
+            </button>
+            <button
+              type="button"
+              onClick={() => onChange('')}
+              disabled={uploading}
+              className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-60"
+            >
+              Remove
+            </button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading}
+            className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-3 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors disabled:opacity-60"
+          >
+            <ImagePlus size={14} strokeWidth={1.75} className="shrink-0" />
+            {uploading ? 'Uploading…' : buttonLabel}
+          </button>
+          {!showUrl && (
+            <button
+              type="button"
+              onClick={() => setShowUrl(true)}
+              className="mt-1.5 text-xs text-ink-muted hover:text-ink underline underline-offset-2"
+            >
+              or paste a URL
+            </button>
+          )}
+        </>
+      )}
+      {showUrl && (
+        <input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder="https://… image URL"
+          aria-label="Image URL"
+          className="mt-1.5 w-full h-8 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
+        />
+      )}
+      {error && <p className="mt-1.5 text-xs text-red-600">{error}</p>}
+      {hint && !error && <p className="mt-1.5 text-xs text-ink-muted">{hint}</p>}
+    </div>
+  );
 }
 
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
@@ -460,6 +618,215 @@ export function CertificateBuilder({
         </Button>
       </div>
 
+      {/* ── Properties bar (above the canvas) ───────────────────────── */}
+      {selectedEl ? (
+        <div className="mt-4 min-h-[50px] rounded-lg border border-line bg-surface-raised px-4 py-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+          {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
+            <>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink-subtle whitespace-nowrap">Font</span>
+                <select
+                  value={selectedEl.fontFamily ?? 'inherit'}
+                  onChange={(e) => updateEl({ fontFamily: e.target.value })}
+                  className="h-8 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
+                >
+                  {FONT_OPTIONS.map((f) => (
+                    <option key={f.value} value={f.value}>
+                      {f.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-ink-subtle whitespace-nowrap">Size</span>
+                <input
+                  type="range"
+                  min={8}
+                  max={96}
+                  value={selectedEl.fontSize ?? 16}
+                  onChange={(e) => updateEl({ fontSize: Number(e.target.value) })}
+                  className="w-20 accent-ink"
+                />
+                <input
+                  type="number"
+                  min={8}
+                  max={96}
+                  value={selectedEl.fontSize ?? 16}
+                  onChange={(e) =>
+                    updateEl({ fontSize: Math.max(8, Math.min(96, Number(e.target.value))) })
+                  }
+                  className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+                />
+              </div>
+            </>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-subtle whitespace-nowrap">
+              {selectedEl.type === 'image' ? 'Scale' : 'Width'}
+            </span>
+            <input
+              type="range"
+              min={5}
+              max={100}
+              value={selectedEl.width}
+              onChange={(e) => updateEl({ width: Number(e.target.value) })}
+              className="w-20 accent-ink"
+            />
+            <input
+              type="number"
+              min={5}
+              max={100}
+              value={Math.round(selectedEl.width)}
+              onChange={(e) =>
+                updateEl({ width: Math.max(5, Math.min(100, Number(e.target.value))) })
+              }
+              className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+            />
+            <span className="text-xs text-ink-muted">%</span>
+          </div>
+
+          {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                title="Bold"
+                onClick={() =>
+                  updateEl({
+                    fontWeight: selectedEl.fontWeight === 'bold' ? 'normal' : 'bold',
+                  })
+                }
+                className={toggleCls(selectedEl.fontWeight === 'bold')}
+              >
+                <Bold size={14} strokeWidth={2.25} />
+              </button>
+              <button
+                type="button"
+                title="Italic"
+                onClick={() =>
+                  updateEl({
+                    fontStyle: selectedEl.fontStyle === 'italic' ? 'normal' : 'italic',
+                  })
+                }
+                className={toggleCls(selectedEl.fontStyle === 'italic')}
+              >
+                <Italic size={14} strokeWidth={2} />
+              </button>
+              {(
+                [
+                  ['left', AlignLeft],
+                  ['center', AlignCenter],
+                  ['right', AlignRight],
+                ] as const
+              ).map(([align, Icon]) => (
+                <button
+                  key={align}
+                  type="button"
+                  title={`Align ${align}`}
+                  onClick={() => updateEl({ textAlign: align })}
+                  className={toggleCls((selectedEl.textAlign ?? 'left') === align)}
+                >
+                  <Icon size={14} strokeWidth={1.75} />
+                </button>
+              ))}
+            </div>
+          )}
+
+          {selectedEl.type !== 'image' && (
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-ink-subtle">Colour</span>
+              <input
+                type="color"
+                value={selectedEl.color ?? INK_DEFAULT}
+                onChange={(e) => updateEl({ color: e.target.value })}
+                className="h-8 w-8 rounded-md border border-line cursor-pointer bg-surface-raised p-0.5"
+              />
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-subtle whitespace-nowrap">Opacity</span>
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={selectedEl.opacity ?? 100}
+              onChange={(e) => updateEl({ opacity: Number(e.target.value) })}
+              className="w-16 accent-ink"
+            />
+            <span className="text-xs text-ink-muted w-9 tabular-nums">
+              {selectedEl.opacity ?? 100}%
+            </span>
+          </div>
+
+          {selectedEl.type === 'image' && (
+            <ImageUpload
+              inline
+              value={selectedEl.src ?? ''}
+              onChange={(url) => updateEl({ src: url })}
+              buttonLabel="Upload image"
+            />
+          )}
+
+          {selectedEl.type === 'text' && editingId !== selectedEl.id && (
+            <span className="text-xs text-ink-muted italic">
+              Double-click to edit · use{' '}
+              <code className="not-italic rounded bg-surface-sunken px-1 font-mono text-[11px]">
+                {'{recipient_name}'}
+              </code>{' '}
+              tokens
+            </span>
+          )}
+
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-ink-subtle whitespace-nowrap">Arrange</span>
+            <button
+              type="button"
+              title="Send to back"
+              onClick={() => reorderSelected('to-back')}
+              className={toggleCls(false)}
+            >
+              <ChevronsDown size={14} strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              title="Move backward"
+              onClick={() => reorderSelected('backward')}
+              className={toggleCls(false)}
+            >
+              <ChevronDown size={14} strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              title="Move forward"
+              onClick={() => reorderSelected('forward')}
+              className={toggleCls(false)}
+            >
+              <ChevronUp size={14} strokeWidth={1.75} />
+            </button>
+            <button
+              type="button"
+              title="Bring to front"
+              onClick={() => reorderSelected('to-front')}
+              className={toggleCls(false)}
+            >
+              <ChevronsUp size={14} strokeWidth={1.75} />
+            </button>
+          </div>
+
+          <div className="ml-auto">
+            <Button variant="danger" size="sm" onClick={deleteSelected}>
+              Delete
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div className="mt-4 min-h-[50px] rounded-lg border border-dashed border-line px-4 py-2 flex items-center">
+          <span className="text-xs text-ink-muted">Select an element to edit its style</span>
+        </div>
+      )}
+
       {/* ── Main area ───────────────────────────────────────────────── */}
       <div className="mt-6 flex items-start gap-6">
         {/* Left panel */}
@@ -514,14 +881,13 @@ export function CertificateBuilder({
           <div>
             <SectionLabel>Background</SectionLabel>
             <div className="mt-2">
-              <TextField
-                label=""
+              <ImageUpload
                 value={backgroundUrl}
-                onChange={(e) => {
-                  setBackgroundUrl(e.target.value);
+                onChange={(url) => {
+                  setBackgroundUrl(url);
                   scheduleSave();
                 }}
-                placeholder="https://… image URL"
+                buttonLabel="Upload background"
                 hint="Fills the page as a cover background."
               />
             </div>
@@ -624,7 +990,7 @@ export function CertificateBuilder({
                           />
                         ) : (
                           <div className="w-full h-12 bg-black/[0.03] border border-dashed border-black/20 flex items-center justify-center text-[10px] text-black/40 pointer-events-none">
-                            Select, then set an image URL
+                            Select, then upload an image
                           </div>
                         )}
                       </div>
@@ -682,212 +1048,6 @@ export function CertificateBuilder({
             </div>
           </div>
 
-          {/* ── Properties panel ─────────────────────────────────────── */}
-          {selectedEl && (
-            <div className="mt-4 rounded-lg border border-line bg-surface-raised px-4 py-3 flex flex-wrap items-center gap-x-5 gap-y-2.5">
-              {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
-                <>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-ink-subtle whitespace-nowrap">Font</span>
-                    <select
-                      value={selectedEl.fontFamily ?? 'inherit'}
-                      onChange={(e) => updateEl({ fontFamily: e.target.value })}
-                      className="h-8 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
-                    >
-                      {FONT_OPTIONS.map((f) => (
-                        <option key={f.value} value={f.value}>
-                          {f.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-ink-subtle whitespace-nowrap">Size</span>
-                    <input
-                      type="range"
-                      min={8}
-                      max={96}
-                      value={selectedEl.fontSize ?? 16}
-                      onChange={(e) => updateEl({ fontSize: Number(e.target.value) })}
-                      className="w-20 accent-ink"
-                    />
-                    <input
-                      type="number"
-                      min={8}
-                      max={96}
-                      value={selectedEl.fontSize ?? 16}
-                      onChange={(e) =>
-                        updateEl({ fontSize: Math.max(8, Math.min(96, Number(e.target.value))) })
-                      }
-                      className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
-                    />
-                  </div>
-                </>
-              )}
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-subtle whitespace-nowrap">
-                  {selectedEl.type === 'image' ? 'Scale' : 'Width'}
-                </span>
-                <input
-                  type="range"
-                  min={5}
-                  max={100}
-                  value={selectedEl.width}
-                  onChange={(e) => updateEl({ width: Number(e.target.value) })}
-                  className="w-20 accent-ink"
-                />
-                <input
-                  type="number"
-                  min={5}
-                  max={100}
-                  value={Math.round(selectedEl.width)}
-                  onChange={(e) =>
-                    updateEl({ width: Math.max(5, Math.min(100, Number(e.target.value))) })
-                  }
-                  className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
-                />
-                <span className="text-xs text-ink-muted">%</span>
-              </div>
-
-              {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    title="Bold"
-                    onClick={() =>
-                      updateEl({
-                        fontWeight: selectedEl.fontWeight === 'bold' ? 'normal' : 'bold',
-                      })
-                    }
-                    className={toggleCls(selectedEl.fontWeight === 'bold')}
-                  >
-                    <Bold size={14} strokeWidth={2.25} />
-                  </button>
-                  <button
-                    type="button"
-                    title="Italic"
-                    onClick={() =>
-                      updateEl({
-                        fontStyle: selectedEl.fontStyle === 'italic' ? 'normal' : 'italic',
-                      })
-                    }
-                    className={toggleCls(selectedEl.fontStyle === 'italic')}
-                  >
-                    <Italic size={14} strokeWidth={2} />
-                  </button>
-                  {(
-                    [
-                      ['left', AlignLeft],
-                      ['center', AlignCenter],
-                      ['right', AlignRight],
-                    ] as const
-                  ).map(([align, Icon]) => (
-                    <button
-                      key={align}
-                      type="button"
-                      title={`Align ${align}`}
-                      onClick={() => updateEl({ textAlign: align })}
-                      className={toggleCls((selectedEl.textAlign ?? 'left') === align)}
-                    >
-                      <Icon size={14} strokeWidth={1.75} />
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {selectedEl.type !== 'image' && (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-ink-subtle">Colour</span>
-                  <input
-                    type="color"
-                    value={selectedEl.color ?? INK_DEFAULT}
-                    onChange={(e) => updateEl({ color: e.target.value })}
-                    className="h-8 w-8 rounded-md border border-line cursor-pointer bg-surface-raised p-0.5"
-                  />
-                </div>
-              )}
-
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-subtle whitespace-nowrap">Opacity</span>
-                <input
-                  type="range"
-                  min={0}
-                  max={100}
-                  value={selectedEl.opacity ?? 100}
-                  onChange={(e) => updateEl({ opacity: Number(e.target.value) })}
-                  className="w-16 accent-ink"
-                />
-                <span className="text-xs text-ink-muted w-9 tabular-nums">
-                  {selectedEl.opacity ?? 100}%
-                </span>
-              </div>
-
-              {selectedEl.type === 'image' && (
-                <div className="min-w-[240px]">
-                  <TextField
-                    label=""
-                    value={selectedEl.src ?? ''}
-                    onChange={(e) => updateEl({ src: e.target.value })}
-                    placeholder="https://… image URL"
-                  />
-                </div>
-              )}
-
-              {selectedEl.type === 'text' && editingId !== selectedEl.id && (
-                <span className="text-xs text-ink-muted italic">
-                  Double-click to edit · use{' '}
-                  <code className="not-italic rounded bg-surface-sunken px-1 font-mono text-[11px]">
-                    {'{recipient_name}'}
-                  </code>{' '}
-                  tokens
-                </span>
-              )}
-
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-ink-subtle whitespace-nowrap">Arrange</span>
-                <button
-                  type="button"
-                  title="Send to back"
-                  onClick={() => reorderSelected('to-back')}
-                  className={toggleCls(false)}
-                >
-                  <ChevronsDown size={14} strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  title="Move backward"
-                  onClick={() => reorderSelected('backward')}
-                  className={toggleCls(false)}
-                >
-                  <ChevronDown size={14} strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  title="Move forward"
-                  onClick={() => reorderSelected('forward')}
-                  className={toggleCls(false)}
-                >
-                  <ChevronUp size={14} strokeWidth={1.75} />
-                </button>
-                <button
-                  type="button"
-                  title="Bring to front"
-                  onClick={() => reorderSelected('to-front')}
-                  className={toggleCls(false)}
-                >
-                  <ChevronsUp size={14} strokeWidth={1.75} />
-                </button>
-              </div>
-
-              <div className="ml-auto">
-                <Button variant="danger" size="sm" onClick={deleteSelected}>
-                  Delete
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
       </div>
 

@@ -73,6 +73,12 @@ gross
      └─ org share    = net - vendor share  → workspace's thread_settings.stripe_account_id
 ```
 
+**Payment destination** (Sjoerd 2026-07-02): `thread_thread.payment_destination`
+(`workspace` | `personal` | NULL). NULL = auto: team/workspace-shared threads
+→ the workspace account (`thread_settings.stripe_account_id`); personal
+threads → the organiser's account when connected, else workspace. Explicit
+value overrides. The Pricing tab exposes this as "Payout to".
+
 Checkout Session runs against the **primary organiser's** connected account
 (`transfer_data` / direct charge like Meet), `application_fee_amount` = skim +
 org share; the webhook transfers the org share to the workspace account and

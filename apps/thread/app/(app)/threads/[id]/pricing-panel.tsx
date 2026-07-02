@@ -38,6 +38,8 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
       const r = await updateThread(thread.id, {
         price_cents: mode === 'paid' ? Math.round(price * 100) : null,
         price_currency: mode === 'paid' ? String(fd.get('currency') ?? 'EUR') : null,
+        payment_destination:
+          mode === 'paid' ? String(fd.get('payment_destination') ?? '') || null : null,
       });
       if (!r.ok) return setError(r.error);
       setSaved(true);
@@ -65,21 +67,37 @@ export function PricingPanel({ thread }: { thread: ThreadRow }) {
       </div>
 
       {mode === 'paid' && (
-        <div className="grid grid-cols-2 gap-4">
-          <TextField
-            label="Price"
-            name="price"
-            inputMode="decimal"
-            placeholder="49.00"
-            defaultValue={thread.price_cents ? (thread.price_cents / 100).toFixed(2) : ''}
-          />
+        <>
+          <div className="grid grid-cols-2 gap-4">
+            <TextField
+              label="Price"
+              name="price"
+              inputMode="decimal"
+              placeholder="49.00"
+              defaultValue={thread.price_cents ? (thread.price_cents / 100).toFixed(2) : ''}
+            />
+            <SelectField
+              label="Currency"
+              name="currency"
+              defaultValue={thread.price_currency ?? 'EUR'}
+              options={CURRENCIES}
+            />
+          </div>
           <SelectField
-            label="Currency"
-            name="currency"
-            defaultValue={thread.price_currency ?? 'EUR'}
-            options={CURRENCIES}
+            label="Payout to"
+            name="payment_destination"
+            defaultValue={thread.payment_destination ?? ''}
+            options={[
+              {
+                value: '',
+                label: `Auto — ${thread.team_id ? 'workspace (team thread)' : 'personal when connected'}`,
+              },
+              { value: 'workspace', label: 'Workspace account' },
+              { value: 'personal', label: 'My personal account' },
+            ]}
+            hint="Auto: threads shared with the workspace or a team pay out to the workspace account; personal threads pay out to your own Stripe account when connected. Accounts connect in Settings → Payments (payments phase)."
           />
-        </div>
+        </>
       )}
 
       {error && (

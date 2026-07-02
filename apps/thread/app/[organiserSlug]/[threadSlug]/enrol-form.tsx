@@ -4,9 +4,10 @@ import { useMemo, useState } from 'react';
 import { CheckCircle2 } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { RegistrationField } from '@/lib/thread-types';
+import { t, DEFAULT_LOCALE, type Locale } from '@/lib/i18n';
 
 function fmtPrice(cents: number | null, currency: string | null): string {
-  if (!cents) return 'Free';
+  if (!cents) return '';
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency ?? 'EUR',
@@ -24,6 +25,7 @@ export function EnrolCard({
   priceCurrency,
   registrationFields,
   enrolmentOpen,
+  locale = DEFAULT_LOCALE,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -32,6 +34,7 @@ export function EnrolCard({
   priceCurrency: string | null;
   registrationFields: RegistrationField[];
   enrolmentOpen: boolean;
+  locale?: Locale;
 }) {
   const [state, setState] = useState<'idle' | 'submitting' | 'done'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -47,13 +50,13 @@ export function EnrolCard({
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get('name') ?? '').trim();
     const email = String(fd.get('email') ?? '').trim();
-    if (!name || !email) return setError('Name and email are required.');
+    if (!name || !email) return setError(t(locale, 'name_email_required'));
 
     const answers: Record<string, unknown> = {};
     for (const f of registrationFields) {
       const v = f.type === 'checkbox' ? fd.get(`rf_${f.key}`) === 'on' : String(fd.get(`rf_${f.key}`) ?? '').trim();
       if (f.required && (v === '' || v === false)) {
-        return setError(`Please fill in “${f.label}”.`);
+        return setError(t(locale, 'fill_in_field', { field: f.label }));
       }
       answers[f.key] = v;
     }
@@ -77,7 +80,7 @@ export function EnrolCard({
       setState('idle');
       const body = err instanceof PublicApiError ? (err.body as { error?: unknown }) : null;
       setError(
-        typeof body?.error === 'string' ? body.error : 'Something went wrong — please try again.',
+        typeof body?.error === 'string' ? body.error : t(locale, 'something_wrong'),
       );
     }
   }
@@ -85,30 +88,31 @@ export function EnrolCard({
   return (
     <aside className="rounded-xl border border-line bg-surface-raised p-5 md:sticky md:top-8">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium">Enrol</h2>
-        <span className="text-sm text-ink-subtle">{fmtPrice(priceCents, priceCurrency)}</span>
+        <h2 className="text-sm font-medium">{t(locale, 'enrol')}</h2>
+        <span className="text-sm text-ink-subtle">
+          {priceCents ? fmtPrice(priceCents, priceCurrency) : t(locale, 'free')}
+        </span>
       </div>
 
       {state === 'done' ? (
         <div className="mt-4 flex items-start gap-2.5 text-sm text-ink-subtle">
           <CheckCircle2 size={18} strokeWidth={1.75} className="text-emerald-600 shrink-0 mt-0.5" />
           <p>
-            You&apos;re enrolled. A confirmation is on its way to your inbox —
-            see you in the thread.
+{t(locale, 'enrolled_success')}
           </p>
         </div>
       ) : !enrolmentOpen ? (
         <p className="mt-4 text-sm text-ink-subtle">
-          Enrolment is closed for this thread.
+{t(locale, 'enrolment_closed')}
         </p>
       ) : (
         <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
           <label className="block">
-            <span className="text-xs text-ink-subtle">Name</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'name')}</span>
             <input name="name" required className={INPUT} autoComplete="name" />
           </label>
           <label className="block">
-            <span className="text-xs text-ink-subtle">Email</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'email')}</span>
             <input name="email" type="email" required className={INPUT} autoComplete="email" />
           </label>
 
@@ -119,7 +123,7 @@ export function EnrolCard({
           <label className="flex items-start gap-2 pt-1">
             <input type="checkbox" name="marketing_opt_in" className="mt-0.5" />
             <span className="text-xs text-ink-subtle leading-relaxed">
-              Keep me posted about future threads from {organiserName}.
+{t(locale, 'keep_me_posted', { organiser: organiserName })}
             </span>
           </label>
 
@@ -135,14 +139,13 @@ export function EnrolCard({
             className="w-full h-9 rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {state === 'submitting'
-              ? 'Enrolling…'
+              ? t(locale, 'enrolling')
               : priceCents
-                ? `Enrol — ${fmtPrice(priceCents, priceCurrency)}`
-                : 'Enrol for free'}
+                ? t(locale, 'enrol_paid', { price: fmtPrice(priceCents, priceCurrency) })
+                : t(locale, 'enrol_free')}
           </button>
           <p className="text-[11px] text-ink-muted leading-relaxed">
-            We&apos;ll email you about this thread (that&apos;s required to
-            take part). Nothing else without your say-so.
+{t(locale, 'email_consent_note')}
           </p>
         </form>
       )}
@@ -174,7 +177,7 @@ function RegistrationFieldInput({ field }: { field: RegistrationField }) {
       ) : field.type === 'select' ? (
         <select name={name} className={INPUT} defaultValue="">
           <option value="" disabled>
-            Choose…
+            {'Choose…'}
           </option>
           {(field.options ?? []).map((o) => (
             <option key={o} value={o}>
