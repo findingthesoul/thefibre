@@ -31,6 +31,18 @@ export default async function InternalTeamPage() {
         description="Workspace members who can sign in to Fibre Meet. External collaborators don't live here — add them per team."
       />
 
+      {/* Transition notice: membership management is moving to the platform
+          (docs/platform-spot-members-profile.md). This page is retired next. */}
+      <a
+        href="https://thefibre.app/settings/members"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-ink hover:border-yellow-400 transition-colors"
+      >
+        Members are now managed centrally in <span className="font-medium">The Fibre</span> →
+        Settings → Members. This page still works, but moves there next release.
+      </a>
+
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
 
       <section className="mt-10">

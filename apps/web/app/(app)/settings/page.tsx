@@ -3,7 +3,7 @@ import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { ProfileForm } from './profile-form';
+import { ProfileForm, PublicProfileForm, type PublicProfile } from './profile-form';
 
 type Me = {
   user: {
@@ -28,11 +28,20 @@ type Me = {
 
 export default async function SettingsPage() {
   let me: Me | null = null;
+  let profile: PublicProfile | null = null;
   let error: string | null = null;
   try {
     me = await apiFetch<Me>('/api/v1/auth/me');
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
+  }
+
+  // Public profile is a separate resource — failure here shouldn't take
+  // down the whole settings page.
+  try {
+    profile = await apiFetch<PublicProfile>('/api/v1/profile');
+  } catch {
+    profile = null;
   }
 
   const explicitAdmin =
@@ -79,7 +88,31 @@ export default async function SettingsPage() {
           </section>
 
           <section className="mt-14">
-            <SectionLabel>Workspace</SectionLabel>
+            <SectionLabel>Public profile</SectionLabel>
+            <p className="mt-1 text-xs text-ink-muted">
+              Shared across the Fibre apps — Meet and Thread inherit these.
+            </p>
+            {profile ? (
+              <PublicProfileForm profile={profile} />
+            ) : (
+              <p className="mt-3 text-sm text-ink-subtle">
+                Couldn't load your public profile right now.
+              </p>
+            )}
+          </section>
+
+          <section className="mt-14">
+            <div className="flex items-baseline justify-between">
+              <SectionLabel>Workspace</SectionLabel>
+              {isWorkspaceAdmin && (
+                <Link
+                  href="/settings/members"
+                  className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+                >
+                  Manage members →
+                </Link>
+              )}
+            </div>
             {me.workspace ? (
               <dl className="mt-3 rounded-lg border border-line bg-surface-raised p-5 grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 text-sm">
                 <Row label="Name" value={me.workspace.name} />

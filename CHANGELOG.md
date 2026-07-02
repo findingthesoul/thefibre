@@ -6,6 +6,29 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.76] — 2026-07-02 — Platform SPoT: Members + public profile (design doc + Phase A/B)
+
+Implements [`docs/platform-spot-members-profile.md`](docs/platform-spot-members-profile.md)
+(migration `20260702220000_user_profile.sql`, applied + backfilled):
+
+- **thefibre.app Settings → Members is canonical** (admin-gated): member
+  list with workspace-role, internal/external relationship and one
+  checkbox per activated app; invite by email (pending user + person +
+  app grants + branded invite — Meet's mechanics generalised). API:
+  `GET/POST /api/v1/members`, `PATCH /api/v1/members/:userId`.
+- **Public profile at platform level**: new `user_profile` (display
+  name, bio, photo, timezone), backfilled from Meet ← Thread. Edited on
+  thefibre.app Settings ("shared across the Fibre apps"); API
+  `GET/PATCH /api/v1/profile`. **Thread inherits** — organiser fields
+  become overrides, `/thread/me` merges the platform profile.
+- **Apps show, the platform manages**: Thread's Internal team is
+  read-only with a "Manage in The Fibre" link; Meet keeps its page one
+  release with a transition banner.
+- **Interface fixes**: user-menu dropdown gained `z-50` in all four apps
+  (timeline cards painted over it); Thread sidebar's Certificates became
+  **Templates** — a hub for certificate templates (live) and thread
+  templates (next).
+
 ## [0.13.75] — 2026-07-02 — Thread 3.14.0: destructive-action SPoT, team URLs, shared payments
 
 (Migrations `…200000_thread_coupon_ticket_scope` +

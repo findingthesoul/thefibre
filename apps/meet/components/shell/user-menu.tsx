@@ -102,7 +102,7 @@ export function UserMenu({
       </button>
 
       {open && (
-        <div className="absolute right-0 mt-2 w-72 rounded-lg bg-surface-raised border border-line shadow-lg py-2 text-sm">
+        <div className="absolute right-0 z-50 mt-2 w-72 rounded-lg bg-surface-raised border border-line shadow-lg py-2 text-sm">
           <div className="px-3 py-2">
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">Signed in</div>
             <div className="font-medium mt-1">{fullName}</div>

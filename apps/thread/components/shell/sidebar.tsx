@@ -7,7 +7,7 @@ import {
   LayoutDashboard,
   CalendarRange,
   Users,
-  Award,
+  LayoutTemplate,
   BookUser,
   UsersRound,
   ShieldCheck,
@@ -32,7 +32,7 @@ const NAV: NavSection[] = [
     items: [
       { href: '/threads', label: 'Threads', icon: CalendarRange },
       { href: '/enrolments', label: 'Enrolments', icon: Users },
-      { href: '/certificates', label: 'Certificates', icon: Award },
+      { href: '/templates', label: 'Templates', icon: LayoutTemplate },
     ],
   },
   {

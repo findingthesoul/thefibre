@@ -1,3 +1,4 @@
+import { ExternalLink } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -5,7 +6,6 @@ import {
   EmptyState,
   ErrorBanner,
 } from '@/components/ui/page';
-import { GrantAccessButton } from './grant-access-button';
 
 type TeamItem = {
   user_id: string;
@@ -35,8 +35,21 @@ export default async function InternalTeamPage() {
     <PageContainer>
       <PageHeader
         title="Internal team"
-        description="Who in the workspace can use The Thread."
+        description="Who in the workspace can use The Thread — read-only here."
       />
+
+      {/* Membership is managed at platform level — the single point of truth
+          (docs/platform-spot-members-profile.md). */}
+      <a
+        href="https://thefibre.app/settings/members"
+        target="_blank"
+        rel="noreferrer"
+        className="mt-4 flex items-center gap-2 rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-subtle hover:text-ink hover:border-line-strong transition-colors"
+      >
+        Members and app access are managed in <span className="font-medium">The Fibre</span> →
+        Settings → Members.
+        <ExternalLink size={14} strokeWidth={1.75} className="ml-auto shrink-0" />
+      </a>
 
       {error && <ErrorBanner>Couldn&apos;t load the team: {error}</ErrorBanner>}
 
@@ -63,7 +76,9 @@ export default async function InternalTeamPage() {
                       {THREAD_ROLE_LABELS[it.thread_role]}
                     </span>
                   ) : (
-                    <GrantAccessButton userId={it.user_id} />
+                    <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface text-ink-muted">
+                    No access
+                  </span>
                   )}
                 </div>
               </li>

@@ -152,8 +152,19 @@ threadRoutes.get('/me', async (c) => {
     .eq('user_id', ctx.userId)
     .maybeSingle();
 
+  // Platform profile provides the shared display fields; the organiser row
+  // holds app-level overrides (docs/platform-spot-members-profile.md).
+  const { data: profile } = await adminClient
+    .from('user_profile')
+    .select('display_name, bio, photo_url, timezone')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+
   return c.json({
     ...organiser,
+    display_name: organiser.display_name ?? profile?.display_name ?? null,
+    bio: organiser.bio ?? profile?.bio ?? null,
+    photo_url: organiser.photo_url ?? profile?.photo_url ?? null,
     personal_room_url: meetHost?.personal_room_url ?? null,
     stripe_account_id: organiser.stripe_account_id ?? meetHost?.stripe_account_id ?? null,
   });

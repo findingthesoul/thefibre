@@ -10,7 +10,7 @@ export default async function ProfileSettingsPage() {
       <Breadcrumb href="/settings" label="Settings" />
       <PageHeader
         title="Profile"
-        description="Your public organiser page — where your threads live."
+        description="Your public organiser page — where your threads live. Display name, bio, photo and timezone inherit from your Fibre profile (thefibre.app → Settings) unless you override them here."
       />
       <ProfileForm organiser={organiser} />
     </PageContainer>
