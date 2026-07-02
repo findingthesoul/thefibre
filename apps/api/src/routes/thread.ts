@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
+import { shell, escapeHtml } from '../lib/email/templates.js';
 import { enrolmentConfirmation, engagementMessage } from '../lib/email/thread-templates.js';
 import { appUrl } from '@thefibre/shared';
 
@@ -2013,6 +2014,52 @@ threadRoutes.patch('/certificate-templates/:id', async (c) => {
     return c.json({ error: error.message }, 500);
   }
   return c.json(data);
+});
+
+// POST /enrolments/:id/send-certificate — email the participant their
+// certificate link. Explicit, per-selection — never automatic.
+threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: te } = await db
+    .from('thread_enrolment')
+    .select(
+      `id,
+       person:person_id (first_name, email),
+       thread:thread_id (slug, program:program_id (title)),
+       certificate:thread_certificate (certificate_number)`,
+    )
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!te) return c.json({ error: 'not found' }, 404);
+
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const cert = Array.isArray(te.certificate) ? te.certificate[0] : te.certificate;
+  const program = thread && (Array.isArray(thread.program) ? thread.program[0] : thread.program);
+  if (!cert) return c.json({ error: 'no certificate issued for this enrolment' }, 409);
+  if (!person?.email) return c.json({ error: 'no email address on file' }, 409);
+
+  const certUrl = `${threadAppUrl()}/certificate/${encodeURIComponent(cert.certificate_number)}`;
+  const title = program?.title ?? 'your thread';
+  try {
+    await sendEmail({
+      to: person.email,
+      subject: `Your certificate — ${title}`,
+      html: shell(
+        'Your certificate',
+        `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(person.first_name ?? '')},</p>
+         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Congratulations — your certificate for <strong>${escapeHtml(title)}</strong> is ready.</p>
+         <p style="margin:24px 0;"><a href="${certUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View your certificate</a></p>
+         <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">Certificate ${escapeHtml(cert.certificate_number)} — this page verifies it, prints it, and adds it to your LinkedIn profile.</p>`,
+      ),
+      text: `Congratulations — your certificate for ${title} is ready: ${certUrl}`,
+    });
+  } catch (e) {
+    console.error('[thread/certificates] send email failed', e);
+    return c.json({ error: 'sending the email failed — try again' }, 500);
+  }
+  return c.json({ ok: true });
 });
 
 // Archive / restore — the safe alternative to deleting a template in use.

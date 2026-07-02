@@ -655,7 +655,9 @@ export function CertificateBuilder({
 
       {/* ── Properties bar (above the canvas) ───────────────────────── */}
       {selectedEl ? (
-        <div className="mt-4 min-h-[50px] rounded-lg border border-line bg-surface-raised px-4 py-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+        // Fixed height + horizontal scroll: selecting an element must never
+        // shift the canvas below (Sjoerd 2026-07-02).
+        <div className="mt-4 h-[54px] rounded-lg border border-line bg-surface-raised px-4 flex flex-nowrap items-center gap-x-5 overflow-x-auto overflow-y-hidden">
           {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
             <>
               <div className="flex items-center gap-2">
@@ -857,7 +859,7 @@ export function CertificateBuilder({
           </div>
         </div>
       ) : (
-        <div className="mt-4 min-h-[50px] rounded-lg border border-dashed border-line px-4 py-2 flex items-center">
+        <div className="mt-4 h-[54px] rounded-lg border border-dashed border-line px-4 flex items-center">
           <span className="text-xs text-ink-muted">Select an element to edit its style</span>
         </div>
       )}

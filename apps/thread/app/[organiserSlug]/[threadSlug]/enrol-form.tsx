@@ -160,7 +160,15 @@ export function EnrolCard({
       <div className="flex items-baseline justify-between">
         <h2 className="text-sm font-medium">{t(locale, 'enrol')}</h2>
         <span className="text-sm text-ink-subtle">
-          {activePriceCents ? fmtPrice(activePriceCents, activeCurrency) : t(locale, 'free')}
+          {/* Applied code → old price struck through, new price next to it. */}
+          {applied && (basePriceCents ?? 0) !== applied.price_cents && (
+            <s className="mr-1.5 text-ink-muted">
+              {fmtPrice(basePriceCents ?? 0, activeCurrency)}
+            </s>
+          )}
+          <span className={applied ? 'font-medium text-emerald-700' : undefined}>
+            {activePriceCents ? fmtPrice(activePriceCents, activeCurrency) : t(locale, 'free')}
+          </span>
         </span>
       </div>
 

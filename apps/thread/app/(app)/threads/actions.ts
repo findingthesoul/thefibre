@@ -366,6 +366,18 @@ export async function issueEnrolmentCertificate(
   }
 }
 
+/** Email the participant their certificate link — explicit, never automatic. */
+export async function sendCertificateEmail(enrolmentId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/enrolments/${enrolmentId}/send-certificate`, {
+      method: 'POST',
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function bulkIssueCertificates(
   threadId: string,
 ): Promise<{ ok: true; issued: number; skipped: number } | { ok: false; error: string }> {

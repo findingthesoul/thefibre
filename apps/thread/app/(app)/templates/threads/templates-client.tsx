@@ -54,11 +54,16 @@ function slugify(s: string): string {
 export function TemplatesClient({
   templates,
   teams,
+  initialUseId = null,
 }: {
   templates: ThreadTemplate[];
   teams: TeamOption[];
+  /** Open this template's "Use" dialog on mount (from the New-thread menu). */
+  initialUseId?: string | null;
 }) {
-  const [useFor, setUseFor] = useState<ThreadTemplate | null>(null);
+  const [useFor, setUseFor] = useState<ThreadTemplate | null>(
+    () => templates.find((t) => t.id === initialUseId) ?? null,
+  );
   const [editFor, setEditFor] = useState<ThreadTemplate | null>(null);
   const [deleteFor, setDeleteFor] = useState<ThreadTemplate | null>(null);
   const [pending, startTransition] = useTransition();

@@ -6,8 +6,6 @@ import { updateWorkspaceSettings } from '../actions';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 
-const CUT_OPTIONS = ['100', '90', '80', '70', '60', '50'];
-
 export function WorkspaceForm({
   settings,
 }: {
@@ -22,7 +20,11 @@ export function WorkspaceForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
-  const [fromMode, setFromMode] = useState(settings.email_from_mode ?? 'workspace');
+  // 'personal' was retired as a sender option (Sjoerd 2026-07-02) — existing
+  // workspaces on it fall back to the workspace name.
+  const [fromMode, setFromMode] = useState(
+    settings.email_from_mode === 'personal' ? 'workspace' : settings.email_from_mode ?? 'workspace',
+  );
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,7 +37,6 @@ export function WorkspaceForm({
         email_from_name:
           fromMode === 'custom' ? String(fd.get('email_from_name') ?? '').trim() || null : null,
         email_footer_note: String(fd.get('email_footer_note') ?? '').trim() || null,
-        default_vendor_cut_percent: Number(fd.get('default_vendor_cut_percent') ?? 100),
       });
       if (!r.ok) return setError(r.error);
       setSaved(true);
@@ -53,7 +54,6 @@ export function WorkspaceForm({
         options={[
           { value: 'workspace', label: 'Workspace name' },
           { value: 'team', label: "The thread's team name" },
-          { value: 'personal', label: "The organiser's name" },
           { value: 'custom', label: 'Custom — fill in below' },
         ]}
         hint="Shown as the from-name on thread emails."
@@ -73,16 +73,9 @@ export function WorkspaceForm({
         defaultValue={settings.email_footer_note ?? ''}
         hint="Optional line under every thread email."
       />
-      <SelectField
-        label="Default organiser share"
-        name="default_vendor_cut_percent"
-        defaultValue={String(Math.round(settings.default_vendor_cut_percent))}
-        options={CUT_OPTIONS.map((v) => ({
-          value: v,
-          label: `${v}% to the organiser`,
-        }))}
-        hint="Of net revenue after the platform fee — the rest goes to the workspace. Takes effect with the payments phase."
-      />
+      {/* The organiser revenue share is a payment/billing decision, not a
+          user preference — it moves to the payments settings when checkout
+          lands. The stored default stays untouched. */}
       {error && (
         <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
           {error}

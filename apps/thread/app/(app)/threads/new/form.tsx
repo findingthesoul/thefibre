@@ -63,59 +63,67 @@ export function NewThreadForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-8">
-      <div>
-        <SectionLabel>Kind</SectionLabel>
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <KindCard
-            Icon={CalendarRange}
-            title="Event"
-            desc="A gathering with a schedule — sessions, workshops, conversations at set times."
-            active={format === 'event'}
-            onClick={() => setFormat('event')}
-          />
-          <KindCard
-            Icon={Route}
-            title="Journey"
-            desc="A personal arc over time — reflections, practices and messages, at each participant's own pace."
-            active={format === 'journey'}
-            onClick={() => setFormat('journey')}
-          />
-        </div>
-      </div>
-
-      <div>
-        <SectionLabel>Scope</SectionLabel>
-        <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <KindCard
-            Icon={User}
-            title="Personal"
-            desc="You organise this thread; invite hosts and facilitators later."
-            active={scope === 'personal'}
-            onClick={() => setScope('personal')}
-          />
-          <KindCard
-            Icon={Users}
-            title="Team"
-            desc={
-              teams.length
-                ? 'Owned by one of your teams — members see and share it.'
-                : 'No teams in this workspace yet.'
-            }
-            active={scope === 'team'}
-            onClick={() => teams.length && setScope('team')}
-          />
-        </div>
-        {scope === 'team' && (
-          <div className="mt-3">
-            <SelectField
-              label="Team"
-              name="team_id"
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              options={teams.map((t) => ({ value: t.id, label: t.name }))}
+      {/* Compact toggles (Sjoerd 2026-07-02) — the explanation of the active
+          choice sits underneath, so the form keeps its context without the
+          big-card real estate. */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
+        <div>
+          <SectionLabel>Kind</SectionLabel>
+          <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+            <ToggleButton
+              Icon={CalendarRange}
+              label="Event"
+              active={format === 'event'}
+              onClick={() => setFormat('event')}
+            />
+            <ToggleButton
+              Icon={Route}
+              label="Journey"
+              active={format === 'journey'}
+              onClick={() => setFormat('journey')}
             />
           </div>
-        )}
+          <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+            {format === 'event'
+              ? 'A gathering with a schedule — sessions, workshops, conversations at set times.'
+              : "A personal arc over time — reflections, practices and messages, at each participant's own pace."}
+          </p>
+        </div>
+
+        <div>
+          <SectionLabel>Scope</SectionLabel>
+          <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+            <ToggleButton
+              Icon={User}
+              label="Personal"
+              active={scope === 'personal'}
+              onClick={() => setScope('personal')}
+            />
+            <ToggleButton
+              Icon={Users}
+              label="Team"
+              active={scope === 'team'}
+              disabled={!teams.length}
+              onClick={() => teams.length && setScope('team')}
+            />
+          </div>
+          <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+            {scope === 'personal'
+              ? 'You organise this thread; invite hosts and facilitators later.'
+              : 'Owned by one of your teams — members see and share it.'}
+          </p>
+          {scope === 'team' && (
+            <div className="mt-3">
+              <SelectField
+                label="Team"
+                name="team_id"
+                value={teamId}
+                onChange={(e) => setTeamId(e.target.value)}
+                options={teams.map((t) => ({ value: t.id, label: t.name }))}
+              />
+            </div>
+          )}
+        </div>
       </div>
 
       <NameAndSlugFields
@@ -155,34 +163,34 @@ export function NewThreadForm({
   );
 }
 
-function KindCard({
+function ToggleButton({
   Icon,
-  title,
-  desc,
+  label,
   active,
+  disabled,
   onClick,
 }: {
   Icon: LucideIcon;
-  title: string;
-  desc: string;
+  label: string;
   active: boolean;
+  disabled?: boolean;
   onClick: () => void;
 }) {
   return (
     <button
       type="button"
+      disabled={disabled}
       onClick={onClick}
-      className={`text-left rounded-lg border p-4 transition-colors ${
-        active
-          ? 'border-ink bg-surface-sunken'
-          : 'border-line bg-surface hover:bg-surface-sunken'
+      className={`inline-flex items-center justify-center gap-1.5 text-sm transition-colors ${
+        disabled
+          ? 'text-ink-muted cursor-not-allowed opacity-50'
+          : active
+            ? 'bg-surface-sunken text-ink font-medium'
+            : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
       }`}
     >
-      <div className="flex items-center gap-2">
-        <Icon size={17} strokeWidth={1.75} className="text-ink-subtle" />
-        <span className="text-sm font-medium">{title}</span>
-      </div>
-      <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">{desc}</p>
+      <Icon size={15} strokeWidth={1.75} />
+      {label}
     </button>
   );
 }

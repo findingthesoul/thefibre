@@ -6,6 +6,35 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.85] — 2026-07-02 — Thread 3.20.0: bulk certificates, LinkedIn share, compact choosers
+
+### Added
+- **Select participants → certificates in bulk** (v3 parity) — the
+  Enrolments list gains per-row checkboxes + select-all and an action bar:
+  Issue certificates (for the selection), Download for print (one combined
+  print view at `/certificate/print?numbers=…` — auto-opens the print
+  dialog, save as PDF), and Send by email (each participant gets their
+  certificate link; explicit, never automatic —
+  `POST /enrolments/:id/send-certificate`).
+- **LinkedIn on the public certificate page** — "Add to LinkedIn profile"
+  (pre-filled certification entry: name, organisation, issue date, URL,
+  certificate id), Share, and Print/PDF buttons under the certificate.
+- **New thread from a template** — hovering "New thread" reveals the saved
+  templates; picking one opens its Use dialog (`/templates/threads?use=id`),
+  clicking the button starts from scratch.
+
+### Changed
+- **Kind and Scope are compact toggles** in the new-thread form — the
+  explanation of the active choice sits underneath; the big cards are gone.
+- **Applied discount codes show the old price struck through** next to the
+  new price on the public enrol card.
+- **Certificate builder properties bar has a fixed height** — selecting an
+  element no longer shifts the canvas; overflow scrolls horizontally.
+- **Email sender options lose "The organiser's name"** (existing workspaces
+  on it fall back to the workspace name) and **"Default organiser share"
+  left Emails & defaults** — it's a payment decision, it returns with the
+  payments settings.
+
 ## [0.13.84] — 2026-07-02 — Thread 3.19.0: timeline polish, editable template content, cert-template archiving
 
 ### Fixed

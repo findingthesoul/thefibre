@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { X } from 'lucide-react';
-import { IssueCertButton, BulkIssueButton } from './certificate-actions';
+import { BulkIssueButton } from './certificate-actions';
+import { EnrolmentsList, type EnrolmentRowData } from './enrolments-list';
 import { apiFetch, ApiError } from '@/lib/api';
 import { one } from '@/lib/thread-types';
 import {
@@ -120,56 +121,28 @@ export default async function EnrolmentsPage({
       )}
 
       {items.length > 0 && (
-        <ul className="mt-6 divide-y divide-line border border-line rounded-lg bg-surface-raised">
-          {items.map((it) => {
+        <EnrolmentsList
+          rows={items.map((it): EnrolmentRowData => {
             const person = one(it.person);
             const enr = one(it.enrolment);
             const thread = one(it.thread);
             const program = thread ? one(thread.program) : null;
-            const name =
-              [person?.first_name, person?.last_name].filter(Boolean).join(' ') ||
-              person?.email ||
-              'Unknown';
-            const status = enr?.status ?? 'enrolled';
-            return (
-              <li key={it.id} className="flex items-center gap-4 px-4 py-3">
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium truncate">{name}</div>
-                  <div className="text-xs text-ink-subtle mt-0.5 truncate">
-                    {person?.email}
-                    {program?.title ? (
-                      <>
-                        {' · '}
-                        <Link
-                          href={`/threads/${thread?.id}`}
-                          className="hover:text-ink underline-offset-2 hover:underline"
-                        >
-                          {program.title}
-                        </Link>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-                {thread?.certificate_enabled && (
-                  <IssueCertButton
-                    enrolmentId={it.id}
-                    certificateNumber={one(it.certificate)?.certificate_number ?? null}
-                  />
-                )}
-                <span className="text-xs text-ink-muted shrink-0">
-                  {PAYMENT_LABELS[it.payment_status] ?? it.payment_status}
-                </span>
-                <span
-                  className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
-                    STATUS_STYLES[status] ?? STATUS_STYLES.enrolled
-                  }`}
-                >
-                  {status}
-                </span>
-              </li>
-            );
+            return {
+              id: it.id,
+              name:
+                [person?.first_name, person?.last_name].filter(Boolean).join(' ') ||
+                person?.email ||
+                'Unknown',
+              email: person?.email ?? null,
+              threadId: thread?.id ?? null,
+              threadTitle: program?.title ?? null,
+              certEnabled: !!thread?.certificate_enabled,
+              certNumber: one(it.certificate)?.certificate_number ?? null,
+              payment: PAYMENT_LABELS[it.payment_status] ?? it.payment_status,
+              status: enr?.status ?? 'enrolled',
+            };
           })}
-        </ul>
+        />
       )}
     </PageContainer>
   );
