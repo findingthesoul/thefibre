@@ -113,7 +113,15 @@ threadRoutes.get('/me', async (c) => {
     organiser = created;
   }
 
-  return c.json(organiser);
+  // Meet's personal meeting room, if the user configured one there — the
+  // Fibre apps share connection settings (Sjoerd 2026-07-02).
+  const { data: meetHost } = await adminClient
+    .from('meet_host')
+    .select('personal_room_url')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+
+  return c.json({ ...organiser, personal_room_url: meetHost?.personal_room_url ?? null });
 });
 
 // PATCH /api/v1/thread/me — update organiser config
@@ -512,7 +520,12 @@ const EngagementCreate = z.object({
   starts_at: z.string().datetime({ offset: true }).nullable().optional(),
   ends_at: z.string().datetime({ offset: true }).nullable().optional(),
   location: z.string().max(500).nullable().optional(),
+  location_url: z.string().max(1000).nullable().optional(),
   meeting_url: z.string().max(1000).nullable().optional(),
+  meeting_provider: z
+    .enum(['google_meet', 'zoom', 'teams', 'personal_room', 'custom'])
+    .nullable()
+    .optional(),
   scheduled_at: z.string().datetime({ offset: true }).nullable().optional(),
   // Message-family send triggers (see migration 20260702100000).
   trigger_kind: z
@@ -595,7 +608,9 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
       location: body.data.location ?? null,
+      location_url: body.data.location_url ?? null,
       meeting_url: body.data.meeting_url ?? null,
+      meeting_provider: body.data.meeting_provider ?? null,
       scheduled_at: body.data.scheduled_at ?? null,
       trigger_kind: body.data.trigger_kind ?? 'fixed',
       trigger_anchor: body.data.trigger_anchor ?? null,
@@ -1567,18 +1582,34 @@ threadRoutes.post('/public/enrol', async (c) => {
 // approval and completion flows will call the same helper when they land.
 // ---------------------------------------------------------------------------
 
+/** Rich-text fields store HTML; plain-text email parts need it stripped. */
+function stripHtml(s: string): string {
+  return s
+    .replace(/<br\s*\/?>/gi, '\n')
+    .replace(/<\/(p|div|li|h[1-6])>/gi, '\n')
+    .replace(/<li[^>]*>/gi, '• ')
+    .replace(/<[^>]+>/g, '')
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 function renderMessageBody(
   type: string,
   content: Record<string, unknown>,
   description: string | null,
 ): string {
-  const str = (k: string) => (typeof content[k] === 'string' ? (content[k] as string) : '');
+  const str = (k: string) =>
+    typeof content[k] === 'string' ? stripHtml(content[k] as string) : '';
   const list = (k: string, prefix: string) =>
     Array.isArray(content[k])
       ? (content[k] as string[]).map((x, i) => `${prefix}${i + 1}. ${x}`).join('\n')
       : '';
   const parts: string[] = [];
-  if (description) parts.push(description);
+  if (description) parts.push(stripHtml(description));
   switch (type) {
     case 'reflection':
       parts.push(list('questions', ''));

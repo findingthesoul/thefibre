@@ -6,7 +6,33 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.69] — 2026-07-02 — Thread 3.8.0: Meet-parity — teams, contacts, internal team, settings
+## [0.13.70] — 2026-07-02 — Thread 3.9.0: the big editing-UX pass
+
+Nine interface improvements in one slice
+(migration `20260702140000_thread_engagement_location_provider.sql`, applied):
+
+- **Engagement dialog, two columns**: left = what it is (title, rich-text
+  description, message content), right = when + where (type, status,
+  times, location). Order follows the work, not the schema.
+- **One date-time popover — the Fibre single point of truth**: calendar
+  left, scrollable 15-minute time column right, one trigger showing
+  "Wed 2 Jul 2026 · 09:00". Synced to web + meet copies.
+- **Quick time edit**: click the time on any timeline card → a small
+  popup to change just the schedule.
+- **Delete moved off the timeline** into the dialog footer, joined by
+  **Duplicate**; Save/Cancel on the right, destructive actions left.
+- **Thread settings: tabbed** (Basics / Pricing / Registration /
+  Certificate — more coming), behind a proper gear icon. **Pricing tab**
+  new: Free/Paid 2-card chooser + price + currency (checkout arrives with
+  the payments phase).
+- **Rich text** (bold, italic, lists, links) for descriptions and message
+  bodies; emails strip to clean plain text; the public agenda renders it.
+- **Status = toggle** (Draft | Published segments), no more select.
+- **Meeting link = provider dropdown** (Google Meet / Zoom / Teams /
+  Personal room / Custom — Meet's vocabulary). Personal room reads your
+  Meet profile setting: connection settings are shared across the family.
+- **Location = In person / Virtual toggle** with consequential fields:
+  in person → description + map link; virtual → provider + meeting link.
 
 The Thread grows the same workspace surfaces Meet has:
 

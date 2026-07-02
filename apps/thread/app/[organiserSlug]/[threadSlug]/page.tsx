@@ -152,9 +152,11 @@ export default async function PublicThreadPage({
                     >
                       <div className="text-sm font-medium">{a.title}</div>
                       {a.description && (
-                        <p className="mt-0.5 text-sm text-ink-subtle leading-relaxed">
-                          {a.description}
-                        </p>
+                        <div
+                          className="mt-0.5 text-sm text-ink-subtle leading-relaxed [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_a]:underline"
+                          // Rich text authored by workspace members in the editor.
+                          dangerouslySetInnerHTML={{ __html: a.description }}
+                        />
                       )}
                       <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
                         {fmtSlot(a.starts_at, a.ends_at, thread.timezone) && (

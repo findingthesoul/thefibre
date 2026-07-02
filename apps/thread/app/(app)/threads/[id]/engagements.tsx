@@ -1,24 +1,26 @@
 'use client';
 
-// The engagement add/edit dialog. The timeline (timeline.tsx) opens it —
-// either blank with a preselected type (from the add-menu) or loaded with
-// an existing engagement.
+// The engagement add/edit dialog — v3-style big modal, two-column layout
+// (Sjoerd 2026-07-02): left = what it is (title, description/content),
+// right = when + where. Delete/Duplicate live in the footer next to Save.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { createEngagement, updateEngagement } from '../actions';
+import { Trash2, Copy, MapPin, Video } from 'lucide-react';
+import { createEngagement, updateEngagement, deleteEngagement } from '../actions';
 import type { EngagementRow, EngagementType, TriggerKind } from '@/lib/thread-types';
 import {
   ENGAGEMENT_META,
   metaFor,
   type EngagementFamily,
 } from '@/lib/engagement-meta';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
+import { RichTextField } from '@/components/ui/rich-text';
 import { Button } from '@/components/ui/button';
 
-/** ISO → value for <input type="datetime-local"> in the browser's zone. */
+/** ISO → value for the date-time picker in the browser's zone. */
 export function toLocalInput(iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
@@ -31,6 +33,14 @@ function fromLocalInput(v: string): string | null {
   return new Date(v).toISOString();
 }
 
+const PROVIDER_OPTIONS = [
+  { value: 'google_meet', label: 'Google Meet' },
+  { value: 'zoom', label: 'Zoom' },
+  { value: 'teams', label: 'Microsoft Teams' },
+  { value: 'personal_room', label: 'Personal meeting room' },
+  { value: 'custom', label: 'Custom link' },
+];
+
 const TRIGGER_DAY_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '10', '14', '21', '30'];
 const TRIGGER_TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
 
@@ -41,33 +51,36 @@ export function EngagementDialog({
   threadStartsOn,
   threadEndsOn,
   requiresApproval,
+  personalRoomUrl,
   onClose,
 }: {
   threadId: string;
   engagement: EngagementRow | null;
-  /** Preselected type when creating (from the timeline's add-menu). */
   initialType?: EngagementType;
-  /** Thread window — activities must fall inside it. */
   threadStartsOn?: string | null;
   threadEndsOn?: string | null;
-  /** Only threads with approval offer the on_approval trigger. */
   requiresApproval?: boolean;
+  /** Meet's personal room, shared across the Fibre apps. */
+  personalRoomUrl?: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
   const isNew = !engagement;
-  const [type, setType] = useState<EngagementType>(
-    engagement?.type ?? initialType ?? 'event',
+  const [type, setType] = useState<EngagementType>(engagement?.type ?? initialType ?? 'event');
+  const [triggerKind, setTriggerKind] = useState<TriggerKind>(engagement?.trigger_kind ?? 'fixed');
+  const [status, setStatus] = useState<'draft' | 'published'>(
+    engagement?.status === 'published' ? 'published' : 'draft',
   );
-  const [triggerKind, setTriggerKind] = useState<TriggerKind>(
-    engagement?.trigger_kind ?? 'fixed',
+  const [locationMode, setLocationMode] = useState<'in_person' | 'virtual'>(
+    engagement?.meeting_url || engagement?.meeting_provider ? 'virtual' : 'in_person',
   );
+  const [provider, setProvider] = useState<string>(engagement?.meeting_provider ?? 'custom');
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const meta = metaFor(type);
   const family: EngagementFamily = meta.family;
-  // Editing: only offer types within the same family (API enforces it too).
   const typeOptions = ENGAGEMENT_META.filter((m) =>
     isNew ? m.family === family : m.family === metaFor(engagement.type).family,
   );
@@ -84,9 +97,9 @@ export function EngagementDialog({
       type,
       description: String(fd.get('description') ?? '').trim() || null,
       show_in_agenda: fd.get('show_in_agenda') === 'on',
+      ...(isNew ? {} : { status }),
     };
-    // Message trigger fields — one shape per kind, everything else nulled
-    // so switching kinds never leaves stale values behind.
+
     const trigger: Record<string, unknown> = {
       trigger_kind: triggerKind,
       trigger_anchor: null,
@@ -104,14 +117,31 @@ export function EngagementDialog({
       trigger.trigger_time = String(fd.get('trigger_time') ?? '09:00');
     }
 
+    const where =
+      locationMode === 'virtual'
+        ? {
+            meeting_provider: provider as EngagementRow['meeting_provider'],
+            meeting_url:
+              provider === 'personal_room'
+                ? personalRoomUrl ?? null
+                : String(fd.get('meeting_url') ?? '').trim() || null,
+            location: null,
+            location_url: null,
+          }
+        : {
+            meeting_provider: null,
+            meeting_url: null,
+            location: String(fd.get('location') ?? '').trim() || null,
+            location_url: String(fd.get('location_url') ?? '').trim() || null,
+          };
+
     const payload =
       family === 'activity'
         ? {
             ...common,
             starts_at: fromLocalInput(String(fd.get('starts_at') ?? '')),
             ends_at: fromLocalInput(String(fd.get('ends_at') ?? '')),
-            location: String(fd.get('location') ?? '').trim() || null,
-            meeting_url: String(fd.get('meeting_url') ?? '').trim() || null,
+            ...where,
           }
         : {
             ...common,
@@ -122,11 +152,45 @@ export function EngagementDialog({
     startTransition(async () => {
       const r = isNew
         ? await createEngagement(threadId, payload)
-        : await updateEngagement(threadId, engagement.id, {
-            ...payload,
-            status: String(fd.get('status') ?? 'draft'),
-          });
+        : await updateEngagement(threadId, engagement.id, payload);
       if (!r.ok) return setError(r.error);
+      onClose();
+      router.refresh();
+    });
+  }
+
+  function duplicate() {
+    if (!engagement) return;
+    startTransition(async () => {
+      const r = await createEngagement(threadId, {
+        title: `${engagement.title} (copy)`,
+        type: engagement.type,
+        description: engagement.description,
+        starts_at: engagement.starts_at,
+        ends_at: engagement.ends_at,
+        location: engagement.location,
+        location_url: engagement.location_url,
+        meeting_url: engagement.meeting_url,
+        meeting_provider: engagement.meeting_provider,
+        scheduled_at: engagement.scheduled_at,
+        trigger_kind: engagement.trigger_kind,
+        trigger_anchor: engagement.trigger_anchor,
+        trigger_offset_days: engagement.trigger_offset_days,
+        trigger_time: engagement.trigger_time,
+        content: engagement.content,
+        show_in_agenda: engagement.show_in_agenda,
+      });
+      if (!r.ok) return setError(r.error);
+      onClose();
+      router.refresh();
+    });
+  }
+
+  function doDelete() {
+    if (!engagement) return;
+    startTransition(async () => {
+      await deleteEngagement(threadId, engagement.id);
+      setConfirmDelete(false);
       onClose();
       router.refresh();
     });
@@ -140,9 +204,30 @@ export function EngagementDialog({
       size="xl"
       footer={
         <>
-          {error && (
-            <span className="mr-auto text-sm text-red-700 truncate max-w-md">{error}</span>
+          {!isNew && (
+            <div className="mr-auto flex items-center gap-1.5">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leading={<Trash2 size={14} />}
+                onClick={() => setConfirmDelete(true)}
+              >
+                Delete
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leading={<Copy size={14} />}
+                onClick={duplicate}
+                disabled={pending}
+              >
+                Duplicate
+              </Button>
+            </div>
           )}
+          {error && <span className="text-sm text-red-700 truncate max-w-xs">{error}</span>}
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>
@@ -152,104 +237,212 @@ export function EngagementDialog({
         </>
       }
     >
-      <form id="engagement-form" onSubmit={onSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <SelectField
-            label="Type"
-            name="type_display"
-            value={type}
-            onChange={(e) => setType(e.target.value as EngagementType)}
-            options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
-            hint={isNew ? meta.description : 'Only types within the same family.'}
-          />
-          {!isNew && (
-            <SelectField
-              label="Status"
-              name="status"
-              defaultValue={engagement.status}
-              options={[
-                { value: 'draft', label: 'Draft' },
-                { value: 'published', label: 'Published' },
-                { value: 'closed', label: 'Closed' },
-              ]}
+      <form id="engagement-form" onSubmit={onSubmit}>
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-x-8 gap-y-6">
+          {/* ── Left: what it is ─────────────────────────────────────── */}
+          <div className="space-y-5">
+            <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
+            <RichTextField
+              label="Description"
+              name="description"
+              defaultValue={engagement?.description ?? ''}
             />
-          )}
+            {family === 'message' && (
+              <MessageContentFields type={type} content={engagement?.content ?? {}} />
+            )}
+          </div>
+
+          {/* ── Right: when + where ──────────────────────────────────── */}
+          <div className="space-y-5">
+            <div className="grid grid-cols-2 gap-3">
+              <SelectField
+                label="Type"
+                name="type_display"
+                value={type}
+                onChange={(e) => setType(e.target.value as EngagementType)}
+                options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
+              />
+              {!isNew && (
+                <div>
+                  <span className="text-sm text-ink-subtle">Status</span>
+                  <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+                    {(['draft', 'published'] as const).map((s) => (
+                      <button
+                        key={s}
+                        type="button"
+                        onClick={() => setStatus(s)}
+                        className={`text-sm capitalize transition-colors ${
+                          status === s
+                            ? s === 'published'
+                              ? 'bg-emerald-600 text-white font-medium'
+                              : 'bg-ink text-ink-inverse font-medium'
+                            : 'bg-surface-raised text-ink-subtle hover:text-ink'
+                        }`}
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {family === 'activity' ? (
+              <>
+                <DateTimeField
+                  label="Starts"
+                  name="starts_at"
+                  defaultValue={toLocalInput(engagement?.starts_at ?? null)}
+                  min={threadStartsOn}
+                  max={threadEndsOn}
+                />
+                <DateTimeField
+                  label="Ends"
+                  name="ends_at"
+                  defaultValue={toLocalInput(engagement?.ends_at ?? null)}
+                  min={threadStartsOn}
+                  max={threadEndsOn}
+                />
+
+                {/* Where: in person / virtual */}
+                <div>
+                  <span className="text-sm text-ink-subtle">Where</span>
+                  <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+                    <ModeButton
+                      Icon={MapPin}
+                      label="In person"
+                      active={locationMode === 'in_person'}
+                      onClick={() => setLocationMode('in_person')}
+                    />
+                    <ModeButton
+                      Icon={Video}
+                      label="Virtual"
+                      active={locationMode === 'virtual'}
+                      onClick={() => setLocationMode('virtual')}
+                    />
+                  </div>
+                </div>
+
+                {locationMode === 'in_person' ? (
+                  <>
+                    <TextField
+                      label="Location"
+                      name="location"
+                      placeholder="Venue or address"
+                      defaultValue={engagement?.location ?? ''}
+                    />
+                    <TextField
+                      label="Location link"
+                      name="location_url"
+                      type="url"
+                      placeholder="Maps or venue URL"
+                      defaultValue={engagement?.location_url ?? ''}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <SelectField
+                      label="Provider"
+                      name="provider_display"
+                      value={provider}
+                      onChange={(e) => setProvider(e.target.value)}
+                      options={PROVIDER_OPTIONS}
+                    />
+                    {provider === 'personal_room' ? (
+                      <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
+                        {personalRoomUrl ? (
+                          <>
+                            Uses your personal room from Meet:{' '}
+                            <span className="text-ink break-all">{personalRoomUrl}</span>
+                          </>
+                        ) : (
+                          <>
+                            No personal room configured — set one in Fibre Meet →
+                            Settings → Profile.
+                          </>
+                        )}
+                      </p>
+                    ) : (
+                      <TextField
+                        label="Meeting link"
+                        name="meeting_url"
+                        type="url"
+                        placeholder="https://…"
+                        defaultValue={engagement?.meeting_url ?? ''}
+                      />
+                    )}
+                  </>
+                )}
+              </>
+            ) : (
+              <TriggerFields
+                triggerKind={triggerKind}
+                onKindChange={setTriggerKind}
+                engagement={engagement}
+                requiresApproval={requiresApproval ?? false}
+              />
+            )}
+
+            <label className="flex items-center gap-2.5 pt-1">
+              <input
+                type="checkbox"
+                name="show_in_agenda"
+                defaultChecked={engagement?.show_in_agenda ?? true}
+              />
+              <span className="text-sm text-ink-subtle">Show on the public agenda</span>
+            </label>
+          </div>
         </div>
-
-        <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
-        <TextAreaField
-          label="Description"
-          name="description"
-          rows={3}
-          defaultValue={engagement?.description ?? ''}
-        />
-
-        {family === 'activity' ? (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <DateTimeField
-                label="Starts"
-                name="starts_at"
-                defaultValue={toLocalInput(engagement?.starts_at ?? null)}
-                min={threadStartsOn}
-                max={threadEndsOn}
-                hint={
-                  threadStartsOn || threadEndsOn
-                    ? `Within the thread dates${threadStartsOn ? ` (${threadStartsOn}` : ''}${threadEndsOn ? ` → ${threadEndsOn})` : threadStartsOn ? ')' : ''}`
-                    : undefined
-                }
-              />
-              <DateTimeField
-                label="Ends"
-                name="ends_at"
-                defaultValue={toLocalInput(engagement?.ends_at ?? null)}
-                min={threadStartsOn}
-                max={threadEndsOn}
-              />
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-              <TextField
-                label="Location"
-                name="location"
-                placeholder="Venue or address"
-                defaultValue={engagement?.location ?? ''}
-              />
-              <TextField
-                label="Meeting link"
-                name="meeting_url"
-                type="url"
-                placeholder="Zoom, Teams or Meet URL"
-                defaultValue={engagement?.meeting_url ?? ''}
-              />
-            </div>
-          </>
-        ) : (
-          <>
-            <TriggerFields
-              triggerKind={triggerKind}
-              onKindChange={setTriggerKind}
-              engagement={engagement}
-              requiresApproval={requiresApproval ?? false}
-            />
-            <MessageContentFields type={type} content={engagement?.content ?? {}} />
-          </>
-        )}
-
-        <label className="flex items-center gap-2.5">
-          <input
-            type="checkbox"
-            name="show_in_agenda"
-            defaultChecked={engagement?.show_in_agenda ?? true}
-          />
-          <span className="text-sm text-ink-subtle">Show on the public agenda</span>
-        </label>
       </form>
+
+      <ConfirmDialog
+        open={confirmDelete}
+        onCancel={() => setConfirmDelete(false)}
+        onConfirm={doDelete}
+        title="Delete engagement"
+        message={
+          <>
+            Delete <strong>{engagement?.title}</strong> from the timeline? This can&apos;t be
+            undone.
+          </>
+        }
+        confirmLabel="Delete"
+        destructive
+        pending={pending}
+      />
     </Dialog>
   );
 }
 
+function ModeButton({
+  Icon,
+  label,
+  active,
+  onClick,
+}: {
+  Icon: React.ComponentType<{ size?: number; strokeWidth?: number }>;
+  label: string;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`inline-flex items-center justify-center gap-1.5 text-sm transition-colors ${
+        active
+          ? 'bg-ink text-ink-inverse font-medium'
+          : 'bg-surface-raised text-ink-subtle hover:text-ink'
+      }`}
+    >
+      <Icon size={14} strokeWidth={1.75} />
+      {label}
+    </button>
+  );
+}
+
 // ---------------------------------------------------------------------------
-// "When to send" — the message-family trigger control (Sjoerd 2026-07-02).
+// "When to send" — message-family trigger control
 // ---------------------------------------------------------------------------
 
 function TriggerFields({
@@ -280,27 +473,24 @@ function TriggerFields({
   ];
 
   return (
-    <div className="rounded-lg border border-line bg-surface-sunken/50 p-4 space-y-4">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-        <SelectField
-          label="When to send"
-          name="trigger_kind_display"
-          value={triggerKind}
-          onChange={(e) => onKindChange(e.target.value as TriggerKind)}
-          options={kindOptions}
+    <div className="space-y-4">
+      <SelectField
+        label="When to send"
+        name="trigger_kind_display"
+        value={triggerKind}
+        onChange={(e) => onKindChange(e.target.value as TriggerKind)}
+        options={kindOptions}
+      />
+      {triggerKind === 'fixed' && (
+        <DateTimeField
+          label="Send at"
+          name="scheduled_at"
+          defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
+          hint="Leave empty to keep it unscheduled."
         />
-        {triggerKind === 'fixed' && (
-          <DateTimeField
-            label="Send at"
-            name="scheduled_at"
-            defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
-            hint="Leave empty to keep it unscheduled."
-          />
-        )}
-      </div>
-
+      )}
       {triggerKind === 'relative' && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <SelectField
             label="Days"
             name="trigger_days"
@@ -336,13 +526,11 @@ function TriggerFields({
           />
         </div>
       )}
-
       {(triggerKind === 'on_enrolment' ||
         triggerKind === 'on_approval' ||
         triggerKind === 'on_completion') && (
-        <p className="text-xs text-ink-muted">
-          Sent automatically to each participant the moment it happens — no
-          date needed.
+        <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
+          Sent automatically to each participant the moment it happens — no date needed.
         </p>
       )}
     </div>
@@ -350,7 +538,7 @@ function TriggerFields({
 }
 
 // ---------------------------------------------------------------------------
-// Type-specific message content (kept deliberately simple)
+// Type-specific message content
 // ---------------------------------------------------------------------------
 
 function contentFromForm(type: EngagementType, fd: FormData): Record<string, unknown> {
@@ -427,13 +615,13 @@ function MessageContentFields({
             placeholder="https://…"
             defaultValue={str('external_url')}
           />
-          <TextAreaField label="Note" name="body" rows={2} defaultValue={str('body')} />
+          <RichTextField label="Note" name="body" defaultValue={str('body')} minHeight={64} />
         </>
       );
     case 'inspiration':
       return (
         <>
-          <TextAreaField label="Text" name="body" rows={3} defaultValue={str('body')} />
+          <RichTextField label="Text" name="body" defaultValue={str('body')} />
           <TextField
             label="Link (optional)"
             name="external_url"
@@ -446,11 +634,11 @@ function MessageContentFields({
     case 'message':
     default:
       return (
-        <TextAreaField
+        <RichTextField
           label="Body"
           name="body"
-          rows={5}
           defaultValue={str('body')}
+          minHeight={140}
           hint="Tokens: {name}, {thread}, {organiser}, {date} — replaced per participant when sent."
         />
       );

@@ -99,7 +99,9 @@ export type EngagementRow = {
   starts_at: string | null;
   ends_at: string | null;
   location: string | null;
+  location_url: string | null;
   meeting_url: string | null;
+  meeting_provider: 'google_meet' | 'zoom' | 'teams' | 'personal_room' | 'custom' | null;
   scheduled_at: string | null;
   // Message-family send trigger (see migration 20260702100000).
   trigger_kind: TriggerKind;

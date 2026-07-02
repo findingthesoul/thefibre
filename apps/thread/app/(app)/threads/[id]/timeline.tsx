@@ -11,17 +11,16 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
   Plus,
-  Settings2,
+  Settings,
   ExternalLink,
   Clock,
   MapPin,
   Video,
-  Trash2,
   ChevronLeft,
   Users,
   X,
 } from 'lucide-react';
-import { updateThread, deleteEngagement, addThreadMember, removeThreadMember } from '../actions';
+import { updateThread, updateEngagement, addThreadMember, removeThreadMember } from '../actions';
 import {
   one,
   type ThreadRow,
@@ -32,12 +31,14 @@ import {
   type TeamOption,
 } from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
-import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { EngagementDialog } from './engagements';
+import { DateTimeField } from '@/components/ui/date-field';
+import { EngagementDialog, toLocalInput } from './engagements';
 import { ThreadEditorForm } from './form';
 import { RegistrationPanel } from './registration';
-import { SectionLabel } from '@/components/ui/page';
+import { PricingPanel } from './pricing-panel';
+import { CertificatePanel } from './certificate-panel';
 
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
@@ -112,6 +113,7 @@ export function ThreadTimeline({
   teams,
   organisations,
   certTemplates,
+  personalRoomUrl,
 }: {
   thread: ThreadRow;
   engagements: EngagementRow[];
@@ -120,6 +122,7 @@ export function ThreadTimeline({
   teams: TeamOption[];
   organisations: { id: string; name: string }[];
   certTemplates: { id: string; name: string }[];
+  personalRoomUrl: string | null;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -136,8 +139,7 @@ export function ThreadTimeline({
     | { mode: 'new'; type: EngagementType }
     | { mode: 'edit'; engagement: EngagementRow }
   >({ mode: 'closed' });
-  const [deleting, setDeleting] = useState<EngagementRow | null>(null);
-  const [pendingDelete, startDelete] = useTransition();
+  const [quickTime, setQuickTime] = useState<EngagementRow | null>(null);
   const addRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -198,15 +200,6 @@ export function ThreadTimeline({
     });
   }
 
-  function confirmDelete() {
-    if (!deleting) return;
-    const target = deleting;
-    startDelete(async () => {
-      await deleteEngagement(thread.id, target.id);
-      setDeleting(null);
-      router.refresh();
-    });
-  }
 
   return (
     <div>
@@ -266,7 +259,7 @@ export function ThreadTimeline({
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
           title="Thread settings"
         >
-          <Settings2 size={17} strokeWidth={1.75} />
+          <Settings size={17} strokeWidth={1.75} />
         </button>
         <a
           href={publicUrl}
@@ -331,7 +324,7 @@ export function ThreadTimeline({
                     attachTop={i > 0}
                     attachBottom={i < triggered.length - 1}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
-                    onDelete={() => setDeleting(e)}
+                    onQuickTime={() => setQuickTime(e)}
                   />
                 ))}
               </div>
@@ -349,7 +342,7 @@ export function ThreadTimeline({
                     attachTop={i > 0}
                     attachBottom={i < items.length - 1}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
-                    onDelete={() => setDeleting(e)}
+                    onQuickTime={() => setQuickTime(e)}
                   />
                 ))}
               </div>
@@ -371,7 +364,7 @@ export function ThreadTimeline({
                     attachTop={i > 0}
                     attachBottom={i < undated.length - 1}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
-                    onDelete={() => setDeleting(e)}
+                    onQuickTime={() => setQuickTime(e)}
                   />
                 ))}
               </div>
@@ -422,6 +415,7 @@ export function ThreadTimeline({
           threadStartsOn={program?.starts_on ?? null}
           threadEndsOn={program?.ends_on ?? null}
           requiresApproval={thread.requires_approval}
+          personalRoomUrl={personalRoomUrl}
           onClose={() => setEditorState({ mode: 'closed' })}
         />
       )}
@@ -444,42 +438,24 @@ export function ThreadTimeline({
           description="Basics, dates and the public registration form."
           size="xl"
         >
-          <div className="space-y-10 pb-2">
-            <ThreadEditorForm
-              thread={thread}
-              compact
-              teams={teams}
-              organisations={organisations}
-              certTemplates={certTemplates}
-            />
-            <div>
-              <SectionLabel>Registration</SectionLabel>
-              <div className="mt-3">
-                <RegistrationPanel
-                  threadId={thread.id}
-                  fields={thread.registration_fields ?? []}
-                />
-              </div>
-            </div>
-          </div>
+          <SettingsTabs
+            thread={thread}
+            teams={teams}
+            organisations={organisations}
+            certTemplates={certTemplates}
+          />
         </Dialog>
       )}
 
-      <ConfirmDialog
-        open={!!deleting}
-        onCancel={() => setDeleting(null)}
-        onConfirm={confirmDelete}
-        title="Delete engagement"
-        message={
-          <>
-            Delete <strong>{deleting?.title}</strong> from the timeline? This
-            can&apos;t be undone.
-          </>
-        }
-        confirmLabel="Delete"
-        destructive
-        pending={pendingDelete}
-      />
+      {quickTime && (
+        <QuickTimeDialog
+          threadId={thread.id}
+          engagement={quickTime}
+          threadStartsOn={program?.starts_on ?? null}
+          threadEndsOn={program?.ends_on ?? null}
+          onClose={() => setQuickTime(null)}
+        />
+      )}
     </div>
   );
 }
@@ -519,13 +495,13 @@ function EngagementCard({
   attachTop,
   attachBottom,
   onEdit,
-  onDelete,
+  onQuickTime,
 }: {
   engagement: EngagementRow;
   attachTop: boolean;
   attachBottom: boolean;
   onEdit: () => void;
-  onDelete: () => void;
+  onQuickTime: () => void;
 }) {
   const meta = metaFor(e.type);
   const Icon = meta.icon;
@@ -571,11 +547,19 @@ function EngagementCard({
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-subtle shrink-0">
             {meta.family === 'activity' && when && (
-              <span className="inline-flex items-center gap-1 tabular-nums">
+              <button
+                type="button"
+                title="Change time"
+                onClick={(ev) => {
+                  ev.stopPropagation();
+                  onQuickTime();
+                }}
+                className="inline-flex items-center gap-1 tabular-nums rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-surface-sunken hover:text-ink transition-colors"
+              >
                 <Clock size={12} strokeWidth={1.75} />
                 {fmtTime(when)}
                 {e.ends_at && ` – ${fmtTime(e.ends_at)}`}
-              </span>
+              </button>
             )}
             {e.location && (
               <span className="hidden sm:inline-flex items-center gap-1 max-w-[140px] truncate">
@@ -589,21 +573,160 @@ function EngagementCard({
                 Online
               </span>
             )}
-            <button
-              type="button"
-              aria-label="Delete"
-              onClick={(ev) => {
-                ev.stopPropagation();
-                onDelete();
-              }}
-              className="opacity-0 group-hover:opacity-100 inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken transition-opacity"
-            >
-              <Trash2 size={14} strokeWidth={1.75} />
-            </button>
           </div>
         </div>
       </div>
     </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Thread settings — tabbed (Basics / Pricing / Registration / Certificate);
+// more tabs will come. All tabs stay in the DOM (Meet's pattern).
+// ---------------------------------------------------------------------------
+
+function SettingsTabs({
+  thread,
+  teams,
+  organisations,
+  certTemplates,
+}: {
+  thread: ThreadRow;
+  teams: TeamOption[];
+  organisations: { id: string; name: string }[];
+  certTemplates: { id: string; name: string }[];
+}) {
+  const [tab, setTab] = useState<'basics' | 'pricing' | 'registration' | 'certificate'>('basics');
+  const tabs = [
+    { value: 'basics', label: 'Basics' },
+    { value: 'pricing', label: 'Pricing' },
+    { value: 'registration', label: 'Registration' },
+    { value: 'certificate', label: 'Certificate' },
+  ] as const;
+
+  return (
+    <div>
+      <nav className="border-b border-line -mt-1">
+        <ul className="flex gap-1 -mb-px">
+          {tabs.map((t) => (
+            <li key={t.value}>
+              <button
+                type="button"
+                onClick={() => setTab(t.value)}
+                className={`inline-block px-3 py-2 text-sm border-b-2 transition-colors ${
+                  tab === t.value
+                    ? 'border-ink text-ink'
+                    : 'border-transparent text-ink-subtle hover:text-ink hover:border-line-strong'
+                }`}
+              >
+                {t.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      </nav>
+      <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
+        <ThreadEditorForm thread={thread} compact teams={teams} organisations={organisations} />
+      </div>
+      <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
+        <PricingPanel thread={thread} />
+      </div>
+      <div className={`pt-5 ${tab === 'registration' ? '' : 'hidden'}`}>
+        <RegistrationPanel threadId={thread.id} fields={thread.registration_fields ?? []} />
+      </div>
+      <div className={`pt-5 ${tab === 'certificate' ? '' : 'hidden'}`}>
+        <CertificatePanel thread={thread} certTemplates={certTemplates} />
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Quick time edit — click the time on a card, change just the schedule.
+// ---------------------------------------------------------------------------
+
+function QuickTimeDialog({
+  threadId,
+  engagement,
+  threadStartsOn,
+  threadEndsOn,
+  onClose,
+}: {
+  threadId: string;
+  engagement: EngagementRow;
+  threadStartsOn: string | null;
+  threadEndsOn: string | null;
+  onClose: () => void;
+}) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
+  const isActivity = metaFor(engagement.type).family === 'activity';
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    const fd = new FormData(e.currentTarget);
+    const toIso = (v: string) => (v ? new Date(v).toISOString() : null);
+    const patch = isActivity
+      ? {
+          starts_at: toIso(String(fd.get('starts_at') ?? '')),
+          ends_at: toIso(String(fd.get('ends_at') ?? '')),
+        }
+      : { scheduled_at: toIso(String(fd.get('scheduled_at') ?? '')) };
+    startTransition(async () => {
+      const r = await updateEngagement(threadId, engagement.id, patch);
+      if (!r.ok) return setError(r.error);
+      onClose();
+      router.refresh();
+    });
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={engagement.title}
+      description={isActivity ? 'Change when it runs.' : 'Change when it sends.'}
+      footer={
+        <>
+          {error && <span className="mr-auto text-sm text-red-700 truncate">{error}</span>}
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="quick-time-form" disabled={pending}>
+            {pending ? 'Saving…' : 'Save'}
+          </Button>
+        </>
+      }
+    >
+      <form id="quick-time-form" onSubmit={onSubmit} className="space-y-4">
+        {isActivity ? (
+          <>
+            <DateTimeField
+              label="Starts"
+              name="starts_at"
+              defaultValue={toLocalInput(engagement.starts_at)}
+              min={threadStartsOn}
+              max={threadEndsOn}
+            />
+            <DateTimeField
+              label="Ends"
+              name="ends_at"
+              defaultValue={toLocalInput(engagement.ends_at)}
+              min={threadStartsOn}
+              max={threadEndsOn}
+            />
+          </>
+        ) : (
+          <DateTimeField
+            label="Send at"
+            name="scheduled_at"
+            defaultValue={toLocalInput(engagement.scheduled_at)}
+          />
+        )}
+      </form>
+    </Dialog>
   );
 }
 

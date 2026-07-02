@@ -6,13 +6,14 @@
 // bigger fonts", across all Fibre apps).
 //
 // Self-contained (no react-day-picker / radix): a trigger button + a
-// fixed-position calendar popover. Emits a hidden input so existing
+// fixed-position popover. Emits a hidden input so existing
 // FormData-based forms keep working unchanged:
 //   DateField      → "YYYY-MM-DD" (like type="date")
 //   DateTimeField  → "YYYY-MM-DDTHH:mm" (like type="datetime-local")
 //
-// Times use curated dropdowns (hours + quarter-hour minutes) — house rule:
-// minute fields are curated dropdowns, never free-form.
+// DateTimeField is ONE popover: calendar on the left, a scrollable time
+// column (15-minute steps, 06:00–22:00) on the right. Times remain a
+// curated list — house rule: minute fields are never free-form.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -52,36 +53,25 @@ function sameDay(a: Date, b: Date): boolean {
 }
 
 // ---------------------------------------------------------------------------
-// Calendar popover (shared by both fields)
+// Shared popover shell — fixed positioning (flip above when cramped),
+// outside-click + Escape dismissal.
 // ---------------------------------------------------------------------------
 
-function CalendarPopover({
+function PopoverShell({
   anchor,
-  selected,
-  min,
-  max,
-  onPick,
-  onClear,
+  width,
+  height,
   onClose,
-  clearable,
+  children,
 }: {
   anchor: DOMRect;
-  selected: Date | null;
-  min: Date | null;
-  max: Date | null;
-  onPick: (d: Date) => void;
-  onClear: () => void;
+  width: number;
+  height: number;
   onClose: () => void;
-  clearable: boolean;
+  children: React.ReactNode;
 }) {
   const ref = useRef<HTMLDivElement>(null);
-  const today = useMemo(() => new Date(), []);
-  const [view, setView] = useState<{ year: number; month: number }>(() => {
-    const base = selected ?? min ?? today;
-    return { year: base.getFullYear(), month: base.getMonth() };
-  });
 
-  // Close on outside click / Escape.
   useEffect(() => {
     function onDown(e: MouseEvent) {
       if (!ref.current?.contains(e.target as Node)) onClose();
@@ -97,15 +87,52 @@ function CalendarPopover({
     };
   }, [onClose]);
 
-  // Fixed positioning below the trigger; flip above when there's no room.
-  const POPOVER_H = 372;
   const top =
-    anchor.bottom + POPOVER_H + 8 > window.innerHeight && anchor.top - POPOVER_H - 8 > 0
-      ? anchor.top - POPOVER_H - 8
+    anchor.bottom + height + 8 > window.innerHeight && anchor.top - height - 8 > 0
+      ? anchor.top - height - 8
       : anchor.bottom + 8;
-  const left = Math.min(anchor.left, window.innerWidth - 336);
+  const left = Math.max(8, Math.min(anchor.left, window.innerWidth - width - 12));
 
-  // Build the month grid (weeks start Monday).
+  return (
+    <div
+      ref={ref}
+      style={{ position: 'fixed', top, left, zIndex: 100, width }}
+      className="rounded-xl border border-line bg-surface-raised shadow-xl p-4"
+    >
+      {children}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Month grid — header nav + weekday row + 42 cells. Shared by both popovers.
+// ---------------------------------------------------------------------------
+
+function MonthGrid({
+  selected,
+  min,
+  max,
+  onPick,
+}: {
+  selected: Date | null;
+  min: Date | null;
+  max: Date | null;
+  onPick: (d: Date) => void;
+}) {
+  const today = useMemo(() => new Date(), []);
+  const [view, setView] = useState<{ year: number; month: number }>(() => {
+    const base = selected ?? min ?? today;
+    return { year: base.getFullYear(), month: base.getMonth() };
+  });
+
+  // If the selected date changes (e.g. footer "Today"), follow it.
+  const selectedKey = selected ? toDateString(selected) : '';
+  useEffect(() => {
+    if (!selected) return;
+    setView({ year: selected.getFullYear(), month: selected.getMonth() });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedKey]);
+
   const first = new Date(view.year, view.month, 1);
   const startOffset = (first.getDay() + 6) % 7; // Mon=0
   const gridStart = new Date(view.year, view.month, 1 - startOffset);
@@ -121,14 +148,11 @@ function CalendarPopover({
     });
   }
 
-  const disabled = (d: Date) => (min && d < min && !sameDay(d, min)) || (max && d > max && !sameDay(d, max));
+  const disabled = (d: Date) =>
+    (min && d < min && !sameDay(d, min)) || (max && d > max && !sameDay(d, max));
 
   return (
-    <div
-      ref={ref}
-      style={{ position: 'fixed', top, left, zIndex: 100 }}
-      className="w-[324px] rounded-xl border border-line bg-surface-raised shadow-xl p-4"
-    >
+    <div className="w-[292px]">
       <div className="flex items-center justify-between">
         <button
           type="button"
@@ -183,7 +207,37 @@ function CalendarPopover({
           );
         })}
       </div>
+    </div>
+  );
+}
 
+// ---------------------------------------------------------------------------
+// Calendar popover (DateField — date only)
+// ---------------------------------------------------------------------------
+
+function CalendarPopover({
+  anchor,
+  selected,
+  min,
+  max,
+  onPick,
+  onClear,
+  onClose,
+  clearable,
+}: {
+  anchor: DOMRect;
+  selected: Date | null;
+  min: Date | null;
+  max: Date | null;
+  onPick: (d: Date) => void;
+  onClear: () => void;
+  onClose: () => void;
+  clearable: boolean;
+}) {
+  const today = new Date();
+  return (
+    <PopoverShell anchor={anchor} width={324} height={372} onClose={onClose}>
+      <MonthGrid selected={selected} min={min} max={max} onPick={onPick} />
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
         <button
           type="button"
@@ -202,7 +256,115 @@ function CalendarPopover({
           </button>
         )}
       </div>
-    </div>
+    </PopoverShell>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Date + time popover (DateTimeField) — calendar left, time column right.
+// ---------------------------------------------------------------------------
+
+/** 15-minute steps, 06:00 → 22:00; a set time outside the list is spliced in. */
+function buildTimes(current: string | null): string[] {
+  const times: string[] = [];
+  for (let m = 6 * 60; m <= 22 * 60; m += 15) {
+    times.push(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`);
+  }
+  if (current && /^\d{2}:\d{2}$/.test(current) && !times.includes(current)) {
+    times.push(current);
+    times.sort();
+  }
+  return times;
+}
+
+function DateTimePopover({
+  anchor,
+  selected,
+  time,
+  hasValue,
+  min,
+  max,
+  onPickDate,
+  onPickTime,
+  onClear,
+  onClose,
+  clearable,
+}: {
+  anchor: DOMRect;
+  selected: Date | null;
+  time: string; // "HH:mm" — the current (or default) time
+  hasValue: boolean;
+  min: Date | null;
+  max: Date | null;
+  onPickDate: (d: Date) => void;
+  onPickTime: (t: string) => void;
+  onClear: () => void;
+  onClose: () => void;
+  clearable: boolean;
+}) {
+  const today = new Date();
+  const times = useMemo(() => buildTimes(time), [time]);
+  const listRef = useRef<HTMLDivElement>(null);
+
+  // Auto-scroll the selected (or default) time into view on open.
+  useEffect(() => {
+    const el = listRef.current?.querySelector<HTMLButtonElement>('[data-selected="true"]');
+    if (el && listRef.current) {
+      listRef.current.scrollTop =
+        el.offsetTop - listRef.current.clientHeight / 2 + el.clientHeight / 2;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
+    <PopoverShell anchor={anchor} width={436} height={384} onClose={onClose}>
+      <div className="flex items-stretch gap-3">
+        <MonthGrid selected={selected} min={min} max={max} onPick={onPickDate} />
+        <div className="w-[96px] shrink-0 border-l border-line pl-3 relative">
+          <div
+            ref={listRef}
+            className="absolute inset-y-0 left-3 right-0 overflow-y-auto pr-1 flex flex-col gap-0.5"
+          >
+            {times.map((t) => {
+              const isSelected = hasValue && t === time;
+              return (
+                <button
+                  key={t}
+                  type="button"
+                  data-selected={t === time ? 'true' : undefined}
+                  onClick={() => onPickTime(t)}
+                  className={`shrink-0 h-9 rounded-md text-[15px] tabular-nums transition-colors ${
+                    isSelected
+                      ? 'bg-ink text-ink-inverse font-medium'
+                      : 'text-ink hover:bg-surface-sunken'
+                  }`}
+                >
+                  {t}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+      <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
+        <button
+          type="button"
+          onClick={() => onPickDate(today)}
+          className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
+        >
+          Today
+        </button>
+        {clearable && hasValue && (
+          <button
+            type="button"
+            onClick={onClear}
+            className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
+          >
+            Clear
+          </button>
+        )}
+      </div>
+    </PopoverShell>
   );
 }
 
@@ -304,11 +466,11 @@ export function DateField({
 
 // ---------------------------------------------------------------------------
 // DateTimeField — drop-in for <TextField type="datetime-local">
+// ONE trigger, ONE popover (calendar + time column).
 // Hidden input emits "YYYY-MM-DDTHH:mm" (or '' when no date picked).
 // ---------------------------------------------------------------------------
 
-const HOURS = Array.from({ length: 24 }, (_, i) => pad(i));
-const MINUTES = ['00', '15', '30', '45'];
+const DEFAULT_TIME = '09:00';
 
 export function DateTimeField({
   label,
@@ -334,45 +496,47 @@ export function DateTimeField({
   max?: string | null;
 }) {
   const isControlled = controlledValue !== undefined;
-  const initial = (isControlled ? controlledValue : defaultValue) ?? '';
-  const [internalDate, setDate] = useState<string>(initial ? initial.slice(0, 10) : '');
-  const [internalHour, setHour] = useState<string>(initial ? initial.slice(11, 13) || '09' : '09');
-  const [internalMinute, setMinute] = useState<string>(() => {
-    const m = initial ? initial.slice(14, 16) : '';
-    return MINUTES.includes(m) ? m : '00';
-  });
+  const [internal, setInternal] = useState<string>(defaultValue ?? '');
+  const value = isControlled ? (controlledValue ?? '') : internal;
+
+  const date = value.slice(0, 10);
+  const timeRaw = value.slice(11, 16);
+  const time = /^\d{2}:\d{2}$/.test(timeRaw) ? timeRaw : DEFAULT_TIME;
+  const hasValue = !!date;
+  const selected = parseDate(date);
+
+  // Remember the last picked time so clearing + re-picking a date feels sane.
+  const lastTimeRef = useRef<string>(time);
+  if (hasValue) lastTimeRef.current = time;
+
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
   const btnRef = useRef<HTMLButtonElement>(null);
 
-  // In controlled mode the prop is the source of truth on every render.
-  const date = isControlled ? (controlledValue ?? '').slice(0, 10) : internalDate;
-  const hour = isControlled
-    ? (controlledValue ?? '').slice(11, 13) || '09'
-    : internalHour;
-  const rawMin = isControlled ? (controlledValue ?? '').slice(14, 16) : internalMinute;
-  const minute = MINUTES.includes(rawMin) ? rawMin : '00';
-
-  function emit(d: string, h: string, m: string) {
-    const v = d ? `${d}T${h}:${m}` : '';
-    if (!isControlled) {
-      setDate(d);
-      setHour(h);
-      setMinute(m);
-    }
+  function emit(v: string) {
+    if (!isControlled) setInternal(v);
     onChange?.(v);
   }
-
-  const selected = parseDate(date);
-  const value = date ? `${date}T${hour}:${minute}` : '';
 
   function toggle() {
     if (!open && btnRef.current) setAnchor(btnRef.current.getBoundingClientRect());
     setOpen((o) => !o);
   }
 
-  const timeSelect =
-    'h-11 rounded-md border border-line bg-surface-raised px-2.5 text-[15px] tabular-nums focus:border-line-strong focus:outline-none disabled:opacity-40';
+  function pickDate(d: Date) {
+    // Picking a date keeps the time; popover stays open for the time pick.
+    emit(`${toDateString(d)}T${hasValue ? time : lastTimeRef.current}`);
+  }
+  function pickTime(t: string) {
+    // Picking a time keeps the date (default: today); closes the popover.
+    const d = date || toDateString(new Date());
+    emit(`${d}T${t}`);
+    setOpen(false);
+  }
+  function clear() {
+    emit('');
+    setOpen(false);
+  }
 
   return (
     <div>
@@ -382,76 +546,53 @@ export function DateTimeField({
           {required && <span className="text-red-600"> *</span>}
         </span>
       )}
-      {name && <input type="hidden" name={name} value={value} />}
-      <div className={`flex items-center gap-2 ${label !== undefined ? 'mt-1' : ''}`}>
-        <button
-          ref={btnRef}
-          type="button"
-          onClick={toggle}
-          className="flex-1 min-w-0 h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
-        >
-          <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>
-            {selected ? fmtDisplay(selected) : 'Pick a date'}
-          </span>
-          <span className="flex items-center gap-1.5 text-ink-muted shrink-0">
-            {date && (
-              <X
-                size={15}
-                strokeWidth={1.75}
-                className="hover:text-ink"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  emit('', hour, minute);
-                  setOpen(false);
-                }}
-              />
-            )}
-            <CalendarDays size={17} strokeWidth={1.75} />
-          </span>
-        </button>
-        <select
-          aria-label="Hour"
-          className={timeSelect}
-          value={hour}
-          disabled={!date}
-          onChange={(e) => emit(date, e.target.value, minute)}
-        >
-          {HOURS.map((h) => (
-            <option key={h} value={h}>
-              {h}
-            </option>
-          ))}
-        </select>
-        <span className="text-ink-muted text-[15px] select-none">:</span>
-        <select
-          aria-label="Minutes"
-          className={timeSelect}
-          value={minute}
-          disabled={!date}
-          onChange={(e) => emit(date, hour, e.target.value)}
-        >
-          {MINUTES.map((m) => (
-            <option key={m} value={m}>
-              {m}
-            </option>
-          ))}
-        </select>
-      </div>
+      {name && <input type="hidden" name={name} value={hasValue ? `${date}T${time}` : ''} />}
+      <button
+        ref={btnRef}
+        type="button"
+        onClick={toggle}
+        className={`w-full h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
+          label !== undefined ? 'mt-1' : ''
+        }`}
+      >
+        <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>
+          {selected ? (
+            <>
+              {fmtDisplay(selected)}
+              <span className="text-ink-muted"> · </span>
+              <span className="tabular-nums">{time}</span>
+            </>
+          ) : (
+            'Pick date & time'
+          )}
+        </span>
+        <span className="flex items-center gap-1.5 text-ink-muted shrink-0">
+          {hasValue && !required && (
+            <X
+              size={15}
+              strokeWidth={1.75}
+              className="hover:text-ink"
+              onClick={(e) => {
+                e.stopPropagation();
+                clear();
+              }}
+            />
+          )}
+          <CalendarDays size={17} strokeWidth={1.75} />
+        </span>
+      </button>
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}
       {open && anchor && (
-        <CalendarPopover
+        <DateTimePopover
           anchor={anchor}
           selected={selected}
+          time={time}
+          hasValue={hasValue}
           min={parseDate(min)}
           max={parseDate(max)}
-          onPick={(d) => {
-            emit(toDateString(d), hour, minute);
-            setOpen(false);
-          }}
-          onClear={() => {
-            emit('', hour, minute);
-            setOpen(false);
-          }}
+          onPickDate={pickDate}
+          onPickTime={pickTime}
+          onClear={clear}
           onClose={() => setOpen(false)}
           clearable={!required}
         />
