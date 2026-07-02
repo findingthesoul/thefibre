@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.79] — 2026-07-02 — Thread 3.16.1: team threads open under the team's public URL
+
+### Fixed
+- **"Open public page" 404'd for team threads** — the timeline header built
+  the URL with the organiser's personal slug, but since the team-leak fix
+  (3.16.0) team threads only resolve under the team's slug. The timeline
+  link, the embed-listing URLs, and the new-thread URL preview now all use
+  the team slug when the thread belongs to a team.
+
 ## [0.13.78] — 2026-07-02 — Thread 3.16.0: templates, truthful pricing, participant sharing
 
 ### Added

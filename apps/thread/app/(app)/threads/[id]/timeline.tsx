@@ -228,7 +228,9 @@ export function ThreadTimeline({
 
   const status = program?.status ?? 'draft';
   const statusMeta = STATUS_META[status] ?? STATUS_META.draft;
-  const publicUrl = `${THREAD_HOST}/${organiser?.slug}/${thread.slug}`;
+  // Team threads live under the TEAM's public slug (organiser-slug URLs
+  // 404 for them since the team-leak fix); personal threads under the organiser's.
+  const publicUrl = `${THREAD_HOST}/${team?.slug ?? organiser?.slug}/${thread.slug}`;
 
   function setStatus(next: string) {
     startTransition(async () => {

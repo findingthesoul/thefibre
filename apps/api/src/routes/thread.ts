@@ -2373,11 +2373,14 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     .map((t) => {
       const p = Array.isArray(t.program) ? t.program[0] : t.program;
       const o = Array.isArray(t.organiser) ? t.organiser[0] : t.organiser;
+      const tm = Array.isArray(t.team) ? t.team[0] : t.team;
+      // Team threads resolve under the team's slug, personal ones under the organiser's.
+      const ownerSlug = tm?.slug ?? o?.slug;
       return {
         id: t.id,
         slug: t.slug,
-        organiser_slug: o?.slug ?? null,
-        organiser_name: o?.display_name ?? null,
+        organiser_slug: ownerSlug ?? null,
+        organiser_name: tm?.name ?? o?.display_name ?? null,
         title: p?.title ?? t.slug,
         format: p?.format ?? 'event',
         status: p?.status ?? 'active',
@@ -2387,7 +2390,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         cover_url: t.cover_url,
         price_cents: t.price_cents,
         price_currency: t.price_currency,
-        url: `${threadAppUrl()}/${o?.slug}/${t.slug}`,
+        url: `${threadAppUrl()}/${ownerSlug}/${t.slug}`,
       };
     })
     .sort((a, b) => (a.starts_on ?? '9999').localeCompare(b.starts_on ?? '9999'));

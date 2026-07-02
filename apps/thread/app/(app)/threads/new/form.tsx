@@ -24,6 +24,9 @@ export function NewThreadForm({
   const router = useRouter();
   const [format, setFormat] = useState<'event' | 'journey'>('event');
   const [scope, setScope] = useState<'personal' | 'team'>('personal');
+  // Controlled so the URL preview follows: team threads live under the
+  // team's public slug, not the organiser's.
+  const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -107,6 +110,8 @@ export function NewThreadForm({
             <SelectField
               label="Team"
               name="team_id"
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
               options={teams.map((t) => ({ value: t.id, label: t.name }))}
             />
           </div>
@@ -115,7 +120,11 @@ export function NewThreadForm({
 
       <NameAndSlugFields
         nameLabel="Name"
-        prefix={`${THREAD_HOST}/${organiserSlug}/`}
+        prefix={`${THREAD_HOST}/${
+          scope === 'team'
+            ? teams.find((t) => t.id === teamId)?.slug ?? organiserSlug
+            : organiserSlug
+        }/`}
         slugHint="Lowercase letters, digits and hyphens."
       />
 
