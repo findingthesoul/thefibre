@@ -1916,7 +1916,7 @@ async function filterVisibleTemplates<T extends ScopedTemplate>(
 }
 
 const CERT_TEMPLATE_SELECT =
-  'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, created_by, created_at, updated_at';
+  'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, archived_at, created_by, created_at, updated_at';
 
 threadRoutes.get('/certificate-templates', async (c) => {
   const ctx = c.get('ctx');
@@ -2015,9 +2015,41 @@ threadRoutes.patch('/certificate-templates/:id', async (c) => {
   return c.json(data);
 });
 
+// Archive / restore — the safe alternative to deleting a template in use.
+threadRoutes.post('/certificate-templates/:id/archive', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const archive = ((await c.req.json().catch(() => ({}))) as { archived?: boolean }).archived;
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .update({ archived_at: archive === false ? null : new Date().toISOString() })
+    .eq('id', c.req.param('id'))
+    .select(CERT_TEMPLATE_SELECT)
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
+});
+
 threadRoutes.delete('/certificate-templates/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+
+  // In use → archive, never delete. "In use" = a thread points at it.
+  // (Issued certificates carry full snapshots — they never break — but a
+  // referencing thread would lose its selection.)
+  const { count: usedByThreads } = await adminClient
+    .from('thread_thread')
+    .select('id', { count: 'exact', head: true })
+    .eq('certificate_template_id', id)
+    .eq('workspace_id', ctx.workspaceId);
+  if ((usedByThreads ?? 0) > 0) {
+    return c.json(
+      { error: 'this template is in use by a thread — archive it instead of deleting' },
+      409,
+    );
+  }
+
   const { error } = await db
     .from('thread_certificate_template')
     .delete()

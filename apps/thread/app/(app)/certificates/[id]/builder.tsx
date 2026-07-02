@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   ImagePlus,
   Italic,
+  Archive,
   Minus,
   Plus,
   Share2,
@@ -47,7 +48,11 @@ import {
   type CertShares,
   type CertTemplate,
 } from '@/lib/certificate-types';
-import { deleteCertificateTemplate, updateCertificateTemplate } from '../actions';
+import {
+  archiveCertificateTemplate,
+  deleteCertificateTemplate,
+  updateCertificateTemplate,
+} from '../actions';
 import { ShareDialog } from './share-dialog';
 
 // Brand accent (yellow-300) for selection outlines and centre guides.
@@ -258,6 +263,8 @@ export function CertificateBuilder({
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [archived, setArchived] = useState(!!template.archived_at);
 
   const canvasRef = useRef<HTMLDivElement>(null);
   const draggingRef = useRef<{
@@ -478,7 +485,8 @@ export function CertificateBuilder({
     }
     setDeletePending(false);
     setDeleteOpen(false);
-    setSaveStatus('error');
+    // The API refuses deletion for templates in use — say so, don't just "fail".
+    setDeleteError(result.error);
   }
 
   const aspect = PAGE_ASPECT[pageSize]?.[orientation] ?? PAGE_ASPECT.a4.portrait;
@@ -595,6 +603,12 @@ export function CertificateBuilder({
 
         <div className="flex-1" />
 
+        {deleteError && <span className="text-xs text-red-600">{deleteError}</span>}
+        {archived && !deleteError && (
+          <span className="text-xs px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted">
+            Archived
+          </span>
+        )}
         {saveStatusLabel && (
           <span
             className={`text-xs ${saveStatus === 'error' ? 'text-red-600' : 'text-ink-muted'}`}
@@ -609,9 +623,30 @@ export function CertificateBuilder({
 
         <Button
           variant="ghost"
+          size="sm"
+          onClick={() =>
+            void archiveCertificateTemplate(template.id, !archived).then((r) => {
+              if (r.ok) {
+                setArchived(!archived);
+                router.refresh();
+              }
+            })
+          }
+          title={
+            archived
+              ? 'Restore — show it in template pickers again'
+              : 'Archive — keep issued certificates and thread references, hide from pickers'
+          }
+        >
+          <Archive size={15} strokeWidth={1.75} />
+          {archived ? 'Restore' : 'Archive'}
+        </Button>
+
+        <Button
+          variant="ghost"
           size="icon"
           onClick={() => setDeleteOpen(true)}
-          title="Delete template"
+          title="Delete template (templates in use can only be archived)"
           aria-label="Delete template"
         >
           <Trash2 size={16} strokeWidth={1.75} />

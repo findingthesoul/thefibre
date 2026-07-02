@@ -12,14 +12,24 @@ import { Dialog } from '@/components/ui/dialog';
 import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
+import { RichTextField } from '@/components/ui/rich-text';
 import { EmptyState } from '@/components/ui/page';
-import type { TeamOption } from '@/lib/thread-types';
+import { metaFor } from '@/lib/engagement-meta';
+import type { EngagementType, TeamOption } from '@/lib/thread-types';
+// A template is a full duplicate of the thread (texts, message bodies,
+// triggers) — so its editor reuses the engagement dialog's content fields.
+import {
+  MessageContentFields,
+  contentFromForm,
+} from '../../threads/[id]/engagements';
 import {
   deleteThreadTemplate,
   instantiateTemplate,
   updateThreadTemplate,
+  type TemplateEngagement,
   type TemplateScope,
   type ThreadTemplate,
+  type ThreadTemplateStructure,
 } from './actions';
 
 const INPUT =
@@ -242,14 +252,15 @@ function EditTemplateDialog({
   const [title, setTitle] = useState(template.title);
   const [scope, setScope] = useState<TemplateScope>(template.scope);
   const [teamId, setTeamId] = useState(template.owner_team_id ?? teams[0]?.id ?? '');
+  // Full-duplicate editing: the structure lives in state; engagement rows
+  // open a sub-editor and merge back here; Save persists the whole thing.
+  const [structure, setStructure] = useState<ThreadTemplateStructure>(template.structure);
+  const [editIdx, setEditIdx] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const router = useRouter();
 
-  const engagements = useMemo(
-    () => template.structure.engagements ?? [],
-    [template.structure.engagements],
-  );
+  const engagements = useMemo(() => structure.engagements ?? [], [structure.engagements]);
 
   function submit() {
     setError(null);
@@ -260,7 +271,7 @@ function EditTemplateDialog({
         title: title.trim(),
         scope,
         owner_team_id: scope === 'team' ? teamId : null,
-        structure: template.structure,
+        structure,
       });
       if (r.ok) {
         onClose();
@@ -322,18 +333,25 @@ function EditTemplateDialog({
         )}
 
         <div>
-          <span className="text-xs text-ink-subtle">Contents</span>
+          <span className="text-xs text-ink-subtle">Contents — click to edit</span>
           {engagements.length === 0 ? (
             <p className="mt-1 text-xs text-ink-muted">No engagements captured.</p>
           ) : (
             <ul className="mt-1.5 border border-line rounded-lg divide-y divide-line bg-surface">
               {engagements.map((e, i) => (
-                <li key={i} className="flex items-center gap-2 px-3 py-2 text-sm">
-                  <span className="text-xs text-ink-muted w-14 shrink-0 tabular-nums">
-                    {e.day_offset != null ? `Day ${e.day_offset + 1}` : '—'}
-                  </span>
-                  <span className="truncate flex-1">{e.title}</span>
-                  <span className="text-xs text-ink-muted capitalize shrink-0">{e.type}</span>
+                <li key={i}>
+                  <button
+                    type="button"
+                    onClick={() => setEditIdx(i)}
+                    className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-sunken transition-colors"
+                  >
+                    <span className="text-xs text-ink-muted w-14 shrink-0 tabular-nums">
+                      {e.day_offset != null ? `Day ${e.day_offset + 1}` : '—'}
+                    </span>
+                    <span className="truncate flex-1">{e.title}</span>
+                    <span className="text-xs text-ink-muted capitalize shrink-0">{e.type}</span>
+                    <Pencil size={13} strokeWidth={1.75} className="text-ink-muted shrink-0" />
+                  </button>
                 </li>
               ))}
             </ul>
@@ -346,6 +364,132 @@ function EditTemplateDialog({
           </p>
         )}
       </div>
+
+      {editIdx !== null && engagements[editIdx] && (
+        <TemplateEngagementDialog
+          engagement={engagements[editIdx]}
+          onClose={() => setEditIdx(null)}
+          onSave={(updated) => {
+            setStructure((s) => ({
+              ...s,
+              engagements: (s.engagements ?? []).map((e, i) => (i === editIdx ? updated : e)),
+            }));
+            setEditIdx(null);
+          }}
+        />
+      )}
+    </Dialog>
+  );
+}
+
+// Edits ONE captured engagement — texts and content included, exactly the
+// fields the live engagement dialog has for its family. Changes stay local
+// until the template's own Save persists the structure.
+function TemplateEngagementDialog({
+  engagement,
+  onSave,
+  onClose,
+}: {
+  engagement: TemplateEngagement;
+  onSave: (updated: TemplateEngagement) => void;
+  onClose: () => void;
+}) {
+  const type = engagement.type as EngagementType;
+  const family = metaFor(type).family;
+
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const title = String(fd.get('title') ?? '').trim();
+    if (!title) return;
+    const dayRaw = String(fd.get('day') ?? '').trim();
+    const day = dayRaw === '' ? null : Math.max(1, Number(dayRaw) || 1) - 1;
+    const time = String(fd.get('time_of_day') ?? '').trim() || null;
+    const durRaw = String(fd.get('duration_minutes') ?? '').trim();
+    onSave({
+      ...engagement,
+      title,
+      description: String(fd.get('description') ?? '').trim() || null,
+      day_offset: day,
+      time_of_day: time,
+      duration_minutes: durRaw === '' ? null : Number(durRaw) || null,
+      ...(family === 'message' ? { content: contentFromForm(type, fd) } : {}),
+    });
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Edit — ${engagement.title}`}
+      description="Part of the template — day numbers count from the thread's start date."
+      size="lg"
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button type="submit" form="template-engagement-form">
+            Apply
+          </Button>
+        </>
+      }
+    >
+      <form id="template-engagement-form" onSubmit={onSubmit} className="space-y-4">
+        <label className="block">
+          <span className="text-xs text-ink-subtle">Title</span>
+          <input name="title" defaultValue={engagement.title} required className={INPUT} />
+        </label>
+
+        <RichTextField
+          label="Description"
+          name="description"
+          defaultValue={engagement.description ?? ''}
+          minHeight={72}
+        />
+
+        {family === 'message' && (
+          <MessageContentFields
+            type={type}
+            content={(engagement.content ?? {}) as Record<string, unknown>}
+          />
+        )}
+
+        <div className="grid grid-cols-3 gap-3">
+          <label className="block">
+            <span className="text-xs text-ink-subtle">Day</span>
+            <input
+              name="day"
+              type="number"
+              min={1}
+              defaultValue={engagement.day_offset != null ? engagement.day_offset + 1 : ''}
+              className={INPUT}
+            />
+          </label>
+          <label className="block">
+            <span className="text-xs text-ink-subtle">Time</span>
+            <input
+              name="time_of_day"
+              type="time"
+              defaultValue={engagement.time_of_day ?? ''}
+              className={INPUT}
+            />
+          </label>
+          {family === 'activity' && (
+            <label className="block">
+              <span className="text-xs text-ink-subtle">Duration (min)</span>
+              <input
+                name="duration_minutes"
+                type="number"
+                min={0}
+                step={15}
+                defaultValue={engagement.duration_minutes ?? ''}
+                className={INPUT}
+              />
+            </label>
+          )}
+        </div>
+      </form>
     </Dialog>
   );
 }

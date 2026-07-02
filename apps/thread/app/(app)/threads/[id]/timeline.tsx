@@ -200,7 +200,7 @@ export function ThreadTimeline({
     () => ({ starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null }),
     [program?.starts_on, program?.ends_on],
   );
-  const { triggered, groups, undated, byId } = useMemo(() => {
+  const { triggered, triggeredEnd, groups, undated, byId } = useMemo(() => {
     const idMap = new Map(engagements.map((e) => [e.id, e]));
     const triggeredList = engagements
       .filter(isLifecycle)
@@ -222,7 +222,10 @@ export function ThreadTimeline({
       map.get(k)!.push(e);
     }
     return {
-      triggered: triggeredList,
+      // On-enrolment/approval messages open the timeline; on-completion ones
+      // close it — they fire at the end, so they render at the end.
+      triggered: triggeredList.filter((e) => e.trigger_kind !== 'on_completion'),
+      triggeredEnd: triggeredList.filter((e) => e.trigger_kind === 'on_completion'),
       groups: [...map.entries()],
       undated: undatedList,
       byId: idMap,
@@ -354,7 +357,7 @@ export function ThreadTimeline({
         {/* the vertical line */}
         <div className="absolute left-5 top-1 bottom-1 w-px bg-line" />
 
-        {groups.length === 0 && undated.length === 0 && triggered.length === 0 && (
+        {groups.length === 0 && undated.length === 0 && triggered.length === 0 && triggeredEnd.length === 0 && (
           <p className="text-sm text-ink-subtle py-6">
             Nothing on the timeline yet — add the first engagement below.
           </p>
@@ -420,6 +423,33 @@ export function ThreadTimeline({
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < undated.length - 1}
+                    triggerText={triggerLabel(e, byId)}
+                    onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
+                    onQuickTime={() => setQuickTime(e)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* On-completion messages close the timeline — they fire at the end. */}
+          {triggeredEnd.length > 0 && (
+            <div className="relative">
+              <div className="absolute -left-[57px] top-1 w-10 text-center">
+                <div
+                  className="rounded-md border border-line bg-surface-raised px-1 py-1.5 text-[9px] uppercase tracking-wide text-ink-muted leading-tight"
+                  title="Sent automatically when the participant completes the thread"
+                >
+                  Auto
+                </div>
+              </div>
+              <div>
+                {triggeredEnd.map((e, i) => (
+                  <EngagementCard
+                    key={e.id}
+                    engagement={e}
+                    attachTop={i > 0}
+                    attachBottom={i < triggeredEnd.length - 1}
                     triggerText={triggerLabel(e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
@@ -631,8 +661,10 @@ function DateBadge({ iso }: { iso: string }) {
   const d = new Date(iso);
   const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(d);
   return (
-    <div className="absolute -left-[57px] top-1 w-10 text-center" title={weekday}>
-      <div className="rounded-md border border-line bg-surface-raised leading-tight overflow-hidden">
+    // z-10: the badge sits above the cards' rail dots — without it the dot
+    // of the first card in a group renders on top of the date number.
+    <div className="absolute -left-[57px] top-1 w-10 text-center z-10" title={weekday}>
+      <div className="rounded-md border border-line bg-surface-raised leading-tight overflow-hidden shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
         <div className="bg-yellow-300 text-ink text-[9px] uppercase tracking-wide py-0.5 font-medium">
           {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
         </div>

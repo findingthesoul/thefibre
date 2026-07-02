@@ -6,6 +6,35 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.84] — 2026-07-02 — Thread 3.19.0: timeline polish, editable template content, cert-template archiving
+
+### Fixed
+- **Rail dots no longer sit on top of the date badges** — the badge stacks
+  above the cards' type dots (z-10) and gets a subtle shadow.
+- **On-completion messages moved to the end of the timeline** — they fire at
+  the end, so they render at the end; enrolment/approval messages keep
+  opening it.
+- **Typing in rich-text fields (Description/Body) is reliable again** — the
+  editor's initial HTML is now written imperatively on mount instead of via
+  dangerouslySetInnerHTML, so no re-render can reset the caret (typed text
+  came out reversed).
+
+### Changed
+- **Messages default to NOT showing on the public agenda** — activities
+  still default to visible; messages are the participant journey.
+- **Thread templates are editable in full** — a template is a complete
+  duplicate (texts, message bodies, triggers — capture and instantiate were
+  already full-fidelity). The template editor now opens each engagement in
+  a sub-dialog with the same content fields as the live editor: title,
+  rich-text description, per-type message content (questions, assignments,
+  body, links), day/time/duration. Changes persist with the template's Save.
+- **Certificate templates archive instead of delete when in use**
+  (migration `20260702260000`): deleting a template a thread points at
+  returns "archive it instead"; the builder gains Archive/Restore, archived
+  templates show dimmed with a Archived chip in the list, disappear from
+  thread pickers, and issued certificates are untouched (they carry full
+  snapshots).
+
 ## [0.13.83] — 2026-07-02 — Thread 3.18.0: account-aware enrolment, discount codes public, activity on /my
 
 ### Added

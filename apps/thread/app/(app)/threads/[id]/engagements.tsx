@@ -424,7 +424,9 @@ export function EngagementDialog({
               <input
                 type="checkbox"
                 name="show_in_agenda"
-                defaultChecked={engagement?.show_in_agenda ?? true}
+                // Activities belong on the public agenda; messages are the
+                // participant journey — private by default (Sjoerd 2026-07-02).
+                defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
               />
               <span className="text-sm text-ink-subtle">Show on the public agenda</span>
             </label>
@@ -595,7 +597,7 @@ function TriggerFields({
 // Type-specific message content
 // ---------------------------------------------------------------------------
 
-function contentFromForm(type: EngagementType, fd: FormData): Record<string, unknown> {
+export function contentFromForm(type: EngagementType, fd: FormData): Record<string, unknown> {
   switch (type) {
     case 'reflection':
       return {
@@ -627,7 +629,7 @@ function contentFromForm(type: EngagementType, fd: FormData): Record<string, unk
   }
 }
 
-function MessageContentFields({
+export function MessageContentFields({
   type,
   content,
 }: {

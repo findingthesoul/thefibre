@@ -51,11 +51,21 @@ export function RichTextField({
   minHeight?: number;
 }) {
   const editorRef = useRef<HTMLDivElement>(null);
-  // Rendered ONCE via dangerouslySetInnerHTML; the ref keeps it stable so
-  // re-renders never clobber what the user is typing.
+  // The initial HTML is written into the div IMPERATIVELY on mount (effect
+  // below) — React renders an empty div and never patches its contents, so
+  // no re-render can clobber the user's typing or reset the caret. (The
+  // dangerouslySetInnerHTML variant reset the caret to the start on some
+  // re-renders — typed text came out reversed.)
   const initialHtml = useRef<string>(defaultValue ?? '');
   const [html, setHtml] = useState<string>(initialHtml.current);
   const [active, setActive] = useState<Partial<Record<Command, boolean>>>({});
+
+  useEffect(() => {
+    if (editorRef.current && initialHtml.current) {
+      editorRef.current.innerHTML = initialHtml.current;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const refreshActive = useCallback(() => {
     const next: Partial<Record<Command, boolean>> = {};
@@ -136,7 +146,6 @@ export function RichTextField({
           onMouseUp={refreshActive}
           style={{ minHeight }}
           className="px-3 py-2 text-sm text-ink focus:outline-none [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:underline"
-          dangerouslySetInnerHTML={{ __html: initialHtml.current }}
         />
       </div>
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}

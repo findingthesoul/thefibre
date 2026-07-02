@@ -74,6 +74,23 @@ export async function deleteCertificateTemplate(id: string): Promise<ActionResul
   }
 }
 
+/** Archive (or restore) — the safe alternative when a template is in use. */
+export async function archiveCertificateTemplate(
+  id: string,
+  archived: boolean,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/certificate-templates/${id}/archive`, {
+      method: 'POST',
+      body: JSON.stringify({ archived }),
+    });
+    revalidatePath('/certificates');
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 /** Replace the share list (only meaningful for workspace-scoped templates). */
 export async function saveCertificateShares(
   id: string,

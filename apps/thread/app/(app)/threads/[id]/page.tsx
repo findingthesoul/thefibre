@@ -34,7 +34,7 @@ export default async function ThreadDetailPage({
       items: [],
     })),
     apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({ items: [] })),
-    apiFetch<{ items: { id: string; name: string }[] }>(
+    apiFetch<{ items: { id: string; name: string; archived_at: string | null }[] }>(
       '/api/v1/thread/certificate-templates',
     ).catch(() => ({ items: [] })),
     apiFetch<{ personal_room_url: string | null }>('/api/v1/thread/me').catch(() => ({
@@ -52,7 +52,9 @@ export default async function ThreadDetailPage({
         members={thread.co_organisers}
         workspaceMembers={members.items}
         teams={teams.items}
-        certTemplates={certTemplates.items}
+        // Archived templates stay resolvable for threads already pointing at
+        // them but disappear from the picker.
+        certTemplates={certTemplates.items.filter((t) => !t.archived_at)}
         personalRoomUrl={me.personal_room_url}
       />
     </div>

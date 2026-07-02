@@ -72,17 +72,28 @@ export default async function CertificatesPage() {
 
       {templates.length > 0 && (
         <ul className="mt-6 divide-y divide-line border border-line rounded-lg bg-surface-raised">
-          {templates.map((t) => (
+          {[...templates]
+            .sort((a, b) => Number(!!a.archived_at) - Number(!!b.archived_at))
+            .map((t) => (
             <li key={t.id}>
               <Link
                 href={`/certificates/${t.id}`}
-                className="flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 transition-colors"
+                className={`flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 transition-colors ${
+                  t.archived_at ? 'opacity-55' : ''
+                }`}
               >
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
                   <Award size={17} strokeWidth={1.75} className="text-ink-subtle" />
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="text-sm font-medium text-ink truncate">{t.name}</div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium text-ink truncate">{t.name}</span>
+                    {t.archived_at && (
+                      <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted shrink-0">
+                        Archived
+                      </span>
+                    )}
+                  </div>
                   <div className="text-xs text-ink-subtle mt-0.5">
                     {PAGE_SIZE_LABELS[t.page_size] ?? t.page_size} ·{' '}
                     <span className="capitalize">{t.orientation}</span> · Updated{' '}
