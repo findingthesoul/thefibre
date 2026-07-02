@@ -1175,6 +1175,209 @@ threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Certificate issuance — numbers THR-YYYY-XXXXX, template snapshotted at
+// issue time so later edits never change issued certificates.
+// ---------------------------------------------------------------------------
+
+const CERT_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no 0/O/1/I
+
+async function generateCertNumber(): Promise<string> {
+  for (let attempt = 0; attempt < 6; attempt++) {
+    let suffix = '';
+    for (let i = 0; i < 5; i++) {
+      suffix += CERT_ALPHABET[Math.floor(Math.random() * CERT_ALPHABET.length)];
+    }
+    const number = `THR-${new Date().getFullYear()}-${suffix}`;
+    const { data } = await adminClient
+      .from('thread_certificate')
+      .select('id')
+      .eq('certificate_number', number)
+      .maybeSingle();
+    if (!data) return number;
+  }
+  throw new Error('certificate number collision');
+}
+
+type IssueResult =
+  | { ok: true; certificate_number: string }
+  | { ok: false; error: string; skipped?: boolean };
+
+async function issueCertificate(
+  threadEnrolmentId: string,
+  issuedBy: string | null,
+): Promise<IssueResult> {
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `id, workspace_id, thread_id,
+       person:person_id (id, first_name, last_name, email),
+       thread:thread_id (id, slug, language, certificate_enabled, certificate_criteria,
+         certificate_template_id, organiser_id,
+         organiser:organiser_id (slug, display_name),
+         team:team_id (slug, name),
+         program:program_id (title, starts_on, ends_on))`,
+    )
+    .eq('id', threadEnrolmentId)
+    .maybeSingle();
+  if (!te) return { ok: false, error: 'enrolment not found' };
+
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  if (!thread || !person) return { ok: false, error: 'enrolment incomplete' };
+  if (!thread.certificate_enabled) return { ok: false, error: 'certificates not enabled' };
+  if (!thread.certificate_template_id) return { ok: false, error: 'no template selected' };
+
+  // Already issued? One per enrolment.
+  const { data: existing } = await adminClient
+    .from('thread_certificate')
+    .select('certificate_number')
+    .eq('thread_enrolment_id', te.id)
+    .maybeSingle();
+  if (existing) {
+    return { ok: false, error: 'already issued', skipped: true };
+  }
+
+  const { data: template } = await adminClient
+    .from('thread_certificate_template')
+    .select('name, page_size, orientation, background_url, elements')
+    .eq('id', thread.certificate_template_id)
+    .maybeSingle();
+  if (!template) return { ok: false, error: 'template missing' };
+
+  const prog = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+  const team = Array.isArray(thread.team) ? thread.team[0] : thread.team;
+
+  const recipientName =
+    [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email || '';
+  const number = await generateCertNumber();
+
+  const fmt = (d: string | null) =>
+    d
+      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+          new Date(d),
+        )
+      : '';
+
+  // The full snapshot: template doc + resolved token values. The public page
+  // renders exactly this, forever.
+  const snapshot = {
+    template: {
+      page_size: template.page_size,
+      orientation: template.orientation,
+      background_url: template.background_url,
+      elements: template.elements,
+    },
+    values: {
+      recipient_name: recipientName,
+      thread_title: prog?.title ?? thread.slug,
+      org_name: team?.name ?? org?.display_name ?? '',
+      issue_date: fmt(new Date().toISOString()),
+      start_date: fmt(prog?.starts_on ?? null),
+      end_date: fmt(prog?.ends_on ?? null),
+      certificate_number: number,
+      criteria: thread.certificate_criteria ?? '',
+      issued_by: org?.display_name ?? '',
+    },
+  };
+
+  const { error: insErr } = await adminClient.from('thread_certificate').insert({
+    workspace_id: te.workspace_id,
+    thread_id: thread.id,
+    thread_enrolment_id: te.id,
+    certificate_number: number,
+    recipient_name: recipientName,
+    recipient_email: person.email,
+    template_snapshot: snapshot,
+    issued_by: issuedBy,
+  });
+  if (insErr) {
+    console.error('[thread/certificates] insert failed', insErr);
+    return { ok: false, error: insErr.message };
+  }
+
+  // Notify the recipient — non-fatal.
+  if (person.email) {
+    try {
+      const certUrl = `${threadAppUrl()}/certificate/${number}`;
+      const msg = engagementMessage({
+        title: `Your certificate — ${prog?.title ?? thread.slug}`,
+        bodyText: `Congratulations, ${recipientName.split(/\s+/)[0]}!\n\nYour certificate for ${prog?.title ?? thread.slug} is ready:\n${certUrl}\n\nCertificate number: ${number}`,
+        threadTitle: prog?.title ?? thread.slug,
+      });
+      await sendEmail({ to: person.email, ...msg });
+    } catch (e) {
+      console.warn('[thread/certificates] email failed', e);
+    }
+  }
+
+  return { ok: true, certificate_number: number };
+}
+
+// POST /api/v1/thread/enrolments/:id/certificate — issue one
+threadRoutes.post('/enrolments/:id/certificate', async (c) => {
+  const ctx = c.get('ctx');
+  // Visibility check through RLS first.
+  const db = userClient(ctx.jwt);
+  const { data: visible } = await db
+    .from('thread_enrolment')
+    .select('id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!visible) return c.json({ error: 'not found' }, 404);
+
+  const r = await issueCertificate(c.req.param('id'), ctx.userId);
+  if (!r.ok) return c.json({ error: r.error }, r.skipped ? 409 : 400);
+  return c.json({ ok: true, certificate_number: r.certificate_number }, 201);
+});
+
+// POST /api/v1/thread/threads/:id/certificates/bulk — issue to every
+// COMPLETED enrolment without a certificate yet.
+threadRoutes.post('/threads/:id/certificates/bulk', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: thread } = await db
+    .from('thread_thread')
+    .select('id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'not found' }, 404);
+
+  const { data: enrolments } = await adminClient
+    .from('thread_enrolment')
+    .select('id, enrolment:enrolment_id (status)')
+    .eq('thread_id', thread.id);
+
+  let issued = 0;
+  let skipped = 0;
+  const errors: string[] = [];
+  for (const te of enrolments ?? []) {
+    const enr = Array.isArray(te.enrolment) ? te.enrolment[0] : te.enrolment;
+    if (enr?.status !== 'completed') {
+      skipped++;
+      continue;
+    }
+    const r = await issueCertificate(te.id, ctx.userId);
+    if (r.ok) issued++;
+    else if (r.skipped) skipped++;
+    else errors.push(r.error);
+  }
+  return c.json({ issued, skipped, errors });
+});
+
+// GET /api/v1/thread/public/certificate/:number — the public certificate.
+// Snapshot-only: nothing here depends on live template/thread state.
+threadRoutes.get('/public/certificate/:number', async (c) => {
+  const { data } = await adminClient
+    .from('thread_certificate')
+    .select('certificate_number, recipient_name, issued_at, template_snapshot')
+    .eq('certificate_number', c.req.param('number').toUpperCase())
+    .maybeSingle();
+  if (!data) return c.json({ error: 'not found' }, 404);
+  return c.json(data);
+});
+
+// ---------------------------------------------------------------------------
 // Tickets + coupons (v3-style pricing lists; editors open in popups)
 // ---------------------------------------------------------------------------
 
@@ -1587,7 +1790,8 @@ threadRoutes.get('/enrolments', async (c) => {
       `id, thread_id, payment_status, amount_cents, currency, answers, created_at,
        person:person_id (id, first_name, last_name, email),
        enrolment:enrolment_id (id, status, progress_pct, enrolled_at, completed_at),
-       thread:thread_id (id, slug, program:program_id (title, format, status))`,
+       certificate:thread_certificate (certificate_number),
+       thread:thread_id (id, slug, certificate_enabled, program:program_id (title, format, status))`,
     )
     .order('created_at', { ascending: false })
     .limit(200);

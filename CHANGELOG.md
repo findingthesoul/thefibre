@@ -6,7 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.76] — 2026-07-02 — Platform SPoT: Members + public profile (design doc + Phase A/B)
+## [0.13.77] — 2026-07-02 — Thread 3.15.0: certificate issuance + public certificate page
+
+Certificates close the loop from designer to artefact:
+
+- **Issue** — per-enrolment "Issue certificate" on the Enrolments page
+  (threads with certificates enabled), plus **"Issue to completed"** bulk
+  when filtered to a thread. Numbers `THR-YYYY-XXXXX` (unambiguous
+  alphabet, collision-checked); the **template + resolved values are
+  snapshotted** at issue time — later edits never change an issued
+  certificate. One per enrolment; re-issuing 409s. The recipient gets a
+  branded email with their link + number.
+- **Public page** `/certificate/{number}` — anyone with the number can
+  verify: the snapshot renders with the builder's exact %-element model,
+  scaled to fit, with a **Print / Save as PDF** button (A4/Letter
+  `@page` CSS, backgrounds preserved — the print-quality-HTML decision
+  from day one). `?print=1` auto-opens the dialog.
+- Issued certificates show as green chips on enrolment rows, linking to
+  the public page.
+- Auto-issue on completion connects when the completion flow (#14) lands.
 
 Implements [`docs/platform-spot-members-profile.md`](docs/platform-spot-members-profile.md)
 (migration `20260702220000_user_profile.sql`, applied + backfilled):

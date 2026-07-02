@@ -349,3 +349,34 @@ export async function getPayoutInfo(): Promise<PayoutInfo | { ok: false; error: 
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Certificates — issuance
+// ---------------------------------------------------------------------------
+
+export async function issueEnrolmentCertificate(
+  enrolmentId: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/enrolments/${enrolmentId}/certificate`, { method: 'POST' });
+    revalidatePath('/enrolments');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function bulkIssueCertificates(
+  threadId: string,
+): Promise<{ ok: true; issued: number; skipped: number } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ issued: number; skipped: number }>(
+      `/api/v1/thread/threads/${threadId}/certificates/bulk`,
+      { method: 'POST' },
+    );
+    revalidatePath('/enrolments');
+    return { ok: true, issued: r.issued, skipped: r.skipped };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

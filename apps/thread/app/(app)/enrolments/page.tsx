@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { X } from 'lucide-react';
+import { IssueCertButton, BulkIssueButton } from './certificate-actions';
 import { apiFetch, ApiError } from '@/lib/api';
 import { one } from '@/lib/thread-types';
 import {
@@ -24,9 +25,23 @@ type EnrolmentItem = {
     | { status: string; progress_pct: number; enrolled_at: string | null }
     | { status: string; progress_pct: number; enrolled_at: string | null }[]
     | null;
+  certificate:
+    | { certificate_number: string }
+    | { certificate_number: string }[]
+    | null;
   thread:
-    | { id: string; slug: string; program: { title: string } | { title: string }[] | null }
-    | { id: string; slug: string; program: { title: string } | { title: string }[] | null }[]
+    | {
+        id: string;
+        slug: string;
+        certificate_enabled?: boolean;
+        program: { title: string } | { title: string }[] | null;
+      }
+    | {
+        id: string;
+        slug: string;
+        certificate_enabled?: boolean;
+        program: { title: string } | { title: string }[] | null;
+      }[]
     | null;
 };
 
@@ -80,7 +95,7 @@ export default async function EnrolmentsPage({
       {error && <ErrorBanner>Couldn&apos;t load enrolments: {error}</ErrorBanner>}
 
       {threadFilter && filteredTitle && (
-        <div className="mt-4">
+        <div className="mt-4 flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-subtle">
             Filtered: {filteredTitle}
             <Link
@@ -91,6 +106,9 @@ export default async function EnrolmentsPage({
               <X size={12} strokeWidth={1.75} />
             </Link>
           </span>
+          {one(items[0]?.thread ?? null)?.certificate_enabled && (
+            <BulkIssueButton threadId={threadFilter} />
+          )}
         </div>
       )}
 
@@ -132,6 +150,12 @@ export default async function EnrolmentsPage({
                     ) : null}
                   </div>
                 </div>
+                {thread?.certificate_enabled && (
+                  <IssueCertButton
+                    enrolmentId={it.id}
+                    certificateNumber={one(it.certificate)?.certificate_number ?? null}
+                  />
+                )}
                 <span className="text-xs text-ink-muted shrink-0">
                   {PAYMENT_LABELS[it.payment_status] ?? it.payment_status}
                 </span>
