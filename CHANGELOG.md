@@ -6,7 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
-## [0.13.72] — 2026-07-02 — Thread 3.11.0: tickets & codes, policy consent, the personal page
+## [0.13.73] — 2026-07-02 — Thread 3.12.0: sign-in personal page + pricing/dialog polish
+
+- **Personal page is login-based now** (Sjoerd: no email-token links).
+  `/my` asks participants to **sign in** — Google SSO today, the
+  platform's emailed login code as the passwordless path, more providers
+  later. Visitor sessions skip the workspace access-check (participants
+  aren't members); the API verifies their Supabase JWT directly and
+  matches persons by email across workspaces. The token portal (`/p/…`)
+  is removed; confirmation emails link to `/my`.
+- **Payout**: exactly two options — Workspace account / My personal
+  account — no Auto. Options **grey out when no Stripe account is
+  connected**; the default pre-selects per the rule (team thread →
+  workspace; personal thread → personal when connected).
+- **Engagement dialog**: the Where block (in person / virtual + fields)
+  moved to the **first column**; the Personal-meeting-room provider
+  option greys out when not configured in Meet.
+- **Thread image**: Basics gains a cover upload (thread-assets bucket,
+  preview, replace/remove) — shown on the public page and embeds.
 
 (Migrations `20260702170000_thread_tickets.sql` +
 `20260702180000_thread_policy_consent.sql`, applied.)

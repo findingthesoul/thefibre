@@ -11,44 +11,33 @@ function threadAppUrl(): string {
 }
 
 // ---------------------------------------------------------------------------
-// Participant portal tokens — email-based visitor identity across Fibre
-// (Sjoerd 2026-07-02). Signed link, no password: the email IS the login.
-// HMAC over person_id + expiry; the secret is SSO_INTERNAL_SECRET (already
-// provisioned on Fly). 180-day lifetime — every new thread email refreshes it.
+// Participant identity (Sjoerd 2026-07-02, revised): participants sign IN
+// (Google SSO now; emailed login code already supported by the platform;
+// more providers later). Their Supabase JWT is verified directly here —
+// no workspace claims required, because visitors aren't workspace members.
 // ---------------------------------------------------------------------------
 
-import { createHmac } from 'node:crypto';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 
-function portalSecret(): string {
-  return process.env.SSO_INTERNAL_SECRET ?? 'dev-secret';
-}
+const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? createRemoteJWKSet(
+      new URL(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/.well-known/jwks.json`),
+    )
+  : null;
 
-function b64url(s: string): string {
-  return Buffer.from(s).toString('base64url');
-}
-
-export function signPortalToken(personId: string, days = 180): string {
-  const exp = Date.now() + days * 86_400_000;
-  const payload = `${personId}.${exp}`;
-  const sig = createHmac('sha256', portalSecret()).update(payload).digest('base64url');
-  return `${b64url(payload)}.${sig}`;
-}
-
-function verifyPortalToken(token: string): { personId: string } | { error: 'invalid' | 'expired' } {
-  const dot = token.lastIndexOf('.');
-  if (dot < 0) return { error: 'invalid' };
-  const payload = Buffer.from(token.slice(0, dot), 'base64url').toString();
-  const sig = token.slice(dot + 1);
-  const expected = createHmac('sha256', portalSecret()).update(payload).digest('base64url');
-  if (sig !== expected) return { error: 'invalid' };
-  const [personId, expStr] = payload.split('.');
-  if (!personId || !expStr) return { error: 'invalid' };
-  if (Number(expStr) < Date.now()) return { error: 'expired' };
-  return { personId };
-}
-
-function portalUrl(personId: string): string {
-  return `${threadAppUrl()}/p/${signPortalToken(personId)}`;
+async function participantEmailFromAuth(c: {
+  req: { header: (n: string) => string | undefined };
+}): Promise<string | null> {
+  const auth = c.req.header('authorization');
+  if (!auth?.startsWith('Bearer ') || !participantJwks) return null;
+  try {
+    const { payload } = await jwtVerify(auth.slice(7), participantJwks, {
+      audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
+    });
+    return (payload.email as string | undefined) ?? null;
+  } catch {
+    return null;
+  }
 }
 
 // ===========================================================================
@@ -1631,20 +1620,22 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   return c.json({ items });
 });
 
-// GET /api/v1/thread/public/portal/:token — the participant's personal page
-// payload. Email-based visitor identity: the signed link in their inbox is
-// the credential.
-threadRoutes.get('/public/portal/:token', async (c) => {
-  const v = verifyPortalToken(c.req.param('token'));
-  if ('error' in v) return c.json({ error: v.error }, v.error === 'expired' ? 410 : 404);
+// GET /api/v1/thread/public/my-enrolments — the signed-in participant's
+// personal page payload. Bearer = their Supabase session token (verified
+// here without workspace claims). Persons are matched by email across
+// workspaces — one person per workspace that knows them.
+threadRoutes.get('/public/my-enrolments', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
 
-  const { data: person } = await adminClient
+  const { data: persons } = await adminClient
     .from('person')
     .select('id, first_name, last_name, email')
-    .eq('id', v.personId)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (!person) return c.json({ error: 'invalid' }, 404);
+    .eq('email', email.toLowerCase())
+    .is('deleted_at', null);
+  if (!persons?.length) {
+    return c.json({ person: { first_name: null, last_name: null, email }, items: [] });
+  }
 
   const { data: enrolments } = await adminClient
     .from('thread_enrolment')
@@ -1655,7 +1646,7 @@ threadRoutes.get('/public/portal/:token', async (c) => {
          organiser:organiser_id (slug, display_name),
          program:program_id (title, format, status, starts_on, ends_on))`,
     )
-    .eq('person_id', person.id)
+    .in('person_id', persons.map((p) => p.id))
     .order('created_at', { ascending: false });
 
   const items = (enrolments ?? [])
@@ -1682,12 +1673,9 @@ threadRoutes.get('/public/portal/:token', async (c) => {
     })
     .filter(Boolean);
 
+  const first = persons[0]!;
   return c.json({
-    person: {
-      first_name: person.first_name,
-      last_name: person.last_name,
-      email: person.email,
-    },
+    person: { first_name: first.first_name, last_name: first.last_name, email },
     items,
   });
 });
@@ -1900,7 +1888,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       intention: thread.intention,
       organiserName: organiser.display_name ?? '',
       startsOn: program.starts_on,
-      threadUrl: portalUrl(person.id),
+      threadUrl: `${threadAppUrl()}/my`,
       locale: (thread as { language?: string }).language ?? 'en',
     });
     await sendEmail({ to: email, ...msg });

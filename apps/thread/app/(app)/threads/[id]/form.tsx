@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
@@ -8,6 +8,8 @@ import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
+import { uploadAsset } from '@/lib/upload';
+import { ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -29,6 +31,24 @@ export function ThreadEditorForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [coverUrl, setCoverUrl] = useState<string | null>(thread.cover_url);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setError(null);
+    try {
+      setCoverUrl(await uploadAsset(file));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'upload failed');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -48,6 +68,7 @@ export function ThreadEditorForm({
       is_public_listed: fd.get('is_public_listed') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
       language: String(fd.get('language') ?? 'en'),
+      cover_url: coverUrl,
     };
     if (!patch.title) return setError('The thread needs a name.');
     if (!patch.slug) return setError('The thread needs a URL slug.');
@@ -79,6 +100,57 @@ export function ThreadEditorForm({
             defaultValue={thread.intention ?? ''}
             hint="Why this thread exists — shown on the public page."
           />
+
+          {/* Thread image — shown on the public page + embeds */}
+          <div>
+            <span className="text-sm text-ink-subtle">Thread image</span>
+            <input
+              ref={fileRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={onPickCover}
+            />
+            {coverUrl ? (
+              <div className="mt-1 flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={coverUrl}
+                  alt=""
+                  className="h-20 w-32 rounded-md object-cover ring-1 ring-line"
+                />
+                <div className="flex flex-col gap-1">
+                  <button
+                    type="button"
+                    onClick={() => fileRef.current?.click()}
+                    className="text-xs text-ink-subtle hover:text-ink text-left"
+                  >
+                    Replace
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setCoverUrl(null)}
+                    className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
+                  >
+                    <X size={11} strokeWidth={1.75} /> Remove
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileRef.current?.click()}
+                className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+              >
+                <ImagePlus size={16} strokeWidth={1.75} />
+                {uploading ? 'Uploading…' : 'Upload image'}
+              </button>
+            )}
+            <span className="mt-1 block text-xs text-ink-muted">
+              Cover on the public page and in embeds.
+            </span>
+          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DateField

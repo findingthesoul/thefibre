@@ -252,6 +252,90 @@ export function EngagementDialog({
             {family === 'message' && (
               <MessageContentFields type={type} content={engagement?.content ?? {}} />
             )}
+            {family === 'activity' && (
+              <>
+            {/* Where: in person / virtual */}
+            <div>
+              <span className="text-sm text-ink-subtle">Where</span>
+              <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+                <ModeButton
+                  Icon={MapPin}
+                  label="In person"
+                  active={locationMode === 'in_person'}
+                  onClick={() => setLocationMode('in_person')}
+                />
+                <ModeButton
+                  Icon={Video}
+                  label="Virtual"
+                  active={locationMode === 'virtual'}
+                  onClick={() => setLocationMode('virtual')}
+                />
+              </div>
+            </div>
+
+            {locationMode === 'in_person' ? (
+              <>
+                <TextField
+                  label="Location"
+                  name="location"
+                  placeholder="Venue or address"
+                  defaultValue={engagement?.location ?? ''}
+                />
+                <TextField
+                  label="Location link"
+                  name="location_url"
+                  type="url"
+                  placeholder="Maps or venue URL"
+                  defaultValue={engagement?.location_url ?? ''}
+                />
+              </>
+            ) : (
+              <>
+                <div>
+                  <span className="text-sm text-ink-subtle">Provider</span>
+                  <select
+                    value={provider}
+                    onChange={(e) => setProvider(e.target.value)}
+                    className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
+                  >
+                    {PROVIDER_OPTIONS.map((o) => {
+                      const disabled = o.value === 'personal_room' && !personalRoomUrl;
+                      return (
+                        <option key={o.value} value={o.value} disabled={disabled}>
+                          {o.label}
+                          {disabled ? ' — not set' : ''}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                {provider === 'personal_room' ? (
+                  <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
+                    {personalRoomUrl ? (
+                      <>
+                        Uses your personal room from Meet:{' '}
+                        <span className="text-ink break-all">{personalRoomUrl}</span>
+                      </>
+                    ) : (
+                      <>
+                        No personal room configured — set one in Fibre Meet →
+                        Settings → Profile.
+                      </>
+                    )}
+                  </p>
+                ) : (
+                  <TextField
+                    label="Meeting link"
+                    name="meeting_url"
+                    type="url"
+                    placeholder="https://…"
+                    defaultValue={engagement?.meeting_url ?? ''}
+                  />
+                )}
+              </>
+            )}
+              </>
+            )}
           </div>
 
           {/* ── Right: when + where ──────────────────────────────────── */}
@@ -306,75 +390,6 @@ export function EngagementDialog({
                   max={threadEndsOn}
                 />
 
-                {/* Where: in person / virtual */}
-                <div>
-                  <span className="text-sm text-ink-subtle">Where</span>
-                  <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
-                    <ModeButton
-                      Icon={MapPin}
-                      label="In person"
-                      active={locationMode === 'in_person'}
-                      onClick={() => setLocationMode('in_person')}
-                    />
-                    <ModeButton
-                      Icon={Video}
-                      label="Virtual"
-                      active={locationMode === 'virtual'}
-                      onClick={() => setLocationMode('virtual')}
-                    />
-                  </div>
-                </div>
-
-                {locationMode === 'in_person' ? (
-                  <>
-                    <TextField
-                      label="Location"
-                      name="location"
-                      placeholder="Venue or address"
-                      defaultValue={engagement?.location ?? ''}
-                    />
-                    <TextField
-                      label="Location link"
-                      name="location_url"
-                      type="url"
-                      placeholder="Maps or venue URL"
-                      defaultValue={engagement?.location_url ?? ''}
-                    />
-                  </>
-                ) : (
-                  <>
-                    <SelectField
-                      label="Provider"
-                      name="provider_display"
-                      value={provider}
-                      onChange={(e) => setProvider(e.target.value)}
-                      options={PROVIDER_OPTIONS}
-                    />
-                    {provider === 'personal_room' ? (
-                      <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
-                        {personalRoomUrl ? (
-                          <>
-                            Uses your personal room from Meet:{' '}
-                            <span className="text-ink break-all">{personalRoomUrl}</span>
-                          </>
-                        ) : (
-                          <>
-                            No personal room configured — set one in Fibre Meet →
-                            Settings → Profile.
-                          </>
-                        )}
-                      </p>
-                    ) : (
-                      <TextField
-                        label="Meeting link"
-                        name="meeting_url"
-                        type="url"
-                        placeholder="https://…"
-                        defaultValue={engagement?.meeting_url ?? ''}
-                      />
-                    )}
-                  </>
-                )}
               </>
             ) : (
               <TriggerFields

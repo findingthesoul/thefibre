@@ -13,13 +13,13 @@ import {
   listTickets,
   listCoupons,
   updateThread,
+  getPayoutInfo,
   type TicketRow,
   type CouponRow,
 } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TicketDialog } from './ticket-dialog';
 import { CouponDialog } from './coupon-dialog';
-import { SelectField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
@@ -254,52 +254,91 @@ function PayoutSection({ thread }: { thread: ThreadRow }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [connected, setConnected] = useState<{ workspace: boolean; personal: boolean } | null>(
+    null,
+  );
+  // Default per the rule: team/workspace-shared → workspace; personal thread
+  // → personal when connected, else workspace. Always one of the two.
+  const [dest, setDest] = useState<'workspace' | 'personal'>(
+    thread.payment_destination ?? (thread.team_id ? 'workspace' : 'personal'),
+  );
 
-  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
+  useEffect(() => {
+    void (async () => {
+      const info = await getPayoutInfo();
+      if (info.ok) {
+        setConnected({ workspace: info.workspace_connected, personal: info.personal_connected });
+        // If the current default isn't connected but the other is, flip.
+        if (!thread.payment_destination) {
+          if (thread.team_id) setDest('workspace');
+          else setDest(info.personal_connected || !info.workspace_connected ? 'personal' : 'workspace');
+        }
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function save() {
     setError(null);
     setSaved(false);
-    const fd = new FormData(e.currentTarget);
     startTransition(async () => {
-      const r = await updateThread(thread.id, {
-        payment_destination: String(fd.get('payment_destination') ?? '') || null,
-      });
+      const r = await updateThread(thread.id, { payment_destination: dest });
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
     });
   }
 
+  const opt = (value: 'workspace' | 'personal', label: string, isConnected: boolean) => (
+    <button
+      type="button"
+      disabled={!isConnected}
+      onClick={() => setDest(value)}
+      title={isConnected ? undefined : 'No Stripe account connected yet'}
+      className={`flex-1 text-left rounded-lg border p-3.5 transition-colors ${
+        !isConnected
+          ? 'border-line bg-surface opacity-40 cursor-not-allowed'
+          : dest === value
+            ? 'border-ink bg-surface-sunken'
+            : 'border-line bg-surface hover:bg-surface-sunken'
+      }`}
+    >
+      <div className="text-sm font-medium">{label}</div>
+      <div className="mt-0.5 text-xs text-ink-subtle">
+        {isConnected ? 'Stripe connected' : 'Not connected — Settings → Payments'}
+      </div>
+    </button>
+  );
+
   return (
     <section>
       <SectionLabel>Payout</SectionLabel>
-      <form onSubmit={onSubmit} className="mt-3 space-y-4">
-        <SelectField
-          label="Payout to"
-          name="payment_destination"
-          defaultValue={thread.payment_destination ?? ''}
-          options={[
-            {
-              value: '',
-              label: `Auto — ${thread.team_id ? 'workspace (team thread)' : 'personal when connected'}`,
-            },
-            { value: 'workspace', label: 'Workspace account' },
-            { value: 'personal', label: 'My personal account' },
-          ]}
-          hint="Auto: threads shared with the workspace or a team pay out to the workspace account; personal threads pay out to your own Stripe account when connected. Accounts connect in Settings → Payments (payments phase)."
-        />
-        {error && (
-          <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
-            {error}
-          </p>
+      <div className="mt-3 flex gap-3">
+        {opt('workspace', 'Workspace account', connected?.workspace ?? false)}
+        {opt('personal', 'My personal account', connected?.personal ?? false)}
+      </div>
+      {error && (
+        <p className="mt-3 text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+      <div className="mt-3 flex items-center gap-3">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          disabled={pending || !connected || (!connected.workspace && !connected.personal)}
+          onClick={save}
+        >
+          {pending ? 'Saving…' : 'Save payout'}
+        </Button>
+        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {connected && !connected.workspace && !connected.personal && (
+          <span className="text-xs text-ink-muted">
+            Connect a Stripe account first (payments phase).
+          </span>
         )}
-        <div className="flex items-center gap-3">
-          <Button type="submit" variant="secondary" size="sm" disabled={pending}>
-            {pending ? 'Saving…' : 'Save payout'}
-          </Button>
-          {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
-        </div>
-      </form>
+      </div>
     </section>
   );
 }

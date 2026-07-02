@@ -25,6 +25,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Participant space (/my): visitors sign in to see their enrolments — no
+  // workspace membership required, so skip the access-check gating entirely.
+  if (next.startsWith('/my')) {
+    return NextResponse.redirect(new URL(next, url.origin));
+  }
+
   const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
   const ssoSecret = process.env.SSO_INTERNAL_SECRET;
   const user = data.session.user;

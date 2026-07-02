@@ -1,11 +1,13 @@
-// The participant's personal page — email-based visitor identity for the
-// whole Fibre environment (Sjoerd 2026-07-02). The signed link in their
-// inbox IS the credential: no account, no password. Lists everything
-// they're enrolled in, across threads.
+// The participant's personal page (Sjoerd 2026-07-02, revised): sign IN to
+// see everything you're enrolled in — Google SSO today, the platform's
+// emailed login code as the passwordless path, more providers later.
+// No workspace membership required.
 
 import { CalendarRange, Route, ExternalLink } from 'lucide-react';
+import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { t, type Locale, isLocale } from '@/lib/i18n';
+import { SignInButton } from '../sign-in-button';
 
 type PortalItem = {
   thread_id: string;
@@ -47,35 +49,49 @@ function fmtDates(a: string | null, b: string | null, locale: string): string | 
   return fmt((a ?? b)!);
 }
 
-export default async function PortalPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
-  const { token } = await params;
+export default async function MyPage() {
+  const supabase = await serverSupabase();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
 
-  let data: PortalPayload | null = null;
-  let expired = false;
-  try {
-    data = await publicFetch<PortalPayload>(`/api/v1/thread/public/portal/${token}`);
-  } catch (e) {
-    if (e instanceof PublicApiError && e.status === 410) expired = true;
-    else if (e instanceof PublicApiError && e.status === 404) expired = true;
-    else throw e;
-  }
-
-  // Render in the language of the most recent enrolment.
-  const lang: Locale = isLocale(data?.items[0]?.language) ? (data!.items[0]!.language as Locale) : 'en';
-
-  if (expired || !data) {
+  if (!session) {
     return (
       <Shell>
-        <h1 className="text-2xl font-medium tracking-tight">{t(lang, 'portal_title')}</h1>
-        <p className="mt-4 text-sm text-ink-subtle">{t(lang, 'portal_expired')}</p>
+        <h1 className="text-2xl font-medium tracking-tight">{t('en', 'portal_title')}</h1>
+        <p className="mt-2 text-sm text-ink-subtle max-w-md leading-relaxed">
+          Sign in with the email address you enrolled with to see everything
+          you&apos;re part of.
+        </p>
+        <div className="mt-6">
+          <SignInButton next="/my" />
+        </div>
       </Shell>
     );
   }
 
+  let data: PortalPayload;
+  try {
+    data = await publicFetch<PortalPayload>('/api/v1/thread/public/my-enrolments', {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+  } catch (e) {
+    if (e instanceof PublicApiError && e.status === 401) {
+      return (
+        <Shell>
+          <h1 className="text-2xl font-medium tracking-tight">{t('en', 'portal_title')}</h1>
+          <div className="mt-6">
+            <SignInButton next="/my" />
+          </div>
+        </Shell>
+      );
+    }
+    throw e;
+  }
+
+  const lang: Locale = isLocale(data.items[0]?.language)
+    ? (data.items[0]!.language as Locale)
+    : 'en';
   const firstName = data.person.first_name ?? data.person.email ?? '';
 
   return (
@@ -120,7 +136,11 @@ export default async function PortalPage({
                     </p>
                   )}
                 </div>
-                <ExternalLink size={15} strokeWidth={1.75} className="text-ink-muted shrink-0 mt-1" />
+                <ExternalLink
+                  size={15}
+                  strokeWidth={1.75}
+                  className="text-ink-muted shrink-0 mt-1"
+                />
               </a>
             </li>
           );

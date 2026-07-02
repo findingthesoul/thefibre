@@ -301,3 +301,29 @@ export async function moveEngagement(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Payout — which Stripe accounts are actually connected
+// ---------------------------------------------------------------------------
+
+export type PayoutInfo = {
+  ok: true;
+  workspace_connected: boolean;
+  personal_connected: boolean;
+};
+
+export async function getPayoutInfo(): Promise<PayoutInfo | { ok: false; error: string }> {
+  try {
+    const [settings, me] = await Promise.all([
+      apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/settings'),
+      apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/me'),
+    ]);
+    return {
+      ok: true,
+      workspace_connected: !!settings.stripe_account_id,
+      personal_connected: !!me.stripe_account_id,
+    };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
