@@ -4,14 +4,38 @@
 // weren't, they were invisible).
 
 import { apiFetch } from '@/lib/api';
-import type { OrganiserRow } from '@/lib/thread-types';
+import { one, type OrganiserRow, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
+import { EmbedGenerator, type GeneratorThread, type GeneratorTeam } from './embed-generator';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
 export default async function EmbedsSettingsPage() {
-  const organiser = await apiFetch<OrganiserRow>('/api/v1/thread/me');
+  const [organiser, threadsRes, teamsRes] = await Promise.all([
+    apiFetch<OrganiserRow>('/api/v1/thread/me'),
+    apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads').catch(() => ({
+      items: [] as ThreadRow[],
+    })),
+    apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({
+      items: [] as TeamOption[],
+    })),
+  ]);
+
+  // Feed the generator real threads: title from the program, public owner
+  // slug = the team's for team threads (organiser URLs 404 for those).
+  const generatorThreads: GeneratorThread[] = threadsRes.items.map((t) => {
+    const program = one(t.program);
+    const team = one(t.team);
+    return {
+      id: t.id,
+      slug: t.slug,
+      title: program?.title ?? t.slug,
+      ownerSlug: team?.slug ?? organiser.slug,
+      listed: t.is_public_listed,
+    };
+  });
+  const generatorTeams: GeneratorTeam[] = teamsRes.items.map((t) => ({ id: t.id, name: t.name }));
 
   const snippets: { title: string; desc: string; code: string }[] = [
     {
@@ -101,6 +125,12 @@ export default async function EmbedsSettingsPage() {
             Webflow-styled button into the trigger — our UI only appears as the overlay.
           </p>
         </section>
+
+        <EmbedGenerator
+          organiserSlug={organiser.slug}
+          threads={generatorThreads}
+          teams={generatorTeams}
+        />
 
         <p className="text-xs text-ink-muted">
           Team threads live under the team&apos;s slug — use it as data-organiser. Enrolments made

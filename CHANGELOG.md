@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.90] — 2026-07-03 — Thread 3.23.0: embed code generator
+
+### Added
+- **Embed code generator** at the bottom of Settings → Website embeds:
+  choose what to embed (thread list / one thread / enrol button), which
+  thread (a real picker of your threads — team threads automatically get
+  the team's public slug), which sections (cover, intention, agenda, price,
+  enrol), the language (automatic = the thread's own, or fixed), and the
+  button text for the popup variant. The copy-paste code builds itself —
+  script tag + snippet, each with a Copy button. Unlisted threads get an
+  honest note (embed works by direct link, won't appear in list embeds).
+
 ## [0.13.89] — 2026-07-03 — Flow 1.10.0: shared dialog component + bottom-bar contract
 
 ### Changed
