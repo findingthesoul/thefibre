@@ -6,6 +6,17 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.88] — 2026-07-03 — Thread 3.22.1: certificate reissue
+
+### Added
+- **Reissue certificate** — the explicit exception to snapshot immutability
+  (migration `20260703100000`). The refresh button next to the Certificate
+  chip on the Enrolments page regenerates the snapshot from the CURRENT
+  template design after a confirm; the certificate number, recipient and
+  original issue date stay unchanged, so shared verification and LinkedIn
+  links keep working. `reissued_at` records the correction. No email is
+  sent — resending stays the separate explicit action.
+
 ## [0.13.87] — 2026-07-03 — Thread 3.22.0: paid enrolments, approval + completion, /my code sign-in, dialog-bar rollout
 
 ### Added — payments (Phase 4 core)

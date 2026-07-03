@@ -366,6 +366,20 @@ export async function issueEnrolmentCertificate(
   }
 }
 
+/** Regenerate the snapshot from the CURRENT template — number, recipient
+ *  and issue date stay; shared verification links keep working. */
+export async function reissueCertificate(enrolmentId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/enrolments/${enrolmentId}/reissue-certificate`, {
+      method: 'POST',
+    });
+    revalidatePath('/enrolments');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 /** Email the participant their certificate link — explicit, never automatic. */
 export async function sendCertificateEmail(enrolmentId: string): Promise<ActionResult> {
   try {

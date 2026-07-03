@@ -5,11 +5,13 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Award, ExternalLink } from 'lucide-react';
+import { Award, ExternalLink, RefreshCw } from 'lucide-react';
 import {
   issueEnrolmentCertificate,
   bulkIssueCertificates,
+  reissueCertificate,
 } from '../threads/actions';
+import { ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
 const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
@@ -23,21 +25,51 @@ export function IssueCertButton({
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [confirmReissue, setConfirmReissue] = useState(false);
   const [pending, startTransition] = useTransition();
 
   if (certificateNumber) {
     return (
-      <a
-        href={`${THREAD_HOST}/certificate/${certificateNumber}`}
-        target="_blank"
-        rel="noreferrer"
-        className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-emerald-200 bg-emerald-50 text-emerald-700 hover:ring-emerald-300 shrink-0"
-        title={certificateNumber}
-      >
-        <Award size={11} strokeWidth={1.75} />
-        Certificate
-        <ExternalLink size={10} strokeWidth={1.75} />
-      </a>
+      <span className="inline-flex items-center gap-1 shrink-0">
+        <a
+          href={`${THREAD_HOST}/certificate/${certificateNumber}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-emerald-200 bg-emerald-50 text-emerald-700 hover:ring-emerald-300"
+          title={certificateNumber}
+        >
+          <Award size={11} strokeWidth={1.75} />
+          Certificate
+          <ExternalLink size={10} strokeWidth={1.75} />
+        </a>
+        <button
+          type="button"
+          disabled={pending}
+          onClick={() => setConfirmReissue(true)}
+          title="Reissue — regenerate from the current template (number and issue date stay)"
+          aria-label="Reissue certificate"
+          className="inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink hover:bg-surface-sunken disabled:opacity-50"
+        >
+          <RefreshCw size={11} strokeWidth={1.75} className={pending ? 'animate-spin' : ''} />
+        </button>
+        {error && <span className="text-[11px] text-red-700">{error}</span>}
+        <ConfirmDialog
+          open={confirmReissue}
+          onCancel={() => setConfirmReissue(false)}
+          onConfirm={() => {
+            setConfirmReissue(false);
+            setError(null);
+            startTransition(async () => {
+              const r = await reissueCertificate(enrolmentId);
+              if (!r.ok) setError(r.error);
+              router.refresh();
+            });
+          }}
+          title="Reissue certificate"
+          message={`This regenerates ${certificateNumber} from the CURRENT template design. The number, recipient and issue date stay the same — shared links keep working — but the look changes to the template as it is now.`}
+          confirmLabel="Reissue"
+        />
+      </span>
     );
   }
 

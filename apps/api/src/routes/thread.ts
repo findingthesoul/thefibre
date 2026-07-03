@@ -1626,6 +1626,109 @@ async function issueCertificate(
   return { ok: true, certificate_number: number };
 }
 
+// Reissue — the explicit exception to snapshot immutability: regenerate the
+// snapshot from the CURRENT template + values, keeping the number, recipient
+// and original issue date (shared verification/LinkedIn links keep working).
+async function reissueCertificate(threadEnrolmentId: string): Promise<IssueResult> {
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `id, workspace_id, thread_id,
+       person:person_id (id, first_name, last_name, email),
+       thread:thread_id (id, slug, language, certificate_enabled, certificate_criteria,
+         certificate_template_id, organiser_id,
+         organiser:organiser_id (slug, display_name),
+         team:team_id (slug, name),
+         program:program_id (title, starts_on, ends_on))`,
+    )
+    .eq('id', threadEnrolmentId)
+    .maybeSingle();
+  if (!te) return { ok: false, error: 'enrolment not found' };
+
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  if (!thread || !person) return { ok: false, error: 'enrolment incomplete' };
+  if (!thread.certificate_template_id) return { ok: false, error: 'no template selected' };
+
+  const { data: existing } = await adminClient
+    .from('thread_certificate')
+    .select('id, certificate_number, issued_at, recipient_name')
+    .eq('thread_enrolment_id', te.id)
+    .maybeSingle();
+  if (!existing) return { ok: false, error: 'nothing issued yet — use issue instead' };
+
+  const { data: template } = await adminClient
+    .from('thread_certificate_template')
+    .select('name, page_size, orientation, background_url, elements')
+    .eq('id', thread.certificate_template_id)
+    .maybeSingle();
+  if (!template) return { ok: false, error: 'template missing' };
+
+  const prog = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+  const team = Array.isArray(thread.team) ? thread.team[0] : thread.team;
+  const recipientName =
+    [person.first_name, person.last_name].filter(Boolean).join(' ') ||
+    existing.recipient_name ||
+    person.email ||
+    '';
+
+  const fmt = (d: string | null) =>
+    d
+      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+          new Date(d),
+        )
+      : '';
+
+  const snapshot = {
+    template: {
+      page_size: template.page_size,
+      orientation: template.orientation,
+      background_url: template.background_url,
+      elements: template.elements,
+    },
+    values: {
+      recipient_name: recipientName,
+      thread_title: prog?.title ?? thread.slug,
+      org_name: team?.name ?? org?.display_name ?? '',
+      // The attestation date does NOT change on reissue.
+      issue_date: fmt(existing.issued_at),
+      start_date: fmt(prog?.starts_on ?? null),
+      end_date: fmt(prog?.ends_on ?? null),
+      certificate_number: existing.certificate_number,
+      criteria: thread.certificate_criteria ?? '',
+      issued_by: org?.display_name ?? '',
+    },
+  };
+
+  const { error: upErr } = await adminClient
+    .from('thread_certificate')
+    .update({
+      template_snapshot: snapshot,
+      recipient_name: recipientName,
+      reissued_at: new Date().toISOString(),
+    })
+    .eq('id', existing.id);
+  if (upErr) return { ok: false, error: upErr.message };
+  return { ok: true, certificate_number: existing.certificate_number };
+}
+
+// POST /api/v1/thread/enrolments/:id/reissue-certificate
+threadRoutes.post('/enrolments/:id/reissue-certificate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: visible } = await db
+    .from('thread_enrolment')
+    .select('id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!visible) return c.json({ error: 'not found' }, 404);
+
+  const r = await reissueCertificate(c.req.param('id'));
+  if (!r.ok) return c.json({ error: r.error }, 400);
+  return c.json({ ok: true, certificate_number: r.certificate_number });
+});
+
 // POST /api/v1/thread/enrolments/:id/certificate — issue one
 threadRoutes.post('/enrolments/:id/certificate', async (c) => {
   const ctx = c.get('ctx');
