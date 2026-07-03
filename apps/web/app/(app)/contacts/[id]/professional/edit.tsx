@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,6 @@ function EditDialog({
   personId: string;
   initial: ProfessionalRow | null;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
@@ -119,19 +118,6 @@ function EditDialog({
     });
   }
 
-  function doSave() {
-    if (!formRef.current) return;
-    const fd = new FormData(formRef.current);
-    startSave(async () => {
-      const res = await updateProfessional(personId, {}, fd);
-      setState(res);
-      if (res.ok) {
-        router.refresh();
-        onClose();
-      }
-    });
-  }
-
   return (
     <Dialog
       open={open}
@@ -140,17 +126,17 @@ function EditDialog({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={pending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={doSave} disabled={pending}>
+          <Button type="submit" form="professional-profile-form" disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
       <form
-        ref={formRef}
+        id="professional-profile-form"
         onSubmit={onSubmit}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >

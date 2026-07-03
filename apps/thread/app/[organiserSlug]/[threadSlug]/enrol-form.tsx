@@ -29,6 +29,8 @@ export function EnrolCard({
   enrolmentOpen,
   locale = DEFAULT_LOCALE,
   sharesParticipants = false,
+  paymentMethods = ['stripe'],
+  initialNotice = null,
 }: {
   organiserSlug: string;
   organiserName: string;
@@ -42,10 +44,19 @@ export function EnrolCard({
   locale?: Locale;
   /** Thread shares participants — offer the cohort-directory opt-in. */
   sharesParticipants?: boolean;
+  /** Accepted payment methods for paid threads (default: card only). */
+  paymentMethods?: ('stripe' | 'invoice')[];
+  /** From ?paid= on return from Stripe Checkout. */
+  initialNotice?: 'success' | 'cancelled' | null;
 }) {
   // 'already' = this email is enrolled for this thread — point at /my
   // instead of promising a confirmation email that won't be sent again.
-  const [state, setState] = useState<'idle' | 'submitting' | 'done' | 'already'>('idle');
+  // 'pending' = waiting for organiser approval; 'invoice' = invoice follows;
+  // 'redirecting' = on the way to Stripe Checkout.
+  const [state, setState] = useState<
+    'idle' | 'submitting' | 'done' | 'already' | 'pending' | 'invoice' | 'redirecting'
+  >(initialNotice === 'success' ? 'done' : 'idle');
+  const [payMethod, setPayMethod] = useState<'stripe' | 'invoice'>('stripe');
   const [error, setError] = useState<string | null>(null);
   // Whether this email already has a Fibre account → "sign in" vs "create".
   const [hasAccount, setHasAccount] = useState(false);
@@ -127,7 +138,14 @@ export function EnrolCard({
 
     setState('submitting');
     try {
-      const res = await publicFetch<{ already_enrolled?: boolean; has_account?: boolean }>('/api/v1/thread/public/enrol', {
+      const res = await publicFetch<{
+        already_enrolled?: boolean;
+        has_account?: boolean;
+        pending_approval?: boolean;
+        invoice_pending?: boolean;
+        payment_required?: boolean;
+        checkout_url?: string | null;
+      }>('/api/v1/thread/public/enrol', {
         method: 'POST',
         body: JSON.stringify({
           organiser_slug: organiserSlug,
@@ -136,6 +154,7 @@ export function EnrolCard({
           email,
           ...(ticketId ? { ticket_id: ticketId } : {}),
           ...(applied ? { coupon_code: applied.code } : {}),
+          ...(activePriceCents ? { payment_method: payMethod } : {}),
           answers,
           marketing_opt_in: fd.get('marketing_opt_in') === 'on',
           cohort_opt_in: fd.get('cohort_opt_in') === 'on',
@@ -145,7 +164,30 @@ export function EnrolCard({
         }),
       });
       setHasAccount(res.has_account === true);
-      setState(res.already_enrolled ? 'already' : 'done');
+      if (res.payment_required && res.checkout_url) {
+        setState('redirecting');
+        // Stripe Checkout refuses iframes — inside an embed, escape to the
+        // top window; the success/cancel URLs return to the public page.
+        try {
+          if (window.self !== window.top && window.top) {
+            window.top.location.href = res.checkout_url;
+          } else {
+            window.location.href = res.checkout_url;
+          }
+        } catch {
+          window.location.href = res.checkout_url;
+        }
+        return;
+      }
+      setState(
+        res.already_enrolled
+          ? 'already'
+          : res.pending_approval
+            ? 'pending'
+            : res.invoice_pending
+              ? 'invoice'
+              : 'done',
+      );
     } catch (err) {
       setState('idle');
       const body = err instanceof PublicApiError ? (err.body as { error?: unknown }) : null;
@@ -172,7 +214,9 @@ export function EnrolCard({
         </span>
       </div>
 
-      {state === 'done' || state === 'already' ? (
+      {state === 'redirecting' ? (
+        <p className="mt-4 text-sm text-ink-subtle">{t(locale, 'redirecting_payment')}</p>
+      ) : state === 'done' || state === 'already' || state === 'pending' || state === 'invoice' ? (
         <div className="mt-4 space-y-3">
           <div className="flex items-start gap-2.5 text-sm text-ink-subtle">
             <CheckCircle2
@@ -180,7 +224,20 @@ export function EnrolCard({
               strokeWidth={1.75}
               className="text-emerald-600 shrink-0 mt-0.5"
             />
-            <p>{t(locale, state === 'already' ? 'already_enrolled' : 'enrolled_success')}</p>
+            <p>
+              {t(
+                locale,
+                state === 'already'
+                  ? 'already_enrolled'
+                  : state === 'pending'
+                    ? 'enrolment_pending_msg'
+                    : state === 'invoice'
+                      ? 'invoice_pending_msg'
+                      : initialNotice === 'success'
+                        ? 'payment_success_msg'
+                        : 'enrolled_success',
+              )}
+            </p>
           </div>
           {/* Existing Fibre account → sign in; none → create it (first
               sign-in with this email creates it — no separate signup).
@@ -204,6 +261,11 @@ export function EnrolCard({
         </p>
       ) : (
         <form onSubmit={onSubmit} className="mt-4 space-y-3.5">
+          {initialNotice === 'cancelled' && (
+            <p className="text-xs text-amber-800 border border-amber-200 bg-amber-50 rounded-md px-2.5 py-2">
+              {t(locale, 'payment_cancelled_msg')}
+            </p>
+          )}
           {tickets.length > 1 && (
             <fieldset>
               <legend className="text-xs text-ink-subtle">{t(locale, 'ticket')}</legend>
@@ -298,6 +360,28 @@ export function EnrolCard({
                   {couponError && <p className="mt-1.5 text-xs text-red-700">{couponError}</p>}
                 </div>
               )}
+            </div>
+          )}
+
+          {(activePriceCents ?? 0) > 0 && paymentMethods.includes('invoice') && (
+            <div>
+              <span className="text-xs text-ink-subtle">{t(locale, 'payment_method')}</span>
+              <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
+                {(['stripe', 'invoice'] as const).map((m) => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => setPayMethod(m)}
+                    className={
+                      payMethod === m
+                        ? 'bg-surface-sunken text-ink font-medium'
+                        : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
+                    }
+                  >
+                    {t(locale, m === 'stripe' ? 'pay_online' : 'pay_by_invoice')}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
 

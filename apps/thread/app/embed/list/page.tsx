@@ -1,5 +1,6 @@
 import { CalendarRange, Route } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
+import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from './view-button';
 
 type EmbedThreadItem = {
@@ -16,6 +17,8 @@ type EmbedThreadItem = {
   cover_url: string | null;
   price_cents: number | null;
   price_currency: string | null;
+  language: string;
+  public_interaction: 'page' | 'popup';
   url: string;
 };
 
@@ -29,8 +32,8 @@ function fmtDates(a: string | null, b: string | null): string | null {
   return fmt((a ?? b)!);
 }
 
-function fmtPrice(cents: number | null, currency: string | null): string {
-  if (!cents) return 'Free';
+function fmtPrice(cents: number | null, currency: string | null, locale: Locale): string {
+  if (!cents) return t(locale, 'free');
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency ?? 'EUR',
@@ -54,6 +57,12 @@ export default async function EmbedListPage({
   // `theme=light` is accepted (and is the only theme); other values are
   // ignored for now — the layout forces light regardless.
   const popup = str(sp.popup) === '1';
+  // ?lang= (from data-lang) forces the UI language for the whole list.
+  // Without it the list chrome is English, but each item's CTA + popup
+  // follow the thread's own language.
+  const rawLang = str(sp.lang);
+  const forcedLang: Locale | undefined = isLocale(rawLang) ? rawLang : undefined;
+  const chromeLang: Locale = forcedLang ?? 'en';
 
   if (!organiser && !team && !org) {
     return (
@@ -79,26 +88,29 @@ export default async function EmbedListPage({
   }
 
   if (items.length === 0) {
-    return <p className="text-sm text-ink-subtle">Nothing public right now.</p>;
+    return <p className="text-sm text-ink-subtle">{t(chromeLang, 'nothing_public')}</p>;
   }
 
   return (
     <ul className={compact ? 'space-y-2' : 'space-y-3'}>
-      {items.map((t) => {
-        const Icon = t.format === 'journey' ? Route : CalendarRange;
-        const dates = fmtDates(t.starts_on, t.ends_on);
+      {items.map((item) => {
+        const Icon = item.format === 'journey' ? Route : CalendarRange;
+        const dates = fmtDates(item.starts_on, item.ends_on);
+        // data-lang wins; otherwise the item speaks its thread's language.
+        const itemLang: Locale =
+          forcedLang ?? (isLocale(item.language) ? item.language : 'en');
         return (
           <li
-            key={t.id}
+            key={item.id}
             className={`rounded-xl border border-line bg-surface-raised overflow-hidden ${
               compact ? 'p-3' : 'p-4'
             }`}
           >
             <div className="flex items-start gap-3">
-              {!compact && t.cover_url ? (
+              {!compact && item.cover_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
-                  src={t.cover_url}
+                  src={item.cover_url}
                   alt=""
                   className="h-16 w-16 rounded-lg object-cover ring-1 ring-line shrink-0"
                 />
@@ -108,18 +120,27 @@ export default async function EmbedListPage({
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className={`font-medium ${compact ? 'text-sm' : 'text-base'}`}>{t.title}</div>
-                {!compact && t.intention && (
+                <div className={`font-medium ${compact ? 'text-sm' : 'text-base'}`}>
+                  {item.title}
+                </div>
+                {!compact && item.intention && (
                   <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                    {t.intention}
+                    {item.intention}
                   </p>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
                   {dates && <span>{dates}</span>}
-                  <span>{fmtPrice(t.price_cents, t.price_currency)}</span>
+                  <span>{fmtPrice(item.price_cents, item.price_currency, itemLang)}</span>
                 </div>
               </div>
-              <ViewButton url={t.url} popup={popup} />
+              <ViewButton
+                url={item.url}
+                popup={popup && item.public_interaction === 'popup' && !!item.organiser_slug}
+                organiser={item.organiser_slug ?? ''}
+                thread={item.slug}
+                lang={itemLang}
+                label={t(itemLang, 'view_and_enrol')}
+              />
             </div>
           </li>
         );

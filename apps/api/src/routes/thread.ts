@@ -1,10 +1,15 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
-import { enrolmentConfirmation, engagementMessage } from '../lib/email/thread-templates.js';
+import {
+  enrolmentConfirmation,
+  enrolmentPending,
+  engagementMessage,
+} from '../lib/email/thread-templates.js';
 import { appUrl } from '@thefibre/shared';
 
 function threadAppUrl(): string {
@@ -2062,6 +2067,443 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
   return c.json({ ok: true });
 });
 
+// ---------------------------------------------------------------------------
+// Approval + completion (Phase: enrolment lifecycle). Read through the
+// user's RLS to prove access; mutate via adminClient (platform enrolment).
+// ---------------------------------------------------------------------------
+
+const ENROLMENT_ACTION_SELECT = `id, thread_id, enrolment_id,
+  person:person_id (id, first_name, last_name, email),
+  thread:thread_id (id, slug, language, workspace_id, certificate_enabled,
+    organiser:organiser_id (display_name),
+    team:team_id (name),
+    program:program_id (title, status, starts_on))`;
+
+async function loadEnrolmentForAction(jwt: string, threadEnrolmentId: string) {
+  const db = userClient(jwt);
+  const { data: te } = await db
+    .from('thread_enrolment')
+    .select(ENROLMENT_ACTION_SELECT)
+    .eq('id', threadEnrolmentId)
+    .maybeSingle();
+  if (!te) return null;
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const organiser =
+    thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
+  const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
+  const program =
+    thread && (Array.isArray(thread.program) ? thread.program[0] : thread.program);
+  if (!person || !thread || !program) return null;
+  return {
+    te,
+    person,
+    thread,
+    program,
+    organiserName: team?.name ?? organiser?.display_name ?? '',
+    personName:
+      [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email || '',
+  };
+}
+
+async function logEnrolmentActivity(
+  workspaceId: string,
+  personId: string,
+  type: string,
+  subject: string,
+) {
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'the-thread')
+    .single();
+  if (!app) return;
+  await adminClient.from('activity').insert({
+    workspace_id: workspaceId,
+    person_id: personId,
+    app_id: app.id,
+    type,
+    subject: subject.slice(0, 200),
+    occurred_at: new Date().toISOString(),
+  });
+}
+
+// POST /enrolments/:id/approve — invited → enrolled. Sends the standard
+// confirmation and fires on_enrolment + on_approval messages.
+threadRoutes.post('/enrolments/:id/approve', async (c) => {
+  const ctx = c.get('ctx');
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+  const { te, person, thread, program, organiserName, personName } = loaded;
+
+  const { data: enr } = await adminClient
+    .from('enrolment')
+    .select('status')
+    .eq('id', te.enrolment_id)
+    .maybeSingle();
+  if (!enr) return c.json({ error: 'platform enrolment missing' }, 500);
+  if (enr.status !== 'invited') return c.json({ ok: true, already: true, status: enr.status });
+
+  const { error: upErr } = await adminClient
+    .from('enrolment')
+    .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+    .eq('id', te.enrolment_id);
+  if (upErr) return c.json({ error: upErr.message }, 500);
+
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'enrolment_approved',
+    `Approved: ${program.title}`,
+  );
+
+  if (person.email) {
+    try {
+      const msg = enrolmentConfirmation({
+        participantName: personName,
+        threadTitle: program.title,
+        intention: null,
+        organiserName,
+        startsOn: program.starts_on,
+        threadUrl: `${threadAppUrl()}/my`,
+        locale: (thread as { language?: string }).language ?? 'en',
+      });
+      await sendEmail({ to: person.email, ...msg });
+    } catch (e) {
+      console.warn('[thread/approve] confirmation email failed', e);
+    }
+    // Welcome (on_enrolment) waits for approval on gated threads; plus any
+    // explicit on_approval messages. Both dedup via thread_message_send.
+    for (const trigger of ['on_enrolment', 'on_approval'] as const) {
+      try {
+        await sendTriggeredMessages({
+          threadId: thread.id,
+          trigger,
+          personId: person.id,
+          email: person.email,
+          name: personName,
+          threadTitle: program.title,
+          organiserName,
+          startsOn: program.starts_on,
+        });
+      } catch (e) {
+        console.warn('[thread/approve] triggered messages failed', { trigger, e });
+      }
+    }
+  }
+  return c.json({ ok: true });
+});
+
+// POST /enrolments/:id/decline — invited → dropped. No email (organisers
+// decline for many reasons; a generic rejection mail does more harm).
+threadRoutes.post('/enrolments/:id/decline', async (c) => {
+  const ctx = c.get('ctx');
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+  const { te, person, thread, program } = loaded;
+
+  const { error: upErr } = await adminClient
+    .from('enrolment')
+    .update({ status: 'dropped' })
+    .eq('id', te.enrolment_id);
+  if (upErr) return c.json({ error: upErr.message }, 500);
+
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'enrolment_declined',
+    `Declined: ${program.title}`,
+  );
+  return c.json({ ok: true });
+});
+
+// POST /enrolments/:id/complete — → completed. Fires on_completion messages
+// and auto-issues the certificate when the thread awards one (the email
+// with the certificate stays a separate, explicit action).
+threadRoutes.post('/enrolments/:id/complete', async (c) => {
+  const ctx = c.get('ctx');
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+  const { te, person, thread, program, organiserName, personName } = loaded;
+
+  const { data: enr } = await adminClient
+    .from('enrolment')
+    .select('status')
+    .eq('id', te.enrolment_id)
+    .maybeSingle();
+  if (!enr) return c.json({ error: 'platform enrolment missing' }, 500);
+  if (enr.status === 'completed') return c.json({ ok: true, already: true });
+
+  const { error: upErr } = await adminClient
+    .from('enrolment')
+    .update({
+      status: 'completed',
+      progress_pct: 100,
+      completed_at: new Date().toISOString(),
+    })
+    .eq('id', te.enrolment_id);
+  if (upErr) return c.json({ error: upErr.message }, 500);
+
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'enrolment_completed',
+    `Completed: ${program.title}`,
+  );
+
+  let certificateNumber: string | null = null;
+  if (thread.certificate_enabled) {
+    const issued = await issueCertificate(te.id, ctx.userId);
+    if (issued.ok) certificateNumber = issued.certificate_number;
+    else if (!('skipped' in issued && issued.skipped)) {
+      console.warn('[thread/complete] auto-issue failed', issued.error);
+    }
+  }
+
+  if (person.email) {
+    try {
+      await sendTriggeredMessages({
+        threadId: thread.id,
+        trigger: 'on_completion',
+        personId: person.id,
+        email: person.email,
+        name: personName,
+        threadTitle: program.title,
+        organiserName,
+        startsOn: program.starts_on,
+      });
+    } catch (e) {
+      console.warn('[thread/complete] on_completion messages failed', e);
+    }
+  }
+  return c.json({ ok: true, certificate_number: certificateNumber });
+});
+
+// ---------------------------------------------------------------------------
+// Paid enrolments — completion side-effects (webhook + invoice mark-paid).
+// ---------------------------------------------------------------------------
+
+/** Runs after a payment lands: activity, and (unless approval-gated) the
+ *  enrolled status + confirmation + on_enrolment messages. */
+async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<void> {
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `id, thread_id, enrolment_id,
+       person:person_id (id, first_name, last_name, email),
+       thread:thread_id (id, slug, language, workspace_id, requires_approval,
+         organiser:organiser_id (display_name),
+         team:team_id (name),
+         program:program_id (title, starts_on))`,
+    )
+    .eq('id', threadEnrolmentId)
+    .maybeSingle();
+  if (!te) return;
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  if (!person || !thread) return;
+  const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  const organiser = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+  const team = Array.isArray(thread.team) ? thread.team[0] : thread.team;
+  const organiserName = team?.name ?? organiser?.display_name ?? '';
+  const personName =
+    [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email || '';
+
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'payment_received',
+    `Paid: ${program?.title ?? thread.slug}`,
+  );
+
+  // Approval-gated threads stay 'invited' — the participant already has the
+  // "request received" email; approval runs the confirmation.
+  if (thread.requires_approval) return;
+
+  const { data: enr } = await adminClient
+    .from('enrolment')
+    .select('status')
+    .eq('id', te.enrolment_id)
+    .maybeSingle();
+  if (enr?.status === 'invited') {
+    await adminClient
+      .from('enrolment')
+      .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+      .eq('id', te.enrolment_id);
+  }
+
+  if (!person.email || !program) return;
+  try {
+    const msg = enrolmentConfirmation({
+      participantName: personName,
+      threadTitle: program.title,
+      intention: null,
+      organiserName,
+      startsOn: program.starts_on,
+      threadUrl: `${threadAppUrl()}/my`,
+      locale: (thread as { language?: string }).language ?? 'en',
+    });
+    await sendEmail({ to: person.email, ...msg });
+  } catch (e) {
+    console.warn('[thread/paid] confirmation email failed', e);
+  }
+  try {
+    await sendTriggeredMessages({
+      threadId: thread.id,
+      trigger: 'on_enrolment',
+      personId: person.id,
+      email: person.email,
+      name: personName,
+      threadTitle: program.title,
+      organiserName,
+      startsOn: program.starts_on,
+    });
+  } catch (e) {
+    console.warn('[thread/paid] on_enrolment messages failed', e);
+  }
+}
+
+// POST /api/v1/thread/stripe-webhook — same contract as Meet's. The endpoint
+// must be registered in the Stripe dashboard; its signing secret comes from
+// STRIPE_THREAD_WEBHOOK_SECRET (falls back to STRIPE_WEBHOOK_SECRET when the
+// two endpoints share one).
+threadRoutes.post('/stripe-webhook', async (c) => {
+  const stripe = stripeOrNull();
+  const secret =
+    process.env.STRIPE_THREAD_WEBHOOK_SECRET ?? process.env.STRIPE_WEBHOOK_SECRET;
+  if (!stripe || !secret) {
+    console.error('[thread stripe-webhook] Stripe secret(s) missing');
+    return c.json({ error: 'webhook not configured' }, 503);
+  }
+  const sig = c.req.header('stripe-signature');
+  if (!sig) return c.json({ error: 'missing stripe-signature header' }, 400);
+  const raw = await c.req.text();
+  let event;
+  try {
+    event = stripe.webhooks.constructEvent(raw, sig, secret);
+  } catch (e) {
+    console.error('[thread stripe-webhook] signature verification failed', e);
+    return c.json({ error: 'invalid signature' }, 400);
+  }
+
+  try {
+    if (event.type === 'checkout.session.completed') {
+      const session = event.data.object as {
+        id: string;
+        amount_total?: number | null;
+        currency?: string | null;
+        payment_intent?: string | null;
+      };
+      const { data: te } = await adminClient
+        .from('thread_enrolment')
+        .select('id, thread_id, payment_status, amount_cents, currency, workspace_id')
+        .eq('stripe_session_id', session.id)
+        .maybeSingle();
+      if (!te) {
+        console.warn('[thread stripe-webhook] completed for unknown session', session.id);
+        return c.json({ received: true });
+      }
+      if (te.payment_status === 'paid') return c.json({ received: true, idempotent: true });
+
+      const gross = session.amount_total ?? te.amount_cents ?? 0;
+      const currency = (session.currency ?? te.currency ?? 'eur').toUpperCase();
+      await adminClient
+        .from('thread_enrolment')
+        .update({
+          payment_status: 'paid',
+          amount_cents: gross,
+          currency,
+          stripe_payment_intent:
+            typeof session.payment_intent === 'string' ? session.payment_intent : null,
+        })
+        .eq('id', te.id);
+
+      // Revenue-split record (brief: gross = platform fee + vendor share +
+      // org share). Transfers themselves land with the payouts phase — this
+      // is the auditable ledger row.
+      try {
+        let feePct = 0.02;
+        let feeCapCents: number | null = 200;
+        const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
+          ws_id: te.workspace_id,
+        });
+        const row = Array.isArray(feeRows) ? feeRows[0] : null;
+        if (row) {
+          const rawPct = (row as { pct: number | string }).pct;
+          feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
+          feeCapCents = (row as { cap_cents: number | null }).cap_cents;
+        }
+        const computedFee = Math.floor(gross * feePct);
+        const platformFee = feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+        const { data: ws } = await adminClient
+          .from('thread_settings')
+          .select('default_vendor_cut_percent')
+          .eq('workspace_id', te.workspace_id)
+          .maybeSingle();
+        const vendorPct = Number(ws?.default_vendor_cut_percent ?? 100);
+        const net = Math.max(0, gross - platformFee);
+        const vendorShare = Math.round((net * vendorPct) / 100);
+        const orgShare = net - vendorShare;
+        await adminClient.from('thread_payout').insert({
+          workspace_id: te.workspace_id,
+          thread_id: te.thread_id,
+          thread_enrolment_id: te.id,
+          gross_cents: gross,
+          platform_fee_cents: platformFee,
+          vendor_share_cents: vendorShare,
+          org_share_cents: orgShare,
+          currency,
+          status: orgShare > 0 ? 'pending' : 'not_applicable',
+        });
+      } catch (e) {
+        console.warn('[thread stripe-webhook] payout record failed', e);
+      }
+
+      await finalizePaidEnrolment(te.id);
+      return c.json({ received: true });
+    }
+
+    if (event.type === 'checkout.session.expired') {
+      const session = event.data.object as { id: string };
+      await adminClient
+        .from('thread_enrolment')
+        .update({ payment_status: 'failed' })
+        .eq('stripe_session_id', session.id)
+        .eq('payment_status', 'pending');
+      return c.json({ received: true });
+    }
+  } catch (e) {
+    console.error('[thread stripe-webhook] handler failed', e);
+    return c.json({ error: 'handler failed' }, 500);
+  }
+  return c.json({ received: true });
+});
+
+// POST /enrolments/:id/mark-paid — the invoice path: the organiser confirms
+// the money arrived; the same confirmation side-effects run as for Stripe.
+threadRoutes.post('/enrolments/:id/mark-paid', async (c) => {
+  const ctx = c.get('ctx');
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+
+  const { data: teRow } = await adminClient
+    .from('thread_enrolment')
+    .select('id, payment_status')
+    .eq('id', loaded.te.id)
+    .maybeSingle();
+  if (!teRow) return c.json({ error: 'not found' }, 404);
+  if (teRow.payment_status === 'paid') return c.json({ ok: true, already: true });
+
+  const { error: upErr } = await adminClient
+    .from('thread_enrolment')
+    .update({ payment_status: 'paid' })
+    .eq('id', loaded.te.id);
+  if (upErr) return c.json({ error: upErr.message }, 500);
+
+  await finalizePaidEnrolment(loaded.te.id);
+  return c.json({ ok: true });
+});
+
 // Archive / restore — the safe alternative to deleting a template in use.
 threadRoutes.post('/certificate-templates/:id/archive', async (c) => {
   const ctx = c.get('ctx');
@@ -2315,7 +2757,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
-       price_cents, price_currency, registration_fields, certificate_enabled, organiser_id,
+       price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
@@ -2454,7 +2896,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   let q = adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, cover_url, price_cents, price_currency,
+      `id, slug, intention, cover_url, price_cents, price_currency, language, public_interaction,
        organiser:organiser_id (slug, display_name),
        team:team_id (slug, name),
        organisation:organisation_id (id, name),
@@ -2502,6 +2944,8 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         cover_url: t.cover_url,
         price_cents: t.price_cents,
         price_currency: t.price_currency,
+        language: (t as { language?: string }).language ?? 'en',
+        public_interaction: (t as { public_interaction?: string }).public_interaction ?? 'page',
         url: `${threadAppUrl()}/${ownerSlug}/${t.slug}`,
       };
     })
@@ -2531,13 +2975,57 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
     .select(
       `id, created_at,
        enrolment:enrolment_id (status, progress_pct),
-       thread:thread_id (id, slug, intention, language, cover_url,
+       thread:thread_id (id, slug, intention, language, cover_url, share_participants_participants,
          organiser:organiser_id (slug, display_name),
          team:team_id (slug, name),
          program:program_id (title, format, status, starts_on, ends_on))`,
     )
     .in('person_id', persons.map((p) => p.id))
     .order('created_at', { ascending: false });
+
+  // Cohort directory (share_participants_participants): fellow participants,
+  // first name + initial, ONLY those who opted into cohort_directory —
+  // the same consent gate as the public Who's-coming list.
+  const cohortThreadIds = [
+    ...new Set(
+      (enrolments ?? [])
+        .map((e) => {
+          const t = Array.isArray(e.thread) ? e.thread[0] : e.thread;
+          return t && (t as { share_participants_participants?: boolean }).share_participants_participants
+            ? (t as { id: string }).id
+            : null;
+        })
+        .filter(Boolean) as string[],
+    ),
+  ];
+  const cohorts = new Map<string, string[]>();
+  if (cohortThreadIds.length) {
+    const { data: fellow } = await adminClient
+      .from('thread_enrolment')
+      .select('thread_id, person:person_id (id, first_name, last_name)')
+      .in('thread_id', cohortThreadIds)
+      .limit(400);
+    const fellowIds = (fellow ?? [])
+      .map((f) => (Array.isArray(f.person) ? f.person[0] : f.person)?.id)
+      .filter(Boolean) as string[];
+    if (fellowIds.length) {
+      const { data: consents } = await adminClient
+        .from('consent_record')
+        .select('person_id')
+        .eq('purpose_code', 'cohort_directory')
+        .is('revoked_at', null)
+        .in('person_id', fellowIds);
+      const consented = new Set((consents ?? []).map((r) => r.person_id));
+      for (const f of fellow ?? []) {
+        const p = Array.isArray(f.person) ? f.person[0] : f.person;
+        if (!p || !consented.has(p.id)) continue;
+        const label = `${p.first_name ?? ''} ${(p.last_name ?? '').slice(0, 1)}`.trim();
+        if (!label) continue;
+        if (!cohorts.has(f.thread_id)) cohorts.set(f.thread_id, []);
+        cohorts.get(f.thread_id)!.push(label);
+      }
+    }
+  }
 
   const items = (enrolments ?? [])
     .map((e) => {
@@ -2559,6 +3047,7 @@ threadRoutes.get('/public/my-enrolments', async (c) => {
         enrolment_status: enr?.status ?? 'enrolled',
         url: `${threadAppUrl()}/${ownerSlugOf(t, org?.slug ?? null)}/${t.slug}`,
         enrolled_at: e.created_at,
+        cohort: cohorts.get(t.id) ?? [],
       };
     })
     .filter(Boolean);
@@ -2718,6 +3207,7 @@ const PublicEnrol = z.object({
   answers: z.record(z.unknown()).optional(),
   ticket_id: z.string().uuid().optional(),
   coupon_code: z.string().min(1).max(60).optional(),
+  payment_method: z.enum(['stripe', 'invoice']).optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),
@@ -2750,7 +3240,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   let eq = adminClient
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, organiser_id, slug, intention, language, capacity, price_cents, program:program_id (title, status, starts_on)',
+      'id, workspace_id, program_id, organiser_id, slug, intention, language, capacity, price_cents, price_currency, requires_approval, payment_destination, payment_methods, team_id, program:program_id (title, status, starts_on)',
     )
     .eq('slug', d.thread_slug);
   eq =
@@ -2782,7 +3272,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   let ticketId: string | null = null;
   const { data: activeTickets } = await adminClient
     .from('thread_ticket')
-    .select('id, price_cents, quantity_limit, available_until')
+    .select('id, price_cents, price_currency, quantity_limit, available_until')
     .eq('thread_id', thread.id)
     .eq('is_active', true)
     .order('position');
@@ -2791,6 +3281,7 @@ threadRoutes.post('/public/enrol', async (c) => {
     (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
   );
   let basePriceCents = 0;
+  let priceCurrency: string = (thread as { price_currency?: string | null }).price_currency ?? 'EUR';
   if (d.ticket_id) {
     const chosen = openTickets.find((t) => t.id === d.ticket_id);
     if (!chosen) return c.json({ error: 'this ticket is not available' }, 409);
@@ -2805,10 +3296,12 @@ threadRoutes.post('/public/enrol', async (c) => {
     }
     ticketId = chosen.id;
     basePriceCents = chosen.price_cents;
+    priceCurrency = (chosen as { price_currency?: string }).price_currency ?? priceCurrency;
   } else if (openTickets.length) {
     const cheapest = [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]!;
     ticketId = cheapest.id;
     basePriceCents = cheapest.price_cents;
+    priceCurrency = (cheapest as { price_currency?: string }).price_currency ?? priceCurrency;
   } else {
     basePriceCents = thread.price_cents ?? 0;
   }
@@ -2821,9 +3314,11 @@ threadRoutes.post('/public/enrol', async (c) => {
     coupon = r.coupon;
   }
   const finalPriceCents = coupon ? couponPrice(coupon, basePriceCents) : basePriceCents;
-  if (finalPriceCents > 0) {
-    // Paid checkout lands with the Stripe phase.
-    return c.json({ error: 'paid enrolment is not available yet' }, 409);
+  const requiresPayment = finalPriceCents > 0;
+  const paymentMethods = (thread.payment_methods as string[] | null) ?? ['stripe'];
+  const paymentMethod = d.payment_method ?? 'stripe';
+  if (requiresPayment && !paymentMethods.includes(paymentMethod)) {
+    return c.json({ error: 'this payment method is not available for this thread' }, 409);
   }
 
   // Capacity check.
@@ -2905,8 +3400,11 @@ threadRoutes.post('/public/enrol', async (c) => {
       .insert({
         program_id: thread.program_id,
         person_id: person.id,
-        status: 'enrolled',
-        enrolled_at: new Date().toISOString(),
+        // Approval-required and paid threads park the enrolment at
+        // 'invited' until approval / payment completes.
+        status: thread.requires_approval || requiresPayment ? 'invited' : 'enrolled',
+        enrolled_at:
+          thread.requires_approval || requiresPayment ? null : new Date().toISOString(),
       })
       .select('id')
       .single();
@@ -2926,8 +3424,9 @@ threadRoutes.post('/public/enrol', async (c) => {
       person_id: person.id,
       ticket_id: ticketId,
       coupon_id: coupon?.id ?? null,
-      amount_cents: coupon ? finalPriceCents : null,
-      payment_status: 'not_required',
+      amount_cents: requiresPayment || coupon ? finalPriceCents : null,
+      currency: requiresPayment ? priceCurrency : null,
+      payment_status: requiresPayment ? 'pending' : 'not_required',
       answers: d.answers ?? null,
       request_id: d.request_id,
       policy_version: d.policy_version ?? null,
@@ -2989,9 +3488,166 @@ threadRoutes.post('/public/enrol', async (c) => {
       person_id: person.id,
       app_id: app.id,
       type: 'event_registered',
-      subject: `Registered: ${program.title}`.slice(0, 200),
+      subject: `${thread.requires_approval ? 'Requested' : 'Registered'}: ${program.title}`.slice(0, 200),
       occurred_at: new Date().toISOString(),
     });
+  }
+
+  // Payment outstanding: no emails yet — the webhook (Stripe) or the
+  // organiser's mark-paid (invoice) runs the confirmation side-effects.
+  if (requiresPayment && paymentMethod === 'invoice') {
+    return c.json(
+      {
+        ok: true,
+        enrolment_id: threadEnrolment.id,
+        invoice_pending: true,
+        has_account: hasAccount === true,
+      },
+      201,
+    );
+  }
+  if (requiresPayment) {
+    const stripe = stripeOrNull();
+    if (!stripe) {
+      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      return c.json({ error: 'payments are not configured yet' }, 503);
+    }
+    // Destination account per the payout rule: personal → the organiser's
+    // connected account (Meet's as fallback — one Stripe per person across
+    // Fibre); workspace → thread_settings.
+    let destAccount: string | null = null;
+    if (thread.payment_destination === 'personal') {
+      const { data: org } = await adminClient
+        .from('thread_organiser')
+        .select('stripe_account_id, user_id')
+        .eq('id', thread.organiser_id)
+        .maybeSingle();
+      destAccount = org?.stripe_account_id ?? null;
+      if (!destAccount && org?.user_id) {
+        const { data: mh } = await adminClient
+          .from('meet_host')
+          .select('stripe_account_id')
+          .eq('user_id', org.user_id)
+          .maybeSingle();
+        destAccount = mh?.stripe_account_id ?? null;
+      }
+    } else {
+      const { data: ws } = await adminClient
+        .from('thread_settings')
+        .select('stripe_account_id')
+        .eq('workspace_id', thread.workspace_id)
+        .maybeSingle();
+      destAccount = ws?.stripe_account_id ?? null;
+    }
+    if (!destAccount) {
+      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      return c.json({ error: 'the organiser has not connected payments yet' }, 409);
+    }
+
+    // Platform fee — same plan-aware rule as Meet (2% capped €2 on Free,
+    // waived on Pro/Org) via the shared workspace_meet_fee helper.
+    let feePct = 0.02;
+    let feeCapCents: number | null = 200;
+    try {
+      const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
+        ws_id: thread.workspace_id,
+      });
+      const row = Array.isArray(feeRows) ? feeRows[0] : null;
+      if (row) {
+        const rawPct = (row as { pct: number | string }).pct;
+        feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
+        feeCapCents = (row as { cap_cents: number | null }).cap_cents;
+      }
+    } catch (e) {
+      console.warn('[thread/enrol] fee lookup failed, defaulting to Free rate', e);
+    }
+    const computedFee = Math.floor(finalPriceCents * feePct);
+    const applicationFeeCents =
+      feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+
+    const publicBase = `${threadAppUrl()}/${d.organiser_slug}/${thread.slug}`;
+    try {
+      const session = await stripe.checkout.sessions.create(
+        {
+          mode: 'payment',
+          payment_method_types: ['card'],
+          line_items: [
+            {
+              price_data: {
+                currency: priceCurrency.toLowerCase(),
+                unit_amount: finalPriceCents,
+                product_data: { name: program.title },
+              },
+              quantity: 1,
+            },
+          ],
+          payment_intent_data: {
+            application_fee_amount: applicationFeeCents,
+            metadata: { thread_enrolment_id: threadEnrolment.id, thread_slug: thread.slug },
+          },
+          customer_email: email,
+          metadata: { thread_enrolment_id: threadEnrolment.id, thread_slug: thread.slug },
+          // Auto-generated legal invoice on the connected account (EU VAT) —
+          // same choice as Fibre Meet.
+          invoice_creation: {
+            enabled: true,
+            invoice_data: {
+              description: `${program.title} — enrolment via The Thread`,
+              footer: 'Issued automatically by The Thread on behalf of the organiser.',
+            },
+          },
+          billing_address_collection: 'required',
+          success_url: `${publicBase}?paid=success`,
+          cancel_url: `${publicBase}?paid=cancelled`,
+        },
+        { stripeAccount: destAccount },
+      );
+      await adminClient
+        .from('thread_enrolment')
+        .update({ stripe_session_id: session.id })
+        .eq('id', threadEnrolment.id);
+      return c.json(
+        {
+          ok: true,
+          enrolment_id: threadEnrolment.id,
+          payment_required: true,
+          checkout_url: session.url,
+          has_account: hasAccount === true,
+        },
+        201,
+      );
+    } catch (e) {
+      console.error('[thread/enrol] checkout session failed', e);
+      // Roll the companion row back so a stale pending doesn't block retries;
+      // the platform enrolment stays and is reused on the next attempt.
+      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      return c.json({ error: 'could not start the payment — try again' }, 502);
+    }
+  }
+
+  // Approval-required: a "request received" email; the confirmation +
+  // on-enrolment messages follow at approval. Non-fatal either way.
+  if (thread.requires_approval) {
+    try {
+      const msg = enrolmentPending({
+        participantName: d.name.trim(),
+        threadTitle: program.title,
+        organiserName: organiser.display_name ?? '',
+        locale: (thread as { language?: string }).language ?? 'en',
+      });
+      await sendEmail({ to: email, ...msg });
+    } catch (e) {
+      console.warn('[thread/public/enrol] pending email failed', e);
+    }
+    return c.json(
+      {
+        ok: true,
+        enrolment_id: threadEnrolment.id,
+        pending_approval: true,
+        has_account: hasAccount === true,
+      },
+      201,
+    );
   }
 
   // Confirmation email — non-fatal.

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -81,7 +81,6 @@ function EditDialog({
   onClose: () => void;
   person: EditablePerson;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
@@ -89,19 +88,6 @@ function EditDialog({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    startSave(async () => {
-      const res = await updatePerson(person.id, {}, fd);
-      setState(res);
-      if (res.ok) {
-        router.refresh();
-        onClose();
-      }
-    });
-  }
-
-  function doSave() {
-    if (!formRef.current) return;
-    const fd = new FormData(formRef.current);
     startSave(async () => {
       const res = await updatePerson(person.id, {}, fd);
       setState(res);
@@ -120,14 +106,14 @@ function EditDialog({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button onClick={doSave} disabled={pending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button type="submit" form="contact-identity-form" disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
-      <form ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form id="contact-identity-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="First name" name="first_name" defaultValue={person.first_name ?? ''} required errors={state.fieldErrors?.first_name} />
         <TextField label="Last name" name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
         <TextField label="Preferred name" name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />

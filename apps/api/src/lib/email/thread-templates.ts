@@ -103,6 +103,60 @@ export function engagementMessage(c: {
   return { subject, text, html };
 }
 
+// Approval-required threads: "request received" — the confirmation email
+// follows once the organiser approves.
+const PENDING_I18N: Record<string, { subject: string; body: string }> = {
+  en: {
+    subject: 'Request received: {title}',
+    body: 'Your enrolment request for {title}{with} has been received. You will get a confirmation as soon as the organiser approves it.',
+  },
+  nl: {
+    subject: 'Aanvraag ontvangen: {title}',
+    body: 'Je aanmeldingsverzoek voor {title}{with} is ontvangen. Je krijgt een bevestiging zodra de organisator het goedkeurt.',
+  },
+  es: {
+    subject: 'Solicitud recibida: {title}',
+    body: 'Hemos recibido tu solicitud de inscripción en {title}{with}. Recibirás una confirmación en cuanto el organizador la apruebe.',
+  },
+  pt: {
+    subject: 'Pedido recebido: {title}',
+    body: 'Seu pedido de inscrição em {title}{with} foi recebido. Você receberá uma confirmação assim que o organizador aprovar.',
+  },
+  de: {
+    subject: 'Anfrage erhalten: {title}',
+    body: 'Deine Anmeldeanfrage für {title}{with} ist eingegangen. Du erhältst eine Bestätigung, sobald die Organisation sie genehmigt.',
+  },
+};
+
+export function enrolmentPending(c: {
+  participantName: string;
+  threadTitle: string;
+  organiserName: string;
+  locale?: string | null;
+}): { subject: string; text: string; html: string } {
+  const loc = c.locale && PENDING_I18N[c.locale] ? c.locale : 'en';
+  const L = PENDING_I18N[loc] ?? PENDING_I18N.en!;
+  const withPart = c.organiserName
+    ? (WITH_I18N[loc] ?? WITH_I18N.en!).replaceAll('{organiser}', c.organiserName)
+    : '';
+  const subject = L.subject.replaceAll('{title}', c.threadTitle);
+  const body = L.body.replaceAll('{title}', c.threadTitle).replaceAll('{with}', withPart);
+  const hi = (EMAIL_I18N[loc] ?? EMAIL_I18N.en!).hi.replaceAll(
+    '{name}',
+    c.participantName.split(/\s+/)[0] ?? c.participantName,
+  );
+  const text = `${hi}\n\n${body}\n\n${emailSignoff()}`;
+  const html = shell(
+    c.threadTitle,
+    `
+      <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${escapeHtml(hi)}</p>
+      <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${escapeHtml(body)}</p>
+      <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
+    `,
+  );
+  return { subject, text, html };
+}
+
 export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   subject: string;
   text: string;

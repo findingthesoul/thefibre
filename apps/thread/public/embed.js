@@ -7,6 +7,11 @@
  *        data-elements="cover,intention,enrol"></div>
  *   <a href="#" data-thread-embed="enrol" data-organiser="sjoerd" data-thread="my-event">Enrol</a>
  *
+ * Optional data-lang="en|nl|es|pt|de" on any embed forces the UI language.
+ * Without it, thread + enrol embeds follow the thread's own language; the
+ * list falls back to English for its chrome (each popup still opens in the
+ * thread's language).
+ *
  * Framework-free, idempotent (safe to include twice). Iframes auto-size via
  * `thread-embed:height` postMessages from the embed pages.
  */
@@ -62,7 +67,7 @@
     var d = el.dataset;
     var f = makeIframe(ORIGIN + '/embed/list' + query({
       organiser: d.organiser, team: d.team, org: d.org,
-      compact: d.compact, theme: d.theme, popup: '1',
+      compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
     }));
     el.appendChild(f);
     inlineFrames.push(f);
@@ -71,7 +76,7 @@
   function mountThread(el) {
     var d = el.dataset;
     var f = makeIframe(threadSrc(d.organiser, d.thread, {
-      elements: d.elements, theme: d.theme, popup: '1',
+      elements: d.elements, theme: d.theme, lang: d.lang, popup: '1',
     }));
     el.appendChild(f);
     inlineFrames.push(f);
@@ -124,7 +129,9 @@
   function mountEnrol(el) {
     el.addEventListener('click', function (e) {
       e.preventDefault();
-      openPopup(threadSrc(el.dataset.organiser, el.dataset.thread, { elements: 'enrol', popup: '1' }));
+      openPopup(threadSrc(el.dataset.organiser, el.dataset.thread, {
+        elements: 'enrol', popup: '1', lang: el.dataset.lang,
+      }));
     });
   }
 
@@ -138,9 +145,20 @@
         if (inlineFrames[i].contentWindow === e.source) inlineFrames[i].style.height = h + 'px';
       }
       if (popup && popup.frame.contentWindow === e.source) popup.frame.style.height = h + 'px';
+    } else if (e.data.type === 'thread-embed:open-enrol') {
+      // A list card with popup interaction was clicked inside the list
+      // iframe — open the enrol overlay on the host page.
+      var organiser = typeof e.data.organiser === 'string' ? e.data.organiser : '';
+      var thread = typeof e.data.thread === 'string' ? e.data.thread : '';
+      if (organiser && thread) {
+        openPopup(threadSrc(organiser, thread, {
+          elements: 'enrol', popup: '1',
+          lang: typeof e.data.lang === 'string' ? e.data.lang : null,
+        }));
+      }
     } else if (e.data.type === 'thread-embed:open' && typeof e.data.url === 'string') {
-      // A list card was clicked. Convert the public thread URL
-      // (…/{organiser}/{thread}) into the embed enrol view and pop it up.
+      // Legacy list-card message (pre data-lang). Convert the public thread
+      // URL (…/{organiser}/{thread}) into the embed enrol view and pop it up.
       try {
         var parts = new URL(e.data.url).pathname.split('/').filter(Boolean);
         if (parts.length >= 2) {

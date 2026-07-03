@@ -129,14 +129,14 @@ function EditDialog({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button onClick={doSave} disabled={pending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button type="submit" form="org-edit-form" disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
-      <form ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <form id="org-edit-form" ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label="Name" name="name" defaultValue={org.name} required errors={state.fieldErrors?.name} />
         <TextField label="Legal name" name="legal_name" defaultValue={org.legal_name ?? ''} errors={state.fieldErrors?.legal_name} />
         <TextField label="Domain" name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" errors={state.fieldErrors?.domain} />

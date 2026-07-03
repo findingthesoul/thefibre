@@ -84,14 +84,15 @@ function EditDialog({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={pending}>Cancel</Button>
-          <Button onClick={doSave} disabled={pending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button type="submit" form="org-billing-form" disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
       <form
+        id="org-billing-form"
         ref={formRef}
         onSubmit={(e) => { e.preventDefault(); doSave(); }}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"

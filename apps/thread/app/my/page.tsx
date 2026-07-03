@@ -22,6 +22,7 @@ type PortalItem = {
   enrolment_status: string;
   url: string;
   enrolled_at: string;
+  cohort?: string[];
 };
 
 type PortalActivity = {
@@ -68,8 +69,7 @@ export default async function MyPage() {
       <Shell>
         <h1 className="text-2xl font-medium tracking-tight">{t('en', 'portal_title')}</h1>
         <p className="mt-2 text-sm text-ink-subtle max-w-md leading-relaxed">
-          Sign in with the email address you enrolled with to see everything
-          you&apos;re part of.
+          {t('en', 'portal_signin_note')}
         </p>
         <div className="mt-6">
           <SignInButton next="/my" />
@@ -142,6 +142,21 @@ export default async function MyPage() {
                     <p className="mt-1.5 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
                       {it.intention}
                     </p>
+                  )}
+                  {(it.cohort?.length ?? 0) > 0 && (
+                    <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                      <span className="text-[11px] text-ink-muted mr-0.5">
+                        {t(lang, 'fellow_participants')}
+                      </span>
+                      {it.cohort!.map((name) => (
+                        <span
+                          key={name}
+                          className="rounded-full ring-1 ring-line bg-surface-sunken px-2 py-0.5 text-xs text-ink-subtle"
+                        >
+                          {name}
+                        </span>
+                      ))}
+                    </div>
                   )}
                 </div>
                 <ExternalLink

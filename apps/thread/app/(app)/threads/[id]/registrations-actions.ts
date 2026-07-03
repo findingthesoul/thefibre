@@ -39,6 +39,37 @@ export type ThreadEnrolmentItem = {
     | null;
 };
 
+type SimpleResult = { ok: true } | { ok: false; error: string };
+
+async function postEnrolmentAction(id: string, action: string): Promise<SimpleResult> {
+  try {
+    await apiFetch(`/api/v1/thread/enrolments/${id}/${action}`, { method: 'POST' });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+/** invited → enrolled; sends confirmation + on_enrolment/on_approval messages. */
+export async function approveEnrolment(id: string): Promise<SimpleResult> {
+  return postEnrolmentAction(id, 'approve');
+}
+
+/** invited → dropped. No email — declining reasons vary too much. */
+export async function declineEnrolment(id: string): Promise<SimpleResult> {
+  return postEnrolmentAction(id, 'decline');
+}
+
+/** → completed; fires on_completion messages + auto-issues the certificate. */
+export async function completeEnrolment(id: string): Promise<SimpleResult> {
+  return postEnrolmentAction(id, 'complete');
+}
+
+/** Invoice paid — organiser confirms; runs the same side-effects as Stripe. */
+export async function markEnrolmentPaid(id: string): Promise<SimpleResult> {
+  return postEnrolmentAction(id, 'mark-paid');
+}
+
 export async function listThreadEnrolments(
   threadId: string,
 ): Promise<{ ok: true; items: ThreadEnrolmentItem[] } | { ok: false; error: string }> {

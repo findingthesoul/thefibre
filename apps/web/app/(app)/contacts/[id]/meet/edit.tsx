@@ -59,7 +59,7 @@ export function MeetProfileEdit({
         size="lg"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+            <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>
             <Button form="meet-profile-form" type="submit" disabled={pending}>

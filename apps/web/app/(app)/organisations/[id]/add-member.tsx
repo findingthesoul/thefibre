@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -34,7 +34,6 @@ const INFLUENCE = [
 
 export function AddMemberButton({ orgId, people }: { orgId: string; people: PersonOption[] }) {
   const [open, setOpen] = useState(false);
-  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [pending, start] = useTransition();
   const [state, setState] = useState<ActionResult>({});
@@ -51,10 +50,6 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
         setState({});
       }
     });
-  }
-
-  function triggerSubmit() {
-    formRef.current?.requestSubmit();
   }
 
   const personOptions = [
@@ -85,16 +80,16 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
         size="lg"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
+            <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
               Cancel
             </Button>
-            <Button onClick={triggerSubmit} disabled={pending}>
+            <Button type="submit" form="add-member-form" disabled={pending}>
               {pending ? 'Adding…' : 'Add member'}
             </Button>
           </>
         }
       >
-        <form ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <form id="add-member-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
             <SelectField
               label="Person"

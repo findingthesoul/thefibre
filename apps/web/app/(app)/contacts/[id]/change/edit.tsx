@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, useTransition } from 'react';
+import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -87,7 +87,6 @@ function EditDialog({
   personId: string;
   initial: ChangeRow | null;
 }) {
-  const formRef = useRef<HTMLFormElement>(null);
   const router = useRouter();
   const [pending, startSave] = useTransition();
   const [state, setState] = useState<ActionResult>({});
@@ -95,19 +94,6 @@ function EditDialog({
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
-    startSave(async () => {
-      const res = await updateChange(personId, {}, fd);
-      setState(res);
-      if (res.ok) {
-        router.refresh();
-        onClose();
-      }
-    });
-  }
-
-  function doSave() {
-    if (!formRef.current) return;
-    const fd = new FormData(formRef.current);
     startSave(async () => {
       const res = await updateChange(personId, {}, fd);
       setState(res);
@@ -126,17 +112,17 @@ function EditDialog({
       size="lg"
       footer={
         <>
-          <Button variant="ghost" onClick={onClose} disabled={pending}>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
             Cancel
           </Button>
-          <Button onClick={doSave} disabled={pending}>
+          <Button type="submit" form="change-context-form" disabled={pending}>
             {pending ? 'Saving…' : 'Save changes'}
           </Button>
         </>
       }
     >
       <form
-        ref={formRef}
+        id="change-context-form"
         onSubmit={onSubmit}
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >

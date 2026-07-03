@@ -80,10 +80,16 @@ function fmtSlot(starts: string | null, ends: string | null, tz: string): string
 
 export default async function PublicThreadPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ organiserSlug: string; threadSlug: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const { organiserSlug, threadSlug } = await params;
+  // ?paid=success|cancelled — the return leg from Stripe Checkout.
+  const sp = await searchParams;
+  const paidNotice =
+    sp.paid === 'success' ? ('success' as const) : sp.paid === 'cancelled' ? ('cancelled' as const) : null;
 
   let data: PublicThreadDetail;
   try {
@@ -223,6 +229,11 @@ export default async function PublicThreadPage({
             sharesParticipants={
               !!thread.share_participants_public || false
             }
+            paymentMethods={
+              ((thread as { payment_methods?: ('stripe' | 'invoice')[] | null })
+                .payment_methods ?? ['stripe'])
+            }
+            initialNotice={paidNotice}
           />
         </div>
 

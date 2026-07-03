@@ -6,8 +6,15 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Award } from 'lucide-react';
-import { listThreadEnrolments, type ThreadEnrolmentItem } from './registrations-actions';
+import { Award, Check, X, Flag, BadgeEuro } from 'lucide-react';
+import {
+  listThreadEnrolments,
+  approveEnrolment,
+  declineEnrolment,
+  completeEnrolment,
+  markEnrolmentPaid,
+  type ThreadEnrolmentItem,
+} from './registrations-actions';
 import { one } from '@/lib/thread-types';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -37,6 +44,7 @@ export function RegistrationsDialog({
 }) {
   const [items, setItems] = useState<ThreadEnrolmentItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -50,6 +58,14 @@ export function RegistrationsDialog({
       cancelled = true;
     };
   }, [threadId]);
+
+  async function run(id: string, fn: (id: string) => Promise<{ ok: boolean }>) {
+    setBusy(id);
+    await fn(id);
+    const r = await listThreadEnrolments(threadId);
+    if (r.ok) setItems(r.items);
+    setBusy(null);
+  }
 
   return (
     <Dialog
@@ -123,6 +139,45 @@ export function RegistrationsDialog({
                     Certificate
                   </span>
                 )}
+                {/* Lifecycle actions: approve/decline while invited, mark
+                    invoice payments paid, mark done → completed (+ cert). */}
+                {status === 'invited' && it.payment_status !== 'pending' && (
+                  <span className="inline-flex items-center gap-1 shrink-0">
+                    <ActionChip
+                      label="Approve"
+                      Icon={Check}
+                      tone="positive"
+                      disabled={busy === it.id}
+                      onClick={() => void run(it.id, approveEnrolment)}
+                    />
+                    <ActionChip
+                      label="Decline"
+                      Icon={X}
+                      tone="negative"
+                      disabled={busy === it.id}
+                      onClick={() => void run(it.id, declineEnrolment)}
+                    />
+                  </span>
+                )}
+                {it.payment_status === 'pending' && (
+                  <ActionChip
+                    label="Mark paid"
+                    Icon={BadgeEuro}
+                    tone="neutral"
+                    disabled={busy === it.id}
+                    onClick={() => void run(it.id, markEnrolmentPaid)}
+                  />
+                )}
+                {(status === 'enrolled' || status === 'active') &&
+                  it.payment_status !== 'pending' && (
+                    <ActionChip
+                      label="Complete"
+                      Icon={Flag}
+                      tone="neutral"
+                      disabled={busy === it.id}
+                      onClick={() => void run(it.id, completeEnrolment)}
+                    />
+                  )}
                 <span className="text-xs text-ink-muted shrink-0">
                   {PAYMENT_LABELS[it.payment_status] ?? it.payment_status}
                 </span>
@@ -139,5 +194,37 @@ export function RegistrationsDialog({
         </ul>
       )}
     </Dialog>
+  );
+}
+
+const CHIP_TONES: Record<string, string> = {
+  positive: 'ring-emerald-200 bg-emerald-50 text-emerald-700 hover:ring-emerald-300',
+  negative: 'ring-red-200 bg-red-50 text-red-700 hover:ring-red-300',
+  neutral: 'ring-line bg-surface-raised text-ink-subtle hover:text-ink hover:ring-line-strong',
+};
+
+function ActionChip({
+  label,
+  Icon,
+  tone,
+  disabled,
+  onClick,
+}: {
+  label: string;
+  Icon: typeof Check;
+  tone: 'positive' | 'negative' | 'neutral';
+  disabled?: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onClick={onClick}
+      className={`inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 transition-colors disabled:opacity-50 shrink-0 ${CHIP_TONES[tone]}`}
+    >
+      <Icon size={11} strokeWidth={1.75} />
+      {label}
+    </button>
   );
 }

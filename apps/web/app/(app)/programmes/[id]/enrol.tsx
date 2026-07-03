@@ -75,7 +75,7 @@ export function EnrolButton({ programmeId, people }: { programmeId: string; peop
         size="md"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>Cancel</Button>
             <Button onClick={doEnrol} disabled={pending}>{pending ? 'Enrolling…' : 'Enrol'}</Button>
           </>
         }

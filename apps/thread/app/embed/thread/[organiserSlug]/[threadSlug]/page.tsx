@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
+import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 
 type AgendaItem = {
@@ -30,6 +31,7 @@ type PublicThreadDetail = {
     slug: string;
     intention: string | null;
     timezone: string;
+    language: string;
     cover_url: string | null;
     capacity: number | null;
     price_cents: number | null;
@@ -81,8 +83,8 @@ function fmtSlot(starts: string | null, ends: string | null, tz: string): string
   return `${d} – ${end}`;
 }
 
-function fmtPrice(cents: number | null, currency: string | null): string {
-  if (!cents) return 'Free';
+function fmtPrice(cents: number | null, currency: string | null, locale: Locale): string {
+  if (!cents) return t(locale, 'free');
   return new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: currency ?? 'EUR',
@@ -121,6 +123,14 @@ export default async function EmbedThreadPage({
   const { organiser, thread } = data;
   const program = one(thread.program);
   const organiserName = organiser.display_name ?? organiser.slug;
+  // ?lang= (from data-lang) overrides; otherwise the embed speaks the
+  // thread's own language — same fallback as the public thread page.
+  const rawLang = typeof sp.lang === 'string' ? sp.lang : null;
+  const lang: Locale = isLocale(rawLang)
+    ? rawLang
+    : isLocale(thread.language)
+      ? thread.language
+      : 'en';
   const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
@@ -139,7 +149,7 @@ export default async function EmbedThreadPage({
 
       {/* Title is chrome, not an element — every embed keeps its context. */}
       <div className="text-[11px] uppercase tracking-wider text-ink-muted">
-        {program?.format === 'journey' ? 'Journey' : 'Event'}
+        {program?.format === 'journey' ? t(lang, 'journey') : t(lang, 'event')}
         {dates ? ` · ${dates}` : ''}
       </div>
       <h1 className="mt-1 text-xl font-medium tracking-tight">{program?.title ?? thread.slug}</h1>
@@ -153,13 +163,13 @@ export default async function EmbedThreadPage({
           {spotsLeft != null && (
             <span className="inline-flex items-center gap-1.5">
               <Users size={13} strokeWidth={1.75} />
-              {spotsLeft > 0 ? `${spotsLeft} spots left` : 'Full'}
+              {spotsLeft > 0 ? t(lang, 'spots_left', { n: spotsLeft }) : t(lang, 'full')}
             </span>
           )}
           {thread.certificate_enabled && (
             <span className="inline-flex items-center gap-1.5">
               <Award size={13} strokeWidth={1.75} />
-              Certificate on completion
+              {t(lang, 'certificate_on_completion')}
             </span>
           )}
         </div>
@@ -168,13 +178,17 @@ export default async function EmbedThreadPage({
       {elements.has('price') && !elements.has('enrol') && (
         <div className="mt-3 text-sm">
           <span className="text-ink-subtle">Price · </span>
-          <span className="font-medium">{fmtPrice(thread.price_cents, thread.price_currency)}</span>
+          <span className="font-medium">
+            {fmtPrice(thread.price_cents, thread.price_currency, lang)}
+          </span>
         </div>
       )}
 
       {elements.has('agenda') && thread.agenda.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">Agenda</h2>
+          <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">
+            {t(lang, 'agenda')}
+          </h2>
           <ul className="mt-2 space-y-2">
             {thread.agenda.map((a) => (
               <li key={a.id} className="rounded-lg border border-line bg-surface-raised px-3.5 py-2.5">
@@ -202,7 +216,7 @@ export default async function EmbedThreadPage({
                   {a.is_online && (
                     <span className="inline-flex items-center gap-1">
                       <Video size={11} strokeWidth={1.75} />
-                      Online
+                      {t(lang, 'online')}
                     </span>
                   )}
                 </div>
@@ -223,12 +237,13 @@ export default async function EmbedThreadPage({
             priceCurrency={thread.price_currency}
             registrationFields={thread.registration_fields ?? []}
             enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
+            locale={lang}
           />
         </div>
       )}
 
       <footer className="mt-6 text-[11px] text-ink-muted">
-        Powered by <span className="font-medium">The Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">The Thread</span> · The Fibre
       </footer>
     </div>
   );

@@ -8,8 +8,9 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { Award, Mail, Printer } from 'lucide-react';
+import { Award, Flag, Mail, Printer } from 'lucide-react';
 import { issueEnrolmentCertificate, sendCertificateEmail } from '../threads/actions';
+import { completeEnrolment } from '../threads/[id]/registrations-actions';
 import { IssueCertButton } from './certificate-actions';
 import { Button } from '@/components/ui/button';
 
@@ -42,6 +43,7 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
   const selectedRows = useMemo(() => rows.filter((r) => selected.has(r.id)), [rows, selected]);
   const issuable = selectedRows.filter((r) => r.certEnabled && !r.certNumber);
   const withCert = selectedRows.filter((r) => r.certNumber);
+  const completable = selectedRows.filter((r) => r.status === 'enrolled' || r.status === 'active');
   const allSelected = rows.length > 0 && selected.size === rows.length;
 
   function toggle(id: string) {
@@ -68,6 +70,23 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
         else failed += 1;
       }
       setMessage(`Issued ${ok} certificate${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`);
+      router.refresh();
+    });
+  }
+
+  function completeSelected() {
+    setMessage(null);
+    startTransition(async () => {
+      let ok = 0;
+      let failed = 0;
+      for (const r of completable) {
+        const res = await completeEnrolment(r.id);
+        if (res.ok) ok += 1;
+        else failed += 1;
+      }
+      setMessage(
+        `Marked ${ok} completed${failed ? `, ${failed} failed` : ''} — certificates auto-issued where enabled.`,
+      );
       router.refresh();
     });
   }
@@ -111,6 +130,16 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               title={issuable.length === 0 ? 'Selection has no enrolments awaiting a certificate' : undefined}
             >
               {pending ? 'Working…' : `Issue certificates (${issuable.length})`}
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              leading={<Flag size={14} />}
+              disabled={pending || completable.length === 0}
+              onClick={completeSelected}
+              title={completable.length === 0 ? 'Selection has no enrolled participants' : undefined}
+            >
+              Mark completed ({completable.length})
             </Button>
             <Button
               variant="secondary"

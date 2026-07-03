@@ -6,6 +6,63 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.87] — 2026-07-03 — Thread 3.22.0: paid enrolments, approval + completion, /my code sign-in, dialog-bar rollout
+
+### Added — payments (Phase 4 core)
+- **Stripe Checkout for paid enrolments** — a paid ticket (after any
+  discount code) now creates the enrolment as `payment_status='pending'`,
+  opens a Checkout session against the payout account (personal → the
+  organiser's connected account with Meet's as fallback; workspace →
+  thread settings), with the plan-aware platform fee (2% capped €2 on
+  Free, waived Pro/Org via `workspace_meet_fee`) and Stripe's
+  auto-generated legal invoice (EU VAT), then redirects — escaping the
+  iframe when enrolling inside a website embed. Success/cancel return to
+  the public page (`?paid=…`) with honest localized messages.
+- **Webhook** `POST /api/v1/thread/stripe-webhook` (signature-verified;
+  `STRIPE_THREAD_WEBHOOK_SECRET`, falls back to the Meet secret) flips the
+  enrolment to paid, writes the **revenue-split ledger row**
+  (`thread_payout`: gross = platform fee + organiser share by the stored
+  default cut + org share; actual transfers land with the payouts phase),
+  and runs the confirmation side-effects. Expired sessions → failed.
+- **Invoice path** — threads accepting `invoice` offer a Pay online /
+  Receive an invoice toggle on the enrol card; invoice enrolments wait as
+  pending with a clear message, and the organiser's **Mark paid** runs the
+  same confirmation side-effects as Stripe.
+
+### Added — approval + completion (#14)
+- **Approval flow** — approval-required threads park enrolments at
+  `invited`: participant gets a localized "request received" email (×5);
+  the Registrations popup shows **Approve / Decline** chips. Approve →
+  enrolled + confirmation + on_enrolment AND on_approval messages;
+  decline → dropped (no email, deliberately).
+- **Completion flow** — **Complete** per row and **Mark completed (n)** in
+  the Enrolments bulk bar: status completed (100%), fires on_completion
+  messages, and **auto-issues the certificate** when the thread awards one
+  (the certificate email stays a separate explicit step).
+
+### Added — participant side
+- **/my sign-in with an emailed 8-digit code** next to Google (#13) —
+  account created on first sign-in, i18n ×5.
+- **/my cohort directory** (#16) — threads sharing participants with
+  participants now show consent-gated fellow-participant chips on the
+  personal page.
+
+### Changed
+- **Dialog bottom bar rolled out to web** (#17) — 14 web dialogs moved
+  their Save into the footer (Cancel · Save right, destructive left);
+  Meet's dialogs already complied; Flow has no shared dialog component yet
+  (noted for later).
+- **Embeds** (#15) — `data-lang` on all embed kinds (falls back to the
+  thread's language); embedded lists open popup-interaction threads as the
+  Luma-style overlay on the host page (new `thread-embed:open-enrol`
+  postMessage) instead of linking out; snippets page documents both.
+
+### Ops note
+- Register the webhook endpoint in the Stripe dashboard:
+  `https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`
+  (event: `checkout.session.completed`, `checkout.session.expired`) and
+  set `STRIPE_THREAD_WEBHOOK_SECRET` on Fly (or reuse the shared secret).
+
 ## [0.13.86] — 2026-07-02 — Thread 3.21.0: the message scheduler — sequences actually send
 
 ### Added

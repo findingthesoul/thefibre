@@ -5,6 +5,7 @@
 
 import { apiFetch } from '@/lib/api';
 import type { OrganiserRow } from '@/lib/thread-types';
+import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
@@ -52,6 +53,30 @@ export default async function EmbedsSettingsPage() {
             </pre>
           </section>
         ))}
+        <section>
+          <SectionLabel>Language (data-lang)</SectionLabel>
+          <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
+            Add <code className="font-mono">data-lang</code> to any embed to force the language
+            of the embedded UI (labels, buttons, enrol form). Supported:{' '}
+            {LOCALES.map((l, i) => (
+              <span key={l}>
+                {i > 0 && ', '}
+                <code className="font-mono">{l}</code> ({LOCALE_LABELS[l]})
+              </span>
+            ))}
+            . Without it, the thread embed and the enrol popup use the thread&apos;s own
+            language; the list falls back to English for its chrome while each item&apos;s
+            button and popup still follow that thread&apos;s language.
+          </p>
+          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
+            {`<div data-thread-embed="thread" data-organiser="${organiser.slug}"\n     data-thread="your-thread-slug" data-lang="nl"></div>`}
+          </pre>
+          <p className="mt-2 text-xs text-ink-subtle leading-relaxed">
+            In the embedded list, threads whose public interaction is set to
+            &ldquo;popup&rdquo; open the enrolment overlay right on your site; threads set to
+            &ldquo;page&rdquo; link out to their public page.
+          </p>
+        </section>
         <section>
           <SectionLabel>Styling (CSS)</SectionLabel>
           <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
