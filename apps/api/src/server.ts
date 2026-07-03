@@ -14,7 +14,7 @@ import { signupRequestsRoutes } from './routes/signup-requests.js';
 import { workspaceAppsRoutes } from './routes/workspace-apps.js';
 import { meetRoutes } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
-import { threadRoutes } from './routes/thread.js';
+import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
 import { membersRoutes } from './routes/members.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
@@ -112,3 +112,19 @@ const port = Number(process.env.API_PORT ?? 8080);
 serve({ fetch: app.fetch, port }, ({ port }) => {
   console.log(`thefibre-api listening on :${port}`);
 });
+
+// Thread message scheduler — fixed + relative messages send when due.
+// The Fly machine is pinned warm (min_machines_running=1), so an in-process
+// interval is reliable; every send is dedup-logged, so restarts/overlaps
+// are safe. First run shortly after boot, then every 5 minutes.
+const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
+setTimeout(() => {
+  void runThreadMessageScheduler().catch((e) =>
+    console.error('[thread/scheduler] initial run failed', e),
+  );
+}, 20_000);
+setInterval(() => {
+  void runThreadMessageScheduler().catch((e) =>
+    console.error('[thread/scheduler] run failed', e),
+  );
+}, SCHEDULER_INTERVAL_MS);

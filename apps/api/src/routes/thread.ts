@@ -3146,3 +3146,195 @@ export async function sendTriggeredMessages(opts: {
     }
   }
 }
+
+// ---------------------------------------------------------------------------
+// Message scheduler — Phase 6. Sends FIXED and RELATIVE messages when their
+// moment arrives (on_enrolment/approval/completion fire from their own flows
+// above). Runs on an interval from server.ts; every send is dedup-logged in
+// thread_message_send, so overlapping runs and retries are safe.
+// ---------------------------------------------------------------------------
+
+/** Interpret `${date}T${time}` as wall time in a timezone → UTC instant. */
+function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date {
+  const utcGuess = new Date(`${dateStr}T${timeStr}:00Z`);
+  try {
+    // sv-SE formats as 'YYYY-MM-DD HH:mm:ss' — parseable back to a Date.
+    const wall = new Date(
+      utcGuess.toLocaleString('sv-SE', { timeZone }).replace(' ', 'T') + 'Z',
+    );
+    return new Date(utcGuess.getTime() - (wall.getTime() - utcGuess.getTime()));
+  } catch {
+    return utcGuess; // unknown timezone → treat as UTC
+  }
+}
+
+// Only send messages that came due recently — a scheduler (re)starting on a
+// long-existing thread must not blast months-old messages. Anything older
+// stays unsent (visible on the timeline, never emailed late).
+const SCHEDULER_LOOKBACK_MS = 72 * 60 * 60 * 1000;
+
+export async function runThreadMessageScheduler(): Promise<{ due: number; sent: number }> {
+  const now = Date.now();
+
+  const { data: candidates, error } = await adminClient
+    .from('thread_engagement')
+    .select(
+      `id, thread_id, title, type, description, content, status,
+       trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, scheduled_at,
+       thread:thread_id (id, timezone,
+         organiser:organiser_id (display_name),
+         team:team_id (name),
+         program:program_id (title, status, starts_on, ends_on))`,
+    )
+    .eq('status', 'published')
+    .in('type', MESSAGE_TYPES as unknown as string[])
+    .in('trigger_kind', ['fixed', 'relative']);
+  if (error) {
+    console.error('[thread/scheduler] candidate query failed', error);
+    return { due: 0, sent: 0 };
+  }
+
+  // Anchor engagements for relative triggers (one fetch for all).
+  const anchorIds = [
+    ...new Set(
+      (candidates ?? [])
+        .filter((c) => c.trigger_kind === 'relative' && c.trigger_engagement_id)
+        .map((c) => c.trigger_engagement_id as string),
+    ),
+  ];
+  const anchorStarts = new Map<string, string | null>();
+  if (anchorIds.length) {
+    const { data: anchors } = await adminClient
+      .from('thread_engagement')
+      .select('id, starts_at')
+      .in('id', anchorIds);
+    for (const a of anchors ?? []) anchorStarts.set(a.id, a.starts_at);
+  }
+
+  type Due = {
+    engagement: NonNullable<typeof candidates>[number];
+    threadTitle: string;
+    organiserName: string;
+    threadId: string;
+    startsOn: string | null;
+  };
+  const due: Due[] = [];
+  for (const c of candidates ?? []) {
+    const thread = Array.isArray(c.thread) ? c.thread[0] : c.thread;
+    if (!thread) continue;
+    const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+    // Draft/archived threads never send. Completed threads may — a journey's
+    // tail messages can outlive the closing date.
+    if (!program || (program.status !== 'active' && program.status !== 'completed')) continue;
+
+    let dueAt: Date | null = null;
+    if (c.trigger_kind === 'fixed') {
+      dueAt = c.scheduled_at ? new Date(c.scheduled_at) : null;
+    } else {
+      // relative: anchor date + signed offset days, at trigger_time in the
+      // thread's timezone.
+      let anchorDate: string | null = null;
+      if (c.trigger_anchor === 'engagement' && c.trigger_engagement_id) {
+        const s = anchorStarts.get(c.trigger_engagement_id);
+        anchorDate = s ? s.slice(0, 10) : null;
+      } else if (c.trigger_anchor === 'end') {
+        anchorDate = program.ends_on;
+      } else {
+        anchorDate = program.starts_on;
+      }
+      if (anchorDate) {
+        const base = new Date(`${anchorDate}T00:00:00Z`);
+        base.setUTCDate(base.getUTCDate() + (c.trigger_offset_days ?? 0));
+        dueAt = zonedTimeToUtc(
+          base.toISOString().slice(0, 10),
+          c.trigger_time ?? '09:00',
+          thread.timezone ?? 'Europe/Amsterdam',
+        );
+      }
+    }
+    if (!dueAt) continue;
+    if (dueAt.getTime() > now || dueAt.getTime() < now - SCHEDULER_LOOKBACK_MS) continue;
+
+    const organiser = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+    const team = Array.isArray(thread.team) ? thread.team[0] : thread.team;
+    due.push({
+      engagement: c,
+      threadId: thread.id,
+      threadTitle: program.title,
+      organiserName: team?.name ?? organiser?.display_name ?? '',
+      startsOn: program.starts_on ?? null,
+    });
+  }
+
+  let sent = 0;
+  for (const d of due) {
+    // Everyone enrolled (not dropped) in the thread gets the message once.
+    const { data: enrolments } = await adminClient
+      .from('thread_enrolment')
+      .select(
+        'person:person_id (id, first_name, last_name, email), enrolment:enrolment_id (status)',
+      )
+      .eq('thread_id', d.threadId);
+
+    const dateLabel = d.startsOn
+      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
+          new Date(d.startsOn),
+        )
+      : '';
+    for (const te of enrolments ?? []) {
+      const person = Array.isArray(te.person) ? te.person[0] : te.person;
+      const enr = Array.isArray(te.enrolment) ? te.enrolment[0] : te.enrolment;
+      if (!person?.email || enr?.status === 'dropped') continue;
+
+      // Insert-first dedup — same mechanism as the lifecycle sends.
+      const { error: logErr } = await adminClient.from('thread_message_send').insert({
+        engagement_id: d.engagement.id,
+        person_id: person.id,
+        email: person.email,
+      });
+      if (logErr) {
+        if (logErr.code !== '23505') console.warn('[thread/scheduler] send log failed', logErr);
+        continue;
+      }
+
+      const name = [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email;
+      const tokens: Record<string, string> = {
+        '{name}': person.first_name ?? name,
+        '{thread}': d.threadTitle,
+        '{organiser}': d.organiserName,
+        '{date}': dateLabel,
+      };
+      const substitute = (s: string) =>
+        Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
+      const body = substitute(
+        renderMessageBody(
+          d.engagement.type,
+          (d.engagement.content ?? {}) as Record<string, unknown>,
+          d.engagement.description,
+        ),
+      );
+      const msg = engagementMessage({
+        title: substitute(d.engagement.title),
+        bodyText: body,
+        threadTitle: d.threadTitle,
+      });
+      try {
+        await sendEmail({ to: person.email, ...msg });
+        sent += 1;
+      } catch (e) {
+        console.warn('[thread/scheduler] send failed', { engagement: d.engagement.id, e });
+      }
+    }
+  }
+
+  if (due.length || sent) {
+    console.log(`[thread/scheduler] ${due.length} due engagement(s), ${sent} email(s) sent`);
+  }
+  return { due: due.length, sent };
+}
+
+// Manual trigger for verification/ops — any authenticated workspace member.
+threadRoutes.post('/scheduler/run', async (c) => {
+  const result = await runThreadMessageScheduler();
+  return c.json(result);
+});

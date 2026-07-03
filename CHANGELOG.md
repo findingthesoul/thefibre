@@ -6,6 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.86] — 2026-07-02 — Thread 3.21.0: the message scheduler — sequences actually send
+
+### Added
+- **Message scheduler (Phase 6)** — fixed-date and relative messages
+  ("7d after start · 09:00", "2d before end", "3d after workshop X") now
+  actually send. An in-process interval on the warm Fly machine runs every
+  5 minutes: finds published messages whose moment arrived (relative times
+  resolved in the thread's timezone, engagement anchors supported), fans out
+  to everyone enrolled (dropped excluded), renders the same per-type email
+  as the on-enrolment flow with {name}/{thread}/{organiser}/{date} tokens,
+  and dedup-logs every send in `thread_message_send` — restarts and
+  overlapping runs can never double-send. A 72-hour lookback stops a
+  (re)starting scheduler from blasting months-old messages: anything older
+  stays visible on the timeline but is never emailed late. Drafts and
+  archived threads never send; completed threads still can (journey tails
+  outlive the closing date). Manual trigger for ops:
+  `POST /api/v1/thread/scheduler/run`.
+
 ## [0.13.85] — 2026-07-02 — Thread 3.20.0: bulk certificates, LinkedIn share, compact choosers
 
 ### Added
