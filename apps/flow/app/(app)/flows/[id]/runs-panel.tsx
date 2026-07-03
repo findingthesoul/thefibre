@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, X, ChevronRight, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { UserPlus, ChevronRight, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { Dialog } from '@/components/ui/dialog';
 import { searchPersons, startRun } from '../actions';
 import { RunModal } from './run-modal';
 
@@ -360,15 +361,8 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4">
-      <div className="w-full max-w-md rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-line px-5 py-4">
-          <h2 className="text-base font-medium">Add a contact to the flow</h2>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink">
-            <X size={18} />
-          </button>
-        </div>
-        <div className="px-5 py-4">
+    <Dialog open onClose={onClose} title="Add a contact to the flow">
+      <div>
           <div className="relative">
             <Search size={16} className="absolute left-3 top-2.5 text-ink-muted" />
             <input
@@ -403,8 +397,7 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
               </button>
             ))}
           </div>
-        </div>
       </div>
-    </div>
+    </Dialog>
   );
 }

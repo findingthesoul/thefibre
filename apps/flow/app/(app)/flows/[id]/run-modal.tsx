@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
 import {
   ReactFlow,
   ReactFlowProvider,
@@ -670,15 +672,24 @@ export function RunModal({
 
       {/* confirm-move sub-popup */}
       {confirmT && detail && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-            <div className="border-b border-line px-5 py-3.5">
-              <h3 className="text-base font-medium">
-                Move to {confirmT.to_step?.name}?
-              </h3>
-              <p className="text-xs text-ink-muted mt-0.5">{confirmT.label}</p>
-            </div>
-            <div className="px-5 py-4 space-y-3">
+        <Dialog
+          open
+          onClose={() => setConfirmT(null)}
+          title={`Move to ${confirmT.to_step?.name}?`}
+          description={confirmT.label}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={() => setConfirmT(null)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={onConfirmMove} disabled={busy}>
+                {currentConfirmSatisfied ? 'Confirm move' : 'Move anyway'}
+                <ArrowRight size={14} />
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
               {currentConfirmSatisfied ? (
                 <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
                   <CheckCircle2 size={16} /> Gate satisfied — ready to move.
@@ -727,24 +738,8 @@ export function RunModal({
                   {moveError}
                 </div>
               )}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-line px-5 py-3.5">
-              <button
-                onClick={() => setConfirmT(null)}
-                className="rounded-md px-4 py-2 text-sm text-ink-subtle hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onConfirmMove}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
-              >
-                {currentConfirmSatisfied ? 'Confirm move' : 'Move anyway'} <ArrowRight size={14} />
-              </button>
-            </div>
           </div>
-        </div>
+        </Dialog>
       )}
 
       {/* manual move (revert / sideways) sub-popup — no gate */}
@@ -755,17 +750,31 @@ export function RunModal({
           const curKey = detail.run.step?.key ?? '';
           const isBackward = (depths.get(manualTarget.key) ?? 0) < (depths.get(curKey) ?? 0);
           return (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/30 px-4">
-          <div className="w-full max-w-md rounded-2xl bg-white shadow-2xl">
-            <div className="border-b border-line px-5 py-3.5">
-              <h3 className="text-base font-medium">
-                {isBackward ? 'Revert to' : 'Move to'} {manualTarget.name}?
-              </h3>
-              <p className="text-xs text-ink-muted mt-0.5">
-                {isBackward ? 'Revert' : 'Manual move'} from {detail.run.step?.name} — no transition gate.
-              </p>
-            </div>
-            <div className="px-5 py-4 space-y-3">
+        <Dialog
+          open
+          onClose={() => setManualTarget(null)}
+          title={`${isBackward ? 'Revert to' : 'Move to'} ${manualTarget.name}?`}
+          description={`${isBackward ? 'Revert' : 'Manual move'} from ${detail.run.step?.name ?? ''} — no transition gate.`}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={() => setManualTarget(null)}>
+                Cancel
+              </Button>
+              <Button type="button" onClick={onConfirmManual} disabled={busy}>
+                {isBackward ? (
+                  <>
+                    <ArrowLeft size={14} /> Revert
+                  </>
+                ) : (
+                  <>
+                    Move <ArrowRight size={14} />
+                  </>
+                )}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-ink-subtle">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
                 <span>
@@ -784,32 +793,8 @@ export function RunModal({
                   {moveError}
                 </div>
               )}
-            </div>
-            <div className="flex justify-end gap-2 border-t border-line px-5 py-3.5">
-              <button
-                onClick={() => setManualTarget(null)}
-                className="rounded-md px-4 py-2 text-sm text-ink-subtle hover:text-ink"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={onConfirmManual}
-                disabled={busy}
-                className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-4 py-2 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
-              >
-                {isBackward ? (
-                  <>
-                    <ArrowLeft size={14} /> Revert
-                  </>
-                ) : (
-                  <>
-                    Move <ArrowRight size={14} />
-                  </>
-                )}
-              </button>
-            </div>
           </div>
-        </div>
+        </Dialog>
           );
         })()}
     </div>

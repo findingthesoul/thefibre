@@ -6,6 +6,20 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.89] — 2026-07-03 — Flow 1.10.0: shared dialog component + bottom-bar contract
+
+### Changed
+- **Flow gets the shared Dialog/Button primitives** (ported from The
+  Thread's, the pinned Fibre SPoT) — `apps/flow/components/ui/`. Migrated:
+  New flow (footer Cancel · Create via form id), Add contact to flow, and
+  the run popup's confirm-move and manual-move/revert sub-dialogs. The
+  lifecycle menu's `window.confirm`/`window.alert` calls are gone —
+  close/archive/delete now use the proper ConfirmDialog (delete styled
+  destructive), errors render inline instead of browser alerts.
+- Deliberately left custom: the run viewer itself and the visual flow
+  canvas — they are interactive workspaces (React Flow graph, view
+  toggles), not dialogs.
+
 ## [0.13.88] — 2026-07-03 — Thread 3.22.1: certificate reissue
 
 ### Added
