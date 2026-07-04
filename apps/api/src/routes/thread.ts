@@ -906,7 +906,19 @@ threadRoutes.get('/teams', async (c) => {
     .eq('is_active', true)
     .order('name');
   if (error) return c.json({ error: error.message }, 500);
-  return c.json({ items: data ?? [] });
+  let items = data ?? [];
+  // ?mine=1 — only teams the caller is an active member of (the Invoices
+  // team scope shows nothing for other teams anyway).
+  if (c.req.query('mine') === '1' && items.length) {
+    const { data: memberships } = await adminClient
+      .from('team_member')
+      .select('team_id')
+      .eq('user_id', ctx.userId)
+      .eq('status', 'active');
+    const mine = new Set((memberships ?? []).map((m) => m.team_id));
+    items = items.filter((t) => mine.has(t.id));
+  }
+  return c.json({ items });
 });
 
 // POST /teams — create a team; creator becomes lead (Meet's pattern; team is

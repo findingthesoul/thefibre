@@ -10,7 +10,7 @@ import { InvoicesClient } from './invoices-client';
 export const dynamic = 'force-dynamic';
 
 export default async function InvoicesPage() {
-  const teams = await apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams')
+  const teams = await apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams?mine=1')
     .then((r) => r.items)
     .catch(() => [] as TeamOption[]);
 

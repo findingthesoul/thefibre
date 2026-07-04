@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.101] — 2026-07-04 — Thread 3.30.1: Invoices team picker shows only your teams
+
+### Fixed
+- The Team scope on the Invoices page listed every workspace team (Meet's
+  listed only yours) — selecting a team you're not in could only ever show
+  "0 purchases". The picker now offers only teams you're an active member
+  of (`/thread/teams?mine=1`); admins see everything via the Workspace
+  scope as before.
+
 ## [0.13.100] — 2026-07-04 — Thread 3.30.0: approval toggle, hosts into settings, free-code purchases, detail popup everywhere
 
 ### Added
