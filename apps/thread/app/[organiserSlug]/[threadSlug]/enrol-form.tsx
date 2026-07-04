@@ -16,7 +16,7 @@ function fmtPrice(cents: number | null, currency: string | null): string {
 }
 
 const INPUT =
-  'mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
+  'te-input mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 
 export function EnrolCard({
   organiserSlug,
@@ -198,9 +198,9 @@ export function EnrolCard({
   }
 
   return (
-    <aside className="rounded-xl border border-line bg-surface-raised p-5 md:sticky md:top-8">
+    <aside className="te-enrol te-card rounded-xl border border-line bg-surface-raised p-5 md:sticky md:top-8">
       <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-medium">{t(locale, 'enrol')}</h2>
+        <h2 className="te-label text-sm font-medium">{t(locale, 'enrol')}</h2>
         <span className="text-sm text-ink-subtle">
           {/* Applied code → old price struck through, new price next to it. */}
           {applied && (basePriceCents ?? 0) !== applied.price_cents && (
@@ -449,7 +449,7 @@ export function EnrolCard({
           <button
             type="submit"
             disabled={state === 'submitting'}
-            className="w-full h-9 rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90 disabled:opacity-50"
+            className="te-button w-full h-9 rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
             {state === 'submitting'
               ? t(locale, 'enrolling')

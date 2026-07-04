@@ -24,6 +24,26 @@ export type GeneratorTeam = { id: string; name: string };
 
 type Kind = 'list' | 'thread' | 'enrol';
 
+// The full element reference — every te-* class the embeds render, with
+// the default look spelled out. Integrators change values, not selectors.
+export const DEFAULT_EMBED_CSS = `/* The Thread embed — all elements. Paste INSIDE the embed element;
+   it only affects this embed (and its popup), never your page. */
+.te-card        { background: #ffffff; border: 1px solid #e5e5e2; border-radius: 12px; }
+.te-cover       { border-radius: 12px; }
+.te-kicker      { color: #8a8a86; letter-spacing: .08em; }         /* EVENT / JOURNEY */
+.te-title       { color: #1a1a17; font-size: 20px; }
+.te-intention   { color: #55554f; }
+.te-meta        { color: #8a8a86; }                                 /* dates · price */
+.te-price       { color: #1a1a17; }
+.te-label       { color: #8a8a86; }                                 /* section headings */
+.te-list        { }                                                 /* the list wrapper */
+.te-agenda      { }
+.te-agenda-item { }
+.te-enrol       { }                                                 /* the enrol card */
+.te-input       { border: 1px solid #e5e5e2; border-radius: 6px; }
+.te-button      { background: #1a1a17; color: #ffffff; border-radius: 6px; }
+`;
+
 const ELEMENTS = [
   { key: 'cover', label: 'Cover image' },
   { key: 'intention', label: 'Intention' },
@@ -53,6 +73,7 @@ export function EmbedGenerator({
   const [elements, setElements] = useState<Set<string>>(new Set(ELEMENTS.map((e) => e.key)));
   const [lang, setLang] = useState<string>('auto');
   const [buttonText, setButtonText] = useState('Enrol now');
+  const [includeCss, setIncludeCss] = useState(false);
   const [copied, setCopied] = useState<'script' | 'snippet' | null>(null);
 
   const thread = threads.find((t) => t.id === threadId) ?? null;
@@ -68,6 +89,9 @@ export function EmbedGenerator({
 
   const snippet = useMemo(() => {
     const langAttr = lang !== 'auto' ? ` data-lang="${lang}"` : '';
+    // The <style> goes INSIDE the embed element — embed.js lifts it into
+    // the iframe so it styles the embed, never the host page.
+    const styleBlock = includeCss ? `\n  <style>\n${DEFAULT_EMBED_CSS}  </style>\n` : '';
     if (kind === 'list') {
       const ownerAttr =
         listOwner === 'mine'
@@ -75,11 +99,11 @@ export function EmbedGenerator({
           : listOwner === 'workspace'
             ? `data-workspace="${workspaceId}"`
             : `data-team="${listOwner}"`;
-      return `<div data-thread-embed="list" ${ownerAttr}${langAttr}></div>`;
+      return `<div data-thread-embed="list" ${ownerAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
     if (kind === 'enrol') {
-      return `<a href="#" data-thread-embed="enrol" data-organiser="${thread.ownerSlug}"\n   data-thread="${thread.slug}"${langAttr}>${buttonText || 'Enrol now'}</a>`;
+      return `<a href="#" data-thread-embed="enrol" data-organiser="${thread.ownerSlug}"\n   data-thread="${thread.slug}"${langAttr}>${styleBlock}${buttonText || 'Enrol now'}</a>`;
     }
     // single thread — data-elements only when it's a subset.
     const allSelected = elements.size === ELEMENTS.length;
@@ -88,8 +112,8 @@ export function EmbedGenerator({
       : `\n     data-elements="${ELEMENTS.filter((e) => elements.has(e.key))
           .map((e) => e.key)
           .join(',')}"`;
-    return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}></div>`;
-  }, [kind, listOwner, thread, elements, lang, buttonText, organiserSlug, workspaceId]);
+    return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
+  }, [kind, listOwner, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${HOST}/embed.js" defer></script>`;
 
@@ -225,6 +249,19 @@ export function EmbedGenerator({
             </div>
           </div>
         )}
+
+        <label className="inline-flex items-start gap-2 text-sm text-ink-subtle cursor-pointer select-none">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={includeCss}
+            onChange={(e) => setIncludeCss(e.target.checked)}
+          />
+          <span>
+            Include the starter stylesheet — every element listed with its default look, ready
+            to change. Only affects the embed, never your page.
+          </span>
+        </label>
 
         {kind !== 'list' && thread && !thread.listed && (
           <p className="text-xs text-amber-800 border border-amber-200 bg-amber-50 rounded-md px-2.5 py-2 max-w-2xl">

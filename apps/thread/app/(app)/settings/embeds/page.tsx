@@ -7,7 +7,12 @@ import { apiFetch } from '@/lib/api';
 import { one, type OrganiserRow, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
-import { EmbedGenerator, type GeneratorThread, type GeneratorTeam } from './embed-generator';
+import {
+  EmbedGenerator,
+  DEFAULT_EMBED_CSS,
+  type GeneratorThread,
+  type GeneratorTeam,
+} from './embed-generator';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
@@ -124,6 +129,20 @@ export default async function EmbedsSettingsPage() {
             renders just the enrol card, and the popup variant (snippet 4) turns any
             Webflow-styled button into the trigger — our UI only appears as the overlay.
           </p>
+          <p className="mt-4 text-xs text-ink-subtle leading-relaxed">
+            <strong>Styling the inside:</strong> every element in the embeds carries a stable{' '}
+            <code className="font-mono">te-*</code> class. Put a{' '}
+            <code className="font-mono">&lt;style&gt;</code> block <em>inside</em> the embed
+            element and it is lifted into the embed (and its popup) — it never touches the rest
+            of your page. This is the complete element list with the default look; change the
+            values:
+          </p>
+          <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
+            {`<div data-thread-embed="thread" data-organiser="${organiser.slug}" data-thread="your-thread-slug">
+  <style>
+${DEFAULT_EMBED_CSS.split('\n').map((l) => (l ? '    ' + l : l)).join('\n')}  </style>
+</div>`}
+          </pre>
         </section>
 
         <EmbedGenerator

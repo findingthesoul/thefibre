@@ -8,6 +8,11 @@
  *   <a href="#" data-thread-embed="enrol" data-organiser="sjoerd" data-thread="my-event">Enrol</a>
  *
  * Optional data-lang="en|nl|es|pt|de" on any embed forces the UI language.
+ *
+ * Custom CSS: put a <style> block INSIDE the embed element — it is lifted
+ * off the host page and injected into the embed iframe (and its popup).
+ * Every element carries a stable te-* class; see Settings → Website embeds
+ * for the full reference stylesheet.
  * Without it, thread + enrol embeds follow the thread's own language; the
  * list falls back to English for its chrome (each popup still opens in the
  * thread's language).
@@ -61,23 +66,38 @@
       encodeURIComponent(thread || '') + query(extra);
   }
 
+  // Lift the integrator's <style> out of the embed element: its text goes
+  // into the iframe (thread-embed:css) and the node is removed so it can
+  // never leak onto the host page.
+  function extractCss(el) {
+    var st = el.querySelector('style');
+    if (!st) return '';
+    var css = st.textContent || '';
+    if (st.parentNode) st.parentNode.removeChild(st);
+    return css;
+  }
+
   var inlineFrames = [];
 
   function mountList(el) {
     var d = el.dataset;
+    var css = extractCss(el);
     var f = makeIframe(ORIGIN + '/embed/list' + query({
       organiser: d.organiser, team: d.team, org: d.org, workspace: d.workspace,
       compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
     }));
+    f.__teCss = css;
     el.appendChild(f);
     inlineFrames.push(f);
   }
 
   function mountThread(el) {
     var d = el.dataset;
+    var css = extractCss(el);
     var f = makeIframe(threadSrc(d.organiser, d.thread, {
       elements: d.elements, theme: d.theme, lang: d.lang, popup: '1',
     }));
+    f.__teCss = css;
     el.appendChild(f);
     inlineFrames.push(f);
   }
@@ -91,7 +111,7 @@
     popup = null;
   }
 
-  function openPopup(src) {
+  function openPopup(src, css) {
     closePopup();
     var backdrop = document.createElement('div');
     backdrop.style.cssText =
@@ -119,6 +139,7 @@
     box.appendChild(close);
     backdrop.appendChild(box);
     document.body.appendChild(backdrop);
+    f.__teCss = css || '';
     popup = { el: backdrop, frame: f };
   }
 
@@ -127,18 +148,28 @@
   });
 
   function mountEnrol(el) {
+    var css = extractCss(el);
     el.addEventListener('click', function (e) {
       e.preventDefault();
       openPopup(threadSrc(el.dataset.organiser, el.dataset.thread, {
         elements: 'enrol', popup: '1', lang: el.dataset.lang,
-      }));
+      }), css);
     });
   }
 
   /* ---- messages from embed iframes ---- */
   window.addEventListener('message', function (e) {
     if (e.origin !== ORIGIN || !e.data || typeof e.data !== 'object') return;
-    if (e.data.type === 'thread-embed:height') {
+    if (e.data.type === 'thread-embed:ready') {
+      // An embed page can now receive CSS — send the frame's, if any.
+      var frames = inlineFrames.slice();
+      if (popup) frames.push(popup.frame);
+      for (var r = 0; r < frames.length; r++) {
+        if (frames[r].contentWindow === e.source && frames[r].__teCss) {
+          e.source.postMessage({ type: 'thread-embed:css', css: frames[r].__teCss }, ORIGIN);
+        }
+      }
+    } else if (e.data.type === 'thread-embed:height') {
       var h = Math.max(0, Math.ceil(Number(e.data.height) || 0));
       if (!h) return;
       for (var i = 0; i < inlineFrames.length; i++) {
@@ -151,10 +182,15 @@
       var organiser = typeof e.data.organiser === 'string' ? e.data.organiser : '';
       var thread = typeof e.data.thread === 'string' ? e.data.thread : '';
       if (organiser && thread) {
+        // The popup inherits the list embed's custom CSS.
+        var srcCss = '';
+        for (var c = 0; c < inlineFrames.length; c++) {
+          if (inlineFrames[c].contentWindow === e.source) srcCss = inlineFrames[c].__teCss || '';
+        }
         openPopup(threadSrc(organiser, thread, {
           elements: 'enrol', popup: '1',
           lang: typeof e.data.lang === 'string' ? e.data.lang : null,
-        }));
+        }), srcCss);
       }
     } else if (e.data.type === 'thread-embed:open' && typeof e.data.url === 'string') {
       // Legacy list-card message (pre data-lang). Convert the public thread

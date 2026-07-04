@@ -143,23 +143,23 @@ export default async function EmbedThreadPage({
         <img
           src={thread.cover_url}
           alt=""
-          className="w-full rounded-xl ring-1 ring-line object-cover max-h-56 mb-4"
+          className="te-cover w-full rounded-xl ring-1 ring-line object-cover max-h-56 mb-4"
         />
       )}
 
       {/* Title is chrome, not an element — every embed keeps its context. */}
-      <div className="text-[11px] uppercase tracking-wider text-ink-muted">
+      <div className="te-kicker text-[11px] uppercase tracking-wider text-ink-muted">
         {program?.format === 'journey' ? t(lang, 'journey') : t(lang, 'event')}
         {dates ? ` · ${dates}` : ''}
       </div>
-      <h1 className="mt-1 text-xl font-medium tracking-tight">{program?.title ?? thread.slug}</h1>
+      <h1 className="te-title mt-1 text-xl font-medium tracking-tight">{program?.title ?? thread.slug}</h1>
 
       {elements.has('intention') && thread.intention && (
-        <p className="mt-2 text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
+        <p className="te-intention mt-2 text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
       )}
 
       {(spotsLeft != null || thread.certificate_enabled) && (
-        <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-ink-subtle">
+        <div className="te-meta mt-3 flex flex-wrap items-center gap-4 text-xs text-ink-subtle">
           {spotsLeft != null && (
             <span className="inline-flex items-center gap-1.5">
               <Users size={13} strokeWidth={1.75} />
@@ -176,7 +176,7 @@ export default async function EmbedThreadPage({
       )}
 
       {elements.has('price') && !elements.has('enrol') && (
-        <div className="mt-3 text-sm">
+        <div className="te-price mt-3 text-sm">
           <span className="text-ink-subtle">Price · </span>
           <span className="font-medium">
             {fmtPrice(thread.price_cents, thread.price_currency, lang)}
@@ -186,12 +186,12 @@ export default async function EmbedThreadPage({
 
       {elements.has('agenda') && thread.agenda.length > 0 && (
         <section className="mt-6">
-          <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">
+          <h2 className="te-label text-[11px] uppercase tracking-wider text-ink-muted">
             {t(lang, 'agenda')}
           </h2>
-          <ul className="mt-2 space-y-2">
+          <ul className="te-agenda mt-2 space-y-2">
             {thread.agenda.map((a) => (
-              <li key={a.id} className="rounded-lg border border-line bg-surface-raised px-3.5 py-2.5">
+              <li key={a.id} className="te-agenda-item te-card rounded-lg border border-line bg-surface-raised px-3.5 py-2.5">
                 <div className="text-sm font-medium">{a.title}</div>
                 {a.description && (
                   <div

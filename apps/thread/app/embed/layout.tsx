@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { HeightReporter } from './height-reporter';
+import { CssInjector } from './css-injector';
 
 // Embed pages render inside <iframe>s on third-party sites (Webflow etc.).
 // No sidebar, no topbar, no auth — just the content, tight padding, and a
@@ -17,6 +18,7 @@ export default function EmbedLayout({ children }: { children: React.ReactNode })
     <div id="thread-embed-root" className="bg-surface text-ink p-3">
       <script dangerouslySetInnerHTML={{ __html: FORCE_LIGHT }} />
       <HeightReporter />
+      <CssInjector />
       {children}
     </div>
   );

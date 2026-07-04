@@ -95,7 +95,7 @@ export default async function EmbedListPage({
   }
 
   return (
-    <ul className={compact ? 'space-y-2' : 'space-y-3'}>
+    <ul className={`te-list ${compact ? 'space-y-2' : 'space-y-3'}`}>
       {items.map((item) => {
         const Icon = item.format === 'journey' ? Route : CalendarRange;
         const dates = fmtDates(item.starts_on, item.ends_on);
@@ -105,7 +105,7 @@ export default async function EmbedListPage({
         return (
           <li
             key={item.id}
-            className={`rounded-xl border border-line bg-surface-raised overflow-hidden ${
+            className={`te-card rounded-xl border border-line bg-surface-raised overflow-hidden ${
               compact ? 'p-3' : 'p-4'
             }`}
           >
@@ -115,7 +115,7 @@ export default async function EmbedListPage({
                 <img
                   src={item.cover_url}
                   alt=""
-                  className="h-16 w-16 rounded-lg object-cover ring-1 ring-line shrink-0"
+                  className="te-cover h-16 w-16 rounded-lg object-cover ring-1 ring-line shrink-0"
                 />
               ) : (
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken ring-1 ring-line shrink-0">
@@ -123,15 +123,15 @@ export default async function EmbedListPage({
                 </span>
               )}
               <div className="min-w-0 flex-1">
-                <div className={`font-medium ${compact ? 'text-sm' : 'text-base'}`}>
+                <div className={`te-title font-medium ${compact ? 'text-sm' : 'text-base'}`}>
                   {item.title}
                 </div>
                 {!compact && item.intention && (
-                  <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
+                  <p className="te-intention mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
                     {item.intention}
                   </p>
                 )}
-                <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
+                <div className="te-meta mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
                   {dates && <span>{dates}</span>}
                   <span>{fmtPrice(item.price_cents, item.price_currency, itemLang)}</span>
                 </div>

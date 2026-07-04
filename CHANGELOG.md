@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.92] — 2026-07-04 — Thread 3.24.0: embed custom CSS — every element named
+
+### Added
+- **Stable `te-*` classes on every embed element** — card, cover, kicker,
+  title, intention, meta, price, label, list, agenda(+item), enrol card,
+  input, button — across the list embed, thread embed and enrol card.
+- **Custom CSS that crosses the iframe** — a `<style>` block placed INSIDE
+  the embed element is lifted off the host page by embed.js and injected
+  into the embed iframe (`thread-embed:ready`/`:css` handshake; capped,
+  CSS-only). Popups inherit the CSS of the embed/trigger that opened them.
+  Injected last, so overrides win without `!important`.
+- **The default stylesheet, documented and generated** — Settings → Website
+  embeds shows the complete element reference with the default look (change
+  the values, keep the selectors), and the code generator gains an
+  "Include the starter stylesheet" checkbox that writes it into the snippet.
+
 ## [0.13.91] — 2026-07-04 — Thread 3.23.1: workspace-wide list embeds
 
 ### Added

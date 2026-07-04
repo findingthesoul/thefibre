@@ -22,7 +22,7 @@ export function ViewButton({
   label: string;
 }) {
   const cls =
-    'shrink-0 self-center h-8 rounded-md bg-ink text-ink-inverse px-3 text-xs font-medium hover:opacity-90 inline-flex items-center';
+    'te-button shrink-0 self-center h-8 rounded-md bg-ink text-ink-inverse px-3 text-xs font-medium hover:opacity-90 inline-flex items-center';
 
   if (!popup) {
     return (
