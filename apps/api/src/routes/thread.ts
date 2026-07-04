@@ -3930,6 +3930,34 @@ threadRoutes.post('/public/enrol', async (c) => {
       .eq('id', coupon.id);
   }
 
+  // €0-via-discount-code IS a purchase (Sjoerd 2026-07-04): method 'free',
+  // amount 0, settled — the code shows in the item label.
+  if (coupon && !requiresPayment) {
+    const { data: freeOrg } = await adminClient
+      .from('thread_organiser')
+      .select('user_id')
+      .eq('id', thread.organiser_id)
+      .maybeSingle();
+    const freeTicket = openTickets.find((t) => t.id === ticketId) as
+      | { name?: string }
+      | undefined;
+    await recordPurchase({
+      appSlug: 'the-thread',
+      workspaceId: thread.workspace_id,
+      itemRef: threadEnrolment.id,
+      personId: person.id,
+      payerName: d.name.trim(),
+      payerEmail: email,
+      itemLabel: `${program.title}${freeTicket?.name ? ` · ${freeTicket.name}` : ''} · ${coupon.code}`,
+      organiserUserId: freeOrg?.user_id ?? null,
+      teamId: (thread as { team_id?: string | null }).team_id ?? null,
+      amountCents: 0,
+      currency: priceCurrency,
+      method: 'free' as never,
+      status: 'paid',
+    });
+  }
+
   // Consent records (brief §9): transactional is contract-based; marketing
   // only on explicit opt-in.
   const consents: { purpose_code: string; legal_basis: string }[] = [

@@ -24,14 +24,19 @@ export type ThreadEnrolmentItem = {
   payment_status: string;
   amount_cents: number | null;
   currency: string | null;
+  answers?: Record<string, unknown> | null;
+  billing?: { company?: string; address?: string; tax_no?: string } | null;
+  stripe_session_id?: string | null;
+  ticket?: { name: string } | { name: string }[] | null;
+  coupon?: { code: string } | { code: string }[] | null;
   created_at: string;
   person:
     | { id: string; first_name: string | null; last_name: string | null; email: string | null }
     | { id: string; first_name: string | null; last_name: string | null; email: string | null }[]
     | null;
   enrolment:
-    | { status: string; progress_pct: number; enrolled_at: string | null }
-    | { status: string; progress_pct: number; enrolled_at: string | null }[]
+    | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }
+    | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }[]
     | null;
   certificate:
     | { certificate_number: string }

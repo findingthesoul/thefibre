@@ -310,7 +310,7 @@ export function InvoicesClient({
                     {fmt(row.amount_cents, row.currency)}
                   </span>
                   <span className="text-[11px] text-ink-muted shrink-0 w-14">
-                    {row.method === 'invoice' ? 'Invoice' : 'Card'}
+                    {row.method === 'invoice' ? 'Invoice' : row.method === 'free' ? 'Free (code)' : 'Card'}
                   </span>
                   <span
                     className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
@@ -408,7 +408,13 @@ export function InvoicesClient({
               {detail.payer_email ? ` · ${detail.payer_email}` : ''}
             </Row>
             <Row label="Amount">{fmt(detail.amount_cents, detail.currency)}</Row>
-            <Row label="Method">{detail.method === 'invoice' ? 'By invoice' : 'Card (Stripe)'}</Row>
+            <Row label="Method">
+              {detail.method === 'invoice'
+                ? 'By invoice'
+                : detail.method === 'free'
+                  ? 'Free — discount code'
+                  : 'Card (Stripe)'}
+            </Row>
             <Row label="Status">
               <span className="capitalize">{detail.status}</span>
               {detail.paid_at ? ` · paid ${fmtDate(detail.paid_at)}` : ''}

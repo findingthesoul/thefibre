@@ -6,6 +6,26 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.100] — 2026-07-04 — Thread 3.30.0: approval toggle, hosts into settings, free-code purchases, detail popup everywhere
+
+### Added
+- **The approval toggle exists now** — it never had UI. Thread settings →
+  Registration tab → "Approval required": enrolments wait as requests until
+  approved (the flow itself shipped in 3.22.0; the switch was missing).
+- **Discount-code people are purchases** (migration `20260704200000`) —
+  €0-via-code enrolments land in the Invoices area as method "Free (code)",
+  amount €0, settled, with the code in the item label; existing ones
+  backfilled.
+- **Participant detail popup in the Registrations dialog** — the per-thread
+  popup's rows now open the same full detail view (answers, payment,
+  billing, certificate) as the Enrolments page.
+
+### Changed
+- **Hosts & facilitators moved into thread settings** (Sjoerd's earlier
+  request, recovered) — the people icon left the timeline header; the
+  management panel lives in the Basics tab under language/timezone, next to
+  the page/popup and listing settings.
+
 ## [0.13.99] — 2026-07-04 — Workspace payment defaults, team payout routing, honest card availability (Thread 3.29.0 · Meet 2.3.2)
 
 ### Fixed

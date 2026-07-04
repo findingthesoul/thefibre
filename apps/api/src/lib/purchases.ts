@@ -28,7 +28,7 @@ export type PurchaseWrite = {
   platformFeeCents?: number;
   vendorShareCents?: number;
   orgShareCents?: number;
-  method?: 'stripe' | 'invoice';
+  method?: 'stripe' | 'invoice' | 'free';
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripePaymentIntent?: string | null;
   stripeInvoiceId?: string | null;

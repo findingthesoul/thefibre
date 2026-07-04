@@ -160,7 +160,6 @@ export function ThreadTimeline({
   // tab's form (`thread-{tab}-form`) — one bottom bar, v3 style.
   const [settingsTab, setSettingsTab] = useState<SettingsTab>('basics');
   const [registrationsOpen, setRegistrationsOpen] = useState(false);
-  const [membersOpen, setMembersOpen] = useState(false);
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [editorState, setEditorState] = useState<
     | { mode: 'closed' }
@@ -305,15 +304,6 @@ export function ThreadTimeline({
           title="Registrations"
         >
           <UserCheck size={17} strokeWidth={1.75} />
-        </button>
-        <button
-          type="button"
-          onClick={() => setMembersOpen(true)}
-          className="inline-flex h-9 items-center gap-1.5 px-2 rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="Hosts & facilitators"
-        >
-          <Users size={17} strokeWidth={1.75} />
-          {members.length > 0 && <span className="text-xs tabular-nums">{members.length + 1}</span>}
         </button>
         <button
           type="button"
@@ -511,16 +501,6 @@ export function ThreadTimeline({
         />
       )}
 
-      {membersOpen && (
-        <MembersDialog
-          thread={thread}
-          organiserName={organiser?.display_name ?? organiser?.slug ?? ''}
-          members={members}
-          workspaceMembers={workspaceMembers}
-          onClose={() => setMembersOpen(false)}
-        />
-      )}
-
       {settingsOpen && (
         <Dialog
           open
@@ -588,6 +568,9 @@ export function ThreadTimeline({
               thread={thread}
               teams={teams}
               certTemplates={certTemplates}
+              members={members}
+              workspaceMembers={workspaceMembers}
+              organiserName={organiser?.display_name ?? organiser?.slug ?? ''}
               tab={settingsTab}
               onTabChange={setSettingsTab}
               onSaved={closeSettings}
@@ -777,6 +760,9 @@ function SettingsTabs({
   thread,
   teams,
   certTemplates,
+  members,
+  workspaceMembers,
+  organiserName,
   tab,
   onTabChange,
   onSaved,
@@ -784,6 +770,9 @@ function SettingsTabs({
   thread: ThreadRow;
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
+  members: ThreadMember[];
+  workspaceMembers: WorkspaceMember[];
+  organiserName: string;
   tab: SettingsTab;
   onTabChange: (t: SettingsTab) => void;
   onSaved?: () => void;
@@ -818,6 +807,12 @@ function SettingsTabs({
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
         <ThreadEditorForm thread={thread} compact teams={teams} onSaved={onSaved} />
+        <MembersPanel
+          thread={thread}
+          organiserName={organiserName}
+          members={members}
+          workspaceMembers={workspaceMembers}
+        />
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
         <PricingPanel thread={thread} onSaved={onSaved} />
@@ -828,6 +823,7 @@ function SettingsTabs({
           fields={thread.registration_fields ?? []}
           sharePublic={thread.share_participants_public ?? false}
           shareParticipants={thread.share_participants_participants ?? false}
+          requiresApproval={thread.requires_approval ?? false}
           onSaved={onSaved}
         />
       </div>
@@ -931,18 +927,16 @@ function QuickTimeDialog({
 // Hosts & facilitators
 // ---------------------------------------------------------------------------
 
-function MembersDialog({
+function MembersPanel({
   thread,
   organiserName,
   members,
   workspaceMembers,
-  onClose,
 }: {
   thread: ThreadRow;
   organiserName: string;
   members: ThreadMember[];
   workspaceMembers: WorkspaceMember[];
-  onClose: () => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -980,13 +974,14 @@ function MembersDialog({
     'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
 
   return (
-    <Dialog
-      open
-      onClose={onClose}
-      title="Hosts & facilitators"
-      description="Hosts can edit the thread; facilitators run sessions."
-    >
-      <ul className="space-y-2">
+    <section className="mt-8 border-t border-line pt-6">
+      <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+        Hosts & facilitators
+      </div>
+      <p className="mt-1.5 text-xs text-ink-subtle">
+        Hosts can edit the thread; facilitators run sessions.
+      </p>
+      <ul className="mt-3 space-y-2">
         <li className="flex items-center gap-3 rounded-md border border-line bg-surface-sunken/50 px-3 py-2.5">
           <span className="text-sm font-medium flex-1 truncate">{organiserName}</span>
           <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink">
@@ -1044,7 +1039,7 @@ function MembersDialog({
         </div>
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
       </div>
-    </Dialog>
+    </section>
   );
 }
 

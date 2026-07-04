@@ -29,18 +29,21 @@ export function RegistrationPanel({
   fields: initial,
   sharePublic: initialSharePublic = false,
   shareParticipants: initialShareParticipants = false,
+  requiresApproval: initialRequiresApproval = false,
   onSaved,
 }: {
   threadId: string;
   fields: RegistrationField[];
   sharePublic?: boolean;
   shareParticipants?: boolean;
+  requiresApproval?: boolean;
   onSaved?: () => void;
 }) {
   const router = useRouter();
   const [fields, setFields] = useState<RegistrationField[]>(initial);
   const [sharePublic, setSharePublic] = useState(initialSharePublic);
   const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
+  const [requiresApproval, setRequiresApproval] = useState(initialRequiresApproval);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -89,6 +92,7 @@ export function RegistrationPanel({
         registration_fields: cleaned,
         share_participants_public: sharePublic,
         share_participants_participants: shareParticipants,
+        requires_approval: requiresApproval,
       });
       if (!r.ok) return setError(r.error);
       setSaved(true);
@@ -171,6 +175,26 @@ export function RegistrationPanel({
           ))}
         </ul>
       )}
+
+      <div className="mt-8">
+        <SectionLabel>Approval</SectionLabel>
+        <label className="mt-3 flex items-start gap-2 text-sm text-ink-subtle">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={requiresApproval}
+            onChange={(e) => {
+              setRequiresApproval(e.target.checked);
+              setSaved(false);
+            }}
+          />
+          <span>
+            <strong>Approval required</strong> — enrolments wait as requests until you approve
+            them (Registrations popup → Approve/Decline). Paid enrolments are charged first,
+            then approved.
+          </span>
+        </label>
+      </div>
 
       <div className="mt-8">
         <SectionLabel>Participant visibility</SectionLabel>

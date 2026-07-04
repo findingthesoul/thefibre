@@ -17,6 +17,10 @@ import {
 } from './registrations-actions';
 import { one } from '@/lib/thread-types';
 import { Dialog } from '@/components/ui/dialog';
+import {
+  ParticipantDialog,
+  type ParticipantRow,
+} from '../../enrolments/participant-dialog';
 import { Button } from '@/components/ui/button';
 
 const STATUS_STYLES: Record<string, string> = {
@@ -45,6 +49,7 @@ export function RegistrationsDialog({
   const [items, setItems] = useState<ThreadEnrolmentItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
+  const [detail, setDetail] = useState<ParticipantRow | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -111,6 +116,8 @@ export function RegistrationsDialog({
         </p>
       )}
 
+      {detail && <ParticipantDialog row={detail} onClose={() => setDetail(null)} />}
+
       {items !== null && items.length > 0 && (
         <ul className="divide-y divide-line border border-line rounded-lg bg-surface-raised">
           {items.map((it) => {
@@ -124,12 +131,41 @@ export function RegistrationsDialog({
             const status = enr?.status ?? 'enrolled';
             return (
               <li key={it.id} className="flex items-center gap-3 px-4 py-2.5">
-                <div className="min-w-0 flex-1">
+                <button
+                  type="button"
+                  onClick={() =>
+                    setDetail({
+                      id: it.id,
+                      name,
+                      email: person?.email ?? null,
+                      threadId: it.thread_id,
+                      threadTitle: null,
+                      certNumber: cert?.certificate_number ?? null,
+                      payment: PAYMENT_LABELS[it.payment_status] ?? it.payment_status,
+                      status,
+                      detail: {
+                        answers: it.answers ?? null,
+                        billing: it.billing ?? null,
+                        amountCents: it.amount_cents,
+                        currency: it.currency,
+                        method: it.stripe_session_id ? 'stripe' : it.amount_cents ? 'invoice' : null,
+                        ticketName: one(it.ticket ?? null)?.name ?? null,
+                        couponCode: one(it.coupon ?? null)?.code ?? null,
+                        enrolledAt: enr?.enrolled_at ?? null,
+                        completedAt: enr?.completed_at ?? null,
+                        progressPct: enr?.progress_pct ?? 0,
+                        createdAt: it.created_at,
+                        paymentStatus: it.payment_status,
+                      },
+                    })
+                  }
+                  className="min-w-0 flex-1 text-left rounded-md -mx-1 px-1 hover:bg-surface-sunken/60 transition-colors"
+                >
                   <div className="text-sm font-medium truncate">{name}</div>
                   {person?.email && (
                     <div className="text-xs text-ink-subtle mt-0.5 truncate">{person.email}</div>
                   )}
-                </div>
+                </button>
                 {cert && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink shrink-0"

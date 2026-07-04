@@ -28,7 +28,7 @@ export type PurchaseRow = {
   platform_fee_cents: number;
   vendor_share_cents: number;
   org_share_cents: number;
-  method: 'stripe' | 'invoice';
+  method: 'stripe' | 'invoice' | 'free';
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripe_invoice_url: string | null;
   billing?: { company?: string; address?: string; tax_no?: string } | null;
