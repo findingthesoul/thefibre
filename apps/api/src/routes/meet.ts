@@ -1161,9 +1161,13 @@ meetRoutes.get('/public/bookings/:id', async (c) => {
 // to our /auth-callback with `code` and our `state`.
 meetRoutes.get('/google/auth-start', async (c) => {
   const ctx = c.get('ctx');
+  // Connections are a user-level SPoT surfaced in more than one app — the
+  // callback returns to whichever app started the flow.
+  const returnTo = c.req.query('return') === 'thread' ? 'thread' : 'meet';
   const state = await new SignJWT({
     user_id: ctx.userId,
     workspace_id: ctx.workspaceId,
+    return_to: returnTo,
   })
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
@@ -1192,10 +1196,15 @@ meetRoutes.get('/google/auth-callback', async (c) => {
   }
   let userId: string;
   let workspaceId: string;
+  let settingsUrl = `${meetUrl}/settings`;
   try {
     const { payload } = await jwtVerify(state, stateSecret());
     userId = payload.user_id as string;
     workspaceId = payload.workspace_id as string;
+    if (payload.return_to === 'thread') {
+      const threadUrl = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+      settingsUrl = `${threadUrl}/settings/connections`;
+    }
     if (!userId || !workspaceId) throw new Error('bad state');
   } catch {
     return c.redirect(`${meetUrl}/settings?google=error&reason=state`);
@@ -1206,7 +1215,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     tokens = await exchangeCode(code);
   } catch (e) {
     console.error('[google/auth-callback] exchange', e);
-    return c.redirect(`${meetUrl}/settings?google=error&reason=exchange`);
+    return c.redirect(`${settingsUrl}?google=error&reason=exchange`);
   }
 
   // Persist refresh_token on the host row.
@@ -1216,7 +1225,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     .eq('user_id', userId);
   if (hErr) {
     console.error('[google/auth-callback] update host', hErr);
-    return c.redirect(`${meetUrl}/settings?google=error&reason=db`);
+    return c.redirect(`${settingsUrl}?google=error&reason=db`);
   }
 
   // Sync the user's own calendars into meet_calendar. The primary calendar
@@ -1250,7 +1259,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     // Non-fatal — they can hit re-sync later
   }
 
-  return c.redirect(`${meetUrl}/settings?google=connected`);
+  return c.redirect(`${settingsUrl}?google=connected`);
 });
 
 // POST /api/v1/meet/google/disconnect — authenticated. Clears the host's
@@ -1270,6 +1279,96 @@ meetRoutes.post('/google/disconnect', async (c) => {
       .update({ google_refresh_token: null })
       .eq('user_id', ctx.userId);
   }
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Uploads — profile photos etc. Public `fibre-assets` bucket; 5MB cap, same
+// contract as the Thread uploads route (multipart "file" → { url }).
+// ---------------------------------------------------------------------------
+
+meetRoutes.post('/uploads', async (c) => {
+  const ctx = c.get('ctx');
+  const body = await c.req.parseBody();
+  const file = body.file;
+  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
+  if (file.size > 5 * 1024 * 1024) return c.json({ error: 'max 5MB' }, 400);
+  const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
+  const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await adminClient.storage
+    .from('fibre-assets')
+    .upload(path, Buffer.from(await file.arrayBuffer()), {
+      contentType: file.type || 'application/octet-stream',
+      upsert: false,
+    });
+  if (error) {
+    console.error('[meet/uploads] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  const { data } = adminClient.storage.from('fibre-assets').getPublicUrl(path);
+  return c.json({ url: data.publicUrl }, 201);
+});
+
+// ---------------------------------------------------------------------------
+// Connections — user-level SPoT (Google Calendar + personal meeting room).
+// The data lives on the user's meet_host row but belongs to the whole Fibre
+// family: Thread's Settings → Connections manages the same row Meet's does.
+// ---------------------------------------------------------------------------
+
+/** The user's own host row — provisioned on first touch (same defaults as /me). */
+async function ensureHostRow(userId: string, workspaceId: string) {
+  const { data: host } = await adminClient
+    .from('meet_host')
+    .select('id, personal_room_url, google_refresh_token')
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (host) return host;
+  const { data: u } = await adminClient
+    .from('user')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single();
+  const seed =
+    (u?.full_name ?? u?.email ?? 'host')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'host';
+  const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
+  const { data: created, error } = await adminClient
+    .from('meet_host')
+    .insert({ user_id: userId, workspace_id: workspaceId, slug })
+    .select('id, personal_room_url, google_refresh_token')
+    .single();
+  if (error) console.error('[meet/connections] auto-provision failed', error);
+  return created ?? null;
+}
+
+meetRoutes.get('/connections', async (c) => {
+  const ctx = c.get('ctx');
+  const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
+  if (!host) return c.json({ error: 'failed to provision host' }, 500);
+  return c.json({
+    google_connected: !!host.google_refresh_token,
+    personal_room_url: host.personal_room_url ?? null,
+  });
+});
+
+const ConnectionsUpdate = z.object({
+  personal_room_url: z.string().max(500).nullable().optional(),
+});
+
+meetRoutes.patch('/connections', async (c) => {
+  const body = ConnectionsUpdate.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
+  if (!host) return c.json({ error: 'failed to provision host' }, 500);
+  const { error } = await adminClient
+    .from('meet_host')
+    .update(body.data)
+    .eq('user_id', ctx.userId);
+  if (error) return c.json({ error: error.message }, 500);
   return c.json({ ok: true });
 });
 

@@ -1,8 +1,10 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useRef, useState } from 'react';
+import { ImagePlus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { TextField, TextAreaField } from '@/components/ui/field';
+import { uploadAsset } from '@/lib/upload';
 import { updateHost, type SaveResult } from '../actions';
 
 type Initial = {
@@ -18,6 +20,25 @@ export function ProfileForm({ initial }: { initial: Initial }) {
     {},
   );
   const [slug, setSlug] = useState(initial.slug);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url ?? null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      setPhotoUrl(await uploadAsset(file));
+    } catch (err) {
+      setUploadError(err instanceof Error ? err.message : 'upload failed');
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = '';
+    }
+  }
 
   return (
     <form action={formAction} className="space-y-5">
@@ -55,12 +76,58 @@ export function ProfileForm({ initial }: { initial: Initial }) {
           defaultValue={initial.location ?? ''}
           placeholder="Amsterdam, NL"
         />
-        <TextField
-          label="Photo URL"
-          name="photo_url"
-          defaultValue={initial.photo_url ?? ''}
-          placeholder="https://…"
-        />
+        <div>
+          <span className="text-sm text-ink-subtle">Photo</span>
+          {/* The upload happens client-side; the saved URL rides along with
+              the form submit via this hidden field. */}
+          <input type="hidden" name="photo_url" value={photoUrl ?? ''} />
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={onPickPhoto}
+          />
+          {photoUrl ? (
+            <div className="mt-1 flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={photoUrl}
+                alt=""
+                className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
+              />
+              <div className="flex flex-col gap-1">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="text-xs text-ink-subtle hover:text-ink text-left"
+                >
+                  Replace
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPhotoUrl(null)}
+                  className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
+                >
+                  <X size={11} strokeWidth={1.75} /> Remove
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              disabled={uploading}
+              onClick={() => fileRef.current?.click()}
+              className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
+            >
+              <ImagePlus size={16} strokeWidth={1.75} />
+              {uploading ? 'Uploading…' : 'Upload photo'}
+            </button>
+          )}
+          {uploadError && (
+            <span className="mt-1 block text-xs text-red-700">{uploadError}</span>
+          )}
+        </div>
       </div>
       {state.error && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">

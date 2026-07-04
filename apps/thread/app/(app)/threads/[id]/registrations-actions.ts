@@ -87,3 +87,18 @@ export async function listThreadEnrolments(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+export async function addThreadParticipant(
+  threadId: string,
+  input: { name: string; email: string; notify: boolean },
+): Promise<{ ok: true; already: boolean } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ ok: boolean; already_enrolled?: boolean }>(
+      `/api/v1/thread/threads/${threadId}/participants`,
+      { method: 'POST', body: JSON.stringify(input) },
+    );
+    return { ok: true, already: r.already_enrolled === true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

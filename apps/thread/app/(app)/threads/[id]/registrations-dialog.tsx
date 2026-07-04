@@ -6,17 +6,19 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Award, Check, X, Flag, BadgeEuro } from 'lucide-react';
+import { Award, Check, X, Flag, BadgeEuro, UserPlus } from 'lucide-react';
 import {
   listThreadEnrolments,
   approveEnrolment,
   declineEnrolment,
   completeEnrolment,
   markEnrolmentPaid,
+  addThreadParticipant,
   type ThreadEnrolmentItem,
 } from './registrations-actions';
 import { one } from '@/lib/thread-types';
 import { Dialog } from '@/components/ui/dialog';
+import { TextField } from '@/components/ui/field';
 import {
   ParticipantDialog,
   type ParticipantRow,
@@ -50,6 +52,11 @@ export function RegistrationsDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [detail, setDetail] = useState<ParticipantRow | null>(null);
+  // Manual add — walk-ins, phone signups (Sjoerd 2026-07-04). Skips payment
+  // and approval; the person lands as enrolled immediately.
+  const [adding, setAdding] = useState(false);
+  const [addBusy, setAddBusy] = useState(false);
+  const [addNotice, setAddNotice] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -63,6 +70,31 @@ export function RegistrationsDialog({
       cancelled = true;
     };
   }, [threadId]);
+
+  async function submitAdd(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const fd = new FormData(e.currentTarget);
+    const name = String(fd.get('name') ?? '').trim();
+    const email = String(fd.get('email') ?? '').trim();
+    if (!name || !email) return;
+    setAddBusy(true);
+    setAddNotice(null);
+    const r = await addThreadParticipant(threadId, {
+      name,
+      email,
+      notify: fd.get('notify') === 'on',
+    });
+    if (!r.ok) {
+      setAddNotice(r.error);
+    } else if (r.already) {
+      setAddNotice('Already enrolled — no changes made.');
+    } else {
+      setAdding(false);
+      const list = await listThreadEnrolments(threadId);
+      if (list.ok) setItems(list.items);
+    }
+    setAddBusy(false);
+  }
 
   async function run(id: string, fn: (id: string) => Promise<{ ok: boolean }>) {
     setBusy(id);
@@ -81,12 +113,26 @@ export function RegistrationsDialog({
       size="lg"
       footer={
         <>
-          <Link
-            href={`/enrolments?thread=${threadId}`}
-            className="mr-auto text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
-          >
-            Open full page →
-          </Link>
+          <div className="mr-auto flex items-center gap-3">
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              leading={<UserPlus size={14} />}
+              onClick={() => {
+                setAdding((a) => !a);
+                setAddNotice(null);
+              }}
+            >
+              Add participant
+            </Button>
+            <Link
+              href={`/enrolments?thread=${threadId}`}
+              className="text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+            >
+              Open full page →
+            </Link>
+          </div>
           <Button type="button" variant="secondary" onClick={onClose}>
             Close
           </Button>
@@ -97,6 +143,41 @@ export function RegistrationsDialog({
         <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
           Couldn&apos;t load registrations: {error}
         </p>
+      )}
+
+      {adding && (
+        <form
+          onSubmit={submitAdd}
+          className="mb-4 rounded-lg border border-line bg-surface-sunken/40 p-4 space-y-3"
+        >
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <TextField label="Name" name="name" required />
+            <TextField label="Email" name="email" type="email" required />
+          </div>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" name="notify" defaultChecked />
+            <span className="text-sm text-ink-subtle">
+              Send the confirmation email and welcome messages
+            </span>
+          </label>
+          {addNotice && <p className="text-sm text-red-700">{addNotice}</p>}
+          <div className="flex items-center gap-2">
+            <Button type="submit" size="sm" disabled={addBusy}>
+              {addBusy ? 'Adding…' : 'Add participant'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAdding(false);
+                setAddNotice(null);
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
       )}
 
       {!error && items === null && (

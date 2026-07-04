@@ -2418,6 +2418,194 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
   return c.json({ ok: true });
 });
 
+// POST /threads/:id/participants — the organiser adds someone by hand
+// (walk-ins, phone signups, imports). Skips payment and approval: the
+// person lands as 'enrolled' immediately. Authority = RLS visibility of
+// the thread (organiser, co-host, team member, admin).
+const ManualParticipant = z.object({
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(320),
+  notify: z.boolean().optional(),
+});
+
+threadRoutes.post('/threads/:id/participants', async (c) => {
+  const body = ManualParticipant.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: thread } = await db
+    .from('thread_thread')
+    .select(
+      'id, workspace_id, program_id, language, organiser:organiser_id (display_name, user:user_id (full_name)), program:program_id (id, title, starts_on)',
+    )
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!thread) return c.json({ error: 'not found' }, 404);
+  const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
+  if (!program) return c.json({ error: 'thread has no program' }, 500);
+  const organiser = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+  const orgUser = organiser
+    ? Array.isArray(organiser.user)
+      ? organiser.user[0]
+      : organiser.user
+    : null;
+  const organiserName = organiser?.display_name ?? orgUser?.full_name ?? 'The organiser';
+
+  const email = body.data.email.trim().toLowerCase();
+  const name = body.data.name.trim();
+
+  // Same account auto-create as the public form (email-only; they verify
+  // via OTP/Google at first sign-in).
+  try {
+    const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+    if (hasAccount !== true) {
+      await adminClient.auth.admin.createUser({ email, email_confirm: true });
+    }
+  } catch (e) {
+    console.warn('[thread/participants] account auto-create failed', e);
+  }
+
+  let { data: person } = await adminClient
+    .from('person')
+    .select('id, first_name')
+    .eq('workspace_id', thread.workspace_id)
+    .eq('email', email)
+    .is('deleted_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (!person) {
+    const parts = name.split(/\s+/);
+    const { data: created, error: pErr } = await adminClient
+      .from('person')
+      .insert({
+        workspace_id: thread.workspace_id,
+        first_name: parts[0] ?? name,
+        last_name: parts.slice(1).join(' ') || null,
+        email,
+      })
+      .select('id, first_name')
+      .single();
+    if (pErr || !created) {
+      console.error('[thread/participants] person insert failed', pErr);
+      return c.json({ error: 'could not create the person' }, 500);
+    }
+    person = created;
+  }
+
+  // Platform enrolment — reuse if present; existing companion = already in.
+  let enrolmentId: string;
+  const { data: platEnrolment } = await adminClient
+    .from('enrolment')
+    .select('id, status')
+    .eq('program_id', thread.program_id)
+    .eq('person_id', person.id)
+    .maybeSingle();
+  if (platEnrolment) {
+    const { data: dup } = await adminClient
+      .from('thread_enrolment')
+      .select('id')
+      .eq('enrolment_id', platEnrolment.id)
+      .maybeSingle();
+    if (dup) return c.json({ ok: true, already_enrolled: true, enrolment_id: dup.id });
+    enrolmentId = platEnrolment.id;
+    if (platEnrolment.status !== 'enrolled') {
+      await adminClient
+        .from('enrolment')
+        .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+        .eq('id', enrolmentId);
+    }
+  } else {
+    const { data: enr, error: eErr } = await adminClient
+      .from('enrolment')
+      .insert({
+        program_id: thread.program_id,
+        person_id: person.id,
+        status: 'enrolled',
+        enrolled_at: new Date().toISOString(),
+      })
+      .select('id')
+      .single();
+    if (eErr || !enr) {
+      console.error('[thread/participants] enrolment insert failed', eErr);
+      return c.json({ error: 'could not enrol' }, 500);
+    }
+    enrolmentId = enr.id;
+  }
+
+  const { data: te, error: teErr } = await adminClient
+    .from('thread_enrolment')
+    .insert({
+      workspace_id: thread.workspace_id,
+      thread_id: thread.id,
+      enrolment_id: enrolmentId,
+      person_id: person.id,
+      payment_status: 'not_required',
+      request_id: `manual:${crypto.randomUUID()}`,
+    })
+    .select('id')
+    .single();
+  if (teErr || !te) {
+    console.error('[thread/participants] thread_enrolment insert failed', teErr);
+    return c.json({ error: teErr?.message ?? 'could not enrol' }, 500);
+  }
+
+  // Transactional consent (contract basis) — same as the public form.
+  const { data: activeConsent } = await adminClient
+    .from('consent_record')
+    .select('id')
+    .eq('person_id', person.id)
+    .eq('purpose_code', 'transactional_email')
+    .is('revoked_at', null)
+    .limit(1)
+    .maybeSingle();
+  if (!activeConsent) {
+    await adminClient.from('consent_record').insert({
+      person_id: person.id,
+      purpose_code: 'transactional_email',
+      legal_basis: 'contract',
+    });
+  }
+
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'event_registered',
+    `Registered: ${program.title}`,
+  );
+
+  if (body.data.notify !== false) {
+    try {
+      const msg = enrolmentConfirmation({
+        participantName: name,
+        threadTitle: program.title,
+        intention: null,
+        organiserName,
+        startsOn: program.starts_on,
+        threadUrl: `${threadAppUrl()}/my`,
+        locale: (thread as { language?: string }).language ?? 'en',
+      });
+      await sendEmail({ to: email, ...msg });
+    } catch (e) {
+      console.warn('[thread/participants] confirmation email failed', e);
+    }
+    try {
+      await sendTriggeredMessages({
+        threadId: thread.id,
+        trigger: 'on_enrolment',
+        personId: person.id,
+        email,
+        name,
+        threadTitle: program.title,
+        organiserName,
+        startsOn: program.starts_on,
+      });
+    } catch (e) {
+      console.warn('[thread/participants] triggered messages failed', e);
+    }
+  }
+  return c.json({ ok: true, enrolment_id: te.id }, 201);
+});
+
 // POST /enrolments/:id/decline — invited → dropped. No email (organisers
 // decline for many reasons; a generic rejection mail does more harm).
 threadRoutes.post('/enrolments/:id/decline', async (c) => {

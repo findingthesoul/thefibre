@@ -6,6 +6,30 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.106] — 2026-07-04 — Thread 3.31.0 · Meet 2.4.0: manual add participant, photo upload, Connections SPoT
+
+### Added
+- **Manual add participant** (Thread) — the Registrations popup gains an
+  "Add participant" button: name + email, optional confirmation/welcome
+  messages. Skips payment and approval — the person is enrolled
+  immediately (walk-ins, phone signups). Same account auto-create and
+  consent bookkeeping as the public form; duplicates are detected.
+  New API: `POST /thread/threads/:id/participants`.
+- **Profile photo upload** (Thread + Meet) — the Photo URL text field in
+  Settings → Profile is now an image upload with thumbnail,
+  replace/remove. Meet gained an uploads endpoint backed by a new public
+  `fibre-assets` bucket (migration `20260704220000`).
+
+### Changed
+- **Connections is a SPoT now** — Thread has its own Settings →
+  Connections page (Google Calendar + personal meeting room) managing the
+  same user-level data as Meet's; the settings card no longer bounces you
+  to Meet in a new tab. The Google OAuth flow returns to whichever app
+  started it (signed `return_to` in the state), and the connections
+  endpoints provision the host row on first touch so Thread-only
+  organisers can connect too. The engagement dialog's "no personal room"
+  hint now points at Settings → Connections.
+
 ## [0.13.105] — 2026-07-04 — One date-field component for all apps
 
 ### Changed

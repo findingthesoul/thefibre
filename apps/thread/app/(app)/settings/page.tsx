@@ -35,11 +35,10 @@ export default function SettingsPage() {
             desc="Your Stripe account and the workspace's — one connection per person, shared across Meet and Thread."
           />
           <Card
-            href="https://meet.thefibre.app/settings"
+            href="/settings/connections"
             Icon={Cable}
             title="Connections"
-            desc="Google Calendar, personal meeting room — shared across the Fibre apps, managed in Fibre Meet."
-            external
+            desc="Google Calendar and your personal meeting room — one connection per person, shared across Meet and Thread."
           />
           <Card
             href="/settings/embeds"

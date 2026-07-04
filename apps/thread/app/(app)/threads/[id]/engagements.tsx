@@ -364,8 +364,8 @@ export function EngagementDialog({
                       </>
                     ) : (
                       <>
-                        No personal room configured — set one in Fibre Meet →
-                        Settings → Profile.
+                        No personal room configured — set one in Settings →
+                        Connections.
                       </>
                     )}
                   </p>
