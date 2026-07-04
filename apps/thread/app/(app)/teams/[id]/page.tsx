@@ -10,6 +10,7 @@ import {
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { AddMemberRow, RemoveMemberButton } from './members';
+import { TeamSettings } from './team-settings';
 
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
@@ -28,6 +29,7 @@ type TeamDetail = {
   slug: string;
   description: string | null;
   is_active: boolean;
+  payout_destination?: 'workspace' | 'lead';
   members: TeamMember[];
 };
 
@@ -126,6 +128,17 @@ export default async function TeamDetailPage({
           <AddMemberRow teamId={team.id} candidates={candidates} />
         </div>
       </section>
+
+      <TeamSettings
+        teamId={team.id}
+        description={team.description}
+        payoutDestination={team.payout_destination ?? 'workspace'}
+        leadName={
+          team.members.find((m) => m.role === 'lead')?.full_name ??
+          team.members.find((m) => m.role === 'lead')?.email ??
+          null
+        }
+      />
     </PageContainer>
   );
 }

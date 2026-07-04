@@ -17,6 +17,7 @@ type Personal = {
 type WorkspaceBilling = {
   stripe_account_id: string | null;
   invoice_details?: { legal_name?: string; address?: string; tax_no?: string } | null;
+  default_payment_methods?: ('stripe' | 'invoice')[] | null;
   editable: boolean;
 };
 
@@ -43,6 +44,7 @@ export default async function PaymentsSettingsPage() {
         personalMethods={profile.default_payment_methods ?? null}
         workspaceAccount={workspace.stripe_account_id}
         workspaceDetails={workspace.invoice_details ?? null}
+        workspaceMethods={workspace.default_payment_methods ?? null}
         isAdmin={workspace.editable}
       />
     </PageContainer>

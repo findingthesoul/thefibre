@@ -44,6 +44,7 @@ export async function updateMyPayments(
 export async function updateWorkspacePayments(
   accountId: string | null,
   invoiceDetails: InvoiceDetails | null,
+  defaultMethods: ('stripe' | 'invoice')[] | null,
 ): Promise<Result> {
   try {
     await apiFetch('/api/v1/workspace-billing', {
@@ -51,6 +52,7 @@ export async function updateWorkspacePayments(
       body: JSON.stringify({
         stripe_account_id: accountId ?? '',
         invoice_details: invoiceDetails,
+        default_payment_methods: defaultMethods,
       }),
     });
     revalidatePath('/settings/payments');

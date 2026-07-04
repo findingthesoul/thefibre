@@ -23,6 +23,7 @@ export function PaymentsForm({
   personalMethods,
   workspaceAccount,
   workspaceDetails,
+  workspaceMethods,
   isAdmin,
 }: {
   personalAccount: string | null;
@@ -30,6 +31,7 @@ export function PaymentsForm({
   personalMethods: ('stripe' | 'invoice')[] | null;
   workspaceAccount: string | null;
   workspaceDetails: InvoiceDetails | null;
+  workspaceMethods: ('stripe' | 'invoice')[] | null;
   isAdmin: boolean;
 }) {
   return (
@@ -48,8 +50,10 @@ export function PaymentsForm({
         description="Payouts for team threads and anything routed to the workspace. Teams don't hold their own accounts — team sales land here, with these invoice details as the seller."
         initialAccount={workspaceAccount}
         initialDetails={workspaceDetails}
-        initialMethods={null}
-        save={(acct, details) => updateWorkspacePayments(acct, details)}
+        initialMethods={workspaceMethods}
+        showMethods
+        methodsHint="team & workspace threads inherit these"
+        save={(acct, details, methods) => updateWorkspacePayments(acct, details, methods)}
         disabled={!isAdmin}
         disabledNote="Managed by workspace admins."
       />
@@ -69,6 +73,7 @@ function AccountSection({
   initialDetails,
   initialMethods,
   showMethods = false,
+  methodsHint,
   save,
   disabled = false,
   disabledNote,
@@ -79,6 +84,7 @@ function AccountSection({
   initialDetails: InvoiceDetails | null;
   initialMethods: ('stripe' | 'invoice')[] | null;
   showMethods?: boolean;
+  methodsHint?: string;
   save: (
     accountId: string | null,
     details: InvoiceDetails | null,
@@ -194,7 +200,7 @@ function AccountSection({
           {showMethods && (
             <div>
               <span className="text-xs text-ink-subtle">
-                Default payment options — threads and tickets inherit these
+                Default payment options — {methodsHint ?? 'your personal threads and tickets inherit these'}
               </span>
               <div className="mt-1.5 flex items-center gap-5">
                 <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">

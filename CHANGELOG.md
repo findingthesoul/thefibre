@@ -6,6 +6,31 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.99] — 2026-07-04 — Workspace payment defaults, team payout routing, honest card availability (Thread 3.29.0 · Meet 2.3.2)
+
+### Fixed
+- **"payments are not configured yet" on enrol** — root cause found:
+  `STRIPE_SECRET_KEY` was never set on Fly, so the card path could never
+  work (Meet's included). Two changes make the system honest until it is:
+  the public payload now **drops the card option whenever it cannot work**
+  (platform key missing, or no connected account for the thread's payout
+  destination) — leaving invoice when enabled, so invoice-method
+  enrolments work today; tickets cannot resurrect a dropped card option.
+  Setting the key remains Sjoerd's action.
+
+### Added
+- **Workspace-level default payment options** (migration
+  `20260704180000`) — the inheritance root now follows the money:
+  team/workspace-destination threads inherit the WORKSPACE defaults
+  (Settings → Payments → Workspace account gains the same checkboxes);
+  personal threads keep inheriting the organiser's.
+- **Team settings + payout routing** — the team page gains a settings
+  section: description, and "payments from this team's threads go to"
+  with a 2-card chooser: **Workspace account** (default) or the **team
+  lead's personal account** (named). Editable by the team lead or a
+  workspace admin; checkout and refunds resolve accordingly. This answers
+  "who is the team admin": the existing `lead` role.
+
 ## [0.13.98] — 2026-07-04 — Thread 3.28.0: enrolments search + participant detail popup
 
 ### Added

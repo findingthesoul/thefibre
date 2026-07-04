@@ -8,9 +8,9 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import {
   personalStripeAccount,
-  workspaceStripeAccount,
   resolvePaymentMethods,
   chargeAccountForItem,
+  threadDestinationAccount,
 } from '../lib/payment-accounts.js';
 import {
   enrolmentConfirmation,
@@ -947,7 +947,7 @@ threadRoutes.get('/teams/:id', async (c) => {
   const db = userClient(ctx.jwt);
   const { data: team, error } = await db
     .from('team')
-    .select('id, name, slug, description, is_active')
+    .select('id, name, slug, description, is_active, payout_destination')
     .eq('id', c.req.param('id'))
     .maybeSingle();
   if (error || !team) return c.json({ error: 'not found' }, 404);
@@ -968,6 +968,48 @@ threadRoutes.get('/teams/:id', async (c) => {
       };
     }),
   });
+});
+
+// PATCH /teams/:id — description + payout routing. Team leads and
+// workspace admins only (RLS lets leads write the team row; admins pass
+// via the explicit check).
+const TeamPatch = z.object({
+  description: z.string().max(2000).nullable().optional(),
+  payout_destination: z.enum(['workspace', 'lead']).optional(),
+});
+
+threadRoutes.patch('/teams/:id', async (c) => {
+  const body = TeamPatch.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+
+  const { data: wm } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', ctx.userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  const isAdmin = wm?.workspace_role === 'admin' || wm?.workspace_role === 'super_admin';
+  if (!isAdmin) {
+    const { data: lead } = await adminClient
+      .from('team_member')
+      .select('user_id')
+      .eq('team_id', c.req.param('id'))
+      .eq('user_id', ctx.userId)
+      .eq('role', 'lead')
+      .maybeSingle();
+    if (!lead) return c.json({ error: 'only the team lead (or an admin) can edit the team' }, 403);
+  }
+
+  const { data, error } = await adminClient
+    .from('team')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id, name, slug, description, payout_destination')
+    .single();
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json(data);
 });
 
 const TeamMemberAdd = z.object({
@@ -3079,6 +3121,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .from('thread_thread')
     .select(
       `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
+       workspace_id, team_id, payment_destination,
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public,
        program:program_id (title, format, status, starts_on, ends_on)`,
@@ -3170,10 +3213,34 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     .select('user_id')
     .eq('id', thread.organiser_id)
     .maybeSingle();
-  const threadMethods = await resolvePaymentMethods({
-    threadMethods: (thread as { payment_methods?: string[] | null }).payment_methods ?? null,
+  const pubThread = thread as {
+    workspace_id: string;
+    team_id?: string | null;
+    payment_destination?: string | null;
+    payment_methods?: string[] | null;
+  };
+  let threadMethods = await resolvePaymentMethods({
+    threadMethods: pubThread.payment_methods ?? null,
     organiserUserId: pubOrg?.user_id ?? null,
+    workspaceId: pubThread.workspace_id,
+    workspaceRoot: !!pubThread.team_id || pubThread.payment_destination !== 'personal',
   });
+  // Never offer card when it cannot work: platform key missing or no
+  // connected account for this thread's payout destination.
+  if (threadMethods.includes('stripe')) {
+    const stripeReady =
+      !!stripeOrNull() &&
+      !!(await threadDestinationAccount({
+        workspace_id: pubThread.workspace_id,
+        team_id: pubThread.team_id ?? null,
+        payment_destination: pubThread.payment_destination,
+        organiser_user_id: pubOrg?.user_id ?? null,
+      }));
+    if (!stripeReady) {
+      const filtered = threadMethods.filter((m) => m !== 'stripe');
+      if (filtered.length) threadMethods = filtered;
+    }
+  }
   const nowMs = Date.now();
   const openTix = (ticketRows ?? []).filter(
     (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
@@ -3196,10 +3263,12 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     price_cents: t.price_cents,
     price_currency: t.price_currency,
     // Inheritance resolved server-side: ticket ?? thread(+account default).
-    payment_methods:
-      ((t as { payment_methods?: string[] | null }).payment_methods?.length
-        ? (t as { payment_methods: string[] }).payment_methods
-        : threadMethods),
+    // Tickets can't resurrect card if the thread-level filter dropped it.
+    payment_methods: ((t as { payment_methods?: string[] | null }).payment_methods?.length
+      ? (t as { payment_methods: string[] }).payment_methods.filter(
+          (m) => m !== 'stripe' || threadMethods.includes('stripe'),
+        )
+      : threadMethods),
     sold_out: !!t.quantity_limit && (soldPerTicket.get(t.id) ?? 0) >= t.quantity_limit,
   }));
 
@@ -3689,6 +3758,8 @@ threadRoutes.post('/public/enrol', async (c) => {
     ticketMethods: chosenForMethods?.payment_methods ?? null,
     threadMethods: thread.payment_methods as string[] | null,
     organiserUserId: enrolOrg?.user_id ?? null,
+    workspaceId: thread.workspace_id,
+    workspaceRoot: !!thread.team_id || thread.payment_destination !== 'personal',
   });
   const paymentMethod = d.payment_method ?? 'stripe';
   if (requiresPayment && !paymentMethods.includes(paymentMethod)) {
@@ -3976,14 +4047,13 @@ threadRoutes.post('/public/enrol', async (c) => {
     // Destination account per the payout rule: personal → the organiser's
     // connected account (Meet's as fallback — one Stripe per person across
     // Fibre); workspace → thread_settings.
-    // SPoT resolution (lib/payment-accounts): platform value first, old
-    // app-local columns as fallback.
-    let destAccount: string | null = null;
-    if (thread.payment_destination === 'personal') {
-      destAccount = enrolOrg?.user_id ? await personalStripeAccount(enrolOrg.user_id) : null;
-    } else {
-      destAccount = await workspaceStripeAccount(thread.workspace_id);
-    }
+    // SPoT + team payout routing (lib/payment-accounts).
+    const destAccount = await threadDestinationAccount({
+      workspace_id: thread.workspace_id,
+      team_id: (thread as { team_id?: string | null }).team_id ?? null,
+      payment_destination: thread.payment_destination,
+      organiser_user_id: enrolOrg?.user_id ?? null,
+    });
     if (!destAccount) {
       await rollbackPendingEnrolment();
       return c.json({ error: 'the organiser has not connected payments yet' }, 409);

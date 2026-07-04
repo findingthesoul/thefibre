@@ -21,12 +21,13 @@ workspaceBillingRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const { data } = await adminClient
     .from('workspace')
-    .select('stripe_account_id, invoice_details')
+    .select('stripe_account_id, invoice_details, default_payment_methods')
     .eq('id', ctx.workspaceId)
     .maybeSingle();
   return c.json({
     stripe_account_id: data?.stripe_account_id ?? null,
     invoice_details: data?.invoice_details ?? null,
+    default_payment_methods: data?.default_payment_methods ?? null,
     editable: await isAdmin(ctx.userId, ctx.workspaceId),
   });
 });
@@ -46,6 +47,7 @@ const BillingPatch = z.object({
     })
     .nullable()
     .optional(),
+  default_payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
 });
 
 workspaceBillingRoutes.patch('/', async (c) => {
@@ -61,7 +63,7 @@ workspaceBillingRoutes.patch('/', async (c) => {
     .from('workspace')
     .update(patch)
     .eq('id', ctx.workspaceId)
-    .select('stripe_account_id, invoice_details')
+    .select('stripe_account_id, invoice_details, default_payment_methods')
     .single();
   if (error) return c.json({ error: error.message }, 500);
   // Keep the legacy fallback column in sync (disconnects must stick).

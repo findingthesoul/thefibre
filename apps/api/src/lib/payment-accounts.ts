@@ -90,14 +90,68 @@ export async function defaultPaymentMethods(userId: string): Promise<('stripe' |
   return m && m.length ? m : ['stripe'];
 }
 
-/** ticket ?? thread ?? account default ?? {stripe} — the inheritance chain. */
+/** Workspace-level default payment methods — the root for team/workspace-
+ *  destination threads. Falls back to {stripe}. */
+export async function workspaceDefaultPaymentMethods(
+  workspaceId: string,
+): Promise<('stripe' | 'invoice')[]> {
+  const { data: w } = await adminClient
+    .from('workspace')
+    .select('default_payment_methods')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  const m = w?.default_payment_methods as ('stripe' | 'invoice')[] | null | undefined;
+  return m && m.length ? m : ['stripe'];
+}
+
+/** Where a THREAD's money lands, honouring the team's payout choice:
+ *  personal thread → organiser's account; team thread → the workspace
+ *  account, unless the team routes to its lead's personal account. */
+export async function threadDestinationAccount(thread: {
+  workspace_id: string;
+  team_id?: string | null | undefined;
+  payment_destination?: string | null | undefined;
+  organiser_user_id?: string | null | undefined;
+}): Promise<string | null> {
+  if (thread.payment_destination === 'personal') {
+    return thread.organiser_user_id ? personalStripeAccount(thread.organiser_user_id) : null;
+  }
+  if (thread.team_id) {
+    const { data: team } = await adminClient
+      .from('team')
+      .select('payout_destination')
+      .eq('id', thread.team_id)
+      .maybeSingle();
+    if (team?.payout_destination === 'lead') {
+      const { data: lead } = await adminClient
+        .from('team_member')
+        .select('user_id')
+        .eq('team_id', thread.team_id)
+        .eq('role', 'lead')
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      if (lead?.user_id) return personalStripeAccount(lead.user_id);
+    }
+  }
+  return workspaceStripeAccount(thread.workspace_id);
+}
+
+/** ticket ?? thread ?? account default ?? {stripe} — the inheritance chain.
+ *  The account root is the WORKSPACE default for team/workspace-destination
+ *  threads, the organiser's personal default otherwise. */
 export async function resolvePaymentMethods(opts: {
   ticketMethods?: string[] | null;
   threadMethods?: string[] | null;
   organiserUserId?: string | null;
+  workspaceId?: string | null;
+  workspaceRoot?: boolean;
 }): Promise<('stripe' | 'invoice')[]> {
   if (opts.ticketMethods?.length) return opts.ticketMethods as ('stripe' | 'invoice')[];
   if (opts.threadMethods?.length) return opts.threadMethods as ('stripe' | 'invoice')[];
+  if (opts.workspaceRoot && opts.workspaceId) {
+    return workspaceDefaultPaymentMethods(opts.workspaceId);
+  }
   if (opts.organiserUserId) return defaultPaymentMethods(opts.organiserUserId);
   return ['stripe'];
 }
