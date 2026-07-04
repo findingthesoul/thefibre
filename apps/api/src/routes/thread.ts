@@ -193,6 +193,15 @@ const OrganiserUpdate = z.object({
     .optional(),
   // Share of net revenue this organiser keeps (workspace admin decision).
   vendor_cut_percent: z.number().min(0).max(100).optional(),
+  // Invoice issuer identity (legal name / address / tax no) — personal level.
+  invoice_details: z
+    .object({
+      legal_name: z.string().max(200).optional(),
+      address: z.string().max(500).optional(),
+      tax_no: z.string().max(60).optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 threadRoutes.patch('/me', async (c) => {
@@ -257,6 +266,15 @@ const SettingsUpdate = z.object({
   email_from_mode: z.enum(['workspace', 'team', 'personal', 'custom']).optional(),
   email_from_name: z.string().max(200).nullable().optional(),
   email_footer_note: z.string().max(1000).nullable().optional(),
+  // Invoice issuer identity — workspace level.
+  invoice_details: z
+    .object({
+      legal_name: z.string().max(200).optional(),
+      address: z.string().max(500).optional(),
+      tax_no: z.string().max(60).optional(),
+    })
+    .nullable()
+    .optional(),
 });
 
 threadRoutes.patch('/settings', async (c) => {

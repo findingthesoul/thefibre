@@ -6,6 +6,19 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.95] — 2026-07-04 — App filter on Invoices, invoice issuer identity (Thread 3.26.1 · Meet 2.2.2)
+
+### Added
+- **App filter chips on the Invoices page** (All apps / Fibre Meet /
+  The Thread) — defaulting to the app you're in, one click to the
+  cross-app view.
+- **Invoice issuer identity** (migration `20260704140000`) — Settings →
+  Payments now carries the seller's legal name, address and tax/VAT
+  number at BOTH levels: personal (organiser profile — used for personal
+  sales) and workspace (used for team/workspace sales). Receipts and
+  invoice emails show a From/seller block resolved per purchase
+  (organiser's details first, workspace's as fallback).
+
 ## [0.13.94] — 2026-07-04 — Payments settings native, receipt emails, invoice payment links (Thread 3.26.0 · Meet 2.2.1)
 
 ### Added

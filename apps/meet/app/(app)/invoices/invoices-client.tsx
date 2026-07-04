@@ -58,15 +58,22 @@ function fmtDate(iso: string): string {
 
 type Scope = 'me' | 'team' | 'workspace';
 
+const APP_OPTIONS = [
+  { key: 'all', label: 'All apps' },
+  { key: 'fibre-meet', label: 'Fibre Meet' },
+  { key: 'the-thread', label: 'The Thread' },
+] as const;
+
 export function InvoicesClient({
   teams,
-  appFilter,
+  defaultApp = 'all',
 }: {
   teams: { id: string; name: string }[];
-  /** Pin the list to one app's sales, or undefined for all apps. */
-  appFilter?: string;
+  /** Which app's sales to show first — the current app, typically. */
+  defaultApp?: string;
 }) {
   const [scope, setScope] = useState<Scope>('me');
+  const [app, setApp] = useState<string>(defaultApp);
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
   const [q, setQ] = useState('');
   const [data, setData] = useState<PurchaseList | null>(null);
@@ -86,7 +93,7 @@ export function InvoicesClient({
         scope,
         teamId: scope === 'team' ? teamId : null,
         q: q.trim() || undefined,
-        app: appFilter,
+        app: app === 'all' ? undefined : app,
         cursor,
       });
       if (!r.ok) {
@@ -96,7 +103,7 @@ export function InvoicesClient({
       setError(null);
       return r.data;
     },
-    [scope, teamId, q, appFilter],
+    [scope, teamId, q, app],
   );
 
   useEffect(() => {
@@ -202,6 +209,23 @@ export function InvoicesClient({
             ))}
           </select>
         )}
+
+        <div className="inline-flex items-center gap-1">
+          {APP_OPTIONS.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              onClick={() => setApp(o.key)}
+              className={`text-xs px-2.5 py-1 rounded-full ring-1 transition-colors ${
+                app === o.key
+                  ? 'ring-line-strong bg-surface-sunken text-ink font-medium'
+                  : 'ring-line bg-surface-raised text-ink-subtle hover:text-ink'
+              }`}
+            >
+              {o.label}
+            </button>
+          ))}
+        </div>
 
         <div className="relative flex-1 min-w-[220px] max-w-sm">
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />

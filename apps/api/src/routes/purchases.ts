@@ -158,8 +158,31 @@ type ReceiptPurchase = {
   billing?: { company?: string; address?: string; tax_no?: string } | null;
 };
 
+type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } | null;
+
+/** The invoice issuer's identity for a purchase — personal or workspace. */
+async function sellerDetailsFor(
+  workspaceId: string,
+  organiserUserId: string | null,
+): Promise<SellerDetails> {
+  if (organiserUserId) {
+    const { data: org } = await adminClient
+      .from('thread_organiser')
+      .select('invoice_details')
+      .eq('user_id', organiserUserId)
+      .maybeSingle();
+    if (org?.invoice_details) return org.invoice_details as SellerDetails;
+  }
+  const { data: ws } = await adminClient
+    .from('thread_settings')
+    .select('invoice_details')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  return (ws?.invoice_details as SellerDetails) ?? null;
+}
+
 // Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
-function receiptHtml(p: ReceiptPurchase, buttonHtml: string): string {
+function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDetails): string {
   const amount = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: p.currency || 'EUR',
@@ -174,6 +197,13 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string): string {
        <td style="padding:8px 0;font-size:13px;color:#6b7280;">${escapeHtml(label)}</td>
        <td style="padding:8px 0;font-size:13px;color:#171717;text-align:right;">${escapeHtml(value)}</td>
      </tr>`;
+  const sellerRows = seller
+    ? [
+        seller.legal_name ? row('From', seller.legal_name) : '',
+        seller.address ? row('', seller.address) : '',
+        seller.tax_no ? row('Tax / VAT no. (seller)', seller.tax_no) : '',
+      ].join('')
+    : '';
   const billingRows = [
     p.billing?.company ? row('Billed to', p.billing.company) : '',
     p.billing?.address ? row('Address', p.billing.address) : '',
@@ -193,6 +223,7 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string): string {
        </tr>
        ${row('Date', date)}
        ${row('Payment', p.method === 'invoice' ? 'By invoice' : 'Card')}
+       ${sellerRows}
        ${billingRows}
        <tr>
          <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:14px;font-weight:600;color:#171717;">Total</td>
@@ -222,6 +253,10 @@ purchasesRoutes.post('/:id/resend-invoice', async (c) => {
     );
   }
   if (!p.payer_email) return c.json({ error: 'no payer email on file' }, 409);
+  const seller = await sellerDetailsFor(
+    ctx.workspaceId,
+    (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
+  );
   try {
     await sendEmail({
       to: p.payer_email,
@@ -229,6 +264,7 @@ purchasesRoutes.post('/:id/resend-invoice', async (c) => {
       html: receiptHtml(
         r.purchase as unknown as ReceiptPurchase,
         `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`,
+        seller,
       ),
       text: `Your receipt for ${p.item_label}: ${p.stripe_invoice_url}`,
     });
@@ -431,6 +467,10 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       .from('thread_enrolment')
       .update({ stripe_session_id: session.id })
       .eq('id', p.item_ref);
+    const seller = await sellerDetailsFor(
+      ctx.workspaceId,
+      (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
+    );
     await sendEmail({
       to: p.payer_email,
       subject: `Payment link — ${p.item_label}`,
@@ -438,6 +478,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
         p,
         `<p style="margin:24px 0 0;"><a href="${session.url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Pay online</a></p>
          <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Prefer the invoice? Just ignore this button — the invoice stands.</p>`,
+        seller,
       ),
       text: `Pay online for ${p.item_label}: ${session.url}`,
     });

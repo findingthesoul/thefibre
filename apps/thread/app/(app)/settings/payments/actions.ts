@@ -14,13 +14,18 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'unknown error';
 }
 
-/** Personal Stripe Connect account — lives on the organiser profile,
- *  which is also what Fibre Meet reads (one connection per person). */
-export async function updateMyPayments(accountId: string | null): Promise<Result> {
+export type InvoiceDetails = { legal_name?: string; address?: string; tax_no?: string };
+
+/** Personal Stripe Connect account + invoice issuer identity — lives on the
+ *  organiser profile, which is also what Fibre Meet reads. */
+export async function updateMyPayments(
+  accountId: string | null,
+  invoiceDetails: InvoiceDetails | null,
+): Promise<Result> {
   try {
     await apiFetch('/api/v1/thread/me', {
       method: 'PATCH',
-      body: JSON.stringify({ stripe_account_id: accountId ?? '' }),
+      body: JSON.stringify({ stripe_account_id: accountId ?? '', invoice_details: invoiceDetails }),
     });
     revalidatePath('/settings/payments');
     return { ok: true };
@@ -29,12 +34,15 @@ export async function updateMyPayments(accountId: string | null): Promise<Result
   }
 }
 
-/** Workspace Stripe Connect account — thread settings, admin-gated by RLS. */
-export async function updateWorkspacePayments(accountId: string | null): Promise<Result> {
+/** Workspace Stripe Connect account + invoice issuer identity. */
+export async function updateWorkspacePayments(
+  accountId: string | null,
+  invoiceDetails: InvoiceDetails | null,
+): Promise<Result> {
   try {
     await apiFetch('/api/v1/thread/settings', {
       method: 'PATCH',
-      body: JSON.stringify({ stripe_account_id: accountId ?? '' }),
+      body: JSON.stringify({ stripe_account_id: accountId ?? '', invoice_details: invoiceDetails }),
     });
     revalidatePath('/settings/payments');
     return { ok: true };

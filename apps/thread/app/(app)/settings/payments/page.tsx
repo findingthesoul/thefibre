@@ -11,13 +11,13 @@ import { PaymentsForm } from './form';
 export const dynamic = 'force-dynamic';
 
 export default async function PaymentsSettingsPage() {
+  type Payee = {
+    stripe_account_id: string | null;
+    invoice_details?: { legal_name?: string; address?: string; tax_no?: string } | null;
+  };
   const [me, settings, purchases] = await Promise.all([
-    apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/me').catch(() => ({
-      stripe_account_id: null,
-    })),
-    apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/settings').catch(() => ({
-      stripe_account_id: null,
-    })),
+    apiFetch<Payee>('/api/v1/thread/me').catch(() => ({ stripe_account_id: null }) as Payee),
+    apiFetch<Payee>('/api/v1/thread/settings').catch(() => ({ stripe_account_id: null }) as Payee),
     apiFetch<{ role: string }>('/api/v1/purchases?scope=me').catch(() => ({ role: 'organiser' })),
   ]);
 
@@ -30,7 +30,9 @@ export default async function PaymentsSettingsPage() {
       />
       <PaymentsForm
         personalAccount={me.stripe_account_id}
+        personalDetails={me.invoice_details ?? null}
         workspaceAccount={settings.stripe_account_id}
+        workspaceDetails={settings.invoice_details ?? null}
         isAdmin={purchases.role === 'admin' || purchases.role === 'super_admin'}
       />
     </PageContainer>

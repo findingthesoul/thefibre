@@ -20,7 +20,7 @@ export default async function InvoicesPage() {
         title="Invoices"
         description="Every purchase across your Fibre apps — search, resend invoices, reimburse."
       />
-      <InvoicesClient teams={teams.map((t) => ({ id: t.id, name: t.name }))} />
+      <InvoicesClient teams={teams.map((t) => ({ id: t.id, name: t.name }))} defaultApp="the-thread" />
     </PageContainer>
   );
 }

@@ -28,7 +28,7 @@ export default async function InvoicesPage() {
         title="Invoices"
         description="Every purchase across your Fibre apps — search, resend invoices, reimburse."
       />
-      <InvoicesClient teams={teams} />
+      <InvoicesClient teams={teams} defaultApp="fibre-meet" />
     </PageContainer>
   );
 }
