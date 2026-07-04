@@ -72,5 +72,19 @@ profileRoutes.patch('/', async (c) => {
     .select('*')
     .single();
   if (error) return c.json({ error: error.message }, 500);
+
+  // The SPoT resolution falls back to the legacy app-local columns, so a
+  // write here (especially a DISCONNECT) must overwrite them too — otherwise
+  // clearing the platform value would resurrect the old account.
+  if ('stripe_account_id' in body.data) {
+    await adminClient
+      .from('meet_host')
+      .update({ stripe_account_id: patch.stripe_account_id })
+      .eq('user_id', ctx.userId);
+    await adminClient
+      .from('thread_organiser')
+      .update({ stripe_account_id: patch.stripe_account_id })
+      .eq('user_id', ctx.userId);
+  }
   return c.json(data);
 });

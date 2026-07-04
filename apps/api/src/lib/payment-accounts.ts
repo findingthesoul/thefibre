@@ -101,3 +101,35 @@ export async function resolvePaymentMethods(opts: {
   if (opts.organiserUserId) return defaultPaymentMethods(opts.organiserUserId);
   return ['stripe'];
 }
+
+/** The connected account a purchase's charge runs on (by app source row). */
+export async function chargeAccountForItem(
+  appSlug: string,
+  itemRef: string,
+): Promise<string | null> {
+  if (appSlug === 'fibre-meet') {
+    const { data: b } = await adminClient
+      .from('meet_booking')
+      .select('host:host_id (user_id, stripe_account_id)')
+      .eq('id', itemRef)
+      .maybeSingle();
+    const host = b && (Array.isArray(b.host) ? b.host[0] : b.host);
+    if (host?.user_id) return personalStripeAccount(host.user_id);
+    return host?.stripe_account_id ?? null;
+  }
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `workspace_id, thread:thread_id (payment_destination, organiser:organiser_id (user_id))`,
+    )
+    .eq('id', itemRef)
+    .maybeSingle();
+  if (!te) return null;
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  if (!thread) return null;
+  if (thread.payment_destination === 'personal') {
+    const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+    return org?.user_id ? personalStripeAccount(org.user_id) : null;
+  }
+  return workspaceStripeAccount(te.workspace_id);
+}

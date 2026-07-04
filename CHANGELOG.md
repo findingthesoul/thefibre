@@ -6,6 +6,53 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.97] — 2026-07-04 — Security & money hardening: 14 review findings fixed (Thread 3.27.1 · Meet 2.3.1)
+
+An independent adversarial review of the payments/invoices surface produced
+15 findings (most confirmed). 14 fixed, 1 accepted with documentation.
+
+### Fixed — authority & safety
+- **Any workspace member could mark-paid / approve / decline / complete
+  other organisers' enrolments** — the lifecycle routes now require admin,
+  the thread's organiser, or a co-organiser host (matching the purchases
+  routes' authority model).
+- **Disconnecting Stripe now sticks** — clearing the platform value also
+  clears the legacy fallback columns (meet_host / thread_organiser /
+  thread_settings); previously the old account silently kept charging.
+- **Declining a participant expires their open checkout session** — no more
+  paying through a tab that was still open after a decline.
+
+### Fixed — money correctness
+- **Refunds run on the account the charge landed on** (stored per purchase
+  at record time), not on today's possibly-changed settings.
+- **Resending a payment link expires the previous session** and the webhook
+  resolves stale sessions by metadata — no orphaned still-payable links, no
+  unrecorded charges.
+- **A payment-link expiry no longer fails an outstanding invoice** — the
+  email said "the invoice stands" and now the ledger agrees.
+- **Mark-paid only applies to pending purchases** — refunded/failed sales
+  can't be resurrected, and confirmation side-effects never re-fire
+  (finalize is idempotent on retries).
+- **Webhook retries repair partial runs** — the idempotency guard now also
+  checks the ledger row; payout inserts are conflict-proof.
+- **Coupons aren't burned by failed checkout starts** — rollbacks release
+  the use; retries with the same code work.
+- **Abandoned checkouts no longer eat capacity/quantity forever** — failed
+  enrolments are excluded from sold-out and capacity counts, the
+  cheapest-ticket fallback path enforces quantity, and a bailed-out payer
+  gets a fresh checkout instead of a false "already enrolled".
+- **Meet's expired sessions flip the ledger to failed** (pending totals no
+  longer inflate forever).
+- **Totals are per currency** — a £ sale no longer inflates the € figure.
+- **Concurrent ledger writes can't drop the paid state** (insert-race
+  retry-as-update).
+
+### Accepted (documented)
+- The payment-SPoT migration converted explicit card-only thread settings
+  into "inherit" (indistinguishable from the old default). Identical
+  behaviour until an account default changes — organisers who want
+  card-only-per-thread set it in the Pricing tab.
+
 ## [0.13.96] — 2026-07-04 — Payments as a true SPoT, payment-type inheritance, auto-accounts (Thread 3.27.0 · Meet 2.3.0)
 
 Sjoerd's diagnosis was correct: the Stripe connection was "a setting in one

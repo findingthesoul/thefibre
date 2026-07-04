@@ -64,5 +64,12 @@ workspaceBillingRoutes.patch('/', async (c) => {
     .select('stripe_account_id, invoice_details')
     .single();
   if (error) return c.json({ error: error.message }, 500);
+  // Keep the legacy fallback column in sync (disconnects must stick).
+  if ('stripe_account_id' in body.data) {
+    await adminClient
+      .from('thread_settings')
+      .update({ stripe_account_id: patch.stripe_account_id })
+      .eq('workspace_id', ctx.workspaceId);
+  }
   return c.json(data);
 });

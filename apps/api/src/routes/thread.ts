@@ -10,6 +10,7 @@ import {
   personalStripeAccount,
   workspaceStripeAccount,
   resolvePaymentMethods,
+  chargeAccountForItem,
 } from '../lib/payment-accounts.js';
 import {
   enrolmentConfirmation,
@@ -2204,11 +2205,15 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
 const ENROLMENT_ACTION_SELECT = `id, thread_id, enrolment_id,
   person:person_id (id, first_name, last_name, email),
   thread:thread_id (id, slug, language, workspace_id, certificate_enabled,
-    organiser:organiser_id (display_name),
+    organiser:organiser_id (display_name, user_id),
     team:team_id (name),
     program:program_id (title, status, starts_on))`;
 
-async function loadEnrolmentForAction(jwt: string, threadEnrolmentId: string) {
+async function loadEnrolmentForAction(
+  jwt: string,
+  threadEnrolmentId: string,
+  actor?: { userId: string; workspaceId: string },
+) {
   const db = userClient(jwt);
   const { data: te } = await db
     .from('thread_enrolment')
@@ -2224,6 +2229,33 @@ async function loadEnrolmentForAction(jwt: string, threadEnrolmentId: string) {
   const program =
     thread && (Array.isArray(thread.program) ? thread.program[0] : thread.program);
   if (!person || !thread || !program) return null;
+
+  // Money/lifecycle authority (review finding #1): workspace visibility is
+  // NOT authority. Only admins, the thread's organiser, or its co-organiser
+  // hosts may act on an enrolment.
+  if (actor) {
+    const { data: wm } = await adminClient
+      .from('workspace_member')
+      .select('workspace_role')
+      .eq('user_id', actor.userId)
+      .eq('workspace_id', actor.workspaceId)
+      .maybeSingle();
+    const isAdmin = wm?.workspace_role === 'admin' || wm?.workspace_role === 'super_admin';
+    const ownerUserId = (organiser as { user_id?: string } | null)?.user_id ?? null;
+    let allowed = isAdmin || ownerUserId === actor.userId;
+    if (!allowed) {
+      const { data: co } = await adminClient
+        .from('thread_thread_organiser')
+        .select('role, organiser:organiser_id (user_id)')
+        .eq('thread_id', thread.id);
+      allowed = (co ?? []).some((row) => {
+        const o = Array.isArray(row.organiser) ? row.organiser[0] : row.organiser;
+        return o?.user_id === actor.userId && row.role === 'host';
+      });
+    }
+    if (!allowed) return 'forbidden' as const;
+  }
+
   return {
     te,
     person,
@@ -2261,8 +2293,14 @@ async function logEnrolmentActivity(
 // confirmation and fires on_enrolment + on_approval messages.
 threadRoutes.post('/enrolments/:id/approve', async (c) => {
   const ctx = c.get('ctx');
-  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'), {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
   if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
   const { te, person, thread, program, organiserName, personName } = loaded;
 
   const { data: enr } = await adminClient
@@ -2327,8 +2365,14 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
 // decline for many reasons; a generic rejection mail does more harm).
 threadRoutes.post('/enrolments/:id/decline', async (c) => {
   const ctx = c.get('ctx');
-  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'), {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
   if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
   const { te, person, thread, program } = loaded;
 
   const { error: upErr } = await adminClient
@@ -2336,6 +2380,29 @@ threadRoutes.post('/enrolments/:id/decline', async (c) => {
     .update({ status: 'dropped' })
     .eq('id', te.enrolment_id);
   if (upErr) return c.json({ error: upErr.message }, 500);
+
+  // A declined participant must not be able to pay through a checkout tab
+  // that is still open (review finding #5) — expire any pending session.
+  const { data: teRow } = await adminClient
+    .from('thread_enrolment')
+    .select('stripe_session_id, payment_status')
+    .eq('id', te.id)
+    .maybeSingle();
+  if (teRow?.stripe_session_id && teRow.payment_status === 'pending') {
+    const stripe = stripeOrNull();
+    if (stripe) {
+      try {
+        const account = await chargeAccountForItem('the-thread', te.id);
+        if (account) {
+          await stripe.checkout.sessions.expire(teRow.stripe_session_id, undefined, {
+            stripeAccount: account,
+          });
+        }
+      } catch {
+        /* already expired/completed — the webhook path handles the rest */
+      }
+    }
+  }
 
   await logEnrolmentActivity(
     thread.workspace_id,
@@ -2351,8 +2418,14 @@ threadRoutes.post('/enrolments/:id/decline', async (c) => {
 // with the certificate stays a separate, explicit action).
 threadRoutes.post('/enrolments/:id/complete', async (c) => {
   const ctx = c.get('ctx');
-  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'), {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
   if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
   const { te, person, thread, program, organiserName, personName } = loaded;
 
   const { data: enr } = await adminClient
@@ -2454,12 +2527,15 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
     .select('status')
     .eq('id', te.enrolment_id)
     .maybeSingle();
-  if (enr?.status === 'invited') {
-    await adminClient
-      .from('enrolment')
-      .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
-      .eq('id', te.enrolment_id);
+  if (enr?.status !== 'invited') {
+    // Already finalized on an earlier run — never re-send the confirmation
+    // (webhook retries, mark-paid after repair; review finding #6/#7).
+    return;
   }
+  await adminClient
+    .from('enrolment')
+    .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+    .eq('id', te.enrolment_id);
 
   if (!person.email || !program) return;
   try {
@@ -2523,16 +2599,45 @@ threadRoutes.post('/stripe-webhook', async (c) => {
         currency?: string | null;
         payment_intent?: string | null;
       };
-      const { data: te } = await adminClient
+      let { data: te } = await adminClient
         .from('thread_enrolment')
         .select('id, thread_id, payment_status, amount_cents, currency, workspace_id')
         .eq('stripe_session_id', session.id)
         .maybeSingle();
       if (!te) {
+        // An older (since-replaced) payment link was paid — the session id on
+        // the row is newer, but the session metadata still knows the row.
+        const metaRef = (event.data.object as { metadata?: { thread_enrolment_id?: string } })
+          .metadata?.thread_enrolment_id;
+        if (metaRef) {
+          const { data: byMeta } = await adminClient
+            .from('thread_enrolment')
+            .select('id, thread_id, payment_status, amount_cents, currency, workspace_id')
+            .eq('id', metaRef)
+            .maybeSingle();
+          te = byMeta ?? null;
+        }
+      }
+      if (!te) {
         console.warn('[thread stripe-webhook] completed for unknown session', session.id);
         return c.json({ received: true });
       }
-      if (te.payment_status === 'paid') return c.json({ received: true, idempotent: true });
+      if (te.payment_status === 'paid') {
+        // Only fully done when the ledger row is paid too — otherwise a
+        // retry is our chance to repair a partial earlier run (finding #7).
+        const { data: app } = await adminClient
+          .from('app')
+          .select('id')
+          .eq('slug', 'the-thread')
+          .single();
+        const { data: pRow } = await adminClient
+          .from('purchase')
+          .select('status')
+          .eq('app_id', app!.id)
+          .eq('item_ref', te.id)
+          .maybeSingle();
+        if (pRow?.status === 'paid') return c.json({ received: true, idempotent: true });
+      }
 
       const gross = session.amount_total ?? te.amount_cents ?? 0;
       const currency = (session.currency ?? te.currency ?? 'eur').toUpperCase();
@@ -2593,17 +2698,20 @@ threadRoutes.post('/stripe-webhook', async (c) => {
         const net = Math.max(0, gross - platformFee);
         const vendorShare = Math.round((net * vendorPct) / 100);
         const orgShare = net - vendorShare;
-        await adminClient.from('thread_payout').insert({
-          workspace_id: te.workspace_id,
-          thread_id: te.thread_id,
-          thread_enrolment_id: te.id,
-          gross_cents: gross,
-          platform_fee_cents: platformFee,
-          vendor_share_cents: vendorShare,
-          org_share_cents: orgShare,
-          currency,
-          status: orgShare > 0 ? 'pending' : 'not_applicable',
-        });
+        await adminClient.from('thread_payout').upsert(
+          {
+            workspace_id: te.workspace_id,
+            thread_id: te.thread_id,
+            thread_enrolment_id: te.id,
+            gross_cents: gross,
+            platform_fee_cents: platformFee,
+            vendor_share_cents: vendorShare,
+            org_share_cents: orgShare,
+            currency,
+            status: orgShare > 0 ? 'pending' : 'not_applicable',
+          },
+          { onConflict: 'thread_enrolment_id' },
+        );
         await recordPurchase({
           appSlug: 'the-thread',
           workspaceId: te.workspace_id,
@@ -2614,6 +2722,7 @@ threadRoutes.post('/stripe-webhook', async (c) => {
           vendorShareCents: vendorShare,
           orgShareCents: orgShare,
           status: 'paid',
+          stripeAccountId: (event as { account?: string }).account ?? null,
           stripePaymentIntent:
             typeof session.payment_intent === 'string' ? session.payment_intent : null,
           stripeInvoiceId: invoiceId,
@@ -2629,13 +2738,36 @@ threadRoutes.post('/stripe-webhook', async (c) => {
 
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object as { id: string };
-      const { data: expired } = await adminClient
+      const { data: pendingRows } = await adminClient
         .from('thread_enrolment')
-        .update({ payment_status: 'failed' })
+        .select('id, workspace_id')
         .eq('stripe_session_id', session.id)
-        .eq('payment_status', 'pending')
-        .select('id, workspace_id');
-      for (const row of expired ?? []) {
+        .eq('payment_status', 'pending');
+      for (const row of pendingRows ?? []) {
+        // Invoice-method sales use sessions only as OPTIONAL payment links —
+        // an expired link never fails the invoice (review finding #4).
+        const { data: app } = await adminClient
+          .from('app')
+          .select('id')
+          .eq('slug', 'the-thread')
+          .single();
+        const { data: pRow } = await adminClient
+          .from('purchase')
+          .select('method')
+          .eq('app_id', app!.id)
+          .eq('item_ref', row.id)
+          .maybeSingle();
+        if (pRow?.method === 'invoice') {
+          await adminClient
+            .from('thread_enrolment')
+            .update({ stripe_session_id: null })
+            .eq('id', row.id);
+          continue;
+        }
+        await adminClient
+          .from('thread_enrolment')
+          .update({ payment_status: 'failed' })
+          .eq('id', row.id);
         await recordPurchase({
           appSlug: 'the-thread',
           workspaceId: row.workspace_id,
@@ -2656,8 +2788,14 @@ threadRoutes.post('/stripe-webhook', async (c) => {
 // the money arrived; the same confirmation side-effects run as for Stripe.
 threadRoutes.post('/enrolments/:id/mark-paid', async (c) => {
   const ctx = c.get('ctx');
-  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'));
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'), {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
   if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
 
   const { data: teRow } = await adminClient
     .from('thread_enrolment')
@@ -2666,6 +2804,9 @@ threadRoutes.post('/enrolments/:id/mark-paid', async (c) => {
     .maybeSingle();
   if (!teRow) return c.json({ error: 'not found' }, 404);
   if (teRow.payment_status === 'paid') return c.json({ ok: true, already: true });
+  if (teRow.payment_status !== 'pending') {
+    return c.json({ error: `a ${teRow.payment_status} payment cannot be marked paid` }, 409);
+  }
 
   const { error: upErr } = await adminClient
     .from('thread_enrolment')
@@ -3495,7 +3636,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       const { count: soldCount } = await adminClient
         .from('thread_enrolment')
         .select('id', { count: 'exact', head: true })
-        .eq('ticket_id', chosen.id);
+        .eq('ticket_id', chosen.id)
+        .neq('payment_status', 'failed');
       if ((soldCount ?? 0) >= chosen.quantity_limit) {
         return c.json({ error: 'this ticket is sold out' }, 409);
       }
@@ -3505,6 +3647,17 @@ threadRoutes.post('/public/enrol', async (c) => {
     priceCurrency = (chosen as { price_currency?: string }).price_currency ?? priceCurrency;
   } else if (openTickets.length) {
     const cheapest = [...openTickets].sort((a, b) => a.price_cents - b.price_cents)[0]!;
+    // Same sold-out enforcement as the explicit-ticket path (finding #11).
+    if (cheapest.quantity_limit) {
+      const { count: soldCount } = await adminClient
+        .from('thread_enrolment')
+        .select('id', { count: 'exact', head: true })
+        .eq('ticket_id', cheapest.id)
+        .neq('payment_status', 'failed');
+      if ((soldCount ?? 0) >= cheapest.quantity_limit) {
+        return c.json({ error: 'this ticket is sold out' }, 409);
+      }
+    }
     ticketId = cheapest.id;
     basePriceCents = cheapest.price_cents;
     priceCurrency = (cheapest as { price_currency?: string }).price_currency ?? priceCurrency;
@@ -3545,7 +3698,8 @@ threadRoutes.post('/public/enrol', async (c) => {
     const { count } = await adminClient
       .from('thread_enrolment')
       .select('id', { count: 'exact', head: true })
-      .eq('thread_id', thread.id);
+      .eq('thread_id', thread.id)
+      .neq('payment_status', 'failed');
     if ((count ?? 0) >= thread.capacity) {
       return c.json({ error: 'this thread is full' }, 409);
     }
@@ -3599,6 +3753,10 @@ threadRoutes.post('/public/enrol', async (c) => {
     person = created;
   }
 
+  // A prior enrolment with an unpaid checkout gets its companion row reused
+  // (set in the duplicate branch below) instead of a new insert.
+  let reusedEnrolment: { id: string } | null = null;
+
   // Platform enrolment (unique per program+person) — reuse if it exists.
   let enrolmentId: string;
   const { data: platEnrolment } = await adminClient
@@ -3612,10 +3770,14 @@ threadRoutes.post('/public/enrol', async (c) => {
     // this is a duplicate signup.
     const { data: dup } = await adminClient
       .from('thread_enrolment')
-      .select('id')
+      .select('id, payment_status')
       .eq('enrolment_id', platEnrolment.id)
       .maybeSingle();
-    if (dup) {
+    if (dup && (dup.payment_status === 'pending' || dup.payment_status === 'failed') && requiresPayment) {
+      // Outstanding payment (bailed checkout, expired session): reuse the
+      // row and run the payment branch again — never a dead end (finding #9).
+      reusedEnrolment = { id: dup.id };
+    } else if (dup) {
       return c.json({
         ok: true,
         enrolment_id: dup.id,
@@ -3645,7 +3807,9 @@ threadRoutes.post('/public/enrol', async (c) => {
     enrolmentId = enr.id;
   }
 
-  const { data: threadEnrolment, error: teErr } = await adminClient
+  const { data: threadEnrolment, error: teErr } = reusedEnrolment
+    ? { data: reusedEnrolment as { id: string }, error: null }
+    : await adminClient
     .from('thread_enrolment')
     .insert({
       workspace_id: thread.workspace_id,
@@ -3669,9 +3833,24 @@ threadRoutes.post('/public/enrol', async (c) => {
     console.error('[thread/public/enrol] thread_enrolment insert failed', teErr);
     return c.json({ error: 'could not enrol you — try again' }, 500);
   }
+  if (reusedEnrolment) {
+    // The retry may carry a different ticket/coupon/billing choice.
+    await adminClient
+      .from('thread_enrolment')
+      .update({
+        ticket_id: ticketId,
+        coupon_id: coupon?.id ?? null,
+        amount_cents: requiresPayment || coupon ? finalPriceCents : null,
+        currency: requiresPayment ? priceCurrency : null,
+        payment_status: requiresPayment ? 'pending' : 'not_required',
+        billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
+      })
+      .eq('id', threadEnrolment.id);
+  }
 
   // Coupon redemption bookkeeping — after the enrolment is committed.
-  if (coupon) {
+  // (Not on reuse — the first attempt already counted it.)
+  if (coupon && !reusedEnrolment) {
     await adminClient
       .from('thread_coupon')
       .update({ used_count: coupon.used_count + 1 })
@@ -3724,8 +3903,26 @@ threadRoutes.post('/public/enrol', async (c) => {
     });
   }
 
+  // Rollback for failed checkout starts: drop the companion row AND release
+  // the coupon use it consumed (review finding #8).
+  async function rollbackPendingEnrolment() {
+    if (!reusedEnrolment) {
+      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment!.id);
+    }
+    if (coupon && !reusedEnrolment) {
+      await adminClient
+        .from('thread_coupon')
+        .update({ used_count: Math.max(0, coupon.used_count) })
+        .eq('id', coupon.id)
+        .gt('used_count', 0);
+      // (used_count was coupon.used_count + 1 after the increment; setting it
+      // back to the pre-increment value releases this use without going
+      // negative under concurrency.)
+    }
+  }
+
   // Ledger row for the Invoices area — one per money event (proposal §2.1).
-  async function recordThreadPurchase(status: 'pending' | 'paid') {
+  async function recordThreadPurchase(status: 'pending' | 'paid', stripeAccountId?: string | null) {
     if (!thread || !threadEnrolment || !person || !program) return;
     const chosenTicket = openTickets.find((t) => t.id === ticketId) as
       | { name?: string }
@@ -3750,6 +3947,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       method: paymentMethod as 'stripe' | 'invoice',
       status,
       billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
+      stripeAccountId: stripeAccountId ?? null,
     });
   }
 
@@ -3770,7 +3968,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   if (requiresPayment) {
     const stripe = stripeOrNull();
     if (!stripe) {
-      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      await rollbackPendingEnrolment();
       return c.json({ error: 'payments are not configured yet' }, 503);
     }
     // Destination account per the payout rule: personal → the organiser's
@@ -3785,7 +3983,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       destAccount = await workspaceStripeAccount(thread.workspace_id);
     }
     if (!destAccount) {
-      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      await rollbackPendingEnrolment();
       return c.json({ error: 'the organiser has not connected payments yet' }, 409);
     }
 
@@ -3851,7 +4049,7 @@ threadRoutes.post('/public/enrol', async (c) => {
         .from('thread_enrolment')
         .update({ stripe_session_id: session.id })
         .eq('id', threadEnrolment.id);
-      await recordThreadPurchase('pending');
+      await recordThreadPurchase('pending', destAccount);
       return c.json(
         {
           ok: true,
@@ -3866,7 +4064,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       console.error('[thread/enrol] checkout session failed', e);
       // Roll the companion row back so a stale pending doesn't block retries;
       // the platform enrolment stays and is reused on the next attempt.
-      await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);
+      await rollbackPendingEnrolment();
       return c.json({ error: 'could not start the payment — try again' }, 502);
     }
   }

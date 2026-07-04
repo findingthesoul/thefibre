@@ -34,6 +34,8 @@ export type PurchaseWrite = {
   stripeInvoiceId?: string | null;
   stripeInvoiceUrl?: string | null;
   billing?: Record<string, unknown> | null;
+  /** The connected account the charge runs on — stored for refunds. */
+  stripeAccountId?: string | null;
 };
 
 export async function recordPurchase(w: PurchaseWrite): Promise<void> {
@@ -66,6 +68,7 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (w.stripeInvoiceId !== undefined) row.stripe_invoice_id = w.stripeInvoiceId;
   if (w.stripeInvoiceUrl !== undefined) row.stripe_invoice_url = w.stripeInvoiceUrl;
   if (w.billing !== undefined) row.billing = w.billing;
+  if (w.stripeAccountId !== undefined) row.stripe_account_id = w.stripeAccountId;
   if (w.status === 'paid') row.paid_at = now;
   if (w.status === 'refunded') row.refunded_at = now;
 
@@ -84,6 +87,17 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
     row.item_label = row.item_label ?? '';
     row.payer_name = row.payer_name ?? '';
     const { error } = await adminClient.from('purchase').insert(row);
-    if (error && error.code !== '23505') console.error('[purchases] insert failed', error);
+    if (error && error.code === '23505') {
+      // Lost an insert race (e.g. webhook vs enrol handler) — re-apply this
+      // write as an update so the later data (paid status, PI) isn't dropped.
+      const { error: retryErr } = await adminClient
+        .from('purchase')
+        .update(row)
+        .eq('app_id', app)
+        .eq('item_ref', w.itemRef);
+      if (retryErr) console.error('[purchases] race-retry update failed', retryErr);
+    } else if (error) {
+      console.error('[purchases] insert failed', error);
+    }
   }
 }

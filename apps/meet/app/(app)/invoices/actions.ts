@@ -37,12 +37,17 @@ export type PurchaseRow = {
   created_at: string;
 };
 
-export type PurchaseTotals = {
+export type CurrencyTotals = {
+  currency: string;
   paid_cents: number;
   pending_cents: number;
   refunded_cents: number;
   fees_cents: number;
+};
+
+export type PurchaseTotals = {
   count: number;
+  currencies: CurrencyTotals[];
 };
 
 export type PurchaseList = {

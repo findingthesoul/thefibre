@@ -238,33 +238,40 @@ export function InvoicesClient({
         </div>
       </div>
 
-      {/* Totals */}
+      {/* Totals — one row per currency, never summed across (review #12). */}
       {data && (
-        <div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
-          <span>
-            <span className="text-ink-muted">Paid</span>{' '}
-            <span className="font-medium tabular-nums">{fmt(data.totals.paid_cents, 'EUR')}</span>
-          </span>
-          <span>
-            <span className="text-ink-muted">Pending</span>{' '}
-            <span className="font-medium tabular-nums">
-              {fmt(data.totals.pending_cents, 'EUR')}
-            </span>
-          </span>
-          <span>
-            <span className="text-ink-muted">Refunded</span>{' '}
-            <span className="font-medium tabular-nums">
-              {fmt(data.totals.refunded_cents, 'EUR')}
-            </span>
-          </span>
-          <span>
-            <span className="text-ink-muted">Platform fees</span>{' '}
-            <span className="font-medium tabular-nums">{fmt(data.totals.fees_cents, 'EUR')}</span>
-          </span>
-          <span className="text-xs text-ink-muted">
+        <div className="mt-4 space-y-1">
+          {data.totals.currencies.map((t) => (
+            <div key={t.currency} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+              {data.totals.currencies.length > 1 && (
+                <span className="text-xs font-medium text-ink-muted w-8">{t.currency}</span>
+              )}
+              <span>
+                <span className="text-ink-muted">Paid</span>{' '}
+                <span className="font-medium tabular-nums">{fmt(t.paid_cents, t.currency)}</span>
+              </span>
+              <span>
+                <span className="text-ink-muted">Pending</span>{' '}
+                <span className="font-medium tabular-nums">
+                  {fmt(t.pending_cents, t.currency)}
+                </span>
+              </span>
+              <span>
+                <span className="text-ink-muted">Refunded</span>{' '}
+                <span className="font-medium tabular-nums">
+                  {fmt(t.refunded_cents, t.currency)}
+                </span>
+              </span>
+              <span>
+                <span className="text-ink-muted">Platform fees</span>{' '}
+                <span className="font-medium tabular-nums">{fmt(t.fees_cents, t.currency)}</span>
+              </span>
+            </div>
+          ))}
+          <div className="text-xs text-ink-muted">
             {data.totals.count} purchase{data.totals.count === 1 ? '' : 's'}
             {data.totals.count >= 2000 ? ' (first 2000)' : ''}
-          </span>
+          </div>
         </div>
       )}
 

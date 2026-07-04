@@ -12,12 +12,12 @@ import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { finalizePaidEnrolment } from './thread.js';
-import { personalStripeAccount, workspaceStripeAccount } from '../lib/payment-accounts.js';
+import { chargeAccountForItem } from '../lib/payment-accounts.js';
 
 export const purchasesRoutes = new Hono();
 
 const PURCHASE_SELECT =
-  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, billing, paid_at, refunded_at, created_at';
+  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, billing, paid_at, refunded_at, created_at';
 
 async function workspaceRole(userId: string, workspaceId: string): Promise<string> {
   const { data } = await adminClient
@@ -88,7 +88,7 @@ purchasesRoutes.get('/', async (c) => {
     // client; capped — beyond that the totals label says "first 2000".
     let totalsQuery = db
       .from('purchase')
-      .select('amount_cents, platform_fee_cents, status')
+      .select('amount_cents, platform_fee_cents, status, currency')
       .limit(2000);
     if (scope === 'me') totalsQuery = totalsQuery.eq('organiser_user_id', ctx.userId);
     if (scope === 'team' && teamId) totalsQuery = totalsQuery.eq('team_id', teamId);
@@ -109,15 +109,27 @@ purchasesRoutes.get('/', async (c) => {
       }
     }
     const { data: totalRows } = await totalsQuery;
-    const totals = { paid_cents: 0, pending_cents: 0, refunded_cents: 0, fees_cents: 0, count: 0 };
+    // Per-currency totals — mixed currencies must never be summed together.
+    const byCurrency = new Map<
+      string,
+      { currency: string; paid_cents: number; pending_cents: number; refunded_cents: number; fees_cents: number }
+    >();
+    let count = 0;
     for (const r of totalRows ?? []) {
-      totals.count += 1;
+      count += 1;
+      const cur = ((r as { currency?: string }).currency ?? 'EUR').toUpperCase();
+      let t = byCurrency.get(cur);
+      if (!t) {
+        t = { currency: cur, paid_cents: 0, pending_cents: 0, refunded_cents: 0, fees_cents: 0 };
+        byCurrency.set(cur, t);
+      }
       if (r.status === 'paid') {
-        totals.paid_cents += r.amount_cents;
-        totals.fees_cents += r.platform_fee_cents;
-      } else if (r.status === 'pending') totals.pending_cents += r.amount_cents;
-      else if (r.status === 'refunded') totals.refunded_cents += r.amount_cents;
+        t.paid_cents += r.amount_cents;
+        t.fees_cents += r.platform_fee_cents;
+      } else if (r.status === 'pending') t.pending_cents += r.amount_cents;
+      else if (r.status === 'refunded') t.refunded_cents += r.amount_cents;
     }
+    const totals = { count, currencies: [...byCurrency.values()] };
 
     return c.json({ items, next_cursor: nextCursor, totals, role });
 });
@@ -276,36 +288,6 @@ purchasesRoutes.post('/:id/resend-invoice', async (c) => {
   return c.json({ ok: true });
 });
 
-// Resolve the connected Stripe account a purchase was charged on — through
-// the payments SPoT (platform value first, app-local fallbacks inside).
-async function chargeAccountFor(appSlug: string, itemRef: string): Promise<string | null> {
-  if (appSlug === 'fibre-meet') {
-    const { data: b } = await adminClient
-      .from('meet_booking')
-      .select('host:host_id (user_id, stripe_account_id)')
-      .eq('id', itemRef)
-      .maybeSingle();
-    const host = b && (Array.isArray(b.host) ? b.host[0] : b.host);
-    if (host?.user_id) return personalStripeAccount(host.user_id);
-    return host?.stripe_account_id ?? null;
-  }
-  const { data: te } = await adminClient
-    .from('thread_enrolment')
-    .select(
-      `workspace_id, thread:thread_id (payment_destination, organiser:organiser_id (user_id))`,
-    )
-    .eq('id', itemRef)
-    .maybeSingle();
-  if (!te) return null;
-  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
-  if (!thread) return null;
-  if (thread.payment_destination === 'personal') {
-    const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
-    return org?.user_id ? personalStripeAccount(org.user_id) : null;
-  }
-  return workspaceStripeAccount(te.workspace_id);
-}
-
 // POST /api/v1/purchases/:id/refund — full refund, platform fee returned.
 purchasesRoutes.post('/:id/refund', async (c) => {
   const ctx = c.get('ctx');
@@ -326,7 +308,11 @@ purchasesRoutes.post('/:id/refund', async (c) => {
     const stripe = stripeOrNull();
     if (!stripe) return c.json({ error: 'payments not configured' }, 503);
     if (!p.stripe_payment_intent) return c.json({ error: 'no payment intent on record' }, 409);
-    const account = await chargeAccountFor(r.appSlug, p.item_ref);
+    // The account the charge actually landed on (stored at record time);
+    // today's settings only as fallback for pre-migration rows.
+    const account =
+      (r.purchase as { stripe_account_id?: string | null }).stripe_account_id ??
+      (await chargeAccountForItem(r.appSlug, p.item_ref));
     if (!account) return c.json({ error: 'connected Stripe account not found' }, 409);
     try {
       await stripe.refunds.create(
@@ -389,7 +375,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const stripe = stripeOrNull();
   if (!stripe) return c.json({ error: 'payments not configured' }, 503);
 
-  const account = await chargeAccountFor(r.appSlug, p.item_ref);
+  const account = await chargeAccountForItem(r.appSlug, p.item_ref);
   if (!account) return c.json({ error: 'connected Stripe account not found' }, 409);
 
   // Same plan-aware fee rule as checkout.
@@ -424,6 +410,23 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const threadUrl = process.env.THREAD_APP_URL ?? 'https://thread.thefibre.app';
   const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
 
+  // A resend must kill the previous session — the old link would stay
+  // payable while the webhook only knows the newest session id.
+  const { data: prevTe } = await adminClient
+    .from('thread_enrolment')
+    .select('stripe_session_id')
+    .eq('id', p.item_ref)
+    .maybeSingle();
+  if (prevTe?.stripe_session_id) {
+    try {
+      await stripe.checkout.sessions.expire(prevTe.stripe_session_id, undefined, {
+        stripeAccount: account,
+      });
+    } catch {
+      /* already expired or completed — fine */
+    }
+  }
+
   try {
     const session = await stripe.checkout.sessions.create(
       {
@@ -456,6 +459,10 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       .from('thread_enrolment')
       .update({ stripe_session_id: session.id })
       .eq('id', p.item_ref);
+    await adminClient
+      .from('purchase')
+      .update({ stripe_account_id: account })
+      .eq('id', p.id);
     const seller = await sellerDetailsFor(
       ctx.workspaceId,
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
@@ -486,6 +493,9 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
   if ('error' in r) return c.json({ error: r.error }, r.code as 404);
   const p = r.purchase as { id: string; item_ref: string; method: string; status: string };
   if (p.status === 'paid') return c.json({ ok: true, already: true });
+  if (p.status !== 'pending') {
+    return c.json({ error: `a ${p.status} purchase cannot be marked paid` }, 409);
+  }
   if (p.method !== 'invoice') {
     return c.json({ error: 'only invoice-method purchases can be marked paid by hand' }, 409);
   }

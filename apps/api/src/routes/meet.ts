@@ -650,6 +650,7 @@ meetRoutes.post('/public/bookings', async (c) => {
         currency: (mt.price_currency ?? 'EUR').toUpperCase(),
         method: 'stripe',
         status: 'pending',
+        stripeAccountId: hostAccount,
       });
       return c.json({
         booking,
@@ -2455,6 +2456,19 @@ meetRoutes.post('/stripe-webhook', async (c) => {
       .from('meet_booking')
       .update({ status: 'cancelled', payment_status: 'failed' })
       .eq('id', booking.id);
+    const { data: bWs } = await adminClient
+      .from('meet_booking')
+      .select('workspace_id')
+      .eq('id', booking.id)
+      .maybeSingle();
+    if (bWs) {
+      await recordPurchase({
+        appSlug: 'fibre-meet',
+        workspaceId: bWs.workspace_id,
+        itemRef: booking.id,
+        status: 'failed',
+      });
+    }
     console.log('[meet stripe-webhook] booking abandoned', { id: booking.id, reason });
   }
 
@@ -2476,7 +2490,18 @@ meetRoutes.post('/stripe-webhook', async (c) => {
         return c.json({ received: true });
       }
       if (booking.payment_status === 'paid') {
-        return c.json({ received: true, idempotent: true });
+        const { data: app } = await adminClient
+          .from('app')
+          .select('id')
+          .eq('slug', 'fibre-meet')
+          .single();
+        const { data: pRow } = await adminClient
+          .from('purchase')
+          .select('status')
+          .eq('app_id', app!.id)
+          .eq('item_ref', booking.id)
+          .maybeSingle();
+        if (pRow?.status === 'paid') return c.json({ received: true, idempotent: true });
       }
 
       // Resolve the hosted invoice URL if Stripe auto-created one.
@@ -2530,6 +2555,7 @@ meetRoutes.post('/stripe-webhook', async (c) => {
             workspaceId: bFull.workspace_id,
             itemRef: booking.id,
             status: 'paid',
+            stripeAccountId: (event as { account?: string }).account ?? null,
             stripePaymentIntent:
               typeof session.payment_intent === 'string' ? session.payment_intent : null,
             stripeInvoiceId,
