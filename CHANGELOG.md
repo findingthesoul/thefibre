@@ -6,6 +6,13 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.104] — 2026-07-04 — Meet 2.3.3: full-day time picker in Meet and Fibre web too
+
+### Fixed
+- The 00:00–23:45 time-picker range (3.30.3) had only reached The Thread's
+  copy of the date-field component — Meet's and Fibre web's copies still
+  stopped at 22:00. All three now cover the whole day.
+
 ## [0.13.103] — 2026-07-04 — Thread 3.30.3: publish pill on engagements, complete billing address, full-day time picker
 
 ### Added
