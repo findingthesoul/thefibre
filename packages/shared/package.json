@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.13.104",
+  "version": "0.13.105",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ui/date-field": {
+      "types": "./dist/ui/date-field.d.ts",
+      "default": "./dist/ui/date-field.js"
     }
   },
   "files": [
@@ -18,7 +22,14 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc --noEmit"
   },
+  "peerDependencies": {
+    "lucide-react": ">=0.400.0",
+    "react": "^19.0.0"
+  },
   "devDependencies": {
+    "@types/react": "^19.0.0",
+    "lucide-react": "^0.460.0",
+    "react": "^19.0.0",
     "typescript": "^5.6.0"
   }
 }

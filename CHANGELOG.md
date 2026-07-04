@@ -6,6 +6,16 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.105] — 2026-07-04 — One date-field component for all apps
+
+### Changed
+- **`DateField`/`DateTimeField` moved to `@thefibre/shared`** (`src/ui/
+  date-field.tsx`) — the per-app copies in Thread, Meet and Fibre web had
+  drifted (the 22:00 time cap was fixed in one but not the others). The
+  app-local files are now one-line re-exports, so existing imports keep
+  working; the shared package gained JSX/DOM compilation and a
+  `./ui/date-field` subpath export. Edit the shared copy from now on.
+
 ## [0.13.104] — 2026-07-04 — Meet 2.3.3: full-day time picker in Meet and Fibre web too
 
 ### Fixed
