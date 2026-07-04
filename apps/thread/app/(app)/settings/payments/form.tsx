@@ -1,8 +1,8 @@
 'use client';
 
-// Two levels, two small forms — the Stripe Connect account (Meet's
-// paste-flow) AND the invoice issuer identity (legal name, address,
-// tax/VAT no.) that receipts and invoices show as the seller.
+// Two levels, one SPoT — the Stripe Connect account, the invoice issuer
+// identity (legal name / address / tax no.) and, at personal level, the
+// DEFAULT payment options that threads and tickets inherit.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -20,12 +20,14 @@ const INPUT =
 export function PaymentsForm({
   personalAccount,
   personalDetails,
+  personalMethods,
   workspaceAccount,
   workspaceDetails,
   isAdmin,
 }: {
   personalAccount: string | null;
   personalDetails: InvoiceDetails | null;
+  personalMethods: ('stripe' | 'invoice')[] | null;
   workspaceAccount: string | null;
   workspaceDetails: InvoiceDetails | null;
   isAdmin: boolean;
@@ -34,23 +36,27 @@ export function PaymentsForm({
     <div className="mt-8 space-y-10">
       <AccountSection
         label="My account"
-        description="Payouts for your personal threads and meeting types. Shared with Fibre Meet — connect once, both apps use it. The invoice details appear as the seller on receipts for your personal sales."
+        description="Payouts for your personal threads and meeting types — one connection, every Fibre app uses it. The invoice details appear as the seller on receipts for your personal sales."
         initialAccount={personalAccount}
         initialDetails={personalDetails}
-        save={updateMyPayments}
+        initialMethods={personalMethods}
+        showMethods
+        save={(acct, details, methods) => updateMyPayments(acct, details, methods)}
       />
       <AccountSection
         label="Workspace account"
         description="Payouts for team threads and anything routed to the workspace. Teams don't hold their own accounts — team sales land here, with these invoice details as the seller."
         initialAccount={workspaceAccount}
         initialDetails={workspaceDetails}
-        save={updateWorkspacePayments}
+        initialMethods={null}
+        save={(acct, details) => updateWorkspacePayments(acct, details)}
         disabled={!isAdmin}
         disabledNote="Managed by workspace admins."
       />
       <p className="text-xs text-ink-muted max-w-xl leading-relaxed">
         The Stripe account id starts with <code className="font-mono">acct_</code> (Stripe →
-        Settings → Account details). Leaving it empty disconnects that account.
+        Settings → Account details). Leaving it empty disconnects. Payment options inherit
+        downward: account default → thread → ticket, each level can override.
       </p>
     </div>
   );
@@ -61,6 +67,8 @@ function AccountSection({
   description,
   initialAccount,
   initialDetails,
+  initialMethods,
+  showMethods = false,
   save,
   disabled = false,
   disabledNote,
@@ -69,9 +77,12 @@ function AccountSection({
   description: string;
   initialAccount: string | null;
   initialDetails: InvoiceDetails | null;
+  initialMethods: ('stripe' | 'invoice')[] | null;
+  showMethods?: boolean;
   save: (
     accountId: string | null,
     details: InvoiceDetails | null,
+    methods: ('stripe' | 'invoice')[] | null,
   ) => Promise<{ ok: true } | { ok: false; error: string }>;
   disabled?: boolean;
   disabledNote?: string;
@@ -81,6 +92,8 @@ function AccountSection({
   const [legalName, setLegalName] = useState(initialDetails?.legal_name ?? '');
   const [address, setAddress] = useState(initialDetails?.address ?? '');
   const [taxNo, setTaxNo] = useState(initialDetails?.tax_no ?? '');
+  const [stripeOn, setStripeOn] = useState(initialMethods ? initialMethods.includes('stripe') : true);
+  const [invoiceOn, setInvoiceOn] = useState(initialMethods ? initialMethods.includes('invoice') : false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -94,12 +107,24 @@ function AccountSection({
       setError('A Stripe account id starts with acct_');
       return;
     }
+    if (showMethods && !stripeOn && !invoiceOn) {
+      setError('Keep at least one payment option on.');
+      return;
+    }
     const details: InvoiceDetails = {};
     if (legalName.trim()) details.legal_name = legalName.trim();
     if (address.trim()) details.address = address.trim();
     if (taxNo.trim()) details.tax_no = taxNo.trim();
+    const methods: ('stripe' | 'invoice')[] = [
+      ...(stripeOn ? (['stripe'] as const) : []),
+      ...(invoiceOn ? (['invoice'] as const) : []),
+    ];
     startTransition(async () => {
-      const r = await save(acct || null, Object.keys(details).length ? details : null);
+      const r = await save(
+        acct || null,
+        Object.keys(details).length ? details : null,
+        showMethods ? methods : null,
+      );
       if (!r.ok) return setError(r.error);
       setSaved(true);
       router.refresh();
@@ -165,6 +190,33 @@ function AccountSection({
               className={`${INPUT} max-w-none`}
             />
           </label>
+
+          {showMethods && (
+            <div>
+              <span className="text-xs text-ink-subtle">
+                Default payment options — threads and tickets inherit these
+              </span>
+              <div className="mt-1.5 flex items-center gap-5">
+                <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={stripeOn}
+                    onChange={(e) => setStripeOn(e.target.checked)}
+                  />
+                  Pay online (card)
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={invoiceOn}
+                    onChange={(e) => setInvoiceOn(e.target.checked)}
+                  />
+                  Pay per invoice
+                </label>
+              </div>
+            </div>
+          )}
+
           {error && <p className="text-xs text-red-700">{error}</p>}
           <div className="flex items-center gap-3">
             <Button type="submit" size="sm" disabled={pending}>

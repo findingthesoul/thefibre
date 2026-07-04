@@ -46,6 +46,10 @@ export function TicketDialog({
 }) {
   const isNew = !ticket;
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Payment options: null = inherit (thread → account default).
+  const [pmCustom, setPmCustom] = useState<boolean>(!!ticket?.payment_methods?.length);
+  const [pmStripe, setPmStripe] = useState(ticket?.payment_methods?.includes('stripe') ?? true);
+  const [pmInvoice, setPmInvoice] = useState(ticket?.payment_methods?.includes('invoice') ?? false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -77,7 +81,16 @@ export function TicketDialog({
       quantity_limit: limit ? Number(limit) : null,
       available_until: fromLocalInput(String(fd.get('available_until') ?? '')),
       is_active: fd.get('is_active') === 'on',
+      payment_methods: pmCustom
+        ? ([
+            ...(pmStripe ? (['stripe'] as const) : []),
+            ...(pmInvoice ? (['invoice'] as const) : []),
+          ] as ('stripe' | 'invoice')[])
+        : null,
     };
+    if (pmCustom && payload.payment_methods && payload.payment_methods.length === 0) {
+      return setError('Keep at least one payment option on, or switch back to inherit.');
+    }
 
     startTransition(async () => {
       const r = isNew
@@ -167,6 +180,32 @@ export function TicketDialog({
           defaultValue={toLocalInput(ticket?.available_until ?? null)}
           hint="Leave empty to keep it available."
         />
+        <div>
+          <span className="text-xs text-ink-subtle">Payment options</span>
+          <div className="mt-1.5 flex flex-wrap items-center gap-4">
+            <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+              <input type="radio" name="pm-mode-ticket" checked={!pmCustom} onChange={() => setPmCustom(false)} />
+              Inherit
+            </label>
+            <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+              <input type="radio" name="pm-mode-ticket" checked={pmCustom} onChange={() => setPmCustom(true)} />
+              Custom for this ticket
+            </label>
+            {pmCustom && (
+              <span className="inline-flex items-center gap-4">
+                <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
+                  <input type="checkbox" checked={pmStripe} onChange={(e) => setPmStripe(e.target.checked)} />
+                  Pay online
+                </label>
+                <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
+                  <input type="checkbox" checked={pmInvoice} onChange={(e) => setPmInvoice(e.target.checked)} />
+                  Pay per invoice
+                </label>
+              </span>
+            )}
+          </div>
+        </div>
+
         <label className="flex items-center gap-2.5 pt-1">
           <input type="checkbox" name="is_active" defaultChecked={ticket?.is_active ?? true} />
           <span className="text-sm text-ink-subtle">Active — shown at enrolment</span>

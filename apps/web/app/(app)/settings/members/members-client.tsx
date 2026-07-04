@@ -13,7 +13,7 @@ export type Member = {
   user_id: string;
   full_name: string | null;
   email: string;
-  workspace_role: 'admin' | 'member';
+  workspace_role: 'super_admin' | 'admin' | 'organiser';
   relationship_type: 'internal' | 'external';
   joined_at: string;
   apps: { slug: string; role: string }[];
@@ -74,7 +74,7 @@ function MemberRow({ member, appSlugs }: { member: Member; appSlugs: AppSlug[] }
     });
   }
 
-  function onRole(next: 'admin' | 'member') {
+  function onRole(next: 'super_admin' | 'admin' | 'organiser') {
     const prev = role;
     setRole(next);
     patch({ workspace_role: next }, () => setRole(prev));
@@ -120,10 +120,11 @@ function MemberRow({ member, appSlugs }: { member: Member; appSlugs: AppSlug[] }
             className={`mt-1 ${SELECT_CLASS}`}
             value={role}
             disabled={pending}
-            onChange={(e) => onRole(e.target.value as 'admin' | 'member')}
+            onChange={(e) => onRole(e.target.value as 'super_admin' | 'admin' | 'organiser')}
           >
+            <option value="super_admin">Super Admin</option>
             <option value="admin">Admin</option>
-            <option value="member">Member</option>
+            <option value="organiser">Organiser (default)</option>
           </select>
         </label>
 

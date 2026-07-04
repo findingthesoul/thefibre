@@ -12,6 +12,7 @@ import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { finalizePaidEnrolment } from './thread.js';
+import { personalStripeAccount, workspaceStripeAccount } from '../lib/payment-accounts.js';
 
 export const purchasesRoutes = new Hono();
 
@@ -275,21 +276,23 @@ purchasesRoutes.post('/:id/resend-invoice', async (c) => {
   return c.json({ ok: true });
 });
 
-// Resolve the connected Stripe account a purchase was charged on.
+// Resolve the connected Stripe account a purchase was charged on — through
+// the payments SPoT (platform value first, app-local fallbacks inside).
 async function chargeAccountFor(appSlug: string, itemRef: string): Promise<string | null> {
   if (appSlug === 'fibre-meet') {
     const { data: b } = await adminClient
       .from('meet_booking')
-      .select('host:host_id (stripe_account_id)')
+      .select('host:host_id (user_id, stripe_account_id)')
       .eq('id', itemRef)
       .maybeSingle();
     const host = b && (Array.isArray(b.host) ? b.host[0] : b.host);
+    if (host?.user_id) return personalStripeAccount(host.user_id);
     return host?.stripe_account_id ?? null;
   }
   const { data: te } = await adminClient
     .from('thread_enrolment')
     .select(
-      `workspace_id, thread:thread_id (payment_destination, organiser:organiser_id (stripe_account_id, user_id))`,
+      `workspace_id, thread:thread_id (payment_destination, organiser:organiser_id (user_id))`,
     )
     .eq('id', itemRef)
     .maybeSingle();
@@ -298,23 +301,9 @@ async function chargeAccountFor(appSlug: string, itemRef: string): Promise<strin
   if (!thread) return null;
   if (thread.payment_destination === 'personal') {
     const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
-    if (org?.stripe_account_id) return org.stripe_account_id;
-    if (org?.user_id) {
-      const { data: mh } = await adminClient
-        .from('meet_host')
-        .select('stripe_account_id')
-        .eq('user_id', org.user_id)
-        .maybeSingle();
-      return mh?.stripe_account_id ?? null;
-    }
-    return null;
+    return org?.user_id ? personalStripeAccount(org.user_id) : null;
   }
-  const { data: ws } = await adminClient
-    .from('thread_settings')
-    .select('stripe_account_id')
-    .eq('workspace_id', te.workspace_id)
-    .maybeSingle();
-  return ws?.stripe_account_id ?? null;
+  return workspaceStripeAccount(te.workspace_id);
 }
 
 // POST /api/v1/purchases/:id/refund — full refund, platform fee returned.

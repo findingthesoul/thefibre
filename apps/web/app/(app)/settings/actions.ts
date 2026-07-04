@@ -50,7 +50,7 @@ export async function updateMe(
 // ---------------------------------------------------------------------------
 
 export type MemberPatch = {
-  workspace_role?: 'admin' | 'member' | undefined;
+  workspace_role?: 'super_admin' | 'admin' | 'organiser' | undefined;
   relationship_type?: 'internal' | 'external' | undefined;
   /** REPLACES the member's app-grant set. */
   apps?: string[] | undefined;
@@ -75,7 +75,7 @@ export async function updateMember(
 export type InviteInput = {
   email: string;
   name?: string | undefined;
-  workspace_role?: 'admin' | 'member' | undefined;
+  workspace_role?: 'super_admin' | 'admin' | 'organiser' | undefined;
   relationship_type?: 'internal' | 'external' | undefined;
   apps: string[];
 };

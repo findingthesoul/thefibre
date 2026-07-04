@@ -26,6 +26,7 @@ import {
 import { sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { personalStripeAccount } from '../lib/payment-accounts.js';
 import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
@@ -526,7 +527,11 @@ meetRoutes.post('/public/bookings', async (c) => {
       .select('stripe_account_id, slug, user_id')
       .eq('id', mt.host_id)
       .single();
-    if (!ownerHost?.stripe_account_id) {
+    // Payments SPoT: platform value first, the meet_host column as fallback.
+    const hostAccount = ownerHost?.user_id
+      ? await personalStripeAccount(ownerHost.user_id)
+      : ownerHost?.stripe_account_id ?? null;
+    if (!ownerHost || !hostAccount) {
       // Bookings UI should have prevented this — defence in depth.
       return c.json(
         { error: 'host has not connected Stripe', code: 'host_stripe_unconnected' },
@@ -624,7 +629,7 @@ meetRoutes.post('/public/bookings', async (c) => {
           success_url: successUrl,
           cancel_url: cancelUrl,
         },
-        { stripeAccount: ownerHost.stripe_account_id },
+        { stripeAccount: hostAccount },
       );
       // Stash the session id so the webhook can find this booking.
       await adminClient

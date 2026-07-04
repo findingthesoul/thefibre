@@ -163,7 +163,18 @@ on `purchase` can gate without an extra join.
 4. **P4 — Members UI update:** role picker with the four-tier vocabulary
    (Facilitator shown as per-thread badge, not a workspace role).
 
-## 5 · Decisions needed from Sjoerd
+## 5 · Decisions — RESOLVED 2026-07-04
+
+All four accepted as recommended and shipped (v0.13.93 → 0.13.95+):
+**D1** ledger amendment ✓ · **D2** facilitator per-object, no money ✓ ·
+**D3** refunds return the platform fee ✓ · **D4** Invoices in both app
+sidebars ✓. Additions since: receipt-styled emails with seller identity
+(user_profile/workspace.invoice_details), invoice payment links,
+billing fields on enrol (incl. tax no.), payment-method inheritance
+account → thread → ticket, payments settings as a true platform SPoT
+(user_profile + workspace columns; app-local columns are read fallbacks).
+
+Original questions for the record:
 
 - **D1** Amend the brief to allow the platform purchase ledger? (§3.1 —
   recommended: yes)

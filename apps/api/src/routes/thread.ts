@@ -7,6 +7,11 @@ import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import {
+  personalStripeAccount,
+  workspaceStripeAccount,
+  resolvePaymentMethods,
+} from '../lib/payment-accounts.js';
+import {
   enrolmentConfirmation,
   enrolmentPending,
   engagementMessage,
@@ -1823,6 +1828,8 @@ const TicketBody = z.object({
   quantity_limit: z.number().int().positive().nullable().optional(),
   available_until: z.string().datetime({ offset: true }).nullable().optional(),
   is_active: z.boolean().optional(),
+  // Null = inherit thread-level (which may inherit the account default).
+  payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
 });
 
 threadRoutes.get('/threads/:id/tickets', async (c) => {
@@ -3009,10 +3016,21 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   // flags so the form can grey them out (multiple prices → ticket chooser).
   const { data: ticketRows } = await adminClient
     .from('thread_ticket')
-    .select('id, name, description, price_cents, price_currency, quantity_limit, available_until')
+    .select(
+      'id, name, description, price_cents, price_currency, quantity_limit, available_until, payment_methods',
+    )
     .eq('thread_id', thread.id)
     .eq('is_active', true)
     .order('position');
+  const { data: pubOrg } = await adminClient
+    .from('thread_organiser')
+    .select('user_id')
+    .eq('id', thread.organiser_id)
+    .maybeSingle();
+  const threadMethods = await resolvePaymentMethods({
+    threadMethods: (thread as { payment_methods?: string[] | null }).payment_methods ?? null,
+    organiserUserId: pubOrg?.user_id ?? null,
+  });
   const nowMs = Date.now();
   const openTix = (ticketRows ?? []).filter(
     (t) => !t.available_until || new Date(t.available_until).getTime() >= nowMs,
@@ -3034,6 +3052,11 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     description: t.description,
     price_cents: t.price_cents,
     price_currency: t.price_currency,
+    // Inheritance resolved server-side: ticket ?? thread(+account default).
+    payment_methods:
+      ((t as { payment_methods?: string[] | null }).payment_methods?.length
+        ? (t as { payment_methods: string[] }).payment_methods
+        : threadMethods),
     sold_out: !!t.quantity_limit && (soldPerTicket.get(t.id) ?? 0) >= t.quantity_limit,
   }));
 
@@ -3042,6 +3065,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     thread: {
       ...thread,
       ...effectivePrice(thread, prices),
+      payment_methods: threadMethods,
       tickets,
       agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
         ...rest,
@@ -3454,7 +3478,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   let ticketId: string | null = null;
   const { data: activeTickets } = await adminClient
     .from('thread_ticket')
-    .select('id, name, price_cents, price_currency, quantity_limit, available_until')
+    .select('id, name, price_cents, price_currency, quantity_limit, available_until, payment_methods')
     .eq('thread_id', thread.id)
     .eq('is_active', true)
     .order('position');
@@ -3497,7 +3521,20 @@ threadRoutes.post('/public/enrol', async (c) => {
   }
   const finalPriceCents = coupon ? couponPrice(coupon, basePriceCents) : basePriceCents;
   const requiresPayment = finalPriceCents > 0;
-  const paymentMethods = (thread.payment_methods as string[] | null) ?? ['stripe'];
+  // Inheritance: ticket ?? thread ?? organiser's account default ?? {stripe}.
+  const { data: enrolOrg } = await adminClient
+    .from('thread_organiser')
+    .select('user_id')
+    .eq('id', thread.organiser_id)
+    .maybeSingle();
+  const chosenForMethods = openTickets.find((t) => t.id === ticketId) as
+    | { payment_methods?: string[] | null }
+    | undefined;
+  const paymentMethods = await resolvePaymentMethods({
+    ticketMethods: chosenForMethods?.payment_methods ?? null,
+    threadMethods: thread.payment_methods as string[] | null,
+    organiserUserId: enrolOrg?.user_id ?? null,
+  });
   const paymentMethod = d.payment_method ?? 'stripe';
   if (requiresPayment && !paymentMethods.includes(paymentMethod)) {
     return c.json({ error: 'this payment method is not available for this thread' }, 409);
@@ -3520,7 +3557,18 @@ threadRoutes.post('/public/enrol', async (c) => {
   // One Fibre account covers everything (Thread, Meet, …). Existing account
   // → the form says "sign in"; none → "create your account" (created on
   // first sign-in with this email — no separate signup step).
-  const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+  let { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+  if (hasAccount !== true) {
+    try {
+      const { error: createErr } = await adminClient.auth.admin.createUser({
+        email,
+        email_confirm: true,
+      });
+      if (!createErr) hasAccount = true;
+    } catch (e) {
+      console.warn('[thread/public/enrol] account auto-create failed', e);
+    }
+  }
   let { data: person } = await adminClient
     .from('person')
     .select('id, first_name')
@@ -3728,29 +3776,13 @@ threadRoutes.post('/public/enrol', async (c) => {
     // Destination account per the payout rule: personal → the organiser's
     // connected account (Meet's as fallback — one Stripe per person across
     // Fibre); workspace → thread_settings.
+    // SPoT resolution (lib/payment-accounts): platform value first, old
+    // app-local columns as fallback.
     let destAccount: string | null = null;
     if (thread.payment_destination === 'personal') {
-      const { data: org } = await adminClient
-        .from('thread_organiser')
-        .select('stripe_account_id, user_id')
-        .eq('id', thread.organiser_id)
-        .maybeSingle();
-      destAccount = org?.stripe_account_id ?? null;
-      if (!destAccount && org?.user_id) {
-        const { data: mh } = await adminClient
-          .from('meet_host')
-          .select('stripe_account_id')
-          .eq('user_id', org.user_id)
-          .maybeSingle();
-        destAccount = mh?.stripe_account_id ?? null;
-      }
+      destAccount = enrolOrg?.user_id ? await personalStripeAccount(enrolOrg.user_id) : null;
     } else {
-      const { data: ws } = await adminClient
-        .from('thread_settings')
-        .select('stripe_account_id')
-        .eq('workspace_id', thread.workspace_id)
-        .maybeSingle();
-      destAccount = ws?.stripe_account_id ?? null;
+      destAccount = await workspaceStripeAccount(thread.workspace_id);
     }
     if (!destAccount) {
       await adminClient.from('thread_enrolment').delete().eq('id', threadEnrolment.id);

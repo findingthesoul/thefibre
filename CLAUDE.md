@@ -83,142 +83,80 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-05-17 (v0.13.11 · Meet 2.1.3)
+## Where we left off — 2026-07-04 (v0.13.95+ · Thread 3.26.x · Meet 2.2.x · Flow 1.10.0)
 
-Long sprint day. Three major slices landed since v0.10.0:
+**The Thread rebuild is COMPLETE** (2026-07-01 → 07-03, ~30 releases) and the
+**Invoices + roles + payments-SPoT slice** landed right after. Everything
+below is live (Vercel ×4 + Fly API + migrations applied).
 
-1. **Intake forms end-to-end** (v0.13.0) — editor + renderer + storage,
-   answers attached to bookings.
-2. **Paid bookings via Stripe Connect** (v0.13.1 → v0.13.7) — Connect
-   onboarding (paste-flow), price on MT, Stripe Checkout for invitees,
-   webhook completes deferred side-effects, 2% platform skim capped at
-   €2 per booking (waived later by workspace plan). Branded booking
-   emails. Several bug fixes around save flow (radio without `value`,
-   revalidatePath cache, settings UX).
-3. **Contact profile becomes truthful** (v0.13.8 → v0.13.11) — Meet's
-   contact tab now shows only fields Meet justifies (`person_meet_profile`,
-   not the change-facilitation set, which belongs to a future Fibre
-   Change app). Profile gains Org memberships + Workspace access
-   sections. App-access list filters by `workspace_app.deactivated_at`
-   so dormant memberships don't render. Same fix applied to
-   `/api/v1/auth/me` so the sidebar app switcher matches Settings → Apps.
+### The Thread (thread.thefibre.app) — full feature set
+Timeline editor (v3 style, no tabs), 8 engagement types, triggers
+(fixed/relative/on_enrolment/on_approval/on_completion — ALL of them fire:
+the in-API **message scheduler** runs every 5 min, dedup via
+thread_message_send, 72h lookback), public pages + i18n ×5 (typed catalog,
+missing translation = type error), tickets + discount codes (validated
+server-side, public "Discount code?" reveal), **Stripe Checkout** (plan-aware
+fee, auto legal invoice, embed-safe redirect) + **invoice method** (billing
+fields incl. tax no., mark-paid, send-payment-link), approval + completion
+flows (auto-issues certificates), certificates (builder, issuance, bulk
+select→issue/print/email, LinkedIn add-to-profile, archive-if-in-use,
+reissue keeps number+date), thread templates (full duplicates, editable
+content, New-thread hover menu), /my portal (Google + 8-digit code, activity
+trail, consent-gated cohort), Webflow embeds (list/thread/enrol-popup,
+data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
+<style>-inside-the-div lift, code generator in Settings → Website embeds).
 
-Meet now has its own user-facing version (`v2.x` in the sidebar),
-decoupled from monorepo cadence — it's the rebuild of Suite v1.
+### Platform: invoices, roles, payments SPoT (v0.13.93-95+)
+- **purchase ledger** — 2nd sanctioned data-wall crossing (after activity).
+  Meet + Thread write at money events; backfilled. docs/invoices-and-roles-proposal.md
+  (all 4 decisions accepted as recommended).
+- **Roles**: workspace_role ∈ super_admin | admin | organiser (facilitator
+  stays PER-THREAD). RLS helpers widened; current_workspace_role() exists.
+  Members UI still shows old labels (open task).
+- **Invoices page** in Thread + Meet sidebars: scope Me/Team/Workspace
+  (workspace = admin+), app filter chips, search, totals, detail dialog with
+  Reimburse (full, fee returned) / Mark paid / Send payment link / Resend
+  invoice (receipt-styled emails w/ seller block).
+- **Payments SPoT**: user_profile.{stripe_account_id, invoice_details,
+  default_payment_methods} + workspace.{stripe_account_id, invoice_details}.
+  ALL readers go through apps/api/src/lib/payment-accounts.ts (platform value
+  first, old app-local columns as read fallback). Settings → Payments in
+  Thread AND Meet write the platform endpoints (/api/v1/profile,
+  /api/v1/workspace-billing). Old columns (meet_host/thread_organiser/
+  thread_settings .stripe_account_id) are FALLBACKS — never write them again.
+- **Payment-method inheritance**: account default → thread → ticket (null =
+  inherit at each level); resolved server-side incl. the public payload.
+- **Accounts auto-create at enrolment** (email-only; OTP/Google verify at
+  sign-in) — the enrol form says "Sign in to your personal page".
 
-### Docs to read first
-- `CHANGELOG.md` — v0.11 onwards is dense; v0.13.x is today.
-- `docs/billing/` — platform billing roadmap + Stripe setup walkthrough
-  (Sjoerd onboarded Stripe today).
-- `docs/meet-architecture.md` / `meet-api.md` / `meet-data-model.md`.
-- `docs/permission-tiers-proposal.md` (v0.9.0 decisions resolved).
-- `docs/deploy.md` — note: `NEXT_PUBLIC_COOKIE_DOMAIN` must be set on
-  *every* Vercel project (e5e68ab clarified this — a missing env on
-  one app silently breaks cross-subdomain SSO).
+### ⚠️ Outstanding for Sjoerd (not code)
+1. **Register the Thread Stripe webhook**: endpoint
+   `https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`
+   (checkout.session.completed + .expired) and
+   `fly secrets set STRIPE_THREAD_WEBHOOK_SECRET=whsec_…`.
+   Until then paid checkouts never confirm.
+2. Test purchase end-to-end (invoice path works without the webhook).
+3. Add himself as org member on Solidarity Lab B.V.
 
-### Recent commits to anchor on
+### Open queue (docs/build-plan.md is the SPoT)
+- Members UI role vocabulary (API accepts super_admin/admin/organiser).
+- €0-with-code enrolments in the ledger? (decision pending)
+- Org-share money transfers (thread_payout ledger exists; transfers deferred)
+- Certificate email i18n (EN-only), Stripe customer_tax_ids alignment
+- Platform queue: Fibre Change app, Article 15 export, Meet event-type stubs,
+  billing next phases, role-gating other surfaces (proposal §3.8)
 
-```
-d861cc0  v0.13.11 — dormant-membership fix on /api/v1/auth/me (sidebar/settings match)
-438012e  v0.13.10 — fix: profile listed dormant app_memberships
-d598a64  v0.13.9  — contact profile shows org + workspace + app memberships
-870c151  v0.13.8  (Meet 2.1.3) — Meet contact tab uses person_meet_profile, not change-facilitation
-bb1930a  v0.13.7  (Meet 2.1.2) — fix paid MT reverting to Free on save (radio value=)
-968e7ec  v0.13.6  (Meet 2.1.1) — Payments save silently cached fix; settings 2-col grid
-7ddb26e  v0.13.5  — Meet Phase 3: Stripe Checkout for paid bookings
-6314c37  v0.13.1  — Phase 2: Stripe Connect (paste flow) + price on MT
-9787509  v0.13.0  — Intake forms end-to-end; pricing/payments roadmap
-fd14e13  v0.13.4  — branded booking emails; stop Google's duplicate invite
-```
-
-### Where The Fibre + Fibre Meet are right now
-
-**Platform** (`thefibre.app`, v0.13.11)
-- Sign-in: Google + 8-digit email code, on `/sign-in` (both web + meet).
-- Auth emails routed through our API via Supabase Send Email Hook, rendered
-  from `packages/shared/src/branding.ts`. Logo at
-  `https://thefibre.app/brand/the-fibre.png`.
-- Contact profile shows: identity → org memberships → workspace access →
-  per-app curator tabs (only for activated apps) → activity timeline.
-- Apps list / sidebar / settings all agree on which apps are activated
-  for the workspace (workspace_app.deactivated_at IS NULL).
-
-**Fibre Meet** (`meet.thefibre.app`, **v2.1.3** — versioned independently)
-- Tabbed MT editor with Pricing tab fully wired: Free / Paid radio,
-  price in cents, Stripe Connect required on workspace.
-- Paid flow: invitee picks slot → booking row created with
-  `payment_status='pending'` → redirected to Stripe Checkout (Connect
-  Session against host's connected account, 2% capped at €2 application
-  fee) → webhook fires `checkout.session.completed` → Google Calendar
-  event + confirmation email + activity row run as deferred side-effects.
-- Intake form editor (per-MT) + renderer on the public booking page +
-  answers persisted to `meet_booking_intake`.
-- Booking approval (host default + per-MT override) added in v0.13.2.
-- Meet's contact tab shows only `person_meet_profile` (host notes, VIP,
-  blocked, invitee timezone) + live upcoming/past bookings.
-- Cream canvas (`bg-surface-sunken`), Lucide everywhere, Copy/Open icons
-  on every meeting-type row, scope-team save fix all still in place.
-
-### Infra invariants (don't regress)
-
-- Fly machine pinned warm (`min_machines_running = 1`,
-  `auto_stop_machines = off`) — Supabase auth hooks have a 5s ceiling.
-- Auth-hook HMAC parser accepts `v1,whsec_xxx | whsec_xxx | bare base64`.
-- Supabase OTP length is **8** — both `sign-in-button.tsx` files hardcode it.
-- `NEXT_PUBLIC_COOKIE_DOMAIN` must be set on every Vercel project (web,
-  meet, thread) — missing it on one app silently breaks cross-subdomain
-  SSO. See `docs/deploy.md`.
-- `branding.ts` is the SPoT. Public legal footer excludes `ENTITY.name`.
-- React `<select>` pitfall: visible default ≠ state value. Always derive
-  the posted value with a fallback (see Scope=Team fix from v0.10.x +
-  the pricing radio fix in v0.13.7 — same shape, different mechanism).
-
-### Two new design contracts pinned today
-
-- **In-family apps use platform tables natively.** Meet/Thread/Flow
-  share `person` / `team` / `workspace` directly. `app_entity_mapping`
-  is for EXTERNAL apps only (think HubSpot, Notion). Don't reach for
-  the mapping layer for first-party apps. See `design_in_family_apps_use_platform_natively.md`.
-- **Suite → Meet cutover is a hard swap, no slug-preservation script.**
-  Handle case-by-case if anyone screams. See `feedback_cutover_migration.md`.
-
-### What's queued (priority order)
-
-1. **Drop `person_change_context` table** (and Meet manifest reference).
-   v0.13.8 stopped surfacing it; the table is dead weight. One migration.
-2. **Sjoerd should add himself as an org member** on Solidarity Lab B.V.
-   in the UI so his own profile's Organisations section populates
-   (v0.13.10 note — the data wasn't wrong, the edge just didn't exist).
-3. **Fibre Change app** — properly home the change-facilitation fields
-   that v0.13.8 ejected from Meet. New app slug, manifest, curator
-   tables, tab. Not started.
-4. **Org-side per-app dialog labelling** — verify the org "Edit X"
-   dialogs follow the same "Edit X — Fibre Sales" pattern that
-   contacts do.
-5. **Article 15 export / retention admin / cross-app erasure** — still
-   not started.
-6. **Group / One-off / Meeting poll** event types — still hard-coded
-   `disabled: true` stubs in `new-menu.tsx`.
-7. **Platform billing Phase 1** — workspace plan + plan-aware skim
-   (waive 2% for Pro/Org). Roadmap doc lives in `docs/billing/`.
-
-### Hot-button design feedback (still active)
-
-- **Lucide icons, never emoji.**
-- **Slug UX is centralised** in `apps/meet/components/ui/name-slug.tsx`.
-- **Content left-aligned, not centered.**
-- **Number-of-minutes fields are curated dropdowns**, not free-form inputs.
-- **Personal vs Team is a 2-card chooser**, never a select.
-- **Read the Suite source before reimplementing** — don't rebuild from a
-  screenshot. Sjoerd's pinned note: "Suite was built in a week — by Claude.
-  Don't excuse design fidelity with timing."
-
-### Outstanding for Sjoerd (not code)
-
-- _(Nothing outstanding as of v0.13.11. Stripe Connect onboarded today;
-  Resend key rotated long ago.)_
-
----
+### Gotchas added this sprint
+- **The dialog bottom bar is a Fibre-wide contract** (Delete·Duplicate left,
+  Cancel·Save right, footer submits by form id). All four apps comply; Flow
+  now has components/ui/{dialog,button}.tsx (ported from Thread).
+- Coupon codes compare case-insensitively (ilike, no wildcards).
+- Public organiser-slug queries MUST filter `.is('team_id', null)` — team
+  threads live under the TEAM slug (also in every public URL builder).
+- purchase writes are update-first-insert-second on (app_id, item_ref) —
+  webhook retries and double-submits are safe.
+- The scheduler + webhook + payment link all converge on
+  finalizePaidEnrolment / sendTriggeredMessages — extend those, don't fork.
 
 ## State as of v0.4.8 (live in production)
 

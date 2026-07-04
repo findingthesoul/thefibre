@@ -6,6 +6,48 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.96] — 2026-07-04 — Payments as a true SPoT, payment-type inheritance, auto-accounts (Thread 3.27.0 · Meet 2.3.0)
+
+Sjoerd's diagnosis was correct: the Stripe connection was "a setting in one
+app used in others" — Meet wrote meet_host, Thread wrote thread_organiser,
+edits forked. Fixed structurally.
+
+### Changed — payments SPoT (migration `20260704150000`)
+- **Personal payment settings live on `user_profile`** (stripe_account_id,
+  invoice_details, default_payment_methods) and **workspace settings on the
+  `workspace` row** — backfilled from the app-local columns (Meet's value
+  wins; the old columns remain read fallbacks and are never written again).
+- **One resolution path**: `apps/api/src/lib/payment-accounts.ts` — every
+  reader (Thread checkout, Meet checkout, refunds, payment links) resolves
+  through it: platform value → app-local fallback.
+- **Settings → Payments is the same page in Thread AND Meet**, writing the
+  platform endpoints (`/api/v1/profile`, new `/api/v1/workspace-billing`,
+  admin-gated). Two levels: My account + Workspace account, each with the
+  Stripe id and the invoice issuer identity. Teams inherit the workspace
+  account by design (noted on the page).
+
+### Added — payment-type inheritance (account → thread → ticket)
+- **Account default** (Settings → Payments → "Default payment options":
+  pay online / pay per invoice), **thread override** (Pricing tab: inherit
+  or custom), **ticket override** (ticket popup: inherit or custom). Null =
+  inherit at every level; resolved server-side including the public enrol
+  payload, so the enrol form's method toggle follows the SELECTED ticket.
+
+### Changed — participant accounts
+- **Accounts are created automatically at enrolment** (email-only — Google/
+  the 8-digit code still verify ownership at first sign-in). The enrol form
+  now always says "Sign in to your personal page".
+
+### Also
+- Members page role picker speaks the new vocabulary (Super Admin / Admin /
+  Organiser (default)).
+- Full debug sweep: production builds of all five packages pass; migrations
+  applied; independent code review of the payments/invoices surface ran in
+  parallel (findings follow as a patch release if any).
+- Documentation refreshed across CLAUDE.md, docs/build-plan.md,
+  docs/deploy.md (Stripe webhook matrix), docs/invoices-and-roles-proposal.md
+  (decisions recorded as resolved).
+
 ## [0.13.95] — 2026-07-04 — App filter on Invoices, invoice issuer identity (Thread 3.26.1 · Meet 2.2.2)
 
 ### Added

@@ -295,6 +295,11 @@ export function PricingPanel({
       </>
       )}
 
+      {/* ── Payment options (inheritance: account → thread → ticket) ── */}
+      {mode === 'paid' && (
+        <PaymentMethodsSection thread={thread} />
+      )}
+
       {/* ── Payout ────────────────────────────────────────────────── */}
       {mode === 'paid' && (
         <PayoutSection
@@ -454,6 +459,101 @@ function PayoutSection({
           </span>
         )}
       </div>
+    </section>
+  );
+}
+
+// Thread-level payment options. Null = inherit the account default set in
+// Settings → Payments; custom overrides here; tickets can override again.
+function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
+  const router = useRouter();
+  const [custom, setCustom] = useState<boolean>(!!thread.payment_methods?.length);
+  const [stripeOn, setStripeOn] = useState(thread.payment_methods?.includes('stripe') ?? true);
+  const [invoiceOn, setInvoiceOn] = useState(thread.payment_methods?.includes('invoice') ?? false);
+  const [pending, startTransition] = useTransition();
+  const [note, setNote] = useState<string | null>(null);
+
+  function persist(next: ('stripe' | 'invoice')[] | null) {
+    setNote(null);
+    startTransition(async () => {
+      const r = await updateThread(thread.id, { payment_methods: next });
+      setNote(r.ok ? 'Saved.' : r.error);
+      router.refresh();
+    });
+  }
+
+  return (
+    <section>
+      <SectionLabel>Payment options</SectionLabel>
+      <div className="mt-2 flex flex-wrap items-center gap-4">
+        <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+          <input
+            type="radio"
+            name="pm-mode"
+            checked={!custom}
+            onChange={() => {
+              setCustom(false);
+              persist(null);
+            }}
+          />
+          Inherit from my account settings
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+          <input
+            type="radio"
+            name="pm-mode"
+            checked={custom}
+            onChange={() => {
+              setCustom(true);
+              persist([
+                ...(stripeOn ? (['stripe'] as const) : []),
+                ...(invoiceOn ? (['invoice'] as const) : []),
+              ]);
+            }}
+          />
+          Custom for this thread
+        </label>
+        {custom && (
+          <span className="inline-flex items-center gap-4">
+            <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
+              <input
+                type="checkbox"
+                checked={stripeOn}
+                disabled={pending}
+                onChange={(e) => {
+                  setStripeOn(e.target.checked);
+                  const next = [
+                    ...(e.target.checked ? (['stripe'] as const) : []),
+                    ...(invoiceOn ? (['invoice'] as const) : []),
+                  ];
+                  if (next.length) persist(next);
+                }}
+              />
+              Pay online
+            </label>
+            <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
+              <input
+                type="checkbox"
+                checked={invoiceOn}
+                disabled={pending}
+                onChange={(e) => {
+                  setInvoiceOn(e.target.checked);
+                  const next = [
+                    ...(stripeOn ? (['stripe'] as const) : []),
+                    ...(e.target.checked ? (['invoice'] as const) : []),
+                  ];
+                  if (next.length) persist(next);
+                }}
+              />
+              Pay per invoice
+            </label>
+          </span>
+        )}
+        {note && <span className="text-xs text-ink-muted">{note}</span>}
+      </div>
+      <p className="mt-1.5 text-xs text-ink-muted">
+        Tickets can override these again in their own popup.
+      </p>
     </section>
   );
 }

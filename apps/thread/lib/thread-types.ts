@@ -73,6 +73,8 @@ export type PublicTicket = {
   description: string | null;
   price_cents: number;
   price_currency: string;
+  /** Resolved server-side through the inheritance chain (ticket→thread→account). */
+  payment_methods?: ('stripe' | 'invoice')[];
   sold_out: boolean;
 };
 

@@ -126,6 +126,25 @@ No deploy needed — the project is already running. Two things to keep in sync:
 
 ---
 
+## Stripe (payments)
+
+Two webhook endpoints must exist in the Stripe dashboard (Developers →
+Webhooks), each with its own signing secret set on Fly:
+
+| Endpoint | Events | Fly secret |
+|---|---|---|
+| `https://thefibre-api.fly.dev/api/v1/meet/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired`, `payment_intent.payment_failed` | `STRIPE_WEBHOOK_SECRET` |
+| `https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired` | `STRIPE_THREAD_WEBHOOK_SECRET` (falls back to `STRIPE_WEBHOOK_SECRET` if shared) |
+
+`STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per
+person/workspace in Settings → Payments (the platform SPoT:
+`user_profile.stripe_account_id` + `workspace.stripe_account_id`).
+
+Without the Thread webhook, paid enrolments stay `pending` forever — the
+invoice-method path (mark-paid) is the only one that completes.
+
+---
+
 ## Sanity check after first deploy
 
 1. Hit `https://thefibre.app` — should show the landing page

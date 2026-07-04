@@ -171,6 +171,7 @@ export type TicketRow = {
   available_until: string | null;
   is_active: boolean;
   position: number;
+  payment_methods?: ('stripe' | 'invoice')[] | null;
 };
 
 export type CouponRow = {

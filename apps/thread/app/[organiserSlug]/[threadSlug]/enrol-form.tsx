@@ -77,6 +77,13 @@ export function EnrolCard({
   const activeCurrency = tickets.length
     ? selectedTicket?.price_currency ?? 'EUR'
     : priceCurrency;
+  // Payment options follow the SELECTED ticket (inheritance resolved
+  // server-side); thread-level as fallback.
+  const activeMethods: ('stripe' | 'invoice')[] =
+    selectedTicket?.payment_methods?.length ? selectedTicket.payment_methods : paymentMethods;
+  const effectiveMethod: 'stripe' | 'invoice' = activeMethods.includes(payMethod)
+    ? payMethod
+    : activeMethods[0] ?? 'stripe';
 
   function pickTicket(id: string) {
     setTicketId(id);
@@ -154,8 +161,8 @@ export function EnrolCard({
           email,
           ...(ticketId ? { ticket_id: ticketId } : {}),
           ...(applied ? { coupon_code: applied.code } : {}),
-          ...(activePriceCents ? { payment_method: payMethod } : {}),
-          ...(activePriceCents && payMethod === 'invoice'
+          ...(activePriceCents ? { payment_method: effectiveMethod } : {}),
+          ...(activePriceCents && effectiveMethod === 'invoice'
             ? {
                 billing: {
                   company: String(fd.get('billing_company') ?? '').trim() || undefined,
@@ -372,7 +379,7 @@ export function EnrolCard({
             </div>
           )}
 
-          {(activePriceCents ?? 0) > 0 && paymentMethods.includes('invoice') && (
+          {(activePriceCents ?? 0) > 0 && activeMethods.length > 1 && (
             <div>
               <span className="text-xs text-ink-subtle">{t(locale, 'payment_method')}</span>
               <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
@@ -382,7 +389,7 @@ export function EnrolCard({
                     type="button"
                     onClick={() => setPayMethod(m)}
                     className={
-                      payMethod === m
+                      effectiveMethod === m
                         ? 'bg-surface-sunken text-ink font-medium'
                         : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
                     }
@@ -394,7 +401,7 @@ export function EnrolCard({
             </div>
           )}
 
-          {(activePriceCents ?? 0) > 0 && payMethod === 'invoice' && (
+          {(activePriceCents ?? 0) > 0 && effectiveMethod === 'invoice' && (
             <>
               <label className="block">
                 <span className="text-xs text-ink-subtle">{t(locale, 'company_name')}</span>

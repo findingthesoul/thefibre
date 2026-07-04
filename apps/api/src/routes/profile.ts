@@ -40,6 +40,22 @@ const ProfilePatch = z.object({
   bio: z.string().max(2000).nullable().optional(),
   photo_url: z.string().max(1000).nullable().optional(),
   timezone: z.string().max(100).optional(),
+  // Payments SPoT (personal level) — every app reads these.
+  stripe_account_id: z
+    .string()
+    .max(64)
+    .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
+    .nullable()
+    .optional(),
+  invoice_details: z
+    .object({
+      legal_name: z.string().max(200).optional(),
+      address: z.string().max(500).optional(),
+      tax_no: z.string().max(60).optional(),
+    })
+    .nullable()
+    .optional(),
+  default_payment_methods: z.array(z.enum(['stripe', 'invoice'])).nullable().optional(),
 });
 
 profileRoutes.patch('/', async (c) => {
@@ -47,9 +63,11 @@ profileRoutes.patch('/', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  if (patch.stripe_account_id === '') patch.stripe_account_id = null;
   const { data, error } = await db
     .from('user_profile')
-    .update({ ...body.data, updated_at: new Date().toISOString() })
+    .update(patch)
     .eq('user_id', ctx.userId)
     .select('*')
     .single();
