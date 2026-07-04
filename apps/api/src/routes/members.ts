@@ -59,7 +59,7 @@ membersRoutes.get('/', async (c) => {
 const MemberInvite = z.object({
   email: z.string().email().max(320),
   name: z.string().max(200).optional(),
-  workspace_role: z.enum(['admin', 'member']).default('member'),
+  workspace_role: z.enum(['super_admin', 'admin', 'organiser']).default('organiser'),
   relationship_type: z.enum(['internal', 'external']).default('internal'),
   apps: z.array(z.string()).default([]),
 });
@@ -184,7 +184,7 @@ ${emailSignoff()}`;
 });
 
 const MemberPatch = z.object({
-  workspace_role: z.enum(['admin', 'member']).optional(),
+  workspace_role: z.enum(['super_admin', 'admin', 'organiser']).optional(),
   relationship_type: z.enum(['internal', 'external']).optional(),
   /** Replace the user's app grants (fibre-platform is never touched). */
   apps: z.array(z.string()).optional(),

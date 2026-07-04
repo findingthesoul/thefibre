@@ -25,6 +25,7 @@ import {
 } from '../lib/google/client.js';
 import { sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
+import { recordPurchase } from '../lib/purchases.js';
 import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
@@ -522,7 +523,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     // Need the host's connected account.
     const { data: ownerHost } = await adminClient
       .from('meet_host')
-      .select('stripe_account_id, slug')
+      .select('stripe_account_id, slug, user_id')
       .eq('id', mt.host_id)
       .single();
     if (!ownerHost?.stripe_account_id) {
@@ -630,6 +631,21 @@ meetRoutes.post('/public/bookings', async (c) => {
         .from('meet_booking')
         .update({ stripe_session_id: session.id })
         .eq('id', booking.id);
+      // Ledger row for the Invoices area (proposal §2.1).
+      await recordPurchase({
+        appSlug: 'fibre-meet',
+        workspaceId: mt.workspace_id,
+        itemRef: booking.id,
+        payerName: data.invitee_name,
+        payerEmail: data.invitee_email,
+        itemLabel: mt.name,
+        organiserUserId: (ownerHost as { user_id?: string | null }).user_id ?? null,
+        teamId: (mt as { team_id?: string | null }).team_id ?? null,
+        amountCents: grossCents,
+        currency: (mt.price_currency ?? 'EUR').toUpperCase(),
+        method: 'stripe',
+        status: 'pending',
+      });
       return c.json({
         booking,
         payment_required: true,
@@ -2497,6 +2513,25 @@ meetRoutes.post('/stripe-webhook', async (c) => {
           stripe_invoice_url: stripeInvoiceUrl,
         })
         .eq('id', booking.id);
+      {
+        const { data: bFull } = await adminClient
+          .from('meet_booking')
+          .select('workspace_id')
+          .eq('id', booking.id)
+          .maybeSingle();
+        if (bFull) {
+          await recordPurchase({
+            appSlug: 'fibre-meet',
+            workspaceId: bFull.workspace_id,
+            itemRef: booking.id,
+            status: 'paid',
+            stripePaymentIntent:
+              typeof session.payment_intent === 'string' ? session.payment_intent : null,
+            stripeInvoiceId,
+            stripeInvoiceUrl,
+          });
+        }
+      }
       // Run the deferred side-effects exactly like the approve path.
       await runConfirmationSideEffects(booking.id);
       return c.json({ received: true });

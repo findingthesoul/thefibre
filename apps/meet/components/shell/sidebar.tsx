@@ -13,6 +13,7 @@ import {
   Contact as ContactIcon,
   UsersRound,
   type LucideIcon,
+  Receipt,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
 import { APPS } from '@thefibre/shared';
@@ -32,6 +33,7 @@ const NAV: NavSection[] = [
       { href: '/meeting-types', label: 'Meeting types', icon: CalendarRange },
       { href: '/teams', label: 'Teams', icon: Users },
       { href: '/bookings', label: 'Bookings', icon: CalendarClock },
+      { href: '/invoices', label: 'Invoices', icon: Receipt },
     ],
   },
   {

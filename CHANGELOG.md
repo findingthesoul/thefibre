@@ -6,6 +6,48 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.93] — 2026-07-04 — Invoices area + role tiers (Thread 3.25.0 · Meet 2.2.0)
+
+The big one from docs/invoices-and-roles-proposal.md — all four design
+decisions accepted as recommended.
+
+### Added — platform
+- **`purchase` ledger** (migration `20260704091000`) — the second
+  sanctioned data-wall crossing after the activity log: one row per money
+  event across Meet + Thread (payer, item, amount, split, method, status,
+  Stripe invoice link), written by both apps at checkout completion /
+  mark-paid / refund and **backfilled** from every existing booking and
+  enrolment with money involved. RLS: admins see the workspace, organisers
+  their own sales + their teams'.
+- **Role tiers** (migration `20260704090000`) — `workspace_role` becomes
+  `super_admin | admin | organiser` ("every account is an organiser at
+  minimum"); existing members migrated, earliest admin per workspace
+  promoted to Super Admin. `is_workspace_admin` / `can_see_person` /
+  `can_see_organisation` widened; new `current_workspace_role()` helper.
+  **Facilitator stays a per-thread role** and sees no financial data.
+- **Purchases API** — `GET /api/v1/purchases` (scope me/team/workspace,
+  search, app filter, cursor pagination, totals; workspace scope is
+  admin-only) + `resend-invoice` (branded email with the hosted Stripe
+  invoice), `refund` (full refund on the connected account, **platform fee
+  returned**; invoice-method = recorded), `mark-paid` (invoice-method,
+  runs the same side-effects as the webhook).
+- **Thread webhook now stores the hosted Stripe invoice URL** (closed the
+  gap Meet never had).
+
+### Added — apps
+- **Invoices in the sidebar of Thread AND Meet** — scope toggle
+  Me / Team / Workspace (workspace disabled without an admin role), search
+  across payer/email/item, totals bar (paid / pending / refunded / fees),
+  load-more pagination, and a detail dialog on the Fibre bottom-bar
+  contract with Reimburse (confirm, full only), Mark paid, Resend invoice
+  and the hosted-invoice link.
+
+### Notes
+- Refunds are v1: full amount only, no partial; Stripe issues no automatic
+  credit note (proposal §3.7).
+- Invoice-method sales carry no Stripe document — resend applies to card
+  payments; organisers send their own invoice documents.
+
 ## [0.13.92] — 2026-07-04 — Thread 3.24.0: embed custom CSS — every element named
 
 ### Added

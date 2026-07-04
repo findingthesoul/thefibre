@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   HelpCircle,
   Settings,
+  Receipt,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -32,6 +33,7 @@ const NAV: NavSection[] = [
     items: [
       { href: '/threads', label: 'Threads', icon: CalendarRange },
       { href: '/enrolments', label: 'Enrolments', icon: Users },
+      { href: '/invoices', label: 'Invoices', icon: Receipt },
       { href: '/templates', label: 'Templates', icon: LayoutTemplate },
     ],
   },

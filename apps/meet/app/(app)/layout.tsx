@@ -10,7 +10,7 @@ import { APPS } from '@thefibre/shared';
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
 // cross-package releases like 0.13.x). See CLAUDE.md "Version bumps".
-const VERSION = '2.1.5';
+const VERSION = '2.2.0';
 
 type Me = {
   user: { id: string; email: string; full_name: string | null };

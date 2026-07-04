@@ -5,6 +5,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
+import { recordPurchase } from '../lib/purchases.js';
 import {
   enrolmentConfirmation,
   enrolmentPending,
@@ -2388,7 +2389,7 @@ threadRoutes.post('/enrolments/:id/complete', async (c) => {
 
 /** Runs after a payment lands: activity, and (unless approval-gated) the
  *  enrolled status + confirmation + on_enrolment messages. */
-async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<void> {
+export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<void> {
   const { data: te } = await adminClient
     .from('thread_enrolment')
     .select(
@@ -2521,6 +2522,26 @@ threadRoutes.post('/stripe-webhook', async (c) => {
         })
         .eq('id', te.id);
 
+      // Hosted invoice URL — resolved on the connected account (Meet's
+      // pattern); non-fatal, resend-invoice just reports absence.
+      let invoiceId: string | null = null;
+      let invoiceUrl: string | null = null;
+      const sessInvoice = (session as { invoice?: string | null }).invoice;
+      if (typeof sessInvoice === 'string') {
+        try {
+          const ev = event as { account?: string };
+          const inv = await stripe.invoices.retrieve(
+            sessInvoice,
+            undefined,
+            ev.account ? { stripeAccount: ev.account } : undefined,
+          );
+          invoiceId = inv.id ?? null;
+          invoiceUrl = (inv as { hosted_invoice_url?: string | null }).hosted_invoice_url ?? null;
+        } catch (e) {
+          console.warn('[thread stripe-webhook] invoice lookup failed', e);
+        }
+      }
+
       // Revenue-split record (brief: gross = platform fee + vendor share +
       // org share). Transfers themselves land with the payouts phase — this
       // is the auditable ledger row.
@@ -2558,6 +2579,21 @@ threadRoutes.post('/stripe-webhook', async (c) => {
           currency,
           status: orgShare > 0 ? 'pending' : 'not_applicable',
         });
+        await recordPurchase({
+          appSlug: 'the-thread',
+          workspaceId: te.workspace_id,
+          itemRef: te.id,
+          amountCents: gross,
+          currency,
+          platformFeeCents: platformFee,
+          vendorShareCents: vendorShare,
+          orgShareCents: orgShare,
+          status: 'paid',
+          stripePaymentIntent:
+            typeof session.payment_intent === 'string' ? session.payment_intent : null,
+          stripeInvoiceId: invoiceId,
+          stripeInvoiceUrl: invoiceUrl,
+        });
       } catch (e) {
         console.warn('[thread stripe-webhook] payout record failed', e);
       }
@@ -2568,11 +2604,20 @@ threadRoutes.post('/stripe-webhook', async (c) => {
 
     if (event.type === 'checkout.session.expired') {
       const session = event.data.object as { id: string };
-      await adminClient
+      const { data: expired } = await adminClient
         .from('thread_enrolment')
         .update({ payment_status: 'failed' })
         .eq('stripe_session_id', session.id)
-        .eq('payment_status', 'pending');
+        .eq('payment_status', 'pending')
+        .select('id, workspace_id');
+      for (const row of expired ?? []) {
+        await recordPurchase({
+          appSlug: 'the-thread',
+          workspaceId: row.workspace_id,
+          itemRef: row.id,
+          status: 'failed',
+        });
+      }
       return c.json({ received: true });
     }
   } catch (e) {
@@ -2603,6 +2648,12 @@ threadRoutes.post('/enrolments/:id/mark-paid', async (c) => {
     .eq('id', loaded.te.id);
   if (upErr) return c.json({ error: upErr.message }, 500);
 
+  await recordPurchase({
+    appSlug: 'the-thread',
+    workspaceId: loaded.thread.workspace_id,
+    itemRef: loaded.te.id,
+    status: 'paid',
+  });
   await finalizePaidEnrolment(loaded.te.id);
   return c.json({ ok: true });
 });
@@ -3378,7 +3429,7 @@ threadRoutes.post('/public/enrol', async (c) => {
   let ticketId: string | null = null;
   const { data: activeTickets } = await adminClient
     .from('thread_ticket')
-    .select('id, price_cents, price_currency, quantity_limit, available_until')
+    .select('id, name, price_cents, price_currency, quantity_limit, available_until')
     .eq('thread_id', thread.id)
     .eq('is_active', true)
     .order('position');
@@ -3599,9 +3650,38 @@ threadRoutes.post('/public/enrol', async (c) => {
     });
   }
 
+  // Ledger row for the Invoices area — one per money event (proposal §2.1).
+  async function recordThreadPurchase(status: 'pending' | 'paid') {
+    if (!thread || !threadEnrolment || !person || !program) return;
+    const chosenTicket = openTickets.find((t) => t.id === ticketId) as
+      | { name?: string }
+      | undefined;
+    const { data: torg } = await adminClient
+      .from('thread_organiser')
+      .select('user_id')
+      .eq('id', thread.organiser_id)
+      .maybeSingle();
+    await recordPurchase({
+      appSlug: 'the-thread',
+      workspaceId: thread.workspace_id,
+      itemRef: threadEnrolment.id,
+      personId: person.id,
+      payerName: d.name.trim(),
+      payerEmail: email,
+      itemLabel: `${program.title}${chosenTicket?.name ? ` · ${chosenTicket.name}` : ''}`,
+      organiserUserId: torg?.user_id ?? null,
+      teamId: (thread as { team_id?: string | null }).team_id ?? null,
+      amountCents: finalPriceCents,
+      currency: priceCurrency,
+      method: paymentMethod as 'stripe' | 'invoice',
+      status,
+    });
+  }
+
   // Payment outstanding: no emails yet — the webhook (Stripe) or the
   // organiser's mark-paid (invoice) runs the confirmation side-effects.
   if (requiresPayment && paymentMethod === 'invoice') {
+    await recordThreadPurchase('pending');
     return c.json(
       {
         ok: true,
@@ -3712,6 +3792,7 @@ threadRoutes.post('/public/enrol', async (c) => {
         .from('thread_enrolment')
         .update({ stripe_session_id: session.id })
         .eq('id', threadEnrolment.id);
+      await recordThreadPurchase('pending');
       return c.json(
         {
           ok: true,
