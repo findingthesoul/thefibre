@@ -6,6 +6,15 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.91] — 2026-07-04 — Thread 3.23.1: workspace-wide list embeds
+
+### Added
+- **`data-workspace` on list embeds** — a list of every public thread in
+  the workspace, across all organisers and teams. Supported end-to-end:
+  embed listing API (`?workspace=`), embed.js attribute, embed list page,
+  and a "Whole workspace — everyone's public threads" option in the code
+  generator's Which-threads picker. Docs updated.
+
 ## [0.13.90] — 2026-07-03 — Thread 3.23.0: embed code generator
 
 ### Added

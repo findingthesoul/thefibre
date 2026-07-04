@@ -45,7 +45,7 @@ export default async function EmbedsSettingsPage() {
     },
     {
       title: '2 · Overview of your threads',
-      desc: 'Lists your public threads. Swap data-organiser for data-team="<team-uuid>" or data-org="<org-uuid>" for a subset.',
+      desc: 'Lists your public threads. Swap data-organiser for data-team="<team-uuid>", data-org="<org-uuid>" or data-workspace="<workspace-uuid>" (everyone\u2019s public threads).',
       code: `<div data-thread-embed="list" data-organiser="${organiser.slug}"></div>`,
     },
     {
@@ -128,6 +128,7 @@ export default async function EmbedsSettingsPage() {
 
         <EmbedGenerator
           organiserSlug={organiser.slug}
+          workspaceId={organiser.workspace_id}
           threads={generatorThreads}
           teams={generatorTeams}
         />

@@ -2992,8 +2992,9 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   const organiserSlug = c.req.query('organiser');
   const teamId = c.req.query('team');
   const orgId = c.req.query('org');
-  if (!organiserSlug && !teamId && !orgId) {
-    return c.json({ error: 'pass organiser, team or org' }, 400);
+  const workspaceId = c.req.query('workspace');
+  if (!organiserSlug && !teamId && !orgId && !workspaceId) {
+    return c.json({ error: 'pass organiser, team, org or workspace' }, 400);
   }
 
   let q = adminClient
@@ -3008,6 +3009,8 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     .eq('is_public_listed', true);
   if (teamId) q = q.eq('team_id', teamId);
   if (orgId) q = q.eq('organisation_id', orgId);
+  // Whole workspace: every public thread, personal and team alike.
+  if (workspaceId) q = q.eq('workspace_id', workspaceId);
   if (organiserSlug) {
     const { data: org } = await adminClient
       .from('thread_organiser')

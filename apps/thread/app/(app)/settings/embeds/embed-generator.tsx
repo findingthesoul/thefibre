@@ -37,16 +37,18 @@ const SELECT =
 
 export function EmbedGenerator({
   organiserSlug,
+  workspaceId,
   threads,
   teams,
 }: {
   organiserSlug: string;
+  workspaceId: string;
   threads: GeneratorThread[];
   teams: GeneratorTeam[];
 }) {
   const [kind, setKind] = useState<Kind>('thread');
-  // list: whole account or one team
-  const [listOwner, setListOwner] = useState<string>('mine'); // 'mine' | team id
+  // list: my threads, the whole workspace, or one team
+  const [listOwner, setListOwner] = useState<string>('mine'); // 'mine' | 'workspace' | team id
   const [threadId, setThreadId] = useState<string>(threads[0]?.id ?? '');
   const [elements, setElements] = useState<Set<string>>(new Set(ELEMENTS.map((e) => e.key)));
   const [lang, setLang] = useState<string>('auto');
@@ -70,7 +72,9 @@ export function EmbedGenerator({
       const ownerAttr =
         listOwner === 'mine'
           ? `data-organiser="${organiserSlug}"`
-          : `data-team="${listOwner}"`;
+          : listOwner === 'workspace'
+            ? `data-workspace="${workspaceId}"`
+            : `data-team="${listOwner}"`;
       return `<div data-thread-embed="list" ${ownerAttr}${langAttr}></div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
@@ -85,7 +89,7 @@ export function EmbedGenerator({
           .map((e) => e.key)
           .join(',')}"`;
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}></div>`;
-  }, [kind, listOwner, thread, elements, lang, buttonText, organiserSlug]);
+  }, [kind, listOwner, thread, elements, lang, buttonText, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${HOST}/embed.js" defer></script>`;
 
@@ -145,6 +149,7 @@ export function EmbedGenerator({
                 className={`${SELECT} mt-1`}
               >
                 <option value="mine">All my public threads</option>
+                <option value="workspace">Whole workspace — everyone&apos;s public threads</option>
                 {teams.map((t) => (
                   <option key={t.id} value={t.id}>
                     Team · {t.name}

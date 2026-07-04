@@ -66,7 +66,7 @@
   function mountList(el) {
     var d = el.dataset;
     var f = makeIframe(ORIGIN + '/embed/list' + query({
-      organiser: d.organiser, team: d.team, org: d.org,
+      organiser: d.organiser, team: d.team, org: d.org, workspace: d.workspace,
       compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
     }));
     el.appendChild(f);

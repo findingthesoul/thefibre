@@ -53,6 +53,7 @@ export default async function EmbedListPage({
   const organiser = str(sp.organiser);
   const team = str(sp.team);
   const org = str(sp.org);
+  const workspace = str(sp.workspace);
   const compact = str(sp.compact) === '1';
   // `theme=light` is accepted (and is the only theme); other values are
   // ignored for now — the layout forces light regardless.
@@ -64,10 +65,11 @@ export default async function EmbedListPage({
   const forcedLang: Locale | undefined = isLocale(rawLang) ? rawLang : undefined;
   const chromeLang: Locale = forcedLang ?? 'en';
 
-  if (!organiser && !team && !org) {
+  if (!organiser && !team && !org && !workspace) {
     return (
       <p className="text-sm text-ink-subtle">
-        Missing filter — pass <code>organiser</code>, <code>team</code> or <code>org</code>.
+        Missing filter — pass <code>organiser</code>, <code>team</code>, <code>org</code> or{' '}
+        <code>workspace</code>.
       </p>
     );
   }
@@ -76,6 +78,7 @@ export default async function EmbedListPage({
   if (organiser) qs.set('organiser', organiser);
   if (team) qs.set('team', team);
   if (org) qs.set('org', org);
+  if (workspace) qs.set('workspace', workspace);
 
   let items: EmbedThreadItem[] = [];
   try {
