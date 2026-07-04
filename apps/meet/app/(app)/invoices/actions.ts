@@ -31,7 +31,7 @@ export type PurchaseRow = {
   method: 'stripe' | 'invoice' | 'free';
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripe_invoice_url: string | null;
-  billing?: { company?: string; address?: string; tax_no?: string } | null;
+  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
   paid_at: string | null;
   refunded_at: string | null;
   created_at: string;

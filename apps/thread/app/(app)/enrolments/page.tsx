@@ -18,7 +18,7 @@ type EnrolmentItem = {
   amount_cents: number | null;
   currency: string | null;
   answers: Record<string, unknown> | null;
-  billing: { company?: string; address?: string; tax_no?: string } | null;
+  billing: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
   stripe_session_id: string | null;
   ticket: { name: string; price_cents: number; price_currency: string } | { name: string; price_cents: number; price_currency: string }[] | null;
   coupon: { code: string } | { code: string }[] | null;

@@ -12,7 +12,7 @@
 //   DateTimeField  → "YYYY-MM-DDTHH:mm" (like type="datetime-local")
 //
 // DateTimeField is ONE popover: calendar on the left, a scrollable time
-// column (15-minute steps, 06:00–22:00) on the right. Times remain a
+// column (15-minute steps, 00:00–23:45) on the right. Times remain a
 // curated list — house rule: minute fields are never free-form.
 
 import { useEffect, useMemo, useRef, useState } from 'react';
@@ -264,10 +264,10 @@ function CalendarPopover({
 // Date + time popover (DateTimeField) — calendar left, time column right.
 // ---------------------------------------------------------------------------
 
-/** 15-minute steps, 06:00 → 22:00; a set time outside the list is spliced in. */
+/** 15-minute steps across the whole day; a set time off-grid is spliced in. */
 function buildTimes(current: string | null): string[] {
   const times: string[] = [];
-  for (let m = 6 * 60; m <= 22 * 60; m += 15) {
+  for (let m = 0; m < 24 * 60; m += 15) {
     times.push(`${pad(Math.floor(m / 60))}:${pad(m % 60)}`);
   }
   if (current && /^\d{2}:\d{2}$/.test(current) && !times.includes(current)) {

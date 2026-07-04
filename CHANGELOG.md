@@ -6,6 +6,22 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.103] — 2026-07-04 — Thread 3.30.3: publish pill on engagements, complete billing address, full-day time picker
+
+### Added
+- **Publish pill in the engagement dialog** — a green Published / grey Draft
+  toggle sits top-right next to the title (replaces the Status control in
+  the sidebar column). New engagements are published by default; click the
+  pill to keep one as a draft.
+- **Complete billing address on the enrol form** — the single address
+  textarea is now street + number, postal code, city and country (labels
+  translated ×5). The receipt email, participant popup and both Invoices
+  detail dialogs render the composed address.
+
+### Changed
+- **Time picker covers the whole day** — the date-time selector's time
+  column now runs 00:00–23:45 (was 06:00–22:00), still in 15-minute steps.
+
 ## [0.13.102] — 2026-07-04 — Thread 3.30.2: receipt resend + contact info in participant popup, end-after-start dates
 
 ### Added

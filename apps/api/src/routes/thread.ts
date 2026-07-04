@@ -715,6 +715,8 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
 const EngagementCreate = z.object({
   title: z.string().min(1).max(200),
   type: z.enum(ENGAGEMENT_TYPES),
+  // The editor publishes new engagements by default; server default stays draft.
+  status: z.enum(['draft', 'published']).optional(),
   description: z.string().max(5000).nullable().optional(),
   starts_at: z.string().datetime({ offset: true }).nullable().optional(),
   ends_at: z.string().datetime({ offset: true }).nullable().optional(),
@@ -804,6 +806,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       thread_id: threadId,
       title: body.data.title,
       type: body.data.type,
+      status: body.data.status ?? 'draft',
       description: body.data.description ?? null,
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
@@ -3635,6 +3638,9 @@ const PublicEnrol = z.object({
     .object({
       company: z.string().max(200).optional(),
       address: z.string().max(500).optional(),
+      postal_code: z.string().max(30).optional(),
+      city: z.string().max(120).optional(),
+      country: z.string().max(120).optional(),
       tax_no: z.string().max(60).optional(),
     })
     .optional(),

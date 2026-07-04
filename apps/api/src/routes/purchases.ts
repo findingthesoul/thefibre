@@ -168,7 +168,7 @@ type ReceiptPurchase = {
   currency: string;
   method: string;
   created_at: string;
-  billing?: { company?: string; address?: string; tax_no?: string } | null;
+  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
 };
 
 type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } | null;
@@ -217,9 +217,16 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
         seller.tax_no ? row('Tax / VAT no. (seller)', seller.tax_no) : '',
       ].join('')
     : '';
+  const billingAddress = [
+    p.billing?.address,
+    [p.billing?.postal_code, p.billing?.city].filter(Boolean).join(' '),
+    p.billing?.country,
+  ]
+    .filter(Boolean)
+    .join(', ');
   const billingRows = [
     p.billing?.company ? row('Billed to', p.billing.company) : '',
-    p.billing?.address ? row('Address', p.billing.address) : '',
+    billingAddress ? row('Address', billingAddress) : '',
     p.billing?.tax_no ? row('Tax / VAT no.', p.billing.tax_no) : '',
   ].join('');
   return shell(

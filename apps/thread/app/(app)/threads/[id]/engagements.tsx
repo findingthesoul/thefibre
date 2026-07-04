@@ -72,8 +72,10 @@ export function EngagementDialog({
   const isNew = !engagement;
   const [type, setType] = useState<EngagementType>(engagement?.type ?? initialType ?? 'event');
   const [triggerKind, setTriggerKind] = useState<TriggerKind>(engagement?.trigger_kind ?? 'fixed');
+  // New engagements go out published (Sjoerd 2026-07-04) — the header pill
+  // toggles back to draft.
   const [status, setStatus] = useState<'draft' | 'published'>(
-    engagement?.status === 'published' ? 'published' : 'draft',
+    !engagement || engagement.status === 'published' ? 'published' : 'draft',
   );
   const [locationMode, setLocationMode] = useState<'in_person' | 'virtual'>(
     engagement?.meeting_url || engagement?.meeting_provider ? 'virtual' : 'in_person',
@@ -110,7 +112,7 @@ export function EngagementDialog({
       type,
       description: String(fd.get('description') ?? '').trim() || null,
       show_in_agenda: fd.get('show_in_agenda') === 'on',
-      ...(isNew ? {} : { status }),
+      status,
     };
 
     const trigger: Record<string, unknown> = {
@@ -221,7 +223,30 @@ export function EngagementDialog({
     <Dialog
       open
       onClose={requestClose}
-      title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
+      title={
+        <span className="flex items-center gap-3">
+          <span>{isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}</span>
+          <button
+            type="button"
+            onClick={() => {
+              setStatus((s) => (s === 'published' ? 'draft' : 'published'));
+              setDirty(true);
+            }}
+            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
+              status === 'published'
+                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                : 'border border-line bg-surface-sunken text-ink-subtle hover:text-ink'
+            }`}
+          >
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                status === 'published' ? 'bg-white' : 'bg-ink-muted'
+              }`}
+            />
+            {status === 'published' ? 'Published' : 'Draft'}
+          </button>
+        </span>
+      }
       size="xl"
       footer={
         <>
@@ -369,29 +394,6 @@ export function EngagementDialog({
                 onChange={(e) => setType(e.target.value as EngagementType)}
                 options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
               />
-              {!isNew && (
-                <div>
-                  <span className="text-sm text-ink-subtle">Status</span>
-                  <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
-                    {(['draft', 'published'] as const).map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onClick={() => setStatus(s)}
-                        className={`text-sm capitalize transition-colors ${
-                          status === s
-                            ? s === 'published'
-                              ? 'bg-emerald-600 text-white font-medium'
-                              : 'bg-ink text-ink-inverse font-medium'
-                            : 'bg-surface-raised text-ink-subtle hover:text-ink'
-                        }`}
-                      >
-                        {s}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
             </div>
 
             {family === 'activity' ? (

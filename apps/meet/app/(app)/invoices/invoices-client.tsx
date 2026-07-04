@@ -433,9 +433,15 @@ export function InvoicesClient({
                 {fmt(detail.org_share_cents, detail.currency)}
               </Row>
             )}
-            {detail.billing && (detail.billing.company || detail.billing.address || detail.billing.tax_no) && (
+            {detail.billing && Object.values(detail.billing).some(Boolean) && (
               <Row label="Billing">
-                {[detail.billing.company, detail.billing.address, detail.billing.tax_no ? `Tax/VAT ${detail.billing.tax_no}` : null]
+                {[
+                  detail.billing.company,
+                  detail.billing.address,
+                  [detail.billing.postal_code, detail.billing.city].filter(Boolean).join(' '),
+                  detail.billing.country,
+                  detail.billing.tax_no ? `Tax/VAT ${detail.billing.tax_no}` : null,
+                ]
                   .filter(Boolean)
                   .join(' · ')}
               </Row>

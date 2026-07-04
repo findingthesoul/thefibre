@@ -25,7 +25,7 @@ export type ThreadEnrolmentItem = {
   amount_cents: number | null;
   currency: string | null;
   answers?: Record<string, unknown> | null;
-  billing?: { company?: string; address?: string; tax_no?: string } | null;
+  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
   stripe_session_id?: string | null;
   ticket?: { name: string } | { name: string }[] | null;
   coupon?: { code: string } | { code: string }[] | null;

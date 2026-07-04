@@ -12,7 +12,7 @@ import { Button } from '@/components/ui/button';
 
 export type EnrolmentDetail = {
   answers: Record<string, unknown> | null;
-  billing: { company?: string; address?: string; tax_no?: string } | null;
+  billing: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
   amountCents: number | null;
   currency: string | null;
   method: 'stripe' | 'invoice' | null;
@@ -175,9 +175,15 @@ export function ParticipantDialog({
               </DetailRow>
               {d.ticketName && <DetailRow label="Ticket">{d.ticketName}</DetailRow>}
               {d.couponCode && <DetailRow label="Discount code">{d.couponCode}</DetailRow>}
-              {d.billing && (d.billing.company || d.billing.address || d.billing.tax_no) && (
+              {d.billing && Object.values(d.billing).some(Boolean) && (
                 <DetailRow label="Billing">
-                  {[d.billing.company, d.billing.address, d.billing.tax_no ? `Tax/VAT ${d.billing.tax_no}` : null]
+                  {[
+                    d.billing.company,
+                    d.billing.address,
+                    [d.billing.postal_code, d.billing.city].filter(Boolean).join(' '),
+                    d.billing.country,
+                    d.billing.tax_no ? `Tax/VAT ${d.billing.tax_no}` : null,
+                  ]
                     .filter(Boolean)
                     .join(' · ')}
                 </DetailRow>

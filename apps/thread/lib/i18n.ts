@@ -246,6 +246,27 @@ const CATALOG = {
     pt: 'Endereço de faturamento',
     de: 'Rechnungsadresse',
   },
+  postal_code: {
+    en: 'Postal code',
+    nl: 'Postcode',
+    es: 'Código postal',
+    pt: 'Código postal',
+    de: 'Postleitzahl',
+  },
+  city: {
+    en: 'City',
+    nl: 'Plaats',
+    es: 'Ciudad',
+    pt: 'Cidade',
+    de: 'Ort',
+  },
+  country: {
+    en: 'Country',
+    nl: 'Land',
+    es: 'País',
+    pt: 'País',
+    de: 'Land',
+  },
   tax_number: {
     en: 'Tax / VAT number (optional)',
     nl: 'Btw-nummer (optioneel)',
