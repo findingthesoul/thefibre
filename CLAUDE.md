@@ -80,6 +80,7 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `revalidatePath` from a server action doesn't auto-refresh the client route in this flow. Call `router.refresh()` from the dialog after a successful save (added v0.3.11).
 - `userClient` MUST use the anon key as base apikey, not the service-role key. Otherwise PostgREST elevates to service_role and ignores the user JWT for RLS (fixed v0.3.6).
 - After parallel agent runs, the Next.js dev server can wedge. Kill + restart.
+- Shared UI lives in `@thefibre/shared` too: `DateField`/`DateTimeField` (`src/ui/date-field.tsx`, subpath export `./ui/date-field`) - the app-local `components/ui/date-field.tsx` files are re-export shims. Edit the shared copy; per-app copies drifted once already (v0.13.104).
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
