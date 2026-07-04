@@ -2934,10 +2934,12 @@ threadRoutes.get('/enrolments', async (c) => {
   let q = db
     .from('thread_enrolment')
     .select(
-      `id, thread_id, payment_status, amount_cents, currency, answers, created_at,
+      `id, thread_id, payment_status, amount_cents, currency, answers, billing, stripe_session_id, created_at,
        person:person_id (id, first_name, last_name, email),
        enrolment:enrolment_id (id, status, progress_pct, enrolled_at, completed_at),
        certificate:thread_certificate (certificate_number),
+       ticket:ticket_id (name, price_cents, price_currency),
+       coupon:coupon_id (code),
        thread:thread_id (id, slug, certificate_enabled, program:program_id (title, format, status))`,
     )
     .order('created_at', { ascending: false })

@@ -6,6 +6,18 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.98] — 2026-07-04 — Thread 3.28.0: enrolments search + participant detail popup
+
+### Added
+- **Search on the Enrolments page** — name, email, thread or ticket,
+  filtering live; select-all follows the filtered view.
+- **Participant detail popup** — clicking a participant opens everything
+  about their enrolment: thread, status + progress, signed-up/enrolled/
+  completed dates, certificate link, the payment block (amount, card vs
+  invoice, ticket, discount code, billing incl. tax no.) and — visible for
+  the first time — their **registration answers** (the intake questions
+  collected on the enrol form).
+
 ## [0.13.97] — 2026-07-04 — Security & money hardening: 14 review findings fixed (Thread 3.27.1 · Meet 2.3.1)
 
 An independent adversarial review of the payments/invoices surface produced

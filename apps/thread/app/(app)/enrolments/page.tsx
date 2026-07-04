@@ -17,14 +17,19 @@ type EnrolmentItem = {
   payment_status: string;
   amount_cents: number | null;
   currency: string | null;
+  answers: Record<string, unknown> | null;
+  billing: { company?: string; address?: string; tax_no?: string } | null;
+  stripe_session_id: string | null;
+  ticket: { name: string; price_cents: number; price_currency: string } | { name: string; price_cents: number; price_currency: string }[] | null;
+  coupon: { code: string } | { code: string }[] | null;
   created_at: string;
   person:
     | { id: string; first_name: string | null; last_name: string | null; email: string | null }
     | { id: string; first_name: string | null; last_name: string | null; email: string | null }[]
     | null;
   enrolment:
-    | { status: string; progress_pct: number; enrolled_at: string | null }
-    | { status: string; progress_pct: number; enrolled_at: string | null }[]
+    | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }
+    | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }[]
     | null;
   certificate:
     | { certificate_number: string }
@@ -140,6 +145,20 @@ export default async function EnrolmentsPage({
               certNumber: one(it.certificate)?.certificate_number ?? null,
               payment: PAYMENT_LABELS[it.payment_status] ?? it.payment_status,
               status: enr?.status ?? 'enrolled',
+              detail: {
+                answers: it.answers ?? null,
+                billing: it.billing ?? null,
+                amountCents: it.amount_cents,
+                currency: it.currency,
+                method: it.stripe_session_id ? 'stripe' : it.amount_cents ? 'invoice' : null,
+                ticketName: one(it.ticket)?.name ?? null,
+                couponCode: one(it.coupon)?.code ?? null,
+                enrolledAt: enr?.enrolled_at ?? null,
+                completedAt: enr?.completed_at ?? null,
+                progressPct: enr?.progress_pct ?? 0,
+                createdAt: it.created_at,
+                paymentStatus: it.payment_status,
+              },
             };
           })}
         />
