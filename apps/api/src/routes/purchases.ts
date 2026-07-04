@@ -247,44 +247,74 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
   );
 }
 
-// POST /api/v1/purchases/:id/resend-invoice — email the payer a receipt
-// with the hosted Stripe invoice link (proposal §3.6).
-purchasesRoutes.post('/:id/resend-invoice', async (c) => {
-  const ctx = c.get('ctx');
-  const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
-  if ('error' in r) return c.json({ error: r.error }, r.code as 404);
-  const p = r.purchase as unknown as {
+// Reusable: email the payer their receipt (with the hosted invoice PDF
+// button when one exists). Settled purchases without a Stripe document
+// still get the receipt itself.
+async function sendReceipt(
+  workspaceId: string,
+  purchase: Record<string, unknown>,
+): Promise<{ ok: true } | { error: string; code: number }> {
+  const p = purchase as unknown as {
     payer_name: string;
     payer_email: string | null;
     item_label: string;
     stripe_invoice_url: string | null;
+    organiser_user_id?: string | null;
   };
-  if (!p.stripe_invoice_url) {
-    return c.json(
-      { error: 'no Stripe invoice on this purchase — invoice-method sales carry your own document' },
-      409,
-    );
-  }
-  if (!p.payer_email) return c.json({ error: 'no payer email on file' }, 409);
-  const seller = await sellerDetailsFor(
-    ctx.workspaceId,
-    (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
-  );
+  if (!p.payer_email) return { error: 'no payer email on file', code: 409 };
+  const seller = await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null);
+  const button = p.stripe_invoice_url
+    ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
+    : '';
   try {
     await sendEmail({
       to: p.payer_email,
       subject: `Your receipt — ${p.item_label}`,
-      html: receiptHtml(
-        r.purchase as unknown as ReceiptPurchase,
-        `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`,
-        seller,
-      ),
-      text: `Your receipt for ${p.item_label}: ${p.stripe_invoice_url}`,
+      html: receiptHtml(purchase as unknown as ReceiptPurchase, button, seller),
+      text: `Your receipt for ${p.item_label}${p.stripe_invoice_url ? `: ${p.stripe_invoice_url}` : ''}`,
     });
   } catch (e) {
-    console.error('[purchases] resend invoice failed', e);
-    return c.json({ error: 'sending failed — try again' }, 500);
+    console.error('[purchases] resend receipt failed', e);
+    return { error: 'sending failed — try again', code: 500 };
   }
+  return { ok: true };
+}
+
+// POST /api/v1/purchases/:id/resend-invoice — receipt to the payer.
+purchasesRoutes.post('/:id/resend-invoice', async (c) => {
+  const ctx = c.get('ctx');
+  const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
+  if ('error' in r) return c.json({ error: r.error }, r.code as 404);
+  const sent = await sendReceipt(ctx.workspaceId, r.purchase);
+  if ('error' in sent) return c.json({ error: sent.error }, sent.code as 409);
+  return c.json({ ok: true });
+});
+
+// POST /api/v1/purchases/resend-by-ref — same, addressed by the app-local
+// row (the participant popup only knows the enrolment id).
+purchasesRoutes.post('/resend-by-ref', async (c) => {
+  const ctx = c.get('ctx');
+  const body = (await c.req.json().catch(() => null)) as
+    | { app?: string; item_ref?: string }
+    | null;
+  if (!body?.app || !body.item_ref) return c.json({ error: 'app and item_ref required' }, 400);
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', body.app)
+    .maybeSingle();
+  if (!app) return c.json({ error: 'unknown app' }, 400);
+  const { data: purchase } = await adminClient
+    .from('purchase')
+    .select('id')
+    .eq('app_id', app.id)
+    .eq('item_ref', body.item_ref)
+    .maybeSingle();
+  if (!purchase) return c.json({ error: 'no purchase recorded for this enrolment' }, 404);
+  const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, purchase.id);
+  if ('error' in r) return c.json({ error: r.error }, r.code as 404);
+  const sent = await sendReceipt(ctx.workspaceId, r.purchase);
+  if ('error' in sent) return c.json({ error: sent.error }, sent.code as 409);
   return c.json({ ok: true });
 });
 

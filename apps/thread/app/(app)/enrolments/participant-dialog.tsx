@@ -3,7 +3,10 @@
 // The participant detail popup — everything about one enrolment, shared by
 // the Enrolments page and the per-thread Registrations popup.
 
+import { useState, useTransition } from 'react';
 import Link from 'next/link';
+import { Mail } from 'lucide-react';
+import { resendReceiptForEnrolment } from '../threads/actions';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
@@ -22,10 +25,18 @@ export type EnrolmentDetail = {
   paymentStatus: string;
 };
 
+export type ParticipantContact = {
+  phone?: string | null;
+  city?: string | null;
+  country?: string | null;
+  preferredLanguage?: string | null;
+};
+
 export type ParticipantRow = {
   id: string;
   name: string;
   email: string | null;
+  contact?: ParticipantContact | null;
   threadId: string | null;
   threadTitle: string | null;
   certNumber: string | null;
@@ -69,9 +80,17 @@ export function ParticipantDialog({
   onClose: () => void;
 }) {
   const d = row.detail;
+  const [notice, setNotice] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
   const answers = Object.entries(d.answers ?? {}).filter(
     ([, v]) => v !== '' && v !== null && v !== undefined,
   );
+  const hasPurchase = d.amountCents != null || d.couponCode != null;
+  const contactBits = [
+    row.contact?.phone,
+    [row.contact?.city, row.contact?.country].filter(Boolean).join(', ') || null,
+    row.contact?.preferredLanguage ? `Speaks ${row.contact.preferredLanguage}` : null,
+  ].filter(Boolean) as string[];
   return (
     <Dialog
       open
@@ -81,14 +100,35 @@ export function ParticipantDialog({
       size="lg"
       footer={
         <>
-          {row.threadId && (
-            <Link
-              href={`/threads/${row.threadId}`}
-              className="mr-auto text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
-            >
-              Open thread →
-            </Link>
-          )}
+          <div className="mr-auto flex items-center gap-2">
+            {row.threadId && (
+              <Link
+                href={`/threads/${row.threadId}`}
+                className="text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+              >
+                Open thread →
+              </Link>
+            )}
+            {hasPurchase && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                leading={<Mail size={14} />}
+                disabled={pending}
+                onClick={() =>
+                  startTransition(async () => {
+                    setNotice(null);
+                    const r = await resendReceiptForEnrolment(row.id);
+                    setNotice(r.ok ? 'Receipt sent.' : r.error);
+                  })
+                }
+              >
+                {pending ? 'Sending…' : 'Send receipt'}
+              </Button>
+            )}
+            {notice && <span className="text-xs text-ink-muted">{notice}</span>}
+          </div>
           <Button type="button" variant="secondary" onClick={onClose}>
             Close
           </Button>
@@ -97,6 +137,11 @@ export function ParticipantDialog({
     >
       <div className="space-y-5 text-sm">
         <section className="space-y-2">
+          {(row.email || contactBits.length > 0) && (
+            <DetailRow label="Contact">
+              {[row.email, ...contactBits].filter(Boolean).join(' · ')}
+            </DetailRow>
+          )}
           <DetailRow label="Thread">{row.threadTitle ?? '—'}</DetailRow>
           <DetailRow label="Status">
             <span className="capitalize">{row.status}</span>

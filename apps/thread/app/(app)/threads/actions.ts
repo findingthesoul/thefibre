@@ -381,6 +381,19 @@ export async function reissueCertificate(enrolmentId: string): Promise<ActionRes
   }
 }
 
+/** Email the payer their receipt / invoice for this enrolment's purchase. */
+export async function resendReceiptForEnrolment(enrolmentId: string): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/purchases/resend-by-ref', {
+      method: 'POST',
+      body: JSON.stringify({ app: 'the-thread', item_ref: enrolmentId }),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 /** Email the participant their certificate link — explicit, never automatic. */
 export async function sendCertificateEmail(enrolmentId: string): Promise<ActionResult> {
   try {

@@ -6,6 +6,25 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.102] — 2026-07-04 — Thread 3.30.2: receipt resend + contact info in participant popup, end-after-start dates
+
+### Added
+- **Send receipt from the participant popup** — the detail popup (Enrolments
+  page + per-thread Registrations dialog) gains a "Send receipt" button in
+  the footer for anyone with a purchase, including free-via-code enrolments.
+  Backed by `POST /api/v1/purchases/resend-by-ref` ({app, item_ref}), which
+  reuses the shared receipt email; the invoice-PDF button appears when
+  Stripe issued one.
+- **Contact info in the participant popup** — email, phone, city/country and
+  preferred language now show in a Contact section (the API's enrolment list
+  select was extended with those person fields).
+
+### Fixed
+- **End date can no longer precede the start date** — picking a start date
+  constrains the end-date picker in the new-thread form, the thread Basics
+  form, and the activity dialog (where Ends also stays within the thread
+  window).
+
 ## [0.13.101] — 2026-07-04 — Thread 3.30.1: Invoices team picker shows only your teams
 
 ### Fixed

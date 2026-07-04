@@ -2989,7 +2989,7 @@ threadRoutes.get('/enrolments', async (c) => {
     .from('thread_enrolment')
     .select(
       `id, thread_id, payment_status, amount_cents, currency, answers, billing, stripe_session_id, created_at,
-       person:person_id (id, first_name, last_name, email),
+       person:person_id (id, first_name, last_name, email, phone, city, country, preferred_language),
        enrolment:enrolment_id (id, status, progress_pct, enrolled_at, completed_at),
        certificate:thread_certificate (certificate_number),
        ticket:ticket_id (name, price_cents, price_currency),

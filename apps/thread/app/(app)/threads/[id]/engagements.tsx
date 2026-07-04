@@ -83,6 +83,8 @@ export function EngagementDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
+  // Ends can only follow Starts within the thread window.
+  const [startsAt, setStartsAt] = useState<string>(toLocalInput(engagement?.starts_at ?? null));
   const [confirmDiscard, setConfirmDiscard] = useState(false);
 
   function requestClose() {
@@ -400,12 +402,13 @@ export function EngagementDialog({
                   defaultValue={toLocalInput(engagement?.starts_at ?? null)}
                   min={threadStartsOn}
                   max={threadEndsOn}
+                  onChange={setStartsAt}
                 />
                 <DateTimeField
                   label="Ends"
                   name="ends_at"
                   defaultValue={toLocalInput(engagement?.ends_at ?? null)}
-                  min={threadStartsOn}
+                  min={startsAt || threadStartsOn}
                   max={threadEndsOn}
                 />
 

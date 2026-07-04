@@ -138,6 +138,12 @@ export function RegistrationsDialog({
                       id: it.id,
                       name,
                       email: person?.email ?? null,
+                      contact: {
+                        phone: person?.phone ?? null,
+                        city: person?.city ?? null,
+                        country: person?.country ?? null,
+                        preferredLanguage: person?.preferred_language ?? null,
+                      },
                       threadId: it.thread_id,
                       threadTitle: null,
                       certNumber: cert?.certificate_number ?? null,

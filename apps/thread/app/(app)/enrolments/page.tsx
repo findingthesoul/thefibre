@@ -24,8 +24,8 @@ type EnrolmentItem = {
   coupon: { code: string } | { code: string }[] | null;
   created_at: string;
   person:
-    | { id: string; first_name: string | null; last_name: string | null; email: string | null }
-    | { id: string; first_name: string | null; last_name: string | null; email: string | null }[]
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null; phone?: string | null; city?: string | null; country?: string | null; preferred_language?: string | null }
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null; phone?: string | null; city?: string | null; country?: string | null; preferred_language?: string | null }[]
     | null;
   enrolment:
     | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }
@@ -139,6 +139,12 @@ export default async function EnrolmentsPage({
                 person?.email ||
                 'Unknown',
               email: person?.email ?? null,
+              contact: {
+                phone: person?.phone ?? null,
+                city: person?.city ?? null,
+                country: person?.country ?? null,
+                preferredLanguage: person?.preferred_language ?? null,
+              },
               threadId: thread?.id ?? null,
               threadTitle: program?.title ?? null,
               certEnabled: !!thread?.certificate_enabled,

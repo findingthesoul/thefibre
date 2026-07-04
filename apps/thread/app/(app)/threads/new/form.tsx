@@ -27,6 +27,8 @@ export function NewThreadForm({
   // Controlled so the URL preview follows: team threads live under the
   // team's public slug, not the organiser's.
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
+  // End date can only follow the start date.
+  const [startsOn, setStartsOn] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -144,8 +146,8 @@ export function NewThreadForm({
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DateField label="Starts on" name="starts_on" />
-        <DateField label="Ends on" name="ends_on" />
+        <DateField label="Starts on" name="starts_on" onValueChange={setStartsOn} />
+        <DateField label="Ends on" name="ends_on" min={startsOn || null} />
       </div>
 
       {error && (

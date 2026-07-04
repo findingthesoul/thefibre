@@ -29,6 +29,12 @@ export type EnrolmentRowData = {
   id: string;
   name: string;
   email: string | null;
+  contact?: {
+    phone?: string | null;
+    city?: string | null;
+    country?: string | null;
+    preferredLanguage?: string | null;
+  } | null;
   threadId: string | null;
   threadTitle: string | null;
   certEnabled: boolean;

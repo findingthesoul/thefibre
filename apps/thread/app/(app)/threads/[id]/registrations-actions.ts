@@ -31,8 +31,8 @@ export type ThreadEnrolmentItem = {
   coupon?: { code: string } | { code: string }[] | null;
   created_at: string;
   person:
-    | { id: string; first_name: string | null; last_name: string | null; email: string | null }
-    | { id: string; first_name: string | null; last_name: string | null; email: string | null }[]
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null; phone?: string | null; city?: string | null; country?: string | null; preferred_language?: string | null }
+    | { id: string; first_name: string | null; last_name: string | null; email: string | null; phone?: string | null; city?: string | null; country?: string | null; preferred_language?: string | null }[]
     | null;
   enrolment:
     | { status: string; progress_pct: number; enrolled_at: string | null; completed_at?: string | null }

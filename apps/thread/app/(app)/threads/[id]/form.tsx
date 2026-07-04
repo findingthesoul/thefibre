@@ -36,6 +36,8 @@ export function ThreadEditorForm({
   const urlOwner = team?.slug ?? organiser?.slug ?? '';
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // End date can only follow the start date.
+  const [startsOn, setStartsOn] = useState(program?.starts_on ?? '');
   const [pending, startTransition] = useTransition();
   const [coverUrl, setCoverUrl] = useState<string | null>(thread.cover_url);
   const [interaction, setInteraction] = useState<'page' | 'popup'>(
@@ -170,11 +172,13 @@ export function ThreadEditorForm({
               label="Starts on"
               name="starts_on"
               defaultValue={program?.starts_on ?? ''}
+              onValueChange={setStartsOn}
             />
             <DateField
               label="Ends on"
               name="ends_on"
               defaultValue={program?.ends_on ?? ''}
+              min={startsOn || null}
             />
           </div>
 
