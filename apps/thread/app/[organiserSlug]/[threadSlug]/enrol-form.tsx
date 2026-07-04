@@ -155,6 +155,15 @@ export function EnrolCard({
           ...(ticketId ? { ticket_id: ticketId } : {}),
           ...(applied ? { coupon_code: applied.code } : {}),
           ...(activePriceCents ? { payment_method: payMethod } : {}),
+          ...(activePriceCents && payMethod === 'invoice'
+            ? {
+                billing: {
+                  company: String(fd.get('billing_company') ?? '').trim() || undefined,
+                  address: String(fd.get('billing_address') ?? '').trim() || undefined,
+                  tax_no: String(fd.get('billing_tax_no') ?? '').trim() || undefined,
+                },
+              }
+            : {}),
           answers,
           marketing_opt_in: fd.get('marketing_opt_in') === 'on',
           cohort_opt_in: fd.get('cohort_opt_in') === 'on',
@@ -383,6 +392,23 @@ export function EnrolCard({
                 ))}
               </div>
             </div>
+          )}
+
+          {(activePriceCents ?? 0) > 0 && payMethod === 'invoice' && (
+            <>
+              <label className="block">
+                <span className="text-xs text-ink-subtle">{t(locale, 'company_name')}</span>
+                <input name="billing_company" className={INPUT} autoComplete="organization" />
+              </label>
+              <label className="block">
+                <span className="text-xs text-ink-subtle">{t(locale, 'billing_address')}</span>
+                <textarea name="billing_address" rows={2} className={INPUT} />
+              </label>
+              <label className="block">
+                <span className="text-xs text-ink-subtle">{t(locale, 'tax_number')}</span>
+                <input name="billing_tax_no" className={INPUT} autoComplete="off" />
+              </label>
+            </>
           )}
 
           <label className="block">

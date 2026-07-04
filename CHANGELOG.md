@@ -6,6 +6,28 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.94] — 2026-07-04 — Payments settings native, receipt emails, invoice payment links (Thread 3.26.0 · Meet 2.2.1)
+
+### Added
+- **Payments settings live in Thread** (Settings → Payments) — no more
+  new-tab bounce to Meet. Two levels: **My account** (the personal Stripe
+  Connect id — the same value Meet reads: one connection per person) and
+  **Workspace account** (admin-gated). Teams hold no accounts by design —
+  team sales pay out to the workspace account per the payout rule; noted
+  on the page.
+- **Receipt-styled emails** — resend-invoice (and the new payment-link
+  mail) now render an actual receipt: item, date, payment method, billing
+  block, total, and the button (View invoice PDF / Pay online).
+- **Payment link for invoice-method sales** — the Invoices detail dialog
+  gains "Send payment link" on pending invoice purchases: a Stripe
+  Checkout session for the open amount, emailed as a receipt with a Pay
+  online button; the existing webhook completes it (confirmation, ledger,
+  split). Thread purchases in v1; Meet's invoice bookings stay mark-paid.
+- **Billing fields on the enrol form** (migration `20260704120000`) —
+  choosing "Receive an invoice" reveals company/organisation, billing
+  address and tax/VAT number (i18n ×5); stored on the enrolment and the
+  purchase row, shown in the Invoices detail dialog.
+
 ## [0.13.93] — 2026-07-04 — Invoices area + role tiers (Thread 3.25.0 · Meet 2.2.0)
 
 The big one from docs/invoices-and-roles-proposal.md — all four design

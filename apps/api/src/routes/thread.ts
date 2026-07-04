@@ -3365,6 +3365,13 @@ const PublicEnrol = z.object({
   ticket_id: z.string().uuid().optional(),
   coupon_code: z.string().min(1).max(60).optional(),
   payment_method: z.enum(['stripe', 'invoice']).optional(),
+  billing: z
+    .object({
+      company: z.string().max(200).optional(),
+      address: z.string().max(500).optional(),
+      tax_no: z.string().max(60).optional(),
+    })
+    .optional(),
   marketing_opt_in: z.boolean().optional(),
   cohort_opt_in: z.boolean().optional(),
   policy_accepted: z.boolean().optional(),
@@ -3584,6 +3591,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       amount_cents: requiresPayment || coupon ? finalPriceCents : null,
       currency: requiresPayment ? priceCurrency : null,
       payment_status: requiresPayment ? 'pending' : 'not_required',
+      billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
       answers: d.answers ?? null,
       request_id: d.request_id,
       policy_version: d.policy_version ?? null,
@@ -3675,6 +3683,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       currency: priceCurrency,
       method: paymentMethod as 'stripe' | 'invoice',
       status,
+      billing: paymentMethod === 'invoice' && d.billing ? d.billing : null,
     });
   }
 

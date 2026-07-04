@@ -232,6 +232,27 @@ const CATALOG = {
     pt: 'Seu pedido foi recebido. O organizador vai analisá-lo — você receberá um e-mail de confirmação assim que for aprovado.',
     de: 'Deine Anfrage ist eingegangen. Die Organisation prüft sie — du erhältst eine Bestätigungsmail, sobald du zugelassen bist.',
   },
+  company_name: {
+    en: 'Company / organisation (for the invoice)',
+    nl: 'Bedrijf / organisatie (voor de factuur)',
+    es: 'Empresa / organización (para la factura)',
+    pt: 'Empresa / organização (para a fatura)',
+    de: 'Firma / Organisation (für die Rechnung)',
+  },
+  billing_address: {
+    en: 'Billing address',
+    nl: 'Factuuradres',
+    es: 'Dirección de facturación',
+    pt: 'Endereço de faturamento',
+    de: 'Rechnungsadresse',
+  },
+  tax_number: {
+    en: 'Tax / VAT number (optional)',
+    nl: 'Btw-nummer (optioneel)',
+    es: 'NIF / número de IVA (opcional)',
+    pt: 'NIF / número de IVA (opcional)',
+    de: 'USt-IdNr. (optional)',
+  },
   discount_code: {
     en: 'Discount code',
     nl: 'Kortingscode',

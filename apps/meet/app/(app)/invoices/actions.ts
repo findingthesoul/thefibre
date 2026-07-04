@@ -31,6 +31,7 @@ export type PurchaseRow = {
   method: 'stripe' | 'invoice';
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripe_invoice_url: string | null;
+  billing?: { company?: string; address?: string; tax_no?: string } | null;
   paid_at: string | null;
   refunded_at: string | null;
   created_at: string;
@@ -92,4 +93,9 @@ export async function refundPurchase(id: string): Promise<SimpleResult> {
 
 export async function markPurchasePaid(id: string): Promise<SimpleResult> {
   return post(id, 'mark-paid');
+}
+
+/** Invoice-method + pending: email the payer a Stripe payment link. */
+export async function sendPaymentLink(id: string): Promise<SimpleResult> {
+  return post(id, 'send-payment-link');
 }

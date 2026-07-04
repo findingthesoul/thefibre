@@ -26,14 +26,13 @@ export default function SettingsPage() {
             href="/settings/workspace"
             Icon={Building2}
             title="Emails & defaults"
-            desc="Sender name, email footer, default organiser revenue share."
+            desc="Sender name and the email footer note."
           />
           <Card
-            href="https://meet.thefibre.app/settings/payments"
+            href="/settings/payments"
             Icon={CreditCard}
             title="Payments"
-            desc="Your Stripe account — shared with Fibre Meet (one connection for all apps). Checkout lands with the payments phase."
-            external
+            desc="Your Stripe account and the workspace's — one connection per person, shared across Meet and Thread."
           />
           <Card
             href="https://meet.thefibre.app/settings"

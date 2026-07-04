@@ -16,7 +16,7 @@ import { finalizePaidEnrolment } from './thread.js';
 export const purchasesRoutes = new Hono();
 
 const PURCHASE_SELECT =
-  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, paid_at, refunded_at, created_at';
+  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, billing, paid_at, refunded_at, created_at';
 
 async function workspaceRole(userId: string, workspaceId: string): Promise<string> {
   const { data } = await adminClient
@@ -147,8 +147,64 @@ async function loadForAction(
   return { purchase: purchase as never, appSlug: (app as { slug: string })?.slug ?? '' };
 }
 
-// POST /api/v1/purchases/:id/resend-invoice — email the payer the hosted
-// Stripe invoice link. Invoice-method sales have no document (proposal §3.6).
+type ReceiptPurchase = {
+  payer_name: string;
+  payer_email: string | null;
+  item_label: string;
+  amount_cents: number;
+  currency: string;
+  method: string;
+  created_at: string;
+  billing?: { company?: string; address?: string; tax_no?: string } | null;
+};
+
+// Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
+function receiptHtml(p: ReceiptPurchase, buttonHtml: string): string {
+  const amount = new Intl.NumberFormat('en-GB', {
+    style: 'currency',
+    currency: p.currency || 'EUR',
+  }).format(p.amount_cents / 100);
+  const date = new Intl.DateTimeFormat('en-GB', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  }).format(new Date(p.created_at));
+  const row = (label: string, value: string) =>
+    `<tr>
+       <td style="padding:8px 0;font-size:13px;color:#6b7280;">${escapeHtml(label)}</td>
+       <td style="padding:8px 0;font-size:13px;color:#171717;text-align:right;">${escapeHtml(value)}</td>
+     </tr>`;
+  const billingRows = [
+    p.billing?.company ? row('Billed to', p.billing.company) : '',
+    p.billing?.address ? row('Address', p.billing.address) : '',
+    p.billing?.tax_no ? row('Tax / VAT no.', p.billing.tax_no) : '',
+  ].join('');
+  return shell(
+    'Receipt',
+    `<p style="font-size:15px;line-height:1.6;margin:0 0 20px;">Hi ${escapeHtml(
+      p.payer_name.split(/\s+/)[0] ?? '',
+    )},</p>
+     <table role="presentation" width="100%" cellpadding="0" cellspacing="0"
+            style="border:1px solid #e5e5e2;border-radius:10px;border-collapse:separate;padding:20px 24px;">
+       <tr>
+         <td colspan="2" style="padding:0 0 12px;border-bottom:1px solid #e5e5e2;">
+           <span style="font-size:15px;font-weight:600;color:#171717;">${escapeHtml(p.item_label)}</span>
+         </td>
+       </tr>
+       ${row('Date', date)}
+       ${row('Payment', p.method === 'invoice' ? 'By invoice' : 'Card')}
+       ${billingRows}
+       <tr>
+         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:14px;font-weight:600;color:#171717;">Total</td>
+         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:18px;font-weight:600;color:#171717;text-align:right;">${amount}</td>
+       </tr>
+     </table>
+     ${buttonHtml}`,
+  );
+}
+
+// POST /api/v1/purchases/:id/resend-invoice — email the payer a receipt
+// with the hosted Stripe invoice link (proposal §3.6).
 purchasesRoutes.post('/:id/resend-invoice', async (c) => {
   const ctx = c.get('ctx');
   const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
@@ -169,14 +225,12 @@ purchasesRoutes.post('/:id/resend-invoice', async (c) => {
   try {
     await sendEmail({
       to: p.payer_email,
-      subject: `Your invoice — ${p.item_label}`,
-      html: shell(
-        'Your invoice',
-        `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(p.payer_name.split(/\s+/)[0] ?? '')},</p>
-         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Here is the invoice for <strong>${escapeHtml(p.item_label)}</strong>.</p>
-         <p style="margin:24px 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`,
+      subject: `Your receipt — ${p.item_label}`,
+      html: receiptHtml(
+        r.purchase as unknown as ReceiptPurchase,
+        `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`,
       ),
-      text: `Your invoice for ${p.item_label}: ${p.stripe_invoice_url}`,
+      text: `Your receipt for ${p.item_label}: ${p.stripe_invoice_url}`,
     });
   } catch (e) {
     console.error('[purchases] resend invoice failed', e);
@@ -283,6 +337,114 @@ purchasesRoutes.post('/:id/refund', async (c) => {
     .from('purchase')
     .update({ status: 'refunded', refunded_at: new Date().toISOString() })
     .eq('id', p.id);
+  return c.json({ ok: true });
+});
+
+// POST /api/v1/purchases/:id/send-payment-link — invoice-method purchases
+// get an online way out: a Stripe Checkout session for the pending amount,
+// mailed as a receipt with a Pay button. The existing webhook completes it.
+// Thread-only in v1 (Meet invoice bookings are marked paid by the host).
+purchasesRoutes.post('/:id/send-payment-link', async (c) => {
+  const ctx = c.get('ctx');
+  const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
+  if ('error' in r) return c.json({ error: r.error }, r.code as 404);
+  const p = r.purchase as unknown as ReceiptPurchase & {
+    id: string;
+    item_ref: string;
+    method: string;
+    status: string;
+  };
+  if (p.method !== 'invoice' || p.status !== 'pending') {
+    return c.json({ error: 'payment links apply to pending invoice-method purchases' }, 409);
+  }
+  if (r.appSlug !== 'the-thread') {
+    return c.json({ error: 'payment links are available for Thread purchases only (for now)' }, 409);
+  }
+  if (!p.payer_email) return c.json({ error: 'no payer email on file' }, 409);
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments not configured' }, 503);
+
+  const account = await chargeAccountFor(r.appSlug, p.item_ref);
+  if (!account) return c.json({ error: 'connected Stripe account not found' }, 409);
+
+  // Same plan-aware fee rule as checkout.
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select('id, workspace_id, thread:thread_id (slug, organiser:organiser_id (slug), team:team_id (slug))')
+    .eq('id', p.item_ref)
+    .maybeSingle();
+  if (!te) return c.json({ error: 'source enrolment missing' }, 409);
+  let feePct = 0.02;
+  let feeCapCents: number | null = 200;
+  try {
+    const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
+      ws_id: te.workspace_id,
+    });
+    const row = Array.isArray(feeRows) ? feeRows[0] : null;
+    if (row) {
+      const rawPct = (row as { pct: number | string }).pct;
+      feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
+      feeCapCents = (row as { cap_cents: number | null }).cap_cents;
+    }
+  } catch {
+    /* default Free rate */
+  }
+  const computedFee = Math.floor(p.amount_cents * feePct);
+  const applicationFeeCents =
+    feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
+  const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
+  const threadUrl = process.env.THREAD_APP_URL ?? 'https://thread.thefibre.app';
+  const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
+
+  try {
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        payment_method_types: ['card'],
+        line_items: [
+          {
+            price_data: {
+              currency: (p.currency || 'EUR').toLowerCase(),
+              unit_amount: p.amount_cents,
+              product_data: { name: p.item_label },
+            },
+            quantity: 1,
+          },
+        ],
+        payment_intent_data: {
+          application_fee_amount: applicationFeeCents,
+          metadata: { thread_enrolment_id: p.item_ref },
+        },
+        customer_email: p.payer_email,
+        metadata: { thread_enrolment_id: p.item_ref },
+        invoice_creation: { enabled: true },
+        billing_address_collection: 'required',
+        success_url: `${publicBase}?paid=success`,
+        cancel_url: `${publicBase}?paid=cancelled`,
+      },
+      { stripeAccount: account },
+    );
+    await adminClient
+      .from('thread_enrolment')
+      .update({ stripe_session_id: session.id })
+      .eq('id', p.item_ref);
+    await sendEmail({
+      to: p.payer_email,
+      subject: `Payment link — ${p.item_label}`,
+      html: receiptHtml(
+        p,
+        `<p style="margin:24px 0 0;"><a href="${session.url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Pay online</a></p>
+         <p style="margin:12px 0 0;font-size:12px;color:#6b7280;">Prefer the invoice? Just ignore this button — the invoice stands.</p>`,
+      ),
+      text: `Pay online for ${p.item_label}: ${session.url}`,
+    });
+  } catch (e) {
+    console.error('[purchases] payment link failed', e);
+    return c.json({ error: 'could not create the payment link' }, 502);
+  }
   return c.json({ ok: true });
 });
 

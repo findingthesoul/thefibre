@@ -8,6 +8,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BadgeEuro,
+  Link2,
   ExternalLink,
   Mail,
   RotateCcw,
@@ -21,6 +22,7 @@ import {
   resendInvoice,
   refundPurchase,
   markPurchasePaid,
+  sendPaymentLink,
   type PurchaseList,
   type PurchaseRow,
 } from './actions';
@@ -325,16 +327,30 @@ export function InvoicesClient({
                   </Button>
                 )}
                 {detail.method === 'invoice' && detail.status === 'pending' && (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    leading={<BadgeEuro size={14} />}
-                    disabled={busy}
-                    onClick={() => void run(markPurchasePaid, detail, 'Marked as paid.')}
-                  >
-                    Mark paid
-                  </Button>
+                  <>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      leading={<BadgeEuro size={14} />}
+                      disabled={busy}
+                      onClick={() => void run(markPurchasePaid, detail, 'Marked as paid.')}
+                    >
+                      Mark paid
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      leading={<Link2 size={14} />}
+                      disabled={busy}
+                      onClick={() =>
+                        void run(sendPaymentLink, detail, 'Payment link sent to the payer.')
+                      }
+                    >
+                      Send payment link
+                    </Button>
+                  </>
                 )}
                 {detail.stripe_invoice_url && (
                   <Button
@@ -374,6 +390,13 @@ export function InvoicesClient({
                 Fee {fmt(detail.platform_fee_cents, detail.currency)} · Organiser{' '}
                 {fmt(detail.vendor_share_cents, detail.currency)} · Workspace{' '}
                 {fmt(detail.org_share_cents, detail.currency)}
+              </Row>
+            )}
+            {detail.billing && (detail.billing.company || detail.billing.address || detail.billing.tax_no) && (
+              <Row label="Billing">
+                {[detail.billing.company, detail.billing.address, detail.billing.tax_no ? `Tax/VAT ${detail.billing.tax_no}` : null]
+                  .filter(Boolean)
+                  .join(' · ')}
               </Row>
             )}
             {detail.stripe_invoice_url && (

@@ -33,6 +33,7 @@ export type PurchaseWrite = {
   stripePaymentIntent?: string | null;
   stripeInvoiceId?: string | null;
   stripeInvoiceUrl?: string | null;
+  billing?: Record<string, unknown> | null;
 };
 
 export async function recordPurchase(w: PurchaseWrite): Promise<void> {
@@ -64,6 +65,7 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (w.stripePaymentIntent !== undefined) row.stripe_payment_intent = w.stripePaymentIntent;
   if (w.stripeInvoiceId !== undefined) row.stripe_invoice_id = w.stripeInvoiceId;
   if (w.stripeInvoiceUrl !== undefined) row.stripe_invoice_url = w.stripeInvoiceUrl;
+  if (w.billing !== undefined) row.billing = w.billing;
   if (w.status === 'paid') row.paid_at = now;
   if (w.status === 'refunded') row.refunded_at = now;
 
