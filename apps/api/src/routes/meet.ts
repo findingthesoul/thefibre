@@ -23,6 +23,13 @@ import {
   createEvent,
   deleteEvent,
 } from '../lib/google/client.js';
+import {
+  userGoogleToken,
+  hostGoogleToken,
+  userPersonalRoom,
+  saveGoogleToken,
+  savePersonalRoom,
+} from '../lib/connections.js';
 import { sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -724,7 +731,8 @@ meetRoutes.post('/public/bookings', async (c) => {
   // If the host has Google Calendar connected, create the event there now.
   // Failure is non-fatal — the booking is already recorded; the host can
   // re-sync later. We do update the booking row with the resulting ids.
-  if (hostRow?.google_refresh_token && booking) {
+  const bookingGToken = booking ? await hostGoogleToken(chosenHostId) : null;
+  if (bookingGToken && booking) {
     try {
       // Find the primary write target on the chosen host's calendars.
       const { data: cal } = await adminClient
@@ -748,7 +756,7 @@ meetRoutes.post('/public/bookings', async (c) => {
           );
         extras = (extraUsers ?? []).map((u) => ({ email: u.email, name: u.full_name }));
       }
-      const { eventId, meetUrl } = await createEvent(hostRow.google_refresh_token, {
+      const { eventId, meetUrl } = await createEvent(bookingGToken, {
         calendarId,
         summary: mt.name,
         description: mt.description ?? null,
@@ -878,7 +886,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 
   const { data: host } = await adminClient
     .from('meet_host')
-    .select('id, workspace_id, timezone, working_hours, google_refresh_token')
+    .select('id, user_id, workspace_id, timezone, working_hours, google_refresh_token')
     .eq('slug', hostSlug)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
@@ -968,7 +976,8 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
   // Layer in the host's Google Calendar freebusy if they're connected. The
   // meeting type can override which calendars to conflict-check; otherwise
   // we use every primary / conflict_check calendar on the host.
-  if (host.google_refresh_token) {
+  const slotsGToken = await userGoogleToken(host.user_id);
+  if (slotsGToken) {
     let calsQuery = adminClient
       .from('meet_calendar')
       .select('id, google_calendar_id, role')
@@ -984,7 +993,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
       .filter((id): id is string => !!id);
     if (ids.length > 0) {
       try {
-        const gbusy = await freeBusy(host.google_refresh_token, ids, from, cappedTo);
+        const gbusy = await freeBusy(slotsGToken, ids, from, cappedTo);
         busy.push(...gbusy);
       } catch (e) {
         console.error('[slots] freebusy failed (non-fatal)', e);
@@ -1068,7 +1077,8 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     : booking.meeting_type;
 
   // Best-effort GCal cleanup.
-  if (booking.google_event_id && hostRow?.google_refresh_token) {
+  const cancelGToken = booking.google_event_id ? await hostGoogleToken(booking.host_id) : null;
+  if (booking.google_event_id && cancelGToken) {
     try {
       const { data: cal } = await adminClient
         .from('meet_calendar')
@@ -1078,7 +1088,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
         .limit(1)
         .maybeSingle();
       await deleteEvent(
-        hostRow.google_refresh_token,
+        cancelGToken,
         cal?.google_calendar_id ?? 'primary',
         booking.google_event_id,
       );
@@ -1218,13 +1228,10 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     return c.redirect(`${settingsUrl}?google=error&reason=exchange`);
   }
 
-  // Persist refresh_token on the host row.
-  const { error: hErr } = await adminClient
-    .from('meet_host')
-    .update({ google_refresh_token: tokens.refreshToken })
-    .eq('user_id', userId);
+  // Persist the refresh token at platform level (user_connection).
+  const { error: hErr } = await saveGoogleToken(userId, tokens.refreshToken);
   if (hErr) {
-    console.error('[google/auth-callback] update host', hErr);
+    console.error('[google/auth-callback] save token', hErr);
     return c.redirect(`${settingsUrl}?google=error&reason=db`);
   }
 
@@ -1274,11 +1281,8 @@ meetRoutes.post('/google/disconnect', async (c) => {
     .maybeSingle();
   if (host) {
     await db.from('meet_calendar').delete().eq('host_id', host.id);
-    await db
-      .from('meet_host')
-      .update({ google_refresh_token: null })
-      .eq('user_id', ctx.userId);
   }
+  await saveGoogleToken(ctx.userId, null);
   return c.json({ ok: true });
 });
 
@@ -1346,11 +1350,12 @@ async function ensureHostRow(userId: string, workspaceId: string) {
 
 meetRoutes.get('/connections', async (c) => {
   const ctx = c.get('ctx');
+  // Host row still provisioned here — meet_calendar rows hang off it.
   const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
   if (!host) return c.json({ error: 'failed to provision host' }, 500);
   return c.json({
-    google_connected: !!host.google_refresh_token,
-    personal_room_url: host.personal_room_url ?? null,
+    google_connected: !!(await userGoogleToken(ctx.userId)),
+    personal_room_url: await userPersonalRoom(ctx.userId),
   });
 });
 
@@ -1364,11 +1369,10 @@ meetRoutes.patch('/connections', async (c) => {
   const ctx = c.get('ctx');
   const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
   if (!host) return c.json({ error: 'failed to provision host' }, 500);
-  const { error } = await adminClient
-    .from('meet_host')
-    .update(body.data)
-    .eq('user_id', ctx.userId);
-  if (error) return c.json({ error: error.message }, 500);
+  if ('personal_room_url' in body.data) {
+    const { error } = await savePersonalRoom(ctx.userId, body.data.personal_room_url ?? null);
+    if (error) return c.json({ error }, 500);
+  }
   return c.json({ ok: true });
 });
 
@@ -1698,11 +1702,12 @@ meetRoutes.post('/calendars/sync', async (c) => {
     .eq('user_id', ctx.userId)
     .maybeSingle();
   if (!host) return c.json({ error: 'host not found' }, 404);
-  if (!host.google_refresh_token) {
+  const syncGToken = await userGoogleToken(ctx.userId);
+  if (!syncGToken) {
     return c.json({ error: 'google not connected' }, 400);
   }
   try {
-    const remote = await listCalendars(host.google_refresh_token);
+    const remote = await listCalendars(syncGToken);
     let added = 0;
     for (const cal of remote) {
       if (!cal.id) continue;
@@ -1842,7 +1847,11 @@ meetRoutes.get('/me', async (c) => {
   const { google_refresh_token, ...safe } = host as Record<string, unknown> & {
     google_refresh_token: string | null;
   };
-  return c.json({ ...safe, google_connected: !!google_refresh_token });
+  return c.json({
+    ...safe,
+    personal_room_url: await userPersonalRoom(ctx.userId),
+    google_connected: !!(await userGoogleToken(ctx.userId)),
+  });
 });
 
 // PATCH /api/v1/meet/me — update host config
@@ -1883,9 +1892,23 @@ meetRoutes.patch('/me', async (c) => {
   }
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  // personal_room_url is platform-level (connections SPoT) — split it off.
+  const { personal_room_url: roomPatch, ...hostPatch } = body.data;
+  if ('personal_room_url' in body.data) {
+    const { error: roomErr } = await savePersonalRoom(ctx.userId, roomPatch ?? null);
+    if (roomErr) return c.json({ error: roomErr }, 500);
+  }
+  if (Object.keys(hostPatch).length === 0) {
+    const { data: current } = await db
+      .from('meet_host')
+      .select('*')
+      .eq('user_id', ctx.userId)
+      .single();
+    return c.json(current);
+  }
   const { data, error } = await db
     .from('meet_host')
-    .update(body.data)
+    .update(hostPatch)
     .eq('user_id', ctx.userId)
     .select('*')
     .single();
@@ -2414,7 +2437,8 @@ async function runConfirmationSideEffects(
   if (!mt || !hostRow) return { ok: false };
 
   let meetUrl: string | null = null;
-  if (hostRow.google_refresh_token) {
+  const confirmGToken = await hostGoogleToken(booking.host_id);
+  if (confirmGToken) {
     try {
       const { data: cal } = await adminClient
         .from('meet_calendar')
@@ -2425,7 +2449,7 @@ async function runConfirmationSideEffects(
         .maybeSingle();
       const calendarId = cal?.google_calendar_id ?? 'primary';
       const withMeet = mt.conferencing_provider === 'google_meet';
-      const { eventId, meetUrl: m } = await createEvent(hostRow.google_refresh_token, {
+      const { eventId, meetUrl: m } = await createEvent(confirmGToken, {
         calendarId,
         summary: mt.name,
         description: mt.description ?? null,
@@ -3721,7 +3745,7 @@ async function buildPerHostArgs(
 ): Promise<PerHostArgs[]> {
   const { data: hosts } = await adminClient
     .from('meet_host')
-    .select('id, timezone, working_hours, google_refresh_token')
+    .select('id, user_id, timezone, working_hours, google_refresh_token')
     .in('id', hostIds);
   if (!hosts || hosts.length === 0) return [];
 
@@ -3765,10 +3789,11 @@ async function buildPerHostArgs(
     hosts.map(async (h) => {
       const busy = busyByHost.get(h.id) ?? [];
       const calendarIds = calsByHost.get(h.id) ?? [];
-      if (h.google_refresh_token && calendarIds.length > 0) {
+      const hGToken = calendarIds.length > 0 ? await userGoogleToken(h.user_id) : null;
+      if (hGToken && calendarIds.length > 0) {
         try {
           const gbusy = await freeBusy(
-            h.google_refresh_token,
+            hGToken,
             calendarIds,
             from,
             to,

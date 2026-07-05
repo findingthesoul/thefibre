@@ -6,6 +6,7 @@ import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { userPersonalRoom } from '../lib/connections.js';
 import {
   personalStripeAccount,
   resolvePaymentMethods,
@@ -156,12 +157,12 @@ threadRoutes.get('/me', async (c) => {
     organiser = created;
   }
 
-  // Meet's connection + payment settings are shared across the Fibre apps
-  // (Sjoerd 2026-07-02): personal room AND the personal Stripe account fall
-  // back to what the user configured in Meet.
+  // Connection + payment settings are user-level SPoTs shared across the
+  // Fibre apps: personal room via lib/connections, Stripe via the old
+  // meet_host fallback chain.
   const { data: meetHost } = await adminClient
     .from('meet_host')
-    .select('personal_room_url, stripe_account_id')
+    .select('stripe_account_id')
     .eq('user_id', ctx.userId)
     .maybeSingle();
 
@@ -178,7 +179,7 @@ threadRoutes.get('/me', async (c) => {
     display_name: organiser.display_name ?? profile?.display_name ?? null,
     bio: organiser.bio ?? profile?.bio ?? null,
     photo_url: organiser.photo_url ?? profile?.photo_url ?? null,
-    personal_room_url: meetHost?.personal_room_url ?? null,
+    personal_room_url: await userPersonalRoom(ctx.userId),
     stripe_account_id: organiser.stripe_account_id ?? meetHost?.stripe_account_id ?? null,
   });
 });

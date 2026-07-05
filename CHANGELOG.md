@@ -6,6 +6,24 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.107] — 2026-07-05 — Connections data moves to platform level
+
+### Changed
+- **Connections are now a data-level SPoT** (follow-up to 0.13.106, which
+  unified the UI but left the data on `meet_host`). New `user_connection`
+  table holds `google_refresh_token` + `personal_room_url` per user —
+  deliberately NOT on `user_profile`, which is workspace-readable by RLS
+  design; the token is a credential, so the new table has RLS enabled with
+  no policies (API service-role only). Backfilled from `meet_host`
+  (migration `20260705090000`).
+- All readers (booking create/cancel/confirm, slots, multi-host
+  availability, calendar sync, `/me`, connections, Thread's organiser
+  payload) resolve through `apps/api/src/lib/connections.ts` —
+  platform value first, old `meet_host` columns as read fallback. Writes
+  (OAuth callback, disconnect, personal-room saves from either app) go to
+  the platform table and clear the fallback so a disconnect can't be
+  resurrected by a stale app-local value.
+
 ## [0.13.106] — 2026-07-04 — Thread 3.31.0 · Meet 2.4.0: manual add participant, photo upload, Connections SPoT
 
 ### Added

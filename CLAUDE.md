@@ -118,6 +118,11 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
   (workspace = admin+), app filter chips, search, totals, detail dialog with
   Reimburse (full, fee returned) / Mark paid / Send payment link / Resend
   invoice (receipt-styled emails w/ seller block).
+- **Connections SPoT** (v0.13.107): user_connection.{google_refresh_token,
+  personal_room_url} — service-role-only table (credential; NOT on the
+  workspace-readable user_profile). ALL readers via
+  apps/api/src/lib/connections.ts (meet_host columns are read fallbacks —
+  never write them again; saves clear them).
 - **Payments SPoT**: user_profile.{stripe_account_id, invoice_details,
   default_payment_methods} + workspace.{stripe_account_id, invoice_details}.
   ALL readers go through apps/api/src/lib/payment-accounts.ts (platform value
