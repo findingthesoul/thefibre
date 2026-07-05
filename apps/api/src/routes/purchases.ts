@@ -12,7 +12,11 @@ import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { finalizePaidEnrolment } from './thread.js';
-import { chargeAccountForItem } from '../lib/payment-accounts.js';
+import {
+  chargeAccountForItem,
+  personalInvoiceDetails,
+  workspaceInvoiceDetails,
+} from '../lib/payment-accounts.js';
 
 export const purchasesRoutes = new Hono();
 
@@ -167,31 +171,26 @@ type ReceiptPurchase = {
   amount_cents: number;
   currency: string;
   method: string;
+  status?: string;
   created_at: string;
   billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
 };
 
 type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } | null;
 
-/** The invoice issuer's identity for a purchase — personal or workspace. */
+/** The invoice issuer's identity for a purchase — personal or workspace.
+ *  Resolves through the payments SPoT (review 2026-07-05: this read the
+ *  legacy columns directly, so Settings → Payments edits never reached
+ *  receipts). */
 async function sellerDetailsFor(
   workspaceId: string,
   organiserUserId: string | null,
 ): Promise<SellerDetails> {
   if (organiserUserId) {
-    const { data: org } = await adminClient
-      .from('thread_organiser')
-      .select('invoice_details')
-      .eq('user_id', organiserUserId)
-      .maybeSingle();
-    if (org?.invoice_details) return org.invoice_details as SellerDetails;
+    const personal = await personalInvoiceDetails(organiserUserId);
+    if (personal) return personal as SellerDetails;
   }
-  const { data: ws } = await adminClient
-    .from('thread_settings')
-    .select('invoice_details')
-    .eq('workspace_id', workspaceId)
-    .maybeSingle();
-  return (ws?.invoice_details as SellerDetails) ?? null;
+  return ((await workspaceInvoiceDetails(workspaceId)) as SellerDetails) ?? null;
 }
 
 // Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
@@ -229,8 +228,20 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
     billingAddress ? row('Address', billingAddress) : '',
     p.billing?.tax_no ? row('Tax / VAT no.', p.billing.tax_no) : '',
   ].join('');
+  // A pending purchase is an invoice, not a receipt — say so
+  // (review 2026-07-05: resend on a pending row mailed a "Receipt" with a
+  // Total for money not yet paid).
+  const settled = p.status !== 'pending';
+  const methodLabel =
+    p.method === 'invoice'
+      ? settled
+        ? 'By invoice'
+        : 'By invoice — awaiting payment'
+      : p.method === 'free'
+        ? 'Free (discount code)'
+        : 'Card';
   return shell(
-    'Receipt',
+    settled ? 'Receipt' : 'Invoice',
     `<p style="font-size:15px;line-height:1.6;margin:0 0 20px;">Hi ${escapeHtml(
       p.payer_name.split(/\s+/)[0] ?? '',
     )},</p>
@@ -242,7 +253,7 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
          </td>
        </tr>
        ${row('Date', date)}
-       ${row('Payment', p.method === 'invoice' ? 'By invoice' : 'Card')}
+       ${row('Payment', methodLabel)}
        ${sellerRows}
        ${billingRows}
        <tr>
@@ -267,6 +278,7 @@ async function sendReceipt(
     item_label: string;
     stripe_invoice_url: string | null;
     organiser_user_id?: string | null;
+    status?: string;
   };
   if (!p.payer_email) return { error: 'no payer email on file', code: 409 };
   const seller = await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null);
@@ -276,7 +288,7 @@ async function sendReceipt(
   try {
     await sendEmail({
       to: p.payer_email,
-      subject: `Your receipt — ${p.item_label}`,
+      subject: `${p.status === 'pending' ? 'Invoice' : 'Your receipt'} — ${p.item_label}`,
       html: receiptHtml(purchase as unknown as ReceiptPurchase, button, seller),
       text: `Your receipt for ${p.item_label}${p.stripe_invoice_url ? `: ${p.stripe_invoice_url}` : ''}`,
     });
@@ -340,6 +352,11 @@ purchasesRoutes.post('/:id/refund', async (c) => {
   };
   if (p.status === 'refunded') return c.json({ ok: true, already: true });
   if (p.status !== 'paid') return c.json({ error: 'only paid purchases can be reimbursed' }, 409);
+  if (p.method === 'free') {
+    // €0-with-code rows are ledger facts, not payments — flipping them to
+    // 'refunded' would irreversibly mislabel the enrolment.
+    return c.json({ error: 'a free enrolment has nothing to reimburse' }, 409);
+  }
 
   if (p.method === 'stripe') {
     const stripe = stripeOrNull();
@@ -538,6 +555,29 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
   }
 
   if (r.appSlug === 'the-thread') {
+    // A live checkout session would stay payable after the manual mark —
+    // expire it (double-pay guard, review 2026-07-05; same rule as decline
+    // and payment-link resend).
+    const { data: teSess } = await adminClient
+      .from('thread_enrolment')
+      .select('stripe_session_id')
+      .eq('id', p.item_ref)
+      .maybeSingle();
+    if (teSess?.stripe_session_id) {
+      const stripe = stripeOrNull();
+      const account =
+        (r.purchase as { stripe_account_id?: string | null }).stripe_account_id ??
+        (await chargeAccountForItem(r.appSlug, p.item_ref));
+      if (stripe && account) {
+        try {
+          await stripe.checkout.sessions.expire(teSess.stripe_session_id, undefined, {
+            stripeAccount: account,
+          });
+        } catch {
+          /* already expired or completed */
+        }
+      }
+    }
     await adminClient
       .from('thread_enrolment')
       .update({ payment_status: 'paid' })

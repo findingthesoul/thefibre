@@ -239,14 +239,20 @@ function CalendarPopover({
   clearable: boolean;
 }) {
   const today = new Date();
+  // Today must obey the same min/max the grid enforces — otherwise it's a
+  // one-click bypass of the end-after-start constraint.
+  const todayDisabled =
+    !!(min && today < min && !sameDay(today, min)) ||
+    !!(max && today > max && !sameDay(today, max));
   return (
     <PopoverShell anchor={anchor} width={324} height={372} onClose={onClose}>
       <MonthGrid selected={selected} min={min} max={max} onPick={onPick} />
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
         <button
           type="button"
+          disabled={todayDisabled}
           onClick={() => onPick(today)}
-          className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
+          className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           Today
         </button>
@@ -307,6 +313,9 @@ function DateTimePopover({
   clearable: boolean;
 }) {
   const today = new Date();
+  const todayDisabled =
+    !!(min && today < min && !sameDay(today, min)) ||
+    !!(max && today > max && !sameDay(today, max));
   const times = useMemo(() => buildTimes(time), [time]);
   const listRef = useRef<HTMLDivElement>(null);
 
@@ -353,8 +362,9 @@ function DateTimePopover({
       <div className="mt-2 flex items-center justify-between border-t border-line pt-2">
         <button
           type="button"
+          disabled={todayDisabled}
           onClick={() => onPickDate(today)}
-          className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
+          className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
           Today
         </button>

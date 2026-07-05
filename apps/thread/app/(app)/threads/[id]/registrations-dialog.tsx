@@ -57,6 +57,8 @@ export function RegistrationsDialog({
   const [adding, setAdding] = useState(false);
   const [addBusy, setAddBusy] = useState(false);
   const [addNotice, setAddNotice] = useState<string | null>(null);
+  const [addInfo, setAddInfo] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +81,7 @@ export function RegistrationsDialog({
     if (!name || !email) return;
     setAddBusy(true);
     setAddNotice(null);
+    setAddInfo(null);
     const r = await addThreadParticipant(threadId, {
       name,
       email,
@@ -87,18 +90,25 @@ export function RegistrationsDialog({
     if (!r.ok) {
       setAddNotice(r.error);
     } else if (r.already) {
-      setAddNotice('Already enrolled — no changes made.');
+      setAddInfo('Already enrolled — no changes made.');
     } else {
       setAdding(false);
+      if (r.reactivated) {
+        setAddInfo('Re-activated an earlier registration — the person is enrolled again.');
+      }
       const list = await listThreadEnrolments(threadId);
       if (list.ok) setItems(list.items);
     }
     setAddBusy(false);
   }
 
-  async function run(id: string, fn: (id: string) => Promise<{ ok: boolean }>) {
+  async function run(id: string, fn: (id: string) => Promise<{ ok: boolean; error?: string }>) {
     setBusy(id);
-    await fn(id);
+    setActionError(null);
+    const res = await fn(id);
+    // Surface failures — silently re-rendering an unchanged list reads as
+    // "it worked" (review 2026-07-05).
+    if (!res.ok) setActionError(res.error ?? 'that action failed — try again');
     const r = await listThreadEnrolments(threadId);
     if (r.ok) setItems(r.items);
     setBusy(null);
@@ -145,6 +155,12 @@ export function RegistrationsDialog({
         </p>
       )}
 
+      {actionError && (
+        <p className="mb-3 text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
+          {actionError}
+        </p>
+      )}
+
       {adding && (
         <form
           onSubmit={submitAdd}
@@ -161,6 +177,7 @@ export function RegistrationsDialog({
             </span>
           </label>
           {addNotice && <p className="text-sm text-red-700">{addNotice}</p>}
+          {addInfo && <p className="text-sm text-ink-subtle">{addInfo}</p>}
           <div className="flex items-center gap-2">
             <Button type="submit" size="sm" disabled={addBusy}>
               {addBusy ? 'Adding…' : 'Add participant'}

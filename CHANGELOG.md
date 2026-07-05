@@ -6,6 +6,88 @@ The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump i
 
 ## [Unreleased]
 
+## [0.13.108] — 2026-07-05 — Thread 3.31.1 · Meet 2.4.1: full-app debug pass (21 fixes)
+
+Four parallel review agents swept the releases since the last adversarial
+pass (0.13.98–0.13.107) plus the standing money/auth flows; every finding
+was re-verified against the source before fixing. 31 findings → 21 fixed,
+the rest judged working-as-intended and documented.
+
+### Security / authority
+- **Manual add participant now requires real authority** — admins, the
+  thread organiser, co-organiser hosts, or owning-team members; before,
+  any workspace member could inject enrolled participants (and trigger
+  emails) into any thread, bypassing payment and approval.
+- **PATCH /meet/me no longer returns the Google refresh token** (GET
+  already stripped it; PATCH leaked the raw row — and always, after the
+  personal-room-only save split).
+- **Uploads take raster images only** (png/jpeg/webp/gif/avif) — SVG/HTML
+  in a public bucket is stored XSS.
+- **Certificate-template shares endpoint scoped to the workspace** (was an
+  unscoped read by template UUID).
+
+### Money
+- **Mark-paid now expires a live Stripe Checkout session** (both the
+  Invoices route and the thread route) — the payment link stayed payable
+  after a bank transfer was marked received: a real double-payment window
+  the webhook then swallowed silently.
+- **Payment links follow team payout routing** — chargeAccountForItem now
+  uses the same destination resolution as checkout, so lead-payout team
+  threads no longer get their resent links charged to the workspace
+  account (which also left two payable sessions alive).
+- **Receipts read seller details through the payments SPoT** — Settings →
+  Payments edits (legal name, VAT) finally reach the receipt emails.
+- **Reimburse refuses €0 discount-code purchases** (flipping them to
+  refunded irreversibly mislabeled a free enrolment as a refunded payment).
+- **Pending purchases mail as "Invoice", not "Receipt"** (with "awaiting
+  payment"), and free purchases say "Free (discount code)" instead of
+  "Card".
+
+### Enrolment correctness
+- **Manual add checks thread state**: completed/archived threads refuse
+  new people; full threads (capacity) refuse with a clear message.
+- **Manual add re-activates instead of lying**: adding someone who was
+  declined or stuck at unpaid/unapproved now re-enrols them (door
+  override) instead of replying "already enrolled" while leaving them out;
+  completed/active enrolments are never regressed.
+- **The message scheduler skips 'invited' enrolments** — people awaiting
+  approval or payment no longer receive all scheduled course content.
+- **Duplicates and templates keep engagement statuses** — an all-draft
+  copy silently emptied the public agenda and muted every message; now
+  published source engagements stay published in the copy.
+
+### Dates
+- **The API rejects end-before-start** on thread create/update (aware of
+  the auto-shift) and on activities (end must follow start — same-day
+  end-times before the start were accepted).
+- **The date picker's "Today" button respects min/max** — it was a
+  one-click bypass of the end-after-start constraint.
+
+### Connections polish
+- **Meet's OAuth feedback lands on Settings → Connections** (redirects
+  targeted /settings, which never read the ?google= params — success and
+  errors were invisible).
+- **Disconnect cleans calendar rows for Thread-only users** (the delete
+  ran under Meet-membership RLS and silently no-op'd for them).
+- **Host provisioning survives a first-touch race** (unique-violation now
+  resolves to the winner's row instead of a 500).
+- **Credential columns dropped from a dozen unused selects** on public
+  endpoints (they pulled the token into memory for nothing).
+
+### Registrations dialog
+- **Lifecycle action failures are surfaced** (approve/decline/complete/
+  mark-paid errors used to vanish — the list just re-rendered unchanged).
+- **"Already enrolled" renders as info, not an error**, and reactivation
+  gets its own message.
+
+### Noted, not changed (deliberate)
+- Manual adds receive up to 72h of catch-up messages via the scheduler
+  lookback (at-most-once send semantics stay as designed).
+- Engagement status 'closed' collapses to draft in the editor — latent;
+  nothing writes 'closed' today.
+- Uploads still don't check per-app membership (any workspace member may
+  upload); MIME + size limits added, membership gate deferred.
+
 ## [0.13.107] — 2026-07-05 — Connections data moves to platform level
 
 ### Changed

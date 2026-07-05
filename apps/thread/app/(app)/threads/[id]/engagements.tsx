@@ -187,6 +187,7 @@ export function EngagementDialog({
       const r = await createEngagement(threadId, {
         title: `${engagement.title} (copy)`,
         type: engagement.type,
+        status: engagement.status === 'published' ? 'published' : 'draft',
         description: engagement.description,
         starts_at: engagement.starts_at,
         ends_at: engagement.ends_at,

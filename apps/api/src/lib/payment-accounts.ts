@@ -174,16 +174,21 @@ export async function chargeAccountForItem(
   const { data: te } = await adminClient
     .from('thread_enrolment')
     .select(
-      `workspace_id, thread:thread_id (payment_destination, organiser:organiser_id (user_id))`,
+      `workspace_id, thread:thread_id (team_id, payment_destination, organiser:organiser_id (user_id))`,
     )
     .eq('id', itemRef)
     .maybeSingle();
   if (!te) return null;
   const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
   if (!thread) return null;
-  if (thread.payment_destination === 'personal') {
-    const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
-    return org?.user_id ? personalStripeAccount(org.user_id) : null;
-  }
-  return workspaceStripeAccount(te.workspace_id);
+  const org = Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser;
+  // Same routing as the original checkout — incl. team payout_destination
+  // 'lead' (review 2026-07-05: payment links charged the workspace account
+  // for lead-payout team threads).
+  return threadDestinationAccount({
+    workspace_id: te.workspace_id,
+    team_id: (thread as { team_id?: string | null }).team_id ?? null,
+    payment_destination: thread.payment_destination ?? null,
+    organiser_user_id: org?.user_id ?? null,
+  });
 }

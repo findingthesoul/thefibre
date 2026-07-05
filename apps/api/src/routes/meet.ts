@@ -175,7 +175,7 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
   const { data: host, error: hErr } = await adminClient
     .from('meet_host')
     .select(
-      'id, slug, bio, photo_url, location, timezone, personal_room_url, user:user_id (full_name, email, avatar_url), workspace_id',
+      'id, slug, bio, photo_url, location, timezone, user:user_id (full_name, email, avatar_url), workspace_id',
     )
     .eq('slug', hostSlug)
     .single();
@@ -215,7 +215,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
   const { data: host, error: hErr } = await adminClient
     .from('meet_host')
     .select(
-      'id, slug, bio, photo_url, location, timezone, personal_room_url, workspace_id, user:user_id (full_name, email, avatar_url)',
+      'id, slug, bio, photo_url, location, timezone, workspace_id, user:user_id (full_name, email, avatar_url)',
     )
     .eq('slug', hostSlug)
     .single();
@@ -423,7 +423,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: chosenHostRow } = await adminClient
     .from('meet_host')
     .select(
-      'id, google_refresh_token, timezone, slug, user:user_id (full_name, email)',
+      'id, timezone, slug, user:user_id (full_name, email)',
     )
     .eq('id', chosenHostId)
     .single();
@@ -886,7 +886,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug/slots', async (c) => {
 
   const { data: host } = await adminClient
     .from('meet_host')
-    .select('id, user_id, workspace_id, timezone, working_hours, google_refresh_token')
+    .select('id, user_id, workspace_id, timezone, working_hours')
     .eq('slug', hostSlug)
     .single();
   if (!host) return c.json({ error: 'host not found' }, 404);
@@ -1047,7 +1047,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   const { data: booking, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, google_refresh_token, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -1202,11 +1202,12 @@ meetRoutes.get('/google/auth-callback', async (c) => {
   const state = url.searchParams.get('state');
   const meetUrl = process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
   if (!code || !state) {
-    return c.redirect(`${meetUrl}/settings?google=error&reason=missing`);
+    return c.redirect(`${meetUrl}/settings/integrations?google=error&reason=missing`);
   }
   let userId: string;
   let workspaceId: string;
-  let settingsUrl = `${meetUrl}/settings`;
+  // /settings/integrations is the page that reads ?google=/?reason=.
+  let settingsUrl = `${meetUrl}/settings/integrations`;
   try {
     const { payload } = await jwtVerify(state, stateSecret());
     userId = payload.user_id as string;
@@ -1217,7 +1218,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     }
     if (!userId || !workspaceId) throw new Error('bad state');
   } catch {
-    return c.redirect(`${meetUrl}/settings?google=error&reason=state`);
+    return c.redirect(`${meetUrl}/settings/integrations?google=error&reason=state`);
   }
 
   let tokens;
@@ -1273,14 +1274,16 @@ meetRoutes.get('/google/auth-callback', async (c) => {
 // refresh token and removes the meet_calendar rows.
 meetRoutes.post('/google/disconnect', async (c) => {
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
-  const { data: host } = await db
+  // admin client (own row only): Thread-only users have no fibre-meet
+  // membership, so the meet_* RLS would silently keep their calendar rows
+  // (review 2026-07-05).
+  const { data: host } = await adminClient
     .from('meet_host')
     .select('id')
     .eq('user_id', ctx.userId)
     .maybeSingle();
   if (host) {
-    await db.from('meet_calendar').delete().eq('host_id', host.id);
+    await adminClient.from('meet_calendar').delete().eq('host_id', host.id);
   }
   await saveGoogleToken(ctx.userId, null);
   return c.json({ ok: true });
@@ -1297,6 +1300,10 @@ meetRoutes.post('/uploads', async (c) => {
   const file = body.file;
   if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
   if (file.size > 5 * 1024 * 1024) return c.json({ error: 'max 5MB' }, 400);
+  // Raster images only — SVG/HTML in a public bucket is stored XSS.
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(file.type)) {
+    return c.json({ error: 'images only (png, jpeg, webp, gif, avif)' }, 400);
+  }
   const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
   const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await adminClient.storage
@@ -1323,7 +1330,7 @@ meetRoutes.post('/uploads', async (c) => {
 async function ensureHostRow(userId: string, workspaceId: string) {
   const { data: host } = await adminClient
     .from('meet_host')
-    .select('id, personal_room_url, google_refresh_token')
+    .select('id')
     .eq('user_id', userId)
     .maybeSingle();
   if (host) return host;
@@ -1342,9 +1349,20 @@ async function ensureHostRow(userId: string, workspaceId: string) {
   const { data: created, error } = await adminClient
     .from('meet_host')
     .insert({ user_id: userId, workspace_id: workspaceId, slug })
-    .select('id, personal_room_url, google_refresh_token')
+    .select('id')
     .single();
-  if (error) console.error('[meet/connections] auto-provision failed', error);
+  if (error) {
+    // Lost a provisioning race (user_id is unique) — take the winner's row.
+    if (error.code === '23505') {
+      const { data: winner } = await adminClient
+        .from('meet_host')
+        .select('id')
+        .eq('user_id', userId)
+        .maybeSingle();
+      return winner ?? null;
+    }
+    console.error('[meet/connections] auto-provision failed', error);
+  }
   return created ?? null;
 }
 
@@ -1904,7 +1922,10 @@ meetRoutes.patch('/me', async (c) => {
       .select('*')
       .eq('user_id', ctx.userId)
       .single();
-    return c.json(current);
+    // Same contract as GET /me: never return the raw refresh token, and
+    // report the platform personal room (review 2026-07-05).
+    const { google_refresh_token: _t1, ...safeCurrent } = (current ?? {}) as Record<string, unknown>;
+    return c.json({ ...safeCurrent, personal_room_url: await userPersonalRoom(ctx.userId) });
   }
   const { data, error } = await db
     .from('meet_host')
@@ -1923,7 +1944,9 @@ meetRoutes.patch('/me', async (c) => {
     });
     return c.json({ error: error.message, code: error.code, details: error.details }, 500);
   }
-  return c.json(data);
+  // Same contract as GET /me: strip the token, overlay the platform room.
+  const { google_refresh_token: _t2, ...safeData } = (data ?? {}) as Record<string, unknown>;
+  return c.json({ ...safeData, personal_room_url: await userPersonalRoom(ctx.userId) });
 });
 
 // GET /api/v1/meet/meeting-types — list mine.
@@ -2733,7 +2756,7 @@ async function loadBookingWithJoins(id: string) {
   return adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, google_refresh_token, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -2745,7 +2768,7 @@ meetRoutes.post('/bookings/:id/approve', async (c) => {
 
   // Verify the caller is the host on this booking. Use admin for the read
   // because RLS would otherwise scope by app_membership which is fine — but
-  // we also want to surface the google_refresh_token for the calendar call.
+  // the calendar token resolves via lib/connections at use time.
   const { data: booking, error } = await loadBookingWithJoins(id);
   if (error || !booking) return c.json({ error: 'booking not found' }, 404);
   const { data: callerHost } = await adminClient
@@ -3745,7 +3768,7 @@ async function buildPerHostArgs(
 ): Promise<PerHostArgs[]> {
   const { data: hosts } = await adminClient
     .from('meet_host')
-    .select('id, user_id, timezone, working_hours, google_refresh_token')
+    .select('id, user_id, timezone, working_hours')
     .in('id', hostIds);
   if (!hosts || hosts.length === 0) return [];
 

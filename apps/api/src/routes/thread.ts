@@ -353,6 +353,9 @@ const ThreadCreate = z.object({
 threadRoutes.post('/threads', async (c) => {
   const body = ThreadCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (body.data.starts_on && body.data.ends_on && body.data.ends_on < body.data.starts_on) {
+    return c.json({ error: 'the end date cannot be before the start date' }, 400);
+  }
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
@@ -534,6 +537,23 @@ threadRoutes.patch('/threads/:id', async (c) => {
     }
   }
 
+  // End-before-start guard — the picker constrains this client-side; the
+  // API is the backstop (checks the values as they'll be after the shift).
+  if (starts_on !== undefined || ends_on !== undefined) {
+    const { data: prog } = await db
+      .from('program')
+      .select('starts_on, ends_on')
+      .eq('id', existing.program_id)
+      .single();
+    const effStart =
+      'starts_on' in programPatch ? (programPatch.starts_on as string | null) : prog?.starts_on ?? null;
+    const effEnd =
+      'ends_on' in programPatch ? (programPatch.ends_on as string | null) : prog?.ends_on ?? null;
+    if (effStart && effEnd && effEnd < effStart) {
+      return c.json({ error: 'the end date cannot be before the start date' }, 400);
+    }
+  }
+
   if (Object.keys(programPatch).length > 0) {
     const { error: pErr } = await db
       .from('program')
@@ -687,7 +707,9 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       title: e.title,
       description: e.description,
       type: e.type,
-      status: 'draft',
+      // Keep the source status — an all-draft copy silently empties the
+      // public agenda and mutes every message (review 2026-07-05).
+      status: e.status === 'published' ? 'published' : 'draft',
       starts_at: e.starts_at,
       ends_at: e.ends_at,
       location: e.location,
@@ -756,6 +778,9 @@ async function activityWindowError(
 ): Promise<string | null> {
   if (!(ACTIVITY_TYPES as readonly string[]).includes(type)) return null;
   if (!startsAt && !endsAt) return null;
+  if (startsAt && endsAt && new Date(endsAt) < new Date(startsAt)) {
+    return 'the end must come after the start';
+  }
   const { data: thread } = await adminClient
     .from('thread_thread')
     .select('program:program_id (starts_on, ends_on, title)')
@@ -1547,7 +1572,7 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
       title: e.title,
       description: e.description ?? null,
       type: e.type,
-      status: 'draft',
+      status: e.status === 'published' ? 'published' : 'draft',
       starts_at: startsAt,
       ends_at: endsAt,
       scheduled_at: scheduledAt,
@@ -2037,6 +2062,10 @@ threadRoutes.post('/uploads', async (c) => {
   const file = body.file;
   if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
   if (file.size > 5 * 1024 * 1024) return c.json({ error: 'max 5MB' }, 400);
+  // Raster images only — SVG/HTML in a public bucket is stored XSS.
+  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(file.type)) {
+    return c.json({ error: 'images only (png, jpeg, webp, gif, avif)' }, 400);
+  }
   const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
   const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
   const { error } = await adminClient.storage
@@ -2421,8 +2450,10 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
 
 // POST /threads/:id/participants — the organiser adds someone by hand
 // (walk-ins, phone signups, imports). Skips payment and approval: the
-// person lands as 'enrolled' immediately. Authority = RLS visibility of
-// the thread (organiser, co-host, team member, admin).
+// person lands as 'enrolled' immediately. Authority = admins, the thread
+// organiser, co-organiser hosts, or members of the owning team (workspace
+// visibility is NOT authority — review finding #1 applies to enrolment
+// creation too).
 const ManualParticipant = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
@@ -2437,7 +2468,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
   const { data: thread } = await db
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, language, organiser:organiser_id (display_name, user:user_id (full_name)), program:program_id (id, title, starts_on)',
+      'id, workspace_id, program_id, team_id, capacity, language, organiser:organiser_id (user_id, display_name, user:user_id (full_name)), program:program_id (id, title, starts_on, status)',
     )
     .eq('id', c.req.param('id'))
     .maybeSingle();
@@ -2451,6 +2482,65 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       : organiser.user
     : null;
   const organiserName = organiser?.display_name ?? orgUser?.full_name ?? 'The organiser';
+
+  // Enrolment-creation authority (review 2026-07-05): same rule as the
+  // lifecycle actions in loadEnrolmentForAction.
+  const { data: wm } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', ctx.userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  let allowed =
+    wm?.workspace_role === 'admin' ||
+    wm?.workspace_role === 'super_admin' ||
+    (organiser as { user_id?: string } | null)?.user_id === ctx.userId;
+  if (!allowed) {
+    const { data: co } = await adminClient
+      .from('thread_thread_organiser')
+      .select('role, organiser:organiser_id (user_id)')
+      .eq('thread_id', thread.id);
+    allowed = (co ?? []).some((row) => {
+      const o = Array.isArray(row.organiser) ? row.organiser[0] : row.organiser;
+      return o?.user_id === ctx.userId && row.role === 'host';
+    });
+  }
+  const threadTeamId = (thread as { team_id?: string | null }).team_id ?? null;
+  if (!allowed && threadTeamId) {
+    const { data: tm } = await adminClient
+      .from('team_member')
+      .select('user_id')
+      .eq('team_id', threadTeamId)
+      .eq('user_id', ctx.userId)
+      .eq('status', 'active')
+      .maybeSingle();
+    allowed = !!tm;
+  }
+  if (!allowed) {
+    return c.json({ error: 'only the thread organiser (or an admin) can add participants' }, 403);
+  }
+
+  // Closed threads don't take new people.
+  const programStatus = (program as { status?: string }).status;
+  if (programStatus === 'archived' || programStatus === 'completed') {
+    return c.json(
+      { error: `this thread is ${programStatus} — participants can no longer be added` },
+      409,
+    );
+  }
+
+  // Capacity holds for manual adds too — raise it to add more.
+  const capacity = (thread as { capacity?: number | null }).capacity ?? null;
+  if (capacity) {
+    const { count } = await adminClient
+      .from('thread_enrolment')
+      .select('id', { count: 'exact', head: true })
+      .eq('thread_id', thread.id)
+      .neq('payment_status', 'failed');
+    if ((count ?? 0) >= capacity) {
+      return c.json({ error: 'this thread is full — raise its capacity to add more people' }, 409);
+    }
+  }
 
   const email = body.data.email.trim().toLowerCase();
   const name = body.data.name.trim();
@@ -2507,9 +2597,23 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       .select('id')
       .eq('enrolment_id', platEnrolment.id)
       .maybeSingle();
-    if (dup) return c.json({ ok: true, already_enrolled: true, enrolment_id: dup.id });
+    if (dup) {
+      // Companion exists. Door override: invited (unapproved/unpaid) and
+      // dropped people get re-activated; live or finished states are
+      // reported honestly and left alone (review 2026-07-05).
+      if (platEnrolment.status === 'invited' || platEnrolment.status === 'dropped') {
+        await adminClient
+          .from('enrolment')
+          .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+          .eq('id', platEnrolment.id);
+        return c.json({ ok: true, enrolment_id: dup.id, reactivated: true });
+      }
+      return c.json({ ok: true, already_enrolled: true, enrolment_id: dup.id });
+    }
     enrolmentId = platEnrolment.id;
-    if (platEnrolment.status !== 'enrolled') {
+    // Only lift invited/dropped — never regress completed/active platform
+    // state (it would leave completed_at set with status 'enrolled').
+    if (platEnrolment.status === 'invited' || platEnrolment.status === 'dropped') {
       await adminClient
         .from('enrolment')
         .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
@@ -3045,13 +3149,38 @@ threadRoutes.post('/enrolments/:id/mark-paid', async (c) => {
 
   const { data: teRow } = await adminClient
     .from('thread_enrolment')
-    .select('id, payment_status')
+    .select('id, payment_status, stripe_session_id')
     .eq('id', loaded.te.id)
     .maybeSingle();
   if (!teRow) return c.json({ error: 'not found' }, 404);
   if (teRow.payment_status === 'paid') return c.json({ ok: true, already: true });
   if (teRow.payment_status !== 'pending') {
     return c.json({ error: `a ${teRow.payment_status} payment cannot be marked paid` }, 409);
+  }
+
+  // A live checkout session would stay payable after the manual mark —
+  // expire it (double-pay guard, review 2026-07-05).
+  if (teRow.stripe_session_id) {
+    const stripe = stripeOrNull();
+    if (stripe) {
+      const { data: pur } = await adminClient
+        .from('purchase')
+        .select('stripe_account_id')
+        .eq('item_ref', loaded.te.id)
+        .limit(1)
+        .maybeSingle();
+      const account =
+        pur?.stripe_account_id ?? (await chargeAccountForItem('the-thread', loaded.te.id));
+      if (account) {
+        try {
+          await stripe.checkout.sessions.expire(teRow.stripe_session_id, undefined, {
+            stripeAccount: account,
+          });
+        } catch {
+          /* already expired or completed */
+        }
+      }
+    }
   }
 
   const { error: upErr } = await adminClient
@@ -3156,6 +3285,15 @@ threadRoutes.put('/certificate-templates/:id/shares', async (c) => {
 });
 
 threadRoutes.get('/certificate-templates/:id/shares', async (c) => {
+  const ctx = c.get('ctx');
+  // Scope check — this was an unauthenticated-by-workspace adminClient read
+  // (review 2026-07-05).
+  const { data: tpl } = await adminClient
+    .from('thread_certificate_template')
+    .select('workspace_id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!tpl || tpl.workspace_id !== ctx.workspaceId) return c.json({ error: 'not found' }, 404);
   const { data, error } = await adminClient
     .from('thread_template_share')
     .select('grantee_user_id, grantee_team_id')
@@ -4691,7 +4829,11 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
     for (const te of enrolments ?? []) {
       const person = Array.isArray(te.person) ? te.person[0] : te.person;
       const enr = Array.isArray(te.enrolment) ? te.enrolment[0] : te.enrolment;
-      if (!person?.email || enr?.status === 'dropped') continue;
+      // Content goes only to people who are actually in — 'invited'
+      // (awaiting approval or payment) and 'dropped' are both out
+      // (review 2026-07-05: invited used to receive everything).
+      const enrStatus = enr?.status ?? null;
+      if (!person?.email || enrStatus === 'dropped' || enrStatus === 'invited') continue;
 
       // Insert-first dedup — same mechanism as the lifecycle sends.
       const { error: logErr } = await adminClient.from('thread_message_send').insert({
