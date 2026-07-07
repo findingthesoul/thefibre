@@ -7,7 +7,6 @@
 
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { Award, Flag, Mail, Printer, Search } from 'lucide-react';
 import { ParticipantDialog, type EnrolmentDetail } from './participant-dialog';
 import { issueEnrolmentCertificate, sendCertificateEmail } from '../threads/actions';

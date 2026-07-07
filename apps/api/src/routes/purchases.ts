@@ -17,6 +17,7 @@ import {
   personalInvoiceDetails,
   workspaceInvoiceDetails,
 } from '../lib/payment-accounts.js';
+import { platformFeeCents } from '../lib/fees.js';
 
 export const purchasesRoutes = new Hono();
 
@@ -432,31 +433,14 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const account = await chargeAccountForItem(r.appSlug, p.item_ref);
   if (!account) return c.json({ error: 'connected Stripe account not found' }, 409);
 
-  // Same plan-aware fee rule as checkout.
   const { data: te } = await adminClient
     .from('thread_enrolment')
     .select('id, workspace_id, thread:thread_id (slug, organiser:organiser_id (slug), team:team_id (slug))')
     .eq('id', p.item_ref)
     .maybeSingle();
   if (!te) return c.json({ error: 'source enrolment missing' }, 409);
-  let feePct = 0.02;
-  let feeCapCents: number | null = 200;
-  try {
-    const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
-      ws_id: te.workspace_id,
-    });
-    const row = Array.isArray(feeRows) ? feeRows[0] : null;
-    if (row) {
-      const rawPct = (row as { pct: number | string }).pct;
-      feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
-      feeCapCents = (row as { cap_cents: number | null }).cap_cents;
-    }
-  } catch {
-    /* default Free rate */
-  }
-  const computedFee = Math.floor(p.amount_cents * feePct);
-  const applicationFeeCents =
-    feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+  // Same plan-aware fee rule as checkout (lib/fees).
+  const applicationFeeCents = await platformFeeCents(te.workspace_id, p.amount_cents);
 
   const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
   const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);

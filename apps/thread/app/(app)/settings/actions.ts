@@ -1,19 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch, errorMessage } from '@/lib/api';
 
 type Result = { ok: true } | { ok: false; error: string };
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    if (body?.error) return JSON.stringify(body.error);
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
 
 export async function updateOrganiser(patch: Record<string, unknown>): Promise<Result> {
   try {

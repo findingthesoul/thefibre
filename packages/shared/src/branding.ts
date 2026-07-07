@@ -129,11 +129,6 @@ export function appUrl(slug: AppId, env?: Record<string, string | undefined>): s
   return (fromEnv && fromEnv.trim()) || meta.url;
 }
 
-/** Domain to scope auth cookies to, for cross-subdomain SSO. */
-export function cookieDomain(env?: Record<string, string | undefined>): string | undefined {
-  return env?.NEXT_PUBLIC_COOKIE_DOMAIN || undefined;
-}
-
 /** The "from" line we want emails to use. Mirrors `EMAIL_FROM` env or builds
  *  a default from ENTITY. Use everywhere instead of hard-coding. */
 export function defaultEmailFrom(env?: Record<string, string | undefined>): string {

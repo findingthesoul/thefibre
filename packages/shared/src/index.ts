@@ -9,7 +9,6 @@ export {
   PLATFORM_APP_ID,
   appUrl,
   appName,
-  cookieDomain,
   defaultEmailFrom,
   emailSignoff,
   legalFooterLine,

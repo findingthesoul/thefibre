@@ -4,7 +4,6 @@
 // a LIST of ticket prices and a LIST of discount codes, each row opening a
 // popup editor. The panel is self-sufficient: it loads both lists via
 // server actions on mount (the caller stays a dumb layout).
-// Checkout + coupon redemption go live with the payments phase.
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -165,7 +164,7 @@ export function PricingPanel({
             <span className="text-sm font-medium">Paid</span>
           </div>
           <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-            Tickets and discount codes; checkout lands with the payments phase.
+            Tickets and discount codes; Stripe or invoice at checkout.
           </p>
         </button>
       </div>
@@ -311,10 +310,6 @@ export function PricingPanel({
         />
       )}
 
-      <p className="text-xs text-ink-muted">
-        Checkout + coupon redemption go live with the payments phase.
-      </p>
-
       {dialog?.kind === 'ticket' && (
         <TicketDialog
           threadId={thread.id}
@@ -455,7 +450,7 @@ function PayoutSection({
         )}
         {connected && !connected.workspace && !connected.personal && (
           <span className="text-xs text-ink-muted">
-            Connect a Stripe account first (payments phase).
+            Connect a Stripe account in Settings → Payments first.
           </span>
         )}
       </div>

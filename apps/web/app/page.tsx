@@ -82,7 +82,7 @@ export default async function LandingPage() {
             <li>· Per-app profile tabs that appear only when an app has data on the person</li>
             <li>· Activity timeline across all installed apps</li>
             <li>· Privacy dashboard — consents, erasure, full transparency</li>
-            <li>· Fibre Meet (formerly Suite) and The Thread coming as first-party apps</li>
+            <li>· Fibre Meet, The Thread and Fibre Flow as first-party apps</li>
           </ul>
         </section>
 

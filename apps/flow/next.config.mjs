@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: true,
   // Hard rule §13 (inherited from The Fibre): no personal data in Vercel.
-  // Meet's frontend never touches Supabase directly — all PII goes through
+  // Flow's frontend never touches Supabase directly — all PII goes through
   // the Fibre API on Fly.io.
   experimental: {},
 };

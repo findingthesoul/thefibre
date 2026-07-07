@@ -22,29 +22,6 @@ type PublicThread = {
     | null;
 };
 
-function one<T>(v: T | T[] | null): T | null {
-  if (!v) return null;
-  return Array.isArray(v) ? (v[0] ?? null) : v;
-}
-
-function fmtDates(a: string | null, b: string | null): string | null {
-  if (!a && !b) return null;
-  const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-      new Date(d),
-    );
-  if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
-  return fmt((a ?? b)!);
-}
-
-function fmtPrice(cents: number | null, currency: string | null): string {
-  if (!cents) return 'Free';
-  return new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: currency ?? 'EUR',
-  }).format(cents / 100);
-}
-
 export default async function PublicOrganiserPage({
   params,
 }: {

@@ -1,19 +1,9 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch, errorMessage } from '@/lib/api';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    if (body?.error) return JSON.stringify(body.error);
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
 
 export async function createThread(input: {
   title: string;
@@ -296,28 +286,6 @@ export async function updateCoupon(
 export async function deleteCoupon(threadId: string, couponId: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/thread/coupons/${couponId}`, { method: 'DELETE' });
-    revalidatePath(`/threads/${threadId}`);
-    return { ok: true };
-  } catch (e) {
-    return { ok: false, error: errorMessage(e) };
-  }
-}
-
-/** Swap positions with the neighbour above/below. Two PATCHes; fine at this scale. */
-export async function moveEngagement(
-  threadId: string,
-  a: { id: string; position: number },
-  b: { id: string; position: number },
-): Promise<ActionResult> {
-  try {
-    await apiFetch(`/api/v1/thread/engagements/${a.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ position: b.position }),
-    });
-    await apiFetch(`/api/v1/thread/engagements/${b.id}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ position: a.position }),
-    });
     revalidatePath(`/threads/${threadId}`);
     return { ok: true };
   } catch (e) {

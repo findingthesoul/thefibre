@@ -1,8 +1,8 @@
 'use client';
 
 // Registrations popup — everyone enrolled for THIS thread, without leaving
-// the timeline. Read-only list; the footer links to the full /enrolments
-// page (filtered) for certificate issuing and bulk actions.
+// the timeline. Rows open the participant detail popup; the footer offers
+// manual add (walk-ins) and links to /enrolments for bulk actions.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';

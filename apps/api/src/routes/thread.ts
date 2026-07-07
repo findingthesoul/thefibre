@@ -9,6 +9,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { userPersonalRoom } from '../lib/connections.js';
 import {
   personalStripeAccount,
+  workspaceStripeAccount,
   resolvePaymentMethods,
   chargeAccountForItem,
   threadDestinationAccount,
@@ -32,6 +33,8 @@ function threadAppUrl(): string {
 // ---------------------------------------------------------------------------
 
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { platformFeeCents } from '../lib/fees.js';
+import { zonedTimeToUtc } from '../lib/availability/timezone.js';
 
 const participantJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
   ? createRemoteJWKSet(
@@ -158,14 +161,8 @@ threadRoutes.get('/me', async (c) => {
   }
 
   // Connection + payment settings are user-level SPoTs shared across the
-  // Fibre apps: personal room via lib/connections, Stripe via the old
-  // meet_host fallback chain.
-  const { data: meetHost } = await adminClient
-    .from('meet_host')
-    .select('stripe_account_id')
-    .eq('user_id', ctx.userId)
-    .maybeSingle();
-
+  // Fibre apps: personal room via lib/connections, Stripe via
+  // lib/payment-accounts (user_profile first, app columns as fallback).
   // Platform profile provides the shared display fields; the organiser row
   // holds app-level overrides (docs/platform-spot-members-profile.md).
   const { data: profile } = await adminClient
@@ -180,7 +177,7 @@ threadRoutes.get('/me', async (c) => {
     bio: organiser.bio ?? profile?.bio ?? null,
     photo_url: organiser.photo_url ?? profile?.photo_url ?? null,
     personal_room_url: await userPersonalRoom(ctx.userId),
-    stripe_account_id: organiser.stripe_account_id ?? meetHost?.stripe_account_id ?? null,
+    stripe_account_id: await personalStripeAccount(ctx.userId),
   });
 });
 
@@ -191,13 +188,8 @@ const OrganiserUpdate = z.object({
   bio: z.string().max(2000).nullable().optional(),
   photo_url: z.string().max(500).nullable().optional(),
   timezone: z.string().max(100).optional(),
-  // Stripe Connect account id (paste flow, like Meet). Empty string clears.
-  stripe_account_id: z
-    .string()
-    .max(64)
-    .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
-    .nullable()
-    .optional(),
+  // (stripe_account_id intentionally NOT accepted here — payments are a
+  // platform SPoT; Settings → Payments writes /api/v1/profile.)
   // Share of net revenue this organiser keeps (workspace admin decision).
   vendor_cut_percent: z.number().min(0).max(100).optional(),
   // Invoice issuer identity (legal name / address / tax no) — personal level.
@@ -218,7 +210,6 @@ threadRoutes.patch('/me', async (c) => {
   const db = userClient(ctx.jwt);
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
-  if (patch.stripe_account_id === '') patch.stripe_account_id = null;
 
   const { data, error } = await db
     .from('thread_organiser')
@@ -259,16 +250,16 @@ threadRoutes.get('/settings', async (c) => {
     }
     settings = created;
   }
-  return c.json(settings);
+  // Workspace Stripe account resolves through the payments SPoT.
+  return c.json({
+    ...settings,
+    stripe_account_id: await workspaceStripeAccount(ctx.workspaceId),
+  });
 });
 
 const SettingsUpdate = z.object({
-  stripe_account_id: z
-    .string()
-    .max(64)
-    .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
-    .nullable()
-    .optional(),
+  // (stripe_account_id intentionally NOT accepted — the payments SPoT
+  // writes workspace-level config via /api/v1/workspace-billing.)
   default_vendor_cut_percent: z.number().min(0).max(100).optional(),
   email_from_mode: z.enum(['workspace', 'team', 'personal', 'custom']).optional(),
   email_from_name: z.string().max(200).nullable().optional(),
@@ -291,7 +282,6 @@ threadRoutes.patch('/settings', async (c) => {
   const db = userClient(ctx.jwt);
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
-  if (patch.stripe_account_id === '') patch.stripe_account_id = null;
 
   const { data, error } = await db
     .from('thread_settings')
@@ -3026,19 +3016,7 @@ threadRoutes.post('/stripe-webhook', async (c) => {
       // org share). Transfers themselves land with the payouts phase — this
       // is the auditable ledger row.
       try {
-        let feePct = 0.02;
-        let feeCapCents: number | null = 200;
-        const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
-          ws_id: te.workspace_id,
-        });
-        const row = Array.isArray(feeRows) ? feeRows[0] : null;
-        if (row) {
-          const rawPct = (row as { pct: number | string }).pct;
-          feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
-          feeCapCents = (row as { cap_cents: number | null }).cap_cents;
-        }
-        const computedFee = Math.floor(gross * feePct);
-        const platformFee = feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+        const platformFee = await platformFeeCents(te.workspace_id, gross);
         const { data: ws } = await adminClient
           .from('thread_settings')
           .select('default_vendor_cut_percent')
@@ -4432,26 +4410,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       return c.json({ error: 'the organiser has not connected payments yet' }, 409);
     }
 
-    // Platform fee — same plan-aware rule as Meet (2% capped €2 on Free,
-    // waived on Pro/Org) via the shared workspace_meet_fee helper.
-    let feePct = 0.02;
-    let feeCapCents: number | null = 200;
-    try {
-      const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', {
-        ws_id: thread.workspace_id,
-      });
-      const row = Array.isArray(feeRows) ? feeRows[0] : null;
-      if (row) {
-        const rawPct = (row as { pct: number | string }).pct;
-        feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
-        feeCapCents = (row as { cap_cents: number | null }).cap_cents;
-      }
-    } catch (e) {
-      console.warn('[thread/enrol] fee lookup failed, defaulting to Free rate', e);
-    }
-    const computedFee = Math.floor(finalPriceCents * feePct);
-    const applicationFeeCents =
-      feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+    // Platform fee — same plan-aware rule as Meet, via lib/fees.
+    const applicationFeeCents = await platformFeeCents(thread.workspace_id, finalPriceCents);
 
     const publicBase = `${threadAppUrl()}/${d.organiser_slug}/${thread.slug}`;
     try {
@@ -4579,8 +4539,8 @@ threadRoutes.post('/public/enrol', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
-// Triggered message delivery. Used by the enrol flow (on_enrolment) today;
-// approval and completion flows will call the same helper when they land.
+// Triggered message delivery — called by enrol (on_enrolment), approval,
+// completion, manual add and the 5-minute scheduler.
 // ---------------------------------------------------------------------------
 
 /** Rich-text fields store HTML; plain-text email parts need it stripped. */
@@ -4700,16 +4660,15 @@ export async function sendTriggeredMessages(opts: {
 // ---------------------------------------------------------------------------
 
 /** Interpret `${date}T${time}` as wall time in a timezone → UTC instant. */
-function zonedTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date {
-  const utcGuess = new Date(`${dateStr}T${timeStr}:00Z`);
+function wallTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date {
+  const [y, mo, d] = dateStr.split('-').map(Number);
+  const [h, mi] = timeStr.split(':').map(Number);
   try {
-    // sv-SE formats as 'YYYY-MM-DD HH:mm:ss' — parseable back to a Date.
-    const wall = new Date(
-      utcGuess.toLocaleString('sv-SE', { timeZone }).replace(' ', 'T') + 'Z',
-    );
-    return new Date(utcGuess.getTime() - (wall.getTime() - utcGuess.getTime()));
+    // DST-safe shared implementation (lib/availability/timezone) — replaces
+    // a drifted sv-SE-locale copy that skipped the DST re-check.
+    return zonedTimeToUtc(y ?? 1970, mo ?? 1, d ?? 1, h ?? 0, mi ?? 0, timeZone);
   } catch {
-    return utcGuess; // unknown timezone → treat as UTC
+    return new Date(`${dateStr}T${timeStr}:00Z`); // unknown timezone → UTC
   }
 }
 
@@ -4790,7 +4749,7 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
       if (anchorDate) {
         const base = new Date(`${anchorDate}T00:00:00Z`);
         base.setUTCDate(base.getUTCDate() + (c.trigger_offset_days ?? 0));
-        dueAt = zonedTimeToUtc(
+        dueAt = wallTimeToUtc(
           base.toISOString().slice(0, 10),
           c.trigger_time ?? '09:00',
           thread.timezone ?? 'Europe/Amsterdam',

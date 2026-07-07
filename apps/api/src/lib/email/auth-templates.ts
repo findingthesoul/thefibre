@@ -17,6 +17,7 @@ import {
   PLATFORM_APP_ID,
   legalFooterLine,
 } from '@thefibre/shared';
+import { escapeHtml } from './templates.js';
 
 const PLATFORM = APPS[PLATFORM_APP_ID];
 
@@ -180,22 +181,13 @@ function buildText({ args, copy }: { args: RenderArgs; copy: Copy }): string {
 // HTML rendering
 // ---------------------------------------------------------------------------
 
-function escape(s: string): string {
-  return s
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
 function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
   const codeBox = args.token
     ? `
         <div style="margin: 32px 0;">
           <div style="background: #f5f5f5; border-radius: 12px; padding: 28px 24px; text-align: center;">
             <div style="font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace; font-size: 32px; letter-spacing: 14px; color: #171717; padding-left: 14px;">
-              ${escape(args.token)}
+              ${escapeHtml(args.token)}
             </div>
           </div>
           <p style="margin: 16px 0 0; color: #737373; font-size: 14px; text-align: center;">
@@ -208,9 +200,9 @@ function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
   const cta = args.confirmationUrl
     ? `
         <p style="margin: 24px 0; text-align: center;">
-          <a href="${escape(args.confirmationUrl)}"
+          <a href="${escapeHtml(args.confirmationUrl)}"
              style="display: inline-block; background: #171717; color: #fff; text-decoration: none; font-size: 14px; font-weight: 500; padding: 12px 24px; border-radius: 8px;">
-            ${escape(copy.cta ?? 'Continue')}
+            ${escapeHtml(copy.cta ?? 'Continue')}
           </a>
         </p>
       `
@@ -224,24 +216,24 @@ function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
           <!-- Platform wordmark -->
-          <img src="${BRAND_ASSETS.logoUrl}" alt="${escape(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
 
           <h1 style="margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">
-            ${escape(copy.headline)}
+            ${escapeHtml(copy.headline)}
           </h1>
 
           <p style="margin: 24px 0 0; color: #525252; font-size: 15px; line-height: 1.5;">
-            ${escape(copy.intro)}
+            ${escapeHtml(copy.intro)}
           </p>
 
           ${codeBox}
           ${cta}
 
           <p style="margin: 32px 0 0; color: #737373; font-size: 13px; line-height: 1.6; max-width: 440px;">
-            ${escape(copy.reassurance)}
+            ${escapeHtml(copy.reassurance)}
             ${
               ENTITY.supportEmail
-                ? ` Questions? Our friendly <a href="mailto:${escape(ENTITY.supportEmail)}" style="color: #525252;">support team</a> is always happy to help.`
+                ? ` Questions? Our friendly <a href="mailto:${escapeHtml(ENTITY.supportEmail)}" style="color: #525252;">support team</a> is always happy to help.`
                 : ''
             }
           </p>
@@ -258,12 +250,12 @@ function buildHtml({ args, copy }: { args: RenderArgs; copy: Copy }): string {
 
           <p style="margin: 16px 0 0; font-size: 12px; color: #a3a3a3;">
             To make sure our emails arrive, please add
-            <a href="mailto:${escape(ENTITY.whitelistEmail)}" style="color: #737373;">${escape(ENTITY.whitelistEmail)}</a>
+            <a href="mailto:${escapeHtml(ENTITY.whitelistEmail)}" style="color: #737373;">${escapeHtml(ENTITY.whitelistEmail)}</a>
             to your contacts.
           </p>
 
           <p style="margin: 8px 0 0; font-size: 12px; color: #a3a3a3;">
-            ${escape(legalFooterLine())}
+            ${escapeHtml(legalFooterLine())}
           </p>
         </td></tr>
       </table>

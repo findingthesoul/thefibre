@@ -40,11 +40,11 @@ When designing a new field: which app justifies it? If none, don't add it.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
-pnpm dev          # both API (:8080) and web (:3000) in parallel
+pnpm dev          # all five dev servers: api :8080, web :3000, meet :3001, thread :3002, flow :3003
 ```
 
 ### Version bumps
-Every shipped change updates the **five** `package.json` files (web, api, meet, thread, shared) plus `apps/web/app/(app)/layout.tsx` (the `VERSION` constant shown in the Fibre sidebar footer). The CHANGELOG entry lands in the same commit.
+Every shipped change updates the **six** `package.json` files (web, api, meet, thread, flow, shared) plus `apps/web/app/(app)/layout.tsx` (the `VERSION` constant shown in the Fibre sidebar footer). The CHANGELOG entry lands in the same commit.
 
 **Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work.
 
@@ -84,7 +84,7 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-07-04 (v0.13.95+ · Thread 3.26.x · Meet 2.2.x · Flow 1.10.0)
+## Where we left off — 2026-07-07 (v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
 
 **The Thread rebuild is COMPLETE** (2026-07-01 → 07-03, ~30 releases) and the
 **Invoices + roles + payments-SPoT slice** landed right after. Everything
@@ -183,12 +183,13 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 - Settings page (profile + workspace + app memberships)
 
 ### Not yet shipped
-- The four delivery-app frontends (meet.thefibre.app, thread.thefibre.app, sales.thefibre.app, learn.thefibre.app).
+- ~~The delivery-app frontends~~ Meet, Thread and Flow are live (see "Where
+  we left off" above); Fibre Sales and Fibre Learn remain unbuilt.
 - Article 15 export, retention policy admin, cross-app erasure webhook handlers.
 - Activity filter by `organisation_id` (only person_id today — org per-app tab timelines render EmptyState).
 - Microsoft / LinkedIn OAuth.
 - Custom `api.thefibre.app` CNAME (API is reachable at `thefibre-api.fly.dev` for now).
-- Tightened CORS on the API — currently allows any origin (`apps/api/src/server.ts`).
+- ~~Tightened CORS~~ done in v0.13.17 — allowlist in `apps/api/src/server.ts`.
 
 ### Data state
 Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample people, 1 org (EBBF), 3 programmes, ~11 enrolments, ~21 activity events.

@@ -9,10 +9,11 @@ import { Mail } from 'lucide-react';
 import { resendReceiptForEnrolment } from '../threads/actions';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import type { Billing } from '@/lib/thread-types';
 
 export type EnrolmentDetail = {
   answers: Record<string, unknown> | null;
-  billing: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
+  billing: Billing | null;
   amountCents: number | null;
   currency: string | null;
   method: 'stripe' | 'invoice' | null;

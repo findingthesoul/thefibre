@@ -2,9 +2,70 @@
 
 All notable changes to The Fibre. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows [SemVer](https://semver.org/).
 
-The displayed version comes from `apps/web/components/shell/sidebar.tsx`. Bump it whenever a change ships.
+The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/layout.tsx`. Bump it whenever a change ships.
 
 ## [Unreleased]
+
+## [0.13.109] — 2026-07-07 — Thread 3.31.2 · Meet 2.4.2 · Flow 1.10.1: whole-Fibre code cleanup
+
+Four inventory agents swept every package; each claim re-verified before
+touching anything. Net −~2,600 lines with zero intended behaviour change,
+plus a handful of real fixes the sweep surfaced.
+
+### Fixed (found by the sweep)
+- **Tailwind purge now scans `packages/shared`** — all four apps' content
+  globs missed it, so the shared date-picker's arbitrary-value classes
+  (e.g. `w-[292px]`) could vanish from production CSS.
+- **Meet's invite page Sign out button worked again** — it posted to
+  `/auth/sign-out`, a route that didn't exist (added).
+- **Thread + Meet `GET /me` / `GET /settings` report Stripe connection
+  through the payments SPoT** — they read only the legacy columns, so the
+  pricing panel showed "connect Stripe first" to users who had connected
+  via Settings → Payments. The app-local PATCHes no longer accept
+  `stripe_account_id` at all ("never write the old columns again" is now
+  enforced by the schema).
+- **Scheduler timezone conversion is DST-safe** — thread.ts carried its
+  own sv-SE-locale hack without the DST re-check; it now delegates to the
+  shared implementation.
+- **Flow's sidebar Settings link went nowhere** (no settings route) — removed.
+- Thread's pricing tab still told organisers "checkout lands with the
+  payments phase" (it shipped weeks ago) — three user-visible strings fixed.
+
+### Removed (verified dead)
+- **~30 dead files** across thread/meet/flow (~1,300 lines): unused ui
+  primitives (tabs/card/avatar/bottom-sheet/…, both apps), sign-out
+  components ×3, Meet's stale availability-engine copy (the live one is
+  in the API), scheduling-rules, ical builder, old settings form,
+  skeletons/save-bar/prefetch helpers, empty workspace skeletons
+  (packages/config·db·ui).
+- Dead code: `moveEngagement` action, `requireStripe`, `fmtDate`,
+  `cookieDomain`, unused imports/consts, a hot-path debug `console.log`
+  on meeting-type PATCH.
+- Unused dependencies: zod (thread, flow, meet), radix dropdown (meet,
+  flow), class-variance-authority (meet, flow), clsx+tailwind-merge
+  (flow), prettier (root), and the four zombie `next lint` scripts +
+  eslint deps (no config ever existed; queued as a real task).
+
+### Changed (consolidation, no behaviour change)
+- `errorMessage()` — nine drifted copies across Thread's server actions →
+  one export in `lib/api.ts`. `one()` PostgREST normalizer — local copies →
+  the `lib/thread-types` export. One `Billing` type instead of four inline
+  literals. Prefs cookie names from `prefs-shared` constants.
+- **`lib/fees.ts`** — the plan-aware platform-fee block existed four times
+  (Meet checkout, Thread enrol, webhook payout, payment links); one
+  implementation now.
+- `escapeHtml` deduped in the email templates; credential columns dropped
+  from a dozen selects that no longer read them.
+
+### Docs & config grooming
+- build-plan.md "Open queue" is now THE maintained to-do list (groomed
+  stamp; done items removed). New: docs/thread-split-map.md — full
+  section/dependency map for splitting the 4.7k-line thread.ts.
+- CLAUDE.md / build-plan / deploy.md version markers and stale claims
+  fixed ("five package.json" → six, CORS note, Sales/Learn references).
+- `.env.example` rewritten against what the code actually reads.
+- Flow's dev server moved to :3003 (thread and flow both claimed :3002);
+  CORS allowlist follows. Root package.json version aligned.
 
 ## [0.13.108] — 2026-07-05 — Thread 3.31.1 · Meet 2.4.1: full-app debug pass (21 fixes)
 

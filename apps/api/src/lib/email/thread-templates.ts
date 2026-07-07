@@ -74,17 +74,8 @@ const EMAIL_DATE_LOCALE: Record<string, string> = {
   de: 'de-DE',
 };
 
-function fmtDate(d: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
-    weekday: 'long',
-    day: 'numeric',
-    month: 'long',
-    year: 'numeric',
-  }).format(new Date(d));
-}
-
-// A message-family engagement rendered as an email (used by the
-// on-enrolment trigger now; the scheduled sender in a later phase).
+// A message-family engagement rendered as an email — used by every
+// triggered send (lifecycle triggers AND the 5-minute scheduler).
 export function engagementMessage(c: {
   title: string;
   bodyText: string; // tokens already substituted; newlines preserved

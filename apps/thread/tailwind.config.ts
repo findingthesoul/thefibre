@@ -2,7 +2,13 @@ import type { Config } from 'tailwindcss';
 
 export default {
   darkMode: 'class',
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    // Shared UI (date-field etc.) carries Tailwind classes — without this
+    // glob the purge step drops them in production builds.
+    '../../packages/shared/src/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       fontFamily: {

@@ -148,3 +148,13 @@ export function one<T>(v: T | T[] | null | undefined): T | null {
   if (!v) return null;
   return Array.isArray(v) ? (v[0] ?? null) : v;
 }
+
+/** Invoice billing details captured at enrolment (shape shared with the API). */
+export type Billing = {
+  company?: string;
+  address?: string;
+  postal_code?: string;
+  city?: string;
+  country?: string;
+  tax_no?: string;
+};

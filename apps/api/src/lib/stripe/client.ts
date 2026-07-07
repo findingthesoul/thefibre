@@ -23,10 +23,3 @@ export function stripeOrNull(): Stripe | null {
   return cached;
 }
 
-export function requireStripe(): Stripe {
-  const s = stripeOrNull();
-  if (!s) {
-    throw new Error('Stripe not configured — set STRIPE_SECRET_KEY in the API env.');
-  }
-  return s;
-}

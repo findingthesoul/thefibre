@@ -21,7 +21,6 @@ import {
   MapPin,
   Video,
   ChevronLeft,
-  Users,
   X,
 } from 'lucide-react';
 import {

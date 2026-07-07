@@ -53,16 +53,6 @@ export function TicketDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
-  // Splice a pre-existing limit into the curated list so editing doesn't lose it.
-  const currentLimit = ticket?.quantity_limit ? String(ticket.quantity_limit) : '';
-  const quantityOptions = [
-    { value: '', label: 'No limit' },
-    ...(currentLimit && !QUANTITY_OPTIONS.includes(currentLimit)
-      ? [...QUANTITY_OPTIONS, currentLimit].sort((a, b) => Number(a) - Number(b))
-      : QUANTITY_OPTIONS
-    ).map((q) => ({ value: q, label: `${q} max` })),
-  ];
-
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);

@@ -5,11 +5,11 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.8.0**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+Current version: **v0.13.108**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
 
 ---
 
-## Where the Fibre suite is right now (2026-07-04, v0.13.95+ · Thread 3.26.x · Meet 2.2.x · Flow 1.10.0)
+## Where the Fibre suite is right now (2026-07-07, v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
 
 Four apps live: web (platform), Meet, Thread, Flow. **The Thread rebuild is
 complete** (all 6 phases + certificates + templates + embeds + /my portal);
@@ -18,25 +18,57 @@ the **Invoices area + role tiers + payments SPoT** landed 2026-07-04
 "Where we left off" carries the detailed feature inventory; this file keeps
 the queue.
 
-### Open queue (in priority order)
+### Open queue (in priority order — THE to-do list, keep it current)
 
-1. **Stripe webhook registration (Sjoerd, not code)** — Thread endpoint +
-   `STRIPE_THREAD_WEBHOOK_SECRET` on Fly; then an end-to-end paid test.
+_Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
+
+1. **Stripe secrets (Sjoerd, not code)** — `fly secrets set
+   STRIPE_SECRET_KEY=…`; register the Thread webhook
+   (`https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`,
+   checkout.session.completed + .expired) + `STRIPE_THREAD_WEBHOOK_SECRET`;
+   then an end-to-end paid test. Card payments stay hidden on public
+   enrol forms until this lands.
 2. **Members UI role vocabulary** — API accepts
    super_admin/admin/organiser; the web Members page still shows the old
    labels. Facilitator = per-thread badge, not a workspace role.
-3. **Decision: €0-with-discount-code enrolments in the purchase ledger?**
-4. **Org-share transfers** — thread_payout ledger rows exist ('pending');
+3. **Org-share transfers** — thread_payout ledger rows exist ('pending');
    actual Stripe transfers of the workspace share are deferred.
-5. **Role-gating beyond Invoices** — enrolments/contacts visibility per the
+4. **Role-gating beyond Invoices** — enrolments/contacts visibility per the
    tiers (proposal §3.8, deliberately out of v1).
-6. **Certificate email i18n** (EN-only today) + `customer_tax_ids` so the
+5. **Certificate email i18n** (EN-only today) + `customer_tax_ids` so the
    Stripe legal invoice carries the buyer's VAT number.
-7. **Meet event types** — Group / One-off / Meeting poll stubs in
+6. **Uploads: per-app membership gate** — any workspace member can upload
+   images today (MIME + 5MB limits exist since 0.13.108); the middleware
+   never checks app_membership on /thread/uploads + /meet/uploads.
+7. **Split apps/api/src/routes/thread.ts (~4.7k lines)** — mechanical
+   module split; the full section/dependency map lives in
+   docs/thread-split-map.md (2026-07-07). Pure moves only, typecheck
+   between steps.
+8. **Deduplicate the cross-app frontend** into packages/shared — same play
+   as date-field. Ranked by the 2026-07-07 sweep (~4k duplicated lines):
+   lib plumbing (prefs/api/supabase/upload, ~700), shell chrome
+   (topbar/app-switcher/user-menu/sidebar, ~1,300), Invoices surface
+   (thread+meet, ~610; actions.ts already byte-identical), ui kit
+   (button/dialog/field/page, ~600), payments settings (3 files
+   byte-identical, 352), sign-in button, no-access page, auth-callback
+   core, upload lib. API-side dup worth a lib too: person find-or-create
+   ×3, displayName join ×7, `one()` embed-normalize ×~80, activity-insert
+   ×13 (`lib/activity.ts` — it IS the data wall), admin-role check ×2,
+   slugField ×2.
+8b. **ESLint flat config** — the four `next lint` scripts were zombies (no
+   config existed, eslint 9 vs legacy scaffold) and were removed in
+   0.13.109; add a real flat config + CI when wanted.
+9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
-8. **Platform**: Fibre Change app (home the change-facilitation fields),
-   Article 15 export / retention admin / cross-app erasure, billing next
-   phases, drop person_change_context table.
+10. **Platform**: Fibre Change app (home the change-facilitation fields),
+    Article 15 export / retention admin / cross-app erasure, billing next
+    phases, drop person_change_context table.
+
+Smaller / noted (from the 2026-07-05 debug pass): engagement status
+'closed' collapses to draft in the editor (latent — nothing writes
+'closed'); manually-added participants receive up to 72h of catch-up
+messages (by design, at-most-once); date-picker min is date-only so the
+server end-after-start check is the real guard for same-day times.
 
 ## Outstanding for Sjoerd
 

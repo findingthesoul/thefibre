@@ -11,6 +11,7 @@ import { publicFetch } from '@/lib/public-api';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from './[threadSlug]/enrol-form';
+import { one } from '@/lib/thread-types';
 
 export type PublicThreadListItem = {
   id: string;
@@ -44,11 +45,6 @@ type PopupDetail = {
     tickets?: PublicTicket[];
   };
 };
-
-function one<T>(v: T | T[] | null): T | null {
-  if (!v) return null;
-  return Array.isArray(v) ? (v[0] ?? null) : v;
-}
 
 function fmtDates(a: string | null, b: string | null): string | null {
   if (!a && !b) return null;

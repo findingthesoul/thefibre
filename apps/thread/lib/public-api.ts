@@ -1,5 +1,5 @@
-// Public Fibre-API client — no JWT, no X-App-ID. Used by booking-page flows
-// where invitees have no Fibre account.
+// Public Fibre-API client — no JWT, no X-App-ID. Used by the public thread
+// pages, the enrol form, /my sign-in, certificates and embeds.
 
 const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 

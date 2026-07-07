@@ -35,7 +35,6 @@ const NAV: NavSection[] = [
     label: 'Workspace',
     items: [
       { href: '/contacts', label: 'Contacts', icon: ContactIcon },
-      { href: '/settings', label: 'Settings', icon: Settings },
     ],
   },
 ];

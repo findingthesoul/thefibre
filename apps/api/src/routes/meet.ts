@@ -47,6 +47,7 @@ import {
   emailSignoff,
   legalFooterLine,
 } from '@thefibre/shared';
+import { platformFeeCents } from '../lib/fees.js';
 
 const MEET = APPS['fibre-meet'];
 const PLATFORM = APPS['fibre-platform'];
@@ -555,24 +556,7 @@ meetRoutes.post('/public/bookings', async (c) => {
     // so we never under-skim. Conservative on the platform side; harmless
     // on the host side.
     const grossCents = mt.price_cents!;
-    let feePct = 0.02;
-    let feeCapCents: number | null = 200;
-    try {
-      const { data: feeRows } = await adminClient
-        .rpc('workspace_meet_fee', { ws_id: mt.workspace_id });
-      const row = Array.isArray(feeRows) ? feeRows[0] : null;
-      if (row) {
-        // numeric returns as string in postgrest sometimes; coerce.
-        const rawPct = (row as { pct: number | string }).pct;
-        feePct = typeof rawPct === 'string' ? parseFloat(rawPct) : rawPct;
-        feeCapCents = (row as { cap_cents: number | null }).cap_cents;
-      }
-    } catch (e) {
-      console.warn('[meet booking] workspace_meet_fee lookup failed, defaulting to Free rate', e);
-    }
-    const computedFee = Math.floor(grossCents * feePct);
-    const applicationFeeCents =
-      feeCapCents !== null ? Math.min(computedFee, feeCapCents) : computedFee;
+    const applicationFeeCents = await platformFeeCents(mt.workspace_id, grossCents);
 
     const successUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}/confirmed/${booking.id}?stripe=success`;
     const cancelUrl = `${meetAppUrl()}/${ownerHost.slug ?? 'host'}/${mt.slug}?stripe=cancelled&booking=${booking.id}`;
@@ -1868,6 +1852,8 @@ meetRoutes.get('/me', async (c) => {
   return c.json({
     ...safe,
     personal_room_url: await userPersonalRoom(ctx.userId),
+    // Payments SPoT — user_profile first, the old column only as fallback.
+    stripe_account_id: await personalStripeAccount(ctx.userId),
     google_connected: !!(await userGoogleToken(ctx.userId)),
   });
 });
@@ -1889,14 +1875,8 @@ const HostUpdate = z.object({
   timezone: z.string().max(100).optional(),
   working_hours: z.record(z.array(z.object({ start: z.string(), end: z.string() }))).nullable().optional(),
   photo_url: z.string().max(500).nullable().optional(),
-  // Stripe Connect account id (e.g. acct_1Nv...). Suite-style paste flow;
-  // see docs/meet-pricing-roadmap.md Phase 2. Empty string clears it.
-  stripe_account_id: z
-    .string()
-    .max(64)
-    .regex(/^(acct_[A-Za-z0-9]+)?$/, 'Must be a Stripe account id like acct_…')
-    .nullable()
-    .optional(),
+  // (stripe_account_id intentionally NOT accepted — payments are a
+  // platform SPoT; Settings → Payments writes /api/v1/profile.)
   // Host-level default for new MTs. Per-MT override lives on
   // meet_meeting_type.requires_approval (nullable).
   requires_approval: z.boolean().optional(),
@@ -2243,16 +2223,6 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
     });
     return c.json({ error: error.message, code: error.code, details: error.details }, 500);
   }
-  // Trace what got persisted vs what was asked for — catches silent column
-  // drops (RLS, missing CHECK alignment) without changing behaviour.
-  console.log('[mt/patch] saved', {
-    id,
-    requested: {
-      team_id: body.data.team_id,
-      event_type: body.data.event_type,
-    },
-    persisted: { team_id: data?.team_id, event_type: data?.event_type },
-  });
   return c.json(data);
 });
 

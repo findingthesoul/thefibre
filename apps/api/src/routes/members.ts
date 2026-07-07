@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { adminClient, userClient } from '../db.js';
+import { adminClient } from '../db.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';

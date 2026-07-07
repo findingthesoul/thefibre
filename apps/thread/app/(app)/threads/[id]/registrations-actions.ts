@@ -4,17 +4,8 @@
 // ../actions.ts on purpose — that file is the shared thread CRUD surface;
 // this one exists only for the timeline's enrolment dialog.
 
-import { apiFetch, ApiError } from '@/lib/api';
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    if (body?.error) return JSON.stringify(body.error);
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
+import { apiFetch, errorMessage } from '@/lib/api';
+import type { Billing } from '@/lib/thread-types';
 
 // Same item shape the /enrolments page consumes (PostgREST join:
 // object-or-array — normalize with one() on the client).
@@ -25,7 +16,7 @@ export type ThreadEnrolmentItem = {
   amount_cents: number | null;
   currency: string | null;
   answers?: Record<string, unknown> | null;
-  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
+  billing?: Billing | null;
   stripe_session_id?: string | null;
   ticket?: { name: string } | { name: string }[] | null;
   coupon?: { code: string } | { code: string }[] | null;

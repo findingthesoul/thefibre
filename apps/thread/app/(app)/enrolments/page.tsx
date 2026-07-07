@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { BulkIssueButton } from './certificate-actions';
 import { EnrolmentsList, type EnrolmentRowData } from './enrolments-list';
 import { apiFetch, ApiError } from '@/lib/api';
-import { one } from '@/lib/thread-types';
+import { one, type Billing } from '@/lib/thread-types';
 import {
   PageContainer,
   PageHeader,
@@ -18,7 +18,7 @@ type EnrolmentItem = {
   amount_cents: number | null;
   currency: string | null;
   answers: Record<string, unknown> | null;
-  billing: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
+  billing: Billing | null;
   stripe_session_id: string | null;
   ticket: { name: string; price_cents: number; price_currency: string } | { name: string; price_cents: number; price_currency: string }[] | null;
   coupon: { code: string } | { code: string }[] | null;
@@ -49,14 +49,6 @@ type EnrolmentItem = {
         program: { title: string } | { title: string }[] | null;
       }[]
     | null;
-};
-
-const STATUS_STYLES: Record<string, string> = {
-  invited: 'bg-surface-sunken text-ink-subtle ring-line',
-  enrolled: 'bg-sky-50 text-sky-700 ring-sky-200',
-  active: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
-  completed: 'bg-emerald-50 text-emerald-800 ring-emerald-200',
-  dropped: 'bg-surface-sunken text-ink-muted ring-line',
 };
 
 const PAYMENT_LABELS: Record<string, string> = {

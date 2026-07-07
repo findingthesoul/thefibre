@@ -49,6 +49,7 @@ const DEV_ORIGINS = new Set<string>([
   'http://localhost:3000', // apps/web dev
   'http://localhost:3001', // apps/meet dev
   'http://localhost:3002', // apps/thread dev
+  'http://localhost:3003', // apps/flow dev
 ]);
 const EXTRA_ORIGINS = new Set<string>(
   (process.env.CORS_ORIGINS ?? '')

@@ -44,7 +44,6 @@ function bodyFromForm(formData: FormData): Record<string, unknown> {
     'location',
     'personal_room_url',
     'photo_url',
-    'stripe_account_id',
   ] as const) {
     if (formData.has(key)) out[key] = strOrNull(formData.get(key));
   }

@@ -1,7 +1,7 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch, errorMessage } from '@/lib/api';
 import type {
   CertElement,
   CertOrientation,
@@ -11,16 +11,6 @@ import type {
 } from '@/lib/certificate-types';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    if (body?.error) return JSON.stringify(body.error);
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
 
 export async function createCertificateTemplate(input: {
   name: string;

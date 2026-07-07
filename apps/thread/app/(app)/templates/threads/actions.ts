@@ -5,7 +5,7 @@
 // purpose: this folder owns the template UI end-to-end.
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, ApiError } from '@/lib/api';
+import { apiFetch, errorMessage } from '@/lib/api';
 import type { EngagementType } from '@/lib/thread-types';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
@@ -42,16 +42,6 @@ export type ThreadTemplate = {
   created_at: string;
   updated_at: string;
 };
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    if (body?.error) return JSON.stringify(body.error);
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
 
 export async function saveThreadAsTemplate(
   threadId: string,

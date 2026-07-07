@@ -3,16 +3,8 @@
 // Server actions for the Invoices area — thin wrappers over the platform
 // purchases API (docs/invoices-and-roles-proposal.md).
 
-import { apiFetch, ApiError } from '@/lib/api';
-
-function errorMessage(e: unknown): string {
-  if (e instanceof ApiError) {
-    const body = e.body as { error?: unknown } | undefined;
-    if (typeof body?.error === 'string') return body.error;
-    return e.message;
-  }
-  return e instanceof Error ? e.message : 'unknown error';
-}
+import { apiFetch, errorMessage } from '@/lib/api';
+import type { Billing } from '@/lib/thread-types';
 
 export type PurchaseRow = {
   id: string;
@@ -31,7 +23,7 @@ export type PurchaseRow = {
   method: 'stripe' | 'invoice' | 'free';
   status: 'pending' | 'paid' | 'refunded' | 'failed';
   stripe_invoice_url: string | null;
-  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
+  billing?: Billing | null;
   paid_at: string | null;
   refunded_at: string | null;
   created_at: string;
