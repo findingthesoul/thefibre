@@ -20,6 +20,7 @@ import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 
 /** ISO → value for the date-time picker in the browser's zone. */
 export function toLocalInput(iso: string | null): string {
@@ -224,30 +225,7 @@ export function EngagementDialog({
     <Dialog
       open
       onClose={requestClose}
-      title={
-        <span className="flex items-center gap-3">
-          <span>{isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}</span>
-          <button
-            type="button"
-            onClick={() => {
-              setStatus((s) => (s === 'published' ? 'draft' : 'published'));
-              setDirty(true);
-            }}
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium transition-colors ${
-              status === 'published'
-                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
-                : 'border border-line bg-surface-sunken text-ink-subtle hover:text-ink'
-            }`}
-          >
-            <span
-              className={`h-1.5 w-1.5 rounded-full ${
-                status === 'published' ? 'bg-white' : 'bg-ink-muted'
-              }`}
-            />
-            {status === 'published' ? 'Published' : 'Draft'}
-          </button>
-        </span>
-      }
+      title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
       size="xl"
       footer={
         <>
@@ -285,8 +263,22 @@ export function EngagementDialog({
       }
     >
       <form id="engagement-form" onSubmit={onSubmit} onInput={() => setDirty(true)}>
-        <div className="mb-6">
-          <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
+        <div className="mb-6 flex items-end gap-5">
+          <div className="flex-1 min-w-0">
+            <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
+          </div>
+          {/* Publish toggle rides next to the title (Sjoerd 2026-07-07) —
+              new engagements start published; off = draft. */}
+          <div className="shrink-0 pb-2.5">
+            <Switch
+              checked={status === 'published'}
+              onChange={(v) => {
+                setStatus(v ? 'published' : 'draft');
+                setDirty(true);
+              }}
+              label="Published"
+            />
+          </div>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-[1.6fr_1fr] gap-x-8 gap-y-6">
           {/* ── Left: what it is ─────────────────────────────────────── */}

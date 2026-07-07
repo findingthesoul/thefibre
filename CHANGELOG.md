@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.110] — 2026-07-07 — Thread 3.31.3: publish is a toggle switch next to the title
+
+### Changed
+- The engagement dialog's publish control is now an iOS-style toggle
+  (yellow when on, per Sjoerd's reference) sitting to the right of the
+  Title field — replaces the pill in the dialog header (3.30.3). New
+  `Switch` component in components/ui. Behaviour unchanged: new
+  engagements start published; toggling off keeps them as drafts.
+
 ## [0.13.109] — 2026-07-07 — Thread 3.31.2 · Meet 2.4.2 · Flow 1.10.1: whole-Fibre code cleanup
 
 Four inventory agents swept every package; each claim re-verified before
