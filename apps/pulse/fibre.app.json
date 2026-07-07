@@ -1,0 +1,30 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "fibre-pulse",
+  "app_name": "Fibre Pulse",
+  "version": "0.1.0",
+  "description": "Business planner — cashflow projection and budgeting built on contacts and offerings. Opportunities with probabilities, recurring budget lines, user-defined reservation rules, bank balance anchors; actuals from the platform purchase ledger.",
+
+  "scopes_requested": [
+    "read:persons",
+    "read:organisations",
+    "read:purchases",
+    "write:activities"
+  ],
+
+  "entity_mappings": [],
+
+  "curator_fields": [],
+
+  "activity_types": [
+    { "type": "pulse.commitment.created",  "subject": "Opportunity opened: {label}" },
+    { "type": "pulse.commitment.staged",   "subject": "Opportunity {label} moved to {stage}" },
+    { "type": "pulse.line.invoiced",       "subject": "Invoiced: {label}" },
+    { "type": "pulse.line.settled",        "subject": "Settled: {label}" }
+  ],
+
+  "deactivation": {
+    "on_workspace_uninstall": "preserve_planning_history",
+    "on_user_revoke": "reassign_commitments_to_workspace_admin"
+  }
+}

@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.112] — 2026-07-07 — Pulse 0.1.0: Fibre Pulse P1 — the business planner is born
+
+The 6th Fibre app (5th delivery app): cashflow projection + budgeting built
+on contacts and offerings. docs/fibre-pulse-proposal.md is the spec; this
+release is P1 of its build plan (schema + API + walking-skeleton app).
+
+### Added
+- **pulse schema** (migration `20260707120000`): settings, involved teams,
+  accounts + append-only balance snapshots, offerings, projects (under
+  platform teams — hubs/incubators), commitments (opportunities: stage
+  lead→done + probability %) with dated lines carrying real-invoice refs
+  and purchase-ledger links, budget lines (recurring, include toggle),
+  user-defined reservation rules (VAT = just another rule), annual budgets
+  + quarterly targets. RLS: money surfaces admin+, pipeline admin-or-owner.
+  App registered as `fibre-pulse`; activated + admin-membership granted for
+  existing workspaces in the migration (unlike Flow, which was hand-done).
+- **`/api/v1/pulse/*`** — CRUD for all of the above plus `GET /projection`:
+  period buckets (week/fortnight/month, anchor-date grid), three layers
+  (committed / probability-weighted expected / best case), budget-line
+  cadence expansion, reservation deduction, running balances, and the
+  dips-below-zero answer.
+- **apps/pulse** (`:3004`, pulse.thefibre.app, Vercel project TBD) — Flow's
+  shell pattern: landing, auth, no-access, app-switcher gating. Pages:
+  Pulse (runway sentence + SVG balance chart + period table), Pipeline
+  (grouped by counterparty, stage + probability), Teams & projects, Budget,
+  Accounts, Settings (rhythm/currency/reservations/teams read-out). P2
+  brings the edit dialogs; P6 imports the real Soul Lab workbook.
+- `fibre-pulse` in the shared APPS registry, workspace-apps INSTALLABLE,
+  CORS allowlists (plus Vercel preview regex).
+
+### Fixed
+- **flow.thefibre.app was missing from the API CORS allowlist** (and the
+  Vercel preview regex) — production Flow presumably rode on the
+  `CORS_ORIGINS` env override. Both lists now carry flow + pulse.
+
 ## [0.13.111] — 2026-07-07 — Thread 3.31.4: toggle switches for every boolean setting
 
 ### Changed

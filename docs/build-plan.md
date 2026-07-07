@@ -60,7 +60,14 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
    0.13.109; add a real flat config + CI when wanted.
 9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
-10. **Platform**: Fibre Change app (home the change-facilitation fields),
+10. **Fibre Pulse — business planner** — P1 SHIPPED 2026-07-07 (0.13.112:
+    pulse schema + RLS, /api/v1/pulse incl. projection endpoint, apps/pulse
+    walking skeleton at :3004). Spec: docs/fibre-pulse-proposal.md. Next:
+    P2 edit dialogs (pipeline/budget/accounts/settings), P3 interactive
+    chart, P4 ledger loop, P5 annual budget, P6 workbook importer.
+    Infra still needed: apply migration (supabase db push), deploy API,
+    create Vercel project `thefibre-pulse` + pulse.thefibre.app CNAME.
+11. **Platform**: Fibre Change app (home the change-facilitation fields),
     Article 15 export / retention admin / cross-app erasure, billing next
     phases, drop person_change_context table.
 

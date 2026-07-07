@@ -98,6 +98,15 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_FLOW_URL',
     available: true,
   },
+  'fibre-pulse': {
+    name: 'Fibre Pulse',
+    shortName: 'Pulse',
+    brandLetters: 'fp',
+    tagline: 'The heartbeat of the business — cashflow, planned.',
+    url: 'https://pulse.thefibre.app',
+    urlEnv: 'NEXT_PUBLIC_PULSE_URL',
+    available: true,
+  },
   'fibre-sales': {
     name: 'Fibre Sales',
     shortName: 'Sales',

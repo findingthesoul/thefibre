@@ -14,6 +14,7 @@ import { signupRequestsRoutes } from './routes/signup-requests.js';
 import { workspaceAppsRoutes } from './routes/workspace-apps.js';
 import { meetRoutes } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
+import { pulseRoutes } from './routes/pulse.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
 import { membersRoutes } from './routes/members.js';
 import { purchasesRoutes } from './routes/purchases.js';
@@ -42,6 +43,8 @@ const PROD_ORIGINS = new Set<string>([
   'https://thefibre.app',
   'https://meet.thefibre.app',
   'https://thread.thefibre.app',
+  'https://flow.thefibre.app',
+  'https://pulse.thefibre.app',
   'https://sales.thefibre.app',
   'https://learn.thefibre.app',
 ]);
@@ -50,6 +53,7 @@ const DEV_ORIGINS = new Set<string>([
   'http://localhost:3001', // apps/meet dev
   'http://localhost:3002', // apps/thread dev
   'http://localhost:3003', // apps/flow dev
+  'http://localhost:3004', // apps/pulse dev
 ]);
 const EXTRA_ORIGINS = new Set<string>(
   (process.env.CORS_ORIGINS ?? '')
@@ -63,7 +67,7 @@ const EXTRA_ORIGINS = new Set<string>(
 // stable enough that we allowlist the entire *.vercel.app suffix only
 // for the projects we know we own.
 const VERCEL_PREVIEW_RE =
-  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread)-[a-z0-9-]+\.vercel\.app$/;
+  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse)-[a-z0-9-]+\.vercel\.app$/;
 
 function isAllowedOrigin(origin: string): boolean {
   if (PROD_ORIGINS.has(origin)) return true;
@@ -104,6 +108,7 @@ v1.route('/signup-requests', signupRequestsRoutes);
 v1.route('/workspace-apps', workspaceAppsRoutes);
 v1.route('/meet', meetRoutes);
 v1.route('/flow', flowRoutes);
+v1.route('/pulse', pulseRoutes);
 v1.route('/thread', threadRoutes);
 v1.route('/members', membersRoutes);
 v1.route('/purchases', purchasesRoutes);

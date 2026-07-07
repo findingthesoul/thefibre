@@ -4,7 +4,7 @@ import { userClient, adminClient } from '../db.js';
 
 export const workspaceAppsRoutes = new Hono();
 
-const INSTALLABLE = ['fibre-meet', 'the-thread', 'fibre-sales', 'fibre-learn'] as const;
+const INSTALLABLE = ['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse', 'fibre-sales', 'fibre-learn'] as const;
 type InstallableSlug = (typeof INSTALLABLE)[number];
 
 // GET /api/v1/workspace-apps — installed apps for the current workspace.
