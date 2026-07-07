@@ -20,7 +20,7 @@ import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { Button } from '@/components/ui/button';
-import { Switch } from '@/components/ui/switch';
+import { Switch, SwitchField } from '@/components/ui/switch';
 
 /** ISO → value for the date-time picker in the browser's zone. */
 export function toLocalInput(iso: string | null): string {
@@ -418,16 +418,16 @@ export function EngagementDialog({
               />
             )}
 
-            <label className="flex items-center gap-2.5 pt-1">
-              <input
-                type="checkbox"
+            <div className="pt-1">
+              {/* Activities belong on the public agenda; messages are the
+                  participant journey — private by default (Sjoerd 2026-07-02). */}
+              <SwitchField
+                label="Show on the public agenda"
                 name="show_in_agenda"
-                // Activities belong on the public agenda; messages are the
-                // participant journey — private by default (Sjoerd 2026-07-02).
                 defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
+                onChange={() => setDirty(true)}
               />
-              <span className="text-sm text-ink-subtle">Show on the public agenda</span>
-            </label>
+            </div>
           </div>
         </div>
       </form>

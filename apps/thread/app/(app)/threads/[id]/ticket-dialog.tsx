@@ -10,6 +10,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
+import { SwitchField } from '@/components/ui/switch';
 
 const CURRENCIES = [
   { value: 'EUR', label: 'EUR €' },
@@ -196,10 +197,13 @@ export function TicketDialog({
           </div>
         </div>
 
-        <label className="flex items-center gap-2.5 pt-1">
-          <input type="checkbox" name="is_active" defaultChecked={ticket?.is_active ?? true} />
-          <span className="text-sm text-ink-subtle">Active — shown at enrolment</span>
-        </label>
+        <div className="pt-1">
+          <SwitchField
+            label="Active — shown at enrolment"
+            name="is_active"
+            defaultChecked={ticket?.is_active ?? true}
+          />
+        </div>
       </form>
 
       <ConfirmDialog

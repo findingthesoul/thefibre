@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.111] — 2026-07-07 — Thread 3.31.4: toggle switches for every boolean setting
+
+### Changed
+- All single on/off settings in Thread now use the toggle switch (label
+  left, yellow when on): show-on-public-agenda (engagement dialog),
+  list-on-organiser-page (Basics), approval required + both participant
+  visibility options (Registration tab), award-certificate (Certificates
+  tab), early-bird + active (coupon dialog), active (ticket dialog), and
+  send-confirmation (Add participant). New `SwitchField` handles both
+  FormData forms (hidden 'on' input) and controlled state.
+- Checklists (payment options, embed elements, share grantees, bulk row
+  selection) and the public form's consent boxes deliberately stay
+  checkboxes — different semantics.
+
 ## [0.13.110] — 2026-07-07 — Thread 3.31.3: publish is a toggle switch next to the title
 
 ### Changed

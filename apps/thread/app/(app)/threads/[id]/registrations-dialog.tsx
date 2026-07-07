@@ -19,6 +19,7 @@ import {
 import { one } from '@/lib/thread-types';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField } from '@/components/ui/field';
+import { SwitchField } from '@/components/ui/switch';
 import {
   ParticipantDialog,
   type ParticipantRow,
@@ -170,12 +171,11 @@ export function RegistrationsDialog({
             <TextField label="Name" name="name" required />
             <TextField label="Email" name="email" type="email" required />
           </div>
-          <label className="flex items-center gap-2">
-            <input type="checkbox" name="notify" defaultChecked />
-            <span className="text-sm text-ink-subtle">
-              Send the confirmation email and welcome messages
-            </span>
-          </label>
+          <SwitchField
+            label="Send the confirmation email and welcome messages"
+            name="notify"
+            defaultChecked
+          />
           {addNotice && <p className="text-sm text-red-700">{addNotice}</p>}
           {addInfo && <p className="text-sm text-ink-subtle">{addInfo}</p>}
           <div className="flex items-center gap-2">

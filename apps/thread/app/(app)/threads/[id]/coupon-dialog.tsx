@@ -17,6 +17,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
+import { SwitchField } from '@/components/ui/switch';
 
 type CouponType = CouponRow['type'];
 
@@ -257,14 +258,13 @@ export function CouponDialog({
           />
         </div>
 
-        <label className="flex items-center gap-2.5 pt-1">
-          <input
-            type="checkbox"
+        <div className="pt-1">
+          <SwitchField
+            label="Early bird — only valid until a deadline"
             checked={earlyBird}
-            onChange={(e) => setEarlyBird(e.target.checked)}
+            onChange={setEarlyBird}
           />
-          <span className="text-sm text-ink-subtle">Early bird — only valid until a deadline</span>
-        </label>
+        </div>
         {earlyBird && (
           <DateTimeField
             label="Early-bird deadline"
@@ -273,10 +273,13 @@ export function CouponDialog({
           />
         )}
 
-        <label className="flex items-center gap-2.5 pt-1">
-          <input type="checkbox" name="is_active" defaultChecked={coupon?.is_active ?? true} />
-          <span className="text-sm text-ink-subtle">Active — redeemable at checkout</span>
-        </label>
+        <div className="pt-1">
+          <SwitchField
+            label="Active — redeemable at checkout"
+            name="is_active"
+            defaultChecked={coupon?.is_active ?? true}
+          />
+        </div>
       </form>
 
       <ConfirmDialog

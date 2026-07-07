@@ -7,6 +7,7 @@ import { updateThread } from '../actions';
 import type { RegistrationField } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
 import { EmptyState, SectionLabel } from '@/components/ui/page';
+import { SwitchField } from '@/components/ui/switch';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
@@ -178,22 +179,22 @@ export function RegistrationPanel({
 
       <div className="mt-8">
         <SectionLabel>Approval</SectionLabel>
-        <label className="mt-3 flex items-start gap-2 text-sm text-ink-subtle">
-          <input
-            type="checkbox"
-            className="mt-0.5"
+        <div className="mt-3">
+          <SwitchField
+            label={
+              <>
+                <strong>Approval required</strong> — enrolments wait as requests until you
+                approve them (Registrations popup → Approve/Decline). Paid enrolments are
+                charged first, then approved.
+              </>
+            }
             checked={requiresApproval}
-            onChange={(e) => {
-              setRequiresApproval(e.target.checked);
+            onChange={(v) => {
+              setRequiresApproval(v);
               setSaved(false);
             }}
           />
-          <span>
-            <strong>Approval required</strong> — enrolments wait as requests until you approve
-            them (Registrations popup → Approve/Decline). Paid enrolments are charged first,
-            then approved.
-          </span>
-        </label>
+        </div>
       </div>
 
       <div className="mt-8">
@@ -203,36 +204,32 @@ export function RegistrationPanel({
           default.
         </p>
         <div className="mt-3 space-y-2.5">
-          <label className="flex items-start gap-2 text-sm text-ink-subtle">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={sharePublic}
-              onChange={(e) => {
-                setSharePublic(e.target.checked);
-                setSaved(false);
-              }}
-            />
-            <span>
-              Share participants <strong>publicly</strong> — a “Who&apos;s coming” list on the
-              public thread page (first name + initial).
-            </span>
-          </label>
-          <label className="flex items-start gap-2 text-sm text-ink-subtle">
-            <input
-              type="checkbox"
-              className="mt-0.5"
-              checked={shareParticipants}
-              onChange={(e) => {
-                setShareParticipants(e.target.checked);
-                setSaved(false);
-              }}
-            />
-            <span>
-              Share participants <strong>with other participants</strong> — the cohort sees each
-              other on their personal page.
-            </span>
-          </label>
+          <SwitchField
+            label={
+              <>
+                Share participants <strong>publicly</strong> — a “Who&apos;s coming” list on
+                the public thread page (first name + initial).
+              </>
+            }
+            checked={sharePublic}
+            onChange={(v) => {
+              setSharePublic(v);
+              setSaved(false);
+            }}
+          />
+          <SwitchField
+            label={
+              <>
+                Share participants <strong>with other participants</strong> — the cohort sees
+                each other on their personal page.
+              </>
+            }
+            checked={shareParticipants}
+            onChange={(v) => {
+              setShareParticipants(v);
+              setSaved(false);
+            }}
+          />
         </div>
       </div>
 

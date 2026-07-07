@@ -8,6 +8,7 @@ import { useRouter } from 'next/navigation';
 import { updateThread } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TextField, SelectField } from '@/components/ui/field';
+import { SwitchField } from '@/components/ui/switch';
 
 export function CertificatePanel({
   thread,
@@ -45,15 +46,11 @@ export function CertificatePanel({
   return (
     // Saved from the shared dialog footer (submits by form id).
     <form id="thread-certificate-form" onSubmit={onSubmit} className="space-y-5">
-      <label className="flex items-start gap-2.5">
-        <input
-          type="checkbox"
-          checked={enabled}
-          onChange={(e) => setEnabled(e.target.checked)}
-          className="mt-0.5"
-        />
-        <span className="text-sm text-ink-subtle">Award a certificate on completion</span>
-      </label>
+      <SwitchField
+        label="Award a certificate on completion"
+        checked={enabled}
+        onChange={setEnabled}
+      />
 
       {enabled && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

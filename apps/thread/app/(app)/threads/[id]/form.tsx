@@ -11,6 +11,7 @@ import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { uploadAsset } from '@/lib/upload';
 import { ImagePlus, X, PanelTop, MousePointerClick } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SwitchField } from '@/components/ui/switch';
 import { SectionLabel } from '@/components/ui/page';
 
 const THREAD_HOST =
@@ -250,20 +251,12 @@ export function ThreadEditorForm({
             </div>
           </div>
 
-          <label className="flex items-start gap-2.5">
-            <input
-              type="checkbox"
-              name="is_public_listed"
-              defaultChecked={thread.is_public_listed}
-              className="mt-0.5"
-            />
-            <span className="text-sm text-ink-subtle">
-              List on the organiser&apos;s public page
-              <span className="block text-xs text-ink-muted">
-                Unlisted threads stay reachable by direct link.
-              </span>
-            </span>
-          </label>
+          <SwitchField
+            label="List on the organiser's public page"
+            hint="Unlisted threads stay reachable by direct link."
+            name="is_public_listed"
+            defaultChecked={thread.is_public_listed}
+          />
         </div>
       </div>
 
