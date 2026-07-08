@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.127] — 2026-07-08 — Pulse 0.9.0: every line works on its own
+
+### Changed
+- Sjoerd: "every line should just work on its own... this popup is very
+  unclear. Just make it editable line per line, organised per org or
+  pers." Both cashflow views became direct editors:
+  - **By counterparty** is an inline-editable table — per org/person
+    group, one line per income/cost: Label · No. · Unit € · = Total ·
+    Recurring · Stage · Probability, every cell click-to-edit in place;
+    a pencil opens the dialog for the rest.
+  - **By period**: click an amount chip to edit it in place; click an
+    empty cell in a line's row to add a payment in that period (hover
+    shows a faint +); dragging still re-dates.
+  - **The dialog is progressive** — counterparty, deal size, repeats,
+    stage up front; label/team/project/offering/owner/notes folded
+    behind "More options" (auto-expanded when set).
+
 ## [0.13.126] — 2026-07-08 — Pulse 0.8.1: chevron folds + teams endpoint fix
 
 ### Fixed

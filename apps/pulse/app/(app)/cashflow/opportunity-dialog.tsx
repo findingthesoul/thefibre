@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownLeft, ArrowUpRight, Plus, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
@@ -132,6 +132,20 @@ export function OpportunityDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  // Progressive disclosure: Label / Team / Project / Offering / Owner /
+  // Notes fold behind "More options" — collapsed for new items, open when
+  // editing one that uses any of them (label always does on saved items).
+  const [moreOpen, setMoreOpen] = useState<boolean>(
+    !!commitment &&
+      Boolean(
+        commitment.label ||
+          commitment.team_id ||
+          commitment.project_id ||
+          commitment.offering_id ||
+          commitment.owner_user_id ||
+          commitment.notes,
+      ),
+  );
 
   const repeating = repeatCadence !== '';
 
@@ -215,6 +229,7 @@ export function OpportunityDialog({
     e?.preventDefault();
     if (!label.trim()) {
       setError('Label is required.');
+      setMoreOpen(true); // the field lives under More options — reveal it
       return;
     }
 
@@ -375,17 +390,10 @@ export function OpportunityDialog({
       }
     >
       <form id="opportunity-form" onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-[1fr_220px] gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Label</label>
-            <input
-              autoFocus
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Website rebuild — phase 2"
-              className={INPUT}
-            />
-          </div>
+        {/* Direction first — it decides everything else. The rarely touched
+            fields fold behind More options below (progressive disclosure,
+            Sjoerd 2026-07-08: "this popup is very unclear"). */}
+        <div className="max-w-[300px]">
           <div>
             <label className="block text-sm font-medium mb-1">Direction</label>
             <div className="grid grid-cols-2 gap-1.5">
@@ -453,89 +461,8 @@ export function OpportunityDialog({
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Team</label>
-            <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={INPUT}>
-              <option value="">—</option>
-              {teamOptions.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            {showingAllTeams && teamOptions.length > 0 && (
-              <p className="mt-1 text-xs text-ink-muted">
-                Showing all teams — pick the involved teams in Settings to scope this list.
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Project</label>
-            <select
-              value={projectId}
-              onChange={(e) => {
-                setProjectId(e.target.value);
-                prefillLabel(pickers.projects.find((p) => p.id === e.target.value)?.name);
-              }}
-              className={INPUT}
-            >
-              <option value="">—</option>
-              {teamId ? (
-                <>
-                  <optgroup label="Team projects">
-                    {teamProjects.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                  {otherProjects.length > 0 && (
-                    <optgroup label="Other projects">
-                      {otherProjects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))}
-                    </optgroup>
-                  )}
-                </>
-              ) : (
-                pickers.projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Offering</label>
-            <select
-              value={offeringId}
-              onChange={(e) => {
-                setOfferingId(e.target.value);
-                const off = pickers.offerings.find((o) => o.id === e.target.value);
-                prefillLabel(off?.name);
-                // Offering's default price prefills the unit price when empty.
-                if (off?.default_amount_cents != null && !unitAmount.trim()) {
-                  setUnitAmount((off.default_amount_cents / 100).toFixed(2).replace('.', ','));
-                }
-              }}
-              className={INPUT}
-            >
-              <option value="">—</option>
-              {pickers.offerings.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
         {/* Deal size — quantity × unit price (e.g. 16 × product X @ €1.350). */}
-        <div className="grid grid-cols-3 gap-4 items-end">
+        <div className="border-t border-line pt-4 grid grid-cols-3 gap-4 items-end">
           <div>
             <label className="block text-sm font-medium mb-1">Quantity</label>
             <input
@@ -637,65 +564,39 @@ export function OpportunityDialog({
           )}
         </div>
 
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Owner</label>
-            <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className={INPUT}>
-              <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
-              {pickers.members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name ?? m.email ?? m.user_id}
-                </option>
-              ))}
-            </select>
-          </div>
-          {direction === 'in' ? (
-            <>
-              <div>
-                <label className="block text-sm font-medium mb-1">Stage</label>
-                <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
-                  {stageOptions.map((s) => (
-                    <option key={s.id} value={s.key}>
-                      {s.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Probability %</label>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  value={probabilityLocked ? 100 : probability}
-                  disabled={probabilityLocked}
-                  onChange={(e) => {
-                    const n = parseInt(e.target.value, 10);
-                    setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
-                  }}
-                  className={`${INPUT} disabled:opacity-60`}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="col-span-2 flex items-end pb-2">
-              <p className="text-xs text-ink-muted">
-                Costs count in full — no pipeline stage. For a repeating cost, set Repeats above.
-              </p>
+        {direction === 'in' ? (
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-1">Stage</label>
+              <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
+                {stageOptions.map((s) => (
+                  <option key={s.id} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
+              </select>
             </div>
-          )}
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium mb-1">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            placeholder="Optional"
-            className={INPUT}
-          />
-        </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Probability %</label>
+              <input
+                type="number"
+                min={0}
+                max={100}
+                value={probabilityLocked ? 100 : probability}
+                disabled={probabilityLocked}
+                onChange={(e) => {
+                  const n = parseInt(e.target.value, 10);
+                  setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+                }}
+                className={`${INPUT} disabled:opacity-60`}
+              />
+            </div>
+          </div>
+        ) : (
+          <p className="text-xs text-ink-muted">
+            Costs count in full — no pipeline stage. For a repeating cost, set Repeats above.
+          </p>
+        )}
 
         {/* ---- Lines editor ------------------------------------------------
             Hidden while repeating: occurrences come from the deal size, and
@@ -793,6 +694,154 @@ export function OpportunityDialog({
           </Button>
         </div>
         )}
+
+        {/* ---- More options -------------------------------------------------
+            Label (it auto-prefills from project/offering), Team, Project,
+            Offering, Owner and Notes — folded by default for new items. */}
+        <div className="border-t border-line pt-3">
+          <button
+            type="button"
+            onClick={() => setMoreOpen((v) => !v)}
+            aria-expanded={moreOpen}
+            className="flex items-center gap-1.5 text-sm font-medium text-ink-subtle hover:text-ink"
+          >
+            {moreOpen ? (
+              <ChevronDown size={14} strokeWidth={2} />
+            ) : (
+              <ChevronRight size={14} strokeWidth={2} />
+            )}
+            More options
+          </button>
+          {moreOpen && (
+            <div className="mt-3 space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-1">Label</label>
+                <input
+                  value={label}
+                  onChange={(e) => setLabel(e.target.value)}
+                  placeholder="e.g. Website rebuild — phase 2"
+                  className={INPUT}
+                />
+                <p className="mt-1 text-xs text-ink-muted">
+                  Prefills from the project or offering when left empty.
+                </p>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Team</label>
+                  <select
+                    value={teamId}
+                    onChange={(e) => setTeamId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {teamOptions.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  {showingAllTeams && teamOptions.length > 0 && (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Showing all teams — pick the involved teams in Settings to scope this list.
+                    </p>
+                  )}
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Project</label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => {
+                      setProjectId(e.target.value);
+                      prefillLabel(pickers.projects.find((p) => p.id === e.target.value)?.name);
+                    }}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {teamId ? (
+                      <>
+                        <optgroup label="Team projects">
+                          {teamProjects.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {otherProjects.length > 0 && (
+                          <optgroup label="Other projects">
+                            {otherProjects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      pickers.projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1">Offering</label>
+                  <select
+                    value={offeringId}
+                    onChange={(e) => {
+                      setOfferingId(e.target.value);
+                      const off = pickers.offerings.find((o) => o.id === e.target.value);
+                      prefillLabel(off?.name);
+                      // Offering's default price prefills the unit price when empty.
+                      if (off?.default_amount_cents != null && !unitAmount.trim()) {
+                        setUnitAmount(
+                          (off.default_amount_cents / 100).toFixed(2).replace('.', ','),
+                        );
+                      }
+                    }}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {pickers.offerings.map((o) => (
+                      <option key={o.id} value={o.id}>
+                        {o.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-sm font-medium mb-1">Owner</label>
+                  <select
+                    value={ownerId}
+                    onChange={(e) => setOwnerId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
+                    {pickers.members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.full_name ?? m.email ?? m.user_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="col-span-2">
+                  <label className="block text-sm font-medium mb-1">Notes</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    placeholder="Optional"
+                    className={INPUT}
+                  />
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

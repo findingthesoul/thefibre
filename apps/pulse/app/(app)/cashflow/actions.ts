@@ -187,6 +187,75 @@ export async function moveLine(lineId: string, expectedDate: string): Promise<Ac
   }
 }
 
+// Inline chip editing on the by-period grid: change one payment's amount
+// without opening the dialog.
+export async function updateLineAmount(
+  lineId: string,
+  amountCents: number,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/lines/${lineId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ amount_cents: amountCents }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// Inline add on the by-period grid: typing an amount into an empty period
+// cell creates a new expected payment dated on that period's start.
+export async function addLine(
+  commitmentId: string,
+  expectedDate: string,
+  amountCents: number,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/commitments/${commitmentId}/lines`, {
+      method: 'POST',
+      body: JSON.stringify({ expected_date: expectedDate, amount_cents: amountCents }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// Inline field editing on the by-counterparty table: PATCH just the cells
+// that changed (the API accepts partial commitment bodies).
+export type CommitmentFieldPatch = Partial<
+  Pick<
+    CommitmentPayload,
+    | 'label'
+    | 'quantity'
+    | 'unit_amount_cents'
+    | 'repeat_cadence'
+    | 'repeat_starts_on'
+    | 'repeat_until'
+    | 'stage'
+    | 'probability'
+  >
+>;
+
+export async function patchCommitmentField(
+  id: string,
+  patch: CommitmentFieldPatch,
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/commitments/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Soft delete (API sets deleted_at — hard rule #4).
 export async function deleteCommitment(id: string): Promise<ActionResult> {
   try {

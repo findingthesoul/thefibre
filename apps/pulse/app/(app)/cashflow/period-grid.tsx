@@ -8,6 +8,12 @@
 // repeating commitments expand into non-draggable recurring amounts
 // (they're rules, not payments).
 //
+// Spreadsheet feel (Sjoerd 2026-07-08: "every line should just work on its
+// own"): on a one-off item row a CLICK on a pill edits that amount in place,
+// and a click on a cell's empty space adds a new payment dated on that
+// period's start — dragging keeps retiming. The dialog stays for the rest
+// (row-label click).
+//
 // Column rules (Sjoerd 2026-07-08): the Overdue column only renders when it
 // actually holds overdue unsettled amounts — otherwise the grid starts at the
 // current period. "Later" likewise only renders with content.
@@ -21,7 +27,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { moveLine } from './actions';
+import { addLine, moveLine, updateLineAmount } from './actions';
 import { recordSnapshots } from '../accounts/actions';
 import type {
   BudgetLine,
@@ -192,6 +198,11 @@ const ZEBRA =
   '[&:nth-child(odd)]:bg-slate-50/40 [&:nth-child(odd)>td:first-child]:bg-slate-50';
 
 type Col = { key: string; idx: number; label: string; droppable: boolean };
+type DropHandlers = {
+  onDragOver?: (e: React.DragEvent) => void;
+  onDragLeave?: (e: React.DragEvent) => void;
+  onDrop?: (e: React.DragEvent) => void;
+};
 type Card = { line: Line; cm: Commitment; date: string };
 // A repeating commitment renders as per-column occurrence amounts instead of
 // draggable payment cards — its lines are skipped (the projection's too).
@@ -655,39 +666,24 @@ export function PeriodGrid({
                     </td>
                   );
                 }
-                const cards = o.cells[col.idx];
+                // Non-recurring: every chip edits its own amount in place;
+                // clicking the cell's empty space adds a NEW payment dated on
+                // this period's start (a faint + shows on hover).
                 return (
-                  <td
+                  <OppLineCell
                     key={col.key}
-                    {...dropProps(col)}
-                    className={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
-                  >
-                    {cards.length === 0 ? (
-                      <Faint />
-                    ) : (
-                      <div className="flex flex-wrap justify-end gap-1">
-                        {cards.map((card) => (
-                          <span
-                            key={card.line.id}
-                            draggable
-                            onDragStart={(e) => {
-                              e.dataTransfer.setData('text/plain', card.line.id);
-                              e.dataTransfer.effectAllowed = 'move';
-                            }}
-                            onClick={() => onEdit(card.cm)}
-                            title={`${card.cm.label} — expected ${card.date}`}
-                            className={`inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
-                          >
-                            {sign(dir)}
-                            {fmt(card.line.amount_cents)}
-                            {card.line.invoiced_at && (
-                              <FileText size={10} strokeWidth={2} className="text-sky-600" />
-                            )}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </td>
+                    colKey={col.key}
+                    droppable={col.droppable}
+                    cards={o.cells[col.idx]}
+                    commitmentId={o.cm.id}
+                    dir={dir}
+                    fmt={fmt}
+                    cellText={cellText}
+                    chipPad={chipPad}
+                    tdClass={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
+                    dropHandlers={dropProps(col)}
+                    onError={setError}
+                  />
                 );
               })}
             </tr>
@@ -1082,6 +1078,236 @@ function BalanceCell({
     >
       {saving ? 'Saving…' : current != null ? fmt(current) : 'Set balance'}
     </button>
+  );
+}
+
+// Shared inline euro input for the grid cells — the same mechanics as the
+// account-balance editor: comma decimals, Enter/blur commits, Escape cancels.
+function EuroCellInput({
+  initial,
+  cellText,
+  ariaLabel,
+  onCommit,
+}: {
+  initial: string;
+  cellText: string;
+  ariaLabel: string;
+  onCommit: (cents: number | null) => void; // null = cancelled / unparseable
+}) {
+  const [value, setValue] = useState(initial);
+  const cancelledRef = useRef(false);
+  return (
+    <input
+      autoFocus
+      value={value}
+      onChange={(e) => setValue(e.target.value)}
+      onClick={(e) => e.stopPropagation()}
+      onBlur={() => onCommit(cancelledRef.current ? null : parseEuro(value))}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          e.currentTarget.blur();
+        } else if (e.key === 'Escape') {
+          cancelledRef.current = true;
+          e.currentTarget.blur();
+        }
+      }}
+      inputMode="decimal"
+      aria-label={ariaLabel}
+      className={`w-20 rounded border border-line bg-white px-1.5 py-0.5 text-right ${cellText} tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300`}
+    />
+  );
+}
+
+// One expected-payment pill. Dragging retimes it (unchanged); a click
+// WITHOUT a drag swaps the pill for the inline euro input and saves via
+// updateLineAmount. Errors surface in the grid banner.
+function AmountChip({
+  card,
+  dir,
+  fmt,
+  cellText,
+  chipPad,
+  onError,
+}: {
+  card: Card;
+  dir: Direction;
+  fmt: (cents: number) => string;
+  cellText: string;
+  chipPad: string;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  // A completed drag must not open the editor — dragstart arms this, and it
+  // disarms on the tick after dragend (any post-drag click slips by first).
+  const draggedRef = useRef(false);
+
+  async function commit(cents: number | null) {
+    setEditing(false);
+    if (cents == null || cents === card.line.amount_cents) return;
+    setSaving(true);
+    const res = await updateLineAmount(card.line.id, cents);
+    setSaving(false);
+    if (res.error) {
+      onError(`Could not update the amount: ${res.error}`);
+      return;
+    }
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <EuroCellInput
+        initial={(card.line.amount_cents / 100).toFixed(2).replace('.', ',')}
+        cellText={cellText}
+        ariaLabel={`Amount for ${card.cm.label}`}
+        onCommit={(cents) => void commit(cents)}
+      />
+    );
+  }
+  return (
+    <span
+      draggable={!saving}
+      onDragStart={(e) => {
+        draggedRef.current = true;
+        e.dataTransfer.setData('text/plain', card.line.id);
+        e.dataTransfer.effectAllowed = 'move';
+      }}
+      onDragEnd={() => {
+        setTimeout(() => {
+          draggedRef.current = false;
+        }, 0);
+      }}
+      onClick={(e) => {
+        e.stopPropagation(); // the cell's empty-space click ADDS a line
+        if (draggedRef.current || saving) return;
+        setEditing(true);
+      }}
+      title={`${card.cm.label} — expected ${card.date}. Click to edit the amount; drag to another period to retime.`}
+      className={`inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
+    >
+      {saving ? (
+        'Saving…'
+      ) : (
+        <>
+          {sign(dir)}
+          {fmt(card.line.amount_cents)}
+        </>
+      )}
+      {card.line.invoiced_at && <FileText size={10} strokeWidth={2} className="text-sky-600" />}
+    </span>
+  );
+}
+
+// A period cell on a one-off opportunity row. Chips edit themselves
+// individually; a click on the empty space (or the faint hover "+") opens
+// the same inline input to ADD a payment dated on this period's start —
+// colKey IS that ISO date for droppable columns.
+function OppLineCell({
+  colKey,
+  droppable,
+  cards,
+  commitmentId,
+  dir,
+  fmt,
+  cellText,
+  chipPad,
+  tdClass,
+  dropHandlers,
+  onError,
+}: {
+  colKey: string;
+  droppable: boolean;
+  cards: Card[];
+  commitmentId: string;
+  dir: Direction;
+  fmt: (cents: number) => string;
+  cellText: string;
+  chipPad: string;
+  tdClass: string;
+  dropHandlers: DropHandlers;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  async function commitAdd(cents: number | null) {
+    setAdding(false);
+    if (cents == null || cents === 0) return;
+    setSaving(true);
+    const res = await addLine(commitmentId, colKey, cents);
+    setSaving(false);
+    if (res.error) {
+      onError(`Could not add the expected payment: ${res.error}`);
+      return;
+    }
+    router.refresh();
+  }
+
+  // Only real period columns can take a new dated line — Overdue/Later have
+  // no single start date.
+  const canAdd = droppable && !adding && !saving;
+  const plus = (
+    <span
+      aria-hidden
+      className={`${cellText} font-medium text-ink-muted/60 select-none opacity-0 group-hover:opacity-100`}
+    >
+      +
+    </span>
+  );
+
+  return (
+    <td
+      {...dropHandlers}
+      onClick={canAdd ? () => setAdding(true) : undefined}
+      title={droppable ? 'Click empty space to add a payment here' : undefined}
+      className={`group ${tdClass} ${canAdd ? 'cursor-pointer' : ''}`}
+    >
+      {cards.length === 0 && !adding && !saving ? (
+        droppable ? (
+          <>
+            <span className="group-hover:hidden">
+              <Faint />
+            </span>
+            <span
+              aria-hidden
+              className={`hidden group-hover:inline ${cellText} font-medium text-ink-muted/60 select-none`}
+            >
+              +
+            </span>
+          </>
+        ) : (
+          <Faint />
+        )
+      ) : (
+        <div className="flex flex-wrap items-center justify-end gap-1">
+          {cards.map((card) => (
+            <AmountChip
+              key={card.line.id}
+              card={card}
+              dir={dir}
+              fmt={fmt}
+              cellText={cellText}
+              chipPad={chipPad}
+              onError={onError}
+            />
+          ))}
+          {adding && (
+            <EuroCellInput
+              initial=""
+              cellText={cellText}
+              ariaLabel="New payment amount"
+              onCommit={(cents) => void commitAdd(cents)}
+            />
+          )}
+          {saving && <span className={`${cellText} text-ink-muted`}>Saving…</span>}
+          {!adding && !saving && droppable && cards.length > 0 && plus}
+        </div>
+      )}
+    </td>
   );
 }
 
