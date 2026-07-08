@@ -11,3 +11,5 @@ export type Prefs = {
 
 export const COOKIE_THEME = 'thefibre.theme';
 export const COOKIE_SIDEBAR = 'thefibre.sidebar';
+// Pulse: which Cashflow view the user last chose (period is the default).
+export const COOKIE_CASHFLOW_VIEW = 'thefibre.pulse.cashflow-view';

@@ -1,4 +1,6 @@
+import { cookies } from 'next/headers';
 import { apiFetch } from '@/lib/api';
+import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
 import { FALLBACK_STAGES } from './types';
 import type {
@@ -90,9 +92,14 @@ export default async function PipelinePage() {
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
 
+  const viewCookie = (await cookies()).get(COOKIE_CASHFLOW_VIEW)?.value;
+  const initialView: 'counterparty' | 'period' =
+    viewCookie === 'counterparty' ? 'counterparty' : 'period';
+
   return (
-    <div className="px-6 py-10 max-w-5xl">
+    <div className="px-6 py-10">
       <PipelineView
+        initialView={initialView}
         items={items}
         pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
         currentUserId={meId}

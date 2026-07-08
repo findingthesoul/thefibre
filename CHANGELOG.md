@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.121] — 2026-07-08 — Pulse 0.6.2: grid polish from Sjoerd's walkthrough
+
+### Changed
+- **Total rows have a distinct colour**: section headers (Financial
+  position / Income / Costs) sit on the Fibre yellow tint; End position
+  on a stronger tint, negatives still red — like the workbook's grey
+  totals + red row, in house colours.
+- **The period grid is the default Cashflow view**, and the choice is
+  remembered per user (thefibre.pulse.cashflow-view cookie via the
+  savePref pattern — settings are per-user, not per-app).
+- **The grid runs the full width of the screen**; the by-counterparty
+  list keeps its reading width.
+- **Empty financial position points at the fix**: when no balances are
+  filled in, a "Fill in your bank balances →" row links to Accounts
+  (manual each session for now; auto-connect is the future).
+
 ## [0.13.120] — 2026-07-08 — Pulse 0.6.1: a cost is not an opportunity
 
 ### Changed

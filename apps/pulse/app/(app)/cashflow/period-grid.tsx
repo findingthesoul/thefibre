@@ -368,7 +368,7 @@ export function PeriodGrid({
   }) {
     return (
       <tr key={`section-${opts.label}`}>
-        <td className={`${STICKY} bg-slate-50 px-4 py-2.5 border-b border-line`}>
+        <td className={`${STICKY} bg-yellow-50 px-4 py-2.5 border-b border-line`}>
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-semibold uppercase tracking-wider text-ink">
               {opts.label}
@@ -402,7 +402,7 @@ export function PeriodGrid({
             <td
               key={col.key}
               {...dropProps(col)}
-              className={`px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line bg-slate-50 text-xs font-semibold ${hoverBg(col)}`}
+              className={`px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line bg-yellow-50 text-xs font-semibold ${hoverBg(col)}`}
             >
               {body}
             </td>
@@ -601,6 +601,28 @@ export function PeriodGrid({
                   valueCls: (v) => (v != null && v < 0 ? 'text-red-600' : 'text-ink'),
                 })}
 
+              {/* No balances yet → the position is meaningless; say where to fix it. */}
+              {projection &&
+                projection.anchor.bank_cents === 0 &&
+                projection.anchor.reserve_cents === 0 && (
+                  <tr>
+                    <td className={`${STICKY} bg-white px-4 py-2 border-b border-line/40`}>
+                      <a
+                        href="/accounts"
+                        className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+                      >
+                        Fill in your bank balances →
+                      </a>
+                    </td>
+                    <td
+                      colSpan={visibleCols.length}
+                      className="border-b border-line/40 px-3 py-2 text-xs text-ink-muted"
+                    >
+                      Add your accounts and update balances — the position rows anchor on them.
+                    </td>
+                  </tr>
+                )}
+
               {/* 2 · INCOME */}
               {sectionHeaderRow({
                 label: 'Income',
@@ -644,7 +666,7 @@ export function PeriodGrid({
               {/* 5 · END POSITION — the sheet's red row. */}
               {projection && (
                 <tr>
-                  <td className={`${STICKY} bg-slate-50 px-4 py-2.5`}>
+                  <td className={`${STICKY} bg-yellow-100/70 px-4 py-2.5`}>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-ink">
                       End position
                     </span>
@@ -656,7 +678,7 @@ export function PeriodGrid({
                       <td
                         key={col.key}
                         className={`px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap text-xs font-bold ${
-                          negative ? 'bg-red-50 text-red-600' : 'bg-slate-50 text-ink'
+                          negative ? 'bg-red-50 text-red-600' : 'bg-yellow-100/70 text-ink'
                         }`}
                       >
                         {v == null ? <Faint /> : money(Math.round(v))}

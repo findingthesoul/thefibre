@@ -7,6 +7,8 @@ import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
 import { QuickAddButton } from './quick-add';
 import { PeriodGrid } from './period-grid';
+import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import type { BudgetLine, Commitment, PeriodSettings, Pickers, Projection } from './types';
 
 // Chips colour by the stage's KIND, not its key — custom stages inherit the
@@ -26,6 +28,7 @@ export function PipelineView({
   periodSettings,
   projection,
   budgetLines,
+  initialView,
 }: {
   items: Commitment[];
   pickers: Pickers;
@@ -35,10 +38,11 @@ export function PipelineView({
   // INCOME + COSTS without the position/reserves/end rows.
   projection: Projection | null;
   budgetLines: BudgetLine[];
+  initialView: 'counterparty' | 'period';
 }) {
   const [creating, setCreating] = useState<false | 'in' | 'out'>(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
-  const [view, setView] = useState<'counterparty' | 'period'>('counterparty');
+  const [view, setView] = useState<'counterparty' | 'period'>(initialView);
 
   const stageByKey = new Map(pickers.stages.map((s) => [s.key, s]));
 
@@ -56,7 +60,7 @@ export function PipelineView({
 
   return (
     <>
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start justify-between gap-4 max-w-6xl">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
           <p className="mt-1 text-sm text-ink-muted">
@@ -85,7 +89,10 @@ export function PipelineView({
           <button
             key={key}
             type="button"
-            onClick={() => setView(key)}
+            onClick={() => {
+              setView(key);
+              void savePref(COOKIE_CASHFLOW_VIEW, key); // remembered per user
+            }}
             className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
               view === key
                 ? 'bg-ink text-ink-inverse'
@@ -114,7 +121,7 @@ export function PipelineView({
           </p>
         </div>
       ) : (
-        <div className="mt-8 space-y-6">
+        <div className="mt-8 space-y-6 max-w-5xl">
           {[...groups.values()].map((g) => (
             <div key={g.name} className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
               <div className="px-5 py-3 border-b border-line text-sm font-semibold tracking-tight">
