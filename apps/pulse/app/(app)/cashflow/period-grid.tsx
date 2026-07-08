@@ -12,7 +12,6 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { money } from '@/lib/money';
 import { moveLine } from './actions';
@@ -154,6 +153,7 @@ export function PeriodGrid({
   budgetLines,
   onEdit,
   onAdd,
+  onAddRecurring,
 }: {
   items: Commitment[];
   settings: PeriodSettings;
@@ -162,6 +162,7 @@ export function PeriodGrid({
   budgetLines: BudgetLine[];
   onEdit: (cm: Commitment) => void;
   onAdd: (direction: 'in' | 'out') => void;
+  onAddRecurring: (direction: 'in' | 'out') => void;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -655,12 +656,13 @@ export function PeriodGrid({
                     >
                       + Opportunity
                     </button>
-                    <Link
-                      href="/budget"
+                    <button
+                      type="button"
+                      onClick={() => onAddRecurring('in')}
                       className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
                     >
                       + Recurring income
-                    </Link>
+                    </button>
                   </span>
                 </AddRow>
               )}
@@ -686,12 +688,13 @@ export function PeriodGrid({
                     >
                       + Cost
                     </button>
-                    <Link
-                      href="/budget"
+                    <button
+                      type="button"
+                      onClick={() => onAddRecurring('out')}
                       className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
                     >
                       + Recurring cost
-                    </Link>
+                    </button>
                   </span>
                 </AddRow>
               )}

@@ -7,6 +7,7 @@ import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
 import { QuickAddButton } from './quick-add';
 import { PeriodGrid } from './period-grid';
+import { LineDialog } from '../budget/budget-client';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import type { BudgetLine, Commitment, PeriodSettings, Pickers, Projection } from './types';
@@ -41,6 +42,7 @@ export function PipelineView({
   initialView: 'counterparty' | 'period';
 }) {
   const [creating, setCreating] = useState<false | 'in' | 'out'>(false);
+  const [recurring, setRecurring] = useState<false | 'in' | 'out'>(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [view, setView] = useState<'counterparty' | 'period'>(initialView);
 
@@ -113,6 +115,7 @@ export function PipelineView({
           budgetLines={budgetLines}
           onEdit={setEditing}
           onAdd={setCreating}
+          onAddRecurring={setRecurring}
         />
       ) : groups.size === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
@@ -177,6 +180,13 @@ export function PipelineView({
         </div>
       )}
 
+      {recurring && (
+        <LineDialog
+          members={pickers.members}
+          initialDirection={recurring}
+          onClose={() => setRecurring(false)}
+        />
+      )}
       {creating && (
         <OpportunityDialog
           commitment={null}

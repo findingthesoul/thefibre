@@ -172,19 +172,23 @@ function IncludedSwitch({ line }: { line: BudgetLine }) {
 // ---------------------------------------------------------------------------
 // New / edit dialog. Delete (archive) left, Cancel · Save right.
 // ---------------------------------------------------------------------------
-function LineDialog({
+export function LineDialog({
   line,
   members,
+  initialDirection,
   onClose,
 }: {
   line?: BudgetLine;
   members: Member[];
+  initialDirection?: 'in' | 'out';
   onClose: () => void;
 }) {
   const router = useRouter();
   const [label, setLabel] = useState(line?.label ?? '');
   const [category, setCategory] = useState(line?.category ?? '');
-  const [direction, setDirection] = useState<'in' | 'out'>(line?.direction ?? 'out');
+  const [direction, setDirection] = useState<'in' | 'out'>(
+    line?.direction ?? initialDirection ?? 'out',
+  );
   const [amount, setAmount] = useState(line ? (line.amount_cents / 100).toFixed(2) : '');
   const [cadence, setCadence] = useState<BudgetLine['cadence']>(line?.cadence ?? 'monthly');
   const [startsOn, setStartsOn] = useState(line?.starts_on ?? '');

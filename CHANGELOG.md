@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.124] — 2026-07-08 — Pulse 0.7.2: recurring lines add inline from the grid
+
+### Changed
+- "I don't see the recurring costs/income": the grid's + Recurring
+  income / + Recurring cost now open the Budget line dialog RIGHT THERE
+  (shared LineDialog, direction preset) instead of navigating to the
+  Budget page; budget actions also revalidate /cashflow so new
+  recurring lines appear in the grid immediately. Recurring rows render
+  inside the expanded Income/Costs sections as the "Recurring (budget)"
+  group; totals include them even when collapsed.
+
 ## [0.13.123] — 2026-07-08 — Pulse 0.7.1: show per week/month/quarter, + rows in the grid
 
 ### Added

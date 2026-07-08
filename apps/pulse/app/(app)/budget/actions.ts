@@ -42,6 +42,7 @@ export async function createBudgetLine(
       body: JSON.stringify(input),
     });
     revalidatePath('/budget');
+    revalidatePath('/cashflow'); // recurring lines render in the grid too
     return { ok: true, data: { id: r.item.id } };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -58,6 +59,7 @@ export async function updateBudgetLine(
       body: JSON.stringify(patch),
     });
     revalidatePath('/budget');
+    revalidatePath('/cashflow'); // recurring lines render in the grid too
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
