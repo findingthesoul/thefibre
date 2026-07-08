@@ -63,17 +63,19 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
 10. **Fibre Pulse — business planner** — P1 SHIPPED + FULLY LIVE
     2026-07-07 (0.13.112 / Pulse 0.1.0): migration applied, API on Fly,
     Vercel project `thefibre-pulse` + https://pulse.thefibre.app (CNAME
-    via TransIP). Spec: docs/fibre-pulse-proposal.md. Next: P2 edit
-    dialogs (pipeline/budget/accounts/settings), P3 interactive chart,
-    P4 ledger loop, P5 annual budget, P6 workbook importer (Sjoerd's
-    real Soul Lab sheet as seed). Vercel gotcha for future apps: new
-    project must have Build/Install command overrides OFF (vercel.json
-    drives) — copied web-project overrides built the wrong app.
+    via TransIP). Spec: docs/fibre-pulse-proposal.md. P2 SHIPPED
+    2026-07-07 (0.13.113 / Pulse 0.2.0: every surface editable — see
+    CHANGELOG). Next: P3 interactive chart, P4 ledger loop, P5 annual
+    budget, P6 workbook importer (Sjoerd's real Soul Lab sheet as seed).
+    Vercel gotcha for future apps: new project must have Build/Install
+    command overrides OFF (vercel.json drives) — copied web-project
+    overrides built the wrong app.
 10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
     table is already the single source of truth, but CRUD lives under
-    /api/v1/meet/teams (historical). Promote to platform /api/v1/teams
-    (Meet route becomes a thin alias); Pulse P2's involved-teams picker
-    is the first consumer. Same play as the payments/connections SPoTs.
+    /api/v1/meet/teams (historical). GET /api/v1/teams SHIPPED in
+    0.13.113 (Pulse's involved-teams picker consumes it). Remaining:
+    move create/update/member management to the platform route and thin
+    Meet's routes to aliases. Same play as the payments/connections SPoTs.
 11. **Platform**: Fibre Change app (home the change-facilitation fields),
     Article 15 export / retention admin / cross-app erasure, billing next
     phases, drop person_change_context table.

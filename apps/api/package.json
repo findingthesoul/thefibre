@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/api",
-  "version": "0.13.112",
+  "version": "0.13.113",
   "private": true,
   "type": "module",
   "scripts": {

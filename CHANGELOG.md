@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.113] — 2026-07-07 — Pulse 0.2.0: P2 — every Pulse surface is editable
+
+Three parallel agents, one lane each; foundation (teams endpoint + Switch)
+built first. All dialogs follow the Fibre dialog contract; every money
+input accepts comma decimals and stores integer cents.
+
+### Added
+- **Platform `/api/v1/teams`** (build-plan 10b, the teams SPoT doorway):
+  workspace teams with member counts. Meet's team routes stay as aliases;
+  Pulse's involved-teams picker is the first consumer.
+- **Settings**: rhythm/currency edit dialog (granularity, anchor date,
+  fiscal year start, horizon), reservation rules (inline include Switch,
+  add/edit/delete, target reserve-bucket select), involved-teams picker
+  (excludes already-involved, shows member counts), and a new Offerings
+  section (name/category/default amount/notes, archive).
+- **Accounts**: new/edit account dialogs (bank|reserve, parent bank for
+  reserves, archive), and the **Update balances** dialog — every account
+  with euro inputs prefilled from latest snapshots, one as-of date,
+  dirty-tracking, append-only snapshot writes.
+- **Budget**: new/edit line dialog (category, direction, amount, cadence,
+  start/end, owner from workspace members, include SwitchField) + inline
+  optimistic include toggle per row; archive as Delete.
+- **Pipeline**: the opportunity dialog (xl) — direction, label, mutually-
+  exclusive organisation/person counterparty pickers, team (involved
+  teams), project (grouped by chosen team), offering, owner, stage +
+  probability (forced 100 & disabled for committed/done), notes, and the
+  Expected-payments lines editor (date, euro amount, invoice #, invoiced/
+  settled dates, add/remove, live total). One server action saves the
+  commitment then diffs lines (create/patch/delete). Two-click delete
+  (soft). Rows in the counterparty-grouped list open the dialog.
+- **Teams & projects**: new/edit project dialog (name, team with
+  hubs-are-teams hint, notes), archive; clickable rows.
+
+### Known limits (deliberate, P2 scope)
+- Owner can be reassigned but not cleared back to nobody (API defaults
+  the caller on create; omitted-on-edit = unchanged).
+- Pickers cap at 100 persons/organisations (search comes with the
+  counterparty view phase).
+
 ## [0.13.112] — 2026-07-07 — Pulse 0.1.0: Fibre Pulse P1 — the business planner is born
 
 The 6th Fibre app (5th delivery app): cashflow projection + budgeting built
