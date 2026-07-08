@@ -52,6 +52,23 @@ export type ProjectOption = { id: string; name: string; team_id: string | null }
 
 export type OfferingOption = { id: string; name: string };
 
+// Mirrors GET /api/v1/teams (the platform SPoT endpoint) — used as the
+// fallback team picker when no involved teams are configured yet.
+export type TeamOption = {
+  id: string;
+  name: string;
+  slug: string;
+  member_count: number;
+  is_active: boolean;
+};
+
+// What the by-period board needs from pulse_settings. Non-admins can't read
+// the settings endpoint — the page falls back to fortnights anchored today.
+export type PeriodSettings = {
+  granularity: 'week' | 'fortnight' | 'month';
+  anchor_date: string | null; // null = anchor on today
+};
+
 export type MemberOption = { user_id: string; full_name: string | null; email: string | null };
 
 // Mirrors GET /api/v1/pulse/stages — the pipeline flow. `kind` carries the
@@ -80,6 +97,9 @@ export type Pickers = {
   orgs: OrgOption[];
   persons: PersonOption[];
   teams: InvolvedTeam[];
+  // ALL active workspace teams — the dialog falls back to these when no
+  // involved teams are marked in Settings (the select must never be empty).
+  allTeams: TeamOption[];
   projects: ProjectOption[];
   offerings: OfferingOption[];
   members: MemberOption[];

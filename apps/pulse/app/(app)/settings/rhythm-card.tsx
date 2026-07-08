@@ -23,16 +23,30 @@ export function RhythmCard({ settings }: { settings: PulseSettings }) {
           label="Granularity"
           value={settings?.default_granularity ?? 'fortnight (default)'}
         />
-        <SettingRow label="Period anchor" value={settings?.period_anchor_date ?? 'today (not set)'} />
         <SettingRow
           label="Fiscal year starts"
           value={MONTH_NAMES[(settings?.fiscal_year_start_month ?? 1) - 1] ?? 'January'}
         />
-        <SettingRow label="Projection horizon" value={`${settings?.horizon_months ?? 12} months`} />
+        <SettingRow label="How far ahead" value={horizonLabel(settings?.horizon_months ?? 12)} />
       </dl>
       {open && <RhythmDialog settings={settings} onClose={() => setOpen(false)} />}
     </section>
   );
+}
+
+// Horizon presets — the projection looks this far ahead (Sjoerd 2026-07-08:
+// "how far — 2, 3, 6, 12 month, 2 year"). The grid anchor is internal now
+// (defaults to today; the workbook importer sets the payroll-aligned one).
+const HORIZONS = [
+  { months: 2, label: '2 months' },
+  { months: 3, label: '3 months' },
+  { months: 6, label: '6 months' },
+  { months: 12, label: '12 months' },
+  { months: 24, label: '2 years' },
+] as const;
+
+function horizonLabel(months: number): string {
+  return HORIZONS.find((h) => h.months === months)?.label ?? `${months} months`;
 }
 
 function SettingRow({ label, value }: { label: string; value: string }) {
@@ -51,9 +65,8 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
     (['week', 'fortnight', 'month'] as const).find((g) => g === settings?.default_granularity) ??
       'fortnight',
   );
-  const [anchor, setAnchor] = useState(settings?.period_anchor_date ?? '');
   const [fiscalMonth, setFiscalMonth] = useState(settings?.fiscal_year_start_month ?? 1);
-  const [horizon, setHorizon] = useState(String(settings?.horizon_months ?? 12));
+  const [horizon, setHorizon] = useState(settings?.horizon_months ?? 12);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -64,19 +77,13 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
       setError('Currency must be a 3-letter code (e.g. EUR).');
       return;
     }
-    const hor = parseInt(horizon, 10);
-    if (Number.isNaN(hor) || hor < 1 || hor > 60) {
-      setError('Horizon must be between 1 and 60 months.');
-      return;
-    }
     setBusy(true);
     setError(null);
     const res = await updatePulseSettings({
       currency: cur,
       default_granularity: granularity,
-      period_anchor_date: anchor || null,
       fiscal_year_start_month: fiscalMonth,
-      horizon_months: hor,
+      horizon_months: horizon,
     });
     if (res.error) {
       setError(res.error);
@@ -128,18 +135,6 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
             </select>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Period anchor date</label>
-          <input
-            type="date"
-            value={anchor}
-            onChange={(e) => setAnchor(e.target.value)}
-            className={INPUT_CLS}
-          />
-          <p className="mt-1 text-xs text-ink-muted">
-            Weeks / fortnights count from this date. Leave empty to anchor on today.
-          </p>
-        </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Fiscal year starts</label>
@@ -156,15 +151,21 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Horizon (months)</label>
-            <input
-              type="number"
-              min={1}
-              max={60}
+            <label className="block text-sm font-medium mb-1">How far ahead</label>
+            <select
               value={horizon}
-              onChange={(e) => setHorizon(e.target.value)}
+              onChange={(e) => setHorizon(parseInt(e.target.value, 10))}
               className={INPUT_CLS}
-            />
+            >
+              {HORIZONS.map((h) => (
+                <option key={h.months} value={h.months}>
+                  {h.label}
+                </option>
+              ))}
+              {!HORIZONS.some((h) => h.months === horizon) && (
+                <option value={horizon}>{horizon} months</option>
+              )}
+            </select>
           </div>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}

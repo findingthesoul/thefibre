@@ -5,7 +5,9 @@ import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
-import type { Commitment, Pickers } from './types';
+import { QuickAddButton } from './quick-add';
+import { PeriodBoard } from './period-board';
+import type { Commitment, PeriodSettings, Pickers } from './types';
 
 // Chips colour by the stage's KIND, not its key — custom stages inherit the
 // palette of their projection semantics. Unknown keys degrade to muted.
@@ -21,13 +23,16 @@ export function PipelineView({
   items,
   pickers,
   currentUserId,
+  periodSettings,
 }: {
   items: Commitment[];
   pickers: Pickers;
   currentUserId: string | null;
+  periodSettings: PeriodSettings;
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
+  const [view, setView] = useState<'counterparty' | 'period'>('counterparty');
 
   const stageByKey = new Map(pickers.stages.map((s) => [s.key, s]));
 
@@ -52,12 +57,40 @@ export function PipelineView({
             Expected money in and out, per counterparty — every line weighted by where it stands in the pipeline (a Fibre Flow).
           </p>
         </div>
-        <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
-          New opportunity
-        </Button>
+        <div className="flex items-center gap-2 shrink-0">
+          <QuickAddButton orgs={pickers.orgs} persons={pickers.persons} />
+          <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
+            New opportunity
+          </Button>
+        </div>
       </div>
 
-      {groups.size === 0 ? (
+      {/* View toggle — list per counterparty vs. draggable per-period board. */}
+      <div className="mt-6 inline-flex rounded-lg ring-1 ring-line bg-surface-raised p-0.5">
+        {(
+          [
+            ['counterparty', 'By counterparty'],
+            ['period', 'By period'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setView(key)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+              view === key
+                ? 'bg-ink text-ink-inverse'
+                : 'text-ink-subtle hover:text-ink'
+            }`}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {view === 'period' ? (
+        <PeriodBoard items={items} settings={periodSettings} onEdit={setEditing} />
+      ) : groups.size === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted">
             No opportunities yet. Add your first with New opportunity — the importer seeds your

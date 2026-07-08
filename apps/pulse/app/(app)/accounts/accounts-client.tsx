@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, RefreshCw } from 'lucide-react';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { money } from '@/lib/money';
 import { archiveAccount, createAccount, recordSnapshots, updateAccount } from './actions';
 
@@ -380,15 +381,7 @@ function UpdateBalancesDialog({
       }
     >
       <form id="balances-form" onSubmit={submit} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium mb-1">As of</label>
-          <input
-            type="date"
-            value={asOf}
-            onChange={(e) => setAsOf(e.target.value)}
-            className={INPUT_CLASS}
-          />
-        </div>
+        <DateField label="As of" name="as_of" defaultValue={asOf} onValueChange={setAsOf} />
         {banks.length > 0 && <BalanceGroup title="Bank accounts" items={banks} values={values} onChange={setValue} />}
         {reserves.length > 0 && (
           <BalanceGroup title="Reserves" items={reserves} values={values} onChange={setValue} />

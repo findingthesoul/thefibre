@@ -165,6 +165,21 @@ export async function createPerson(input: {
   }
 }
 
+// Drag-and-drop on the by-period board: retime a single expected payment.
+// The board applies the move optimistically, then refreshes on success.
+export async function moveLine(lineId: string, expectedDate: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/lines/${lineId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ expected_date: expectedDate }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Soft delete (API sets deleted_at — hard rule #4).
 export async function deleteCommitment(id: string): Promise<ActionResult> {
   try {

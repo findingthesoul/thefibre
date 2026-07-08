@@ -2,9 +2,10 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Plus, X } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, Plus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { DateField } from '@/components/ui/date-field';
 import { money } from '@/lib/money';
 import {
   saveCommitment,
@@ -146,6 +147,25 @@ export function OpportunityDialog({
 
   const total = rows.reduce((acc, r) => acc + (toCents(r.amount) ?? 0), 0);
 
+  // Involved teams are preferred; when none are marked yet the select falls
+  // back to ALL active workspace teams so it's never empty.
+  const involvedTeamOptions = pickers.teams.map((t) => ({
+    value: t.team_id,
+    label: teamName(t.team),
+  }));
+  const showingAllTeams = involvedTeamOptions.length === 0;
+  const teamOptions = showingAllTeams
+    ? pickers.allTeams.filter((t) => t.is_active).map((t) => ({ value: t.id, label: t.name }))
+    : involvedTeamOptions;
+  // Editing a commitment whose team isn't in the list (not involved / now
+  // inactive): keep it selectable rather than silently blanking the select.
+  if (teamId && !teamOptions.some((t) => t.value === teamId)) {
+    teamOptions.push({
+      value: teamId,
+      label: pickers.allTeams.find((t) => t.id === teamId)?.name ?? 'Current team',
+    });
+  }
+
   const teamProjects = teamId ? pickers.projects.filter((p) => p.team_id === teamId) : [];
   const otherProjects = teamId
     ? pickers.projects.filter((p) => p.team_id !== teamId)
@@ -273,7 +293,7 @@ export function OpportunityDialog({
       }
     >
       <form id="opportunity-form" onSubmit={submit} className="space-y-4">
-        <div className="grid grid-cols-[1fr_170px] gap-4">
+        <div className="grid grid-cols-[1fr_220px] gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Label</label>
             <input
@@ -286,14 +306,34 @@ export function OpportunityDialog({
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Direction</label>
-            <select
-              value={direction}
-              onChange={(e) => setDirection(e.target.value as 'in' | 'out')}
-              className={INPUT}
-            >
-              <option value="in">Income</option>
-              <option value="out">Outgoing</option>
-            </select>
+            <div className="grid grid-cols-2 gap-1.5">
+              <button
+                type="button"
+                aria-pressed={direction === 'in'}
+                onClick={() => setDirection('in')}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium ring-1 transition-colors ${
+                  direction === 'in'
+                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
+                    : 'text-ink-subtle ring-line hover:text-ink'
+                }`}
+              >
+                <ArrowDownLeft size={15} strokeWidth={2} />
+                Income
+              </button>
+              <button
+                type="button"
+                aria-pressed={direction === 'out'}
+                onClick={() => setDirection('out')}
+                className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium ring-1 transition-colors ${
+                  direction === 'out'
+                    ? 'bg-rose-50 text-rose-700 ring-rose-200'
+                    : 'text-ink-subtle ring-line hover:text-ink'
+                }`}
+              >
+                <ArrowUpRight size={15} strokeWidth={2} />
+                Costs
+              </button>
+            </div>
           </div>
         </div>
 
@@ -336,12 +376,17 @@ export function OpportunityDialog({
             <label className="block text-sm font-medium mb-1">Team</label>
             <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={INPUT}>
               <option value="">—</option>
-              {pickers.teams.map((t) => (
-                <option key={t.id} value={t.team_id}>
-                  {teamName(t.team)}
+              {teamOptions.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
                 </option>
               ))}
             </select>
+            {showingAllTeams && teamOptions.length > 0 && (
+              <p className="mt-1 text-xs text-ink-muted">
+                Showing all teams — pick the involved teams in Settings to scope this list.
+              </p>
+            )}
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Project</label>
@@ -456,7 +501,7 @@ export function OpportunityDialog({
           </div>
 
           {rows.length > 0 && (
-            <div className="mt-3 grid grid-cols-[130px_110px_1fr_130px_130px_28px] gap-2 text-xs text-ink-muted">
+            <div className="mt-3 grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 text-xs text-ink-muted">
               <span>Expected</span>
               <span>Amount €</span>
               <span>Invoice</span>
@@ -470,13 +515,13 @@ export function OpportunityDialog({
             {rows.map((r) => (
               <div
                 key={r.key}
-                className="grid grid-cols-[130px_110px_1fr_130px_130px_28px] gap-2 items-center"
+                className="grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 items-center"
               >
-                <input
-                  type="date"
-                  value={r.expected_date}
-                  onChange={(e) => patchRow(r.key, { expected_date: e.target.value })}
-                  className={INPUT_SM}
+                <DateField
+                  label=""
+                  name={`expected_date_${r.key}`}
+                  defaultValue={r.expected_date}
+                  onValueChange={(v) => patchRow(r.key, { expected_date: v })}
                 />
                 <input
                   value={r.amount}
@@ -491,17 +536,17 @@ export function OpportunityDialog({
                   placeholder="invoice #"
                   className={INPUT_SM}
                 />
-                <input
-                  type="date"
-                  value={r.invoiced_at}
-                  onChange={(e) => patchRow(r.key, { invoiced_at: e.target.value })}
-                  className={INPUT_SM}
+                <DateField
+                  label=""
+                  name={`invoiced_at_${r.key}`}
+                  defaultValue={r.invoiced_at}
+                  onValueChange={(v) => patchRow(r.key, { invoiced_at: v })}
                 />
-                <input
-                  type="date"
-                  value={r.settled_at}
-                  onChange={(e) => patchRow(r.key, { settled_at: e.target.value })}
-                  className={INPUT_SM}
+                <DateField
+                  label=""
+                  name={`settled_at_${r.key}`}
+                  defaultValue={r.settled_at}
+                  onValueChange={(v) => patchRow(r.key, { settled_at: v })}
                 />
                 <button
                   type="button"

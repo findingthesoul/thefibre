@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.117] — 2026-07-08 — Pulse 0.5.0: quick add, the period board, and the fixes from Sjoerd's test-drive
+
+### Fixed
+- **Creating a NEW contact was impossible under RLS** (platform-wide, hit
+  from Pulse's combobox: "new row violates row-level security policy").
+  person/organisation policies had can_see_* in their WITH CHECK — never
+  true for a fresh row. Migration `20260708150000` splits the policies:
+  visibility gates reads/updates/deletes; INSERT needs only your own
+  workspace.
+- **GET /pulse/stages self-heals**: if the Pipeline flow is missing (the
+  migration backfill needs a super-admin owner and skips otherwise), the
+  first read creates it. (Also the diagnosis for "I don't see it": the
+  running Fly API predated the stages routes entirely — logs showed 404.)
+
+### Added
+- **Quick add** on the Cashflow page: one combobox over ALL contacts
+  (people + organisations, create-org inline), an amount, a date —
+  defaults handle the rest (income, Lead, 50%, you as owner). The
+  extended dialog remains for everything else.
+- **By-period board**: view toggle on Cashflow — columns per period
+  (week/fortnight/month per settings, Overdue first, Later overflow),
+  unsettled expected payments as draggable cards; drop on a column
+  re-dates the payment (the spreadsheet's drag-a-number-to-a-column,
+  formalised). Weighted net total per column.
+- **Direction is two buttons** in the opportunity dialog — Income (green,
+  arrow in) / Costs (red, arrow out) — replacing the select.
+
+### Changed
+- **Team select falls back to all workspace teams** (with a "scope in
+  Settings" hint) when no involved teams are picked yet.
+- **Every date input in Pulse uses the shared DateField SPoT** (date-only)
+  via the standard re-export shim — lines editor, budget dates, balance
+  as-of, quick add.
+- **Settings: "How far ahead" presets** (2 / 3 / 6 / 12 months / 2 years)
+  replace the horizon number input; the confusing period-anchor-date
+  field is gone from the UI (grid anchors on today; the P6 importer sets
+  the payroll-aligned anchor from the workbook).
+
 ## [0.13.116] — 2026-07-08 — Pulse 0.4.0: the Pipeline lives in Fibre Flow; Pulse speaks cashflow
 
 Sjoerd's correction, verbatim: "FLOW is the other app... there the pipeline

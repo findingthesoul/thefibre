@@ -7,9 +7,11 @@ import type {
   MemberOption,
   OfferingOption,
   OrgOption,
+  PeriodSettings,
   PersonOption,
   ProjectOption,
   StageOption,
+  TeamOption,
 } from './types';
 
 export const metadata = { title: 'Cashflow · Fibre Pulse' };
@@ -35,18 +37,38 @@ async function currentUserId(): Promise<string | null> {
   }
 }
 
+// The by-period board needs the workspace rhythm. Non-admins can't read the
+// settings endpoint — fall back to fortnights anchored on today (the same
+// default the API's projection uses).
+async function periodSettings(): Promise<PeriodSettings> {
+  try {
+    const r = await apiFetch<{
+      settings: { default_granularity?: string; period_anchor_date?: string | null } | null;
+    }>('/api/v1/pulse/settings');
+    const g = r.settings?.default_granularity;
+    return {
+      granularity: g === 'week' || g === 'month' ? g : 'fortnight',
+      anchor_date: r.settings?.period_anchor_date ?? null,
+    };
+  } catch {
+    return { granularity: 'fortnight', anchor_date: null };
+  }
+}
+
 export default async function PipelinePage() {
-  const [items, orgs, persons, teams, projects, offerings, members, stagesRaw, meId] =
+  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, rhythm] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
       safeItems<PersonOption>('/api/v1/persons?limit=100'),
       safeItems<InvolvedTeam>('/api/v1/pulse/involved-teams'),
+      safeItems<TeamOption>('/api/v1/teams'),
       safeItems<ProjectOption>('/api/v1/pulse/projects'),
       safeItems<OfferingOption>('/api/v1/pulse/offerings'),
       safeItems<MemberOption>('/api/v1/members'),
       safeItems<StageOption>('/api/v1/pulse/stages'),
       currentUserId(),
+      periodSettings(),
     ]);
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
@@ -55,8 +77,9 @@ export default async function PipelinePage() {
     <div className="px-6 py-10 max-w-5xl">
       <PipelineView
         items={items}
-        pickers={{ orgs, persons, teams, projects, offerings, members, stages }}
+        pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
         currentUserId={meId}
+        periodSettings={rhythm}
       />
     </div>
   );

@@ -6,6 +6,7 @@ import { Plus } from 'lucide-react';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch, SwitchField } from '@/components/ui/switch';
+import { DateField } from '@/components/ui/date-field';
 import { money } from '@/lib/money';
 import { createBudgetLine, updateBudgetLine, type BudgetLineInput } from './actions';
 
@@ -336,24 +337,18 @@ function LineDialog({
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Starts on</label>
-              <input
-                type="date"
-                value={startsOn}
-                onChange={(e) => setStartsOn(e.target.value)}
-                className={INPUT_CLASS}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Ends on</label>
-              <input
-                type="date"
-                value={endsOn}
-                onChange={(e) => setEndsOn(e.target.value)}
-                className={INPUT_CLASS}
-              />
-            </div>
+            <DateField
+              label="Starts on"
+              name="starts_on"
+              defaultValue={startsOn}
+              onValueChange={setStartsOn}
+            />
+            <DateField
+              label="Ends on"
+              name="ends_on"
+              defaultValue={endsOn}
+              onValueChange={setEndsOn}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Owner</label>

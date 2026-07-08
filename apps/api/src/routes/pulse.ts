@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient } from '../db.js';
-import { syncStagesFromFlow } from '../lib/pulse-pipeline.js';
+import { ensurePipelineFlow, syncStagesFromFlow } from '../lib/pulse-pipeline.js';
 
 // ===========================================================================
 // Fibre Pulse — P1: the planner API.
@@ -393,8 +393,14 @@ pulseRoutes.patch('/projects/:id', async (c) => {
 pulseRoutes.get('/stages', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  // Refresh the mirror from the Pipeline flow first — Flow authors, Pulse reads.
-  const { pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId);
+  // Refresh the mirror from the Pipeline flow first — Flow authors, Pulse
+  // reads. Self-healing: workspaces the migration backfill skipped (no
+  // super-admin user to own the flow) get it created on first read.
+  let { pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId);
+  if (!pipeline_flow_id) {
+    await ensurePipelineFlow(ctx.workspaceId, ctx.userId);
+    ({ pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId));
+  }
   const { data, error } = await db
     .from('pulse_stage')
     .select('id, key, label, kind, sort_order, is_system')
