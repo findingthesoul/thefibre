@@ -60,20 +60,20 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
    0.13.109; add a real flat config + CI when wanted.
 9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
-10. **Fibre Pulse — business planner** — LIVE at pulse.thefibre.app.
-    2026-07-08 marathon: P1→0.10.2 in one day (see CHANGELOG 0.13.112 →
-    0.13.130). Spec: docs/fibre-pulse-proposal.md. Shipped: sheet-grid
-    cashflow (sections fold, inline editing everywhere, drag-to-re-date,
-    fit-to-screen, per-account current position, per-rule reserves),
-    recurring-as-characteristic, deal size qty × unit, Pipeline as a
-    Fibre Flow with TWO-WAY run sync (Invoiced stage, per-stage default
-    probability), company-aware person picker, scope + ledger-receivable
-    backends. **Queued UI batch**: organisation popup (whole-org info
-    set), leaner opportunity popup, visible Me/Team/Workspace switcher,
-    default-probability editing in stages card, include_ledger toggle +
-    ledger group row. **Then**: P4 completion (match purchase rows to
-    commitment lines, paid→settled), P5 annual budget, P6 workbook
-    importer (also sets the payroll-aligned anchor).
+10. **Fibre Pulse — business planner** — LIVE at pulse.thefibre.app,
+    v0.13.0 after the 2026-07-07→09 marathon (CHANGELOG 0.13.112→136).
+    Everything Sjoerd specced across two days is shipped: sheet-grid
+    cashflow (BANK chain, Total column, virtual reserve growth,
+    drag/⌥-drag, folds remembered, focus mode, toasts), invoice-style
+    opportunity popup (offering rows × qty × price × repeat, VAT
+    tariffs, transfer-to-invoice with numbering + ledger row + auto/
+    manual email), two-way Flow pipeline sync, scopes with entry
+    chooser, settings hub (Profile/Payments/Planner), projection
+    history (cadence, 2y retention, first comparison view), Teams
+    under People. **NEXT**: P4 completion (auto-match purchase↔line,
+    paid→settled), P5 annual budget, P6 workbook importer (also sets
+    the payroll-aligned anchor), payment-terms curator field (§2.5),
+    comparison overlay on the chart.
 10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
     table is already the single source of truth, but CRUD lives under
     /api/v1/meet/teams (historical). GET /api/v1/teams SHIPPED in
