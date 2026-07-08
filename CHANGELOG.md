@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.131] — 2026-07-08 — Pulse 0.11.0: the org popup, scopes, and the day's last batch
+
+### Added
+- **Per-organisation popup** ("I want per org a popup... a list of
+  opportunities and invoices... clicking on one opens a popup with
+  info... adding one opens a popup to add one"): click a client's name
+  in either view — identity header, Opportunities group, Invoices &
+  receivables group, + Add. Rows and Add open the opportunity popup
+  LAYERED on top (Escape closes only the top; scroll-lock nests; the
+  outer list refreshes after inner saves).
+- **Me / Team / Workspace scope switcher** on Cashflow — URL params +
+  per-user cookie; the projection and all rows follow; Workspace hides
+  for users without access (RLS refuses them the data regardless).
+- **Default probability per stage** editable in the stages card (empty
+  = keep the row's value; committed/won always 100); stage changes in
+  the table and popup apply the entering stage's default.
+- **Ledger invoices card** in Settings: the include_ledger Switch +
+  expected-settlement days. Open Stripe/invoice purchases from Meet and
+  The Thread project as receivables.
+
 ## [0.13.130] — 2026-07-08 — Pulse 0.10.2: every reservation visible
 
 ### Changed

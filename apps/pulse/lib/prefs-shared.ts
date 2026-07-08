@@ -15,3 +15,6 @@ export const COOKIE_SIDEBAR = 'thefibre.sidebar';
 export const COOKIE_CASHFLOW_VIEW = 'thefibre.pulse.cashflow-view';
 // Pulse: fit the by-period grid to the viewport ('on') vs scrollable ('off').
 export const COOKIE_CASHFLOW_FIT = 'thefibre.pulse.cashflow-fit';
+// Pulse: last Me/Team/Workspace scope on Cashflow ('me' | 'team:<id>' |
+// 'workspace') — the default when the URL carries no ?scope/?team params.
+export const COOKIE_CASHFLOW_SCOPE = 'thefibre.pulse.cashflow-scope';

@@ -1,10 +1,15 @@
 import { cookies } from 'next/headers';
 import { apiFetch } from '@/lib/api';
-import { COOKIE_CASHFLOW_FIT, COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
+import {
+  COOKIE_CASHFLOW_FIT,
+  COOKIE_CASHFLOW_SCOPE,
+  COOKIE_CASHFLOW_VIEW,
+} from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
 import { FALLBACK_STAGES } from './types';
 import type {
   BudgetLine,
+  CashflowScope,
   Commitment,
   InvolvedTeam,
   MemberOption,
@@ -62,10 +67,18 @@ async function periodSettings(): Promise<PeriodSettings> {
 
 // Admin-only read — non-admins (and RLS misses) get null and the grid hides
 // the FINANCIAL POSITION / RESERVES / END POSITION rows. Granularity is
-// pinned to the grid's rhythm so the period columns line up exactly.
-async function fetchProjection(granularity: PeriodSettings['granularity']): Promise<Projection | null> {
+// pinned to the grid's rhythm so the period columns line up exactly; the
+// Me/Team scope narrows the flows (&owner=me / &team_id=).
+async function fetchProjection(
+  granularity: PeriodSettings['granularity'],
+  scope: CashflowScope,
+  scopeTeamId: string | null,
+): Promise<Projection | null> {
   try {
-    return await apiFetch<Projection>(`/api/v1/pulse/projection?granularity=${granularity}`);
+    let qs = `granularity=${granularity}`;
+    if (scope === 'me') qs += '&owner=me';
+    else if (scope === 'team' && scopeTeamId) qs += `&team_id=${scopeTeamId}`;
+    return await apiFetch<Projection>(`/api/v1/pulse/projection?${qs}`);
   } catch {
     return null;
   }
@@ -74,16 +87,37 @@ async function fetchProjection(granularity: PeriodSettings['granularity']): Prom
 export default async function PipelinePage({
   searchParams,
 }: {
-  searchParams: Promise<{ show?: string }>;
+  searchParams: Promise<{ show?: string; scope?: string; team?: string }>;
 }) {
   // The rhythm comes first — the projection fetch pins its granularity.
   // ?show=week|fortnight|month|quarter overrides the display rhythm
   // (Sjoerd 2026-07-08: "Add a show (per week, per month, per quarter)").
   const rhythm = await periodSettings();
-  const { show } = await searchParams;
+  const { show, scope: scopeParam, team: teamParam } = await searchParams;
   if (show === 'week' || show === 'fortnight' || show === 'month' || show === 'quarter') {
     rhythm.granularity = show;
   }
+
+  // Me / Team / Workspace scope (Sjoerd 2026-07-08: "cashflow per team...
+  // or per person or per workspace"). URL params win; a bare URL falls back
+  // to the remembered cookie ('me' | 'team:<id>' | 'workspace').
+  const cookieStore = await cookies();
+  const scopeCookie = cookieStore.get(COOKIE_CASHFLOW_SCOPE)?.value;
+  let scope: CashflowScope = 'workspace';
+  let scopeTeamId: string | null = null;
+  if (scopeParam === 'me') {
+    scope = 'me';
+  } else if (teamParam) {
+    scope = 'team';
+    scopeTeamId = teamParam;
+  } else if (scopeParam === undefined && scopeCookie === 'me') {
+    scope = 'me';
+  } else if (scopeParam === undefined && scopeCookie?.startsWith('team:')) {
+    scope = 'team';
+    scopeTeamId = scopeCookie.slice('team:'.length) || null;
+    if (!scopeTeamId) scope = 'workspace';
+  }
+
   const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines, accounts] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),
@@ -96,7 +130,7 @@ export default async function PipelinePage({
       safeItems<MemberOption>('/api/v1/members'),
       safeItems<StageOption>('/api/v1/pulse/stages'),
       currentUserId(),
-      fetchProjection(rhythm.granularity),
+      fetchProjection(rhythm.granularity, scope, scopeTeamId),
       // Admins only — degrades to an empty list (the grid skips the rows).
       safeItems<BudgetLine>('/api/v1/pulse/budget-lines'),
       // Admins only — the FINANCIAL POSITION section expands into editable
@@ -106,7 +140,24 @@ export default async function PipelinePage({
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
 
-  const cookieStore = await cookies();
+  // Workspace is only visible to those who have access — the projection is
+  // the admin+ read, so its failure marks a non-admin: hide the Workspace
+  // segment and default a workspace-scoped view down to Me.
+  const canWorkspace = projection !== null;
+  if (scope === 'workspace' && !canWorkspace) scope = 'me';
+
+  // Scope the commitments + budget lines server-side (Me = owned by the
+  // caller; Team = tagged with that team). Workspace = everything RLS gives.
+  let shownItems = items;
+  let shownBudget = budgetLines;
+  if (scope === 'me' && meId) {
+    shownItems = items.filter((cm) => cm.owner_user_id === meId);
+    shownBudget = budgetLines.filter((bl) => bl.owner_user_id === meId);
+  } else if (scope === 'team' && scopeTeamId) {
+    shownItems = items.filter((cm) => cm.team_id === scopeTeamId);
+    shownBudget = budgetLines.filter((bl) => bl.team_id === scopeTeamId);
+  }
+
   const viewCookie = cookieStore.get(COOKIE_CASHFLOW_VIEW)?.value;
   const initialView: 'counterparty' | 'period' =
     viewCookie === 'counterparty' ? 'counterparty' : 'period';
@@ -118,13 +169,16 @@ export default async function PipelinePage({
       <PipelineView
         initialView={initialView}
         initialFit={initialFit}
-        items={items}
+        items={shownItems}
         pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
         currentUserId={meId}
         periodSettings={rhythm}
         projection={projection}
-        budgetLines={budgetLines}
+        budgetLines={shownBudget}
         accounts={accounts}
+        scope={scope}
+        scopeTeamId={scopeTeamId}
+        canWorkspace={canWorkspace}
       />
     </div>
   );

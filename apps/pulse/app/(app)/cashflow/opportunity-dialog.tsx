@@ -60,12 +60,18 @@ let rowSeq = 0;
 export function OpportunityDialog({
   commitment,
   initialDirection,
+  initialOrgId,
+  initialPersonId,
   pickers,
   currentUserId,
   onClose,
 }: {
   commitment: Commitment | null; // null = new
   initialDirection?: 'in' | 'out';
+  // Counterparty preselect for NEW items — the org popup's + Add passes the
+  // org/person it was opened for ("adding one, opens a popup to add one").
+  initialOrgId?: string;
+  initialPersonId?: string;
   pickers: Pickers;
   currentUserId: string | null;
   onClose: () => void;
@@ -78,8 +84,8 @@ export function OpportunityDialog({
     commitment?.direction ?? initialDirection ?? 'in',
   );
   const [label, setLabel] = useState(commitment?.label ?? '');
-  const [orgId, setOrgId] = useState(commitment?.organisation_id ?? '');
-  const [personId, setPersonId] = useState(commitment?.person_id ?? '');
+  const [orgId, setOrgId] = useState(commitment?.organisation_id ?? initialOrgId ?? '');
+  const [personId, setPersonId] = useState(commitment?.person_id ?? initialPersonId ?? '');
   // Local copies so an inline "Create '<query>'" shows up immediately.
   const [orgs, setOrgs] = useState<OrgOption[]>(pickers.orgs);
   const [persons, setPersons] = useState<PersonOption[]>(pickers.persons);
@@ -708,7 +714,26 @@ export function OpportunityDialog({
           <div className="grid grid-cols-3 gap-4">
             <div>
               <label className="block text-sm font-medium mb-1">Stage</label>
-              <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
+              <select
+                value={stage}
+                onChange={(e) => {
+                  const key = e.target.value;
+                  setStage(key);
+                  // Entering a stage takes its default probability (Settings →
+                  // Pipeline stages) unless the kind forces 100 — the user can
+                  // still edit afterwards. Same rule as the API's PATCH.
+                  const next = sortedStages.find((s) => s.key === key);
+                  if (
+                    next &&
+                    next.kind !== 'committed' &&
+                    next.kind !== 'won' &&
+                    next.default_probability != null
+                  ) {
+                    setProbability(next.default_probability);
+                  }
+                }}
+                className={INPUT}
+              >
                 {stageOptions.map((s) => (
                   <option key={s.id} value={s.key}>
                     {s.label}

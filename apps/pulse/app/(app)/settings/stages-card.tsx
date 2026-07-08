@@ -70,6 +70,16 @@ export function StagesCard({ stages, flowUrl }: { stages: Stage[]; flowUrl: stri
                   <span className="ml-2 text-xs font-normal text-ink-muted">default flow</span>
                 )}
               </span>
+              {/* Default probability rows take on entering this stage —
+                  committed/won force 100 regardless, so no chip there. */}
+              {s.default_probability != null && s.kind !== 'committed' && s.kind !== 'won' && (
+                <span
+                  title="Default probability on entering this stage"
+                  className="shrink-0 text-xs text-ink-muted tabular-nums"
+                >
+                  {s.default_probability}%
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() => setEditing(s)}
@@ -94,14 +104,30 @@ function KindDialog({ stage, onClose }: { stage: Stage; onClose: () => void }) {
   const [kind, setKind] = useState<StageKind>(
     KIND_OPTIONS.some((k) => k.value === stage.kind) ? (stage.kind as StageKind) : 'open',
   );
+  // Default probability rows take on entering the stage. Empty = none (the
+  // row keeps its current value); committed/won force 100 regardless.
+  const [defaultProb, setDefaultProb] = useState(
+    stage.default_probability != null ? String(stage.default_probability) : '',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const probIrrelevant = kind === 'committed' || kind === 'won';
+
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
+    let prob: number | null = null;
+    if (defaultProb.trim() !== '') {
+      const n = parseInt(defaultProb.trim(), 10);
+      if (!Number.isFinite(n) || n < 0 || n > 100) {
+        setError('Default probability must be between 0 and 100 (or empty for none).');
+        return;
+      }
+      prob = n;
+    }
     setBusy(true);
     setError(null);
-    const res = await updateStage(stage.id, { kind });
+    const res = await updateStage(stage.id, { kind, default_probability: prob });
     if (res.error) {
       setError(res.error);
       setBusy(false);
@@ -146,6 +172,24 @@ function KindDialog({ stage, onClose }: { stage: Stage; onClose: () => void }) {
           <p className="mt-1 text-xs text-ink-muted">
             Terminal steps of the flow (positive/negative ends) are re-imposed as won/lost on
             the next sync. Rename or reorder the stage itself in Fibre Flow.
+          </p>
+        </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Default probability %</label>
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={defaultProb}
+            onChange={(e) => setDefaultProb(e.target.value)}
+            placeholder="none"
+            disabled={probIrrelevant}
+            className={`${INPUT_CLS} disabled:opacity-60`}
+          />
+          <p className="mt-1 text-xs text-ink-muted">
+            {probIrrelevant
+              ? 'Committed and won money always counts in full (100%).'
+              : 'Rows moved into this stage take this probability. Empty = keep whatever the row had.'}
           </p>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}

@@ -169,10 +169,14 @@ export function CounterpartyTable({
   items,
   stages,
   onEdit,
+  onOpenGroup,
 }: {
   items: Commitment[];
   stages: StageOption[];
   onEdit: (cm: Commitment) => void;
+  // Clicking the counterparty NAME opens the per-org popup ("I want per org
+  // a popup") — the chevron keeps folding; separate hit areas.
+  onOpenGroup: (key: string) => void;
 }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -250,22 +254,38 @@ export function CounterpartyTable({
               open ? 'border-b border-line' : ''
             }`}
           >
-            <button
-              type="button"
-              onClick={() => setFolded((f) => ({ ...f, [gKey]: !f[gKey] }))}
-              aria-expanded={open}
-              className="flex min-w-0 items-center gap-1.5 text-left"
-            >
-              {open ? (
-                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+            <div className="flex min-w-0 items-center gap-1.5">
+              {/* Two hit areas: the chevron folds, the NAME opens the org
+                  popup (Sjoerd 2026-07-08: "I want per org a popup"). */}
+              <button
+                type="button"
+                onClick={() => setFolded((f) => ({ ...f, [gKey]: !f[gKey] }))}
+                aria-expanded={open}
+                aria-label={`${open ? 'Fold' : 'Unfold'} ${g.name}`}
+                className="shrink-0 -m-1 p-1"
+              >
+                {open ? (
+                  <ChevronDown size={13} strokeWidth={2} className="text-ink-subtle" />
+                ) : (
+                  <ChevronRight size={13} strokeWidth={2} className="text-ink-subtle" />
+                )}
+              </button>
+              {gKey === '—' ? (
+                <span className="truncate">{g.name}</span>
               ) : (
-                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+                <button
+                  type="button"
+                  onClick={() => onOpenGroup(gKey)}
+                  title="Open — opportunities & invoices"
+                  className="min-w-0 truncate text-left hover:underline underline-offset-2"
+                >
+                  {g.name}
+                </button>
               )}
-              <span className="truncate">{g.name}</span>
               <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
                 {g.items.length}
               </span>
-            </button>
+            </div>
             <span
               className={`shrink-0 text-xs font-medium tabular-nums ${
                 net < 0 ? 'text-rose-700' : 'text-emerald-700'
@@ -442,7 +462,18 @@ export function CounterpartyTable({
                       value={view.stage}
                       options={stageOptions}
                       ariaLabel={`Stage for ${view.label}`}
-                      onCommit={(v) => void save(cm.id, { stage: v })}
+                      onCommit={(v) => {
+                        // Entering a stage takes its default probability
+                        // (unless the kind forces 100); pinned explicitly so
+                        // the optimistic row shows the same number the API
+                        // would apply. User can still edit after.
+                        const next = stageByKey.get(v);
+                        const prob =
+                          next?.kind === 'committed' || next?.kind === 'won'
+                            ? 100
+                            : (next?.default_probability ?? view.probability);
+                        void save(cm.id, { stage: v, probability: prob });
+                      }}
                     />
                   )}
 

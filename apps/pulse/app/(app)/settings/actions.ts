@@ -35,6 +35,9 @@ export async function updatePulseSettings(input: {
   period_anchor_date?: string | null;
   fiscal_year_start_month?: number;
   horizon_months?: number;
+  // Ledger invoices → pipeline (P4 opt-in) + expected settlement terms.
+  include_ledger?: boolean;
+  ledger_terms_days?: number;
 }): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/pulse/settings', {
@@ -42,6 +45,8 @@ export async function updatePulseSettings(input: {
       body: JSON.stringify(input),
     });
     revalidatePath('/settings');
+    // The ledger toggle changes what the projection shows.
+    revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -139,10 +144,11 @@ function revalidateStages() {
 }
 
 // Stages are authored in Fibre Flow (the Pipeline flow) and mirrored here.
-// The only Pulse-side edit is the money-semantics overlay (`kind`).
+// The Pulse-side edits are the money-semantics overlay (`kind`) and the
+// default probability rows take on entering the stage.
 export async function updateStage(
   id: string,
-  patch: { kind: StageKind },
+  patch: { kind?: StageKind; default_probability?: number | null },
 ): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/stages/${id}`, {

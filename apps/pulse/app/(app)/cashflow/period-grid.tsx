@@ -22,7 +22,7 @@
 // they're absent only INCOME + COSTS (the caller's own commitments) render.
 
 import { useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
@@ -228,6 +228,7 @@ export function PeriodGrid({
   initialFit,
   onEdit,
   onAdd,
+  onOpenGroup,
 }: {
   items: Commitment[];
   settings: PeriodSettings;
@@ -238,6 +239,9 @@ export function PeriodGrid({
   initialFit: 'on' | 'off';
   onEdit: (cm: Commitment) => void;
   onAdd: (direction: 'in' | 'out') => void;
+  // Clicking the client NAME opens the per-org popup ("I want per org a
+  // popup") — the chevron keeps folding; separate hit areas.
+  onOpenGroup: (key: string) => void;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -608,21 +612,37 @@ export function PeriodGrid({
             subtotals stay visible when the item rows are folded away. */}
         <tr className={ZEBRA}>
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
-            <button
-              type="button"
-              onClick={() => setFoldedGroups((f) => ({ ...f, [foldKey]: !f[foldKey] }))}
-              aria-expanded={groupOpen}
-              className="flex w-full items-center gap-1.5 text-left"
-            >
-              {groupOpen ? (
-                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+            <div className="flex w-full items-center gap-1.5">
+              {/* Two hit areas: the chevron folds, the NAME opens the org
+                  popup (Sjoerd 2026-07-08: "I want per org a popup"). */}
+              <button
+                type="button"
+                onClick={() => setFoldedGroups((f) => ({ ...f, [foldKey]: !f[foldKey] }))}
+                aria-expanded={groupOpen}
+                aria-label={`${groupOpen ? 'Fold' : 'Unfold'} ${g.name}`}
+                className="shrink-0 -m-1 p-1"
+              >
+                {groupOpen ? (
+                  <ChevronDown size={13} strokeWidth={2} className="text-ink-subtle" />
+                ) : (
+                  <ChevronRight size={13} strokeWidth={2} className="text-ink-subtle" />
+                )}
+              </button>
+              {g.key === '—' ? (
+                <span className={`block truncate ${labelText} font-semibold text-ink`}>
+                  {g.name}
+                </span>
               ) : (
-                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+                <button
+                  type="button"
+                  onClick={() => onOpenGroup(g.key)}
+                  title="Open — opportunities & invoices"
+                  className={`min-w-0 truncate text-left ${labelText} font-semibold text-ink hover:underline underline-offset-2`}
+                >
+                  {g.name}
+                </button>
               )}
-              <span className={`block truncate ${labelText} font-semibold text-ink`}>
-                {g.name}
-              </span>
-            </button>
+            </div>
           </td>
           {visibleCols.map((col) => (
             <td
@@ -1386,13 +1406,19 @@ function FragmentRows({ children }: { children: React.ReactNode }) {
 
 // Show per week / fortnight / month / quarter. A quarter is display-only —
 // the settings rhythm stays what it is; ?show= re-fetches the projection on
-// the requested grid so every row stays aligned.
+// the requested grid so every row stays aligned. Other params (the
+// Me/Team/Workspace scope) are preserved.
 function ShowSwitcher({ current }: { current: string }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   return (
     <select
       value={current}
-      onChange={(e) => router.push(`/cashflow?show=${e.target.value}`)}
+      onChange={(e) => {
+        const params = new URLSearchParams(searchParams.toString());
+        params.set('show', e.target.value);
+        router.push(`/cashflow?${params.toString()}`);
+      }}
       aria-label="Show periods per"
       className="rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
     >

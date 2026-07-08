@@ -6,6 +6,11 @@ export type PulseSettings = {
   period_anchor_date: string | null;
   fiscal_year_start_month: number;
   horizon_months: number;
+  // P4 opt-in (Sjoerd 2026-07-08: "add invoices to the sales pipeline...
+  // based on payment moments of Stripe settings"): open purchase-ledger rows
+  // project as receivables, settling ledger_terms_days after creation.
+  include_ledger?: boolean;
+  ledger_terms_days?: number;
 } | null;
 
 export type Rule = {
@@ -49,6 +54,9 @@ export type Stage = {
   kind: 'open' | 'committed' | 'won' | 'lost' | string;
   sort_order: number;
   is_system: boolean;
+  // Rows entering this stage take this probability (committed/won force 100
+  // regardless). null = no default — a row keeps whatever it had.
+  default_probability?: number | null;
 };
 
 export type Offering = {

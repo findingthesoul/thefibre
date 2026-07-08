@@ -23,6 +23,7 @@ import {
   COOKIE_SIDEBAR,
   COOKIE_CASHFLOW_VIEW,
   COOKIE_CASHFLOW_FIT,
+  COOKIE_CASHFLOW_SCOPE,
 } from './prefs-shared';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
@@ -31,6 +32,7 @@ const ALLOWED = new Set<string>([
   COOKIE_SIDEBAR,
   COOKIE_CASHFLOW_VIEW,
   COOKIE_CASHFLOW_FIT,
+  COOKIE_CASHFLOW_SCOPE,
 ]);
 
 export async function savePref(name: string, value: string) {

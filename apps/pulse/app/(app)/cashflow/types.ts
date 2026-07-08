@@ -92,7 +92,15 @@ export type BudgetLine = {
   starts_on: string | null;
   ends_on: string | null;
   included: boolean;
+  // Scope fields — the Me/Team/Workspace switcher filters on these
+  // server-side (page.tsx). null team_id = workspace-wide overhead.
+  team_id?: string | null;
+  owner_user_id?: string | null;
 };
+
+// The cashflow scope (Sjoerd 2026-07-08: "cashflow per team... or per person
+// or per workspace, and workspace only visible to the ones who have access").
+export type CashflowScope = 'me' | 'team' | 'workspace';
 
 // Mirrors GET /api/v1/pulse/accounts (admin-only — degrades to []). The
 // grid's FINANCIAL POSITION section expands into one row per account with an
@@ -134,6 +142,9 @@ export type StageOption = {
   kind: 'open' | 'committed' | 'won' | 'lost' | string;
   sort_order: number;
   is_system: boolean;
+  // Rows entering this stage take this probability (unless the kind forces
+  // 100). null = no default — the row keeps whatever it had.
+  default_probability?: number | null;
 };
 
 // Degradation path: if the stages fetch fails, the dialog still works with
