@@ -60,16 +60,20 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
    0.13.109; add a real flat config + CI when wanted.
 9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
-10. **Fibre Pulse — business planner** — P1 SHIPPED + FULLY LIVE
-    2026-07-07 (0.13.112 / Pulse 0.1.0): migration applied, API on Fly,
-    Vercel project `thefibre-pulse` + https://pulse.thefibre.app (CNAME
-    via TransIP). Spec: docs/fibre-pulse-proposal.md. P2 SHIPPED
-    2026-07-07 (0.13.113 / Pulse 0.2.0: every surface editable — see
-    CHANGELOG). Next: P3 interactive chart, P4 ledger loop, P5 annual
-    budget, P6 workbook importer (Sjoerd's real Soul Lab sheet as seed).
-    Vercel gotcha for future apps: new project must have Build/Install
-    command overrides OFF (vercel.json drives) — copied web-project
-    overrides built the wrong app.
+10. **Fibre Pulse — business planner** — LIVE at pulse.thefibre.app.
+    2026-07-08 marathon: P1→0.10.2 in one day (see CHANGELOG 0.13.112 →
+    0.13.130). Spec: docs/fibre-pulse-proposal.md. Shipped: sheet-grid
+    cashflow (sections fold, inline editing everywhere, drag-to-re-date,
+    fit-to-screen, per-account current position, per-rule reserves),
+    recurring-as-characteristic, deal size qty × unit, Pipeline as a
+    Fibre Flow with TWO-WAY run sync (Invoiced stage, per-stage default
+    probability), company-aware person picker, scope + ledger-receivable
+    backends. **Queued UI batch**: organisation popup (whole-org info
+    set), leaner opportunity popup, visible Me/Team/Workspace switcher,
+    default-probability editing in stages card, include_ledger toggle +
+    ledger group row. **Then**: P4 completion (match purchase rows to
+    commitment lines, paid→settled), P5 annual budget, P6 workbook
+    importer (also sets the payroll-aligned anchor).
 10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
     table is already the single source of truth, but CRUD lives under
     /api/v1/meet/teams (historical). GET /api/v1/teams SHIPPED in
