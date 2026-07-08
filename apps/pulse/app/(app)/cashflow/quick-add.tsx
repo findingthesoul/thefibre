@@ -13,6 +13,7 @@ import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { Combobox, type ComboOption } from './combobox';
 import { createOrganisation, saveCommitment } from './actions';
+import { toastError } from './toast';
 import type { OrgOption, PersonOption } from './types';
 
 function todayIso(): string {
@@ -124,7 +125,8 @@ function QuickAddDialog({
       originalLineIds: [],
     });
     if (res.error) {
-      setError(res.error);
+      // Server/API failure → toast (validation stays inline near the field).
+      toastError(`Could not add: ${res.error}`);
       setBusy(false);
       return;
     }
@@ -192,6 +194,8 @@ function QuickAddDialog({
             onValueChange={setDate}
           />
         </div>
+        {/* Validation only — server errors pop as toasts. */}
+        {error && <p className="text-sm text-red-600">{error}</p>}
       </form>
     </Dialog>
   );

@@ -1,13 +1,19 @@
 'use client';
 
-// The income/cost popup, rebuilt to Sjoerd's final spec (2026-07-09), in his
-// order: direction → name → contact → expected date → stage → OFFERING ROWS
-// (select-or-free-name × qty × price × repeat, weighted amounts) → totals →
-// VAT → owner/team → notes. Offering rows persist via the items endpoints;
-// commitments without items keep the legacy single quantity/unit fields
-// (backward compat). Saved income opportunities grow an "Invoice…" transfer
-// (nested confirm popup — org-dialog stacking rules: later sibling paints on
-// top, the outer dialog's onClose is guarded while a nested one is open).
+// The income/cost popup, restyled to read like a clean INVOICE document
+// (Sjoerd 2026-07-09: "more compact... in columns... rows full bleed for the
+// no... almost like an invoice"): contact header (org + person side by side,
+// the addressee) with the Invoice badge top-right → Name with the
+// Income|Costs toggle inline behind it → compact meta columns (date · stage
+// · probability) → OFFERING ROWS full bleed (edge-to-edge table, hairline
+// rows, "+ add offering" footer row) → totals bottom-right (weighted / full
+// / VAT / TOTAL incl VAT bold). Owner/team/project/notes + the payments
+// editor fold behind More options. Offering rows persist via the items
+// endpoints; commitments without items keep the legacy single quantity/unit
+// fields (backward compat). Saved income opportunities grow an "Invoice…"
+// transfer (nested confirm popup — org-dialog stacking rules: later sibling
+// paints on top, the outer dialog's onClose is guarded while a nested one is
+// open). Validation errors stay inline; SERVER errors pop as toasts.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -28,6 +34,7 @@ import {
   type LinePayload,
 } from './actions';
 import { Combobox, type ComboCreateResult } from './combobox';
+import { toastError } from './toast';
 import {
   personName,
   teamName,
@@ -41,6 +48,10 @@ const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 const INPUT_SM =
   'w-full rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+// Invoice-document label rhythm — small, quiet, uppercase.
+const LABEL = 'block text-xs font-medium uppercase tracking-wide text-ink-muted mb-1';
+// The dialog body (size="xl") pads px-7 py-6 — full-bleed rows counter it.
+const BLEED = '-mx-7';
 
 // Euros displayed ↔ integer cents stored. Comma decimals accepted.
 function toCents(s: string): number | null {
@@ -232,12 +243,16 @@ export function OpportunityDialog({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   // Set by a successful transfer so the badge shows without a prop refresh.
   const [invoicedNo, setInvoicedNo] = useState<string | null>(commitment?.invoice_no ?? null);
-  // Progressive disclosure: the payments editor + Project (+ legacy Offering)
-  // fold behind "More options" — open when the saved item uses them.
+  // Progressive disclosure: the payments editor + Project/Owner/Team/Notes
+  // (+ legacy Offering) fold behind "More options" — open when the saved
+  // item visibly uses the hidden fields.
   const [moreOpen, setMoreOpen] = useState<boolean>(
     !!commitment &&
       Boolean(
-        (commitment.lines ?? []).length > 1 || commitment.project_id || commitment.offering_id,
+        (commitment.lines ?? []).length > 1 ||
+          commitment.project_id ||
+          commitment.offering_id ||
+          commitment.notes,
       ),
   );
 
@@ -334,11 +349,11 @@ export function OpportunityDialog({
     if (!linkPrompt || !orgId) return;
     const id = linkPrompt;
     setLinkBusy(true);
-    setError(null);
     const res = await linkPersonToOrg(orgId, id);
     setLinkBusy(false);
     if (res.error) {
-      setError(`Could not link the person to ${selectedOrgName}: ${res.error}`);
+      // Server failure → toast (validation stays inline).
+      toastError(`Could not link the person to ${selectedOrgName}: ${res.error}`);
       return;
     }
     memberIdsRef.current?.add(id);
@@ -639,7 +654,8 @@ export function OpportunityDialog({
       originalItemIds: (commitment?.items ?? []).map((i) => i.id),
     });
     if (res.error) {
-      setError(res.error);
+      // Server/API failure → toast (inline stays for field validation).
+      toastError(`Could not save: ${res.error}`);
       setBusy(false);
       return;
     }
@@ -657,7 +673,7 @@ export function OpportunityDialog({
     setError(null);
     const res = await deleteCommitment(commitment.id);
     if (res.error) {
-      setError(res.error);
+      toastError(`Could not delete: ${res.error}`);
       setBusy(false);
       setConfirmDelete(false);
       return;
@@ -672,8 +688,10 @@ export function OpportunityDialog({
     commitment?.person?.email ??
     null;
 
+  // The full-bleed items table: one column rhythm for header + rows, padded
+  // back to the dialog's edge (px-7 matches the xl body padding).
   const itemGrid =
-    'grid grid-cols-[minmax(150px,1fr)_56px_90px_108px_minmax(120px,auto)_28px] gap-2 items-center';
+    'grid grid-cols-[minmax(150px,1fr)_52px_88px_104px_minmax(112px,auto)_24px] items-center gap-2 px-7';
 
   return (
     <>
@@ -687,20 +705,13 @@ export function OpportunityDialog({
         onClose();
       }}
       title={
-        <span className="inline-flex items-center gap-2">
-          {direction === 'out'
-            ? commitment
-              ? 'Edit cost'
-              : 'New cost'
-            : commitment
-              ? 'Edit income'
-              : 'New income'}
-          {invoicedNo && (
-            <span className="rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-              Invoice {invoicedNo}
-            </span>
-          )}
-        </span>
+        direction === 'out'
+          ? commitment
+            ? 'Edit cost'
+            : 'New cost'
+          : commitment
+            ? 'Edit income'
+            : 'New income'
       }
       size="xl"
       footer={
@@ -735,125 +746,133 @@ export function OpportunityDialog({
         </>
       }
     >
-      <form id="opportunity-form" onSubmit={submit} className="space-y-4">
-        {/* 1 · Direction — it decides everything else. */}
-        <div className="max-w-[300px]">
-          <div>
-            <label className="block text-sm font-medium mb-1">Direction</label>
-            <div className="grid grid-cols-2 gap-1.5">
-              <button
-                type="button"
-                aria-pressed={direction === 'in'}
-                onClick={() => setDirection('in')}
-                className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium ring-1 transition-colors ${
-                  direction === 'in'
-                    ? 'bg-emerald-50 text-emerald-700 ring-emerald-200'
-                    : 'text-ink-subtle ring-line hover:text-ink'
-                }`}
-              >
-                <ArrowDownLeft size={15} strokeWidth={2} />
-                Income
-              </button>
-              <button
-                type="button"
-                aria-pressed={direction === 'out'}
-                onClick={() => setDirection('out')}
-                className={`inline-flex items-center justify-center gap-1.5 rounded-md px-2 py-2 text-sm font-medium ring-1 transition-colors ${
-                  direction === 'out'
-                    ? 'bg-rose-50 text-rose-700 ring-rose-200'
-                    : 'text-ink-subtle ring-line hover:text-ink'
-                }`}
-              >
-                <ArrowUpRight size={15} strokeWidth={2} />
-                Costs
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* 2 · Name */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
-          <input
-            value={label}
-            onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. Website rebuild — phase 2"
-            className={INPUT}
-          />
-        </div>
-
-        {/* 3 · Contact: organisation + contact person. Once a company is
-            selected, the person picker lists ONLY its people — "Add person…"
-            opens the search/create popup (Sjoerd 2026-07-09). */}
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Organisation</label>
-            <Combobox
-              value={orgId}
-              options={orgOptions}
-              placeholder="No counterparty yet"
-              emptyLabel="No counterparty yet"
-              onSelect={setOrgId}
-              onCreate={handleCreateOrg}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Person</label>
-            <Combobox
-              value={personId}
-              options={personOptions}
-              placeholder="No counterparty yet"
-              emptyLabel="No counterparty yet"
-              onSelect={handleSelectPerson}
-              onCreate={strictMode ? undefined : handleCreatePerson}
-              createExtraField={
-                strictMode ? undefined : { label: 'Email', placeholder: 'name@example.com' }
-              }
-              actionItem={
-                strictMode
-                  ? { label: 'Add person…', onPick: () => setAddPersonOpen(true) }
-                  : undefined
-              }
-            />
-            {membersLoading && (
-              <p className="mt-1 text-xs text-ink-muted">Loading company people…</p>
-            )}
-            {linkNote && <p className="mt-1 text-xs text-ink-muted">{linkNote.text}</p>}
-            {linkPrompt && (
-              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                <p>
-                  <span className="font-medium">
-                    {pendingPerson ? personName(pendingPerson) : 'This person'}
-                  </span>{' '}
-                  isn&apos;t linked to <span className="font-medium">{selectedOrgName}</span>{' '}
-                  yet. Link them?
-                </p>
-                <div className="mt-1.5 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void confirmLink()}
-                    disabled={linkBusy}
-                    className="rounded-md bg-ink px-2 py-1 text-xs font-medium text-ink-inverse disabled:opacity-60"
-                  >
-                    {linkBusy ? 'Linking…' : 'Link & select'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={selectWithoutLinking}
-                    disabled={linkBusy}
-                    className="rounded-md px-2 py-1 text-xs text-amber-800 underline underline-offset-2 hover:text-amber-900"
-                  >
-                    Select without linking
-                  </button>
-                </div>
+      <form id="opportunity-form" onSubmit={submit} className="space-y-3">
+        {/* HEADER — the invoice addressee: organisation + person side by
+            side, prominent; the Invoice badge sits top-right once the
+            opportunity has been transferred. Full bleed against the dialog's
+            body padding, like a letterhead band. Once a company is selected,
+            the person picker lists ONLY its people — "Add person…" opens the
+            search/create popup (Sjoerd 2026-07-09). */}
+        <div className={`${BLEED} -mt-6 border-b border-line bg-surface-sunken/50 px-7 pb-4 pt-5`}>
+          <div className="flex items-start gap-4">
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
+              <div>
+                <label className={LABEL}>Organisation</label>
+                <Combobox
+                  value={orgId}
+                  options={orgOptions}
+                  placeholder="No counterparty yet"
+                  emptyLabel="No counterparty yet"
+                  onSelect={setOrgId}
+                  onCreate={handleCreateOrg}
+                />
               </div>
+              <div>
+                <label className={LABEL}>Person</label>
+                <Combobox
+                  value={personId}
+                  options={personOptions}
+                  placeholder="No counterparty yet"
+                  emptyLabel="No counterparty yet"
+                  onSelect={handleSelectPerson}
+                  onCreate={strictMode ? undefined : handleCreatePerson}
+                  createExtraField={
+                    strictMode ? undefined : { label: 'Email', placeholder: 'name@example.com' }
+                  }
+                  actionItem={
+                    strictMode
+                      ? { label: 'Add person…', onPick: () => setAddPersonOpen(true) }
+                      : undefined
+                  }
+                />
+                {membersLoading && (
+                  <p className="mt-1 text-xs text-ink-muted">Loading company people…</p>
+                )}
+                {linkNote && <p className="mt-1 text-xs text-ink-muted">{linkNote.text}</p>}
+                {linkPrompt && (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    <p>
+                      <span className="font-medium">
+                        {pendingPerson ? personName(pendingPerson) : 'This person'}
+                      </span>{' '}
+                      isn&apos;t linked to <span className="font-medium">{selectedOrgName}</span>{' '}
+                      yet. Link them?
+                    </p>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void confirmLink()}
+                        disabled={linkBusy}
+                        className="rounded-md bg-ink px-2 py-1 text-xs font-medium text-ink-inverse disabled:opacity-60"
+                      >
+                        {linkBusy ? 'Linking…' : 'Link & select'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={selectWithoutLinking}
+                        disabled={linkBusy}
+                        className="rounded-md px-2 py-1 text-xs text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                      >
+                        Select without linking
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {invoicedNo && (
+              <span className="mt-0.5 shrink-0 rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+                Invoice {invoicedNo}
+              </span>
             )}
           </div>
         </div>
 
-        {/* 4 · Expected date — drives the first payment line. Legacy items
-            keep the commitment-level Repeats controls here. */}
-        <div className="grid grid-cols-3 gap-4">
+        {/* TITLE ROW — Name with the Income|Costs toggle inline behind it
+            ("date income | cost as a toggle... behind the Name field"). */}
+        <div className="flex items-end gap-3">
+          <div className="min-w-0 flex-1">
+            <label className={LABEL}>Name</label>
+            <input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder="e.g. Website rebuild — phase 2"
+              className={INPUT}
+            />
+          </div>
+          <div className="inline-flex shrink-0 items-center rounded-md bg-surface-raised p-0.5 ring-1 ring-line">
+            <button
+              type="button"
+              aria-pressed={direction === 'in'}
+              onClick={() => setDirection('in')}
+              className={`inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                direction === 'in'
+                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
+                  : 'text-ink-subtle hover:text-ink'
+              }`}
+            >
+              <ArrowDownLeft size={13} strokeWidth={2} />
+              Income
+            </button>
+            <button
+              type="button"
+              aria-pressed={direction === 'out'}
+              onClick={() => setDirection('out')}
+              className={`inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
+                direction === 'out'
+                  ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'
+                  : 'text-ink-subtle hover:text-ink'
+              }`}
+            >
+              <ArrowUpRight size={13} strokeWidth={2} />
+              Costs
+            </button>
+          </div>
+        </div>
+
+        {/* META ROW — compact columns: Expected date · Stage (probability
+            inline small) · legacy Repeats. Extra cells wrap onto the grid. */}
+        <div className="grid grid-cols-3 gap-3">
           {!repeating && (
             <DateField
               label="Expected date"
@@ -864,7 +883,7 @@ export function OpportunityDialog({
           )}
           {!itemsMode && (
             <div>
-              <label className="block text-sm font-medium mb-1">Repeats</label>
+              <label className={LABEL}>Repeats</label>
               <select
                 value={repeatCadence}
                 onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
@@ -895,86 +914,92 @@ export function OpportunityDialog({
               />
             </>
           )}
+          {direction === 'in' && (
+            <div>
+              <label className={LABEL}>Stage</label>
+              <div className="flex items-center gap-1.5">
+                <select
+                  value={stage}
+                  onChange={(e) => {
+                    const key = e.target.value;
+                    setStage(key);
+                    // Entering a stage takes its default probability (Settings →
+                    // Pipeline stages) unless the kind forces 100 — the user can
+                    // still edit afterwards. Same rule as the API's PATCH.
+                    const next = sortedStages.find((s) => s.key === key);
+                    if (
+                      next &&
+                      next.kind !== 'committed' &&
+                      next.kind !== 'won' &&
+                      next.default_probability != null
+                    ) {
+                      setProbability(next.default_probability);
+                    }
+                  }}
+                  className={`${INPUT} min-w-0 flex-1`}
+                >
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+                {/* Probability — inline small, behind the stage. */}
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={probabilityLocked ? 100 : probability}
+                  disabled={probabilityLocked}
+                  aria-label="Probability %"
+                  title={probabilityLocked ? 'Committed money counts in full' : 'Probability %'}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+                  }}
+                  className="w-14 shrink-0 rounded-md border border-line bg-surface-raised px-1.5 py-2 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-60"
+                />
+                <span className="shrink-0 text-xs text-ink-muted">%</span>
+              </div>
+            </div>
+          )}
         </div>
-
-        {/* 5 · Stage — income only; a cost is not an opportunity. */}
-        {direction === 'in' ? (
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium mb-1">Stage</label>
-              <select
-                value={stage}
-                onChange={(e) => {
-                  const key = e.target.value;
-                  setStage(key);
-                  // Entering a stage takes its default probability (Settings →
-                  // Pipeline stages) unless the kind forces 100 — the user can
-                  // still edit afterwards. Same rule as the API's PATCH.
-                  const next = sortedStages.find((s) => s.key === key);
-                  if (
-                    next &&
-                    next.kind !== 'committed' &&
-                    next.kind !== 'won' &&
-                    next.default_probability != null
-                  ) {
-                    setProbability(next.default_probability);
-                  }
-                }}
-                className={INPUT}
-              >
-                {stageOptions.map((s) => (
-                  <option key={s.id} value={s.key}>
-                    {s.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-1">Probability %</label>
-              <input
-                type="number"
-                min={0}
-                max={100}
-                value={probabilityLocked ? 100 : probability}
-                disabled={probabilityLocked}
-                onChange={(e) => {
-                  const n = parseInt(e.target.value, 10);
-                  setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
-                }}
-                className={`${INPUT} disabled:opacity-60`}
-              />
-            </div>
-          </div>
-        ) : (
-          <p className="text-xs text-ink-muted">
+        {direction === 'out' && (
+          <p className="text-[11px] text-ink-muted">
             Costs count in full — no pipeline stage.
             {!itemsMode && ' For a repeating cost, set Repeats above.'}
           </p>
         )}
 
-        {/* 6 · Offering rows — THE deal. Legacy commitments without rows keep
-            the single quantity/unit fields until a row is added. */}
+        {/* OFFERING ROWS — THE deal, as the invoice's item table: full bleed
+            edge-to-edge, hairline-separated rows, right-aligned tabular
+            numbers, "+ add offering" as the table's footer row. Legacy
+            commitments without rows keep the single quantity/unit fields
+            until a row is added. */}
         {itemsMode ? (
-          <div className="border-t border-line pt-4">
-            <div className={`${itemGrid} text-xs text-ink-muted`}>
-              <span>Offering</span>
-              <span className="text-right">Qty</span>
-              <span className="text-right">Price €</span>
-              <span>Repeat</span>
-              <span className="text-right">Amount</span>
-              <span />
-            </div>
-            <div className="mt-1 space-y-2">
+          <div className={`${BLEED} border-y border-line`}>
+            <div className="divide-y divide-line/60">
+              <div
+                className={`${itemGrid} bg-surface-sunken/50 py-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted`}
+              >
+                <span>Offering</span>
+                <span className="text-right">Qty</span>
+                <span className="text-right">Price €</span>
+                <span>Repeats</span>
+                <span className="text-right">Amount</span>
+                <span />
+              </div>
               {itemRows.map((r) => {
                 const full = itemRowFull(r);
                 const weighted = full != null ? Math.round((full * effProb) / 100) : null;
                 return (
-                  <div key={r.key} className={itemGrid}>
+                  <div key={r.key} className={`${itemGrid} py-1.5`}>
                     <Combobox
                       value={r.offeringId}
                       options={pickers.offerings.map((o) => ({ id: o.id, label: o.name }))}
                       placeholder="Offering or description"
                       freeLabel={r.name}
+                      small
                       onSelect={(id) => {
                         const off = pickers.offerings.find((o) => o.id === id);
                         patchItem(r.key, {
@@ -1002,7 +1027,7 @@ export function OpportunityDialog({
                       onChange={(e) => patchItem(r.key, { quantity: e.target.value })}
                       inputMode="decimal"
                       aria-label="Quantity"
-                      className={`${INPUT_SM} text-right`}
+                      className={`${INPUT_SM} text-right tabular-nums`}
                     />
                     <input
                       value={r.unitAmount}
@@ -1010,7 +1035,7 @@ export function OpportunityDialog({
                       placeholder="0,00"
                       inputMode="decimal"
                       aria-label="Unit price"
-                      className={`${INPUT_SM} text-right`}
+                      className={`${INPUT_SM} text-right tabular-nums`}
                     />
                     <select
                       value={r.repeat}
@@ -1027,9 +1052,9 @@ export function OpportunityDialog({
                         </option>
                       ))}
                     </select>
-                    <div className="text-right tabular-nums whitespace-nowrap">
+                    <div className="whitespace-nowrap text-right tabular-nums">
                       {weighted == null ? (
-                        <span className="text-xs text-ink-muted select-none">—</span>
+                        <span className="select-none text-xs text-ink-muted">—</span>
                       ) : (
                         <>
                           <span className="text-sm font-medium text-ink">{money(weighted)}</span>
@@ -1043,31 +1068,30 @@ export function OpportunityDialog({
                       type="button"
                       aria-label="Remove offering row"
                       onClick={() => setItemRows((rs) => rs.filter((x) => x.key !== r.key))}
-                      className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
+                      className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink"
                     >
-                      <X size={15} strokeWidth={1.75} />
+                      <X size={14} strokeWidth={1.75} />
                     </button>
                   </div>
                 );
               })}
+              {/* The table's full-bleed footer row. */}
+              <button
+                type="button"
+                onClick={() => addItemRow()}
+                className="flex w-full items-center gap-1.5 px-7 py-2 text-left text-xs font-medium text-ink-subtle hover:bg-surface-sunken hover:text-ink"
+              >
+                <Plus size={13} strokeWidth={2} />
+                add offering
+              </button>
             </div>
-            <Button
-              type="button"
-              variant="secondary"
-              size="sm"
-              className="mt-3"
-              leading={<Plus size={14} strokeWidth={2} />}
-              onClick={() => addItemRow()}
-            >
-              Add offering
-            </Button>
           </div>
         ) : (
           /* LEGACY single deal size — quantity × unit price. */
-          <div className="border-t border-line pt-4">
-            <div className="grid grid-cols-3 gap-4 items-end">
+          <div className={`${BLEED} border-y border-line px-7 py-3`}>
+            <div className="grid grid-cols-3 items-end gap-3">
               <div>
-                <label className="block text-sm font-medium mb-1">Quantity</label>
+                <label className={LABEL}>Quantity</label>
                 <input
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
@@ -1076,7 +1100,7 @@ export function OpportunityDialog({
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1">Unit price €</label>
+                <label className={LABEL}>Unit price €</label>
                 <input
                   value={unitAmount}
                   onChange={(e) => setUnitAmount(e.target.value)}
@@ -1087,7 +1111,7 @@ export function OpportunityDialog({
               </div>
               <div className="pb-1">
                 {legacyFull > 0 ? (
-                  <span className="text-sm font-medium text-ink tabular-nums">
+                  <span className="text-sm font-medium tabular-nums text-ink">
                     = {money(legacyFull)}
                   </span>
                 ) : (
@@ -1116,24 +1140,26 @@ export function OpportunityDialog({
           </div>
         )}
 
-        {/* 7 + 8 · Totals, VAT tariff and total incl VAT. */}
-        <div className="border-t border-line pt-3 space-y-3">
-          <div className="flex items-baseline justify-end gap-6 text-sm">
-            <span className="text-ink-muted">
-              Full price <span className="font-medium text-ink tabular-nums">{money(fullTotal)}</span>
-            </span>
-            <span className="text-ink-muted">
-              Total weighted{' '}
-              <span className="font-semibold text-ink tabular-nums">{money(weightedTotal)}</span>
-            </span>
-          </div>
-          <div className="flex items-center justify-between gap-4">
-            <div className="w-56">
-              <label className="block text-sm font-medium mb-1">VAT tariff</label>
+        {/* TOTALS — the invoice's bottom-right block: weighted / full / VAT
+            (tariff select inline) / TOTAL incl VAT bold. */}
+        <div className="flex justify-end">
+          <div className="w-72 max-w-full space-y-1 text-sm">
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-ink-muted">
+                Weighted{direction === 'in' && effProb < 100 ? ` (${effProb}%)` : ''}
+              </span>
+              <span className="font-medium tabular-nums text-ink">{money(weightedTotal)}</span>
+            </div>
+            <div className="flex items-baseline justify-between gap-3">
+              <span className="text-ink-muted">Full price</span>
+              <span className="tabular-nums text-ink">{money(fullTotal)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
               <select
                 value={vatPct}
                 onChange={(e) => setVatPct(e.target.value)}
-                className={INPUT}
+                aria-label="VAT tariff"
+                className="rounded-md border border-line bg-surface-raised px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-300"
               >
                 <option value="">No VAT</option>
                 {pickers.vatTariffs.map((t) => (
@@ -1143,70 +1169,24 @@ export function OpportunityDialog({
                 ))}
                 {vatIsCustom && <option value={vatPct}>{vatPct}%</option>}
               </select>
+              <span className="tabular-nums text-ink-muted">
+                {vatNumber != null ? money(totalInclVat - fullTotal) : '—'}
+              </span>
             </div>
-            <div className="text-right">
-              <span className="block text-xs text-ink-muted">Total incl VAT</span>
-              <span className="text-base font-semibold text-ink tabular-nums">
+            <div className="flex items-baseline justify-between gap-3 border-t border-line pt-1.5">
+              <span className="text-xs font-semibold uppercase tracking-wide text-ink">
+                Total incl VAT
+              </span>
+              <span className="text-base font-semibold tabular-nums text-ink">
                 {money(totalInclVat)}
               </span>
             </div>
           </div>
         </div>
 
-        {/* 9 · Owner + Team (team auto-derives from project / single team). */}
-        <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Owner</label>
-            <select
-              value={ownerId}
-              onChange={(e) => setOwnerId(e.target.value)}
-              className={INPUT}
-            >
-              <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
-              {pickers.members.map((m) => (
-                <option key={m.user_id} value={m.user_id}>
-                  {m.full_name ?? m.email ?? m.user_id}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Team</label>
-            <select
-              value={teamId}
-              onChange={(e) => setTeamId(e.target.value)}
-              className={INPUT}
-            >
-              <option value="">—</option>
-              {teamOptions.map((t) => (
-                <option key={t.value} value={t.value}>
-                  {t.label}
-                </option>
-              ))}
-            </select>
-            {showingAllTeams && teamOptions.length > 0 && (
-              <p className="mt-1 text-xs text-ink-muted">
-                Showing all teams — pick the involved teams in Settings to scope this list.
-              </p>
-            )}
-          </div>
-        </div>
-
-        {/* 10 · Notes */}
-        <div>
-          <label className="block text-sm font-medium mb-1">Notes</label>
-          <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
-            rows={2}
-            placeholder="Optional"
-            className={INPUT}
-          />
-        </div>
-
         {/* ---- More options -------------------------------------------------
             The full payments editor (multi-payment schedules) + Project
-            (+ the legacy commitment-level Offering). */}
+            (+ the legacy commitment-level Offering) + Owner/Team + Notes. */}
         <div className="border-t border-line pt-3">
           <button
             type="button"
@@ -1328,7 +1308,7 @@ export function OpportunityDialog({
 
               <div className="grid grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1">Project</label>
+                  <label className={LABEL}>Project</label>
                   <select
                     value={projectId}
                     onChange={(e) => {
@@ -1371,7 +1351,7 @@ export function OpportunityDialog({
                 </div>
                 {!itemsMode && (
                   <div>
-                    <label className="block text-sm font-medium mb-1">Offering</label>
+                    <label className={LABEL}>Offering</label>
                     <select
                       value={offeringId}
                       onChange={(e) => {
@@ -1395,10 +1375,61 @@ export function OpportunityDialog({
                   </div>
                 )}
               </div>
+
+              {/* Owner + Team (team auto-derives from project / single team). */}
+              <div className="grid grid-cols-3 gap-4">
+                <div>
+                  <label className={LABEL}>Owner</label>
+                  <select
+                    value={ownerId}
+                    onChange={(e) => setOwnerId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
+                    {pickers.members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.full_name ?? m.email ?? m.user_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL}>Team</label>
+                  <select
+                    value={teamId}
+                    onChange={(e) => setTeamId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {teamOptions.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  {showingAllTeams && teamOptions.length > 0 && (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Showing all teams — pick the involved teams in Settings to scope this list.
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className={LABEL}>Notes</label>
+                <textarea
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  rows={2}
+                  placeholder="Optional"
+                  className={INPUT}
+                />
+              </div>
             </div>
           )}
         </div>
 
+        {/* Field VALIDATION only — server/API errors pop as toasts. */}
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -1483,14 +1514,14 @@ function AddPersonDialog({
 
   async function create() {
     if (!newName.trim()) {
-      setError('A name is required.');
+      setError('A name is required.'); // validation — stays inline
       return;
     }
     setBusy(true);
     setError(null);
     const err = await onCreateNew(newName.trim(), newEmail.trim());
     setBusy(false);
-    if (err) setError(err);
+    if (err) toastError(`Could not create the person: ${err}`); // server → toast
   }
 
   return (
@@ -1612,7 +1643,6 @@ function InvoiceDialog({
   onClose: () => void;
 }) {
   const [busy, setBusy] = useState<false | 'create' | 'send'>(false);
-  const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<{
     invoice_no: string;
     sent: boolean;
@@ -1621,11 +1651,11 @@ function InvoiceDialog({
 
   async function run(send: boolean) {
     setBusy(send ? 'send' : 'create');
-    setError(null);
     const res = await invoiceCommitment(commitmentId, send);
     setBusy(false);
     if (res.error || !res.data) {
-      setError(res.error ?? 'unknown error');
+      // Server failure → toast (pops above this nested dialog).
+      toastError(`Could not create the invoice: ${res.error ?? 'unknown error'}`);
       return;
     }
     setResult(res.data);
@@ -1702,11 +1732,6 @@ function InvoiceDialog({
               No email on the contact person — &ldquo;Create &amp; send&rdquo; needs one; you can
               still create the invoice and send it later from the Invoices area.
             </p>
-          )}
-          {error && (
-            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
           )}
         </div>
       )}

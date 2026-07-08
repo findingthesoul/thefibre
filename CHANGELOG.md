@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.135] — 2026-07-09 — Pulse 0.12.2: the popup is an invoice; warnings are toasts
+
+### Changed
+- **The opportunity popup reads like an invoice**: letterhead contact
+  band (org + person side by side, Invoice badge top-right), Name with
+  the Income|Costs toggle inline behind it, columned meta row, offering
+  rows as a full-bleed hairline table with right-aligned numbers, and
+  an invoice-style totals block (weighted / full / VAT / bold TOTAL
+  incl VAT). Owner/Team/Notes folded into More options.
+- **Clicking a number in the sheet opens the popup** (drag moves,
+  ⌥-drag copies, empty-cell + still adds inline, BANK balances still
+  edit in place).
+- **Warnings are popups**: a toast stack (top-right, auto-dismiss)
+  carries every server error — nothing hides at the scrolled bottom of
+  a dialog anymore. Field validation stays inline next to its field.
+- Virtual reserve growth data-fix: both reservation rules now target
+  the Saving account (they had no bucket — set in Settings anytime).
+
 ## [0.13.134] — 2026-07-09 — Pulse 0.12.1: ⌥-drag duplicates
 
 ### Added

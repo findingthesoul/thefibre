@@ -27,6 +27,7 @@ export function Combobox({
   onFreeText,
   freeLabel,
   actionItem,
+  small,
 }: {
   value: string;
   options: ComboOption[];
@@ -45,6 +46,8 @@ export function Combobox({
   freeLabel?: string;
   /** A fixed last entry regardless of the query (e.g. "Add person…"). */
   actionItem?: { label: string; onPick: () => void };
+  /** Compact input (the invoice-style offering rows). */
+  small?: boolean;
 }) {
   const selected = options.find((o) => o.id === value) ?? null;
   const [open, setOpen] = useState(false);
@@ -217,7 +220,7 @@ export function Combobox({
           setError(null);
         }}
         onKeyDown={onKeyDown}
-        className={INPUT}
+        className={small ? INPUT_SM : INPUT}
       />
       {open && (
         <div className="absolute z-20 mt-1 w-full rounded-md border border-line bg-surface-raised shadow-card overflow-hidden">

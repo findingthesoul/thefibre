@@ -9,6 +9,7 @@ import { OrgDialog } from './org-dialog';
 import { QuickAddButton } from './quick-add';
 import { PeriodGrid } from './period-grid';
 import { CounterpartyTable } from './counterparty-table';
+import { ToastStack } from './toast';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_SCOPE, COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import {
@@ -84,6 +85,8 @@ export function PipelineView({
 
   return (
     <>
+      {/* Server/API errors from anywhere in the lane pop here (toast.tsx). */}
+      <ToastStack />
       <div className="flex items-start justify-between gap-4 max-w-6xl">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>

@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { money } from '@/lib/money';
 import { patchCommitmentField, type CommitmentFieldPatch } from './actions';
+import { toastError } from './toast';
 import {
   commitmentNetTotal,
   loadOpenGroups,
@@ -201,9 +202,9 @@ export function CounterpartyTable({
   onOpenGroup: (key: string) => void;
 }) {
   const router = useRouter();
-  const [error, setError] = useState<string | null>(null);
   // Optimistic overrides per commitment — applied on save, kept until
-  // router.refresh() brings the server truth, reverted (loudly) on error.
+  // router.refresh() brings the server truth, reverted (loudly, via a
+  // toast) on error.
   const [overrides, setOverrides] = useState<Record<string, CommitmentFieldPatch>>({});
   // Groups default CLOSED; the open set is the latest visit's, restored from
   // localStorage on mount (Sjoerd 2026-07-09: "store pref of the latest
@@ -232,11 +233,10 @@ export function CounterpartyTable({
   const sortedStages = [...stages].sort((a, b) => a.sort_order - b.sort_order);
 
   async function save(id: string, patch: CommitmentFieldPatch) {
-    setError(null);
     setOverrides((o) => ({ ...o, [id]: { ...o[id], ...patch } }));
     const res = await patchCommitmentField(id, patch);
     if (res.error) {
-      setError(`Could not save: ${res.error}`);
+      toastError(`Could not save: ${res.error}`);
       setOverrides((o) => {
         const next = { ...o };
         delete next[id];
@@ -268,11 +268,6 @@ export function CounterpartyTable({
 
   return (
     <div className="mt-8 space-y-6 max-w-6xl">
-      {error && (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
       {[...groups.entries()].map(([gKey, g]) => {
         const groupHasFocus = focusId != null && g.items.some((i) => i.id === focusId);
         // Focus mode collapses the OTHER groups as if their chevrons closed;

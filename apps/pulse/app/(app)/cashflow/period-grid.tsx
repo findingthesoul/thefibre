@@ -11,12 +11,14 @@
 // payments).
 //
 // Spreadsheet feel (Sjoerd 2026-07-08: "every line should just work on its
-// own"): on a one-off item row a CLICK on a pill edits that amount in place,
-// and a click on a cell's empty space adds a new payment dated on that
-// period's start — dragging keeps retiming. The dialog stays for the rest
-// (row-label click). While a cell is being edited the grid enters FOCUS
-// MODE (Sjoerd 2026-07-09): the other sections fold as if closed (manual
-// fold state untouched), the active row pushes forward, siblings step back.
+// own"): a CLICK on a pill opens the row's opportunity dialog (Sjoerd
+// 2026-07-09: "click on a no. in the sheet, opens the popup"); a click on a
+// cell's empty space still ADDS a new payment inline dated on that period's
+// start — dragging keeps retiming, ⌥-drag copies. The BANK per-account
+// balance stays inline-editable. While a cell is being edited the grid
+// enters FOCUS MODE (Sjoerd 2026-07-09): the other sections fold as if
+// closed (manual fold state untouched), the active row pushes forward,
+// siblings step back. Errors pop as toasts (toast.tsx), not a banner.
 //
 // Column rules (Sjoerd 2026-07-08): the Overdue column only renders when it
 // actually holds overdue unsettled amounts — otherwise the grid starts at the
@@ -34,8 +36,9 @@ import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { addLine, duplicateLines, moveLine, moveLines, updateLineAmount } from './actions';
+import { addLine, duplicateLines, moveLine, moveLines } from './actions';
 import { recordSnapshots } from '../accounts/actions';
+import { toastError } from './toast';
 import { loadOpenGroups, saveOpenGroups } from './types';
 import type {
   BudgetLine,
@@ -272,10 +275,9 @@ export function PeriodGrid({
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Optimistic overrides: lineId → expected_date, applied on drop and kept
   // until router.refresh() brings the server truth (reverted on error, with
-  // the error surfaced in the banner — never silently).
+  // the error surfaced as a toast — never silently).
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [hoverCol, setHoverCol] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
@@ -566,15 +568,13 @@ export function PeriodGrid({
         return;
       }
       if (copy) {
-        setError(null);
         const res = await duplicateLines(ids, colKey);
-        if (res.error) setError(`Could not duplicate: ${res.error}`);
+        if (res.error) toastError(`Could not duplicate: ${res.error}`);
         else router.refresh();
         return;
       }
       ids = ids.filter((id) => lineCol.get(id) !== colKey);
       if (ids.length === 0) return;
-      setError(null);
       // Optimistic: the whole group total jumps to the target column.
       setOverrides((o) => {
         const next = { ...o };
@@ -583,7 +583,7 @@ export function PeriodGrid({
       });
       const res = await moveLines(ids, colKey);
       if (res.error) {
-        setError(`Could not move the group's expected payments: ${res.error}`);
+        toastError(`Could not move the group's expected payments: ${res.error}`);
         setOverrides((o) => {
           const next = { ...o };
           for (const id of ids) delete next[id];
@@ -597,20 +597,18 @@ export function PeriodGrid({
 
     const lineId = payload;
     if (copy) {
-      setError(null);
       const res = await duplicateLines([lineId], colKey);
-      if (res.error) setError(`Could not duplicate: ${res.error}`);
+      if (res.error) toastError(`Could not duplicate: ${res.error}`);
       else router.refresh();
       return;
     }
     if (lineCol.get(lineId) === colKey) return;
-    setError(null);
     // Optimistic: the pill jumps to the target column immediately.
     setOverrides((o) => ({ ...o, [lineId]: colKey }));
     const res = await moveLine(lineId, colKey);
     if (res.error) {
-      // Surface loudly, THEN fall back to the server truth.
-      setError(`Could not move the expected payment: ${res.error}`);
+      // Surface loudly (toast), THEN fall back to the server truth.
+      toastError(`Could not move the expected payment: ${res.error}`);
       setOverrides((o) => {
         const next = { ...o };
         delete next[lineId];
@@ -917,9 +915,10 @@ export function PeriodGrid({
                     </td>
                   );
                 }
-                // Non-recurring: every chip edits its own amount in place;
-                // clicking the cell's empty space adds a NEW payment dated on
-                // this period's start (a faint + shows on hover).
+                // Non-recurring: clicking a chip opens the row's dialog
+                // ("click on a no. in the sheet, opens the popup"); clicking
+                // the cell's empty space adds a NEW payment dated on this
+                // period's start (a faint + shows on hover).
                 return (
                   <OppLineCell
                     key={col.key}
@@ -933,7 +932,7 @@ export function PeriodGrid({
                     chipPad={chipPad}
                     tdClass={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
                     dropHandlers={dropProps(col)}
-                    onError={setError}
+                    onOpen={() => onEdit(o.cm)}
                     onFocusChange={focusHandler(dir, o.cm.id)}
                   />
                 );
@@ -1015,12 +1014,6 @@ export function PeriodGrid({
 
   return (
     <div className="mt-6">
-      {error && (
-        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
       {/* View header: filter + fit toggle + scroll chevrons. */}
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
@@ -1161,7 +1154,6 @@ export function PeriodGrid({
                               account={a}
                               fmt={fmt}
                               cellText={cellText}
-                              onError={setError}
                               onFocusChange={focusHandler('position', a.id)}
                             />
                           ) : projected?.has(col.key) ? (
@@ -1353,13 +1345,11 @@ function BalanceCell({
   account,
   fmt,
   cellText,
-  onError,
   onFocusChange,
 }: {
   account: PulseAccount;
   fmt: (cents: number) => string;
   cellText: string;
-  onError: (msg: string) => void;
   onFocusChange?: (active: boolean) => void;
 }) {
   const router = useRouter();
@@ -1389,7 +1379,7 @@ function BalanceCell({
     ]);
     setSaving(false);
     if (res.error) {
-      onError(`Could not update the balance — ${res.error}`);
+      toastError(`Could not update the balance — ${res.error}`);
       return;
     }
     router.refresh();
@@ -1474,60 +1464,31 @@ function EuroCellInput({
   );
 }
 
-// One expected-payment pill. Dragging retimes it (unchanged); a click
-// WITHOUT a drag swaps the pill for the inline euro input and saves via
-// updateLineAmount. Errors surface in the grid banner.
+// One expected-payment pill. Dragging retimes it, ⌥-drag copies (unchanged);
+// a click WITHOUT a drag opens the row's opportunity dialog (Sjoerd
+// 2026-07-09: "click on a no. in the sheet, opens the popup").
 function AmountChip({
   card,
   dir,
   fmt,
   cellText,
   chipPad,
-  onError,
-  onFocusChange,
+  onOpen,
 }: {
   card: Card;
   dir: Direction;
   fmt: (cents: number) => string;
   cellText: string;
   chipPad: string;
-  onError: (msg: string) => void;
-  onFocusChange?: (active: boolean) => void;
+  onOpen: () => void;
 }) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [saving, setSaving] = useState(false);
-  // A completed drag must not open the editor — dragstart arms this, and it
+  // A completed drag must not open the dialog — dragstart arms this, and it
   // disarms on the tick after dragend (any post-drag click slips by first).
   const draggedRef = useRef(false);
 
-  async function commit(cents: number | null) {
-    setEditing(false);
-    onFocusChange?.(false);
-    if (cents == null || cents === card.line.amount_cents) return;
-    setSaving(true);
-    const res = await updateLineAmount(card.line.id, cents);
-    setSaving(false);
-    if (res.error) {
-      onError(`Could not update the amount: ${res.error}`);
-      return;
-    }
-    router.refresh();
-  }
-
-  if (editing) {
-    return (
-      <EuroCellInput
-        initial={(card.line.amount_cents / 100).toFixed(2).replace('.', ',')}
-        cellText={cellText}
-        ariaLabel={`Amount for ${card.cm.label}`}
-        onCommit={(cents) => void commit(cents)}
-      />
-    );
-  }
   return (
     <span
-      draggable={!saving}
+      draggable
       onDragStart={(e) => {
         draggedRef.current = true;
         e.dataTransfer.setData('text/plain', card.line.id);
@@ -1540,30 +1501,23 @@ function AmountChip({
       }}
       onClick={(e) => {
         e.stopPropagation(); // the cell's empty-space click ADDS a line
-        if (draggedRef.current || saving) return;
-        setEditing(true);
-        onFocusChange?.(true);
+        if (draggedRef.current) return;
+        onOpen();
       }}
-      title={`${card.cm.label} — expected ${card.date}. Click to edit the amount; drag to another period to retime.`}
-      className={`inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
+      title={`${card.cm.label} — expected ${card.date}. Click to open; drag to another period to retime; ⌥-drag to copy.`}
+      className={`inline-flex items-center gap-1 cursor-pointer active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
     >
-      {saving ? (
-        'Saving…'
-      ) : (
-        <>
-          {sign(dir)}
-          {fmt(card.line.amount_cents)}
-        </>
-      )}
+      {sign(dir)}
+      {fmt(card.line.amount_cents)}
       {card.line.invoiced_at && <FileText size={10} strokeWidth={2} className="text-sky-600" />}
     </span>
   );
 }
 
-// A period cell on a one-off opportunity row. Chips edit themselves
-// individually; a click on the empty space (or the faint hover "+") opens
-// the same inline input to ADD a payment dated on this period's start —
-// colKey IS that ISO date for droppable columns.
+// A period cell on a one-off opportunity row. Clicking a chip opens the
+// row's dialog; a click on the empty space (or the faint hover "+") opens
+// the inline input to ADD a payment dated on this period's start — colKey
+// IS that ISO date for droppable columns.
 function OppLineCell({
   colKey,
   droppable,
@@ -1575,7 +1529,7 @@ function OppLineCell({
   chipPad,
   tdClass,
   dropHandlers,
-  onError,
+  onOpen,
   onFocusChange,
 }: {
   colKey: string;
@@ -1588,7 +1542,7 @@ function OppLineCell({
   chipPad: string;
   tdClass: string;
   dropHandlers: DropHandlers;
-  onError: (msg: string) => void;
+  onOpen: () => void;
   onFocusChange?: (active: boolean) => void;
 }) {
   const router = useRouter();
@@ -1603,7 +1557,7 @@ function OppLineCell({
     const res = await addLine(commitmentId, colKey, cents);
     setSaving(false);
     if (res.error) {
-      onError(`Could not add the expected payment: ${res.error}`);
+      toastError(`Could not add the expected payment: ${res.error}`);
       return;
     }
     router.refresh();
@@ -1653,8 +1607,7 @@ function OppLineCell({
               fmt={fmt}
               cellText={cellText}
               chipPad={chipPad}
-              onError={onError}
-              onFocusChange={onFocusChange}
+              onOpen={onOpen}
             />
           ))}
           {adding && (
