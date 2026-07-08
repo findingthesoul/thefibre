@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.122] — 2026-07-08 — Pulse 0.7.0: deal size as quantity × unit price
+
+### Added
+- Opportunities carry an amount as **quantity × unit price** (Sjoerd:
+  "16 * product x / € 1.350") — migration `20260708190000` adds
+  quantity + unit_amount_cents to pulse_commitment. The dialog gets a
+  deal-size row (picking an offering prefills the unit price from its
+  default amount; the computed total shows live, with an "insert as
+  payment" shortcut that drops it into the schedule); the counterparty
+  list shows "16 × Product X". Payment lines remain the schedule; the
+  deal size is the expression.
+
 ## [0.13.121] — 2026-07-08 — Pulse 0.6.2: grid polish from Sjoerd's walkthrough
 
 ### Changed

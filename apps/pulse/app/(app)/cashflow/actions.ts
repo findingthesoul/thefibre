@@ -36,6 +36,8 @@ export type CommitmentPayload = {
   // against pulse_stage and rejects unknowns.
   stage: string;
   probability: number;
+  quantity: number;
+  unit_amount_cents: number | null;
   notes: string | null;
 };
 

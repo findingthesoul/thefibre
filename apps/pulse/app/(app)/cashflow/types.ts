@@ -18,6 +18,8 @@ export type Commitment = {
   label: string;
   stage: string;
   probability: number;
+  quantity: number;
+  unit_amount_cents: number | null;
   notes: string | null;
   person_id: string | null;
   organisation_id: string | null;
@@ -50,7 +52,7 @@ export type InvolvedTeam = {
 
 export type ProjectOption = { id: string; name: string; team_id: string | null };
 
-export type OfferingOption = { id: string; name: string };
+export type OfferingOption = { id: string; name: string; default_amount_cents?: number | null };
 
 // Mirrors GET /api/v1/teams (the platform SPoT endpoint) — used as the
 // fallback team picker when no involved teams are configured yet.

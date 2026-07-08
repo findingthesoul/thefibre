@@ -106,6 +106,8 @@ function QuickAddDialog({
         notes: null,
         stage: 'lead',
         probability: 50,
+        quantity: 1,
+        unit_amount_cents: null,
       },
       lines: [
         {

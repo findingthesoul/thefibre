@@ -84,6 +84,8 @@ const CreateCommitment = z.object({
   owner_user_id: z.string().uuid().optional().nullable(),
   stage: z.string().min(1).max(64).default('lead'),
   probability: z.number().int().min(0).max(100).default(50),
+  quantity: z.number().positive().max(1_000_000).default(1),
+  unit_amount_cents: z.number().int().optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
@@ -437,7 +439,7 @@ pulseRoutes.patch('/stages/:id', async (c) => {
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
-  'id, direction, label, stage, probability, notes, created_at, updated_at, ' +
+  'id, direction, label, stage, probability, quantity, unit_amount_cents, notes, created_at, updated_at, ' +
   'person_id, organisation_id, team_id, project_id, offering_id, owner_user_id, ' +
   'person:person_id (id, first_name, last_name, email), ' +
   'organisation:organisation_id (id, name), ' +

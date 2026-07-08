@@ -140,6 +140,7 @@ export function PipelineView({
                     >
                       <div className="flex-1 min-w-0">
                         <div className="text-sm text-ink truncate">
+                          {cm.quantity > 1 ? `${cm.quantity} × ` : ''}
                           {cm.label}
                           {cm.project && (
                             <span className="text-ink-muted"> · {cm.project.name}</span>

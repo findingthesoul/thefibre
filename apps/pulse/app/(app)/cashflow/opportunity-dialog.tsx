@@ -79,6 +79,15 @@ export function OpportunityDialog({
   const [teamId, setTeamId] = useState(commitment?.team_id ?? '');
   const [projectId, setProjectId] = useState(commitment?.project_id ?? '');
   const [offeringId, setOfferingId] = useState(commitment?.offering_id ?? '');
+  // Deal size as quantity × unit price (the workbook's "16 × product X").
+  const [quantity, setQuantity] = useState(
+    commitment ? String(commitment.quantity ?? 1) : '1',
+  );
+  const [unitAmount, setUnitAmount] = useState(
+    commitment?.unit_amount_cents != null
+      ? (commitment.unit_amount_cents / 100).toFixed(2).replace('.', ',')
+      : '',
+  );
   // New opportunities default to the signed-in user when they're a member;
   // '' keeps the API default (caller on create / unchanged on edit).
   const [ownerId, setOwnerId] = useState(
@@ -242,6 +251,11 @@ export function OpportunityDialog({
         // A cost is not an opportunity (Sjoerd 2026-07-08): no pipeline
         // semantics. New costs save as committed money; existing rows keep
         // their stored stage untouched.
+        quantity: (() => {
+          const q = parseFloat(quantity.replace(',', '.'));
+          return Number.isFinite(q) && q > 0 ? q : 1;
+        })(),
+        unit_amount_cents: toCents(unitAmount),
         stage: direction === 'out' && !commitment ? 'committed' : stage,
         probability:
           direction === 'out' && !commitment ? 100 : probabilityLocked ? 100 : probability,
@@ -455,7 +469,12 @@ export function OpportunityDialog({
               value={offeringId}
               onChange={(e) => {
                 setOfferingId(e.target.value);
-                prefillLabel(pickers.offerings.find((o) => o.id === e.target.value)?.name);
+                const off = pickers.offerings.find((o) => o.id === e.target.value);
+                prefillLabel(off?.name);
+                // Offering's default price prefills the unit price when empty.
+                if (off?.default_amount_cents != null && !unitAmount.trim()) {
+                  setUnitAmount((off.default_amount_cents / 100).toFixed(2).replace('.', ','));
+                }
               }}
               className={INPUT}
             >
@@ -466,6 +485,66 @@ export function OpportunityDialog({
                 </option>
               ))}
             </select>
+          </div>
+        </div>
+
+        {/* Deal size — quantity × unit price (e.g. 16 × product X @ €1.350). */}
+        <div className="grid grid-cols-3 gap-4 items-end">
+          <div>
+            <label className="block text-sm font-medium mb-1">Quantity</label>
+            <input
+              value={quantity}
+              onChange={(e) => setQuantity(e.target.value)}
+              inputMode="decimal"
+              className={INPUT}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Unit price €</label>
+            <input
+              value={unitAmount}
+              onChange={(e) => setUnitAmount(e.target.value)}
+              placeholder="0,00"
+              inputMode="decimal"
+              className={INPUT}
+            />
+          </div>
+          <div className="pb-1">
+            {(() => {
+              const q = parseFloat(quantity.replace(',', '.'));
+              const unit = toCents(unitAmount);
+              const dealTotal =
+                Number.isFinite(q) && q > 0 && unit != null ? Math.round(q * unit) : null;
+              if (dealTotal == null || dealTotal === 0) {
+                return <span className="text-xs text-ink-muted">= deal size</span>;
+              }
+              return (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium text-ink tabular-nums">
+                    = {money(dealTotal)}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setRows((rs) => [
+                        ...rs,
+                        {
+                          key: rowSeq++,
+                          expected_date: new Date().toISOString().slice(0, 10),
+                          amount: (dealTotal / 100).toFixed(2).replace('.', ','),
+                          invoice_ref: '',
+                          invoiced_at: '',
+                          settled_at: '',
+                        },
+                      ])
+                    }
+                    className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+                  >
+                    insert as payment
+                  </button>
+                </div>
+              );
+            })()}
           </div>
         </div>
 
