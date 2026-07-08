@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient } from '../db.js';
+import { userClient, adminClient } from '../db.js';
 
 export const personsRoutes = new Hono();
 
@@ -53,15 +53,27 @@ personsRoutes.post('/', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
 
-  const { data, error } = await db
+  // Create via adminClient with explicit workspace scoping — the platform
+  // pattern for contact creation (Meet/Thread enrolment does the same).
+  // Insert-through-RLS kept failing here even after the 20260708150000
+  // policy split (RLS violated on the returning read); the middleware
+  // already guarantees the caller is a member of ctx.workspaceId.
+  const { data, error } = await adminClient
     .from('person')
     .insert({ ...body.data, workspace_id: ctx.workspaceId })
     .select('id, first_name, last_name, email, country, created_at')
     .single();
 
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[persons POST] insert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code }, 500);
+  }
 
   // ---------------------------------------------------------------------
   // Verified-domain auto-attribution.
@@ -83,6 +95,7 @@ personsRoutes.post('/', async (c) => {
   // Non-fatal: any failure here is logged and swallowed; the person
   // create itself stays successful.
   // ---------------------------------------------------------------------
+  const db = userClient(ctx.jwt);
   let autoLinkedOrgId: string | null = null;
   let autoLinkedOrgName: string | null = null;
   try {

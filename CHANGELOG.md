@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.118] — 2026-07-08 — Pulse 0.5.1: contact creation via the platform pattern
+
+### Fixed
+- **Creating contacts STILL 500'd after the 0.13.117 policy split** (the
+  RLS violation surfaced on the insert's returning read even for a
+  super_admin). Rather than a third policy iteration, POST /persons and
+  POST /organisations now follow the established platform pattern for
+  contact creation (as Meet/Thread enrolment always has): adminClient
+  with explicit `workspace_id: ctx.workspaceId` — membership is
+  guaranteed by the auth middleware; reads stay fully RLS-gated. Both
+  routes also finally log full Postgres errors (code/details/hint) to
+  stderr, which they never did — the one route class that violated
+  feedback_api_logs_first.
+
 ## [0.13.117] — 2026-07-08 — Pulse 0.5.0: quick add, the period board, and the fixes from Sjoerd's test-drive
 
 ### Fixed

@@ -2,7 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { randomBytes } from 'node:crypto';
 import { promises as dns } from 'node:dns';
-import { userClient } from '../db.js';
+import { userClient, adminClient } from '../db.js';
 
 export const organisationsRoutes = new Hono();
 
@@ -51,14 +51,25 @@ organisationsRoutes.post('/', async (c) => {
   const body = OrgCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
 
-  const { data, error } = await db
+  // Create via adminClient with explicit workspace scoping — see the note
+  // in persons.ts POST (same fix, 2026-07-08): insert-through-RLS failed
+  // on the returning read even for admins; membership is guaranteed by
+  // the middleware and reads stay RLS-gated.
+  const { data, error } = await adminClient
     .from('organisation')
     .insert({ ...body.data, workspace_id: ctx.workspaceId })
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[organisations POST] insert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code }, 500);
+  }
   return c.json(data, 201);
 });
 
