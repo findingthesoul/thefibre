@@ -69,6 +69,23 @@ workspaceAppsRoutes.post('/', async (c) => {
     return c.json({ error: wErr.message, code: wErr.code }, 500);
   }
 
+  // Pulse ships with its default sales flow — seed the system stages
+  // (idempotent; is_system rows are undeletable by design).
+  if (slug === 'fibre-pulse') {
+    const STAGES = [
+      { key: 'lead', label: 'Lead', kind: 'open', sort_order: 1 },
+      { key: 'proposal', label: 'Proposal', kind: 'open', sort_order: 2 },
+      { key: 'committed', label: 'Committed', kind: 'committed', sort_order: 3 },
+      { key: 'done', label: 'Done', kind: 'won', sort_order: 4 },
+      { key: 'cancelled', label: 'Cancelled', kind: 'lost', sort_order: 5 },
+    ];
+    const { error: stErr } = await adminClient.from('pulse_stage').upsert(
+      STAGES.map((s) => ({ workspace_id: ctx.workspaceId, is_system: true, ...s })),
+      { onConflict: 'workspace_id,key', ignoreDuplicates: true },
+    );
+    if (stErr) console.error('[workspace-apps POST] pulse stage seed', stErr);
+  }
+
   // Grant the activating user membership for this app (idempotent).
   // Default role = 'admin' — they activated it; they own its config.
   const { error: mErr } = await db

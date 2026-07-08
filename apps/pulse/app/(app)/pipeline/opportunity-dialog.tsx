@@ -6,11 +6,22 @@ import { Plus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
-import { saveCommitment, deleteCommitment, type LinePayload } from './actions';
-import { personName, teamName, type Commitment, type Pickers } from './types';
-
-const STAGES = ['lead', 'proposal', 'committed', 'done', 'cancelled'] as const;
-type Stage = (typeof STAGES)[number];
+import {
+  saveCommitment,
+  deleteCommitment,
+  createOrganisation,
+  createPerson,
+  type LinePayload,
+} from './actions';
+import { Combobox, type ComboCreateResult } from './combobox';
+import {
+  personName,
+  teamName,
+  type Commitment,
+  type OrgOption,
+  type PersonOption,
+  type Pickers,
+} from './types';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
@@ -41,26 +52,38 @@ let rowSeq = 0;
 export function OpportunityDialog({
   commitment,
   pickers,
+  currentUserId,
   onClose,
 }: {
   commitment: Commitment | null; // null = new
   pickers: Pickers;
+  currentUserId: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
+
+  const sortedStages = [...pickers.stages].sort((a, b) => a.sort_order - b.sort_order);
 
   const [direction, setDirection] = useState<'in' | 'out'>(commitment?.direction ?? 'in');
   const [label, setLabel] = useState(commitment?.label ?? '');
   const [orgId, setOrgId] = useState(commitment?.organisation_id ?? '');
   const [personId, setPersonId] = useState(commitment?.person_id ?? '');
+  // Local copies so an inline "Create '<query>'" shows up immediately.
+  const [orgs, setOrgs] = useState<OrgOption[]>(pickers.orgs);
+  const [persons, setPersons] = useState<PersonOption[]>(pickers.persons);
   const [teamId, setTeamId] = useState(commitment?.team_id ?? '');
   const [projectId, setProjectId] = useState(commitment?.project_id ?? '');
   const [offeringId, setOfferingId] = useState(commitment?.offering_id ?? '');
-  const [ownerId, setOwnerId] = useState(commitment?.owner_user_id ?? '');
-  const [stage, setStage] = useState<Stage>(
-    (STAGES as readonly string[]).includes(commitment?.stage ?? '')
-      ? (commitment!.stage as Stage)
-      : 'lead',
+  // New opportunities default to the signed-in user when they're a member;
+  // '' keeps the API default (caller on create / unchanged on edit).
+  const [ownerId, setOwnerId] = useState(
+    commitment?.owner_user_id ??
+      (currentUserId && pickers.members.some((m) => m.user_id === currentUserId)
+        ? currentUserId
+        : ''),
+  );
+  const [stage, setStage] = useState<string>(
+    commitment?.stage ?? sortedStages[0]?.key ?? 'lead',
   );
   const [probability, setProbability] = useState(commitment?.probability ?? 50);
   const [notes, setNotes] = useState(commitment?.notes ?? '');
@@ -81,8 +104,45 @@ export function OpportunityDialog({
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
-  // committed/done implies certainty — the API enforces 100 too.
-  const probabilityLocked = stage === 'committed' || stage === 'done';
+  // A committed/won KIND implies certainty — the API forces 100 too.
+  const selectedStage = sortedStages.find((s) => s.key === stage);
+  const probabilityLocked =
+    selectedStage?.kind === 'committed' || selectedStage?.kind === 'won';
+  // Editing a row whose stage key vanished from the flow: keep it selectable
+  // rather than silently moving the opportunity.
+  const stageOptions = selectedStage
+    ? sortedStages
+    : [
+        ...sortedStages,
+        { id: stage, key: stage, label: stage, kind: 'open', sort_order: 999, is_system: false },
+      ];
+
+  const orgOptions = orgs.map((o) => ({ id: o.id, label: o.name }));
+  const personOptions = persons.map((p) => ({
+    id: p.id,
+    label: personName(p),
+    sublabel: p.email,
+  }));
+
+  async function handleCreateOrg(query: string): Promise<ComboCreateResult> {
+    const res = await createOrganisation(query.trim());
+    if (res.error || !res.data) return { error: res.error ?? 'unknown error' };
+    const created = res.data;
+    setOrgs((os) => [...os, { id: created.id, name: created.name }]);
+    return { option: { id: created.id, label: created.name } };
+  }
+
+  async function handleCreatePerson(query: string, email?: string): Promise<ComboCreateResult> {
+    const mail = (email ?? '').trim();
+    if (!/^\S+@\S+\.\S+$/.test(mail)) {
+      return { error: 'A valid email is required to create a person.' };
+    }
+    const res = await createPerson({ query, email: mail });
+    if (res.error || !res.data) return { error: res.error ?? 'unknown error' };
+    const created = res.data;
+    setPersons((ps) => [...ps, created]);
+    return { option: { id: created.id, label: personName(created), sublabel: created.email } };
+  }
 
   const total = rows.reduce((acc, r) => acc + (toCents(r.amount) ?? 0), 0);
 
@@ -240,41 +300,34 @@ export function OpportunityDialog({
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Organisation</label>
-            <select
+            <Combobox
               value={orgId}
-              onChange={(e) => {
-                setOrgId(e.target.value);
-                if (e.target.value) setPersonId('');
+              options={orgOptions}
+              placeholder="No counterparty yet"
+              emptyLabel="No counterparty yet"
+              onSelect={(id) => {
+                setOrgId(id);
+                if (id) setPersonId('');
               }}
-              className={INPUT}
-            >
-              <option value="">No counterparty yet</option>
-              {pickers.orgs.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.name}
-                </option>
-              ))}
-            </select>
+              onCreate={handleCreateOrg}
+            />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Person <span className="font-normal text-ink-muted">(or)</span>
             </label>
-            <select
+            <Combobox
               value={personId}
-              onChange={(e) => {
-                setPersonId(e.target.value);
-                if (e.target.value) setOrgId('');
+              options={personOptions}
+              placeholder="No counterparty yet"
+              emptyLabel="No counterparty yet"
+              onSelect={(id) => {
+                setPersonId(id);
+                if (id) setOrgId('');
               }}
-              className={INPUT}
-            >
-              <option value="">No counterparty yet</option>
-              {pickers.persons.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {personName(p)}
-                </option>
-              ))}
-            </select>
+              onCreate={handleCreatePerson}
+              createExtraField={{ label: 'Email', placeholder: 'name@example.com' }}
+            />
           </div>
         </div>
 
@@ -357,14 +410,10 @@ export function OpportunityDialog({
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Stage</label>
-            <select
-              value={stage}
-              onChange={(e) => setStage(e.target.value as Stage)}
-              className={`${INPUT} capitalize`}
-            >
-              {STAGES.map((s) => (
-                <option key={s} value={s}>
-                  {s}
+            <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
+              {stageOptions.map((s) => (
+                <option key={s.id} value={s.key}>
+                  {s.label}
                 </option>
               ))}
             </select>

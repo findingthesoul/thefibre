@@ -32,7 +32,9 @@ export type CommitmentPayload = {
   project_id: string | null;
   offering_id: string | null;
   owner_user_id?: string;
-  stage: 'lead' | 'proposal' | 'committed' | 'done' | 'cancelled';
+  // Free string since stages became configurable — the API validates the key
+  // against pulse_stage and rejects unknowns.
+  stage: string;
   probability: number;
   notes: string | null;
 };
@@ -101,6 +103,63 @@ export async function saveCommitment(input: {
 
     revalidatePath('/pipeline');
     return { ok: true, data: { id: commitmentId } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Inline "Create '<query>'" support for the counterparty comboboxes.
+// Both platform routes return the created row DIRECTLY (not { item: … }).
+// ---------------------------------------------------------------------------
+export async function createOrganisation(
+  name: string,
+): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const r = await apiFetch<{ id: string; name: string }>('/api/v1/organisations', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    revalidatePath('/pipeline');
+    return { ok: true, data: { id: r.id, name: r.name } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// The API's PersonCreate requires first_name, last_name AND email — so the
+// combobox collects an email before calling this. The query splits on the
+// last space; a single word becomes first_name with "—" as last_name.
+export async function createPerson(input: {
+  query: string;
+  email: string;
+}): Promise<
+  ActionResult<{
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  }>
+> {
+  try {
+    const q = input.query.trim();
+    const cut = q.lastIndexOf(' ');
+    const first_name = cut > 0 ? q.slice(0, cut) : q;
+    const last_name = cut > 0 ? q.slice(cut + 1) : '—';
+    const r = await apiFetch<{
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+    }>('/api/v1/persons', {
+      method: 'POST',
+      body: JSON.stringify({ first_name, last_name, email: input.email.trim() }),
+    });
+    revalidatePath('/pipeline');
+    return {
+      ok: true,
+      data: { id: r.id, first_name: r.first_name, last_name: r.last_name, email: r.email },
+    };
   } catch (e) {
     return { error: formatApiError(e) };
   }

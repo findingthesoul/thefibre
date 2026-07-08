@@ -65,7 +65,20 @@ const PatchProject = CreateProject.partial().extend({
   archived: z.boolean().optional(),
 });
 
-const Stage = z.enum(['lead', 'proposal', 'committed', 'done', 'cancelled']);
+// Stages are data (pulse_stage — the workspace's pipeline flow), not an
+// enum. `kind` carries projection semantics; see the stages routes below.
+const StageKind = z.enum(['open', 'committed', 'won', 'lost']);
+const CreateStage = z.object({
+  label: z.string().min(1).max(100),
+  kind: StageKind.default('open'),
+  sort_order: z.number().int().optional(),
+});
+const PatchStage = z.object({
+  label: z.string().min(1).max(100).optional(),
+  kind: StageKind.optional(),
+  sort_order: z.number().int().optional(),
+});
+
 const CreateCommitment = z.object({
   direction: z.enum(['in', 'out']),
   label: z.string().min(1).max(200),
@@ -75,11 +88,21 @@ const CreateCommitment = z.object({
   project_id: z.string().uuid().optional().nullable(),
   offering_id: z.string().uuid().optional().nullable(),
   owner_user_id: z.string().uuid().optional().nullable(),
-  stage: Stage.default('lead'),
+  stage: z.string().min(1).max(64).default('lead'),
   probability: z.number().int().min(0).max(100).default(50),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
+
+// Stage kinds for a workspace, keyed by stage key. Unknown keys degrade to
+// 'open' so a half-migrated row never crashes the projection.
+async function stageKinds(db: ReturnType<typeof userClient>): Promise<Map<string, string>> {
+  const { data } = await db.from('pulse_stage').select('key, kind');
+  return new Map((data ?? []).map((s) => [s.key, s.kind]));
+}
+function forcedProbability(kind: string | undefined, probability: number): number {
+  return kind === 'committed' || kind === 'won' ? 100 : probability;
+}
 
 const CreateLine = z.object({
   expected_date: z.string().date(),
@@ -369,6 +392,82 @@ pulseRoutes.patch('/projects/:id', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Stages — the pipeline flow. Seeded with the default sales flow on Pulse
+// activation (is_system, undeletable — RLS enforces); custom stages can be
+// added around it. Keys are stable; labels/order are free.
+// ---------------------------------------------------------------------------
+pulseRoutes.get('/stages', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('pulse_stage')
+    .select('id, key, label, kind, sort_order, is_system')
+    .order('sort_order', { ascending: true });
+  if (error) return fail(c, 'list stages', error);
+  return c.json({ items: data ?? [] });
+});
+
+pulseRoutes.post('/stages', async (c) => {
+  const body = CreateStage.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const key = body.data.label
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 64);
+  if (!key) return c.json({ error: 'label must contain letters or digits' }, 400);
+  const { data, error } = await db
+    .from('pulse_stage')
+    .insert({ workspace_id: ctx.workspaceId, key, ...body.data })
+    .select('*')
+    .single();
+  if (error) return fail(c, 'create stage', error);
+  return c.json({ item: data }, 201);
+});
+
+pulseRoutes.patch('/stages/:id', async (c) => {
+  const body = PatchStage.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('pulse_stage')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .select('*')
+    .single();
+  if (error) return fail(c, 'patch stage', error);
+  return c.json({ item: data });
+});
+
+pulseRoutes.delete('/stages/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data: stage } = await db
+    .from('pulse_stage')
+    .select('id, key, is_system')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!stage) return c.json({ error: 'stage not found' }, 404);
+  if (stage.is_system) {
+    return c.json({ error: 'the default sales flow ships with Pulse and cannot be deleted' }, 409);
+  }
+  const { count } = await db
+    .from('pulse_commitment')
+    .select('id', { count: 'exact', head: true })
+    .eq('stage', stage.key)
+    .is('deleted_at', null);
+  if (count && count > 0) {
+    return c.json({ error: `stage is in use by ${count} opportunit${count === 1 ? 'y' : 'ies'}` }, 409);
+  }
+  const { error } = await db.from('pulse_stage').delete().eq('id', stage.id);
+  if (error) return fail(c, 'delete stage', error);
+  return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
@@ -407,12 +506,13 @@ pulseRoutes.post('/commitments', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const kinds = await stageKinds(db);
+  if (!kinds.has(body.data.stage)) return c.json({ error: `unknown stage '${body.data.stage}'` }, 400);
   const row = {
     workspace_id: ctx.workspaceId,
     owner_user_id: body.data.owner_user_id ?? ctx.userId,
     ...body.data,
-    // committed+ implies certainty
-    probability: ['committed', 'done'].includes(body.data.stage) ? 100 : body.data.probability,
+    probability: forcedProbability(kinds.get(body.data.stage), body.data.probability),
   };
   const { data, error } = await db
     .from('pulse_commitment')
@@ -429,7 +529,12 @@ pulseRoutes.patch('/commitments/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
-  if (body.data.stage && ['committed', 'done'].includes(body.data.stage)) patch.probability = 100;
+  if (body.data.stage) {
+    const kinds = await stageKinds(db);
+    if (!kinds.has(body.data.stage)) return c.json({ error: `unknown stage '${body.data.stage}'` }, 400);
+    const kind = kinds.get(body.data.stage);
+    if (kind === 'committed' || kind === 'won') patch.probability = 100;
+  }
   const { data, error } = await db
     .from('pulse_commitment')
     .update(patch)
@@ -728,31 +833,33 @@ pulseRoutes.get('/projection', async (c) => {
     }
   }
 
-  // Commitment lines (open, unsettled, in horizon or overdue).
+  // Commitment lines (open, unsettled, in horizon or overdue). Stage kinds
+  // drive the layers: lost is excluded, committed/won count in full, open is
+  // probability-weighted. An invoiced line is committed regardless of stage.
+  const kinds = await stageKinds(db);
   const { data: commitments, error: cErr } = await db
     .from('pulse_commitment')
     .select(
       'id, direction, stage, probability, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at)',
     )
-    .is('deleted_at', null)
-    .not('stage', 'in', '("cancelled")');
+    .is('deleted_at', null);
   if (cErr) return fail(c, 'projection commitments', cErr);
 
   for (const cm of commitments ?? []) {
+    const kind = kinds.get(cm.stage) ?? 'open';
+    if (kind === 'lost') continue;
     const sign = cm.direction === 'in' ? 'in' : 'out';
     for (const line of (cm as any).lines ?? []) {
       if (line.settled_at) continue; // already in the bank anchor
       const p = bucketFor(line.expected_date);
       if (!p) continue;
       const amt = line.amount_cents;
-      const isCommitted =
-        cm.stage === 'committed' || cm.stage === 'done' || !!line.invoiced_at;
-      const probability = isCommitted ? 100 : cm.probability;
+      const isCommitted = kind === 'committed' || kind === 'won' || !!line.invoiced_at;
       if (isCommitted) {
         p[`committed_${sign}`] += amt;
         p[`expected_${sign}`] += amt;
       } else {
-        p[`expected_${sign}`] += Math.round((amt * probability) / 100);
+        p[`expected_${sign}`] += Math.round((amt * cm.probability) / 100);
       }
       p[`best_${sign}`] += amt;
     }

@@ -7,17 +7,29 @@ import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
 import type { Commitment, Pickers } from './types';
 
-const STAGE_STYLE: Record<string, string> = {
-  lead: 'bg-amber-50 text-amber-600',
-  proposal: 'bg-indigo-50 text-indigo-600',
+// Chips colour by the stage's KIND, not its key — custom stages inherit the
+// palette of their projection semantics. Unknown keys degrade to muted.
+const KIND_STYLE: Record<string, string> = {
+  open: 'bg-amber-50 text-amber-600',
   committed: 'bg-emerald-50 text-emerald-600',
-  done: 'bg-slate-100 text-slate-500',
-  cancelled: 'bg-slate-50 text-slate-400',
+  won: 'bg-slate-100 text-slate-500',
+  lost: 'bg-slate-50 text-slate-400',
 };
+const UNKNOWN_STAGE_STYLE = 'bg-slate-50 text-slate-500';
 
-export function PipelineView({ items, pickers }: { items: Commitment[]; pickers: Pickers }) {
+export function PipelineView({
+  items,
+  pickers,
+  currentUserId,
+}: {
+  items: Commitment[];
+  pickers: Pickers;
+  currentUserId: string | null;
+}) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
+
+  const stageByKey = new Map(pickers.stages.map((s) => [s.key, s]));
 
   // Group by counterparty (proposal §2.3 — the counterparty is the unit).
   const groups = new Map<string, { name: string; items: Commitment[] }>();
@@ -83,9 +95,11 @@ export function PipelineView({ items, pickers }: { items: Commitment[]; pickers:
                         </div>
                       </div>
                       <span
-                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${STAGE_STYLE[cm.stage] ?? ''}`}
+                        className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                          KIND_STYLE[stageByKey.get(cm.stage)?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
+                        }`}
                       >
-                        {cm.stage}
+                        {stageByKey.get(cm.stage)?.label ?? cm.stage}
                       </span>
                       <span className="text-xs text-ink-muted w-10 text-right">
                         {cm.probability}%
@@ -106,12 +120,18 @@ export function PipelineView({ items, pickers }: { items: Commitment[]; pickers:
       )}
 
       {creating && (
-        <OpportunityDialog commitment={null} pickers={pickers} onClose={() => setCreating(false)} />
+        <OpportunityDialog
+          commitment={null}
+          pickers={pickers}
+          currentUserId={currentUserId}
+          onClose={() => setCreating(false)}
+        />
       )}
       {editing && (
         <OpportunityDialog
           commitment={editing}
           pickers={pickers}
+          currentUserId={currentUserId}
           onClose={() => setEditing(null)}
         />
       )}

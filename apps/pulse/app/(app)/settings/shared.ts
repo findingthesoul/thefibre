@@ -38,6 +38,19 @@ export type WorkspaceTeam = {
   is_active?: boolean;
 };
 
+// Mirrors GET /api/v1/pulse/stages. The default sales flow is is_system —
+// undeletable; custom stages can be added around it. `kind` carries the
+// projection semantics (open = weighted by probability · committed = counts
+// in full · won = done · lost = excluded).
+export type Stage = {
+  id: string;
+  key: string;
+  label: string;
+  kind: 'open' | 'committed' | 'won' | 'lost' | string;
+  sort_order: number;
+  is_system: boolean;
+};
+
 export type Offering = {
   id: string;
   name: string;

@@ -128,6 +128,87 @@ export async function removeInvolvedTeam(id: string): Promise<ActionResult> {
 }
 
 // ---------------------------------------------------------------------------
+// Pipeline stages — the flow lives on /settings, the pipeline consumes it,
+// so both routes get revalidated.
+// ---------------------------------------------------------------------------
+type StageKind = 'open' | 'committed' | 'won' | 'lost';
+
+function revalidateStages() {
+  revalidatePath('/settings');
+  revalidatePath('/pipeline');
+}
+
+export async function createStage(input: {
+  label: string;
+  kind: StageKind;
+  sort_order?: number;
+}): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/pulse/stages', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    revalidateStages();
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function updateStage(
+  id: string,
+  patch: { label?: string; kind?: StageKind; sort_order?: number },
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/stages/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(patch),
+    });
+    revalidateStages();
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// The API answers 409 with a human sentence (system stage / stage in use) —
+// surface that verbatim instead of the "API 409: …" wrapper.
+export async function deleteStage(id: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/stages/${id}`, { method: 'DELETE' });
+    revalidateStages();
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 409) {
+      const body = e.body as { error?: unknown } | undefined;
+      if (typeof body?.error === 'string') return { error: body.error };
+    }
+    return { error: formatApiError(e) };
+  }
+}
+
+// Reorder = swap the two rows' sort_order values.
+export async function swapStageOrder(
+  a: { id: string; sort_order: number },
+  b: { id: string; sort_order: number },
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/pulse/stages/${a.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ sort_order: b.sort_order }),
+    });
+    await apiFetch(`/api/v1/pulse/stages/${b.id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ sort_order: a.sort_order }),
+    });
+    revalidateStages();
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Offerings
 // ---------------------------------------------------------------------------
 export async function createOffering(input: {

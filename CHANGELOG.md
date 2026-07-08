@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.115] — 2026-07-08 — Pulse 0.3.0: the pipeline is a flow, the chart is visual
+
+From Sjoerd's P2 test-drive, five asks in one release.
+
+### Added
+- **Stages are a flow, not an enum** (migration `20260708090000`):
+  `pulse_stage` — the workspace's pipeline flow, seeded on Pulse
+  activation with the default sales flow (Lead → Proposal → Committed →
+  Done, + Cancelled). System stages are undeletable (RLS-enforced, not
+  just API); custom stages can be added/renamed/reordered around them.
+  `kind` (open | committed | won | lost) carries the projection math:
+  open = probability-weighted, committed = 100%, won = done, lost =
+  excluded. Commitment stage validation + probability forcing now run
+  against the table; the old check constraint is dropped (seeded keys
+  match the old enum — zero data change). Settings gets a "Pipeline
+  stages" card; the opportunity dialog's stage select and the list's
+  stage chips are data-driven. (Deliberately Pulse-owned, not a Fibre
+  Flow definition — proposal §3.12 explains; the shape maps onto Flow
+  if the apps ever converge.)
+- **Type-ahead counterparty pickers with inline create** — organisation
+  and person fields in the opportunity dialog are now comboboxes: type
+  to filter, and "Create '<name>'" makes the contact on the spot (POST
+  /organisations, /persons) and selects it. Contacts born in Pulse are
+  ordinary platform contacts (proposal §3.5).
+- **Owner defaults to the signed-in user** on new opportunities.
+- **The cashflow overview is visual**: per-period income (emerald) and
+  cost (rose) bars — costs were always in the math, now they're on
+  screen — under committed (solid) + expected (dashed) balance lines,
+  zero line with below-zero shading, hover tooltip per period,
+  Expected / Committed / Best-case layer toggle, legend; the period
+  table is collapsible behind it.
+
 ## [0.13.114] — 2026-07-07 — teams are workspace-visible (RLS fix)
 
 Sjoerd: "the team is not the same as in thread or meet." Two causes:

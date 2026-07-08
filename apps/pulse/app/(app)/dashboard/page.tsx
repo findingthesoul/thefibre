@@ -2,29 +2,9 @@ import Link from 'next/link';
 import { Landmark, PiggyBank, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { money, formatPeriod } from '@/lib/money';
+import CashflowChart, { type Projection } from './cashflow-chart';
 
 export const metadata = { title: 'Fibre Pulse' };
-
-type Period = {
-  start: string;
-  end: string;
-  committed_in: number;
-  committed_out: number;
-  expected_in: number;
-  expected_out: number;
-  balance_committed: number;
-  balance_expected: number;
-  balance_best: number;
-};
-
-type Projection = {
-  granularity: string;
-  currency: string;
-  anchor: { bank_cents: number; reserve_cents: number };
-  reservation_pct: number;
-  dips_below_zero: { committed: string | null; expected: string | null };
-  periods: Period[];
-};
 
 export default async function PulseDashboard() {
   let projection: Projection | null = null;
@@ -91,50 +71,7 @@ export default async function PulseDashboard() {
       </div>
 
       {hasData ? (
-        <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-6">
-          <h2 className="text-base font-semibold tracking-tight mb-4">Running balance</h2>
-          <BalanceChart periods={periods} />
-          <div className="mt-3 flex gap-5 text-xs text-ink-muted">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-4 h-0.5 bg-emerald-600" /> committed
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block w-4 border-t-2 border-dashed border-indigo-500" />{' '}
-              expected (probability-weighted)
-            </span>
-          </div>
-
-          <table className="mt-6 w-full text-sm">
-            <thead>
-              <tr className="text-left text-xs text-ink-muted border-b border-line">
-                <th className="py-2 pr-4 font-medium">Period</th>
-                <th className="py-2 pr-4 font-medium text-right">In (committed)</th>
-                <th className="py-2 pr-4 font-medium text-right">Out</th>
-                <th className="py-2 pr-4 font-medium text-right">Balance</th>
-                <th className="py-2 font-medium text-right">Balance (expected)</th>
-              </tr>
-            </thead>
-            <tbody>
-              {periods.map((p) => (
-                <tr key={p.start} className="border-b border-line/50 last:border-0">
-                  <td className="py-2 pr-4 text-ink-subtle">{formatPeriod(p.start)}</td>
-                  <td className="py-2 pr-4 text-right">{money(p.committed_in, currency)}</td>
-                  <td className="py-2 pr-4 text-right">{money(p.committed_out, currency)}</td>
-                  <td
-                    className={`py-2 pr-4 text-right font-medium ${p.balance_committed < 0 ? 'text-red-600' : 'text-ink'}`}
-                  >
-                    {money(p.balance_committed, currency)}
-                  </td>
-                  <td
-                    className={`py-2 text-right ${p.balance_expected < 0 ? 'text-red-500' : 'text-ink-subtle'}`}
-                  >
-                    {money(p.balance_expected, currency)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        <CashflowChart projection={projection} />
       ) : (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted leading-relaxed">
@@ -173,46 +110,6 @@ function runwaySentence(
     return `On committed money alone you dip below zero around ${formatPeriod(dips.committed)} — the weighted pipeline keeps you above.`;
   }
   return `The weighted projection dips below zero around ${formatPeriod(dips.expected!)}.`;
-}
-
-// Server-rendered SVG — two polylines over the period buckets. P3 replaces
-// this with the full interactive chart; the shape of the answer is the same.
-function BalanceChart({ periods }: { periods: Period[] }) {
-  const W = 860;
-  const H = 200;
-  const PAD = 8;
-  const values = periods.flatMap((p) => [p.balance_committed, p.balance_expected]);
-  const min = Math.min(0, ...values);
-  const max = Math.max(0, ...values);
-  const span = max - min || 1;
-  const x = (i: number) => PAD + (i * (W - 2 * PAD)) / Math.max(1, periods.length - 1);
-  const y = (v: number) => PAD + ((max - v) * (H - 2 * PAD)) / span;
-  const line = (pick: (p: Period) => number) =>
-    periods.map((p, i) => `${x(i).toFixed(1)},${y(pick(p)).toFixed(1)}`).join(' ');
-
-  return (
-    <svg
-      viewBox={`0 0 ${W} ${H}`}
-      className="w-full h-auto"
-      role="img"
-      aria-label="Running balance chart"
-    >
-      <line x1={PAD} x2={W - PAD} y1={y(0)} y2={y(0)} stroke="#e5e5e5" strokeWidth={1} />
-      <polyline
-        points={line((p) => p.balance_expected)}
-        fill="none"
-        stroke="#6366f1"
-        strokeWidth={2}
-        strokeDasharray="5 4"
-      />
-      <polyline
-        points={line((p) => p.balance_committed)}
-        fill="none"
-        stroke="#059669"
-        strokeWidth={2.5}
-      />
-    </svg>
-  );
 }
 
 function StatCard({

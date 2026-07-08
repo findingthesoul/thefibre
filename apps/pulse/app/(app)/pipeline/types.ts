@@ -54,6 +54,28 @@ export type OfferingOption = { id: string; name: string };
 
 export type MemberOption = { user_id: string; full_name: string | null; email: string | null };
 
+// Mirrors GET /api/v1/pulse/stages — the pipeline flow. `kind` carries the
+// projection semantics (open = weighted, committed = full, won = done,
+// lost = excluded); keys are workspace-stable, labels/order are free.
+export type StageOption = {
+  id: string;
+  key: string;
+  label: string;
+  kind: 'open' | 'committed' | 'won' | 'lost' | string;
+  sort_order: number;
+  is_system: boolean;
+};
+
+// Degradation path: if the stages fetch fails, the dialog still works with
+// the default sales flow Pulse seeds on activation.
+export const FALLBACK_STAGES: StageOption[] = [
+  { id: 'lead', key: 'lead', label: 'Lead', kind: 'open', sort_order: 1, is_system: true },
+  { id: 'proposal', key: 'proposal', label: 'Proposal', kind: 'open', sort_order: 2, is_system: true },
+  { id: 'committed', key: 'committed', label: 'Committed', kind: 'committed', sort_order: 3, is_system: true },
+  { id: 'done', key: 'done', label: 'Done', kind: 'won', sort_order: 4, is_system: true },
+  { id: 'cancelled', key: 'cancelled', label: 'Cancelled', kind: 'lost', sort_order: 5, is_system: true },
+];
+
 export type Pickers = {
   orgs: OrgOption[];
   persons: PersonOption[];
@@ -61,6 +83,7 @@ export type Pickers = {
   projects: ProjectOption[];
   offerings: OfferingOption[];
   members: MemberOption[];
+  stages: StageOption[];
 };
 
 export function teamName(t: InvolvedTeam['team']): string {

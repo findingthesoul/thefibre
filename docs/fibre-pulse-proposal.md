@@ -91,6 +91,18 @@ pulse_project (
                                       -- and a few leads. Same shape — the
                                       -- difference is usage, not an enum.
 
+pulse_stage (                         -- the pipeline IS a flow (Sjoerd,
+  id, workspace_id,                   -- 2026-07-08). Pulse activation seeds
+  key, label,                         -- the default sales flow: Lead →
+  kind                                open | committed | won | lost,
+                                      -- projection semantics: open = weighted
+                                      -- by probability, committed = 100%,
+                                      -- won = done, lost = excluded
+  sort_order,
+  is_system                           -- the seeded flow cannot be deleted
+)                                     -- (RLS-enforced); custom stages can be
+                                      -- added/renamed/reordered around it
+
 pulse_commitment (                    -- an opportunity: from vague lead to firm deal
   id, workspace_id, direction         in | out,
   person_id, organisation_id,         -- the counterparty (platform contact)
@@ -103,7 +115,7 @@ pulse_commitment (                    -- an opportunity: from vague lead to firm
   owner_user_id,                      -- whose deal this is: picked from
                                       -- workspace members (the sheet's
                                       -- MK/DK/SL/OR initials, never free text)
-  stage                               lead | proposal | committed | done | cancelled,
+  stage,                              -- key into pulse_stage (workspace flow)
   probability,                        -- 0–100 %: weights the projection.
                                       -- committed+ implies 100
   notes, created_at, soft-delete
@@ -352,6 +364,18 @@ workspace members.
     another expected-money source (the same pattern as reading the
     purchase ledger). Until then, Pulse's lean pipeline is the only one,
     and it must stay lean enough not to pre-empt Sales.
+12. **The stages are a flow — but not (yet) a Fibre Flow.** Sjoerd
+    (2026-07-08): the pipeline is a reflection of a flow called
+    "Pipeline"; a default sales flow ships with Pulse and can't be
+    deleted. Implemented as `pulse_stage` (Pulse-owned, seeded on
+    activation, is_system-protected, kind carries the projection math).
+    Deliberately NOT a `flow_definition` in Fibre Flow: Flow's runtime
+    holds *persons* at steps with gate tasks; an opportunity is not a
+    person, and coupling Pulse's projection to another app's schema
+    would cross the wall. If the apps ever converge, pulse_stage can be
+    mirrored from a Flow definition — the key/kind shape was chosen so
+    that mapping stays trivial (Flow's end_positive/end_negative ≈
+    won/lost).
 
 ## 4 · Build plan (phased)
 

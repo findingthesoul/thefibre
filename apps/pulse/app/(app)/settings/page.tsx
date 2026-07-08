@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { RhythmCard } from './rhythm-card';
 import { ReservationsCard } from './reservations-card';
 import { TeamsCard } from './teams-card';
+import { StagesCard } from './stages-card';
 import { OfferingsCard } from './offerings-card';
 import type {
   Account,
@@ -9,6 +10,7 @@ import type {
   Offering,
   PulseSettings,
   Rule,
+  Stage,
   WorkspaceTeam,
 } from './shared';
 
@@ -21,15 +23,17 @@ export default async function SettingsPage() {
   let accounts: Account[] = [];
   let offerings: Offering[] = [];
   let workspaceTeams: WorkspaceTeam[] = [];
+  let stages: Stage[] = [];
   let restricted = false;
 
-  const [sR, rR, tR, aR, oR, wtR] = await Promise.allSettled([
+  const [sR, rR, tR, aR, oR, wtR, stR] = await Promise.allSettled([
     apiFetch<{ settings: PulseSettings }>('/api/v1/pulse/settings'),
     apiFetch<{ items: Rule[] }>('/api/v1/pulse/reservation-rules'),
     apiFetch<{ items: InvolvedTeam[] }>('/api/v1/pulse/involved-teams'),
     apiFetch<{ items: Account[] }>('/api/v1/pulse/accounts'),
     apiFetch<{ items: Offering[] }>('/api/v1/pulse/offerings'),
     apiFetch<{ items: WorkspaceTeam[] }>('/api/v1/teams'),
+    apiFetch<{ items: Stage[] }>('/api/v1/pulse/stages'),
   ]);
   if (sR.status === 'fulfilled') settings = sR.value.settings;
   else restricted = true;
@@ -40,6 +44,7 @@ export default async function SettingsPage() {
   if (aR.status === 'fulfilled') accounts = aR.value.items;
   if (oR.status === 'fulfilled') offerings = oR.value.items;
   if (wtR.status === 'fulfilled') workspaceTeams = wtR.value.items.filter((t) => t.is_active !== false);
+  if (stR.status === 'fulfilled') stages = stR.value.items;
 
   return (
     <div className="px-6 py-10 max-w-5xl">
@@ -60,6 +65,7 @@ export default async function SettingsPage() {
         <RhythmCard settings={settings} />
         <ReservationsCard rules={rules} accounts={accounts} />
         <TeamsCard involved={teams} workspaceTeams={workspaceTeams} />
+        <StagesCard stages={stages} />
         <OfferingsCard offerings={offerings} currency={settings?.currency ?? 'EUR'} />
       </div>
     </div>

@@ -7,7 +7,7 @@ import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
 
-const VERSION = '0.13.114';
+const VERSION = '0.13.115';
 
 type Me = {
   user: { is_super_admin?: boolean };
