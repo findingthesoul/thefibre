@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.114] — 2026-07-07 — teams are workspace-visible (RLS fix)
+
+Sjoerd: "the team is not the same as in thread or meet." Two causes:
+
+### Fixed
+- **`team` + `team_member` RLS still required fibre-meet membership** — a
+  leftover from teams' Meet era (meet_team_scope, renamed 2026-05-17).
+  A Pulse-only user saw an empty picker and zero member counts. New
+  migration `20260707210000`: read = any workspace member; team writes =
+  workspace admin or fibre-meet (behaviour-preserving); lead-gated
+  team_member writes unchanged. Teams are a platform primitive — their
+  visibility can't hang off one app's membership.
+
+### Clarified (by design, not a bug)
+- Meet's team list shows *teams you're an active member of* (it's "my
+  teams"). Pulse's involved-teams picker shows *all workspace teams* —
+  an admin marks any team as a hub, including ones they're not in. Same
+  table, different lens.
+
 ## [0.13.113] — 2026-07-07 — Pulse 0.2.0: P2 — every Pulse surface is editable
 
 Three parallel agents, one lane each; foundation (teams endpoint + Switch)
