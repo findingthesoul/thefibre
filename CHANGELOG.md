@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.136] — 2026-07-09 — Pulse 0.13.0: whose cashflow?, the settings hub, and the rear-view mirror
+
+### Added
+- **The cashflow chooser**: opening /cashflow without a remembered scope
+  asks whose cashflow you're opening — My cashflow, each involved team
+  you can access, Workspace when you have access. Choice remembered;
+  "Switch cashflow" returns to the chooser.
+- **Settings is a hub** (the Thread pattern): Profile · Payments ·
+  Planner cards. Profile edits the platform profile; Payments is the
+  payments-SPoT form; all seven planner cards moved to
+  /settings/planner.
+- **History**: cadence select (off / 7 / 14 / 30 days) for the
+  projection snapshots, the two-year retention note, the stored
+  overviews list, and a first comparison popup (period table of any
+  stored moment).
+- Reservation rules default their target to the workspace's single
+  reserve account (tonight's virtual-growth gap can't recur).
+
 ## [0.13.135] — 2026-07-09 — Pulse 0.12.2: the popup is an invoice; warnings are toasts
 
 ### Changed

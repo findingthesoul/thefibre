@@ -17,6 +17,9 @@ export type PulseSettings = {
   invoice_prefix?: string | null;
   invoice_next_number?: number | null;
   invoice_auto_send?: boolean | null;
+  // History: store a projection overview every N days (null/absent = off).
+  // Overviews are kept two years max (the API prunes on capture).
+  snapshot_cadence_days?: number | null;
 } | null;
 
 export type VatTariff = { label: string; pct: number };
@@ -73,6 +76,37 @@ export type Offering = {
   category: string | null;
   default_amount_cents: number | null;
   notes: string | null;
+};
+
+// ---------------------------------------------------------------------------
+// History — stored projection overviews (pulse_projection_snapshot).
+// GET /api/v1/pulse/snapshots lists metadata; ?id= returns one with payload.
+// ---------------------------------------------------------------------------
+export type SnapshotMeta = {
+  id: string;
+  taken_at: string;
+  granularity: string;
+};
+
+// One period from a stored overview — the slice the compact read-only popup
+// shows (start / committed in / out / end position).
+export type SnapshotPeriod = {
+  start: string;
+  end: string;
+  committed_in: number;
+  committed_out: number;
+  expected_in: number;
+  expected_out: number;
+  balance_expected: number;
+};
+
+export type SnapshotDetail = SnapshotMeta & {
+  payload: {
+    granularity: string;
+    anchor: { bank_cents: number; reserve_cents: number };
+    reservation_pct: number;
+    periods: SnapshotPeriod[];
+  } | null;
 };
 
 /** Normalize a PostgREST embed that may be object, array or null. */

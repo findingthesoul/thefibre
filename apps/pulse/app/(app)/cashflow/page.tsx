@@ -6,7 +6,8 @@ import {
   COOKIE_CASHFLOW_VIEW,
 } from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
-import { DEFAULT_VAT_TARIFFS, FALLBACK_STAGES } from './types';
+import { ScopeChooser } from './scope-chooser';
+import { DEFAULT_VAT_TARIFFS, FALLBACK_STAGES, teamName } from './types';
 import type {
   VatTariff,
   BudgetLine,
@@ -118,6 +119,27 @@ export default async function PipelinePage({
   // to the remembered cookie ('me' | 'team:<id>' | 'workspace').
   const cookieStore = await cookies();
   const scopeCookie = cookieStore.get(COOKIE_CASHFLOW_SCOPE)?.value;
+
+  // The entry chooser (Sjoerd 2026-07-09: "you have to select which one
+  // you're opening if it exists"): no scope in the URL AND nothing
+  // remembered → centered cards instead of the grid. Only the two access
+  // probes are fetched: involved teams (RLS-scoped) and the projection
+  // (admin-only — success gates the Workspace card).
+  if (scopeParam === undefined && teamParam === undefined && !scopeCookie) {
+    const [chooserTeams, chooserProjection] = await Promise.all([
+      safeItems<InvolvedTeam>('/api/v1/pulse/involved-teams'),
+      fetchProjection(rhythm.granularity, 'workspace', null),
+    ]);
+    return (
+      <div className="px-6 py-10">
+        <ScopeChooser
+          teams={chooserTeams.map((t) => ({ id: t.team_id, name: teamName(t.team) }))}
+          canWorkspace={chooserProjection !== null}
+        />
+      </div>
+    );
+  }
+
   let scope: CashflowScope = 'workspace';
   let scopeTeamId: string | null = null;
   if (scopeParam === 'me') {

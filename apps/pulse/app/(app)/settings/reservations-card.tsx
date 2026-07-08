@@ -94,7 +94,12 @@ function RuleDialog({
   const [basis, setBasis] = useState<'revenue' | 'net_revenue'>(
     rule?.basis === 'net_revenue' ? 'net_revenue' : 'revenue',
   );
-  const [targetAccountId, setTargetAccountId] = useState(rule?.target_account_id ?? '');
+  // No target set + exactly one reserve account in the workspace → default
+  // to it (the virtual-growth gap: reserved money that lands nowhere never
+  // shows up in the projected reserve balances).
+  const [targetAccountId, setTargetAccountId] = useState(
+    rule?.target_account_id ?? (reserveAccounts.length === 1 ? reserveAccounts[0].id : ''),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 

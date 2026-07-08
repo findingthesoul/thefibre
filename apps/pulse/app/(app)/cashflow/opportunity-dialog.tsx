@@ -1409,7 +1409,7 @@ export function OpportunityDialog({
                   </select>
                   {showingAllTeams && teamOptions.length > 0 && (
                     <p className="mt-1 text-xs text-ink-muted">
-                      Showing all teams — pick the involved teams in Settings to scope this list.
+                      Showing all teams — pick the involved teams in Settings → Planner to scope this list.
                     </p>
                   )}
                 </div>
@@ -1715,7 +1715,7 @@ function InvoiceDialog({
       ) : (
         <div className="space-y-3 text-sm">
           <p className="text-ink-muted">
-            The number is assigned from Settings → Invoicing (next in the sequence). This
+            The number is assigned from Settings → Planner → Invoicing (next in the sequence). This
             transfers the opportunity to the invoices ledger and can&apos;t be undone here.
           </p>
           <div className="flex items-center justify-between rounded-md bg-surface-sunken px-3 py-2">

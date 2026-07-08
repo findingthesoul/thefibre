@@ -1,85 +1,81 @@
-import { apiFetch } from '@/lib/api';
-import { appUrl } from '@thefibre/shared';
-import { RhythmCard } from './rhythm-card';
-import { ReservationsCard } from './reservations-card';
-import { TeamsCard } from './teams-card';
-import { StagesCard } from './stages-card';
-import { OfferingsCard } from './offerings-card';
-import { LedgerCard } from './ledger-card';
-import { InvoicingCard } from './invoicing-card';
-import type {
-  Account,
-  InvolvedTeam,
-  Offering,
-  PulseSettings,
-  Rule,
-  Stage,
-  WorkspaceTeam,
-} from './shared';
+import Link from 'next/link';
+import {
+  User,
+  CreditCard,
+  SlidersHorizontal,
+  ChevronRight,
+  type LucideIcon,
+} from 'lucide-react';
+import { PageContainer, PageHeader, SectionLabel } from './page-chrome';
+
+// Settings hub (Sjoerd 2026-07-09: "normal settings belonging to profile...
+// now added: pulse settings as an option to it") — Thread's card-link
+// pattern. The planner assumptions moved to /settings/planner; Profile and
+// Payments are the platform-SPoT pages every Fibre app carries.
 
 export const metadata = { title: 'Settings · Fibre Pulse' };
 
-export default async function SettingsPage() {
-  let settings: PulseSettings = null;
-  let rules: Rule[] = [];
-  let teams: InvolvedTeam[] = [];
-  let accounts: Account[] = [];
-  let offerings: Offering[] = [];
-  let workspaceTeams: WorkspaceTeam[] = [];
-  let stages: Stage[] = [];
-  let restricted = false;
-
-  const [sR, rR, tR, aR, oR, wtR, stR] = await Promise.allSettled([
-    apiFetch<{ settings: PulseSettings }>('/api/v1/pulse/settings'),
-    apiFetch<{ items: Rule[] }>('/api/v1/pulse/reservation-rules'),
-    apiFetch<{ items: InvolvedTeam[] }>('/api/v1/pulse/involved-teams'),
-    apiFetch<{ items: Account[] }>('/api/v1/pulse/accounts'),
-    apiFetch<{ items: Offering[] }>('/api/v1/pulse/offerings'),
-    apiFetch<{ items: WorkspaceTeam[] }>('/api/v1/teams'),
-    apiFetch<{ items: Stage[]; pipeline_flow_id: string | null }>('/api/v1/pulse/stages'),
-  ]);
-  if (sR.status === 'fulfilled') settings = sR.value.settings;
-  else restricted = true;
-  if (rR.status === 'fulfilled') rules = rR.value.items;
-  else restricted = true;
-  if (tR.status === 'fulfilled') teams = tR.value.items;
-  else restricted = true;
-  if (aR.status === 'fulfilled') accounts = aR.value.items;
-  if (oR.status === 'fulfilled') offerings = oR.value.items;
-  if (wtR.status === 'fulfilled') workspaceTeams = wtR.value.items.filter((t) => t.is_active !== false);
-  let pipelineFlowId: string | null = null;
-  if (stR.status === 'fulfilled') {
-    stages = stR.value.items;
-    pipelineFlowId = stR.value.pipeline_flow_id;
-  }
-  const flowUrl = pipelineFlowId
-    ? `${appUrl('fibre-flow', process.env)}/flows/${pipelineFlowId}`
-    : null;
-
+export default function SettingsPage() {
   return (
-    <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Settings</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        The assumptions layer. Nothing domain-specific is hardcoded — rhythm, currency,
-        reservations, involved teams and offerings are all configuration.
-      </p>
+    <PageContainer max="4xl">
+      <PageHeader title="Settings" description="Your Fibre profile, payments and the planner's assumptions." />
 
-      {restricted && (
-        <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          These settings are visible to workspace admins only. If you expected to see them, ask an
-          admin to widen your role.
+      <section className="mt-10">
+        <SectionLabel>Personal</SectionLabel>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card
+            href="/settings/profile"
+            Icon={User}
+            title="Profile"
+            desc="Your Fibre profile — display name, bio and timezone, one face shared by every Fibre app."
+          />
         </div>
-      )}
+      </section>
 
-      <div className="mt-8 space-y-6">
-        <RhythmCard settings={settings} />
-        <InvoicingCard settings={settings} />
-        <LedgerCard settings={settings} />
-        <ReservationsCard rules={rules} accounts={accounts} />
-        <TeamsCard involved={teams} workspaceTeams={workspaceTeams} />
-        <StagesCard stages={stages} flowUrl={flowUrl} />
-        <OfferingsCard offerings={offerings} currency={settings?.currency ?? 'EUR'} />
+      <section className="mt-10">
+        <SectionLabel>Workspace</SectionLabel>
+        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Card
+            href="/settings/payments"
+            Icon={CreditCard}
+            title="Payments"
+            desc="Your Stripe account and the workspace's — one connection per person, shared across all Fibre apps."
+          />
+          <Card
+            href="/settings/planner"
+            Icon={SlidersHorizontal}
+            title="Planner"
+            desc="Pulse's assumptions layer — rhythm, invoicing, ledger, reservations, teams, pipeline stages, offerings and history."
+          />
+        </div>
+      </section>
+    </PageContainer>
+  );
+}
+
+function Card({
+  href,
+  Icon,
+  title,
+  desc,
+}: {
+  href: string;
+  Icon: LucideIcon;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link href={href}>
+      <div className="flex items-start gap-3.5 rounded-lg border border-line bg-surface-raised p-4 transition-colors hover:border-line-strong">
+        <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
+          <Icon size={17} strokeWidth={1.75} className="text-ink-subtle" />
+        </span>
+        <div className="min-w-0 flex-1">
+          <div className="text-sm font-medium">{title}</div>
+          <p className="mt-0.5 text-xs text-ink-subtle leading-relaxed">{desc}</p>
+        </div>
+        <ChevronRight size={16} strokeWidth={1.75} className="text-ink-muted shrink-0 mt-1" />
       </div>
-    </div>
+    </Link>
   );
 }

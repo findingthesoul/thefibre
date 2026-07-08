@@ -7,6 +7,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
+import type { SnapshotDetail } from './shared';
 
 export type ActionResult<T = unknown> = { ok?: boolean; error?: string; data?: T };
 
@@ -43,13 +44,16 @@ export async function updatePulseSettings(input: {
   invoice_prefix?: string;
   invoice_auto_send?: boolean;
   vat_tariffs?: { label: string; pct: number }[];
+  // History: store a projection overview every N days (null = off). The API
+  // prunes overviews older than two years.
+  snapshot_cadence_days?: number | null;
 }): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/pulse/settings', {
       method: 'PUT',
       body: JSON.stringify(input),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     // The ledger toggle changes what the projection shows.
     revalidatePath('/cashflow');
     return { ok: true };
@@ -72,7 +76,7 @@ export async function createReservationRule(input: {
       method: 'POST',
       body: JSON.stringify(input),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -94,7 +98,7 @@ export async function updateReservationRule(
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -104,7 +108,7 @@ export async function updateReservationRule(
 export async function deleteReservationRule(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/reservation-rules/${id}`, { method: 'DELETE' });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -120,7 +124,7 @@ export async function addInvolvedTeam(teamId: string): Promise<ActionResult> {
       method: 'POST',
       body: JSON.stringify({ team_id: teamId }),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -130,7 +134,7 @@ export async function addInvolvedTeam(teamId: string): Promise<ActionResult> {
 export async function removeInvolvedTeam(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/involved-teams/${id}`, { method: 'DELETE' });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -144,7 +148,7 @@ export async function removeInvolvedTeam(id: string): Promise<ActionResult> {
 type StageKind = 'open' | 'committed' | 'won' | 'lost';
 
 function revalidateStages() {
-  revalidatePath('/settings');
+  revalidatePath('/settings/planner');
   revalidatePath('/cashflow');
 }
 
@@ -181,8 +185,25 @@ export async function createOffering(input: {
       method: 'POST',
       body: JSON.stringify(input),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// History — stored projection overviews (the comparison view's raw material).
+// The detail read happens through a server action because apiFetch is
+// server-only (serverSupabase); the History card calls this on row click.
+// ---------------------------------------------------------------------------
+export async function fetchSnapshot(id: string): Promise<ActionResult<SnapshotDetail>> {
+  try {
+    const r = await apiFetch<{ item: SnapshotDetail | null }>(
+      `/api/v1/pulse/snapshots?id=${encodeURIComponent(id)}`,
+    );
+    if (!r.item) return { error: 'Overview not found.' };
+    return { ok: true, data: r.item };
   } catch (e) {
     return { error: formatApiError(e) };
   }
@@ -203,7 +224,7 @@ export async function updateOffering(
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
-    revalidatePath('/settings');
+    revalidatePath('/settings/planner');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

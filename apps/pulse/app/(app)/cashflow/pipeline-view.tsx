@@ -265,6 +265,16 @@ function ScopeSwitcher({
     router.push(qs ? `/cashflow?${qs}` : '/cashflow');
   }
 
+  // "Switch cashflow" — clear the remembered scope and land back on the
+  // entry chooser (page.tsx renders it when no scope + no cookie). The
+  // cookie clear must land BEFORE the bare-URL render, hence the await;
+  // refresh covers the already-bare workspace case where push is a no-op.
+  async function backToChooser() {
+    await savePref(COOKIE_CASHFLOW_SCOPE, '');
+    router.push('/cashflow');
+    router.refresh();
+  }
+
   const segments: { key: CashflowScope; label: string; show: boolean }[] = [
     { key: 'me', label: 'Me', show: true },
     { key: 'team', label: 'Team', show: teamOptions.length > 0 },
@@ -307,6 +317,13 @@ function ScopeSwitcher({
           ))}
         </select>
       )}
+      <button
+        type="button"
+        onClick={backToChooser}
+        className="text-xs text-ink-muted hover:text-ink underline-offset-2 hover:underline whitespace-nowrap"
+      >
+        Switch cashflow
+      </button>
     </div>
   );
 }
