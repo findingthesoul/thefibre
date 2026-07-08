@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.129] — 2026-07-08 — Pulse 0.10.1: financial position = current
+
+### Changed
+- FINANCIAL POSITION shows one number: the current position (bank
+  anchor, editable per account in the now column). The running
+  projection across periods is END POSITION's job — showing both spread
+  out duplicated the same series shifted by a column.
+
 ## [0.13.128] — 2026-07-08 — Pulse 0.10.0 · Flow 1.11.0: opportunities live in Flow
 
 ### Added

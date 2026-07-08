@@ -864,7 +864,9 @@ export function PeriodGrid({
               {projection &&
                 sectionHeaderRow({
                   label: 'Financial position',
-                  valueFor: positionFor,
+                  // Position = CURRENT (Sjoerd): one as-of-now number in the
+                  // current column; the running projection is END POSITION's job.
+                  valueFor: (col) => (col.key === currentColKey ? positionFor(col) : null),
                   valueCls: (v) => (v != null && v < 0 ? 'text-red-600' : 'text-ink'),
                   ...(orderedAccounts.length > 0
                     ? {
