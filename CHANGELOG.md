@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.126] — 2026-07-08 — Pulse 0.8.1: chevron folds + teams endpoint fix
+
+### Fixed
+- **GET /api/v1/teams 500'd in production** — the member-count embed
+  selected team_member.id, a column that table doesn't have (fly logs:
+  "column team_member_1.id does not exist"). Counts now embed user_id.
+  The workspace-teams fallback in the income/cost dialog and the
+  Settings picker were failing silently because of this.
+- ("The costs repetitive does not save" — diagnosis, not a code change:
+  the deployed API predated the recurrence fields, so zod stripped them
+  on save. Both migrations are already applied; one fly deploy closes it.)
+
+### Changed
+- **Section headers fold with a chevron** — the whole INCOME/COSTS/
+  FINANCIAL POSITION header cell is the toggle (▸ closed / ▾ open);
+  the "Show more/less" text links are gone.
+
 ## [0.13.125] — 2026-07-08 — Pulse 0.8.0: recurring is a characteristic; the grid grows up
 
 ### Changed

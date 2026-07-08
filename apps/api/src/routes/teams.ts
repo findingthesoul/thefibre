@@ -19,7 +19,7 @@ teamsRoutes.get('/', async (c) => {
 
   const { data, error } = await db
     .from('team')
-    .select('id, name, slug, description, is_active, created_at, members:team_member (id)')
+    .select('id, name, slug, description, is_active, created_at, members:team_member (user_id)')
     .order('name', { ascending: true });
   if (error) {
     console.error('[teams] list', error);

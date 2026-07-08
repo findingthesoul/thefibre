@@ -17,7 +17,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
+import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
@@ -520,7 +520,23 @@ export function PeriodGrid({
               className={`absolute inset-y-0 left-0 w-[3px] ${ACCENT_BAR[opts.accent]}`}
             />
           )}
-          <div className="flex items-center gap-2">
+          {/* The whole header cell folds the section (Sjoerd: "Show more can
+              be an arrow maybe? Fold open and close"). */}
+          <button
+            type="button"
+            onClick={opts.onToggle}
+            disabled={!opts.onToggle}
+            className={`flex w-full items-center gap-2 text-left ${
+              opts.onToggle ? 'cursor-pointer' : 'cursor-default'
+            }`}
+            aria-expanded={opts.onToggle ? opts.open : undefined}
+          >
+            {opts.onToggle &&
+              (opts.open ? (
+                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              ) : (
+                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              ))}
             <span
               className={`text-[11px] font-semibold uppercase tracking-wider ${
                 opts.accent ? TITLE_TONE[opts.accent] : 'text-ink'
@@ -533,16 +549,7 @@ export function PeriodGrid({
                 {opts.count}
               </span>
             )}
-            {opts.onToggle && (
-              <button
-                type="button"
-                onClick={opts.onToggle}
-                className="text-[11px] font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
-              >
-                {opts.open ? 'Show less' : 'Show more'}
-              </button>
-            )}
-          </div>
+          </button>
         </td>
         {visibleCols.map((col) => {
           const v = opts.valueFor ? opts.valueFor(col) : (opts.totals?.[col.idx] ?? null);
