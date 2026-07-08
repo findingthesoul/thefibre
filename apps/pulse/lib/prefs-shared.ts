@@ -13,3 +13,5 @@ export const COOKIE_THEME = 'thefibre.theme';
 export const COOKIE_SIDEBAR = 'thefibre.sidebar';
 // Pulse: which Cashflow view the user last chose (period is the default).
 export const COOKIE_CASHFLOW_VIEW = 'thefibre.pulse.cashflow-view';
+// Pulse: fit the by-period grid to the viewport ('on') vs scrollable ('off').
+export const COOKIE_CASHFLOW_FIT = 'thefibre.pulse.cashflow-fit';

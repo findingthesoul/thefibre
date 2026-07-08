@@ -20,6 +20,12 @@ export type Commitment = {
   probability: number;
   quantity: number;
   unit_amount_cents: number | null;
+  // Recurring is a CHARACTERISTIC of an income/cost, not a separate thing
+  // (Sjoerd 2026-07-08). A cadence makes the projection expand quantity ×
+  // unit_amount_cents per occurrence and ignore the commitment's lines.
+  repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  repeat_starts_on: string | null;
+  repeat_until: string | null;
   notes: string | null;
   person_id: string | null;
   organisation_id: string | null;
@@ -86,6 +92,16 @@ export type BudgetLine = {
   starts_on: string | null;
   ends_on: string | null;
   included: boolean;
+};
+
+// Mirrors GET /api/v1/pulse/accounts (admin-only — degrades to []). The
+// grid's FINANCIAL POSITION section expands into one row per account with an
+// inline-editable balance in the current-period column.
+export type PulseAccount = {
+  id: string;
+  name: string;
+  kind: 'bank' | 'reserve';
+  latest_snapshot: { balance_cents: number; as_of_date: string } | null;
 };
 
 // The slice of GET /api/v1/pulse/projection the grid consumes. Only the

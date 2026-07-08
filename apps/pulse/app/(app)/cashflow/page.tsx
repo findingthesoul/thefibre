@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { apiFetch } from '@/lib/api';
-import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
+import { COOKIE_CASHFLOW_FIT, COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
 import { FALLBACK_STAGES } from './types';
 import type {
@@ -14,6 +14,7 @@ import type {
   PersonOption,
   Projection,
   ProjectOption,
+  PulseAccount,
   StageOption,
   TeamOption,
 } from './types';
@@ -83,7 +84,7 @@ export default async function PipelinePage({
   if (show === 'week' || show === 'fortnight' || show === 'month' || show === 'quarter') {
     rhythm.granularity = show;
   }
-  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines] =
+  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines, accounts] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
@@ -98,24 +99,32 @@ export default async function PipelinePage({
       fetchProjection(rhythm.granularity),
       // Admins only — degrades to an empty list (the grid skips the rows).
       safeItems<BudgetLine>('/api/v1/pulse/budget-lines'),
+      // Admins only — the FINANCIAL POSITION section expands into editable
+      // per-account balance rows; non-admins just don't get the rows.
+      safeItems<PulseAccount>('/api/v1/pulse/accounts'),
     ]);
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
 
-  const viewCookie = (await cookies()).get(COOKIE_CASHFLOW_VIEW)?.value;
+  const cookieStore = await cookies();
+  const viewCookie = cookieStore.get(COOKIE_CASHFLOW_VIEW)?.value;
   const initialView: 'counterparty' | 'period' =
     viewCookie === 'counterparty' ? 'counterparty' : 'period';
+  const initialFit: 'on' | 'off' =
+    cookieStore.get(COOKIE_CASHFLOW_FIT)?.value === 'on' ? 'on' : 'off';
 
   return (
     <div className="px-6 py-10">
       <PipelineView
         initialView={initialView}
+        initialFit={initialFit}
         items={items}
         pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
         currentUserId={meId}
         periodSettings={rhythm}
         projection={projection}
         budgetLines={budgetLines}
+        accounts={accounts}
       />
     </div>
   );

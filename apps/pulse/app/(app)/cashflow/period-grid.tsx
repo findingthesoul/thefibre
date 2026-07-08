@@ -3,24 +3,33 @@
 // The "By period" spreadsheet — modelled on the owner's real cashflow
 // workbook. Rows = money categories (FINANCIAL POSITION → INCOME → COSTS →
 // RESERVES → END POSITION), columns = periods on the workspace rhythm.
-// Unsettled expected payments render as draggable chips (drop on another
-// period column → PATCH expected_date, optimistic); budget lines expand into
-// non-draggable recurring amounts (they're rules, not payments).
+// Unsettled expected payments render as draggable pills (drop on another
+// period column → PATCH expected_date, optimistic); budget lines AND
+// repeating commitments expand into non-draggable recurring amounts
+// (they're rules, not payments).
 //
-// Degrades: projection / budget lines are admin-only — when they're absent
-// only INCOME + COSTS (the caller's own commitments) render.
+// Column rules (Sjoerd 2026-07-08): the Overdue column only renders when it
+// actually holds overdue unsettled amounts — otherwise the grid starts at the
+// current period. "Later" likewise only renders with content.
+//
+// Degrades: projection / budget lines / accounts are admin-only — when
+// they're absent only INCOME + COSTS (the caller's own commitments) render.
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
+import { ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
 import { money } from '@/lib/money';
+import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
 import { moveLine } from './actions';
+import { recordSnapshots } from '../accounts/actions';
 import type {
   BudgetLine,
   Commitment,
   Line,
   PeriodSettings,
   Projection,
+  PulseAccount,
   StageOption,
 } from './types';
 
@@ -44,6 +53,23 @@ function addMonths(d: Date, n: number): Date {
   const r = new Date(d);
   r.setUTCMonth(r.getUTCMonth() + n);
   return r;
+}
+function todayLocalIso(): string {
+  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local tz
+}
+
+// Euro string → integer cents. Accepts comma decimals ("1234,56" or "1234.56").
+function parseEuro(s: string): number | null {
+  const t = s.trim().replace(',', '.');
+  if (!t) return null;
+  const n = parseFloat(t);
+  if (Number.isNaN(n)) return null;
+  return Math.round(n * 100);
+}
+
+// Fit-to-screen formatter: full euros (no k-notation), just no space after €.
+function moneyCompact(cents: number): string {
+  return '€' + new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(cents / 100);
 }
 
 // Next `count` period start dates. Week/fortnight walk the anchor grid to
@@ -84,24 +110,30 @@ function fmtStart(iso: string, granularity: PeriodSettings['granularity']): stri
   });
 }
 
-// Expand a budget line into occurrence dates inside the grid's window —
+// Expand a recurring rule into occurrence dates inside the grid's window —
 // mirrors the API's projection expansion (advance from starts_on/today on
-// the cadence grid; stop at ends_on/horizon).
-function budgetOccurrences(bl: BudgetLine, horizonIso: string): string[] {
+// the cadence grid; stop at ends_on/horizon). Shared by budget lines AND
+// repeating commitments (recurring is a characteristic, not a separate thing).
+function cadenceOccurrences(
+  cadence: BudgetLine['cadence'],
+  startsOn: string | null,
+  endsOn: string | null,
+  horizonIso: string,
+): string[] {
   const today = todayUTC();
   const horizon = new Date(horizonIso + 'T00:00:00Z');
-  const until = bl.ends_on ? new Date(bl.ends_on + 'T00:00:00Z') : horizon;
+  const until = endsOn ? new Date(endsOn + 'T00:00:00Z') : horizon;
   const advance = (d: Date): Date =>
-    bl.cadence === 'weekly'
+    cadence === 'weekly'
       ? addDays(d, 7)
-      : bl.cadence === 'fortnightly'
+      : cadence === 'fortnightly'
         ? addDays(d, 14)
-        : bl.cadence === 'monthly'
+        : cadence === 'monthly'
           ? addMonths(d, 1)
-          : bl.cadence === 'quarterly'
+          : cadence === 'quarterly'
             ? addMonths(d, 3)
             : addMonths(d, 12);
-  let cur = bl.starts_on ? new Date(bl.starts_on + 'T00:00:00Z') : today;
+  let cur = startsOn ? new Date(startsOn + 'T00:00:00Z') : today;
   // Advance into the visible window without drifting the cadence grid.
   while (cur < today) cur = advance(cur);
   const out: string[] = [];
@@ -132,14 +164,44 @@ const KIND_STYLE: Record<string, string> = {
 };
 const UNKNOWN_STAGE_STYLE = 'bg-slate-50 text-slate-500';
 
+// Section colour identities (Sjoerd 2026-07-08: "make the costs way more
+// attractive in design"). Income = emerald, costs = rose (with − amounts).
+type Direction = 'in' | 'out';
+const AMT_TONE: Record<Direction, string> = {
+  in: 'text-emerald-700',
+  out: 'text-rose-700',
+};
+const PILL_TONE: Record<Direction, string> = {
+  in: 'bg-emerald-50 ring-emerald-200 text-emerald-800',
+  out: 'bg-rose-50 ring-rose-200 text-rose-800',
+};
+const TITLE_TONE: Record<Direction, string> = {
+  in: 'text-emerald-800',
+  out: 'text-rose-800',
+};
+const ACCENT_BAR: Record<Direction, string> = {
+  in: 'bg-emerald-500',
+  out: 'bg-rose-500',
+};
+const sign = (dir: Direction) => (dir === 'out' ? '−' : '');
+
+// Zebra stripes for expanded section rows. The sticky first cell needs an
+// OPAQUE background (it covers horizontally-scrolled content), so it gets a
+// solid slate-50 on odd rows while the rest of the row uses the 40% tint.
+const ZEBRA =
+  '[&:nth-child(odd)]:bg-slate-50/40 [&:nth-child(odd)>td:first-child]:bg-slate-50';
+
 type Col = { key: string; idx: number; label: string; droppable: boolean };
 type Card = { line: Line; cm: Commitment; date: string };
-type OppRow = { cm: Commitment; cells: Card[][] };
+// A repeating commitment renders as per-column occurrence amounts instead of
+// draggable payment cards — its lines are skipped (the projection's too).
+type OppRow = {
+  cm: Commitment;
+  cells: Card[][];
+  recurring?: { cadence: string; amounts: number[] };
+};
 type ClientGroup = { key: string; name: string; opps: OppRow[]; subtotals: number[] };
 type BudgetRow = { bl: BudgetLine; amounts: number[] };
-
-const STICKY = 'sticky left-0 z-10 min-w-[220px] max-w-[300px] border-r border-line/60';
-const NUM_CELL = 'px-3 py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line/40';
 
 function Faint() {
   return <span className="text-ink-muted/40 select-none">—</span>;
@@ -151,31 +213,48 @@ export function PeriodGrid({
   stages,
   projection,
   budgetLines,
+  accounts,
+  initialFit,
   onEdit,
   onAdd,
-  onAddRecurring,
 }: {
   items: Commitment[];
   settings: PeriodSettings;
   stages: StageOption[];
   projection: Projection | null;
   budgetLines: BudgetLine[];
+  accounts: PulseAccount[];
+  initialFit: 'on' | 'off';
   onEdit: (cm: Commitment) => void;
   onAdd: (direction: 'in' | 'out') => void;
-  onAddRecurring: (direction: 'in' | 'out') => void;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
   // Optimistic overrides: lineId → expected_date, applied on drop and kept
-  // until router.refresh() brings the server truth (reverted on error).
+  // until router.refresh() brings the server truth (reverted on error, with
+  // the error surfaced in the banner — never silently).
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [hoverCol, setHoverCol] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [filter, setFilter] = useState('');
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
+  const [positionOpen, setPositionOpen] = useState(false);
+  // Fit-to-screen: the whole table squeezes into the viewport (no h-scroll).
+  const [fit, setFit] = useState(initialFit === 'on');
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
+  const fmt = fit ? moneyCompact : money;
+
+  // ---- fit-aware layout tokens ----------------------------------------------
+  const sticky = fit
+    ? 'sticky left-0 z-10 w-[160px] min-w-[160px] max-w-[160px] border-r border-line/60'
+    : 'sticky left-0 z-10 min-w-[220px] max-w-[300px] border-r border-line/60';
+  const cellText = fit ? 'text-[11px]' : 'text-xs';
+  const labelText = fit ? 'text-[11px]' : 'text-sm';
+  const numPad = fit ? 'px-1.5' : 'px-3';
+  const chipPad = fit ? 'px-1.5' : 'px-2';
+  const numCell = `${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line/40`;
 
   // ---- columns -------------------------------------------------------------
   // One extra start acts as the horizon — anything at-or-after it is "Later".
@@ -195,6 +274,9 @@ export function PeriodGrid({
   ];
   const nCols = cols.length;
   const laterIdx = nCols - 1;
+  // The current period — the first droppable column, whether or not Overdue
+  // renders. Account balances edit HERE (it's "now or closest to now").
+  const currentColKey = starts[0];
 
   const colIdxFor = (date: string): number => {
     if (date < starts[0]) return 0;
@@ -214,6 +296,7 @@ export function PeriodGrid({
   const oppRowByCm = new Map<string, OppRow>();
   const lineCol = new Map<string, string>(); // lineId → current column key
   let laterHasContent = false;
+  let overdueHasContent = false;
 
   for (const cm of items) {
     const groups = cm.direction === 'out' ? costGroups : incomeGroups;
@@ -230,11 +313,34 @@ export function PeriodGrid({
       oppRowByCm.set(cm.id, row);
       group.opps.push(row);
     }
+    if (cm.repeat_cadence) {
+      // Repeating: expand quantity × unit price on the cadence grid and skip
+      // the lines entirely (the API's projection does the same). Weighting
+      // mirrors the lines: probability-weighted when open, full when
+      // committed/won (those stages already carry probability 100).
+      const per = Math.round(cm.quantity * (cm.unit_amount_cents ?? 0));
+      const amounts = zeros();
+      for (const date of cadenceOccurrences(
+        cm.repeat_cadence,
+        cm.repeat_starts_on,
+        cm.repeat_until,
+        horizon,
+      )) {
+        const idx = colIdxFor(date);
+        if (idx === laterIdx) laterHasContent = true;
+        amounts[idx] += per;
+        group.subtotals[idx] += per;
+        totals[idx] += Math.round((per * cm.probability) / 100);
+      }
+      row.recurring = { cadence: cm.repeat_cadence, amounts };
+      continue;
+    }
     for (const line of cm.lines) {
       if (line.settled_at) continue;
       const date = overrides[line.id] ?? line.expected_date;
       const idx = colIdxFor(date);
       if (idx === laterIdx) laterHasContent = true;
+      if (idx === 0) overdueHasContent = true;
       row.cells[idx].push({ line, cm, date });
       lineCol.set(line.id, cols[idx].key);
       group.subtotals[idx] += line.amount_cents;
@@ -266,7 +372,7 @@ export function PeriodGrid({
   for (const bl of budgetLines) {
     if (!bl.included) continue;
     const amounts = zeros();
-    for (const date of budgetOccurrences(bl, horizon)) {
+    for (const date of cadenceOccurrences(bl.cadence, bl.starts_on, bl.ends_on, horizon)) {
       amounts[colIdxFor(date)] += bl.amount_cents;
     }
     const row = { bl, amounts };
@@ -279,7 +385,12 @@ export function PeriodGrid({
     }
   }
 
-  const visibleCols = laterHasContent ? cols : cols.slice(0, -1);
+  // Overdue and Later both hide when empty — the grid then starts at the
+  // current period (Sjoerd 2026-07-08: the Overdue column "can hide").
+  const visibleCols = cols.filter(
+    (c) =>
+      (c.idx !== 0 || overdueHasContent) && (c.idx !== laterIdx || laterHasContent),
+  );
 
   // ---- projection rows (admin-only; null → sections hidden) -----------------
   const projByStart = new Map((projection?.periods ?? []).map((p) => [p.start, p]));
@@ -295,6 +406,12 @@ export function PeriodGrid({
     projection && col.droppable ? (projByStart.get(col.key)?.reserved_expected ?? null) : null;
   const endFor = (col: Col): number | null =>
     projection && col.droppable ? (projByStart.get(col.key)?.balance_expected ?? null) : null;
+
+  // ---- accounts (admin-only; banks first, then reserves) ---------------------
+  const orderedAccounts = [
+    ...accounts.filter((a) => a.kind === 'bank'),
+    ...accounts.filter((a) => a.kind !== 'bank'),
+  ];
 
   // ---- filtering (rows only — totals always cover ALL data) -----------------
   const q = filter.trim().toLowerCase();
@@ -323,16 +440,21 @@ export function PeriodGrid({
     costClientGroups.reduce((a, g) => a + g.opps.length, 0) + costBudgetRows.length;
 
   // ---- drag & drop -----------------------------------------------------------
+  // ONE handler for every drop target: opportunity cells (empty or not),
+  // group subtotal cells and section-header cells all funnel through here
+  // via dropProps(col).
   async function drop(colKey: string, e: React.DragEvent) {
     e.preventDefault();
     setHoverCol(null);
     const lineId = e.dataTransfer.getData('text/plain');
     if (!lineId || lineCol.get(lineId) === colKey) return;
     setError(null);
+    // Optimistic: the pill jumps to the target column immediately.
     setOverrides((o) => ({ ...o, [lineId]: colKey }));
     const res = await moveLine(lineId, colKey);
     if (res.error) {
-      setError(res.error);
+      // Surface loudly, THEN fall back to the server truth.
+      setError(`Could not move the expected payment: ${res.error}`);
       setOverrides((o) => {
         const next = { ...o };
         delete next[lineId];
@@ -349,9 +471,13 @@ export function PeriodGrid({
           onDragOver: (e: React.DragEvent) => {
             e.preventDefault();
             e.dataTransfer.dropEffect = 'move';
-            setHoverCol(col.key);
+            setHoverCol((h) => (h === col.key ? h : col.key));
           },
-          onDragLeave: () => setHoverCol((h) => (h === col.key ? null : h)),
+          onDragLeave: (e: React.DragEvent) => {
+            // Entering a child (a pill) fires dragleave on the cell — ignore.
+            if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+            setHoverCol((h) => (h === col.key ? null : h));
+          },
           onDrop: (e: React.DragEvent) => drop(col.key, e),
         }
       : {};
@@ -363,12 +489,22 @@ export function PeriodGrid({
 
   // ---- row renderers ---------------------------------------------------------
   const renderMoney = (v: number | null | undefined, cls = '') =>
-    v == null || v === 0 ? <Faint /> : <span className={cls}>{money(Math.round(v))}</span>;
+    v == null || v === 0 ? <Faint /> : <span className={cls}>{fmt(Math.round(v))}</span>;
+  // Directional amounts: emerald for income, rose (with − prefix) for costs.
+  const renderAmt = (v: number | null | undefined, dir: Direction, extra = '') =>
+    v == null || v === 0 ? (
+      <Faint />
+    ) : (
+      <span className={`${extra} ${AMT_TONE[dir]}`}>
+        {sign(dir)}
+        {fmt(Math.round(v))}
+      </span>
+    );
 
   function sectionHeaderRow(opts: {
     label: string;
     totals?: number[];
-    tone?: string;
+    accent?: Direction; // emerald (in) / rose (out) identity
     count?: number;
     open?: boolean;
     onToggle?: () => void;
@@ -377,9 +513,19 @@ export function PeriodGrid({
   }) {
     return (
       <tr key={`section-${opts.label}`}>
-        <td className={`${STICKY} bg-yellow-50 px-4 py-2.5 border-b border-line`}>
+        <td className={`${sticky} bg-yellow-50 px-4 py-2.5 border-b border-line`}>
+          {opts.accent && (
+            <span
+              aria-hidden
+              className={`absolute inset-y-0 left-0 w-[3px] ${ACCENT_BAR[opts.accent]}`}
+            />
+          )}
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-ink">
+            <span
+              className={`text-[11px] font-semibold uppercase tracking-wider ${
+                opts.accent ? TITLE_TONE[opts.accent] : 'text-ink'
+              }`}
+            >
               {opts.label}
             </span>
             {opts.count !== undefined && (
@@ -400,18 +546,23 @@ export function PeriodGrid({
         </td>
         {visibleCols.map((col) => {
           const v = opts.valueFor ? opts.valueFor(col) : (opts.totals?.[col.idx] ?? null);
-          const cls = opts.valueCls?.(v) ?? opts.tone ?? 'text-ink';
           // Balance rows (valueFor) show a true zero; totals rows hide it.
           const body = opts.valueFor ? (
-            v == null ? <Faint /> : <span className={cls}>{money(Math.round(v))}</span>
+            v == null ? (
+              <Faint />
+            ) : (
+              <span className={opts.valueCls?.(v) ?? 'text-ink'}>{fmt(Math.round(v))}</span>
+            )
+          ) : opts.accent ? (
+            renderAmt(v, opts.accent)
           ) : (
-            renderMoney(v, cls)
+            renderMoney(v, 'text-ink')
           );
           return (
             <td
               key={col.key}
               {...dropProps(col)}
-              className={`px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line bg-yellow-50 text-xs font-semibold ${hoverBg(col)}`}
+              className={`${numPad} py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line bg-yellow-50 ${cellText} font-semibold ${hoverBg(col)}`}
             >
               {body}
             </td>
@@ -421,52 +572,88 @@ export function PeriodGrid({
     );
   }
 
-  function clientRows(groups: ClientGroup[]): React.ReactNode {
+  function clientRows(groups: ClientGroup[], dir: Direction): React.ReactNode {
     return groups.map((g) => (
       <FragmentRows key={g.key}>
-        <tr>
-          <td className={`${STICKY} bg-white px-4 py-1.5 border-b border-line/40`}>
-            <span className="block truncate text-sm font-semibold text-ink">{g.name}</span>
+        {/* Client group row — bolder, with a clearer bottom border. */}
+        <tr className={ZEBRA}>
+          <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
+            <span className={`block truncate ${labelText} font-semibold text-ink`}>{g.name}</span>
           </td>
           {visibleCols.map((col) => (
             <td
               key={col.key}
               {...dropProps(col)}
-              className={`${NUM_CELL} ${hoverBg(col)}`}
+              className={`${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line ${hoverBg(col)}`}
             >
-              {renderMoney(g.subtotals[col.idx], 'text-xs font-medium text-ink-subtle')}
+              {renderAmt(g.subtotals[col.idx], dir, `${cellText} font-medium`)}
             </td>
           ))}
         </tr>
         {g.opps.map((o) => {
           const stage = stageByKey.get(o.cm.stage);
           return (
-            <tr key={o.cm.id}>
-              <td className={`${STICKY} bg-white px-4 py-1.5 border-b border-line/40`}>
-                <button
-                  type="button"
-                  onClick={() => onEdit(o.cm)}
-                  className="flex w-full items-center gap-2 pl-4 text-left"
-                >
-                  <span className="truncate text-sm text-ink hover:underline underline-offset-2">
-                    {o.cm.label}
-                  </span>
-                  <span
-                    className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${
-                      KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
-                    }`}
+            <tr key={o.cm.id} className={ZEBRA}>
+              <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+                {/* Item rows: indented behind a left guide border. */}
+                <div className="ml-1 border-l border-line/60 pl-3">
+                  <button
+                    type="button"
+                    onClick={() => onEdit(o.cm)}
+                    className="flex w-full items-center gap-2 text-left"
                   >
-                    {stage?.label ?? o.cm.stage}
-                  </span>
-                </button>
+                    <span
+                      className={`truncate ${labelText} text-ink hover:underline underline-offset-2`}
+                    >
+                      {o.cm.label}
+                    </span>
+                    <span
+                      className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${
+                        KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
+                      }`}
+                    >
+                      {stage?.label ?? o.cm.stage}
+                    </span>
+                    {o.recurring && (
+                      <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
+                        ↻ {o.recurring.cadence}
+                      </span>
+                    )}
+                  </button>
+                </div>
               </td>
               {visibleCols.map((col) => {
+                // Recurring occurrences: non-draggable amounts (they're a
+                // characteristic of the item, not payments to retime).
+                if (o.recurring) {
+                  const v = o.recurring.amounts[col.idx];
+                  return (
+                    <td
+                      key={col.key}
+                      {...dropProps(col)}
+                      title="repeats — edit the item"
+                      className={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
+                    >
+                      {v === 0 ? (
+                        <Faint />
+                      ) : (
+                        <span
+                          onClick={() => onEdit(o.cm)}
+                          className={`cursor-pointer ${cellText} font-medium tabular-nums ${AMT_TONE[dir]} hover:opacity-70`}
+                        >
+                          {sign(dir)}
+                          {fmt(v)}
+                        </span>
+                      )}
+                    </td>
+                  );
+                }
                 const cards = o.cells[col.idx];
                 return (
                   <td
                     key={col.key}
                     {...dropProps(col)}
-                    className={`px-2 py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
+                    className={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
                   >
                     {cards.length === 0 ? (
                       <Faint />
@@ -482,9 +669,10 @@ export function PeriodGrid({
                             }}
                             onClick={() => onEdit(card.cm)}
                             title={`${card.cm.label} — expected ${card.date}`}
-                            className="inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-md bg-surface-raised ring-1 ring-black/5 shadow-sm px-1.5 py-0.5 text-xs font-medium tabular-nums text-ink hover:ring-neutral-300"
+                            className={`inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
                           >
-                            {money(card.line.amount_cents)}
+                            {sign(dir)}
+                            {fmt(card.line.amount_cents)}
                             {card.line.invoiced_at && (
                               <FileText size={10} strokeWidth={2} className="text-sky-600" />
                             )}
@@ -502,36 +690,47 @@ export function PeriodGrid({
     ));
   }
 
-  function budgetRows(rows: BudgetRow[]): React.ReactNode {
+  function budgetRows(rows: BudgetRow[], dir: Direction): React.ReactNode {
     if (rows.length === 0) return null;
     return (
       <FragmentRows key="budget">
-        <tr>
-          <td className={`${STICKY} bg-white px-4 py-1.5 border-b border-line/40`}>
-            <span className="block truncate text-sm font-semibold text-ink">Recurring (budget)</span>
+        <tr className={ZEBRA}>
+          <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
+            <span className={`block truncate ${labelText} font-semibold text-ink`}>
+              Recurring (budget)
+            </span>
           </td>
           {visibleCols.map((col) => (
-            <td key={col.key} className={NUM_CELL}>
-              {renderMoney(
+            <td
+              key={col.key}
+              className={`${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line`}
+            >
+              {renderAmt(
                 rows.reduce((a, r) => a + r.amounts[col.idx], 0),
-                'text-xs font-medium text-ink-subtle',
+                dir,
+                `${cellText} font-medium`,
               )}
             </td>
           ))}
         </tr>
         {rows.map((r) => (
-          <tr key={r.bl.id}>
-            <td className={`${STICKY} bg-white px-4 py-1.5 border-b border-line/40`}>
-              <div className="flex items-center gap-2 pl-4">
-                <span className="truncate text-sm text-ink">{r.bl.label}</span>
+          <tr key={r.bl.id} className={ZEBRA}>
+            <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+              <div className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2">
+                <span className={`truncate ${labelText} text-ink`}>{r.bl.label}</span>
+                <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
+                  ↻ {r.bl.cadence}
+                </span>
                 {r.bl.category && (
-                  <span className="shrink-0 truncate text-[11px] text-ink-muted">{r.bl.category}</span>
+                  <span className="shrink-0 truncate text-[11px] text-ink-muted">
+                    {r.bl.category}
+                  </span>
                 )}
               </div>
             </td>
             {visibleCols.map((col) => (
-              <td key={col.key} className={NUM_CELL} title="recurring — edit in Budget">
-                {renderMoney(r.amounts[col.idx], 'text-xs tabular-nums text-ink-subtle')}
+              <td key={col.key} className={numCell} title="recurring — edit in Budget">
+                {renderAmt(r.amounts[col.idx], dir, cellText)}
               </td>
             ))}
           </tr>
@@ -548,7 +747,7 @@ export function PeriodGrid({
         </div>
       )}
 
-      {/* View header: filter + scroll chevrons (works for every input device). */}
+      {/* View header: filter + fit toggle + scroll chevrons. */}
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
           <input
@@ -569,33 +768,58 @@ export function PeriodGrid({
           <ShowSwitcher current={settings.granularity} />
           <button
             type="button"
-            aria-label="Scroll to earlier periods"
-            onClick={() => scrollByCols(-1)}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
+            aria-label={fit ? 'Switch back to the scrollable layout' : 'Fit the table to the screen'}
+            title={fit ? 'Scrollable layout' : 'Fit to screen'}
+            onClick={() => {
+              const next = !fit;
+              setFit(next);
+              void savePref(COOKIE_CASHFLOW_FIT, next ? 'on' : 'off'); // remembered per user
+            }}
+            className={`h-8 w-8 inline-flex items-center justify-center rounded-md ring-1 ring-line ${
+              fit ? 'bg-ink text-ink-inverse' : 'bg-white text-ink-subtle hover:text-ink'
+            }`}
           >
-            <ChevronLeft size={16} strokeWidth={2} />
+            {fit ? (
+              <Maximize2 size={16} strokeWidth={2} />
+            ) : (
+              <Minimize2 size={16} strokeWidth={2} />
+            )}
           </button>
-          <button
-            type="button"
-            aria-label="Scroll to later periods"
-            onClick={() => scrollByCols(1)}
-            className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
-          >
-            <ChevronRight size={16} strokeWidth={2} />
-          </button>
+          {!fit && (
+            <>
+              <button
+                type="button"
+                aria-label="Scroll to earlier periods"
+                onClick={() => scrollByCols(-1)}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
+              >
+                <ChevronLeft size={16} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                aria-label="Scroll to later periods"
+                onClick={() => scrollByCols(1)}
+                className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
+              >
+                <ChevronRight size={16} strokeWidth={2} />
+              </button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
         <div ref={scrollRef} className="overflow-x-auto rounded-2xl">
-          <table className="min-w-full border-separate border-spacing-0 text-sm">
+          <table
+            className={`${fit ? 'w-full table-fixed' : 'min-w-full'} border-separate border-spacing-0 text-sm`}
+          >
             <thead>
               <tr>
-                <th className={`${STICKY} z-20 bg-white px-4 py-3 border-b border-line`} />
+                <th className={`${sticky} z-20 bg-white px-4 py-3 border-b border-line`} />
                 {visibleCols.map((col) => (
                   <th
                     key={col.key}
-                    className={`min-w-[112px] px-3 py-3 text-right text-xs font-semibold tracking-tight whitespace-nowrap border-b border-line ${
+                    className={`${fit ? numPad : 'min-w-[112px] px-3'} py-3 text-right ${cellText} font-semibold tracking-tight whitespace-nowrap border-b border-line ${
                       col.key === 'overdue' ? 'text-rose-600' : 'text-ink'
                     }`}
                   >
@@ -605,20 +829,59 @@ export function PeriodGrid({
               </tr>
             </thead>
             <tbody>
-              {/* 1 · FINANCIAL POSITION — running balance at each period start. */}
+              {/* 1 · FINANCIAL POSITION — running balance at each period start.
+                  Expands into one row per account; the CURRENT period column
+                  edits the balance inline (Sjoerd 2026-07-08). */}
               {projection &&
                 sectionHeaderRow({
                   label: 'Financial position',
                   valueFor: positionFor,
                   valueCls: (v) => (v != null && v < 0 ? 'text-red-600' : 'text-ink'),
+                  ...(orderedAccounts.length > 0
+                    ? {
+                        count: orderedAccounts.length,
+                        open: positionOpen,
+                        onToggle: () => setPositionOpen((v) => !v),
+                      }
+                    : {}),
                 })}
+              {projection &&
+                positionOpen &&
+                orderedAccounts.map((a) => (
+                  <tr key={a.id} className={ZEBRA}>
+                    <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+                      <div className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2">
+                        <span className={`truncate ${labelText} text-ink`}>{a.name}</span>
+                        {a.kind === 'reserve' && (
+                          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
+                            reserve
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    {visibleCols.map((col) => (
+                      <td key={col.key} className={numCell}>
+                        {col.key === currentColKey ? (
+                          <BalanceCell
+                            account={a}
+                            fmt={fmt}
+                            cellText={cellText}
+                            onError={setError}
+                          />
+                        ) : (
+                          <Faint />
+                        )}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
 
               {/* No balances yet → the position is meaningless; say where to fix it. */}
               {projection &&
                 projection.anchor.bank_cents === 0 &&
                 projection.anchor.reserve_cents === 0 && (
                   <tr>
-                    <td className={`${STICKY} bg-white px-4 py-2 border-b border-line/40`}>
+                    <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
                       <a
                         href="/accounts"
                         className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
@@ -639,31 +902,22 @@ export function PeriodGrid({
               {sectionHeaderRow({
                 label: 'Income',
                 totals: incomeTotals,
-                tone: 'text-emerald-700',
+                accent: 'in',
                 count: incomeRowCount,
                 open: incomeExpanded,
                 onToggle: () => setIncomeOpen((v) => !v),
               })}
-              {incomeExpanded && clientRows(shownIncomeGroups)}
-              {incomeExpanded && budgetRows(shownIncomeBudget)}
+              {incomeExpanded && clientRows(shownIncomeGroups, 'in')}
+              {incomeExpanded && budgetRows(shownIncomeBudget, 'in')}
               {incomeExpanded && (
-                <AddRow sticky={STICKY} span={visibleCols.length}>
-                  <span className="flex items-center gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => onAdd('in')}
-                      className="font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
-                    >
-                      + Opportunity
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onAddRecurring('in')}
-                      className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
-                    >
-                      + Recurring income
-                    </button>
-                  </span>
+                <AddRow sticky={sticky} span={visibleCols.length}>
+                  <button
+                    type="button"
+                    onClick={() => onAdd('in')}
+                    className="text-xs font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+                  >
+                    + Income
+                  </button>
                 </AddRow>
               )}
 
@@ -671,45 +925,36 @@ export function PeriodGrid({
               {sectionHeaderRow({
                 label: 'Costs',
                 totals: costTotals,
-                tone: 'text-rose-700',
+                accent: 'out',
                 count: costRowCount,
                 open: costsExpanded,
                 onToggle: () => setCostsOpen((v) => !v),
               })}
-              {costsExpanded && clientRows(shownCostGroups)}
-              {costsExpanded && budgetRows(shownCostBudget)}
+              {costsExpanded && clientRows(shownCostGroups, 'out')}
+              {costsExpanded && budgetRows(shownCostBudget, 'out')}
               {costsExpanded && (
-                <AddRow sticky={STICKY} span={visibleCols.length}>
-                  <span className="flex items-center gap-3 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => onAdd('out')}
-                      className="font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
-                    >
-                      + Cost
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => onAddRecurring('out')}
-                      className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
-                    >
-                      + Recurring cost
-                    </button>
-                  </span>
+                <AddRow sticky={sticky} span={visibleCols.length}>
+                  <button
+                    type="button"
+                    onClick={() => onAdd('out')}
+                    className="text-xs font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+                  >
+                    + Cost
+                  </button>
                 </AddRow>
               )}
 
               {/* 4 · RESERVES */}
               {projection && (
                 <tr>
-                  <td className={`${STICKY} bg-white px-4 py-2 border-b border-line/40`}>
+                  <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
                     <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
                       Reserves
                     </span>
                   </td>
                   {visibleCols.map((col) => (
-                    <td key={col.key} className={NUM_CELL}>
-                      {renderMoney(reservedFor(col), 'text-xs text-ink-muted')}
+                    <td key={col.key} className={numCell}>
+                      {renderMoney(reservedFor(col), `${cellText} text-ink-muted`)}
                     </td>
                   ))}
                 </tr>
@@ -718,7 +963,7 @@ export function PeriodGrid({
               {/* 5 · END POSITION — the sheet's red row. */}
               {projection && (
                 <tr>
-                  <td className={`${STICKY} bg-yellow-100/70 px-4 py-2.5`}>
+                  <td className={`${sticky} bg-yellow-100/70 px-4 py-2.5`}>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-ink">
                       End position
                     </span>
@@ -729,11 +974,11 @@ export function PeriodGrid({
                     return (
                       <td
                         key={col.key}
-                        className={`px-3 py-2.5 text-right align-middle tabular-nums whitespace-nowrap text-xs font-bold ${
+                        className={`${numPad} py-2.5 text-right align-middle tabular-nums whitespace-nowrap ${cellText} font-bold ${
                           negative ? 'bg-red-50 text-red-600' : 'bg-yellow-100/70 text-ink'
                         }`}
                       >
-                        {v == null ? <Faint /> : money(Math.round(v))}
+                        {v == null ? <Faint /> : fmt(Math.round(v))}
                       </td>
                     );
                   })}
@@ -747,8 +992,94 @@ export function PeriodGrid({
   );
 }
 
-// "+" row at the bottom of an expanded section (Sjoerd 2026-07-08): one-off
-// via the dialog, recurring via the Budget page.
+// Inline-editable account balance for the CURRENT period column. Click →
+// euro input (comma decimals); Enter/blur records an append-only snapshot
+// dated today via the Accounts action; Escape cancels.
+function BalanceCell({
+  account,
+  fmt,
+  cellText,
+  onError,
+}: {
+  account: PulseAccount;
+  fmt: (cents: number) => string;
+  cellText: string;
+  onError: (msg: string) => void;
+}) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState('');
+  const [saving, setSaving] = useState(false);
+  const cancelledRef = useRef(false);
+
+  const current = account.latest_snapshot?.balance_cents ?? null;
+
+  function begin() {
+    cancelledRef.current = false;
+    setValue(current != null ? (current / 100).toFixed(2).replace('.', ',') : '');
+    setEditing(true);
+  }
+
+  async function commit() {
+    setEditing(false);
+    if (cancelledRef.current) return;
+    const cents = parseEuro(value);
+    if (cents == null || cents === current) return;
+    setSaving(true);
+    const res = await recordSnapshots(todayLocalIso(), [
+      { account_id: account.id, name: account.name, balance_cents: cents },
+    ]);
+    setSaving(false);
+    if (res.error) {
+      onError(`Could not update the balance — ${res.error}`);
+      return;
+    }
+    router.refresh();
+  }
+
+  if (editing) {
+    return (
+      <input
+        autoFocus
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={() => void commit()}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            e.currentTarget.blur();
+          } else if (e.key === 'Escape') {
+            cancelledRef.current = true;
+            e.currentTarget.blur();
+          }
+        }}
+        inputMode="decimal"
+        aria-label={`Balance for ${account.name}`}
+        className={`w-24 rounded border border-line bg-white px-1.5 py-0.5 text-right ${cellText} tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300`}
+      />
+    );
+  }
+  return (
+    <button
+      type="button"
+      onClick={begin}
+      disabled={saving}
+      title={
+        account.latest_snapshot
+          ? `as of ${account.latest_snapshot.as_of_date} — click to update`
+          : "Click to set today's balance"
+      }
+      className={`${cellText} font-medium tabular-nums underline-offset-2 hover:underline ${
+        saving ? 'text-ink-muted' : current != null ? 'text-ink' : 'text-ink-subtle'
+      }`}
+    >
+      {saving ? 'Saving…' : current != null ? fmt(current) : 'Set balance'}
+    </button>
+  );
+}
+
+// "+" row at the bottom of an expanded section — one dialog for everything;
+// recurring is just a characteristic set inside it (Repeats select).
 function AddRow({
   sticky,
   span,

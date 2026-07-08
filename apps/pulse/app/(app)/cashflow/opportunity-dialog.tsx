@@ -37,6 +37,11 @@ function toCents(s: string): number | null {
 function fromCents(c: number): string {
   return (c / 100).toFixed(2);
 }
+function todayIso(): string {
+  return new Date().toISOString().slice(0, 10);
+}
+
+type RepeatCadence = 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
 
 type Row = {
   key: number;
@@ -96,6 +101,16 @@ export function OpportunityDialog({
         ? currentUserId
         : ''),
   );
+  // Recurring is a characteristic, not a separate thing (Sjoerd 2026-07-08).
+  // '' = doesn't repeat. When repeating, occurrences come from the deal size
+  // (quantity × unit price) — the lines editor is hidden and lines untouched.
+  const [repeatCadence, setRepeatCadence] = useState<RepeatCadence | ''>(
+    commitment?.repeat_cadence ?? '',
+  );
+  const [repeatStartsOn, setRepeatStartsOn] = useState(
+    commitment?.repeat_starts_on ?? todayIso(),
+  );
+  const [repeatUntil, setRepeatUntil] = useState(commitment?.repeat_until ?? '');
   const [stage, setStage] = useState<string>(
     commitment?.stage ?? sortedStages[0]?.key ?? 'lead',
   );
@@ -117,6 +132,8 @@ export function OpportunityDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+
+  const repeating = repeatCadence !== '';
 
   // A committed/won KIND implies certainty — the API forces 100 too.
   const selectedStage = sortedStages.find((s) => s.key === stage);
@@ -201,37 +218,65 @@ export function OpportunityDialog({
       return;
     }
 
+    // Repeating items derive occurrences from the deal size — no deal, no
+    // occurrences, nothing to project. Block the save instead of saving air.
+    const qNum = parseFloat(quantity.replace(',', '.'));
+    const unitCents = toCents(unitAmount);
+    const dealCents =
+      Number.isFinite(qNum) && qNum > 0 && unitCents != null ? Math.round(qNum * unitCents) : 0;
+    if (repeating && dealCents <= 0) {
+      setError('A repeating item needs a positive deal size (quantity × unit price).');
+      return;
+    }
+
     // Build line payloads; blank rows are dropped, half-filled rows block save.
     const original = new Map((commitment?.lines ?? []).map((l) => [l.id, l]));
     const lines: LinePayload[] = [];
-    for (const r of rows) {
-      const empty =
-        !r.expected_date && !r.amount.trim() && !r.invoice_ref.trim() && !r.invoiced_at && !r.settled_at;
-      if (empty) continue;
-      const cents = toCents(r.amount);
-      if (!r.expected_date || cents === null) {
-        setError('Each expected payment needs a date and an amount.');
-        return;
+    if (repeating) {
+      // Occurrences come from the deal size; the projection ignores lines on
+      // repeating commitments. Pass the ORIGINAL lines through untouched so
+      // switching a one-off to repeating deletes nothing.
+      for (const l of commitment?.lines ?? []) {
+        lines.push({
+          id: l.id,
+          dirty: false,
+          expected_date: l.expected_date,
+          amount_cents: l.amount_cents,
+          invoice_ref: l.invoice_ref,
+          invoiced_at: l.invoiced_at,
+          settled_at: l.settled_at,
+        });
       }
-      const payload: LinePayload = {
-        id: r.id,
-        expected_date: r.expected_date,
-        amount_cents: cents,
-        invoice_ref: r.invoice_ref.trim() || null,
-        invoiced_at: r.invoiced_at || null,
-        settled_at: r.settled_at || null,
-      };
-      if (r.id) {
-        const o = original.get(r.id);
-        payload.dirty =
-          !o ||
-          o.expected_date !== payload.expected_date ||
-          o.amount_cents !== payload.amount_cents ||
-          (o.invoice_ref ?? null) !== payload.invoice_ref ||
-          (o.invoiced_at ?? null) !== payload.invoiced_at ||
-          (o.settled_at ?? null) !== payload.settled_at;
+    } else {
+      for (const r of rows) {
+        const empty =
+          !r.expected_date && !r.amount.trim() && !r.invoice_ref.trim() && !r.invoiced_at && !r.settled_at;
+        if (empty) continue;
+        const cents = toCents(r.amount);
+        if (!r.expected_date || cents === null) {
+          setError('Each expected payment needs a date and an amount.');
+          return;
+        }
+        const payload: LinePayload = {
+          id: r.id,
+          expected_date: r.expected_date,
+          amount_cents: cents,
+          invoice_ref: r.invoice_ref.trim() || null,
+          invoiced_at: r.invoiced_at || null,
+          settled_at: r.settled_at || null,
+        };
+        if (r.id) {
+          const o = original.get(r.id);
+          payload.dirty =
+            !o ||
+            o.expected_date !== payload.expected_date ||
+            o.amount_cents !== payload.amount_cents ||
+            (o.invoice_ref ?? null) !== payload.invoice_ref ||
+            (o.invoiced_at ?? null) !== payload.invoiced_at ||
+            (o.settled_at ?? null) !== payload.settled_at;
+        }
+        lines.push(payload);
       }
-      lines.push(payload);
     }
 
     setBusy(true);
@@ -251,11 +296,11 @@ export function OpportunityDialog({
         // A cost is not an opportunity (Sjoerd 2026-07-08): no pipeline
         // semantics. New costs save as committed money; existing rows keep
         // their stored stage untouched.
-        quantity: (() => {
-          const q = parseFloat(quantity.replace(',', '.'));
-          return Number.isFinite(q) && q > 0 ? q : 1;
-        })(),
-        unit_amount_cents: toCents(unitAmount),
+        quantity: Number.isFinite(qNum) && qNum > 0 ? qNum : 1,
+        unit_amount_cents: unitCents,
+        repeat_cadence: repeating ? repeatCadence : null,
+        repeat_starts_on: repeating ? repeatStartsOn || todayIso() : null,
+        repeat_until: repeating ? repeatUntil || null : null,
         stage: direction === 'out' && !commitment ? 'committed' : stage,
         probability:
           direction === 'out' && !commitment ? 100 : probabilityLocked ? 100 : probability,
@@ -297,13 +342,14 @@ export function OpportunityDialog({
       open
       onClose={onClose}
       title={
+        // An opportunity is just income (Sjoerd 2026-07-08) — no third noun.
         direction === 'out'
           ? commitment
             ? 'Edit cost'
             : 'New cost'
           : commitment
-            ? 'Edit opportunity'
-            : 'New opportunity'
+            ? 'Edit income'
+            : 'New income'
       }
       size="xl"
       footer={
@@ -523,29 +569,72 @@ export function OpportunityDialog({
                   <span className="text-sm font-medium text-ink tabular-nums">
                     = {money(dealTotal)}
                   </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setRows((rs) => [
-                        ...rs,
-                        {
-                          key: rowSeq++,
-                          expected_date: new Date().toISOString().slice(0, 10),
-                          amount: (dealTotal / 100).toFixed(2).replace('.', ','),
-                          invoice_ref: '',
-                          invoiced_at: '',
-                          settled_at: '',
-                        },
-                      ])
-                    }
-                    className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
-                  >
-                    insert as payment
-                  </button>
+                  {!repeating && (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setRows((rs) => [
+                          ...rs,
+                          {
+                            key: rowSeq++,
+                            expected_date: todayIso(),
+                            amount: (dealTotal / 100).toFixed(2).replace('.', ','),
+                            invoice_ref: '',
+                            invoiced_at: '',
+                            settled_at: '',
+                          },
+                        ])
+                      }
+                      className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+                    >
+                      insert as payment
+                    </button>
+                  )}
                 </div>
               );
             })()}
           </div>
+        </div>
+
+        {/* Repeats — recurring is a characteristic of the item, not a
+            separate thing. Occurrences come from the deal size above. */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Repeats</label>
+            <select
+              value={repeatCadence}
+              onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
+              className={INPUT}
+            >
+              <option value="">Doesn&apos;t repeat</option>
+              <option value="weekly">Weekly</option>
+              <option value="fortnightly">Fortnightly</option>
+              <option value="monthly">Monthly</option>
+              <option value="quarterly">Quarterly</option>
+              <option value="yearly">Yearly</option>
+            </select>
+            {repeating && (
+              <p className="mt-1 text-xs text-ink-muted">
+                Repeats use the deal size (quantity × unit price) per occurrence.
+              </p>
+            )}
+          </div>
+          {repeating && (
+            <>
+              <DateField
+                label="First on"
+                name="repeat_starts_on"
+                defaultValue={repeatStartsOn}
+                onValueChange={setRepeatStartsOn}
+              />
+              <DateField
+                label="Until (optional)"
+                name="repeat_until"
+                defaultValue={repeatUntil}
+                onValueChange={setRepeatUntil}
+              />
+            </>
+          )}
         </div>
 
         <div className="grid grid-cols-3 gap-4">
@@ -591,8 +680,7 @@ export function OpportunityDialog({
           ) : (
             <div className="col-span-2 flex items-end pb-2">
               <p className="text-xs text-ink-muted">
-                Costs count in full — no pipeline stage. Repeating costs (and repeating income)
-                live on the Budget page as recurring lines.
+                Costs count in full — no pipeline stage. For a repeating cost, set Repeats above.
               </p>
             </div>
           )}
@@ -609,7 +697,10 @@ export function OpportunityDialog({
           />
         </div>
 
-        {/* ---- Lines editor ------------------------------------------------ */}
+        {/* ---- Lines editor ------------------------------------------------
+            Hidden while repeating: occurrences come from the deal size, and
+            the existing lines are passed through untouched on save. */}
+        {!repeating && (
         <div className="pt-4 border-t border-line">
           <div className="flex items-baseline justify-between">
             <h3 className="text-sm font-medium">Expected payments</h3>
@@ -701,6 +792,7 @@ export function OpportunityDialog({
             Add payment
           </Button>
         </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

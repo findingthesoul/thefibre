@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.125] — 2026-07-08 — Pulse 0.8.0: recurring is a characteristic; the grid grows up
+
+### Changed
+- **Recurring is a characteristic, not a separate thing** (Sjoerd; migration
+  `20260708220000`): a commitment may carry repeat_cadence + first-on/until.
+  One dialog for everything — a "Repeats" select reveals the window and
+  hides the payment schedule (occurrences come from quantity × unit price,
+  weighted by stage like everything else; the projection expands them
+  server-side, the grid client-side under their client group as ↻ rows).
+  "Opportunity is just income": buttons/titles say New income / New cost;
+  the grid's add-rows are + Income / + Cost. The separate recurring dialog
+  (0.7.2) is gone; the Budget page remains for counterparty-less overhead.
+- **Drag-drop hardening**: hover highlight no longer dies when the cursor
+  crosses a chip (relatedTarget guard); re-render churn fixed; move errors
+  are explicit in the banner. The wiring itself was sound — every cell in
+  a row was already a drop target.
+- **Costs/income design identity**: emerald/rose accent bars + tinted
+  titles on section headers, amount pills (rounded, ringed, grab cursor,
+  − prefix on costs), semibold client rows, guide-border indents, slate
+  ↻ cadence pills, zebra striping. Yellow totals + red END POSITION stay.
+- **Fit to screen** toggle (persisted per user via cookie): the whole
+  horizon in the viewport — fixed table, 160px label column, compact
+  cells; or the normal scrollable layout.
+- **FINANCIAL POSITION is editable in place**: Show more lists every bank
+  account (reserves badged); the current-period cell is click-to-edit —
+  type the balance, Enter saves today's append-only snapshot, positions
+  recompute. The every-session ritual without leaving the grid.
+- **Overdue can hide**: the column renders only when overdue unsettled
+  amounts exist; otherwise the grid starts at the current period.
+
 ## [0.13.124] — 2026-07-08 — Pulse 0.7.2: recurring lines add inline from the grid
 
 ### Changed

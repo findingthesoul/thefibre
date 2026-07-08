@@ -108,6 +108,9 @@ function QuickAddDialog({
         probability: 50,
         quantity: 1,
         unit_amount_cents: null,
+        repeat_cadence: null,
+        repeat_starts_on: null,
+        repeat_until: null,
       },
       lines: [
         {

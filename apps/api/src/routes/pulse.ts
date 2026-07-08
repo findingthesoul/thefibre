@@ -86,6 +86,14 @@ const CreateCommitment = z.object({
   probability: z.number().int().min(0).max(100).default(50),
   quantity: z.number().positive().max(1_000_000).default(1),
   unit_amount_cents: z.number().int().optional().nullable(),
+  // Recurring is a characteristic: cadence + window; occurrences expand at
+  // projection time from quantity × unit price.
+  repeat_cadence: z
+    .enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'])
+    .optional()
+    .nullable(),
+  repeat_starts_on: z.string().date().optional().nullable(),
+  repeat_until: z.string().date().optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
@@ -439,7 +447,7 @@ pulseRoutes.patch('/stages/:id', async (c) => {
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
-  'id, direction, label, stage, probability, quantity, unit_amount_cents, notes, created_at, updated_at, ' +
+  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, notes, created_at, updated_at, ' +
   'person_id, organisation_id, team_id, project_id, offering_id, owner_user_id, ' +
   'person:person_id (id, first_name, last_name, email), ' +
   'organisation:organisation_id (id, name), ' +
@@ -820,7 +828,7 @@ pulseRoutes.get('/projection', async (c) => {
   const { data: commitments, error: cErr } = await db
     .from('pulse_commitment')
     .select(
-      'id, direction, stage, probability, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at)',
+      'id, direction, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at)',
     )
     .is('deleted_at', null);
   if (cErr) return fail(c, 'projection commitments', cErr);
@@ -829,6 +837,43 @@ pulseRoutes.get('/projection', async (c) => {
     const kind = kinds.get(cm.stage) ?? 'open';
     if (kind === 'lost') continue;
     const sign = cm.direction === 'in' ? 'in' : 'out';
+
+    // Recurring commitment: occurrences from the deal amount replace lines.
+    if (cm.repeat_cadence && cm.unit_amount_cents != null) {
+      const occAmt = Math.round(Number(cm.quantity ?? 1) * cm.unit_amount_cents);
+      const from = cm.repeat_starts_on
+        ? new Date(cm.repeat_starts_on + 'T00:00:00Z')
+        : today;
+      const until = cm.repeat_until ? new Date(cm.repeat_until + 'T00:00:00Z') : horizonEnd;
+      const advance = (d: Date): Date =>
+        cm.repeat_cadence === 'weekly'
+          ? addDays(d, 7)
+          : cm.repeat_cadence === 'fortnightly'
+            ? addDays(d, 14)
+            : cm.repeat_cadence === 'monthly'
+              ? addMonths(d, 1)
+              : cm.repeat_cadence === 'quarterly'
+                ? addMonths(d, 3)
+                : addMonths(d, 12);
+      let cur = new Date(from);
+      while (cur < today) cur = advance(cur);
+      while (cur <= until && cur < horizonEnd) {
+        const p = bucketFor(isoDate(cur));
+        if (p) {
+          const isCommitted = kind === 'committed' || kind === 'won';
+          if (isCommitted) {
+            p[`committed_${sign}`] += occAmt;
+            p[`expected_${sign}`] += occAmt;
+          } else {
+            p[`expected_${sign}`] += Math.round((occAmt * cm.probability) / 100);
+          }
+          p[`best_${sign}`] += occAmt;
+        }
+        cur = advance(cur);
+      }
+      continue;
+    }
+
     for (const line of (cm as any).lines ?? []) {
       if (line.settled_at) continue; // already in the bank anchor
       const p = bucketFor(line.expected_date);

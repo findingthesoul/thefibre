@@ -38,6 +38,11 @@ export type CommitmentPayload = {
   probability: number;
   quantity: number;
   unit_amount_cents: number | null;
+  // Recurring characteristic — null cadence = one-off. When set, the API's
+  // projection expands quantity × unit_amount_cents per occurrence.
+  repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  repeat_starts_on: string | null;
+  repeat_until: string | null;
   notes: string | null;
 };
 

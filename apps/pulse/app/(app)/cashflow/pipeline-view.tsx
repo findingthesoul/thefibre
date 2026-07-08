@@ -7,10 +7,16 @@ import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
 import { QuickAddButton } from './quick-add';
 import { PeriodGrid } from './period-grid';
-import { LineDialog } from '../budget/budget-client';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
-import type { BudgetLine, Commitment, PeriodSettings, Pickers, Projection } from './types';
+import type {
+  BudgetLine,
+  Commitment,
+  PeriodSettings,
+  Pickers,
+  Projection,
+  PulseAccount,
+} from './types';
 
 // Chips colour by the stage's KIND, not its key — custom stages inherit the
 // palette of their projection semantics. Unknown keys degrade to muted.
@@ -29,7 +35,9 @@ export function PipelineView({
   periodSettings,
   projection,
   budgetLines,
+  accounts,
   initialView,
+  initialFit,
 }: {
   items: Commitment[];
   pickers: Pickers;
@@ -39,10 +47,11 @@ export function PipelineView({
   // INCOME + COSTS without the position/reserves/end rows.
   projection: Projection | null;
   budgetLines: BudgetLine[];
+  accounts: PulseAccount[];
   initialView: 'counterparty' | 'period';
+  initialFit: 'on' | 'off';
 }) {
   const [creating, setCreating] = useState<false | 'in' | 'out'>(false);
-  const [recurring, setRecurring] = useState<false | 'in' | 'out'>(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [view, setView] = useState<'counterparty' | 'period'>(initialView);
 
@@ -75,7 +84,7 @@ export function PipelineView({
             New cost
           </Button>
           <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating('in')}>
-            New opportunity
+            New income
           </Button>
         </div>
       </div>
@@ -113,14 +122,15 @@ export function PipelineView({
           stages={pickers.stages}
           projection={projection}
           budgetLines={budgetLines}
+          accounts={accounts}
+          initialFit={initialFit}
           onEdit={setEditing}
           onAdd={setCreating}
-          onAddRecurring={setRecurring}
         />
       ) : groups.size === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted">
-            No opportunities yet. Add your first with New opportunity — the importer seeds your
+            Nothing here yet. Add your first with New income — the importer seeds your
             current spreadsheet.
           </p>
         </div>
@@ -134,7 +144,12 @@ export function PipelineView({
               <div className="divide-y divide-line/60">
                 {g.items.map((cm) => {
                   const open = cm.lines.filter((l) => !l.settled_at);
-                  const total = open.reduce((a, l) => a + l.amount_cents, 0);
+                  // Repeating items carry no meaningful lines — their amount
+                  // is the per-occurrence deal size (quantity × unit price).
+                  const repeating = cm.repeat_cadence != null;
+                  const total = repeating
+                    ? Math.round(cm.quantity * (cm.unit_amount_cents ?? 0))
+                    : open.reduce((a, l) => a + l.amount_cents, 0);
                   return (
                     <button
                       key={cm.id}
@@ -151,10 +166,17 @@ export function PipelineView({
                           )}
                         </div>
                         <div className="text-xs text-ink-muted">
-                          {open.length} expected payment{open.length === 1 ? '' : 's'}
+                          {repeating
+                            ? 'repeats — per occurrence'
+                            : `${open.length} expected payment${open.length === 1 ? '' : 's'}`}
                           {cm.direction === 'out' ? ' (outgoing)' : ''}
                         </div>
                       </div>
+                      {repeating && (
+                        <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-sky-50 text-sky-700">
+                          ↻ {cm.repeat_cadence}
+                        </span>
+                      )}
                       <span
                         className={`px-2 py-0.5 rounded-full text-xs font-medium ${
                           KIND_STYLE[stageByKey.get(cm.stage)?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
@@ -180,13 +202,6 @@ export function PipelineView({
         </div>
       )}
 
-      {recurring && (
-        <LineDialog
-          members={pickers.members}
-          initialDirection={recurring}
-          onClose={() => setRecurring(false)}
-        />
-      )}
       {creating && (
         <OpportunityDialog
           commitment={null}
