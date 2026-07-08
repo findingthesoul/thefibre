@@ -716,9 +716,16 @@ pulseRoutes.get('/projection', async (c) => {
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
 
-  const granularity = (c.req.query('granularity') ??
-    settings?.default_granularity ??
-    'fortnight') as z.infer<typeof Granularity>;
+  // Display granularity — settings store week|fortnight|month, but the view
+  // may also ask for quarter (calendar quarters).
+  const requested = c.req.query('granularity');
+  const granularity = (['week', 'fortnight', 'month', 'quarter'].includes(requested ?? '')
+    ? requested
+    : (settings?.default_granularity ?? 'fortnight')) as
+    | 'week'
+    | 'fortnight'
+    | 'month'
+    | 'quarter';
   const horizonMonths = settings?.horizon_months ?? 12;
 
   // Period boundaries. Fortnights/weeks count from the anchor date; months
@@ -727,11 +734,16 @@ pulseRoutes.get('/projection', async (c) => {
   const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
   const horizonEnd = addMonths(today, horizonMonths);
   const starts: Date[] = [];
-  if (granularity === 'month') {
-    let cur = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
+  if (granularity === 'month' || granularity === 'quarter') {
+    const monthStep = granularity === 'quarter' ? 3 : 1;
+    const startMonth =
+      granularity === 'quarter'
+        ? Math.floor(today.getUTCMonth() / 3) * 3
+        : today.getUTCMonth();
+    let cur = new Date(Date.UTC(today.getUTCFullYear(), startMonth, 1));
     while (cur < horizonEnd) {
       starts.push(cur);
-      cur = addMonths(cur, 1);
+      cur = addMonths(cur, monthStep);
     }
   } else {
     const step = granularity === 'week' ? 7 : 14;

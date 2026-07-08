@@ -12,6 +12,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { ChevronLeft, ChevronRight, FileText } from 'lucide-react';
 import { money } from '@/lib/money';
 import { moveLine } from './actions';
@@ -52,9 +53,14 @@ function addMonths(d: Date, n: number): Date {
 function computePeriodStarts(s: PeriodSettings, count: number): string[] {
   const today = todayUTC();
   const starts: string[] = [];
-  if (s.granularity === 'month') {
+  if (s.granularity === 'month' || s.granularity === 'quarter') {
+    const step = s.granularity === 'quarter' ? 3 : 1;
+    const startMonth =
+      s.granularity === 'quarter'
+        ? Math.floor(today.getUTCMonth() / 3) * 3
+        : today.getUTCMonth();
     for (let i = 0; i < count; i++) {
-      starts.push(isoDate(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + i, 1))));
+      starts.push(isoDate(new Date(Date.UTC(today.getUTCFullYear(), startMonth + i * step, 1))));
     }
     return starts;
   }
@@ -72,9 +78,9 @@ function computePeriodStarts(s: PeriodSettings, count: number): string[] {
 
 function fmtStart(iso: string, granularity: PeriodSettings['granularity']): string {
   return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
-    day: granularity === 'month' ? undefined : 'numeric',
+    day: granularity === 'month' || granularity === 'quarter' ? undefined : 'numeric',
     month: 'short',
-    year: granularity === 'month' ? 'numeric' : undefined,
+    year: granularity === 'month' || granularity === 'quarter' ? 'numeric' : undefined,
     timeZone: 'UTC',
   });
 }
@@ -147,6 +153,7 @@ export function PeriodGrid({
   projection,
   budgetLines,
   onEdit,
+  onAdd,
 }: {
   items: Commitment[];
   settings: PeriodSettings;
@@ -154,6 +161,7 @@ export function PeriodGrid({
   projection: Projection | null;
   budgetLines: BudgetLine[];
   onEdit: (cm: Commitment) => void;
+  onAdd: (direction: 'in' | 'out') => void;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -554,7 +562,10 @@ export function PeriodGrid({
             </span>
           )}
         </div>
-        <div className="flex items-center gap-1 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Show per week / fortnight / month / quarter — server refetch via
+              ?show= keeps the position rows aligned with the columns. */}
+          <ShowSwitcher current={settings.granularity} />
           <button
             type="button"
             aria-label="Scroll to earlier periods"
@@ -634,6 +645,25 @@ export function PeriodGrid({
               })}
               {incomeExpanded && clientRows(shownIncomeGroups)}
               {incomeExpanded && budgetRows(shownIncomeBudget)}
+              {incomeExpanded && (
+                <AddRow sticky={STICKY} span={visibleCols.length}>
+                  <span className="flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onAdd('in')}
+                      className="font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+                    >
+                      + Opportunity
+                    </button>
+                    <Link
+                      href="/budget"
+                      className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
+                    >
+                      + Recurring income
+                    </Link>
+                  </span>
+                </AddRow>
+              )}
 
               {/* 3 · COSTS */}
               {sectionHeaderRow({
@@ -646,6 +676,25 @@ export function PeriodGrid({
               })}
               {costsExpanded && clientRows(shownCostGroups)}
               {costsExpanded && budgetRows(shownCostBudget)}
+              {costsExpanded && (
+                <AddRow sticky={STICKY} span={visibleCols.length}>
+                  <span className="flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => onAdd('out')}
+                      className="font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
+                    >
+                      + Cost
+                    </button>
+                    <Link
+                      href="/budget"
+                      className="text-ink-muted hover:text-ink underline-offset-2 hover:underline"
+                    >
+                      + Recurring cost
+                    </Link>
+                  </span>
+                </AddRow>
+              )}
 
               {/* 4 · RESERVES */}
               {projection && (
@@ -695,8 +744,48 @@ export function PeriodGrid({
   );
 }
 
+// "+" row at the bottom of an expanded section (Sjoerd 2026-07-08): one-off
+// via the dialog, recurring via the Budget page.
+function AddRow({
+  sticky,
+  span,
+  children,
+}: {
+  sticky: string;
+  span: number;
+  children: React.ReactNode;
+}) {
+  return (
+    <tr>
+      <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>{children}</td>
+      <td colSpan={span} className="border-b border-line/40" />
+    </tr>
+  );
+}
+
 // React fragments can't take a key inline with the shorthand syntax in a
 // .map — tiny named wrapper keeps the row groups keyed.
 function FragmentRows({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
+}
+
+
+// Show per week / fortnight / month / quarter. A quarter is display-only —
+// the settings rhythm stays what it is; ?show= re-fetches the projection on
+// the requested grid so every row stays aligned.
+function ShowSwitcher({ current }: { current: string }) {
+  const router = useRouter();
+  return (
+    <select
+      value={current}
+      onChange={(e) => router.push(`/cashflow?show=${e.target.value}`)}
+      aria-label="Show periods per"
+      className="rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+    >
+      <option value="week">Per week</option>
+      <option value="fortnight">Per fortnight</option>
+      <option value="month">Per month</option>
+      <option value="quarter">Per quarter</option>
+    </select>
+  );
 }

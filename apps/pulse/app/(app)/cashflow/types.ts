@@ -67,7 +67,7 @@ export type TeamOption = {
 // What the by-period board needs from pulse_settings. Non-admins can't read
 // the settings endpoint — the page falls back to fortnights anchored today.
 export type PeriodSettings = {
-  granularity: 'week' | 'fortnight' | 'month';
+  granularity: 'week' | 'fortnight' | 'month' | 'quarter';
   anchor_date: string | null; // null = anchor on today
 };
 

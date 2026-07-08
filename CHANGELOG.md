@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.123] — 2026-07-08 — Pulse 0.7.1: show per week/month/quarter, + rows in the grid
+
+### Added
+- **"Show per…" switcher on the grid** (week / fortnight / month /
+  quarter): a display rhythm independent of the settings rhythm, via
+  ?show= — the projection re-fetches on the requested grid (quarter
+  added to the projection endpoint as calendar quarters) so the
+  position rows always align with the columns.
+- **"+" rows at the bottom of Income and Costs**: + Opportunity /
+  + Cost open the dialog with the right direction; + Recurring
+  income / + Recurring cost link to the Budget page (recurring lines
+  live there, both directions).
+
 ## [0.13.122] — 2026-07-08 — Pulse 0.7.0: deal size as quantity × unit price
 
 ### Added

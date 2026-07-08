@@ -70,9 +70,19 @@ async function fetchProjection(granularity: PeriodSettings['granularity']): Prom
   }
 }
 
-export default async function PipelinePage() {
+export default async function PipelinePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ show?: string }>;
+}) {
   // The rhythm comes first — the projection fetch pins its granularity.
+  // ?show=week|fortnight|month|quarter overrides the display rhythm
+  // (Sjoerd 2026-07-08: "Add a show (per week, per month, per quarter)").
   const rhythm = await periodSettings();
+  const { show } = await searchParams;
+  if (show === 'week' || show === 'fortnight' || show === 'month' || show === 'quarter') {
+    rhythm.granularity = show;
+  }
   const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),

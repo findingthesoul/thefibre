@@ -112,6 +112,7 @@ export function PipelineView({
           projection={projection}
           budgetLines={budgetLines}
           onEdit={setEditing}
+          onAdd={setCreating}
         />
       ) : groups.size === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
