@@ -6,8 +6,8 @@ import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
 import { OpportunityDialog } from './opportunity-dialog';
 import { QuickAddButton } from './quick-add';
-import { PeriodBoard } from './period-board';
-import type { Commitment, PeriodSettings, Pickers } from './types';
+import { PeriodGrid } from './period-grid';
+import type { BudgetLine, Commitment, PeriodSettings, Pickers, Projection } from './types';
 
 // Chips colour by the stage's KIND, not its key — custom stages inherit the
 // palette of their projection semantics. Unknown keys degrade to muted.
@@ -24,11 +24,17 @@ export function PipelineView({
   pickers,
   currentUserId,
   periodSettings,
+  projection,
+  budgetLines,
 }: {
   items: Commitment[];
   pickers: Pickers;
   currentUserId: string | null;
   periodSettings: PeriodSettings;
+  // Admin-only reads — null/empty for non-admins; the grid degrades to
+  // INCOME + COSTS without the position/reserves/end rows.
+  projection: Projection | null;
+  budgetLines: BudgetLine[];
 }) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
@@ -89,7 +95,14 @@ export function PipelineView({
       </div>
 
       {view === 'period' ? (
-        <PeriodBoard items={items} settings={periodSettings} onEdit={setEditing} />
+        <PeriodGrid
+          items={items}
+          settings={periodSettings}
+          stages={pickers.stages}
+          projection={projection}
+          budgetLines={budgetLines}
+          onEdit={setEditing}
+        />
       ) : groups.size === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted">

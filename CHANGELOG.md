@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.119] — 2026-07-08 — Pulse 0.6.0: the cashflow grid — the spreadsheet's anatomy, live
+
+### Changed
+- **"By period" is now a sheet-shaped grid** (replaces the card board):
+  sticky label column, period columns on the anchor grid (Overdue first,
+  Later overflow), ‹ › scroll buttons so horizontal scrolling never
+  depends on the input device. Rows in the workbook's order:
+  FINANCIAL POSITION (balance entering each period) → INCOME (section
+  totals + Show more; expanded = client group rows with opportunities
+  stacked beneath, amounts as draggable chips in period cells — drag =
+  re-date) → COSTS (outgoing commitments per client + budget lines
+  expanded by cadence as non-draggable "Recurring" rows) → RESERVES →
+  END POSITION (bold, red cells when negative — the sheet's red row).
+  Live row filter (totals stay honest, "(filtered view)" note).
+  Non-admins degrade to INCOME + COSTS.
+- **Opportunity label prefills** from the picked project/offering
+  ("Label of an opportunity is: project/offering").
+
 ## [0.13.118] — 2026-07-08 — Pulse 0.5.1: contact creation via the platform pattern
 
 ### Fixed

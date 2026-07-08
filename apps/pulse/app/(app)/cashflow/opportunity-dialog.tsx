@@ -175,6 +175,12 @@ export function OpportunityDialog({
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
 
+  // "Label of an opportunity is: project/offering" — picking one prefills an
+  // empty label with its name (still freely editable afterwards).
+  function prefillLabel(name: string | undefined) {
+    if (name && !label.trim()) setLabel(name);
+  }
+
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
@@ -392,7 +398,10 @@ export function OpportunityDialog({
             <label className="block text-sm font-medium mb-1">Project</label>
             <select
               value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
+              onChange={(e) => {
+                setProjectId(e.target.value);
+                prefillLabel(pickers.projects.find((p) => p.id === e.target.value)?.name);
+              }}
               className={INPUT}
             >
               <option value="">—</option>
@@ -428,7 +437,10 @@ export function OpportunityDialog({
             <label className="block text-sm font-medium mb-1">Offering</label>
             <select
               value={offeringId}
-              onChange={(e) => setOfferingId(e.target.value)}
+              onChange={(e) => {
+                setOfferingId(e.target.value);
+                prefillLabel(pickers.offerings.find((o) => o.id === e.target.value)?.name);
+              }}
               className={INPUT}
             >
               <option value="">—</option>

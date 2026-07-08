@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { PipelineView } from './pipeline-view';
 import { FALLBACK_STAGES } from './types';
 import type {
+  BudgetLine,
   Commitment,
   InvolvedTeam,
   MemberOption,
@@ -9,6 +10,7 @@ import type {
   OrgOption,
   PeriodSettings,
   PersonOption,
+  Projection,
   ProjectOption,
   StageOption,
   TeamOption,
@@ -55,8 +57,21 @@ async function periodSettings(): Promise<PeriodSettings> {
   }
 }
 
+// Admin-only read — non-admins (and RLS misses) get null and the grid hides
+// the FINANCIAL POSITION / RESERVES / END POSITION rows. Granularity is
+// pinned to the grid's rhythm so the period columns line up exactly.
+async function fetchProjection(granularity: PeriodSettings['granularity']): Promise<Projection | null> {
+  try {
+    return await apiFetch<Projection>(`/api/v1/pulse/projection?granularity=${granularity}`);
+  } catch {
+    return null;
+  }
+}
+
 export default async function PipelinePage() {
-  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, rhythm] =
+  // The rhythm comes first — the projection fetch pins its granularity.
+  const rhythm = await periodSettings();
+  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
@@ -68,7 +83,9 @@ export default async function PipelinePage() {
       safeItems<MemberOption>('/api/v1/members'),
       safeItems<StageOption>('/api/v1/pulse/stages'),
       currentUserId(),
-      periodSettings(),
+      fetchProjection(rhythm.granularity),
+      // Admins only — degrades to an empty list (the grid skips the rows).
+      safeItems<BudgetLine>('/api/v1/pulse/budget-lines'),
     ]);
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
@@ -80,6 +97,8 @@ export default async function PipelinePage() {
         pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
         currentUserId={meId}
         periodSettings={rhythm}
+        projection={projection}
+        budgetLines={budgetLines}
       />
     </div>
   );

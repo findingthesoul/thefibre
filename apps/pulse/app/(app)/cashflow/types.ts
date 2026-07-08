@@ -71,6 +71,40 @@ export type PeriodSettings = {
 
 export type MemberOption = { user_id: string; full_name: string | null; email: string | null };
 
+// Mirrors pulse_budget_line (GET /api/v1/pulse/budget-lines). Recurring
+// rules, not payments — the grid expands them into dated occurrences
+// client-side, exactly like the API's projection does.
+export type BudgetLine = {
+  id: string;
+  label: string;
+  category: string | null;
+  direction: 'in' | 'out';
+  amount_cents: number;
+  cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
+  starts_on: string | null;
+  ends_on: string | null;
+  included: boolean;
+};
+
+// The slice of GET /api/v1/pulse/projection the grid consumes. Only the
+// "expected" layer is surfaced (his sheet's realistic row).
+export type ProjectionPeriod = {
+  start: string;
+  end: string;
+  expected_in: number;
+  expected_out: number;
+  reserved_expected: number;
+  balance_expected: number;
+};
+
+export type Projection = {
+  granularity: string;
+  currency: string;
+  anchor: { bank_cents: number; reserve_cents: number };
+  reservation_pct: number;
+  periods: ProjectionPeriod[];
+};
+
 // Mirrors GET /api/v1/pulse/stages — the pipeline flow. `kind` carries the
 // projection semantics (open = weighted, committed = full, won = done,
 // lost = excluded); keys are workspace-stable, labels/order are free.
