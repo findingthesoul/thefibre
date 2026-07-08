@@ -6,14 +6,26 @@ import { UserPlus, ChevronRight, Search, LayoutGrid, List as ListIcon } from 'lu
 import { Dialog } from '@/components/ui/dialog';
 import { searchPersons, startRun } from '../actions';
 import { RunModal } from './run-modal';
+import {
+  one,
+  personDisplayName,
+  runSubjectName,
+  runSubjectInitials,
+  isPulseRun,
+  PULSE_BADGE_TITLE,
+  type RunPerson as Person,
+  type RunOrganisation,
+} from '@/lib/run-subject';
 
-type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 export type Run = {
   id: string;
   status: string;
   entered_at: string;
   current_step_entered_at?: string | null;
   person: Person | Person[] | null;
+  organisation?: RunOrganisation | RunOrganisation[] | null;
+  subject_label?: string | null;
+  source_app?: string | null;
   step: { key: string; name: string; kind: string } | { key: string; name: string; kind: string }[] | null;
 };
 
@@ -25,20 +37,15 @@ export type Step = {
   canvas_y?: number | null;
 };
 
-function one<T>(v: T | T[] | null): T | null {
-  if (Array.isArray(v)) return v[0] ?? null;
-  return v;
-}
-
-function personName(p: Person | null): string {
-  if (!p) return 'Unknown';
-  const n = [p.first_name, p.last_name].filter(Boolean).join(' ');
-  return n || p.email || 'Unknown';
-}
-
-function initials(p: Person | null): string {
-  if (!p) return '?';
-  return ((p.first_name?.[0] ?? '') + (p.last_name?.[0] ?? '') || p.email?.[0] || '?').toUpperCase();
+function PulseChip() {
+  return (
+    <span
+      title={PULSE_BADGE_TITLE}
+      className="bg-yellow-100 text-ink text-[10px] rounded-full px-1.5 py-0.5 shrink-0"
+    >
+      Pulse
+    </span>
+  );
 }
 
 function timeAtStep(iso?: string | null): string {
@@ -152,10 +159,13 @@ export function RunsPanel({
                 className="w-full text-left flex items-center gap-3 rounded-xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow px-4 py-3"
               >
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-xs font-medium shrink-0">
-                  {initials(person)}
+                  {runSubjectInitials(r)}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="font-medium truncate">{personName(person)}</div>
+                  <div className="flex items-center gap-1.5 min-w-0">
+                    <span className="font-medium truncate">{runSubjectName(r)}</span>
+                    {isPulseRun(r) && <PulseChip />}
+                  </div>
                   {person?.email && <div className="text-xs text-ink-muted truncate">{person.email}</div>}
                 </div>
                 <div className="text-sm text-ink-subtle">{step?.name ?? '—'}</div>
@@ -259,7 +269,6 @@ function Board({
                 </div>
               )}
               {col.map((r) => {
-                const person = one(r.person);
                 const withdrawn = r.status === 'withdrawn';
                 return (
                   <button
@@ -281,9 +290,10 @@ function Board({
                   >
                     <div className="flex items-center gap-2">
                       <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-indigo-50 text-indigo-600 text-[10px] font-medium shrink-0">
-                        {initials(person)}
+                        {runSubjectInitials(r)}
                       </span>
-                      <span className="text-sm font-medium truncate flex-1">{personName(person)}</span>
+                      <span className="text-sm font-medium truncate flex-1">{runSubjectName(r)}</span>
+                      {isPulseRun(r) && <PulseChip />}
                     </div>
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-ink-muted">
                       <span>{timeAtStep(r.current_step_entered_at)}</span>
@@ -308,14 +318,16 @@ function Board({
             </div>
             <div className="space-y-2 min-h-[72px]">
               {orphans.map((r) => {
-                const person = one(r.person);
                 return (
                   <button
                     key={r.id}
                     onClick={() => onOpen(r.id)}
                     className="w-full text-left rounded-xl bg-white ring-1 ring-black/5 px-3.5 py-2.5 shadow-card hover:shadow-card-hover transition-all"
                   >
-                    <span className="text-sm font-medium truncate">{personName(person)}</span>
+                    <span className="inline-flex items-center gap-1.5 max-w-full">
+                      <span className="text-sm font-medium truncate">{runSubjectName(r)}</span>
+                      {isPulseRun(r) && <PulseChip />}
+                    </span>
                   </button>
                 );
               })}
@@ -392,7 +404,7 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
                 onClick={() => pick(p.id)}
                 className="w-full text-left rounded-md px-3 py-2 hover:bg-surface-sunken disabled:opacity-60"
               >
-                <div className="text-sm font-medium">{personName(p)}</div>
+                <div className="text-sm font-medium">{personDisplayName(p)}</div>
                 {p.email && <div className="text-xs text-ink-muted">{p.email}</div>}
               </button>
             ))}

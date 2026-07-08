@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient } from '../db.js';
+import { userClient, adminClient } from '../db.js';
 
 // ===========================================================================
 // Fibre Flow — Phase C: the definition layer.
@@ -831,7 +831,7 @@ flowRoutes.get('/flows/:id/runs', async (c) => {
   const { data, error } = await db
     .from('flow_run')
     .select(
-      'id, status, entered_at, current_step_entered_at, completed_at, person:person_id (id, first_name, last_name, email), step:current_step_id (id, key, name, kind)',
+      'id, status, entered_at, current_step_entered_at, completed_at, subject_label, source_app, person:person_id (id, first_name, last_name, email), organisation:organisation_id (id, name), step:current_step_id (id, key, name, kind)',
     )
     .eq('flow_id', flowId)
     .is('deleted_at', null)
@@ -871,7 +871,7 @@ flowRoutes.get('/runs/:id', async (c) => {
   const { data: run, error } = await db
     .from('flow_run')
     .select(
-      'id, flow_id, flow_version_id, status, entered_at, current_step_entered_at, completed_at, withdrawn_reason, owner_user_id, person:person_id (id, first_name, last_name, email), step:current_step_id (id, key, name, kind, description)',
+      'id, flow_id, flow_version_id, status, entered_at, current_step_entered_at, completed_at, withdrawn_reason, owner_user_id, subject_label, source_app, person:person_id (id, first_name, last_name, email), organisation:organisation_id (id, name), step:current_step_id (id, key, name, kind, description)',
     )
     .eq('id', id)
     .is('deleted_at', null)
@@ -1016,7 +1016,9 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
 
   const { data: run } = await db
     .from('flow_run')
-    .select('id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status')
+    .select(
+      'id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status, source_app, source_ref',
+    )
     .eq('id', id)
     .is('deleted_at', null)
     .single();
@@ -1054,7 +1056,7 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
   // Destination step.
   const { data: toStep } = await db
     .from('flow_step')
-    .select('id, name, kind')
+    .select('id, key, name, kind')
     .eq('id', trans.to_step_id)
     .single();
   if (!toStep) return c.json({ error: 'destination step missing' }, 500);
@@ -1066,7 +1068,7 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
   if (toStep.kind === 'loop') {
     const { data: entry } = await db
       .from('flow_step')
-      .select('id, name, kind')
+      .select('id, key, name, kind')
       .eq('flow_version_id', run.flow_version_id)
       .eq('kind', 'entry')
       .single();
@@ -1098,6 +1100,28 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
   if (uErr) {
     console.error('[flow] transition update', uErr);
     return c.json({ error: uErr.message }, 500);
+  }
+
+  // Runtime bridge: a run mirrored from Fibre Pulse moves the opportunity's
+  // stage with it (dest.key = pulse_stage key; committed/won force 100%).
+  if ((run as any).source_app === 'fibre-pulse' && (run as any).source_ref) {
+    const { data: mirror } = await adminClient
+      .from('pulse_stage')
+      .select('kind')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('key', (dest as any).key)
+      .maybeSingle();
+    const patch: Record<string, unknown> = {
+      stage: (dest as any).key,
+      updated_at: new Date().toISOString(),
+    };
+    if (mirror?.kind === 'committed' || mirror?.kind === 'won') patch.probability = 100;
+    const { error: cmErr } = await adminClient
+      .from('pulse_commitment')
+      .update(patch)
+      .eq('id', (run as any).source_ref)
+      .eq('workspace_id', ctx.workspaceId);
+    if (cmErr) console.error('[flow] pulse stage sync failed', cmErr);
   }
 
   // Materialise the destination step's tasks (unless it's a terminal step).
@@ -1154,7 +1178,9 @@ flowRoutes.post('/runs/:id/move', async (c) => {
 
   const { data: run } = await db
     .from('flow_run')
-    .select('id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status')
+    .select(
+      'id, flow_id, flow_version_id, current_step_id, person_id, owner_user_id, status, source_app, source_ref',
+    )
     .eq('id', id)
     .is('deleted_at', null)
     .single();
@@ -1341,7 +1367,7 @@ flowRoutes.get('/tasks', async (c) => {
   let q = db
     .from('flow_task')
     .select(
-      'id, title, description, actor_type, status, due_at, flow_run_id, contact_id, assignee_user_id, contact:contact_id (first_name, last_name)',
+      'id, title, description, actor_type, status, due_at, flow_run_id, contact_id, assignee_user_id, contact:contact_id (first_name, last_name), run:flow_run_id (subject_label, source_app, organisation:organisation_id (id, name))',
     )
     .is('deleted_at', null)
     .order('due_at', { ascending: true, nullsFirst: false })
@@ -1391,7 +1417,7 @@ flowRoutes.get('/runs', async (c) => {
   let q = db
     .from('flow_run')
     .select(
-      'id, status, entered_at, current_step_entered_at, person:person_id (id, first_name, last_name, email), flow:flow_id (id, name), step:current_step_id (key, name, kind)',
+      'id, status, entered_at, current_step_entered_at, subject_label, source_app, person:person_id (id, first_name, last_name, email), organisation:organisation_id (id, name), flow:flow_id (id, name), step:current_step_id (key, name, kind)',
     )
     .is('deleted_at', null)
     .order('current_step_entered_at', { ascending: false });

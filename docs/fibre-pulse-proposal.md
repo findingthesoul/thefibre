@@ -377,10 +377,20 @@ workspace members.
     committed). This is the **third sanctioned wall crossing** (after
     activity and the purchase ledger): flow definitions are a
     consumable capability — in-family apps may read them via the API;
-    Flow owns authoring. Runtime integration (flow_run per opportunity,
-    gate tasks driving stage changes) is deliberately deferred: Flow's
-    runtime holds persons; an opportunity is money-with-dates. In Pulse
-    the surface is called **Cashflow** — "pipeline" is Flow's word.
+    Flow owns authoring. In Pulse the surface is called **Cashflow** —
+    "pipeline" is Flow's word.
+    **Phase 2 (runtime) SHIPPED 2026-07-08** (Sjoerd: "when opportunities
+    are in the pipeline they should of course also be visible in FLOW"):
+    flow_run gained external subjects (person_id nullable,
+    subject_label, organisation_id, source_app/source_ref — unique per
+    flow). Every Pulse opportunity mirrors to a run on the Pipeline flow
+    (created/moved/closed from pulse routes via syncOpportunityRuns;
+    idempotent backfill on the stages sync). The bridge is TWO-WAY:
+    transitioning a mirrored run in Flow updates the commitment's stage
+    (+ forced probability for committed/won kinds). Flow UI renders
+    person-less runs via subject_label/organisation with a "Pulse"
+    source chip. Gate tasks influencing stage changes remain future
+    work — transitions from Flow already respect the flow's gates.
 
 ## 4 · Build plan (phased)
 

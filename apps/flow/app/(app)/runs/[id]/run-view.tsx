@@ -14,8 +14,14 @@ import {
   LogOut,
 } from 'lucide-react';
 import { completeTask, reopenTask, transitionRun, withdrawRun } from '../../flows/actions';
-
-type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
+import {
+  one,
+  runSubjectName,
+  isPulseRun,
+  PULSE_BADGE_TITLE,
+  type RunPerson as Person,
+  type RunOrganisation,
+} from '@/lib/run-subject';
 type Task = {
   id: string;
   title: string;
@@ -42,19 +48,14 @@ type Detail = {
     status: string;
     withdrawn_reason: string | null;
     person: Person | Person[] | null;
+    organisation?: RunOrganisation | RunOrganisation[] | null;
+    subject_label?: string | null;
+    source_app?: string | null;
     step: { id: string; key: string; name: string; kind: string; description: string | null } | null;
   };
   tasks: Task[];
   transitions: Transition[];
 };
-
-function one<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? v[0] ?? null : v;
-}
-function personName(p: Person | null): string {
-  if (!p) return 'Unknown';
-  return [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unknown';
-}
 
 const ACTOR_ICON = { personal: User, team: Users, contact: UserCheck } as const;
 const ACTOR_LABEL = { personal: 'You', team: 'Team', contact: 'Contact' } as const;
@@ -109,7 +110,17 @@ export function RunView({ detail }: { detail: Detail }) {
     <div className="mt-4">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-2xl font-medium tracking-tight">{personName(person)}</h1>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-medium tracking-tight">{runSubjectName(run)}</h1>
+            {isPulseRun(run) && (
+              <span
+                title={PULSE_BADGE_TITLE}
+                className="bg-yellow-100 text-ink text-[10px] rounded-full px-1.5 py-0.5 shrink-0"
+              >
+                Pulse
+              </span>
+            )}
+          </div>
           {person?.email && <p className="text-sm text-ink-muted">{person.email}</p>}
         </div>
         {!isTerminal && (

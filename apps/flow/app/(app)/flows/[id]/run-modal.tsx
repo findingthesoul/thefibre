@@ -33,9 +33,17 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { getRunDetail, transitionRun, completeTask, reopenTask, repositionRun, addRunNote } from '../actions';
+import {
+  one,
+  runSubjectName,
+  runSubjectInitials,
+  isPulseRun,
+  PULSE_BADGE_TITLE,
+  type RunPerson as Person,
+  type RunOrganisation,
+} from '@/lib/run-subject';
 
 type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative' | 'loop';
-type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
 type Task = {
   id: string;
   title: string;
@@ -59,6 +67,9 @@ type Detail = {
     flow_id: string;
     status: string;
     person: Person | Person[] | null;
+    organisation?: RunOrganisation | RunOrganisation[] | null;
+    subject_label?: string | null;
+    source_app?: string | null;
     step: { id: string; key: string; name: string; kind: string } | null;
   };
   tasks: Task[];
@@ -74,20 +85,6 @@ type Note = {
   step: { key: string } | { key: string }[] | null;
   author: { full_name: string | null; email: string | null } | { full_name: string | null; email: string | null }[] | null;
 };
-
-function one<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? v[0] ?? null : v;
-}
-function personName(p: Person | null): string {
-  if (!p) return 'Unknown';
-  return [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || 'Unknown';
-}
-function initials(p: Person | null): string {
-  if (!p) return '?';
-  const f = p.first_name?.[0] ?? '';
-  const l = p.last_name?.[0] ?? '';
-  return (f + l || p.email?.[0] || '?').toUpperCase();
-}
 
 // White cards; kind shown as a small coloured dot (clean-dashboard style).
 const KIND_DOT: Record<string, string> = {
@@ -227,7 +224,6 @@ function Graph({
   setPicking: (v: boolean) => void;
   onDropToken: (key: string) => void;
 }) {
-  const person = one(detail.run.person);
   const currentKey = detail.run.step?.key;
   const targetKeys = new Set(detail.transitions.map((t) => t.to_step?.key).filter(Boolean) as string[]);
   const pos = useMemo(
@@ -248,7 +244,7 @@ function Graph({
       isTarget: targetKeys.has(s.key),
       dragging,
       picking,
-      token: s.key === currentKey ? initials(person) : null,
+      token: s.key === currentKey ? runSubjectInitials(detail.run) : null,
       onTokenDragStart: () => setDragging(true),
       onTokenDragEnd: () => setDragging(false),
       onDropToken,
@@ -568,7 +564,6 @@ export function RunModal({
     router.refresh();
   }
 
-  const person = detail ? one(detail.run.person) : null;
   // Re-derive the live gate status for the confirm transition after task edits.
   const currentConfirmSatisfied = confirmT
     ? detail?.transitions.find((t) => t.id === confirmT.id)?.gate_satisfied ?? confirmT.gate_satisfied
@@ -580,7 +575,17 @@ export function RunModal({
       <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl overflow-hidden">
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div>
-            <h2 className="text-base font-medium">{person ? personName(person) : 'Loading…'}</h2>
+            <h2 className="flex items-center gap-2 text-base font-medium">
+              {detail ? runSubjectName(detail.run) : 'Loading…'}
+              {detail && isPulseRun(detail.run) && (
+                <span
+                  title={PULSE_BADGE_TITLE}
+                  className="bg-yellow-100 text-ink text-[10px] font-normal rounded-full px-1.5 py-0.5 shrink-0"
+                >
+                  Pulse
+                </span>
+              )}
+            </h2>
             {detail?.run.step && (
               <p className="text-xs text-ink-muted">
                 Currently at <span className="font-medium">{detail.run.step.name}</span> ·{' '}
@@ -642,13 +647,13 @@ export function RunModal({
             <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
               {picking ? (
                 <span className="text-amber-700 font-medium">
-                  Now click a step to move {initials(person)} there — amber = forward (gated), grey = manual move
-                  / revert. Click the current step again to cancel.
+                  Now click a step to move {runSubjectInitials(detail.run)} there — amber = forward (gated), grey
+                  = manual move / revert. Click the current step again to cancel.
                 </span>
               ) : (
                 <>
                   Click the <span className="font-medium">{detail.run.step?.name}</span> card to pick up{' '}
-                  {initials(person)}, then click any step — forward to advance, or back to revert.
+                  {runSubjectInitials(detail.run)}, then click any step — forward to advance, or back to revert.
                 </>
               )}
             </div>

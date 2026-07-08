@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
@@ -12,6 +12,8 @@ import {
   deleteCommitment,
   createOrganisation,
   createPerson,
+  getOrgMembers,
+  linkPersonToOrg,
   type LinePayload,
 } from './actions';
 import { Combobox, type ComboCreateResult } from './combobox';
@@ -81,6 +83,19 @@ export function OpportunityDialog({
   // Local copies so an inline "Create '<query>'" shows up immediately.
   const [orgs, setOrgs] = useState<OrgOption[]>(pickers.orgs);
   const [persons, setPersons] = useState<PersonOption[]>(pickers.persons);
+  // Company-aware person picking (Sjoerd 2026-07-08): members of the selected
+  // organisation load on selection; picking a non-member asks BEFORE the
+  // connection is made. null = no org selected / not loaded yet.
+  const [orgMembers, setOrgMembers] = useState<PersonOption[] | null>(null);
+  const [membersLoading, setMembersLoading] = useState(false);
+  // Ref mirror of the member ids — the combobox's onSelect fires in the same
+  // tick as a just-completed create+link, before state has re-rendered.
+  const memberIdsRef = useRef<Set<string> | null>(null);
+  const [linkPrompt, setLinkPrompt] = useState<string | null>(null); // personId awaiting confirm
+  const [linkBusy, setLinkBusy] = useState(false);
+  // "linked to <company>" — keyed by person so selecting that same person
+  // (the combobox does onCreate → onSelect) doesn't wipe it.
+  const [linkNote, setLinkNote] = useState<{ personId: string; text: string } | null>(null);
   const [teamId, setTeamId] = useState(commitment?.team_id ?? '');
   const [projectId, setProjectId] = useState(commitment?.project_id ?? '');
   const [offeringId, setOfferingId] = useState(commitment?.offering_id ?? '');
@@ -149,6 +164,30 @@ export function OpportunityDialog({
 
   const repeating = repeatCadence !== '';
 
+  // Fetch the selected company's people whenever the organisation changes.
+  useEffect(() => {
+    setLinkPrompt(null);
+    setLinkNote(null);
+    if (!orgId) {
+      setOrgMembers(null);
+      memberIdsRef.current = null;
+      setMembersLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setMembersLoading(true);
+    void getOrgMembers(orgId).then((res) => {
+      if (cancelled) return;
+      setMembersLoading(false);
+      const members = res.data ?? [];
+      setOrgMembers(members);
+      memberIdsRef.current = new Set(members.map((p) => p.id));
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [orgId]);
+
   // A committed/won KIND implies certainty — the API forces 100 too.
   const selectedStage = sortedStages.find((s) => s.key === stage);
   const probabilityLocked =
@@ -163,11 +202,69 @@ export function OpportunityDialog({
       ];
 
   const orgOptions = orgs.map((o) => ({ id: o.id, label: o.name }));
-  const personOptions = persons.map((p) => ({
-    id: p.id,
-    label: personName(p),
-    sublabel: p.email,
-  }));
+  const selectedOrgName = orgs.find((o) => o.id === orgId)?.name ?? 'this company';
+  // Company people first (sublabel "at <company>"), then everyone else with
+  // their email — one flat list, two groups.
+  const personOptions =
+    orgId && orgMembers
+      ? [
+          ...orgMembers.map((p) => ({
+            id: p.id,
+            label: personName(p),
+            sublabel: `at ${selectedOrgName}`,
+          })),
+          ...persons
+            .filter((p) => !orgMembers.some((m) => m.id === p.id))
+            .map((p) => ({ id: p.id, label: personName(p), sublabel: p.email })),
+        ]
+      : persons.map((p) => ({ id: p.id, label: personName(p), sublabel: p.email }));
+
+  const pendingPerson = linkPrompt
+    ? [...(orgMembers ?? []), ...persons].find((p) => p.id === linkPrompt) ?? null
+    : null;
+
+  // Selecting a person who is NOT a member of the selected company: check
+  // before making the connection (Sjoerd: "the system should ask if this
+  // connection is checked before made").
+  function handleSelectPerson(id: string) {
+    setLinkNote((n) => (n && n.personId === id ? n : null));
+    if (!id) {
+      setLinkPrompt(null);
+      setPersonId('');
+      return;
+    }
+    if (orgId && memberIdsRef.current && !memberIdsRef.current.has(id)) {
+      setLinkPrompt(id);
+      return; // selection deferred to the confirm below
+    }
+    setLinkPrompt(null);
+    setPersonId(id);
+  }
+
+  async function confirmLink() {
+    if (!linkPrompt || !orgId) return;
+    const id = linkPrompt;
+    setLinkBusy(true);
+    setError(null);
+    const res = await linkPersonToOrg(orgId, id);
+    setLinkBusy(false);
+    if (res.error) {
+      setError(`Could not link the person to ${selectedOrgName}: ${res.error}`);
+      return;
+    }
+    memberIdsRef.current?.add(id);
+    const p = persons.find((x) => x.id === id);
+    if (p) setOrgMembers((ms) => (ms ? [...ms, p] : ms));
+    setLinkNote({ personId: id, text: `linked to ${selectedOrgName}` });
+    setLinkPrompt(null);
+    setPersonId(id);
+  }
+
+  function selectWithoutLinking() {
+    if (!linkPrompt) return;
+    setPersonId(linkPrompt);
+    setLinkPrompt(null);
+  }
 
   async function handleCreateOrg(query: string): Promise<ComboCreateResult> {
     const res = await createOrganisation(query.trim());
@@ -186,6 +283,21 @@ export function OpportunityDialog({
     if (res.error || !res.data) return { error: res.error ?? 'unknown error' };
     const created = res.data;
     setPersons((ps) => [...ps, created]);
+    // Creating a person WHILE a company is selected: the intent is explicit —
+    // link them straight away, no confirm.
+    if (orgId) {
+      const linked = await linkPersonToOrg(orgId, created.id);
+      if (linked.error) {
+        setLinkNote({
+          personId: created.id,
+          text: `Created, but could not link to ${selectedOrgName}: ${linked.error}`,
+        });
+      } else {
+        memberIdsRef.current?.add(created.id);
+        setOrgMembers((ms) => (ms ? [...ms, created] : ms));
+        setLinkNote({ personId: created.id, text: `linked to ${selectedOrgName}` });
+      }
+    }
     return { option: { id: created.id, label: personName(created), sublabel: created.email } };
   }
 
@@ -427,6 +539,9 @@ export function OpportunityDialog({
           </div>
         </div>
 
+        {/* Organisation + person are NOT exclusive (Sjoerd 2026-07-08): a
+            deal has a company AND a contact person at it. Once a company is
+            selected its people surface first in the person picker. */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Organisation</label>
@@ -435,29 +550,54 @@ export function OpportunityDialog({
               options={orgOptions}
               placeholder="No counterparty yet"
               emptyLabel="No counterparty yet"
-              onSelect={(id) => {
-                setOrgId(id);
-                if (id) setPersonId('');
-              }}
+              onSelect={setOrgId}
               onCreate={handleCreateOrg}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">
-              Person <span className="font-normal text-ink-muted">(or)</span>
-            </label>
+            <label className="block text-sm font-medium mb-1">Person</label>
             <Combobox
               value={personId}
               options={personOptions}
               placeholder="No counterparty yet"
               emptyLabel="No counterparty yet"
-              onSelect={(id) => {
-                setPersonId(id);
-                if (id) setOrgId('');
-              }}
+              onSelect={handleSelectPerson}
               onCreate={handleCreatePerson}
               createExtraField={{ label: 'Email', placeholder: 'name@example.com' }}
             />
+            {membersLoading && (
+              <p className="mt-1 text-xs text-ink-muted">Loading company people…</p>
+            )}
+            {linkNote && <p className="mt-1 text-xs text-ink-muted">{linkNote.text}</p>}
+            {linkPrompt && (
+              <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                <p>
+                  <span className="font-medium">
+                    {pendingPerson ? personName(pendingPerson) : 'This person'}
+                  </span>{' '}
+                  isn&apos;t linked to <span className="font-medium">{selectedOrgName}</span>{' '}
+                  yet. Link them?
+                </p>
+                <div className="mt-1.5 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void confirmLink()}
+                    disabled={linkBusy}
+                    className="rounded-md bg-ink px-2 py-1 text-xs font-medium text-ink-inverse disabled:opacity-60"
+                  >
+                    {linkBusy ? 'Linking…' : 'Link & select'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={selectWithoutLinking}
+                    disabled={linkBusy}
+                    className="rounded-md px-2 py-1 text-xs text-amber-800 underline underline-offset-2 hover:text-amber-900"
+                  >
+                    Select without linking
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

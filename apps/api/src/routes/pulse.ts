@@ -1,7 +1,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient } from '../db.js';
-import { ensurePipelineFlow, syncStagesFromFlow } from '../lib/pulse-pipeline.js';
+import {
+  ensurePipelineFlow,
+  ensureOpportunityRuns,
+  syncOpportunityRun,
+  syncStagesFromFlow,
+} from '../lib/pulse-pipeline.js';
 
 // ===========================================================================
 // Fibre Pulse — P1: the planner API.
@@ -30,6 +35,8 @@ const PutSettings = z.object({
   period_anchor_date: z.string().date().optional().nullable(),
   fiscal_year_start_month: z.number().int().min(1).max(12).optional(),
   horizon_months: z.number().int().min(1).max(60).optional(),
+  include_ledger: z.boolean().optional(),
+  ledger_terms_days: z.number().int().min(0).max(120).optional(),
 });
 
 const CreateAccount = z.object({
@@ -71,6 +78,7 @@ const PatchProject = CreateProject.partial().extend({
 const StageKind = z.enum(['open', 'committed', 'won', 'lost']);
 const PatchStage = z.object({
   kind: StageKind.optional(),
+  default_probability: z.number().int().min(0).max(100).optional().nullable(),
 });
 
 const CreateCommitment = z.object({
@@ -83,7 +91,8 @@ const CreateCommitment = z.object({
   offering_id: z.string().uuid().optional().nullable(),
   owner_user_id: z.string().uuid().optional().nullable(),
   stage: z.string().min(1).max(64).default('lead'),
-  probability: z.number().int().min(0).max(100).default(50),
+  // Optional: when omitted, the stage's default_probability applies.
+  probability: z.number().int().min(0).max(100).optional(),
   quantity: z.number().positive().max(1_000_000).default(1),
   unit_amount_cents: z.number().int().optional().nullable(),
   // Recurring is a characteristic: cadence + window; occurrences expand at
@@ -98,14 +107,21 @@ const CreateCommitment = z.object({
 });
 const PatchCommitment = CreateCommitment.partial();
 
-// Stage kinds for a workspace, keyed by stage key. Unknown keys degrade to
-// 'open' so a half-migrated row never crashes the projection.
-async function stageKinds(db: ReturnType<typeof userClient>): Promise<Map<string, string>> {
-  const { data } = await db.from('pulse_stage').select('key, kind');
-  return new Map((data ?? []).map((s) => [s.key, s.kind]));
+// Stage metadata for a workspace, keyed by stage key. Unknown keys degrade
+// to 'open' so a half-migrated row never crashes the projection.
+type StageMeta = { kind: string; default_probability: number | null };
+async function stageKinds(db: ReturnType<typeof userClient>): Promise<Map<string, StageMeta>> {
+  const { data } = await db.from('pulse_stage').select('key, kind, default_probability');
+  return new Map(
+    (data ?? []).map((s) => [s.key, { kind: s.kind, default_probability: s.default_probability }]),
+  );
 }
-function forcedProbability(kind: string | undefined, probability: number): number {
-  return kind === 'committed' || kind === 'won' ? 100 : probability;
+// Row probability on entering a stage: explicit value wins; otherwise the
+// stage's default; committed/won always force 100.
+function stageProbability(meta: StageMeta | undefined, explicit: number | undefined): number {
+  if (meta && (meta.kind === 'committed' || meta.kind === 'won')) return 100;
+  if (explicit !== undefined) return explicit;
+  return meta?.default_probability ?? 50;
 }
 
 const CreateLine = z.object({
@@ -127,6 +143,7 @@ const CreateBudgetLine = z.object({
   ends_on: z.string().date().optional().nullable(),
   included: z.boolean().default(true),
   owner_user_id: z.string().uuid().optional().nullable(),
+  team_id: z.string().uuid().optional().nullable(),
 });
 const PatchBudgetLine = CreateBudgetLine.partial().extend({
   archived: z.boolean().optional(),
@@ -411,9 +428,11 @@ pulseRoutes.get('/stages', async (c) => {
     await ensurePipelineFlow(ctx.workspaceId, ctx.userId);
     ({ pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId));
   }
+  // Mirror every live opportunity into a flow_run (idempotent backfill).
+  await ensureOpportunityRuns(ctx.workspaceId);
   const { data, error } = await db
     .from('pulse_stage')
-    .select('id, key, label, kind, sort_order, is_system')
+    .select('id, key, label, kind, sort_order, is_system, default_probability')
     .order('sort_order', { ascending: true });
   if (error) return fail(c, 'list stages', error);
   return c.json({ items: data ?? [], pipeline_flow_id });
@@ -430,12 +449,19 @@ pulseRoutes.delete('/stages/:id', async (c) => c.json({ error: AUTHOR_IN_FLOW },
 pulseRoutes.patch('/stages/:id', async (c) => {
   const body = PatchStage.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  if (!body.data.kind) return c.json({ error: 'only kind is editable here — ' + AUTHOR_IN_FLOW }, 400);
+  if (body.data.kind === undefined && body.data.default_probability === undefined) {
+    return c.json({ error: 'only kind/default_probability are editable here — ' + AUTHOR_IN_FLOW }, 400);
+  }
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('pulse_stage')
-    .update({ kind: body.data.kind })
+    .update({
+      ...(body.data.kind !== undefined ? { kind: body.data.kind } : {}),
+      ...(body.data.default_probability !== undefined
+        ? { default_probability: body.data.default_probability }
+        : {}),
+    })
     .eq('id', c.req.param('id'))
     .select('*')
     .single();
@@ -488,7 +514,7 @@ pulseRoutes.post('/commitments', async (c) => {
     workspace_id: ctx.workspaceId,
     owner_user_id: body.data.owner_user_id ?? ctx.userId,
     ...body.data,
-    probability: forcedProbability(kinds.get(body.data.stage), body.data.probability),
+    probability: stageProbability(kinds.get(body.data.stage), body.data.probability),
   };
   const { data, error } = await db
     .from('pulse_commitment')
@@ -496,6 +522,7 @@ pulseRoutes.post('/commitments', async (c) => {
     .select(COMMITMENT_SELECT)
     .single();
   if (error) return fail(c, 'create commitment', error);
+  await syncOpportunityRun(ctx.workspaceId, data as any);
   return c.json({ item: data }, 201);
 });
 
@@ -508,8 +535,8 @@ pulseRoutes.patch('/commitments/:id', async (c) => {
   if (body.data.stage) {
     const kinds = await stageKinds(db);
     if (!kinds.has(body.data.stage)) return c.json({ error: `unknown stage '${body.data.stage}'` }, 400);
-    const kind = kinds.get(body.data.stage);
-    if (kind === 'committed' || kind === 'won') patch.probability = 100;
+    // Entering a stage applies its default unless the caller pinned a value.
+    patch.probability = stageProbability(kinds.get(body.data.stage), body.data.probability);
   }
   const { data, error } = await db
     .from('pulse_commitment')
@@ -518,6 +545,7 @@ pulseRoutes.patch('/commitments/:id', async (c) => {
     .select(COMMITMENT_SELECT)
     .single();
   if (error) return fail(c, 'patch commitment', error);
+  await syncOpportunityRun(ctx.workspaceId, data as any);
   return c.json({ item: data });
 });
 
@@ -530,6 +558,15 @@ pulseRoutes.delete('/commitments/:id', async (c) => {
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', c.req.param('id'));
   if (error) return fail(c, 'delete commitment', error);
+  await syncOpportunityRun(ctx.workspaceId, {
+    id: c.req.param('id'),
+    label: '',
+    stage: '',
+    person_id: null,
+    organisation_id: null,
+    owner_user_id: null,
+    deleted: true,
+  });
   return c.body(null, 204);
 });
 
@@ -576,10 +613,13 @@ pulseRoutes.delete('/lines/:id', async (c) => {
 pulseRoutes.get('/budget-lines', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const { data, error } = await db
+  let q = db
     .from('pulse_budget_line')
     .select('*')
-    .is('archived_at', null)
+    .is('archived_at', null);
+  const teamId = c.req.query('team_id');
+  if (teamId) q = q.eq('team_id', teamId);
+  const { data, error } = await q
     .order('category', { ascending: true })
     .order('label', { ascending: true });
   if (error) return fail(c, 'list budget lines', error);
@@ -821,20 +861,31 @@ pulseRoutes.get('/projection', async (c) => {
     }
   }
 
+  // Scope (Sjoerd: "cashflow per team... or per person or per workspace,
+  // and workspace only visible to the ones who have access"): the Invoices
+  // Me/Team/Workspace pattern. Workspace = unscoped (RLS already gates the
+  // projection to admin+; organisers' commitment reads are self-scoped).
+  // Bank anchor stays workspace-level; scoped views read as net flows.
+  const teamId = c.req.query('team_id') || null;
+  const mine = c.req.query('owner') === 'me';
+
   // Commitment lines (open, unsettled, in horizon or overdue). Stage kinds
   // drive the layers: lost is excluded, committed/won count in full, open is
   // probability-weighted. An invoiced line is committed regardless of stage.
   const kinds = await stageKinds(db);
-  const { data: commitments, error: cErr } = await db
+  let cq = db
     .from('pulse_commitment')
     .select(
       'id, direction, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at)',
     )
     .is('deleted_at', null);
+  if (teamId) cq = cq.eq('team_id', teamId);
+  if (mine) cq = cq.eq('owner_user_id', ctx.userId);
+  const { data: commitments, error: cErr } = await cq;
   if (cErr) return fail(c, 'projection commitments', cErr);
 
   for (const cm of commitments ?? []) {
-    const kind = kinds.get(cm.stage) ?? 'open';
+    const kind = kinds.get(cm.stage)?.kind ?? 'open';
     if (kind === 'lost') continue;
     const sign = cm.direction === 'in' ? 'in' : 'out';
 
@@ -891,11 +942,14 @@ pulseRoutes.get('/projection', async (c) => {
   }
 
   // Budget lines → dated occurrences.
-  const { data: budgetLines, error: bErr } = await db
+  let bq = db
     .from('pulse_budget_line')
     .select('*')
     .is('archived_at', null)
     .eq('included', true);
+  if (teamId) bq = bq.eq('team_id', teamId);
+  if (mine) bq = bq.eq('owner_user_id', ctx.userId);
+  const { data: budgetLines, error: bErr } = await bq;
   if (bErr) return fail(c, 'projection budget lines', bErr);
 
   for (const bl of budgetLines ?? []) {
@@ -923,6 +977,34 @@ pulseRoutes.get('/projection', async (c) => {
         p[`best_${sign}`] += bl.amount_cents;
       }
       cur = advance(cur);
+    }
+  }
+
+  // P4: open purchase-ledger rows as receivables (opt-in via settings).
+  // A pending Stripe/invoice purchase is committed money expected at
+  // created_at + payment terms; paid rows are in the bank anchor already.
+  let ledgerOpenTotal = 0;
+  if (settings?.include_ledger && !mine) {
+    let pq = db
+      .from('purchase')
+      .select('amount_cents, created_at, team_id, status')
+      .eq('status', 'pending');
+    if (teamId) pq = pq.eq('team_id', teamId);
+    const { data: open, error: pErr } = await pq;
+    if (pErr) {
+      console.error('[pulse] projection ledger read', pErr);
+    } else {
+      const terms = settings?.ledger_terms_days ?? 14;
+      for (const row of open ?? []) {
+        const due = addDays(new Date(String(row.created_at).slice(0, 10) + 'T00:00:00Z'), terms);
+        const p = bucketFor(isoDate(due));
+        if (p) {
+          p.committed_in += row.amount_cents;
+          p.expected_in += row.amount_cents;
+          p.best_in += row.amount_cents;
+          ledgerOpenTotal += row.amount_cents;
+        }
+      }
     }
   }
 
@@ -956,6 +1038,9 @@ pulseRoutes.get('/projection', async (c) => {
 
   return c.json({
     granularity,
+    team_id: teamId,
+    scope: mine ? 'me' : teamId ? 'team' : 'workspace',
+    ledger_open_cents: ledgerOpenTotal,
     currency: settings?.currency ?? 'EUR',
     anchor: { bank_cents: bankTotal, reserve_cents: reserveTotal },
     reservation_pct: totalPct,

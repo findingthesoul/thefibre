@@ -5,6 +5,7 @@ import { apiFetch } from '@/lib/api';
 import { RunView } from './run-view';
 
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
+type Organisation = { id: string; name: string | null };
 
 type RunDetail = {
   run: {
@@ -15,6 +16,9 @@ type RunDetail = {
     current_step_entered_at: string;
     withdrawn_reason: string | null;
     person: Person | Person[] | null;
+    organisation?: Organisation | Organisation[] | null;
+    subject_label?: string | null;
+    source_app?: string | null;
     step: { id: string; key: string; name: string; kind: string; description: string | null } | null;
   };
   tasks: {

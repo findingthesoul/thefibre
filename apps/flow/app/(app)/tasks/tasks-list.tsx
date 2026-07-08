@@ -5,6 +5,13 @@ import { useRouter } from 'next/navigation';
 import { User, Users, UserCheck, CheckCircle2, Circle, Plus, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 import { createManualTask, setTaskStatus } from '../flows/actions';
+import { one, type RunOrganisation } from '@/lib/run-subject';
+
+type TaskRun = {
+  subject_label: string | null;
+  source_app: string | null;
+  organisation: RunOrganisation | RunOrganisation[] | null;
+};
 
 export type Task = {
   id: string;
@@ -14,13 +21,10 @@ export type Task = {
   due_at: string | null;
   flow_run_id: string | null;
   contact: { first_name: string | null; last_name: string | null } | { first_name: string | null; last_name: string | null }[] | null;
+  run?: TaskRun | TaskRun[] | null;
 };
 
 const ACTOR_ICON = { personal: User, team: Users, contact: UserCheck } as const;
-
-function one<T>(v: T | T[] | null): T | null {
-  return Array.isArray(v) ? v[0] ?? null : v;
-}
 
 export function TasksList({ initial }: { initial: Task[] }) {
   const router = useRouter();
@@ -92,9 +96,13 @@ export function TasksList({ initial }: { initial: Task[] }) {
           {tasks.map((t) => {
             const Icon = ACTOR_ICON[t.actor_type as keyof typeof ACTOR_ICON] ?? User;
             const contact = one(t.contact);
-            const contactName = contact
-              ? [contact.first_name, contact.last_name].filter(Boolean).join(' ')
-              : null;
+            const run = one(t.run ?? null);
+            // Subject fallback chain: person → organisation → subject_label.
+            const contactName =
+              (contact ? [contact.first_name, contact.last_name].filter(Boolean).join(' ') : '') ||
+              one(run?.organisation ?? null)?.name ||
+              run?.subject_label ||
+              null;
             const done = t.status === 'done';
             return (
               <div

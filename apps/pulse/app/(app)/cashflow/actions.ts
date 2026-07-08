@@ -172,6 +172,58 @@ export async function createPerson(input: {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Company-aware person picking (Sjoerd 2026-07-08: "select the person
+// belonging to the company"): who works at the selected organisation, plus
+// the checked-before-made link when a non-member person is picked.
+// ---------------------------------------------------------------------------
+export type OrgMemberPerson = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+};
+
+export async function getOrgMembers(
+  orgId: string,
+): Promise<ActionResult<OrgMemberPerson[]>> {
+  try {
+    // PostgREST person embeds can come back as object OR single-element array.
+    type MemberRow = {
+      id: string;
+      title: string | null;
+      person: OrgMemberPerson | OrgMemberPerson[] | null;
+    };
+    const r = await apiFetch<{ items: MemberRow[] }>(
+      `/api/v1/organisations/${orgId}/members`,
+    );
+    const persons: OrgMemberPerson[] = [];
+    for (const m of r.items ?? []) {
+      const p = Array.isArray(m.person) ? m.person[0] : m.person;
+      if (p) persons.push(p);
+    }
+    return { ok: true, data: persons };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function linkPersonToOrg(
+  orgId: string,
+  personId: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ id: string }>(`/api/v1/organisations/${orgId}/members`, {
+      method: 'POST',
+      body: JSON.stringify({ person_id: personId }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true, data: { id: r.id } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Drag-and-drop on the by-period board: retime a single expected payment.
 // The board applies the move optimistically, then refreshes on success.
 export async function moveLine(lineId: string, expectedDate: string): Promise<ActionResult> {

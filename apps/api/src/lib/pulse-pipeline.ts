@@ -19,8 +19,9 @@ const DEFAULT_STEPS = [
   { key: 'lead', name: 'Lead', kind: 'entry', ordinal: 1, x: 80, y: 200 },
   { key: 'proposal', name: 'Proposal', kind: 'normal', ordinal: 2, x: 320, y: 200 },
   { key: 'committed', name: 'Committed', kind: 'normal', ordinal: 3, x: 560, y: 200 },
-  { key: 'done', name: 'Done', kind: 'end_positive', ordinal: 4, x: 800, y: 200 },
-  { key: 'cancelled', name: 'Cancelled', kind: 'end_negative', ordinal: 5, x: 560, y: 420 },
+  { key: 'invoiced', name: 'Invoiced', kind: 'normal', ordinal: 4, x: 800, y: 200 },
+  { key: 'done', name: 'Done', kind: 'end_positive', ordinal: 5, x: 1040, y: 200 },
+  { key: 'cancelled', name: 'Cancelled', kind: 'end_negative', ordinal: 6, x: 560, y: 420 },
 ] as const;
 
 // Default money semantics for the seeded keys; flow-authored steps default
@@ -29,8 +30,17 @@ const DEFAULT_KINDS: Record<string, string> = {
   lead: 'open',
   proposal: 'open',
   committed: 'committed',
+  invoiced: 'committed', // the receivable state — counts in full
   done: 'won',
   cancelled: 'lost',
+};
+const DEFAULT_PROBABILITIES: Record<string, number> = {
+  lead: 25,
+  proposal: 60,
+  committed: 100,
+  invoiced: 100,
+  done: 100,
+  cancelled: 0,
 };
 
 function stageKindForStep(stepKind: string, existing?: string): string {
@@ -118,10 +128,12 @@ export async function ensurePipelineFlow(workspaceId: string, ownerUserId: strin
   const { error: tErr } = await adminClient.from('flow_transition').insert([
     t('lead', 'proposal', 'Proposal sent', 1),
     t('proposal', 'committed', 'Committed', 2),
-    t('committed', 'done', 'Done', 3),
-    t('lead', 'cancelled', 'Cancelled', 4),
-    t('proposal', 'cancelled', 'Cancelled', 5),
-    t('committed', 'cancelled', 'Cancelled', 6),
+    t('committed', 'invoiced', 'Invoice sent', 3),
+    t('invoiced', 'done', 'Paid', 4),
+    t('lead', 'cancelled', 'Cancelled', 5),
+    t('proposal', 'cancelled', 'Cancelled', 6),
+    t('committed', 'cancelled', 'Cancelled', 7),
+    t('invoiced', 'cancelled', 'Cancelled', 8),
   ]);
   if (tErr) console.error('[pulse-pipeline] transitions create failed', tErr);
 
@@ -132,6 +144,7 @@ export async function ensurePipelineFlow(workspaceId: string, ownerUserId: strin
       key: s.key,
       label: s.name,
       kind: DEFAULT_KINDS[s.key] ?? 'open',
+      default_probability: DEFAULT_PROBABILITIES[s.key] ?? null,
       sort_order: s.ordinal,
       is_system: true,
     })),
@@ -200,4 +213,115 @@ export async function syncStagesFromFlow(workspaceId: string): Promise<SyncedSta
   }
 
   return { pipeline_flow_id: flow.id };
+}
+
+// ---------------------------------------------------------------------------
+// Runtime bridge (Sjoerd 2026-07-08: opportunities must be visible in FLOW).
+// Every Pulse opportunity mirrors to a flow_run on the Pipeline flow
+// (source_app='fibre-pulse', source_ref=commitment id — unique per flow).
+// Pulse edits move the run; Flow transitions call back into the commitment
+// (see flow.ts /runs/:id/transition).
+// ---------------------------------------------------------------------------
+
+type CommitmentForRun = {
+  id: string;
+  workspace_id?: string;
+  label: string;
+  stage: string;
+  person_id: string | null;
+  organisation_id: string | null;
+  owner_user_id: string | null;
+  deleted?: boolean;
+};
+
+export async function syncOpportunityRun(
+  workspaceId: string,
+  cm: CommitmentForRun,
+): Promise<void> {
+  try {
+    const { data: flow } = await adminClient
+      .from('flow_definition')
+      .select('id, current_version_id')
+      .eq('workspace_id', workspaceId)
+      .eq('system_key', 'pulse_pipeline')
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!flow?.current_version_id) return;
+
+    const { data: existing } = await adminClient
+      .from('flow_run')
+      .select('id, current_step_id, status, deleted_at')
+      .eq('flow_id', flow.id)
+      .eq('source_app', 'fibre-pulse')
+      .eq('source_ref', cm.id)
+      .maybeSingle();
+
+    if (cm.deleted) {
+      if (existing && !existing.deleted_at) {
+        await adminClient
+          .from('flow_run')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('id', existing.id);
+      }
+      return;
+    }
+
+    const { data: step } = await adminClient
+      .from('flow_step')
+      .select('id, kind')
+      .eq('flow_version_id', flow.current_version_id)
+      .eq('key', cm.stage)
+      .maybeSingle();
+    if (!step) return; // stage key not (yet) a step of the flow — mirror sync will catch up
+
+    const isEnd = step.kind === 'end_positive' || step.kind === 'end_negative';
+    const base = {
+      person_id: cm.person_id,
+      organisation_id: cm.organisation_id,
+      subject_label: cm.label,
+      owner_user_id: cm.owner_user_id,
+      current_step_id: step.id,
+      status: isEnd ? 'completed' : 'active',
+      completed_at: isEnd ? new Date().toISOString() : null,
+    };
+
+    if (!existing || existing.deleted_at) {
+      const { error } = await adminClient.from('flow_run').insert({
+        workspace_id: workspaceId,
+        flow_id: flow.id,
+        flow_version_id: flow.current_version_id,
+        source_app: 'fibre-pulse',
+        source_ref: cm.id,
+        ...base,
+      });
+      if (error) console.error('[pulse-pipeline] run insert failed', error);
+      return;
+    }
+
+    const stepChanged = existing.current_step_id !== step.id;
+    const { error } = await adminClient
+      .from('flow_run')
+      .update({
+        ...base,
+        ...(stepChanged ? { current_step_entered_at: new Date().toISOString() } : {}),
+      })
+      .eq('id', existing.id);
+    if (error) console.error('[pulse-pipeline] run update failed', error);
+  } catch (e) {
+    console.error('[pulse-pipeline] syncOpportunityRun threw', e);
+  }
+}
+
+// Idempotent backfill: mirror every live commitment into a run. Called from
+// GET /pulse/stages (already the periodic sync point). Fine at current
+// scale; batch it when workspaces carry thousands of opportunities.
+export async function ensureOpportunityRuns(workspaceId: string): Promise<void> {
+  const { data: commitments } = await adminClient
+    .from('pulse_commitment')
+    .select('id, label, stage, person_id, organisation_id, owner_user_id')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null);
+  for (const cm of commitments ?? []) {
+    await syncOpportunityRun(workspaceId, cm as CommitmentForRun);
+  }
 }

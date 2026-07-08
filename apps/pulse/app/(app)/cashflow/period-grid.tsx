@@ -251,6 +251,10 @@ export function PeriodGrid({
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
   const [positionOpen, setPositionOpen] = useState(false);
+  // Fold state per counterparty group (unfold arrow at company level, Sjoerd
+  // 2026-07-08) — keyed by direction:groupKey, default open. The group's
+  // subtotal row stays visible when folded.
+  const [foldedGroups, setFoldedGroups] = useState<Record<string, boolean>>({});
   // Fit-to-screen: the whole table squeezes into the viewport (no h-scroll).
   const [fit, setFit] = useState(initialFit === 'on');
 
@@ -591,12 +595,33 @@ export function PeriodGrid({
   }
 
   function clientRows(groups: ClientGroup[], dir: Direction): React.ReactNode {
-    return groups.map((g) => (
+    return groups.map((g) => {
+      // Fold per company — same chevron pattern as the section headers. A
+      // group can appear under Income AND Costs, so the key carries the
+      // direction. An active filter force-expands (like the sections do).
+      const foldKey = `${dir}:${g.key}`;
+      const groupOpen = !foldedGroups[foldKey] || q !== '';
+      return (
       <FragmentRows key={g.key}>
-        {/* Client group row — bolder, with a clearer bottom border. */}
+        {/* Client group row — bolder, with a clearer bottom border. The
+            subtotals stay visible when the item rows are folded away. */}
         <tr className={ZEBRA}>
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
-            <span className={`block truncate ${labelText} font-semibold text-ink`}>{g.name}</span>
+            <button
+              type="button"
+              onClick={() => setFoldedGroups((f) => ({ ...f, [foldKey]: !f[foldKey] }))}
+              aria-expanded={groupOpen}
+              className="flex w-full items-center gap-1.5 text-left"
+            >
+              {groupOpen ? (
+                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              ) : (
+                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              )}
+              <span className={`block truncate ${labelText} font-semibold text-ink`}>
+                {g.name}
+              </span>
+            </button>
           </td>
           {visibleCols.map((col) => (
             <td
@@ -608,7 +633,7 @@ export function PeriodGrid({
             </td>
           ))}
         </tr>
-        {g.opps.map((o) => {
+        {groupOpen && g.opps.map((o) => {
           const stage = stageByKey.get(o.cm.stage);
           return (
             <tr key={o.cm.id} className={ZEBRA}>
@@ -690,7 +715,8 @@ export function PeriodGrid({
           );
         })}
       </FragmentRows>
-    ));
+      );
+    });
   }
 
   function budgetRows(rows: BudgetRow[], dir: Direction): React.ReactNode {

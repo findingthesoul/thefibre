@@ -9,7 +9,7 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Pencil } from 'lucide-react';
+import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
 import { money } from '@/lib/money';
 import { patchCommitmentField, type CommitmentFieldPatch } from './actions';
 import type { Commitment, StageOption } from './types';
@@ -179,6 +179,8 @@ export function CounterpartyTable({
   // Optimistic overrides per commitment — applied on save, kept until
   // router.refresh() brings the server truth, reverted (loudly) on error.
   const [overrides, setOverrides] = useState<Record<string, CommitmentFieldPatch>>({});
+  // Fold state per counterparty group — default open (unfolded).
+  const [folded, setFolded] = useState<Record<string, boolean>>({});
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
   const sortedStages = [...stages].sort((a, b) => a.sort_order - b.sort_order);
@@ -225,11 +227,56 @@ export function CounterpartyTable({
           {error}
         </div>
       )}
-      {[...groups.values()].map((g) => (
-        <div key={g.name} className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
-          <div className="px-5 py-3 border-b border-line text-sm font-semibold tracking-tight">
-            {g.name}
+      {[...groups.entries()].map(([gKey, g]) => {
+        const open = !folded[gKey];
+        // Net group total (income − costs) — stays visible when folded.
+        const net = g.items.reduce((acc, cm) => {
+          const view: Commitment = { ...cm, ...overrides[cm.id] };
+          const openSum = view.lines
+            .filter((l) => !l.settled_at)
+            .reduce((a, l) => a + l.amount_cents, 0);
+          const t =
+            view.unit_amount_cents != null
+              ? Math.round(view.quantity * view.unit_amount_cents)
+              : openSum;
+          return acc + (view.direction === 'out' ? -t : t);
+        }, 0);
+        return (
+        <div key={gKey} className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
+          {/* Group row: unfold arrow at company level (Sjoerd 2026-07-08) —
+              same chevron pattern as the period grid's section headers. */}
+          <div
+            className={`flex items-center justify-between gap-3 px-5 py-3 text-sm font-semibold tracking-tight ${
+              open ? 'border-b border-line' : ''
+            }`}
+          >
+            <button
+              type="button"
+              onClick={() => setFolded((f) => ({ ...f, [gKey]: !f[gKey] }))}
+              aria-expanded={open}
+              className="flex min-w-0 items-center gap-1.5 text-left"
+            >
+              {open ? (
+                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              ) : (
+                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+              )}
+              <span className="truncate">{g.name}</span>
+              <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
+                {g.items.length}
+              </span>
+            </button>
+            <span
+              className={`shrink-0 text-xs font-medium tabular-nums ${
+                net < 0 ? 'text-rose-700' : 'text-emerald-700'
+              }`}
+            >
+              {net < 0 ? '−' : ''}
+              {money(Math.abs(net))}
+            </span>
           </div>
+          {open && (
+          <>
           <div className={`${ROW_GRID} px-5 py-1.5 border-b border-line/60 text-[11px] text-ink-muted`}>
             <span>Item</span>
             <span className="text-right">No.</span>
@@ -440,8 +487,11 @@ export function CounterpartyTable({
               );
             })}
           </div>
+          </>
+          )}
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.128] — 2026-07-08 — Pulse 0.10.0 · Flow 1.11.0: opportunities live in Flow
+
+### Added
+- **The Pulse↔Flow runtime bridge** (Sjoerd: "when opportunities are in
+  the pipeline (Pulse), they should of course also be visible in FLOW").
+  Migration `20260709080000`: flow_run supports external subjects
+  (person_id nullable; subject_label, organisation_id, source_app +
+  source_ref, unique per flow). Every opportunity mirrors to a run on
+  the Pipeline flow — created/moved/completed as its stage changes
+  (create/patch/delete hooks + idempotent backfill on the stages sync).
+  **Two-way**: transitioning a mirrored run in Flow (kanban, run view)
+  updates the commitment's stage and forces 100% for committed/won
+  kinds — Flow's gates apply to those transitions. Flow renders
+  person-less runs via label/organisation with a "Pulse" source chip
+  (runs panel, kanban, run view, tasks, contacts).
+- **Invoiced is a stage** (Sjoerd: "lead, proposal, committed, done,
+  cancelled or an invoice"): seeded into new pipelines and retrofitted
+  into existing ones by migration `20260709100000` (committed → Invoice
+  sent → invoiced → Paid → done); money-kind committed — the receivable
+  state.
+- **Per-stage default probability** (same migration): lead 25 ·
+  proposal 60 · committed/invoiced/done 100 · cancelled 0, stored on
+  pulse_stage, editable via the stages API, applied automatically when
+  a row enters a stage unless explicitly overridden per row.
+- **Cashflow per me / team / workspace (backend)** (migration
+  `20260709110000`): pulse_budget_line gains team_id (null = workspace
+  overhead); the projection + budget-lines endpoints accept ?team_id=
+  and ?owner=me, scoping commitments + recurring lines. Workspace scope
+  stays admin-gated by RLS ("workspace may only be visible to the ones
+  who have access" — organisers' reads are self-scoped by policy). The
+  visible Me/Team/Workspace switcher follows in the UI batch.
+- **Company-aware person picker**: with an organisation selected, its
+  people list first; new people auto-link to the company; picking an
+  unlinked person asks before creating the connection (org_membership —
+  the real contact graph). Fold arrows on company rows in both views.
+
 ## [0.13.127] — 2026-07-08 — Pulse 0.9.0: every line works on its own
 
 ### Changed
