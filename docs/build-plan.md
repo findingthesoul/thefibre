@@ -69,6 +69,11 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
     real Soul Lab sheet as seed). Vercel gotcha for future apps: new
     project must have Build/Install command overrides OFF (vercel.json
     drives) — copied web-project overrides built the wrong app.
+10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
+    table is already the single source of truth, but CRUD lives under
+    /api/v1/meet/teams (historical). Promote to platform /api/v1/teams
+    (Meet route becomes a thin alias); Pulse P2's involved-teams picker
+    is the first consumer. Same play as the payments/connections SPoTs.
 11. **Platform**: Fibre Change app (home the change-facilitation fields),
     Article 15 export / retention admin / cross-app erasure, billing next
     phases, drop person_change_context table.
