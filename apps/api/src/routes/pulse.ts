@@ -1,6 +1,9 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient } from '../db.js';
+import { userClient, adminClient } from '../db.js';
+import { recordPurchase } from '../lib/purchases.js';
+import { sendEmail } from '../lib/email/client.js';
+import { shell, escapeHtml } from '../lib/email/templates.js';
 import {
   ensurePipelineFlow,
   ensureOpportunityRuns,
@@ -37,6 +40,7 @@ const PutSettings = z.object({
   horizon_months: z.number().int().min(1).max(60).optional(),
   include_ledger: z.boolean().optional(),
   ledger_terms_days: z.number().int().min(0).max(120).optional(),
+  snapshot_cadence_days: z.number().int().min(1).max(90).optional().nullable(),
 });
 
 const CreateAccount = z.object({
@@ -103,9 +107,23 @@ const CreateCommitment = z.object({
     .nullable(),
   repeat_starts_on: z.string().date().optional().nullable(),
   repeat_until: z.string().date().optional().nullable(),
+  vat_pct: z.number().min(0).max(100).optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
+
+const CreateItem = z.object({
+  offering_id: z.string().uuid().optional().nullable(),
+  name: z.string().min(1).max(200),
+  quantity: z.number().positive().max(1_000_000).default(1),
+  unit_amount_cents: z.number().int(),
+  repeat_cadence: z
+    .enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'])
+    .optional()
+    .nullable(),
+  sort_order: z.number().int().optional(),
+});
+const PatchItem = CreateItem.partial();
 
 // Stage metadata for a workspace, keyed by stage key. Unknown keys degrade
 // to 'open' so a half-migrated row never crashes the projection.
@@ -473,13 +491,14 @@ pulseRoutes.patch('/stages/:id', async (c) => {
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
-  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, notes, created_at, updated_at, ' +
+  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, invoice_no, invoice_issued_at, purchase_id, notes, created_at, updated_at, ' +
   'person_id, organisation_id, team_id, project_id, offering_id, owner_user_id, ' +
   'person:person_id (id, first_name, last_name, email), ' +
   'organisation:organisation_id (id, name), ' +
   'project:project_id (id, name), ' +
   'offering:offering_id (id, name), ' +
-  'lines:pulse_commitment_line (id, expected_date, amount_cents, invoice_ref, invoiced_at, purchase_id, settled_at)';
+  'lines:pulse_commitment_line (id, expected_date, amount_cents, invoice_ref, invoiced_at, purchase_id, settled_at), ' +
+  'items:pulse_commitment_item (id, offering_id, name, quantity, unit_amount_cents, repeat_cadence, sort_order)';
 
 pulseRoutes.get('/commitments', async (c) => {
   const ctx = c.get('ctx');
@@ -549,14 +568,27 @@ pulseRoutes.patch('/commitments/:id', async (c) => {
   return c.json({ item: data });
 });
 
-// Soft delete — hard rule #4.
+// Soft delete — hard rule #4. Visibility check runs through RLS (userClient
+// SELECT: workspace + membership + admin-or-owner); the deleted_at stamp
+// itself runs on adminClient — the RLS UPDATE path 500'd for a super_admin
+// owner on 2026-07-08 (same phantom as contact creation); verify-then-act
+// is the established platform pattern for it.
 pulseRoutes.delete('/commitments/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const { error } = await db
+  const { data: visible, error: vErr } = await db
+    .from('pulse_commitment')
+    .select('id')
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (vErr) return fail(c, 'delete commitment (visibility)', vErr);
+  if (!visible) return c.json({ error: 'not found' }, 404);
+  const { error } = await adminClient
     .from('pulse_commitment')
     .update({ deleted_at: new Date().toISOString() })
-    .eq('id', c.req.param('id'));
+    .eq('id', visible.id)
+    .eq('workspace_id', ctx.workspaceId);
   if (error) return fail(c, 'delete commitment', error);
   await syncOpportunityRun(ctx.workspaceId, {
     id: c.req.param('id'),
@@ -584,6 +616,43 @@ pulseRoutes.post('/commitments/:id/lines', async (c) => {
   return c.json({ item: data }, 201);
 });
 
+pulseRoutes.post('/commitments/:id/items', async (c) => {
+  const body = CreateItem.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('pulse_commitment_item')
+    .insert({ commitment_id: c.req.param('id'), ...body.data })
+    .select('*')
+    .single();
+  if (error) return fail(c, 'create item', error);
+  return c.json({ item: data }, 201);
+});
+
+pulseRoutes.patch('/items/:id', async (c) => {
+  const body = PatchItem.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('pulse_commitment_item')
+    .update(body.data)
+    .eq('id', c.req.param('id'))
+    .select('*')
+    .single();
+  if (error) return fail(c, 'patch item', error);
+  return c.json({ item: data });
+});
+
+pulseRoutes.delete('/items/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('pulse_commitment_item').delete().eq('id', c.req.param('id'));
+  if (error) return fail(c, 'delete item', error);
+  return c.body(null, 204);
+});
+
 pulseRoutes.patch('/lines/:id', async (c) => {
   const body = PatchLine.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -605,6 +674,173 @@ pulseRoutes.delete('/lines/:id', async (c) => {
   const { error } = await db.from('pulse_commitment_line').delete().eq('id', c.req.param('id'));
   if (error) return fail(c, 'delete line', error);
   return c.body(null, 204);
+});
+
+// ---------------------------------------------------------------------------
+// POST /commitments/:id/invoice — transfer an opportunity into an invoice
+// (proposal §2.8): next number from the workspace sequence, stage →
+// invoiced, a purchase-ledger row (SPoT — the Invoices area shows it,
+// include_ledger feeds it back as a receivable), and the receipt-styled
+// email — sent when ?send=1 or the auto-send setting is on.
+// ---------------------------------------------------------------------------
+pulseRoutes.post('/commitments/:id/invoice', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const explicitSend = c.req.query('send') === '1';
+
+  const { data: cm, error: cmErr } = await db
+    .from('pulse_commitment')
+    .select(COMMITMENT_SELECT)
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null)
+    .single();
+  if (cmErr || !cm) return c.json({ error: 'opportunity not found' }, 404);
+  if ((cm as any).invoice_no) {
+    return c.json({ error: `already invoiced as ${(cm as any).invoice_no}` }, 409);
+  }
+
+  // Total: items win over legacy qty × unit; VAT on top when set.
+  const items = ((cm as any).items ?? []) as {
+    name: string;
+    quantity: number;
+    unit_amount_cents: number;
+  }[];
+  const netCents = items.length
+    ? items.reduce((a, i) => a + Math.round(Number(i.quantity) * i.unit_amount_cents), 0)
+    : Math.round(Number((cm as any).quantity ?? 1) * ((cm as any).unit_amount_cents ?? 0));
+  if (!netCents) return c.json({ error: 'nothing to invoice — no items or deal size' }, 400);
+  const vatPct = Number((cm as any).vat_pct ?? 0);
+  const totalCents = Math.round(netCents * (1 + vatPct / 100));
+
+  // Number from the workspace sequence (adminClient: single-row bump).
+  const { data: settings } = await adminClient
+    .from('pulse_settings')
+    .select('invoice_prefix, invoice_next_number, invoice_auto_send, currency')
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  const seq = settings?.invoice_next_number ?? 1;
+  const invoiceNo = `${settings?.invoice_prefix ?? ''}${String(seq).padStart(4, '0')}`;
+  await adminClient
+    .from('pulse_settings')
+    .update({ invoice_next_number: seq + 1 })
+    .eq('workspace_id', ctx.workspaceId);
+
+  // Ledger row — the SPoT for money events.
+  const person = Array.isArray((cm as any).person) ? (cm as any).person[0] : (cm as any).person;
+  const org = Array.isArray((cm as any).organisation)
+    ? (cm as any).organisation[0]
+    : (cm as any).organisation;
+  await recordPurchase({
+    appSlug: 'fibre-pulse',
+    workspaceId: ctx.workspaceId,
+    itemRef: (cm as any).id,
+    personId: (cm as any).person_id ?? null,
+    payerName: org?.name ?? [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+    payerEmail: person?.email ?? null,
+    itemLabel: `${invoiceNo} · ${(cm as any).label}`,
+    organiserUserId: (cm as any).owner_user_id ?? ctx.userId,
+    teamId: (cm as any).team_id ?? null,
+    amountCents: totalCents,
+    currency: (settings?.currency ?? 'EUR').toLowerCase(),
+    method: 'invoice',
+    status: 'pending',
+  });
+  const { data: purchaseRow } = await adminClient
+    .from('purchase')
+    .select('id')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('item_ref', (cm as any).id)
+    .maybeSingle();
+
+  // Stamp the opportunity; invoiced stage exists in every pipeline.
+  const kinds = await stageKinds(db);
+  const targetStage = kinds.has('invoiced') ? 'invoiced' : (cm as any).stage;
+  const { data: updated, error: upErr } = await db
+    .from('pulse_commitment')
+    .update({
+      invoice_no: invoiceNo,
+      invoice_issued_at: new Date().toISOString(),
+      purchase_id: purchaseRow?.id ?? null,
+      stage: targetStage,
+      probability: 100,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', (cm as any).id)
+    .select(COMMITMENT_SELECT)
+    .single();
+  if (upErr) return fail(c, 'invoice stamp', upErr);
+  await syncOpportunityRun(ctx.workspaceId, updated as any);
+
+  // Send — explicit or auto. No recipient email = saved unsent, said plainly.
+  let sent = false;
+  let sendNote: string | null = null;
+  if (explicitSend || settings?.invoice_auto_send) {
+    const to = person?.email ?? null;
+    if (!to) {
+      sendNote = 'no counterparty email — invoice saved, not sent';
+    } else {
+      const fmt = (cents: number) =>
+        new Intl.NumberFormat('nl-NL', {
+          style: 'currency',
+          currency: settings?.currency ?? 'EUR',
+        }).format(cents / 100);
+      const rows = (items.length
+        ? items
+        : [{ name: (cm as any).label, quantity: (cm as any).quantity ?? 1, unit_amount_cents: (cm as any).unit_amount_cents ?? netCents }]
+      )
+        .map(
+          (i) =>
+            `<tr><td style="padding:4px 12px 4px 0">${escapeHtml(i.name)}</td>` +
+            `<td style="padding:4px 12px;text-align:right">${Number(i.quantity)}</td>` +
+            `<td style="padding:4px 0;text-align:right">${fmt(Math.round(Number(i.quantity) * i.unit_amount_cents))}</td></tr>`,
+        )
+        .join('');
+      const body =
+        `<p>Invoice <strong>${escapeHtml(invoiceNo)}</strong></p>` +
+        `<table style="border-collapse:collapse">${rows}</table>` +
+        `<p style="margin-top:12px">Net ${fmt(netCents)}` +
+        (vatPct ? ` · VAT ${vatPct}% · <strong>Total ${fmt(totalCents)}</strong>` : ` · <strong>Total ${fmt(totalCents)}</strong>`) +
+        `</p>`;
+      try {
+        await sendEmail({
+          to,
+          subject: `Invoice ${invoiceNo} — ${(cm as any).label}`,
+          text: `Invoice ${invoiceNo}. Total ${fmt(totalCents)}.`,
+          html: shell(`Invoice ${invoiceNo}`, body),
+        });
+        sent = true;
+      } catch (e) {
+        console.error('[pulse] invoice email failed', e);
+        sendNote = 'email failed — invoice saved; resend from the Invoices area';
+      }
+    }
+  }
+
+  return c.json({ item: updated, invoice_no: invoiceNo, sent, note: sendNote });
+});
+
+// GET /snapshots — stored projection overviews (metadata only; ?id= returns
+// one payload). The comparison view consumes these.
+pulseRoutes.get('/snapshots', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const one = c.req.query('id');
+  if (one) {
+    const { data, error } = await db
+      .from('pulse_projection_snapshot')
+      .select('*')
+      .eq('id', one)
+      .maybeSingle();
+    if (error) return fail(c, 'snapshot get', error);
+    return c.json({ item: data });
+  }
+  const { data, error } = await db
+    .from('pulse_projection_snapshot')
+    .select('id, taken_at, granularity')
+    .order('taken_at', { ascending: false })
+    .limit(120);
+  if (error) return fail(c, 'snapshot list', error);
+  return c.json({ items: data ?? [] });
 });
 
 // ---------------------------------------------------------------------------
@@ -1011,7 +1247,7 @@ pulseRoutes.get('/projection', async (c) => {
   // Reservation rules: % of the period's income, per layer.
   const { data: rules, error: rErr } = await db
     .from('pulse_reservation_rule')
-    .select('id, label, percentage, included, sort_order')
+    .select('id, label, percentage, included, sort_order, target_account_id')
     .eq('included', true)
     .order('sort_order', { ascending: true });
   if (rErr) return fail(c, 'projection rules', rErr);
@@ -1037,6 +1273,46 @@ pulseRoutes.get('/projection', async (c) => {
   const dipCommitted = periods.find((p) => p.balance_committed < 0)?.start ?? null;
   const dipExpected = periods.find((p) => p.balance_expected < 0)?.start ?? null;
 
+  // History capture (proposal follow-up, Sjoerd 2026-07-09): when a cadence
+  // is set and the last overview is older than it, store this projection
+  // (workspace scope only — comparisons compare the whole picture) and
+  // prune anything older than two years. Lazy-on-read: fires when someone
+  // looks at the cashflow, which in practice is daily.
+  if (
+    settings?.snapshot_cadence_days &&
+    !mine &&
+    !teamId &&
+    (!settings.snapshot_last_at ||
+      Date.now() - new Date(settings.snapshot_last_at).getTime() >
+        settings.snapshot_cadence_days * 86400000)
+  ) {
+    const payload = {
+      granularity,
+      anchor: { bank_cents: bankTotal, reserve_cents: reserveTotal },
+      reservation_pct: totalPct,
+      dips_below_zero: { committed: dipCommitted, expected: dipExpected },
+      periods,
+    };
+    const { error: snapErr } = await adminClient.from('pulse_projection_snapshot').insert({
+      workspace_id: ctx.workspaceId,
+      granularity,
+      payload,
+    });
+    if (snapErr) console.error('[pulse] snapshot capture failed', snapErr);
+    else {
+      await adminClient
+        .from('pulse_settings')
+        .update({ snapshot_last_at: new Date().toISOString() })
+        .eq('workspace_id', ctx.workspaceId);
+      const twoYearsAgo = new Date(Date.now() - 2 * 365 * 86400000).toISOString();
+      await adminClient
+        .from('pulse_projection_snapshot')
+        .delete()
+        .eq('workspace_id', ctx.workspaceId)
+        .lt('taken_at', twoYearsAgo);
+    }
+  }
+
   return c.json({
     granularity,
     team_id: teamId,
@@ -1049,6 +1325,7 @@ pulseRoutes.get('/projection', async (c) => {
       id: r.id,
       label: r.label,
       percentage: Number(r.percentage),
+      target_account_id: r.target_account_id ?? null,
     })),
     dips_below_zero: { committed: dipCommitted, expected: dipExpected },
     periods,

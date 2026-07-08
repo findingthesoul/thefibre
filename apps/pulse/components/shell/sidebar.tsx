@@ -11,6 +11,7 @@ import {
   Landmark,
   HelpCircle,
   Settings,
+  UsersRound,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -29,9 +30,14 @@ const NAV: NavSection[] = [
     label: 'Plan',
     items: [
       { href: '/cashflow', label: 'Cashflow', icon: TrendingUp },
-      { href: '/projects', label: 'Teams & projects', icon: FolderKanban },
+      { href: '/projects', label: 'Projects', icon: FolderKanban },
       { href: '/budget', label: 'Budget', icon: Table2 },
     ],
+  },
+  {
+    // Teams live under People, the Thread pattern (Sjoerd 2026-07-09).
+    label: 'People',
+    items: [{ href: '/teams', label: 'Teams', icon: UsersRound }],
   },
   {
     label: 'Money',

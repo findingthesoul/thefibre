@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.132] — 2026-07-09 — Pulse 0.11.1: backend train + Teams under People
+
+Interim ship (the popup-redesign agent is still building the UI half).
+
+### Added
+- **Offering rows + VAT + invoicing (backend)** (migration
+  `20260709140000`): pulse_commitment_item (offering × qty × price ×
+  repeat), VAT tariffs list + invoice numbering/auto-send in settings,
+  and POST /commitments/:id/invoice — number from the workspace
+  sequence, purchase-ledger row (SPoT), stage→invoiced, receipt email
+  (manual or auto). UI follows with the agent batch.
+- **Projection history (backend)** (migration `20260709160000`):
+  snapshot_cadence_days in settings; the projection stores itself on
+  cadence (workspace scope), keeps two years, GET /pulse/snapshots
+  lists/serves them — comparison material.
+- **Teams under People** (the Thread sidebar pattern): new /teams page —
+  all workspace teams, member counts, planner-involvement toggle, "Open
+  cashflow" per involved team. Projects page is purely Projects.
+- Reservation rules expose their target bucket to the grid (reserve
+  accounts will show virtual growth in the agent batch).
+
+### Fixed
+- **Deleting an income/cost 500'd on RLS despite owner+admin** — the
+  soft delete now verifies visibility through RLS and stamps via the
+  service role (the contact-creation pattern), with full error logging.
+
 ## [0.13.131] — 2026-07-08 — Pulse 0.11.0: the org popup, scopes, and the day's last batch
 
 ### Added

@@ -14,7 +14,7 @@ async function appId(slug: string): Promise<string | null> {
 }
 
 export type PurchaseWrite = {
-  appSlug: 'the-thread' | 'fibre-meet';
+  appSlug: 'the-thread' | 'fibre-meet' | 'fibre-pulse';
   workspaceId: string;
   itemRef: string;
   personId?: string | null;

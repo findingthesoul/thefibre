@@ -21,10 +21,10 @@ export function ProjectsView({ teams, projects }: { teams: InvolvedTeam[]; proje
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Teams & projects</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Projects</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Hubs and incubators are Fibre teams; projects run under them. Which teams take part is
-            set in Settings.
+            Projects run under your involved teams (hubs/incubators) or free-standing. Teams live
+            under People → Teams.
           </p>
         </div>
         <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
