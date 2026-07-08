@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.130] — 2026-07-08 — Pulse 0.10.2: every reservation visible
+
+### Changed
+- RESERVES folds open like the other sections: header keeps the total
+  per period; expanded shows one row per reservation rule (label + %,
+  per-period amount = % of that period's weighted income). The
+  projection response now carries the included rules.
+
 ## [0.13.129] — 2026-07-08 — Pulse 0.10.1: financial position = current
 
 ### Changed

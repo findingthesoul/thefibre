@@ -120,6 +120,7 @@ export type Projection = {
   currency: string;
   anchor: { bank_cents: number; reserve_cents: number };
   reservation_pct: number;
+  reservation_rules?: { id: string; label: string; percentage: number }[];
   periods: ProjectionPeriod[];
 };
 

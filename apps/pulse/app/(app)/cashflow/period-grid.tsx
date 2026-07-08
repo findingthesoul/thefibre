@@ -292,6 +292,7 @@ export function PeriodGrid({
   // The current period — the first droppable column, whether or not Overdue
   // renders. Account balances edit HERE (it's "now or closest to now").
   const currentColKey = starts[0];
+  const [reservesOpen, setReservesOpen] = useState(false);
 
   const colIdxFor = (date: string): number => {
     if (date < starts[0]) return 0;
@@ -975,20 +976,38 @@ export function PeriodGrid({
                 </AddRow>
               )}
 
-              {/* 4 · RESERVES */}
+              {/* 4 · RESERVES — header total + one row per rule (Sjoerd:
+                  "I have made two reservations, I should see both"). */}
               {projection && (
-                <tr>
-                  <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-ink-muted">
-                      Reserves
-                    </span>
-                  </td>
-                  {visibleCols.map((col) => (
-                    <td key={col.key} className={numCell}>
-                      {renderMoney(reservedFor(col), `${cellText} text-ink-muted`)}
-                    </td>
-                  ))}
-                </tr>
+                <>
+                  {sectionHeaderRow({
+                    label: 'Reserves',
+                    valueFor: reservedFor,
+                    count: projection.reservation_rules?.length ?? undefined,
+                    open: reservesOpen,
+                    onToggle: () => setReservesOpen((v) => !v),
+                  })}
+                  {reservesOpen &&
+                    (projection.reservation_rules ?? []).map((rule) => (
+                      <tr key={rule.id}>
+                        <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+                          <span className="ml-5 border-l border-line/60 pl-2 text-xs text-ink-subtle">
+                            {rule.label}{' '}
+                            <span className="text-ink-muted">({rule.percentage}%)</span>
+                          </span>
+                        </td>
+                        {visibleCols.map((col) => {
+                          const income = projection.periods[col.idx]?.expected_in ?? 0;
+                          const v = Math.round((income * rule.percentage) / 100);
+                          return (
+                            <td key={col.key} className={numCell}>
+                              {renderMoney(v || null, `${cellText} text-ink-muted`)}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    ))}
+                </>
               )}
 
               {/* 5 · END POSITION — the sheet's red row. */}

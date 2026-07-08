@@ -1011,8 +1011,9 @@ pulseRoutes.get('/projection', async (c) => {
   // Reservation rules: % of the period's income, per layer.
   const { data: rules, error: rErr } = await db
     .from('pulse_reservation_rule')
-    .select('percentage, included')
-    .eq('included', true);
+    .select('id, label, percentage, included, sort_order')
+    .eq('included', true)
+    .order('sort_order', { ascending: true });
   if (rErr) return fail(c, 'projection rules', rErr);
   const totalPct = (rules ?? []).reduce((acc, r) => acc + Number(r.percentage), 0);
 
@@ -1044,6 +1045,11 @@ pulseRoutes.get('/projection', async (c) => {
     currency: settings?.currency ?? 'EUR',
     anchor: { bank_cents: bankTotal, reserve_cents: reserveTotal },
     reservation_pct: totalPct,
+    reservation_rules: (rules ?? []).map((r) => ({
+      id: r.id,
+      label: r.label,
+      percentage: Number(r.percentage),
+    })),
     dips_below_zero: { committed: dipCommitted, expected: dipExpected },
     periods,
   });
