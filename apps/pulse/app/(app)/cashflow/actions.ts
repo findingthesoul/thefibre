@@ -398,6 +398,23 @@ export async function invoiceCommitment(
   }
 }
 
+// ⌥-drag = copy: duplicate expected payments into another period.
+export async function duplicateLines(
+  lineIds: string[],
+  expectedDate: string,
+): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/pulse/lines/duplicate', {
+      method: 'POST',
+      body: JSON.stringify({ ids: lineIds, expected_date: expectedDate }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Soft delete (API sets deleted_at — hard rule #4).
 export async function deleteCommitment(id: string): Promise<ActionResult> {
   try {

@@ -34,7 +34,7 @@ import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { addLine, moveLine, moveLines, updateLineAmount } from './actions';
+import { addLine, duplicateLines, moveLine, moveLines, updateLineAmount } from './actions';
 import { recordSnapshots } from '../accounts/actions';
 import { loadOpenGroups, saveOpenGroups } from './types';
 import type {
@@ -554,12 +554,22 @@ export function PeriodGrid({
     setHoverCol(null);
     const payload = e.dataTransfer.getData('text/plain');
     if (!payload) return;
+    // ⌥ held on drop = duplicate into the target period (the spreadsheet
+    // alt-drag copy); without it, move as always.
+    const copy = e.altKey;
 
     if (payload.startsWith(GROUP_DRAG_PREFIX)) {
       let ids: string[] = [];
       try {
         ids = (JSON.parse(payload.slice(GROUP_DRAG_PREFIX.length)) as { ids?: string[] }).ids ?? [];
       } catch {
+        return;
+      }
+      if (copy) {
+        setError(null);
+        const res = await duplicateLines(ids, colKey);
+        if (res.error) setError(`Could not duplicate: ${res.error}`);
+        else router.refresh();
         return;
       }
       ids = ids.filter((id) => lineCol.get(id) !== colKey);
@@ -586,6 +596,13 @@ export function PeriodGrid({
     }
 
     const lineId = payload;
+    if (copy) {
+      setError(null);
+      const res = await duplicateLines([lineId], colKey);
+      if (res.error) setError(`Could not duplicate: ${res.error}`);
+      else router.refresh();
+      return;
+    }
     if (lineCol.get(lineId) === colKey) return;
     setError(null);
     // Optimistic: the pill jumps to the target column immediately.
@@ -609,7 +626,7 @@ export function PeriodGrid({
       ? {
           onDragOver: (e: React.DragEvent) => {
             e.preventDefault();
-            e.dataTransfer.dropEffect = 'move';
+            e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
             setHoverCol((h) => (h === col.key ? h : col.key));
           },
           onDragLeave: (e: React.DragEvent) => {
@@ -804,7 +821,7 @@ export function PeriodGrid({
                         'text/plain',
                         GROUP_DRAG_PREFIX + JSON.stringify({ ids: draggableIds }),
                       );
-                      e.dataTransfer.effectAllowed = 'move';
+                      e.dataTransfer.effectAllowed = 'copyMove';
                     }}
                     title={`${g.name} — drag to retime all ${draggableIds.length} expected payment${
                       draggableIds.length === 1 ? '' : 's'
@@ -1514,7 +1531,7 @@ function AmountChip({
       onDragStart={(e) => {
         draggedRef.current = true;
         e.dataTransfer.setData('text/plain', card.line.id);
-        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.effectAllowed = 'copyMove';
       }}
       onDragEnd={() => {
         setTimeout(() => {

@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.134] — 2026-07-09 — Pulse 0.12.1: ⌥-drag duplicates
+
+### Added
+- **Option-drag copies** ("Select + option = duplicate in the same
+  row"): hold ⌥ while dropping an amount chip — or a whole org-level
+  subtotal — on another period and the payment(s) are duplicated there
+  instead of moved (cursor shows copy; invoice/settle state never
+  copies). POST /pulse/lines/duplicate behind it.
+
 ## [0.13.133] — 2026-07-09 — Pulse 0.12.0: the popup rebuilt + ten grid refinements
 
 ### Changed

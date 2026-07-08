@@ -659,6 +659,34 @@ pulseRoutes.delete('/items/:id', async (c) => {
   return c.body(null, 204);
 });
 
+// POST /lines/duplicate — ⌥-drag copies expected payments to another period
+// (Sjoerd 2026-07-09: "Select + option = duplicate in the same row").
+pulseRoutes.post('/lines/duplicate', async (c) => {
+  const body = z
+    .object({ ids: z.array(z.string().uuid()).min(1).max(100), expected_date: z.string().date() })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // RLS scopes what the caller may read; copies carry amount + parent only
+  // (a duplicate is a new expectation — invoice/settle state never copies).
+  const { data: lines, error: lErr } = await db
+    .from('pulse_commitment_line')
+    .select('id, commitment_id, amount_cents')
+    .in('id', body.data.ids);
+  if (lErr) return fail(c, 'duplicate read', lErr);
+  if (!lines?.length) return c.json({ error: 'nothing to duplicate' }, 404);
+  const { error: iErr } = await db.from('pulse_commitment_line').insert(
+    lines.map((l) => ({
+      commitment_id: l.commitment_id,
+      expected_date: body.data.expected_date,
+      amount_cents: l.amount_cents,
+    })),
+  );
+  if (iErr) return fail(c, 'duplicate insert', iErr);
+  return c.json({ duplicated: lines.length }, 201);
+});
+
 pulseRoutes.patch('/lines/:id', async (c) => {
   const body = PatchLine.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
