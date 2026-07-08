@@ -43,6 +43,9 @@ export type CommitmentPayload = {
   repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
   repeat_starts_on: string | null;
   repeat_until: string | null;
+  // VAT tariff (pct) applied on top of the net total. null = no VAT.
+  // Optional so quick-add and other minimal callers stay untouched.
+  vat_pct?: number | null;
   notes: string | null;
 };
 
@@ -56,17 +59,34 @@ export type LinePayload = {
   settled_at: string | null;
 };
 
+// Offering rows — same diffing contract as lines (delete removed, post new,
+// patch dirty existing).
+export type ItemPayload = {
+  id?: string; // present = existing item
+  dirty?: boolean; // existing item whose fields changed → PATCH
+  offering_id: string | null;
+  name: string;
+  quantity: number;
+  unit_amount_cents: number;
+  repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  sort_order: number;
+};
+
 // One action for the whole dialog save: create-or-patch the commitment, then
-// diff the desired lines against the originals (delete removed, post new,
-// patch changed). Single round-trip from the client.
+// diff the desired lines AND offering items against the originals (delete
+// removed, post new, patch changed). Single round-trip from the client.
 export async function saveCommitment(input: {
   id: string | null;
   commitment: CommitmentPayload;
   lines: LinePayload[];
   originalLineIds: string[];
+  items?: ItemPayload[];
+  originalItemIds?: string[];
 }): Promise<ActionResult<{ id: string }>> {
   try {
     const { id, commitment, lines, originalLineIds } = input;
+    const items = input.items ?? [];
+    const originalItemIds = input.originalItemIds ?? [];
 
     let commitmentId = id;
     if (commitmentId) {
@@ -105,6 +125,32 @@ export async function saveCommitment(input: {
         });
       } else if (l.dirty) {
         await apiFetch(`/api/v1/pulse/lines/${l.id}`, { method: 'PATCH', body });
+      }
+    }
+
+    // Offering items — the exact same diffing dance.
+    const keptItemIds = new Set(items.map((i) => i.id).filter(Boolean));
+    for (const itemId of originalItemIds) {
+      if (!keptItemIds.has(itemId)) {
+        await apiFetch(`/api/v1/pulse/items/${itemId}`, { method: 'DELETE' });
+      }
+    }
+    for (const i of items) {
+      const body = JSON.stringify({
+        offering_id: i.offering_id,
+        name: i.name,
+        quantity: i.quantity,
+        unit_amount_cents: i.unit_amount_cents,
+        repeat_cadence: i.repeat_cadence,
+        sort_order: i.sort_order,
+      });
+      if (!i.id) {
+        await apiFetch(`/api/v1/pulse/commitments/${commitmentId}/items`, {
+          method: 'POST',
+          body,
+        });
+      } else if (i.dirty) {
+        await apiFetch(`/api/v1/pulse/items/${i.id}`, { method: 'PATCH', body });
       }
     }
 
@@ -239,6 +285,27 @@ export async function moveLine(lineId: string, expectedDate: string): Promise<Ac
   }
 }
 
+// Org-level drag on the by-period board (Sjoerd 2026-07-09: "the numbers on
+// org level should be drag and drop too"): re-date every one-off line of a
+// client group's period in one go. One revalidate at the end.
+export async function moveLines(
+  lineIds: string[],
+  expectedDate: string,
+): Promise<ActionResult> {
+  try {
+    for (const id of lineIds) {
+      await apiFetch(`/api/v1/pulse/lines/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ expected_date: expectedDate }),
+      });
+    }
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Inline chip editing on the by-period grid: change one payment's amount
 // without opening the dialog.
 export async function updateLineAmount(
@@ -303,6 +370,29 @@ export async function patchCommitmentField(
     });
     revalidatePath('/cashflow');
     return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// Transfer an opportunity into an invoice (proposal §2.8): the API assigns
+// the next number from Settings, writes the purchase-ledger row, moves the
+// stage to invoiced, and (with send) emails the counterparty. `note` carries
+// the plain-english reason when the email couldn't go out.
+export async function invoiceCommitment(
+  id: string,
+  send: boolean,
+): Promise<ActionResult<{ invoice_no: string; sent: boolean; note: string | null }>> {
+  try {
+    const r = await apiFetch<{ invoice_no: string; sent: boolean; note: string | null }>(
+      `/api/v1/pulse/commitments/${id}/invoice${send ? '?send=1' : ''}`,
+      { method: 'POST' },
+    );
+    revalidatePath('/cashflow');
+    return {
+      ok: true,
+      data: { invoice_no: r.invoice_no, sent: r.sent, note: r.note ?? null },
+    };
   } catch (e) {
     return { error: formatApiError(e) };
   }

@@ -41,6 +41,12 @@ const PutSettings = z.object({
   include_ledger: z.boolean().optional(),
   ledger_terms_days: z.number().int().min(0).max(120).optional(),
   snapshot_cadence_days: z.number().int().min(1).max(90).optional().nullable(),
+  vat_tariffs: z
+    .array(z.object({ label: z.string().min(1).max(60), pct: z.number().min(0).max(100) }))
+    .max(12)
+    .optional(),
+  invoice_prefix: z.string().max(20).optional(),
+  invoice_auto_send: z.boolean().optional(),
 });
 
 const CreateAccount = z.object({

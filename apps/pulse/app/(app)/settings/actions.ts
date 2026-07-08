@@ -38,6 +38,11 @@ export async function updatePulseSettings(input: {
   // Ledger invoices → pipeline (P4 opt-in) + expected settlement terms.
   include_ledger?: boolean;
   ledger_terms_days?: number;
+  // Invoicing: number prefix, auto-send, and the VAT tariff list the
+  // opportunity popup offers ([{label, pct}]).
+  invoice_prefix?: string;
+  invoice_auto_send?: boolean;
+  vat_tariffs?: { label: string; pct: number }[];
 }): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/pulse/settings', {

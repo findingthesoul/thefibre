@@ -24,6 +24,9 @@ export function Combobox({
   onSelect,
   onCreate,
   createExtraField,
+  onFreeText,
+  freeLabel,
+  actionItem,
 }: {
   value: string;
   options: ComboOption[];
@@ -35,6 +38,13 @@ export function Combobox({
   onCreate?: (query: string, extra?: string) => Promise<ComboCreateResult>;
   /** Extra value collected before onCreate runs (e.g. the email a person requires). */
   createExtraField?: { label: string; placeholder?: string };
+  /** Present = typing a non-match keeps it as free text: committed on blur
+   *  and via a "Use '<query>'" list item (the offering rows' name field). */
+  onFreeText?: (text: string) => void;
+  /** Shown when no option is selected (the current free-text value). */
+  freeLabel?: string;
+  /** A fixed last entry regardless of the query (e.g. "Add person…"). */
+  actionItem?: { label: string; onPick: () => void };
 }) {
   const selected = options.find((o) => o.id === value) ?? null;
   const [open, setOpen] = useState(false);
@@ -91,6 +101,31 @@ export function Combobox({
         </span>
       ),
       onPick: startCreate,
+    });
+  }
+  // Free text: a typed non-match is a legitimate value (offering row names).
+  if (onFreeText && rawQuery && !options.some((o) => o.label === rawQuery)) {
+    items.push({
+      key: '__free',
+      node: (
+        <span>
+          Use &lsquo;<span className="font-medium">{rawQuery}</span>&rsquo;
+        </span>
+      ),
+      onPick: () => {
+        onFreeText(rawQuery);
+        close();
+      },
+    });
+  }
+  if (actionItem) {
+    items.push({
+      key: '__action',
+      node: <span className="font-medium">{actionItem.label}</span>,
+      onPick: () => {
+        actionItem.onPick();
+        close();
+      },
     });
   }
 
@@ -152,14 +187,21 @@ export function Combobox({
     }
   }
 
-  const display = query !== null ? query : selected?.label ?? '';
+  const display = query !== null ? query : selected?.label ?? freeLabel ?? '';
 
   return (
     <div
       className="relative"
       onBlur={(e) => {
         // Close only when focus truly leaves the combobox (input → panel is fine).
-        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) close();
+        if (!e.currentTarget.contains(e.relatedTarget as Node | null)) {
+          // Free-text mode: leaving with an edited query commits it as the
+          // value (picking an option resets query first, so no double-fire).
+          if (onFreeText && query !== null && rawQuery !== (selected?.label ?? freeLabel ?? '')) {
+            onFreeText(rawQuery);
+          }
+          close();
+        }
       }}
     >
       <input

@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.133] — 2026-07-09 — Pulse 0.12.0: the popup rebuilt + ten grid refinements
+
+### Changed
+- **The opportunity popup, Sjoerd's exact order**: direction → name →
+  contact (org selected → ONLY its people; "Add person…" opens a nested
+  search-or-create popup; unlinked picks still confirm) → expected date
+  → stage → **offering rows** (select-or-type × qty × price × repeat,
+  weighted amounts, + add offering) → weighted/full totals → **VAT
+  tariff** + total incl VAT → owner | auto team → notes. Saved income
+  gets **Invoice…** (nested confirm: create / create & send; number,
+  ledger row, email) with "Invoice {no}" badges everywhere.
+- **The grid, ten refinements in one pass**: BANK rename with the
+  workbook chain (Bank(n) = End(n−1)); RESERVATIONS rename; reserve
+  accounts grow virtually (greyed cumulative from their feeding rules);
+  the yellow **Total** column at row end; org-level subtotals drag
+  whole groups; client groups default closed with fold-state remembered
+  per view; focus mode (active row pushed forward, rest folds/dims);
+  cost rows lose the committed/↻ chips; one-line sticky labels with
+  hover tooltips; reservation rows aligned to column keys (off-by-one
+  fixed).
+- **Settings: Invoicing card** (prefix, next-number preview, auto-send,
+  VAT tariff editor) — plus the API-side schema fields the card needs.
+
 ## [0.13.132] — 2026-07-09 — Pulse 0.11.1: backend train + Teams under People
 
 Interim ship (the popup-redesign agent is still building the UI half).

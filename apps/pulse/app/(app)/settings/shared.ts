@@ -11,7 +11,15 @@ export type PulseSettings = {
   // project as receivables, settling ledger_terms_days after creation.
   include_ledger?: boolean;
   ledger_terms_days?: number;
+  // Invoicing (proposal §2.8): the VAT tariff list the opportunity popup
+  // offers, the workspace number sequence and the auto-send switch.
+  vat_tariffs?: VatTariff[] | null;
+  invoice_prefix?: string | null;
+  invoice_next_number?: number | null;
+  invoice_auto_send?: boolean | null;
 } | null;
+
+export type VatTariff = { label: string; pct: number };
 
 export type Rule = {
   id: string;

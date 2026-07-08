@@ -304,6 +304,26 @@ workspace members.
 - **Categories** — for commitments + budget lines (the sheet's
   ACCOMPANIMENT / INTERNAL / INKOOP groupings), editable list.
 
+### 2.8 Offering lines, VAT, and invoicing (Sjoerd, 2026-07-08 evening)
+
+The opportunity popup redesign: an opportunity holds **offering rows**
+(pick an offering or type a name · quantity · price · repeat), a **VAT
+tariff** (from a tariffs list in Settings) with the incl-VAT total, an
+auto owner + auto team, and per-stage auto probability weighting the
+total. "Each opportunity can be transferred into an invoice: gets a
+number + send manually or auto-send (from settings)."
+
+Transfer semantics: assign the next number from the workspace sequence
+(prefix + counter in pulse_settings), freeze amounts, move the stage to
+invoiced, **write a purchase-ledger row** (app fibre-pulse, method
+invoice, status pending, amount incl VAT) — the ledger stays the SPoT;
+the Invoices area shows it; include_ledger feeds it back into the
+cashflow as a receivable; mark-paid settles it. Sending reuses the
+receipt-styled seller-block email (payments SPoT), manual button or
+auto_send setting. Cashflow amounts are incl-VAT (the bank receives
+incl; the VAT reservation rule covers the tax share — the sheet's
+model).
+
 ## 3 · Conflicts with the current design (the honest list)
 
 1. **The data wall.** Pulse reads the purchase ledger across the wall.

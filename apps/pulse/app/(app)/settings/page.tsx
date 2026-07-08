@@ -6,6 +6,7 @@ import { TeamsCard } from './teams-card';
 import { StagesCard } from './stages-card';
 import { OfferingsCard } from './offerings-card';
 import { LedgerCard } from './ledger-card';
+import { InvoicingCard } from './invoicing-card';
 import type {
   Account,
   InvolvedTeam,
@@ -72,6 +73,7 @@ export default async function SettingsPage() {
 
       <div className="mt-8 space-y-6">
         <RhythmCard settings={settings} />
+        <InvoicingCard settings={settings} />
         <LedgerCard settings={settings} />
         <ReservationsCard rules={rules} accounts={accounts} />
         <TeamsCard involved={teams} workspaceTeams={workspaceTeams} />

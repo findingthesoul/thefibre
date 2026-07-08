@@ -1,34 +1,42 @@
 'use client';
 
 // The "By period" spreadsheet — modelled on the owner's real cashflow
-// workbook. Rows = money categories (FINANCIAL POSITION → INCOME → COSTS →
-// RESERVES → END POSITION), columns = periods on the workspace rhythm.
-// Unsettled expected payments render as draggable pills (drop on another
-// period column → PATCH expected_date, optimistic); budget lines AND
-// repeating commitments expand into non-draggable recurring amounts
-// (they're rules, not payments).
+// workbook. Rows = money categories (BANK → INCOME → COSTS → RESERVATIONS →
+// END POSITION), columns = periods on the workspace rhythm plus a final
+// Total column (the workbook's rightmost sums). Unsettled expected payments
+// render as draggable pills (drop on another period column → PATCH
+// expected_date, optimistic); a client group's per-period subtotal drags the
+// whole group's one-off lines at once. Budget lines AND repeating
+// commitments expand into non-draggable recurring amounts (rules, not
+// payments).
 //
 // Spreadsheet feel (Sjoerd 2026-07-08: "every line should just work on its
 // own"): on a one-off item row a CLICK on a pill edits that amount in place,
 // and a click on a cell's empty space adds a new payment dated on that
 // period's start — dragging keeps retiming. The dialog stays for the rest
-// (row-label click).
+// (row-label click). While a cell is being edited the grid enters FOCUS
+// MODE (Sjoerd 2026-07-09): the other sections fold as if closed (manual
+// fold state untouched), the active row pushes forward, siblings step back.
 //
 // Column rules (Sjoerd 2026-07-08): the Overdue column only renders when it
 // actually holds overdue unsettled amounts — otherwise the grid starts at the
 // current period. "Later" likewise only renders with content.
 //
+// Client groups default CLOSED; the set of open groups persists in
+// localStorage per view ("store pref of the latest visit").
+//
 // Degrades: projection / budget lines / accounts are admin-only — when
 // they're absent only INCOME + COSTS (the caller's own commitments) render.
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { addLine, moveLine, updateLineAmount } from './actions';
+import { addLine, moveLine, moveLines, updateLineAmount } from './actions';
 import { recordSnapshots } from '../accounts/actions';
+import { loadOpenGroups, saveOpenGroups } from './types';
 import type {
   BudgetLine,
   Commitment,
@@ -197,6 +205,15 @@ const sign = (dir: Direction) => (dir === 'out' ? '−' : '');
 const ZEBRA =
   '[&:nth-child(odd)]:bg-slate-50/40 [&:nth-child(odd)>td:first-child]:bg-slate-50';
 
+// Focus-mode row states (Sjoerd 2026-07-09: "the content of those rows
+// become 110%... like pushed forward").
+const ROW_ACTIVE =
+  'relative z-10 scale-[1.05] origin-left bg-white shadow-md ring-1 ring-neutral-300 transition-transform duration-150';
+const ROW_DIMMED = 'opacity-60 transition-opacity duration-150';
+
+// Payload prefix for org-level (whole-group) drags on the subtotal chips.
+const GROUP_DRAG_PREFIX = 'group:';
+
 type Col = { key: string; idx: number; label: string; droppable: boolean };
 type DropHandlers = {
   onDragOver?: (e: React.DragEvent) => void;
@@ -211,8 +228,16 @@ type OppRow = {
   cells: Card[][];
   recurring?: { cadence: string; amounts: number[] };
 };
-type ClientGroup = { key: string; name: string; opps: OppRow[]; subtotals: number[] };
+type ClientGroup = {
+  key: string;
+  name: string;
+  opps: OppRow[];
+  subtotals: number[];
+  // One-off line ids per column — the org-level drag payload.
+  lineIds: string[][];
+};
 type BudgetRow = { bl: BudgetLine; amounts: number[] };
+type Focus = { section: Direction | 'position'; rowId: string };
 
 function Faint() {
   return <span className="text-ink-muted/40 select-none">—</span>;
@@ -255,12 +280,31 @@ export function PeriodGrid({
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
   const [positionOpen, setPositionOpen] = useState(false);
-  // Fold state per counterparty group (unfold arrow at company level, Sjoerd
-  // 2026-07-08) — keyed by direction:groupKey, default open. The group's
-  // subtotal row stays visible when folded.
-  const [foldedGroups, setFoldedGroups] = useState<Record<string, boolean>>({});
+  // Client groups default CLOSED (Sjoerd 2026-07-09); the open set is the
+  // latest visit's, restored from localStorage after mount (the server
+  // render must match the first client render to avoid hydration issues).
+  // Keys carry the direction: `${dir}:${groupKey}`.
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set());
+  useEffect(() => {
+    setOpenGroups(loadOpenGroups('period'));
+  }, []);
+  function toggleGroup(foldKey: string) {
+    setOpenGroups((prev) => {
+      const next = new Set(prev);
+      if (next.has(foldKey)) next.delete(foldKey);
+      else next.add(foldKey);
+      saveOpenGroups('period', next);
+      return next;
+    });
+  }
   // Fit-to-screen: the whole table squeezes into the viewport (no h-scroll).
   const [fit, setFit] = useState(initialFit === 'on');
+  // FOCUS MODE — which row is being worked in (inline amount/balance edit).
+  // While set, the other sections render folded (their manual open state is
+  // untouched and restores when focus ends) and sibling rows de-emphasize.
+  const [focus, setFocus] = useState<Focus | null>(null);
+  const focusHandler = (section: Focus['section'], rowId: string) => (active: boolean) =>
+    setFocus((cur) => (active ? { section, rowId } : cur?.rowId === rowId ? null : cur));
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
   const fmt = fit ? moneyCompact : money;
@@ -274,6 +318,9 @@ export function PeriodGrid({
   const numPad = fit ? 'px-1.5' : 'px-3';
   const chipPad = fit ? 'px-1.5' : 'px-2';
   const numCell = `${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line/40`;
+  // The final Total column — the workbook's rightmost sums, visually set off.
+  const totalCell = `${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line/40 border-l-2 border-l-line bg-yellow-50/60`;
+  const totalHeaderCell = `${numPad} py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line border-l-2 border-l-line bg-yellow-50 ${cellText} font-semibold`;
 
   // ---- columns -------------------------------------------------------------
   // One extra start acts as the horizon — anything at-or-after it is "Later".
@@ -324,7 +371,13 @@ export function PeriodGrid({
     const gKey = cm.organisation?.id ?? cm.person?.id ?? '—';
     let group = groups.get(gKey);
     if (!group) {
-      group = { key: gKey, name: counterpartyName(cm), opps: [], subtotals: zeros() };
+      group = {
+        key: gKey,
+        name: counterpartyName(cm),
+        opps: [],
+        subtotals: zeros(),
+        lineIds: Array.from({ length: nCols }, () => [] as string[]),
+      };
       groups.set(gKey, group);
     }
     let row = oppRowByCm.get(cm.id);
@@ -364,6 +417,7 @@ export function PeriodGrid({
       row.cells[idx].push({ line, cm, date });
       lineCol.set(line.id, cols[idx].key);
       group.subtotals[idx] += line.amount_cents;
+      group.lineIds[idx].push(line.id);
       // Weighted: invoiced counts in full; otherwise probability-weighted
       // (committed/won stages already carry probability 100).
       totals[idx] += line.invoiced_at
@@ -411,11 +465,14 @@ export function PeriodGrid({
     (c) =>
       (c.idx !== 0 || overdueHasContent) && (c.idx !== laterIdx || laterHasContent),
   );
+  const visIdx = visibleCols.map((c) => c.idx);
+  const sumVisible = (amounts: number[]) => visIdx.reduce((a, i) => a + (amounts[i] ?? 0), 0);
 
   // ---- projection rows (admin-only; null → sections hidden) -----------------
   const projByStart = new Map((projection?.periods ?? []).map((p) => [p.start, p]));
-  // Balance BEFORE the column's flows: the bank anchor for the first period,
-  // else the previous period's end balance.
+  // The BANK chain (Sjoerd 2026-07-09: "the END position of column 1 is the
+  // bank of column 2"): the actual bank anchor in the first money column,
+  // then every column n shows the END POSITION of column n−1.
   const positionFor = (col: Col): number | null => {
     if (!projection || !col.droppable) return null;
     const i = col.idx - 1; // index into starts
@@ -432,6 +489,30 @@ export function PeriodGrid({
     ...accounts.filter((a) => a.kind === 'bank'),
     ...accounts.filter((a) => a.kind !== 'bank'),
   ];
+
+  // Reserve accounts grow virtually across future columns (Sjoerd
+  // 2026-07-09: "you see the reserves virtually grown with that amount"):
+  // current actual + the cumulative per-period amounts of the reservation
+  // rules targeting the account (pct% × that period's expected income —
+  // the same math as the RESERVATIONS rows). accountId → colKey → cents.
+  const reserveProjections = new Map<string, Map<string, number>>();
+  if (projection?.reservation_rules) {
+    for (const a of orderedAccounts) {
+      if (a.kind !== 'reserve') continue;
+      const pct = projection.reservation_rules
+        .filter((r) => r.target_account_id === a.id)
+        .reduce((s, r) => s + Number(r.percentage), 0);
+      if (pct <= 0) continue; // no rule feeds it — stays current-only
+      let cum = a.latest_snapshot?.balance_cents ?? 0;
+      const byCol = new Map<string, number>();
+      for (let i = 1; i < starts.length; i++) {
+        const prevIncome = projByStart.get(starts[i - 1])?.expected_in ?? 0;
+        cum += Math.round((prevIncome * pct) / 100);
+        byCol.set(starts[i], cum);
+      }
+      reserveProjections.set(a.id, byCol);
+    }
+  }
 
   // ---- filtering (rows only — totals always cover ALL data) -----------------
   const q = filter.trim().toLowerCase();
@@ -451,8 +532,12 @@ export function PeriodGrid({
   const shownCostBudget = filterBudget(costBudgetRows);
 
   // An active filter would show nothing inside a collapsed section — expand.
-  const incomeExpanded = incomeOpen || q !== '';
-  const costsExpanded = costsOpen || q !== '';
+  // Focus mode folds every section except the one being worked in (the
+  // manual open state stays put and restores when focus ends).
+  const incomeExpanded = focus ? focus.section === 'in' : incomeOpen || q !== '';
+  const costsExpanded = focus ? focus.section === 'out' : costsOpen || q !== '';
+  const positionExpanded = focus ? focus.section === 'position' : positionOpen;
+  const reservationsExpanded = focus ? false : reservesOpen;
 
   const incomeRowCount =
     incomeClientGroups.reduce((a, g) => a + g.opps.length, 0) + incomeBudgetRows.length;
@@ -462,12 +547,46 @@ export function PeriodGrid({
   // ---- drag & drop -----------------------------------------------------------
   // ONE handler for every drop target: opportunity cells (empty or not),
   // group subtotal cells and section-header cells all funnel through here
-  // via dropProps(col).
+  // via dropProps(col). Two payloads: a bare lineId (single pill) or the
+  // GROUP prefix carrying every one-off line id of a client's period.
   async function drop(colKey: string, e: React.DragEvent) {
     e.preventDefault();
     setHoverCol(null);
-    const lineId = e.dataTransfer.getData('text/plain');
-    if (!lineId || lineCol.get(lineId) === colKey) return;
+    const payload = e.dataTransfer.getData('text/plain');
+    if (!payload) return;
+
+    if (payload.startsWith(GROUP_DRAG_PREFIX)) {
+      let ids: string[] = [];
+      try {
+        ids = (JSON.parse(payload.slice(GROUP_DRAG_PREFIX.length)) as { ids?: string[] }).ids ?? [];
+      } catch {
+        return;
+      }
+      ids = ids.filter((id) => lineCol.get(id) !== colKey);
+      if (ids.length === 0) return;
+      setError(null);
+      // Optimistic: the whole group total jumps to the target column.
+      setOverrides((o) => {
+        const next = { ...o };
+        for (const id of ids) next[id] = colKey;
+        return next;
+      });
+      const res = await moveLines(ids, colKey);
+      if (res.error) {
+        setError(`Could not move the group's expected payments: ${res.error}`);
+        setOverrides((o) => {
+          const next = { ...o };
+          for (const id of ids) delete next[id];
+          return next;
+        });
+        return;
+      }
+      router.refresh();
+      return;
+    }
+
+    const lineId = payload;
+    if (lineCol.get(lineId) === colKey) return;
     setError(null);
     // Optimistic: the pill jumps to the target column immediately.
     setOverrides((o) => ({ ...o, [lineId]: colKey }));
@@ -530,7 +649,12 @@ export function PeriodGrid({
     onToggle?: () => void;
     valueFor?: (col: Col) => number | null;
     valueCls?: (v: number | null) => string;
+    // The final Total-column cell. undefined + totals → sum of the rendered
+    // periods; null → running balance, doesn't sum (faint —).
+    total?: number | null;
   }) {
+    const totalValue =
+      opts.total !== undefined ? opts.total : opts.totals ? sumVisible(opts.totals) : null;
     return (
       <tr key={`section-${opts.label}`}>
         <td className={`${sticky} bg-yellow-50 px-4 py-2.5 border-b border-line`}>
@@ -558,14 +682,15 @@ export function PeriodGrid({
                 <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
               ))}
             <span
-              className={`text-[11px] font-semibold uppercase tracking-wider ${
+              className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
                 opts.accent ? TITLE_TONE[opts.accent] : 'text-ink'
               }`}
+              title={opts.label}
             >
               {opts.label}
             </span>
             {opts.count !== undefined && (
-              <span className="rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
+              <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
                 {opts.count}
               </span>
             )}
@@ -595,29 +720,44 @@ export function PeriodGrid({
             </td>
           );
         })}
+        <td className={totalHeaderCell}>
+          {totalValue == null ? (
+            <Faint />
+          ) : opts.accent ? (
+            renderAmt(totalValue, opts.accent)
+          ) : (
+            renderMoney(totalValue, 'text-ink')
+          )}
+        </td>
       </tr>
     );
   }
 
   function clientRows(groups: ClientGroup[], dir: Direction): React.ReactNode {
     return groups.map((g) => {
-      // Fold per company — same chevron pattern as the section headers. A
-      // group can appear under Income AND Costs, so the key carries the
-      // direction. An active filter force-expands (like the sections do).
+      // Groups default CLOSED; a click on the chevron/row opens them and the
+      // choice persists ("store pref of the latest visit"). An active filter
+      // force-expands; focus mode shows only the group being worked in.
       const foldKey = `${dir}:${g.key}`;
-      const groupOpen = !foldedGroups[foldKey] || q !== '';
+      const groupHasFocus =
+        focus != null && focus.section === dir && g.opps.some((o) => o.cm.id === focus.rowId);
+      const groupOpen = focus ? groupHasFocus : openGroups.has(foldKey) || q !== '';
+      const groupDimmed = focus != null && focus.section === dir && !groupHasFocus;
       return (
       <FragmentRows key={g.key}>
         {/* Client group row — bolder, with a clearer bottom border. The
-            subtotals stay visible when the item rows are folded away. */}
-        <tr className={ZEBRA}>
+            subtotals stay visible when the item rows are folded away, and
+            each one drags the WHOLE group's one-off lines to another period
+            (Sjoerd 2026-07-09: "the numbers on org level should be drag and
+            drop too"). */}
+        <tr className={`${ZEBRA} ${groupDimmed ? ROW_DIMMED : ''}`}>
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
             <div className="flex w-full items-center gap-1.5">
               {/* Two hit areas: the chevron folds, the NAME opens the org
                   popup (Sjoerd 2026-07-08: "I want per org a popup"). */}
               <button
                 type="button"
-                onClick={() => setFoldedGroups((f) => ({ ...f, [foldKey]: !f[foldKey] }))}
+                onClick={() => toggleGroup(foldKey)}
                 aria-expanded={groupOpen}
                 aria-label={`${groupOpen ? 'Fold' : 'Unfold'} ${g.name}`}
                 className="shrink-0 -m-1 p-1"
@@ -629,35 +769,77 @@ export function PeriodGrid({
                 )}
               </button>
               {g.key === '—' ? (
-                <span className={`block truncate ${labelText} font-semibold text-ink`}>
+                <span
+                  className={`block truncate whitespace-nowrap ${labelText} font-semibold text-ink`}
+                  title={g.name}
+                >
                   {g.name}
                 </span>
               ) : (
                 <button
                   type="button"
                   onClick={() => onOpenGroup(g.key)}
-                  title="Open — opportunities & invoices"
-                  className={`min-w-0 truncate text-left ${labelText} font-semibold text-ink hover:underline underline-offset-2`}
+                  title={`${g.name} — opportunities & invoices`}
+                  className={`min-w-0 truncate whitespace-nowrap text-left ${labelText} font-semibold text-ink hover:underline underline-offset-2`}
                 >
                   {g.name}
                 </button>
               )}
             </div>
           </td>
-          {visibleCols.map((col) => (
-            <td
-              key={col.key}
-              {...dropProps(col)}
-              className={`${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line ${hoverBg(col)}`}
-            >
-              {renderAmt(g.subtotals[col.idx], dir, `${cellText} font-medium`)}
-            </td>
-          ))}
+          {visibleCols.map((col) => {
+            const v = g.subtotals[col.idx];
+            const draggableIds = g.lineIds[col.idx];
+            return (
+              <td
+                key={col.key}
+                {...dropProps(col)}
+                className={`${numPad} py-1.5 text-right align-top tabular-nums whitespace-nowrap border-b border-line ${hoverBg(col)}`}
+              >
+                {v !== 0 && draggableIds.length > 0 ? (
+                  <span
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.setData(
+                        'text/plain',
+                        GROUP_DRAG_PREFIX + JSON.stringify({ ids: draggableIds }),
+                      );
+                      e.dataTransfer.effectAllowed = 'move';
+                    }}
+                    title={`${g.name} — drag to retime all ${draggableIds.length} expected payment${
+                      draggableIds.length === 1 ? '' : 's'
+                    } of this period`}
+                    className={`inline-flex cursor-grab active:cursor-grabbing items-center rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-semibold tabular-nums`}
+                  >
+                    {sign(dir)}
+                    {fmt(v)}
+                  </span>
+                ) : (
+                  renderAmt(v, dir, `${cellText} font-medium`)
+                )}
+              </td>
+            );
+          })}
+          <td className={totalCell}>
+            {renderAmt(sumVisible(g.subtotals), dir, `${cellText} font-semibold`)}
+          </td>
         </tr>
         {groupOpen && g.opps.map((o) => {
           const stage = stageByKey.get(o.cm.stage);
+          const isCost = dir === 'out';
+          const isActive = focus?.rowId === o.cm.id;
+          const isSibling = focus != null && focus.section === dir && !isActive;
+          const rowTotal = o.recurring
+            ? sumVisible(o.recurring.amounts)
+            : visIdx.reduce(
+                (a, i) => a + o.cells[i].reduce((s, c) => s + c.line.amount_cents, 0),
+                0,
+              );
           return (
-            <tr key={o.cm.id} className={ZEBRA}>
+            <tr
+              key={o.cm.id}
+              className={`${ZEBRA} ${isActive ? ROW_ACTIVE : isSibling ? ROW_DIMMED : ''}`}
+            >
               <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
                 {/* Item rows: indented behind a left guide border. */}
                 <div className="ml-1 border-l border-line/60 pl-3">
@@ -665,20 +847,26 @@ export function PeriodGrid({
                     type="button"
                     onClick={() => onEdit(o.cm)}
                     className="flex w-full items-center gap-2 text-left"
+                    title={o.cm.label}
                   >
                     <span
-                      className={`truncate ${labelText} text-ink hover:underline underline-offset-2`}
+                      className={`truncate whitespace-nowrap ${labelText} text-ink hover:underline underline-offset-2`}
                     >
                       {o.cm.label}
                     </span>
-                    <span
-                      className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${
-                        KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
-                      }`}
-                    >
-                      {stage?.label ?? o.cm.stage}
-                    </span>
-                    {o.recurring && (
+                    {/* Stage + ↻ chips are pipeline info — income only. On
+                        costs they always read "committed": noise (Sjoerd
+                        2026-07-09). The rose −amounts stay the cost cue. */}
+                    {!isCost && (
+                      <span
+                        className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${
+                          KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
+                        }`}
+                      >
+                        {stage?.label ?? o.cm.stage}
+                      </span>
+                    )}
+                    {!isCost && o.recurring && (
                       <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
                         ↻ {o.recurring.cadence}
                       </span>
@@ -729,9 +917,11 @@ export function PeriodGrid({
                     tdClass={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
                     dropHandlers={dropProps(col)}
                     onError={setError}
+                    onFocusChange={focusHandler(dir, o.cm.id)}
                   />
                 );
               })}
+              <td className={totalCell}>{renderAmt(rowTotal, dir, `${cellText} font-medium`)}</td>
             </tr>
           );
         })}
@@ -742,11 +932,12 @@ export function PeriodGrid({
 
   function budgetRows(rows: BudgetRow[], dir: Direction): React.ReactNode {
     if (rows.length === 0) return null;
+    const dimmed = focus != null && focus.section === dir;
     return (
       <FragmentRows key="budget">
-        <tr className={ZEBRA}>
+        <tr className={`${ZEBRA} ${dimmed ? ROW_DIMMED : ''}`}>
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
-            <span className={`block truncate ${labelText} font-semibold text-ink`}>
+            <span className={`block truncate whitespace-nowrap ${labelText} font-semibold text-ink`}>
               Recurring (budget)
             </span>
           </td>
@@ -762,15 +953,30 @@ export function PeriodGrid({
               )}
             </td>
           ))}
+          <td className={totalCell}>
+            {renderAmt(
+              rows.reduce((a, r) => a + sumVisible(r.amounts), 0),
+              dir,
+              `${cellText} font-semibold`,
+            )}
+          </td>
         </tr>
         {rows.map((r) => (
-          <tr key={r.bl.id} className={ZEBRA}>
+          <tr key={r.bl.id} className={`${ZEBRA} ${dimmed ? ROW_DIMMED : ''}`}>
             <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
-              <div className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2">
-                <span className={`truncate ${labelText} text-ink`}>{r.bl.label}</span>
-                <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
-                  ↻ {r.bl.cadence}
+              <div
+                className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2"
+                title={`${r.bl.label}${r.bl.category ? ` · ${r.bl.category}` : ''} (${r.bl.cadence})`}
+              >
+                <span className={`truncate whitespace-nowrap ${labelText} text-ink`}>
+                  {r.bl.label}
                 </span>
+                {/* The ↻ chip is income-only — on costs it's noise. */}
+                {dir === 'in' && (
+                  <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
+                    ↻ {r.bl.cadence}
+                  </span>
+                )}
                 {r.bl.category && (
                   <span className="shrink-0 truncate text-[11px] text-ink-muted">
                     {r.bl.category}
@@ -783,6 +989,7 @@ export function PeriodGrid({
                 {renderAmt(r.amounts[col.idx], dir, cellText)}
               </td>
             ))}
+            <td className={totalCell}>{renderAmt(sumVisible(r.amounts), dir, cellText)}</td>
           </tr>
         ))}
       </FragmentRows>
@@ -876,57 +1083,91 @@ export function PeriodGrid({
                     {col.label}
                   </th>
                 ))}
+                {/* The workbook's rightmost sums (Sjoerd 2026-07-09: "at the
+                    end of each row.. you see totals"). */}
+                <th
+                  className={`${fit ? numPad : 'min-w-[112px] px-3'} py-3 text-right ${cellText} font-semibold tracking-tight whitespace-nowrap border-b border-line border-l-2 border-l-line bg-yellow-50 text-ink`}
+                >
+                  Total
+                </th>
               </tr>
             </thead>
             <tbody>
-              {/* 1 · FINANCIAL POSITION — running balance at each period start.
-                  Expands into one row per account; the CURRENT period column
-                  edits the balance inline (Sjoerd 2026-07-08). */}
+              {/* 1 · BANK — the workbook's chain: the actual anchor now, then
+                  every column = the END POSITION of the previous one.
+                  Expands into one row per account; the CURRENT column edits
+                  the balance inline; reserve accounts project forward. */}
               {projection &&
                 sectionHeaderRow({
-                  label: 'Financial position',
-                  // Position = CURRENT (Sjoerd): one as-of-now number in the
-                  // current column; the running projection is END POSITION's job.
-                  valueFor: (col) => (col.key === currentColKey ? positionFor(col) : null),
+                  label: 'Bank',
+                  valueFor: positionFor,
                   valueCls: (v) => (v != null && v < 0 ? 'text-red-600' : 'text-ink'),
+                  total: null, // running balances don't sum
                   ...(orderedAccounts.length > 0
                     ? {
                         count: orderedAccounts.length,
-                        open: positionOpen,
+                        open: positionExpanded,
                         onToggle: () => setPositionOpen((v) => !v),
                       }
                     : {}),
                 })}
               {projection &&
-                positionOpen &&
-                orderedAccounts.map((a) => (
-                  <tr key={a.id} className={ZEBRA}>
-                    <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
-                      <div className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2">
-                        <span className={`truncate ${labelText} text-ink`}>{a.name}</span>
-                        {a.kind === 'reserve' && (
-                          <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
-                            reserve
+                positionExpanded &&
+                orderedAccounts.map((a) => {
+                  const isActive = focus?.section === 'position' && focus.rowId === a.id;
+                  const isSibling = focus?.section === 'position' && !isActive;
+                  const projected = reserveProjections.get(a.id);
+                  return (
+                    <tr
+                      key={a.id}
+                      className={`${ZEBRA} ${isActive ? ROW_ACTIVE : isSibling ? ROW_DIMMED : ''}`}
+                    >
+                      <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+                        <div
+                          className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2"
+                          title={a.name}
+                        >
+                          <span className={`truncate whitespace-nowrap ${labelText} text-ink`}>
+                            {a.name}
                           </span>
-                        )}
-                      </div>
-                    </td>
-                    {visibleCols.map((col) => (
-                      <td key={col.key} className={numCell}>
-                        {col.key === currentColKey ? (
-                          <BalanceCell
-                            account={a}
-                            fmt={fmt}
-                            cellText={cellText}
-                            onError={setError}
-                          />
-                        ) : (
-                          <Faint />
-                        )}
+                          {a.kind === 'reserve' && (
+                            <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
+                              reserve
+                            </span>
+                          )}
+                        </div>
                       </td>
-                    ))}
-                  </tr>
-                ))}
+                      {visibleCols.map((col) => (
+                        <td key={col.key} className={numCell}>
+                          {col.key === currentColKey ? (
+                            <BalanceCell
+                              account={a}
+                              fmt={fmt}
+                              cellText={cellText}
+                              onError={setError}
+                              onFocusChange={focusHandler('position', a.id)}
+                            />
+                          ) : projected?.has(col.key) ? (
+                            // Virtual growth: current actual + cumulative
+                            // reservations targeting this account (greyed —
+                            // a projection, not an actual).
+                            <span
+                              title="projected — actual + reservations to date"
+                              className={`${cellText} tabular-nums text-ink-muted`}
+                            >
+                              {fmt(projected.get(col.key)!)}
+                            </span>
+                          ) : (
+                            <Faint />
+                          )}
+                        </td>
+                      ))}
+                      <td className={totalCell}>
+                        <Faint />
+                      </td>
+                    </tr>
+                  );
+                })}
 
               {/* No balances yet → the position is meaningless; say where to fix it. */}
               {projection &&
@@ -942,10 +1183,10 @@ export function PeriodGrid({
                       </a>
                     </td>
                     <td
-                      colSpan={visibleCols.length}
+                      colSpan={visibleCols.length + 1}
                       className="border-b border-line/40 px-3 py-2 text-xs text-ink-muted"
                     >
-                      Add your accounts and update balances — the position rows anchor on them.
+                      Add your accounts and update balances — the Bank rows anchor on them.
                     </td>
                   </tr>
                 )}
@@ -962,7 +1203,7 @@ export function PeriodGrid({
               {incomeExpanded && clientRows(shownIncomeGroups, 'in')}
               {incomeExpanded && budgetRows(shownIncomeBudget, 'in')}
               {incomeExpanded && (
-                <AddRow sticky={sticky} span={visibleCols.length}>
+                <AddRow sticky={sticky} span={visibleCols.length + 1}>
                   <button
                     type="button"
                     onClick={() => onAdd('in')}
@@ -985,7 +1226,7 @@ export function PeriodGrid({
               {costsExpanded && clientRows(shownCostGroups, 'out')}
               {costsExpanded && budgetRows(shownCostBudget, 'out')}
               {costsExpanded && (
-                <AddRow sticky={sticky} span={visibleCols.length}>
+                <AddRow sticky={sticky} span={visibleCols.length + 1}>
                   <button
                     type="button"
                     onClick={() => onAdd('out')}
@@ -996,37 +1237,57 @@ export function PeriodGrid({
                 </AddRow>
               )}
 
-              {/* 4 · RESERVES — header total + one row per rule (Sjoerd:
+              {/* 4 · RESERVATIONS — header total + one row per rule (Sjoerd:
                   "I have made two reservations, I should see both"). */}
               {projection && (
                 <>
                   {sectionHeaderRow({
-                    label: 'Reserves',
+                    label: 'Reservations',
                     valueFor: reservedFor,
+                    total: visibleCols.reduce((a, c) => a + (reservedFor(c) ?? 0), 0),
                     count: projection.reservation_rules?.length ?? undefined,
-                    open: reservesOpen,
+                    open: reservationsExpanded,
                     onToggle: () => setReservesOpen((v) => !v),
                   })}
-                  {reservesOpen &&
-                    (projection.reservation_rules ?? []).map((rule) => (
-                      <tr key={rule.id}>
-                        <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
-                          <span className="ml-5 border-l border-line/60 pl-2 text-xs text-ink-subtle">
-                            {rule.label}{' '}
-                            <span className="text-ink-muted">({rule.percentage}%)</span>
-                          </span>
-                        </td>
-                        {visibleCols.map((col) => {
-                          const income = projection.periods[col.idx]?.expected_in ?? 0;
-                          const v = Math.round((income * rule.percentage) / 100);
-                          return (
+                  {reservationsExpanded &&
+                    (projection.reservation_rules ?? []).map((rule) => {
+                      const pct = Number(rule.percentage);
+                      const ruleAmount = (col: Col): number => {
+                        if (!col.droppable) return 0;
+                        const income = projByStart.get(col.key)?.expected_in ?? 0;
+                        return Math.round((income * pct) / 100);
+                      };
+                      const full = `${rule.label} (${pct}%)`;
+                      return (
+                        <tr key={rule.id}>
+                          <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
+                            {/* One line always: label truncates, the pct
+                                never wraps away; the full text rides the
+                                tooltip (Sjoerd 2026-07-09). */}
+                            <div
+                              className="ml-5 flex min-w-0 items-baseline gap-1 border-l border-line/60 pl-2"
+                              title={full}
+                            >
+                              <span className="min-w-0 truncate whitespace-nowrap text-xs text-ink-subtle">
+                                {rule.label}
+                              </span>
+                              <span className="shrink-0 text-xs text-ink-muted">({pct}%)</span>
+                            </div>
+                          </td>
+                          {visibleCols.map((col) => (
                             <td key={col.key} className={numCell}>
-                              {renderMoney(v || null, `${cellText} text-ink-muted`)}
+                              {renderMoney(ruleAmount(col) || null, `${cellText} text-ink-muted`)}
                             </td>
-                          );
-                        })}
-                      </tr>
-                    ))}
+                          ))}
+                          <td className={totalCell}>
+                            {renderMoney(
+                              visibleCols.reduce((a, c) => a + ruleAmount(c), 0) || null,
+                              `${cellText} text-ink-muted`,
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </>
               )}
 
@@ -1052,6 +1313,12 @@ export function PeriodGrid({
                       </td>
                     );
                   })}
+                  {/* Running balance — doesn't sum. */}
+                  <td
+                    className={`${numPad} py-2.5 text-right align-middle whitespace-nowrap border-l-2 border-l-line bg-yellow-100/70 ${cellText} font-bold`}
+                  >
+                    <Faint />
+                  </td>
                 </tr>
               )}
             </tbody>
@@ -1070,11 +1337,13 @@ function BalanceCell({
   fmt,
   cellText,
   onError,
+  onFocusChange,
 }: {
   account: PulseAccount;
   fmt: (cents: number) => string;
   cellText: string;
   onError: (msg: string) => void;
+  onFocusChange?: (active: boolean) => void;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -1088,10 +1357,12 @@ function BalanceCell({
     cancelledRef.current = false;
     setValue(current != null ? (current / 100).toFixed(2).replace('.', ',') : '');
     setEditing(true);
+    onFocusChange?.(true);
   }
 
   async function commit() {
     setEditing(false);
+    onFocusChange?.(false);
     if (cancelledRef.current) return;
     const cents = parseEuro(value);
     if (cents == null || cents === current) return;
@@ -1196,6 +1467,7 @@ function AmountChip({
   cellText,
   chipPad,
   onError,
+  onFocusChange,
 }: {
   card: Card;
   dir: Direction;
@@ -1203,6 +1475,7 @@ function AmountChip({
   cellText: string;
   chipPad: string;
   onError: (msg: string) => void;
+  onFocusChange?: (active: boolean) => void;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -1213,6 +1486,7 @@ function AmountChip({
 
   async function commit(cents: number | null) {
     setEditing(false);
+    onFocusChange?.(false);
     if (cents == null || cents === card.line.amount_cents) return;
     setSaving(true);
     const res = await updateLineAmount(card.line.id, cents);
@@ -1251,6 +1525,7 @@ function AmountChip({
         e.stopPropagation(); // the cell's empty-space click ADDS a line
         if (draggedRef.current || saving) return;
         setEditing(true);
+        onFocusChange?.(true);
       }}
       title={`${card.cm.label} — expected ${card.date}. Click to edit the amount; drag to another period to retime.`}
       className={`inline-flex items-center gap-1 cursor-grab active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
@@ -1284,6 +1559,7 @@ function OppLineCell({
   tdClass,
   dropHandlers,
   onError,
+  onFocusChange,
 }: {
   colKey: string;
   droppable: boolean;
@@ -1296,6 +1572,7 @@ function OppLineCell({
   tdClass: string;
   dropHandlers: DropHandlers;
   onError: (msg: string) => void;
+  onFocusChange?: (active: boolean) => void;
 }) {
   const router = useRouter();
   const [adding, setAdding] = useState(false);
@@ -1303,6 +1580,7 @@ function OppLineCell({
 
   async function commitAdd(cents: number | null) {
     setAdding(false);
+    onFocusChange?.(false);
     if (cents == null || cents === 0) return;
     setSaving(true);
     const res = await addLine(commitmentId, colKey, cents);
@@ -1317,19 +1595,18 @@ function OppLineCell({
   // Only real period columns can take a new dated line — Overdue/Later have
   // no single start date.
   const canAdd = droppable && !adding && !saving;
-  const plus = (
-    <span
-      aria-hidden
-      className={`${cellText} font-medium text-ink-muted/60 select-none opacity-0 group-hover:opacity-100`}
-    >
-      +
-    </span>
-  );
 
   return (
     <td
       {...dropHandlers}
-      onClick={canAdd ? () => setAdding(true) : undefined}
+      onClick={
+        canAdd
+          ? () => {
+              setAdding(true);
+              onFocusChange?.(true);
+            }
+          : undefined
+      }
       title={droppable ? 'Click empty space to add a payment here' : undefined}
       className={`group ${tdClass} ${canAdd ? 'cursor-pointer' : ''}`}
     >
@@ -1360,6 +1637,7 @@ function OppLineCell({
               cellText={cellText}
               chipPad={chipPad}
               onError={onError}
+              onFocusChange={onFocusChange}
             />
           ))}
           {adding && (
@@ -1371,7 +1649,14 @@ function OppLineCell({
             />
           )}
           {saving && <span className={`${cellText} text-ink-muted`}>Saving…</span>}
-          {!adding && !saving && droppable && cards.length > 0 && plus}
+          {!adding && !saving && droppable && cards.length > 0 && (
+            <span
+              aria-hidden
+              className={`${cellText} font-medium text-ink-muted/60 select-none opacity-0 group-hover:opacity-100`}
+            >
+              +
+            </span>
+          )}
         </div>
       )}
     </td>

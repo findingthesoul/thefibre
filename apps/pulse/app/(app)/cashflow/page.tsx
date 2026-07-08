@@ -6,8 +6,9 @@ import {
   COOKIE_CASHFLOW_VIEW,
 } from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
-import { FALLBACK_STAGES } from './types';
+import { DEFAULT_VAT_TARIFFS, FALLBACK_STAGES } from './types';
 import type {
+  VatTariff,
   BudgetLine,
   CashflowScope,
   Commitment,
@@ -47,21 +48,35 @@ async function currentUserId(): Promise<string | null> {
   }
 }
 
-// The by-period board needs the workspace rhythm. Non-admins can't read the
-// settings endpoint — fall back to fortnights anchored on today (the same
-// default the API's projection uses).
-async function periodSettings(): Promise<PeriodSettings> {
+// The by-period board needs the workspace rhythm; the opportunity dialog
+// needs the VAT tariff list from the same settings row. Non-admins can't
+// read the settings endpoint — fall back to fortnights anchored on today
+// (the same default the API's projection uses) and the seeded VAT defaults.
+async function periodSettings(): Promise<{ period: PeriodSettings; vatTariffs: VatTariff[] }> {
   try {
     const r = await apiFetch<{
-      settings: { default_granularity?: string; period_anchor_date?: string | null } | null;
+      settings: {
+        default_granularity?: string;
+        period_anchor_date?: string | null;
+        vat_tariffs?: VatTariff[] | null;
+      } | null;
     }>('/api/v1/pulse/settings');
     const g = r.settings?.default_granularity;
+    const tariffs = Array.isArray(r.settings?.vat_tariffs)
+      ? r.settings!.vat_tariffs!.filter((t) => t && typeof t.pct === 'number')
+      : DEFAULT_VAT_TARIFFS;
     return {
-      granularity: g === 'week' || g === 'month' ? g : 'fortnight',
-      anchor_date: r.settings?.period_anchor_date ?? null,
+      period: {
+        granularity: g === 'week' || g === 'month' ? g : 'fortnight',
+        anchor_date: r.settings?.period_anchor_date ?? null,
+      },
+      vatTariffs: tariffs,
     };
   } catch {
-    return { granularity: 'fortnight', anchor_date: null };
+    return {
+      period: { granularity: 'fortnight', anchor_date: null },
+      vatTariffs: DEFAULT_VAT_TARIFFS,
+    };
   }
 }
 
@@ -92,7 +107,7 @@ export default async function PipelinePage({
   // The rhythm comes first — the projection fetch pins its granularity.
   // ?show=week|fortnight|month|quarter overrides the display rhythm
   // (Sjoerd 2026-07-08: "Add a show (per week, per month, per quarter)").
-  const rhythm = await periodSettings();
+  const { period: rhythm, vatTariffs } = await periodSettings();
   const { show, scope: scopeParam, team: teamParam } = await searchParams;
   if (show === 'week' || show === 'fortnight' || show === 'month' || show === 'quarter') {
     rhythm.granularity = show;
@@ -170,7 +185,7 @@ export default async function PipelinePage({
         initialView={initialView}
         initialFit={initialFit}
         items={shownItems}
-        pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages }}
+        pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages, vatTariffs }}
         currentUserId={meId}
         periodSettings={rhythm}
         projection={projection}

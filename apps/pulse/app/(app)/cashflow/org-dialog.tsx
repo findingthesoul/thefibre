@@ -19,7 +19,7 @@ import { Plus } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
-import type { Commitment, StageOption } from './types';
+import { commitmentNetTotal, type Commitment, type StageOption } from './types';
 
 // Stage chips colour by KIND (same palette as the grid + table).
 const KIND_STYLE: Record<string, string> = {
@@ -30,12 +30,10 @@ const KIND_STYLE: Record<string, string> = {
 };
 const UNKNOWN_STAGE_STYLE = 'bg-slate-50 text-slate-500';
 
-// Deal total: quantity × unit price when priced, else the sum of unsettled
-// expected payments — the same number the counterparty table shows.
-function itemTotal(cm: Commitment): number {
-  if (cm.unit_amount_cents != null) return Math.round(cm.quantity * cm.unit_amount_cents);
-  return cm.lines.filter((l) => !l.settled_at).reduce((a, l) => a + l.amount_cents, 0);
-}
+// Deal total: offering items win, then quantity × unit price, else the sum
+// of unsettled expected payments — the same number the counterparty table
+// shows (shared rule in types.ts).
+const itemTotal = commitmentNetTotal;
 
 function fmtDate(iso: string): string {
   return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
@@ -74,12 +72,17 @@ export function OrgDialog({
     const kind = stageByKey.get(cm.stage)?.kind;
     return kind === 'open' || kind === 'committed';
   });
-  // Invoices & receivables: at an invoiced-kind stage (won = done/invoiced)
-  // OR carrying lines with an invoice ref / invoiced date. An open item with
-  // an invoiced line shows in BOTH groups — that's the point of the split.
+  // Invoices & receivables: transferred to an invoice (invoice_no), at an
+  // invoiced-kind stage (won = done/invoiced) OR carrying lines with an
+  // invoice ref / invoiced date. An open item with an invoiced line shows in
+  // BOTH groups — that's the point of the split.
   const invoiced = items.filter((cm) => {
     const kind = stageByKey.get(cm.stage)?.kind;
-    return kind === 'won' || cm.lines.some((l) => l.invoice_ref || l.invoiced_at);
+    return (
+      Boolean(cm.invoice_no) ||
+      kind === 'won' ||
+      cm.lines.some((l) => l.invoice_ref || l.invoiced_at)
+    );
   });
 
   return (
@@ -122,6 +125,7 @@ export function OrgDialog({
           {opportunities.map((cm) => {
             const stage = stageByKey.get(cm.stage);
             const total = itemTotal(cm);
+            const isCost = cm.direction === 'out';
             return (
               <button
                 key={cm.id}
@@ -131,22 +135,34 @@ export function OrgDialog({
               >
                 <span
                   aria-hidden
-                  title={cm.direction === 'out' ? 'Cost' : 'Income'}
+                  title={isCost ? 'Cost' : 'Income'}
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${
-                    cm.direction === 'out' ? 'bg-rose-400' : 'bg-emerald-400'
+                    isCost ? 'bg-rose-400' : 'bg-emerald-400'
                   }`}
                 />
                 <span className="min-w-0 flex-1 truncate text-ink">{cm.label}</span>
-                <span
-                  className={`shrink-0 rounded-full px-1.5 py-px text-xs font-medium ${
-                    KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
-                  }`}
-                >
-                  {stage?.label ?? cm.stage}
-                </span>
-                <span className="shrink-0 text-xs text-ink-muted tabular-nums">
-                  {cm.probability}%
-                </span>
+                {cm.invoice_no && (
+                  <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+                    Invoice {cm.invoice_no}
+                  </span>
+                )}
+                {/* Stage + probability are pipeline info — income only. On
+                    costs they always read "committed / 100%": noise (Sjoerd
+                    2026-07-09). The rose −amount stays the cost cue. */}
+                {!isCost && (
+                  <span
+                    className={`shrink-0 rounded-full px-1.5 py-px text-xs font-medium ${
+                      KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
+                    }`}
+                  >
+                    {stage?.label ?? cm.stage}
+                  </span>
+                )}
+                {!isCost && (
+                  <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                    {cm.probability}%
+                  </span>
+                )}
                 <span
                   className={`shrink-0 text-sm font-medium tabular-nums ${
                     cm.direction === 'out' ? 'text-rose-700' : 'text-emerald-700'
@@ -178,6 +194,11 @@ export function OrgDialog({
               >
                 <div className="flex items-center gap-2 text-sm">
                   <span className="min-w-0 flex-1 truncate text-ink">{cm.label}</span>
+                  {cm.invoice_no && (
+                    <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+                      Invoice {cm.invoice_no}
+                    </span>
+                  )}
                   <span
                     className={`shrink-0 text-sm font-medium tabular-nums ${
                       cm.direction === 'out' ? 'text-rose-700' : 'text-emerald-700'

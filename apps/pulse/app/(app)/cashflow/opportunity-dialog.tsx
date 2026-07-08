@@ -1,5 +1,14 @@
 'use client';
 
+// The income/cost popup, rebuilt to Sjoerd's final spec (2026-07-09), in his
+// order: direction → name → contact → expected date → stage → OFFERING ROWS
+// (select-or-free-name × qty × price × repeat, weighted amounts) → totals →
+// VAT → owner/team → notes. Offering rows persist via the items endpoints;
+// commitments without items keep the legacy single quantity/unit fields
+// (backward compat). Saved income opportunities grow an "Invoice…" transfer
+// (nested confirm popup — org-dialog stacking rules: later sibling paints on
+// top, the outer dialog's onClose is guarded while a nested one is open).
+
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
@@ -10,10 +19,12 @@ import { money } from '@/lib/money';
 import {
   saveCommitment,
   deleteCommitment,
+  invoiceCommitment,
   createOrganisation,
   createPerson,
   getOrgMembers,
   linkPersonToOrg,
+  type ItemPayload,
   type LinePayload,
 } from './actions';
 import { Combobox, type ComboCreateResult } from './combobox';
@@ -39,11 +50,21 @@ function toCents(s: string): number | null {
 function fromCents(c: number): string {
   return (c / 100).toFixed(2);
 }
+function centsToInput(c: number): string {
+  return (c / 100).toFixed(2).replace('.', ',');
+}
 function todayIso(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
 type RepeatCadence = 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
+const CADENCES: { value: RepeatCadence; label: string }[] = [
+  { value: 'weekly', label: 'Weekly' },
+  { value: 'fortnightly', label: 'Fortnightly' },
+  { value: 'monthly', label: 'Monthly' },
+  { value: 'quarterly', label: 'Quarterly' },
+  { value: 'yearly', label: 'Yearly' },
+];
 
 type Row = {
   key: number;
@@ -55,7 +76,24 @@ type Row = {
   settled_at: string;
 };
 
+// An offering row — offeringId '' means a free-text name.
+type ItemRow = {
+  key: number;
+  id?: string;
+  offeringId: string;
+  name: string;
+  quantity: string;
+  unitAmount: string;
+  repeat: RepeatCadence | '';
+};
+
 let rowSeq = 0;
+
+function itemRowFull(r: ItemRow): number | null {
+  const q = parseFloat(r.quantity.trim().replace(',', '.'));
+  const unit = toCents(r.unitAmount);
+  return Number.isFinite(q) && q > 0 && unit != null ? Math.round(q * unit) : null;
+}
 
 export function OpportunityDialog({
   commitment,
@@ -89,9 +127,9 @@ export function OpportunityDialog({
   // Local copies so an inline "Create '<query>'" shows up immediately.
   const [orgs, setOrgs] = useState<OrgOption[]>(pickers.orgs);
   const [persons, setPersons] = useState<PersonOption[]>(pickers.persons);
-  // Company-aware person picking (Sjoerd 2026-07-08): members of the selected
-  // organisation load on selection; picking a non-member asks BEFORE the
-  // connection is made. null = no org selected / not loaded yet.
+  // Company-aware person picking: members of the selected organisation load
+  // on selection; the picker then lists ONLY them (Sjoerd 2026-07-09) — the
+  // "Add person…" popup covers everyone else. null = no org / not loaded.
   const [orgMembers, setOrgMembers] = useState<PersonOption[] | null>(null);
   const [membersLoading, setMembersLoading] = useState(false);
   // Ref mirror of the member ids — the combobox's onSelect fires in the same
@@ -102,17 +140,24 @@ export function OpportunityDialog({
   // "linked to <company>" — keyed by person so selecting that same person
   // (the combobox does onCreate → onSelect) doesn't wipe it.
   const [linkNote, setLinkNote] = useState<{ personId: string; text: string } | null>(null);
-  const [teamId, setTeamId] = useState(commitment?.team_id ?? '');
+  // Team auto-derives for NEW items: the single involved team when there is
+  // exactly one (a picked project's team overrides below). Still editable.
+  const [teamId, setTeamId] = useState(
+    commitment
+      ? commitment.team_id ?? ''
+      : pickers.teams.length === 1
+        ? pickers.teams[0].team_id
+        : '',
+  );
   const [projectId, setProjectId] = useState(commitment?.project_id ?? '');
   const [offeringId, setOfferingId] = useState(commitment?.offering_id ?? '');
-  // Deal size as quantity × unit price (the workbook's "16 × product X").
+  // LEGACY deal size — quantity × unit price. Only shown (and saved from the
+  // fields) when the commitment has no offering rows.
   const [quantity, setQuantity] = useState(
     commitment ? String(commitment.quantity ?? 1) : '1',
   );
   const [unitAmount, setUnitAmount] = useState(
-    commitment?.unit_amount_cents != null
-      ? (commitment.unit_amount_cents / 100).toFixed(2).replace('.', ',')
-      : '',
+    commitment?.unit_amount_cents != null ? centsToInput(commitment.unit_amount_cents) : '',
   );
   // New opportunities default to the signed-in user when they're a member;
   // '' keeps the API default (caller on create / unchanged on edit).
@@ -122,9 +167,8 @@ export function OpportunityDialog({
         ? currentUserId
         : ''),
   );
-  // Recurring is a characteristic, not a separate thing (Sjoerd 2026-07-08).
-  // '' = doesn't repeat. When repeating, occurrences come from the deal size
-  // (quantity × unit price) — the lines editor is hidden and lines untouched.
+  // Legacy recurring characteristic (commitment-level). In items mode the
+  // rows carry their own Repeat; these fields pass through unchanged.
   const [repeatCadence, setRepeatCadence] = useState<RepeatCadence | ''>(
     commitment?.repeat_cadence ?? '',
   );
@@ -137,6 +181,10 @@ export function OpportunityDialog({
   );
   const [probability, setProbability] = useState(commitment?.probability ?? 50);
   const [notes, setNotes] = useState(commitment?.notes ?? '');
+  // VAT tariff — '' = no VAT; otherwise the pct as a string ("21").
+  const [vatPct, setVatPct] = useState(
+    commitment?.vat_pct != null ? String(Number(commitment.vat_pct)) : '',
+  );
   const [rows, setRows] = useState<Row[]>(() =>
     [...(commitment?.lines ?? [])]
       .sort((a, b) => a.expected_date.localeCompare(b.expected_date))
@@ -150,25 +198,54 @@ export function OpportunityDialog({
         settled_at: l.settled_at ?? '',
       })),
   );
+  // The single Expected date (spec item 4): seeds/updates the FIRST payment
+  // line; the full payments editor stays under More options.
+  const [expectedDate, setExpectedDate] = useState(() => {
+    const sorted = [...(commitment?.lines ?? [])].sort((a, b) =>
+      a.expected_date.localeCompare(b.expected_date),
+    );
+    return sorted[0]?.expected_date ?? todayIso();
+  });
+  // OFFERING ROWS — the deal. New commitments start with one blank row;
+  // existing ones without items stay in legacy mode until a row is added.
+  const [itemRows, setItemRows] = useState<ItemRow[]>(() => {
+    if (!commitment) {
+      return [{ key: rowSeq++, offeringId: '', name: '', quantity: '1', unitAmount: '', repeat: '' }];
+    }
+    return [...(commitment.items ?? [])]
+      .sort((a, b) => a.sort_order - b.sort_order)
+      .map((i) => ({
+        key: rowSeq++,
+        id: i.id,
+        offeringId: i.offering_id ?? '',
+        name: i.name,
+        quantity: String(Number(i.quantity)),
+        unitAmount: centsToInput(i.unit_amount_cents),
+        repeat: i.repeat_cadence ?? '',
+      }));
+  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  // Progressive disclosure: Label / Team / Project / Offering / Owner /
-  // Notes fold behind "More options" — collapsed for new items, open when
-  // editing one that uses any of them (label always does on saved items).
+  // Nested popups (org-dialog stacking rules apply).
+  const [addPersonOpen, setAddPersonOpen] = useState(false);
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  // Set by a successful transfer so the badge shows without a prop refresh.
+  const [invoicedNo, setInvoicedNo] = useState<string | null>(commitment?.invoice_no ?? null);
+  // Progressive disclosure: the payments editor + Project (+ legacy Offering)
+  // fold behind "More options" — open when the saved item uses them.
   const [moreOpen, setMoreOpen] = useState<boolean>(
     !!commitment &&
       Boolean(
-        commitment.label ||
-          commitment.team_id ||
-          commitment.project_id ||
-          commitment.offering_id ||
-          commitment.owner_user_id ||
-          commitment.notes,
+        (commitment.lines ?? []).length > 1 || commitment.project_id || commitment.offering_id,
       ),
   );
 
-  const repeating = repeatCadence !== '';
+  const itemsMode = itemRows.length > 0;
+  // Legacy recurring only — items mode hides the commitment-level Repeats
+  // (each row has its own) and passes the stored values through on save.
+  const repeating = !itemsMode && repeatCadence !== '';
+  const nestedOpen = addPersonOpen || invoiceOpen;
 
   // Fetch the selected company's people whenever the organisation changes.
   useEffect(() => {
@@ -207,23 +284,29 @@ export function OpportunityDialog({
         { id: stage, key: stage, label: stage, kind: 'open', sort_order: 999, is_system: false },
       ];
 
+  // The probability every weighted amount uses: costs count in full.
+  const effProb = direction === 'out' ? 100 : probabilityLocked ? 100 : probability;
+
   const orgOptions = orgs.map((o) => ({ id: o.id, label: o.name }));
   const selectedOrgName = orgs.find((o) => o.id === orgId)?.name ?? 'this company';
-  // Company people first (sublabel "at <company>"), then everyone else with
-  // their email — one flat list, two groups.
-  const personOptions =
-    orgId && orgMembers
-      ? [
-          ...orgMembers.map((p) => ({
-            id: p.id,
-            label: personName(p),
-            sublabel: `at ${selectedOrgName}`,
-          })),
-          ...persons
-            .filter((p) => !orgMembers.some((m) => m.id === p.id))
-            .map((p) => ({ id: p.id, label: personName(p), sublabel: p.email })),
-        ]
-      : persons.map((p) => ({ id: p.id, label: personName(p), sublabel: p.email }));
+  // With a company selected: ONLY its people (Sjoerd 2026-07-09) — plus the
+  // already-selected person if they're not linked, so the input keeps their
+  // name. "Add person…" (below) covers existing contacts + create-new.
+  const strictMode = Boolean(orgId && orgMembers);
+  const personOptions = strictMode
+    ? [
+        ...orgMembers!.map((p) => ({
+          id: p.id,
+          label: personName(p),
+          sublabel: `at ${selectedOrgName}`,
+        })),
+        ...(personId && !orgMembers!.some((m) => m.id === personId)
+          ? persons
+              .filter((p) => p.id === personId)
+              .map((p) => ({ id: p.id, label: personName(p), sublabel: 'not linked' }))
+          : []),
+      ]
+    : persons.map((p) => ({ id: p.id, label: personName(p), sublabel: p.email }));
 
   const pendingPerson = linkPrompt
     ? [...(orgMembers ?? []), ...persons].find((p) => p.id === linkPrompt) ?? null
@@ -307,7 +390,28 @@ export function OpportunityDialog({
     return { option: { id: created.id, label: personName(created), sublabel: created.email } };
   }
 
-  const total = rows.reduce((acc, r) => acc + (toCents(r.amount) ?? 0), 0);
+  // ---- totals ---------------------------------------------------------------
+  const legacyFull = (() => {
+    const q = parseFloat(quantity.replace(',', '.'));
+    const unit = toCents(unitAmount);
+    return Number.isFinite(q) && q > 0 && unit != null ? Math.round(q * unit) : 0;
+  })();
+  const fullTotal = itemsMode
+    ? itemRows.reduce((a, r) => a + (itemRowFull(r) ?? 0), 0)
+    : legacyFull;
+  const weightedTotal = itemsMode
+    ? itemRows.reduce((a, r) => {
+        const full = itemRowFull(r);
+        return a + (full != null ? Math.round((full * effProb) / 100) : 0);
+      }, 0)
+    : Math.round((legacyFull * effProb) / 100);
+  const vatNumber = vatPct === '' ? null : Number(vatPct);
+  const totalInclVat =
+    vatNumber != null ? Math.round(fullTotal * (1 + vatNumber / 100)) : fullTotal;
+  // Editing a commitment whose stored VAT no longer matches a tariff: keep
+  // it selectable rather than silently clearing it.
+  const vatIsCustom =
+    vatPct !== '' && !pickers.vatTariffs.some((t) => String(t.pct) === vatPct);
 
   // Involved teams are preferred; when none are marked yet the select falls
   // back to ALL active workspace teams so it's never empty.
@@ -336,6 +440,21 @@ export function OpportunityDialog({
   function patchRow(key: number, patch: Partial<Row>) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
   }
+  function patchItem(key: number, patch: Partial<ItemRow>) {
+    setItemRows((rs) => rs.map((r) => (r.key === key ? { ...r, ...patch } : r)));
+  }
+  function addItemRow(seed?: Partial<ItemRow>) {
+    setItemRows((rs) => [
+      ...rs,
+      { key: rowSeq++, offeringId: '', name: '', quantity: '1', unitAmount: '', repeat: '', ...seed },
+    ]);
+  }
+
+  // The Expected date drives the FIRST payment line (spec item 4).
+  function onExpectedDate(v: string) {
+    setExpectedDate(v);
+    setRows((rs) => (rs.length > 0 ? rs.map((r, i) => (i === 0 ? { ...r, expected_date: v } : r)) : rs));
+  }
 
   // "Label of an opportunity is: project/offering" — picking one prefills an
   // empty label with its name (still freely editable afterwards).
@@ -346,13 +465,55 @@ export function OpportunityDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      setError('Label is required.');
-      setMoreOpen(true); // the field lives under More options — reveal it
+      setError('Name is required.');
       return;
     }
 
-    // Repeating items derive occurrences from the deal size — no deal, no
-    // occurrences, nothing to project. Block the save instead of saving air.
+    // ---- offering rows → item payloads ------------------------------------
+    const origItems = new Map((commitment?.items ?? []).map((i) => [i.id, i]));
+    const items: ItemPayload[] = [];
+    if (itemsMode) {
+      let idx = 0;
+      for (const r of itemRows) {
+        const blank = !r.name.trim() && !r.unitAmount.trim() && !r.offeringId;
+        if (blank) continue;
+        const q = parseFloat(r.quantity.trim().replace(',', '.'));
+        const unit = toCents(r.unitAmount);
+        if (!r.name.trim() || unit == null || !Number.isFinite(q) || q <= 0) {
+          setError('Each offering row needs a name, a positive quantity and a price.');
+          return;
+        }
+        const payload: ItemPayload = {
+          id: r.id,
+          offering_id: r.offeringId || null,
+          name: r.name.trim(),
+          quantity: q,
+          unit_amount_cents: unit,
+          repeat_cadence: r.repeat || null,
+          sort_order: idx++,
+        };
+        if (r.id) {
+          const o = origItems.get(r.id);
+          payload.dirty =
+            !o ||
+            (o.offering_id ?? null) !== payload.offering_id ||
+            o.name !== payload.name ||
+            Number(o.quantity) !== payload.quantity ||
+            o.unit_amount_cents !== payload.unit_amount_cents ||
+            (o.repeat_cadence ?? null) !== payload.repeat_cadence ||
+            o.sort_order !== payload.sort_order;
+        }
+        items.push(payload);
+      }
+    }
+    const hasItems = items.length > 0;
+    const itemsNet = items.reduce(
+      (a, i) => a + Math.round(i.quantity * i.unit_amount_cents),
+      0,
+    );
+
+    // Legacy repeating items derive occurrences from the deal size — no deal,
+    // no occurrences, nothing to project. Block the save instead of saving air.
     const qNum = parseFloat(quantity.replace(',', '.'));
     const unitCents = toCents(unitAmount);
     const dealCents =
@@ -388,6 +549,7 @@ export function OpportunityDialog({
         const cents = toCents(r.amount);
         if (!r.expected_date || cents === null) {
           setError('Each expected payment needs a date and an amount.');
+          setMoreOpen(true); // the editor lives under More options — reveal it
           return;
         }
         const payload: LinePayload = {
@@ -410,6 +572,20 @@ export function OpportunityDialog({
         }
         lines.push(payload);
       }
+      // The Expected date seeds the first payment when none exists yet —
+      // one field for the simple case, the editor for real schedules.
+      if (lines.length === 0) {
+        const seed = hasItems ? itemsNet : dealCents;
+        if (seed > 0 && expectedDate) {
+          lines.push({
+            expected_date: expectedDate,
+            amount_cents: seed,
+            invoice_ref: null,
+            invoiced_at: null,
+            settled_at: null,
+          });
+        }
+      }
     }
 
     setBusy(true);
@@ -426,14 +602,32 @@ export function OpportunityDialog({
         offering_id: offeringId || null,
         // Omitted = API defaults to the caller / keeps the current owner.
         ...(ownerId ? { owner_user_id: ownerId } : {}),
+        // Items are the deal when present — bridge the legacy fields to the
+        // items total so every older surface (table totals, projection)
+        // keeps showing the right number.
+        quantity: hasItems ? 1 : Number.isFinite(qNum) && qNum > 0 ? qNum : 1,
+        unit_amount_cents: hasItems ? itemsNet || null : unitCents,
+        // Items mode: commitment-level repeat passes through unchanged (the
+        // rows carry their own cadence); legacy mode: from the Repeats select.
+        repeat_cadence: itemsMode
+          ? commitment?.repeat_cadence ?? null
+          : repeating
+            ? (repeatCadence as RepeatCadence)
+            : null,
+        repeat_starts_on: itemsMode
+          ? commitment?.repeat_starts_on ?? null
+          : repeating
+            ? repeatStartsOn || todayIso()
+            : null,
+        repeat_until: itemsMode
+          ? commitment?.repeat_until ?? null
+          : repeating
+            ? repeatUntil || null
+            : null,
+        vat_pct: vatNumber,
         // A cost is not an opportunity (Sjoerd 2026-07-08): no pipeline
         // semantics. New costs save as committed money; existing rows keep
         // their stored stage untouched.
-        quantity: Number.isFinite(qNum) && qNum > 0 ? qNum : 1,
-        unit_amount_cents: unitCents,
-        repeat_cadence: repeating ? repeatCadence : null,
-        repeat_starts_on: repeating ? repeatStartsOn || todayIso() : null,
-        repeat_until: repeating ? repeatUntil || null : null,
         stage: direction === 'out' && !commitment ? 'committed' : stage,
         probability:
           direction === 'out' && !commitment ? 100 : probabilityLocked ? 100 : probability,
@@ -441,6 +635,8 @@ export function OpportunityDialog({
       },
       lines,
       originalLineIds: (commitment?.lines ?? []).map((l) => l.id),
+      items,
+      originalItemIds: (commitment?.items ?? []).map((i) => i.id),
     });
     if (res.error) {
       setError(res.error);
@@ -470,19 +666,41 @@ export function OpportunityDialog({
     router.refresh();
   }
 
+  // Email the "Create & send" path would use — the saved counterparty person.
+  const counterpartyEmail =
+    [...(orgMembers ?? []), ...persons].find((p) => p.id === personId)?.email ??
+    commitment?.person?.email ??
+    null;
+
+  const itemGrid =
+    'grid grid-cols-[minmax(150px,1fr)_56px_90px_108px_minmax(120px,auto)_28px] gap-2 items-center';
+
   return (
+    <>
     <Dialog
       open
-      onClose={onClose}
+      onClose={() => {
+        // Escape fires every dialog's listener — while a nested popup is
+        // open this outer close is the nested one's to handle (org-dialog
+        // stacking rule).
+        if (nestedOpen) return;
+        onClose();
+      }}
       title={
-        // An opportunity is just income (Sjoerd 2026-07-08) — no third noun.
-        direction === 'out'
-          ? commitment
-            ? 'Edit cost'
-            : 'New cost'
-          : commitment
-            ? 'Edit income'
-            : 'New income'
+        <span className="inline-flex items-center gap-2">
+          {direction === 'out'
+            ? commitment
+              ? 'Edit cost'
+              : 'New cost'
+            : commitment
+              ? 'Edit income'
+              : 'New income'}
+          {invoicedNo && (
+            <span className="rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+              Invoice {invoicedNo}
+            </span>
+          )}
+        </span>
       }
       size="xl"
       footer={
@@ -498,6 +716,16 @@ export function OpportunityDialog({
               {confirmDelete ? 'Really delete?' : 'Delete'}
             </Button>
           )}
+          {commitment && direction === 'in' && !invoicedNo && (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={busy}
+              onClick={() => setInvoiceOpen(true)}
+            >
+              Invoice…
+            </Button>
+          )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
@@ -508,9 +736,7 @@ export function OpportunityDialog({
       }
     >
       <form id="opportunity-form" onSubmit={submit} className="space-y-4">
-        {/* Direction first — it decides everything else. The rarely touched
-            fields fold behind More options below (progressive disclosure,
-            Sjoerd 2026-07-08: "this popup is very unclear"). */}
+        {/* 1 · Direction — it decides everything else. */}
         <div className="max-w-[300px]">
           <div>
             <label className="block text-sm font-medium mb-1">Direction</label>
@@ -545,9 +771,20 @@ export function OpportunityDialog({
           </div>
         </div>
 
-        {/* Organisation + person are NOT exclusive (Sjoerd 2026-07-08): a
-            deal has a company AND a contact person at it. Once a company is
-            selected its people surface first in the person picker. */}
+        {/* 2 · Name */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Name</label>
+          <input
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Website rebuild — phase 2"
+            className={INPUT}
+          />
+        </div>
+
+        {/* 3 · Contact: organisation + contact person. Once a company is
+            selected, the person picker lists ONLY its people — "Add person…"
+            opens the search/create popup (Sjoerd 2026-07-09). */}
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Organisation</label>
@@ -568,8 +805,15 @@ export function OpportunityDialog({
               placeholder="No counterparty yet"
               emptyLabel="No counterparty yet"
               onSelect={handleSelectPerson}
-              onCreate={handleCreatePerson}
-              createExtraField={{ label: 'Email', placeholder: 'name@example.com' }}
+              onCreate={strictMode ? undefined : handleCreatePerson}
+              createExtraField={
+                strictMode ? undefined : { label: 'Email', placeholder: 'name@example.com' }
+              }
+              actionItem={
+                strictMode
+                  ? { label: 'Add person…', onPick: () => setAddPersonOpen(true) }
+                  : undefined
+              }
             />
             {membersLoading && (
               <p className="mt-1 text-xs text-ink-muted">Loading company people…</p>
@@ -607,91 +851,34 @@ export function OpportunityDialog({
           </div>
         </div>
 
-        {/* Deal size — quantity × unit price (e.g. 16 × product X @ €1.350). */}
-        <div className="border-t border-line pt-4 grid grid-cols-3 gap-4 items-end">
-          <div>
-            <label className="block text-sm font-medium mb-1">Quantity</label>
-            <input
-              value={quantity}
-              onChange={(e) => setQuantity(e.target.value)}
-              inputMode="decimal"
-              className={INPUT}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Unit price €</label>
-            <input
-              value={unitAmount}
-              onChange={(e) => setUnitAmount(e.target.value)}
-              placeholder="0,00"
-              inputMode="decimal"
-              className={INPUT}
-            />
-          </div>
-          <div className="pb-1">
-            {(() => {
-              const q = parseFloat(quantity.replace(',', '.'));
-              const unit = toCents(unitAmount);
-              const dealTotal =
-                Number.isFinite(q) && q > 0 && unit != null ? Math.round(q * unit) : null;
-              if (dealTotal == null || dealTotal === 0) {
-                return <span className="text-xs text-ink-muted">= deal size</span>;
-              }
-              return (
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium text-ink tabular-nums">
-                    = {money(dealTotal)}
-                  </span>
-                  {!repeating && (
-                    <button
-                      type="button"
-                      onClick={() =>
-                        setRows((rs) => [
-                          ...rs,
-                          {
-                            key: rowSeq++,
-                            expected_date: todayIso(),
-                            amount: (dealTotal / 100).toFixed(2).replace('.', ','),
-                            invoice_ref: '',
-                            invoiced_at: '',
-                            settled_at: '',
-                          },
-                        ])
-                      }
-                      className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
-                    >
-                      insert as payment
-                    </button>
-                  )}
-                </div>
-              );
-            })()}
-          </div>
-        </div>
-
-        {/* Repeats — recurring is a characteristic of the item, not a
-            separate thing. Occurrences come from the deal size above. */}
+        {/* 4 · Expected date — drives the first payment line. Legacy items
+            keep the commitment-level Repeats controls here. */}
         <div className="grid grid-cols-3 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Repeats</label>
-            <select
-              value={repeatCadence}
-              onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
-              className={INPUT}
-            >
-              <option value="">Doesn&apos;t repeat</option>
-              <option value="weekly">Weekly</option>
-              <option value="fortnightly">Fortnightly</option>
-              <option value="monthly">Monthly</option>
-              <option value="quarterly">Quarterly</option>
-              <option value="yearly">Yearly</option>
-            </select>
-            {repeating && (
-              <p className="mt-1 text-xs text-ink-muted">
-                Repeats use the deal size (quantity × unit price) per occurrence.
-              </p>
-            )}
-          </div>
+          {!repeating && (
+            <DateField
+              label="Expected date"
+              name="expected_date"
+              defaultValue={expectedDate}
+              onValueChange={onExpectedDate}
+            />
+          )}
+          {!itemsMode && (
+            <div>
+              <label className="block text-sm font-medium mb-1">Repeats</label>
+              <select
+                value={repeatCadence}
+                onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
+                className={INPUT}
+              >
+                <option value="">Doesn&apos;t repeat</option>
+                {CADENCES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           {repeating && (
             <>
               <DateField
@@ -710,6 +897,7 @@ export function OpportunityDialog({
           )}
         </div>
 
+        {/* 5 · Stage — income only; a cost is not an opportunity. */}
         {direction === 'in' ? (
           <div className="grid grid-cols-3 gap-4">
             <div>
@@ -759,110 +947,266 @@ export function OpportunityDialog({
           </div>
         ) : (
           <p className="text-xs text-ink-muted">
-            Costs count in full — no pipeline stage. For a repeating cost, set Repeats above.
+            Costs count in full — no pipeline stage.
+            {!itemsMode && ' For a repeating cost, set Repeats above.'}
           </p>
         )}
 
-        {/* ---- Lines editor ------------------------------------------------
-            Hidden while repeating: occurrences come from the deal size, and
-            the existing lines are passed through untouched on save. */}
-        {!repeating && (
-        <div className="pt-4 border-t border-line">
-          <div className="flex items-baseline justify-between">
-            <h3 className="text-sm font-medium">Expected payments</h3>
-            <span className="text-sm text-ink-muted">
-              Total <span className="font-medium text-ink">{money(total)}</span>
-            </span>
-          </div>
-
-          {rows.length > 0 && (
-            <div className="mt-3 grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 text-xs text-ink-muted">
-              <span>Expected</span>
-              <span>Amount €</span>
-              <span>Invoice</span>
-              <span>Invoiced</span>
-              <span>Settled</span>
+        {/* 6 · Offering rows — THE deal. Legacy commitments without rows keep
+            the single quantity/unit fields until a row is added. */}
+        {itemsMode ? (
+          <div className="border-t border-line pt-4">
+            <div className={`${itemGrid} text-xs text-ink-muted`}>
+              <span>Offering</span>
+              <span className="text-right">Qty</span>
+              <span className="text-right">Price €</span>
+              <span>Repeat</span>
+              <span className="text-right">Amount</span>
               <span />
             </div>
-          )}
-
-          <div className="mt-1 space-y-2">
-            {rows.map((r) => (
-              <div
-                key={r.key}
-                className="grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 items-center"
-              >
-                <DateField
-                  label=""
-                  name={`expected_date_${r.key}`}
-                  defaultValue={r.expected_date}
-                  onValueChange={(v) => patchRow(r.key, { expected_date: v })}
-                />
+            <div className="mt-1 space-y-2">
+              {itemRows.map((r) => {
+                const full = itemRowFull(r);
+                const weighted = full != null ? Math.round((full * effProb) / 100) : null;
+                return (
+                  <div key={r.key} className={itemGrid}>
+                    <Combobox
+                      value={r.offeringId}
+                      options={pickers.offerings.map((o) => ({ id: o.id, label: o.name }))}
+                      placeholder="Offering or description"
+                      freeLabel={r.name}
+                      onSelect={(id) => {
+                        const off = pickers.offerings.find((o) => o.id === id);
+                        patchItem(r.key, {
+                          offeringId: id,
+                          ...(off
+                            ? {
+                                name: off.name,
+                                ...(off.default_amount_cents != null
+                                  ? { unitAmount: centsToInput(off.default_amount_cents) }
+                                  : {}),
+                              }
+                            : {}),
+                        });
+                        if (off) prefillLabel(off.name);
+                      }}
+                      onFreeText={(text) => {
+                        // Typing a non-match keeps it as a free-text name.
+                        const selected = pickers.offerings.find((o) => o.id === r.offeringId);
+                        if (selected && selected.name === text) return;
+                        patchItem(r.key, { offeringId: '', name: text });
+                      }}
+                    />
+                    <input
+                      value={r.quantity}
+                      onChange={(e) => patchItem(r.key, { quantity: e.target.value })}
+                      inputMode="decimal"
+                      aria-label="Quantity"
+                      className={`${INPUT_SM} text-right`}
+                    />
+                    <input
+                      value={r.unitAmount}
+                      onChange={(e) => patchItem(r.key, { unitAmount: e.target.value })}
+                      placeholder="0,00"
+                      inputMode="decimal"
+                      aria-label="Unit price"
+                      className={`${INPUT_SM} text-right`}
+                    />
+                    <select
+                      value={r.repeat}
+                      onChange={(e) =>
+                        patchItem(r.key, { repeat: e.target.value as RepeatCadence | '' })
+                      }
+                      aria-label="Repeat"
+                      className={INPUT_SM}
+                    >
+                      <option value="">—</option>
+                      {CADENCES.map((c) => (
+                        <option key={c.value} value={c.value}>
+                          {c.label}
+                        </option>
+                      ))}
+                    </select>
+                    <div className="text-right tabular-nums whitespace-nowrap">
+                      {weighted == null ? (
+                        <span className="text-xs text-ink-muted select-none">—</span>
+                      ) : (
+                        <>
+                          <span className="text-sm font-medium text-ink">{money(weighted)}</span>
+                          {weighted !== full && (
+                            <span className="ml-1.5 text-xs text-ink-muted">{money(full!)}</span>
+                          )}
+                        </>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      aria-label="Remove offering row"
+                      onClick={() => setItemRows((rs) => rs.filter((x) => x.key !== r.key))}
+                      className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
+                    >
+                      <X size={15} strokeWidth={1.75} />
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              className="mt-3"
+              leading={<Plus size={14} strokeWidth={2} />}
+              onClick={() => addItemRow()}
+            >
+              Add offering
+            </Button>
+          </div>
+        ) : (
+          /* LEGACY single deal size — quantity × unit price. */
+          <div className="border-t border-line pt-4">
+            <div className="grid grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium mb-1">Quantity</label>
                 <input
-                  value={r.amount}
-                  onChange={(e) => patchRow(r.key, { amount: e.target.value })}
+                  value={quantity}
+                  onChange={(e) => setQuantity(e.target.value)}
+                  inputMode="decimal"
+                  className={INPUT}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Unit price €</label>
+                <input
+                  value={unitAmount}
+                  onChange={(e) => setUnitAmount(e.target.value)}
                   placeholder="0,00"
                   inputMode="decimal"
-                  className={`${INPUT_SM} text-right`}
+                  className={INPUT}
                 />
-                <input
-                  value={r.invoice_ref}
-                  onChange={(e) => patchRow(r.key, { invoice_ref: e.target.value })}
-                  placeholder="invoice #"
-                  className={INPUT_SM}
-                />
-                <DateField
-                  label=""
-                  name={`invoiced_at_${r.key}`}
-                  defaultValue={r.invoiced_at}
-                  onValueChange={(v) => patchRow(r.key, { invoiced_at: v })}
-                />
-                <DateField
-                  label=""
-                  name={`settled_at_${r.key}`}
-                  defaultValue={r.settled_at}
-                  onValueChange={(v) => patchRow(r.key, { settled_at: v })}
-                />
-                <button
-                  type="button"
-                  aria-label="Remove payment"
-                  onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
-                  className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
-                >
-                  <X size={15} strokeWidth={1.75} />
-                </button>
               </div>
-            ))}
+              <div className="pb-1">
+                {legacyFull > 0 ? (
+                  <span className="text-sm font-medium text-ink tabular-nums">
+                    = {money(legacyFull)}
+                  </span>
+                ) : (
+                  <span className="text-xs text-ink-muted">= deal size</span>
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() =>
+                // Converting seeds the first offering row from the legacy
+                // fields so nothing is retyped.
+                addItemRow({
+                  offeringId: offeringId || '',
+                  name:
+                    pickers.offerings.find((o) => o.id === offeringId)?.name || label || '',
+                  quantity: quantity || '1',
+                  unitAmount,
+                  repeat: repeatCadence,
+                })
+              }
+              className="mt-2 text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+            >
+              + add offering
+            </button>
           </div>
-
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            className="mt-3"
-            leading={<Plus size={14} strokeWidth={2} />}
-            onClick={() =>
-              setRows((rs) => [
-                ...rs,
-                {
-                  key: rowSeq++,
-                  expected_date: '',
-                  amount: '',
-                  invoice_ref: '',
-                  invoiced_at: '',
-                  settled_at: '',
-                },
-              ])
-            }
-          >
-            Add payment
-          </Button>
-        </div>
         )}
 
+        {/* 7 + 8 · Totals, VAT tariff and total incl VAT. */}
+        <div className="border-t border-line pt-3 space-y-3">
+          <div className="flex items-baseline justify-end gap-6 text-sm">
+            <span className="text-ink-muted">
+              Full price <span className="font-medium text-ink tabular-nums">{money(fullTotal)}</span>
+            </span>
+            <span className="text-ink-muted">
+              Total weighted{' '}
+              <span className="font-semibold text-ink tabular-nums">{money(weightedTotal)}</span>
+            </span>
+          </div>
+          <div className="flex items-center justify-between gap-4">
+            <div className="w-56">
+              <label className="block text-sm font-medium mb-1">VAT tariff</label>
+              <select
+                value={vatPct}
+                onChange={(e) => setVatPct(e.target.value)}
+                className={INPUT}
+              >
+                <option value="">No VAT</option>
+                {pickers.vatTariffs.map((t) => (
+                  <option key={`${t.label}-${t.pct}`} value={String(t.pct)}>
+                    {t.label}
+                  </option>
+                ))}
+                {vatIsCustom && <option value={vatPct}>{vatPct}%</option>}
+              </select>
+            </div>
+            <div className="text-right">
+              <span className="block text-xs text-ink-muted">Total incl VAT</span>
+              <span className="text-base font-semibold text-ink tabular-nums">
+                {money(totalInclVat)}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        {/* 9 · Owner + Team (team auto-derives from project / single team). */}
+        <div className="grid grid-cols-3 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">Owner</label>
+            <select
+              value={ownerId}
+              onChange={(e) => setOwnerId(e.target.value)}
+              className={INPUT}
+            >
+              <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
+              {pickers.members.map((m) => (
+                <option key={m.user_id} value={m.user_id}>
+                  {m.full_name ?? m.email ?? m.user_id}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Team</label>
+            <select
+              value={teamId}
+              onChange={(e) => setTeamId(e.target.value)}
+              className={INPUT}
+            >
+              <option value="">—</option>
+              {teamOptions.map((t) => (
+                <option key={t.value} value={t.value}>
+                  {t.label}
+                </option>
+              ))}
+            </select>
+            {showingAllTeams && teamOptions.length > 0 && (
+              <p className="mt-1 text-xs text-ink-muted">
+                Showing all teams — pick the involved teams in Settings to scope this list.
+              </p>
+            )}
+          </div>
+        </div>
+
+        {/* 10 · Notes */}
+        <div>
+          <label className="block text-sm font-medium mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Optional"
+            className={INPUT}
+          />
+        </div>
+
         {/* ---- More options -------------------------------------------------
-            Label (it auto-prefills from project/offering), Team, Project,
-            Offering, Owner and Notes — folded by default for new items. */}
+            The full payments editor (multi-payment schedules) + Project
+            (+ the legacy commitment-level Offering). */}
         <div className="border-t border-line pt-3">
           <button
             type="button"
@@ -879,46 +1223,120 @@ export function OpportunityDialog({
           </button>
           {moreOpen && (
             <div className="mt-3 space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-1">Label</label>
-                <input
-                  value={label}
-                  onChange={(e) => setLabel(e.target.value)}
-                  placeholder="e.g. Website rebuild — phase 2"
-                  className={INPUT}
-                />
-                <p className="mt-1 text-xs text-ink-muted">
-                  Prefills from the project or offering when left empty.
-                </p>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
+              {/* Payments editor — hidden while (legacy) repeating: the
+                  occurrences come from the deal size and existing lines pass
+                  through untouched on save. */}
+              {!repeating && (
                 <div>
-                  <label className="block text-sm font-medium mb-1">Team</label>
-                  <select
-                    value={teamId}
-                    onChange={(e) => setTeamId(e.target.value)}
-                    className={INPUT}
-                  >
-                    <option value="">—</option>
-                    {teamOptions.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  {showingAllTeams && teamOptions.length > 0 && (
-                    <p className="mt-1 text-xs text-ink-muted">
-                      Showing all teams — pick the involved teams in Settings to scope this list.
-                    </p>
+                  <div className="flex items-baseline justify-between">
+                    <h3 className="text-sm font-medium">Expected payments</h3>
+                    <span className="text-sm text-ink-muted">
+                      Total{' '}
+                      <span className="font-medium text-ink">
+                        {money(rows.reduce((acc, r) => acc + (toCents(r.amount) ?? 0), 0))}
+                      </span>
+                    </span>
+                  </div>
+
+                  {rows.length > 0 && (
+                    <div className="mt-3 grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 text-xs text-ink-muted">
+                      <span>Expected</span>
+                      <span>Amount €</span>
+                      <span>Invoice</span>
+                      <span>Invoiced</span>
+                      <span>Settled</span>
+                      <span />
+                    </div>
                   )}
+
+                  <div className="mt-1 space-y-2">
+                    {rows.map((r, i) => (
+                      <div
+                        key={r.key}
+                        className="grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 items-center"
+                      >
+                        <DateField
+                          label=""
+                          name={`expected_date_${r.key}`}
+                          defaultValue={r.expected_date}
+                          onValueChange={(v) => {
+                            patchRow(r.key, { expected_date: v });
+                            if (i === 0) setExpectedDate(v);
+                          }}
+                        />
+                        <input
+                          value={r.amount}
+                          onChange={(e) => patchRow(r.key, { amount: e.target.value })}
+                          placeholder="0,00"
+                          inputMode="decimal"
+                          className={`${INPUT_SM} text-right`}
+                        />
+                        <input
+                          value={r.invoice_ref}
+                          onChange={(e) => patchRow(r.key, { invoice_ref: e.target.value })}
+                          placeholder="invoice #"
+                          className={INPUT_SM}
+                        />
+                        <DateField
+                          label=""
+                          name={`invoiced_at_${r.key}`}
+                          defaultValue={r.invoiced_at}
+                          onValueChange={(v) => patchRow(r.key, { invoiced_at: v })}
+                        />
+                        <DateField
+                          label=""
+                          name={`settled_at_${r.key}`}
+                          defaultValue={r.settled_at}
+                          onValueChange={(v) => patchRow(r.key, { settled_at: v })}
+                        />
+                        <button
+                          type="button"
+                          aria-label="Remove payment"
+                          onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
+                        >
+                          <X size={15} strokeWidth={1.75} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="mt-3"
+                    leading={<Plus size={14} strokeWidth={2} />}
+                    onClick={() =>
+                      setRows((rs) => [
+                        ...rs,
+                        {
+                          key: rowSeq++,
+                          expected_date: '',
+                          amount: '',
+                          invoice_ref: '',
+                          invoiced_at: '',
+                          settled_at: '',
+                        },
+                      ])
+                    }
+                  >
+                    Add payment
+                  </Button>
                 </div>
+              )}
+
+              <div className="grid grid-cols-3 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-1">Project</label>
                   <select
                     value={projectId}
                     onChange={(e) => {
                       setProjectId(e.target.value);
-                      prefillLabel(pickers.projects.find((p) => p.id === e.target.value)?.name);
+                      const p = pickers.projects.find((x) => x.id === e.target.value);
+                      prefillLabel(p?.name);
+                      // The project's team wins the auto-derive (still editable).
+                      if (p?.team_id) setTeamId(p.team_id);
                     }}
                     className={INPUT}
                   >
@@ -951,58 +1369,31 @@ export function OpportunityDialog({
                     )}
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Offering</label>
-                  <select
-                    value={offeringId}
-                    onChange={(e) => {
-                      setOfferingId(e.target.value);
-                      const off = pickers.offerings.find((o) => o.id === e.target.value);
-                      prefillLabel(off?.name);
-                      // Offering's default price prefills the unit price when empty.
-                      if (off?.default_amount_cents != null && !unitAmount.trim()) {
-                        setUnitAmount(
-                          (off.default_amount_cents / 100).toFixed(2).replace('.', ','),
-                        );
-                      }
-                    }}
-                    className={INPUT}
-                  >
-                    <option value="">—</option>
-                    {pickers.offerings.map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Owner</label>
-                  <select
-                    value={ownerId}
-                    onChange={(e) => setOwnerId(e.target.value)}
-                    className={INPUT}
-                  >
-                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
-                    {pickers.members.map((m) => (
-                      <option key={m.user_id} value={m.user_id}>
-                        {m.full_name ?? m.email ?? m.user_id}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="col-span-2">
-                  <label className="block text-sm font-medium mb-1">Notes</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={2}
-                    placeholder="Optional"
-                    className={INPUT}
-                  />
-                </div>
+                {!itemsMode && (
+                  <div>
+                    <label className="block text-sm font-medium mb-1">Offering</label>
+                    <select
+                      value={offeringId}
+                      onChange={(e) => {
+                        setOfferingId(e.target.value);
+                        const off = pickers.offerings.find((o) => o.id === e.target.value);
+                        prefillLabel(off?.name);
+                        // Offering's default price prefills the unit price when empty.
+                        if (off?.default_amount_cents != null && !unitAmount.trim()) {
+                          setUnitAmount(centsToInput(off.default_amount_cents));
+                        }
+                      }}
+                      className={INPUT}
+                    >
+                      <option value="">—</option>
+                      {pickers.offerings.map((o) => (
+                        <option key={o.id} value={o.id}>
+                          {o.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -1014,6 +1405,311 @@ export function OpportunityDialog({
           </div>
         )}
       </form>
+    </Dialog>
+
+    {/* Nested popups — rendered AFTER the main dialog so the later sibling
+        paints on top (same z-50). The main dialog's onClose is guarded. */}
+    {addPersonOpen && (
+      <AddPersonDialog
+        orgName={selectedOrgName}
+        persons={persons}
+        memberIds={memberIdsRef.current ?? new Set()}
+        onPickExisting={(id) => {
+          setAddPersonOpen(false);
+          handleSelectPerson(id); // non-members hit the link-confirm as usual
+        }}
+        onCreateNew={async (name, email) => {
+          const res = await handleCreatePerson(name, email);
+          if (res.error || !res.option) return res.error ?? 'unknown error';
+          setAddPersonOpen(false);
+          setPersonId(res.option.id);
+          return null;
+        }}
+        onClose={() => setAddPersonOpen(false)}
+      />
+    )}
+    {invoiceOpen && commitment && (
+      <InvoiceDialog
+        commitmentId={commitment.id}
+        totalInclVat={totalInclVat}
+        vatPct={vatNumber}
+        counterpartyEmail={counterpartyEmail}
+        onInvoiced={(no) => {
+          setInvoicedNo(no);
+          router.refresh();
+        }}
+        onClose={() => setInvoiceOpen(false)}
+      />
+    )}
+    </>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// "Add person…" — the strict person picker's escape hatch (Sjoerd
+// 2026-07-09): search ALL existing contacts, or create a new one.
+// ---------------------------------------------------------------------------
+function AddPersonDialog({
+  orgName,
+  persons,
+  memberIds,
+  onPickExisting,
+  onCreateNew,
+  onClose,
+}: {
+  orgName: string;
+  persons: PersonOption[];
+  memberIds: Set<string>;
+  onPickExisting: (id: string) => void;
+  onCreateNew: (name: string, email: string) => Promise<string | null>; // error | null
+  onClose: () => void;
+}) {
+  const [query, setQuery] = useState('');
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const q = query.trim().toLowerCase();
+  const matches = (q
+    ? persons.filter(
+        (p) =>
+          personName(p).toLowerCase().includes(q) ||
+          (p.email ?? '').toLowerCase().includes(q),
+      )
+    : persons
+  ).slice(0, 8);
+
+  async function create() {
+    if (!newName.trim()) {
+      setError('A name is required.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const err = await onCreateNew(newName.trim(), newEmail.trim());
+    setBusy(false);
+    if (err) setError(err);
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Add person"
+      description={<>Pick an existing contact or create a new one for {orgName}.</>}
+      size="sm"
+      footer={
+        <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
+          Cancel
+        </Button>
+      }
+    >
+      {creating ? (
+        <div className="space-y-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Name</label>
+            <input
+              autoFocus
+              value={newName}
+              onChange={(e) => setNewName(e.target.value)}
+              className={INPUT}
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Email</label>
+            <input
+              value={newEmail}
+              onChange={(e) => setNewEmail(e.target.value)}
+              placeholder="name@example.com"
+              className={INPUT}
+            />
+          </div>
+          <div className="flex items-center justify-between">
+            <button
+              type="button"
+              onClick={() => setCreating(false)}
+              className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
+            >
+              ← back to search
+            </button>
+            <Button type="button" size="sm" disabled={busy} onClick={() => void create()}>
+              {busy ? 'Creating…' : `Create & link to ${orgName}`}
+            </Button>
+          </div>
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="space-y-2">
+          <input
+            autoFocus
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Search contacts…"
+            className={INPUT}
+          />
+          <ul className="max-h-56 overflow-y-auto divide-y divide-line/60">
+            {matches.length === 0 && (
+              <li className="px-1 py-2 text-sm text-ink-muted">No matching contacts.</li>
+            )}
+            {matches.map((p) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onClick={() => onPickExisting(p.id)}
+                  className="flex w-full items-center gap-2 px-1 py-2 text-left text-sm hover:bg-surface-sunken rounded-md"
+                >
+                  <span className="min-w-0 flex-1 truncate text-ink">{personName(p)}</span>
+                  {memberIds.has(p.id) ? (
+                    <span className="shrink-0 text-xs text-ink-muted">at {orgName}</span>
+                  ) : (
+                    p.email && <span className="shrink-0 text-xs text-ink-muted">{p.email}</span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            onClick={() => {
+              setNewName(query.trim());
+              setCreating(true);
+              setError(null);
+            }}
+            className="w-full rounded-md border border-dashed border-line px-3 py-2 text-left text-sm font-medium text-ink-subtle hover:text-ink hover:bg-surface-sunken"
+          >
+            + Create new person{query.trim() ? ` ‘${query.trim()}’` : ''}
+          </button>
+        </div>
+      )}
+    </Dialog>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Transfer to invoice — the nested confirm (proposal §2.8). The API assigns
+// the number from Settings, writes the ledger row and moves the stage; with
+// send it also emails the counterparty.
+// ---------------------------------------------------------------------------
+function InvoiceDialog({
+  commitmentId,
+  totalInclVat,
+  vatPct,
+  counterpartyEmail,
+  onInvoiced,
+  onClose,
+}: {
+  commitmentId: string;
+  totalInclVat: number;
+  vatPct: number | null;
+  counterpartyEmail: string | null;
+  onInvoiced: (invoiceNo: string) => void;
+  onClose: () => void;
+}) {
+  const [busy, setBusy] = useState<false | 'create' | 'send'>(false);
+  const [error, setError] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    invoice_no: string;
+    sent: boolean;
+    note: string | null;
+  } | null>(null);
+
+  async function run(send: boolean) {
+    setBusy(send ? 'send' : 'create');
+    setError(null);
+    const res = await invoiceCommitment(commitmentId, send);
+    setBusy(false);
+    if (res.error || !res.data) {
+      setError(res.error ?? 'unknown error');
+      return;
+    }
+    setResult(res.data);
+    onInvoiced(res.data.invoice_no);
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="Create invoice"
+      size="sm"
+      footer={
+        result ? (
+          <Button type="button" onClick={onClose}>
+            Close
+          </Button>
+        ) : (
+          <>
+            <Button type="button" variant="secondary" onClick={onClose} disabled={!!busy}>
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={!!busy}
+              onClick={() => void run(false)}
+            >
+              {busy === 'create' ? 'Creating…' : 'Create invoice'}
+            </Button>
+            <Button
+              type="button"
+              disabled={!!busy || !counterpartyEmail}
+              onClick={() => void run(true)}
+            >
+              {busy === 'send' ? 'Sending…' : 'Create & send'}
+            </Button>
+          </>
+        )
+      }
+    >
+      {result ? (
+        <div className="space-y-2 text-sm">
+          <p>
+            Invoice{' '}
+            <span className="rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+              {result.invoice_no}
+            </span>{' '}
+            created.
+          </p>
+          <p className="text-ink-muted">
+            {result.sent
+              ? `Sent to ${counterpartyEmail ?? 'the counterparty'}.`
+              : result.note ?? 'Saved — not sent.'}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-3 text-sm">
+          <p className="text-ink-muted">
+            The number is assigned from Settings → Invoicing (next in the sequence). This
+            transfers the opportunity to the invoices ledger and can&apos;t be undone here.
+          </p>
+          <div className="flex items-center justify-between rounded-md bg-surface-sunken px-3 py-2">
+            <span className="text-ink-muted">
+              Total incl VAT{vatPct != null ? ` (${vatPct}%)` : ''}
+            </span>
+            <span className="font-semibold tabular-nums">{money(totalInclVat)}</span>
+          </div>
+          <p className="text-xs text-ink-muted">
+            Uses the saved opportunity — save your changes first if you edited anything.
+          </p>
+          {!counterpartyEmail && (
+            <p className="text-xs text-amber-700">
+              No email on the contact person — &ldquo;Create &amp; send&rdquo; needs one; you can
+              still create the invoice and send it later from the Invoices area.
+            </p>
+          )}
+          {error && (
+            <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+        </div>
+      )}
     </Dialog>
   );
 }

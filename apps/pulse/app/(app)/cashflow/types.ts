@@ -12,6 +12,32 @@ export type Line = {
   settled_at: string | null;
 };
 
+// Offering rows on a commitment (pulse_commitment_item). When items exist
+// they ARE the deal — the commitment's single quantity/unit_amount_cents
+// stay as a legacy fallback (and get bridged to the items total on save so
+// older surfaces keep showing the right number). PG numeric can arrive as a
+// string via PostgREST — always Number() the quantity.
+export type CommitmentItem = {
+  id: string;
+  offering_id: string | null;
+  name: string;
+  quantity: number | string;
+  unit_amount_cents: number;
+  repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  sort_order: number;
+};
+
+// A VAT tariff from pulse_settings.vat_tariffs (jsonb [{label, pct}]).
+export type VatTariff = { label: string; pct: number };
+
+// Mirrors the migration default — the picker fallback when the settings
+// endpoint is admin-only and the caller can't read the workspace list.
+export const DEFAULT_VAT_TARIFFS: VatTariff[] = [
+  { label: 'Hoog 21%', pct: 21 },
+  { label: 'Laag 9%', pct: 9 },
+  { label: 'Vrijgesteld 0%', pct: 0 },
+];
+
 export type Commitment = {
   id: string;
   direction: 'in' | 'out';
@@ -26,6 +52,14 @@ export type Commitment = {
   repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
   repeat_starts_on: string | null;
   repeat_until: string | null;
+  // VAT tariff applied on top of the net total (numeric — may arrive as a
+  // string from PostgREST). null = no VAT.
+  vat_pct: number | string | null;
+  // Transfer-to-invoice stamp (POST /commitments/:id/invoice). A non-null
+  // invoice_no means the opportunity has been invoiced — immutable after.
+  invoice_no: string | null;
+  invoice_issued_at: string | null;
+  purchase_id?: string | null;
   notes: string | null;
   person_id: string | null;
   organisation_id: string | null;
@@ -38,6 +72,7 @@ export type Commitment = {
   project: { id: string; name: string } | null;
   offering: { id: string; name: string } | null;
   lines: Line[];
+  items: CommitmentItem[];
 };
 
 export type OrgOption = { id: string; name: string };
@@ -128,7 +163,14 @@ export type Projection = {
   currency: string;
   anchor: { bank_cents: number; reserve_cents: number };
   reservation_pct: number;
-  reservation_rules?: { id: string; label: string; percentage: number }[];
+  // percentage can arrive as a string (PG numeric); target_account_id feeds
+  // the Bank section's projected reserve balances.
+  reservation_rules?: {
+    id: string;
+    label: string;
+    percentage: number | string;
+    target_account_id?: string | null;
+  }[];
   periods: ProjectionPeriod[];
 };
 
@@ -168,6 +210,9 @@ export type Pickers = {
   offerings: OfferingOption[];
   members: MemberOption[];
   stages: StageOption[];
+  // Workspace VAT tariffs (Settings → Invoicing). Falls back to the seeded
+  // defaults when the settings read is admin-only.
+  vatTariffs: VatTariff[];
 };
 
 export function teamName(t: InvolvedTeam['team']): string {
@@ -178,4 +223,55 @@ export function teamName(t: InvolvedTeam['team']): string {
 export function personName(p: PersonOption): string {
   const full = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
   return full || p.email || 'Unnamed';
+}
+
+// ---------------------------------------------------------------------------
+// Group-fold persistence (Sjoerd 2026-07-09: "store pref of the latest
+// visit"): client groups default CLOSED; the set of open group keys is
+// remembered per view in localStorage and restored on mount.
+// ---------------------------------------------------------------------------
+const FOLDS_KEY = 'thefibre.pulse.cashflow-folds';
+
+export function loadOpenGroups(view: 'counterparty' | 'period'): Set<string> {
+  if (typeof window === 'undefined') return new Set();
+  try {
+    const all = JSON.parse(window.localStorage.getItem(FOLDS_KEY) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    const keys = all[view];
+    return new Set(Array.isArray(keys) ? keys.filter((k) => typeof k === 'string') : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function saveOpenGroups(view: 'counterparty' | 'period', open: Set<string>): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const all = JSON.parse(window.localStorage.getItem(FOLDS_KEY) ?? '{}') as Record<
+      string,
+      unknown
+    >;
+    all[view] = [...open];
+    window.localStorage.setItem(FOLDS_KEY, JSON.stringify(all));
+  } catch {
+    /* storage unavailable — folds just don't persist */
+  }
+}
+
+// One rule for "how big is this deal", shared by the counterparty table and
+// the org popup: offering items win, then legacy quantity × unit price, then
+// the sum of unsettled expected payments.
+export function commitmentNetTotal(cm: Commitment): number {
+  if (cm.items && cm.items.length > 0) {
+    return cm.items.reduce(
+      (a, i) => a + Math.round(Number(i.quantity) * i.unit_amount_cents),
+      0,
+    );
+  }
+  if (cm.unit_amount_cents != null) {
+    return Math.round(Number(cm.quantity) * cm.unit_amount_cents);
+  }
+  return cm.lines.filter((l) => !l.settled_at).reduce((a, l) => a + l.amount_cents, 0);
 }
