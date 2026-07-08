@@ -52,11 +52,13 @@ let rowSeq = 0;
 
 export function OpportunityDialog({
   commitment,
+  initialDirection,
   pickers,
   currentUserId,
   onClose,
 }: {
   commitment: Commitment | null; // null = new
+  initialDirection?: 'in' | 'out';
   pickers: Pickers;
   currentUserId: string | null;
   onClose: () => void;
@@ -65,7 +67,9 @@ export function OpportunityDialog({
 
   const sortedStages = [...pickers.stages].sort((a, b) => a.sort_order - b.sort_order);
 
-  const [direction, setDirection] = useState<'in' | 'out'>(commitment?.direction ?? 'in');
+  const [direction, setDirection] = useState<'in' | 'out'>(
+    commitment?.direction ?? initialDirection ?? 'in',
+  );
   const [label, setLabel] = useState(commitment?.label ?? '');
   const [orgId, setOrgId] = useState(commitment?.organisation_id ?? '');
   const [personId, setPersonId] = useState(commitment?.person_id ?? '');
@@ -235,8 +239,12 @@ export function OpportunityDialog({
         offering_id: offeringId || null,
         // Omitted = API defaults to the caller / keeps the current owner.
         ...(ownerId ? { owner_user_id: ownerId } : {}),
-        stage,
-        probability: probabilityLocked ? 100 : probability,
+        // A cost is not an opportunity (Sjoerd 2026-07-08): no pipeline
+        // semantics. New costs save as committed money; existing rows keep
+        // their stored stage untouched.
+        stage: direction === 'out' && !commitment ? 'committed' : stage,
+        probability:
+          direction === 'out' && !commitment ? 100 : probabilityLocked ? 100 : probability,
         notes: notes.trim() || null,
       },
       lines,
@@ -274,7 +282,15 @@ export function OpportunityDialog({
     <Dialog
       open
       onClose={onClose}
-      title={commitment ? 'Edit opportunity' : 'New opportunity'}
+      title={
+        direction === 'out'
+          ? commitment
+            ? 'Edit cost'
+            : 'New cost'
+          : commitment
+            ? 'Edit opportunity'
+            : 'New opportunity'
+      }
       size="xl"
       footer={
         <>
@@ -465,31 +481,42 @@ export function OpportunityDialog({
               ))}
             </select>
           </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Stage</label>
-            <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
-              {stageOptions.map((s) => (
-                <option key={s.id} value={s.key}>
-                  {s.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Probability %</label>
-            <input
-              type="number"
-              min={0}
-              max={100}
-              value={probabilityLocked ? 100 : probability}
-              disabled={probabilityLocked}
-              onChange={(e) => {
-                const n = parseInt(e.target.value, 10);
-                setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
-              }}
-              className={`${INPUT} disabled:opacity-60`}
-            />
-          </div>
+          {direction === 'in' ? (
+            <>
+              <div>
+                <label className="block text-sm font-medium mb-1">Stage</label>
+                <select value={stage} onChange={(e) => setStage(e.target.value)} className={INPUT}>
+                  {stageOptions.map((s) => (
+                    <option key={s.id} value={s.key}>
+                      {s.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1">Probability %</label>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  value={probabilityLocked ? 100 : probability}
+                  disabled={probabilityLocked}
+                  onChange={(e) => {
+                    const n = parseInt(e.target.value, 10);
+                    setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
+                  }}
+                  className={`${INPUT} disabled:opacity-60`}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="col-span-2 flex items-end pb-2">
+              <p className="text-xs text-ink-muted">
+                Costs count in full — no pipeline stage. Repeating costs (and repeating income)
+                live on the Budget page as recurring lines.
+              </p>
+            </div>
+          )}
         </div>
 
         <div>

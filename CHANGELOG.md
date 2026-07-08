@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.120] — 2026-07-08 — Pulse 0.6.1: a cost is not an opportunity
+
+### Changed
+- Sjoerd: "With costs — it is not an opportunity... there are repetitive
+  costs (and income)." The dialog now speaks accordingly: choosing
+  **Costs** hides Stage + Probability entirely (a new cost saves as
+  committed money at 100%; existing rows keep their stored stage) and
+  shows a note pointing repeating costs AND repeating income to the
+  Budget page's recurring lines. Titles follow ("New cost" / "Edit
+  cost"), and the Cashflow header gains a **New cost** button beside
+  New opportunity, opening the same dialog preset to Costs. Recurring
+  income budget lines were already routed to the INCOME section of the
+  grid (0.6.0).
+
 ## [0.13.119] — 2026-07-08 — Pulse 0.6.0: the cashflow grid — the spreadsheet's anatomy, live
 
 ### Changed

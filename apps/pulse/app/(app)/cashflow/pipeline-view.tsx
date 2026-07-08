@@ -36,7 +36,7 @@ export function PipelineView({
   projection: Projection | null;
   budgetLines: BudgetLine[];
 }) {
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<false | 'in' | 'out'>(false);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [view, setView] = useState<'counterparty' | 'period'>('counterparty');
 
@@ -65,7 +65,10 @@ export function PipelineView({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           <QuickAddButton orgs={pickers.orgs} persons={pickers.persons} />
-          <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
+          <Button variant="secondary" onClick={() => setCreating('out')}>
+            New cost
+          </Button>
+          <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating('in')}>
             New opportunity
           </Button>
         </div>
@@ -168,6 +171,7 @@ export function PipelineView({
       {creating && (
         <OpportunityDialog
           commitment={null}
+          initialDirection={creating}
           pickers={pickers}
           currentUserId={currentUserId}
           onClose={() => setCreating(false)}
