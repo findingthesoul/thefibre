@@ -605,6 +605,19 @@ flowRoutes.delete('/flows/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
+  // App-owned flows can't be deleted while the owning app is active — the
+  // Pipeline flow is what Fibre Pulse's cashflow reads (system_key marks it).
+  const { data: sys } = await db
+    .from('flow_definition')
+    .select('system_key')
+    .eq('id', id)
+    .maybeSingle();
+  if (sys?.system_key === 'pulse_pipeline') {
+    return c.json(
+      { error: 'This flow is the Pulse pipeline — the cashflow tool reads it. Deactivate Fibre Pulse before deleting it.' },
+      409,
+    );
+  }
   const { error } = await db
     .from('flow_definition')
     .update({ deleted_at: new Date().toISOString() })

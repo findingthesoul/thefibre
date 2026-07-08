@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api';
+import { appUrl } from '@thefibre/shared';
 import { RhythmCard } from './rhythm-card';
 import { ReservationsCard } from './reservations-card';
 import { TeamsCard } from './teams-card';
@@ -33,7 +34,7 @@ export default async function SettingsPage() {
     apiFetch<{ items: Account[] }>('/api/v1/pulse/accounts'),
     apiFetch<{ items: Offering[] }>('/api/v1/pulse/offerings'),
     apiFetch<{ items: WorkspaceTeam[] }>('/api/v1/teams'),
-    apiFetch<{ items: Stage[] }>('/api/v1/pulse/stages'),
+    apiFetch<{ items: Stage[]; pipeline_flow_id: string | null }>('/api/v1/pulse/stages'),
   ]);
   if (sR.status === 'fulfilled') settings = sR.value.settings;
   else restricted = true;
@@ -44,7 +45,14 @@ export default async function SettingsPage() {
   if (aR.status === 'fulfilled') accounts = aR.value.items;
   if (oR.status === 'fulfilled') offerings = oR.value.items;
   if (wtR.status === 'fulfilled') workspaceTeams = wtR.value.items.filter((t) => t.is_active !== false);
-  if (stR.status === 'fulfilled') stages = stR.value.items;
+  let pipelineFlowId: string | null = null;
+  if (stR.status === 'fulfilled') {
+    stages = stR.value.items;
+    pipelineFlowId = stR.value.pipeline_flow_id;
+  }
+  const flowUrl = pipelineFlowId
+    ? `${appUrl('fibre-flow', process.env)}/flows/${pipelineFlowId}`
+    : null;
 
   return (
     <div className="px-6 py-10 max-w-5xl">
@@ -65,7 +73,7 @@ export default async function SettingsPage() {
         <RhythmCard settings={settings} />
         <ReservationsCard rules={rules} accounts={accounts} />
         <TeamsCard involved={teams} workspaceTeams={workspaceTeams} />
-        <StagesCard stages={stages} />
+        <StagesCard stages={stages} flowUrl={flowUrl} />
         <OfferingsCard offerings={offerings} currency={settings?.currency ?? 'EUR'} />
       </div>
     </div>

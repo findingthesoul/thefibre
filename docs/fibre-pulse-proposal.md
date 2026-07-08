@@ -364,18 +364,23 @@ workspace members.
     another expected-money source (the same pattern as reading the
     purchase ledger). Until then, Pulse's lean pipeline is the only one,
     and it must stay lean enough not to pre-empt Sales.
-12. **The stages are a flow — but not (yet) a Fibre Flow.** Sjoerd
-    (2026-07-08): the pipeline is a reflection of a flow called
-    "Pipeline"; a default sales flow ships with Pulse and can't be
-    deleted. Implemented as `pulse_stage` (Pulse-owned, seeded on
-    activation, is_system-protected, kind carries the projection math).
-    Deliberately NOT a `flow_definition` in Fibre Flow: Flow's runtime
-    holds *persons* at steps with gate tasks; an opportunity is not a
-    person, and coupling Pulse's projection to another app's schema
-    would cross the wall. If the apps ever converge, pulse_stage can be
-    mirrored from a Flow definition — the key/kind shape was chosen so
-    that mapping stays trivial (Flow's end_positive/end_negative ≈
-    won/lost).
+12. **The pipeline IS a Fibre Flow** (Sjoerd, 2026-07-08, confirming
+    after an initial Pulse-owned implementation): the flow app is where
+    flows are built — the sales pipeline included. Pulse activation
+    seeds a real `flow_definition` "Pipeline" (system_key =
+    'pulse_pipeline', undeletable while Pulse is active — API-guarded),
+    authored/edited in Flow's visual builder. Pulse consumes it
+    **read-only at the definition level**: `pulse_stage` is the mirror
+    of the current version's steps (labels + order from Flow; terminal
+    steps map end_positive→won, end_negative→lost) plus Pulse's
+    money-semantics overlay (`kind` for non-terminal steps: weighted vs
+    committed). This is the **third sanctioned wall crossing** (after
+    activity and the purchase ledger): flow definitions are a
+    consumable capability — in-family apps may read them via the API;
+    Flow owns authoring. Runtime integration (flow_run per opportunity,
+    gate tasks driving stage changes) is deliberately deferred: Flow's
+    runtime holds persons; an opportunity is money-with-dates. In Pulse
+    the surface is called **Cashflow** — "pipeline" is Flow's word.
 
 ## 4 · Build plan (phased)
 

@@ -101,7 +101,7 @@ export async function saveCommitment(input: {
       }
     }
 
-    revalidatePath('/pipeline');
+    revalidatePath('/cashflow');
     return { ok: true, data: { id: commitmentId } };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -120,7 +120,7 @@ export async function createOrganisation(
       method: 'POST',
       body: JSON.stringify({ name }),
     });
-    revalidatePath('/pipeline');
+    revalidatePath('/cashflow');
     return { ok: true, data: { id: r.id, name: r.name } };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -155,7 +155,7 @@ export async function createPerson(input: {
       method: 'POST',
       body: JSON.stringify({ first_name, last_name, email: input.email.trim() }),
     });
-    revalidatePath('/pipeline');
+    revalidatePath('/cashflow');
     return {
       ok: true,
       data: { id: r.id, first_name: r.first_name, last_name: r.last_name, email: r.email },
@@ -169,7 +169,7 @@ export async function createPerson(input: {
 export async function deleteCommitment(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/commitments/${id}`, { method: 'DELETE' });
-    revalidatePath('/pipeline');
+    revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

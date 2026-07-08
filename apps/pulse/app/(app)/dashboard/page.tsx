@@ -23,7 +23,7 @@ export default async function PulseDashboard() {
         <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8">
           <p className="text-sm text-ink-muted leading-relaxed">
             The projection is visible to workspace admins. Your own deals live in{' '}
-            <Link href="/pipeline" className="underline">
+            <Link href="/cashflow" className="underline">
               the pipeline
             </Link>
             .
@@ -59,7 +59,7 @@ export default async function PulseDashboard() {
           sub="earmarked buckets"
         />
         <StatCard
-          href="/pipeline"
+          href="/cashflow"
           icon={TrendingUp}
           value={money(
             periods.reduce((a, p) => a + p.expected_in, 0),
@@ -80,7 +80,7 @@ export default async function PulseDashboard() {
               a bank balance
             </Link>
             , some{' '}
-            <Link href="/pipeline" className="underline">
+            <Link href="/cashflow" className="underline">
               expected income
             </Link>{' '}
             and{' '}

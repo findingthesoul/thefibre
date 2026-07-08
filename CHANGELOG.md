@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.116] — 2026-07-08 — Pulse 0.4.0: the Pipeline lives in Fibre Flow; Pulse speaks cashflow
+
+Sjoerd's correction, verbatim: "FLOW is the other app... there the pipeline
+should be built. That FLOW could then be used in the CASHFLOW tool, which
+is in PULSE." And: "Still I see pipeline in pulse... not cashflow."
+
+### Changed
+- **The Pipeline is a real Fibre Flow** (migration `20260708120000`):
+  `flow_definition.system_key` marks app-owned flows; a "Pipeline" flow
+  (5 steps, transitions, canvas positions) is backfilled for Pulse
+  workspaces and seeded on future activations (lib/pulse-pipeline.ts).
+  Flow's DELETE guards it with a 409 while Pulse is active. Pulse
+  consumes it read-only: GET /pulse/stages now syncs the `pulse_stage`
+  mirror from the flow's current version (labels + order from Flow;
+  end_positive→won, end_negative→lost) before answering, and returns
+  `pipeline_flow_id`. POST/DELETE /pulse/stages answer 409 "authored in
+  Fibre Flow"; PATCH is kind-only (the money-semantics overlay — the one
+  thing that stays Pulse's). Third sanctioned wall crossing: flow
+  definitions are consumable cross-app, Flow owns authoring
+  (proposal §3.12 rewritten).
+- **Pulse says Cashflow, not Pipeline**: sidebar item, page title and
+  copy renamed; the route moved /pipeline → /cashflow with a redirect;
+  Settings' stages card is now a read-only reflection of the flow with
+  per-stage money-semantics editing and an "Edit the flow in Fibre
+  Flow" link.
+
 ## [0.13.115] — 2026-07-08 — Pulse 0.3.0: the pipeline is a flow, the chart is visual
 
 From Sjoerd's P2 test-drive, five asks in one release.

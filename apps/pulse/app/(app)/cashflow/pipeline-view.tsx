@@ -47,9 +47,9 @@ export function PipelineView({
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Pipeline</h1>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            Opportunities per counterparty — every line weighted by its likelihood.
+            Expected money in and out, per counterparty — every line weighted by where it stands in the pipeline (a Fibre Flow).
           </p>
         </div>
         <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>

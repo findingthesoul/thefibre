@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient } from '../db.js';
+import { syncStagesFromFlow } from '../lib/pulse-pipeline.js';
 
 // ===========================================================================
 // Fibre Pulse — P1: the planner API.
@@ -68,15 +69,8 @@ const PatchProject = CreateProject.partial().extend({
 // Stages are data (pulse_stage — the workspace's pipeline flow), not an
 // enum. `kind` carries projection semantics; see the stages routes below.
 const StageKind = z.enum(['open', 'committed', 'won', 'lost']);
-const CreateStage = z.object({
-  label: z.string().min(1).max(100),
-  kind: StageKind.default('open'),
-  sort_order: z.number().int().optional(),
-});
 const PatchStage = z.object({
-  label: z.string().min(1).max(100).optional(),
   kind: StageKind.optional(),
-  sort_order: z.number().int().optional(),
 });
 
 const CreateCommitment = z.object({
@@ -399,72 +393,38 @@ pulseRoutes.patch('/projects/:id', async (c) => {
 pulseRoutes.get('/stages', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  // Refresh the mirror from the Pipeline flow first — Flow authors, Pulse reads.
+  const { pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId);
   const { data, error } = await db
     .from('pulse_stage')
     .select('id, key, label, kind, sort_order, is_system')
     .order('sort_order', { ascending: true });
   if (error) return fail(c, 'list stages', error);
-  return c.json({ items: data ?? [] });
+  return c.json({ items: data ?? [], pipeline_flow_id });
 });
 
-pulseRoutes.post('/stages', async (c) => {
-  const body = CreateStage.safeParse(await c.req.json().catch(() => null));
-  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
-  const key = body.data.label
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 64);
-  if (!key) return c.json({ error: 'label must contain letters or digits' }, 400);
-  const { data, error } = await db
-    .from('pulse_stage')
-    .insert({ workspace_id: ctx.workspaceId, key, ...body.data })
-    .select('*')
-    .single();
-  if (error) return fail(c, 'create stage', error);
-  return c.json({ item: data }, 201);
-});
+const AUTHOR_IN_FLOW =
+  'the pipeline is authored in Fibre Flow — edit the Pipeline flow there; Pulse mirrors it';
 
+pulseRoutes.post('/stages', async (c) => c.json({ error: AUTHOR_IN_FLOW }, 409));
+pulseRoutes.delete('/stages/:id', async (c) => c.json({ error: AUTHOR_IN_FLOW }, 409));
+
+// Only the money-semantics overlay is Pulse's to edit. Labels and order
+// mirror the flow; won/lost are re-imposed from terminal steps on next sync.
 pulseRoutes.patch('/stages/:id', async (c) => {
   const body = PatchStage.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  if (!body.data.kind) return c.json({ error: 'only kind is editable here — ' + AUTHOR_IN_FLOW }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('pulse_stage')
-    .update(body.data)
+    .update({ kind: body.data.kind })
     .eq('id', c.req.param('id'))
     .select('*')
     .single();
   if (error) return fail(c, 'patch stage', error);
   return c.json({ item: data });
-});
-
-pulseRoutes.delete('/stages/:id', async (c) => {
-  const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
-  const { data: stage } = await db
-    .from('pulse_stage')
-    .select('id, key, is_system')
-    .eq('id', c.req.param('id'))
-    .maybeSingle();
-  if (!stage) return c.json({ error: 'stage not found' }, 404);
-  if (stage.is_system) {
-    return c.json({ error: 'the default sales flow ships with Pulse and cannot be deleted' }, 409);
-  }
-  const { count } = await db
-    .from('pulse_commitment')
-    .select('id', { count: 'exact', head: true })
-    .eq('stage', stage.key)
-    .is('deleted_at', null);
-  if (count && count > 0) {
-    return c.json({ error: `stage is in use by ${count} opportunit${count === 1 ? 'y' : 'ies'}` }, 409);
-  }
-  const { error } = await db.from('pulse_stage').delete().eq('id', stage.id);
-  if (error) return fail(c, 'delete stage', error);
-  return c.body(null, 204);
 });
 
 // ---------------------------------------------------------------------------

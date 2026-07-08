@@ -28,7 +28,7 @@ const NAV: NavSection[] = [
   {
     label: 'Plan',
     items: [
-      { href: '/pipeline', label: 'Pipeline', icon: TrendingUp },
+      { href: '/cashflow', label: 'Cashflow', icon: TrendingUp },
       { href: '/projects', label: 'Teams & projects', icon: FolderKanban },
       { href: '/budget', label: 'Budget', icon: Table2 },
     ],

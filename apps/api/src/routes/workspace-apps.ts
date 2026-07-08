@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { ensurePipelineFlow } from '../lib/pulse-pipeline.js';
 
 export const workspaceAppsRoutes = new Hono();
 
@@ -69,21 +70,10 @@ workspaceAppsRoutes.post('/', async (c) => {
     return c.json({ error: wErr.message, code: wErr.code }, 500);
   }
 
-  // Pulse ships with its default sales flow — seed the system stages
-  // (idempotent; is_system rows are undeletable by design).
+  // Pulse ships with its Pipeline — a real Fibre Flow definition (steps,
+  // transitions, canvas) plus the pulse_stage mirror. Idempotent.
   if (slug === 'fibre-pulse') {
-    const STAGES = [
-      { key: 'lead', label: 'Lead', kind: 'open', sort_order: 1 },
-      { key: 'proposal', label: 'Proposal', kind: 'open', sort_order: 2 },
-      { key: 'committed', label: 'Committed', kind: 'committed', sort_order: 3 },
-      { key: 'done', label: 'Done', kind: 'won', sort_order: 4 },
-      { key: 'cancelled', label: 'Cancelled', kind: 'lost', sort_order: 5 },
-    ];
-    const { error: stErr } = await adminClient.from('pulse_stage').upsert(
-      STAGES.map((s) => ({ workspace_id: ctx.workspaceId, is_system: true, ...s })),
-      { onConflict: 'workspace_id,key', ignoreDuplicates: true },
-    );
-    if (stErr) console.error('[workspace-apps POST] pulse stage seed', stErr);
+    await ensurePipelineFlow(ctx.workspaceId, ctx.userId);
   }
 
   // Grant the activating user membership for this app (idempotent).
