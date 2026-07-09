@@ -58,8 +58,10 @@ export function NewThreadForm({
         team_id: teamId || null,
       });
       if (!r.ok) return setError(r.error);
+      // push alone fetches the new route fresh; a synchronous router.refresh()
+      // here races the navigation and lands an empty page until a manual
+      // reload (matches the working certificate/duplicate/template flows).
       router.push(`/threads/${r.id}`);
-      router.refresh();
     });
   }
 

@@ -32,8 +32,9 @@ export function NewTeamForm() {
         description: description || null,
       });
       if (!r.ok) return setError(r.error);
+      // No router.refresh() after push — it races the navigation and can land
+      // an empty page until a manual reload (same fix as the new-thread form).
       router.push(`/teams/${r.id}`);
-      router.refresh();
     });
   }
 
