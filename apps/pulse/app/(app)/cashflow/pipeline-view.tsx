@@ -175,6 +175,7 @@ export function PipelineView({
           currentUserId={currentUserId}
           accounts={accounts}
           rules={projection?.reservation_rules ?? []}
+          members={pickers.members}
           onUpdateBalances={() => {
             setSettingsOpen(false);
             setBankOpen(true);

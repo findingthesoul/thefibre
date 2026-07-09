@@ -455,3 +455,41 @@ export async function deleteCommitment(id: string): Promise<ActionResult> {
     return { error: formatApiError(e) };
   }
 }
+
+// Workspace cashflow grants (Sjoerd 2026-07-10) — admins share the Workspace
+// cashflow read / read-write with a member.
+export type CashflowGrant = {
+  id: string;
+  user_id: string;
+  level: 'read' | 'write';
+  user: { id: string; full_name: string | null; email: string | null }
+    | { id: string; full_name: string | null; email: string | null }[]
+    | null;
+};
+
+export async function getCashflowGrants(): Promise<
+  ActionResult<{ items: CashflowGrant[] }>
+> {
+  try {
+    const r = await apiFetch<{ items: CashflowGrant[] }>('/api/v1/pulse/grants');
+    return { ok: true, data: r };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function setCashflowGrant(
+  userId: string,
+  level: 'read' | 'write' | 'none',
+): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/pulse/grants', {
+      method: 'PUT',
+      body: JSON.stringify({ user_id: userId, level }),
+    });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}

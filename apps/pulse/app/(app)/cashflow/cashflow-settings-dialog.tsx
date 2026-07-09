@@ -13,11 +13,17 @@ import Link from 'next/link';
 import { Landmark, PiggyBank, Plus, RefreshCw, Percent, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { useEffect } from 'react';
 import { CreateBankDialog } from './bank-prompt';
 import { ReservationRuleDialog } from './reservation-rule-dialog';
 import { money } from '@/lib/money';
 import { deleteReservationRule } from '../settings/actions';
-import type { CashflowScope, PulseAccount, Projection } from './types';
+import {
+  getCashflowGrants,
+  setCashflowGrant,
+  type CashflowGrant,
+} from './actions';
+import type { CashflowScope, MemberOption, PulseAccount, Projection } from './types';
 
 type Rule = NonNullable<Projection['reservation_rules']>[number];
 
@@ -28,6 +34,7 @@ export function CashflowSettingsDialog({
   currentUserId,
   accounts,
   rules,
+  members,
   onUpdateBalances,
   onClose,
 }: {
@@ -37,6 +44,7 @@ export function CashflowSettingsDialog({
   currentUserId: string | null;
   accounts: PulseAccount[];
   rules: Rule[];
+  members: MemberOption[];
   onUpdateBalances: () => void;
   onClose: () => void;
 }) {
@@ -44,6 +52,36 @@ export function CashflowSettingsDialog({
   const [creatingBank, setCreatingBank] = useState<'bank' | 'reserve' | null>(null);
   const [addingRule, setAddingRule] = useState(false);
   const [busyRule, setBusyRule] = useState<string | null>(null);
+  // Workspace-tab sharing: user_id → level.
+  const [grants, setGrants] = useState<Record<string, 'read' | 'write'>>({});
+  const [grantsLoaded, setGrantsLoaded] = useState(false);
+  const [busyGrant, setBusyGrant] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (scope !== 'workspace') return;
+    getCashflowGrants().then((r) => {
+      if (r.data) {
+        const m: Record<string, 'read' | 'write'> = {};
+        for (const g of r.data.items) m[g.user_id] = g.level;
+        setGrants(m);
+      }
+      setGrantsLoaded(true);
+    });
+  }, [scope]);
+
+  async function changeGrant(userId: string, level: 'read' | 'write' | 'none') {
+    setBusyGrant(userId);
+    const res = await setCashflowGrant(userId, level);
+    setBusyGrant(null);
+    if (res.error) return;
+    setGrants((g) => {
+      const next = { ...g };
+      if (level === 'none') delete next[userId];
+      else next[userId] = level;
+      return next;
+    });
+    router.refresh();
+  }
 
   const banks = accounts.filter((a) => a.kind === 'bank');
   const reserves = accounts.filter((a) => a.kind === 'reserve');
@@ -174,6 +212,54 @@ export function CashflowSettingsDialog({
             </div>
           )}
         </section>
+
+        {/* Sharing — Workspace tab only: grant members read / read-write
+            without making them admins. */}
+        {scope === 'workspace' && (
+          <section>
+            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
+              Sharing
+            </h3>
+            <p className="mb-2 text-sm text-ink-muted">
+              Give a workspace member access to this company cashflow — read, or read &amp;
+              write — without making them an admin.
+            </p>
+            {!grantsLoaded ? (
+              <p className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
+                Loading…
+              </p>
+            ) : (
+              <div className="divide-y divide-line/60 rounded-lg ring-1 ring-line">
+                {members
+                  .filter((m) => m.user_id !== currentUserId)
+                  .map((m) => (
+                    <div key={m.user_id} className="flex items-center gap-3 px-3 py-2">
+                      <span className="min-w-0 flex-1 truncate text-sm text-ink">
+                        {m.full_name ?? m.email ?? m.user_id}
+                      </span>
+                      <select
+                        value={grants[m.user_id] ?? 'none'}
+                        disabled={busyGrant === m.user_id}
+                        onChange={(e) =>
+                          changeGrant(m.user_id, e.target.value as 'read' | 'write' | 'none')
+                        }
+                        className="h-8 rounded-md border border-line bg-surface-raised px-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                      >
+                        <option value="none">No access</option>
+                        <option value="read">Read</option>
+                        <option value="write">Read &amp; write</option>
+                      </select>
+                    </div>
+                  ))}
+                {members.filter((m) => m.user_id !== currentUserId).length === 0 && (
+                  <p className="px-3 py-2 text-sm text-ink-muted">
+                    No other members yet — invite people from thefibre.app → Settings → Members.
+                  </p>
+                )}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Planner-wide */}
         <section>

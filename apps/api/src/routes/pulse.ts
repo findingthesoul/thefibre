@@ -203,6 +203,80 @@ function fail(c: any, where: string, error: { message: string; code?: string }) 
 // ---------------------------------------------------------------------------
 // Settings
 // ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Workspace cashflow grants (Sjoerd 2026-07-10): admins share the Workspace
+// cashflow read / read-write with a member without making them admin. RLS
+// (pulse_cashflow_grant_admin) already gates writes to admins.
+// ---------------------------------------------------------------------------
+// Can the caller see / edit the Workspace cashflow? Admin, or a grant.
+// Explicit (not inferred from an empty projection) so the Workspace tab
+// gates correctly for non-granted organisers.
+pulseRoutes.get('/access', async (c) => {
+  const ctx = c.get('ctx');
+  const [{ data: member }, { data: grant }] = await Promise.all([
+    adminClient
+      .from('workspace_member')
+      .select('workspace_role')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('user_id', ctx.userId)
+      .maybeSingle(),
+    adminClient
+      .from('pulse_cashflow_grant')
+      .select('level')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('user_id', ctx.userId)
+      .maybeSingle(),
+  ]);
+  const isAdmin = member?.workspace_role === 'admin' || member?.workspace_role === 'super_admin';
+  return c.json({
+    can_read_workspace: isAdmin || !!grant,
+    can_write_workspace: isAdmin || grant?.level === 'write',
+  });
+});
+
+pulseRoutes.get('/grants', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('pulse_cashflow_grant')
+    .select('id, user_id, level, created_at, user:user_id (id, full_name, email)');
+  if (error) return fail(c, 'list grants', error);
+  return c.json({ items: data ?? [] });
+});
+
+pulseRoutes.put('/grants', async (c) => {
+  const body = z
+    .object({ user_id: z.string().uuid(), level: z.enum(['read', 'write', 'none']) })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  if (body.data.level === 'none') {
+    const { error } = await db
+      .from('pulse_cashflow_grant')
+      .delete()
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('user_id', body.data.user_id);
+    if (error) return fail(c, 'revoke grant', error);
+    return c.body(null, 204);
+  }
+  const { data, error } = await db
+    .from('pulse_cashflow_grant')
+    .upsert(
+      {
+        workspace_id: ctx.workspaceId,
+        user_id: body.data.user_id,
+        level: body.data.level,
+        granted_by: ctx.userId,
+      },
+      { onConflict: 'workspace_id,user_id' },
+    )
+    .select('id, user_id, level')
+    .single();
+  if (error) return fail(c, 'set grant', error);
+  return c.json({ item: data });
+});
+
 pulseRoutes.get('/settings', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);

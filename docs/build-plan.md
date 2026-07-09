@@ -87,6 +87,14 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
     Article 15 export / retention admin / cross-app erasure, billing next
     phases, drop person_change_context table.
 
+11. **Per-event enrolment** (Sjoerd 2026-07-10) — let people enrol in
+    individual events within a thread, not only the whole thread.
+    Per-thread toggle; one enrolment + a selected-events join table
+    (thread_enrolment_event). Pricing model TBD with Sjoerd (free
+    selection vs price-per-event vs access-tickets) — that decision
+    sets the schema/checkout scope. Touches: schema, public enrol
+    form, capacity (per-event?), API, /my, certificates, agenda UI.
+
 Smaller / noted (from the 2026-07-05 debug pass): engagement status
 'closed' collapses to draft in the editor (latent — nothing writes
 'closed'); manually-added participants receive up to 72h of catch-up

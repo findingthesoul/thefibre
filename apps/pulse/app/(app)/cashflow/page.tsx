@@ -112,6 +112,15 @@ async function fetchProjection(
   }
 }
 
+type WorkspaceAccess = { can_read_workspace: boolean; can_write_workspace: boolean };
+async function fetchWorkspaceAccess(): Promise<WorkspaceAccess | null> {
+  try {
+    return await apiFetch<WorkspaceAccess>('/api/v1/pulse/access');
+  } catch {
+    return null;
+  }
+}
+
 export default async function PipelinePage({
   searchParams,
 }: {
@@ -180,12 +189,10 @@ export default async function PipelinePage({
       safeItems<StageOption>('/api/v1/pulse/stages'),
       currentUserId(),
       fetchProjection(rhythm.granularity, scope, scopeTeamId),
-      // The Workspace tab renders only when the WORKSPACE projection read
-      // succeeds (admin+) — same probe the old entry chooser used. When the
-      // active scope IS workspace the main fetch doubles as the probe.
-      scope === 'workspace'
-        ? Promise.resolve(null)
-        : fetchProjection(rhythm.granularity, 'workspace', null),
+      // The Workspace tab renders only for admins or granted members —
+      // an explicit access check (not an empty projection, which any
+      // organiser gets a valid-but-empty read of).
+      fetchWorkspaceAccess(),
       // Admins only — degrades to an empty list (the grid skips the rows).
       safeItems<BudgetLine>('/api/v1/pulse/budget-lines'),
       // Scoped to the active tab — the BANK section shows THIS cashflow's
@@ -195,10 +202,8 @@ export default async function PipelinePage({
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
 
-  // Workspace is only visible to those who have access — the workspace
-  // projection is the admin+ read, so its failure marks a non-admin: hide
-  // the Workspace tab and default a workspace-scoped view down to Me.
-  const canWorkspace = scope === 'workspace' ? projection !== null : workspaceProbe !== null;
+  // Workspace is only visible to admins or granted members (explicit check).
+  const canWorkspace = workspaceProbe?.can_read_workspace ?? false;
 
   // Commitments arrive ALREADY partitioned by the API (the ?mine/?team_id/
   // ?scope query above) — no client-side scope filtering. The one edge: a
