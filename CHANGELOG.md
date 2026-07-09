@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.145] — 2026-07-10 — Pulse 0.20.1: drag a recurring occurrence to reschedule the series
+
+### Added
+- **Recurring rows are draggable now** (Sjoerd: "why can't I drag costs
+  like income" — they were recurring, and recurring occurrences weren't
+  draggable, in either direction). Dragging any occurrence of a
+  repeating item onto another period sets the item's start
+  (repeat_starts_on) there — the whole series shifts. One-off payments
+  still drag per-payment; the distinction is one-off vs recurring, not
+  income vs cost.
+
 ## [0.13.144] — 2026-07-10 — Pulse 0.20.0: Invoices page, per-cashflow settings, blue receivables, paid-with-account
 
 ### Added

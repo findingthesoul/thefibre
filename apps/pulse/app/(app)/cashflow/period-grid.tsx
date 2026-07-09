@@ -49,7 +49,14 @@ import {
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { addLine, duplicateLines, moveLine, moveLines, patchCommitmentSortOrders } from './actions';
+import {
+  addLine,
+  duplicateLines,
+  moveLine,
+  moveLines,
+  patchCommitmentField,
+  patchCommitmentSortOrders,
+} from './actions';
 import { CreateBankDialog } from './bank-prompt';
 import { ReservationRuleDialog } from './reservation-rule-dialog';
 import { toastError } from './toast';
@@ -256,6 +263,10 @@ const GROUP_DRAG_PREFIX = 'group:';
 // Payload prefix for ROW-reorder drags (the grip handles) — the period-drop
 // handler ignores these so a row drag never retimes payments.
 const ROW_DRAG_PREFIX = 'row:';
+// Dragging a recurring occurrence reschedules the whole SERIES — drop it on
+// another period and the item's start (repeat_starts_on) moves there, the
+// run shifting with it (Sjoerd 2026-07-10).
+const RECUR_DRAG_PREFIX = 'recur:';
 
 // The row being grip-dragged: an item (one commitment, reorders within its
 // group) or a whole client group (reorders en bloc within its section).
@@ -699,6 +710,16 @@ export function PeriodGrid({
     if (!payload) return;
     // Grip drags reorder ROWS — never retime payments.
     if (payload.startsWith(ROW_DRAG_PREFIX)) return;
+
+    // Recurring occurrence → reschedule the whole series to start here.
+    if (payload.startsWith(RECUR_DRAG_PREFIX)) {
+      const cmId = payload.slice(RECUR_DRAG_PREFIX.length);
+      const res = await patchCommitmentField(cmId, { repeat_starts_on: colKey });
+      if (res.error) toastError(`Could not reschedule the series: ${res.error}`);
+      else router.refresh();
+      return;
+    }
+
     // ⌥ held on drop = duplicate into the target period (the spreadsheet
     // alt-drag copy); without it, move as always.
     const copy = e.altKey;
@@ -1224,8 +1245,14 @@ export function PeriodGrid({
                         <Faint />
                       ) : (
                         <span
+                          draggable
+                          onDragStart={(e) => {
+                            e.dataTransfer.setData('text/plain', RECUR_DRAG_PREFIX + o.cm.id);
+                            e.dataTransfer.effectAllowed = 'move';
+                          }}
                           onClick={() => onEdit(o.cm)}
-                          className={`cursor-pointer ${cellText} font-medium tabular-nums ${AMT_TONE[dir]} hover:opacity-70`}
+                          title="Repeats — drag to another period to reschedule the whole series; click to edit."
+                          className={`cursor-grab active:cursor-grabbing ${cellText} font-medium tabular-nums ${AMT_TONE[dir]} hover:opacity-70`}
                         >
                           {sign(dir)}
                           {fmt(v)}
