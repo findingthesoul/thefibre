@@ -692,6 +692,20 @@ export function OpportunityDialog({
           });
         }
       }
+      // Single-payment deals track the deal total automatically (Sjoerd
+      // 2026-07-10: "I changed the amount in an income... the list was not
+      // adapted"). When there's exactly one payment and it isn't yet
+      // invoiced/settled, resync it to the deal net (offering rows, or
+      // legacy quantity × unit price) so editing the price flows straight
+      // through. Multi-payment (staged) schedules are left untouched.
+      const dealNet = hasItems ? itemsNet : dealCents;
+      if (dealNet > 0 && lines.length === 1) {
+        const only = lines[0];
+        if (!only.invoiced_at && !only.settled_at && only.amount_cents !== dealNet) {
+          only.amount_cents = dealNet;
+          if (only.id) only.dirty = true;
+        }
+      }
     }
 
     setBusy(true);

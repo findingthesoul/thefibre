@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.146] — 2026-07-10 — Pulse 0.20.2: editing a price flows to the payment
+
+### Fixed
+- **"I changed the amount in an income and the list wasn't adapted"**:
+  offering rows (or legacy quantity × unit price) describe the deal;
+  the payment line is what actually lands in the grid, and the two
+  could drift after a price edit. Now a single, not-yet-invoiced
+  payment auto-resyncs to the deal total on save — editing the price
+  flows straight to the cashflow. Staged multi-payment schedules are
+  still yours to manage by hand.
+
 ## [0.13.145] — 2026-07-10 — Pulse 0.20.1: drag a recurring occurrence to reschedule the series
 
 ### Added
