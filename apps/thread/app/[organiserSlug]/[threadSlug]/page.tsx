@@ -14,6 +14,7 @@ type AgendaItem = {
   type: string;
   starts_at: string | null;
   ends_at: string | null;
+  daily_schedule: { date: string; start: string; end: string }[] | null;
   location: string | null;
   is_online: boolean;
 };
@@ -53,6 +54,14 @@ function fmtDates(a: string | null, b: string | null): string | null {
     );
   if (a && b && a !== b) return `${fmt(a)} → ${fmt(b)}`;
   return fmt((a ?? b)!);
+}
+
+function fmtDay(date: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(`${date}T00:00:00`));
 }
 
 function fmtSlot(starts: string | null, ends: string | null, tz: string): string | null {
@@ -184,13 +193,24 @@ export default async function PublicThreadPage({
                           dangerouslySetInnerHTML={{ __html: a.description }}
                         />
                       )}
+                      {a.daily_schedule && a.daily_schedule.length > 0 && (
+                        <div className="mt-1.5 flex flex-col gap-0.5 text-xs text-ink-muted tabular-nums">
+                          {a.daily_schedule.map((d) => (
+                            <span key={d.date} className="inline-flex items-center gap-1">
+                              <Clock size={11} strokeWidth={1.75} />
+                              {fmtDay(d.date)} · {d.start}–{d.end}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                       <div className="mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">
-                        {fmtSlot(a.starts_at, a.ends_at, thread.timezone) && (
-                          <span className="inline-flex items-center gap-1">
-                            <Clock size={11} strokeWidth={1.75} />
-                            {fmtSlot(a.starts_at, a.ends_at, thread.timezone)}
-                          </span>
-                        )}
+                        {!a.daily_schedule?.length &&
+                          fmtSlot(a.starts_at, a.ends_at, thread.timezone) && (
+                            <span className="inline-flex items-center gap-1">
+                              <Clock size={11} strokeWidth={1.75} />
+                              {fmtSlot(a.starts_at, a.ends_at, thread.timezone)}
+                            </span>
+                          )}
                         {a.location && (
                           <span className="inline-flex items-center gap-1">
                             <MapPin size={11} strokeWidth={1.75} />

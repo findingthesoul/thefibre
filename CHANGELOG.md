@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.150] — 2026-07-10 — Thread 3.32.0: per-day timing for multi-day activities
+
+### Added
+- **Time per day** — a switch on the activity dialog (Sjoerd 2026-07-10).
+  When on, set a First/Last day and a daily begin/end time that prefills
+  every day; edit any single day's row to override it (e.g. a shorter
+  final day). Stored as `thread_engagement.daily_schedule` (jsonb; null =
+  the previous single start/end range). The public thread page and the
+  in-app timeline render one row per day (Mon 2 Mar · 09:00–17:00); the
+  outer `starts_at`/`ends_at` envelope stays populated so sorting and the
+  scheduler are unaffected. Migration `20260710120000`.
+
 ## [0.13.149] — 2026-07-10 — Thread 3.31.5: new thread/team lands on a filled page (was empty until refresh)
 
 ### Fixed

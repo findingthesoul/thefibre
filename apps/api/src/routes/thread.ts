@@ -733,6 +733,18 @@ const EngagementCreate = z.object({
   description: z.string().max(5000).nullable().optional(),
   starts_at: z.string().datetime({ offset: true }).nullable().optional(),
   ends_at: z.string().datetime({ offset: true }).nullable().optional(),
+  // Per-day times for multi-day activities (null/absent = single range).
+  daily_schedule: z
+    .array(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        start: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+        end: z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),
+      }),
+    )
+    .max(366)
+    .nullable()
+    .optional(),
   location: z.string().max(500).nullable().optional(),
   location_url: z.string().max(1000).nullable().optional(),
   meeting_url: z.string().max(1000).nullable().optional(),
@@ -791,6 +803,17 @@ async function activityWindowError(
   return null;
 }
 
+/** Per-day schedule sanity: each day's end must be after its start. */
+function dailyScheduleError(
+  sched: { date: string; start: string; end: string }[] | null | undefined,
+): string | null {
+  if (!sched || sched.length === 0) return null;
+  for (const d of sched) {
+    if (d.end <= d.start) return `each day's end time must be after its start (${d.date})`;
+  }
+  return null;
+}
+
 threadRoutes.post('/threads/:id/engagements', async (c) => {
   const body = EngagementCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -805,6 +828,8 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
     body.data.ends_at,
   );
   if (windowErr) return c.json({ error: windowErr }, 400);
+  const schedErr = dailyScheduleError(body.data.daily_schedule);
+  if (schedErr) return c.json({ error: schedErr }, 400);
 
   // Next position = max + 1 within the thread.
   const { data: last } = await db
@@ -826,6 +851,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       description: body.data.description ?? null,
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
+      daily_schedule: body.data.daily_schedule ?? null,
       location: body.data.location ?? null,
       location_url: body.data.location_url ?? null,
       meeting_url: body.data.meeting_url ?? null,
@@ -886,6 +912,8 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     body.data.ends_at !== undefined ? body.data.ends_at : existing.ends_at,
   );
   if (windowErr) return c.json({ error: windowErr }, 400);
+  const schedErr = dailyScheduleError(body.data.daily_schedule);
+  if (schedErr) return c.json({ error: schedErr }, 400);
 
   const { data, error } = await db
     .from('thread_engagement')
@@ -3463,7 +3491,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   // The public agenda: published activities flagged show_in_agenda.
   const { data: agenda } = await adminClient
     .from('thread_engagement')
-    .select('id, title, description, type, starts_at, ends_at, location, meeting_url')
+    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, meeting_url')
     .eq('thread_id', thread.id)
     .eq('status', 'published')
     .eq('show_in_agenda', true)

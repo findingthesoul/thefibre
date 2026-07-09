@@ -107,6 +107,10 @@ export type TriggerKind =
   | 'on_completion'
   | 'relative';
 
+/** One day's wall-clock window in a multi-day engagement (thread timezone).
+ *  date 'YYYY-MM-DD', start/end 'HH:MM'. */
+export type DailyTime = { date: string; start: string; end: string };
+
 export type EngagementRow = {
   id: string;
   thread_id: string;
@@ -116,6 +120,8 @@ export type EngagementRow = {
   status: 'draft' | 'published' | 'closed';
   starts_at: string | null;
   ends_at: string | null;
+  // Per-day times for multi-day activities; null = single starts_at/ends_at.
+  daily_schedule: DailyTime[] | null;
   location: string | null;
   location_url: string | null;
   meeting_url: string | null;

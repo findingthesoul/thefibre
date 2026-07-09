@@ -131,6 +131,15 @@ function fmtTime(iso: string): string {
   );
 }
 
+/** 'YYYY-MM-DD' → 'Mon 2 Mar' (for per-day schedule rows). */
+function fmtDayShort(date: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+  }).format(new Date(`${date}T00:00:00`));
+}
+
 export function ThreadTimeline({
   thread,
   engagements,
@@ -714,7 +723,19 @@ function EngagementCard({
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-subtle shrink-0">
-            {meta.family === 'activity' && when && (
+            {meta.family === 'activity' && e.daily_schedule?.length ? (
+              <div className="flex flex-col items-end gap-0.5 tabular-nums">
+                {e.daily_schedule.slice(0, 4).map((d) => (
+                  <span key={d.date} className="inline-flex items-center gap-1">
+                    <Clock size={12} strokeWidth={1.75} />
+                    {fmtDayShort(d.date)} · {d.start}–{d.end}
+                  </span>
+                ))}
+                {e.daily_schedule.length > 4 && (
+                  <span className="text-ink-muted">+{e.daily_schedule.length - 4} more</span>
+                )}
+              </div>
+            ) : meta.family === 'activity' && when ? (
               <button
                 type="button"
                 title="Change time"
@@ -728,7 +749,7 @@ function EngagementCard({
                 {fmtTime(when)}
                 {e.ends_at && ` – ${fmtTime(e.ends_at)}`}
               </button>
-            )}
+            ) : null}
             {e.location && (
               <span className="hidden sm:inline-flex items-center gap-1 max-w-[140px] truncate">
                 <MapPin size={12} strokeWidth={1.75} />
