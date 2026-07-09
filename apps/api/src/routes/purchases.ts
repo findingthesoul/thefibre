@@ -11,6 +11,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
 import {
   chargeAccountForItem,
@@ -527,9 +528,25 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
 // side-effects the Stripe webhook would.
 purchasesRoutes.post('/:id/mark-paid', async (c) => {
   const ctx = c.get('ctx');
+  // Optional body (Sjoerd 2026-07-10: "when mark as paid, you need to
+  // connect a bank account and a date"): the receiving account + paid date.
+  const body = (await c.req.json().catch(() => ({}))) as {
+    paid_date?: string;
+    account_id?: string;
+  };
+  const paidAt =
+    body.paid_date && /^\d{4}-\d{2}-\d{2}$/.test(body.paid_date)
+      ? new Date(body.paid_date + 'T12:00:00Z').toISOString()
+      : new Date().toISOString();
   const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
   if ('error' in r) return c.json({ error: r.error }, r.code as 404);
-  const p = r.purchase as { id: string; item_ref: string; method: string; status: string };
+  const p = r.purchase as {
+    id: string;
+    item_ref: string;
+    method: string;
+    status: string;
+    amount_cents?: number;
+  };
   if (p.status === 'paid') return c.json({ ok: true, already: true });
   if (p.status !== 'pending') {
     return c.json({ error: `a ${p.status} purchase cannot be marked paid` }, 409);
@@ -572,8 +589,39 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
   }
   await adminClient
     .from('purchase')
-    .update({ status: 'paid', paid_at: new Date().toISOString() })
+    .update({ status: 'paid', paid_at: paidAt })
     .eq('id', p.id);
+
+  // The money landed somewhere: bump the chosen account's balance with a new
+  // snapshot (old latest + amount, dated the paid date). A later manual
+  // balance entry simply supersedes it — snapshots are append-only.
+  if (body.account_id && p.amount_cents) {
+    const { data: acc } = await adminClient
+      .from('pulse_account')
+      .select('id, workspace_id')
+      .eq('id', body.account_id)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (acc) {
+      const { data: last } = await adminClient
+        .from('pulse_balance_snapshot')
+        .select('balance_cents')
+        .eq('account_id', acc.id)
+        .order('as_of_date', { ascending: false })
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      await adminClient.from('pulse_balance_snapshot').insert({
+        account_id: acc.id,
+        balance_cents: (last?.balance_cents ?? 0) + p.amount_cents,
+        as_of_date: paidAt.slice(0, 10),
+        created_by: ctx.userId,
+      });
+    }
+  }
+
+  // Pulse plan sync: paid settles what this purchase belongs to.
+  await settleFromPurchase(p.id);
   return c.json({ ok: true });
 });
 

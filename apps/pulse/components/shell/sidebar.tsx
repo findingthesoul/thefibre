@@ -9,6 +9,7 @@ import {
   FolderKanban,
   Table2,
   Landmark,
+  Receipt,
   HelpCircle,
   Settings,
   UsersRound,
@@ -42,6 +43,7 @@ const NAV: NavSection[] = [
   {
     label: 'Money',
     items: [
+      { href: '/invoices', label: 'Invoices', icon: Receipt },
       { href: '/accounts', label: 'Accounts', icon: Landmark },
       { href: '/settings', label: 'Settings', icon: Settings },
     ],

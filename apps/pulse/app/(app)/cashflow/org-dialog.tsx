@@ -201,7 +201,11 @@ export function OrgDialog({
                   )}
                   <span
                     className={`shrink-0 text-sm font-medium tabular-nums ${
-                      cm.direction === 'out' ? 'text-rose-700' : 'text-emerald-700'
+                      cm.direction === 'out'
+                        ? 'text-rose-700'
+                        : cm.invoice_no
+                          ? 'text-sky-700'
+                          : 'text-emerald-700'
                     }`}
                   >
                     {cm.direction === 'out' ? '−' : ''}

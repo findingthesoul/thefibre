@@ -654,7 +654,11 @@ export function CounterpartyTable({
                           : 'Sum of unsettled expected payments'
                     }
                     className={`px-1 text-right tabular-nums font-medium ${
-                      isCost ? 'text-rose-700' : 'text-emerald-700'
+                      isCost
+                        ? 'text-rose-700'
+                        : view.invoice_no
+                          ? 'text-sky-700'
+                          : 'text-emerald-700'
                     }`}
                   >
                     {isCost ? '−' : ''}

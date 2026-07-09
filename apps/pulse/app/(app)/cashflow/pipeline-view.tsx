@@ -1,12 +1,14 @@
 'use client';
 
 import { useState } from 'react';
+import { Settings2 } from 'lucide-react';
 import { OpportunityDialog } from './opportunity-dialog';
 import { OrgDialog } from './org-dialog';
 import { PeriodGrid } from './period-grid';
 import { CounterpartyTable } from './counterparty-table';
 import { CashflowTabs } from './tab-bar';
 import { BankPrompt } from './bank-prompt';
+import { CashflowSettingsDialog } from './cashflow-settings-dialog';
 import { ToastStack } from './toast';
 import {
   AddButtons,
@@ -76,6 +78,7 @@ export function PipelineView({
   // On-demand bank-balances popup (the BANK header's "Update balances") —
   // the same dialog the first-visit-of-the-day prompt opens.
   const [bankOpen, setBankOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   // The per-org popup, keyed by counterparty key (org id / person id). Kept
   // as a KEY, not a snapshot: its contents recompute from `items` on every
   // render, so an inner-dialog save (router.refresh()) refreshes the lists.
@@ -138,14 +141,22 @@ export function PipelineView({
       </div>
       {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the
           chooser AND the switcher. The quick adds live in the controls row. */}
-      <div className="mt-5 max-w-6xl">
+      <div className="mt-5 flex max-w-6xl items-center justify-between gap-3">
         <CashflowTabs
           scope={scope}
           scopeTeamId={scopeTeamId}
           workspaceName={workspaceName}
-        canWorkspace={canWorkspace}
+          canWorkspace={canWorkspace}
           teams={tabTeams.map((t) => ({ id: t.value, name: t.label }))}
         />
+        <button
+          type="button"
+          onClick={() => setSettingsOpen(true)}
+          title={`${tabName} cashflow settings — banks, reserves, reservations`}
+          className="shrink-0 rounded-md p-2 text-ink-muted hover:bg-surface-raised hover:text-ink"
+        >
+          <Settings2 size={18} strokeWidth={1.75} />
+        </button>
       </div>
       {/* The bank-balances popup — auto on the first visit of the day, and
           on demand from the BANK header (balances edit HERE, not in rows). */}
@@ -156,6 +167,21 @@ export function PipelineView({
         open={bankOpen}
         onClose={() => setBankOpen(false)}
       />
+      {settingsOpen && (
+        <CashflowSettingsDialog
+          tabName={tabName}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
+          currentUserId={currentUserId}
+          accounts={accounts}
+          rules={projection?.reservation_rules ?? []}
+          onUpdateBalances={() => {
+            setSettingsOpen(false);
+            setBankOpen(true);
+          }}
+          onClose={() => setSettingsOpen(false)}
+        />
+      )}
 
       {view === 'period' ? (
         <PeriodGrid

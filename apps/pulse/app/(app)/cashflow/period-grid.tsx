@@ -225,6 +225,10 @@ const PILL_TONE: Record<Direction, string> = {
   in: 'bg-emerald-50 ring-emerald-200 text-emerald-800',
   out: 'bg-rose-50 ring-rose-200 text-rose-800',
 };
+// Invoiced-but-not-settled income = a receivable with a number on it. Blue
+// (Sjoerd 2026-07-10). Settled lines are excluded from the grid entirely, so
+// an invoiced_at on a rendered line always means "invoiced, awaiting payment".
+const PILL_TONE_INVOICED = 'bg-sky-50 ring-sky-200 text-sky-700';
 const TITLE_TONE: Record<Direction, string> = {
   in: 'text-emerald-800',
   out: 'text-rose-800',
@@ -1823,8 +1827,10 @@ function AmountChip({
         if (draggedRef.current) return;
         onOpen();
       }}
-      title={`${card.cm.label} — expected ${card.date}. Click to open; drag to another period to retime; ⌥-drag to copy.`}
-      className={`inline-flex items-center gap-1 cursor-pointer active:cursor-grabbing rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
+      title={`${card.cm.label} — expected ${card.date}.${card.line.invoiced_at ? ' Invoiced, awaiting payment.' : ''} Click to open; drag to another period to retime; ⌥-drag to copy.`}
+      className={`inline-flex items-center gap-1 cursor-pointer active:cursor-grabbing rounded-full ring-1 hover:shadow ${
+        dir === 'in' && card.line.invoiced_at ? PILL_TONE_INVOICED : PILL_TONE[dir]
+      } ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
     >
       {sign(dir)}
       {fmt(card.line.amount_cents)}

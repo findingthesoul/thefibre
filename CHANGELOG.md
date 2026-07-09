@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.144] — 2026-07-10 — Pulse 0.20.0: Invoices page, per-cashflow settings, blue receivables, paid-with-account
+
+### Added
+- **Invoices page** (Money → Invoices, the Meet/Thread surface): scope
+  switcher, search, totals, detail actions — Pulse-issued invoices show
+  alongside Meet/Thread ledger money.
+- **Mark-paid asks for a date + receiving account**: it stamps the paid
+  date, adds a balance snapshot to the chosen Pulse account (so the BANK
+  row moves by itself), and settles the matching plan line.
+- **Per-cashflow settings gear** on the tab bar: the active tab's banks
+  &amp; reserves (+ create, update balances) and reservation rules (+ add,
+  remove), with a pointer to planner-wide settings (VAT, rhythm,
+  invoicing).
+- **Invoiced amounts are blue** (sky) — a receivable with a number on
+  it, distinct from emerald expectations — in the grid pills, the
+  counterparty totals and the org dialog's receivables; settled money
+  leaves the view.
+
 ## [0.13.143] — 2026-07-10 — Pulse 0.19.0: repeats repeat, accounts connect, teams create
 
 ### Fixed
