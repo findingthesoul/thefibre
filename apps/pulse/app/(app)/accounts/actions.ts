@@ -25,6 +25,10 @@ export async function createAccount(input: {
   name: string;
   kind: 'bank' | 'reserve';
   parent_account_id?: string | null;
+  // Scope (accounts are per-cashflow-tab now): null/null = workspace bank;
+  // a team's virtual bank; or a personal one. The API's RLS decides access.
+  team_id?: string | null;
+  owner_user_id?: string | null;
 }): Promise<ActionResult<{ id: string }>> {
   try {
     const r = await apiFetch<{ item: { id: string } }>('/api/v1/pulse/accounts', {
@@ -32,6 +36,7 @@ export async function createAccount(input: {
       body: JSON.stringify(input),
     });
     revalidatePath('/accounts');
+    revalidatePath('/cashflow'); // the BANK section's per-tab create prompt
     return { ok: true, data: { id: r.item.id } };
   } catch (e) {
     return { error: formatApiError(e) };

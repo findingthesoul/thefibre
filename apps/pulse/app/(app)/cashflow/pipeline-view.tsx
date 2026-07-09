@@ -1,18 +1,17 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Plus } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { OpportunityDialog } from './opportunity-dialog';
 import { OrgDialog } from './org-dialog';
-import { QuickAddButton } from './quick-add';
 import { PeriodGrid } from './period-grid';
 import { CounterpartyTable } from './counterparty-table';
+import { CashflowTabs } from './tab-bar';
+import { BankPrompt } from './bank-prompt';
 import { ToastStack } from './toast';
 import { savePref } from '@/lib/prefs-actions';
-import { COOKIE_CASHFLOW_SCOPE, COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
+import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import {
+  scopeKeyFor,
   teamName,
   type BudgetLine,
   type CashflowScope,
@@ -62,6 +61,9 @@ export function PipelineView({
   const [creating, setCreating] = useState<Creating | null>(null);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [view, setView] = useState<'counterparty' | 'period'>(initialView);
+  // On-demand bank-balances popup (the BANK header's "Update balances") —
+  // the same dialog the first-visit-of-the-day prompt opens.
+  const [bankOpen, setBankOpen] = useState(false);
   // The per-org popup, keyed by counterparty key (org id / person id). Kept
   // as a KEY, not a snapshot: its contents recompute from `items` on every
   // render, so an inner-dialog save (router.refresh()) refreshes the lists.
@@ -83,34 +85,57 @@ export function PipelineView({
     'Counterparty';
   const orgIsOrganisation = orgFirst ? !!orgFirst.organisation : pickers.orgs.some((o) => o.id === orgKey);
 
+  // The tab list: Me first, then every involved team the caller can see,
+  // then Workspace (gated on canWorkspace). A team scope pointing outside
+  // the involved list (deep link) still gets its tab so the bar shows where
+  // you are — name resolved via the workspace team list.
+  const tabTeams = pickers.teams.map((t) => ({ value: t.team_id, label: teamName(t.team) }));
+  if (scope === 'team' && scopeTeamId && !tabTeams.some((t) => t.value === scopeTeamId)) {
+    tabTeams.push({
+      value: scopeTeamId,
+      label: pickers.allTeams.find((t) => t.id === scopeTeamId)?.name ?? 'Current team',
+    });
+  }
+  const scopeKey = scopeKeyFor(scope, scopeTeamId);
+  // The active tab's display name — bank creation names the account after it.
+  const tabName =
+    scope === 'me'
+      ? 'Me'
+      : scope === 'team'
+        ? (tabTeams.find((t) => t.value === scopeTeamId)?.label ?? 'Team')
+        : 'Workspace';
+
   return (
     <>
       {/* Server/API errors from anywhere in the lane pop here (toast.tsx). */}
       <ToastStack />
-      <div className="flex items-start justify-between gap-4 max-w-6xl">
+      {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the
+          chooser AND the switcher; the +/− at its right end are the quick
+          adds ("everything is now more or less a quick add"). */}
+      <div className="max-w-6xl">
+        <CashflowTabs
+          scope={scope}
+          scopeTeamId={scopeTeamId}
+          canWorkspace={canWorkspace}
+          teams={tabTeams.map((t) => ({ id: t.value, name: t.label }))}
+          onAdd={(direction) => setCreating({ direction })}
+        />
+      </div>
+      {/* The bank-balances popup — auto on the first visit of the day, and
+          on demand from the BANK header (balances edit HERE, not in rows). */}
+      <BankPrompt
+        key={scopeKey}
+        accounts={accounts}
+        scopeKey={scopeKey}
+        open={bankOpen}
+        onClose={() => setBankOpen(false)}
+      />
+      <div className="mt-6 flex items-start justify-between gap-4 max-w-6xl">
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
           <p className="mt-1 text-sm text-ink-muted">
             Expected money in and out, per counterparty — every line weighted by where it stands in the pipeline (a Fibre Flow).
           </p>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          <ScopeSwitcher
-            scope={scope}
-            scopeTeamId={scopeTeamId}
-            canWorkspace={canWorkspace}
-            pickers={pickers}
-          />
-          <QuickAddButton orgs={pickers.orgs} persons={pickers.persons} />
-          <Button variant="secondary" onClick={() => setCreating({ direction: 'out' })}>
-            New cost
-          </Button>
-          <Button
-            leading={<Plus size={16} strokeWidth={2} />}
-            onClick={() => setCreating({ direction: 'in' })}
-          >
-            New income
-          </Button>
         </div>
       </div>
 
@@ -149,15 +174,20 @@ export function PipelineView({
           budgetLines={budgetLines}
           accounts={accounts}
           initialFit={initialFit}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
+          currentUserId={currentUserId}
+          tabName={tabName}
           onEdit={setEditing}
           onAdd={(direction) => setCreating({ direction })}
           onOpenGroup={setOrgKey}
+          onUpdateBalances={() => setBankOpen(true)}
         />
       ) : items.length === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted">
-            Nothing here yet. Add your first with New income — the importer seeds your
-            current spreadsheet.
+            Nothing here yet. Add your first with the green + above — a contact and an
+            amount is enough.
           </p>
         </div>
       ) : (
@@ -217,113 +247,5 @@ export function PipelineView({
         />
       )}
     </>
-  );
-}
-
-// Me / Team / Workspace segmented control. Wired via URL params (?scope=me |
-// ?team=<id> | none = workspace) so the server refetches + refilters; the
-// last choice persists in a cookie. Non-admins (projection fetch failed)
-// don't get the Workspace option.
-function ScopeSwitcher({
-  scope,
-  scopeTeamId,
-  canWorkspace,
-  pickers,
-}: {
-  scope: CashflowScope;
-  scopeTeamId: string | null;
-  canWorkspace: boolean;
-  pickers: Pickers;
-}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-
-  // Involved teams preferred; fall back to ALL active workspace teams so the
-  // select is never empty (same rule as the dialog's team picker).
-  const involved = pickers.teams.map((t) => ({ value: t.team_id, label: teamName(t.team) }));
-  const teamOptions =
-    involved.length > 0
-      ? involved
-      : pickers.allTeams.filter((t) => t.is_active).map((t) => ({ value: t.id, label: t.name }));
-
-  function go(next: CashflowScope, teamId?: string) {
-    const params = new URLSearchParams(searchParams.toString());
-    params.delete('scope');
-    params.delete('team');
-    let cookieVal = 'workspace';
-    if (next === 'me') {
-      params.set('scope', 'me');
-      cookieVal = 'me';
-    } else if (next === 'team') {
-      const t = teamId ?? scopeTeamId ?? teamOptions[0]?.value;
-      if (!t) return; // no teams to scope by
-      params.set('team', t);
-      cookieVal = `team:${t}`;
-    }
-    void savePref(COOKIE_CASHFLOW_SCOPE, cookieVal); // remembered per user
-    const qs = params.toString();
-    router.push(qs ? `/cashflow?${qs}` : '/cashflow');
-  }
-
-  // "Switch cashflow" — clear the remembered scope and land back on the
-  // entry chooser (page.tsx renders it when no scope + no cookie). The
-  // cookie clear must land BEFORE the bare-URL render, hence the await;
-  // refresh covers the already-bare workspace case where push is a no-op.
-  async function backToChooser() {
-    await savePref(COOKIE_CASHFLOW_SCOPE, '');
-    router.push('/cashflow');
-    router.refresh();
-  }
-
-  const segments: { key: CashflowScope; label: string; show: boolean }[] = [
-    { key: 'me', label: 'Me', show: true },
-    { key: 'team', label: 'Team', show: teamOptions.length > 0 },
-    { key: 'workspace', label: 'Workspace', show: canWorkspace },
-  ];
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className="inline-flex rounded-lg ring-1 ring-line bg-surface-raised p-0.5">
-        {segments
-          .filter((s) => s.show)
-          .map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              onClick={() => go(s.key)}
-              aria-pressed={scope === s.key}
-              className={`px-2.5 py-1.5 rounded-md text-sm font-medium transition-colors ${
-                scope === s.key ? 'bg-ink text-ink-inverse' : 'text-ink-subtle hover:text-ink'
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-      </div>
-      {scope === 'team' && (
-        <select
-          value={scopeTeamId ?? ''}
-          onChange={(e) => go('team', e.target.value)}
-          aria-label="Team to show"
-          className="rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-        >
-          {scopeTeamId && !teamOptions.some((t) => t.value === scopeTeamId) && (
-            <option value={scopeTeamId}>Current team</option>
-          )}
-          {teamOptions.map((t) => (
-            <option key={t.value} value={t.value}>
-              {t.label}
-            </option>
-          ))}
-        </select>
-      )}
-      <button
-        type="button"
-        onClick={backToChooser}
-        className="text-xs text-ink-muted hover:text-ink underline-offset-2 hover:underline whitespace-nowrap"
-      >
-        Switch cashflow
-      </button>
-    </div>
   );
 }

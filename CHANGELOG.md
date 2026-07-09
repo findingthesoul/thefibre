@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.139] — 2026-07-09 — Pulse 0.15.0: cashflows are tabs, each with its own bank
+
+### Changed
+- **The tab system** (Sjoerd's morning pt 1): Me · a tab per involved
+  team · Workspace (only with access) — the tab bar replaces the
+  chooser and switcher; each tab anchors on ITS OWN accounts, and an
+  empty tab offers "Create bank" (a virtual bank/reserve, in a popup).
+- **The daily bank popup** (pt 2, "not a row"): the first visit each
+  day opens that tab's balances ready to type (checkbox to disable per
+  tab); it is THE balance-editing surface — the grid's BANK rows are
+  display-only, with a pencil on the header to summon the popup any
+  time.
+- **Focus date** (pt 3): "First column on" — Today or any weekday
+  (the first upcoming Friday, say) — in the rhythm settings; grid and
+  projection shift together.
+- **Tab-level + / −** (pt 4): a green + ("Add income — a contact and
+  an amount is enough") and red − ("Add a cost") on the tab bar; the
+  Quick add / New income / New cost header buttons retired.
+- **Drag rows into your order**: grip handles on item rows and client
+  groups under Income/Costs, insertion lines, order persisted
+  (sort_order), optimistic with toast-on-error.
+- **Columns obey the horizon**: 6 months = exactly 6 monthly columns
+  (or the fortnights that fit) — the fixed 10-column tail is gone;
+  Later only appears when something is truly dated beyond the horizon.
+
 ## [0.13.138] — 2026-07-09 — Pulse 0.14.0: the popup calms down; scopes get their own banks
 
 ### Changed

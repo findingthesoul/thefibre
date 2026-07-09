@@ -44,11 +44,13 @@ export type CommitmentPayload = {
   repeat_starts_on: string | null;
   repeat_until: string | null;
   // VAT tariff (pct) applied on top of the net total. null = no VAT.
-  // Optional so quick-add and other minimal callers stay untouched.
+  // Optional so minimal callers stay untouched.
   vat_pct?: number | null;
   // Offer/quotation URL — optional; the API strips it until the
   // pulse_commitment.quote_url column + zod field are live.
   quote_url?: string | null;
+  // Manual row order on the cashflow surfaces (drag-and-drop reordering).
+  sort_order?: number;
   notes: string | null;
 };
 
@@ -359,6 +361,7 @@ export type CommitmentFieldPatch = Partial<
     | 'repeat_until'
     | 'stage'
     | 'probability'
+    | 'sort_order'
   >
 >;
 
@@ -371,6 +374,26 @@ export async function patchCommitmentField(
       method: 'PATCH',
       body: JSON.stringify(patch),
     });
+    revalidatePath('/cashflow');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// Drag-and-drop row reordering (Sjoerd 2026-07-09: "drag and drop to change
+// order of rows below income/costs"): the client reindexes the display order
+// 10, 20, 30… and sends only the changed ones. One revalidate at the end.
+export async function patchCommitmentSortOrders(
+  updates: { id: string; sort_order: number }[],
+): Promise<ActionResult> {
+  try {
+    for (const u of updates) {
+      await apiFetch(`/api/v1/pulse/commitments/${u.id}`, {
+        method: 'PATCH',
+        body: JSON.stringify({ sort_order: u.sort_order }),
+      });
+    }
     revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {

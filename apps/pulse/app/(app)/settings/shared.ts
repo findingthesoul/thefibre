@@ -6,6 +6,9 @@ export type PulseSettings = {
   period_anchor_date: string | null;
   fiscal_year_start_month: number;
   horizon_months: number;
+  // First cashflow column lands on this weekday (ISO 1=Mon…7=Sun); null =
+  // today. Sjoerd 2026-07-09: the focus-date setting.
+  focus_weekday?: number | null;
   // P4 opt-in (Sjoerd 2026-07-08: "add invoices to the sales pipeline...
   // based on payment moments of Stripe settings"): open purchase-ledger rows
   // project as receivables, settling ledger_terms_days after creation.

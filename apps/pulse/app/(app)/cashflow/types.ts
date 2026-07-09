@@ -64,6 +64,9 @@ export type Commitment = {
   // Optional offer/quotation URL (spec item 12) — optional in the type until
   // pulse_commitment.quote_url lands in COMMITMENT_SELECT everywhere.
   quote_url?: string | null;
+  // Manual row order (Sjoerd 2026-07-09: "drag and drop to change order of
+  // rows below income/costs"). Lists arrive ordered by it; null = unordered.
+  sort_order?: number | null;
   person_id: string | null;
   organisation_id: string | null;
   team_id: string | null;
@@ -113,6 +116,13 @@ export type TeamOption = {
 export type PeriodSettings = {
   granularity: 'week' | 'fortnight' | 'month' | 'quarter';
   anchor_date: string | null; // null = anchor on today
+  // The grid renders exactly as many period columns as fit this horizon
+  // (Sjoerd: 6 months → 6 monthly cols / ~13 fortnights). Mirrors the API's
+  // projection window so the position rows line up.
+  horizon_months: number;
+  // 1=Mon…7=Sun: the first column lands on the next such weekday (the API's
+  // projection shifts the same way). null = today.
+  focus_weekday: number | null;
 };
 
 export type MemberOption = { user_id: string; full_name: string | null; email: string | null };
@@ -261,6 +271,34 @@ export function saveOpenGroups(view: 'counterparty' | 'period', open: Set<string
   } catch {
     /* storage unavailable — folds just don't persist */
   }
+}
+
+// ---------------------------------------------------------------------------
+// Tab identity: one stable key per cashflow tab ('me' | 'team:<id>' |
+// 'workspace') — the scope cookie value, the bank-prompt localStorage key.
+// ---------------------------------------------------------------------------
+export function scopeKeyFor(scope: CashflowScope, teamId: string | null): string {
+  if (scope === 'me') return 'me';
+  if (scope === 'team' && teamId) return `team:${teamId}`;
+  return 'workspace';
+}
+
+// ---------------------------------------------------------------------------
+// Row reordering (Sjoerd 2026-07-09: "drag and drop to change order of
+// rows"): given the FULL desired display order, reindex 10, 20, 30… and emit
+// only the commitments whose sort_order actually changes.
+// ---------------------------------------------------------------------------
+export type SortUpdate = { id: string; sort_order: number };
+
+export function computeSortUpdates(
+  ordered: { id: string; sort_order?: number | null }[],
+): SortUpdate[] {
+  const updates: SortUpdate[] = [];
+  ordered.forEach((c, i) => {
+    const want = (i + 1) * 10;
+    if (c.sort_order !== want) updates.push({ id: c.id, sort_order: want });
+  });
+  return updates;
 }
 
 // One rule for "how big is this deal", shared by the counterparty table and

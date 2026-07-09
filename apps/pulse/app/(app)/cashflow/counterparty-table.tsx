@@ -9,12 +9,17 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronDown, ChevronRight, Pencil } from 'lucide-react';
+import { ChevronDown, ChevronRight, GripVertical, Pencil } from 'lucide-react';
 import { money } from '@/lib/money';
-import { patchCommitmentField, type CommitmentFieldPatch } from './actions';
+import {
+  patchCommitmentField,
+  patchCommitmentSortOrders,
+  type CommitmentFieldPatch,
+} from './actions';
 import { toastError } from './toast';
 import {
   commitmentNetTotal,
+  computeSortUpdates,
   loadOpenGroups,
   saveOpenGroups,
   type Commitment,
@@ -24,6 +29,16 @@ import {
 // Same column rhythm for the header and every row.
 const ROW_GRID =
   'grid grid-cols-[minmax(0,1fr)_56px_96px_112px_112px_120px_60px_32px] gap-2 items-center';
+
+// Row reordering (Sjoerd 2026-07-09: "drag and drop to change order of
+// rows"): a grip drag in flight — an item within its group, or a whole
+// counterparty card among the cards.
+type RowDrag = { kind: 'item'; groupKey: string; id: string } | { kind: 'group'; groupKey: string };
+type RowDropTarget = { id: string; before: boolean };
+
+// Insertion line via inset shadow — no layout shift, plays nice with divide-y.
+const INSERT_BEFORE = 'shadow-[inset_0_2px_0_0_#0ea5e9]';
+const INSERT_AFTER = 'shadow-[inset_0_-2px_0_0_#0ea5e9]';
 
 // Stage chips colour by KIND (same palette as the period grid).
 const KIND_STYLE: Record<string, string> = {
@@ -228,6 +243,11 @@ export function CounterpartyTable({
   // groups render as-if-folded (manual state untouched — it restores when
   // focus ends); the active row scales forward, siblings de-emphasize.
   const [focusId, setFocusId] = useState<string | null>(null);
+  // Row reordering: the grip drag in flight, the insertion target, and
+  // optimistic sort_order overrides (reverted with a toast on error).
+  const [rowDrag, setRowDrag] = useState<RowDrag | null>(null);
+  const [rowDropTarget, setRowDropTarget] = useState<RowDropTarget | null>(null);
+  const [sortOverrides, setSortOverrides] = useState<Record<string, number>>({});
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
   const sortedStages = [...stages].sort((a, b) => a.sort_order - b.sort_order);
@@ -247,8 +267,11 @@ export function CounterpartyTable({
     router.refresh();
   }
 
-  // Group by counterparty (proposal §2.3 — the counterparty is the unit),
-  // income before costs inside each group.
+  // Group by counterparty (proposal §2.3 — the counterparty is the unit).
+  // Manual order first (sort_order incl. optimistic overrides); direction +
+  // label as the tiebreak. GROUP order follows min(sort_order) of its items.
+  const sortVal = (cm: Commitment): number =>
+    sortOverrides[cm.id] ?? cm.sort_order ?? Number.MAX_SAFE_INTEGER;
   const groups = new Map<string, { name: string; items: Commitment[] }>();
   for (const cm of items) {
     const name =
@@ -262,13 +285,125 @@ export function CounterpartyTable({
   }
   for (const g of groups.values()) {
     g.items.sort(
-      (a, b) => a.direction.localeCompare(b.direction) || a.label.localeCompare(b.label),
+      (a, b) =>
+        sortVal(a) - sortVal(b) ||
+        a.direction.localeCompare(b.direction) ||
+        a.label.localeCompare(b.label),
     );
   }
+  const groupSort = (g: { items: Commitment[] }): number =>
+    g.items.reduce((min, cm) => Math.min(min, sortVal(cm)), Number.MAX_SAFE_INTEGER);
+  const orderedGroups = [...groups.entries()].sort(
+    ([, a], [, b]) => groupSort(a) - groupSort(b) || a.name.localeCompare(b.name),
+  );
+
+  // ---- reordering -----------------------------------------------------------
+  // A drop reindexes the FULL display order 10, 20, 30… and PATCHes only the
+  // commitments whose sort_order changed (optimistic; toast + revert on
+  // error). Dragging a group's grip moves ALL its items en bloc.
+  async function commitReorder(ordered: Commitment[]) {
+    const updates = computeSortUpdates(
+      ordered.map((cm) => ({ id: cm.id, sort_order: sortOverrides[cm.id] ?? cm.sort_order ?? null })),
+    );
+    if (updates.length === 0) return;
+    const prev = sortOverrides;
+    setSortOverrides((o) => {
+      const next = { ...o };
+      for (const u of updates) next[u.id] = u.sort_order;
+      return next;
+    });
+    const res = await patchCommitmentSortOrders(updates);
+    if (res.error) {
+      toastError(`Could not reorder: ${res.error}`);
+      setSortOverrides(prev);
+      return;
+    }
+    router.refresh();
+  }
+
+  function dropOnItem(drag: RowDrag & { kind: 'item' }, targetId: string, before: boolean) {
+    const group = groups.get(drag.groupKey);
+    if (!group) return;
+    const ids = group.items.map((cm) => cm.id).filter((id) => id !== drag.id);
+    let idx = ids.indexOf(targetId);
+    if (idx < 0) return;
+    if (!before) idx += 1;
+    ids.splice(idx, 0, drag.id);
+    const byId = new Map(group.items.map((cm) => [cm.id, cm]));
+    const ordered: Commitment[] = [];
+    for (const [key, g] of orderedGroups) {
+      if (key === drag.groupKey) {
+        for (const id of ids) {
+          const cm = byId.get(id);
+          if (cm) ordered.push(cm);
+        }
+      } else {
+        ordered.push(...g.items);
+      }
+    }
+    void commitReorder(ordered);
+  }
+
+  function dropOnGroup(drag: RowDrag & { kind: 'group' }, targetKey: string, before: boolean) {
+    const keys = orderedGroups.map(([k]) => k).filter((k) => k !== drag.groupKey);
+    let idx = keys.indexOf(targetKey);
+    if (idx < 0) return;
+    if (!before) idx += 1;
+    keys.splice(idx, 0, drag.groupKey);
+    const ordered = keys.flatMap((k) => groups.get(k)?.items ?? []);
+    void commitReorder(ordered);
+  }
+
+  const gripProps = (drag: RowDrag) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation();
+      e.dataTransfer.setData('text/plain', ''); // Firefox needs a payload
+      e.dataTransfer.effectAllowed = 'move';
+      setRowDrag(drag);
+    },
+    onDragEnd: () => {
+      setRowDrag(null);
+      setRowDropTarget(null);
+    },
+  });
+
+  const rowTargetProps = (
+    accepts: (d: RowDrag) => boolean,
+    id: string,
+    onDropRow: (before: boolean) => void,
+  ) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!rowDrag || !accepts(rowDrag)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = e.currentTarget.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      setRowDropTarget((cur) =>
+        cur && cur.id === id && cur.before === before ? cur : { id, before },
+      );
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+      setRowDropTarget((cur) => (cur?.id === id ? null : cur));
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!rowDrag || !accepts(rowDrag)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      onDropRow(e.clientY < rect.top + rect.height / 2);
+      setRowDrag(null);
+      setRowDropTarget(null);
+    },
+  });
+
+  const insertLine = (id: string): string =>
+    rowDropTarget?.id === id ? (rowDropTarget.before ? INSERT_BEFORE : INSERT_AFTER) : '';
 
   return (
     <div className="mt-8 space-y-6 max-w-6xl">
-      {[...groups.entries()].map(([gKey, g]) => {
+      {orderedGroups.map(([gKey, g]) => {
         const groupHasFocus = focusId != null && g.items.some((i) => i.id === focusId);
         // Focus mode collapses the OTHER groups as if their chevrons closed;
         // the manual open-set is untouched and restores when focus ends.
@@ -282,12 +417,20 @@ export function CounterpartyTable({
         return (
         <div
           key={gKey}
+          {...rowTargetProps(
+            (d) => d.kind === 'group' && d.groupKey !== gKey,
+            `grp:${gKey}`,
+            (before) => {
+              if (rowDrag?.kind === 'group') dropOnGroup(rowDrag, gKey, before);
+            },
+          )}
           className={`rounded-2xl bg-white ring-1 ring-black/5 shadow-card transition-opacity ${
             focusId && !groupHasFocus ? 'opacity-60' : ''
-          }`}
+          } ${insertLine(`grp:${gKey}`)}`}
         >
           {/* Group row: default closed — a click on the row (or chevron)
-              opens it (Sjoerd 2026-07-09); the NAME opens the org popup. */}
+              opens it (Sjoerd 2026-07-09); the NAME opens the org popup;
+              the grip reorders the whole card (its items move en bloc). */}
           <div
             onClick={() => {
               if (!focusId) toggleGroup(gKey);
@@ -297,6 +440,14 @@ export function CounterpartyTable({
             }`}
           >
             <div className="flex min-w-0 items-center gap-1.5">
+              <span
+                {...gripProps({ kind: 'group', groupKey: gKey })}
+                onClick={(e) => e.stopPropagation()}
+                title="Drag to reorder — the whole group moves"
+                className="shrink-0 -ml-2 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
+              >
+                <GripVertical size={13} strokeWidth={2} />
+              </span>
               {/* Two hit areas: the row/chevron folds, the NAME opens the
                   org popup (Sjoerd 2026-07-08: "I want per org a popup"). */}
               <button
@@ -380,16 +531,30 @@ export function CounterpartyTable({
               return (
                 <div
                   key={cm.id}
+                  {...rowTargetProps(
+                    (d) => d.kind === 'item' && d.groupKey === gKey && d.id !== cm.id,
+                    `row:${cm.id}`,
+                    (before) => {
+                      if (rowDrag?.kind === 'item') dropOnItem(rowDrag, cm.id, before);
+                    },
+                  )}
                   className={`${ROW_GRID} px-5 py-1.5 text-sm transition-[transform,opacity,box-shadow] duration-150 ${
                     isActive
                       ? 'relative z-10 scale-[1.05] origin-left rounded-md bg-white shadow-md ring-1 ring-neutral-300'
                       : isSibling
                         ? 'opacity-60'
                         : ''
-                  }`}
+                  } ${insertLine(`row:${cm.id}`)}`}
                 >
-                  {/* Label */}
+                  {/* Label — the grip reorders the row within its group. */}
                   <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      {...gripProps({ kind: 'item', groupKey: gKey, id: cm.id })}
+                      title="Drag to reorder"
+                      className="shrink-0 -ml-1 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
+                    >
+                      <GripVertical size={12} strokeWidth={2} />
+                    </span>
                     <span
                       aria-hidden
                       title={isCost ? 'Cost' : 'Income'}

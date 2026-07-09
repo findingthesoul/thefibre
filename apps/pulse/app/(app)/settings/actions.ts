@@ -36,6 +36,9 @@ export async function updatePulseSettings(input: {
   period_anchor_date?: string | null;
   fiscal_year_start_month?: number;
   horizon_months?: number;
+  // First cashflow column lands on this weekday (ISO 1=Mon…7=Sun; null =
+  // today) — the projection shifts its window the same way.
+  focus_weekday?: number | null;
   // Ledger invoices → pipeline (P4 opt-in) + expected settlement terms.
   include_ledger?: boolean;
   ledger_terms_days?: number;

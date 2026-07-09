@@ -14,11 +14,14 @@
 // own"): a CLICK on a pill opens the row's opportunity dialog (Sjoerd
 // 2026-07-09: "click on a no. in the sheet, opens the popup"); a click on a
 // cell's empty space still ADDS a new payment inline dated on that period's
-// start — dragging keeps retiming, ⌥-drag copies. The BANK per-account
-// balance stays inline-editable. While a cell is being edited the grid
-// enters FOCUS MODE (Sjoerd 2026-07-09): the other sections fold as if
-// closed (manual fold state untouched), the active row pushes forward,
-// siblings step back. Errors pop as toasts (toast.tsx), not a banner.
+// start — dragging keeps retiming, ⌥-drag copies. BANK per-account balances
+// are display-only here — they edit in the bank POPUP (Sjoerd 2026-07-09:
+// "not a row"; the header pencil opens it on demand). Item/group rows carry
+// a grip handle: dragging it reorders rows (sort_order), not payments.
+// While a cell is being edited the grid enters FOCUS MODE (Sjoerd
+// 2026-07-09): the other sections fold as if closed (manual fold state
+// untouched), the active row pushes forward, siblings step back. Errors pop
+// as toasts (toast.tsx), not a banner.
 //
 // Column rules (Sjoerd 2026-07-08): the Overdue column only renders when it
 // actually holds overdue unsettled amounts — otherwise the grid starts at the
@@ -32,16 +35,26 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ChevronDown, ChevronLeft, ChevronRight, FileText, Maximize2, Minimize2 } from 'lucide-react';
+import {
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  FileText,
+  GripVertical,
+  Maximize2,
+  Minimize2,
+  Pencil,
+} from 'lucide-react';
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
-import { addLine, duplicateLines, moveLine, moveLines } from './actions';
-import { recordSnapshots } from '../accounts/actions';
+import { addLine, duplicateLines, moveLine, moveLines, patchCommitmentSortOrders } from './actions';
+import { CreateBankDialog } from './bank-prompt';
 import { toastError } from './toast';
-import { loadOpenGroups, saveOpenGroups } from './types';
+import { computeSortUpdates, loadOpenGroups, saveOpenGroups } from './types';
 import type {
   BudgetLine,
+  CashflowScope,
   Commitment,
   Line,
   PeriodSettings,
@@ -51,7 +64,8 @@ import type {
 } from './types';
 
 const MS_PER_DAY = 86400000;
-const PERIOD_COUNT = 10;
+// Hard cap on rendered period columns (weekly × 2 years would be 104).
+const MAX_COLS = 40;
 // ~3 columns per chevron click (min column width is 112px + padding).
 const SCROLL_STEP_PX = 3 * 120;
 
@@ -71,10 +85,6 @@ function addMonths(d: Date, n: number): Date {
   r.setUTCMonth(r.getUTCMonth() + n);
   return r;
 }
-function todayLocalIso(): string {
-  return new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local tz
-}
-
 // Euro string → integer cents. Accepts comma decimals ("1234,56" or "1234.56").
 function parseEuro(s: string): number | null {
   const t = s.trim().replace(',', '.');
@@ -89,33 +99,46 @@ function moneyCompact(cents: number): string {
   return '€' + new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(cents / 100);
 }
 
-// Next `count` period start dates. Week/fortnight walk the anchor grid to
-// the boundary at-or-before today (same as the API's projection); months are
-// calendar months starting with the current one.
-function computePeriodStarts(s: PeriodSettings, count: number): string[] {
-  const today = todayUTC();
+// Period start dates BOUNDED BY THE HORIZON (Sjoerd: 6 months → 6 monthly
+// columns / ~13 fortnights), mirroring the API's projection window exactly
+// so the position rows line up: focus_weekday shifts "today" to the next
+// such weekday, horizonEnd = today + horizon_months, columns are however
+// many periods of the granularity fit before it (capped at MAX_COLS).
+// `horizon` is the exclusive boundary — anything at-or-after it is "Later".
+function computePeriodBounds(s: PeriodSettings): { starts: string[]; horizon: string } {
+  let today = todayUTC();
+  if (s.focus_weekday) {
+    const isoDow = ((today.getUTCDay() + 6) % 7) + 1; // ISO 1=Mon … 7=Sun
+    today = addDays(today, (s.focus_weekday - isoDow + 7) % 7);
+  }
+  const horizonEnd = addMonths(today, s.horizon_months || 12);
   const starts: string[] = [];
+  let cur: Date;
+  let next: (d: Date) => Date;
   if (s.granularity === 'month' || s.granularity === 'quarter') {
     const step = s.granularity === 'quarter' ? 3 : 1;
     const startMonth =
       s.granularity === 'quarter'
         ? Math.floor(today.getUTCMonth() / 3) * 3
         : today.getUTCMonth();
-    for (let i = 0; i < count; i++) {
-      starts.push(isoDate(new Date(Date.UTC(today.getUTCFullYear(), startMonth + i * step, 1))));
-    }
-    return starts;
+    cur = new Date(Date.UTC(today.getUTCFullYear(), startMonth, 1));
+    next = (d) => addMonths(d, step);
+  } else {
+    const step = s.granularity === 'week' ? 7 : 14;
+    const anchor = s.anchor_date ? new Date(s.anchor_date + 'T00:00:00Z') : today;
+    const daysFromAnchor = Math.floor((today.getTime() - anchor.getTime()) / MS_PER_DAY);
+    const offset = ((daysFromAnchor % step) + step) % step;
+    cur = new Date(today.getTime() - offset * MS_PER_DAY);
+    next = (d) => new Date(d.getTime() + step * MS_PER_DAY);
   }
-  const step = s.granularity === 'week' ? 7 : 14;
-  const anchor = s.anchor_date ? new Date(s.anchor_date + 'T00:00:00Z') : today;
-  const daysFromAnchor = Math.floor((today.getTime() - anchor.getTime()) / MS_PER_DAY);
-  const offset = ((daysFromAnchor % step) + step) % step;
-  let cur = new Date(today.getTime() - offset * MS_PER_DAY);
-  for (let i = 0; i < count; i++) {
+  while (cur < horizonEnd && starts.length < MAX_COLS) {
     starts.push(isoDate(cur));
-    cur = new Date(cur.getTime() + step * MS_PER_DAY);
+    cur = next(cur);
   }
-  return starts;
+  if (starts.length === 0) starts.push(isoDate(cur)); // degenerate horizon
+  // Capped: overflow between the last column and horizonEnd must still land
+  // in "Later", so the boundary is the would-be next start.
+  return { starts, horizon: cur < horizonEnd ? isoDate(cur) : isoDate(horizonEnd) };
 }
 
 function fmtStart(iso: string, granularity: PeriodSettings['granularity']): string {
@@ -216,6 +239,21 @@ const ROW_DIMMED = 'opacity-60 transition-opacity duration-150';
 
 // Payload prefix for org-level (whole-group) drags on the subtotal chips.
 const GROUP_DRAG_PREFIX = 'group:';
+// Payload prefix for ROW-reorder drags (the grip handles) — the period-drop
+// handler ignores these so a row drag never retimes payments.
+const ROW_DRAG_PREFIX = 'row:';
+
+// The row being grip-dragged: an item (one commitment, reorders within its
+// group) or a whole client group (reorders en bloc within its section).
+type RowDrag =
+  | { kind: 'item'; dir: Direction; groupKey: string; id: string }
+  | { kind: 'group'; dir: Direction; groupKey: string };
+// Insertion marker: the row/group the pointer hovers + before/after half.
+type RowDropTarget = { id: string; before: boolean };
+
+// Insertion line via inset shadow — no layout shift, works on table cells.
+const INSERT_BEFORE = '[&>td]:shadow-[inset_0_2px_0_0_#0ea5e9]';
+const INSERT_AFTER = '[&>td]:shadow-[inset_0_-2px_0_0_#0ea5e9]';
 
 type Col = { key: string; idx: number; label: string; droppable: boolean };
 type DropHandlers = {
@@ -240,7 +278,7 @@ type ClientGroup = {
   lineIds: string[][];
 };
 type BudgetRow = { bl: BudgetLine; amounts: number[] };
-type Focus = { section: Direction | 'position'; rowId: string };
+type Focus = { section: Direction; rowId: string };
 
 function Faint() {
   return <span className="text-ink-muted/40 select-none">—</span>;
@@ -254,9 +292,14 @@ export function PeriodGrid({
   budgetLines,
   accounts,
   initialFit,
+  scope,
+  scopeTeamId,
+  currentUserId,
+  tabName,
   onEdit,
   onAdd,
   onOpenGroup,
+  onUpdateBalances,
 }: {
   items: Commitment[];
   settings: PeriodSettings;
@@ -265,11 +308,19 @@ export function PeriodGrid({
   budgetLines: BudgetLine[];
   accounts: PulseAccount[];
   initialFit: 'on' | 'off';
+  // The active tab — bank creation scopes (and names) the account after it.
+  scope: CashflowScope;
+  scopeTeamId: string | null;
+  currentUserId: string | null;
+  tabName: string;
   onEdit: (cm: Commitment) => void;
   onAdd: (direction: 'in' | 'out') => void;
   // Clicking the client NAME opens the per-org popup ("I want per org a
   // popup") — the chevron keeps folding; separate hit areas.
   onOpenGroup: (key: string) => void;
+  // Balances edit in the bank POPUP, not in the rows (Sjoerd: "not a row")
+  // — the BANK header's pencil opens it.
+  onUpdateBalances: () => void;
 }) {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement | null>(null);
@@ -301,8 +352,17 @@ export function PeriodGrid({
   }
   // Fit-to-screen: the whole table squeezes into the viewport (no h-scroll).
   const [fit, setFit] = useState(initialFit === 'on');
-  // FOCUS MODE — which row is being worked in (inline amount/balance edit).
-  // While set, the other sections render folded (their manual open state is
+  // Per-tab bank creation (empty accounts) — the small create popup.
+  const [creatingAccount, setCreatingAccount] = useState<'bank' | 'reserve' | null>(null);
+  // Row reordering (Sjoerd 2026-07-09: "drag and drop to change order of
+  // rows below income/costs"): the grip drag in flight, the insertion
+  // target, and optimistic sort_order overrides (kept until router.refresh
+  // brings the server truth; reverted with a toast on error).
+  const [rowDrag, setRowDrag] = useState<RowDrag | null>(null);
+  const [rowDropTarget, setRowDropTarget] = useState<RowDropTarget | null>(null);
+  const [sortOverrides, setSortOverrides] = useState<Record<string, number>>({});
+  // FOCUS MODE — which row is being worked in (inline amount edit). While
+  // set, the other sections render folded (their manual open state is
   // untouched and restores when focus ends) and sibling rows de-emphasize.
   const [focus, setFocus] = useState<Focus | null>(null);
   const focusHandler = (section: Focus['section'], rowId: string) => (active: boolean) =>
@@ -325,10 +385,10 @@ export function PeriodGrid({
   const totalHeaderCell = `${numPad} py-2.5 text-right align-middle tabular-nums whitespace-nowrap border-b border-line border-l-2 border-l-line bg-yellow-50 ${cellText} font-semibold`;
 
   // ---- columns -------------------------------------------------------------
-  // One extra start acts as the horizon — anything at-or-after it is "Later".
-  const allStarts = computePeriodStarts(settings, PERIOD_COUNT + 1);
-  const starts = allStarts.slice(0, PERIOD_COUNT);
-  const horizon = allStarts[PERIOD_COUNT];
+  // Horizon-bounded: exactly as many periods as fit settings.horizon_months
+  // (the projection stops there too); anything at-or-after `horizon` is
+  // "Later".
+  const { starts, horizon } = computePeriodBounds(settings);
 
   const cols: Col[] = [
     { key: 'overdue', idx: 0, label: 'Overdue', droppable: false },
@@ -427,9 +487,14 @@ export function PeriodGrid({
         : Math.round((line.amount_cents * cm.probability) / 100);
     }
   }
+  // Manual order first (sort_order incl. optimistic overrides), name/label
+  // as the tiebreak for never-dragged rows. Group order follows the minimum
+  // sort_order of its items.
+  const sortVal = (cm: Commitment): number =>
+    sortOverrides[cm.id] ?? cm.sort_order ?? Number.MAX_SAFE_INTEGER;
   for (const groups of [incomeGroups, costGroups]) {
     for (const g of groups.values()) {
-      g.opps.sort((a, b) => a.cm.label.localeCompare(b.cm.label));
+      g.opps.sort((a, b) => sortVal(a.cm) - sortVal(b.cm) || a.cm.label.localeCompare(b.cm.label));
       for (const o of g.opps) {
         for (const cell of o.cells) {
           cell.sort((a, b) => a.date.localeCompare(b.date) || a.line.id.localeCompare(b.line.id));
@@ -437,8 +502,10 @@ export function PeriodGrid({
       }
     }
   }
+  const groupSort = (g: ClientGroup): number =>
+    g.opps.reduce((min, o) => Math.min(min, sortVal(o.cm)), Number.MAX_SAFE_INTEGER);
   const sortGroups = (m: Map<string, ClientGroup>) =>
-    [...m.values()].sort((a, b) => a.name.localeCompare(b.name));
+    [...m.values()].sort((a, b) => groupSort(a) - groupSort(b) || a.name.localeCompare(b.name));
   const incomeClientGroups = sortGroups(incomeGroups);
   const costClientGroups = sortGroups(costGroups);
 
@@ -538,7 +605,7 @@ export function PeriodGrid({
   // manual open state stays put and restores when focus ends).
   const incomeExpanded = focus ? focus.section === 'in' : incomeOpen || q !== '';
   const costsExpanded = focus ? focus.section === 'out' : costsOpen || q !== '';
-  const positionExpanded = focus ? focus.section === 'position' : positionOpen;
+  const positionExpanded = focus ? false : positionOpen;
   const reservationsExpanded = focus ? false : reservesOpen;
 
   const incomeRowCount =
@@ -556,6 +623,8 @@ export function PeriodGrid({
     setHoverCol(null);
     const payload = e.dataTransfer.getData('text/plain');
     if (!payload) return;
+    // Grip drags reorder ROWS — never retime payments.
+    if (payload.startsWith(ROW_DRAG_PREFIX)) return;
     // ⌥ held on drop = duplicate into the target period (the spreadsheet
     // alt-drag copy); without it, move as always.
     const copy = e.altKey;
@@ -623,6 +692,7 @@ export function PeriodGrid({
     col.droppable
       ? {
           onDragOver: (e: React.DragEvent) => {
+            if (rowDrag) return; // row-reorder drags target rows, not columns
             e.preventDefault();
             e.dataTransfer.dropEffect = e.altKey ? 'copy' : 'move';
             setHoverCol((h) => (h === col.key ? h : col.key));
@@ -636,6 +706,140 @@ export function PeriodGrid({
         }
       : {};
   const hoverBg = (col: Col) => (hoverCol === col.key ? 'bg-slate-100' : '');
+
+  // ---- row reordering --------------------------------------------------------
+  // A drop reindexes the FULL display order (income section flattened, then
+  // costs) as 10, 20, 30… and PATCHes only the commitments whose sort_order
+  // changed — one consistent sort space across sections and views.
+  async function commitReorder(ordered: Commitment[]) {
+    const updates = computeSortUpdates(
+      ordered.map((cm) => ({ id: cm.id, sort_order: sortOverrides[cm.id] ?? cm.sort_order ?? null })),
+    );
+    if (updates.length === 0) return;
+    const prev = sortOverrides;
+    setSortOverrides((o) => {
+      const next = { ...o };
+      for (const u of updates) next[u.id] = u.sort_order;
+      return next;
+    });
+    const res = await patchCommitmentSortOrders(updates);
+    if (res.error) {
+      toastError(`Could not reorder: ${res.error}`);
+      setSortOverrides(prev);
+      return;
+    }
+    router.refresh();
+  }
+
+  // Flatten both sections, with one group's item order (or one section's
+  // group order) replaced by the just-dropped arrangement.
+  function flattenWith(opts: {
+    dir: Direction;
+    groupItemOrder?: { groupKey: string; ids: string[] };
+    groupOrder?: string[]; // reordered group keys of the dragged section
+  }): Commitment[] {
+    const ordered: Commitment[] = [];
+    for (const [sectionDir, groups] of [
+      ['in', incomeClientGroups],
+      ['out', costClientGroups],
+    ] as const) {
+      let sectionGroups = groups;
+      if (opts.groupOrder && sectionDir === opts.dir) {
+        const byKey = new Map(groups.map((g) => [g.key, g]));
+        sectionGroups = opts.groupOrder
+          .map((k) => byKey.get(k))
+          .filter((g): g is ClientGroup => g !== undefined);
+      }
+      for (const g of sectionGroups) {
+        if (
+          opts.groupItemOrder &&
+          sectionDir === opts.dir &&
+          g.key === opts.groupItemOrder.groupKey
+        ) {
+          const byId = new Map(g.opps.map((o) => [o.cm.id, o.cm]));
+          for (const id of opts.groupItemOrder.ids) {
+            const cm = byId.get(id);
+            if (cm) ordered.push(cm);
+          }
+        } else {
+          for (const o of g.opps) ordered.push(o.cm);
+        }
+      }
+    }
+    return ordered;
+  }
+
+  function dropItemRow(drag: RowDrag & { kind: 'item' }, targetId: string, before: boolean) {
+    const groups = drag.dir === 'in' ? incomeClientGroups : costClientGroups;
+    const group = groups.find((g) => g.key === drag.groupKey);
+    if (!group) return;
+    const ids = group.opps.map((o) => o.cm.id).filter((id) => id !== drag.id);
+    let idx = ids.indexOf(targetId);
+    if (idx < 0) return;
+    if (!before) idx += 1;
+    ids.splice(idx, 0, drag.id);
+    void commitReorder(flattenWith({ dir: drag.dir, groupItemOrder: { groupKey: drag.groupKey, ids } }));
+  }
+
+  function dropGroupRow(drag: RowDrag & { kind: 'group' }, targetKey: string, before: boolean) {
+    const groups = drag.dir === 'in' ? incomeClientGroups : costClientGroups;
+    const keys = groups.map((g) => g.key).filter((k) => k !== drag.groupKey);
+    let idx = keys.indexOf(targetKey);
+    if (idx < 0) return;
+    if (!before) idx += 1;
+    keys.splice(idx, 0, drag.groupKey);
+    void commitReorder(flattenWith({ dir: drag.dir, groupOrder: keys }));
+  }
+
+  // The grip handle — dragstart arms rowDrag; the payload prefix keeps the
+  // period-drop handler out of the way.
+  const gripProps = (drag: RowDrag) => ({
+    draggable: true,
+    onDragStart: (e: React.DragEvent) => {
+      e.stopPropagation();
+      e.dataTransfer.setData(
+        'text/plain',
+        ROW_DRAG_PREFIX + (drag.kind === 'item' ? drag.id : drag.groupKey),
+      );
+      e.dataTransfer.effectAllowed = 'move';
+      setRowDrag(drag);
+    },
+    onDragEnd: () => {
+      setRowDrag(null);
+      setRowDropTarget(null);
+    },
+  });
+
+  // Drop-target props for a sibling row. `accepts` filters the drag; `id` is
+  // the row's identity (commitment id / group key).
+  const rowTargetProps = (accepts: (d: RowDrag) => boolean, id: string, onDropRow: (before: boolean) => void) => ({
+    onDragOver: (e: React.DragEvent) => {
+      if (!rowDrag || !accepts(rowDrag)) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = e.currentTarget.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      setRowDropTarget((cur) =>
+        cur && cur.id === id && cur.before === before ? cur : { id, before },
+      );
+    },
+    onDragLeave: (e: React.DragEvent) => {
+      if (e.currentTarget.contains(e.relatedTarget as Node)) return;
+      setRowDropTarget((cur) => (cur?.id === id ? null : cur));
+    },
+    onDrop: (e: React.DragEvent) => {
+      if (!rowDrag || !accepts(rowDrag)) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const rect = e.currentTarget.getBoundingClientRect();
+      onDropRow(e.clientY < rect.top + rect.height / 2);
+      setRowDrag(null);
+      setRowDropTarget(null);
+    },
+  });
+
+  const insertLine = (id: string): string =>
+    rowDropTarget?.id === id ? (rowDropTarget.before ? INSERT_BEFORE : INSERT_AFTER) : '';
 
   function scrollByCols(dir: -1 | 1) {
     scrollRef.current?.scrollBy({ left: dir * SCROLL_STEP_PX, behavior: 'smooth' });
@@ -667,6 +871,9 @@ export function PeriodGrid({
     // The final Total-column cell. undefined + totals → sum of the rendered
     // periods; null → running balance, doesn't sum (faint —).
     total?: number | null;
+    // Right-aligned affordance in the sticky cell (e.g. the BANK header's
+    // "Update balances" pencil).
+    action?: React.ReactNode;
   }) {
     const totalValue =
       opts.total !== undefined ? opts.total : opts.totals ? sumVisible(opts.totals) : null;
@@ -679,37 +886,40 @@ export function PeriodGrid({
               className={`absolute inset-y-0 left-0 w-[3px] ${ACCENT_BAR[opts.accent]}`}
             />
           )}
-          {/* The whole header cell folds the section (Sjoerd: "Show more can
-              be an arrow maybe? Fold open and close"). */}
-          <button
-            type="button"
-            onClick={opts.onToggle}
-            disabled={!opts.onToggle}
-            className={`flex w-full items-center gap-2 text-left ${
-              opts.onToggle ? 'cursor-pointer' : 'cursor-default'
-            }`}
-            aria-expanded={opts.onToggle ? opts.open : undefined}
-          >
-            {opts.onToggle &&
-              (opts.open ? (
-                <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
-              ) : (
-                <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
-              ))}
-            <span
-              className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
-                opts.accent ? TITLE_TONE[opts.accent] : 'text-ink'
+          <div className="flex w-full items-center gap-2">
+            {/* The whole header cell folds the section (Sjoerd: "Show more
+                can be an arrow maybe? Fold open and close"). */}
+            <button
+              type="button"
+              onClick={opts.onToggle}
+              disabled={!opts.onToggle}
+              className={`flex min-w-0 flex-1 items-center gap-2 text-left ${
+                opts.onToggle ? 'cursor-pointer' : 'cursor-default'
               }`}
-              title={opts.label}
+              aria-expanded={opts.onToggle ? opts.open : undefined}
             >
-              {opts.label}
-            </span>
-            {opts.count !== undefined && (
-              <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
-                {opts.count}
+              {opts.onToggle &&
+                (opts.open ? (
+                  <ChevronDown size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+                ) : (
+                  <ChevronRight size={13} strokeWidth={2} className="shrink-0 text-ink-subtle" />
+                ))}
+              <span
+                className={`truncate text-[11px] font-semibold uppercase tracking-wider ${
+                  opts.accent ? TITLE_TONE[opts.accent] : 'text-ink'
+                }`}
+                title={opts.label}
+              >
+                {opts.label}
               </span>
-            )}
-          </button>
+              {opts.count !== undefined && (
+                <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
+                  {opts.count}
+                </span>
+              )}
+            </button>
+            {opts.action}
+          </div>
         </td>
         {visibleCols.map((col) => {
           const v = opts.valueFor ? opts.valueFor(col) : (opts.totals?.[col.idx] ?? null);
@@ -764,10 +974,27 @@ export function PeriodGrid({
             subtotals stay visible when the item rows are folded away, and
             each one drags the WHOLE group's one-off lines to another period
             (Sjoerd 2026-07-09: "the numbers on org level should be drag and
-            drop too"). */}
-        <tr className={`${ZEBRA} ${groupDimmed ? ROW_DIMMED : ''}`}>
+            drop too"). The grip reorders the whole group among its section's
+            groups (all its items move en bloc). */}
+        <tr
+          {...rowTargetProps(
+            (d) => d.kind === 'group' && d.dir === dir && d.groupKey !== g.key,
+            `grp:${dir}:${g.key}`,
+            (before) => {
+              if (rowDrag?.kind === 'group') dropGroupRow(rowDrag, g.key, before);
+            },
+          )}
+          className={`${ZEBRA} ${groupDimmed ? ROW_DIMMED : ''} ${insertLine(`grp:${dir}:${g.key}`)}`}
+        >
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
             <div className="flex w-full items-center gap-1.5">
+              <span
+                {...gripProps({ kind: 'group', dir, groupKey: g.key })}
+                title="Drag to reorder — the whole group moves"
+                className="shrink-0 -ml-1.5 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
+              >
+                <GripVertical size={12} strokeWidth={2} />
+              </span>
               {/* Two hit areas: the chevron folds, the NAME opens the org
                   popup (Sjoerd 2026-07-08: "I want per org a popup"). */}
               <button
@@ -853,15 +1080,32 @@ export function PeriodGrid({
           return (
             <tr
               key={o.cm.id}
-              className={`${ZEBRA} ${isActive ? ROW_ACTIVE : isSibling ? ROW_DIMMED : ''}`}
+              {...rowTargetProps(
+                (d) =>
+                  d.kind === 'item' && d.dir === dir && d.groupKey === g.key && d.id !== o.cm.id,
+                `row:${o.cm.id}`,
+                (before) => {
+                  if (rowDrag?.kind === 'item') dropItemRow(rowDrag, o.cm.id, before);
+                },
+              )}
+              className={`${ZEBRA} ${isActive ? ROW_ACTIVE : isSibling ? ROW_DIMMED : ''} ${insertLine(`row:${o.cm.id}`)}`}
             >
               <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
-                {/* Item rows: indented behind a left guide border. */}
-                <div className="ml-1 border-l border-line/60 pl-3">
+                {/* Item rows: indented behind a left guide border; the grip
+                    reorders within the group (Sjoerd: "drag and drop to
+                    change order of rows below income/costs"). */}
+                <div className="ml-1 flex items-center gap-1 border-l border-line/60 pl-1.5">
+                  <span
+                    {...gripProps({ kind: 'item', dir, groupKey: g.key, id: o.cm.id })}
+                    title="Drag to reorder"
+                    className="shrink-0 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
+                  >
+                    <GripVertical size={12} strokeWidth={2} />
+                  </span>
                   <button
                     type="button"
                     onClick={() => onEdit(o.cm)}
-                    className="flex w-full items-center gap-2 text-left"
+                    className="flex w-full min-w-0 items-center gap-2 text-left"
                     title={o.cm.label}
                   >
                     <span
@@ -1118,20 +1362,29 @@ export function PeriodGrid({
                         count: orderedAccounts.length,
                         open: positionExpanded,
                         onToggle: () => setPositionOpen((v) => !v),
+                        // Balances edit in the POPUP, not in rows (Sjoerd:
+                        // "not a row").
+                        action: (
+                          <button
+                            type="button"
+                            onClick={onUpdateBalances}
+                            title="Update balances"
+                            aria-label="Update balances"
+                            className="shrink-0 -m-1 p-1 text-ink-muted hover:text-ink"
+                          >
+                            <Pencil size={12} strokeWidth={1.75} />
+                          </button>
+                        ),
                       }
                     : {}),
                 })}
               {projection &&
                 positionExpanded &&
                 orderedAccounts.map((a) => {
-                  const isActive = focus?.section === 'position' && focus.rowId === a.id;
-                  const isSibling = focus?.section === 'position' && !isActive;
                   const projected = reserveProjections.get(a.id);
+                  const current = a.latest_snapshot?.balance_cents ?? null;
                   return (
-                    <tr
-                      key={a.id}
-                      className={`${ZEBRA} ${isActive ? ROW_ACTIVE : isSibling ? ROW_DIMMED : ''}`}
-                    >
+                    <tr key={a.id} className={ZEBRA}>
                       <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line/40`}>
                         <div
                           className="ml-1 border-l border-line/60 pl-3 flex items-center gap-2"
@@ -1150,12 +1403,25 @@ export function PeriodGrid({
                       {visibleCols.map((col) => (
                         <td key={col.key} className={numCell}>
                           {col.key === currentColKey ? (
-                            <BalanceCell
-                              account={a}
-                              fmt={fmt}
-                              cellText={cellText}
-                              onFocusChange={focusHandler('position', a.id)}
-                            />
+                            // Display-only — balances change via the popup
+                            // (the header pencil / the daily prompt).
+                            current != null ? (
+                              <span
+                                title={`as of ${a.latest_snapshot!.as_of_date} — update via the Bank popup`}
+                                className={`${cellText} font-medium tabular-nums text-ink`}
+                              >
+                                {fmt(current)}
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={onUpdateBalances}
+                                title="Set the balance — opens the Bank popup"
+                                className={`${cellText} font-medium tabular-nums text-ink-subtle underline-offset-2 hover:underline`}
+                              >
+                                Set balance
+                              </button>
+                            )
                           ) : projected?.has(col.key) ? (
                             // Virtual growth: current actual + cumulative
                             // reservations targeting this account (greyed —
@@ -1178,24 +1444,59 @@ export function PeriodGrid({
                   );
                 })}
 
-              {/* No balances yet → the position is meaningless; say where to fix it. */}
+              {/* No accounts in THIS tab yet → the per-tab create prompt
+                  (Sjoerd: "This cashflow has no bank yet"). The buttons open
+                  a small popup; the API/RLS decides who may create. */}
+              {projection && orderedAccounts.length === 0 && (
+                <tr>
+                  <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
+                    <span className="text-xs text-ink-muted">This cashflow has no bank yet</span>
+                  </td>
+                  <td
+                    colSpan={visibleCols.length + 1}
+                    className="border-b border-line/40 px-3 py-2"
+                  >
+                    <div className="flex flex-col items-start gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => setCreatingAccount('bank')}
+                        className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-ink-inverse hover:opacity-90"
+                      >
+                        Create bank
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setCreatingAccount('reserve')}
+                        className="text-xs font-medium text-ink-subtle underline-offset-2 hover:text-ink hover:underline"
+                      >
+                        + reserve
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              )}
+
+              {/* Accounts exist but no balances yet → the position is
+                  meaningless; point at the popup. */}
               {projection &&
+                orderedAccounts.length > 0 &&
                 projection.anchor.bank_cents === 0 &&
                 projection.anchor.reserve_cents === 0 && (
                   <tr>
                     <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
-                      <a
-                        href="/accounts"
+                      <button
+                        type="button"
+                        onClick={onUpdateBalances}
                         className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
                       >
                         Fill in your bank balances →
-                      </a>
+                      </button>
                     </td>
                     <td
                       colSpan={visibleCols.length + 1}
                       className="border-b border-line/40 px-3 py-2 text-xs text-ink-muted"
                     >
-                      Add your accounts and update balances — the Bank rows anchor on them.
+                      Update the balances — the Bank rows anchor on them.
                     </td>
                   </tr>
                 )}
@@ -1334,95 +1635,19 @@ export function PeriodGrid({
           </table>
         </div>
       </div>
+
+      {/* Per-tab bank creation (Sjoerd: a small POPUP, name prefilled). */}
+      {creatingAccount && (
+        <CreateBankDialog
+          tabName={tabName}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
+          currentUserId={currentUserId}
+          initialKind={creatingAccount}
+          onClose={() => setCreatingAccount(null)}
+        />
+      )}
     </div>
-  );
-}
-
-// Inline-editable account balance for the CURRENT period column. Click →
-// euro input (comma decimals); Enter/blur records an append-only snapshot
-// dated today via the Accounts action; Escape cancels.
-function BalanceCell({
-  account,
-  fmt,
-  cellText,
-  onFocusChange,
-}: {
-  account: PulseAccount;
-  fmt: (cents: number) => string;
-  cellText: string;
-  onFocusChange?: (active: boolean) => void;
-}) {
-  const router = useRouter();
-  const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState('');
-  const [saving, setSaving] = useState(false);
-  const cancelledRef = useRef(false);
-
-  const current = account.latest_snapshot?.balance_cents ?? null;
-
-  function begin() {
-    cancelledRef.current = false;
-    setValue(current != null ? (current / 100).toFixed(2).replace('.', ',') : '');
-    setEditing(true);
-    onFocusChange?.(true);
-  }
-
-  async function commit() {
-    setEditing(false);
-    onFocusChange?.(false);
-    if (cancelledRef.current) return;
-    const cents = parseEuro(value);
-    if (cents == null || cents === current) return;
-    setSaving(true);
-    const res = await recordSnapshots(todayLocalIso(), [
-      { account_id: account.id, name: account.name, balance_cents: cents },
-    ]);
-    setSaving(false);
-    if (res.error) {
-      toastError(`Could not update the balance — ${res.error}`);
-      return;
-    }
-    router.refresh();
-  }
-
-  if (editing) {
-    return (
-      <input
-        autoFocus
-        value={value}
-        onChange={(e) => setValue(e.target.value)}
-        onBlur={() => void commit()}
-        onKeyDown={(e) => {
-          if (e.key === 'Enter') {
-            e.preventDefault();
-            e.currentTarget.blur();
-          } else if (e.key === 'Escape') {
-            cancelledRef.current = true;
-            e.currentTarget.blur();
-          }
-        }}
-        inputMode="decimal"
-        aria-label={`Balance for ${account.name}`}
-        className={`w-24 rounded border border-line bg-white px-1.5 py-0.5 text-right ${cellText} tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300`}
-      />
-    );
-  }
-  return (
-    <button
-      type="button"
-      onClick={begin}
-      disabled={saving}
-      title={
-        account.latest_snapshot
-          ? `as of ${account.latest_snapshot.as_of_date} — click to update`
-          : "Click to set today's balance"
-      }
-      className={`${cellText} font-medium tabular-nums underline-offset-2 hover:underline ${
-        saving ? 'text-ink-muted' : current != null ? 'text-ink' : 'text-ink-subtle'
-      }`}
-    >
-      {saving ? 'Saving…' : current != null ? fmt(current) : 'Set balance'}
-    </button>
   );
 }
 

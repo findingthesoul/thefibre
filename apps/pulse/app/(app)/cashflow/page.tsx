@@ -6,8 +6,7 @@ import {
   COOKIE_CASHFLOW_VIEW,
 } from '@/lib/prefs-shared';
 import { PipelineView } from './pipeline-view';
-import { ScopeChooser } from './scope-chooser';
-import { DEFAULT_VAT_TARIFFS, FALLBACK_STAGES, teamName } from './types';
+import { DEFAULT_VAT_TARIFFS, FALLBACK_STAGES } from './types';
 import type {
   VatTariff,
   BudgetLine,
@@ -59,6 +58,8 @@ async function periodSettings(): Promise<{ period: PeriodSettings; vatTariffs: V
       settings: {
         default_granularity?: string;
         period_anchor_date?: string | null;
+        horizon_months?: number | null;
+        focus_weekday?: number | null;
         vat_tariffs?: VatTariff[] | null;
       } | null;
     }>('/api/v1/pulse/settings');
@@ -70,12 +71,19 @@ async function periodSettings(): Promise<{ period: PeriodSettings; vatTariffs: V
       period: {
         granularity: g === 'week' || g === 'month' ? g : 'fortnight',
         anchor_date: r.settings?.period_anchor_date ?? null,
+        horizon_months: r.settings?.horizon_months ?? 12,
+        focus_weekday: r.settings?.focus_weekday ?? null,
       },
       vatTariffs: tariffs,
     };
   } catch {
     return {
-      period: { granularity: 'fortnight', anchor_date: null },
+      period: {
+        granularity: 'fortnight',
+        anchor_date: null,
+        horizon_months: 12,
+        focus_weekday: null,
+      },
       vatTariffs: DEFAULT_VAT_TARIFFS,
     };
   }
@@ -114,31 +122,12 @@ export default async function PipelinePage({
     rhythm.granularity = show;
   }
 
-  // Me / Team / Workspace scope (Sjoerd 2026-07-08: "cashflow per team...
-  // or per person or per workspace"). URL params win; a bare URL falls back
-  // to the remembered cookie ('me' | 'team:<id>' | 'workspace').
+  // Me / Team / Workspace scope, now a TAB system (Sjoerd 2026-07-09: "a TAB
+  // system: Me is always there... a tab for each team you are part of...
+  // Workspace only if you are SUPER ADMIN"). URL params win; a bare URL
+  // falls back to the remembered cookie ('me' | 'team:<id>' | 'workspace').
   const cookieStore = await cookies();
   const scopeCookie = cookieStore.get(COOKIE_CASHFLOW_SCOPE)?.value;
-
-  // The entry chooser (Sjoerd 2026-07-09: "you have to select which one
-  // you're opening if it exists"): no scope in the URL AND nothing
-  // remembered → centered cards instead of the grid. Only the two access
-  // probes are fetched: involved teams (RLS-scoped) and the projection
-  // (admin-only — success gates the Workspace card).
-  if (scopeParam === undefined && teamParam === undefined && !scopeCookie) {
-    const [chooserTeams, chooserProjection] = await Promise.all([
-      safeItems<InvolvedTeam>('/api/v1/pulse/involved-teams'),
-      fetchProjection(rhythm.granularity, 'workspace', null),
-    ]);
-    return (
-      <div className="px-6 py-10">
-        <ScopeChooser
-          teams={chooserTeams.map((t) => ({ id: t.team_id, name: teamName(t.team) }))}
-          canWorkspace={chooserProjection !== null}
-        />
-      </div>
-    );
-  }
 
   let scope: CashflowScope = 'workspace';
   let scopeTeamId: string | null = null;
@@ -155,7 +144,16 @@ export default async function PipelinePage({
     if (!scopeTeamId) scope = 'workspace';
   }
 
-  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, budgetLines, accounts] =
+  // Each tab anchors on its OWN accounts (workspace banks, a team's virtual
+  // bank, personal ones) — the scope rides the accounts query.
+  const accountsQs =
+    scope === 'me'
+      ? '?owner=me'
+      : scope === 'team' && scopeTeamId
+        ? `?team_id=${scopeTeamId}`
+        : '?scope=workspace';
+
+  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, workspaceProbe, budgetLines, accounts] =
     await Promise.all([
       safeItems<Commitment>('/api/v1/pulse/commitments'),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
@@ -168,19 +166,25 @@ export default async function PipelinePage({
       safeItems<StageOption>('/api/v1/pulse/stages'),
       currentUserId(),
       fetchProjection(rhythm.granularity, scope, scopeTeamId),
+      // The Workspace tab renders only when the WORKSPACE projection read
+      // succeeds (admin+) — same probe the old entry chooser used. When the
+      // active scope IS workspace the main fetch doubles as the probe.
+      scope === 'workspace'
+        ? Promise.resolve(null)
+        : fetchProjection(rhythm.granularity, 'workspace', null),
       // Admins only — degrades to an empty list (the grid skips the rows).
       safeItems<BudgetLine>('/api/v1/pulse/budget-lines'),
-      // Admins only — the FINANCIAL POSITION section expands into editable
-      // per-account balance rows; non-admins just don't get the rows.
-      safeItems<PulseAccount>('/api/v1/pulse/accounts'),
+      // Scoped to the active tab — the BANK section shows THIS cashflow's
+      // accounts (and a create prompt when there are none yet).
+      safeItems<PulseAccount>(`/api/v1/pulse/accounts${accountsQs}`),
     ]);
 
   const stages = stagesRaw.length > 0 ? stagesRaw : FALLBACK_STAGES;
 
-  // Workspace is only visible to those who have access — the projection is
-  // the admin+ read, so its failure marks a non-admin: hide the Workspace
-  // segment and default a workspace-scoped view down to Me.
-  const canWorkspace = projection !== null;
+  // Workspace is only visible to those who have access — the workspace
+  // projection is the admin+ read, so its failure marks a non-admin: hide
+  // the Workspace tab and default a workspace-scoped view down to Me.
+  const canWorkspace = scope === 'workspace' ? projection !== null : workspaceProbe !== null;
   if (scope === 'workspace' && !canWorkspace) scope = 'me';
 
   // Scope the commitments + budget lines server-side (Me = owned by the

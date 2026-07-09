@@ -28,6 +28,10 @@ export function RhythmCard({ settings }: { settings: PulseSettings }) {
           value={MONTH_NAMES[(settings?.fiscal_year_start_month ?? 1) - 1] ?? 'January'}
         />
         <SettingRow label="How far ahead" value={horizonLabel(settings?.horizon_months ?? 12)} />
+        <SettingRow
+          label="First column on"
+          value={WEEKDAYS[(settings?.focus_weekday ?? 0) - 1] ?? 'Today'}
+        />
       </dl>
       {open && <RhythmDialog settings={settings} onClose={() => setOpen(false)} />}
     </section>
@@ -49,6 +53,18 @@ function horizonLabel(months: number): string {
   return HORIZONS.find((h) => h.months === months)?.label ?? `${months} months`;
 }
 
+// Focus date (Sjoerd 2026-07-09): the cashflow's first column lands on the
+// next such weekday instead of today. ISO order — 1=Monday … 7=Sunday.
+const WEEKDAYS = [
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+  'Sunday',
+];
+
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
     <div>
@@ -67,6 +83,8 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
   );
   const [fiscalMonth, setFiscalMonth] = useState(settings?.fiscal_year_start_month ?? 1);
   const [horizon, setHorizon] = useState(settings?.horizon_months ?? 12);
+  // 0 = Today (stored as null); 1–7 = ISO weekday.
+  const [focusWeekday, setFocusWeekday] = useState(settings?.focus_weekday ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,6 +102,7 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
       default_granularity: granularity,
       fiscal_year_start_month: fiscalMonth,
       horizon_months: horizon,
+      focus_weekday: focusWeekday === 0 ? null : focusWeekday,
     });
     if (res.error) {
       setError(res.error);
@@ -166,6 +185,26 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
                 <option value={horizon}>{horizon} months</option>
               )}
             </select>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium mb-1">First column on</label>
+            <select
+              value={focusWeekday}
+              onChange={(e) => setFocusWeekday(parseInt(e.target.value, 10))}
+              className={INPUT_CLS}
+            >
+              <option value={0}>Today</option>
+              {WEEKDAYS.map((d, i) => (
+                <option key={d} value={i + 1}>
+                  {d}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-ink-muted">
+              The cashflow starts on the next such weekday instead of today.
+            </p>
           </div>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}
