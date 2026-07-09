@@ -70,10 +70,13 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
     manual email), two-way Flow pipeline sync, scopes with entry
     chooser, settings hub (Profile/Payments/Planner), projection
     history (cadence, 2y retention, first comparison view), Teams
-    under People. **NEXT**: P4 completion (auto-match purchase↔line,
-    paid→settled), P5 annual budget, P6 workbook importer (also sets
-    the payroll-aligned anchor), payment-terms curator field (§2.5),
-    comparison overlay on the chart.
+    under People. Cashflow TABS with per-tab virtual banks + daily
+    balance popup + focus date + row reorder shipped 0.15.0; **P4
+    COMPLETE** 0.16.0 (settle-on-paid hook in recordPurchase,
+    conservative auto-matching, receivable dedup). **NEXT**: P5 annual
+    budget, P6 workbook importer (also sets the payroll-aligned
+    anchor), payment-terms curator field (§2.5), comparison overlay,
+    workspace-tab read/read-write grants.
 10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
     table is already the single source of truth, but CRUD lives under
     /api/v1/meet/teams (historical). GET /api/v1/teams SHIPPED in
