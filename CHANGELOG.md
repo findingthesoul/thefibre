@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.140] — 2026-07-09 — Pulse 0.16.0: P4 complete — paid becomes settled, by itself
+
+### Added
+- **The ledger↔plan loop closes**: every ledger write now fires a settle
+  hook — a paid Pulse-issued invoice settles its whole opportunity
+  (lines settled, stage → done, the Flow card completes); a paid
+  purchase linked to a specific expected payment settles that line.
+- **Conservative auto-matching**: Meet/Thread money that was also
+  planned in Pulse links itself — exact amount + same counterparty
+  person + a single unambiguous candidate (paid → settled; pending →
+  linked). Matched purchases stop double-counting as ledger
+  receivables in the projection. Throttled like the stages sync.
+
 ## [0.13.139] — 2026-07-09 — Pulse 0.15.0: cashflows are tabs, each with its own bank
 
 ### Changed

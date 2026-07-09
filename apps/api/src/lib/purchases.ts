@@ -4,6 +4,7 @@
 // retries. Reads live in routes/purchases.ts.
 
 import { adminClient } from '../db.js';
+import { settleFromPurchase } from './pulse-ledger.js';
 
 const appIds = new Map<string, string>();
 async function appId(slug: string): Promise<string | null> {
@@ -82,6 +83,8 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (existing) {
     const { error } = await adminClient.from('purchase').update(row).eq('id', existing.id);
     if (error) console.error('[purchases] update failed', error);
+    // P4: a paid ledger row settles the plan it belongs to (fire-and-forget).
+    else if (w.status === 'paid') void settleFromPurchase(existing.id);
   } else {
     // New rows need the not-null basics even if the caller omitted them.
     row.item_label = row.item_label ?? '';

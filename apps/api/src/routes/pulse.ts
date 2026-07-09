@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { autoMatchPurchases } from '../lib/pulse-ledger.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import {
@@ -1288,9 +1289,17 @@ pulseRoutes.get('/projection', async (c) => {
   // created_at + payment terms; paid rows are in the bank anchor already.
   let ledgerOpenTotal = 0;
   if (settings?.include_ledger && !mine) {
+    // P4: link ledger money to planned lines first (throttled) so a matched
+    // purchase never double-counts as both a line and a receivable.
+    await autoMatchPurchases(ctx.workspaceId);
+    const { data: linkedRows } = await db
+      .from('pulse_commitment_line')
+      .select('purchase_id')
+      .not('purchase_id', 'is', null);
+    const linkedIds = new Set((linkedRows ?? []).map((r) => r.purchase_id as string));
     let pq = db
       .from('purchase')
-      .select('amount_cents, created_at, team_id, status')
+      .select('id, amount_cents, created_at, team_id, status')
       .eq('status', 'pending');
     if (teamId) pq = pq.eq('team_id', teamId);
     const { data: open, error: pErr } = await pq;
@@ -1299,6 +1308,7 @@ pulseRoutes.get('/projection', async (c) => {
     } else {
       const terms = settings?.ledger_terms_days ?? 14;
       for (const row of open ?? []) {
+        if (linkedIds.has((row as any).id)) continue; // planned already
         const due = addDays(new Date(String(row.created_at).slice(0, 10) + 'T00:00:00Z'), terms);
         const p = bucketFor(isoDate(due));
         if (p) {
