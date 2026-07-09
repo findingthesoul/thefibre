@@ -316,6 +316,24 @@ export async function syncOpportunityRun(
 // GET /pulse/stages (already the periodic sync point). Fine at current
 // scale; batch it when workspaces carry thousands of opportunities.
 export async function ensureOpportunityRuns(workspaceId: string): Promise<void> {
+  // Cheap parity check first — the O(N) walk only runs when a run is
+  // actually missing (write hooks keep them in sync day-to-day). This was
+  // the 2-second tax on every stages read (Sjoerd, 2026-07-09 morning).
+  const [{ count: cmCount }, { count: runCount }] = await Promise.all([
+    adminClient
+      .from('pulse_commitment')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null),
+    adminClient
+      .from('flow_run')
+      .select('id', { count: 'exact', head: true })
+      .eq('workspace_id', workspaceId)
+      .eq('source_app', 'fibre-pulse')
+      .is('deleted_at', null),
+  ]);
+  if ((cmCount ?? 0) <= (runCount ?? 0)) return;
+
   const { data: commitments } = await adminClient
     .from('pulse_commitment')
     .select('id, label, stage, person_id, organisation_id, owner_user_id')
@@ -324,4 +342,15 @@ export async function ensureOpportunityRuns(workspaceId: string): Promise<void> 
   for (const cm of commitments ?? []) {
     await syncOpportunityRun(workspaceId, cm as CommitmentForRun);
   }
+}
+
+// The flow→mirror sync is idempotent but costs ~6 queries; once a minute
+// per workspace is plenty (stage edits in Flow surface within 60s; Pulse-
+// side kind/probability edits hit the mirror directly anyway).
+const lastSyncAt = new Map<string, number>();
+export function shouldSyncStages(workspaceId: string): boolean {
+  const last = lastSyncAt.get(workspaceId) ?? 0;
+  if (Date.now() - last < 60_000) return false;
+  lastSyncAt.set(workspaceId, Date.now());
+  return true;
 }

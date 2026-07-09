@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.137] — 2026-07-09 — Pulse 0.13.1: the 2-second tax removed
+
+### Fixed
+- **Every interaction felt 2–3s slow** (Sjoerd, first coffee): each
+  change refreshes the page's data, and GET /pulse/stages was re-running
+  the full Flow-mirror sync (~6 queries) PLUS an O(N) run-backfill walk
+  on every single read — the logs showed it at 2s. Now: the mirror
+  syncs at most once a minute per workspace (Flow edits surface within
+  60s; Pulse-side stage edits hit the mirror directly), and the
+  backfill only walks when a cheap count-parity check says a run is
+  actually missing. Interactions drop to the sub-second roundtrip.
+
 ## [0.13.136] — 2026-07-09 — Pulse 0.13.0: whose cashflow?, the settings hub, and the rear-view mirror
 
 ### Added

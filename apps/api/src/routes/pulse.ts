@@ -7,6 +7,7 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import {
   ensurePipelineFlow,
   ensureOpportunityRuns,
+  shouldSyncStages,
   syncOpportunityRun,
   syncStagesFromFlow,
 } from '../lib/pulse-pipeline.js';
@@ -444,16 +445,27 @@ pulseRoutes.patch('/projects/:id', async (c) => {
 pulseRoutes.get('/stages', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  // Refresh the mirror from the Pipeline flow first — Flow authors, Pulse
-  // reads. Self-healing: workspaces the migration backfill skipped (no
-  // super-admin user to own the flow) get it created on first read.
-  let { pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId);
-  if (!pipeline_flow_id) {
-    await ensurePipelineFlow(ctx.workspaceId, ctx.userId);
+  // Refresh the mirror from the Pipeline flow — throttled to once a minute
+  // per workspace; this read is on every page refresh and was the 2-second
+  // tax on every interaction. Self-healing stays for skipped workspaces.
+  let pipeline_flow_id: string | null = null;
+  if (shouldSyncStages(ctx.workspaceId)) {
     ({ pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId));
+    if (!pipeline_flow_id) {
+      await ensurePipelineFlow(ctx.workspaceId, ctx.userId);
+      ({ pipeline_flow_id } = await syncStagesFromFlow(ctx.workspaceId));
+    }
+    await ensureOpportunityRuns(ctx.workspaceId);
+  } else {
+    const { data: flow } = await adminClient
+      .from('flow_definition')
+      .select('id')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('system_key', 'pulse_pipeline')
+      .is('deleted_at', null)
+      .maybeSingle();
+    pipeline_flow_id = flow?.id ?? null;
   }
-  // Mirror every live opportunity into a flow_run (idempotent backfill).
-  await ensureOpportunityRuns(ctx.workspaceId);
   const { data, error } = await db
     .from('pulse_stage')
     .select('id, key, label, kind, sort_order, is_system, default_probability')
