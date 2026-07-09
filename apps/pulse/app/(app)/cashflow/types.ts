@@ -61,6 +61,9 @@ export type Commitment = {
   invoice_issued_at: string | null;
   purchase_id?: string | null;
   notes: string | null;
+  // Optional offer/quotation URL (spec item 12) — optional in the type until
+  // pulse_commitment.quote_url lands in COMMITMENT_SELECT everywhere.
+  quote_url?: string | null;
   person_id: string | null;
   organisation_id: string | null;
   team_id: string | null;

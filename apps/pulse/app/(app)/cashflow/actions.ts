@@ -46,6 +46,9 @@ export type CommitmentPayload = {
   // VAT tariff (pct) applied on top of the net total. null = no VAT.
   // Optional so quick-add and other minimal callers stay untouched.
   vat_pct?: number | null;
+  // Offer/quotation URL — optional; the API strips it until the
+  // pulse_commitment.quote_url column + zod field are live.
+  quote_url?: string | null;
   notes: string | null;
 };
 

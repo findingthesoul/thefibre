@@ -42,6 +42,7 @@ const PutSettings = z.object({
   include_ledger: z.boolean().optional(),
   ledger_terms_days: z.number().int().min(0).max(120).optional(),
   snapshot_cadence_days: z.number().int().min(1).max(90).optional().nullable(),
+  focus_weekday: z.number().int().min(1).max(7).optional().nullable(),
   vat_tariffs: z
     .array(z.object({ label: z.string().min(1).max(60), pct: z.number().min(0).max(100) }))
     .max(12)
@@ -55,6 +56,9 @@ const CreateAccount = z.object({
   kind: z.enum(['bank', 'reserve']).default('bank'),
   parent_account_id: z.string().uuid().optional().nullable(),
   sort_order: z.number().int().optional(),
+  // Scope: null/null = workspace bank; a team's virtual bank; or personal.
+  team_id: z.string().uuid().optional().nullable(),
+  owner_user_id: z.string().uuid().optional().nullable(),
 });
 const PatchAccount = CreateAccount.partial().extend({
   archived: z.boolean().optional(),
@@ -115,6 +119,8 @@ const CreateCommitment = z.object({
   repeat_starts_on: z.string().date().optional().nullable(),
   repeat_until: z.string().date().optional().nullable(),
   vat_pct: z.number().min(0).max(100).optional().nullable(),
+  quote_url: z.string().url().max(500).optional().nullable(),
+  sort_order: z.number().int().optional(),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
@@ -268,12 +274,20 @@ pulseRoutes.delete('/involved-teams/:id', async (c) => {
 pulseRoutes.get('/accounts', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const { data: accounts, error } = await db
+  let aq = db
     .from('pulse_account')
-    .select('id, name, kind, parent_account_id, sync_mode, sort_order, archived_at, created_at')
+    .select(
+      'id, name, kind, parent_account_id, sync_mode, sort_order, team_id, owner_user_id, archived_at, created_at',
+    )
     .is('archived_at', null)
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  const aTeam = c.req.query('team_id');
+  if (aTeam) aq = aq.eq('team_id', aTeam);
+  else if (c.req.query('owner') === 'me') aq = aq.eq('owner_user_id', ctx.userId);
+  else if (c.req.query('scope') === 'workspace')
+    aq = aq.is('team_id', null).is('owner_user_id', null);
+  const { data: accounts, error } = await aq;
   if (error) return fail(c, 'list accounts', error);
 
   // Latest snapshot per account — one query, newest-first, first-wins.
@@ -509,7 +523,7 @@ pulseRoutes.patch('/stages/:id', async (c) => {
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
-  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, invoice_no, invoice_issued_at, purchase_id, notes, created_at, updated_at, ' +
+  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, quote_url, sort_order, invoice_no, invoice_issued_at, purchase_id, notes, created_at, updated_at, ' +
   'person_id, organisation_id, team_id, project_id, offering_id, owner_user_id, ' +
   'person:person_id (id, first_name, last_name, email), ' +
   'organisation:organisation_id (id, name), ' +
@@ -525,6 +539,7 @@ pulseRoutes.get('/commitments', async (c) => {
     .from('pulse_commitment')
     .select(COMMITMENT_SELECT)
     .is('deleted_at', null)
+    .order('sort_order', { ascending: true })
     .order('updated_at', { ascending: false });
   const direction = c.req.query('direction');
   const stage = c.req.query('stage');
@@ -1058,10 +1073,22 @@ pulseRoutes.get('/projection', async (c) => {
     | 'quarter';
   const horizonMonths = settings?.horizon_months ?? 12;
 
+  // Scope: the Me/Team/Workspace pattern. Each scope anchors on its OWN
+  // accounts now (workspace banks, a team's virtual bank, personal ones).
+  const teamId = c.req.query('team_id') || null;
+  const mine = c.req.query('owner') === 'me';
+
   // Period boundaries. Fortnights/weeks count from the anchor date; months
   // are calendar months. The current period starts at the boundary at-or-
   // before today.
-  const today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
+  let today = new Date(new Date().toISOString().slice(0, 10) + 'T00:00:00Z');
+  // Focus date: the first column lands on the chosen weekday (e.g. the
+  // first upcoming Friday). ISO 1=Mon … 7=Sun.
+  if (settings?.focus_weekday) {
+    const isoDow = ((today.getUTCDay() + 6) % 7) + 1;
+    const ahead = (settings.focus_weekday - isoDow + 7) % 7;
+    today = addDays(today, ahead);
+  }
   const horizonEnd = addMonths(today, horizonMonths);
   const starts: Date[] = [];
   if (granularity === 'month' || granularity === 'quarter') {
@@ -1117,10 +1144,11 @@ pulseRoutes.get('/projection', async (c) => {
   };
 
   // Anchor: bank balances minus reserve buckets = available.
-  const { data: accounts, error: aErr } = await db
-    .from('pulse_account')
-    .select('id, kind')
-    .is('archived_at', null);
+  let paq = db.from('pulse_account').select('id, kind, team_id, owner_user_id').is('archived_at', null);
+  if (teamId) paq = paq.eq('team_id', teamId);
+  else if (mine) paq = paq.eq('owner_user_id', ctx.userId);
+  else paq = paq.is('team_id', null).is('owner_user_id', null);
+  const { data: accounts, error: aErr } = await paq;
   if (aErr) return fail(c, 'projection accounts', aErr);
   let bankTotal = 0;
   let reserveTotal = 0;
@@ -1143,13 +1171,6 @@ pulseRoutes.get('/projection', async (c) => {
     }
   }
 
-  // Scope (Sjoerd: "cashflow per team... or per person or per workspace,
-  // and workspace only visible to the ones who have access"): the Invoices
-  // Me/Team/Workspace pattern. Workspace = unscoped (RLS already gates the
-  // projection to admin+; organisers' commitment reads are self-scoped).
-  // Bank anchor stays workspace-level; scoped views read as net flows.
-  const teamId = c.req.query('team_id') || null;
-  const mine = c.req.query('owner') === 'me';
 
   // Commitment lines (open, unsettled, in horizon or overdue). Stage kinds
   // drive the layers: lost is excluded, committed/won count in full, open is

@@ -2,22 +2,35 @@
 
 // The income/cost popup, restyled to read like a clean INVOICE document
 // (Sjoerd 2026-07-09: "more compact... in columns... rows full bleed for the
-// no... almost like an invoice"): contact header (org + person side by side,
-// the addressee) with the Invoice badge top-right → Name with the
-// Income|Costs toggle inline behind it → compact meta columns (date · stage
-// · probability) → OFFERING ROWS full bleed (edge-to-edge table, hairline
-// rows, "+ add offering" footer row) → totals bottom-right (weighted / full
-// / VAT / TOTAL incl VAT bold). Owner/team/project/notes + the payments
-// editor fold behind More options. Offering rows persist via the items
-// endpoints; commitments without items keep the legacy single quantity/unit
-// fields (backward compat). Saved income opportunities grow an "Invoice…"
-// transfer (nested confirm popup — org-dialog stacking rules: later sibling
-// paints on top, the outer dialog's onClose is guarded while a nested one is
-// open). Validation errors stay inline; SERVER errors pop as toasts.
+// no... almost like an invoice", refined same day, items 5–12): contact
+// header (org + person side by side, the addressee) with a compact
+// Income|Cost ICON switch at the end of the band → a small "More" chevron
+// disclosure directly under the band (Project · Owner · Team + the optional
+// offer/quotation link) → ONE title row (Name · narrow Expected date ·
+// Stage+%) → OFFERING ROWS full bleed (edge-to-edge table, hairline rows,
+// "+ add offering" footer row) → totals bottom-right (weighted / full / VAT
+// / TOTAL incl VAT bold) → the invoice section at the bottom (full-width
+// "Turn offering into an invoice"; once invoiced: read-only Invoice date +
+// editable Expected + the Invoice {no} badge) → Notes last. Every control
+// (except Notes) sits at the same h-9 rhythm. The payments editor + the
+// legacy Offering select stay behind More options. Offering rows persist via
+// the items endpoints; commitments without items keep the legacy single
+// quantity/unit fields (backward compat). The invoice transfer opens the
+// nested confirm popup (org-dialog stacking rules: later sibling paints on
+// top, the outer dialog's onClose is guarded while a nested one is open).
+// Validation errors stay inline; SERVER errors pop as toasts.
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { ArrowDownLeft, ArrowUpRight, ChevronDown, ChevronRight, Plus, X } from 'lucide-react';
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  ChevronDown,
+  ChevronRight,
+  ExternalLink,
+  Plus,
+  X,
+} from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
@@ -44,14 +57,51 @@ import {
   type Pickers,
 } from './types';
 
+// EVERY control (input, select, combobox, date trigger) sits at the same
+// h-9 rhythm — the Notes textarea is the one exception (spec item 5).
 const INPUT =
-  'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+  'h-9 w-full rounded-md border border-line bg-surface-raised px-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 const INPUT_SM =
-  'w-full rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+  'h-9 w-full rounded-md border border-line bg-surface-raised px-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+const TEXTAREA =
+  'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 // Invoice-document label rhythm — small, quiet, uppercase.
 const LABEL = 'block text-xs font-medium uppercase tracking-wide text-ink-muted mb-1';
 // The dialog body (size="xl") pads px-7 py-6 — full-bleed rows counter it.
 const BLEED = '-mx-7';
+
+// DateField doesn't take a className and its shared trigger is h-11 — wrap
+// it so the trigger (the direct-child button of DateField's root; NOT the
+// calendar popover's buttons, which sit a level deeper) matches the dialog's
+// h-9 control rhythm, and restyle the label to the invoice LABEL voice.
+function CompactDateField({
+  className = '',
+  label,
+  ...props
+}: Omit<React.ComponentProps<typeof DateField>, 'label'> & {
+  className?: string;
+  label?: React.ReactNode;
+}) {
+  return (
+    <div
+      className={`[&>div>button]:!mt-0 [&>div>button]:!h-9 [&>div>button]:!px-3 [&>div>button]:!text-sm [&>div>button]:overflow-hidden [&>div>button>span:first-child]:truncate ${className}`}
+    >
+      <DateField label={label ? <span className={LABEL}>{label}</span> : ''} {...props} />
+    </div>
+  );
+}
+
+// "Wed 8 Jul 2026" — the read-only Invoice date display (matches DateField).
+function fmtDateDisplay(iso: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
+  if (!m) return iso;
+  return new Intl.DateTimeFormat('en-GB', {
+    weekday: 'short',
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  }).format(new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+}
 
 // Euros displayed ↔ integer cents stored. Comma decimals accepted.
 function toCents(s: string): number | null {
@@ -192,6 +242,9 @@ export function OpportunityDialog({
   );
   const [probability, setProbability] = useState(commitment?.probability ?? 50);
   const [notes, setNotes] = useState(commitment?.notes ?? '');
+  // Offer / quotation link (spec item 12) — sent as quote_url; older rows
+  // won't have the field yet, hence the double fallback.
+  const [quoteUrl, setQuoteUrl] = useState(commitment?.quote_url ?? '');
   // VAT tariff — '' = no VAT; otherwise the pct as a string ("21").
   const [vatPct, setVatPct] = useState(
     commitment?.vat_pct != null ? String(Number(commitment.vat_pct)) : '',
@@ -243,16 +296,18 @@ export function OpportunityDialog({
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   // Set by a successful transfer so the badge shows without a prop refresh.
   const [invoicedNo, setInvoicedNo] = useState<string | null>(commitment?.invoice_no ?? null);
-  // Progressive disclosure: the payments editor + Project/Owner/Team/Notes
-  // (+ legacy Offering) fold behind "More options" — open when the saved
-  // item visibly uses the hidden fields.
+  // Progressive disclosure ×2 (spec item 6): "More" directly under the
+  // contact band holds Project/Owner/Team + the offer link; "More options"
+  // further down keeps the payments editor (+ legacy Offering). Each opens
+  // when the saved item visibly uses its hidden fields.
+  const [detailsOpen, setDetailsOpen] = useState<boolean>(
+    !!commitment && Boolean(commitment.project_id || commitment.quote_url),
+  );
   const [moreOpen, setMoreOpen] = useState<boolean>(
     !!commitment &&
       Boolean(
         (commitment.lines ?? []).length > 1 ||
-          commitment.project_id ||
-          commitment.offering_id ||
-          commitment.notes,
+          ((commitment.items ?? []).length === 0 && commitment.offering_id),
       ),
   );
 
@@ -647,6 +702,7 @@ export function OpportunityDialog({
         probability:
           direction === 'out' && !commitment ? 100 : probabilityLocked ? 100 : probability,
         notes: notes.trim() || null,
+        quote_url: quoteUrl.trim() || null,
       },
       lines,
       originalLineIds: (commitment?.lines ?? []).map((l) => l.id),
@@ -727,16 +783,6 @@ export function OpportunityDialog({
               {confirmDelete ? 'Really delete?' : 'Delete'}
             </Button>
           )}
-          {commitment && direction === 'in' && !invoicedNo && (
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={busy}
-              onClick={() => setInvoiceOpen(true)}
-            >
-              Invoice…
-            </Button>
-          )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             Cancel
           </Button>
@@ -748,10 +794,11 @@ export function OpportunityDialog({
     >
       <form id="opportunity-form" onSubmit={submit} className="space-y-3">
         {/* HEADER — the invoice addressee: organisation + person side by
-            side, prominent; the Invoice badge sits top-right once the
-            opportunity has been transferred. Full bleed against the dialog's
-            body padding, like a letterhead band. Once a company is selected,
-            the person picker lists ONLY its people — "Add person…" opens the
+            side, prominent; the compact Income|Cost ICON switch closes the
+            band row (spec item 7 — the Invoice badge moved to the invoice
+            section at the bottom). Full bleed against the dialog's body
+            padding, like a letterhead band. Once a company is selected, the
+            person picker lists ONLY its people — "Add person…" opens the
             search/create popup (Sjoerd 2026-07-09). */}
         <div className={`${BLEED} -mt-6 border-b border-line bg-surface-sunken/50 px-7 pb-4 pt-5`}>
           <div className="flex items-start gap-4">
@@ -820,16 +867,177 @@ export function OpportunityDialog({
                 )}
               </div>
             </div>
-            {invoicedNo && (
-              <span className="mt-0.5 shrink-0 rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-                Invoice {invoicedNo}
-              </span>
-            )}
+            {/* Income|Cost as a two-icon switch — selected state filled;
+                mt-5 drops it level with the band's controls (label = text-xs
+                line + mb-1); h-8 buttons in a p-0.5 ring = the h-9 rhythm. */}
+            <div
+              role="group"
+              aria-label="Income or cost"
+              className="mt-5 flex shrink-0 items-center gap-0.5 rounded-md bg-surface-raised p-0.5 ring-1 ring-line"
+            >
+              <button
+                type="button"
+                title="Income"
+                aria-label="Income"
+                aria-pressed={direction === 'in'}
+                onClick={() => setDirection('in')}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors ${
+                  direction === 'in'
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-ink-subtle hover:bg-surface-sunken hover:text-ink'
+                }`}
+              >
+                <ArrowDownLeft size={15} strokeWidth={2} />
+              </button>
+              <button
+                type="button"
+                title="Cost"
+                aria-label="Cost"
+                aria-pressed={direction === 'out'}
+                onClick={() => setDirection('out')}
+                className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors ${
+                  direction === 'out'
+                    ? 'bg-rose-600 text-white'
+                    : 'text-ink-subtle hover:bg-surface-sunken hover:text-ink'
+                }`}
+              >
+                <ArrowUpRight size={15} strokeWidth={2} />
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* TITLE ROW — Name with the Income|Costs toggle inline behind it
-            ("date income | cost as a toggle... behind the Name field"). */}
+        {/* "More" — the small disclosure directly under the contact band
+            (spec item 6): Project · Owner · Team, plus the optional offer /
+            quotation link (item 12). */}
+        <div>
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((v) => !v)}
+            aria-expanded={detailsOpen}
+            className="flex items-center gap-1 text-xs font-medium text-ink-subtle hover:text-ink"
+          >
+            {detailsOpen ? (
+              <ChevronDown size={13} strokeWidth={2} />
+            ) : (
+              <ChevronRight size={13} strokeWidth={2} />
+            )}
+            More
+          </button>
+          {detailsOpen && (
+            <div className="mt-2 space-y-3">
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className={LABEL}>Project</label>
+                  <select
+                    value={projectId}
+                    onChange={(e) => {
+                      setProjectId(e.target.value);
+                      const p = pickers.projects.find((x) => x.id === e.target.value);
+                      prefillLabel(p?.name);
+                      // The project's team wins the auto-derive (still editable).
+                      if (p?.team_id) setTeamId(p.team_id);
+                    }}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {teamId ? (
+                      <>
+                        <optgroup label="Team projects">
+                          {teamProjects.map((p) => (
+                            <option key={p.id} value={p.id}>
+                              {p.name}
+                            </option>
+                          ))}
+                        </optgroup>
+                        {otherProjects.length > 0 && (
+                          <optgroup label="Other projects">
+                            {otherProjects.map((p) => (
+                              <option key={p.id} value={p.id}>
+                                {p.name}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </>
+                    ) : (
+                      pickers.projects.map((p) => (
+                        <option key={p.id} value={p.id}>
+                          {p.name}
+                        </option>
+                      ))
+                    )}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL}>Owner</label>
+                  <select
+                    value={ownerId}
+                    onChange={(e) => setOwnerId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
+                    {pickers.members.map((m) => (
+                      <option key={m.user_id} value={m.user_id}>
+                        {m.full_name ?? m.email ?? m.user_id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={LABEL}>Team</label>
+                  <select
+                    value={teamId}
+                    onChange={(e) => setTeamId(e.target.value)}
+                    className={INPUT}
+                  >
+                    <option value="">—</option>
+                    {teamOptions.map((t) => (
+                      <option key={t.value} value={t.value}>
+                        {t.label}
+                      </option>
+                    ))}
+                  </select>
+                  {showingAllTeams && teamOptions.length > 0 && (
+                    <p className="mt-1 text-xs text-ink-muted">
+                      Showing all teams — pick the involved teams in Settings → Planner to scope this list.
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div>
+                <div className="mb-1 flex items-center gap-1.5">
+                  <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                    Offer / quotation link
+                  </span>
+                  {/^https?:\/\//.test(quoteUrl.trim()) && (
+                    <a
+                      href={quoteUrl.trim()}
+                      target="_blank"
+                      rel="noreferrer"
+                      title="Open the offer"
+                      className="text-ink-subtle hover:text-ink"
+                    >
+                      <ExternalLink size={12} strokeWidth={2} />
+                    </a>
+                  )}
+                </div>
+                <input
+                  type="url"
+                  value={quoteUrl}
+                  onChange={(e) => setQuoteUrl(e.target.value)}
+                  placeholder="https://…"
+                  className={INPUT}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* TITLE ROW — ONE line (spec item 8): Name (the flexible share) ·
+            a NARROW Expected date · Stage (+ the small %). Once invoiced,
+            the Expected date lives in the invoice section at the bottom
+            instead; while (legacy) repeating there is no single date. */}
         <div className="flex items-end gap-3">
           <div className="min-w-0 flex-1">
             <label className={LABEL}>Name</label>
@@ -840,82 +1048,17 @@ export function OpportunityDialog({
               className={INPUT}
             />
           </div>
-          <div className="inline-flex shrink-0 items-center rounded-md bg-surface-raised p-0.5 ring-1 ring-line">
-            <button
-              type="button"
-              aria-pressed={direction === 'in'}
-              onClick={() => setDirection('in')}
-              className={`inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                direction === 'in'
-                  ? 'bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200'
-                  : 'text-ink-subtle hover:text-ink'
-              }`}
-            >
-              <ArrowDownLeft size={13} strokeWidth={2} />
-              Income
-            </button>
-            <button
-              type="button"
-              aria-pressed={direction === 'out'}
-              onClick={() => setDirection('out')}
-              className={`inline-flex items-center gap-1 rounded px-2.5 py-1.5 text-xs font-medium transition-colors ${
-                direction === 'out'
-                  ? 'bg-rose-50 text-rose-700 ring-1 ring-rose-200'
-                  : 'text-ink-subtle hover:text-ink'
-              }`}
-            >
-              <ArrowUpRight size={13} strokeWidth={2} />
-              Costs
-            </button>
-          </div>
-        </div>
-
-        {/* META ROW — compact columns: Expected date · Stage (probability
-            inline small) · legacy Repeats. Extra cells wrap onto the grid. */}
-        <div className="grid grid-cols-3 gap-3">
-          {!repeating && (
-            <DateField
+          {!repeating && !invoicedNo && (
+            <CompactDateField
+              className="w-40 shrink-0"
               label="Expected date"
               name="expected_date"
               defaultValue={expectedDate}
               onValueChange={onExpectedDate}
             />
           )}
-          {!itemsMode && (
-            <div>
-              <label className={LABEL}>Repeats</label>
-              <select
-                value={repeatCadence}
-                onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
-                className={INPUT}
-              >
-                <option value="">Doesn&apos;t repeat</option>
-                {CADENCES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
-          {repeating && (
-            <>
-              <DateField
-                label="First on"
-                name="repeat_starts_on"
-                defaultValue={repeatStartsOn}
-                onValueChange={setRepeatStartsOn}
-              />
-              <DateField
-                label="Until (optional)"
-                name="repeat_until"
-                defaultValue={repeatUntil}
-                onValueChange={setRepeatUntil}
-              />
-            </>
-          )}
           {direction === 'in' && (
-            <div>
+            <div className="w-52 shrink-0">
               <label className={LABEL}>Stage</label>
               <div className="flex items-center gap-1.5">
                 <select
@@ -957,13 +1100,52 @@ export function OpportunityDialog({
                     const n = parseInt(e.target.value, 10);
                     setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
                   }}
-                  className="w-14 shrink-0 rounded-md border border-line bg-surface-raised px-1.5 py-2 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-60"
+                  className="h-9 w-14 shrink-0 rounded-md border border-line bg-surface-raised px-1.5 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-60"
                 />
                 <span className="shrink-0 text-xs text-ink-muted">%</span>
               </div>
             </div>
           )}
         </div>
+
+        {/* LEGACY META ROW — the commitment-level Repeats (+ First on /
+            Until) only exists for commitments without offering rows; item
+            rows carry their own cadence. */}
+        {!itemsMode && (
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className={LABEL}>Repeats</label>
+              <select
+                value={repeatCadence}
+                onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
+                className={INPUT}
+              >
+                <option value="">Doesn&apos;t repeat</option>
+                {CADENCES.map((c) => (
+                  <option key={c.value} value={c.value}>
+                    {c.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {repeating && (
+              <>
+                <CompactDateField
+                  label="First on"
+                  name="repeat_starts_on"
+                  defaultValue={repeatStartsOn}
+                  onValueChange={setRepeatStartsOn}
+                />
+                <CompactDateField
+                  label="Until (optional)"
+                  name="repeat_until"
+                  defaultValue={repeatUntil}
+                  onValueChange={setRepeatUntil}
+                />
+              </>
+            )}
+          </div>
+        )}
         {direction === 'out' && (
           <p className="text-[11px] text-ink-muted">
             Costs count in full — no pipeline stage.
@@ -1159,7 +1341,7 @@ export function OpportunityDialog({
                 value={vatPct}
                 onChange={(e) => setVatPct(e.target.value)}
                 aria-label="VAT tariff"
-                className="rounded-md border border-line bg-surface-raised px-2 py-1 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                className="h-9 rounded-md border border-line bg-surface-raised px-2 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-300"
               >
                 <option value="">No VAT</option>
                 {pickers.vatTariffs.map((t) => (
@@ -1185,8 +1367,9 @@ export function OpportunityDialog({
         </div>
 
         {/* ---- More options -------------------------------------------------
-            The full payments editor (multi-payment schedules) + Project
-            (+ the legacy commitment-level Offering) + Owner/Team + Notes. */}
+            The full payments editor (multi-payment schedules) + the legacy
+            commitment-level Offering. Project/Owner/Team live in the "More"
+            disclosure under the contact band; Notes sits at the bottom. */}
         <div className="border-t border-line pt-3">
           <button
             type="button"
@@ -1235,8 +1418,7 @@ export function OpportunityDialog({
                         key={r.key}
                         className="grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 items-center"
                       >
-                        <DateField
-                          label=""
+                        <CompactDateField
                           name={`expected_date_${r.key}`}
                           defaultValue={r.expected_date}
                           onValueChange={(v) => {
@@ -1257,14 +1439,12 @@ export function OpportunityDialog({
                           placeholder="invoice #"
                           className={INPUT_SM}
                         />
-                        <DateField
-                          label=""
+                        <CompactDateField
                           name={`invoiced_at_${r.key}`}
                           defaultValue={r.invoiced_at}
                           onValueChange={(v) => patchRow(r.key, { invoiced_at: v })}
                         />
-                        <DateField
-                          label=""
+                        <CompactDateField
                           name={`settled_at_${r.key}`}
                           defaultValue={r.settled_at}
                           onValueChange={(v) => patchRow(r.key, { settled_at: v })}
@@ -1306,50 +1486,8 @@ export function OpportunityDialog({
                 </div>
               )}
 
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className={LABEL}>Project</label>
-                  <select
-                    value={projectId}
-                    onChange={(e) => {
-                      setProjectId(e.target.value);
-                      const p = pickers.projects.find((x) => x.id === e.target.value);
-                      prefillLabel(p?.name);
-                      // The project's team wins the auto-derive (still editable).
-                      if (p?.team_id) setTeamId(p.team_id);
-                    }}
-                    className={INPUT}
-                  >
-                    <option value="">—</option>
-                    {teamId ? (
-                      <>
-                        <optgroup label="Team projects">
-                          {teamProjects.map((p) => (
-                            <option key={p.id} value={p.id}>
-                              {p.name}
-                            </option>
-                          ))}
-                        </optgroup>
-                        {otherProjects.length > 0 && (
-                          <optgroup label="Other projects">
-                            {otherProjects.map((p) => (
-                              <option key={p.id} value={p.id}>
-                                {p.name}
-                              </option>
-                            ))}
-                          </optgroup>
-                        )}
-                      </>
-                    ) : (
-                      pickers.projects.map((p) => (
-                        <option key={p.id} value={p.id}>
-                          {p.name}
-                        </option>
-                      ))
-                    )}
-                  </select>
-                </div>
-                {!itemsMode && (
+              {!itemsMode && (
+                <div className="grid grid-cols-3 gap-4">
                   <div>
                     <label className={LABEL}>Offering</label>
                     <select
@@ -1373,60 +1511,66 @@ export function OpportunityDialog({
                       ))}
                     </select>
                   </div>
-                )}
-              </div>
-
-              {/* Owner + Team (team auto-derives from project / single team). */}
-              <div className="grid grid-cols-3 gap-4">
-                <div>
-                  <label className={LABEL}>Owner</label>
-                  <select
-                    value={ownerId}
-                    onChange={(e) => setOwnerId(e.target.value)}
-                    className={INPUT}
-                  >
-                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
-                    {pickers.members.map((m) => (
-                      <option key={m.user_id} value={m.user_id}>
-                        {m.full_name ?? m.email ?? m.user_id}
-                      </option>
-                    ))}
-                  </select>
                 </div>
-                <div>
-                  <label className={LABEL}>Team</label>
-                  <select
-                    value={teamId}
-                    onChange={(e) => setTeamId(e.target.value)}
-                    className={INPUT}
-                  >
-                    <option value="">—</option>
-                    {teamOptions.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  {showingAllTeams && teamOptions.length > 0 && (
-                    <p className="mt-1 text-xs text-ink-muted">
-                      Showing all teams — pick the involved teams in Settings → Planner to scope this list.
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <label className={LABEL}>Notes</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  placeholder="Optional"
-                  className={INPUT}
-                />
-              </div>
+              )}
             </div>
           )}
+        </div>
+
+        {/* INVOICE SECTION — the transfer lives at the bottom (spec items
+            9+10): a full-width action for saved income opportunities; once
+            invoiced it becomes the compact Invoice date (read-only) +
+            Expected (editable, same first-payment binding) + the badge. */}
+        {direction === 'in' && commitment && (
+          <div className="border-t border-line pt-3">
+            {invoicedNo ? (
+              <div className="flex items-end gap-3">
+                <div className="w-40 shrink-0">
+                  <label className={LABEL}>Invoice date</label>
+                  <div className="flex h-9 items-center truncate rounded-md border border-line bg-surface-sunken px-3 text-sm text-ink">
+                    {fmtDateDisplay(
+                      // Freshly transferred in this session → issued today.
+                      commitment.invoice_issued_at?.slice(0, 10) ?? todayIso(),
+                    )}
+                  </div>
+                </div>
+                {!repeating && (
+                  <CompactDateField
+                    className="w-40 shrink-0"
+                    label="Expected"
+                    name="expected_date"
+                    defaultValue={expectedDate}
+                    onValueChange={onExpectedDate}
+                  />
+                )}
+                <span className="mb-2 ml-auto shrink-0 rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
+                  Invoice {invoicedNo}
+                </span>
+              </div>
+            ) : (
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={busy}
+                onClick={() => setInvoiceOpen(true)}
+              >
+                Turn offering into an invoice
+              </Button>
+            )}
+          </div>
+        )}
+
+        {/* NOTES — last before the footer (spec item 11). */}
+        <div className="border-t border-line pt-3">
+          <label className={LABEL}>Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            placeholder="Optional"
+            className={TEXTAREA}
+          />
         </div>
 
         {/* Field VALIDATION only — server/API errors pop as toasts. */}

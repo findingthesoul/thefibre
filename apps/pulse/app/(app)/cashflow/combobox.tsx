@@ -11,10 +11,12 @@ export type ComboOption = { id: string; label: string; sublabel?: string | null 
 
 export type ComboCreateResult = { option?: ComboOption; error?: string };
 
+// h-9 — the opportunity dialog's uniform control height (its inputs,
+// selects and date triggers all sit at the same rhythm).
 const INPUT =
-  'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+  'h-9 w-full rounded-md border border-line bg-surface-raised px-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 const INPUT_SM =
-  'w-full rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+  'h-9 w-full rounded-md border border-line bg-surface-raised px-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 
 export function Combobox({
   value,

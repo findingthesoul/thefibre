@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.138] — 2026-07-09 — Pulse 0.14.0: the popup calms down; scopes get their own banks
+
+### Changed
+- **Popup polish (Sjoerd's morning list 5–12)**: uniform h-9 controls
+  (calmer UX), a "More" disclosure under the contact (Project · Owner ·
+  Team · the new Offer/quotation link with a clickable icon), the
+  Income|Cost choice as a compact icon switch behind the contact,
+  Name · narrow Expected date · Stage on one line, "Turn offering into
+  an invoice" as a full-width bottom section (invoiced → Invoice date +
+  Expected + the number badge), Notes last.
+
+### Added (backend for wave 2)
+- **Scoped accounts** (migration `20260709190000`): a bank/reserve
+  belongs to the workspace, a team (its virtual bank) or a person;
+  personal accounts manageable by their owner; the projection anchors
+  each scope on ITS OWN accounts; focus_weekday setting (first column =
+  e.g. first upcoming Friday).
+- quote_url on opportunities (`20260709200000`); manual row order
+  sort_order + ordered lists (`20260709210000`) — the drag UI ships in
+  wave 2 (tabs).
+
 ## [0.13.137] — 2026-07-09 — Pulse 0.13.1: the 2-second tax removed
 
 ### Fixed
