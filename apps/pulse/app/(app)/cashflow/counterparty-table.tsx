@@ -25,6 +25,7 @@ import {
   type Commitment,
   type StageOption,
 } from './types';
+import { matchesInvoiceFilter, type InvoiceFilter } from './view-controls';
 
 // Same column rhythm for the header and every row.
 const ROW_GRID =
@@ -206,11 +207,15 @@ function InlineSelect({
 export function CounterpartyTable({
   items,
   stages,
+  invoiceFilter,
   onEdit,
   onOpenGroup,
 }: {
   items: Commitment[];
   stages: StageOption[];
+  // "Only invoiced" / "Not invoiced" — INCOME rows only (costs always show);
+  // the group net total stays over ALL items (the controls row says so).
+  invoiceFilter: InvoiceFilter;
   onEdit: (cm: Commitment) => void;
   // Clicking the counterparty NAME opens the per-org popup ("I want per org
   // a popup") — the chevron keeps folding; separate hit areas.
@@ -401,14 +406,23 @@ export function CounterpartyTable({
   const insertLine = (id: string): string =>
     rowDropTarget?.id === id ? (rowDropTarget.before ? INSERT_BEFORE : INSERT_AFTER) : '';
 
+  // Invoice filter: income rows only; a filter with nothing visible inside a
+  // collapsed group would show nothing — force groups open while it's active.
+  const filtered = invoiceFilter !== 'all';
+
   return (
-    <div className="mt-8 space-y-6 max-w-6xl">
+    <div className="space-y-6 max-w-6xl">
       {orderedGroups.map(([gKey, g]) => {
-        const groupHasFocus = focusId != null && g.items.some((i) => i.id === focusId);
+        const shownItems = filtered
+          ? g.items.filter((cm) => matchesInvoiceFilter(invoiceFilter, cm))
+          : g.items;
+        if (filtered && shownItems.length === 0) return null;
+        const groupHasFocus = focusId != null && shownItems.some((i) => i.id === focusId);
         // Focus mode collapses the OTHER groups as if their chevrons closed;
         // the manual open-set is untouched and restores when focus ends.
-        const open = focusId ? groupHasFocus : openGroups.has(gKey);
-        // Net group total (income − costs) — stays visible when folded.
+        const open = focusId ? groupHasFocus : openGroups.has(gKey) || filtered;
+        // Net group total (income − costs) — stays visible when folded, and
+        // honest: over ALL items even while the rows filter.
         const net = g.items.reduce((acc, cm) => {
           const view: Commitment = { ...cm, ...overrides[cm.id] };
           const t = commitmentNetTotal(view);
@@ -482,7 +496,7 @@ export function CounterpartyTable({
                 </button>
               )}
               <span className="shrink-0 rounded-full bg-slate-200/70 px-1.5 py-px text-[11px] font-medium text-ink-subtle tabular-nums">
-                {g.items.length}
+                {shownItems.length}
               </span>
             </div>
             <span
@@ -507,7 +521,7 @@ export function CounterpartyTable({
             <span />
           </div>
           <div className="divide-y divide-line/60">
-            {g.items.map((cm) => {
+            {shownItems.map((cm) => {
               // Server truth + any optimistic patch already saved from here.
               const view: Commitment = { ...cm, ...overrides[cm.id] };
               const isCost = view.direction === 'out';

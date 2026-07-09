@@ -188,6 +188,9 @@ const CreateRule = z.object({
   target_account_id: z.string().uuid().optional().nullable(),
   included: z.boolean().default(true),
   sort_order: z.number().int().optional(),
+  // Scope, like accounts: workspace (both null) / a team's / personal.
+  team_id: z.string().uuid().optional().nullable(),
+  owner_user_id: z.string().uuid().optional().nullable(),
 });
 const PatchRule = CreateRule.partial();
 
@@ -962,11 +965,17 @@ pulseRoutes.patch('/budget-lines/:id', async (c) => {
 pulseRoutes.get('/reservation-rules', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const { data, error } = await db
+  let rq = db
     .from('pulse_reservation_rule')
     .select('*')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
+  const rTeam = c.req.query('team_id');
+  if (rTeam) rq = rq.eq('team_id', rTeam);
+  else if (c.req.query('owner') === 'me') rq = rq.eq('owner_user_id', ctx.userId);
+  else if (c.req.query('scope') === 'workspace')
+    rq = rq.is('team_id', null).is('owner_user_id', null);
+  const { data, error } = await rq;
   if (error) return fail(c, 'list rules', error);
   return c.json({ items: data ?? [] });
 });
@@ -1322,11 +1331,15 @@ pulseRoutes.get('/projection', async (c) => {
   }
 
   // Reservation rules: % of the period's income, per layer.
-  const { data: rules, error: rErr } = await db
+  let rq = db
     .from('pulse_reservation_rule')
     .select('id, label, percentage, included, sort_order, target_account_id')
     .eq('included', true)
     .order('sort_order', { ascending: true });
+  if (teamId) rq = rq.eq('team_id', teamId);
+  else if (mine) rq = rq.eq('owner_user_id', ctx.userId);
+  else rq = rq.is('team_id', null).is('owner_user_id', null);
+  const { data: rules, error: rErr } = await rq;
   if (rErr) return fail(c, 'projection rules', rErr);
   const totalPct = (rules ?? []).reduce((acc, r) => acc + Number(r.percentage), 0);
 

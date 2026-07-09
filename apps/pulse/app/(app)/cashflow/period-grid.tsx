@@ -44,13 +44,23 @@ import {
   Maximize2,
   Minimize2,
   Pencil,
+  Plus,
 } from 'lucide-react';
 import { money } from '@/lib/money';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_FIT } from '@/lib/prefs-shared';
 import { addLine, duplicateLines, moveLine, moveLines, patchCommitmentSortOrders } from './actions';
 import { CreateBankDialog } from './bank-prompt';
+import { ReservationRuleDialog } from './reservation-rule-dialog';
 import { toastError } from './toast';
+import {
+  AddButtons,
+  FilteredNote,
+  InvoiceFilterSelect,
+  matchesInvoiceFilter,
+  ViewSelect,
+  type InvoiceFilter,
+} from './view-controls';
 import { computeSortUpdates, loadOpenGroups, saveOpenGroups } from './types';
 import type {
   BudgetLine,
@@ -296,6 +306,10 @@ export function PeriodGrid({
   scopeTeamId,
   currentUserId,
   tabName,
+  view,
+  onViewChange,
+  invoiceFilter,
+  onInvoiceFilterChange,
   onEdit,
   onAdd,
   onOpenGroup,
@@ -313,6 +327,12 @@ export function PeriodGrid({
   scopeTeamId: string | null;
   currentUserId: string | null;
   tabName: string;
+  // The controls row carries the view select (By contact / By period) and
+  // the invoice filter — both owned by the parent so they survive a switch.
+  view: 'counterparty' | 'period';
+  onViewChange: (v: 'counterparty' | 'period') => void;
+  invoiceFilter: InvoiceFilter;
+  onInvoiceFilterChange: (v: InvoiceFilter) => void;
   onEdit: (cm: Commitment) => void;
   onAdd: (direction: 'in' | 'out') => void;
   // Clicking the client NAME opens the per-org popup ("I want per org a
@@ -329,7 +349,6 @@ export function PeriodGrid({
   // the error surfaced as a toast — never silently).
   const [overrides, setOverrides] = useState<Record<string, string>>({});
   const [hoverCol, setHoverCol] = useState<string | null>(null);
-  const [filter, setFilter] = useState('');
   const [incomeOpen, setIncomeOpen] = useState(false);
   const [costsOpen, setCostsOpen] = useState(false);
   const [positionOpen, setPositionOpen] = useState(false);
@@ -354,6 +373,9 @@ export function PeriodGrid({
   const [fit, setFit] = useState(initialFit === 'on');
   // Per-tab bank creation (empty accounts) — the small create popup.
   const [creatingAccount, setCreatingAccount] = useState<'bank' | 'reserve' | null>(null);
+  // Per-tab reservation-rule creation — the RESERVATIONS header's small "+"
+  // (like the bank pencil) opens it; the rule lands in the ACTIVE tab's scope.
+  const [creatingRule, setCreatingRule] = useState(false);
   // Row reordering (Sjoerd 2026-07-09: "drag and drop to change order of
   // rows below income/costs"): the grip drag in flight, the insertion
   // target, and optimistic sort_order overrides (kept until router.refresh
@@ -584,27 +606,29 @@ export function PeriodGrid({
   }
 
   // ---- filtering (rows only — totals always cover ALL data) -----------------
-  const q = filter.trim().toLowerCase();
-  const match = (s: string | null | undefined) => (s ?? '').toLowerCase().includes(q);
-  const filterGroups = (groups: ClientGroup[]): ClientGroup[] => {
-    if (!q) return groups;
+  // The invoice filter applies to INCOME commitment rows only (costs are
+  // never invoiced); budget lines are rules, so they count as not-invoiced.
+  const filtered = invoiceFilter !== 'all';
+  const filterGroups = (groups: ClientGroup[], dir: Direction): ClientGroup[] => {
+    if (!filtered || dir === 'out') return groups;
     return groups
-      .map((g) => (match(g.name) ? g : { ...g, opps: g.opps.filter((o) => match(o.cm.label)) }))
-      .filter((g) => match(g.name) || g.opps.length > 0);
+      .map((g) => ({ ...g, opps: g.opps.filter((o) => matchesInvoiceFilter(invoiceFilter, o.cm)) }))
+      .filter((g) => g.opps.length > 0);
   };
-  const filterBudget = (rows: BudgetRow[]): BudgetRow[] =>
-    q ? rows.filter((r) => match(r.bl.label) || match(r.bl.category)) : rows;
+  const filterBudget = (rows: BudgetRow[], dir: Direction): BudgetRow[] =>
+    filtered && dir === 'in' && invoiceFilter === 'invoiced' ? [] : rows;
 
-  const shownIncomeGroups = filterGroups(incomeClientGroups);
-  const shownCostGroups = filterGroups(costClientGroups);
-  const shownIncomeBudget = filterBudget(incomeBudgetRows);
-  const shownCostBudget = filterBudget(costBudgetRows);
+  const shownIncomeGroups = filterGroups(incomeClientGroups, 'in');
+  const shownCostGroups = filterGroups(costClientGroups, 'out');
+  const shownIncomeBudget = filterBudget(incomeBudgetRows, 'in');
+  const shownCostBudget = filterBudget(costBudgetRows, 'out');
 
-  // An active filter would show nothing inside a collapsed section — expand.
-  // Focus mode folds every section except the one being worked in (the
-  // manual open state stays put and restores when focus ends).
-  const incomeExpanded = focus ? focus.section === 'in' : incomeOpen || q !== '';
-  const costsExpanded = focus ? focus.section === 'out' : costsOpen || q !== '';
+  // An active filter would show nothing inside a collapsed section — expand
+  // the income section (the filter's subject). Focus mode folds every
+  // section except the one being worked in (the manual open state stays put
+  // and restores when focus ends).
+  const incomeExpanded = focus ? focus.section === 'in' : incomeOpen || filtered;
+  const costsExpanded = focus ? focus.section === 'out' : costsOpen;
   const positionExpanded = focus ? false : positionOpen;
   const reservationsExpanded = focus ? false : reservesOpen;
 
@@ -966,7 +990,8 @@ export function PeriodGrid({
       const foldKey = `${dir}:${g.key}`;
       const groupHasFocus =
         focus != null && focus.section === dir && g.opps.some((o) => o.cm.id === focus.rowId);
-      const groupOpen = focus ? groupHasFocus : openGroups.has(foldKey) || q !== '';
+      const groupOpen =
+        focus ? groupHasFocus : openGroups.has(foldKey) || (dir === 'in' && filtered);
       const groupDimmed = focus != null && focus.section === dir && !groupHasFocus;
       return (
       <FragmentRows key={g.key}>
@@ -1258,22 +1283,19 @@ export function PeriodGrid({
 
   return (
     <div className="mt-6">
-      {/* View header: filter + fit toggle + scroll chevrons. */}
+      {/* Controls row: invoice filter left; the quick adds + view select +
+          Show / fit / chevrons cluster right (Sjoerd 2026-07-09: one
+          consolidated row — the "Filter rows…" input is gone). */}
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <input
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            placeholder="Filter rows…"
-            className="w-52 rounded-md border border-line bg-surface-raised px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-          />
-          {q && (
-            <span className="truncate text-xs text-ink-muted">
-              (filtered view — totals cover all rows)
-            </span>
-          )}
+          <InvoiceFilterSelect value={invoiceFilter} onChange={onInvoiceFilterChange} />
+          {filtered && <FilteredNote />}
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {/* Green + / red − quick adds (moved here from the tab bar). */}
+          <AddButtons onAdd={onAdd} />
+          {/* By contact / By period. */}
+          <ViewSelect value={view} onChange={onViewChange} />
           {/* Show per week / fortnight / month / quarter — server refetch via
               ?show= keeps the position rows aligned with the columns. */}
           <ShowSwitcher current={settings.granularity} />
@@ -1558,6 +1580,19 @@ export function PeriodGrid({
                     count: projection.reservation_rules?.length ?? undefined,
                     open: reservationsExpanded,
                     onToggle: () => setReservesOpen((v) => !v),
+                    // Per-cashflow rules (like accounts): the small "+" opens
+                    // the create popup scoped to the ACTIVE tab.
+                    action: (
+                      <button
+                        type="button"
+                        onClick={() => setCreatingRule(true)}
+                        title={`Add a reservation rule to the ${tabName} cashflow`}
+                        aria-label="Add a reservation rule"
+                        className="shrink-0 -m-1 p-1 text-ink-muted hover:text-ink"
+                      >
+                        <Plus size={12} strokeWidth={1.75} />
+                      </button>
+                    ),
                   })}
                   {reservationsExpanded &&
                     (projection.reservation_rules ?? []).map((rule) => {
@@ -1645,6 +1680,19 @@ export function PeriodGrid({
           currentUserId={currentUserId}
           initialKind={creatingAccount}
           onClose={() => setCreatingAccount(null)}
+        />
+      )}
+
+      {/* Per-tab reservation rule (the RESERVATIONS header's "+") — the
+          target-bucket options are THIS tab's reserve accounts. */}
+      {creatingRule && (
+        <ReservationRuleDialog
+          tabName={tabName}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
+          currentUserId={currentUserId}
+          reserveAccounts={accounts.filter((a) => a.kind === 'reserve')}
+          onClose={() => setCreatingRule(false)}
         />
       )}
     </div>

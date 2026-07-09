@@ -38,6 +38,12 @@ export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts:
           Add rule
         </Button>
       </div>
+      {/* This card manages the WORKSPACE cashflow's rules only — scoped
+          rules live with their tab (like accounts). */}
+      <div className="px-5 pt-3 text-xs text-ink-muted">
+        Workspace rules only — team and personal cashflows manage their reservations from
+        their own tab (the + on the Reservations row).
+      </div>
       {rules.length === 0 ? (
         <div className="px-5 py-4 text-sm text-ink-muted">
           No reservation rules yet. Solidarity Fund, VAT reserve, buffer — all user-defined

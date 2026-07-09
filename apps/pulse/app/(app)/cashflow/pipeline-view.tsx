@@ -8,6 +8,13 @@ import { CounterpartyTable } from './counterparty-table';
 import { CashflowTabs } from './tab-bar';
 import { BankPrompt } from './bank-prompt';
 import { ToastStack } from './toast';
+import {
+  AddButtons,
+  FilteredNote,
+  InvoiceFilterSelect,
+  ViewSelect,
+  type InvoiceFilter,
+} from './view-controls';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
 import {
@@ -61,6 +68,9 @@ export function PipelineView({
   const [creating, setCreating] = useState<Creating | null>(null);
   const [editing, setEditing] = useState<Commitment | null>(null);
   const [view, setView] = useState<'counterparty' | 'period'>(initialView);
+  // "Only invoiced" / "Not invoiced" — income rows only, both views; totals
+  // stay over ALL rows (the honesty note next to the select says so).
+  const [invoiceFilter, setInvoiceFilter] = useState<InvoiceFilter>('all');
   // On-demand bank-balances popup (the BANK header's "Update balances") —
   // the same dialog the first-visit-of-the-day prompt opens.
   const [bankOpen, setBankOpen] = useState(false);
@@ -105,20 +115,33 @@ export function PipelineView({
         ? (tabTeams.find((t) => t.value === scopeTeamId)?.label ?? 'Team')
         : 'Workspace';
 
+  // The view choice is a compact select in the controls row now — remembered
+  // per user, same cookie as before.
+  function changeView(next: 'counterparty' | 'period') {
+    setView(next);
+    void savePref(COOKIE_CASHFLOW_VIEW, next);
+  }
+
   return (
     <>
       {/* Server/API errors from anywhere in the lane pop here (toast.tsx). */}
       <ToastStack />
-      {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the
-          chooser AND the switcher; the +/− at its right end are the quick
-          adds ("everything is now more or less a quick add"). */}
+      {/* Title FIRST, full width (Sjoerd 2026-07-09: "CASHFLOW title above
+          the tabs"); the tab bar sits on its own row below it. */}
       <div className="max-w-6xl">
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
+        <p className="mt-1 text-sm text-ink-muted">
+          Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Fibre Flow).
+        </p>
+      </div>
+      {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the
+          chooser AND the switcher. The quick adds live in the controls row. */}
+      <div className="mt-5 max-w-6xl">
         <CashflowTabs
           scope={scope}
           scopeTeamId={scopeTeamId}
           canWorkspace={canWorkspace}
           teams={tabTeams.map((t) => ({ id: t.value, name: t.label }))}
-          onAdd={(direction) => setCreating({ direction })}
         />
       </div>
       {/* The bank-balances popup — auto on the first visit of the day, and
@@ -130,40 +153,6 @@ export function PipelineView({
         open={bankOpen}
         onClose={() => setBankOpen(false)}
       />
-      <div className="mt-6 flex items-start justify-between gap-4 max-w-6xl">
-        <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Expected money in and out, per counterparty — every line weighted by where it stands in the pipeline (a Fibre Flow).
-          </p>
-        </div>
-      </div>
-
-      {/* View toggle — list per counterparty vs. draggable per-period board. */}
-      <div className="mt-6 inline-flex rounded-lg ring-1 ring-line bg-surface-raised p-0.5">
-        {(
-          [
-            ['counterparty', 'By counterparty'],
-            ['period', 'By period'],
-          ] as const
-        ).map(([key, label]) => (
-          <button
-            key={key}
-            type="button"
-            onClick={() => {
-              setView(key);
-              void savePref(COOKIE_CASHFLOW_VIEW, key); // remembered per user
-            }}
-            className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
-              view === key
-                ? 'bg-ink text-ink-inverse'
-                : 'text-ink-subtle hover:text-ink'
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {view === 'period' ? (
         <PeriodGrid
@@ -178,27 +167,49 @@ export function PipelineView({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           tabName={tabName}
+          view={view}
+          onViewChange={changeView}
+          invoiceFilter={invoiceFilter}
+          onInvoiceFilterChange={setInvoiceFilter}
           onEdit={setEditing}
           onAdd={(direction) => setCreating({ direction })}
           onOpenGroup={setOrgKey}
           onUpdateBalances={() => setBankOpen(true)}
         />
-      ) : items.length === 0 ? (
-        <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-          <p className="text-sm text-ink-muted">
-            Nothing here yet. Add your first with the green + above — a contact and an
-            amount is enough.
-          </p>
-        </div>
       ) : (
-        // Inline-editable, line per line (Sjoerd 2026-07-08) — the pencil at
-        // the row end opens the full dialog.
-        <CounterpartyTable
-          items={items}
-          stages={pickers.stages}
-          onEdit={setEditing}
-          onOpenGroup={setOrgKey}
-        />
+        <>
+          {/* Same controls-row contract as the period grid: [invoice filter]
+              left, [+ −] [view select] right (the period-only Show / fit /
+              chevrons don't apply here). */}
+          <div className="mt-6 mb-3 flex max-w-6xl items-center justify-between gap-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <InvoiceFilterSelect value={invoiceFilter} onChange={setInvoiceFilter} />
+              {invoiceFilter !== 'all' && <FilteredNote />}
+            </div>
+            <div className="flex shrink-0 items-center gap-2">
+              <AddButtons onAdd={(direction) => setCreating({ direction })} />
+              <ViewSelect value={view} onChange={changeView} />
+            </div>
+          </div>
+          {items.length === 0 ? (
+            <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
+              <p className="text-sm text-ink-muted">
+                Nothing here yet. Add your first with the green + above — a contact and an
+                amount is enough.
+              </p>
+            </div>
+          ) : (
+            // Inline-editable, line per line (Sjoerd 2026-07-08) — the pencil at
+            // the row end opens the full dialog.
+            <CounterpartyTable
+              items={items}
+              stages={pickers.stages}
+              invoiceFilter={invoiceFilter}
+              onEdit={setEditing}
+              onOpenGroup={setOrgKey}
+            />
+          )}
+        </>
       )}
 
       {/* Per-org popup (Sjoerd: "I want per org a popup") — rendered BEFORE

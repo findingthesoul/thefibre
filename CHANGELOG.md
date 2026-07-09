@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.141] — 2026-07-09 — Pulse 0.17.0: the invoice button appears; reservations go per-cashflow
+
+### Fixed
+- **"Turn offering into an invoice" was invisible on new items** — the
+  section only rendered for saved commitments, so the green-+ flow
+  never showed it. It now always shows for income: "Save first, then
+  invoice." while unsaved, the button once saved, the invoice
+  date/expected/badge once invoiced.
+
+### Changed
+- **Reservations are per-cashflow** (migration `20260709230000`): rules
+  carry the same scope as banks; each tab's RESERVATIONS header gets a
+  "+" creating rules for THAT cashflow (target buckets = the tab's own
+  reserves); the settings card manages workspace rules only; the
+  projection follows the active scope.
+- **Layout pass**: CASHFLOW title above the tabs; the filter row is
+  gone; view choice is a compact "By contact / By period" select next
+  to Per month; green + / red − sit left of that cluster; a new
+  All / Only invoiced / Not invoiced filter (totals stay honest).
+
 ## [0.13.140] — 2026-07-09 — Pulse 0.16.0: P4 complete — paid becomes settled, by itself
 
 ### Added

@@ -40,7 +40,9 @@ export default async function PlannerSettingsPage() {
 
   const [sR, rR, tR, aR, oR, wtR, stR, snR] = await Promise.allSettled([
     apiFetch<{ settings: PulseSettings }>('/api/v1/pulse/settings'),
-    apiFetch<{ items: Rule[] }>('/api/v1/pulse/reservation-rules'),
+    // Workspace rules only — team/personal rules are managed from their own
+    // cashflow tab (the + on the grid's Reservations row).
+    apiFetch<{ items: Rule[] }>('/api/v1/pulse/reservation-rules?scope=workspace'),
     apiFetch<{ items: InvolvedTeam[] }>('/api/v1/pulse/involved-teams'),
     apiFetch<{ items: Account[] }>('/api/v1/pulse/accounts'),
     apiFetch<{ items: Offering[] }>('/api/v1/pulse/offerings'),

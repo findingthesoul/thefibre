@@ -73,6 +73,10 @@ export async function createReservationRule(input: {
   percentage: number;
   basis: 'revenue' | 'net_revenue';
   target_account_id?: string | null;
+  // Scope, like accounts (both null = workspace) — the cashflow grid's
+  // per-tab "+" creates team/personal rules; Settings creates workspace ones.
+  team_id?: string | null;
+  owner_user_id?: string | null;
 }): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/pulse/reservation-rules', {
@@ -80,6 +84,8 @@ export async function createReservationRule(input: {
       body: JSON.stringify(input),
     });
     revalidatePath('/settings/planner');
+    // Rules feed the projection's RESERVATIONS rows.
+    revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -102,6 +108,7 @@ export async function updateReservationRule(
       body: JSON.stringify(patch),
     });
     revalidatePath('/settings/planner');
+    revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
@@ -112,6 +119,7 @@ export async function deleteReservationRule(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/reservation-rules/${id}`, { method: 'DELETE' });
     revalidatePath('/settings/planner');
+    revalidatePath('/cashflow');
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

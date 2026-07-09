@@ -1518,10 +1518,13 @@ export function OpportunityDialog({
         </div>
 
         {/* INVOICE SECTION — the transfer lives at the bottom (spec items
-            9+10): a full-width action for saved income opportunities; once
-            invoiced it becomes the compact Invoice date (read-only) +
-            Expected (editable, same first-payment binding) + the badge. */}
-        {direction === 'in' && commitment && (
+            9+10) and is ALWAYS present for income (Sjoerd 2026-07-09: "Still
+            I don't see the button"): enabled once the item is saved and not
+            yet invoiced; on a NEW/unsaved item it shows disabled with a
+            save-first hint; once invoiced it becomes the compact Invoice
+            date (read-only) + Expected (editable, same first-payment
+            binding) + the badge. */}
+        {direction === 'in' && (
           <div className="border-t border-line pt-3">
             {invoicedNo ? (
               <div className="flex items-end gap-3">
@@ -1530,7 +1533,7 @@ export function OpportunityDialog({
                   <div className="flex h-9 items-center truncate rounded-md border border-line bg-surface-sunken px-3 text-sm text-ink">
                     {fmtDateDisplay(
                       // Freshly transferred in this session → issued today.
-                      commitment.invoice_issued_at?.slice(0, 10) ?? todayIso(),
+                      commitment?.invoice_issued_at?.slice(0, 10) ?? todayIso(),
                     )}
                   </div>
                 </div>
@@ -1548,15 +1551,23 @@ export function OpportunityDialog({
                 </span>
               </div>
             ) : (
-              <Button
-                type="button"
-                variant="secondary"
-                className="w-full"
-                disabled={busy}
-                onClick={() => setInvoiceOpen(true)}
-              >
-                Turn offering into an invoice
-              </Button>
+              <>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="w-full"
+                  disabled={busy || !commitment}
+                  title={commitment ? undefined : 'Save first, then invoice'}
+                  onClick={() => setInvoiceOpen(true)}
+                >
+                  Turn offering into an invoice
+                </Button>
+                {!commitment && (
+                  <p className="mt-1 text-center text-xs text-ink-muted">
+                    Save first, then invoice.
+                  </p>
+                )}
+              </>
             )}
           </div>
         )}
