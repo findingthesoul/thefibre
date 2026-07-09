@@ -571,7 +571,7 @@ export function OpportunityDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      setError('Name is required.');
+      toastError('Name is required.');
       return;
     }
 
@@ -586,7 +586,7 @@ export function OpportunityDialog({
         const q = parseFloat(r.quantity.trim().replace(',', '.'));
         const unit = toCents(r.unitAmount);
         if (!r.name.trim() || unit == null || !Number.isFinite(q) || q <= 0) {
-          setError('Each offering row needs a name, a positive quantity and a price.');
+          toastError('Each offering row needs a name, a positive quantity and a price.');
           return;
         }
         const payload: ItemPayload = {
@@ -625,7 +625,7 @@ export function OpportunityDialog({
     const dealCents =
       Number.isFinite(qNum) && qNum > 0 && unitCents != null ? Math.round(qNum * unitCents) : 0;
     if (repeating && dealCents <= 0) {
-      setError('A repeating item needs a positive deal size (quantity × unit price).');
+      toastError('A repeating item needs a positive deal size (quantity × unit price).');
       return;
     }
 
@@ -1550,12 +1550,8 @@ export function OpportunityDialog({
           />
         </div>
 
-        {/* Field VALIDATION only — server/API errors pop as toasts. */}
-        {error && (
-          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            {error}
-          </div>
-        )}
+        {/* Errors pop as toasts over the screen — never buried at the
+            bottom of the dialog (Sjoerd 2026-07-10). */}
       </form>
     </Dialog>
 

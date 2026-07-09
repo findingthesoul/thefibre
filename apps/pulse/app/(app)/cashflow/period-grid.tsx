@@ -236,6 +236,10 @@ const PILL_TONE: Record<Direction, string> = {
 // (Sjoerd 2026-07-10). Settled lines are excluded from the grid entirely, so
 // an invoiced_at on a rendered line always means "invoiced, awaiting payment".
 const PILL_TONE_INVOICED = 'bg-sky-50 ring-sky-200 text-sky-700';
+// Open (probability-weighted) income — amber, so a lead never looks like
+// committed green money (Sjoerd 2026-07-10). The chip shows the WEIGHTED
+// amount; the tooltip carries the full price + %.
+const PILL_TONE_OPEN = 'bg-amber-50 ring-amber-200 text-amber-700';
 const TITLE_TONE: Record<Direction, string> = {
   in: 'text-emerald-800',
   out: 'text-rose-800',
@@ -286,7 +290,12 @@ type DropHandlers = {
   onDragLeave?: (e: React.DragEvent) => void;
   onDrop?: (e: React.DragEvent) => void;
 };
-type Card = { line: Line; cm: Commitment; date: string };
+// `weighted` = what this line contributes to the projection: full when
+// invoiced/committed/won, probability-weighted when the stage is open. The
+// cells, group subtotals and totals all use it so the grid ADDS UP (Sjoerd
+// 2026-07-10: "it is not adding up if it is a lead — full amount, green").
+// `open` marks a probability-weighted line so the cell can tint it amber.
+type Card = { line: Line; cm: Commitment; date: string; weighted: number; open: boolean };
 // A repeating commitment renders as per-column occurrence amounts instead of
 // draggable payment cards — its lines are skipped (the projection's too).
 type OppRow = {
@@ -559,15 +568,16 @@ export function PeriodGrid({
       const idx = colIdxFor(date);
       if (idx === laterIdx) laterHasContent = true;
       if (idx === 0) overdueHasContent = true;
-      row.cells[idx].push({ line, cm, date });
+      const stageKind = stageByKey.get(cm.stage)?.kind;
+      const open = !line.invoiced_at && stageKind !== 'committed' && stageKind !== 'won';
+      const weighted = open
+        ? Math.round((line.amount_cents * cm.probability) / 100)
+        : line.amount_cents;
+      row.cells[idx].push({ line, cm, date, weighted, open });
       lineCol.set(line.id, cols[idx].key);
-      group.subtotals[idx] += line.amount_cents;
+      group.subtotals[idx] += weighted;
       group.lineIds[idx].push(line.id);
-      // Weighted: invoiced counts in full; otherwise probability-weighted
-      // (committed/won stages already carry probability 100).
-      totals[idx] += line.invoiced_at
-        ? line.amount_cents
-        : Math.round((line.amount_cents * cm.probability) / 100);
+      totals[idx] += weighted;
     }
   }
   // Manual order first (sort_order incl. optimistic overrides), name/label
@@ -1170,7 +1180,7 @@ export function PeriodGrid({
           const rowTotal = o.recurring
             ? sumVisible(o.recurring.amounts)
             : visIdx.reduce(
-                (a, i) => a + o.cells[i].reduce((s, c) => s + c.line.amount_cents, 0),
+                (a, i) => a + o.cells[i].reduce((s, c) => s + c.weighted, 0),
                 0,
               );
           return (
@@ -1209,23 +1219,10 @@ export function PeriodGrid({
                     >
                       {o.cm.label}
                     </span>
-                    {/* Stage + ↻ chips are pipeline info — income only. On
-                        costs they always read "committed": noise (Sjoerd
-                        2026-07-09). The rose −amounts stay the cost cue. */}
-                    {!isCost && (
-                      <span
-                        className={`shrink-0 rounded-full px-1.5 py-px text-[10px] font-medium ${
-                          KIND_STYLE[stage?.kind ?? ''] ?? UNKNOWN_STAGE_STYLE
-                        }`}
-                      >
-                        {stage?.label ?? o.cm.stage}
-                      </span>
-                    )}
-                    {!isCost && o.recurring && (
-                      <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
-                        ↻ {o.recurring.cadence}
-                      </span>
-                    )}
+                    {/* Row chips (stage + ↻) removed (Sjoerd 2026-07-10:
+                        "the recurring button and status of the row can be
+                        taken away"). Stage lives in the dialog; the weighted
+                        cell amounts + amber tone already signal open deals. */}
                   </button>
                 </div>
               </td>
@@ -1854,13 +1851,21 @@ function AmountChip({
         if (draggedRef.current) return;
         onOpen();
       }}
-      title={`${card.cm.label} — expected ${card.date}.${card.line.invoiced_at ? ' Invoiced, awaiting payment.' : ''} Click to open; drag to another period to retime; ⌥-drag to copy.`}
+      title={`${card.cm.label} — expected ${card.date}.${
+        card.open
+          ? ` Weighted at ${card.cm.probability}% (full ${money(card.line.amount_cents)}).`
+          : ''
+      }${card.line.invoiced_at ? ' Invoiced, awaiting payment.' : ''} Click to open; drag to another period to retime; ⌥-drag to copy.`}
       className={`inline-flex items-center gap-1 cursor-pointer active:cursor-grabbing rounded-full ring-1 hover:shadow ${
-        dir === 'in' && card.line.invoiced_at ? PILL_TONE_INVOICED : PILL_TONE[dir]
+        dir === 'in' && card.line.invoiced_at
+          ? PILL_TONE_INVOICED
+          : dir === 'in' && card.open
+            ? PILL_TONE_OPEN
+            : PILL_TONE[dir]
       } ${chipPad} py-0.5 ${cellText} font-medium tabular-nums`}
     >
       {sign(dir)}
-      {fmt(card.line.amount_cents)}
+      {fmt(card.weighted)}
       {card.line.invoiced_at && <FileText size={10} strokeWidth={2} className="text-sky-600" />}
     </span>
   );
