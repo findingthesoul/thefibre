@@ -1,0 +1,31 @@
+# The API image (apps/api/Dockerfile) copies only the root manifests,
+# apps/api and packages/shared. Everything below is uploaded to the Fly
+# builder on every deploy otherwise — the context was 4.1 GB (2.2 GB of it
+# .claude/). Keep it lean. Do NOT ignore: pnpm-lock.yaml, pnpm-workspace.yaml,
+# package.json, tsconfig.base.json, apps/api/**, packages/shared/**.
+
+.claude/
+.git/
+node_modules/
+**/node_modules/
+**/.next/
+**/dist/
+**/.turbo/
+.vercel/
+**/.vercel/
+
+# Sibling apps the API build never touches
+apps/web/
+apps/meet/
+apps/thread/
+apps/flow/
+apps/pulse/
+
+# Non-build material
+docs/
+supabase/
+scratchpad/
+*.log
+.env
+.env.*
+.DS_Store
