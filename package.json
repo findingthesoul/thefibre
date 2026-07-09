@@ -1,6 +1,6 @@
 {
   "name": "thefibre",
-  "version": "0.13.148",
+  "version": "0.13.149",
   "private": true,
   "description": "The Fibre — relationship intelligence for purpose-driven work",
   "packageManager": "pnpm@9.12.0",

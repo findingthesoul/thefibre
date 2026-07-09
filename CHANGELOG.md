@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.149] — 2026-07-10 — Thread 3.31.5: new thread/team lands on a filled page (was empty until refresh)
+
+### Fixed
+- Creating a thread (or team) navigated to a blank page — no title, no
+  settings — until a manual browser refresh. A `router.refresh()` fired
+  synchronously right after `router.push()`, racing the navigation so the
+  destination mounted against a cleared router cache. Removed it; `push`
+  alone fetches the new route fresh (matching the certificate, duplicate
+  and template-instantiate flows that never had the bug).
+
 ## [0.13.148] — 2026-07-10 — Fibre Pulse joins the platform app surfaces
 
 ### Fixed
