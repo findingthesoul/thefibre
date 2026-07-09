@@ -6,9 +6,9 @@
 // Total column (the workbook's rightmost sums). Unsettled expected payments
 // render as draggable pills (drop on another period column → PATCH
 // expected_date, optimistic); a client group's per-period subtotal drags the
-// whole group's one-off lines at once. Budget lines AND repeating
-// commitments expand into non-draggable recurring amounts (rules, not
-// payments).
+// whole group's one-off lines at once. Budget lines, repeating commitments
+// AND commitments with repeating offering items expand into non-draggable
+// recurring amounts (rules, not payments).
 //
 // Spreadsheet feel (Sjoerd 2026-07-08: "every line should just work on its
 // own"): a CLICK on a pill opens the row's opportunity dialog (Sjoerd
@@ -469,6 +469,52 @@ export function PeriodGrid({
       row = { cm, cells: Array.from({ length: nCols }, () => [] as Card[]) };
       oppRowByCm.set(cm.id, row);
       group.opps.push(row);
+    }
+    // Item-level repeats (offering rows with a Repeats cadence): each
+    // repeating item expands by ITS OWN cadence from the shared anchor
+    // (repeat_starts_on ?? first line's expected_date ?? today); non-repeating
+    // items count ONCE at the anchor (or today if the anchor is past). The
+    // commitment's lines are IGNORED — they'd double-count the same money.
+    // Amounts are incl-VAT. Mirrors the API's projection expansion exactly
+    // (apps/api/src/routes/pulse.ts). Renders like a recurring row:
+    // non-draggable per-period amounts, ↻ chip on income.
+    const repeatItems = (cm.items ?? []).filter((i) => i.repeat_cadence);
+    if (repeatItems.length > 0) {
+      const vatFactor = 1 + Number(cm.vat_pct ?? 0) / 100;
+      const anchor = cm.repeat_starts_on ?? cm.lines[0]?.expected_date ?? null;
+      const todayIso = isoDate(todayUTC());
+      // Weighted like the projection: full when committed/won, probability
+      // otherwise (those stages carry probability 100 anyway).
+      const stageKind = stageByKey.get(cm.stage)?.kind;
+      const weight =
+        stageKind === 'committed' || stageKind === 'won' ? 100 : cm.probability;
+      const amounts = zeros();
+      const put = (date: string, amt: number) => {
+        const idx = colIdxFor(date);
+        if (idx === laterIdx) laterHasContent = true;
+        amounts[idx] += amt;
+        group.subtotals[idx] += amt;
+        totals[idx] += Math.round((amt * weight) / 100);
+      };
+      for (const it of cm.items) {
+        const amt = Math.round(Number(it.quantity) * it.unit_amount_cents * vatFactor);
+        if (!amt) continue;
+        if (!it.repeat_cadence) {
+          put(anchor && anchor > todayIso ? anchor : todayIso, amt);
+          continue;
+        }
+        for (const date of cadenceOccurrences(
+          it.repeat_cadence,
+          anchor,
+          cm.repeat_until,
+          horizon,
+        )) {
+          put(date, amt);
+        }
+      }
+      const cadences = [...new Set(repeatItems.map((i) => i.repeat_cadence!))];
+      row.recurring = { cadence: cadences.join(' + '), amounts };
+      continue;
     }
     if (cm.repeat_cadence) {
       // Repeating: expand quantity × unit price on the cadence grid and skip

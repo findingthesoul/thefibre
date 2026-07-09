@@ -39,10 +39,14 @@ async function safeItems<T>(path: string): Promise<T[]> {
 
 // Platform user id of the signed-in user — matches members' user_id, so the
 // dialog can preselect the owner. Degrades to null (API-default owner).
-async function currentUserId(): Promise<string | null> {
+async function currentUserId(): Promise<{ id: string; workspaceName: string | null } | null> {
   try {
-    const r = await apiFetch<{ user: { id: string } }>('/api/v1/auth/me');
-    return r.user?.id ?? null;
+    const r = await apiFetch<{ user: { id: string }; workspace: { name: string } | null }>(
+      '/api/v1/auth/me',
+    );
+    return r.user?.id
+      ? { id: r.user.id, workspaceName: r.workspace?.name ?? null }
+      : null;
   } catch {
     return null;
   }
@@ -163,7 +167,7 @@ export default async function PipelinePage({
         ? `?team_id=${scopeTeamId}`
         : '?scope=workspace';
 
-  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, workspaceProbe, budgetLines, accounts] =
+  const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, me, projection, workspaceProbe, budgetLines, accounts] =
     await Promise.all([
       safeItems<Commitment>(`/api/v1/pulse/commitments${commitmentsQs}`),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
@@ -209,6 +213,7 @@ export default async function PipelinePage({
   // Budget lines still arrive workspace-wide — narrow them to the tab here
   // (Me = owned by the caller; Team = tagged with that team).
   let shownBudget = budgetLines;
+  const meId = me?.id ?? null;
   if (scope === 'me' && meId) {
     shownBudget = budgetLines.filter((bl) => bl.owner_user_id === meId);
   } else if (scope === 'team' && scopeTeamId) {
@@ -229,6 +234,7 @@ export default async function PipelinePage({
         items={shownItems}
         pickers={{ orgs, persons, teams, allTeams, projects, offerings, members, stages, vatTariffs }}
         currentUserId={meId}
+        workspaceName={me?.workspaceName ?? null}
         periodSettings={rhythm}
         projection={projection}
         budgetLines={shownBudget}

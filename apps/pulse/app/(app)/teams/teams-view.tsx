@@ -5,7 +5,10 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { UsersRound } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
-import { addInvolvedTeam, removeInvolvedTeam } from '../settings/actions';
+import { Dialog } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import { Plus } from 'lucide-react';
+import { addInvolvedTeam, createTeam, removeInvolvedTeam } from '../settings/actions';
 import type { InvolvedTeam, WorkspaceTeam } from './page';
 
 export function TeamsView({
@@ -18,6 +21,7 @@ export function TeamsView({
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [creating, setCreating] = useState(false);
   const involvedByTeam = new Map(involved.map((i) => [i.team_id, i.id]));
 
   async function toggle(team: WorkspaceTeam, on: boolean) {
@@ -34,19 +38,33 @@ export function TeamsView({
     router.refresh();
   }
 
+  const newTeamButton = (
+    <div className="mt-4 flex justify-end">
+      <Button leading={<Plus size={15} strokeWidth={2} />} onClick={() => setCreating(true)}>
+        New team
+      </Button>
+      {creating && <NewTeamDialog onClose={() => setCreating(false)} />}
+    </div>
+  );
+
   if (teams.length === 0) {
     return (
-      <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-        <p className="text-sm text-ink-muted">
-          No teams in this workspace yet. Teams are created in Fibre Meet for now — they appear
-          here the moment they exist.
-        </p>
-      </div>
+      <>
+        {newTeamButton}
+        <div className="mt-4 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
+          <p className="text-sm text-ink-muted">
+            No teams in this workspace yet — create the first one; it joins the planner and gets
+            its own cashflow tab.
+          </p>
+        </div>
+      </>
     );
   }
 
   return (
-    <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
+    <>
+    {newTeamButton}
+    <div className="mt-4 rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       {error && (
         <div className="mx-5 mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
           {error}
@@ -88,5 +106,68 @@ export function TeamsView({
           })}
       </div>
     </div>
+    </>
+  );
+}
+
+function NewTeamDialog({ onClose }: { onClose: () => void }) {
+  const router = useRouter();
+  const [name, setName] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e?: React.FormEvent<HTMLFormElement>) {
+    e?.preventDefault();
+    if (!name.trim()) {
+      setError('Name is required.');
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const res = await createTeam(name.trim());
+    if (res.error) {
+      setError(res.error);
+      setBusy(false);
+      return;
+    }
+    onClose();
+    router.refresh();
+  }
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      title="New team"
+      description="A Fibre platform team — usable in every app. It joins the planner right away (own cashflow tab, bank, reservations)."
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button type="submit" form="new-team-form" disabled={busy}>
+            {busy ? 'Creating…' : 'Create team'}
+          </Button>
+        </>
+      }
+    >
+      <form id="new-team-form" onSubmit={submit} className="space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1">Name</label>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Incubator Rotterdam"
+            className="h-9 w-full rounded-md border border-line px-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+          />
+        </div>
+        {error && (
+          <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+      </form>
+    </Dialog>
   );
 }

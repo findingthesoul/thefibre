@@ -1194,7 +1194,7 @@ pulseRoutes.get('/projection', async (c) => {
   let cq = db
     .from('pulse_commitment')
     .select(
-      'id, direction, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at)',
+      'id, direction, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, lines:pulse_commitment_line (expected_date, amount_cents, invoiced_at, settled_at), items:pulse_commitment_item (quantity, unit_amount_cents, repeat_cadence)',
     )
     .is('deleted_at', null);
   if (teamId) cq = cq.eq('team_id', teamId);
@@ -1207,6 +1207,64 @@ pulseRoutes.get('/projection', async (c) => {
     const kind = kinds.get(cm.stage)?.kind ?? 'open';
     if (kind === 'lost') continue;
     const sign = cm.direction === 'in' ? 'in' : 'out';
+
+    // Item-level repeats (offering rows with a cadence): each repeating item
+    // expands by its own cadence; non-repeating items count once at the
+    // anchor date; lines are ignored for such commitments (they'd double
+    // count the same money). Amounts are incl-VAT — the bank receives incl.
+    const items = ((cm as any).items ?? []) as {
+      quantity: number;
+      unit_amount_cents: number;
+      repeat_cadence: string | null;
+    }[];
+    const vatFactor = 1 + Number((cm as any).vat_pct ?? 0) / 100;
+    if (items.some((i) => i.repeat_cadence)) {
+      const isCommitted = kind === 'committed' || kind === 'won';
+      const weight = isCommitted ? 100 : cm.probability;
+      const anchorDate = cm.repeat_starts_on
+        ? new Date(cm.repeat_starts_on + 'T00:00:00Z')
+        : (cm as any).lines?.[0]?.expected_date
+          ? new Date((cm as any).lines[0].expected_date + 'T00:00:00Z')
+          : today;
+      const until = cm.repeat_until ? new Date(cm.repeat_until + 'T00:00:00Z') : horizonEnd;
+      const stepFor = (cad: string) => (d: Date): Date =>
+        cad === 'weekly'
+          ? addDays(d, 7)
+          : cad === 'fortnightly'
+            ? addDays(d, 14)
+            : cad === 'monthly'
+              ? addMonths(d, 1)
+              : cad === 'quarterly'
+                ? addMonths(d, 3)
+                : addMonths(d, 12);
+      const put = (dateStr: string, amt: number) => {
+        const per = bucketFor(dateStr);
+        if (!per) return;
+        if (isCommitted) {
+          per[`committed_${sign}`] += amt;
+          per[`expected_${sign}`] += amt;
+        } else {
+          per[`expected_${sign}`] += Math.round((amt * weight) / 100);
+        }
+        per[`best_${sign}`] += amt;
+      };
+      for (const it of items) {
+        const amt = Math.round(Number(it.quantity) * it.unit_amount_cents * vatFactor);
+        if (!amt) continue;
+        if (!it.repeat_cadence) {
+          if (anchorDate >= today || true) put(isoDate(anchorDate < today ? today : anchorDate), amt);
+          continue;
+        }
+        const advance = stepFor(it.repeat_cadence);
+        let cur = new Date(anchorDate);
+        while (cur < today) cur = advance(cur);
+        while (cur <= until && cur < horizonEnd) {
+          put(isoDate(cur), amt);
+          cur = advance(cur);
+        }
+      }
+      continue;
+    }
 
     // Recurring commitment: occurrences from the deal amount replace lines.
     if (cm.repeat_cadence && cm.unit_amount_cents != null) {

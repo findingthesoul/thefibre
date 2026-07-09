@@ -15,8 +15,26 @@ export type Account = {
   kind: 'bank' | 'reserve';
   parent_account_id: string | null;
   sync_mode: 'manual' | 'auto';
+  // Cashflow scope: both null = Workspace; owner_user_id = personal ("Me");
+  // team_id = that team's cashflow.
+  team_id: string | null;
+  owner_user_id: string | null;
   latest_snapshot: { balance_cents: number; as_of_date: string } | null;
 };
+
+// Involved team, already flattened by the server component.
+export type CashflowTeam = { team_id: string; name: string };
+
+// Which cashflow does this account belong to? Null = Workspace (no chip).
+function cashflowLabel(
+  a: Pick<Account, 'team_id' | 'owner_user_id'>,
+  teams: CashflowTeam[],
+  myUserId: string | null,
+): string | null {
+  if (a.owner_user_id) return a.owner_user_id === myUserId ? 'Me' : 'Personal';
+  if (a.team_id) return teams.find((t) => t.team_id === a.team_id)?.name ?? 'Team';
+  return null;
+}
 
 const INPUT_CLASS =
   'w-full rounded-md border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
@@ -43,7 +61,15 @@ function todayLocalIso(): string {
 // Header actions — "Update balances" (primary, the Monday ritual) + "New
 // account".
 // ---------------------------------------------------------------------------
-export function AccountsActions({ accounts }: { accounts: Account[] }) {
+export function AccountsActions({
+  accounts,
+  teams,
+  myUserId,
+}: {
+  accounts: Account[];
+  teams: CashflowTeam[];
+  myUserId: string | null;
+}) {
   const [dialog, setDialog] = useState<'new' | 'balances' | null>(null);
   return (
     <div className="flex items-center gap-2">
@@ -61,7 +87,14 @@ export function AccountsActions({ accounts }: { accounts: Account[] }) {
       >
         Update balances
       </Button>
-      {dialog === 'new' && <AccountDialog accounts={accounts} onClose={() => setDialog(null)} />}
+      {dialog === 'new' && (
+        <AccountDialog
+          accounts={accounts}
+          teams={teams}
+          myUserId={myUserId}
+          onClose={() => setDialog(null)}
+        />
+      )}
       {dialog === 'balances' && (
         <UpdateBalancesDialog accounts={accounts} onClose={() => setDialog(null)} />
       )}
@@ -72,7 +105,15 @@ export function AccountsActions({ accounts }: { accounts: Account[] }) {
 // ---------------------------------------------------------------------------
 // Account groups — same cards as before, rows now open the edit dialog.
 // ---------------------------------------------------------------------------
-export function AccountsList({ accounts }: { accounts: Account[] }) {
+export function AccountsList({
+  accounts,
+  teams,
+  myUserId,
+}: {
+  accounts: Account[];
+  teams: CashflowTeam[];
+  myUserId: string | null;
+}) {
   const [editing, setEditing] = useState<Account | null>(null);
   const banks = accounts.filter((a) => a.kind === 'bank');
   const reserves = accounts.filter((a) => a.kind === 'reserve');
@@ -90,11 +131,29 @@ export function AccountsList({ accounts }: { accounts: Account[] }) {
   return (
     <>
       <div className="mt-8 grid gap-6 md:grid-cols-2">
-        <AccountGroup title="Bank accounts" items={banks} onSelect={setEditing} />
-        <AccountGroup title="Reserves" items={reserves} onSelect={setEditing} />
+        <AccountGroup
+          title="Bank accounts"
+          items={banks}
+          teams={teams}
+          myUserId={myUserId}
+          onSelect={setEditing}
+        />
+        <AccountGroup
+          title="Reserves"
+          items={reserves}
+          teams={teams}
+          myUserId={myUserId}
+          onSelect={setEditing}
+        />
       </div>
       {editing && (
-        <AccountDialog accounts={accounts} account={editing} onClose={() => setEditing(null)} />
+        <AccountDialog
+          accounts={accounts}
+          account={editing}
+          teams={teams}
+          myUserId={myUserId}
+          onClose={() => setEditing(null)}
+        />
       )}
     </>
   );
@@ -103,10 +162,14 @@ export function AccountsList({ accounts }: { accounts: Account[] }) {
 function AccountGroup({
   title,
   items,
+  teams,
+  myUserId,
   onSelect,
 }: {
   title: string;
   items: Account[];
+  teams: CashflowTeam[];
+  myUserId: string | null;
   onSelect: (a: Account) => void;
 }) {
   return (
@@ -118,25 +181,35 @@ function AccountGroup({
         <div className="px-5 py-3 text-sm text-ink-muted">None yet.</div>
       ) : (
         <div className="divide-y divide-line/60">
-          {items.map((a) => (
-            <button
-              key={a.id}
-              type="button"
-              onClick={() => onSelect(a)}
-              className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-surface-sunken/60 transition-colors"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="text-sm text-ink truncate">{a.name}</div>
-                <div className="text-xs text-ink-muted">
-                  {a.latest_snapshot ? `as of ${a.latest_snapshot.as_of_date}` : 'no balance yet'}
-                  {a.sync_mode === 'auto' ? ' · auto' : ''}
+          {items.map((a) => {
+            const scope = cashflowLabel(a, teams, myUserId);
+            return (
+              <button
+                key={a.id}
+                type="button"
+                onClick={() => onSelect(a)}
+                className="w-full text-left px-5 py-3 flex items-center gap-4 hover:bg-surface-sunken/60 transition-colors"
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="text-sm text-ink truncate">{a.name}</div>
+                    {scope && (
+                      <span className="shrink-0 rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] leading-4 text-ink-muted ring-1 ring-black/5">
+                        {scope}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-ink-muted">
+                    {a.latest_snapshot ? `as of ${a.latest_snapshot.as_of_date}` : 'no balance yet'}
+                    {a.sync_mode === 'auto' ? ' · auto' : ''}
+                  </div>
                 </div>
-              </div>
-              <span className="text-sm font-medium text-ink">
-                {a.latest_snapshot ? money(a.latest_snapshot.balance_cents) : '—'}
-              </span>
-            </button>
-          ))}
+                <span className="text-sm font-medium text-ink">
+                  {a.latest_snapshot ? money(a.latest_snapshot.balance_cents) : '—'}
+                </span>
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
@@ -150,21 +223,41 @@ function AccountGroup({
 function AccountDialog({
   accounts,
   account,
+  teams,
+  myUserId,
   onClose,
 }: {
   accounts: Account[];
   account?: Account;
+  teams: CashflowTeam[];
+  myUserId: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
   const [name, setName] = useState(account?.name ?? '');
   const [kind, setKind] = useState<'bank' | 'reserve'>(account?.kind ?? 'bank');
   const [parentId, setParentId] = useState(account?.parent_account_id ?? '');
+  // Cashflow scope: 'workspace' | 'me' | 'other' (someone else's personal
+  // account — left untouched on save) | `team:<team_id>`.
+  const initialScope = account?.owner_user_id
+    ? account.owner_user_id === myUserId
+      ? 'me'
+      : 'other'
+    : account?.team_id
+      ? `team:${account.team_id}`
+      : 'workspace';
+  const [scope, setScope] = useState(initialScope);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
   const banks = accounts.filter((a) => a.kind === 'bank' && a.id !== account?.id);
+  // Make sure the account's current team still shows even if the caller is
+  // no longer involved with it.
+  const teamOptions =
+    account?.team_id && !teams.some((t) => t.team_id === account.team_id)
+      ? [...teams, { team_id: account.team_id, name: 'Team' }]
+      : teams;
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
@@ -174,10 +267,20 @@ function AccountDialog({
     }
     setBusy(true);
     setError(null);
+    // 'other' = keep the existing (foreign) owner — send no scope fields.
+    const scopeFields =
+      scope === 'other'
+        ? {}
+        : scope === 'me'
+          ? { team_id: null, owner_user_id: myUserId }
+          : scope.startsWith('team:')
+            ? { team_id: scope.slice(5), owner_user_id: null }
+            : { team_id: null, owner_user_id: null };
     const payload = {
       name: name.trim(),
       kind,
       parent_account_id: kind === 'reserve' && parentId ? parentId : null,
+      ...scopeFields,
     };
     const res = account
       ? await updateAccount(account.id, payload)
@@ -256,6 +359,26 @@ function AccountDialog({
             </select>
             <p className="mt-1.5 text-xs text-ink-muted">
               Reserves are earmarked money — in the bank, not yours to spend.
+            </p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">Cashflow</label>
+            <select
+              value={scope}
+              onChange={(e) => setScope(e.target.value)}
+              className={INPUT_CLASS}
+            >
+              <option value="workspace">Workspace</option>
+              {myUserId && <option value="me">Me (personal)</option>}
+              {teamOptions.map((t) => (
+                <option key={t.team_id} value={`team:${t.team_id}`}>
+                  {t.name}
+                </option>
+              ))}
+              {initialScope === 'other' && <option value="other">Personal (another user)</option>}
+            </select>
+            <p className="mt-1.5 text-xs text-ink-muted">
+              Which cashflow tab this account belongs to — its balance anchors that projection.
             </p>
           </div>
           {kind === 'reserve' && (

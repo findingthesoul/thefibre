@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.143] — 2026-07-10 — Pulse 0.19.0: repeats repeat, accounts connect, teams create
+
+### Fixed
+- **"Repeat is on, but does not repeat"**: per-item cadences on offering
+  rows now expand — in the projection AND the grid (each item by its own
+  rhythm from the expected date, incl VAT; non-repeating items once;
+  lines skipped for such items to avoid double counting).
+
+### Added
+- **Connect any account to a cashflow**: the Accounts page shows a
+  Cashflow chip per row and a selector in the dialog (Workspace / Me /
+  any involved team) — reserves included; reassignment moves it between
+  tabs instantly. Foreign personal accounts are shown but never
+  clobbered.
+- **Create teams from Pulse** (completes the teams-SPoT promotion,
+  build-plan 10b): POST /api/v1/teams (creator becomes lead, Meet's
+  slug rules respected); the Teams page gets "New team" — Pulse-created
+  teams join the planner immediately (tab, bank prompt, reservations).
+- **The Workspace tab wears the company name** (from the platform
+  workspace, renameable in workspace settings).
+
 ## [0.13.142] — 2026-07-10 — Pulse 0.18.0: tabs are separate cashflows
 
 ### Changed

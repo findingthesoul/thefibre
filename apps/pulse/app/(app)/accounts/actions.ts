@@ -45,7 +45,14 @@ export async function createAccount(input: {
 
 export async function updateAccount(
   id: string,
-  patch: { name?: string; kind?: 'bank' | 'reserve'; parent_account_id?: string | null },
+  patch: {
+    name?: string;
+    kind?: 'bank' | 'reserve';
+    parent_account_id?: string | null;
+    // Cashflow reassignment — same scope semantics as createAccount.
+    team_id?: string | null;
+    owner_user_id?: string | null;
+  },
 ): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/pulse/accounts/${id}`, {
@@ -53,6 +60,7 @@ export async function updateAccount(
       body: JSON.stringify(patch),
     });
     revalidatePath('/accounts');
+    revalidatePath('/cashflow'); // reassignment moves it between tabs' BANK sections
     return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };

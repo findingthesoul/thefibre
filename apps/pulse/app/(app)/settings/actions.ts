@@ -129,6 +129,26 @@ export async function deleteReservationRule(id: string): Promise<ActionResult> {
 // ---------------------------------------------------------------------------
 // Involved teams
 // ---------------------------------------------------------------------------
+// Platform team creation (SPoT 10b) — creator becomes lead; Pulse-created
+// teams auto-join the planner (that's why you're creating them here).
+export async function createTeam(name: string): Promise<ActionResult<{ id: string; name: string }>> {
+  try {
+    const r = await apiFetch<{ item: { id: string; name: string } }>('/api/v1/teams', {
+      method: 'POST',
+      body: JSON.stringify({ name }),
+    });
+    await apiFetch('/api/v1/pulse/involved-teams', {
+      method: 'POST',
+      body: JSON.stringify({ team_id: r.item.id }),
+    });
+    revalidatePath('/teams');
+    revalidatePath('/cashflow');
+    return { ok: true, data: r.item };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 export async function addInvolvedTeam(teamId: string): Promise<ActionResult> {
   try {
     await apiFetch('/api/v1/pulse/involved-teams', {

@@ -37,6 +37,7 @@ export function PipelineView({
   items,
   pickers,
   currentUserId,
+  workspaceName,
   periodSettings,
   projection,
   budgetLines,
@@ -50,6 +51,7 @@ export function PipelineView({
   items: Commitment[];
   pickers: Pickers;
   currentUserId: string | null;
+  workspaceName: string | null;
   periodSettings: PeriodSettings;
   // Admin-only reads — null/empty for non-admins; the grid degrades to
   // INCOME + COSTS without the position/reserves/end rows.
@@ -140,7 +142,8 @@ export function PipelineView({
         <CashflowTabs
           scope={scope}
           scopeTeamId={scopeTeamId}
-          canWorkspace={canWorkspace}
+          workspaceName={workspaceName}
+        canWorkspace={canWorkspace}
           teams={tabTeams.map((t) => ({ id: t.value, name: t.label }))}
         />
       </div>

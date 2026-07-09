@@ -23,11 +23,14 @@ export function CashflowTabs({
   scope,
   scopeTeamId,
   canWorkspace,
+  workspaceName,
   teams,
 }: {
   scope: CashflowScope;
   scopeTeamId: string | null;
   canWorkspace: boolean;
+  // The company's own name on its tab (Sjoerd 2026-07-10) — falls back to 'Workspace'.
+  workspaceName?: string | null;
   // Involved teams the caller can see (RLS-scoped) — one tab each.
   teams: { id: string; name: string }[];
 }) {
@@ -55,7 +58,7 @@ export function CashflowTabs({
       url: urlFor({ team: t.id }),
     })),
     ...(canWorkspace
-      ? [{ key: 'workspace', label: 'Workspace', cookieVal: 'workspace', url: urlFor({}) }]
+      ? [{ key: 'workspace', label: workspaceName || 'Workspace', cookieVal: 'workspace', url: urlFor({}) }]
       : []),
   ];
 
