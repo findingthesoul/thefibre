@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.147] — 2026-07-10 — Pulse 0.21.0: the payment is derived, not a separate list
+
+### Changed
+- **The "Expected payments" editor is gone** (Sjoerd: "all info is above
+  — I don't need that separate list"). A deal is now just its offering
+  rows + the Expected date; the single payment that drives the cashflow
+  is DERIVED from them (deal total on the expected date) — no parallel
+  list to keep in sync, so a price edit always flows through. Invoice
+  and settled state still freeze a line; any pre-existing staged
+  (multi-payment) schedule is preserved untouched.
+
 ## [0.13.146] — 2026-07-10 — Pulse 0.20.2: editing a price flows to the payment
 
 ### Fixed

@@ -648,62 +648,49 @@ export function OpportunityDialog({
         });
       }
     } else {
-      for (const r of rows) {
-        const empty =
-          !r.expected_date && !r.amount.trim() && !r.invoice_ref.trim() && !r.invoiced_at && !r.settled_at;
-        if (empty) continue;
-        const cents = toCents(r.amount);
-        if (!r.expected_date || cents === null) {
-          setError('Each expected payment needs a date and an amount.');
-          setMoreOpen(true); // the editor lives under More options — reveal it
-          return;
+      // The payment is DERIVED, not a separate list (Sjoerd 2026-07-10: "all
+      // info is above — I don't need that separate list"). One payment =
+      // the deal total (offering rows or quantity × unit) on the Expected
+      // date. Invoice/settle state on the existing line is preserved and
+      // freezes its amount/date. A pre-existing staged schedule (2+ lines,
+      // from before this change) is passed through untouched.
+      const originalLines = commitment?.lines ?? [];
+      const dealNet = hasItems ? itemsNet : dealCents;
+      if (originalLines.length >= 2) {
+        for (const l of originalLines) {
+          lines.push({
+            id: l.id,
+            dirty: false,
+            expected_date: l.expected_date,
+            amount_cents: l.amount_cents,
+            invoice_ref: l.invoice_ref,
+            invoiced_at: l.invoiced_at,
+            settled_at: l.settled_at,
+          });
         }
-        const payload: LinePayload = {
-          id: r.id,
-          expected_date: r.expected_date,
-          amount_cents: cents,
-          invoice_ref: r.invoice_ref.trim() || null,
-          invoiced_at: r.invoiced_at || null,
-          settled_at: r.settled_at || null,
-        };
-        if (r.id) {
-          const o = original.get(r.id);
-          payload.dirty =
-            !o ||
-            o.expected_date !== payload.expected_date ||
-            o.amount_cents !== payload.amount_cents ||
-            (o.invoice_ref ?? null) !== payload.invoice_ref ||
-            (o.invoiced_at ?? null) !== payload.invoiced_at ||
-            (o.settled_at ?? null) !== payload.settled_at;
-        }
-        lines.push(payload);
-      }
-      // The Expected date seeds the first payment when none exists yet —
-      // one field for the simple case, the editor for real schedules.
-      if (lines.length === 0) {
-        const seed = hasItems ? itemsNet : dealCents;
-        if (seed > 0 && expectedDate) {
+      } else {
+        const existing = originalLines[0];
+        if (existing) {
+          const frozen = !!existing.invoiced_at || !!existing.settled_at;
+          const amount = frozen ? existing.amount_cents : dealNet > 0 ? dealNet : existing.amount_cents;
+          const date = frozen ? existing.expected_date : expectedDate || existing.expected_date;
+          lines.push({
+            id: existing.id,
+            dirty: amount !== existing.amount_cents || date !== existing.expected_date,
+            expected_date: date,
+            amount_cents: amount,
+            invoice_ref: existing.invoice_ref,
+            invoiced_at: existing.invoiced_at,
+            settled_at: existing.settled_at,
+          });
+        } else if (dealNet > 0 && expectedDate) {
           lines.push({
             expected_date: expectedDate,
-            amount_cents: seed,
+            amount_cents: dealNet,
             invoice_ref: null,
             invoiced_at: null,
             settled_at: null,
           });
-        }
-      }
-      // Single-payment deals track the deal total automatically (Sjoerd
-      // 2026-07-10: "I changed the amount in an income... the list was not
-      // adapted"). When there's exactly one payment and it isn't yet
-      // invoiced/settled, resync it to the deal net (offering rows, or
-      // legacy quantity × unit price) so editing the price flows straight
-      // through. Multi-payment (staged) schedules are left untouched.
-      const dealNet = hasItems ? itemsNet : dealCents;
-      if (dealNet > 0 && lines.length === 1) {
-        const only = lines[0];
-        if (!only.invoiced_at && !only.settled_at && only.amount_cents !== dealNet) {
-          only.amount_cents = dealNet;
-          if (only.id) only.dirty = true;
         }
       }
     }
@@ -1465,106 +1452,6 @@ export function OpportunityDialog({
           </button>
           {moreOpen && (
             <div className="mt-3 space-y-4">
-              {/* Payments editor — hidden while (legacy) repeating: the
-                  occurrences come from the deal size and existing lines pass
-                  through untouched on save. */}
-              {!repeating && (
-                <div>
-                  <div className="flex items-baseline justify-between">
-                    <h3 className="text-sm font-medium">Expected payments</h3>
-                    <span className="text-sm text-ink-muted">
-                      Total{' '}
-                      <span className="font-medium text-ink">
-                        {money(rows.reduce((acc, r) => acc + (toCents(r.amount) ?? 0), 0))}
-                      </span>
-                    </span>
-                  </div>
-
-                  {rows.length > 0 && (
-                    <div className="mt-3 grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 text-xs text-ink-muted">
-                      <span>Expected</span>
-                      <span>Amount €</span>
-                      <span>Invoice</span>
-                      <span>Invoiced</span>
-                      <span>Settled</span>
-                      <span />
-                    </div>
-                  )}
-
-                  <div className="mt-1 space-y-2">
-                    {rows.map((r, i) => (
-                      <div
-                        key={r.key}
-                        className="grid grid-cols-[minmax(150px,1fr)_90px_minmax(90px,1fr)_minmax(150px,1fr)_minmax(150px,1fr)_28px] gap-2 items-center"
-                      >
-                        <CompactDateField
-                          name={`expected_date_${r.key}`}
-                          defaultValue={r.expected_date}
-                          onValueChange={(v) => {
-                            patchRow(r.key, { expected_date: v });
-                            if (i === 0) setExpectedDate(v);
-                          }}
-                        />
-                        <input
-                          value={r.amount}
-                          onChange={(e) => patchRow(r.key, { amount: e.target.value })}
-                          placeholder="0,00"
-                          inputMode="decimal"
-                          className={`${INPUT_SM} text-right`}
-                        />
-                        <input
-                          value={r.invoice_ref}
-                          onChange={(e) => patchRow(r.key, { invoice_ref: e.target.value })}
-                          placeholder="invoice #"
-                          className={INPUT_SM}
-                        />
-                        <CompactDateField
-                          name={`invoiced_at_${r.key}`}
-                          defaultValue={r.invoiced_at}
-                          onValueChange={(v) => patchRow(r.key, { invoiced_at: v })}
-                        />
-                        <CompactDateField
-                          name={`settled_at_${r.key}`}
-                          defaultValue={r.settled_at}
-                          onValueChange={(v) => patchRow(r.key, { settled_at: v })}
-                        />
-                        <button
-                          type="button"
-                          aria-label="Remove payment"
-                          onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
-                          className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
-                        >
-                          <X size={15} strokeWidth={1.75} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="mt-3"
-                    leading={<Plus size={14} strokeWidth={2} />}
-                    onClick={() =>
-                      setRows((rs) => [
-                        ...rs,
-                        {
-                          key: rowSeq++,
-                          expected_date: '',
-                          amount: '',
-                          invoice_ref: '',
-                          invoiced_at: '',
-                          settled_at: '',
-                        },
-                      ])
-                    }
-                  >
-                    Add payment
-                  </Button>
-                </div>
-              )}
-
               {!itemsMode && (
                 <div className="grid grid-cols-3 gap-4">
                   <div>
