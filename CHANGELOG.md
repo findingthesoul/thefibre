@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.142] — 2026-07-10 — Pulse 0.18.0: tabs are separate cashflows
+
+### Changed
+- **An item belongs to the cashflow it was created in** (Sjoerd: "If I
+  delete something from ME it is also deleted from WORKSPACE" — it no
+  longer appears there at all). Migration `20260710090000`: personal
+  flag; strict partition — Me = your personal items, a team tab = its
+  items (Team locked to the tab on create), Workspace = the company's.
+  Creation stamps the home cashflow; edits never move it; the popup
+  shows a "Personal / <Team> cashflow" chip away from workspace.
+  Existing items live in the Workspace cashflow.
+
 ## [0.13.141] — 2026-07-09 — Pulse 0.17.0: the invoice button appears; reservations go per-cashflow
 
 ### Fixed

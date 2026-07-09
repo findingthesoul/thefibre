@@ -246,6 +246,8 @@ export function PipelineView({
           initialPersonId={creating.personId}
           pickers={pickers}
           currentUserId={currentUserId}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
           onClose={() => setCreating(null)}
         />
       )}
@@ -254,6 +256,8 @@ export function PipelineView({
           commitment={editing}
           pickers={pickers}
           currentUserId={currentUserId}
+          scope={scope}
+          scopeTeamId={scopeTeamId}
           onClose={() => setEditing(null)}
         />
       )}

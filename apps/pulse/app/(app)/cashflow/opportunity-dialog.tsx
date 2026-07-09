@@ -51,6 +51,7 @@ import { toastError } from './toast';
 import {
   personName,
   teamName,
+  type CashflowScope,
   type Commitment,
   type OrgOption,
   type PersonOption,
@@ -163,6 +164,8 @@ export function OpportunityDialog({
   initialPersonId,
   pickers,
   currentUserId,
+  scope,
+  scopeTeamId,
   onClose,
 }: {
   commitment: Commitment | null; // null = new
@@ -173,6 +176,11 @@ export function OpportunityDialog({
   initialPersonId?: string;
   pickers: Pickers;
   currentUserId: string | null;
+  // The active cashflow tab — tabs are SEPARATE cashflows, and a NEW item is
+  // stamped into the one it's created in (Me → personal, team tab → that
+  // team, workspace → neither). On EDIT the stamp never changes.
+  scope: CashflowScope;
+  scopeTeamId: string | null;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -201,14 +209,21 @@ export function OpportunityDialog({
   // "linked to <company>" — keyed by person so selecting that same person
   // (the combobox does onCreate → onSelect) doesn't wipe it.
   const [linkNote, setLinkNote] = useState<{ personId: string; text: string } | null>(null);
-  // Team auto-derives for NEW items: the single involved team when there is
-  // exactly one (a picked project's team overrides below). Still editable.
+  // Creating FROM a team tab stamps the item into that team's cashflow —
+  // the Team select is locked to it (a hint says so). Only on CREATE; edits
+  // never move an item between cashflows.
+  const teamLocked = !commitment && scope === 'team' && !!scopeTeamId;
+  // Team auto-derives for NEW items: the tab's team when creating from a
+  // team tab (locked), else the single involved team when there is exactly
+  // one (a picked project's team overrides below). Still editable.
   const [teamId, setTeamId] = useState(
     commitment
       ? commitment.team_id ?? ''
-      : pickers.teams.length === 1
-        ? pickers.teams[0].team_id
-        : '',
+      : teamLocked
+        ? scopeTeamId!
+        : pickers.teams.length === 1
+          ? pickers.teams[0].team_id
+          : '',
   );
   const [projectId, setProjectId] = useState(commitment?.project_id ?? '');
   const [offeringId, setOfferingId] = useState(commitment?.offering_id ?? '');
@@ -502,6 +517,27 @@ export function OpportunityDialog({
     });
   }
 
+  // A team's display name — involved list first, then all workspace teams.
+  function teamLabelFor(id: string): string {
+    const inv = pickers.teams.find((t) => t.team_id === id);
+    if (inv) return teamName(inv.team);
+    return pickers.allTeams.find((t) => t.id === id)?.name ?? 'Team';
+  }
+
+  // The cashflow this item BELONGS to — the stored stamp on edit, the active
+  // tab on create. Shown as a muted header chip when NOT workspace.
+  const cashflowChip = commitment
+    ? commitment.personal
+      ? 'Personal cashflow'
+      : commitment.team_id
+        ? `${teamLabelFor(commitment.team_id)} cashflow`
+        : null
+    : scope === 'me'
+      ? 'Personal cashflow'
+      : scope === 'team' && scopeTeamId
+        ? `${teamLabelFor(scopeTeamId)} cashflow`
+        : null;
+
   const teamProjects = teamId ? pickers.projects.filter((p) => p.team_id === teamId) : [];
   const otherProjects = teamId
     ? pickers.projects.filter((p) => p.team_id !== teamId)
@@ -667,7 +703,11 @@ export function OpportunityDialog({
         label: label.trim(),
         person_id: personId || null,
         organisation_id: orgId || null,
-        team_id: teamId || null,
+        // Cashflow stamp — CREATE only: Me tab → personal; team tab → that
+        // team, forced; workspace → neither (its team stays hub attribution).
+        // On EDIT `personal` is omitted (the API keeps the stored stamp).
+        ...(commitment ? {} : { personal: scope === 'me' }),
+        team_id: teamLocked ? scopeTeamId : teamId || null,
         project_id: projectId || null,
         offering_id: offeringId || null,
         // Omitted = API defaults to the caller / keeps the current owner.
@@ -761,13 +801,22 @@ export function OpportunityDialog({
         onClose();
       }}
       title={
-        direction === 'out'
-          ? commitment
-            ? 'Edit cost'
-            : 'New cost'
-          : commitment
-            ? 'Edit income'
-            : 'New income'
+        /* A tiny cue on which cashflow the item belongs to — muted chip in
+           the header, only when NOT the workspace cashflow. */
+        <span className="flex items-center gap-2">
+          {direction === 'out'
+            ? commitment
+              ? 'Edit cost'
+              : 'New cost'
+            : commitment
+              ? 'Edit income'
+              : 'New income'}
+          {cashflowChip && (
+            <span className="rounded-full bg-surface-sunken px-2 py-px text-xs font-medium text-ink-muted ring-1 ring-line">
+              {cashflowChip}
+            </span>
+          )}
+        </span>
       }
       size="xl"
       footer={
@@ -935,8 +984,9 @@ export function OpportunityDialog({
                       setProjectId(e.target.value);
                       const p = pickers.projects.find((x) => x.id === e.target.value);
                       prefillLabel(p?.name);
-                      // The project's team wins the auto-derive (still editable).
-                      if (p?.team_id) setTeamId(p.team_id);
+                      // The project's team wins the auto-derive (still
+                      // editable) — unless the tab's team is locked in.
+                      if (p?.team_id && !teamLocked) setTeamId(p.team_id);
                     }}
                     className={INPUT}
                   >
@@ -986,22 +1036,37 @@ export function OpportunityDialog({
                 </div>
                 <div>
                   <label className={LABEL}>Team</label>
-                  <select
-                    value={teamId}
-                    onChange={(e) => setTeamId(e.target.value)}
-                    className={INPUT}
-                  >
-                    <option value="">—</option>
-                    {teamOptions.map((t) => (
-                      <option key={t.value} value={t.value}>
-                        {t.label}
-                      </option>
-                    ))}
-                  </select>
-                  {showingAllTeams && teamOptions.length > 0 && (
-                    <p className="mt-1 text-xs text-ink-muted">
-                      Showing all teams — pick the involved teams in Settings → Planner to scope this list.
-                    </p>
+                  {teamLocked ? (
+                    /* Creating from a team tab: the item belongs to that
+                       team's cashflow — no select, just the fact. */
+                    <>
+                      <div className="flex h-9 items-center truncate rounded-md border border-line bg-surface-sunken px-3 text-sm text-ink">
+                        {teamLabelFor(scopeTeamId!)}
+                      </div>
+                      <p className="mt-1 text-xs text-ink-muted">
+                        This item belongs to the {teamLabelFor(scopeTeamId!)} cashflow.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <select
+                        value={teamId}
+                        onChange={(e) => setTeamId(e.target.value)}
+                        className={INPUT}
+                      >
+                        <option value="">—</option>
+                        {teamOptions.map((t) => (
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
+                        ))}
+                      </select>
+                      {showingAllTeams && teamOptions.length > 0 && (
+                        <p className="mt-1 text-xs text-ink-muted">
+                          Showing all teams — pick the involved teams in Settings → Planner to scope this list.
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

@@ -153,9 +153,19 @@ export default async function PipelinePage({
         ? `?team_id=${scopeTeamId}`
         : '?scope=workspace';
 
+  // Tabs are SEPARATE cashflows — the API partitions commitments server-side
+  // (an item BELONGS to the cashflow it was created in): Me = my personal
+  // items, team = that team's, workspace = personal=false AND no team.
+  const commitmentsQs =
+    scope === 'me'
+      ? '?mine=1'
+      : scope === 'team' && scopeTeamId
+        ? `?team_id=${scopeTeamId}`
+        : '?scope=workspace';
+
   const [items, orgs, persons, teams, allTeams, projects, offerings, members, stagesRaw, meId, projection, workspaceProbe, budgetLines, accounts] =
     await Promise.all([
-      safeItems<Commitment>('/api/v1/pulse/commitments'),
+      safeItems<Commitment>(`/api/v1/pulse/commitments${commitmentsQs}`),
       safeItems<OrgOption>('/api/v1/organisations?limit=100'),
       safeItems<PersonOption>('/api/v1/persons?limit=100'),
       safeItems<InvolvedTeam>('/api/v1/pulse/involved-teams'),
@@ -185,17 +195,23 @@ export default async function PipelinePage({
   // projection is the admin+ read, so its failure marks a non-admin: hide
   // the Workspace tab and default a workspace-scoped view down to Me.
   const canWorkspace = scope === 'workspace' ? projection !== null : workspaceProbe !== null;
-  if (scope === 'workspace' && !canWorkspace) scope = 'me';
 
-  // Scope the commitments + budget lines server-side (Me = owned by the
-  // caller; Team = tagged with that team). Workspace = everything RLS gives.
+  // Commitments arrive ALREADY partitioned by the API (the ?mine/?team_id/
+  // ?scope query above) — no client-side scope filtering. The one edge: a
+  // non-admin deep-linking the Workspace tab got the workspace fetch but
+  // lands on Me — refetch the personal cashflow so the list matches the tab.
   let shownItems = items;
+  if (scope === 'workspace' && !canWorkspace) {
+    scope = 'me';
+    shownItems = await safeItems<Commitment>('/api/v1/pulse/commitments?mine=1');
+  }
+
+  // Budget lines still arrive workspace-wide — narrow them to the tab here
+  // (Me = owned by the caller; Team = tagged with that team).
   let shownBudget = budgetLines;
   if (scope === 'me' && meId) {
-    shownItems = items.filter((cm) => cm.owner_user_id === meId);
     shownBudget = budgetLines.filter((bl) => bl.owner_user_id === meId);
   } else if (scope === 'team' && scopeTeamId) {
-    shownItems = items.filter((cm) => cm.team_id === scopeTeamId);
     shownBudget = budgetLines.filter((bl) => bl.team_id === scopeTeamId);
   }
 

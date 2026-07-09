@@ -26,6 +26,10 @@ function formatApiError(e: unknown): string {
 export type CommitmentPayload = {
   direction: 'in' | 'out';
   label: string;
+  // Cashflow stamp — which cashflow the item BELONGS to. Set on CREATE from
+  // the active tab (Me → true; team/workspace → false); OMITTED on edit so
+  // the stamp never changes.
+  personal?: boolean;
   person_id: string | null;
   organisation_id: string | null;
   team_id: string | null;

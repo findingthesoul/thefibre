@@ -122,6 +122,7 @@ const CreateCommitment = z.object({
   vat_pct: z.number().min(0).max(100).optional().nullable(),
   quote_url: z.string().url().max(500).optional().nullable(),
   sort_order: z.number().int().optional(),
+  personal: z.boolean().optional(),
   notes: z.string().max(4000).optional().nullable(),
 });
 const PatchCommitment = CreateCommitment.partial();
@@ -527,7 +528,7 @@ pulseRoutes.patch('/stages/:id', async (c) => {
 // Commitments (the pipeline) + lines
 // ---------------------------------------------------------------------------
 const COMMITMENT_SELECT =
-  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, quote_url, sort_order, invoice_no, invoice_issued_at, purchase_id, notes, created_at, updated_at, ' +
+  'id, direction, label, stage, probability, quantity, unit_amount_cents, repeat_cadence, repeat_starts_on, repeat_until, vat_pct, quote_url, sort_order, personal, invoice_no, invoice_issued_at, purchase_id, notes, created_at, updated_at, ' +
   'person_id, organisation_id, team_id, project_id, offering_id, owner_user_id, ' +
   'person:person_id (id, first_name, last_name, email), ' +
   'organisation:organisation_id (id, name), ' +
@@ -553,7 +554,11 @@ pulseRoutes.get('/commitments', async (c) => {
   if (stage) q = q.eq('stage', stage);
   if (teamId) q = q.eq('team_id', teamId);
   if (projectId) q = q.eq('project_id', projectId);
-  if (c.req.query('mine') === '1') q = q.eq('owner_user_id', ctx.userId);
+  // Tabs are separate cashflows: Me = my personal items; Workspace = items
+  // that are neither personal nor a team's.
+  if (c.req.query('mine') === '1') q = q.eq('owner_user_id', ctx.userId).eq('personal', true);
+  else if (c.req.query('scope') === 'workspace')
+    q = q.eq('personal', false).is('team_id', null);
   const { data, error } = await q;
   if (error) return fail(c, 'list commitments', error);
   return c.json({ items: data ?? [] });
@@ -1193,7 +1198,8 @@ pulseRoutes.get('/projection', async (c) => {
     )
     .is('deleted_at', null);
   if (teamId) cq = cq.eq('team_id', teamId);
-  if (mine) cq = cq.eq('owner_user_id', ctx.userId);
+  else if (mine) cq = cq.eq('owner_user_id', ctx.userId).eq('personal', true);
+  else cq = cq.eq('personal', false).is('team_id', null);
   const { data: commitments, error: cErr } = await cq;
   if (cErr) return fail(c, 'projection commitments', cErr);
 
@@ -1261,7 +1267,8 @@ pulseRoutes.get('/projection', async (c) => {
     .is('archived_at', null)
     .eq('included', true);
   if (teamId) bq = bq.eq('team_id', teamId);
-  if (mine) bq = bq.eq('owner_user_id', ctx.userId);
+  else if (mine) bq = bq.eq('owner_user_id', ctx.userId);
+  else bq = bq.is('team_id', null);
   const { data: budgetLines, error: bErr } = await bq;
   if (bErr) return fail(c, 'projection budget lines', bErr);
 

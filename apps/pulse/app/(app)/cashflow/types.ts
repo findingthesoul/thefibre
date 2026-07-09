@@ -67,6 +67,10 @@ export type Commitment = {
   // Manual row order (Sjoerd 2026-07-09: "drag and drop to change order of
   // rows below income/costs"). Lists arrive ordered by it; null = unordered.
   sort_order?: number | null;
+  // Cashflow stamp — tabs are SEPARATE cashflows and an item BELONGS to the
+  // one it was created in: personal=true → the "Me" cashflow; team_id set →
+  // that team's; neither → workspace. Stamped on create, never changed.
+  personal: boolean;
   person_id: string | null;
   organisation_id: string | null;
   team_id: string | null;
