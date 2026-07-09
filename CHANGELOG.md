@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.148] — 2026-07-10 — Fibre Pulse joins the platform app surfaces
+
+### Fixed
+- **Pulse (and Flow) were missing from the web dashboard's app tiles** —
+  a hardcoded APP_DOMAINS map on thefibre.app listed only meet/thread/
+  sales/learn. Both added. Also registered fibre-pulse in the web app
+  catalogue (apps/web/lib/apps.ts: descriptor + APP_ORDER) so it appears
+  in the members grant grid and can carry a per-app contact/org profile
+  tab. The app-switcher dropdowns already derived from the shared
+  registry, so they had Pulse already.
+
 ## [0.13.147] — 2026-07-10 — Pulse 0.21.0: the payment is derived, not a separate list
 
 ### Changed

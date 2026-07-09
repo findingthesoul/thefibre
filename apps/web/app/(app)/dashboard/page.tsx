@@ -7,6 +7,8 @@ import { apiFetch } from '@/lib/api';
 const APP_DOMAINS: Record<string, string> = {
   'fibre-meet': APPS['fibre-meet'].url,
   'the-thread': APPS['the-thread'].url,
+  'fibre-flow': APPS['fibre-flow'].url,
+  'fibre-pulse': APPS['fibre-pulse'].url,
   'fibre-sales': APPS['fibre-sales'].url,
   'fibre-learn': APPS['fibre-learn'].url,
 };

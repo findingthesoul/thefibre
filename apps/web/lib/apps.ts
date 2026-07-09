@@ -9,6 +9,7 @@ export type AppSlug =
   | 'fibre-meet'
   | 'the-thread'
   | 'fibre-flow'
+  | 'fibre-pulse'
   | 'fibre-sales'
   | 'fibre-learn';
 
@@ -54,6 +55,15 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     personSubResources: [],
     orgSubResources: [],
   },
+  'fibre-pulse': {
+    slug: 'fibre-pulse',
+    label: 'Fibre Pulse',
+    // Pulse owns its own money-relationship fields in its schema; no
+    // platform-profile SubResourceSection tables (payment-terms curator
+    // field is a future addition — proposal §2.5).
+    personSubResources: [],
+    orgSubResources: [],
+  },
   'fibre-sales': {
     slug: 'fibre-sales',
     label: 'Fibre Sales',
@@ -73,6 +83,7 @@ export const APP_ORDER: AppSlug[] = [
   'fibre-meet',
   'the-thread',
   'fibre-flow',
+  'fibre-pulse',
   'fibre-sales',
   'fibre-learn',
 ];
