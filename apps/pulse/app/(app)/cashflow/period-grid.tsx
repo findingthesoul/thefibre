@@ -112,8 +112,13 @@ function parseEuro(s: string): number | null {
 }
 
 // Fit-to-screen formatter: full euros (no k-notation), just no space after €.
-function moneyCompact(cents: number): string {
-  return '€' + new Intl.NumberFormat('nl-NL', { maximumFractionDigits: 0 }).format(cents / 100);
+function moneyCompact(cents: number, currency = 'EUR'): string {
+  return new Intl.NumberFormat('nl-NL', {
+    style: 'currency',
+    currency,
+    maximumFractionDigits: 0,
+    currencyDisplay: 'narrowSymbol',
+  }).format(cents / 100);
 }
 
 // Period start dates BOUNDED BY THE HORIZON (Sjoerd: 6 months → 6 monthly
@@ -415,7 +420,10 @@ export function PeriodGrid({
     setFocus((cur) => (active ? { section, rowId } : cur?.rowId === rowId ? null : cur));
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
-  const fmt = fit ? moneyCompact : money;
+  // The cashflow's resolved currency (workspace default, or a scope
+  // override) — formats every amount so the setting actually shows.
+  const currency = projection?.currency ?? 'EUR';
+  const fmt = (cents: number) => (fit ? moneyCompact(cents, currency) : money(cents, currency));
 
   // ---- fit-aware layout tokens ----------------------------------------------
   const sticky = fit

@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.151] — 2026-07-10 — Pulse 0.24.0: currency picker (and the grid respects it)
+
+### Added
+- **Currency is a picker** (Sjoerd's 8: Euro, US Dollar, South African
+  Rand, Swiss Franc, Chilean Peso, El Salvador (USD), Brazilian Real,
+  UAE Dirham) in Settings → Planner → Time rhythm & currency.
+### Fixed
+- **The cashflow grid now formats in the chosen currency** — it was
+  hardcoded to € regardless of the setting. All grid amounts follow
+  the workspace currency now.
+
+### Note
+- This is the workspace-level default. Per-team / per-person overrides
+  (workspace > team > person) are the next step — they slot onto the
+  existing cashflow-scope model.
+
 ## [0.13.150] — 2026-07-10 — Thread 3.32.0: per-day timing for multi-day activities
 
 ### Added

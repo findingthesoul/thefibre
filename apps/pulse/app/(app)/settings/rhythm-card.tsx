@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { updatePulseSettings } from './actions';
+import { CURRENCY_OPTIONS } from '@/lib/currencies';
 import { ERROR_CLS, INPUT_CLS, MONTH_NAMES, type PulseSettings } from './shared';
 
 export function RhythmCard({ settings }: { settings: PulseSettings }) {
@@ -91,10 +92,6 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     const cur = currency.trim().toUpperCase();
-    if (!/^[A-Z]{3}$/.test(cur)) {
-      setError('Currency must be a 3-letter code (e.g. EUR).');
-      return;
-    }
     setBusy(true);
     setError(null);
     const res = await updatePulseSettings({
@@ -133,13 +130,20 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
         <div className="grid grid-cols-2 gap-4">
           <div>
             <label className="block text-sm font-medium mb-1">Currency</label>
-            <input
+            <select
               value={currency}
-              onChange={(e) => setCurrency(e.target.value.toUpperCase())}
-              maxLength={3}
-              placeholder="EUR"
-              className={`${INPUT_CLS} uppercase`}
-            />
+              onChange={(e) => setCurrency(e.target.value)}
+              className={INPUT_CLS}
+            >
+              {CURRENCY_OPTIONS.map((c) => (
+                <option key={c.label} value={c.code}>
+                  {c.label}
+                </option>
+              ))}
+              {!CURRENCY_OPTIONS.some((c) => c.code === currency) && (
+                <option value={currency}>{currency}</option>
+              )}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">Granularity</label>
