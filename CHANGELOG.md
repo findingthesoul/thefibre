@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.152] — 2026-07-15 — Pulse 0.25.0: duplicate an offer into an independent row
+
+### Added
+- **Duplicate an offer** (Sjoerd 2026-07-15: "copy a project no. → it should
+  duplicate the row, so each offer can be altered separately"). The offer
+  dialog now carries a **Duplicate** button (Fibre dialog contract:
+  Delete·Duplicate left, Cancel·Save right). It deep-copies the deal —
+  fields, offering rows AND expected payments — into a brand-new row named
+  "… (copy)" in the same cashflow, right after the original. Each copy is
+  fully independent from then on.
+- The copy is a **fresh, not-yet-invoiced** offer: the invoice number,
+  invoice date, purchase-ledger link and per-payment invoice/settle state
+  are never carried over (same convention as ⌥-drag line copies).
+
 ## [0.13.151] — 2026-07-10 — Pulse 0.24.0: currency picker (and the grid respects it)
 
 ### Added

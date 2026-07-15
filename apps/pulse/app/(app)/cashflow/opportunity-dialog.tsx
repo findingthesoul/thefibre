@@ -38,6 +38,7 @@ import { money } from '@/lib/money';
 import {
   saveCommitment,
   deleteCommitment,
+  duplicateCommitment,
   invoiceCommitment,
   createOrganisation,
   createPerson,
@@ -760,6 +761,20 @@ export function OpportunityDialog({
     router.refresh();
   }
 
+  async function handleDuplicate() {
+    if (!commitment) return;
+    setBusy(true);
+    setError(null);
+    const res = await duplicateCommitment(commitment.id);
+    if (res.error) {
+      toastError(`Could not duplicate: ${res.error}`);
+      setBusy(false);
+      return;
+    }
+    onClose();
+    router.refresh();
+  }
+
   async function handleDelete() {
     if (!commitment) return;
     if (!confirmDelete) {
@@ -823,15 +838,27 @@ export function OpportunityDialog({
       footer={
         <>
           {commitment && (
-            <Button
-              type="button"
-              variant="danger"
-              className="mr-auto"
-              disabled={busy}
-              onClick={handleDelete}
-            >
-              {confirmDelete ? 'Really delete?' : 'Delete'}
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="danger"
+                disabled={busy}
+                onClick={handleDelete}
+              >
+                {confirmDelete ? 'Really delete?' : 'Delete'}
+              </Button>
+              {/* Duplicate → a fresh independent copy of this offer (Sjoerd
+                  2026-07-15). Fibre dialog contract: Delete·Duplicate left. */}
+              <Button
+                type="button"
+                variant="secondary"
+                className="mr-auto"
+                disabled={busy}
+                onClick={handleDuplicate}
+              >
+                Duplicate
+              </Button>
+            </>
           )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
             Cancel

@@ -718,6 +718,94 @@ pulseRoutes.delete('/commitments/:id', async (c) => {
   return c.body(null, 204);
 });
 
+// POST /commitments/:id/duplicate — deep-copy an offer into a NEW independent
+// row (Sjoerd 2026-07-15: "copy a project no. → duplicate the row, so each
+// offer can be altered separately"). Copies the deal (fields + offering items
+// + expected payments) but NEVER the invoice identity: invoice_no /
+// invoice_issued_at / purchase_id are dropped, and line invoice/settle state
+// is dropped too — a copy is a fresh, not-yet-invoiced expectation (same
+// convention as /lines/duplicate). Lands in the same cashflow (owner/team/
+// personal preserved), right after the original.
+pulseRoutes.post('/commitments/:id/duplicate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // RLS scopes visibility — the caller can only duplicate what they can read.
+  const { data: src, error: rErr } = await db
+    .from('pulse_commitment')
+    .select(COMMITMENT_SELECT)
+    .eq('id', c.req.param('id'))
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (rErr) return fail(c, 'duplicate commitment (read)', rErr);
+  if (!src) return c.json({ error: 'not found' }, 404);
+  const s = src as any;
+  const row = {
+    workspace_id: ctx.workspaceId,
+    direction: s.direction,
+    label: `${s.label} (copy)`.slice(0, 200),
+    person_id: s.person_id,
+    organisation_id: s.organisation_id,
+    team_id: s.team_id,
+    project_id: s.project_id,
+    offering_id: s.offering_id,
+    owner_user_id: s.owner_user_id,
+    stage: s.stage,
+    probability: s.probability,
+    quantity: s.quantity,
+    unit_amount_cents: s.unit_amount_cents,
+    repeat_cadence: s.repeat_cadence,
+    repeat_starts_on: s.repeat_starts_on,
+    repeat_until: s.repeat_until,
+    vat_pct: s.vat_pct,
+    quote_url: s.quote_url,
+    personal: s.personal,
+    notes: s.notes,
+    // Sit right after the original; label tie-breaks in the grid.
+    sort_order: s.sort_order,
+  };
+  const { data: created, error: cErr } = await db
+    .from('pulse_commitment')
+    .insert(row)
+    .select('id')
+    .single();
+  if (cErr) return fail(c, 'duplicate commitment (insert)', cErr);
+  const newId = created.id;
+  const items = (s.items ?? []) as any[];
+  if (items.length > 0) {
+    const { error: iErr } = await db.from('pulse_commitment_item').insert(
+      items.map((it) => ({
+        commitment_id: newId,
+        offering_id: it.offering_id,
+        name: it.name,
+        quantity: it.quantity,
+        unit_amount_cents: it.unit_amount_cents,
+        repeat_cadence: it.repeat_cadence,
+        sort_order: it.sort_order,
+      })),
+    );
+    if (iErr) return fail(c, 'duplicate items', iErr);
+  }
+  const lines = (s.lines ?? []) as any[];
+  if (lines.length > 0) {
+    const { error: lErr } = await db.from('pulse_commitment_line').insert(
+      lines.map((l) => ({
+        commitment_id: newId,
+        expected_date: l.expected_date,
+        amount_cents: l.amount_cents,
+      })),
+    );
+    if (lErr) return fail(c, 'duplicate lines', lErr);
+  }
+  const { data: full, error: fErr } = await db
+    .from('pulse_commitment')
+    .select(COMMITMENT_SELECT)
+    .eq('id', newId)
+    .single();
+  if (fErr) return fail(c, 'duplicate commitment (reload)', fErr);
+  await syncOpportunityRun(ctx.workspaceId, full as any);
+  return c.json({ item: full }, 201);
+});
+
 pulseRoutes.post('/commitments/:id/lines', async (c) => {
   const body = CreateLine.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);

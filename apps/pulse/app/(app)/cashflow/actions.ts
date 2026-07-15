@@ -445,6 +445,24 @@ export async function duplicateLines(
   }
 }
 
+// Duplicate a whole offer into a NEW independent row (Sjoerd 2026-07-15) —
+// the API deep-copies fields + offering items + expected payments, dropping
+// the invoice identity so each copy can be altered separately.
+export async function duplicateCommitment(
+  id: string,
+): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ item: { id: string } }>(
+      `/api/v1/pulse/commitments/${id}/duplicate`,
+      { method: 'POST' },
+    );
+    revalidatePath('/cashflow');
+    return { ok: true, data: { id: r.item.id } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 // Soft delete (API sets deleted_at — hard rule #4).
 export async function deleteCommitment(id: string): Promise<ActionResult> {
   try {
