@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.154] — 2026-07-15 — Pulse 0.26.1: "Later" money no longer inflates the last month's end position
+
+### Fixed
+- **The END POSITION stops at the visible horizon** (Sjoerd 2026-07-15: "what
+  comes later is not in the last month"). Money expected beyond the projection
+  window ("Later") was being bucketed into the final visible month, so the
+  last column's end position absorbed income that hasn't arrived yet (e.g. a
+  €17.280 "Later" receivable flipping Jan 2027 from a deficit to a surplus).
+  `bucketFor` now returns no bucket for at/after-horizon dates, matching the
+  grid's own Later boundary — the Later column still shows the money; the
+  running balance simply doesn't count it.
+
 ## [0.13.153] — 2026-07-15 — Pulse 0.26.0: per-row payment dates (multiple payments per project)
 
 ### Added

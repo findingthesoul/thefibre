@@ -1313,10 +1313,17 @@ pulseRoutes.get('/projection', async (c) => {
     balance_expected: 0,
     balance_best: 0,
   }));
+  // Anything at or beyond the horizon is "Later" — it shows in the grid's
+  // Later column but must NOT enter any period's running balance, or the last
+  // visible month's END POSITION absorbs money that arrives after the window
+  // (Sjoerd 2026-07-15: "what comes later is not in the last month"). null =
+  // no bucket → excluded from balances.
+  const horizonIso = isoDate(horizonEnd);
   const bucketFor = (dateStr: string): Period | null => {
     const first = periods[0];
     if (!first) return null;
     if (dateStr < first.start) return first; // overdue → current period
+    if (dateStr >= horizonIso) return null; // beyond the horizon = Later
     for (let i = periods.length - 1; i >= 0; i--) {
       const p = periods[i];
       if (p && dateStr >= p.start) return p;
