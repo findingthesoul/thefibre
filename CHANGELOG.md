@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.153] — 2026-07-15 — Pulse 0.26.0: per-row payment dates (multiple payments per project)
+
+### Added
+- **A date at row level** (Sjoerd 2026-07-15: "if it has multiple payments
+  per project, there should be a date added at row level"). Once an offer has
+  **2+ offering rows**, each row gains an **Expected** date column. Set
+  different dates and the project fans out into **one payment per date** in
+  the cashflow; leave a row's date blank and it inherits the offer's top-level
+  Expected date. A single-row offer is unchanged (one date, one payment).
+- Repeating rows are timed by their cadence, so they show "—" instead of a
+  date (no one-off date applies).
+
+### How it flows
+- The per-row date is stored on the offering row (`pulse_commitment_item.
+  expected_date`) and DERIVES the payment-line schedule on save — the
+  projection still reads lines, so the grid, totals and reserves need no
+  change. Existing un-invoiced lines are reused by date to avoid churn; once
+  an offer is invoiced/settled its schedule is locked.
+
+### Fixed (infra)
+- Resolved a same-day migration-timestamp collision (two `20260710120000_*`
+  files) that was blocking `supabase db push`. `pulse_cashflow_grants` moved
+  to `20260710130000`; both were already live on remote.
+
 ## [0.13.152] — 2026-07-15 — Pulse 0.25.0: duplicate an offer into an independent row
 
 ### Added

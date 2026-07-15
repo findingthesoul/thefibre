@@ -148,6 +148,9 @@ type ItemRow = {
   quantity: string;
   unitAmount: string;
   repeat: RepeatCadence | '';
+  // Optional per-row payment date — when 2+ rows carry distinct dates the
+  // project fans out into one payment line per date (Sjoerd 2026-07-15).
+  expectedDate: string;
 };
 
 let rowSeq = 0;
@@ -290,7 +293,9 @@ export function OpportunityDialog({
   // existing ones without items stay in legacy mode until a row is added.
   const [itemRows, setItemRows] = useState<ItemRow[]>(() => {
     if (!commitment) {
-      return [{ key: rowSeq++, offeringId: '', name: '', quantity: '1', unitAmount: '', repeat: '' }];
+      return [
+        { key: rowSeq++, offeringId: '', name: '', quantity: '1', unitAmount: '', repeat: '', expectedDate: '' },
+      ];
     }
     return [...(commitment.items ?? [])]
       .sort((a, b) => a.sort_order - b.sort_order)
@@ -302,6 +307,7 @@ export function OpportunityDialog({
         quantity: String(Number(i.quantity)),
         unitAmount: centsToInput(i.unit_amount_cents),
         repeat: i.repeat_cadence ?? '',
+        expectedDate: i.expected_date ?? '',
       }));
   });
   const [busy, setBusy] = useState(false);
@@ -328,6 +334,10 @@ export function OpportunityDialog({
   );
 
   const itemsMode = itemRows.length > 0;
+  // Per-row payment dates appear once a project has 2+ offering rows (i.e.
+  // multiple payments) — a single row rides the one top-level Expected date
+  // (Sjoerd 2026-07-15). Repeating rows are driven by cadence, not a date.
+  const showRowDates = itemRows.length >= 2;
   // Legacy recurring only — items mode hides the commitment-level Repeats
   // (each row has its own) and passes the stored values through on save.
   const repeating = !itemsMode && repeatCadence !== '';
@@ -553,7 +563,16 @@ export function OpportunityDialog({
   function addItemRow(seed?: Partial<ItemRow>) {
     setItemRows((rs) => [
       ...rs,
-      { key: rowSeq++, offeringId: '', name: '', quantity: '1', unitAmount: '', repeat: '', ...seed },
+      {
+        key: rowSeq++,
+        offeringId: '',
+        name: '',
+        quantity: '1',
+        unitAmount: '',
+        repeat: '',
+        expectedDate: '',
+        ...seed,
+      },
     ]);
   }
 
@@ -590,6 +609,10 @@ export function OpportunityDialog({
           toastError('Each offering row needs a name, a positive quantity and a price.');
           return;
         }
+        // Persist the per-row date only while the date column is live (2+
+        // rows) and the row isn't a repeating rule; else it inherits the
+        // commitment Expected date.
+        const rowDate = showRowDates && !r.repeat ? r.expectedDate || null : null;
         const payload: ItemPayload = {
           id: r.id,
           offering_id: r.offeringId || null,
@@ -597,6 +620,7 @@ export function OpportunityDialog({
           quantity: q,
           unit_amount_cents: unit,
           repeat_cadence: r.repeat || null,
+          expected_date: rowDate,
           sort_order: idx++,
         };
         if (r.id) {
@@ -608,6 +632,7 @@ export function OpportunityDialog({
             Number(o.quantity) !== payload.quantity ||
             o.unit_amount_cents !== payload.unit_amount_cents ||
             (o.repeat_cadence ?? null) !== payload.repeat_cadence ||
+            (o.expected_date ?? null) !== payload.expected_date ||
             o.sort_order !== payload.sort_order;
         }
         items.push(payload);
@@ -631,7 +656,6 @@ export function OpportunityDialog({
     }
 
     // Build line payloads; blank rows are dropped, half-filled rows block save.
-    const original = new Map((commitment?.lines ?? []).map((l) => [l.id, l]));
     const lines: LinePayload[] = [];
     if (repeating) {
       // Occurrences come from the deal size; the projection ignores lines on
@@ -648,51 +672,56 @@ export function OpportunityDialog({
           settled_at: l.settled_at,
         });
       }
+    } else if ((commitment?.lines ?? []).some((l) => l.invoiced_at || l.settled_at)) {
+      // Locked: once any payment is invoiced/settled the schedule is fixed —
+      // pass every line through untouched (its dates change via the invoice
+      // section, not by re-deriving here).
+      for (const l of commitment?.lines ?? []) {
+        lines.push({
+          id: l.id,
+          dirty: false,
+          expected_date: l.expected_date,
+          amount_cents: l.amount_cents,
+          invoice_ref: l.invoice_ref,
+          invoiced_at: l.invoiced_at,
+          settled_at: l.settled_at,
+        });
+      }
     } else {
-      // The payment is DERIVED, not a separate list (Sjoerd 2026-07-10: "all
-      // info is above — I don't need that separate list"). One payment =
-      // the deal total (offering rows or quantity × unit) on the Expected
-      // date. Invoice/settle state on the existing line is preserved and
-      // freezes its amount/date. A pre-existing staged schedule (2+ lines,
-      // from before this change) is passed through untouched.
+      // The payment schedule is DERIVED from the deal (Sjoerd 2026-07-10:
+      // "all info is above — I don't need that separate list"), now honouring
+      // PER-ROW dates (2026-07-15): each offering row's net lands on its
+      // effective date — the row's own date when set, else the commitment
+      // Expected date. One distinct date → one payment; several dates → one
+      // payment PER date, so a project can carry multiple dated payments.
+      // Existing (un-invoiced) line ids are reused by date to avoid churn;
+      // any date that no longer occurs has its line deleted.
       const originalLines = commitment?.lines ?? [];
-      const dealNet = hasItems ? itemsNet : dealCents;
-      if (originalLines.length >= 2) {
-        for (const l of originalLines) {
-          lines.push({
-            id: l.id,
-            dirty: false,
-            expected_date: l.expected_date,
-            amount_cents: l.amount_cents,
-            invoice_ref: l.invoice_ref,
-            invoiced_at: l.invoiced_at,
-            settled_at: l.settled_at,
-          });
+      const byDate = new Map<string, number>();
+      if (hasItems) {
+        for (const r of itemRows) {
+          if (r.repeat) continue; // repeating rows expand by cadence, not lines
+          const net = itemRowFull(r);
+          if (net == null || net <= 0) continue;
+          const d = (showRowDates && r.expectedDate) || expectedDate;
+          if (!d) continue;
+          byDate.set(d, (byDate.get(d) ?? 0) + net);
         }
-      } else {
-        const existing = originalLines[0];
-        if (existing) {
-          const frozen = !!existing.invoiced_at || !!existing.settled_at;
-          const amount = frozen ? existing.amount_cents : dealNet > 0 ? dealNet : existing.amount_cents;
-          const date = frozen ? existing.expected_date : expectedDate || existing.expected_date;
-          lines.push({
-            id: existing.id,
-            dirty: amount !== existing.amount_cents || date !== existing.expected_date,
-            expected_date: date,
-            amount_cents: amount,
-            invoice_ref: existing.invoice_ref,
-            invoiced_at: existing.invoiced_at,
-            settled_at: existing.settled_at,
-          });
-        } else if (dealNet > 0 && expectedDate) {
-          lines.push({
-            expected_date: expectedDate,
-            amount_cents: dealNet,
-            invoice_ref: null,
-            invoiced_at: null,
-            settled_at: null,
-          });
-        }
+      } else if (dealCents > 0 && expectedDate) {
+        byDate.set(expectedDate, dealCents);
+      }
+      const freeByDate = new Map(originalLines.map((l) => [l.expected_date, l]));
+      for (const [date, amount] of byDate) {
+        const src = freeByDate.get(date);
+        lines.push({
+          id: src?.id,
+          dirty: !src || src.amount_cents !== amount,
+          expected_date: date,
+          amount_cents: amount,
+          invoice_ref: src?.invoice_ref ?? null,
+          invoiced_at: null,
+          settled_at: null,
+        });
       }
     }
 
@@ -801,9 +830,12 @@ export function OpportunityDialog({
     null;
 
   // The full-bleed items table: one column rhythm for header + rows, padded
-  // back to the dialog's edge (px-7 matches the xl body padding).
-  const itemGrid =
-    'grid grid-cols-[minmax(150px,1fr)_52px_88px_104px_minmax(112px,auto)_24px] items-center gap-2 px-7';
+  // back to the dialog's edge (px-7 matches the xl body padding). With 2+
+  // rows a Date column appears (per-row payment dates) — the other columns
+  // tighten to make room.
+  const itemGrid = showRowDates
+    ? 'grid grid-cols-[minmax(120px,1fr)_44px_70px_84px_128px_minmax(88px,auto)_24px] items-center gap-2 px-7'
+    : 'grid grid-cols-[minmax(150px,1fr)_52px_88px_104px_minmax(112px,auto)_24px] items-center gap-2 px-7';
 
   return (
     <>
@@ -1261,6 +1293,7 @@ export function OpportunityDialog({
                 <span className="text-right">Qty</span>
                 <span className="text-right">Price €</span>
                 <span>Repeats</span>
+                {showRowDates && <span>Expected</span>}
                 <span className="text-right">Amount</span>
                 <span />
               </div>
@@ -1327,6 +1360,28 @@ export function OpportunityDialog({
                         </option>
                       ))}
                     </select>
+                    {/* Per-row Expected date (Sjoerd 2026-07-15): each dated
+                        row becomes its own payment; blank inherits the
+                        commitment Expected date. Repeating rows are timed by
+                        their cadence, so no date applies. */}
+                    {showRowDates &&
+                      (r.repeat ? (
+                        <span
+                          className="text-center text-xs text-ink-muted"
+                          title="Repeats — timed by its cadence"
+                        >
+                          —
+                        </span>
+                      ) : (
+                        <input
+                          type="date"
+                          value={r.expectedDate}
+                          onChange={(e) => patchItem(r.key, { expectedDate: e.target.value })}
+                          aria-label="Expected payment date for this row"
+                          title="When this payment is expected (blank = the offer's Expected date)"
+                          className={`${INPUT_SM} tabular-nums`}
+                        />
+                      ))}
                     <div className="whitespace-nowrap text-right tabular-nums">
                       {weighted == null ? (
                         <span className="select-none text-xs text-ink-muted">—</span>

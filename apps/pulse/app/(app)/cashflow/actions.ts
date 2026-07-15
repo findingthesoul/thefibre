@@ -78,6 +78,8 @@ export type ItemPayload = {
   quantity: number;
   unit_amount_cents: number;
   repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  // Optional per-row payment date (null = inherit the commitment Expected date).
+  expected_date: string | null;
   sort_order: number;
 };
 
@@ -151,6 +153,7 @@ export async function saveCommitment(input: {
         quantity: i.quantity,
         unit_amount_cents: i.unit_amount_cents,
         repeat_cadence: i.repeat_cadence,
+        expected_date: i.expected_date,
         sort_order: i.sort_order,
       });
       if (!i.id) {

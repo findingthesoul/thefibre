@@ -136,6 +136,9 @@ const CreateItem = z.object({
     .enum(['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'])
     .optional()
     .nullable(),
+  // Optional per-row payment date — splits a project into multiple dated
+  // payment lines when 2+ rows carry distinct dates (Sjoerd 2026-07-15).
+  expected_date: z.string().date().optional().nullable(),
   sort_order: z.number().int().optional(),
 });
 const PatchItem = CreateItem.partial();
@@ -609,7 +612,7 @@ const COMMITMENT_SELECT =
   'project:project_id (id, name), ' +
   'offering:offering_id (id, name), ' +
   'lines:pulse_commitment_line (id, expected_date, amount_cents, invoice_ref, invoiced_at, purchase_id, settled_at), ' +
-  'items:pulse_commitment_item (id, offering_id, name, quantity, unit_amount_cents, repeat_cadence, sort_order)';
+  'items:pulse_commitment_item (id, offering_id, name, quantity, unit_amount_cents, repeat_cadence, expected_date, sort_order)';
 
 pulseRoutes.get('/commitments', async (c) => {
   const ctx = c.get('ctx');
@@ -780,6 +783,7 @@ pulseRoutes.post('/commitments/:id/duplicate', async (c) => {
         quantity: it.quantity,
         unit_amount_cents: it.unit_amount_cents,
         repeat_cadence: it.repeat_cadence,
+        expected_date: it.expected_date,
         sort_order: it.sort_order,
       })),
     );

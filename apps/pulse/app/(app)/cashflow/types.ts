@@ -24,6 +24,8 @@ export type CommitmentItem = {
   quantity: number | string;
   unit_amount_cents: number;
   repeat_cadence: 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly' | null;
+  // Optional per-row payment date (null = the commitment's Expected date).
+  expected_date: string | null;
   sort_order: number;
 };
 
