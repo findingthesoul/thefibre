@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.13.155] — 2026-07-15 — Pulse 0.27.0: pick the cashflow you land on (home page)
+
+### Added
+- **A cashflow chooser on the home page** (Sjoerd 2026-07-15: "in the home
+  page you should be able to select the cashflow of pref you want to land
+  on"). The dashboard header now carries a **Cashflow** dropdown — Me, each
+  team you're in, and Workspace (admins/granted). The projection, the stat
+  cards and the runway sentence all follow the choice.
+- It writes the **same** preference the cashflow tab bar uses, so it's a
+  shared "preferred cashflow": pick it once on the home page and both the
+  dashboard AND the cashflow grid land on it next time. Selecting refreshes
+  the home page in place (no jump to the grid).
+- The chooser only appears when there's more than one cashflow to pick from;
+  Workspace collapses to Me when you can't read it, and a stale team choice
+  falls back to Me.
+
 ## [0.13.154] — 2026-07-15 — Pulse 0.26.1: "Later" money no longer inflates the last month's end position
 
 ### Fixed

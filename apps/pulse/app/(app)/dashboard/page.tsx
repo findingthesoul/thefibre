@@ -1,32 +1,104 @@
 import Link from 'next/link';
+import { cookies } from 'next/headers';
 import { Landmark, PiggyBank, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { money, formatPeriod } from '@/lib/money';
+import { COOKIE_CASHFLOW_SCOPE } from '@/lib/prefs-shared';
+import { teamName, type CashflowScope, type InvolvedTeam } from '../cashflow/types';
 import CashflowChart, { type Projection } from './cashflow-chart';
+import { DashboardScopePicker } from './scope-picker';
 
 export const metadata = { title: 'Fibre Pulse' };
 
-export default async function PulseDashboard() {
-  let projection: Projection | null = null;
+async function safeItems<T>(path: string): Promise<T[]> {
   try {
-    projection = await apiFetch<Projection>('/api/v1/pulse/projection');
-  } catch (e) {
-    // Non-admins can't read the money surfaces (proposal §2.4) — they still
-    // get the page with a pointer to their own pipeline.
-    if (!(e instanceof ApiError)) throw e;
+    const r = await apiFetch<{ items: T[] }>(path);
+    return r.items ?? [];
+  } catch {
+    return [];
   }
+}
+
+// The scoped projection — Me/Team ride RLS (owner=me / team_id=), Workspace is
+// the bare read (admins/granted). Null on an access miss so the page still
+// renders with the chooser.
+async function fetchProjection(
+  scope: CashflowScope,
+  scopeTeamId: string | null,
+): Promise<Projection | null> {
+  try {
+    const qs =
+      scope === 'me'
+        ? '?owner=me'
+        : scope === 'team' && scopeTeamId
+          ? `?team_id=${scopeTeamId}`
+          : '';
+    return await apiFetch<Projection>(`/api/v1/pulse/projection${qs}`);
+  } catch (e) {
+    if (e instanceof ApiError) return null;
+    throw e;
+  }
+}
+
+export default async function PulseDashboard() {
+  // The preferred cashflow to land on — the SAME cookie the cashflow tab bar
+  // writes, so the home page and the grid agree (Sjoerd 2026-07-15).
+  const cookieStore = await cookies();
+  const scopeCookie = cookieStore.get(COOKIE_CASHFLOW_SCOPE)?.value;
+
+  const [access, involvedTeams, meInfo] = await Promise.all([
+    apiFetch<{ can_read_workspace: boolean }>('/api/v1/pulse/access').catch(() => null),
+    safeItems<InvolvedTeam>('/api/v1/pulse/involved-teams'),
+    apiFetch<{ workspace: { name: string } | null }>('/api/v1/auth/me').catch(() => null),
+  ]);
+  const canWorkspace = access?.can_read_workspace ?? false;
+  const teams = involvedTeams.map((t) => ({ id: t.team_id, name: teamName(t.team) }));
+  const workspaceName = meInfo?.workspace?.name ?? null;
+
+  // Resolve the remembered scope; a team cookie must still be one the caller
+  // can see, and Workspace collapses to Me when they can't read it.
+  let scope: CashflowScope = 'workspace';
+  let scopeTeamId: string | null = null;
+  if (scopeCookie === 'me') {
+    scope = 'me';
+  } else if (scopeCookie?.startsWith('team:')) {
+    const id = scopeCookie.slice('team:'.length);
+    if (id && teams.some((t) => t.id === id)) {
+      scope = 'team';
+      scopeTeamId = id;
+    } else {
+      scope = 'me';
+    }
+  }
+  if (scope === 'workspace' && !canWorkspace) scope = 'me';
+
+  const currentKey = scope === 'me' ? 'me' : scope === 'team' && scopeTeamId ? `team:${scopeTeamId}` : 'workspace';
+
+  const projection = await fetchProjection(scope, scopeTeamId);
+
+  const header = (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Pulse</h1>
+      <DashboardScopePicker
+        currentKey={currentKey}
+        teams={teams}
+        canWorkspace={canWorkspace}
+        workspaceName={workspaceName}
+      />
+    </div>
+  );
 
   if (!projection) {
     return (
       <div className="px-6 py-10 max-w-5xl">
-        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Pulse</h1>
+        {header}
         <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8">
           <p className="text-sm text-ink-muted leading-relaxed">
-            The projection is visible to workspace admins. Your own deals live in{' '}
+            This cashflow&apos;s projection isn&apos;t visible to you. Your own deals live in{' '}
             <Link href="/cashflow" className="underline">
               the pipeline
             </Link>
-            .
+            {teams.length > 0 || canWorkspace ? ' — or switch cashflow above.' : '.'}
           </p>
         </div>
       </div>
@@ -40,7 +112,7 @@ export default async function PulseDashboard() {
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Pulse</h1>
+      {header}
       <p className="mt-1 text-sm text-ink-muted">{runwaySentence(dips, hasData)}</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
