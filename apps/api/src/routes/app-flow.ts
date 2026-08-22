@@ -26,7 +26,7 @@
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
-import { materialiseTasksForStep } from './flow.js';
+import { materialiseAllSteps, materialiseTasksForStep } from './flow.js';
 import type { RequestContext } from '../middleware/app-context.js';
 
 // ---------------------------------------------------------------------------
@@ -84,56 +84,16 @@ async function resolveAppRow(slug: string) {
 }
 
 /**
- * Which step each task belongs to.
- *
- * Derived, because `flow_task` has no `step_id` yet — a task knows its
- * template (a step default, or a gate on a transition leaving a step) and the
- * step is recovered through that. A manually created task has neither and
- * comes back with `step_key: null`. Adding the column is the next item in the
- * brief; when it lands this whole function collapses to reading a field.
+ * Step keys by step id, for one version. `flow_task.step_id` is a stored fact
+ * since 0.16.0 — this used to reconstruct it through whichever template made
+ * the task, which left a manually added task belonging to no step at all.
  */
-async function stepKeysForTasks(
-  tasks: { id: string; step_default_task_id: string | null; gate_task_id: string | null }[],
-): Promise<Map<string, string>> {
-  const out = new Map<string, string>();
-  const defaultIds = tasks.map((t) => t.step_default_task_id).filter(Boolean) as string[];
-  const gateIds = tasks.map((t) => t.gate_task_id).filter(Boolean) as string[];
-
-  const stepIdByTask = new Map<string, string>();
-
-  if (defaultIds.length) {
-    const { data } = await adminClient
-      .from('flow_step_default_task')
-      .select('id, step_id')
-      .in('id', defaultIds);
-    for (const d of data ?? []) {
-      for (const t of tasks) if (t.step_default_task_id === d.id) stepIdByTask.set(t.id, d.step_id);
-    }
-  }
-  if (gateIds.length) {
-    const { data } = await adminClient
-      .from('flow_gate_task')
-      .select('id, transition_id, flow_transition!inner(id, from_step_id)')
-      .in('id', gateIds);
-    for (const g of (data ?? []) as unknown as {
-      id: string;
-      flow_transition: { from_step_id: string } | { from_step_id: string }[];
-    }[]) {
-      const trans = Array.isArray(g.flow_transition) ? g.flow_transition[0] : g.flow_transition;
-      if (!trans) continue;
-      for (const t of tasks) if (t.gate_task_id === g.id) stepIdByTask.set(t.id, trans.from_step_id);
-    }
-  }
-
-  const stepIds = [...new Set(stepIdByTask.values())];
-  if (!stepIds.length) return out;
-  const { data: steps } = await adminClient.from('flow_step').select('id, key').in('id', stepIds);
-  const keyById = new Map((steps ?? []).map((s) => [s.id as string, s.key as string]));
-  for (const [taskId, stepId] of stepIdByTask) {
-    const key = keyById.get(stepId);
-    if (key) out.set(taskId, key);
-  }
-  return out;
+async function stepKeyMap(versionId: string): Promise<Map<string, string>> {
+  const { data } = await adminClient
+    .from('flow_step')
+    .select('id, key')
+    .eq('flow_version_id', versionId);
+  return new Map((data ?? []).map((s) => [s.id as string, s.key as string]));
 }
 
 // ---------------------------------------------------------------------------
@@ -180,7 +140,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const { data, error } = await adminClient
       .from('flow_definition')
-      .select('id, name, description, lifecycle, system_key, current_version_id')
+      .select('id, name, description, lifecycle, progression, system_key, current_version_id')
       .eq('workspace_id', ctx.workspaceId)
       .eq('scope', 'workspace')
       .is('deleted_at', null)
@@ -203,7 +163,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const { data: flow } = await adminClient
       .from('flow_definition')
-      .select('id, name, description, lifecycle, system_key, current_version_id, scope')
+      .select('id, name, description, lifecycle, progression, system_key, current_version_id, scope')
       .eq('id', c.req.param('id'))
       .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
@@ -238,6 +198,9 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       name: flow.name,
       description: flow.description,
       lifecycle: flow.lifecycle,
+      // 'open' = every step's tasks exist from run creation and nothing is
+      // ever overdue. 'gated' = the state machine; tasks arrive with the run.
+      progression: flow.progression,
       system_key: flow.system_key,
       version_id: flow.current_version_id,
       steps: (steps ?? []).map((s) => ({
@@ -267,7 +230,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const flowId = c.req.param('id');
     const { data: flow } = await adminClient
       .from('flow_definition')
-      .select('id, name, scope, team_id, current_version_id, lifecycle')
+      .select('id, name, scope, team_id, current_version_id, lifecycle, progression')
       .eq('id', flowId)
       .eq('workspace_id', ctx.workspaceId)
       .is('deleted_at', null)
@@ -322,16 +285,22 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       return c.json({ error: rErr?.message ?? 'could not start run' }, 500);
     }
 
-    await materialiseTasksForStep(adminClient, {
+    // An open flow gets its whole sequence now: every step reachable, every
+    // step with a real status, no due dates anywhere.
+    const seed = {
       workspaceId: ctx.workspaceId,
       runId: run.id,
       personId: body.data.person_id ?? null,
-      stepId: entry.id,
       versionId: flow.current_version_id,
       ownerUserId: null,
       teamId: flow.team_id,
       createdBy: null,
-    });
+    };
+    if (flow.progression === 'open') {
+      await materialiseAllSteps(adminClient, seed);
+    } else {
+      await materialiseTasksForStep(adminClient, { ...seed, stepId: entry.id });
+    }
 
     // The data wall: type + subject only, and only when there is a person to
     // hang it on (activity.person_id is not null by design).
@@ -400,7 +369,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const { data: tasks } = await adminClient
       .from('flow_task')
-      .select('id, title, description, status, due_at, step_default_task_id, gate_task_id, completed_at')
+      .select('id, title, description, status, due_at, step_id, completed_at')
       .eq('flow_run_id', run.id)
       .is('deleted_at', null)
       .order('created_at');
@@ -415,7 +384,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
           .is('deleted_at', null)
       : { data: [] as { step_id: string | null; body: string }[] };
 
-    const stepKeyByTask = await stepKeysForTasks(tasks ?? []);
+    const keyByStepId = await stepKeyMap(run.flow_version_id);
     const noteByStep = new Map(
       (notes ?? []).map((n) => [n.step_id as string, n.body as string]),
     );
@@ -432,7 +401,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
         due_at: t.due_at,
         completed_at: t.completed_at,
       };
-      const key = stepKeyByTask.get(t.id);
+      const key = t.step_id ? keyByStepId.get(t.step_id) : undefined;
       if (!key) {
         unfiled.push(shaped);
         continue;
@@ -469,8 +438,9 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
           status: st.length === 0 ? 'not_started' : done === 0 ? 'not_started' : done === st.length ? 'done' : 'in_progress',
         };
       }),
-      // Tasks the app created without naming a step. Empty once flow_task
-      // carries step_id.
+      // Tasks with no step. Only legacy rows whose step could not be
+      // recovered at backfill time land here; anything created since 0.16.0
+      // carries a step_id.
       unfiled_tasks: unfiled,
     });
   });
@@ -521,14 +491,11 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
     const run = await ownRun(ctx, c.req.param('id'));
     if (!run) return c.json({ error: 'run not found' }, 404);
 
-    // step_key is accepted and validated now so callers can write against the
-    // final contract, but it cannot be persisted until flow_task.step_id
-    // exists. Say so rather than dropping it silently.
-    let stepAccepted = false;
+    let stepId: string | null = null;
     if (body.data.step_key) {
       const step = await stepByKey(run.flow_version_id, body.data.step_key);
       if (!step) return c.json({ error: 'step not found in this flow version' }, 404);
-      stepAccepted = true;
+      stepId = step.id;
     }
 
     const { data, error } = await adminClient
@@ -536,6 +503,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       .insert({
         workspace_id: ctx.workspaceId,
         flow_run_id: run.id,
+        step_id: stepId,
         title: body.data.title,
         description: body.data.description ?? null,
         actor_type: 'personal',
@@ -550,7 +518,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
       console.error('[app-flow] create task', error);
       return c.json({ error: error?.message ?? 'could not create task' }, 500);
     }
-    return c.json({ id: data.id, step_filed: stepAccepted ? false : null }, 201);
+    return c.json({ id: data.id, step_key: body.data.step_key ?? null }, 201);
   });
 
   // -------------------------------------------------------------------------

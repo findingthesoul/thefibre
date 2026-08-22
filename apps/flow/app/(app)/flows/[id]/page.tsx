@@ -21,6 +21,7 @@ type FlowDetail = {
     description: string | null;
     scope: string;
     lifecycle: 'draft' | 'active' | 'closed' | 'archived';
+    progression: 'gated' | 'open' | null;
     current_version_id: string | null;
   };
   version: { id: string; version_number: number; published_at: string | null } | null;
@@ -72,6 +73,14 @@ export default async function FlowDetailPage({
             <span className="capitalize">{flow.scope}</span>
             <span>·</span>
             <span className="capitalize">{flow.lifecycle}</span>
+            {flow.progression === 'open' && (
+              <>
+                <span>·</span>
+                <span title="Every step is open from the start and nothing is ever overdue">
+                  self-paced
+                </span>
+              </>
+            )}
             {version && (
               <>
                 <span>·</span>
@@ -86,6 +95,7 @@ export default async function FlowDetailPage({
         <FlowLifecycleMenu
           flowId={flow.id}
           lifecycle={flow.lifecycle}
+          progression={flow.progression ?? 'gated'}
           activeRunCount={runs.filter((r) => r.status === 'active').length}
         />
       </div>

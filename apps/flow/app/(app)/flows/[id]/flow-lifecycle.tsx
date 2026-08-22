@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { MoreHorizontal, Lock, Archive, Play, Trash2 } from 'lucide-react';
+import { MoreHorizontal, Lock, Archive, Play, Trash2, Footprints, GitBranch } from 'lucide-react';
 import { patchFlow, deleteFlow } from '../actions';
 import { ConfirmDialog } from '@/components/ui/dialog';
 
@@ -16,13 +16,17 @@ type PendingConfirm = {
   run: () => Promise<void>;
 };
 
+type Progression = 'gated' | 'open';
+
 export function FlowLifecycleMenu({
   flowId,
   lifecycle,
+  progression,
   activeRunCount,
 }: {
   flowId: string;
   lifecycle: Lifecycle;
+  progression: Progression;
   activeRunCount: number;
 }) {
   const router = useRouter();
@@ -35,6 +39,16 @@ export function FlowLifecycleMenu({
     setBusy(true);
     setError(null);
     const res = await patchFlow(flowId, { lifecycle: next });
+    setBusy(false);
+    setOpen(false);
+    if (!res.error) router.refresh();
+    else setError(res.error);
+  }
+
+  async function setProgression(next: Progression) {
+    setBusy(true);
+    setError(null);
+    const res = await patchFlow(flowId, { progression: next });
     setBusy(false);
     setOpen(false);
     if (!res.error) router.refresh();
@@ -116,6 +130,40 @@ export function FlowLifecycleMenu({
             {lifecycle === 'archived' && (
               <MenuItem icon={Play} onClick={() => void setLifecycle('active')}>
                 Restore to active
+              </MenuItem>
+            )}
+            <div className="my-1 border-t border-line" />
+            {progression === 'gated' ? (
+              <MenuItem
+                icon={Footprints}
+                onClick={() => {
+                  setOpen(false);
+                  setConfirm({
+                    title: 'Make this flow self-paced',
+                    message:
+                      'Every step opens from the start, each one gets its tasks when a run begins, and no due dates are set — so nothing here can ever be overdue. Gates stay visible but stop holding anyone back. Runs already under way keep the tasks they have.',
+                    confirmLabel: 'Make self-paced',
+                    run: () => setProgression('open'),
+                  });
+                }}
+              >
+                Make self-paced
+              </MenuItem>
+            ) : (
+              <MenuItem
+                icon={GitBranch}
+                onClick={() => {
+                  setOpen(false);
+                  setConfirm({
+                    title: 'Make this flow gated',
+                    message:
+                      'Back to a state machine: a run sits on one step, moves along the transitions you drew, and gates hold it until their required tasks are done. New runs get only the entry step’s tasks.',
+                    confirmLabel: 'Make gated',
+                    run: () => setProgression('gated'),
+                  });
+                }}
+              >
+                Make gated
               </MenuItem>
             )}
             <div className="my-1 border-t border-line" />

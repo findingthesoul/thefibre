@@ -223,6 +223,28 @@ happened to create it. Manual tasks currently have no step at all. Backfill from
 
 ---
 
+## Status — items 1–4 and 6 shipped 2026-08-22
+
+| Item | State |
+|---|---|
+| Flow scopes (`read:flows`, `write:flow_runs`) | v0.15.0 |
+| App-key route surface (`/apps/:slug/flow/*`) | v0.15.0 |
+| `flow_run_note` permission as a run-keyed API rule (+ `app_id`) | v0.15.0 |
+| `flow_task.step_id` | v0.16.0 |
+| Open progression mode | v0.16.0 |
+| Phase grouping on steps (gap 3) | open |
+| Three descriptions per step / `meta jsonb` (gap 4) | open |
+| Variation (gap 5) | open |
+| The nine steps seeded | blocked on the real step copy |
+
+One correction to what follows: item 2 could not be done as allow-list entries
+on `/api/v1/flow/*`. Those routes run on `userClient(ctx.jwt)` and are bounded
+by RLS acting on a signed-in user, so with no user behind an app key they deny
+everything. The surface became its own file, `routes/app-flow.ts`, mirroring
+what v0.14.0 already chose for persons and organisations. Item 3 dissolved into
+that: the note policy lives in the handler, keyed on the run, because the
+service-role client bypasses RLS anyway.
+
 ## What the decision costs — the critical path
 
 The planner is external, so everything runs through the app-key surface added in

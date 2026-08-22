@@ -401,6 +401,20 @@ Three things worth knowing:
 Steps are addressed by `key`, never by uuid — you should not have to carry
 platform identifiers you cannot interpret.
 
+### Gated or self-paced
+
+A flow carries a `progression`, which you can read on its shape:
+
+- **`gated`** — the state machine. A run sits on one step, and only the entry
+  step's tasks exist until something moves it along. Fine for a pipeline.
+- **`open`** — self-paced. Every step's tasks exist from the moment the run
+  starts, so all of them have a real status immediately, and **no due dates
+  are written at all** — a template's `due_days_after_entry` is ignored. If
+  your app is a companion rather than a taskmaster, this is the one you want.
+
+Whoever authors the flow chooses, in Flow's own UI. Your app reads it and
+renders accordingly; it cannot change it.
+
 ---
 
 ## A complete example
@@ -457,15 +471,6 @@ through the same territory using a user JWT.
   a person (e.g. `lead_score`) have no generic surface yet. First-party
   apps own their own tables (e.g. `person_change_context`). A manifest
   can declare a `curator_data` mapping, but nothing consumes it.
-- **A task doesn't know its step.** `flow_task` has no `step_id`; the step is
-  derived from whichever template created the task, so a task *you* add comes
-  back under `unfiled_tasks` rather than filed under a step. Passing
-  `step_key` when you create one is already accepted and validated so your
-  code is written against the final contract, but it cannot be stored yet.
-- **Flow steps seed their tasks on arrival.** A run gets its entry step's
-  tasks at creation; later steps stay empty until something moves the run
-  there. An app that wants all steps populated from day one is waiting on
-  Flow's open progression mode.
 - **Reading persons beyond your own links.** `read:persons` gets you
   the person behind a record *you* linked. There is no "search the
   workspace's contacts" surface for an app key, and there probably

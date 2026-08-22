@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.16.0] — 2026-08-22 — Flow: a task knows its step, and a flow can be self-paced
+
+The rest of `docs/brief-flow-as-planner-engine.md` (items 4 + 6). 0.15.0 let an
+app key own Flow runs; this makes the engine itself able to hold a sequence
+somebody walks at their own pace. Flow 1.12.0.
+
+### Added
+- **`flow_task.step_id`.** A task's step used to be *derived* — through
+  `flow_step_default_task.step_id`, or through gate → transition →
+  `from_step_id` — so a manually created task belonged to no step at all. That
+  was a defect in Flow, not merely something the planner wanted: "add a task to
+  this step" is an ordinary thing to do and the row could not record it.
+  Backfilled from both templates; indexed on `(flow_run_id, step_id)`.
+- **`flow_definition.progression`** — `'gated'` (unchanged: one cursor,
+  authored edges, gates that hold a contact until required tasks are done) or
+  `'open'` (a sequence you move through at your own pace). An open flow
+  materialises **every** step's tasks when a run starts, so all of them carry a
+  real status from the first render, and writes **no due dates**, so nothing in
+  it can ever be overdue. Arriving at a step no longer re-seeds it.
+- **A "Make self-paced" toggle** in Flow's own lifecycle menu, with a
+  self-paced marker in the flow header. `POST /flow/flows` and
+  `PATCH /flow/flows/:id` accept `progression`.
+
+### Why open flows write no due date
+The engine is perfectly able to express lateness; the surfaces built on it must
+never surface it. Rather than teach every reader to suppress overdue styling
+for one kind of flow, an open flow simply never writes a `due_at` — including
+ignoring a template's `due_days_after_entry`. A schema that can represent an
+overdue festival step would eventually show one.
+
+### Changed
+- The app-facing surface reads `step_id` directly instead of reconstructing it,
+  and `POST /apps/:slug/flow/runs/:id/tasks` now stores the `step_key` it has
+  been accepting since 0.15.0. `unfiled_tasks` holds only legacy rows whose
+  step could not be recovered at backfill time.
+- `materialiseTasksForStep` stamps `step_id` on everything it creates and takes
+  a `noDueDates` option; `materialiseAllSteps` is the open-flow entry point.
+  Both surfaces share them rather than forking.
+
+### Verified
+`verify-external-app.mjs` step 7 now also proves: a step the run never visited
+already holds its tasks, no task anywhere carries a due date (the fixture sets
+`due_days_after_entry` on purpose), and a task the app adds with a `step_key`
+comes back filed under that step with nothing adrift. All eight steps pass.
+
 ## [0.15.0] — 2026-08-22 — Flow, reachable by an app key
 
 The Festival of Trust planner stays **external** (Sjoerd, 2026-08-22: "It is an

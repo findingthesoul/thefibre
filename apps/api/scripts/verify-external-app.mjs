@@ -496,6 +496,9 @@ async function main() {
       owner_user_id: MY_USER_ID,
       created_by: MY_USER_ID,
       lifecycle: 'active',
+      // Self-paced: all steps open, all tasks present at creation, no due
+      // dates. The shape a companion app needs.
+      progression: 'open',
       system_key: FLOW_KEY,
     })
     .select('id')
@@ -515,9 +518,12 @@ async function main() {
     ])
     .select('id, key');
   const listenId = fxSteps.find((s) => s.key === 'listen').id;
+  const gatherId = fxSteps.find((s) => s.key === 'gather').id;
   await db.from('flow_step_default_task').insert([
     { step_id: listenId, title: 'Talk to three people', actor_type: 'personal', ordinal: 0 },
     { step_id: listenId, title: 'Write down what you heard', actor_type: 'personal', ordinal: 1 },
+    // due_days_after_entry is set deliberately: an open flow must ignore it.
+    { step_id: gatherId, title: 'Invite the core group', actor_type: 'personal', due_days_after_entry: 7, ordinal: 0 },
   ]);
 
   const mint3 = await call(`/api/v1/apps/${SLUG}/keys`, {
@@ -572,10 +578,20 @@ async function main() {
 
   const readRun = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}`, { token: FLOWKEY });
   const listen = readRun.body?.steps?.find((s) => s.key === 'listen');
+  const gather = readRun.body?.steps?.find((s) => s.key === 'gather');
   check(
     readRun.status === 200 && listen?.tasks?.length === 2 && listen.status === 'not_started',
     'the run reads back as steps with their own tasks and status',
     `HTTP ${readRun.status}`,
+  );
+  check(
+    gather?.tasks?.length === 1,
+    'a step the run never visited already has its tasks — self-paced seeds the whole sequence',
+    `${gather?.tasks?.length ?? 0} task(s) on step 2`,
+  );
+  check(
+    readRun.body?.steps?.every((s) => s.tasks.every((t) => t.due_at === null)),
+    'and nothing carries a due date, so nothing can ever be overdue',
   );
 
   const doneOne = await call(`/api/v1/apps/${SLUG}/flow/tasks/${listen.tasks[0].id}`, {
@@ -589,6 +605,21 @@ async function main() {
   check(
     afterCheck.body?.steps?.find((s) => s.key === 'listen')?.status === 'in_progress',
     'and the step turns in_progress — status is task counts, not the cursor',
+  );
+
+  const ownTask = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/tasks`, {
+    method: 'POST',
+    token: FLOWKEY,
+    body: { title: 'Book the room', step_key: 'gather' },
+  });
+  check(ownTask.status === 201, 'it can add a task of its own to a step', `HTTP ${ownTask.status}`);
+
+  const afterAdd = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}`, { token: FLOWKEY });
+  check(
+    afterAdd.body?.steps?.find((s) => s.key === 'gather')?.tasks?.length === 2 &&
+      (afterAdd.body?.unfiled_tasks ?? []).length === 0,
+    'and it lands filed under that step, not adrift',
+    `${(afterAdd.body?.unfiled_tasks ?? []).length} unfiled`,
   );
 
   const jump = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/move`, {

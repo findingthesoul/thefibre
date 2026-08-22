@@ -71,7 +71,7 @@ export async function publishFlow(flowId: string): Promise<ActionResult> {
 
 export async function patchFlow(
   flowId: string,
-  patch: { lifecycle?: string; name?: string; description?: string | null },
+  patch: { lifecycle?: string; name?: string; description?: string | null; progression?: 'gated' | 'open' },
 ): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/flow/flows/${flowId}`, {

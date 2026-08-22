@@ -29,6 +29,9 @@ const CreateFlow = z.object({
   description: z.string().max(2000).optional().nullable(),
   scope: z.enum(['personal', 'team', 'workspace']),
   team_id: z.string().uuid().optional().nullable(),
+  // 'open' = a self-paced sequence rather than a gated state machine. See the
+  // column comment in 20260822200000_flow_step_id_and_open_progression.sql.
+  progression: z.enum(['gated', 'open']).optional(),
 });
 
 const PatchFlow = z.object({
@@ -36,6 +39,7 @@ const PatchFlow = z.object({
   description: z.string().max(2000).optional().nullable(),
   lifecycle: z.enum(['draft', 'active', 'closed', 'archived']).optional(),
   visibility: z.enum(['members_only', 'org_wide']).optional(),
+  progression: z.enum(['gated', 'open']).optional(),
 });
 
 // The JSON the builder (textarea in Phase C, canvas in Phase G) posts.
@@ -97,7 +101,7 @@ flowRoutes.get('/flows', async (c) => {
   let q = db
     .from('flow_definition')
     .select(
-      'id, name, description, scope, team_id, visibility, lifecycle, current_version_id, owner_user_id, created_at, updated_at',
+      'id, name, description, scope, team_id, visibility, lifecycle, progression, current_version_id, owner_user_id, created_at, updated_at',
     )
     .is('deleted_at', null)
     .order('updated_at', { ascending: false });
@@ -206,6 +210,7 @@ flowRoutes.post('/flows', async (c) => {
       owner_user_id: ctx.userId,
       created_by: ctx.userId,
       lifecycle: 'draft',
+      progression: body.data.progression ?? 'gated',
     })
     .select('id')
     .single();
@@ -346,7 +351,7 @@ flowRoutes.patch('/flows/:id', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
   const patch: Record<string, unknown> = {};
-  for (const k of ['name', 'description', 'lifecycle', 'visibility'] as const) {
+  for (const k of ['name', 'description', 'lifecycle', 'visibility', 'progression'] as const) {
     if (body.data[k] !== undefined) patch[k] = body.data[k];
   }
   if (Object.keys(patch).length === 0) return c.json({ error: 'nothing to update' }, 400);
@@ -683,6 +688,8 @@ export async function materialiseTasksForStep(
     ownerUserId: string | null;
     teamId: string | null;
     createdBy: string | null;
+    /** Open flows never write a due date — nothing in them can be overdue. */
+    noDueDates?: boolean;
   },
 ) {
   const { workspaceId, runId, personId, stepId, versionId, ownerUserId, teamId, createdBy } = opts;
@@ -703,12 +710,13 @@ export async function materialiseTasksForStep(
     .order('ordinal');
   for (const d of defaults ?? []) {
     const due =
-      d.due_days_after_entry != null
+      !opts.noDueDates && d.due_days_after_entry != null
         ? new Date(Date.now() + d.due_days_after_entry * 86400000).toISOString()
         : null;
     rows.push({
       workspace_id: workspaceId,
       flow_run_id: runId,
+      step_id: stepId,
       step_default_task_id: d.id,
       title: d.title,
       description: d.description,
@@ -736,6 +744,7 @@ export async function materialiseTasksForStep(
       rows.push({
         workspace_id: workspaceId,
         flow_run_id: runId,
+        step_id: stepId,
         gate_task_id: g.id,
         title: g.title,
         description: g.description,
@@ -754,6 +763,37 @@ export async function materialiseTasksForStep(
   }
 }
 
+/**
+ * Open flows seed the WHOLE sequence at run creation.
+ *
+ * A gated flow materialises a step's tasks when the run arrives, because until
+ * then the contact is not there. An open flow has no such moment: every step is
+ * reachable from the start, and a step with no tasks yet would read as "nothing
+ * to do here" rather than "not started". So all of them exist immediately, and
+ * per-step status is honest from the first render.
+ */
+export async function materialiseAllSteps(
+  db: Db,
+  opts: {
+    workspaceId: string;
+    runId: string;
+    personId: string | null;
+    versionId: string;
+    ownerUserId: string | null;
+    teamId: string | null;
+    createdBy: string | null;
+  },
+) {
+  const { data: steps } = await db
+    .from('flow_step')
+    .select('id')
+    .eq('flow_version_id', opts.versionId)
+    .order('ordinal');
+  for (const s of steps ?? []) {
+    await materialiseTasksForStep(db, { ...opts, stepId: s.id, noDueDates: true });
+  }
+}
+
 // ---------------------------------------------------------------------------
 // POST /flows/:id/runs — add a person to a flow (start a run at the entry step).
 // ---------------------------------------------------------------------------
@@ -768,7 +808,7 @@ flowRoutes.post('/flows/:id/runs', async (c) => {
 
   const { data: flow } = await db
     .from('flow_definition')
-    .select('id, name, scope, team_id, owner_user_id, current_version_id, lifecycle')
+    .select('id, name, scope, team_id, owner_user_id, current_version_id, lifecycle, progression')
     .eq('id', flowId)
     .is('deleted_at', null)
     .single();
@@ -807,16 +847,28 @@ flowRoutes.post('/flows/:id/runs', async (c) => {
     return c.json({ error: rErr?.message ?? 'could not start run' }, 500);
   }
 
-  await materialiseTasksForStep(db, {
-    workspaceId: ctx.workspaceId,
-    runId: run.id,
-    personId: body.data.person_id,
-    stepId: entry.id,
-    versionId: flow.current_version_id,
-    ownerUserId: ctx.userId,
-    teamId: flow.team_id,
-    createdBy: ctx.userId,
-  });
+  if (flow.progression === 'open') {
+    await materialiseAllSteps(db, {
+      workspaceId: ctx.workspaceId,
+      runId: run.id,
+      personId: body.data.person_id,
+      versionId: flow.current_version_id,
+      ownerUserId: ctx.userId,
+      teamId: flow.team_id,
+      createdBy: ctx.userId,
+    });
+  } else {
+    await materialiseTasksForStep(db, {
+      workspaceId: ctx.workspaceId,
+      runId: run.id,
+      personId: body.data.person_id,
+      stepId: entry.id,
+      versionId: flow.current_version_id,
+      ownerUserId: ctx.userId,
+      teamId: flow.team_id,
+      createdBy: ctx.userId,
+    });
+  }
 
   const appId = await resolveAppId(db, ctx.appId);
   await writeActivity(db, appId, ctx.workspaceId, ctx.userId, body.data.person_id, 'flow.run.started', `Added to ${flow.name}`);
@@ -1131,19 +1183,23 @@ flowRoutes.post('/runs/:id/transition', async (c) => {
   if (!isEnd) {
     const { data: flow } = await db
       .from('flow_definition')
-      .select('team_id')
+      .select('team_id, progression')
       .eq('id', run.flow_id)
       .single();
-    await materialiseTasksForStep(db, {
-      workspaceId: ctx.workspaceId,
-      runId: id,
-      personId: run.person_id,
-      stepId: dest.id,
-      versionId: run.flow_version_id,
-      ownerUserId: run.owner_user_id,
-      teamId: flow?.team_id ?? null,
-      createdBy: ctx.userId,
-    });
+    // An open flow already holds every step's tasks; arriving must not seed a
+    // second copy.
+    if (flow?.progression !== 'open') {
+      await materialiseTasksForStep(db, {
+        workspaceId: ctx.workspaceId,
+        runId: id,
+        personId: run.person_id,
+        stepId: dest.id,
+        versionId: run.flow_version_id,
+        ownerUserId: run.owner_user_id,
+        teamId: flow?.team_id ?? null,
+        createdBy: ctx.userId,
+      });
+    }
   }
 
   const appId = await resolveAppId(db, ctx.appId);
@@ -1239,17 +1295,24 @@ flowRoutes.post('/runs/:id/move', async (c) => {
   }
 
   if (!isEnd) {
-    const { data: flow } = await db.from('flow_definition').select('team_id').eq('id', run.flow_id).single();
-    await materialiseTasksForStep(db, {
-      workspaceId: ctx.workspaceId,
-      runId: id,
-      personId: run.person_id,
-      stepId: dest.id,
-      versionId: run.flow_version_id,
-      ownerUserId: run.owner_user_id,
-      teamId: flow?.team_id ?? null,
-      createdBy: ctx.userId,
-    });
+    const { data: flow } = await db
+      .from('flow_definition')
+      .select('team_id, progression')
+      .eq('id', run.flow_id)
+      .single();
+    // Same as a transition: an open flow's tasks all exist already.
+    if (flow?.progression !== 'open') {
+      await materialiseTasksForStep(db, {
+        workspaceId: ctx.workspaceId,
+        runId: id,
+        personId: run.person_id,
+        stepId: dest.id,
+        versionId: run.flow_version_id,
+        ownerUserId: run.owner_user_id,
+        teamId: flow?.team_id ?? null,
+        createdBy: ctx.userId,
+      });
+    }
   }
 
   const appId = await resolveAppId(db, ctx.appId);
