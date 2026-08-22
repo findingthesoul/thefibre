@@ -30,6 +30,11 @@ export const APP_SCOPES = [
   'read:activities',
   'write:activities',
   'write:curator_data',
+  // Flow. Deliberately split read from write, and deliberately NOT a
+  // 'write:flows' — an external app consumes a flow, it never authors one.
+  // Editing steps, transitions and gates stays with the humans in Flow.
+  'read:flows',
+  'write:flow_runs',
 ] as const;
 
 export type AppScope = (typeof APP_SCOPES)[number];

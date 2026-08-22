@@ -15,6 +15,7 @@ import { adminClient, userClient } from '../db.js';
 import { invalidateAppSlugCache } from '../middleware/app-context.js';
 import { APP_SCOPES, generateToken, partitionScopes } from '../lib/app-keys.js';
 import { readManifestActivityTypes, readManifestScopes } from '../lib/app-manifest.js';
+import { registerAppFlowRoutes } from './app-flow.js';
 
 export const appsRoutes = new Hono();
 
@@ -812,3 +813,9 @@ function makeResolver(table: 'person' | 'organisation') {
 
 appsRoutes.get('/:slug/persons/:app_entity/:app_record_id', makeResolver('person'));
 appsRoutes.get('/:slug/organisations/:app_entity/:app_record_id', makeResolver('organisation'));
+
+// ===========================================================================
+// §6 — Flow, consumed by an app key. Lives in its own file; the surface is
+// large enough and the rules it enforces are specific to it.
+// ===========================================================================
+registerAppFlowRoutes(appsRoutes);

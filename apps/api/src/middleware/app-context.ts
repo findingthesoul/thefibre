@@ -153,6 +153,19 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   { method: 'GET', test: /^\/api\/v1\/activities$/, scope: 'read:activities' },
   // Who am I — lets an app verify its credential and see its own scopes.
   { method: 'GET', test: /^\/api\/v1\/apps\/whoami$/, scope: null },
+  // Flow — routes/app-flow.ts. Consume only: reading a flow's shape, and
+  // owning runs against it. Nothing here edits a definition, and every
+  // handler additionally scopes to runs whose source_app is the key's app.
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/flow\/flows$/, scope: 'read:flows' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/flow\/flows\/[^/]+$/, scope: 'read:flows' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/flow\/flows\/[^/]+\/runs$/, scope: 'write:flow_runs' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs$/, scope: 'read:flows' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs\/[^/]+$/, scope: 'read:flows' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs\/[^/]+\/move$/, scope: 'write:flow_runs' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs\/[^/]+\/tasks$/, scope: 'write:flow_runs' },
+  { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/flow\/tasks\/[^/]+$/, scope: 'write:flow_runs' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs\/[^/]+\/steps\/[^/]+\/note$/, scope: 'read:flows' },
+  { method: 'PUT', test: /^\/api\/v1\/apps\/[^/]+\/flow\/runs\/[^/]+\/steps\/[^/]+\/note$/, scope: 'write:flow_runs' },
 ];
 
 /**

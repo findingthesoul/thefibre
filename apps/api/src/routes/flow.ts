@@ -669,17 +669,20 @@ async function writeActivity(
 //   - the step's default tasks
 //   - the gate tasks on every transition leaving the step (the things that
 //     must be done to move on).
-async function materialiseTasksForStep(
+// Exported: the app-facing surface (routes/app-flow.ts) materialises the same
+// way, on the service-role client and with no human behind the write — hence
+// the nullable personId (a run may have no contact subject) and createdBy.
+export async function materialiseTasksForStep(
   db: Db,
   opts: {
     workspaceId: string;
     runId: string;
-    personId: string;
+    personId: string | null;
     stepId: string;
     versionId: string;
     ownerUserId: string | null;
     teamId: string | null;
-    createdBy: string;
+    createdBy: string | null;
   },
 ) {
   const { workspaceId, runId, personId, stepId, versionId, ownerUserId, teamId, createdBy } = opts;

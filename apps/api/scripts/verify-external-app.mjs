@@ -42,6 +42,7 @@ import { createClient } from '@supabase/supabase-js';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { randomUUID } from 'node:crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -64,6 +65,7 @@ const ADMIN_EMAIL = process.env.FIBRE_ADMIN_EMAIL ?? 'sjoerd@soul.com';
 const SLUG = 'verify-external-app';
 const PERSON_PREFIX = 'verify-organiser';
 const ORG_DOMAIN = 'verify-host.example';
+const FLOW_KEY = 'verify-external-app-flow';
 
 if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
   console.error('Missing Supabase keys in apps/api/.env');
@@ -174,6 +176,19 @@ async function cleanup({ quiet = true, resetForRerun = false } = {}) {
   }
   note('organisation', (await db.from('organisation').delete().eq('domain', ORG_DOMAIN)).error);
 
+  // The fixture flow. Runs first: flow_run.flow_id has no ON DELETE CASCADE,
+  // so the definition cannot go while a run points at it. Tasks and notes DO
+  // cascade from the run, so removing runs takes them with it.
+  const { data: fixtureFlow } = await db
+    .from('flow_definition')
+    .select('id')
+    .eq('system_key', FLOW_KEY)
+    .maybeSingle();
+  if (fixtureFlow) {
+    note('flow_run', (await db.from('flow_run').delete().eq('flow_id', fixtureFlow.id)).error);
+    note('flow_definition', (await db.from('flow_definition').delete().eq('id', fixtureFlow.id)).error);
+  }
+
   // Last, once nothing else references it. This fails once a run has written
   // its activity row — the FK from an append-only table is permanent.
   //
@@ -208,6 +223,8 @@ async function main() {
   const me = await call('/api/v1/auth/me', { token: jwt, appId: 'fibre-platform' });
   if (me.status !== 200) throw new Error(`/auth/me returned ${me.status}`);
   console.log(`Admin: ${ADMIN_EMAIL} (super admin: ${!!me.body.user.is_super_admin})`);
+  const MY_USER_ID = me.body.user.id;
+  const MY_WORKSPACE_ID = me.body.user.workspace_id;
 
   // ---- 1. Register + approve ---------------------------------------------
   step(1, 'Register itself and be approved by an admin');
@@ -215,7 +232,14 @@ async function main() {
   const manifest = {
     app_slug: SLUG,
     app_name: 'External App Verification',
-    scopes_requested: ['read:persons', 'write:persons', 'write:organisations', 'write:activities'],
+    scopes_requested: [
+      'read:persons',
+      'write:persons',
+      'write:organisations',
+      'write:activities',
+      'read:flows',
+      'write:flow_runs',
+    ],
     entity_mappings: [
       {
         app_entity: 'planner_organiser',
@@ -457,6 +481,151 @@ async function main() {
     `HTTP ${wrongApp.status}`,
   );
 
+  // ---- 7. Run a flow it does not own -------------------------------------
+  step(7, 'Own runs on a Flow it did not author');
+
+  // A workspace flow, published, three steps — the shape a companion app
+  // consumes. Seeded service-side: authoring is exactly what an app key may
+  // NOT do, so the fixture cannot come through the API under test.
+  const { data: fx } = await db
+    .from('flow_definition')
+    .insert({
+      workspace_id: MY_WORKSPACE_ID,
+      name: 'Verification flow',
+      scope: 'workspace',
+      owner_user_id: MY_USER_ID,
+      created_by: MY_USER_ID,
+      lifecycle: 'active',
+      system_key: FLOW_KEY,
+    })
+    .select('id')
+    .single();
+  const { data: fxVersion } = await db
+    .from('flow_version')
+    .insert({ flow_id: fx.id, version_number: 1, published_at: new Date().toISOString(), created_by: MY_USER_ID })
+    .select('id')
+    .single();
+  await db.from('flow_definition').update({ current_version_id: fxVersion.id }).eq('id', fx.id);
+  const { data: fxSteps } = await db
+    .from('flow_step')
+    .insert([
+      { flow_version_id: fxVersion.id, key: 'listen', name: 'Listen', kind: 'entry', ordinal: 0 },
+      { flow_version_id: fxVersion.id, key: 'gather', name: 'Gather', kind: 'normal', ordinal: 1 },
+      { flow_version_id: fxVersion.id, key: 'grow', name: 'Grow', kind: 'end_positive', ordinal: 2 },
+    ])
+    .select('id, key');
+  const listenId = fxSteps.find((s) => s.key === 'listen').id;
+  await db.from('flow_step_default_task').insert([
+    { step_id: listenId, title: 'Talk to three people', actor_type: 'personal', ordinal: 0 },
+    { step_id: listenId, title: 'Write down what you heard', actor_type: 'personal', ordinal: 1 },
+  ]);
+
+  const mint3 = await call(`/api/v1/apps/${SLUG}/keys`, {
+    method: 'POST',
+    body: { name: 'verification-flow', scopes: ['read:flows', 'write:flow_runs'] },
+    token: jwt,
+    appId: 'fibre-platform',
+  });
+  const FLOWKEY = mint3.body?.token;
+  check(!!FLOWKEY, 'a key with the flow scopes mints', `HTTP ${mint3.status}`);
+
+  const flowList = await call(`/api/v1/apps/${SLUG}/flow/flows`, { token: FLOWKEY });
+  check(
+    flowList.status === 200 && (flowList.body.flows ?? []).some((f) => f.id === fx.id),
+    'it can list the workspace flows it may consume',
+    `HTTP ${flowList.status}`,
+  );
+
+  const shape = await call(`/api/v1/apps/${SLUG}/flow/flows/${fx.id}`, { token: FLOWKEY });
+  check(
+    shape.status === 200 && shape.body.steps?.length === 3 && shape.body.steps[0].default_tasks?.length === 2,
+    'and read its published shape — steps in order, with their task templates',
+    `HTTP ${shape.status}`,
+  );
+
+  const noAuthoring = await call(`/api/v1/flow/flows/${fx.id}`, { token: FLOWKEY });
+  check(
+    noAuthoring.status === 403,
+    'Flow’s own authoring routes stay closed to it',
+    `HTTP ${noAuthoring.status}`,
+  );
+
+  const SOURCE_REF = randomUUID();
+  const startRun = await call(`/api/v1/apps/${SLUG}/flow/flows/${fx.id}/runs`, {
+    method: 'POST',
+    token: FLOWKEY,
+    body: { subject_label: 'Festival of Trust — Athens', source_ref: SOURCE_REF },
+  });
+  check(startRun.status === 201 && !!startRun.body.id, 'a run starts with no person behind it', `HTTP ${startRun.status}`);
+  const RUN = startRun.body.id;
+
+  const rerun = await call(`/api/v1/apps/${SLUG}/flow/flows/${fx.id}/runs`, {
+    method: 'POST',
+    token: FLOWKEY,
+    body: { subject_label: 'Festival of Trust — Athens', source_ref: SOURCE_REF },
+  });
+  check(
+    rerun.body?.created === false && rerun.body?.id === RUN,
+    'the same source_ref returns the same run — creating is safe to retry',
+    `HTTP ${rerun.status}`,
+  );
+
+  const readRun = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}`, { token: FLOWKEY });
+  const listen = readRun.body?.steps?.find((s) => s.key === 'listen');
+  check(
+    readRun.status === 200 && listen?.tasks?.length === 2 && listen.status === 'not_started',
+    'the run reads back as steps with their own tasks and status',
+    `HTTP ${readRun.status}`,
+  );
+
+  const doneOne = await call(`/api/v1/apps/${SLUG}/flow/tasks/${listen.tasks[0].id}`, {
+    method: 'PATCH',
+    token: FLOWKEY,
+    body: { status: 'done' },
+  });
+  check(doneOne.status === 200, 'a task can be checked off', `HTTP ${doneOne.status}`);
+
+  const afterCheck = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}`, { token: FLOWKEY });
+  check(
+    afterCheck.body?.steps?.find((s) => s.key === 'listen')?.status === 'in_progress',
+    'and the step turns in_progress — status is task counts, not the cursor',
+  );
+
+  const jump = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/move`, {
+    method: 'POST',
+    token: FLOWKEY,
+    body: { step_key: 'grow' },
+  });
+  check(jump.status === 200, 'it can jump to the last step with nothing done — no gate, no lock', `HTTP ${jump.status}`);
+
+  const putNote = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/steps/listen/note`, {
+    method: 'PUT',
+    token: FLOWKEY,
+    body: { body: 'Who is missing from this conversation?' },
+  });
+  check(putNote.status === 201 || putNote.status === 200, 'a reflection note saves', `HTTP ${putNote.status}`);
+
+  const rewrite = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/steps/listen/note`, {
+    method: 'PUT',
+    token: FLOWKEY,
+    body: { body: 'Rewritten.' },
+  });
+  const getNote = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/steps/listen/note`, { token: FLOWKEY });
+  check(
+    rewrite.status === 200 && getNote.body?.body === 'Rewritten.',
+    'and rewrites in place rather than appending',
+    getNote.body?.body,
+  );
+
+  const foreignRun = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}`, { token: WRITER });
+  check(
+    foreignRun.status === 403,
+    'a key without read:flows cannot reach the run at all',
+    `HTTP ${foreignRun.status}`,
+  );
+
+  step(8, 'Lose everything the moment it is suspended');
+
   const suspend = await call(`/api/v1/apps/${SLUG}`, {
     method: 'PATCH',
     body: { action: 'suspend' },
@@ -476,7 +645,7 @@ async function main() {
   await cleanup({ quiet: false });
   console.log(
     failures === 0
-      ? '\nAll six steps pass. An external app can register, be approved, hold a scoped key, link both entity kinds, write activity, and be refused.'
+      ? '\nAll eight steps pass. An external app can register, be approved, hold a scoped key, link both entity kinds, write activity, own runs on a flow it did not author, and be refused.'
       : `\n${failures} check(s) failed.`,
   );
   process.exit(failures === 0 ? 0 : 1);

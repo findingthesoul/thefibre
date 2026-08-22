@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.15.0] — 2026-08-22 — Flow, reachable by an app key
+
+The Festival of Trust planner stays **external** (Sjoerd, 2026-08-22: "It is an
+external app, that can communicate with everything from Fibre: the Fibre, the
+Flow and also the Thread later"). v0.14.0 gave external apps a credential; this
+lets that credential own Flow runs, so an app outside the monorepo can run a
+shared, durable process without inventing its own tables.
+
+`docs/brief-flow-as-planner-engine.md` items 1–3. `verify-external-app.mjs`
+grew a seventh step covering the whole surface; all eight pass against the live
+database.
+
+### Added
+- **`read:flows` + `write:flow_runs`** in `APP_SCOPES`. Deliberately no
+  `write:flows` — an app *consumes* a flow, it never authors one. Steps,
+  transitions and gates stay with the people in Flow.
+- **The app-facing Flow surface** (`apps/api/src/routes/app-flow.ts`), under
+  `/api/v1/apps/:slug/flow/*`: list consumable flows, read a flow's published
+  shape (steps in order with their task templates), start a run, read it back
+  as steps-with-tasks-and-status, move it, add and check off tasks, and keep
+  one note per step. Steps are addressed by `key`, never uuid — an external
+  app should not have to carry platform identifiers it cannot interpret.
+- **A per-(run, step) note an app can rewrite.** `flow_run_note.app_id`
+  separates an app's single reflection from the append log a person keeps in
+  Flow, with a unique index so concurrent writes can't leave duplicates.
+  Empty body clears it.
+- **Idempotent run creation.** Pass your own `source_ref` and a retry returns
+  the run that already exists — no duplicate, no 409.
+
+### Why a separate route file rather than allow-listing `/api/v1/flow/*`
+Every route in `routes/flow.ts` runs on `userClient(ctx.jwt)` and is bounded by
+RLS acting on a signed-in user. There is no user behind an app key, so those
+routes would have denied everything. This mirrors the choice v0.14.0 already
+made for persons and organisations: the app-facing equivalents live under
+`/apps/:slug/*` and filter by workspace explicitly on the service-role client.
+Because that client bypasses RLS, the handlers carry the rules themselves —
+app keys only (a user session is refused and pointed at `/api/v1/flow/*`), and
+an app reaches only runs whose `source_app` is its own. Reading definitions is
+limited to workspace-scoped flows; personal and team flows are somebody's
+private working set, not a public capability.
+
+### Changed
+- `flow_task.created_by` and `flow_run_note.created_by` are **nullable**. They
+  assumed a human behind every write; `actorUserId()` returns null for an app
+  key by design, so an app creating a task or a note violated the constraint.
+  Null now means "an app wrote this", and the owning app is recoverable — from
+  the run's `source_app`, and for notes from `app_id`.
+- `materialiseTasksForStep` is exported from `routes/flow.ts` and takes a
+  nullable `personId` / `createdBy`, so both surfaces seed tasks the same way
+  instead of forking the logic.
+- Tasks an app creates carry no `due_at`. A companion-style app cannot
+  accidentally start nagging.
+
+### Notes
+- A run needs no person: `person_id`, `organisation_id`, `subject_label` or any
+  combination. A festival is a legitimate subject.
+- Per-step status is derived from task counts (`not_started` / `in_progress` /
+  `done`), not from `current_step_id`. `POST /runs/:id/move` already jumped to
+  any step bypassing gates, so free navigation needed nothing built — the
+  cursor is reported as `current_step_key` and a companion app can ignore it.
+- Still open, and the next item: `flow_task.step_id`. A task's step is derived
+  through whichever template created it, so a task an app adds comes back under
+  `unfiled_tasks`. `step_key` is accepted and validated on create so callers
+  write against the final contract, but it cannot be stored yet.
+
 ## [0.14.0] — 2026-08-22 — The Fibre welcomes external apps
 
 `docs/brief-external-apps.md` came out of a real attempt to integrate the

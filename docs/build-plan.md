@@ -37,17 +37,23 @@ the live proof that path works. Item 1b carries what that needs from us._
    checkout.session.completed + .expired) + `STRIPE_THREAD_WEBHOOK_SECRET`;
    then an end-to-end paid test. Card payments stay hidden on public
    enrol forms until this lands.
-1b. **Flow reachable by an app key** (docs/brief-flow-as-planner-engine.md) —
-   the Festival planner runs its nine steps on Flow from outside the monorepo,
-   so: `read:flows` + `write:flow_runs` in `APP_SCOPES`; allow-list entries for
-   the run/task/note routes (not the authoring ones) in
-   `middleware/app-context.ts`; and `flow_run_note`'s
-   `has_app_membership('fibre-flow')` re-expressed as a run-keyed API rule — an
-   app key can't satisfy it, and the notes are the planner's core surface.
-   Then Flow's "open" progression mode: `flow_task.step_id`, default tasks
-   materialised at run creation instead of on entry, no due dates. Free
-   navigation needs nothing — `POST /runs/:id/move` already jumps to any step.
-   Design the scope pair generically; The Thread gets the same treatment next.
+1b. **Flow's open progression mode** (docs/brief-flow-as-planner-engine.md
+   item 4, the rest of it). The app-key half SHIPPED in 0.15.0 — `read:flows`
+   + `write:flow_runs`, `routes/app-flow.ts`, `flow_run_note.app_id`, nullable
+   `created_by`. What's left:
+   - `flow_task.step_id` — a task's step is derived through whichever template
+     made it, so an app-added task has no step at all. Backfill from
+     `flow_step_default_task.step_id` and `flow_transition.from_step_id`. The
+     app surface already accepts `step_key` on create and can't store it.
+   - `progression` flag on `flow_definition` (`gated` | `open`): materialise
+     every step's default tasks at run creation instead of on entry, gates
+     advisory, no due dates.
+   - Seed the planner's nine steps as a flow with a `system_key`, following
+     the `pulse_pipeline` precedent. Needs the real step copy first — what's
+     in `festival-plan.ts` is placeholder (spec sources it from "manual
+     documents A2", not on this machine).
+   Then The Thread gets the same app-key treatment: the planner will want to
+   turn a festival into a thread. Same shape, new scope pair.
 
 2. **Members UI role vocabulary** — API accepts
    super_admin/admin/organiser; the web Members page still shows the old

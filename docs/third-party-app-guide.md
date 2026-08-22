@@ -334,6 +334,75 @@ view of this subscriber."
 
 ---
 
+## Step 6 — Run a process on Fibre Flow
+
+Flow is a sequence engine: a **flow** is a set of steps with task templates
+hanging off them, and a **run** is one subject's journey through it. An app can
+own runs on a flow somebody authored in Flow — which is how a companion app
+gets a shared, durable process without inventing its own tables.
+
+Two scopes:
+
+| Scope | What it gets you |
+|---|---|
+| `read:flows` | List the workspace's flows; read a flow's published shape; read your own runs |
+| `write:flow_runs` | Start a run, move it, add and check off tasks, write a per-step note |
+
+There is deliberately no `write:flows`. **An app consumes a flow; it never
+authors one.** Steps, transitions and gates stay with the people in Flow, and
+`/api/v1/flow/*` — Flow's own UI routes — are closed to app keys entirely.
+
+```bash
+# What can I run?
+curl -H "Authorization: Bearer $KEY" "$API/api/v1/apps/my-app/flow/flows"
+
+# The published shape: steps in order, with the tasks each one seeds
+curl -H "Authorization: Bearer $KEY" "$API/api/v1/apps/my-app/flow/flows/$FLOW_ID"
+
+# Start a run. source_ref is YOUR id for the thing — pass it and creation
+# becomes idempotent, so a retry returns the same run instead of a duplicate.
+curl -X POST -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+     -d '{"subject_label":"Festival of Trust — Athens","source_ref":"'$MY_ID'"}' \
+     "$API/api/v1/apps/my-app/flow/flows/$FLOW_ID/runs"
+```
+
+A run does not need a person. Pass `person_id`, `organisation_id`, a plain
+`subject_label`, or any combination — a project, an event or a festival is a
+legitimate subject.
+
+Reading a run gives you the whole thing in one call: every step, its tasks,
+its note, and a derived `status` per step — `not_started` / `in_progress` /
+`done`, straight from the task counts.
+
+```bash
+curl -H "Authorization: Bearer $KEY" "$API/api/v1/apps/my-app/flow/runs/$RUN_ID"
+```
+
+The rest of the surface:
+
+| | |
+|---|---|
+| `POST /flow/runs/:id/move` | `{"step_key":"grow"}` — jump to **any** step. No gate, no ordering, no lock. |
+| `POST /flow/runs/:id/tasks` | Add a task of your own to the run |
+| `PATCH /flow/tasks/:id` | `{"status":"done"}` — check it off (or back on) |
+| `PUT /flow/runs/:id/steps/:step_key/note` | One note per step, rewritten in place. An empty body clears it. |
+| `GET /flow/runs/:id/steps/:step_key/note` | Read it back |
+
+Three things worth knowing:
+
+- **You only ever see your own runs.** Every route filters on the run's
+  `source_app`. Another app's runs, and runs people started in Flow, are
+  invisible to you and unreachable.
+- **Your note is yours.** A step can carry both your app's single rewritten
+  note and the append log a person keeps in Flow; they do not collide.
+- **Nothing here sets a deadline.** Tasks an app creates carry no `due_at`, so
+  a companion-style app cannot accidentally start nagging.
+
+Steps are addressed by `key`, never by uuid — you should not have to carry
+platform identifiers you cannot interpret.
+
+---
+
 ## A complete example
 
 `apps/api/scripts/demo-third-party-app.mjs` runs through every step
@@ -357,11 +426,12 @@ mirrors the steps above one-to-one.
 
 ## Verifying the whole path
 
-`apps/api/scripts/verify-external-app.mjs` runs the six steps from
-`docs/brief-external-apps.md` end-to-end against a live API — register,
-approve, activate, mint a key, link a person *and* an organisation,
-emit activity, and get refused for a scope it doesn't hold. It uses a
-throwaway slug and cleans up after itself.
+`apps/api/scripts/verify-external-app.mjs` runs the eight steps from
+`docs/brief-external-apps.md` and `docs/brief-flow-as-planner-engine.md`
+end-to-end against a live API — register, approve, activate, mint a key, link
+a person *and* an organisation, emit activity, get refused for a scope it
+doesn't hold, own runs on a flow it did not author, and lose everything on
+suspension. It uses a throwaway slug and cleans up after itself.
 
 ```bash
 cd apps/api
@@ -387,6 +457,15 @@ through the same territory using a user JWT.
   a person (e.g. `lead_score`) have no generic surface yet. First-party
   apps own their own tables (e.g. `person_change_context`). A manifest
   can declare a `curator_data` mapping, but nothing consumes it.
+- **A task doesn't know its step.** `flow_task` has no `step_id`; the step is
+  derived from whichever template created the task, so a task *you* add comes
+  back under `unfiled_tasks` rather than filed under a step. Passing
+  `step_key` when you create one is already accepted and validated so your
+  code is written against the final contract, but it cannot be stored yet.
+- **Flow steps seed their tasks on arrival.** A run gets its entry step's
+  tasks at creation; later steps stay empty until something moves the run
+  there. An app that wants all steps populated from day one is waiting on
+  Flow's open progression mode.
 - **Reading persons beyond your own links.** `read:persons` gets you
   the person behind a record *you* linked. There is no "search the
   workspace's contacts" surface for an app key, and there probably
