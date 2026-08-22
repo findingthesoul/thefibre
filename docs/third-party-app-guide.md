@@ -37,14 +37,14 @@ three.
 
 - An API base URL — `https://thefibre-api.fly.dev` in prod, or
   `http://localhost:8080` if you're running the monorepo locally.
-- An app slug registered in `public.app`. Today this is a database
-  insert (see "Registering a new app" below). External-app
-  self-registration isn't built yet — talk to a workspace admin.
-- A user-scoped Supabase JWT for the workspace you're integrating
-  against. Same JWT the web app uses; pulled from a signed-in browser
-  session via `supabase.auth.getSession()`. (A dedicated app-key
-  scheme is on the roadmap — see "Open gaps" below.)
-- Your app's manifest (`fibre.app.json`). Format below.
+- An app slug, registered through `POST /api/v1/apps/register` and
+  approved by a Fibre admin (Step 2). No SQL, no platform migration.
+- An **app key** — a credential scoped to one app in one workspace,
+  minted by a workspace admin (Step 2b). It needs no browser session,
+  so background sync and scheduled jobs work.
+- Your app's manifest (`fibre.app.json`). Format below. It is not
+  decorative: a key can never carry a scope the manifest didn't ask
+  for, and an activity type it didn't declare is refused.
 
 ---
 
@@ -98,34 +98,58 @@ side. Email is the only matcher today's API understands for persons.
 
 ---
 
-## Step 2 — Register the app + mappings
+## Step 2 — Register the app
 
-Until we ship a self-registration endpoint, a workspace admin runs:
-
-```sql
--- 1. Add the app to the registry (one-time, global)
-insert into public.app (slug, name, description)
-values ('mailchimp', 'Mailchimp', 'Newsletter audiences');
-
--- 2. Declare entity mappings for the workspace installing the app
-insert into public.app_entity_mapping
-  (workspace_id, app_id, app_entity, platform_entity, mapping_kind, match_on)
-select
-  '<workspace-uuid>',
-  (select id from public.app where slug = 'mailchimp'),
-  'mailchimp_subscriber', 'person', 'identity', array['email'];
-
--- 3. Grant the user calling the API access to this app
-insert into public.app_membership (workspace_id, user_id, app_id, role)
-values ('<workspace-uuid>', '<user-uuid>',
-        (select id from public.app where slug = 'mailchimp'), 'owner');
-```
-
-After this you can sanity-check via the API:
+Registration is an unauthenticated POST — an app registering itself has
+no credential yet, by definition:
 
 ```bash
-curl -H "X-App-ID: mailchimp" \
-     -H "Authorization: Bearer $JWT" \
+curl -X POST -H "Content-Type: application/json" \
+  -d @fibre-registration.json "$API/api/v1/apps/register"
+```
+
+```jsonc
+{
+  "app_slug": "mailchimp",
+  "app_name": "Mailchimp",
+  "description": "Newsletter audiences and engagement events.",
+  "homepage_url": "https://example.com/fibre-connector",
+  "contact_email": "dev@example.com",
+  "manifest": { /* the contents of fibre.app.json */ }
+}
+```
+
+That lands a row with `status = 'pending'`. A Fibre admin reviews it at
+**Admin → App registry**, where they see your description, the scopes
+you asked for and the activity types you declared, and either approves
+or rejects. Nothing about your app can act until they do.
+
+Once approved, a workspace admin turns it on at **Settings → Apps** —
+the same toggle as any first-party app. Approval makes an app
+installable; activation is a separate, per-workspace decision.
+
+Then install the manifest into that workspace, which is what creates
+the entity mappings:
+
+```bash
+curl -X PUT -H "Content-Type: application/json" \
+  -H "Authorization: Bearer $KEY" \
+  -d '{
+    "entity_mappings": [
+      { "app_entity": "mailchimp_subscriber",
+        "platform_entity": "person",
+        "mapping_kind": "identity",
+        "match_on": ["email"] }
+    ],
+    "activity_types": [{ "type": "newsletter_opened" }]
+  }' \
+  "$API/api/v1/apps/mailchimp/manifest"
+```
+
+And sanity-check:
+
+```bash
+curl -H "Authorization: Bearer $KEY" \
      "$API/api/v1/apps/mailchimp/manifest"
 ```
 
@@ -146,10 +170,46 @@ You should get back:
 }
 ```
 
-> `X-App-ID` accepts any slug present in `public.app` (cached for
-> ~5 minutes, with a refresh-on-miss so a freshly-inserted app row is
-> recognised on the second request). Once Step 2 inserts `mailchimp`,
-> the API treats it as a first-class caller.
+---
+
+## Step 2b — Get a key
+
+A workspace admin mints one at **Settings → Apps → your app → Manage
+API keys**, ticking the scopes it should carry. They can only tick
+scopes your manifest asked for.
+
+```
+fibre_ak_xLq2…
+```
+
+The token is shown once and never again — only its SHA-256 hash is
+stored, so there is no "show it to me again" and no way for us to
+recover it. Send it as a bearer token; you do **not** need `X-App-ID`,
+because the key already says which app you are:
+
+```bash
+curl -H "Authorization: Bearer $KEY" "$API/api/v1/apps/whoami"
+# { "auth": "app_key", "app_slug": "mailchimp",
+#   "workspace_id": "…", "scopes": ["read:persons", "write:activities"] }
+```
+
+What a key can do, precisely:
+
+| Bound to | Meaning |
+|---|---|
+| **One workspace** | The one it was minted in. There is no cross-workspace key. |
+| **One app** | It cannot act as another app, even on shared endpoints. |
+| **Its scopes** | Anything outside them is a 403, whatever the manifest said. |
+| **A short route list** | General platform routes (`/persons`, `/organisations`) are not reachable with an app key at all — they run on a user's RLS identity, and a key has none. |
+
+Suspending the app, deactivating it on the workspace, or revoking the
+key all take effect on the next request. There is no cache to wait out.
+
+The scope vocabulary:
+
+`read:persons` · `write:persons` · `read:organisations` ·
+`write:organisations` · `read:activities` · `write:activities` ·
+`write:curator_data`
 
 ---
 
@@ -159,8 +219,7 @@ Every time your app sees a subscriber for the first time, link them:
 
 ```bash
 curl -X POST \
-  -H "X-App-ID: mailchimp" \
-  -H "Authorization: Bearer $JWT" \
+  -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "app_entity": "mailchimp_subscriber",
@@ -187,6 +246,38 @@ upserts; you can re-run it after a re-sync without duplicating links.
 If `create_if_missing` is `false` and no match exists, you get a 404 —
 the app gets to decide whether to create the person or skip.
 
+**Organisations work the same way.** Declare a mapping with
+`platform_entity: "organisation"` and match on `domain` (preferred — it
+is the closest thing an org has to a natural key) or `name`:
+
+```json
+{
+  "app_entity": "mailchimp_account",
+  "app_record_id": "acct_991",
+  "match_on": { "domain": "ebbf.org", "name": "EBBF" },
+  "create_if_missing": true
+}
+```
+
+Writing an organisation link needs `write:organisations`, not
+`write:persons` — the required scope follows the mapping's target, not
+the URL.
+
+**For an initial sync, use the bulk form** rather than N parallel
+POSTs. Up to 500 links per call, the same body shape per item:
+
+```bash
+curl -X POST -H "Authorization: Bearer $KEY" \
+  -H "Content-Type: application/json" \
+  -d '{ "links": [ {…}, {…}, {…} ] }' \
+  "$API/api/v1/apps/mailchimp/links:bulk"
+```
+
+Partial success is the honest outcome for a batch, so every item
+reports its own result and the response is `207` unless all of them
+landed. `links/bulk` is accepted as an alias if the colon form is
+awkward in your HTTP client.
+
 **Store the returned `platform_id` on your side.** That's the durable
 key into Fibre. Future activity events reference it directly.
 
@@ -198,8 +289,7 @@ Once a record is linked, push events:
 
 ```bash
 curl -X POST \
-  -H "X-App-ID: mailchimp" \
-  -H "Authorization: Bearer $JWT" \
+  -H "Authorization: Bearer $KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "person_id": "550e8400-e29b-41d4-a716-446655440000",
@@ -214,6 +304,11 @@ Activity is append-only. Corrections = new rows. No body payload —
 type + subject only. That's how the data wall stays clean: apps cross
 it via *what happened*, never *what was said*.
 
+**The type must be one your manifest declared.** Anything else is a
+400 with the declared list in the response. Because activity is
+append-only, a typo'd type isn't something you can quietly clean up
+afterwards — better to be stopped at the door.
+
 ---
 
 ## Step 5 — Look up what Fibre knows about a record
@@ -222,18 +317,20 @@ Two flavours:
 
 **Just the link** (cheap, indexed by primary key):
 ```bash
-curl -H "X-App-ID: mailchimp" -H "Authorization: Bearer $JWT" \
+curl -H "Authorization: Bearer $KEY" \
      "$API/api/v1/apps/mailchimp/links/mailchimp_subscriber/sub_abc123"
 ```
 
 **Link + full person row** (one round-trip):
 ```bash
-curl -H "X-App-ID: mailchimp" -H "Authorization: Bearer $JWT" \
+curl -H "Authorization: Bearer $KEY" \
      "$API/api/v1/apps/mailchimp/persons/mailchimp_subscriber/sub_abc123"
 ```
 
-The second is the one most integrations want — "give me Fibre's view
-of this subscriber."
+There is an `/organisations/…` twin of that route for org mappings.
+
+The person form is the one most integrations want — "give me Fibre's
+view of this subscriber."
 
 ---
 
@@ -258,25 +355,40 @@ mirrors the steps above one-to-one.
 
 ---
 
+## Verifying the whole path
+
+`apps/api/scripts/verify-external-app.mjs` runs the six steps from
+`docs/brief-external-apps.md` end-to-end against a live API — register,
+approve, activate, mint a key, link a person *and* an organisation,
+emit activity, and get refused for a scope it doesn't hold. It uses a
+throwaway slug and cleans up after itself.
+
+```bash
+cd apps/api
+node scripts/verify-external-app.mjs
+```
+
+If you change anything in this document, run that script. It is the
+executable version of the same claims.
+
+`apps/api/scripts/demo-third-party-app.mjs` is the older, gentler walk
+through the same territory using a user JWT.
+
+---
+
 ## Open gaps (what's not built yet)
 
-- **API keys per (workspace × app).** Today you need a user JWT.
-  Server-to-server keys are designed (see `docs/cross-app-entity-mapping.md`
-  §"Still open") but not implemented.
-- **Self-registration endpoint.** New apps go in via SQL today.
-- **Bulk linking.** `POST /apps/:slug/links:bulk` for initial sync —
-  not yet built; do N parallel POSTs for now.
 - **Curator-data write API.** Apps that want to write extra fields on
   a person (e.g. `lead_score`) have no generic surface yet. First-party
-  apps own their own tables (e.g. `person_change_context`).
-- **Scope enforcement.** `scopes_requested` in the manifest is
-  declarative only — not checked at request time.
-- **Org mappings on `POST /links`.** Person-only today; org coming
-  with the first sales integration.
-- **`activity_types` in the manifest is informational.** The API
-  accepts any snake_case `type` value, so anything your manifest
-  declares will go through, but there's no validation that you only
-  use types you declared.
+  apps own their own tables (e.g. `person_change_context`). A manifest
+  can declare a `curator_data` mapping, but nothing consumes it.
+- **Reading persons beyond your own links.** `read:persons` gets you
+  the person behind a record *you* linked. There is no "search the
+  workspace's contacts" surface for an app key, and there probably
+  shouldn't be one without a much more explicit consent step.
+- **Webhooks out.** Fibre doesn't call you; you poll or push.
+- **Key expiry.** Keys don't expire and nothing nags you to rotate
+  one. `last_used_at` is shown so an admin can spot a key nobody uses.
 
 If any of these block your integration, open an issue and tell us
 which one — that's how the priority order gets decided.

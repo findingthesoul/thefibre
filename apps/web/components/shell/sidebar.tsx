@@ -14,6 +14,7 @@ import {
   Settings,
   CalendarRange,
   UserCheck,
+  Boxes,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -152,7 +153,10 @@ function NavSections({
                 ? [{ href: '/settings/apps', label: 'Apps', icon: LayoutGrid }]
                 : []),
               ...(isSuperAdmin
-                ? [{ href: '/admin/access-requests', label: 'Access requests', icon: UserCheck }]
+                ? [
+                    { href: '/admin/access-requests', label: 'Access requests', icon: UserCheck },
+                    { href: '/admin/apps', label: 'App registry', icon: Boxes },
+                  ]
                 : []),
             ],
           },

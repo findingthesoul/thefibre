@@ -11,6 +11,16 @@ import {
 import { AppToggle } from './toggle';
 
 type AppRef = { slug: string; name: string; base_url: string | null };
+
+type CatalogueApp = {
+  slug: string;
+  name: string;
+  description: string | null;
+  homepage_url: string | null;
+  base_url: string | null;
+  status: 'pending' | 'approved' | 'suspended';
+  kind: 'first_party' | 'third_party';
+};
 type WorkspaceApp = {
   id: string;
   app_id: string;
@@ -68,18 +78,27 @@ const INSTALLABLE_META: Record<
   },
 };
 
-const INSTALLABLE = (['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse', 'fibre-sales', 'fibre-learn'] as const).map(
-  (slug) => {
-    const meta = INSTALLABLE_META[slug]!;
-    return {
-      slug,
-      name: APPS[slug].name,
-      tagline: APPS[slug].tagline,
-      body: meta.body,
-      status: meta.status,
-    };
-  },
-);
+// The list of installable apps comes from the catalogue, not from this file.
+// It used to be a constant here — the web-side twin of the closed slug
+// allow-list in the database. An approved third-party app now shows up on this
+// page with no code change, which is the whole point of
+// docs/brief-external-apps.md §1.
+//
+// First-party apps still get their hand-written copy from INSTALLABLE_META;
+// a third-party one shows what it declared at registration.
+function describe(a: CatalogueApp) {
+  const meta = INSTALLABLE_META[a.slug];
+  const known = a.slug in APPS ? APPS[a.slug as keyof typeof APPS] : null;
+  return {
+    slug: a.slug,
+    name: known?.name ?? a.name,
+    tagline: known?.tagline ?? (a.kind === 'third_party' ? 'Third-party app' : ''),
+    body: meta?.body ?? a.description ?? 'No description supplied.',
+    status: meta?.status ?? ('Active' as const),
+    kind: a.kind,
+    link: a.homepage_url ?? a.base_url,
+  };
+}
 
 export default async function WorkspaceAppsPage() {
   let me: Me | null = null;
@@ -111,6 +130,23 @@ export default async function WorkspaceAppsPage() {
     if (!error) error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
+  let catalogue: CatalogueApp[] = [];
+  try {
+    const data = await apiFetch<{ items: CatalogueApp[] }>(`/api/v1/apps?status=approved`);
+    // fibre-platform is not installable — it IS the platform.
+    catalogue = data.items.filter((a) => a.slug !== 'fibre-platform');
+  } catch (e) {
+    if (!error) error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
+  }
+
+  // First party first, then alphabetically — so the apps someone recognises
+  // don't get pushed down the page as third-party ones arrive.
+  const available = catalogue
+    .map(describe)
+    .sort((a, b) =>
+      a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'first_party' ? -1 : 1,
+    );
+
   const installedBySlug = new Map(
     installed.map((w) => [appOf(w)?.slug ?? '', w] as const),
   );
@@ -128,7 +164,7 @@ export default async function WorkspaceAppsPage() {
       <section className="mt-10">
         <SectionLabel>Available</SectionLabel>
         <ul className="mt-4 space-y-3">
-          {INSTALLABLE.map((a) => {
+          {available.map((a) => {
             const inst = installedBySlug.get(a.slug);
             const active = !!inst && !inst.deactivated_at;
             return (
@@ -141,13 +177,23 @@ export default async function WorkspaceAppsPage() {
                     <div className="flex items-baseline gap-3">
                       <h3 className="text-base font-medium">{a.name}</h3>
                       <span className="text-[10px] uppercase tracking-wider text-ink-muted">
-                        {a.status}
+                        {a.kind === 'third_party' ? 'Third party' : a.status}
                       </span>
                     </div>
-                    <div className="text-sm text-ink-subtle mt-1">{a.tagline}</div>
+                    {a.tagline && (
+                      <div className="text-sm text-ink-subtle mt-1">{a.tagline}</div>
+                    )}
                     <p className="mt-3 text-sm text-ink-subtle max-w-2xl leading-relaxed">
                       {a.body}
                     </p>
+                    {a.kind === 'third_party' && active && (
+                      <a
+                        href={`/settings/apps/${encodeURIComponent(a.slug)}/keys`}
+                        className="mt-3 inline-block text-sm text-ink-subtle underline underline-offset-2 hover:text-ink"
+                      >
+                        Manage API keys
+                      </a>
+                    )}
                   </div>
                   <AppToggle slug={a.slug} active={active} />
                 </div>

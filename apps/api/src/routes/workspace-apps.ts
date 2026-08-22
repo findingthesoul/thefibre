@@ -5,8 +5,27 @@ import { ensurePipelineFlow } from '../lib/pulse-pipeline.js';
 
 export const workspaceAppsRoutes = new Hono();
 
-const INSTALLABLE = ['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-pulse', 'fibre-sales', 'fibre-learn'] as const;
-type InstallableSlug = (typeof INSTALLABLE)[number];
+// What may be activated is no longer a constant in this file. It is any app
+// whose row says `status = 'approved'` — the gate docs/brief-external-apps.md
+// §1 moved from a hardcoded list onto the row. `fibre-platform` is excluded
+// because it isn't installable: it IS the platform.
+//
+// The DB has the last word regardless: workspace_app_approved_gate rejects the
+// insert if the app isn't approved. This lookup exists to return a clean 400
+// instead of a trigger's exception.
+async function resolveInstallableApp(slug: string) {
+  const { data } = await adminClient
+    .from('app')
+    .select('id, slug, name, base_url, status')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (!data) return { app: null, error: 'app not found' as const };
+  if (slug === 'fibre-platform') return { app: null, error: 'fibre-platform is not installable' as const };
+  if (data.status !== 'approved') {
+    return { app: null, error: `app "${slug}" is ${data.status}, not approved` as const };
+  }
+  return { app: data, error: null };
+}
 
 // GET /api/v1/workspace-apps — installed apps for the current workspace.
 // Returns one row per installed app with the app metadata expanded.
@@ -26,7 +45,7 @@ workspaceAppsRoutes.get('/', async (c) => {
 });
 
 const ActivateBody = z.object({
-  app_slug: z.enum(INSTALLABLE),
+  app_slug: z.string().min(3).max(50),
 });
 
 // POST /api/v1/workspace-apps — activate an app for this workspace.
@@ -39,15 +58,10 @@ workspaceAppsRoutes.post('/', async (c) => {
 
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
-  const slug: InstallableSlug = body.data.app_slug;
+  const slug = body.data.app_slug;
 
-  // Resolve app id
-  const { data: app, error: aErr } = await db
-    .from('app')
-    .select('id, slug, name, base_url')
-    .eq('slug', slug)
-    .single();
-  if (aErr || !app) return c.json({ error: 'app not found' }, 404);
+  const { app, error: resolveErr } = await resolveInstallableApp(slug);
+  if (!app) return c.json({ error: resolveErr }, resolveErr === 'app not found' ? 404 : 400);
 
   // Upsert workspace_app — re-activating a previously deactivated row clears
   // deactivated_at and bumps activated_at.
@@ -102,19 +116,17 @@ workspaceAppsRoutes.post('/', async (c) => {
 // rows still resolve their app metadata.
 workspaceAppsRoutes.delete('/:slug', async (c) => {
   const slug = c.req.param('slug');
-  if (!INSTALLABLE.includes(slug as InstallableSlug)) {
-    return c.json({ error: 'unknown app' }, 400);
-  }
-
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
-  const { data: app, error: aErr } = await db
+  // adminClient, not userClient: a suspended app is invisible to a normal user
+  // under the app read policy, and you must still be able to deactivate one.
+  const { data: app } = await adminClient
     .from('app')
     .select('id')
     .eq('slug', slug)
-    .single();
-  if (aErr || !app) return c.json({ error: 'app not found' }, 404);
+    .maybeSingle();
+  if (!app) return c.json({ error: 'app not found' }, 404);
 
   const { error } = await db
     .from('workspace_app')

@@ -1,6 +1,12 @@
 import type { Context, MiddlewareHandler } from 'hono';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { adminClient } from '../db.js';
+import {
+  looksLikeAppKey,
+  resolveAppKey,
+  touchAppKey,
+  type AppScope,
+} from '../lib/app-keys.js';
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const jwks = supabaseUrl
@@ -8,29 +14,51 @@ const jwks = supabaseUrl
   : null;
 
 export type RequestContext = {
-  /** `public.user.id` — the platform user. Use this for any FK to `user(id)`. */
+  /**
+   * `public.user.id` — the platform user. Use this for any FK to `user(id)`.
+   * EMPTY STRING when `auth === 'app_key'`: there is no human behind the
+   * request. Use `actorUserId(ctx)` for anything that writes a user FK.
+   */
   userId: string;
-  /** `auth.users.id` (JWT `sub`). Use only when interacting with Supabase Auth itself. */
+  /** `auth.users.id` (JWT `sub`). Empty when `auth === 'app_key'`. */
   authUserId: string;
   workspaceId: string;
   /**
-   * The slug from the X-App-ID header. Validated against `public.app` —
-   * any registered app slug is accepted, not just first-party ones, so
-   * third-party connectors can identify themselves once an admin has
-   * inserted their app row.
+   * The app slug. From the X-App-ID header for user sessions (validated
+   * against `public.app`), or from the key itself for app-key requests.
    */
   appId: string;
+  /** The user's JWT. Empty when `auth === 'app_key'` — there is no user session. */
   jwt: string;
+  /** How this request authenticated. */
+  auth: 'user' | 'app_key';
+  /**
+   * Scopes the credential carries. `null` for a user session, which acts with
+   * the user's own authority and is bounded by RLS instead.
+   */
+  scopes: readonly AppScope[] | null;
+  appKeyId: string | null;
 };
 
+/**
+ * The `public.user.id` to attribute a write to, or null when the actor is an
+ * app rather than a person. Every user FK written from a route that app keys
+ * can reach must go through this.
+ */
+export function actorUserId(ctx: RequestContext): string | null {
+  return ctx.auth === 'user' && ctx.userId ? ctx.userId : null;
+}
+
 // Cache of registered app slugs. Populated lazily; refreshed on miss so a
-// newly-inserted third-party app becomes accepted within one extra DB hit.
+// newly-approved third-party app becomes accepted within one extra DB hit.
 let appSlugCache: Set<string> | null = null;
 let appSlugCacheLoadedAt = 0;
 const APP_SLUG_CACHE_TTL_MS = 5 * 60 * 1000;
 
 async function loadAppSlugs(): Promise<Set<string>> {
-  const { data, error } = await adminClient.from('app').select('slug');
+  // Only approved apps may present an X-App-ID. A pending registration can be
+  // reviewed, but it cannot yet act.
+  const { data, error } = await adminClient.from('app').select('slug').eq('status', 'approved');
   if (error) {
     console.error('[app-context] failed to load app slugs', error);
     return appSlugCache ?? new Set();
@@ -45,12 +73,18 @@ async function isKnownAppSlug(slug: string): Promise<boolean> {
   const stale = !appSlugCache || Date.now() - appSlugCacheLoadedAt > APP_SLUG_CACHE_TTL_MS;
   let slugs = stale ? await loadAppSlugs() : appSlugCache!;
   if (slugs.has(slug)) return true;
-  // Cache miss: refresh once in case a new app was just registered.
+  // Cache miss: refresh once in case an app was just approved.
   if (!stale) {
     slugs = await loadAppSlugs();
     return slugs.has(slug);
   }
   return false;
+}
+
+/** Called after an approval/suspension so the change takes effect immediately. */
+export function invalidateAppSlugCache(): void {
+  appSlugCache = null;
+  appSlugCacheLoadedAt = 0;
 }
 
 declare module 'hono' {
@@ -66,11 +100,13 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/sso/access-check', // same — server-to-server, secret-gated
   '/api/v1/signup-requests', // POST only — applicants have no account yet
   '/api/v1/auth-hook/email', // Supabase Send Email Hook; HMAC-verified
+  '/api/v1/apps/register', // POST only — an app registering itself has no credential yet
 ]);
 
 const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
   ['/api/v1/signup-requests', new Set(['POST'])],
   ['/api/v1/auth-hook/email', new Set(['POST'])],
+  ['/api/v1/apps/register', new Set(['POST'])],
 ]);
 
 // Path prefixes that bypass auth entirely. /meet/public/* serves the
@@ -86,6 +122,58 @@ const PUBLIC_PREFIXES = [
   '/api/v1/thread/stripe-webhook',
 ];
 
+// ---------------------------------------------------------------------------
+// What an app key is allowed to reach — brief §3.
+//
+// DEFAULT DENY. A key can only touch routes listed here, and only with the
+// scope named. Everything else 403s regardless of what scopes the key holds,
+// so widening an app's surface is a deliberate edit to this table rather than
+// a side effect of granting a scope.
+//
+// Note what is deliberately absent: the general /persons and /organisations
+// routes. Those run on `userClient(ctx.jwt)` and are bounded by RLS acting on
+// a real user; there is no user behind an app key. The app-facing equivalents
+// under /apps/:slug/* filter by workspace explicitly and are safe to expose.
+// ---------------------------------------------------------------------------
+type AppKeyRoute = { method: string; test: RegExp; scope: AppScope | null };
+
+const APP_KEY_ROUTES: AppKeyRoute[] = [
+  // Entity links
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/links$/, scope: 'write:persons' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/links:bulk$/, scope: 'write:persons' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/links\/bulk$/, scope: 'write:persons' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/links\/[^/]+\/[^/]+$/, scope: 'read:persons' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/persons\/[^/]+\/[^/]+$/, scope: 'read:persons' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/organisations\/[^/]+\/[^/]+$/, scope: 'read:organisations' },
+  // Manifest — an app reading back what it declared.
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
+  { method: 'PUT', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
+  // Activity — the sanctioned data-wall crossing.
+  { method: 'POST', test: /^\/api\/v1\/activities$/, scope: 'write:activities' },
+  { method: 'GET', test: /^\/api\/v1\/activities$/, scope: 'read:activities' },
+  // Who am I — lets an app verify its credential and see its own scopes.
+  { method: 'GET', test: /^\/api\/v1\/apps\/whoami$/, scope: null },
+];
+
+/**
+ * A link write against an organisation mapping needs write:organisations, not
+ * write:persons. The route table can't see the body, so the handler re-checks.
+ * Exported so routes can demand a scope the table couldn't determine.
+ */
+export function hasScope(ctx: RequestContext, scope: AppScope): boolean {
+  if (ctx.auth === 'user') return true; // user sessions are bounded by RLS
+  return (ctx.scopes ?? []).includes(scope);
+}
+
+export function scopeDenied(c: Context, scope: AppScope) {
+  return problem(
+    c,
+    403,
+    'missing-scope',
+    `this credential does not carry the "${scope}" scope`,
+  );
+}
+
 export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     const allowedMethods = PUBLIC_PATH_METHODS.get(c.req.path);
@@ -95,25 +183,106 @@ export const appContext: MiddlewareHandler = async (c, next) => {
   }
   if (PUBLIC_PREFIXES.some((p) => c.req.path.startsWith(p))) return next();
 
+  const auth = c.req.header('authorization');
+  if (!auth?.startsWith('Bearer ')) {
+    return problem(c, 401, 'missing-token', 'Bearer token required');
+  }
+  const bearer = auth.slice('Bearer '.length);
+
+  // -------------------------------------------------------------------------
+  // App-key path — no user, no browser session.
+  // -------------------------------------------------------------------------
+  if (looksLikeAppKey(bearer)) {
+    const key = await resolveAppKey(bearer);
+    if (!key) {
+      return problem(
+        c,
+        401,
+        'invalid-app-key',
+        'app key unknown, revoked, or its app is not approved / not activated on that workspace',
+      );
+    }
+
+    // An X-App-ID that disagrees with the key is a configuration error worth
+    // surfacing loudly rather than silently preferring one of the two.
+    const appHeader = c.req.header('x-app-id');
+    if (appHeader && appHeader !== key.appSlug) {
+      return problem(
+        c,
+        400,
+        'app-id-mismatch',
+        `X-App-ID "${appHeader}" does not match the app this key belongs to ("${key.appSlug}")`,
+      );
+    }
+
+    const route = APP_KEY_ROUTES.find(
+      (r) => r.method === c.req.method && r.test.test(c.req.path),
+    );
+    if (!route) {
+      return problem(
+        c,
+        403,
+        'not-app-accessible',
+        `${c.req.method} ${c.req.path} is not reachable with an app key`,
+      );
+    }
+    if (route.scope && !key.scopes.includes(route.scope)) {
+      return problem(
+        c,
+        403,
+        'missing-scope',
+        `this credential does not carry the "${route.scope}" scope`,
+      );
+    }
+
+    // The :slug in an /apps/:slug/* path must be the key's own app. Without
+    // this a key for app A could write links attributed to app B.
+    const slugInPath = c.req.path.match(/^\/api\/v1\/apps\/([^/:]+)(\/|:|$)/)?.[1];
+    if (slugInPath && slugInPath !== 'register' && slugInPath !== 'whoami' && slugInPath !== key.appSlug) {
+      return problem(
+        c,
+        403,
+        'wrong-app',
+        `this key belongs to "${key.appSlug}" and cannot act as "${slugInPath}"`,
+      );
+    }
+
+    touchAppKey(key.keyId);
+    c.set('ctx', {
+      userId: '',
+      authUserId: '',
+      workspaceId: key.workspaceId,
+      appId: key.appSlug,
+      jwt: '',
+      auth: 'app_key',
+      scopes: key.scopes,
+      appKeyId: key.keyId,
+    });
+    return next();
+  }
+
+  // -------------------------------------------------------------------------
+  // User-session path — a Supabase JWT, as before.
+  // -------------------------------------------------------------------------
   const appHeader = c.req.header('x-app-id');
   if (!appHeader) {
     return problem(c, 400, 'missing-app-id', 'X-App-ID header required');
   }
   if (!(await isKnownAppSlug(appHeader))) {
-    return problem(c, 400, 'unknown-app-id', `X-App-ID "${appHeader}" not registered in public.app`);
+    return problem(
+      c,
+      400,
+      'unknown-app-id',
+      `X-App-ID "${appHeader}" is not a registered, approved app`,
+    );
   }
 
-  const auth = c.req.header('authorization');
-  if (!auth?.startsWith('Bearer ')) {
-    return problem(c, 401, 'missing-token', 'Bearer token required');
-  }
   if (!jwks) {
     return problem(c, 500, 'auth-not-configured', 'JWKS not configured');
   }
 
-  const jwt = auth.slice('Bearer '.length);
   try {
-    const { payload } = await jwtVerify(jwt, jwks, {
+    const { payload } = await jwtVerify(bearer, jwks, {
       audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
     });
     const workspaceId = payload.workspace_id as string | undefined;
@@ -126,7 +295,10 @@ export const appContext: MiddlewareHandler = async (c, next) => {
       authUserId: payload.sub,
       workspaceId,
       appId: appHeader,
-      jwt,
+      jwt: bearer,
+      auth: 'user',
+      scopes: null,
+      appKeyId: null,
     });
     return next();
   } catch {
@@ -142,7 +314,7 @@ function problem(c: Context, status: number, type: string, detail: string) {
       status,
       detail,
     },
-    status as 400 | 401 | 500,
+    status as 400 | 401 | 403 | 500,
     { 'Content-Type': 'application/problem+json' },
   );
 }

@@ -84,7 +84,52 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-07-07 (v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
+## Where we left off — 2026-08-22 (v0.14.0)
+
+**The platform now hosts apps written outside this monorepo.**
+`docs/brief-external-apps.md` (written from a real, half-failed attempt to
+integrate the Festival of Trust planner) is shipped whole except the
+curator-data write API.
+
+Three things changed, and the first is the one that mattered:
+
+1. **The app catalogue is open.** `public.app.slug` carried an allow-list, so
+   every app since phase 0 registered itself by dropping the constraint,
+   inserting, and re-adding it — i.e. **registering an app was a schema
+   migration against the platform database**. Slugs are now validated by
+   format; the guard moved onto the row as `status` (pending → approved →
+   suspended) + `kind` + `manifest`, reviewed at **/admin/apps**, shaped after
+   `signup_request`. `POST /api/v1/apps/register` is public.
+2. **`app_key`** — a credential scoped to (app × workspace). Before it, an
+   external app used a *user-scoped* JWT from a live browser session: no
+   background sync, and the app held the user's full authority everywhere.
+   Token returned once, sha256 stored. Minted at Settings → Apps → Manage API
+   keys.
+3. **Scopes are enforced.** A key can't carry a scope its manifest didn't ask
+   for; an app key reaches an explicit route allow-list in
+   `middleware/app-context.ts` and nothing else (default deny). `/persons` and
+   `/organisations` stay unreachable — they run on a user's RLS identity.
+
+Plus: organisation links (was person-only), `links:bulk`, `PUT
+/apps/:slug/manifest`, `GET /apps/whoami`, and activity types validated against
+the manifest.
+
+**`apps/api/scripts/verify-external-app.mjs` is the brief's six-step
+verification, runnable.** Run it after touching anything in this area — it uses
+a throwaway slug and cleans up.
+
+### Rules that follow from this
+- **Never re-add a slug allow-list.** If you're tempted to hardcode "which apps
+  exist" anywhere — SQL, API, or a web page — that's the bug this release
+  removed. Ask the catalogue.
+- **An app key context has no user.** `ctx.userId` is `''`; use
+  `actorUserId(ctx)` for any user FK, and filter `workspace_id` explicitly on
+  every query, because RLS is not doing it for you.
+- Adding a scope is a deploy (`lib/app-keys.ts`), not a migration. On purpose.
+
+---
+
+## Where we left off before that — 2026-07-07 (v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
 
 **The Thread rebuild is COMPLETE** (2026-07-01 → 07-03, ~30 releases) and the
 **Invoices + roles + payments-SPoT slice** landed right after. Everything
@@ -152,7 +197,18 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 - Platform queue: Fibre Change app, Article 15 export, Meet event-type stubs,
   billing next phases, role-gating other surfaces (proposal §3.8)
 
-### Gotchas added this sprint
+### Gotchas added in v0.14.0
+- The `app` read policy hides pending/suspended apps from ordinary users. If a
+  lookup by slug suddenly 404s for one user and not another, check `status`.
+- `workspace_app_approved_gate` is a trigger, not a CHECK — a CHECK can't reach
+  another table. It only fires for rows that end up ACTIVE, so deactivating a
+  suspended app still works (otherwise a suspension traps the workspace).
+- Hono routes a literal `links:bulk` segment fine; both it and `links/bulk` are
+  registered.
+- `is_super_admin()` is used inside the `app` policy. It reads `public."user"`,
+  whose own policy only touches JWT claims — no recursion. Keep it that way.
+
+### Gotchas added in the invoices/roles sprint
 - **The dialog bottom bar is a Fibre-wide contract** (Delete·Duplicate left,
   Cancel·Save right, footer submits by form id). All four apps comply; Flow
   now has components/ui/{dialog,button}.tsx (ported from Thread).

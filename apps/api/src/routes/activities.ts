@@ -1,8 +1,22 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { userClient } from '../db.js';
+import { adminClient, userClient } from '../db.js';
+import { actorUserId, type RequestContext } from '../middleware/app-context.js';
+import { readManifestActivityTypes } from '../lib/app-manifest.js';
 
 export const activitiesRoutes = new Hono();
+
+/**
+ * The client to run a request on.
+ *
+ * A user session gets `userClient`, so RLS applies with the user's own
+ * authority. An app key has no user behind it and therefore no RLS identity —
+ * it gets the admin client, and EVERY query on that path must filter
+ * `workspace_id` explicitly, because nothing else will.
+ */
+function dbFor(ctx: RequestContext) {
+  return ctx.auth === 'user' ? userClient(ctx.jwt) : adminClient;
+}
 
 // Activity `type` is a short machine label, not user content. We accept any
 // snake_case identifier so third-party apps can declare their own types in
@@ -32,12 +46,25 @@ activitiesRoutes.get('/', async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
+  const db = dbFor(ctx);
 
   // If organisation_id is given, resolve to the list of current member person_ids
   // and use those as an `in` filter. Two-step query — no Postgres-side join.
   let memberPersonIds: string[] | null = null;
   if (parsed.data.organisation_id) {
+    // org_membership carries no workspace_id — it inherits one through the
+    // organisation. RLS makes that implicit for a user session; for an app key
+    // the tenant check has to be explicit, on the org itself.
+    if (ctx.auth === 'app_key') {
+      const { data: org } = await adminClient
+        .from('organisation')
+        .select('id')
+        .eq('id', parsed.data.organisation_id)
+        .eq('workspace_id', ctx.workspaceId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!org) return c.json({ items: [], next: null });
+    }
     const { data: members, error: mErr } = await db
       .from('org_membership')
       .select('person_id')
@@ -57,6 +84,7 @@ activitiesRoutes.get('/', async (c) => {
     .order('id', { ascending: false })
     .limit(parsed.data.limit + 1);
 
+  if (ctx.auth === 'app_key') q = q.eq('workspace_id', ctx.workspaceId);
   if (parsed.data.person_id) q = q.eq('person_id', parsed.data.person_id);
   if (memberPersonIds) q = q.in('person_id', memberPersonIds);
   if (parsed.data.app_id) {
@@ -93,15 +121,43 @@ activitiesRoutes.post('/', async (c) => {
   const body = ActivityCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
+  const db = dbFor(ctx);
 
   // Resolve the X-App-ID slug into the app.id UUID.
   const { data: app, error: appErr } = await db
     .from('app')
-    .select('id')
+    .select('id, manifest')
     .eq('slug', ctx.appId)
     .single();
   if (appErr || !app) return c.json({ error: 'app not found' }, 500);
+
+  // An app that declared its activity types in its manifest is held to them.
+  // Without this the API accepts any snake_case string, so a typo lands
+  // silently on a workspace timeline and stays there — activity is
+  // append-only, and corrections are new rows rather than edits.
+  const declared = readManifestActivityTypes(app.manifest);
+  if (declared && !declared.includes(body.data.type)) {
+    return c.json(
+      {
+        error: `"${body.data.type}" is not an activity type ${ctx.appId} declared in its manifest`,
+        declared_types: declared,
+      },
+      400,
+    );
+  }
+
+  // RLS checks the person is in this workspace for a user session. Nothing
+  // does for an app key, so check it here before writing across the wall.
+  if (ctx.auth === 'app_key') {
+    const { data: person } = await adminClient
+      .from('person')
+      .select('id')
+      .eq('id', body.data.person_id)
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (!person) return c.json({ error: 'person not found in this workspace' }, 404);
+  }
 
   const { data, error } = await db
     .from('activity')
@@ -112,7 +168,8 @@ activitiesRoutes.post('/', async (c) => {
       type: body.data.type,
       subject: body.data.subject,
       occurred_at: body.data.occurred_at ?? new Date().toISOString(),
-      created_by: ctx.userId,
+      // Null when an app key wrote this: there is no human to attribute it to.
+      created_by: actorUserId(ctx),
     })
     .select('id, type, subject, occurred_at')
     .single();

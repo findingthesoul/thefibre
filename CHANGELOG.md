@@ -6,6 +6,88 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.14.0] — 2026-08-22 — The Fibre welcomes external apps
+
+`docs/brief-external-apps.md` came out of a real attempt to integrate the
+Festival of Trust planner from outside this monorepo. Its honest verdict on
+"can The Fibre host external apps?" was **not yet** — one structural blocker
+and a set of missing pieces. This closes all of them.
+
+`apps/api/scripts/verify-external-app.mjs` runs the brief's six-step
+verification end-to-end against a live API. All six pass.
+
+### Added
+- **An open app catalogue.** `public.app.slug` carried an allow-list
+  (`app_slug_check`), so every app since phase 0 registered itself by dropping
+  the constraint, inserting, and re-adding it with its own slug appended —
+  inside a platform migration. Registering an app was a *schema change against
+  the platform database*, which meant the set of installable apps was fixed at
+  platform build time and nobody outside the platform team could add one.
+  Slugs are now validated by **format**; the guard the allow-list stood in for
+  moved onto the row as a lifecycle: `pending → approved → suspended`, plus
+  `kind`, `owner_user_id` and `manifest`. Deliberately shaped like
+  `signup_request` rather than inventing a second review pattern.
+- **`POST /api/v1/apps/register`** — unauthenticated, because an app
+  registering itself has no credential yet. Lands a `pending` row.
+- **Admin → App registry** (`/admin/apps`) — super admins approve, reject,
+  suspend and reinstate. The card shows the scopes the app asked for and the
+  activity types it declared, because that is what you are actually deciding
+  about. Suspending revokes its keys and deactivates it everywhere.
+- **`app_key` — server-to-server credentials scoped to (app × workspace).**
+  Before this, an external app authenticated with a *user-scoped* Supabase JWT
+  pulled from a signed-in browser. That ruled out background sync, and — the
+  serious half — handed a third-party app the user's full platform authority
+  in every app, whatever its manifest asked for. A key carries the app's
+  authority, in one workspace, bounded by scopes. The token is returned once
+  at mint time; only its SHA-256 hash is stored.
+- **Settings → Apps → Manage API keys** — mint (scopes ticked from what the
+  manifest requested), see `last_used_at`, revoke.
+- **Scope enforcement.** `scopes_requested` was "declarative only — not checked
+  at request time". Now: a key can never carry a scope its manifest didn't ask
+  for, and an app key reaches an explicit allow-list of routes and nothing
+  else. Everything outside is a 403 regardless of scopes held, so widening an
+  app's surface is a deliberate edit rather than a side effect of granting a
+  scope. General `/persons` and `/organisations` stay unreachable — they run on
+  a user's RLS identity and a key has none.
+- **Organisation links.** `POST /apps/:slug/links` was person-only, so the
+  planner's declared `festival_host → organisation` mapping could not be
+  written at all. Orgs match on `domain`, then `name`. The required scope
+  follows the mapping's target, not the URL.
+- **Bulk linking** — `POST /apps/:slug/links:bulk` (and `/links/bulk`), up to
+  500 per call, bounded concurrency. Partial success is the honest outcome for
+  a batch, so every item reports its own result and the response is 207 unless
+  all landed.
+- **`GET /apps/:slug/organisations/:app_entity/:app_record_id`** — the org twin
+  of the person resolver.
+- **`PUT /apps/:slug/manifest`** — install entity mappings and declared
+  activity types into a workspace. Was SQL.
+- **`GET /apps/whoami`** — an app verifying its own credential and scopes.
+
+### Changed
+- **Activity types are validated against the manifest.** The API accepted any
+  snake_case type, so a typo landed silently on a workspace timeline — and
+  activity is append-only, so it stayed there. An app that declared types is
+  now held to them (400 with the declared list). Apps that declare none keep
+  the old behaviour; every first-party app relies on that.
+- **`workspace_app` activation refuses anything not `approved`**, enforced by a
+  trigger so it holds regardless of which client writes the row. Deactivation
+  is always allowed, or a suspension would trap the workspace.
+- **Settings → Apps is catalogue-driven.** The installable list was a constant
+  in the page — the web-side twin of the closed allow-list. An approved
+  third-party app now appears with no code change.
+- `X-App-ID` is only accepted for **approved** apps.
+- `app` read policy: approved apps stay readable by everyone (they are
+  reference data); pending and suspended ones are visible only to their
+  submitter and to super admins.
+- `docs/third-party-app-guide.md` rewritten around registration and keys. Its
+  "Open gaps" list lost five of its seven entries.
+
+### Notes
+- Deviation from the brief's sketch: `app_key` has **no** `unique (app_id,
+  workspace_id)`. That would make rotation a hard cutover — you could not mint
+  the replacement before revoking the incumbent. Several live keys per pair are
+  allowed instead.
+
 ## [0.13.155] — 2026-07-15 — Pulse 0.27.0: pick the cashflow you land on (home page)
 
 ### Added

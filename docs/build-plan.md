@@ -20,7 +20,12 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
+_Last groomed 2026-08-22 (v0.14.0). Done items get removed, not ticked._
+
+_External apps (docs/brief-external-apps.md) shipped whole in v0.14.0 — open
+catalogue + lifecycle, `app_key` with enforced scopes, org links, bulk links,
+manifest-validated activity types. Follow-ups from its §4 that are still open
+are items 10a–10c below._
 
 1. **Stripe secrets (Sjoerd, not code)** — `fly secrets set
    STRIPE_SECRET_KEY=…`; register the Thread webhook
@@ -58,6 +63,16 @@ _Last groomed 2026-07-07 (v0.13.108). Done items get removed, not ticked._
 8b. **ESLint flat config** — the four `next lint` scripts were zombies (no
    config existed, eslint 9 vs legacy scaffold) and were removed in
    0.13.109; add a real flat config + CI when wanted.
+9a. **Curator-data write API** — an external app that wants to annotate a
+   person (lead score, lifecycle stage) has no generic surface. A manifest can
+   declare a `curator_data` mapping; nothing consumes it. Last of
+   docs/brief-external-apps.md §4.
+9b. **App-key liveness beyond `last_used_at`** — keys don't expire and nothing
+   nags an admin to rotate one. `last_used_at` is shown; that's it.
+9c. **Retrofit manifests onto first-party apps** — Meet/Thread/Flow/Pulse
+   declare no `activity_types`, so they keep the permissive path in
+   POST /activities. Declaring them would extend the typo guard to our own
+   apps.
 9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
 10. **Fibre Pulse — business planner** — LIVE at pulse.thefibre.app,
