@@ -83,6 +83,12 @@ verification end-to-end against a live API. All six pass.
   "Open gaps" list lost five of its seven entries.
 
 ### Notes
+- `scripts/verify-external-app.mjs` requires `FIBRE_VERIFY_CONFIRM=1`. There is
+  one Supabase project, so "local" only ever describes the API process — the
+  script always writes to the real workspace. It cleans up after itself, with
+  two exceptions forced by the platform's own rules: `activity` is append-only,
+  so its one activity row is permanent, and that row pins both its person (soft
+  deleted, per the personal-data rule) and the app row (left `suspended`).
 - Deviation from the brief's sketch: `app_key` has **no** `unique (app_id,
   workspace_id)`. That would make rotation a hard cutover — you could not mint
   the replacement before revoking the incumbent. Several live keys per pair are

@@ -15,9 +15,24 @@
 // Step 6 is the one that proves the model rather than the plumbing, so the
 // script fails loudly if a refusal doesn't happen.
 //
+// WARNING — THIS WRITES TO A REAL WORKSPACE. There is one Supabase project, so
+// "local" only ever describes the API process; the database is always the
+// shared one. The script creates a throwaway app, four persons, one
+// organisation and one activity, then removes them. Two things it CANNOT fully
+// remove, by design:
+//
+//   * `activity` is append-only at the DB layer, so its one activity row stays
+//     forever. That row pins its person, which is therefore SOFT deleted (the
+//     platform's own mechanism for personal data) rather than dropped.
+//   * the app row is pinned by that same activity, so it is left `suspended` —
+//     inert, and invisible to non-super-admins.
+//
+// Everything else is hard-deleted; nothing test-shaped stays visible in the
+// UI. Run it knowing that, not by accident — hence the opt-in.
+//
 // Usage:
-//   node scripts/verify-external-app.mjs                    # against localhost:8080
-//   FIBRE_API=https://thefibre-api.fly.dev node scripts/verify-external-app.mjs
+//   FIBRE_VERIFY_CONFIRM=1 node scripts/verify-external-app.mjs
+//   FIBRE_VERIFY_CONFIRM=1 FIBRE_API=https://thefibre-api.fly.dev node scripts/verify-external-app.mjs
 //
 // The admin steps need a real user session. Rather than asking you to paste a
 // JWT, the script mints one for the super admin via the Supabase admin API —
@@ -44,11 +59,24 @@ const SERVICE_KEY = env.SUPABASE_SERVICE_ROLE_KEY;
 const API = process.env.FIBRE_API ?? 'http://localhost:8080';
 const ADMIN_EMAIL = process.env.FIBRE_ADMIN_EMAIL ?? 'sjoerd@soul.com';
 
-// A slug nobody would ship, so a half-finished run leaves nothing confusing.
+// Values nobody would ship, so a half-finished run leaves nothing confusing —
+// and so cleanup can find every row this script created.
 const SLUG = 'verify-external-app';
+const PERSON_PREFIX = 'verify-organiser';
+const ORG_DOMAIN = 'verify-host.example';
 
 if (!SUPABASE_URL || !SERVICE_KEY || !ANON_KEY) {
   console.error('Missing Supabase keys in apps/api/.env');
+  process.exit(1);
+}
+
+if (process.env.FIBRE_VERIFY_CONFIRM !== '1') {
+  console.error(
+    'This script writes a throwaway app, 4 persons, 1 organisation and 1 activity\n' +
+      'into the real workspace, then cleans up (see the header for the two rows it\n' +
+      'cannot remove — activity is append-only). Re-run with:\n\n' +
+      '  FIBRE_VERIFY_CONFIRM=1 node scripts/verify-external-app.mjs\n',
+  );
   process.exit(1);
 }
 
@@ -101,20 +129,80 @@ async function adminSession() {
 }
 
 // --- Cleanup ---------------------------------------------------------------
-async function cleanup() {
+//
+// Order matters, and so does reporting. An earlier version swallowed the errors
+// here and quietly left four fake contacts and an organisation sitting in the
+// real workspace. Anything that can't be removed is now printed.
+async function cleanup({ quiet = true, resetForRerun = false } = {}) {
+  const note = (label, error) => {
+    if (error && !quiet) console.log(`   ! could not remove ${label}: ${error.message}`);
+  };
+
   const { data: app } = await db.from('app').select('id').eq('slug', SLUG).maybeSingle();
-  if (!app) return;
-  await db.from('app_key').delete().eq('app_id', app.id);
-  await db.from('app_record_link').delete().eq('app_id', app.id);
-  await db.from('activity').delete().eq('app_id', app.id);
-  await db.from('app_entity_mapping').delete().eq('app_id', app.id);
-  await db.from('workspace_app').delete().eq('app_id', app.id);
-  await db.from('app').delete().eq('id', app.id);
+
+  if (app) {
+    // app_membership first — activating an app auto-grants one, and its FK is
+    // what silently blocked the app row from being deleted.
+    note('app_membership', (await db.from('app_membership').delete().eq('app_id', app.id)).error);
+    note('app_key', (await db.from('app_key').delete().eq('app_id', app.id)).error);
+    note('app_record_link', (await db.from('app_record_link').delete().eq('app_id', app.id)).error);
+    note('app_entity_mapping', (await db.from('app_entity_mapping').delete().eq('app_id', app.id)).error);
+    note('workspace_app', (await db.from('workspace_app').delete().eq('app_id', app.id)).error);
+  }
+
+  // A person with no activity can be dropped outright; one pinned by an
+  // append-only activity row gets the platform's own treatment for personal
+  // data it can't drop — a soft delete.
+  const { data: people } = await db
+    .from('person')
+    .select('id, email')
+    .ilike('email', `${PERSON_PREFIX}%`);
+  for (const person of people ?? []) {
+    const { data: acts } = await db.from('activity').select('id').eq('person_id', person.id).limit(1);
+    if ((acts ?? []).length === 0) {
+      note(`person ${person.email}`, (await db.from('person').delete().eq('id', person.id)).error);
+    } else {
+      const { error } = await db
+        .from('person')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('id', person.id);
+      note(`person ${person.email}`, error);
+      if (!quiet && !error) {
+        console.log(`   · ${person.email} soft-deleted (pinned by an append-only activity row)`);
+      }
+    }
+  }
+  note('organisation', (await db.from('organisation').delete().eq('domain', ORG_DOMAIN)).error);
+
+  // Last, once nothing else references it. This fails once a run has written
+  // its activity row — the FK from an append-only table is permanent.
+  //
+  // Rather than burning the slug, the row is kept. It is left `suspended`,
+  // which is inert and sits under the Suspended tab in /admin/apps rather than
+  // cluttering an admin's review queue; the START-of-run cleanup is the one
+  // that resets it to `pending` so the next run can walk approve → activate →
+  // mint against it for real.
+  if (app) {
+    const { error } = await db.from('app').delete().eq('id', app.id);
+    if (error) {
+      await db
+        .from('app')
+        .update(
+          resetForRerun
+            ? { status: 'pending', manifest: null, reviewed_at: null, reviewed_by: null }
+            : { status: 'suspended' },
+        )
+        .eq('id', app.id);
+      if (!quiet) {
+        console.log('   · app row kept (pinned by its append-only activity row), left `suspended`');
+      }
+    }
+  }
 }
 
 async function main() {
   console.log(`API: ${API}`);
-  await cleanup();
+  await cleanup({ resetForRerun: true });
 
   const jwt = await adminSession();
   const me = await call('/api/v1/auth/me', { token: jwt, appId: 'fibre-platform' });
@@ -157,7 +245,17 @@ async function main() {
       manifest,
     },
   });
-  check(reg.status === 201, 'registers with no credential', `HTTP ${reg.status}`);
+  // 201 on a first run; a previous run's row survives pinned to its activity
+  // and is reset to `pending`, in which case registration is idempotent.
+  check(
+    reg.status === 201 || (reg.status === 200 && reg.body?.already_registered),
+    'registers with no credential',
+    `HTTP ${reg.status}`,
+  );
+
+  // A re-registration returns the old row untouched, so make sure the manifest
+  // under test is the one actually stored before anything reads it back.
+  await db.from('app').update({ manifest }).eq('slug', SLUG);
 
   const beforeApproval = await call('/api/v1/workspace-apps', {
     method: 'POST',
@@ -252,7 +350,7 @@ async function main() {
     body: {
       app_entity: 'planner_organiser',
       app_record_id: 'organiser-1',
-      match_on: { email: 'verify-organiser@example.com', name: 'Verify Organiser' },
+      match_on: { email: `${PERSON_PREFIX}@example.com`, name: 'Verify Organiser' },
       create_if_missing: true,
     },
   });
@@ -269,7 +367,7 @@ async function main() {
     body: {
       app_entity: 'planner_host',
       app_record_id: 'host-1',
-      match_on: { domain: 'verify-host.example', name: 'Verify Host Org' },
+      match_on: { domain: ORG_DOMAIN, name: 'Verify Host Org' },
       create_if_missing: true,
     },
   });
@@ -286,7 +384,7 @@ async function main() {
       links: [2, 3, 4].map((n) => ({
         app_entity: 'planner_organiser',
         app_record_id: `organiser-${n}`,
-        match_on: { email: `verify-organiser-${n}@example.com`, name: `Verify Organiser ${n}` },
+        match_on: { email: `${PERSON_PREFIX}-${n}@example.com`, name: `Verify Organiser ${n}` },
         create_if_missing: true,
       })),
     },
@@ -374,7 +472,8 @@ async function main() {
     `HTTP ${afterSuspend.status}`,
   );
 
-  await cleanup();
+  console.log('\n── cleanup');
+  await cleanup({ quiet: false });
   console.log(
     failures === 0
       ? '\nAll six steps pass. An external app can register, be approved, hold a scoped key, link both entity kinds, write activity, and be refused.'
@@ -385,6 +484,7 @@ async function main() {
 
 main().catch(async (e) => {
   console.error('\nFAILED:', e.message);
-  await cleanup().catch(() => {});
+  console.error('Cleaning up what the run created…');
+  await cleanup({ quiet: false }).catch(() => {});
   process.exit(1);
 });

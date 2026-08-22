@@ -365,8 +365,13 @@ throwaway slug and cleans up after itself.
 
 ```bash
 cd apps/api
-node scripts/verify-external-app.mjs
+FIBRE_VERIFY_CONFIRM=1 node scripts/verify-external-app.mjs
 ```
+
+The opt-in is deliberate: there is one Supabase project, so the script always
+writes to a real workspace. It cleans up, except for the two rows the
+platform's own rules make permanent — an append-only activity row, and the
+person it pins (soft-deleted). Read the script header before running it.
 
 If you change anything in this document, run that script. It is the
 executable version of the same claims.
