@@ -27,12 +27,28 @@ catalogue + lifecycle, `app_key` with enforced scopes, org links, bulk links,
 manifest-validated activity types. Follow-ups from its §4 that are still open
 are items 10a–10c below._
 
+_The Festival of Trust planner stays EXTERNAL (Sjoerd, 2026-08-22): its own
+repo, consuming Fibre / Flow / later The Thread over the app-key surface. It is
+the live proof that path works. Item 1b carries what that needs from us._
+
 1. **Stripe secrets (Sjoerd, not code)** — `fly secrets set
    STRIPE_SECRET_KEY=…`; register the Thread webhook
    (`https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`,
    checkout.session.completed + .expired) + `STRIPE_THREAD_WEBHOOK_SECRET`;
    then an end-to-end paid test. Card payments stay hidden on public
    enrol forms until this lands.
+1b. **Flow reachable by an app key** (docs/brief-flow-as-planner-engine.md) —
+   the Festival planner runs its nine steps on Flow from outside the monorepo,
+   so: `read:flows` + `write:flow_runs` in `APP_SCOPES`; allow-list entries for
+   the run/task/note routes (not the authoring ones) in
+   `middleware/app-context.ts`; and `flow_run_note`'s
+   `has_app_membership('fibre-flow')` re-expressed as a run-keyed API rule — an
+   app key can't satisfy it, and the notes are the planner's core surface.
+   Then Flow's "open" progression mode: `flow_task.step_id`, default tasks
+   materialised at run creation instead of on entry, no due dates. Free
+   navigation needs nothing — `POST /runs/:id/move` already jumps to any step.
+   Design the scope pair generically; The Thread gets the same treatment next.
+
 2. **Members UI role vocabulary** — API accepts
    super_admin/admin/organiser; the web Members page still shows the old
    labels. Facilitator = per-thread badge, not a workspace role.

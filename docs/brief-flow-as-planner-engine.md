@@ -18,6 +18,22 @@ It is currently built standalone in `~/Projects/festivaloftrust.com`
 The proposal: **Flow runs the nine steps underneath, and the planner is a
 presentation layer on top.** One engine for sequences, many faces.
 
+## Decision — the planner stays external (Sjoerd, 2026-08-22)
+
+> "planner needs to be in a separate folder. It does not need to become part of
+> the Fibre suite. It is an external app, that can communicate with everything
+> from Fibre: the Fibre, the Flow and also the Thread later."
+
+So: its own repo (`~/Projects/festivaloftrust.com`), not `apps/planner`. It
+consumes The Fibre as a platform over the API with an `app_key`, the way any
+third party would. That makes it the ongoing proof that the external-app path
+works — v0.14.0 opened the door; the planner is the first thing to walk through
+it, and it will keep finding what is missing (Flow now, The Thread later).
+
+Consequence: every capability it needs must be reachable **through the app-key
+surface**, not through in-family shortcuts. That is more work than embedding it
+would have been, and it is the point.
+
 ## Why it is a good fit
 
 Flow already models nearly all of it (`supabase/migrations/20260520120000_fibre_flow_schema.sql`):
@@ -66,7 +82,16 @@ if (!trans || trans.from_step_id !== run.current_step_id) {
 ```
 
 A run **is** a cursor. It sits on exactly one `current_step_id` (`not null`) and
-may only walk authored edges. The planner's specification says the opposite:
+`/transition` may only walk authored edges.
+
+But there is a second door. `POST /runs/:id/move` (`apps/api/src/routes/flow.ts:1172`)
+repositions a run to **any** step in its version, "bypassing transition/gate
+validation" — the revert / move-sideways path. Free navigation therefore already
+exists and needs nothing built.
+
+What survives is narrower: a run has exactly **one** current step, and the
+planner shows nine, each with its own independent status. The planner's
+specification:
 
 > Order is fixed 1 to 9, but any step can be opened at any time. **Do not lock
 > later steps.**
@@ -74,8 +99,15 @@ may only walk authored edges. The planner's specification says the opposite:
 > A step is never 'failed' or overdue. **No deadlines, no nagging. This is a
 > companion, not a taskmaster.**
 
-Nine steps, each with an independent status, all live from day one. No amount of
-loosening gates reaches that — it is the cursor itself that has to go.
+Nine steps, each with an independent status, all live from day one.
+
+The way through is to notice where the planner's status actually comes from: not
+the cursor, but **task counts per step** (none done = not started, some = in
+progress, all = done). If every step's tasks exist from run creation and each
+task knows its step, all nine statuses are derivable at once and the cursor stops
+mattering — it degrades to "where the organiser last was", which is harmless and
+arguably useful (resume-where-you-left-off). `current_step_id` does not have to
+become nullable. It just has to stop being the thing the UI reads.
 
 ### Two consequences that follow from it
 
@@ -93,11 +125,12 @@ all nine are browsable immediately.
 ### The three ways out, re-scored
 
 **A. Flow gains an open (companion) mode.** A `progression` flag on
-`flow_definition` (`'gated' | 'open'`). For open flows: `current_step_id`
-nullable, every step's default tasks materialised at run creation, gates
-advisory, no due dates, no overdue anywhere. Larger than the original brief
-implied — it is a flag *plus* a nullable column *plus* `flow_task.step_id` *plus*
-a materialisation change — but each piece is small and independently useful.
+`flow_definition` (`'gated' | 'open'`). For open flows: every step's default
+tasks materialise at run creation rather than on entry, gates are advisory, no
+due dates are set, nothing is ever overdue. Plus `flow_task.step_id` so a task
+knows its step. With `/runs/:id/move` and per-step task counts doing the rest,
+that is the whole of it — two schema additions and one runtime change. Cheaper
+than the first draft claimed, and no nullable cursor.
 
 **B. Use Flow's storage, not its semantics.** Worse than it first appears. With
 no meaningful cursor *and* no `step_id` on tasks, the rows are not something
@@ -190,34 +223,39 @@ happened to create it. Manual tasks currently have no step at all. Backfill from
 
 ---
 
-## Ordering note
+## What the decision costs — the critical path
 
-This depended on `docs/brief-external-apps.md`, and that dependency **closed on
-2026-08-22** — v0.14.0 ("The Fibre welcomes external apps", `da75bad`) opened the
-app catalogue, added `app_key` credentials scoped to (app x workspace), made
-scopes enforceable, and added organisation links, which the planner's declared
-`festival_host` mapping needed. The planner can hold a real Fibre app identity
-now, without living in this monorepo.
+The planner is external, so everything runs through the app-key surface added in
+v0.14.0. In dependency order:
 
-What that shipped does **not** cover is Flow. Two concrete gaps:
+1. **Flow scopes.** `APP_SCOPES` in `apps/api/src/lib/app-keys.ts` runs persons /
+   organisations / activities / curator_data. Add `read:flows` (definitions,
+   versions, steps) and `write:flow_runs` (runs, tasks, notes). Authoring flows
+   stays out — an external app consumes a flow, it does not publish one.
+2. **Route allow-list entries.** `apps/api/src/middleware/app-context.ts:140` is
+   default-deny. The planner needs roughly: `GET /flow/flows/:id`,
+   `POST /flow/flows/:id/runs`, `GET /flow/runs/:id`, `POST /flow/runs/:id/move`,
+   `POST /flow/runs/:id/notes`, `GET|POST /flow/tasks`, `PATCH /flow/tasks/:id`.
+   Nothing that edits a flow definition.
+3. **`flow_run_note` permissions.** Its RLS demands
+   `has_app_membership('fibre-flow')`, which an app key does not have and should
+   not need. The note policy has to be expressed as an API rule keyed on the run,
+   not as workspace-plus-Flow-membership. This blocks the reflection notes, which
+   are the planner's core surface — do not leave it last.
+4. **Option A itself** — `flow_task.step_id`, materialise-at-creation, the
+   `progression` flag.
+5. **The nine steps seeded** as a `flow_definition` with `system_key =
+   'fot_planner_nine_steps'`, following the `pulse_pipeline` precedent.
 
-- **No flow scope exists.** `APP_SCOPES` in `apps/api/src/lib/app-keys.ts` runs
-  persons / organisations / activities / curator_data. Nothing for flows.
-- **No flow route is reachable by an app key.** The allow-list in
-  `apps/api/src/middleware/app-context.ts:140` is default-deny and lists only
-  links, manifest, activities and whoami. `/api/v1/flow/*` is not on it.
+Items 1–3 are platform work in this repo. Items 4–5 too. Only the presentation
+layer lives in the planner's repo — which is the correct split, and a useful
+check on it: if the planner ends up needing platform code to be special-cased for
+it, the external-app path has not really been proven.
 
-So an external planner would need, at minimum, a `read:flows` + `write:flow_runs`
-pair and the corresponding allow-list entries. That is the shape v0.14.0 §3
-intends — widening an app's surface as a deliberate edit — so this is following
-the pattern, not fighting it. It is also the moment to settle the `flow_run_note`
-permission question above: an external reader has no `has_app_membership('fibre-flow')`
-to satisfy, so the note policy has to be expressed as an API rule regardless.
-
-The remaining choice is unchanged in substance: bring the planner in-monorepo as
-`apps/planner` and read Flow directly, or keep it external and pay for the scope
-and route work. External is now genuinely viable, which it was not when this
-brief was first written.
+**The Thread, later.** Same shape, and worth keeping in view now: the planner
+will want to turn a festival into a thread (public page, tickets, enrolment).
+That is another scope pair and another route set. Designing the Flow ones
+generically enough to not need re-litigating is the cheap move.
 
 ## Reference
 
@@ -256,3 +294,11 @@ missed the later migrations. Corrections made:
    That shipped as v0.14.0 the same afternoon, so the note was rewritten: the
    catalogue blocker is gone, and what is left is Flow-specific — no flow scope
    in `APP_SCOPES`, no flow route on the app-key allow-list.
+6. Sjoerd settled the in-monorepo / external question the same day: external,
+   own repo. The ordering note became a critical path, since every capability
+   now has to arrive through the app-key surface.
+7. `POST /runs/:id/move` was missed twice — it repositions a run to any step,
+   bypassing gates. Free navigation already exists; the residue is one cursor
+   versus nine parallel statuses, solved by per-step task counts rather than by
+   nulling the cursor. Option A got cheaper: `flow_task.step_id`, materialise at
+   creation, and the flag.
