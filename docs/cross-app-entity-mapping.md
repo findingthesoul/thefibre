@@ -312,26 +312,47 @@ needs them.
 `fibre-app-manifest.v1.json` is referenced but the schema file itself
 isn't published yet — the doc above is the authoritative spec.
 
+### Closed in v0.14.0 (docs/brief-external-apps.md)
+
+Most of what a third party used to hit is gone. For the current path, read
+[`third-party-app-guide.md`](third-party-app-guide.md); this section exists so
+the history isn't confusing.
+
+1. ~~**No app-registration endpoint.**~~ `POST /api/v1/apps/register` is
+   public and lands a `pending` row. The slug allow-list on `public.app`
+   is gone — slugs are validated by format, and the guard it stood in
+   for is a lifecycle on the row (`pending → approved → suspended`).
+   `X-App-ID` now accepts approved apps only.
+2. ~~**No API keys per (workspace × app).**~~ `app_key` ships. Token
+   returned once at mint, sha256 stored, resolvable to
+   (app, workspace, scopes) with no user session anywhere.
+3. ~~**No bulk-link endpoint.**~~ `POST /:slug/links:bulk` ships (and
+   `/links/bulk` as an alias), up to 500 per call, 207 on partial
+   success.
+4. ~~**No install-review UI.**~~ **Admin → App registry** (`/admin/apps`)
+   shows the scopes an app asked for and the activity types it declared,
+   and approves / suspends / reinstates.
+5. ~~**Org mappings unsupported on `POST /links`.**~~ Organisations match
+   on `domain`, then `name`. The required scope follows the mapping's
+   target, not the URL.
+
 ### Still open (the gaps a third party hits today)
-1. **No app-registration endpoint.** New apps are inserted via
-   migrations or direct SQL. There's no `POST /api/v1/apps` for
-   self-registration — a workspace admin still has to add the row.
-   `X-App-ID` itself now accepts any slug in `public.app` (cached for
-   ~5 min with refresh-on-miss).
-2. **No API keys per (workspace × app).** Calls still need a
-   user-scoped Supabase JWT; dedicated server-to-server keys aren't
-   built yet.
-3. **No bulk-link endpoint.** `POST /:slug/links:bulk` from the
-   original doc isn't built; initial syncs do one POST per record.
-4. **No curator-data write API.** `PATCH /api/v1/persons/:id/curator-data/:app_slug`
+1. **No curator-data write API.** `PATCH /api/v1/persons/:id/curator-data/:app_slug`
    doesn't exist. Apps with curator fields write them via their own
    table (e.g. `person_change_context`) — fine for first-party, opaque
-   for third party.
-5. **Scopes parsed but unenforced.** `scopes_requested` in the manifest
-   isn't checked against the calling JWT on platform reads/writes.
-6. **No install-review UI.** Manifests are read at startup for
-   first-party apps; admin-approval flow not built.
-7. **Meet doesn't yet write `app_record_link`.** `meet_booking` rows
+   for third party. A manifest can declare a `curator_data` mapping and
+   nothing consumes it. Build-plan item 9a; the last piece of the brief.
+2. **Scope enforcement covers app keys, not user sessions.** A key is
+   checked on every request. A user-session call is bounded by RLS with
+   the user's own authority instead, so `scopes_requested` says nothing
+   about what that call can do. That asymmetry is deliberate — a user
+   acting through an app shouldn't gain or lose reach because of the
+   app's manifest — but it is worth knowing before you reason about
+   scopes as a complete model.
+3. **First-party apps declare no `activity_types`.** So they keep the
+   permissive path in `POST /activities`; only apps that declare types
+   are held to them. Build-plan item 9c.
+4. **Meet doesn't yet write `app_record_link`.** `meet_booking` rows
    carry `invitee_person_id` but the link table stays empty for
    bookings. Filling it would let "what does Meet know about this
    person?" queries hit the link table uniformly. Tracked as a
