@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Cross-app entity mapping — runnable third-party integration demo.
 //
-// Walks through the four steps from docs/third-party-app-guide.md
+// Walks through the four steps from docs/building-on-the-fibre.md
 // against a live API, simulating a "Mailchimp" connector:
 //
 //   1. Register the app + entity mapping + membership   (service-role / SQL)

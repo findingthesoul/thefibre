@@ -6,7 +6,7 @@
 //   * look up a platform entity by their (app_record_id)
 //   * declare/update the entity mappings in their manifest
 //
-// See docs/brief-external-apps.md, docs/third-party-app-guide.md and
+// See docs/brief-external-apps.md, docs/building-on-the-fibre.md and
 // docs/cross-app-entity-mapping.md for the contract these implement.
 
 import { Hono, type Context } from 'hono';

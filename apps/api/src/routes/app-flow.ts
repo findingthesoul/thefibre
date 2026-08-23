@@ -22,6 +22,41 @@
 //
 // Steps are addressed by `key`, not uuid: an external app should not have to
 // carry platform identifiers it cannot interpret.
+//
+// ===========================================================================
+// THE CONTRACT — read this before changing any response in this file.
+// ===========================================================================
+//
+// This file is not an internal route module. It is a PUBLISHED CONTRACT that
+// apps outside this repository are written against, and it is deliberately not
+// the shape of Flow's tables. That indirection is the whole point: Flow's
+// schema can be refactored — as it was in 0.16.0, when flow_task gained
+// step_id and the derivation this file used to do was deleted — without any
+// consumer noticing, because what goes over the wire is a shape we chose.
+//
+// The indirection only pays if the shape holds still. So:
+//
+//   ADDITIVE ONLY. Add a field. Never rename one, never remove one, never
+//   change a field's type or the meaning of a value. A response key that has
+//   shipped is permanent.
+//
+//   Renaming is the trap, because it looks harmless from in here. 0.15.0
+//   returned `step_filed` from the create-task route and 0.16.0 renamed it to
+//   `step_key`. Nothing consumed it yet, so nothing broke — but nothing
+//   stopped it either. That is the mistake this comment exists to prevent.
+//
+//   Semantics count as shape. Making `status` mean something new, or letting
+//   `tasks` exclude cancelled ones, breaks a caller exactly as hard as
+//   deleting the field, and no type checker will tell you.
+//
+// If a change genuinely cannot be additive, do NOT quietly break it: add a
+// second, versioned path alongside and let the manifest say which one an app
+// expects. That has not been needed yet and should not be built until it is.
+//
+// scripts/verify-external-app.mjs asserts the response shape of every route
+// here (see CONTRACT_SHAPES). If you remove or rename a key, that run fails.
+// Fix the change, not the test — unless you are deliberately adding, in which
+// case add the key to both.
 
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';

@@ -9,6 +9,7 @@ Read this before doing anything. Orientation document for whoever picks up this 
 - **Operational plan:** [`docs/build-plan.md`](docs/build-plan.md) — what's queued, what's parked, gotchas.
 - **Shipped record:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Deploy procedure:** [`docs/deploy.md`](docs/deploy.md).
+- **App contract:** [`docs/building-on-the-fibre.md`](docs/building-on-the-fibre.md) — what every app, in-family or external, has to know and obey. Read §6 before touching anything under `/api/v1/apps/*`.
 
 If those contradict each other, the brief wins.
 
@@ -32,6 +33,13 @@ When designing a new field: which app justifies it? If none, don't add it.
 5. **Activity is append-only.** Type + subject only. Corrections = new rows.
 6. **Cursor pagination only.**
 7. **Connection pooling from day one** (PgBouncer transaction mode, port 6543).
+8. **`/api/v1/apps/*` is additive-only.** It is a published contract that apps
+   outside this repo are written against, deliberately not the shape of our
+   tables. Add response fields; never rename, remove, retype or re-mean one —
+   including semantically (making `status` mean something new breaks a caller
+   as hard as deleting it). `scripts/verify-external-app.mjs` step 7b asserts
+   every published shape and will fail you. If a break is truly unavoidable,
+   add a versioned path alongside; don't change the old one.
 
 ## Working with this codebase
 

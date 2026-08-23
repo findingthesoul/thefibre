@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.16.1] — 2026-08-23 — The app contract, written down and enforced
+
+Sjoerd asked the right question before building the Festival planner's UI
+layer: *"is there a proxy where all input and output can be translated even if
+changes happen, or does the planner need an update every time Flow gets an
+update?"*
+
+The proxy already existed — `/api/v1/apps/*` is deliberately not the shape of
+our tables, which is why 0.16.0 could rebuild how Flow stores and materialises
+tasks without a consumer noticing. What was missing was the discipline that
+makes the indirection worth anything, and a document saying so.
+
+### Added
+- **The additive-only rule**, stated where it will be read: a `THE CONTRACT`
+  block at the top of `routes/app-flow.ts`, and hard rule #8 in CLAUDE.md. A
+  response key that has shipped is permanent — no renames, no removals, no
+  retypes, and no quiet changes of meaning, which break a caller just as hard
+  and no type checker catches.
+- **`CONTRACT_SHAPES` in `verify-external-app.mjs`** (step 7b) — every
+  app-facing response asserted key by key, so a rename fails CI instead of
+  somebody's integration. It caught a wrong assumption on its first run.
+- **`docs/building-on-the-fibre.md`** — the canonical instruction document for
+  *any* app on the platform, in-family or external. The data wall and why it
+  is not negotiable, the app-justifies-the-field rule, the three sanctioned
+  crossings, the seven platform rules, manifest → register → approve →
+  activate → key, every surface including Flow, the stability contract in
+  full, what differs for in-family apps, and what is honestly not built yet.
+  Replaces `third-party-app-guide.md` (renamed; its content is §3–5).
+
+### Why 0.15.0's rename is called out by name
+It returned `step_filed` from the create-task route and 0.16.0 renamed it to
+`step_key`. Nothing consumed it, so nothing broke — but nothing stopped it
+either, and that is exactly the class of change this release exists to catch.
+The contract block cites it rather than hiding it.
+
 ## [0.16.0] — 2026-08-22 — Flow: a task knows its step, and a flow can be self-paced
 
 The rest of `docs/brief-flow-as-planner-engine.md` (items 4 + 6). 0.15.0 let an

@@ -4,7 +4,7 @@ _Originally proposed 2026-05-17. Tables, routes, and manifest format
 shipped in v0.10.x. The "Open questions" at the bottom are still open;
 the rest is built._
 
-**See also:** [`docs/third-party-app-guide.md`](third-party-app-guide.md)
+**See also:** [`docs/building-on-the-fibre.md`](building-on-the-fibre.md)
 for the step-by-step "how do I integrate an external app?" walkthrough,
 and `apps/api/scripts/demo-third-party-app.mjs` for a runnable example.
 
@@ -315,7 +315,7 @@ isn't published yet — the doc above is the authoritative spec.
 ### Closed in v0.14.0 (docs/brief-external-apps.md)
 
 Most of what a third party used to hit is gone. For the current path, read
-[`third-party-app-guide.md`](third-party-app-guide.md); this section exists so
+[`building-on-the-fibre.md`](building-on-the-fibre.md); this section exists so
 the history isn't confusing.
 
 1. ~~**No app-registration endpoint.**~~ `POST /api/v1/apps/register` is

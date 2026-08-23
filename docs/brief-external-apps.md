@@ -5,7 +5,7 @@ _Written 2026-08-22, from a real attempt to integrate one._
 > **Status: shipped in v0.14.0 (2026-08-22).** §1, §2 and §3 landed together,
 > and all of §4 except the curator-data write API. The six-step verification
 > below runs as `apps/api/scripts/verify-external-app.mjs` and passes.
-> `docs/third-party-app-guide.md` is the up-to-date path; this brief stays as
+> `docs/building-on-the-fibre.md` is the up-to-date path; this brief stays as
 > the record of what was wrong and why it was changed. Two deviations from the
 > sketches below are noted where they occur.
 
@@ -17,7 +17,7 @@ from **outside** this monorepo. It was chosen deliberately as a test: if a
 friendly app written by the same people cannot integrate cleanly, a genuinely
 third-party one has no chance.
 
-It got part way. `docs/third-party-app-guide.md` describes the intended path and
+It got part way. `docs/building-on-the-fibre.md` describes the intended path and
 already lists known gaps. This brief covers what the attempt actually hit, in
 priority order, and what the goal state looks like.
 
@@ -184,7 +184,7 @@ suspending the app kills its keys on the next request.
 
 ## Context
 
-- `docs/third-party-app-guide.md` — the intended path.
+- `docs/building-on-the-fibre.md` — the intended path.
 - `docs/fibre-vs-app-data.md` — the platform/app data wall.
 - `~/Projects/festivaloftrust.com/docs/fibre-integration.md` — the integration
   attempt and what it hit.

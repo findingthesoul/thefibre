@@ -88,6 +88,48 @@ const db = createClient(SUPABASE_URL, SERVICE_KEY, {
 
 let failures = 0;
 const step = (n, label) => console.log(`\n── ${n}. ${label}`);
+// ---------------------------------------------------------------------------
+// The published shape.
+//
+// Everything under /api/v1/apps/* is a contract apps outside this repository
+// are written against, so a response key that has shipped is permanent. These
+// lists are that promise, written down: adding to one is fine, removing from
+// one means somebody's integration just broke.
+//
+// See the CONTRACT block at the top of apps/api/src/routes/app-flow.ts.
+// ---------------------------------------------------------------------------
+const CONTRACT_SHAPES = {
+  whoami: ['auth', 'app_slug', 'workspace_id', 'scopes'],
+  link: ['platform_entity', 'platform_id', 'action'],
+  flowListItem: ['id', 'name', 'description', 'lifecycle', 'progression', 'system_key', 'current_version_id'],
+  flowShape: ['id', 'name', 'description', 'lifecycle', 'progression', 'system_key', 'version_id', 'steps'],
+  flowShapeStep: ['key', 'name', 'description', 'kind', 'ordinal', 'default_tasks'],
+  runCreated: ['id', 'created'],
+  run: [
+    'id', 'flow_id', 'person_id', 'organisation_id', 'subject_label', 'source_ref',
+    'status', 'entered_at', 'current_step_key', 'steps', 'unfiled_tasks',
+  ],
+  runStep: ['key', 'name', 'description', 'kind', 'ordinal', 'tasks', 'note', 'status'],
+  task: ['id', 'title', 'description', 'status', 'due_at', 'completed_at'],
+  taskCreated: ['id', 'step_key'],
+  note: ['step_key', 'body', 'updated_at'],
+  move: ['ok', 'step_key'],
+};
+
+/** Every key the contract promises is still present. Extra keys are fine. */
+function checkShape(label, obj, keys) {
+  if (!obj || typeof obj !== 'object') {
+    check(false, `${label} keeps its published keys`, `got ${obj === null ? 'null' : typeof obj}`);
+    return;
+  }
+  const missing = keys.filter((k) => !(k in obj));
+  check(
+    missing.length === 0,
+    `${label} keeps its published keys`,
+    missing.length ? `MISSING ${missing.join(', ')}` : `${keys.length} keys`,
+  );
+}
+
 function check(ok, label, detail) {
   console.log(`   ${ok ? '✓' : '✗'} ${label}${detail ? ` — ${detail}` : ''}`);
   if (!ok) failures++;
@@ -655,6 +697,22 @@ async function main() {
     `HTTP ${foreignRun.status}`,
   );
 
+  // ---- 7b. The shape itself ----------------------------------------------
+  step('7b', 'Keep the shape apps are written against');
+
+  checkShape('whoami', whoami.body, CONTRACT_SHAPES.whoami);
+  checkShape('POST /links', linkPerson.body, CONTRACT_SHAPES.link);
+  checkShape('flow list item', flowList.body?.flows?.[0], CONTRACT_SHAPES.flowListItem);
+  checkShape('flow shape', shape.body, CONTRACT_SHAPES.flowShape);
+  checkShape('flow shape step', shape.body?.steps?.[0], CONTRACT_SHAPES.flowShapeStep);
+  checkShape('run created', startRun.body, CONTRACT_SHAPES.runCreated);
+  checkShape('run', afterAdd.body, CONTRACT_SHAPES.run);
+  checkShape('run step', afterAdd.body?.steps?.[0], CONTRACT_SHAPES.runStep);
+  checkShape('task', afterAdd.body?.steps?.[0]?.tasks?.[0], CONTRACT_SHAPES.task);
+  checkShape('task created', ownTask.body, CONTRACT_SHAPES.taskCreated);
+  checkShape('note', getNote.body, CONTRACT_SHAPES.note);
+  checkShape('move', jump.body, CONTRACT_SHAPES.move);
+
   step(8, 'Lose everything the moment it is suspended');
 
   const suspend = await call(`/api/v1/apps/${SLUG}`, {
@@ -676,7 +734,7 @@ async function main() {
   await cleanup({ quiet: false });
   console.log(
     failures === 0
-      ? '\nAll eight steps pass. An external app can register, be approved, hold a scoped key, link both entity kinds, write activity, own runs on a flow it did not author, and be refused.'
+      ? '\nAll steps pass. An external app can register, be approved, hold a scoped key, link both entity kinds, write activity, own runs on a flow it did not author, and be refused — and every response still carries the keys apps are written against.'
       : `\n${failures} check(s) failed.`,
   );
   process.exit(failures === 0 ? 0 : 1);
