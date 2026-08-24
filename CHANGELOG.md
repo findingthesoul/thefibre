@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+### Added
+- `apps/api/scripts/grant-super-admin.mjs` — grant, revoke or list platform
+  super-admins. No UI for this by design: it is the flag that unlocks Admin →
+  Access requests, App registry and Workspaces across *every* workspace, so it
+  should be a deliberate act rather than a toggle. Refuses an unknown or
+  soft-deleted email, and refuses to revoke the last remaining super admin.
+  `--list` is read-only and needs no confirmation.
+
+  Two things its header records, because both are easy to assume wrongly:
+  super-admin is **not** in the JWT — it is read from `public.user` on every
+  request, so a change lands on the target's next page load with no sign-out —
+  and it is **independent of how someone authenticates**, because it follows
+  the email address rather than the credential. Google SSO and the emailed
+  passcode reach the same account with the same rights.
+
+
 ## [0.18.3] — 2026-08-24 — Admin → Workspaces
 
 A super admin could not see the tenants of their own platform. There was no
