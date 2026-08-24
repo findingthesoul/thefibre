@@ -90,8 +90,18 @@ export default async function LandingPage() {
           {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.hostedLine}
           <br />
           No advertising. No profiling. No data sold.{' '}
-          <Link className="underline" href="/privacy">
+          {/* /privacy is the SIGNED-IN consent dashboard, inside (app) — linking
+              a logged-out visitor there bounced them straight back here. */}
+          <Link className="underline" href="/privacy-policy">
             Privacy
+          </Link>{' '}
+          ·{' '}
+          <Link className="underline" href="/terms">
+            Terms
+          </Link>{' '}
+          ·{' '}
+          <Link className="underline" href="/about">
+            About
           </Link>
           .
         </footer>

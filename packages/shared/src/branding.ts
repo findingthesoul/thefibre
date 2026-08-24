@@ -39,11 +39,17 @@ export const ENTITY = {
   supportEmail: 'support@thefibre.app',
 };
 
-/** URLs surfaced in the footer of public emails. */
+/** URLs surfaced in the footer of public emails, and by the policy list a
+ *  participant accepts when enrolling. All four are real public routes in
+ *  apps/web/app/(public)/ — they must stay that way (they 404'd from the
+ *  first email we ever sent until v0.17.3). Note `privacy` is deliberately
+ *  /privacy-policy, not /privacy: the latter is the signed-in dashboard where
+ *  you manage your own consents. */
 export const FOOTER_LINKS = {
   help: 'https://thefibre.app/support',
   about: 'https://thefibre.app/about',
   legal: 'https://thefibre.app/terms',
+  privacy: 'https://thefibre.app/privacy-policy',
 };
 
 /** Hosted brand assets. Served from apps/web/public/brand/. */

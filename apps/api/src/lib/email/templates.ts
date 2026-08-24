@@ -84,6 +84,8 @@ export function shell(title: string, bodyHtml: string): string {
             <a href="${FOOTER_LINKS.about}" style="color: #525252; text-decoration: none;">About us</a>
             &nbsp;·&nbsp;
             <a href="${FOOTER_LINKS.legal}" style="color: #525252; text-decoration: none;">Legal</a>
+            &nbsp;·&nbsp;
+            <a href="${FOOTER_LINKS.privacy}" style="color: #525252; text-decoration: none;">Privacy</a>
           </p>
           <p style="margin: 16px 0 0; font-size: 12px; color: #a3a3a3;">
             To make sure our emails arrive, please add

@@ -3,8 +3,12 @@
 // public surface (enrol form, embeds) picks it up. The accepted version is
 // stored on the enrolment (policy_version / policy_accepted_at).
 //
-// URLs point at the Fibre legal pages (branding.ts FOOTER_LINKS is the SPoT
-// for the base; specific documents live under it).
+// URLs come from branding.ts FOOTER_LINKS — the SPoT. Until v0.17.3 this
+// pointed at /terms, which did not exist: every participant was ticking "I
+// accept the privacy policy" against a 404. It now points at the real privacy
+// statement, and the version is the date that document was written.
+
+import { FOOTER_LINKS } from '@thefibre/shared';
 
 export type Policy = {
   key: string;
@@ -21,8 +25,8 @@ export const POLICIES: Policy[] = [
   {
     key: 'privacy',
     labelKey: 'policy_privacy',
-    url: 'https://thefibre.app/terms',
-    version: '2026-07-02',
+    url: FOOTER_LINKS.privacy,
+    version: '2026-08-24',
     required: true,
   },
 ];

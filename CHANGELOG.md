@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.17.3] — 2026-08-24 — The pages our email has always linked to
+
+`FOOTER_LINKS` in `packages/shared/src/branding.ts` has footered every
+transactional email we have ever sent with Help / About us / Legal, pointing at
+`thefibre.app/support`, `/about` and `/terms`. None of the three routes
+existed. Worse, `apps/thread/lib/policies.ts` made `/terms` the **privacy
+policy a participant is required to tick before enrolling** — so every enrolee
+so far has accepted a document that 404'd.
+
+### Added
+- **Four public routes** in a new `app/(public)/` group — outside `(app)`,
+  whose layout bounces anyone without a session back to `/`. These are read by
+  people who are not signed in and may not have an account at all.
+  - **`/about`** — what the platform is for, the apps, who operates it.
+  - **`/support`** — where to write, what to try first, response times,
+    how to report a vulnerability.
+  - **`/terms`** — terms of use: access, acceptable use (including the duty
+    that comes with recording data about other people), ownership, apps and
+    the wall, payments through an organiser's Stripe account, availability,
+    liability, Dutch law.
+  - **`/privacy-policy`** — the real GDPR statement: the controller/processor
+    split, what is held and why, what does *not* cross the data wall, legal
+    bases, EU locations, the complete sub-processor list (Supabase, Fly.io,
+    Vercel, Resend, Stripe, Google), retention and soft delete, Article 15/17,
+    and why there is no cookie banner.
+  - Both legal documents carry a visible "last updated" date and a source
+    comment saying they have **not been through a lawyer**.
+
+### Changed
+- **The Thread's required policy now points at `/privacy-policy`**, via
+  `FOOTER_LINKS.privacy` rather than a hardcoded URL, and its version moves to
+  `2026-08-24` — enrolments from here on record acceptance of a document that
+  exists. Earlier enrolments hold `privacy@2026-07-02`, which never did.
+- **`FOOTER_LINKS` gains `privacy`**, and email footers (HTML and plain text,
+  both template files) gain the matching link.
+- **The landing page's "Privacy" link** pointed at `/privacy`, the signed-in
+  consent dashboard inside `(app)` — a logged-out visitor clicking it was
+  redirected straight back to the landing page. It now goes to
+  `/privacy-policy`, alongside new Terms and About links.
+
 ## [0.17.2] — 2026-08-24 — The Help link goes somewhere
 
 Every Fibre sidebar has had a **Help** link in its footer since the shell was
