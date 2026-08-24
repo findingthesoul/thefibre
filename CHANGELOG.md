@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.6] — 2026-08-24 — an app you can switch on is an app that exists
+
+Fibre Sales and Fibre Learn have been placeholders since the phase-0 seed, and
+until now a workspace admin could switch either of them on. The toggle worked,
+the `workspace_app` row landed, and the workspace then "had" an app that will
+never render a page.
+
+### Added
+- **`app.released_at`** — null means not built yet. `status` (pending →
+  approved → suspended) is about *review*: has a human allowed this app to act.
+  `released_at` is about *existence*. Sales and Learn are approved in the review
+  sense — they are ours, their curator tables and RLS policies shipped — but
+  there is no product behind either. Two questions, so two columns; overloading
+  `status` would have made the app-review UI fight this concept over one field.
+
+  Not a hardcoded list in the API or the web app, deliberately: that is the
+  mistake v0.14.0 removed with the slug allow-list. If you want to know which
+  apps are real, ask the catalogue.
+
+### Changed
+- `resolveInstallableApp` refuses an unreleased app with `app "x" is not built
+  yet`, so the API and the UI now agree instead of the UI being the only guard.
+- Third-party apps get `released_at` at registration — somebody wrote them
+  before they registered, so they exist by definition.
+- **Settings → Apps** greys unreleased apps out, sorts them to the bottom, and
+  shows a **Not built yet** label where the toggle was. No disabled toggle: a
+  control you cannot use is worse than no control.
+
+### Notes
+- `available: false` in `packages/shared/src/branding.ts` already kept Sales and
+  Learn out of the app switcher, so that surface was never wrong. What was
+  missing was the same truth on the server, where it can actually be enforced.
+
+
 ## [0.18.5] — 2026-08-24 — the first user of a new workspace could never sign in
 
 Creating the second workspace on this platform surfaced a bug that had been

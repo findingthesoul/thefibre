@@ -16,13 +16,19 @@ export const workspaceAppsRoutes = new Hono();
 async function resolveInstallableApp(slug: string) {
   const { data } = await adminClient
     .from('app')
-    .select('id, slug, name, base_url, status')
+    .select('id, slug, name, base_url, status, released_at')
     .eq('slug', slug)
     .maybeSingle();
   if (!data) return { app: null, error: 'app not found' as const };
   if (slug === 'fibre-platform') return { app: null, error: 'fibre-platform is not installable' as const };
   if (data.status !== 'approved') {
     return { app: null, error: `app "${slug}" is ${data.status}, not approved` as const };
+  }
+  // Approved says a human allowed it to act. released_at says it exists at all.
+  // Without this check a workspace can switch on an app that will never render
+  // a page — see 20260824210000_app_released_at.sql.
+  if (!data.released_at) {
+    return { app: null, error: `app "${slug}" is not built yet` as const };
   }
   return { app: data, error: null };
 }

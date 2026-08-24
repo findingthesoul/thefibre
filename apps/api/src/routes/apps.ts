@@ -89,6 +89,9 @@ appsRoutes.post('/register', async (c) => {
     contact_email: b.contact_email,
     status: 'pending',
     kind: 'third_party',
+    // A third-party app was written before it registered — it exists. Only our
+    // own placeholder rows are unreleased. See 20260824210000_app_released_at.
+    released_at: new Date().toISOString(),
     manifest,
     submitted_at: new Date().toISOString(),
   });
@@ -112,7 +115,7 @@ appsRoutes.post('/register', async (c) => {
 });
 
 const APP_SELECT =
-  'id, slug, name, base_url, homepage_url, description, contact_email, status, kind, manifest, owner_user_id, submitted_at, reviewed_at, reviewed_by, review_notes, created_at';
+  'id, slug, name, base_url, homepage_url, description, contact_email, status, kind, released_at, manifest, owner_user_id, submitted_at, reviewed_at, reviewed_by, review_notes, created_at';
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/apps — the catalogue. Super admins see every status; everyone

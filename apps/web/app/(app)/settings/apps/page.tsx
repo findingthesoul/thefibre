@@ -20,6 +20,8 @@ type CatalogueApp = {
   base_url: string | null;
   status: 'pending' | 'approved' | 'suspended';
   kind: 'first_party' | 'third_party';
+  /** null = not built yet. See 20260824210000_app_released_at.sql. */
+  released_at: string | null;
 };
 type WorkspaceApp = {
   id: string;
@@ -96,6 +98,7 @@ function describe(a: CatalogueApp) {
     body: meta?.body ?? a.description ?? 'No description supplied.',
     status: meta?.status ?? ('Active' as const),
     kind: a.kind,
+    released: !!a.released_at,
     link: a.homepage_url ?? a.base_url,
   };
 }
@@ -143,9 +146,13 @@ export default async function WorkspaceAppsPage() {
   // don't get pushed down the page as third-party ones arrive.
   const available = catalogue
     .map(describe)
-    .sort((a, b) =>
-      a.kind === b.kind ? a.name.localeCompare(b.name) : a.kind === 'first_party' ? -1 : 1,
-    );
+    .sort((a, b) => {
+      // Things you can actually switch on come first; the not-built-yet ones
+      // sink to the bottom where they read as a roadmap rather than a menu.
+      if (a.released !== b.released) return a.released ? -1 : 1;
+      if (a.kind !== b.kind) return a.kind === 'first_party' ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
 
   const installedBySlug = new Map(
     installed.map((w) => [appOf(w)?.slug ?? '', w] as const),
@@ -170,7 +177,9 @@ export default async function WorkspaceAppsPage() {
             return (
               <li
                 key={a.slug}
-                className="rounded-lg border border-line bg-surface-raised p-5"
+                className={`rounded-lg border border-line p-5 ${
+                  a.released ? 'bg-surface-raised' : 'bg-surface-sunken opacity-60'
+                }`}
               >
                 <div className="flex items-start justify-between gap-6">
                   <div className="min-w-0">
@@ -195,7 +204,16 @@ export default async function WorkspaceAppsPage() {
                       </a>
                     )}
                   </div>
-                  <AppToggle slug={a.slug} active={active} />
+                  {a.released ? (
+                    <AppToggle slug={a.slug} active={active} />
+                  ) : (
+                    /* Not built yet. No toggle at all rather than a disabled
+                       one — a control you cannot use is worse than no control.
+                       The API refuses this slug too, so the two agree. */
+                    <span className="shrink-0 whitespace-nowrap rounded-full border border-line px-3 py-1 text-[10px] uppercase tracking-wider text-ink-muted">
+                      Not built yet
+                    </span>
+                  )}
                 </div>
               </li>
             );
