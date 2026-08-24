@@ -51,8 +51,11 @@ the live proof that path works. Item 1b carries what that needs from us._
    `system_key`, following the `pulse_pipeline` precedent. Blocked on the real
    step copy — what's in the planner's `festival-plan.ts` is placeholder (the
    spec sources it from "manual documents A2", not on this machine).
-   After that: The Thread gets the same app-key treatment, so the planner can
-   turn a festival into a public page with tickets. Same shape, new scope pair.
+   The Thread's app-key surface shipped in v0.18.0 (`routes/app-thread.ts`:
+   publish a programme as a public page, edit it, read its registrations;
+   `read:programs` / `write:programs` / `read:enrolments`, and deliberately no
+   `write:enrolments`). So the whole arc — plan on Flow, publish on The Thread,
+   read who came — is reachable from outside. What remains is content.
 
 2. **Members UI role vocabulary** — API accepts
    super_admin/admin/organiser; the web Members page still shows the old

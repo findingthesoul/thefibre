@@ -6,6 +6,68 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.0] - 2026-08-24 - The Thread opens to external apps
+
+`docs/brief-thread-and-registrations.md` §1-§3. The planner could already run
+the nine steps on Flow; it could not publish the festival or see who came. The
+Thread had no app-facing surface at all - every `/api/v1/thread/*` route runs on
+`userClient(ctx.jwt)` and is bounded by RLS acting on a real signed-in user, so
+an app key was denied everything.
+
+### Added
+- **`routes/app-thread.ts`** - publish a programme as a public page, read it
+  back, edit it as the plan firms up, and see who registered. Deliberately
+  narrow, following `app-flow.ts` rather than inventing a second shape: app keys
+  only, an app sees only what it created, published shape rather than table
+  shape, additive-only contract, asserted in `verify-external-app.mjs`.
+- **Three scopes** - `read:programs`, `write:programs`, `read:enrolments`. There
+  is **no `write:enrolments`**, by design: an app that could write enrolments
+  could enrol arbitrary people in arbitrary programmes, and that row is what the
+  whole certificate and payout chain hangs off. Registration comes from the
+  public form, never from an app.
+- **`program.source_app` / `source_ref`** - a festival is a `flow_run` in Flow
+  and a `program` + `thread_thread` in The Thread, and nothing connected them.
+  Same columns as `flow_run` got in 20260709080000, deliberately: this is the
+  third time "which app owns this mirrored row" has come up, and a third
+  convention would be the mistake. A planner sets `source_ref` to its own plan
+  id on both, and the edge is derivable with no join table. It also makes
+  publishing idempotent - a retry returns the same page, not a second one.
+
+### The wall through `thread_enrolment`
+A registration is a **platform** row (`enrolment`); The Thread layers commerce
+and form answers on top. So the enrolments route reads platform data through a
+Thread-shaped lens rather than reaching into another app's private tables - but
+`answers` (the registration form responses, marked "never crosses the wall" in
+the schema since it was written), `amount_cents`, `coupon_id`,
+`stripe_session_id` and `stripe_payment_intent` must never leave.
+
+`payment_status` does leave. It is a state, not an instrument, and a
+registration list without it would be useless.
+
+**The wall assertion was tested by sabotage rather than assumed.** That
+established something worth writing down: `select('*')` on its own leaks
+nothing, because the response is built field by field and the mapping filters.
+The regression to fear is a `...r` spread in that mapping, which reads as a
+harmless tidy-up - and which the assertion does catch, loudly. The file's
+comment originally claimed the select was the protection; it now says which
+does the work, and why the column list is still worth keeping.
+
+### Fixed
+- **`docs/fibre-briefing.md` listed every app path without its `/api/v1`
+  prefix.** A client written from that table verbatim would 404 on every call,
+  and it is the first thing an integrator copies. Paths are now written in full.
+
+### Notes
+- An app cannot invent an organiser. `POST /thread/threads` takes an
+  `organiser_person_id` - a person, because the app already links its organiser
+  to a Fibre person and should not have to learn about platform user rows - and
+  that person must have both a Fibre account and a Thread organiser profile.
+  Publishing under a storefront nobody owns would leave a public page with no
+  human behind it.
+- `PATCH` deliberately cannot touch price, payment destination, certificates,
+  tickets or registration fields. Those are money and credentials, and they
+  belong to a human in The Thread's own UI.
+
 ## [0.17.1] — 2026-08-24 — Settings → How The Fibre works
 
 The platform could explain itself to a developer (`docs/building-on-the-fibre.md`)

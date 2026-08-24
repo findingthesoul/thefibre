@@ -16,6 +16,7 @@ import { invalidateAppSlugCache } from '../middleware/app-context.js';
 import { APP_SCOPES, generateToken, partitionScopes } from '../lib/app-keys.js';
 import { readManifestActivityTypes, readManifestScopes } from '../lib/app-manifest.js';
 import { registerAppFlowRoutes } from './app-flow.js';
+import { registerAppThreadRoutes } from './app-thread.js';
 
 export const appsRoutes = new Hono();
 
@@ -819,3 +820,4 @@ appsRoutes.get('/:slug/organisations/:app_entity/:app_record_id', makeResolver('
 // large enough and the rules it enforces are specific to it.
 // ===========================================================================
 registerAppFlowRoutes(appsRoutes);
+registerAppThreadRoutes(appsRoutes);
