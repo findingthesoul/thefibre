@@ -103,13 +103,19 @@ const CONTRACT_SHAPES = {
   link: ['platform_entity', 'platform_id', 'action'],
   flowListItem: ['id', 'name', 'description', 'lifecycle', 'progression', 'system_key', 'current_version_id'],
   flowShape: ['id', 'name', 'description', 'lifecycle', 'progression', 'system_key', 'version_id', 'steps'],
-  flowShapeStep: ['key', 'name', 'description', 'kind', 'ordinal', 'default_tasks'],
+  flowShapeStep: [
+    'key', 'name', 'description', 'kind', 'ordinal', 'default_tasks',
+    'group_key', 'group_label', 'meta',
+  ],
   runCreated: ['id', 'created'],
   run: [
     'id', 'flow_id', 'person_id', 'organisation_id', 'subject_label', 'source_ref',
     'status', 'entered_at', 'current_step_key', 'steps', 'unfiled_tasks',
   ],
-  runStep: ['key', 'name', 'description', 'kind', 'ordinal', 'tasks', 'note', 'status'],
+  runStep: [
+    'key', 'name', 'description', 'kind', 'ordinal', 'tasks', 'note', 'status',
+    'group_key', 'group_label', 'meta',
+  ],
   task: ['id', 'title', 'description', 'status', 'due_at', 'completed_at'],
   taskCreated: ['id', 'step_key'],
   note: ['step_key', 'body', 'updated_at'],
@@ -217,6 +223,29 @@ async function cleanup({ quiet = true, resetForRerun = false } = {}) {
     }
   }
   note('organisation', (await db.from('organisation').delete().eq('domain', ORG_DOMAIN)).error);
+
+  // On a re-run, revive the soft-deleted person from last time rather than
+  // letting the linker create a fresh one. Without this every run stranded one
+  // more soft-deleted row: each is pinned by its own append-only activity, so
+  // nothing could ever collect them and the count only went up. Reviving caps
+  // the residue at exactly one person, however many times this is run.
+  //
+  // Exactly ONE. Reviving them all makes the linker's .maybeSingle() lookup
+  // match many rows, which fails, so it creates yet another — the first
+  // version of this fix added a row instead of reusing one.
+  if (resetForRerun) {
+    const { data: dormant } = await db
+      .from('person')
+      .select('id')
+      .ilike('email', `${PERSON_PREFIX}@example.com`)
+      .not('deleted_at', 'is', null)
+      .order('created_at', { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (dormant) {
+      await db.from('person').update({ deleted_at: null }).eq('id', dormant.id);
+    }
+  }
 
   // The fixture flow. Runs first: flow_run.flow_id has no ON DELETE CASCADE,
   // so the definition cannot go while a run points at it. Tasks and notes DO
@@ -554,8 +583,17 @@ async function main() {
   const { data: fxSteps } = await db
     .from('flow_step')
     .insert([
-      { flow_version_id: fxVersion.id, key: 'listen', name: 'Listen', kind: 'entry', ordinal: 0 },
-      { flow_version_id: fxVersion.id, key: 'gather', name: 'Gather', kind: 'normal', ordinal: 1 },
+      // group_* and meta exercise the v0.17.0 columns: a section two steps
+      // share, and the app-defined fields the platform must hand back verbatim.
+      {
+        flow_version_id: fxVersion.id, key: 'listen', name: 'Listen', kind: 'entry', ordinal: 0,
+        group_key: 'orientation', group_label: 'Orientation',
+        meta: { purpose: 'Hear what is already there', trap: 'Talking first' },
+      },
+      {
+        flow_version_id: fxVersion.id, key: 'gather', name: 'Gather', kind: 'normal', ordinal: 1,
+        group_key: 'orientation', group_label: 'Orientation',
+      },
       { flow_version_id: fxVersion.id, key: 'grow', name: 'Grow', kind: 'end_positive', ordinal: 2 },
     ])
     .select('id, key');
@@ -589,6 +627,30 @@ async function main() {
     shape.status === 200 && shape.body.steps?.length === 3 && shape.body.steps[0].default_tasks?.length === 2,
     'and read its published shape — steps in order, with their task templates',
     `HTTP ${shape.status}`,
+  );
+
+  const shapeListen = (shape.body?.steps ?? []).find((s) => s.key === 'listen');
+  const shapeGrow = (shape.body?.steps ?? []).find((s) => s.key === 'grow');
+  check(
+    shapeListen?.group_key === 'orientation' && shapeListen?.group_label === 'Orientation',
+    'a step carries its section',
+    `${shapeListen?.group_key}/${shapeListen?.group_label}`,
+  );
+  check(
+    shapeGrow?.group_key === null,
+    'an ungrouped step reports null, not a guess',
+    String(shapeGrow?.group_key),
+  );
+  check(
+    shapeListen?.meta?.purpose === 'Hear what is already there' &&
+      shapeListen?.meta?.trap === 'Talking first',
+    'app-defined step fields come back verbatim',
+    JSON.stringify(shapeListen?.meta),
+  );
+  check(
+    shapeGrow?.meta && Object.keys(shapeGrow.meta).length === 0,
+    'a step with no app fields reports {}, so callers need no guard',
+    JSON.stringify(shapeGrow?.meta),
   );
 
   const noAuthoring = await call(`/api/v1/flow/flows/${fx.id}`, { token: FLOWKEY });
@@ -662,6 +724,13 @@ async function main() {
       (afterAdd.body?.unfiled_tasks ?? []).length === 0,
     'and it lands filed under that step, not adrift',
     `${(afterAdd.body?.unfiled_tasks ?? []).length} unfiled`,
+  );
+
+  const runListen = (afterAdd.body?.steps ?? []).find((s) => s.key === 'listen');
+  check(
+    runListen?.group_key === 'orientation' && runListen?.meta?.trap === 'Talking first',
+    'the run shape carries section + app fields too (the call a planner renders)',
+    `${runListen?.group_key} / ${JSON.stringify(runListen?.meta)}`,
   );
 
   const jump = await call(`/api/v1/apps/${SLUG}/flow/runs/${RUN}/move`, {

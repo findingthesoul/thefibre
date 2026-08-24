@@ -208,7 +208,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const { data: steps } = await adminClient
       .from('flow_step')
-      .select('id, key, name, description, kind, ordinal')
+      .select('id, key, name, description, kind, ordinal, group_key, group_label, meta')
       .eq('flow_version_id', flow.current_version_id)
       .order('ordinal');
 
@@ -244,6 +244,13 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
         description: s.description,
         kind: s.kind,
         ordinal: s.ordinal,
+        // Optional section — steps sharing a group_key belong together, in
+        // ordinal order. null on every flow that doesn't group.
+        group_key: s.group_key,
+        group_label: s.group_label,
+        // App-defined fields the platform never interprets. `{}` rather than
+        // null so a consumer can read meta.whatever without a guard.
+        meta: s.meta ?? {},
         default_tasks: byStep.get(s.id) ?? [],
       })),
     });
@@ -398,7 +405,7 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
 
     const { data: steps } = await adminClient
       .from('flow_step')
-      .select('id, key, name, description, kind, ordinal')
+      .select('id, key, name, description, kind, ordinal, group_key, group_label, meta')
       .eq('flow_version_id', run.flow_version_id)
       .order('ordinal');
 
@@ -467,6 +474,9 @@ export function registerAppFlowRoutes(appsRoutes: Hono) {
           description: s.description,
           kind: s.kind,
           ordinal: s.ordinal,
+          group_key: s.group_key,
+          group_label: s.group_label,
+          meta: s.meta ?? {},
           tasks: st,
           note: noteByStep.get(s.id) ?? null,
           // none done → not_started, some → in_progress, all → done.

@@ -54,6 +54,24 @@ const GraphStep = z.object({
   // JSON editor (which omits them) still validates.
   canvas_x: z.number().optional().nullable(),
   canvas_y: z.number().optional().nullable(),
+  // Optional section this step belongs to — see the migration
+  // 20260824120000. Consumers group on group_key; group_label is the display
+  // string and renaming it must not move anything.
+  group_key: z
+    .string()
+    .max(50)
+    .regex(/^[a-z][a-z0-9_-]*$/, 'lowercase, starting with a letter')
+    .optional()
+    .nullable(),
+  group_label: z.string().max(200).optional().nullable(),
+  // App-defined extra fields. The platform never interprets these; the size
+  // bound lives here rather than in a CHECK constraint because the obvious
+  // length test isn't immutable.
+  meta: z
+    .record(z.unknown())
+    .refine((m) => JSON.stringify(m).length <= 8192, 'meta must be under 8KB')
+    .optional()
+    .nullable(),
 });
 
 const GraphGateTask = z.object({
@@ -276,6 +294,9 @@ async function loadGraph(db: ReturnType<typeof userClient>, versionId: string) {
       default_assignee_role: s.default_assignee_role,
       canvas_x: s.canvas_x,
       canvas_y: s.canvas_y,
+      group_key: s.group_key,
+      group_label: s.group_label,
+      meta: s.meta,
     })),
     transitions: (transitions ?? []).map((t) => ({
       from: stepById.get(t.from_step_id),
@@ -478,6 +499,9 @@ flowRoutes.put('/flows/:id/graph', async (c) => {
     default_assignee_role: s.default_assignee_role ?? null,
     canvas_x: s.canvas_x ?? null,
     canvas_y: s.canvas_y ?? null,
+    group_key: s.group_key ?? null,
+    group_label: s.group_label ?? null,
+    meta: s.meta ?? null,
     ordinal: i,
   }));
   const { data: insertedSteps, error: sErr } = await db

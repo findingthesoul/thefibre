@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/l
 
 ## [Unreleased]
 
+## [0.17.0] — 2026-08-24 — Flow 1.13.0: steps gain sections and app-defined fields
+
+The last two structural gaps under the Festival planner
+(`docs/brief-flow-as-planner-engine.md` gaps 3 and 4). `flow_step` had taken no
+new columns since it was created; these three are the ones it needed.
+
+### Added
+- **`flow_step.group_key` + `group_label`** — an optional section. The
+  planner's nine steps fall into three phases (orientation, doing,
+  culmination) that drive its whole visual system, and a step had `ordinal`,
+  `kind`, `canvas_x/y` and nothing to say "these three belong together". Any
+  flow long enough to need sections wants this, so it is a platform column.
+  `group_key` is the stable one consumers group on; renaming `group_label`
+  moves nothing.
+- **`flow_step.meta jsonb`** — app-defined fields the platform never
+  interprets. The planner needs three descriptions per step (purpose, trap,
+  reflection) where `flow_step` offers one. Deliberately not three columns:
+  hard-coding one app's fields invites the next app's four. The brief calls it
+  "the curator-data problem in miniature" and it gets the same answer — the app
+  justifies the field, so the app carries it.
+- Both are **exposed on the app-key contract**, additive per the rules at the
+  top of `routes/app-flow.ts`: `group_key`, `group_label` and `meta` appear on
+  every step in `GET /apps/:slug/flow/flows/:id` and
+  `GET /apps/:slug/flow/runs/:id`. `meta` is `{}` rather than null when unset,
+  so a consumer can read `meta.whatever` without a guard.
+- **A UI home in Flow's builder**, not just columns. The step inspector gets a
+  Section pair and an Extra-fields JSON editor. Without it these would be
+  settable only by SQL — the exact pattern v0.14.0 removed from the app
+  catalogue.
+
+### Fixed
+- **The graph save would have silently destroyed all three.** Saving a flow
+  wipes and re-inserts every step, so a column not carried through
+  `GraphStep` → `loadGraph` → `stepRows` is lost the first time anyone opens
+  the builder and hits save. All three are wired through that round-trip, and
+  the migration carries a note for whoever adds the next column.
+- A step whose `meta` won't parse now **blocks the save** rather than being
+  dropped — since the save wipes first, dropping it would destroy the stored
+  value.
+- **`verify-external-app.mjs` no longer strands a person per run.** Each run
+  soft-deleted the person its activity pinned and the next run created another,
+  so the residue only ever grew (it reached 13). A re-run now revives exactly
+  one dormant row instead. Two subtleties, both found by running it rather than
+  reasoning about it: reviving *all* of them made the linker's `maybeSingle()`
+  match many rows and create yet another, and doing the revive before the
+  soft-delete loop meant the same pass undid it.
+
+### Notes
+- The 13 already-stranded rows can't be collected — each is pinned by its own
+  append-only activity row. All are soft-deleted and invisible.
+
 ## [0.16.1] — 2026-08-23 — The app contract, written down and enforced
 
 Sjoerd asked the right question before building the Festival planner's UI

@@ -189,7 +189,8 @@ Two things to decide, neither structural:
 
 ### 3. No phase grouping on steps
 
-Still open. The nine steps group into three phases — orientation (1–3), doing
+**Shipped v0.17.0** — `flow_step.group_key` + `group_label`, on the app
+contract and in the builder's step inspector. The nine steps group into three phases — orientation (1–3), doing
 (4–6), culmination (7–9) — which drive the whole visual system. `flow_step` has
 `ordinal`, `kind`, `canvas_x/y`; no grouping.
 
@@ -198,7 +199,8 @@ any flow long enough to need sections.
 
 ### 4. Steps carry one description, the planner needs three
 
-Still open. Each step has a **purpose** (one-line intent), a **trap** ("watch
+**Shipped v0.17.0** — `flow_step.meta jsonb`, as argued below. `meta` comes
+back as `{}` rather than null when unset, so a consumer needs no guard. Each step has a **purpose** (one-line intent), a **trap** ("watch
 for"), and a **reflection** (open question). `flow_step` has `name` +
 `description`.
 
@@ -223,7 +225,7 @@ happened to create it. Manual tasks currently have no step at all. Backfill from
 
 ---
 
-## Status — items 1–4 and 6 shipped 2026-08-22
+## Status — everything but the variation (gap 5) has shipped
 
 | Item | State |
 |---|---|
@@ -232,8 +234,8 @@ happened to create it. Manual tasks currently have no step at all. Backfill from
 | `flow_run_note` permission as a run-keyed API rule (+ `app_id`) | v0.15.0 |
 | `flow_task.step_id` | v0.16.0 |
 | Open progression mode | v0.16.0 |
-| Phase grouping on steps (gap 3) | open |
-| Three descriptions per step / `meta jsonb` (gap 4) | open |
+| Phase grouping on steps (gap 3) | v0.17.0 |
+| Three descriptions per step / `meta jsonb` (gap 4) | v0.17.0 |
 | Variation (gap 5) | open |
 | The nine steps seeded | blocked on the real step copy |
 

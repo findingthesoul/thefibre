@@ -392,6 +392,21 @@ template's `due_days_after_entry` is ignored. If your app is a companion
 rather than a taskmaster, that is the one you want. Whoever authors the flow
 chooses; you read it and render accordingly.
 
+**Sections and app-defined fields.** A step may carry a `group_key` /
+`group_label` pair — an optional section, for a flow long enough to need them.
+Steps sharing a `group_key` belong together, in ordinal order; group on the
+key, not the label, because the label is only a display string and can be
+renamed. Both are `null` on a flow that doesn't group.
+
+A step also carries `meta` — a JSON object for whatever your app needs on a
+step that the platform doesn't model. The Festival planner keeps a purpose, a
+trap and a reflection question there. Fibre never reads or validates the
+contents; you get back exactly what was stored. It is `{}` when unset rather
+than `null`, so you can read `meta.whatever` without a guard.
+
+You cannot write either one — like the rest of a flow's shape, they belong to
+whoever authors it in Flow, where the step inspector has fields for both.
+
 Three things that hold everywhere here:
 
 - **You see only your own runs.** Every route filters on the run's

@@ -63,9 +63,45 @@ type StepData = {
   kind: Kind;
   description?: string | null;
   expected_duration_days?: number | null;
+  // Optional section (migration 20260824120000). Steps sharing a group_key
+  // belong together; group_label is only the display string.
+  group_key?: string | null;
+  group_label?: string | null;
+  // App-defined extra fields the platform never interprets. Held as a string
+  // in the editor so half-typed JSON doesn't blow up on every keystroke —
+  // it's parsed on save, and an unparseable value blocks the save.
+  meta_text?: string | null;
   default_tasks: DefaultTask[];
   onRename: (id: string, name: string) => void;
 };
+/**
+ * The step `meta` textarea → what the API stores.
+ *
+ * Blank means null, not `{}` — "this step has no app metadata" and "it has an
+ * empty object" should not be the same row. Anything unparseable returns
+ * undefined, which `metaError` turns into a blocked save rather than a silent
+ * loss: the save path wipes and re-inserts every step, so quietly dropping a
+ * bad value would destroy whatever was stored before.
+ */
+function parseMeta(text: string | null | undefined): Record<string, unknown> | null | undefined {
+  const raw = (text ?? '').trim();
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return undefined;
+    return parsed as Record<string, unknown>;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Human-readable reason a step's meta can't be saved, or null. */
+function metaError(text: string | null | undefined): string | null {
+  const raw = (text ?? '').trim();
+  if (!raw) return null;
+  return parseMeta(text) === undefined ? 'must be a JSON object, e.g. {"purpose": "…"}' : null;
+}
+
 type EdgeData = {
   label: string;
   gate_logic: 'all' | 'any';
@@ -81,6 +117,9 @@ type InGraph = {
     expected_duration_days?: number | null;
     canvas_x?: number | null;
     canvas_y?: number | null;
+    group_key?: string | null;
+    group_label?: string | null;
+    meta?: Record<string, unknown> | null;
   }[];
   transitions: {
     from: string;
@@ -243,6 +282,9 @@ function CanvasInner({
           kind: s.kind,
           description: s.description ?? null,
           expected_duration_days: s.expected_duration_days ?? null,
+          group_key: s.group_key ?? null,
+          group_label: s.group_label ?? null,
+          meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : '',
           default_tasks: defaultsByStep.get(s.key) ?? [],
           onRename: (id: string, name: string) => renameRef.current(id, name),
         } as StepData,
@@ -306,6 +348,9 @@ function CanvasInner({
           kind,
           description: null,
           expected_duration_days: null,
+          group_key: null,
+          group_label: null,
+          meta_text: '',
           default_tasks: [],
           onRename: (id: string, name: string) => renameRef.current(id, name),
         } as StepData,
@@ -387,6 +432,9 @@ function CanvasInner({
           expected_duration_days: d.expected_duration_days ?? null,
           canvas_x: Math.round(n.position.x),
           canvas_y: Math.round(n.position.y),
+          group_key: d.group_key || null,
+          group_label: d.group_label || null,
+          meta: parseMeta(d.meta_text),
         };
       });
     const transitions = edges.map((e) => {
@@ -407,6 +455,15 @@ function CanvasInner({
   }
 
   async function onSave(thenPublish = false) {
+    // Saving wipes and re-inserts every step, so a step whose meta won't parse
+    // has to stop the save outright — dropping it would destroy the value
+    // that is currently stored.
+    const bad = nodes.find((n) => metaError((n.data as StepData).meta_text));
+    if (bad) {
+      setNotice(null);
+      setError(`Step "${(bad.data as StepData).name}": extra fields ${metaError((bad.data as StepData).meta_text)}`);
+      return;
+    }
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -702,6 +759,45 @@ function StepPanel({
           value={d.expected_duration_days ?? ''}
           onChange={(e) => onPatch({ expected_duration_days: e.target.value ? parseInt(e.target.value, 10) : null })}
         />
+      </Field>
+
+      <Field label="Section">
+        <input
+          className={inputCls}
+          placeholder="Orientation"
+          value={d.group_label ?? ''}
+          onChange={(e) => onPatch({ group_label: e.target.value || null })}
+        />
+        <input
+          className={`${inputCls} mt-1.5 font-mono text-xs`}
+          placeholder="orientation"
+          value={d.group_key ?? ''}
+          onChange={(e) => onPatch({ group_key: e.target.value.toLowerCase() || null })}
+        />
+        <p className="mt-1 text-[11px] text-ink-muted">
+          Groups long flows into sections. Steps sharing the lower value belong together —
+          it's the stable one, so rename the label freely but change the key only
+          deliberately. Lowercase letters, digits, <code>_</code> and <code>-</code>.
+        </p>
+      </Field>
+
+      <Field label="Extra fields">
+        <textarea
+          className={`${inputCls} font-mono text-xs`}
+          rows={5}
+          placeholder={'{\n  "purpose": "…",\n  "trap": "…"\n}'}
+          value={d.meta_text ?? ''}
+          onChange={(e) => onPatch({ meta_text: e.target.value })}
+        />
+        {metaError(d.meta_text) ? (
+          <p className="mt-1 text-[11px] text-red-700">Extra fields {metaError(d.meta_text)}</p>
+        ) : (
+          <p className="mt-1 text-[11px] text-ink-muted">
+            A JSON object for whatever an app needs on this step that the platform
+            doesn't model — the Festival planner keeps its purpose, trap and
+            reflection here. Fibre never reads these; apps see them verbatim.
+          </p>
+        )}
       </Field>
 
       <div>
