@@ -46,7 +46,27 @@ ssoRoutes.post('/resolve', async (c) => {
     p_provider_avatar_url: body.data.provider_avatar_url ?? null,
     p_provider_metadata: body.data.provider_metadata ?? {},
   });
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    // Log it. This route failing is invisible from the outside: the auth
+    // callback deliberately treats a resolve failure as non-fatal, so the user
+    // lands in the app with a valid Supabase session, no public.user row, and
+    // every subsequent API call 401s. Without this line the only trace is a
+    // bare "500" in the access log.
+    //
+    // That is exactly how a 42702 in resolve_sso_identity went unnoticed from
+    // 2026-05-16 until the first new workspace was created. See CLAUDE.md,
+    // "Reviewer's note".
+    console.error('[sso/resolve] resolve_sso_identity failed', {
+      workspace_id: body.data.workspace_id,
+      provider: body.data.provider,
+      email: body.data.provider_email,
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message }, 500);
+  }
   return c.json(data?.[0] ?? null);
 });
 

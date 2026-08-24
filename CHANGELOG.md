@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.5] — 2026-08-24 — the first user of a new workspace could never sign in
+
+Creating the second workspace on this platform surfaced a bug that had been
+sitting in `resolve_sso_identity` since 2026-05-16. **Anyone who was the first
+user of a new workspace got a completely broken account**: Supabase Auth signed
+them in, they landed in the app, and then every single API call returned 401 —
+contacts, settings, profile, all of it.
+
+### Fixed
+- **`resolve_sso_identity` raised 42702 in its create-a-new-user branch.**
+  The function is declared `returns table (user_id uuid, resolution text)`, so
+  `user_id` is an OUT parameter. The branch that provisions a brand-new person
+  ends with:
+
+  ```sql
+  insert into public.app_membership (user_id, app_id, role)
+  values (v_user_id, v_platform_app, 'admin')
+  on conflict (user_id, app_id) do nothing;
+  ```
+
+  An ON CONFLICT target cannot be table-qualified, so that `user_id` is
+  ambiguous against the OUT parameter and Postgres refuses the whole call.
+  Fixed with `#variable_conflict use_column`, which makes bare identifiers
+  resolve to columns. Safe because the body reads `v_user_id` / `v_resolution`
+  throughout and never the OUT names.
+
+- **`/sso/resolve` now logs the Postgres error** (code, message, details,
+  hint) instead of returning a bare 500. See below for why that mattered.
+
+### Why it hid for three months
+Only the third branch of the resolver — create a new person *and* user — hits
+that statement. Branches 1 and 2 (match by provider id, match by email) do not,
+and every sign-in since May took one of those, because the account already
+existed: accounts are auto-created at enrolment, and the seeded users predate
+the migration. **The first person ever to reach branch 3 was the first user of
+the second workspace.**
+
+The failure mode made it worse. `apps/web/app/auth/callback/route.ts` treats a
+resolve failure as non-fatal and carries on — reasonable, since the Supabase
+session is genuinely valid — so the user is dropped into the app with no
+`public.user` row. The access-token hook then injects no `app_user_id` or
+`workspace_id` claim, and the API rejects everything. Nothing anywhere said
+why. The only trace was `POST /api/v1/sso/resolve 500` in the Fly access log.
+
+That is the second time the reviewer's note in CLAUDE.md has been earned: the
+diagnosis took twenty minutes of hypothesising and about ninety seconds once
+the RPC was called directly and Postgres was allowed to say what was wrong.
+`/sso/resolve` logs properly now.
+
+
 ### Fixed
 - **The user menu had two entries that did the same thing** (Sjoerd, 2026-08-24:
   "under SL (right top), profile and settings are the same"). It was three
