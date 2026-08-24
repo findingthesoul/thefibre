@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+### Added
+- `apps/api/scripts/inspect-tenancy.mjs` — read-only diagnostic printing every
+  workspace, signup request, user and organisation, plus per-workspace row
+  counts. Writes nothing. Added while undoing an accidentally-provisioned
+  workspace; the useful lesson was that `approve` on a signup request is the
+  *only* thing that creates a `workspace`, and it is not reversible from any UI.
+
+
 ## [0.18.0] - 2026-08-24 - The Thread opens to external apps
 
 `docs/brief-thread-and-registrations.md` §1-§3. The planner could already run
