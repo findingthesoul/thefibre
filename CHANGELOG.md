@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.17.2] — 2026-08-24 — The Help link goes somewhere
+
+Every Fibre sidebar has had a **Help** link in its footer since the shell was
+first built. In all five apps it pointed at `/help`, and in all five apps that
+route did not exist — clicking Help 404'd. Pre-existing, not introduced by
+v0.17.1; found while wiring up Settings → How The Fibre works.
+
+### Added
+- **`/help` in all five apps** — The Fibre, Meet, The Thread, Flow and Pulse.
+  Each page is app-specific and has three parts:
+  - **Getting around** — one card per sidebar entry, saying what it is for.
+    The blurbs are lifted verbatim from the pages' own headers, so Help can
+    never quietly contradict the page it describes.
+  - **The rest of your Fibre** — the other apps, with their taglines, built
+    from `buildAppList()`. Same rule as the app switcher: switched on for the
+    workspace *and* you are a member. No hardcoded app list (v0.14.0's rule).
+  - **Read more** — through to *How The Fibre works*, plus where the app
+    contract and the changelog live for anyone building against the platform.
+- **`@thefibre/shared/ui/help`** — the page chrome, written once. Server
+  renderable (no hooks, no `'use client'`); `next/link` is injected as a prop
+  so the shared package keeps no Next.js dependency. Five copies of this
+  layout would have drifted the way `date-field` did before v0.13.105.
+
+### Changed
+- The sidebar Help link now takes the selected style when you are on `/help`,
+  like every other nav item.
+
 ## [0.17.1] — 2026-08-24 — Settings → How The Fibre works
 
 The platform could explain itself to a developer (`docs/building-on-the-fibre.md`)

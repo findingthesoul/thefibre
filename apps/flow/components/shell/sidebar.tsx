@@ -177,12 +177,18 @@ function NavLink({
 }
 
 function Footer({ expanded, version }: { expanded: boolean; version: string }) {
+  const pathname = usePathname();
+  const helpActive = pathname === '/help';
   return (
     <div className="px-2 py-3 border-t border-line">
       <Link
         href="/help"
         title="Help"
-        className="flex items-center gap-3 h-9 rounded-md px-2.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-raised/60"
+        className={`flex items-center gap-3 h-9 rounded-md px-2.5 text-sm transition-colors ${
+          helpActive
+            ? 'bg-surface-raised text-ink ring-1 ring-line'
+            : 'text-ink-subtle hover:text-ink hover:bg-surface-raised/60'
+        }`}
       >
         <HelpCircle size={18} strokeWidth={1.75} className="shrink-0" />
         {expanded && <span>Help</span>}

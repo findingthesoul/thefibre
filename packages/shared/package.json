@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.17.1",
+  "version": "0.17.2",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -13,6 +13,10 @@
     "./ui/date-field": {
       "types": "./dist/ui/date-field.d.ts",
       "default": "./dist/ui/date-field.js"
+    },
+    "./ui/help": {
+      "types": "./dist/ui/help.d.ts",
+      "default": "./dist/ui/help.js"
     }
   },
   "files": [
