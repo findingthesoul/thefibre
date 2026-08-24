@@ -110,8 +110,8 @@ export function UserMenu({
           </div>
 
           <Divider />
-          <Item icon={UserIcon} label="Profile" href="https://thefibre.app/settings" onClick={() => setOpen(false)} />
-          <Item icon={Settings} label="Settings" href="https://thefibre.app/settings" onClick={() => setOpen(false)} />
+          <Item icon={UserIcon} label="Profile" href="/settings/profile" onClick={() => setOpen(false)} />
+          <Item icon={Settings} label="Settings" href="/settings" onClick={() => setOpen(false)} />
           {/* "Take a tour" stays as a dead placeholder until the tour exists. */}
           <Item icon={Compass} label="Take a tour" disabled />
 

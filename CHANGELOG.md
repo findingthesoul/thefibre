@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+### Fixed
+- **The user menu had two entries that did the same thing** (Sjoerd, 2026-08-24:
+  "under SL (right top), profile and settings are the same"). It was three
+  different faults behind one symptom, so three different fixes:
+  - **Pulse** was the real bug. It has its own `/settings` *and*
+    `/settings/profile`, but both menu items pointed at
+    `https://thefibre.app/settings` — so Pulse's own settings (payments, teams,
+    offerings, reservations, stages) were unreachable from the menu, and both
+    entries bounced you out of the app. Now points at its own two pages, like
+    Meet and Thread.
+  - **Flow** has no settings of its own; profile and preferences live on the
+    platform. Two items to the same external page is noise, so it is one item.
+  - **Fibre web** is the platform, and its `/settings` is a single page whose
+    first section *is* Profile — there is no `/settings/profile` to point at.
+    One item rather than two to the same place.
+
+  Meet and Thread were already correct, which is why the symptom only showed up
+  in three of the five apps.
+
+
 ## [0.18.4] — 2026-08-24 — super admins cannot be deleted
 
 The platform has one super admin, and nothing stopped that row being removed.

@@ -110,7 +110,9 @@ export function UserMenu({
           </div>
 
           <Divider />
-          <Item icon={UserIcon} label="Profile" href="https://thefibre.app/settings" onClick={() => setOpen(false)} />
+          {/* Flow has no settings of its own — profile and preferences live on
+              the platform, so this is one item rather than two that went to
+              the same page. */}
           <Item icon={Settings} label="Settings" href="https://thefibre.app/settings" onClick={() => setOpen(false)} />
           {/* "Take a tour" stays as a dead placeholder until the tour exists. */}
           <Item icon={Compass} label="Take a tour" disabled />
