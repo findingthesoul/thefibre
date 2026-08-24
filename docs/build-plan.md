@@ -20,7 +20,13 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-08-22 (v0.14.0). Done items get removed, not ticked._
+_Last groomed 2026-08-24 (v0.17.2). Done items get removed, not ticked._
+
+_v0.17.2 gave the sidebar Help link a destination in all five apps
+(`@thefibre/shared/ui/help` + a per-app `/help`). Its sibling is still open:
+`FOOTER_LINKS` in `packages/shared/src/branding.ts` points transactional email
+footers at `thefibre.app/support`, `/about` and `/terms`, and none of those
+three public routes exists — see item 1c._
 
 _Flow-as-planner-engine (docs/brief-flow-as-planner-engine.md) is complete
 except gap 5, the communities/organisations variation — which the brief itself
@@ -53,6 +59,13 @@ the live proof that path works. Item 1b carries what that needs from us._
    spec sources it from "manual documents A2", not on this machine).
    After that: The Thread gets the same app-key treatment, so the planner can
    turn a festival into a public page with tickets. Same shape, new scope pair.
+
+1c. **Public /support, /about and /terms on thefibre.app** — every
+   transactional email we send footers to all three (`FOOTER_LINKS`,
+   `packages/shared/src/branding.ts`); all three 404. Signed-out routes, so
+   they live outside `app/(app)/`. Smallest honest version: /terms with the
+   real text, /about pointing at the marketing story, /support with an address
+   that a human reads. Needs Sjoerd's copy, not much code.
 
 2. **Members UI role vocabulary** — API accepts
    super_admin/admin/organiser; the web Members page still shows the old
