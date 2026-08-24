@@ -18,9 +18,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
     Meet and Thread.
   - **Flow** has no settings of its own; profile and preferences live on the
     platform. Two items to the same external page is noise, so it is one item.
-  - **Fibre web** is the platform, and its `/settings` is a single page whose
-    first section *is* Profile — there is no `/settings/profile` to point at.
-    One item rather than two to the same place.
+  - **Fibre web** was the platform being the odd one out: Meet, Thread and
+    Pulse all have a `/settings/profile`, and web kept those two sections
+    inline on `/settings`, so a "Profile" menu entry had nowhere to point but
+    the same page as "Settings". It now has the page the others have — your
+    details and your public profile moved to `/settings/profile`, and
+    `/settings` links to it the way it already links "How The Fibre works".
 
   Meet and Thread were already correct, which is why the symptom only showed up
   in three of the five apps.

@@ -3,7 +3,6 @@ import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
-import { ProfileForm, PublicProfileForm, type PublicProfile } from './profile-form';
 
 type Me = {
   user: {
@@ -28,20 +27,11 @@ type Me = {
 
 export default async function SettingsPage() {
   let me: Me | null = null;
-  let profile: PublicProfile | null = null;
   let error: string | null = null;
   try {
     me = await apiFetch<Me>('/api/v1/auth/me');
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
-  }
-
-  // Public profile is a separate resource — failure here shouldn't take
-  // down the whole settings page.
-  try {
-    profile = await apiFetch<PublicProfile>('/api/v1/profile');
-  } catch {
-    profile = null;
   }
 
   const explicitAdmin =
@@ -63,42 +53,20 @@ export default async function SettingsPage() {
         <>
           <section className="mt-12">
             <SectionLabel>Profile</SectionLabel>
-            <ProfileForm me={me.user} />
-            <div className="mt-6 text-xs text-ink-muted space-y-1">
-              <div>
-                <span className="uppercase tracking-wider">Email</span>{' '}
-                · {me.user.email}{' '}
-                <span className="text-ink-muted">— managed by your identity provider</span>
-              </div>
-              <div>
-                <span className="uppercase tracking-wider">Sign-in method</span>{' '}
-                · {me.user.primary_auth_method ?? '—'}
-              </div>
-              {me.user.last_sign_in && (
-                <div>
-                  <span className="uppercase tracking-wider">Last sign-in</span>{' '}
-                  ·{' '}
-                  {new Date(me.user.last_sign_in).toLocaleString('en-GB', {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                </div>
-              )}
-            </div>
-          </section>
-
-          <section className="mt-14">
-            <SectionLabel>Public profile</SectionLabel>
-            <p className="mt-1 text-xs text-ink-muted">
-              Shared across the Fibre apps — Meet and Thread inherit these.
+            <p className="mt-3 text-sm text-ink-subtle">
+              Your name, how you sign in, and the public profile every Fibre app
+              inherits.
             </p>
-            {profile ? (
-              <PublicProfileForm profile={profile} />
-            ) : (
-              <p className="mt-3 text-sm text-ink-subtle">
-                Couldn't load your public profile right now.
-              </p>
-            )}
+            <Link
+              href="/settings/profile"
+              className="mt-4 flex items-baseline justify-between gap-4 rounded-lg border border-line bg-surface-raised px-5 py-4 hover:bg-surface-sunken"
+            >
+              <span>
+                <span className="font-medium">{me.user.full_name ?? me.user.email}</span>
+                <span className="block text-sm text-ink-subtle">{me.user.email}</span>
+              </span>
+              <span className="shrink-0 text-xs text-ink-muted">Edit &rarr;</span>
+            </Link>
           </section>
 
           <section className="mt-14">

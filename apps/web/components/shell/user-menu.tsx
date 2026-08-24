@@ -110,10 +110,7 @@ export function UserMenu({
           </div>
 
           <Divider />
-          {/* One item, not two. Unlike Meet/Thread/Pulse there is no
-              /settings/profile here — the platform's settings is a single page
-              that opens with the Profile section — so a separate "Profile"
-              entry just went to the same place. */}
+          <Item icon={UserIcon} label="Profile" href="/settings/profile" onClick={() => setOpen(false)} />
           <Item icon={Settings} label="Settings" href="/settings" onClick={() => setOpen(false)} />
           {/* "Take a tour" stays as a dead placeholder until we build the tour. */}
           <Item icon={Compass} label="Take a tour" disabled />
