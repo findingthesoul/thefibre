@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.4] — 2026-08-24 — super admins cannot be deleted
+
+The platform has one super admin, and nothing stopped that row being removed.
+There is no UI anywhere to grant the flag, so losing it would have meant
+nobody could approve a person or an app onto the platform ever again, and
+putting it right would have needed a direct write with the service-role key.
+
+### Added
+- **`protect_super_admin()` trigger** on `public."user"` — before update and
+  before delete. Three rules:
+  - a super admin cannot be hard-deleted;
+  - a super admin cannot be soft-deleted while they still hold the flag;
+  - the flag cannot be removed from the **last** remaining super admin.
+
+  The third is what makes the first two mean anything. Without it the guard is
+  bypassable in two innocent-looking steps — revoke from everyone, then delete
+  everyone — and the platform ends up with users and no way to administer it.
+
+  It is an **interlock, not immortality**: revoke the flag first, then delete.
+  Setting `deleted_at` and `is_super_admin = false` in the same statement is
+  allowed, because that is someone saying both things on purpose.
+
+### Notes
+- **A trigger rather than app code, deliberately.** `public."user"` is written
+  from the API on a user JWT, the API on the service role, the erasure flow,
+  one-off scripts and the Supabase SQL editor. RLS does not apply to the
+  service role and app code cannot see the SQL editor at all. The database is
+  the only place a guarantee like this holds.
+- **It guards the role, not two email addresses.** Hardcoding the two current
+  admins would rot at the first address change and would say nothing about
+  why those rows are special. The real rule is "you must not be able to lock
+  yourself out", which is what `is_super_admin` expresses.
+- **It cannot cover `auth.users`.** Deleting the Supabase Auth record breaks
+  sign-in even though `public."user"` survives. That table belongs to
+  `supabase_auth_admin` and adding triggers to it risks breaking Supabase's
+  own operations, so it is left alone. The Auth users list stays a sharp edge.
+- Verified against the live database: hard delete, soft delete and last-admin
+  revoke all refused; ordinary users still soft- and hard-deletable.
+
+
 ### Added
 - `apps/api/scripts/grant-super-admin.mjs` — grant, revoke or list platform
   super-admins. No UI for this by design: it is the flag that unlocks Admin →
