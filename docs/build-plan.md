@@ -22,6 +22,10 @@ the queue.
 
 _Last groomed 2026-08-22 (v0.14.0). Done items get removed, not ticked._
 
+_Flow-as-planner-engine (docs/brief-flow-as-planner-engine.md) is complete
+except gap 5, the communities/organisations variation — which the brief itself
+says may not belong in Flow at all. That needs a design call before code._
+
 _External apps (docs/brief-external-apps.md) shipped whole in v0.14.0 — open
 catalogue + lifecycle, `app_key` with enforced scopes, org links, bulk links,
 manifest-validated activity types. Follow-ups from its §4 that are still open
@@ -39,7 +43,10 @@ the live proof that path works. Item 1b carries what that needs from us._
    enrol forms until this lands.
 1b. **Seed the planner's nine steps as a flow** — the platform work is DONE
    (0.15.0 app-key access to Flow; 0.16.0 `flow_task.step_id` +
-   `flow_definition.progression`, with a self-paced toggle in Flow's UI). What
+   `flow_definition.progression`, with a self-paced toggle in Flow's UI;
+   0.17.0 `flow_step.group_key/group_label` for the three phases and
+   `meta jsonb` for purpose / trap / reflection, both on the app contract and
+   both editable in the builder's step inspector). What
    remains needs content, not code: the nine steps as a workspace flow with a
    `system_key`, following the `pulse_pipeline` precedent. Blocked on the real
    step copy — what's in the planner's `festival-plan.ts` is placeholder (the
