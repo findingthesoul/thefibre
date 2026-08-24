@@ -162,6 +162,26 @@ export default async function SettingsPage() {
           </section>
 
           <section className="mt-14">
+            <SectionLabel>About this platform</SectionLabel>
+            <p className="mt-3 text-sm text-ink-subtle">
+              What The Fibre holds, what each app holds, and what an app built by
+              someone else is allowed to reach — in plain words, with diagrams.
+            </p>
+            <Link
+              href="/settings/about"
+              className="mt-4 flex items-baseline justify-between gap-4 rounded-lg border border-line bg-surface-raised px-5 py-4 hover:bg-surface-sunken"
+            >
+              <span>
+                <span className="font-medium">How The Fibre works</span>
+                <span className="block text-sm text-ink-subtle">
+                  The data wall, the three crossings, and the whole app contract
+                </span>
+              </span>
+              <span className="shrink-0 text-xs text-ink-muted">Read &rarr;</span>
+            </Link>
+          </section>
+
+          <section className="mt-14">
             <SectionLabel>Privacy</SectionLabel>
             <p className="mt-3 text-sm text-ink-subtle">
               Consent records, data subject requests, and erasure live on the{' '}

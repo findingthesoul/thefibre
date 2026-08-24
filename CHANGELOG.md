@@ -2,9 +2,52 @@
 
 All notable changes to The Fibre. Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), versioning follows [SemVer](https://semver.org/).
 
-The displayed version comes from the `VERSION` constant in `apps/web/app/(app)/layout.tsx`. Bump it whenever a change ships.
+The displayed version comes from the `VERSION` constant in `apps/web/lib/version.ts`. Bump it whenever a change ships.
 
 ## [Unreleased]
+
+## [0.17.1] — 2026-08-24 — Settings → How The Fibre works
+
+The platform could explain itself to a developer (`docs/building-on-the-fibre.md`)
+and to nobody else. This is the same contract, in the product, in plain words —
+so a workspace admin deciding whether to switch an outside app on can actually
+see what they are agreeing to.
+
+### Added
+- **Settings → How The Fibre works** (`/settings/about`). One page, twelve
+  sections, three hand-drawn SVG diagrams:
+  - **The building** — the front desk keeps the register; each app keeps its
+    own files; outside apps come through one door with a badge.
+  - **The data wall** — what the platform owns, what an app owns, and the three
+    openings between them.
+  - **The badge** — the same app, drawn twice: reaching everything a borrowed
+    staff sign-in reaches, versus the two things an `app_key` reaches. The
+    blast-radius difference is the whole argument for v0.14.0, and it is much
+    easier to see than to read.
+  Plus the complete app-key route list with the scope each one costs, the
+  permission vocabulary (including `write:flows` struck through, because it
+  deliberately does not exist), a rule-by-rule table of *what actually enforces
+  this*, why it was built this way, what it costs, and a glossary that
+  translates every term on the page.
+- The diagrams are drawn entirely with the app's own tokens (`surface` / `ink` /
+  `line`), so both themes come for free; amber is reserved for "outside the
+  building" and red for "refused".
+- Live facts on the same page: version, workspace, plan, and which apps are
+  actually switched on here.
+
+### Changed
+- **`VERSION` moved to `apps/web/lib/version.ts`.** It was a private const in
+  `app/(app)/layout.tsx`, which meant a second surface wanting to show it had
+  no way to ask. The sidebar footer and the new page now read the same
+  constant. `CLAUDE.md` updated to point at the new file.
+
+### Notes for whoever picks this up
+- `settings/about/reference.tsx` restates `APP_KEY_ROUTES`
+  (`middleware/app-context.ts`) and `APP_SCOPES` (`lib/app-keys.ts`) in plain
+  English. Those two files are the source of truth — add a route or a scope
+  there and this page starts lying to people until it is updated too. The file
+  header says so.
+
 
 ## [0.17.0] — 2026-08-24 — Flow 1.13.0: steps gain sections and app-defined fields
 

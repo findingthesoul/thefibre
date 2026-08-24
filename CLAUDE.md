@@ -52,7 +52,7 @@ pnpm dev          # all six dev servers: api :8080, web :3000, meet :3001, threa
 ```
 
 ### Version bumps
-Every shipped change updates the **eight** `package.json` files (root, web, api, meet, thread, flow, pulse, shared) plus `apps/web/app/(app)/layout.tsx` (the `VERSION` constant shown in the Fibre sidebar footer). The CHANGELOG entry lands in the same commit.
+Every shipped change updates the **eight** `package.json` files (root, web, api, meet, thread, flow, pulse, shared) plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit.
 
 **Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work. **Pulse likewise** has its own `VERSION` in `apps/pulse/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-07-07).
 
