@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.3] — 2026-08-24 — Admin → Workspaces
+
+A super admin could not see the tenants of their own platform. There was no
+workspace list anywhere in the product and no endpoint behind one; the only
+way to enumerate them was a script. That gap is how a workspace created by
+mistake stayed invisible — Access requests looks like a workspace list and is
+not one (it lists `signup_request` rows, so a workspace born any other way,
+including the original seeded one, never appears there).
+
+### Added
+- **`GET /api/v1/workspaces`** — every workspace with live counts of users,
+  contacts, organisations, activity and active apps. Super-admin only.
+  Deliberately read-only: no create (approving an access request is the only
+  path, and that human gate is the point) and no delete (`workspace_id` is
+  referenced by 54 tables — a cascade you cannot preview from a confirm
+  dialog). Runs on `adminClient`, because the `workspace_self` RLS policy
+  scopes SELECT to `current_workspace_id()` and even a super admin's own JWT
+  cannot see another workspace. **The explicit `is_super_admin` check is
+  therefore the entire gate, not a nicety on top of RLS — do not remove it.**
+- **Admin → Workspaces** (`/admin/workspaces`), plus its sidebar entry.
+  An **Empty** badge marks any workspace nobody has ever signed into (no
+  users, no contacts, no activity) — the signal the page exists for. A count
+  that fails renders `?` rather than `0`, because on this page a false zero is
+  the one genuinely wrong answer: zero is exactly what "safe to delete" looks
+  like.
+
+### Notes
+- Counts filter soft-deleted rows, so they read lower than raw table counts —
+  23 live contacts against 38 rows, 4 active apps against 6 `workspace_app`
+  rows. That is the intended reading: what is actually in the workspace.
+- If a delete is ever added here, it must refuse unless the workspace is
+  provably empty, the way the one-off Festival-of-Trust cleanup did. A confirm
+  dialog is not a substitute for a precondition.
+
+
 ### Added
 - `apps/api/scripts/inspect-tenancy.mjs` — read-only diagnostic printing every
   workspace, signup request, user and organisation, plus per-workspace row

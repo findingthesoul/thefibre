@@ -15,6 +15,7 @@ import {
   CalendarRange,
   UserCheck,
   Boxes,
+  Layers,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -155,6 +156,7 @@ function NavSections({
               ...(isSuperAdmin
                 ? [
                     { href: '/admin/access-requests', label: 'Access requests', icon: UserCheck },
+                    { href: '/admin/workspaces', label: 'Workspaces', icon: Layers },
                     { href: '/admin/apps', label: 'App registry', icon: Boxes },
                   ]
                 : []),
