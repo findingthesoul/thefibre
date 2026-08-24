@@ -42,7 +42,7 @@ export const ENTITY = {
 /** URLs surfaced in the footer of public emails, and by the policy list a
  *  participant accepts when enrolling. All four are real public routes in
  *  apps/web/app/(public)/ — they must stay that way (they 404'd from the
- *  first email we ever sent until v0.17.3). Note `privacy` is deliberately
+ *  first email we ever sent until v0.18.2). Note `privacy` is deliberately
  *  /privacy-policy, not /privacy: the latter is the signed-in dashboard where
  *  you manage your own consents. */
 export const FOOTER_LINKS = {

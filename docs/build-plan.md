@@ -20,11 +20,11 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-08-24 (v0.17.3). Done items get removed, not ticked._
+_Last groomed 2026-08-24 (v0.18.2). Done items get removed, not ticked._
 
-_The dead-public-link family is closed. v0.17.2 gave the sidebar Help link a
+_The dead-public-link family is closed. v0.18.1 gave the sidebar Help link a
 destination in all five apps (`@thefibre/shared/ui/help` + a per-app `/help`);
-v0.17.3 built the four public routes every transactional email footers to
+v0.18.2 built the four public routes every transactional email footers to
 (`/about`, `/support`, `/terms`, `/privacy-policy`, in `app/(public)/`) and
 repointed The Thread's required privacy policy at the one that is actually a
 privacy policy. **Both legal documents are unreviewed** — a lawyer reading
@@ -59,11 +59,14 @@ the live proof that path works. Item 1b carries what that needs from us._
    `system_key`, following the `pulse_pipeline` precedent. Blocked on the real
    step copy — what's in the planner's `festival-plan.ts` is placeholder (the
    spec sources it from "manual documents A2", not on this machine).
-   After that: The Thread gets the same app-key treatment, so the planner can
-   turn a festival into a public page with tickets. Same shape, new scope pair.
+   The Thread's app-key surface shipped in v0.18.0 (`routes/app-thread.ts`:
+   publish a programme as a public page, edit it, read its registrations;
+   `read:programs` / `write:programs` / `read:enrolments`, and deliberately no
+   `write:enrolments`). So the whole arc — plan on Flow, publish on The Thread,
+   read who came — is reachable from outside. What remains is content.
 
 1c. **Legal review of /terms and /privacy-policy (Sjoerd, not code)** — both
-   went live in v0.17.3 written from what the platform actually does, because
+   went live in v0.18.2 written from what the platform actually does, because
    the routes they replaced 404'd and enrolees were ticking "I accept the
    privacy policy" against nothing. They are accurate and conservative but
    have not been near a lawyer. A Dutch commercial/privacy lawyer should read

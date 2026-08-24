@@ -419,6 +419,62 @@ Three things that hold everywhere here:
 
 ---
 
+### 5.5 Publish a programme on The Thread
+
+Flow runs a process; The Thread gives it a public page and takes registrations.
+An app that plans something can publish it, keep the page in step as the plan
+firms up, and see who signed up.
+
+```bash
+# Publish. organiser_person_id is a PERSON — you already link your organiser to
+# one, and you shouldn't need to learn about platform user rows to publish.
+curl -X POST -H "Authorization: Bearer $KEY" -H 'Content-Type: application/json' \
+     -d '{"title":"Festival of Trust — Athens","format":"event",
+          "slug":"athens-2026","organiser_person_id":"'$PERSON'",
+          "source_ref":"'$MY_ID'"}' \
+     "$API/api/v1/apps/my-app/thread/threads"
+
+# Who registered
+curl -H "Authorization: Bearer $KEY" \
+     "$API/api/v1/apps/my-app/thread/threads/$THREAD_ID/enrolments"
+```
+
+| | |
+|---|---|
+| `GET /thread/threads` | The pages you published |
+| `GET /thread/threads/:id` | One of them |
+| `PATCH /thread/threads/:id` | Title, dates, intention, cover, capacity, listing, status |
+| `GET /thread/threads/:id/enrolments` | Who registered, and where each registration stands |
+
+**Publishing is idempotent on `source_ref`**, like starting a flow run: a retry
+returns the page that already exists (`"created": false`) rather than a second
+public page. Use the same `source_ref` on the run and the page and the two are
+linked with no extra bookkeeping.
+
+**A registration is a platform row.** `enrolment` is the registration itself;
+The Thread layers the storefront, the money and the form answers on top. That is
+why you can read it at all — you are reading platform data through a
+Thread-shaped lens, not into another app's private tables.
+
+**What you will never receive**, however the response grows: the registration
+form `answers`, and `amount_cents`, `coupon_id`, `stripe_session_id`,
+`stripe_payment_intent`. Whatever the organiser asked people on the way in is
+between them and the organiser, and payment instruments are nobody's business
+but The Thread's. You do get `payment_status` — a state, not an instrument.
+
+**What you cannot do:**
+
+- **Write an enrolment.** There is no `write:enrolments` scope. An app that
+  could write them could enrol arbitrary people in arbitrary programmes, and
+  that row is what the certificate and payout chain hangs off. Registration
+  comes from the public form.
+- **Set price, payment destination, tickets, certificates or registration
+  fields.** Money and credentials belong to a human in The Thread's own UI.
+- **Invent an organiser.** The person you name must have a Fibre account and a
+  Thread organiser profile. A page with no human behind it is not a page.
+
+Scopes: `read:programs`, `write:programs`, `read:enrolments`.
+
 ## 6. The stability contract
 
 This is the part that decides whether your integration survives the platform

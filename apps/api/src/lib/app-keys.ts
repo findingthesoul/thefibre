@@ -35,6 +35,16 @@ export const APP_SCOPES = [
   // Editing steps, transitions and gates stays with the humans in Flow.
   'read:flows',
   'write:flow_runs',
+  // The Thread. `write:programs` publishes a festival as a public page and
+  // edits it; `read:enrolments` sees who registered.
+  //
+  // Deliberately no 'write:enrolments'. An app that could write enrolments
+  // could enrol arbitrary people in arbitrary programmes, and the enrolment
+  // row is what the whole certificate and payout chain hangs off. Registration
+  // comes from the public form, never from an app.
+  'read:programs',
+  'write:programs',
+  'read:enrolments',
 ] as const;
 
 export type AppScope = (typeof APP_SCOPES)[number];

@@ -1,6 +1,6 @@
 // THE canonical Help page — one layout, five apps.
 //
-// Every Fibre sidebar has always had a Help link in its footer; until v0.17.2
+// Every Fibre sidebar has always had a Help link in its footer; until v0.18.1
 // none of the five apps had a route behind it. Rather than write the page
 // five times (and watch the copies drift, the way date-field did before
 // v0.13.105), the chrome lives here and each app passes its own content:

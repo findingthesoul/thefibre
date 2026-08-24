@@ -64,6 +64,8 @@ const ADMIN_EMAIL = process.env.FIBRE_ADMIN_EMAIL ?? 'sjoerd@soul.com';
 // and so cleanup can find every row this script created.
 const SLUG = 'verify-external-app';
 const PERSON_PREFIX = 'verify-organiser';
+const FIXTURE_ORGANISER_SLUG = 'verify-external-app-organiser';
+const FIXTURE_THREAD_SLUG = 'verify-external-app-festival';
 const ORG_DOMAIN = 'verify-host.example';
 const FLOW_KEY = 'verify-external-app-flow';
 
@@ -120,7 +122,43 @@ const CONTRACT_SHAPES = {
   taskCreated: ['id', 'step_key'],
   note: ['step_key', 'body', 'updated_at'],
   move: ['ok', 'step_key'],
+  thread: [
+    'id', 'program_id', 'slug', 'title', 'format', 'status', 'starts_on', 'ends_on',
+    'intention', 'timezone', 'cover_url', 'is_public_listed', 'requires_approval',
+    'price_cents', 'price_currency', 'capacity', 'source_ref', 'organiser',
+    'created_at', 'updated_at',
+  ],
+  enrolment: [
+    'id', 'enrolment_id', 'person_id', 'full_name', 'email', 'status',
+    'progress_pct', 'enrolled_at', 'completed_at', 'payment_status', 'registered_at',
+  ],
 };
+
+/**
+ * Fields that must NEVER appear on an app-facing response. The other shape
+ * checks assert presence; this asserts ABSENCE, which is the only way a
+ * `select('*')` regression gets caught — every other check would still pass.
+ */
+const WALLED_OFF = [
+  'answers',              // whatever the organiser asked on the registration form
+  'amount_cents',
+  'coupon_id',
+  'stripe_session_id',
+  'stripe_payment_intent',
+];
+
+function checkWall(label, obj) {
+  if (!obj || typeof obj !== 'object') {
+    check(false, `${label} — nothing to check the wall against`, String(obj));
+    return;
+  }
+  const leaked = WALLED_OFF.filter((k) => k in obj);
+  check(
+    leaked.length === 0,
+    `${label} carries none of the walled-off fields`,
+    leaked.length ? `LEAKED ${leaked.join(', ')}` : `${WALLED_OFF.length} checked`,
+  );
+}
 
 /** Every key the contract promises is still present. Extra keys are fine. */
 function checkShape(label, obj, keys) {
@@ -199,6 +237,31 @@ async function cleanup({ quiet = true, resetForRerun = false } = {}) {
     note('app_entity_mapping', (await db.from('app_entity_mapping').delete().eq('app_id', app.id)).error);
     note('workspace_app', (await db.from('workspace_app').delete().eq('app_id', app.id)).error);
   }
+
+  // The Thread fixtures. Before the person loop, because the enrolment rows
+  // reference the registrant.
+  const { data: fxPrograms } = await db
+    .from('program')
+    .select('id')
+    .eq('source_app', SLUG);
+  for (const prog of fxPrograms ?? []) {
+    const { data: threads } = await db
+      .from('thread_thread')
+      .select('id')
+      .eq('program_id', prog.id);
+    for (const t of threads ?? []) {
+      note('thread_enrolment', (await db.from('thread_enrolment').delete().eq('thread_id', t.id)).error);
+      note('thread_thread', (await db.from('thread_thread').delete().eq('id', t.id)).error);
+    }
+    note('enrolment', (await db.from('enrolment').delete().eq('program_id', prog.id)).error);
+    note('program', (await db.from('program').delete().eq('id', prog.id)).error);
+  }
+  // Only ever a row this script created — a real organiser profile has a
+  // different slug and is never touched.
+  note(
+    'thread_organiser',
+    (await db.from('thread_organiser').delete().eq('slug', FIXTURE_ORGANISER_SLUG)).error,
+  );
 
   // A person with no activity can be dropped outright; one pinned by an
   // append-only activity row gets the platform's own treatment for personal
@@ -310,6 +373,9 @@ async function main() {
       'write:activities',
       'read:flows',
       'write:flow_runs',
+      'read:programs',
+      'write:programs',
+      'read:enrolments',
     ],
     entity_mappings: [
       {
@@ -781,6 +847,175 @@ async function main() {
   checkShape('task created', ownTask.body, CONTRACT_SHAPES.taskCreated);
   checkShape('note', getNote.body, CONTRACT_SHAPES.note);
   checkShape('move', jump.body, CONTRACT_SHAPES.move);
+
+  // ---- 7c. The Thread -----------------------------------------------------
+  step('7c', 'Publish a programme and read its registrations');
+
+  // The organiser has to be a real person with a Fibre account AND a Thread
+  // organiser profile. Use the admin's own, creating the profile only if it
+  // isn't there (and remembering, so cleanup doesn't delete someone's real one).
+  const { data: myUser } = await db
+    .from('user')
+    .select('id, person_id, workspace_id')
+    .eq('id', MY_USER_ID)
+    .single();
+  let { data: myOrganiser } = await db
+    .from('thread_organiser')
+    .select('id')
+    .eq('user_id', MY_USER_ID)
+    .maybeSingle();
+  if (!myOrganiser) {
+    const { data: made } = await db
+      .from('thread_organiser')
+      .insert({ user_id: MY_USER_ID, workspace_id: myUser.workspace_id, slug: FIXTURE_ORGANISER_SLUG })
+      .select('id')
+      .single();
+    myOrganiser = made;
+  }
+
+  const mint4 = await call(`/api/v1/apps/${SLUG}/keys`, {
+    method: 'POST',
+    body: { name: 'verification-thread', scopes: ['write:programs', 'read:programs', 'read:enrolments'] },
+    token: jwt,
+    appId: 'fibre-platform',
+  });
+  const THREADKEY = mint4.body?.token;
+  check(!!THREADKEY, 'a key with the Thread scopes mints', `HTTP ${mint4.status}`);
+
+  const planRef = randomUUID();
+  const publish = await call(`/api/v1/apps/${SLUG}/thread/threads`, {
+    method: 'POST',
+    token: THREADKEY,
+    body: {
+      title: 'Festival of Trust — Verification',
+      format: 'event',
+      slug: FIXTURE_THREAD_SLUG,
+      organiser_person_id: myUser.person_id,
+      source_ref: planRef,
+      starts_on: '2026-11-02',
+      ends_on: '2026-11-04',
+    },
+  });
+  check(
+    publish.status === 201 && publish.body?.created === true,
+    'it publishes a programme as a public page',
+    `HTTP ${publish.status} ${publish.body?.error ?? ''}`,
+  );
+  const THREAD_ID = publish.body?.id;
+
+  const republish = await call(`/api/v1/apps/${SLUG}/thread/threads`, {
+    method: 'POST',
+    token: THREADKEY,
+    body: {
+      title: 'Festival of Trust — Verification',
+      format: 'event',
+      slug: FIXTURE_THREAD_SLUG,
+      organiser_person_id: myUser.person_id,
+      source_ref: planRef,
+    },
+  });
+  check(
+    republish.status === 200 && republish.body?.created === false && republish.body?.id === THREAD_ID,
+    'the same source_ref returns the same page — publishing is safe to retry',
+    `HTTP ${republish.status}`,
+  );
+
+  const patched = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}`, {
+    method: 'PATCH',
+    token: THREADKEY,
+    body: { intention: 'A festival of trust, verified.', capacity: 40, status: 'active' },
+  });
+  check(
+    patched.status === 200 && patched.body?.intention === 'A festival of trust, verified.' &&
+      patched.body?.capacity === 40 && patched.body?.status === 'active',
+    'it edits the page as the plan firms up — across programme AND storefront',
+    `HTTP ${patched.status}`,
+  );
+
+  // A registration, planted the way the public form would: a platform
+  // enrolment with The Thread's commerce and form answers on top. The answers
+  // and Stripe fields are exactly what must not come back.
+  const { data: fxPerson } = await db
+    .from('person')
+    .insert({
+      workspace_id: myUser.workspace_id,
+      email: `${PERSON_PREFIX}-registrant@example.com`,
+      first_name: 'Verify',
+      last_name: 'Registrant',
+    })
+    .select('id')
+    .single();
+  const { data: fxProgramRow } = await db
+    .from('program')
+    .select('id')
+    .eq('source_app', SLUG)
+    .eq('source_ref', planRef)
+    .single();
+  const { data: fxEnrolment } = await db
+    .from('enrolment')
+    .insert({ program_id: fxProgramRow.id, person_id: fxPerson.id, status: 'enrolled', enrolled_at: new Date(0).toISOString() })
+    .select('id')
+    .single();
+  await db.from('thread_enrolment').insert({
+    workspace_id: myUser.workspace_id,
+    thread_id: THREAD_ID,
+    enrolment_id: fxEnrolment.id,
+    person_id: fxPerson.id,
+    payment_status: 'paid',
+    amount_cents: 4500,
+    currency: 'EUR',
+    stripe_session_id: 'cs_test_MUST_NOT_LEAK',
+    stripe_payment_intent: 'pi_test_MUST_NOT_LEAK',
+    answers: { dietary: 'MUST NOT LEAK', why_coming: 'MUST NOT LEAK' },
+    request_id: `verify-${planRef}`,
+  });
+
+  const enrolments = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/enrolments`, {
+    token: THREADKEY,
+  });
+  const registrant = enrolments.body?.enrolments?.[0];
+  check(
+    enrolments.status === 200 && enrolments.body?.enrolments?.length === 1,
+    'it sees who registered',
+    `HTTP ${enrolments.status}`,
+  );
+  check(
+    registrant?.email === `${PERSON_PREFIX}-registrant@example.com` &&
+      registrant?.status === 'enrolled' && registrant?.payment_status === 'paid',
+    'with the person and where their registration stands',
+    `${registrant?.full_name} / ${registrant?.status} / ${registrant?.payment_status}`,
+  );
+
+  // THE assertion. A select('*') regression passes every check above.
+  checkWall('the enrolments response', registrant);
+  check(
+    !JSON.stringify(enrolments.body ?? {}).includes('MUST_NOT_LEAK') &&
+      !JSON.stringify(enrolments.body ?? {}).includes('MUST NOT LEAK'),
+    'and nothing anywhere in the payload carries the walled values',
+  );
+
+  const noWriteEnrolment = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/enrolments`, {
+    method: 'POST',
+    token: THREADKEY,
+    body: { person_id: fxPerson.id },
+  });
+  check(
+    noWriteEnrolment.status === 403,
+    'and it cannot write one — there is no write:enrolments, by design',
+    `HTTP ${noWriteEnrolment.status}`,
+  );
+
+  // The published shape, asserted here rather than in 7b because 7b runs
+  // before this step and these bindings would not exist yet.
+  checkShape('thread', patched.body, CONTRACT_SHAPES.thread);
+  checkShape('enrolment', registrant, CONTRACT_SHAPES.enrolment);
+
+  const flowKeyOnThread = await call(`/api/v1/apps/${SLUG}/thread/threads`, { token: FLOWKEY });
+  check(
+    flowKeyOnThread.status === 403,
+    'a key without read:programs cannot reach the Thread surface at all',
+    `HTTP ${flowKeyOnThread.status}`,
+  );
 
   step(8, 'Lose everything the moment it is suspended');
 

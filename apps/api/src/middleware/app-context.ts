@@ -151,6 +151,15 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // Activity — the sanctioned data-wall crossing.
   { method: 'POST', test: /^\/api\/v1\/activities$/, scope: 'write:activities' },
   { method: 'GET', test: /^\/api\/v1\/activities$/, scope: 'read:activities' },
+  // The Thread — publish a programme as a public page, edit it, see who
+  // registered. No write:enrolments anywhere: registration comes from the
+  // public form, never from an app.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads$/, scope: 'write:programs' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads$/, scope: 'read:programs' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'read:programs' },
+  { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'write:programs' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/enrolments$/, scope: 'read:enrolments' },
+
   // Who am I — lets an app verify its credential and see its own scopes.
   { method: 'GET', test: /^\/api\/v1\/apps\/whoami$/, scope: null },
   // Flow — routes/app-flow.ts. Consume only: reading a flow's shape, and
