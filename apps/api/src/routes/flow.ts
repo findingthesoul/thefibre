@@ -17,6 +17,22 @@ import { userClient, adminClient } from '../db.js';
 
 export const flowRoutes = new Hono();
 
+/**
+ * Workspace admin-or-above. Same rule as workspace-billing: `system_key` is
+ * the handle other apps bind a flow by, so setting it is an administrative
+ * act, not an editing one.
+ */
+async function isWorkspaceAdmin(userId: string, workspaceId: string): Promise<boolean> {
+  if (!userId) return false;
+  const { data } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', userId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  return data?.workspace_role === 'admin' || data?.workspace_role === 'super_admin';
+}
+
 // ---------------------------------------------------------------------------
 // Schemas
 // ---------------------------------------------------------------------------
@@ -91,16 +107,50 @@ const GraphTransition = z.object({
   gate_tasks: z.array(GraphGateTask).default([]),
 });
 
-const GraphStepDefaultTask = z.object({
+// `step` is the canonical key (it is what loadGraph emits, so exports round
+// trip). `step_key` is accepted as an alias because hand-authored and
+// generated design files reach for the more explicit name — rejecting them
+// over a synonym would be the kind of papercut that sends someone back to
+// writing SQL. An `ordinal` field is tolerated and ignored: order comes from
+// the array, so a file whose ordinals restart per step still lands correctly.
+const GraphStepDefaultTask = z.preprocess((v) => {
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const o = v as Record<string, unknown>;
+    if (o.step === undefined && typeof o.step_key === 'string') return { ...o, step: o.step_key };
+  }
+  return v;
+}, z.object({
   step: z.string().min(1),
   title: z.string().min(1).max(200),
   description: z.string().max(2000).optional().nullable(),
   actor_type: ActorType,
   default_assignee_role: z.string().max(64).optional().nullable(),
   due_days_after_entry: z.number().int().positive().optional().nullable(),
+}));
+
+/**
+ * Flow-level fields a design file may carry. Neither lives on the version, so
+ * neither travels in the graph proper — but a design for a self-paced method
+ * is not fully expressed without `progression`, and an app that consumes a
+ * flow needs `system_key` to bind to something a human cannot rename.
+ *
+ * `system_key` is privileged: it is the handle other apps resolve the flow by,
+ * so an ordinary editor importing a design must not be able to repoint what
+ * Pulse (or an external app) reads. Enforced in the route, not here.
+ */
+const GraphFlowBlock = z.object({
+  progression: z.enum(['gated', 'open']).optional(),
+  system_key: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-z][a-z0-9_]*$/, 'lowercase letters, digits, underscore; starting with a letter')
+    .optional()
+    .nullable(),
 });
 
-const Graph = z.object({
+export const Graph = z.object({
+  flow: GraphFlowBlock.optional(),
   steps: z.array(GraphStep).min(1),
   transitions: z.array(GraphTransition).default([]),
   step_default_tasks: z.array(GraphStepDefaultTask).default([]),
@@ -362,6 +412,61 @@ flowRoutes.get('/flows/:id', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// GET /flows/:id/graph — the flow as a design file.
+//
+// The exact shape PUT /flows/:id/graph accepts, so a flow round-trips: export
+// it, keep it in version control, import it into another workspace. Without
+// the read the format is an import feature; with it, it is a way to move a
+// method around.
+//
+// Reads the same version GET /flows/:id shows (draft if there is one, else the
+// published current), unless ?version=published pins it to the current one.
+// ---------------------------------------------------------------------------
+flowRoutes.get('/flows/:id/graph', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+
+  const { data: flow, error } = await db
+    .from('flow_definition')
+    .select('id, name, description, progression, system_key')
+    .eq('id', id)
+    .is('deleted_at', null)
+    .single();
+  if (error || !flow) return c.json({ error: 'flow not found' }, 404);
+
+  const { data: versions } = await db
+    .from('flow_version')
+    .select('id, version_number, published_at')
+    .eq('flow_id', id)
+    .order('version_number', { ascending: false });
+  const published = (versions ?? []).find((v) => v.published_at);
+  const draft = (versions ?? []).find((v) => !v.published_at);
+  const shown =
+    c.req.query('version') === 'published' ? published ?? null : draft ?? (versions ?? [])[0] ?? null;
+
+  const graph = shown
+    ? await loadGraph(db, shown.id)
+    : { steps: [], transitions: [], step_default_tasks: [] };
+
+  // `flow` first so the file reads top-down; system_key is omitted rather than
+  // null when unset, so an export of an ordinary flow carries no dead field.
+  return c.json({
+    flow: {
+      progression: flow.progression,
+      ...(flow.system_key ? { system_key: flow.system_key } : {}),
+    },
+    ...graph,
+    // Not part of the importable payload — context for whoever reads the file.
+    _source: {
+      name: flow.name,
+      version_number: shown?.version_number ?? null,
+      published: !!shown?.published_at,
+    },
+  });
+});
+
+// ---------------------------------------------------------------------------
 // PATCH /flows/:id — metadata + lifecycle transitions.
 // ---------------------------------------------------------------------------
 flowRoutes.patch('/flows/:id', async (c) => {
@@ -467,11 +572,102 @@ flowRoutes.put('/flows/:id/graph', async (c) => {
   // Verify the flow exists + is visible (RLS) before mutating.
   const { data: flow } = await db
     .from('flow_definition')
-    .select('id')
+    .select('id, progression, system_key')
     .eq('id', id)
     .is('deleted_at', null)
     .single();
   if (!flow) return c.json({ error: 'flow not found' }, 404);
+
+  // `system_key` is admin-only. An ordinary editor importing a design gets the
+  // steps; the key is refused loudly rather than dropped quietly, because a
+  // silently-unset key means the consuming app finds nothing and nobody knows
+  // why.
+  const wantsSystemKey =
+    graph.flow?.system_key !== undefined && graph.flow.system_key !== flow.system_key;
+  if (wantsSystemKey && !(await isWorkspaceAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json(
+      { error: 'setting system_key requires the workspace admin role' },
+      403,
+    );
+  }
+
+  // --- dry run: say what this would do, change nothing -----------------------
+  // Saving a graph wipes every step for the version and re-inserts them. That
+  // is fine on a draft nobody has run, but it must not be a surprise — so the
+  // caller can ask for the plan first and turn a destructive operation into a
+  // decided one.
+  if (c.req.query('dry_run') === '1' || c.req.query('dry_run') === 'true') {
+    const { data: versions } = await db
+      .from('flow_version')
+      .select('id, version_number, published_at')
+      .eq('flow_id', id)
+      .order('version_number', { ascending: false });
+    const latest = (versions ?? [])[0];
+    // Mirrors ensureDraftVersion without writing: an unpublished latest is
+    // edited in place; a published one is left alone and version N+1 appears.
+    const reusesDraft = !!latest && !latest.published_at;
+    const target = reusesDraft ? latest : null;
+
+    const existing = target
+      ? await loadGraph(db, target.id)
+      : { steps: [], transitions: [], step_default_tasks: [] };
+    const existingKeys = new Set(existing.steps.map((st) => st.key));
+    const incomingKeys = new Set(graph.steps.map((st) => st.key));
+
+    const { count: runCount } = await db
+      .from('flow_run')
+      .select('id', { count: 'exact', head: true })
+      .eq('flow_id', id)
+      .is('deleted_at', null);
+
+    // Would this system_key collide with another flow in the workspace?
+    let systemKeyTakenBy: string | null = null;
+    if (graph.flow?.system_key) {
+      const { data: clash } = await db
+        .from('flow_definition')
+        .select('id, name')
+        .eq('system_key', graph.flow.system_key)
+        .is('deleted_at', null)
+        .neq('id', id)
+        .maybeSingle();
+      systemKeyTakenBy = clash ? (clash.name as string) : null;
+    }
+
+    return c.json({
+      dry_run: true,
+      plan: {
+        steps: { incoming: graph.steps.length, replacing: existing.steps.length },
+        transitions: {
+          incoming: graph.transitions.length,
+          replacing: existing.transitions.length,
+        },
+        step_default_tasks: {
+          incoming: graph.step_default_tasks.length,
+          replacing: existing.step_default_tasks.length,
+        },
+        // Steps that exist today and are not in the file — the part of a wipe
+        // people actually need warning about.
+        removed_step_keys: [...existingKeys].filter((k) => !incomingKeys.has(k)),
+        added_step_keys: [...incomingKeys].filter((k) => !existingKeys.has(k)),
+        target_version: {
+          id: target?.id ?? null,
+          version_number: reusesDraft ? latest!.version_number : (latest?.version_number ?? 0) + 1,
+          creates_new_version: !reusesDraft,
+        },
+        run_count: runCount ?? 0,
+        flow: {
+          progression:
+            graph.flow?.progression && graph.flow.progression !== flow.progression
+              ? { from: flow.progression, to: graph.flow.progression }
+              : null,
+          system_key: wantsSystemKey
+            ? { from: flow.system_key ?? null, to: graph.flow?.system_key ?? null }
+            : null,
+          system_key_taken_by: systemKeyTakenBy,
+        },
+      },
+    });
+  }
 
   const draft = await ensureDraftVersion(db, id, ctx.userId);
   if ('error' in draft) {
@@ -577,8 +773,29 @@ flowRoutes.put('/flows/:id/graph', async (c) => {
     }
   }
 
+  // Flow-level fields last: they live on flow_definition rather than the
+  // version, so they are not part of the wipe-and-reinsert above. Applied only
+  // after the graph landed — a design file that fails validation should not
+  // half-apply by flipping progression on the way out.
+  const flowPatch: Record<string, unknown> = {};
+  if (graph.flow?.progression && graph.flow.progression !== flow.progression) {
+    flowPatch.progression = graph.flow.progression;
+  }
+  if (wantsSystemKey) flowPatch.system_key = graph.flow?.system_key ?? null;
+  if (Object.keys(flowPatch).length) {
+    const { error: fErr } = await db.from('flow_definition').update(flowPatch).eq('id', id);
+    if (fErr) {
+      console.error('[flow] apply flow block', fErr);
+      // The graph is already in. Say so, rather than implying nothing happened.
+      return c.json(
+        { error: `graph imported, but flow settings failed: ${fErr.message}`, version_id: versionId },
+        500,
+      );
+    }
+  }
+
   const updated = await loadGraph(db, versionId);
-  return c.json({ version_id: versionId, graph: updated });
+  return c.json({ version_id: versionId, graph: updated, flow_applied: Object.keys(flowPatch) });
 });
 
 // ---------------------------------------------------------------------------

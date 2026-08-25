@@ -105,7 +105,12 @@ export default async function FlowDetailPage({
         builder={
           <div className="mt-4">
             {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <FlowCanvas flowId={flow.id} lifecycle={flow.lifecycle} initialGraph={graph as any} />
+            <FlowCanvas
+              flowId={flow.id}
+              flowName={flow.name}
+              lifecycle={flow.lifecycle}
+              initialGraph={graph as any}
+            />
           </div>
         }
         flows={

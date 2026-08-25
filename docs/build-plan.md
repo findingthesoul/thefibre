@@ -65,6 +65,17 @@ the live proof that path works. Item 1b carries what that needs from us._
    `write:enrolments`). So the whole arc — plan on Flow, publish on The Thread,
    read who came — is reachable from outside. What remains is content.
 
+   **v0.18.7 removed the last code blocker.** The step copy now exists
+   (`~/Projects/festivaloftrust.com/supabase/seed/fot_festival_graph.json` —
+   nine steps, eight transitions, 39 default tasks, four `meta` fields each),
+   and the flow builder can import it: *Design file* → paste/choose → Check →
+   Import. `progression` and `system_key` travel in the file's `flow` block,
+   so the SQL seed is no longer needed. Add
+   `"flow": { "progression": "open", "system_key": "fot_festival" }` to the
+   top of that JSON and import it as a workspace admin. Verify the file first
+   with `pnpm --filter @thefibre/api exec tsx
+   scripts/verify-flow-design-file.ts <file>`.
+
 1c. **Legal review of /terms and /privacy-policy (Sjoerd, not code)** — both
    went live in v0.18.2 written from what the platform actually does, because
    the routes they replaced 404'd and enrolees were ticking "I accept the

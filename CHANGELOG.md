@@ -6,6 +6,65 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.7] — 2026-08-25 — a flow you can hand a file · Flow 1.14.0
+
+A nine-step method with 39 default tasks and four `meta` fields per step is an
+afternoon of typing in the builder, and a transcription error is invisible
+until someone reads a step and finds the wrong trap under it. The Festival of
+Trust flow shipped as SQL for exactly this reason. `PUT /flows/:id/graph`
+already accepted the whole design — validated, structural checks and all —
+but nothing anywhere could hand it a file.
+
+### Added
+- **Design file · import.** *Design file* in the flow builder toolbar: paste
+  JSON or choose a file, **Check**, then **Import**. Check is a real dry run —
+  `PUT /flows/:id/graph?dry_run=1` runs the entire validation and returns the
+  plan without touching a row.
+- **The plan, before the wipe.** Saving a graph deletes every step of the
+  version and re-inserts them. That is fine on a draft nobody has run and it
+  must never be a surprise, so the preview states counts (*9 steps replacing
+  0, 8 transitions, 39 default tasks*), **which step keys disappear**, whether
+  a new version appears because the latest is published, how many runs exist,
+  and any `system_key` collision.
+- **Design file · export.** `GET /flows/:id/graph` — the same shape the PUT
+  accepts, so a flow round-trips: export it, keep the method in version
+  control, import it into another workspace. `?version=published` pins to the
+  current published version. Import stops being an import feature and becomes
+  a way to move a method around.
+- **A flow-level block in the design file.** `progression` and `system_key`
+  live on `flow_definition`, not the version, so neither travelled in the
+  graph — and a design for a self-paced method is not fully expressed without
+  `progression`. `system_key` was settable from **neither the UI nor the API**;
+  Pulse's pipeline got its own from a migration. Now:
+
+  ```jsonc
+  { "flow": { "progression": "open", "system_key": "fot_festival" },
+    "steps": [...], "transitions": [...], "step_default_tasks": [...] }
+  ```
+
+  `system_key` requires the workspace **admin** role — it is the handle other
+  apps resolve the flow by, so repointing it is an administrative act, not an
+  editing one. An editor who lacks the role is refused **loudly**, not silently
+  dropped: a quietly-unset key means the consuming app finds nothing and nobody
+  knows why.
+- **`scripts/verify-flow-design-file.ts`** — validate a design file against the
+  real schema with no server and no session, before anyone opens the builder.
+
+### Fixed
+- **The builder was silently eating fields on every save.** `serialise()`
+  emitted only `step`/`title`/`actor_type` for default tasks, dropping
+  `description`, `default_assignee_role` and `due_days_after_entry`, and
+  dropped step-level `default_assignee_role` too. Because the save wipes and
+  re-inserts, opening any flow that had those values and pressing Save
+  destroyed them — and it would have turned every import of a rich design into
+  a trap. The canvas has no inputs for these fields; it now carries them
+  through untouched.
+- **`step_key` is accepted as an alias for `step`** on default tasks, and a
+  stray `ordinal` no longer fails the parse (order comes from the array, so a
+  file whose ordinals restart per step still lands correctly). The Festival of
+  Trust design file used both and could not be imported at all.
+
+
 ## [0.18.6] — 2026-08-24 — an app you can switch on is an app that exists
 
 Fibre Sales and Fibre Learn have been placeholders since the phase-0 seed, and

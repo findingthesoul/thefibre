@@ -43,6 +43,7 @@ import {
   Repeat,
 } from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
+import { ImportDesign } from './import-design';
 
 // ---------------------------------------------------------------------------
 // Types mirroring the graph JSON the API round-trips.
@@ -55,7 +56,18 @@ type GateTask = {
   contact_action_type?: string | null;
   required?: boolean;
 };
-type DefaultTask = { title: string; actor_type: ActorType };
+// The editor only exposes title + actor_type, but the API stores more and an
+// imported design file supplies it. These ride along untouched so that opening
+// a flow in the builder and pressing Save does not silently strip fields the
+// canvas has no input for — the save wipes and re-inserts every row, so
+// anything not serialised is destroyed.
+type DefaultTask = {
+  title: string;
+  actor_type: ActorType;
+  description?: string | null;
+  default_assignee_role?: string | null;
+  due_days_after_entry?: number | null;
+};
 
 type StepData = {
   key: string;
@@ -63,6 +75,8 @@ type StepData = {
   kind: Kind;
   description?: string | null;
   expected_duration_days?: number | null;
+  // No input in the canvas; carried so Save doesn't strip it (see DefaultTask).
+  default_assignee_role?: string | null;
   // Optional section (migration 20260824120000). Steps sharing a group_key
   // belong together; group_label is only the display string.
   group_key?: string | null;
@@ -115,6 +129,7 @@ type InGraph = {
     kind: Kind;
     description?: string | null;
     expected_duration_days?: number | null;
+    default_assignee_role?: string | null;
     canvas_x?: number | null;
     canvas_y?: number | null;
     group_key?: string | null;
@@ -128,7 +143,14 @@ type InGraph = {
     gate_logic: 'all' | 'any';
     gate_tasks?: GateTask[];
   }[];
-  step_default_tasks?: { step: string; title: string; actor_type: ActorType }[];
+  step_default_tasks?: {
+    step: string;
+    title: string;
+    actor_type: ActorType;
+    description?: string | null;
+    default_assignee_role?: string | null;
+    due_days_after_entry?: number | null;
+  }[];
 };
 
 // Clean-dashboard style: cards are white with a soft ring + shadow; the step
@@ -221,10 +243,12 @@ function nextKey(existing: Set<string>): string {
 
 function CanvasInner({
   flowId,
+  flowName,
   lifecycle,
   initialGraph,
 }: {
   flowId: string;
+  flowName: string;
   lifecycle: string;
   initialGraph: InGraph;
 }) {
@@ -260,7 +284,16 @@ function CanvasInner({
   const defaultsByStep = useMemo(() => {
     const m = new Map<string, DefaultTask[]>();
     for (const d of initialGraph.step_default_tasks ?? []) {
-      m.set(d.step, [...(m.get(d.step) ?? []), { title: d.title, actor_type: d.actor_type }]);
+      m.set(d.step, [
+        ...(m.get(d.step) ?? []),
+        {
+          title: d.title,
+          actor_type: d.actor_type,
+          description: d.description ?? null,
+          default_assignee_role: d.default_assignee_role ?? null,
+          due_days_after_entry: d.due_days_after_entry ?? null,
+        },
+      ]);
     }
     return m;
   }, [initialGraph]);
@@ -282,6 +315,7 @@ function CanvasInner({
           kind: s.kind,
           description: s.description ?? null,
           expected_duration_days: s.expected_duration_days ?? null,
+          default_assignee_role: s.default_assignee_role ?? null,
           group_key: s.group_key ?? null,
           group_label: s.group_label ?? null,
           meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : '',
@@ -348,6 +382,7 @@ function CanvasInner({
           kind,
           description: null,
           expected_duration_days: null,
+          default_assignee_role: null,
           group_key: null,
           group_label: null,
           meta_text: '',
@@ -430,6 +465,7 @@ function CanvasInner({
           kind: d.kind,
           description: d.description ?? null,
           expected_duration_days: d.expected_duration_days ?? null,
+          default_assignee_role: d.default_assignee_role ?? null,
           canvas_x: Math.round(n.position.x),
           canvas_y: Math.round(n.position.y),
           group_key: d.group_key || null,
@@ -449,7 +485,14 @@ function CanvasInner({
     });
     const step_default_tasks = nodes.flatMap((n) => {
       const d = n.data as StepData;
-      return d.default_tasks.map((t) => ({ step: d.key, title: t.title, actor_type: t.actor_type }));
+      return d.default_tasks.map((t) => ({
+        step: d.key,
+        title: t.title,
+        actor_type: t.actor_type,
+        description: t.description ?? null,
+        default_assignee_role: t.default_assignee_role ?? null,
+        due_days_after_entry: t.due_days_after_entry ?? null,
+      }));
     });
     return { steps, transitions, step_default_tasks };
   }
@@ -529,6 +572,7 @@ function CanvasInner({
           >
             <Wand2 size={15} strokeWidth={1.75} /> Auto-arrange
           </button>
+          <ImportDesign flowId={flowId} flowName={flowName} />
           <div className="relative">
             <button
               onClick={() => setSettingsOpen((o) => !o)}
@@ -992,7 +1036,12 @@ function EdgePanel({
   );
 }
 
-export function FlowCanvas(props: { flowId: string; lifecycle: string; initialGraph: InGraph }) {
+export function FlowCanvas(props: {
+  flowId: string;
+  flowName: string;
+  lifecycle: string;
+  initialGraph: InGraph;
+}) {
   return (
     <ReactFlowProvider>
       <CanvasInner {...props} />

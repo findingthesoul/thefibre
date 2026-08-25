@@ -58,6 +58,79 @@ export async function saveGraph(flowId: string, graphJson: string): Promise<Acti
   }
 }
 
+/**
+ * What an import would do, before it does it.
+ *
+ * Importing replaces every step of the target version, so the user gets the
+ * plan first — counts, which steps disappear, whether a new version appears
+ * under live runs — and decides. The API does the whole validation pass in
+ * dry-run mode, so a file that fails here would have failed on apply.
+ */
+export type ImportPlan = {
+  steps: { incoming: number; replacing: number };
+  transitions: { incoming: number; replacing: number };
+  step_default_tasks: { incoming: number; replacing: number };
+  removed_step_keys: string[];
+  added_step_keys: string[];
+  target_version: { id: string | null; version_number: number; creates_new_version: boolean };
+  run_count: number;
+  flow: {
+    progression: { from: string; to: string } | null;
+    system_key: { from: string | null; to: string | null } | null;
+    system_key_taken_by: string | null;
+  };
+};
+
+export async function previewImport(
+  flowId: string,
+  designJson: string,
+): Promise<ActionResult<ImportPlan>> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(designJson);
+  } catch (e) {
+    return { error: `Not valid JSON — ${e instanceof Error ? e.message : 'parse failed'}` };
+  }
+  try {
+    const r = await apiFetch<{ plan: ImportPlan }>(
+      `/api/v1/flow/flows/${flowId}/graph?dry_run=1`,
+      { method: 'PUT', body: JSON.stringify(parsed) },
+    );
+    return { ok: true, data: r.plan };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function importDesign(flowId: string, designJson: string): Promise<ActionResult> {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(designJson);
+  } catch (e) {
+    return { error: `Not valid JSON — ${e instanceof Error ? e.message : 'parse failed'}` };
+  }
+  try {
+    await apiFetch(`/api/v1/flow/flows/${flowId}/graph`, {
+      method: 'PUT',
+      body: JSON.stringify(parsed),
+    });
+    revalidatePath(`/flows/${flowId}`);
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+/** The flow as a design file — the same shape importDesign accepts. */
+export async function exportDesign(flowId: string): Promise<ActionResult<string>> {
+  try {
+    const r = await apiFetch<Record<string, unknown>>(`/api/v1/flow/flows/${flowId}/graph`);
+    return { ok: true, data: JSON.stringify(r, null, 2) };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 export async function publishFlow(flowId: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/flow/flows/${flowId}/publish`, { method: 'POST' });
