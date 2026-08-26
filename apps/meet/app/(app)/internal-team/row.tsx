@@ -4,6 +4,11 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { patchMember } from './actions';
 
+// super_admin | admin | organiser — the values the API accepts. This screen
+// offered 'member' until v0.18.8, which the database has rejected since the
+// role-tiers migration, so changing anyone's role here failed outright.
+type WorkspaceRole = 'super_admin' | 'admin' | 'organiser';
+
 export type Member = {
   id: string;
   email: string;
@@ -11,7 +16,7 @@ export type Member = {
   avatar_url: string | null;
   email_verified: boolean;
   has_meet: boolean;
-  workspace_role: 'admin' | 'member';
+  workspace_role: WorkspaceRole;
   relationship_type: 'internal' | 'external';
   member_status: string | null;
 };
@@ -29,7 +34,7 @@ export function MemberRow({
 
   function update(
     patch: Partial<{
-      workspace_role: 'admin' | 'member';
+      workspace_role: WorkspaceRole;
       relationship_type: 'internal' | 'external';
     }>,
   ) {
@@ -64,17 +69,18 @@ export function MemberRow({
             value={member.workspace_role}
             disabled={pending}
             onChange={(e) =>
-              update({ workspace_role: e.target.value as 'admin' | 'member' })
+              update({ workspace_role: e.target.value as WorkspaceRole })
             }
             className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[10px] uppercase tracking-wider"
           >
-            <option value="member">Member</option>
+            <option value="organiser">Organiser</option>
             <option value="admin">Admin</option>
+            <option value="super_admin">Super admin</option>
           </select>
         ) : (
           <span
             className={`rounded px-1.5 py-0.5 border border-line ${
-              member.workspace_role === 'admin'
+              member.workspace_role === 'admin' || member.workspace_role === 'super_admin'
                 ? 'bg-ink text-surface-raised border-ink'
                 : 'text-ink-muted'
             }`}

@@ -87,9 +87,13 @@ the live proof that path works. Item 1b carries what that needs from us._
    Also still open: `support@thefibre.app` and `hello@thefibre.app` are
    published on /support — confirm both actually deliver to a human.
 
-2. **Members UI role vocabulary** — API accepts
-   super_admin/admin/organiser; the web Members page still shows the old
-   labels. Facilitator = per-thread badge, not a workspace role.
+2. ~~**Members UI role vocabulary**~~ — **done in v0.18.8.** The web Members
+   page was already correct; the stale surface was **Meet → Internal team**,
+   whose dropdown posted `'member'` — a value the DB has rejected since
+   `20260704090000_role_tiers` — so changing a role there 500'd. Fixed, along
+   with its admin gate, which excluded `super_admin`. Facilitator = per-thread
+   badge, not a workspace role. Role vocabulary now has a SPoT:
+   `apps/api/src/lib/workspace-roles.ts`.
 3. **Org-share transfers** — thread_payout ledger rows exist ('pending');
    actual Stripe transfers of the workspace share are deferred.
 4. **Role-gating beyond Invoices** — enrolments/contacts visibility per the

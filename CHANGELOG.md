@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.8] — 2026-08-26 — a new workspace had no admin, and no way to get one · Meet 2.4.3
+
+Approve an access request, and a workspace is created. The first person signs
+in and everything looks normal — workspace, contacts, apps. Then every route
+behind a workspace-admin check answers 403: listing app keys, minting one, and
+**the members screen**, which is the only place the role could be granted. The
+only way to grant the role was a screen that required the role.
+
+An external app could be approved platform-wide, activated on the workspace,
+and still never given a credential there.
+
+### Fixed
+- **The first user of a workspace is now its admin.** Nothing created the
+  `workspace_member` row — the pivot carrying `workspace_role`. Not the
+  approval handler (the user doesn't exist yet), and not `resolve_sso_identity`
+  when it creates them. The intent was already written down: branch 3 of that
+  function says *"the first user in a workspace gets fibre-platform admin —
+  they own this workspace"* and grants `app_membership.role = 'admin'`. That is
+  the **app** role. The **workspace** role is a different pivot. One word, two
+  meanings, and the second one was never written.
+
+  New `ensure_workspace_member()` is called from all three resolve branches, so
+  users who predate it heal on next sign-in — the same shape as the existing
+  `ensure_user_person` call. First member of a workspace gets `admin`; everyone
+  after gets the column default.
+- **Backfilled every workspace that already had users but no admin.** One did.
+- **`ensureWorkspaceMember` had been failing silently since 2026-07-04.** Its
+  signature said `role?: 'admin' | 'member'` and it defaulted to `'member'` —
+  but `20260704090000_role_tiers` replaced that check constraint with
+  `('super_admin','admin','organiser')`. Every insert violated the CHECK, and
+  the error was never read, so all four Meet invite paths believed they were
+  writing a membership row and were not. Roles corrected, error now logged.
+- **Meet → Internal team could not change anyone's role.** Its dropdown offered
+  Member/Admin and posted `'member'`, which the database rejects — the save
+  500'd. It now offers Organiser / Admin / Super admin.
+- **A workspace super_admin was locked out of Meet → Internal team.** The gate
+  read `workspace_role !== 'admin'`, excluding the role above it.
+
+### Added
+- **The last admin cannot step down.** `wouldOrphanWorkspace` refuses a
+  demotion that would leave a workspace with no admin, on both the Fibre
+  members screen and Meet's — the one path that could recreate this bug.
+- **`lib/workspace-roles.ts`** — the role vocabulary and `isAdminRole` in one
+  place, with the distinction spelled out: workspace admin is **not**
+  `user.is_super_admin`. That is the *platform* super admin — what lets someone
+  approve an app registration — and it confers no authority over any workspace.
+  Same word, unrelated thing.
+- **`scripts/audit-workspace-admins.mjs`** — read-only: which workspaces have
+  users but nobody who can administer them.
+
+### Note on the bug report
+The report's second finding — that the `super_admin` branch of
+`requireWorkspaceAdmin` is unreachable because the column only permits
+`('admin','member')` — reads the **superseded** constraint from
+`20260517000000_permission_tiers`. `20260704090000_role_tiers` replaced it with
+`('super_admin','admin','organiser')`, default `'organiser'`. `super_admin` is
+a real workspace role, the branch is reachable, and the guard is correct as
+written. The stale vocabulary is real, but it lives in Meet's internal-team
+surface (fixed above), not in that guard.
+
+
 ## [0.18.7] — 2026-08-25 — a flow you can hand a file · Flow 1.14.0
 
 A nine-step method with 39 default tasks and four `meta` fields per step is an

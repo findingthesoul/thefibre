@@ -4,6 +4,7 @@ import { adminClient } from '../db.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
+import { wouldOrphanWorkspace, ORPHAN_ERROR } from '../lib/workspace-roles.js';
 
 // ===========================================================================
 // Platform members management — THE single point of truth for who is in the
@@ -204,6 +205,15 @@ membersRoutes.patch('/:userId', async (c) => {
     .eq('user_id', userId)
     .maybeSingle();
   if (!member) return c.json({ error: 'not found' }, 404);
+
+  // A workspace with no admin cannot be repaired from any screen — every one
+  // of them is behind an admin check. Refuse the demotion that would cause it.
+  if (
+    body.data.workspace_role &&
+    (await wouldOrphanWorkspace(userId, ctx.workspaceId, body.data.workspace_role))
+  ) {
+    return c.json({ error: ORPHAN_ERROR }, 409);
+  }
 
   const patch: Record<string, unknown> = {};
   if (body.data.workspace_role) patch.workspace_role = body.data.workspace_role;

@@ -3,6 +3,12 @@ import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
 import { adminClient, userClient } from '../db.js';
 import {
+  isAdminRole,
+  wouldOrphanWorkspace,
+  ORPHAN_ERROR,
+  type WorkspaceRole,
+} from '../lib/workspace-roles.js';
+import {
   RESERVED_SLUGS,
   isReservedSlug,
   SLUG_PATTERN,
@@ -104,12 +110,19 @@ async function ensurePersonForEmail(
 /** Ensure a workspace_member row exists for (user, workspace). Idempotent.
  *  Used by invite paths so every new user has explicit role + relationship.
  *  If the row already exists, fields are NOT overwritten — callers can
- *  upgrade an external to internal via the dedicated endpoint. */
+ *  upgrade an external to internal via the dedicated endpoint.
+ *
+ *  `role` must be one of the values 20260704090000_role_tiers permits:
+ *  super_admin | admin | organiser. It said 'admin' | 'member' until v0.18.8,
+ *  and 'member' has not been a legal value since that migration — so every
+ *  insert from here violated the CHECK constraint and, because the error was
+ *  never read, failed in silence. Invite paths believed they were writing a
+ *  membership row and were not. Hence the explicit error check below. */
 async function ensureWorkspaceMember(
   userId: string,
   workspaceId: string,
   opts: {
-    role?: 'admin' | 'member';
+    role?: 'super_admin' | 'admin' | 'organiser';
     relationship?: 'internal' | 'external';
     memberStatus?: string | null;
   } = {},
@@ -121,13 +134,14 @@ async function ensureWorkspaceMember(
     .eq('workspace_id', workspaceId)
     .maybeSingle();
   if (existing) return;
-  await adminClient.from('workspace_member').insert({
+  const { error } = await adminClient.from('workspace_member').insert({
     user_id: userId,
     workspace_id: workspaceId,
-    workspace_role: opts.role ?? 'member',
+    workspace_role: opts.role ?? 'organiser',
     relationship_type: opts.relationship ?? 'internal',
     member_status: opts.memberStatus ?? null,
   });
+  if (error) console.error('[meet] ensureWorkspaceMember', { userId, workspaceId, error });
 }
 
 /** Heal old user rows that were created before the user↔person invariant
@@ -1417,7 +1431,7 @@ meetRoutes.get('/internal-team', async (c) => {
     (wmRows ?? []).map((w) => [
       w.user_id,
       {
-        workspace_role: w.workspace_role as 'admin' | 'member',
+        workspace_role: w.workspace_role as WorkspaceRole,
         relationship_type: w.relationship_type as 'internal' | 'external',
         member_status: w.member_status as string | null,
       },
@@ -1432,7 +1446,7 @@ meetRoutes.get('/internal-team', async (c) => {
       avatar_url: u.avatar_url,
       email_verified: u.email_verified,
       has_meet: meetUserIds.has(u.id),
-      workspace_role: wm?.workspace_role ?? 'member',
+      workspace_role: wm?.workspace_role ?? 'organiser',
       relationship_type: wm?.relationship_type ?? 'internal',
       member_status: wm?.member_status ?? null,
     };
@@ -1444,7 +1458,10 @@ meetRoutes.get('/internal-team', async (c) => {
 // member's role / relationship / cosmetic status. Used by the internal-team
 // page to flip Internal↔External or promote to admin.
 const PatchInternalBody = z.object({
-  workspace_role: z.enum(['admin', 'member']).optional(),
+  // super_admin | admin | organiser — see lib/workspace-roles. This said
+  // ['admin','member'] until v0.18.8, so the role dropdown on this screen
+  // wrote a value the CHECK constraint rejects and the save 500'd.
+  workspace_role: z.enum(['super_admin', 'admin', 'organiser']).optional(),
   relationship_type: z.enum(['internal', 'external']).optional(),
   member_status: z.string().max(80).nullable().optional(),
 });
@@ -1460,11 +1477,17 @@ meetRoutes.patch('/internal-team/:userId', async (c) => {
     .eq('user_id', ctx.userId)
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
-  if (!me || me.workspace_role !== 'admin') {
+  if (!isAdminRole(me?.workspace_role)) {
     return c.json({ error: 'admin only' }, 403);
   }
+  if (
+    body.data.workspace_role &&
+    (await wouldOrphanWorkspace(userId, ctx.workspaceId, body.data.workspace_role))
+  ) {
+    return c.json({ error: ORPHAN_ERROR }, 409);
+  }
   // Ensure the row exists before patching.
-  await ensureWorkspaceMember(userId, ctx.workspaceId, { role: 'member' });
+  await ensureWorkspaceMember(userId, ctx.workspaceId, { role: 'organiser' });
   const updates: Record<string, unknown> = {};
   if (body.data.workspace_role) updates.workspace_role = body.data.workspace_role;
   if (body.data.relationship_type) updates.relationship_type = body.data.relationship_type;
@@ -1558,7 +1581,7 @@ meetRoutes.post('/internal-team', async (c) => {
   // Workspace membership: fresh users use the requested relationship_type
   // (defaults to internal). Existing users keep whatever they had.
   await ensureWorkspaceMember(u.id, ctx.workspaceId, {
-    role: 'member',
+    role: 'organiser',
     relationship: invited ? body.data.relationship_type ?? 'internal' : 'internal',
   });
   // Best-effort invite email.
@@ -3164,7 +3187,7 @@ meetRoutes.post('/teams/:id/members', async (c) => {
     // 4. Workspace membership with the chosen relationship type. Defaults
     //    to 'internal'. The inviter can pass 'external' to scope down access.
     await ensureWorkspaceMember(u.id, ctx.workspaceId, {
-      role: 'member',
+      role: 'organiser',
       relationship: body.data.relationship_type ?? 'internal',
     });
   } else {
@@ -3172,7 +3195,7 @@ meetRoutes.post('/teams/:id/members', async (c) => {
     // rows created before this fix).
     await linkPersonIfMissing(u.id, ctx.workspaceId, u.email, u.full_name);
     // And a workspace_member row in case they pre-date the slice.
-    await ensureWorkspaceMember(u.id, ctx.workspaceId, { role: 'member' });
+    await ensureWorkspaceMember(u.id, ctx.workspaceId, { role: 'organiser' });
   }
 
   // 4. Add to the team.

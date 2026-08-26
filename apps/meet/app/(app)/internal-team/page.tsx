@@ -22,7 +22,8 @@ export default async function InternalTeamPage() {
   }
   const meId = me?.user.id ?? null;
   const meRow = items.find((m) => m.id === meId);
-  const iAmAdmin = meRow?.workspace_role === 'admin';
+  const iAmAdmin =
+    meRow?.workspace_role === 'admin' || meRow?.workspace_role === 'super_admin';
 
   return (
     <PageContainer max="4xl">

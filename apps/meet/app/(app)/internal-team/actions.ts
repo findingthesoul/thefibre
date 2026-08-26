@@ -13,7 +13,7 @@ function strOrNull(v: FormDataEntryValue | null): string | null {
 export async function patchMember(
   userId: string,
   patch: Partial<{
-    workspace_role: 'admin' | 'member';
+    workspace_role: 'super_admin' | 'admin' | 'organiser';
     relationship_type: 'internal' | 'external';
     member_status: string | null;
   }>,
