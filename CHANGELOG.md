@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.12] — 2026-08-28 — an event the owning app can actually describe
+
+§2 of `docs/brief-thread-event-settings.md`. A festival could be published as a
+draft thread and then not described: every setting an organiser reaches for
+lived in The Thread's own UI, behind a workspace login the festival's organiser
+does not have. The columns already existed; the app surface did not expose them.
+
+### Added
+- **Eight fields on `PATCH /apps/:slug/thread/threads/:id`** —
+  `timezone`, `language`, `requires_approval`, `public_interaction`,
+  `share_participants_public`, `share_participants_participants`,
+  `price_cents`, `price_currency`. No schema, no new route.
+  Each Zod shape mirrors its column exactly: a NOT NULL column is
+  optional-but-not-nullable, so a null is a 400 from us rather than a 500 from
+  Postgres, and `language` / `public_interaction` are enums matching their check
+  constraints instead of free text.
+- **`language`, `public_interaction` and both `share_participants_*` are now
+  returned** by the thread response. They were settable-but-unreadable
+  otherwise, and the planner has to render current values to mirror them as its
+  own settings screen. Additive, per the rules at the top of `app-thread.ts`.
+
+### Notes
+- `price_cents` and `price_currency` stay nullable: a free event is null stated
+  deliberately, not a field left unset.
+- **`registration_fields` is deliberately not exposed.** It shapes what is asked
+  of a registrant, and the data wall exists precisely so an app does not reach
+  into that — the caution is in the brief and now in the code.
+- `status: 'active'` is commented as the single act it is: the page is live
+  *and* enrolment is open. That is §3 of the brief, which asks for naming rather
+  than a column, so the note lives where someone would change it.
+- Still open from the brief: §1 (hosts — needs a design decision, see below),
+  §4 (event templates).
+
+
 ## [0.18.11] — 2026-08-28 — primary means primary
 
 ### Fixed

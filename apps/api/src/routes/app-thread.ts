@@ -101,7 +101,7 @@ async function ownThread(ctx: RequestContext, threadId: string) {
   const { data } = await adminClient
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, organiser_id, slug, intention, timezone, cover_url, is_public_listed, requires_approval, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
+      'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
     )
     .eq('id', threadId)
     .eq('workspace_id', ctx.workspaceId)
@@ -133,9 +133,13 @@ function shapeThread(row: Record<string, any>) {
     ends_on: program.ends_on ?? null,
     intention: row.intention,
     timezone: row.timezone,
+    language: row.language,
     cover_url: row.cover_url,
     is_public_listed: row.is_public_listed,
     requires_approval: row.requires_approval,
+    public_interaction: row.public_interaction,
+    share_participants_public: row.share_participants_public,
+    share_participants_participants: row.share_participants_participants,
     price_cents: row.price_cents,
     price_currency: row.price_currency,
     capacity: row.capacity,
@@ -191,7 +195,38 @@ const PatchThread = z.object({
   cover_url: z.string().url().max(1000).nullable().optional(),
   is_public_listed: z.boolean().optional(),
   capacity: z.number().int().positive().nullable().optional(),
+  /**
+   * draft -> active is the moment the page is live AND enrolment is open.
+   * There is one decision behind it, not two — see §3 of
+   * docs/brief-thread-event-settings.md. Do not split it without saying so on
+   * both sides, or the planner and The Thread will drift on what "live" means.
+   */
   status: z.enum(['draft', 'active', 'completed', 'archived']).optional(),
+
+  // --- §2 of the brief: columns that already existed and the app could not
+  // reach. All live on thread_thread. Each shape mirrors its column exactly —
+  // a NOT NULL column is optional-but-not-nullable here, so a null becomes a
+  // 400 from Zod rather than a 500 from Postgres.
+  /** The festival's own timezone, not the workspace default. NOT NULL. */
+  timezone: z.string().min(1).max(100).optional(),
+  /** Mirrors the column's check constraint. NOT NULL. */
+  language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
+  /** "People apply, we admit" rather than open enrolment. NOT NULL. */
+  requires_approval: z.boolean().optional(),
+  /** page = its own page; popup = the enrol popup. NOT NULL. */
+  public_interaction: z.enum(['page', 'popup']).optional(),
+  /** Whether visitors see who is coming. NOT NULL. */
+  share_participants_public: z.boolean().optional(),
+  /** Whether participants see each other. NOT NULL. */
+  share_participants_participants: z.boolean().optional(),
+  /** Nullable on purpose: null is a free event, stated rather than unset. */
+  price_cents: z.number().int().min(0).nullable().optional(),
+  /** char(3). Nullable alongside price_cents. */
+  price_currency: z.string().length(3).nullable().optional(),
+
+  // registration_fields is deliberately NOT here. It shapes what is asked of a
+  // registrant, and the data wall exists precisely so an app does not reach
+  // into that. See the caution in §2 of the brief.
 });
 
 // The ONLY permitted column list on thread_enrolment. See THE WALL above.
@@ -469,7 +504,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const { data, error } = await adminClient
       .from('thread_thread')
       .select(
-        'id, workspace_id, program_id, organiser_id, slug, intention, timezone, cover_url, is_public_listed, requires_approval, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
+        'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
       )
       .in('program_id', ids)
       .order('created_at', { ascending: false });
@@ -518,6 +553,18 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     if (b.cover_url !== undefined) threadPatch.cover_url = b.cover_url;
     if (b.is_public_listed !== undefined) threadPatch.is_public_listed = b.is_public_listed;
     if (b.capacity !== undefined) threadPatch.capacity = b.capacity;
+    if (b.timezone !== undefined) threadPatch.timezone = b.timezone;
+    if (b.language !== undefined) threadPatch.language = b.language;
+    if (b.requires_approval !== undefined) threadPatch.requires_approval = b.requires_approval;
+    if (b.public_interaction !== undefined) threadPatch.public_interaction = b.public_interaction;
+    if (b.share_participants_public !== undefined) {
+      threadPatch.share_participants_public = b.share_participants_public;
+    }
+    if (b.share_participants_participants !== undefined) {
+      threadPatch.share_participants_participants = b.share_participants_participants;
+    }
+    if (b.price_cents !== undefined) threadPatch.price_cents = b.price_cents;
+    if (b.price_currency !== undefined) threadPatch.price_currency = b.price_currency;
 
     const program = one(thread.program) as { id: string; starts_on: string | null; ends_on: string | null } | null;
     const startsOn = (b.starts_on !== undefined ? b.starts_on : program?.starts_on) ?? null;
