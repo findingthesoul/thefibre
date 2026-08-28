@@ -26,6 +26,21 @@ actual event.
   drops the old constraint by shape rather than by name — it was an inline
   column check, so its name was Postgres's to choose.
 
+### Changed — the error line in a dialog says something
+The reason that bug read as `new row for relation "thread_engagement"
+viola…` is two separate faults, both now fixed.
+
+- `apps/api/src/lib/pg-error.ts` turns a Postgres error into one sentence a
+  person can act on ("The end time has to be after the start time."), keyed on
+  constraint name first and SQLSTATE second, with an honest generic fallback.
+  The raw driver text rides along under `detail`, and the full error object
+  still goes to the server log — that stays the first stop when debugging.
+  Wired into the engagement, ticket and coupon writes: the six routes behind
+  the four dialogs that show an error line.
+- `components/ui/form-error.tsx` replaces `truncate max-w-xs`, which clipped
+  every message at roughly half a sentence regardless of what it said. Wraps,
+  keeps the full text in `title`, `role="alert"`.
+
 ## [0.18.13] — 2026-08-28 — a host who has no Fibre account
 
 §1 of `docs/brief-thread-event-settings.md`. Hosts & Facilitators on a thread

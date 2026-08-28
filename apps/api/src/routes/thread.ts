@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
@@ -871,7 +872,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
     .single();
   if (error) {
     console.error('[thread/engagements] insert failed', { body: body.data, error });
-    return c.json({ error: error.message }, 500);
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
   return c.json(data, 201);
 });
@@ -923,7 +924,7 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     .single();
   if (error) {
     console.error('[thread/engagements] update failed', { body: body.data, error });
-    return c.json({ error: error.message }, 500);
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
   return c.json(data);
 });
@@ -934,7 +935,7 @@ threadRoutes.delete('/engagements/:id', async (c) => {
   const { error } = await db.from('thread_engagement').delete().eq('id', c.req.param('id'));
   if (error) {
     console.error('[thread/engagements] delete failed', error);
-    return c.json({ error: error.message }, 500);
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
   return c.body(null, 204);
 });
@@ -1969,7 +1970,7 @@ threadRoutes.post('/threads/:id/tickets', async (c) => {
     })
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.json(data, 201);
 });
 
@@ -1984,7 +1985,7 @@ threadRoutes.patch('/tickets/:id', async (c) => {
     .eq('id', c.req.param('id'))
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.json(data);
 });
 
@@ -1992,7 +1993,7 @@ threadRoutes.delete('/tickets/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { error } = await db.from('thread_ticket').delete().eq('id', c.req.param('id'));
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
 });
 
@@ -2038,8 +2039,8 @@ threadRoutes.post('/threads/:id/coupons', async (c) => {
     .select('*')
     .single();
   if (error) {
-    const s = error.code === '23505' ? 409 : 500;
-    return c.json({ error: error.code === '23505' ? 'code already exists' : error.message }, s);
+    if (error.code === '23505') return c.json({ error: 'That code already exists.' }, 409);
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
   }
   return c.json(data, 201);
 });
@@ -2057,7 +2058,7 @@ threadRoutes.patch('/coupons/:id', async (c) => {
     .eq('id', c.req.param('id'))
     .select('*')
     .single();
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.json(data);
 });
 
@@ -2065,7 +2066,7 @@ threadRoutes.delete('/coupons/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { error } = await db.from('thread_coupon').delete().eq('id', c.req.param('id'));
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
 });
 

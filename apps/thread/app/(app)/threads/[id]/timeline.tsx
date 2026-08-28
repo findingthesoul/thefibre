@@ -42,6 +42,7 @@ import {
 } from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { FormError } from '@/components/ui/form-error';
 import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { Button } from '@/components/ui/button';
 import { DateTimeField } from '@/components/ui/date-field';
@@ -903,7 +904,7 @@ function QuickTimeDialog({
       description={isActivity ? 'Change when it runs.' : 'Change when it sends.'}
       footer={
         <>
-          {error && <span className="mr-auto text-sm text-red-700 truncate">{error}</span>}
+          {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

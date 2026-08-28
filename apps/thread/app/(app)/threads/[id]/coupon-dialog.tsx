@@ -14,6 +14,7 @@ import {
   type TicketRow,
 } from '../actions';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { FormError } from '@/components/ui/form-error';
 import { TextField, SelectField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
@@ -151,7 +152,7 @@ export function CouponDialog({
               </Button>
             </div>
           )}
-          {error && <span className="text-sm text-red-700 truncate max-w-xs">{error}</span>}
+          {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={onClose}>
             Cancel
           </Button>

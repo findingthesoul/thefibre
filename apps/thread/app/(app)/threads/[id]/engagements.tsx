@@ -15,6 +15,7 @@ import {
   type EngagementFamily,
 } from '@/lib/engagement-meta';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { FormError } from '@/components/ui/form-error';
 import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField, DateTimeField } from '@/components/ui/date-field';
@@ -331,7 +332,7 @@ export function EngagementDialog({
               </Button>
             </div>
           )}
-          {error && <span className="text-sm text-red-700 truncate max-w-xs">{error}</span>}
+          {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={requestClose}>
             Cancel
           </Button>
