@@ -818,6 +818,104 @@ function makeResolver(table: 'person' | 'organisation') {
 appsRoutes.get('/:slug/persons/:app_entity/:app_record_id', makeResolver('person'));
 appsRoutes.get('/:slug/organisations/:app_entity/:app_record_id', makeResolver('organisation'));
 
+// ---------------------------------------------------------------------------
+// POST /api/v1/apps/:slug/memberships — say who belongs to what.
+//
+// An app could create a person and create an organisation and not connect
+// them, so the graph knew both parties and never the relationship. That is the
+// missing edge under "an organisation can see the contacts they had": the
+// question had nothing to compute from.
+//
+// Both sides are named by the app's OWN record ids, already linked through
+// /links. The app therefore never handles a platform UUID, which is the same
+// reasoning as steps being addressed by key and organisations being resolved
+// by app_record_id.
+// ---------------------------------------------------------------------------
+const MembershipRef = z.object({
+  app_entity: z.string().min(1).max(100),
+  app_record_id: z.string().min(1).max(200),
+});
+
+const MembershipBody = z.object({
+  person: MembershipRef,
+  organisation: MembershipRef,
+  title: z.string().max(200).optional(),
+  /** Their main organisation. Only one per person ends up marked. */
+  is_primary: z.boolean().optional(),
+});
+
+appsRoutes.post('/:slug/memberships', async (c) => {
+  const slug = c.req.param('slug');
+  const body = MembershipBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const b = body.data;
+  const ctx = c.get('ctx');
+
+  const app = await resolveApp(slug);
+  if (!app) return c.json({ error: 'unknown app' }, 404);
+
+  const resolve = async (ref: z.infer<typeof MembershipRef>, want: 'person' | 'organisation') => {
+    const { data } = await adminClient
+      .from('app_record_link')
+      .select('platform_entity, platform_id')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('app_id', app.id)
+      .eq('app_entity', ref.app_entity)
+      .eq('app_record_id', ref.app_record_id)
+      .maybeSingle();
+    if (!data || data.platform_entity !== want) return null;
+    return data.platform_id as string;
+  };
+
+  const personId = await resolve(b.person, 'person');
+  if (!personId) {
+    return c.json({ error: `no person linked as ${b.person.app_entity}/${b.person.app_record_id}` }, 404);
+  }
+  const orgId = await resolve(b.organisation, 'organisation');
+  if (!orgId) {
+    return c.json(
+      { error: `no organisation linked as ${b.organisation.app_entity}/${b.organisation.app_record_id}` },
+      404,
+    );
+  }
+
+  // org_membership carries no workspace_id of its own — it inherits it from
+  // both ends. The links above are already scoped to this workspace, so a
+  // cross-workspace pair cannot be assembled here.
+  //
+  // Idempotent by hand: there is no unique constraint on (person_id, org_id),
+  // and a second call should not produce a second membership.
+  const { data: existing } = await adminClient
+    .from('org_membership')
+    .select('id')
+    .eq('person_id', personId)
+    .eq('org_id', orgId)
+    .is('ended_at', null)
+    .maybeSingle();
+
+  if (existing) {
+    return c.json({ id: existing.id, person_id: personId, org_id: orgId, created: false }, 200);
+  }
+
+  const { data: created, error } = await adminClient
+    .from('org_membership')
+    .insert({
+      person_id: personId,
+      org_id: orgId,
+      title: b.title ?? null,
+      is_primary: b.is_primary ?? false,
+    })
+    .select('id')
+    .single();
+
+  if (error || !created) {
+    console.error('[apps/memberships] insert failed', error);
+    return c.json({ error: 'could not record the membership' }, 500);
+  }
+
+  return c.json({ id: created.id, person_id: personId, org_id: orgId, created: true }, 201);
+});
+
 // ===========================================================================
 // §6 — Flow, consumed by an app key. Lives in its own file; the surface is
 // large enough and the rules it enforces are specific to it.
