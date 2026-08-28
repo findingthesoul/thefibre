@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { serverSupabase } from '@/lib/supabase/server';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from './enrol-form';
 import { t, type Locale } from '@/lib/i18n';
@@ -40,6 +41,7 @@ type PublicThreadDetail = {
     agenda: AgendaItem[];
     enrolled_count: number;
     enrolment_open: boolean;
+    is_preview?: boolean;
     participants?: string[];
     share_participants_public?: boolean;
     tickets?: PublicTicket[];
@@ -96,10 +98,21 @@ export default async function PublicThreadPage({
   const paidNotice =
     sp.paid === 'success' ? ('success' as const) : sp.paid === 'cancelled' ? ('cancelled' as const) : null;
 
+  // Signed-in visitors send their session token along. For the public this
+  // changes nothing; for a member of the thread's own workspace it unlocks
+  // the draft preview — the editor's "Open public page" 404'd on every
+  // draft, so there was no way to see the page before publishing.
+  const supabase = await serverSupabase();
+  const { data: auth } = await supabase.auth.getSession();
+  const authHeaders: Record<string, string> = auth.session
+    ? { Authorization: `Bearer ${auth.session.access_token}` }
+    : {};
+
   let data: PublicThreadDetail;
   try {
     data = await publicFetch(
       `/api/v1/thread/public/organiser/${organiserSlug}/thread/${threadSlug}`,
+      { headers: authHeaders },
     );
   } catch (e) {
     if (e instanceof PublicApiError && e.status === 404) notFound();
@@ -117,6 +130,13 @@ export default async function PublicThreadPage({
   return (
     <div className="min-h-screen bg-surface-sunken">
       <main className="mx-auto max-w-4xl px-6 py-16">
+        {thread.is_preview && (
+          <div className="mb-8 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
+            <span className="font-medium">Draft preview.</span> This is how the page will look
+            once published — right now only members of your workspace can see it, and
+            enrolment stays closed.
+          </div>
+        )}
         <nav className="text-sm">
           <Link href={`/${organiser.slug}`} className="text-ink-subtle hover:text-ink">
             ← {organiserName}

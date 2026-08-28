@@ -3554,9 +3554,29 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   if (!thread) return c.json({ error: 'not found' }, 404);
 
   const program = Array.isArray(thread.program) ? thread.program[0] : thread.program;
-  // Draft/archived threads are not public, even by direct link.
+  // Draft/archived threads are not public, even by direct link — with ONE
+  // exception: the workspace that owns the thread may preview them. The
+  // editor's "Open public page" always pointed here, so for a draft it was a
+  // guaranteed 404 and there was no way to see the page before publishing
+  // (Sjoerd 2026-08-29). The public thread page renders in the same Next app
+  // the organiser is signed in to, so it forwards their session token when
+  // one exists; anonymous callers keep the 404 and can't tell a draft from a
+  // thread that never existed.
+  let isPreview = false;
   if (!program || (program.status !== 'active' && program.status !== 'completed')) {
-    return c.json({ error: 'not found' }, 404);
+    if (!program) return c.json({ error: 'not found' }, 404);
+    const email = await participantEmailFromAuth(c);
+    if (email) {
+      const { data: member } = await adminClient
+        .from('user')
+        .select('id')
+        .eq('email', email.toLowerCase())
+        .eq('workspace_id', thread.workspace_id)
+        .is('deleted_at', null)
+        .maybeSingle();
+      isPreview = !!member;
+    }
+    if (!isPreview) return c.json({ error: 'not found' }, 404);
   }
 
   // The public agenda: published activities flagged show_in_agenda.
@@ -3717,6 +3737,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       enrolled_count: count ?? 0,
       enrolment_open: program.status === 'active',
       participants,
+      // Additive (rule 8): true only for a workspace member viewing an
+      // unpublished thread. Anonymous callers never see a payload with it set.
+      is_preview: isPreview,
     },
   });
 });

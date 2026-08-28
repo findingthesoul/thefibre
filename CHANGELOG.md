@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.16] — 2026-08-29 — a draft you can look at
+
+"Open public page" on a draft thread was a guaranteed 404. The public detail
+route refuses anything not active or completed — correct for the public,
+but the editor offered a preview the API would never serve, so there was no
+way to see the page before publishing.
+
+### Added
+- **Draft preview.** The public thread page forwards the visitor's session
+  token when one exists; the API serves an unpublished thread to members of
+  the workspace that owns it, flagged `is_preview` (additive, rule 8), with
+  an amber banner and enrolment closed. Anonymous visitors keep the 404 and
+  cannot tell a draft from a thread that never existed — verified all three
+  ways, including that a member of a *different* workspace still gets 404.
+
 ## [0.18.15] — 2026-08-29 — the read API is a contract
 
 `docs/brief-thread-public-api.md`, all five items. The standalone Thread at
