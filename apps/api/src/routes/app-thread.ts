@@ -530,6 +530,86 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
   // registration fields. Those are money and credentials, and they belong to a
   // human in The Thread's own UI, not to a planning tool holding an API key.
   // -------------------------------------------------------------------------
+  // -------------------------------------------------------------------------
+  // POST /apps/:slug/thread/threads/:id/hosts — credit someone who helps run it.
+  //
+  // §1 of docs/brief-thread-event-settings.md. Hosts & Facilitators is
+  // thread_thread_organiser, which pointed only at thread_organiser — a
+  // storefront, needing a Fibre user. A festival's hosts sign in to the app's
+  // own database and never will have one, so they could not be listed at all.
+  //
+  // The list now takes a person directly (20260828120000). One list, not two.
+  //
+  // The person is named by the app's OWN record id, already linked through
+  // /links — the same reasoning as /memberships and Flow steps by key. The app
+  // never handles a platform UUID.
+  // -------------------------------------------------------------------------
+  const AddHost = z.object({
+    person: z.object({
+      app_entity: z.string().min(1).max(100),
+      app_record_id: z.string().min(1).max(200),
+    }),
+    /** Matches the column's check constraint, widened from co_organiser in
+     *  20260702110000. The brief still says co_organiser; the column does not. */
+    role: z.enum(['host', 'facilitator']).optional(),
+  });
+
+  appsRoutes.post('/:slug/thread/threads/:id/hosts', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const body = AddHost.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+    const b = body.data;
+
+    const thread = await ownThread(ctx, c.req.param('id'));
+    if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+    const { data: app } = await adminClient
+      .from('app')
+      .select('id')
+      .eq('slug', ctx.appId)
+      .maybeSingle();
+    if (!app) return c.json({ error: 'unknown app' }, 404);
+
+    const { data: link } = await adminClient
+      .from('app_record_link')
+      .select('platform_entity, platform_id')
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('app_id', app.id)
+      .eq('app_entity', b.person.app_entity)
+      .eq('app_record_id', b.person.app_record_id)
+      .maybeSingle();
+    if (!link || link.platform_entity !== 'person') {
+      return c.json(
+        { error: `no person linked as ${b.person.app_entity}/${b.person.app_record_id}` },
+        404,
+      );
+    }
+
+    // Idempotent on (thread_id, person_id): a repeat call updates the role
+    // rather than failing on the unique constraint or adding a second row.
+    const { data: host, error } = await adminClient
+      .from('thread_thread_organiser')
+      .upsert(
+        {
+          thread_id: thread.id,
+          person_id: link.platform_id,
+          organiser_id: null,
+          role: b.role ?? 'host',
+        },
+        { onConflict: 'thread_id,person_id' },
+      )
+      .select('id, role, person_id')
+      .single();
+    if (error) {
+      console.error('[app-thread] add host failed', error);
+      return c.json({ error: 'could not add that host' }, 500);
+    }
+
+    return c.json({ id: host.id, person_id: host.person_id, role: host.role }, 201);
+  });
+
   appsRoutes.patch('/:slug/thread/threads/:id', async (c) => {
     const ctx = appKeyOnly(c);
     if (!ctx) return notForUsers(c);

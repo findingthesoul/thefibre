@@ -430,7 +430,7 @@ threadRoutes.get('/threads/:id', async (c) => {
       .order('position', { ascending: true }),
     db
       .from('thread_thread_organiser')
-      .select('role, organiser:organiser_id (id, slug, display_name, user_id)')
+      .select('role, organiser:organiser_id (id, slug, display_name, user_id), person:person_id (id, first_name, last_name)')
       .eq('thread_id', thread.id),
   ]);
 

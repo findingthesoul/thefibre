@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.13] — 2026-08-28 — a host who has no Fibre account
+
+§1 of `docs/brief-thread-event-settings.md`. Hosts & Facilitators on a thread
+is `thread_thread_organiser`, which pointed only at `thread_organiser` — a
+storefront, needing a Fibre `user`. A festival's hosts sign in to the planner's
+own database and never will have one, so they could not be listed at all.
+
+**One list, not two.** The alternative was a second table for "credited on this
+thread", which would have left two lists meaning nearly the same thing and every
+reader joining both.
+
+### Added
+- **`thread_thread_organiser.person_id`** — a row now names either an organiser
+  (a storefront, unchanged) or a person directly. Exactly one of the two,
+  enforced by a check constraint.
+- **`POST /apps/:slug/thread/threads/:id/hosts`** — credit a host by the app's
+  own record id, already linked through `/links`, so the app never handles a
+  platform UUID. `role` is `host` or `facilitator`. Idempotent on
+  `(thread_id, person_id)`: a repeat call updates the role rather than adding a
+  second row. Scoped `write:programs`, matching the other thread writes —
+  crediting a host writes to the thread, not to the person.
+- The workspace-side thread read returns `person` alongside `organiser`, so the
+  rows are not invisible to The Thread.
+
+### Notes
+- **The primary key moved** from `(thread_id, organiser_id)` to a surrogate
+  `id`. That pair is what pinned `organiser_id` to NOT NULL. Both pairings are
+  now plain UNIQUE constraints — deliberately **not** partial indexes, because
+  `ON CONFLICT (thread_id, organiser_id)` in `routes/thread.ts` can only infer a
+  full unique index, and a partial one would have broken the existing members
+  upsert. Postgres treats NULLs as distinct, so person rows carry a NULL
+  `organiser_id` and never collide.
+- The brief's suggested `role` values (`co_organiser`) are stale; the column was
+  widened to `host | facilitator` in 20260702110000. The route follows the
+  column.
+- **The Thread's own UI does not render person hosts yet.** The data is
+  returned; the members screen still assumes an organiser and its invite
+  dropdown still says "Choose a workspace member…". Nothing breaks — a person
+  host simply does not appear there until that screen is updated.
+
+
 ## [0.18.12] — 2026-08-28 — an event the owning app can actually describe
 
 §2 of `docs/brief-thread-event-settings.md`. A festival could be published as a

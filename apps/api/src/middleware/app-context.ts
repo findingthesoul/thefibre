@@ -148,6 +148,9 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // Connecting a person to an organisation writes to the organisation's own
   // graph, so it is gated on write:organisations rather than write:persons.
   { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/memberships$/, scope: 'write:organisations' },
+  // Crediting a host writes to the thread, not to the person — the person is
+  // only named. write:programs is the scope that owns thread content.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/hosts$/, scope: 'write:programs' },
   // Manifest — an app reading back what it declared.
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
   { method: 'PUT', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
