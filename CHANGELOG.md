@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.15] — 2026-08-29 — the read API is a contract
+
+`docs/brief-thread-public-api.md`, all five items. The standalone Thread at
+thethread.app had a /developers page and a CORS-open read API; the rebuild had
+neither — not by decision, but because a security hardening (the CORS
+allowlist, v0.13.17) and the embed build (3.10.0) each happened without
+knowing about the other. This closes that gap on purpose, with the discipline
+the platform already applies to `/api/v1/apps/*`.
+
+### Fixed
+- **The public thread payload no longer spreads the raw row.** `{ ...thread }`
+  shipped `workspace_id`, `team_id`, `organiser_id` and `payment_destination`
+  to the internet — and would have shipped every future `thread_thread`
+  column too. All three public read routes now build their responses through
+  explicit mappers; appearing in public is a decision, not a migration side
+  effect.
+- **Thread's top-level routes joined RESERVED_SLUGS** (`certificate`,
+  `developers`, `embed`, `my`). An organiser named `my` would have been
+  silently unreachable — the exact bug the reserved-slug file was created for
+  in Meet, never extended to Thread. No existing organiser or team held one.
+
+### Added
+- **`GET /public/embed/threads`, `/public/organiser/:slug` and
+  `/public/organiser/:slug/thread/:threadSlug` are published.** CORS open
+  (`*`, no credentials, GET only) on those three exact paths — never the
+  `/public/` prefix, because POST `/public/enrol` and `/public/validate-coupon`
+  live on it and the enrol form calls them from the browser; a prefix-wide
+  cors() would have broken enrolment in production. Enrolment and coupon
+  validation stay same-origin deliberately: one writes personal data, the
+  other is a discount-code oracle.
+- **Rate limiting** (`lib/rate-limit.ts`): 60/min per IP, in-memory fixed
+  window (one Fly machine — Redis when that changes). Keyed on what the
+  opening actually invites: browser traffic from foreign origins. Our own
+  pages funnel through a handful of Vercel egress IPs and are not metered —
+  a naive per-IP limit would have throttled the whole site while missing
+  every scraper.
+- **`thread.thefibre.app/developers`** — the three routes with full field
+  tables, the widget snippets, the rate limits, a stability promise, and an
+  honest section on why registration is not part of the API. Linked from
+  Settings → Website embeds.
+- **`scripts/verify-public-api.mjs`** — the contract, runnable (read-only, no
+  confirm gate). Asserts every published key, that the internal columns stay
+  out, that CORS is open on exactly three paths and closed on their
+  neighbours, that our own enrol form still gets its preflight answered, and
+  that only third-party browser traffic is metered. 25 checks.
+
 ## [0.18.14] — 2026-08-28 — an anchor the database allowed
 
 A message set to send relative to an *activity* — "1 day after the Festival of

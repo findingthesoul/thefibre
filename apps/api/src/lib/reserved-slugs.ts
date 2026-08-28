@@ -44,6 +44,13 @@ const APP_GROUP_ROUTES = [
 // Listing them in the shared set is harmless for host/team slugs too.
 const MT_SUBPATHS = ['confirmed', 'cancel', 'reschedule'] as const;
 
+// Top-level routes under apps/thread/app/. Organiser and team slugs route
+// through [organiserSlug] at the same level, so any of these taken as a slug
+// makes that organiser silently unreachable — the exact bug this file was
+// created for, which had only ever been fixed for Meet. No existing organiser
+// or team holds one (checked 2026-08-29 before adding them).
+const THREAD_ROUTES = ['certificate', 'developers', 'embed', 'my'] as const;
+
 // Conventional infra / SaaS-y reserves. Cheap to deny up front.
 const INFRA = [
   'api',
@@ -73,6 +80,7 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set<string>([
   ...TOP_LEVEL_ROUTES,
   ...APP_GROUP_ROUTES,
   ...MT_SUBPATHS,
+  ...THREAD_ROUTES,
   ...INFRA,
 ]);
 

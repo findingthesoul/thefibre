@@ -3349,6 +3349,20 @@ threadRoutes.get('/enrolments', async (c) => {
 // PUBLIC endpoints — no JWT (see PUBLIC_PREFIXES in app-context.ts).
 // RLS blocks anon, so these read via adminClient and expose only what the
 // public page needs. Same pattern as Meet's /public routes.
+//
+// THE THREE READ ROUTES BELOW ARE A PUBLISHED CONTRACT.
+// `/public/organiser/:slug`, `/public/organiser/:slug/thread/:threadSlug` and
+// `/public/embed/threads` are documented at /developers, callable
+// cross-origin from any website (see the scoped CORS in server.ts), and
+// asserted by scripts/verify-public-api.mjs. CLAUDE.md rule 8 applies to them
+// exactly as it does to /api/v1/apps/*: add fields, never rename, remove,
+// retype or re-mean one.
+//
+// Which is why every response below is built by an explicit mapper rather
+// than spread from a row. `{ ...thread }` used to ship workspace_id, team_id,
+// organiser_id and payment_destination to the whole internet — not because
+// anyone decided to, but because they were columns. A mapper makes appearing
+// in public a decision instead of a side effect of a migration.
 // ===========================================================================
 
 const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, photo_url, timezone';
@@ -3359,6 +3373,70 @@ const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, phot
 type PublicOwner =
   | { kind: 'organiser'; organiser: { id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
   | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } };
+
+// --- The published shapes -------------------------------------------------
+// workspace_id is selected (enrolment needs it to place the person) but never
+// returned: it is an internal handle, and the one public use for it — the
+// data-workspace list embed — gets it from Settings, signed in.
+
+type PublicOrganiserOut = {
+  id: string;
+  slug: string;
+  display_name: string | null;
+  bio: string | null;
+  photo_url: string | null;
+  timezone: string;
+};
+
+function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
+  if (owner.kind === 'team') {
+    return {
+      id: owner.team.id,
+      slug: owner.team.slug,
+      display_name: owner.team.name,
+      bio: owner.team.description,
+      photo_url: null,
+      timezone: 'Europe/Amsterdam',
+    };
+  }
+  const o = owner.organiser;
+  return {
+    id: o.id,
+    slug: o.slug,
+    display_name: o.display_name,
+    bio: o.bio,
+    photo_url: o.photo_url,
+    timezone: o.timezone,
+  };
+}
+
+/** A thread as it appears in a LIST (organiser page, embed listing). */
+function publicThreadListItem(t: Record<string, unknown>): Record<string, unknown> {
+  const p = Array.isArray(t.program) ? t.program[0] : t.program;
+  const prog = (p ?? null) as {
+    title?: string; format?: string; status?: string;
+    starts_on?: string | null; ends_on?: string | null;
+  } | null;
+  return {
+    id: t.id,
+    slug: t.slug,
+    intention: t.intention ?? null,
+    cover_url: t.cover_url ?? null,
+    capacity: t.capacity ?? null,
+    price_cents: t.price_cents ?? null,
+    price_currency: t.price_currency ?? null,
+    public_interaction: t.public_interaction ?? 'page',
+    program: prog
+      ? {
+          title: prog.title ?? null,
+          format: prog.format ?? 'event',
+          status: prog.status ?? 'active',
+          starts_on: prog.starts_on ?? null,
+          ends_on: prog.ends_on ?? null,
+        }
+      : null,
+  };
+}
 
 async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
   const { data: organiser } = await adminClient
@@ -3446,19 +3524,11 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
   const prices = await ticketPrices(listed.map((t) => t.id));
   listed = listed.map((t) => ({ ...t, ...effectivePrice(t, prices) }));
 
-  const organiser =
-    owner.kind === 'organiser'
-      ? owner.organiser
-      : {
-          id: owner.team.id,
-          workspace_id: owner.team.workspace_id,
-          slug: owner.team.slug,
-          display_name: owner.team.name,
-          bio: owner.team.description,
-          photo_url: null,
-          timezone: 'Europe/Amsterdam',
-        };
-  return c.json({ organiser, threads: listed, owner_kind: owner.kind });
+  return c.json({
+    organiser: publicOrganiser(owner),
+    threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+    owner_kind: owner.kind,
+  });
 });
 
 // GET /api/v1/thread/public/organiser/:slug/thread/:threadSlug — thread page
@@ -3532,18 +3602,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     }
   }
 
-  const organiser =
-    owner.kind === 'organiser'
-      ? owner.organiser
-      : {
-          id: owner.team.id,
-          workspace_id: owner.team.workspace_id,
-          slug: owner.team.slug,
-          display_name: owner.team.name,
-          bio: owner.team.description,
-          photo_url: null,
-          timezone: 'Europe/Amsterdam',
-        };
+  const organiser = publicOrganiser(owner);
 
   const prices = await ticketPrices([thread.id]);
 
@@ -3621,13 +3680,36 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     sold_out: !!t.quantity_limit && (soldPerTicket.get(t.id) ?? 0) >= t.quantity_limit,
   }));
 
+  const price = effectivePrice(thread, prices);
   return c.json({
     organiser,
     thread: {
-      ...thread,
-      ...effectivePrice(thread, prices),
+      id: thread.id,
+      slug: thread.slug,
+      intention: thread.intention,
+      timezone: thread.timezone,
+      language: thread.language ?? 'en',
+      cover_url: thread.cover_url,
+      capacity: thread.capacity,
+      // Honest before enrolling: a place here is requested, not taken.
+      requires_approval: !!thread.requires_approval,
+      certificate_enabled: !!thread.certificate_enabled,
+      share_participants_public: !!thread.share_participants_public,
+      registration_fields: thread.registration_fields ?? [],
+      price_cents: price.price_cents,
+      price_currency: price.price_currency,
       payment_methods: threadMethods,
+      program: program
+        ? {
+            title: program.title,
+            format: program.format,
+            status: program.status,
+            starts_on: program.starts_on,
+            ends_on: program.ends_on,
+          }
+        : null,
       tickets,
+      // meeting_url never leaves: an unlisted join link is not agenda copy.
       agenda: (agenda ?? []).map(({ meeting_url, ...rest }) => ({
         ...rest,
         is_online: !!meeting_url,

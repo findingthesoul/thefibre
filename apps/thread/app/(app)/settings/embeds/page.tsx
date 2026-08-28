@@ -72,6 +72,14 @@ export default async function EmbedsSettingsPage() {
         title="Website embeds"
         description="Show your threads and take enrolments on any website — auto-sizing, no code beyond copy-paste."
       />
+      <p className="mt-2 text-xs text-ink-subtle">
+        Building something custom instead? The read API behind these widgets is public and
+        documented at{' '}
+        <a href="/developers" className="underline underline-offset-2" target="_blank">
+          /developers
+        </a>
+        .
+      </p>
       <div className="mt-8 space-y-8">
         {snippets.map((s) => (
           <section key={s.title}>

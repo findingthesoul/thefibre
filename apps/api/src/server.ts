@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
+import { hit, clientIp } from './lib/rate-limit.js';
 import { appContext } from './middleware/app-context.js';
 import { authRoutes } from './routes/auth.js';
 import { personsRoutes } from './routes/persons.js';
@@ -79,21 +80,108 @@ function isAllowedOrigin(origin: string): boolean {
   return false;
 }
 
-app.use(
-  '*',
-  cors({
-    // Hono's cors() treats a returned empty string as "don't add the
-    // header" — i.e. blocked. Same-origin / server-to-server requests
-    // (origin undefined) are unaffected.
-    origin: (origin) => {
-      if (!origin) return '';
-      return isAllowedOrigin(origin) ? origin : '';
-    },
-    allowHeaders: ['Authorization', 'Content-Type', 'X-App-ID'],
-    allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
-    credentials: true,
-  }),
-);
+// ---------------------------------------------------------------------------
+// The Thread's public read API — open to any website.
+//
+// These three GETs are a published contract (docs/brief-thread-public-api.md,
+// documented at /developers). They were already unauthenticated — the auth
+// bypass lives in PUBLIC_PREFIXES — so anyone with curl could read them. All
+// this adds is the browser's permission to do the same, which is what a
+// widget on a customer's site needs.
+//
+// `credentials: false` is load-bearing. An open origin WITH credentials is
+// the combination browsers refuse, and wanting it would mean wanting
+// somebody's session on someone else's page.
+//
+// SCOPED TO THREE EXACT PATHS, never the /public/ prefix. Sharing that prefix
+// are POST /public/enrol and POST /public/validate-coupon, which the enrol
+// form calls from the browser ('use client' → publicFetch). A prefix-wide
+// cors() answers their preflight with "GET, OPTIONS" and enrolment stops
+// working in production. One writes personal data and the other is a
+// discount-code oracle; neither is going open regardless.
+// ---------------------------------------------------------------------------
+const PUBLISHED_READ_PATHS = [
+  '/api/v1/thread/public/embed/threads',
+  '/api/v1/thread/public/organiser/:slug',
+  '/api/v1/thread/public/organiser/:slug/thread/:threadSlug',
+];
+
+/** Same three routes, matched against a concrete request path. */
+const PUBLISHED_READ_RE = [
+  /^\/api\/v1\/thread\/public\/embed\/threads$/,
+  /^\/api\/v1\/thread\/public\/organiser\/[^/]+$/,
+  /^\/api\/v1\/thread\/public\/organiser\/[^/]+\/thread\/[^/]+$/,
+];
+
+function isPublishedReadPath(path: string): boolean {
+  return PUBLISHED_READ_RE.some((re) => re.test(path));
+}
+
+const publicReadCors = cors({
+  origin: '*',
+  allowHeaders: ['Content-Type'],
+  allowMethods: ['GET', 'OPTIONS'],
+  credentials: false,
+  maxAge: 600,
+});
+
+// Rate limiting, applied only to the traffic this opening invites.
+//
+// Our own public pages render server-side from Vercel, so every visitor to
+// thread.thefibre.app arrives at the API from a handful of Vercel egress IPs.
+// A naive per-IP limit would throttle the whole site to a trickle while
+// leaving a scraper on a home connection untouched — exactly backwards. So
+// enforcement keys on what is actually new: a browser request from an origin
+// that isn't ours. Server-to-server calls (no Origin) and our own apps pass
+// through untouched.
+const PUBLIC_READ_LIMIT = 60; // requests
+const PUBLIC_READ_WINDOW_MS = 60_000; // per minute, per IP
+
+for (const path of PUBLISHED_READ_PATHS) {
+  app.use(path, publicReadCors);
+  app.use(path, async (c, next) => {
+    const origin = c.req.header('Origin');
+    if (!origin || isAllowedOrigin(origin)) return next();
+
+    const r = hit(
+      `thread-public:${clientIp(c.req.raw.headers)}`,
+      PUBLIC_READ_LIMIT,
+      PUBLIC_READ_WINDOW_MS,
+    );
+    c.header('X-RateLimit-Limit', String(r.limit));
+    c.header('X-RateLimit-Remaining', String(r.remaining));
+    c.header('X-RateLimit-Reset', String(r.resetSeconds));
+    if (!r.allowed) {
+      c.header('Retry-After', String(r.resetSeconds));
+      return c.json(
+        { error: 'rate limit exceeded', detail: `max ${r.limit} requests per minute` },
+        429,
+      );
+    }
+    return next();
+  });
+}
+
+// The workspace allowlist, for everything else. It must not run on the three
+// published paths: its origin function returns '' for a stranger, which would
+// undo the Access-Control-Allow-Origin: * that publicReadCors just set.
+const allowlistCors = cors({
+  // Hono's cors() treats a returned empty string as "don't add the
+  // header" — i.e. blocked. Same-origin / server-to-server requests
+  // (origin undefined) are unaffected.
+  origin: (origin) => {
+    if (!origin) return '';
+    return isAllowedOrigin(origin) ? origin : '';
+  },
+  allowHeaders: ['Authorization', 'Content-Type', 'X-App-ID'],
+  allowMethods: ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
+  credentials: true,
+});
+
+app.use('*', async (c, next) => {
+  if (isPublishedReadPath(c.req.path)) return next();
+  return allowlistCors(c, next);
+});
 
 app.get('/health', (c) => c.json({ ok: true, service: 'thefibre-api' }));
 
