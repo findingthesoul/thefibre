@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.9] — 2026-08-28 — publish under the workspace when an app names nobody
+
+`POST /apps/:slug/thread/threads` required `organiser_person_id`, and required
+that person to have a Fibre account and a Thread organiser profile. The check
+was right; what it left the app holding was not.
+
+An external app's organisers sign in to the app's own database. They have no
+Fibre account and never will — that is the point of an external app — so they
+can never satisfy the check. And no app-facing route lists who in the workspace
+*could*, so the app had to supply a UUID it had no way to obtain. In the
+Festival of Trust planner that became an environment variable holding an email
+address, resolved through `/links` at publish time: configuration standing in
+for something the platform already knows.
+
+### Changed
+- **`organiser_person_id` is now optional.** Omit it and the workspace publishes
+  under its own Thread organiser. Additive — every existing caller still works.
+- **A workspace with no organiser gets one derived from its admin**, rather than
+  being told to go and visit a settings screen. Rights follow function: a
+  workspace admin already holds the authority to publish on the workspace's
+  behalf, so requiring a manual visit was a step standing in for a lookup the
+  platform can do itself. The storefront is named after the workspace, owned by
+  its earliest admin, with no payout account — all editable in The Thread
+  afterwards.
+- When a workspace has several organisers and the app names nobody, the
+  earliest wins. Stable beats arbitrary; `docs/brief-thread-default-organiser.md`
+  leaves a `thread_organiser` default flag open for when it matters.
+
+### Notes
+- The derived slug follows the same shape as the auto-provision in
+  `routes/thread.ts` — a seed plus a short random suffix — rather than the bare
+  workspace slug, which would collide with a person who already took it under
+  `unique (workspace_id, slug)`.
+- `thread_organiser.user_id` is unique across the **whole table**, not per
+  workspace, so the insert-conflict recovery looks up by user alone and reports
+  clearly when the admin already organises elsewhere.
+- Depends on v0.18.8: a workspace with no admin has nobody to derive from and
+  returns `this workspace has no admin to publish as` rather than publishing
+  under nobody.
+
+
 ## [0.18.8] — 2026-08-26 — a new workspace had no admin, and no way to get one · Meet 2.4.3
 
 Approve an access request, and a workspace is created. The first person signs
