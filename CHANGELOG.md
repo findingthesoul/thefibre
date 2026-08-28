@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.11] — 2026-08-28 — primary means primary
+
+### Fixed
+- **`is_primary` on `POST /apps/:slug/memberships` now does what it said.**
+  The field was documented as "only one per person ends up marked" and nothing
+  did that — no constraint in the schema, and the route did not unset the
+  others. Marking one now unsets the rest for that person, kept in the route
+  because `org_membership` carries no `workspace_id` for a partial unique index
+  to be scoped by.
+- **A repeat call is no longer a silent no-op.** It applies `is_primary` and
+  `title` to the existing row instead of returning early, so promoting a
+  membership to primary works whether or not it already existed.
+
+### Correction to v0.18.10
+That release's commit message claims no app route compares the URL `:slug`
+against the key's own app, and calls it a pre-existing authorization hole.
+**That is wrong.** The check has been in `middleware/app-context.ts` since
+v0.14.0 — it compares the path slug to `key.appSlug` and returns
+`403 wrong-app` — and `scripts/verify-external-app.mjs` asserts it under "a key
+cannot act as another app". The claim came from grepping `routes/` for
+comparisons against `ctx.appId`, which is not where the check lives or what it
+compares. Nothing was open, and nothing needed fixing.
+
+
 ## [0.18.10] — 2026-08-28 — an app can say who belongs to what
 
 An app could create a person and create an organisation and had no way to
