@@ -164,8 +164,17 @@ const PublishThread = z.object({
    * its organiser to a Fibre person, and it should not have to learn about
    * platform user rows to publish. Resolved here to that person's Thread
    * organiser profile.
+   *
+   * OPTIONAL. Omit it and the workspace publishes under its own organiser.
+   *
+   * External apps are the reason. Their organisers sign in to the app's own
+   * database, which this platform knows nothing about, so they have no Fibre
+   * account and can never satisfy the checks below — and an app has no route
+   * that would tell it who in the workspace can. Requiring the field meant
+   * every such app had to be configured with a person it could not look up.
+   * The app key is already scoped to one workspace; that is enough to know.
    */
-  organiser_person_id: z.string().uuid(),
+  organiser_person_id: z.string().uuid().optional(),
   intention: z.string().max(2000).nullable().optional(),
   starts_on: z.string().date().nullable().optional(),
   ends_on: z.string().date().nullable().optional(),
@@ -187,6 +196,84 @@ const PatchThread = z.object({
 
 // The ONLY permitted column list on thread_enrolment. See THE WALL above.
 const ENROLMENT_SELECT = 'id, enrolment_id, person_id, payment_status, created_at';
+
+/**
+ * The workspace's own Thread organiser, created from its admin if it has none.
+ *
+ * Rights follow function: whoever administers the workspace may publish for it.
+ * Returns the earliest admin's storefront so the same workspace always
+ * publishes under the same one.
+ */
+async function deriveWorkspaceOrganiser(
+  workspaceId: string,
+): Promise<{ organiser: { id: string } } | { error: string }> {
+  const { data: workspace } = await adminClient
+    .from('workspace')
+    .select('slug, name')
+    .eq('id', workspaceId)
+    .maybeSingle();
+  if (!workspace) return { error: 'workspace not found' };
+
+  const { data: admins } = await adminClient
+    .from('workspace_member')
+    .select('user_id, workspace_role, joined_at')
+    .eq('workspace_id', workspaceId)
+    .in('workspace_role', ['super_admin', 'admin'])
+    .order('joined_at', { ascending: true })
+    .limit(1);
+
+  const admin = admins?.[0];
+  if (!admin) {
+    // v0.18.8 fixed the case that produced these; a workspace predating it can
+    // still have none, and silently publishing under nobody would be worse.
+    return { error: 'this workspace has no admin to publish as' };
+  }
+
+  // Same slug shape as the auto-provision in routes/thread.ts (`GET
+  // /thread/me`): a seed plus a short random suffix. Bare workspace.slug would
+  // collide with a person who already took it, and `unique (workspace_id,
+  // slug)` would reject the insert.
+  const seed =
+    workspace.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'organiser';
+  const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
+
+  const { data: created, error } = await adminClient
+    .from('thread_organiser')
+    .insert({
+      user_id: admin.user_id,
+      workspace_id: workspaceId,
+      slug,
+      display_name: workspace.name,
+    })
+    .select('id')
+    .single();
+
+  if (error) {
+    // thread_organiser.user_id is UNIQUE across the whole table, not per
+    // workspace — so this admin may already have a storefront, and the lookup
+    // must not filter by workspace or it will find nothing and report the
+    // wrong thing. Two publishes racing land here too.
+    const { data: existing } = await adminClient
+      .from('thread_organiser')
+      .select('id, workspace_id')
+      .eq('user_id', admin.user_id)
+      .maybeSingle();
+    if (existing?.workspace_id === workspaceId) return { organiser: { id: existing.id } };
+    if (existing) {
+      return {
+        error: 'this workspace’s admin already organises in another workspace',
+      };
+    }
+    console.error('[app-thread] could not derive a workspace organiser', error);
+    return { error: 'could not create a Thread organiser for this workspace' };
+  }
+
+  return { organiser: created };
+}
 
 // ---------------------------------------------------------------------------
 // Registration
@@ -237,40 +324,75 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     // The organiser must be a real person in this workspace who has a Thread
     // organiser profile. An app cannot invent one: publishing under a
     // storefront nobody owns would leave a page with no human behind it.
-    const { data: person } = await adminClient
-      .from('person')
-      .select('id')
-      .eq('id', b.organiser_person_id)
-      .eq('workspace_id', ctx.workspaceId)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (!person) return c.json({ error: 'organiser_person_id is not a person in this workspace' }, 404);
+    //
+    // Named explicitly, or — when the app names nobody — the workspace's own.
+    let organiser: { id: string } | null = null;
 
-    const { data: user } = await adminClient
-      .from('user')
-      .select('id')
-      .eq('person_id', person.id)
-      .eq('workspace_id', ctx.workspaceId)
-      .is('deleted_at', null)
-      .maybeSingle();
-    if (!user) {
-      return c.json(
-        { error: 'that person has no Fibre account, so they cannot be an organiser yet' },
-        400,
-      );
-    }
+    if (b.organiser_person_id) {
+      const { data: person } = await adminClient
+        .from('person')
+        .select('id')
+        .eq('id', b.organiser_person_id)
+        .eq('workspace_id', ctx.workspaceId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!person) return c.json({ error: 'organiser_person_id is not a person in this workspace' }, 404);
 
-    const { data: organiser } = await adminClient
-      .from('thread_organiser')
-      .select('id')
-      .eq('user_id', user.id)
-      .eq('workspace_id', ctx.workspaceId)
-      .maybeSingle();
-    if (!organiser) {
-      return c.json(
-        { error: 'that person has no Thread organiser profile — they need to visit The Thread’s settings once' },
-        400,
-      );
+      const { data: user } = await adminClient
+        .from('user')
+        .select('id')
+        .eq('person_id', person.id)
+        .eq('workspace_id', ctx.workspaceId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!user) {
+        return c.json(
+          { error: 'that person has no Fibre account, so they cannot be an organiser yet' },
+          400,
+        );
+      }
+
+      const { data } = await adminClient
+        .from('thread_organiser')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('workspace_id', ctx.workspaceId)
+        .maybeSingle();
+      if (!data) {
+        return c.json(
+          { error: 'that person has no Thread organiser profile — they need to visit The Thread’s settings once' },
+          400,
+        );
+      }
+      organiser = data;
+    } else {
+      // The workspace's own organiser. Earliest, which is the one the first
+      // admin created — a workspace with several storefronts and no explicit
+      // choice has no better answer, and a stable one beats an arbitrary one.
+      const { data } = await adminClient
+        .from('thread_organiser')
+        .select('id')
+        .eq('workspace_id', ctx.workspaceId)
+        .order('created_at', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+      if (data) {
+        organiser = data;
+      } else {
+        // Derive it from function rather than asking for a settings visit.
+        //
+        // A workspace admin already has the authority to publish on the
+        // workspace's behalf — that is what the role means. Making them open a
+        // screen to be granted a right they hold by function is a manual step
+        // standing in for a lookup the platform can do itself.
+        //
+        // The storefront it creates is the workspace's own: named after it,
+        // owned by its admin, no payout account. All of it editable in The
+        // Thread's settings afterwards.
+        const derived = await deriveWorkspaceOrganiser(ctx.workspaceId);
+        if ('error' in derived) return c.json({ error: derived.error }, 400);
+        organiser = derived.organiser;
+      }
     }
 
     const { data: threadApp } = await adminClient

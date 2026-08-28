@@ -35,24 +35,25 @@ screen that requires the role.**
 Solidarity Lab does not hit this because it predates the flow and was seeded
 directly.
 
-## A second, smaller thing
+## A second, smaller thing — ~~wrong~~, see below
 
-The guard tests for two roles:
-
-```ts
-if (role !== 'admin' && role !== 'super_admin') return 'workspace admin required';
-```
-
-but the column only permits two values, and `super_admin` is not one of them:
-
-```sql
-workspace_role text not null default 'member'
-  check (workspace_role in ('admin','member'))
-```
-
-So the `super_admin` branch is unreachable. Harmless today, but it reads as
-though a role exists that does not, and the next person to touch this will
-believe it.
+> **This section was wrong and is kept only so the correction is legible.**
+> I claimed `super_admin` was unreachable because the CHECK permits only
+> `('admin','member')`. That constraint is from `20260517000000_permission_tiers`
+> and was superseded by `20260704090000_role_tiers` with
+> `('super_admin','admin','organiser')`, default `'organiser'`. `super_admin` is
+> a real workspace role, the branch is reachable, and `requireWorkspaceAdmin` is
+> correct as written.
+>
+> The error: I read the CHECK off the original `create table` in migration
+> history instead of the live constraint, so I never saw the one that replaced
+> it. Anyone verifying a constraint here should query the database, not the
+> first migration that mentions the column.
+>
+> The stale vocabulary was real, but in `routes/meet.ts`:
+> `ensureWorkspaceMember` typed its role `'admin' | 'member'` and defaulted to
+> `'member'` — illegal since 2026-07-04 — and never read the insert error, so
+> four Meet invite paths silently wrote nothing for seven weeks.
 
 Worth noting too that platform super admin (`user.is_super_admin`) is a
 different thing entirely — it is what lets someone approve an app registration.
