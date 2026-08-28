@@ -229,27 +229,45 @@ async function deriveWorkspaceOrganiser(
     return { error: 'this workspace has no admin to publish as' };
   }
 
+  // Same slug shape as the auto-provision in routes/thread.ts (`GET
+  // /thread/me`): a seed plus a short random suffix. Bare workspace.slug would
+  // collide with a person who already took it, and `unique (workspace_id,
+  // slug)` would reject the insert.
+  const seed =
+    workspace.name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'organiser';
+  const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
+
   const { data: created, error } = await adminClient
     .from('thread_organiser')
     .insert({
       user_id: admin.user_id,
       workspace_id: workspaceId,
-      slug: workspace.slug,
+      slug,
       display_name: workspace.name,
     })
     .select('id')
     .single();
 
   if (error) {
-    // user_id is unique across the table: this admin already has a storefront
-    // in some workspace, or two publishes raced. Either way, read it back.
+    // thread_organiser.user_id is UNIQUE across the whole table, not per
+    // workspace — so this admin may already have a storefront, and the lookup
+    // must not filter by workspace or it will find nothing and report the
+    // wrong thing. Two publishes racing land here too.
     const { data: existing } = await adminClient
       .from('thread_organiser')
-      .select('id')
+      .select('id, workspace_id')
       .eq('user_id', admin.user_id)
-      .eq('workspace_id', workspaceId)
       .maybeSingle();
-    if (existing) return { organiser: existing };
+    if (existing?.workspace_id === workspaceId) return { organiser: { id: existing.id } };
+    if (existing) {
+      return {
+        error: 'this workspace’s admin already organises in another workspace',
+      };
+    }
     console.error('[app-thread] could not derive a workspace organiser', error);
     return { error: 'could not create a Thread organiser for this workspace' };
   }
