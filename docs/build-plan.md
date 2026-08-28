@@ -20,7 +20,14 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-08-24 (v0.18.2). Done items get removed, not ticked._
+_Last groomed 2026-08-29 (v0.18.17). Done items get removed, not ticked._
+
+_The Thread's public read API is a published contract as of v0.18.15
+(docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
+`thread.thefibre.app/developers`, and `scripts/verify-public-api.mjs` — run it
+after touching anything under `/api/v1/thread/public/*`, the same way
+verify-external-app.mjs guards the app surface. Enrolment and coupon
+validation stay same-origin deliberately; that is a decision, not a gap._
 
 _The dead-public-link family is closed. v0.18.1 gave the sidebar Help link a
 destination in all five apps (`@thefibre/shared/ui/help` + a per-app `/help`);
