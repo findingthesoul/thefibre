@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.10] — 2026-08-28 — an app can say who belongs to what
+
+An app could create a person and create an organisation and had no way to
+connect them. The graph knew both parties and never the relationship, so the
+question "which contacts did this organisation have" had nothing to compute
+from — gap 2 in `docs/brief-contacts-from-apps.md`, now closed.
+
+### Added
+- **`POST /api/v1/apps/:slug/memberships`** — connect a linked person to a
+  linked organisation. Both sides are named by the app's **own** record ids,
+  already matched through `/links`, so the app never handles a platform UUID —
+  the same reasoning as Flow steps being addressed by key. Optional `title` and
+  `is_primary`. Scoped on `write:organisations`, because the edge belongs to the
+  organisation's graph.
+- Added to `APP_KEY_ROUTES`; without that entry the route would have been
+  default-denied and unreachable.
+
+### Notes
+- `org_membership` carries no `workspace_id` of its own — it inherits one from
+  both ends. Both lookups are already scoped to the key's workspace, so a
+  cross-workspace pair cannot be assembled.
+- Idempotent by hand on `(person_id, org_id)` where `ended_at is null`, since
+  there is no unique constraint to lean on. A second call returns the existing
+  row with `created: false`. Two *simultaneous* calls could still both insert;
+  a partial unique index would settle it if that ever matters.
+- `is_primary` is written as given. Nothing enforces one primary per person —
+  no constraint in the schema, and this route does not unset the others — so
+  an app can mark several. Worth a decision if it starts mattering.
+
+
 ## [0.18.9] — 2026-08-28 — publish under the workspace when an app names nobody
 
 `POST /apps/:slug/thread/threads` required `organiser_person_id`, and required
