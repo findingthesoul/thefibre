@@ -74,6 +74,11 @@ it is an app overwriting what somebody typed.**
 
 ## Gap 2 — an app cannot say who belongs to what
 
+> **Closed** on branch `app-memberships`: `POST /apps/:slug/memberships` takes
+> the two app_record_ids the app has already linked and writes the
+> `org_membership`. Reading (1) of the two questions below — the app shows it —
+> which is what the requirement actually needs.
+
 There is no route that writes `org_membership`. An app can create a person, and
 create an organisation, and cannot connect them.
 

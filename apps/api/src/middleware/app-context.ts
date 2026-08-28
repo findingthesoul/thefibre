@@ -145,6 +145,9 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/links\/[^/]+\/[^/]+$/, scope: 'read:persons' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/persons\/[^/]+\/[^/]+$/, scope: 'read:persons' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/organisations\/[^/]+\/[^/]+$/, scope: 'read:organisations' },
+  // Connecting a person to an organisation writes to the organisation's own
+  // graph, so it is gated on write:organisations rather than write:persons.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/memberships$/, scope: 'write:organisations' },
   // Manifest — an app reading back what it declared.
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
   { method: 'PUT', test: /^\/api\/v1\/apps\/[^/]+\/manifest$/, scope: null },
