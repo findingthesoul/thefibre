@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.14] — 2026-08-28 — an anchor the database allowed
+
+A message set to send relative to an *activity* — "1 day after the Festival of
+Trust" — could never be saved. The dialog returned `new row for relation
+"thread_engagement" violates check constraint
+"thread_engagement_trigger_anchor_check"`.
+
+Event anchoring shipped on 2026-07-02 in two migrations a few hours apart. The
+second added `trigger_engagement_id` and the whole reading side learned
+`trigger_anchor = 'engagement'` — the scheduler, the timeline preview, the
+public payload. The first had written the column's CHECK the day it only knew
+`'start'` and `'end'`, and nobody went back to widen it. Anchoring to the thread
+start or end worked, so the gap stayed invisible until someone anchored to an
+actual event.
+
+### Fixed
+- `thread_engagement.trigger_anchor` now accepts `'engagement'`. The migration
+  drops the old constraint by shape rather than by name — it was an inline
+  column check, so its name was Postgres's to choose.
+
 ## [0.18.13] — 2026-08-28 — a host who has no Fibre account
 
 §1 of `docs/brief-thread-event-settings.md`. Hosts & Facilitators on a thread
