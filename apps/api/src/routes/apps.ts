@@ -840,7 +840,11 @@ const MembershipBody = z.object({
   person: MembershipRef,
   organisation: MembershipRef,
   title: z.string().max(200).optional(),
-  /** Their main organisation. Only one per person ends up marked. */
+  /**
+   * Their main organisation. Enforced below rather than described: marking one
+   * unsets the others, because "primary" means nothing if a person can have
+   * three of them.
+   */
   is_primary: z.boolean().optional(),
 });
 
@@ -893,7 +897,28 @@ appsRoutes.post('/:slug/memberships', async (c) => {
     .is('ended_at', null)
     .maybeSingle();
 
+  // Primary is exclusive. There is no database rule for it — org_membership
+  // carries no workspace_id and a partial unique index would need one — so it
+  // is kept here, before either branch writes.
+  if (b.is_primary) {
+    await adminClient
+      .from('org_membership')
+      .update({ is_primary: false })
+      .eq('person_id', personId)
+      .neq('org_id', orgId)
+      .eq('is_primary', true);
+  }
+
   if (existing) {
+    // A repeat call may be promoting an existing membership to primary, or
+    // naming a title it did not have. Returning early without applying either
+    // would make the second call a silent no-op.
+    const patch: Record<string, unknown> = {};
+    if (b.is_primary !== undefined) patch.is_primary = b.is_primary;
+    if (b.title !== undefined) patch.title = b.title;
+    if (Object.keys(patch).length) {
+      await adminClient.from('org_membership').update(patch).eq('id', existing.id);
+    }
     return c.json({ id: existing.id, person_id: personId, org_id: orgId, created: false }, 200);
   }
 
