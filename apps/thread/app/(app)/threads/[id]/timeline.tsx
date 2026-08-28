@@ -116,7 +116,16 @@ function triggerLabel(e: EngagementRow, byId?: Map<string, EngagementRow>): stri
         : e.trigger_anchor === 'end'
           ? 'end'
           : 'start';
-    return `${n}d ${dir} ${anchorLabel} · ${e.trigger_time ?? '09:00'}`;
+    // "1d after Festival of Trust · 11:00" is a lie when the anchor has no
+    // date — the scheduler resolves the anchor to null and skips the message
+    // forever. Say so on the card instead of letting it be discovered the day
+    // after the festival.
+    const anchorless =
+      e.trigger_anchor === 'engagement' &&
+      !byId?.get(e.trigger_engagement_id ?? '')?.starts_at;
+    return `${n}d ${dir} ${anchorLabel} · ${e.trigger_time ?? '09:00'}${
+      anchorless ? ' — won\u2019t send: the anchor has no date' : ''
+    }`;
   }
   return LIFECYCLE_LABELS[kind] ?? null;
 }
@@ -505,7 +514,7 @@ export function ThreadTimeline({
           personalRoomUrl={personalRoomUrl}
           activities={engagements
             .filter((e) => metaFor(e.type).family === 'activity')
-            .map((e) => ({ id: e.id, title: e.title }))}
+            .map((e) => ({ id: e.id, title: e.title, hasDate: !!e.starts_at }))}
           onClose={() => setEditorState({ mode: 'closed' })}
         />
       )}

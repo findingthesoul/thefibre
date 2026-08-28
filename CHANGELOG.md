@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.17] — 2026-08-29 — a message that would never have sent
+
+Found while debugging, live on tester-2: a "Thank you" message anchored to an
+event that has no date. The scheduler resolves the anchor to null and skips
+the message every run — no error, no warning, discovered the day after the
+festival or never.
+
+### Fixed
+- The anchor picker names the problem in the option itself: an activity
+  without a date reads "Festival of Trust — has no date yet".
+- The timeline card stops lying: "1d after Festival of Trust · 11:00" gains
+  "— won't send: the anchor has no date" when that is the truth.
+
 ## [0.18.16] — 2026-08-29 — a draft you can look at
 
 "Open public page" on a draft thread was a guaranteed 404. The public detail

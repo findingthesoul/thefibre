@@ -108,7 +108,7 @@ export function EngagementDialog({
   /** Meet's personal room, shared across the Fibre apps. */
   personalRoomUrl?: string | null;
   /** The thread's activities — anchor options for relative message triggers. */
-  activities?: { id: string; title: string }[];
+  activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -690,7 +690,7 @@ function TriggerFields({
   onKindChange: (k: TriggerKind) => void;
   engagement: EngagementRow | null;
   requiresApproval: boolean;
-  activities: { id: string; title: string }[];
+  activities: { id: string; title: string; hasDate: boolean }[];
 }) {
   const off = engagement?.trigger_offset_days ?? -3;
   const defaultDays = String(Math.min(30, Math.max(1, Math.abs(off || 3))));
@@ -755,7 +755,13 @@ function TriggerFields({
             options={[
               { value: 'start', label: 'thread start' },
               { value: 'end', label: 'thread end' },
-              ...activities.map((a) => ({ value: `eng:${a.id}`, label: a.title })),
+              // A dateless anchor can never resolve to a send time — the
+              // scheduler would skip the message forever without a word. Say
+              // so in the option itself rather than letting it be found out.
+              ...activities.map((a) => ({
+                value: `eng:${a.id}`,
+                label: a.hasDate ? a.title : `${a.title} — has no date yet`,
+              })),
             ]}
           />
           <SelectField
