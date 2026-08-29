@@ -110,9 +110,9 @@ const slugField = z
 // creation (thethread-v3 rule; see docs/thread-rebuild-plan.md).
 const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
 export const MESSAGE_TYPES = ['reflection', 'practice', 'message', 'document', 'inspiration'] as const;
-const ENGAGEMENT_TYPES = [...ACTIVITY_TYPES, ...MESSAGE_TYPES] as const;
+export const ENGAGEMENT_TYPES = [...ACTIVITY_TYPES, ...MESSAGE_TYPES] as const;
 
-function engagementFamily(type: string): 'activity' | 'message' {
+export function engagementFamily(type: string): 'activity' | 'message' {
   return (ACTIVITY_TYPES as readonly string[]).includes(type) ? 'activity' : 'message';
 }
 

@@ -1099,6 +1099,63 @@ async function main() {
     `HTTP ${noMessages.status}`,
   );
 
+  // The agenda is a different thing from the post. An agenda item cannot email
+  // anybody, so it rides on write:programs — and the split has to hold in BOTH
+  // directions or the new scope was pointless.
+  const agendaItem = await call(
+    `/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`,
+    {
+      method: 'POST',
+      token: THREADKEY,
+      body: {
+        source_ref: randomUUID(),
+        type: 'event',
+        title: 'Opening ceremony',
+      },
+    },
+  );
+  check(
+    agendaItem.status === 201 && agendaItem.body?.type === 'event',
+    'it writes an agenda item — The Thread owns the agenda, the app edits it',
+    `HTTP ${agendaItem.status} ${agendaItem.status !== 201 ? JSON.stringify(agendaItem.body).slice(0, 100) : ''}`,
+  );
+
+  // The window rule still bites: an agenda item outside the event's own dates
+  // is refused. That is why the dated version of the check above failed.
+  const outside = await call(
+    `/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`,
+    {
+      method: 'POST',
+      token: THREADKEY,
+      body: {
+        source_ref: randomUUID(),
+        type: 'event',
+        title: 'Long after everyone went home',
+        starts_at: '2030-01-01T09:00:00Z',
+        ends_at: '2030-01-01T10:00:00Z',
+      },
+    },
+  );
+  check(outside.status === 400, 'an agenda item outside the event dates is refused', `HTTP ${outside.status}`);
+  checkWall('the agenda item', agendaItem.body);
+
+  if (agendaItem.body?.id) {
+    const retype = await call(`/api/v1/apps/${SLUG}/thread/engagements/${agendaItem.body.id}`, {
+      method: 'PATCH',
+      token: THREADKEY,
+      body: { type: 'message' },
+    });
+    check(
+      retype.status === 400,
+      'an agenda item cannot be retyped into a message',
+      `HTTP ${retype.status}`,
+    );
+    await call(`/api/v1/apps/${SLUG}/thread/engagements/${agendaItem.body.id}`, {
+      method: 'DELETE',
+      token: THREADKEY,
+    });
+  }
+
   // A registration, planted the way the public form would: a platform
   // enrolment with The Thread's commerce and form answers on top. The answers
   // and Stripe fields are exactly what must not come back.

@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.24] — 2026-08-29 — the app edits the agenda, because The Thread owns it
+
+`docs/brief-thread-engagements-from-apps.md` §7 held the activity family back:
+"two systems both authoring the agenda is a sync problem nobody has scoped…
+Activities can follow once someone has decided which side owns the agenda."
+
+Sjoerd decided: The Thread owns it, and the planner's editing screen is a
+window onto that rather than a second copy. So activities open.
+
+### Changed
+- **Both engagement families are writable** on `POST /apps/:slug/thread/threads/:id/engagements`
+  and `PATCH /apps/:slug/thread/engagements/:id`. Type may still only move
+  within its family — an agenda item does not become a message by being
+  retyped.
+- **The scope split follows what the thing can do**, not which route it arrives
+  on. Both routes are allow-listed under `write:programs`, which owns thread
+  content; the handler additionally demands `write:messages` when the type is
+  message-family, because only that family can cause an email to reach a human.
+  The route table cannot see the body, so the check lives where the body is.
+
+  This is a **relaxation** for the agenda and unchanged for messages: a key
+  without `write:messages` gained the ability to write agenda items and still
+  cannot write, edit or send a message.
+
+### Verified
+`verify-external-app.mjs`, all steps passing, four new:
+an agenda item is written; one outside the event's dates is refused
+(`activityWindowError` still applies); an agenda item cannot be retyped into a
+message; and a key without `write:messages` still cannot write one.
+
+
 ## [0.18.23] — 2026-08-29 — whether the page has an agenda at all
 
 ### Added

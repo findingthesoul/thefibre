@@ -169,9 +169,11 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // Engagements. The WRITE is the only thing on this surface that can cause an
   // email to reach a human, so it carries its own scope rather than riding on
   // write:programs — see docs/brief-thread-engagements-from-apps.md §5.
-  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'write:messages' },
+  // write:programs owns thread content. The message family additionally needs
+  // write:messages, checked in the handler — the route table cannot see the body.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'write:programs' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'read:programs' },
-  { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/engagements\/[^/]+$/, scope: 'write:messages' },
+  { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/engagements\/[^/]+$/, scope: 'write:programs' },
   { method: 'DELETE', test: /^\/api\/v1\/apps\/[^/]+\/thread\/engagements\/[^/]+$/, scope: 'write:messages' },
 
   // Who am I — lets an app verify its credential and see its own scopes.

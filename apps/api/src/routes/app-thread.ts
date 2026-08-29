@@ -71,9 +71,11 @@ import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import {
+  ENGAGEMENT_TYPES,
   EngagementCreate,
   EngagementUpdate,
   MESSAGE_TYPES,
+  engagementFamily,
   seedTemplateEngagements,
   templateHasMessages,
   activityWindowError,
@@ -723,8 +725,16 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
   // restated. A second copy of EngagementCreate would drift from the first.
   // -------------------------------------------------------------------------
   const AppEngagementCreate = EngagementCreate.extend({
-    /** Narrower than the user surface: no activities here. */
-    type: z.enum(MESSAGE_TYPES),
+    /**
+     * Both families now. Activities were held back while it was undecided
+     * which system owned the agenda; The Thread owns it, so the app that owns
+     * the event edits it here rather than keeping a second copy.
+     *
+     * The two are NOT equivalent in what they can do, and the scope check in
+     * the handler keeps them apart: an activity is a public agenda item, a
+     * message can email everyone enrolled.
+     */
+    type: z.enum(ENGAGEMENT_TYPES),
     /** The app's own id for this item. What makes a retried sync idempotent. */
     source_ref: z.string().uuid(),
     /**
@@ -776,6 +786,14 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
 
     const thread = await ownThread(ctx, c.req.param('id'));
     if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+    // The allow-list gates this route on write:programs, which owns thread
+    // content. Only the message family can cause an email to reach a human, so
+    // only the message family needs write:messages. Checked here because the
+    // route table cannot see the body.
+    if (engagementFamily(b.type) === 'message' && !hasScope(ctx, 'write:messages')) {
+      return scopeDenied(c, 'write:messages');
+    }
 
     // One way of naming an anchor, not two.
     if (b.trigger_anchor_ref && b.trigger_engagement_id) {
@@ -893,7 +911,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
   // source_ref was only ever added on the app-side CREATE schema. An app names
   // its own ref once, at creation; it addresses the engagement by id after that.
   const AppEngagementUpdate = EngagementUpdate.extend({
-    type: z.enum(MESSAGE_TYPES).optional(),
+    type: z.enum(ENGAGEMENT_TYPES).optional(),
   });
 
   /** The engagement, if it is on a thread this app published. */
@@ -920,10 +938,19 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const eng = await ownEngagement(ctx, c.req.param('id'));
     if (!eng) return c.json({ error: 'engagement not found' }, 404);
 
-    // Message family only, both before and after. The user surface allows a
-    // move within a family; here there is only one family to move within.
-    if (b.type && !(MESSAGE_TYPES as readonly string[]).includes(eng.type)) {
-      return c.json({ error: 'this is an activity, not a message — not editable here' }, 400);
+    // Type may only move within its family, the same rule the user surface
+    // applies. An agenda item does not become a message by being retyped.
+    if (b.type && engagementFamily(b.type) !== engagementFamily(eng.type)) {
+      return c.json(
+        { error: 'type can only change within its family (agenda item ↔ agenda item, message ↔ message)' },
+        400,
+      );
+    }
+
+    // Editing a message means editing what gets emailed, so it needs the scope
+    // that says so. Editing an agenda item does not.
+    if (engagementFamily(b.type ?? eng.type) === 'message' && !hasScope(ctx, 'write:messages')) {
+      return scopeDenied(c, 'write:messages');
     }
 
     const windowErr = await activityWindowError(
