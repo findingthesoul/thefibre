@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.20] — 2026-08-29 — a message that has been sent cannot be altered
+
+Sjoerd's rule, and the reason he gave is the whole argument: a message sends to
+whoever is enrolled at the time, and the scheduler keeps sending it to people
+who enrol later — dedup is per `(engagement_id, person_id)`, so a later
+registrant is a fresh send. Edit the text after the first send and two people
+receive different words under one title, with nothing recording that they differ.
+
+**This was a live hole in The Thread, not a gap on the app surface.** `PATCH
+/thread/engagements/:id` and `DELETE` had no such guard, so a human could do
+exactly this today. Guarding only the app surface would have left the real bug
+in place and made an app stricter than the people using the product.
+
+### Added
+- **`thread_engagement_frozen_once_sent()`**, a trigger on `thread_engagement`
+  before update and before delete. Once any `thread_message_send` row exists:
+  - `title`, `description` and `content` are immutable — what a recipient
+    receives is fixed;
+  - the row cannot be deleted at all. `thread_message_send.engagement_id`
+    cascades, so deleting a sent message drops the record of who received it,
+    and a planner re-creating it from its own copy would send to them again.
+- **Deliberately still editable:** `status`, `position`, `show_in_agenda` and the
+  trigger/timing columns. You must be able to **stop** a message reaching future
+  registrants (`status` → `draft`), reorder a timeline, or re-time what has not
+  gone yet. Freezing those would make "sent to one person" mean "this thread can
+  no longer be managed".
+
+### Notes
+- In the database rather than in either route, because both surfaces have to
+  obey it and the human one is where the hole actually was.
+- Safe against the senders: `sendTriggeredMessages` and
+  `runThreadMessageScheduler` only **read** engagements, so nothing here can
+  block a send in progress. Checked before writing the trigger.
+- Verified against the live database: before a send everything is editable;
+  after one, wording, title and delete are refused while stop and reorder still
+  work.
+- Two follow-up migrations are grammar on the message a person reads
+  ("1 people" → "2 persons" → "1 person / 2 people"). Behaviour unchanged.
+- Still open from `docs/brief-thread-engagements-from-apps.md` §8: steps 4 and 5,
+  the app-surface PATCH and DELETE. Both now inherit this rule for free.
+
+
 ## [0.18.19] — 2026-08-29 — an app can write the messages around its own event
 
 Steps 2, 3 and 6 of §8 in `docs/brief-thread-engagements-from-apps.md`. The
