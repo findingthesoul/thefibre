@@ -304,7 +304,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   created_at, updated_at,
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -463,6 +463,7 @@ const ThreadUpdate = z.object({
   payment_destination: z.enum(['workspace', 'personal']).nullable().optional(),
   language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
   public_interaction: z.enum(['page', 'popup']).optional(),
+  public_agenda: z.boolean().optional(),
   payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).optional(),
   share_participants_public: z.boolean().optional(),
   share_participants_participants: z.boolean().optional(),
@@ -3584,7 +3585,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
        workspace_id, team_id, payment_destination,
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
-       share_participants_public,
+       share_participants_public, public_agenda,
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('slug', c.req.param('threadSlug'));
@@ -3621,8 +3622,14 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     if (!isPreview) return c.json({ error: 'not found' }, 404);
   }
 
-  // The public agenda: published activities flagged show_in_agenda.
-  const { data: agenda } = await adminClient
+  // The public agenda: published activities flagged show_in_agenda — behind
+  // the thread-level switch. Two layers on purpose: the switch decides
+  // whether the page HAS an agenda, the per-element flag decides what it is
+  // made of. Off = don't even ask the database.
+  const showAgenda = (thread as { public_agenda?: boolean }).public_agenda !== false;
+  const { data: agenda } = !showAgenda
+    ? { data: [] as never[] }
+    : await adminClient
     .from('thread_engagement')
     .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, meeting_url')
     .eq('thread_id', thread.id)
@@ -3757,6 +3764,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       requires_approval: !!thread.requires_approval,
       certificate_enabled: !!thread.certificate_enabled,
       share_participants_public: !!thread.share_participants_public,
+      // Additive (rule 8): whether this thread shows a public agenda at all.
+      // When false, `agenda` is always [].
+      public_agenda: showAgenda,
       registration_fields: thread.registration_fields ?? [],
       price_cents: price.price_cents,
       price_currency: price.price_currency,

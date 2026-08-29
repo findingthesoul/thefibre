@@ -147,6 +147,7 @@ const SHAPES = {
     'requires_approval',
     'certificate_enabled',
     'share_participants_public',
+    'public_agenda',
     'registration_fields',
     'price_cents',
     'price_currency',

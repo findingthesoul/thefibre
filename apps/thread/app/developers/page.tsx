@@ -197,6 +197,11 @@ export default function DevelopersPage() {
               { name: 'certificate_enabled', type: 'boolean' },
               { name: 'share_participants_public', type: 'boolean' },
               {
+                name: 'public_agenda',
+                type: 'boolean',
+                note: 'Whether this thread shows an agenda at all. When false, agenda is always [].',
+              },
+              {
                 name: 'registration_fields',
                 type: 'object[]',
                 note: 'What the enrol form asks for. Read-only here — see below on registering.',

@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.23] — 2026-08-29 — whether the page has an agenda at all
+
+### Added
+- **Public agenda switch** on thread settings (Sharing, next to "List on the
+  organiser's public page"). Two layers on purpose: this switch decides
+  whether the public page HAS an agenda; the per-element "Show on the public
+  agenda" toggle decides what it is made of. Off = `agenda` is `[]` in the
+  public payload and neither the page nor the embed renders the section.
+  Defaults on — every existing public page keeps its agenda. Published as
+  `public_agenda` on the thread payload (additive, rule 8); /developers and
+  verify-public-api.mjs updated. Migration
+  `20260829170000_thread_public_agenda.sql` (renamed past the parallel
+  session's 20260829110000 — same-day timestamp collision).
+
 ## [0.18.22] — 2026-08-29 — the organiser picks the structure
 
 Several thread templates, and the event organiser chooses between them from the

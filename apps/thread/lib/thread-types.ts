@@ -28,6 +28,7 @@ export type ThreadRow = {
   timezone: string;
   cover_url: string | null;
   is_public_listed: boolean;
+  public_agenda: boolean;
   requires_approval: boolean;
   price_cents: number | null;
   price_currency: string | null;

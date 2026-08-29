@@ -78,6 +78,7 @@ export function ThreadEditorForm({
       ends_on: String(fd.get('ends_on') ?? '') || null,
       timezone: String(fd.get('timezone') ?? '').trim() || 'Europe/Amsterdam',
       is_public_listed: fd.get('is_public_listed') === 'on',
+      public_agenda: fd.get('public_agenda') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
       language: String(fd.get('language') ?? 'en'),
       cover_url: coverUrl,
@@ -256,6 +257,13 @@ export function ThreadEditorForm({
             hint="Unlisted threads stay reachable by direct link."
             name="is_public_listed"
             defaultChecked={thread.is_public_listed}
+          />
+
+          <SwitchField
+            label="Public agenda"
+            hint="Show an agenda on the public page, made of the elements that have \u201cShow on the public agenda\u201d turned on."
+            name="public_agenda"
+            defaultChecked={thread.public_agenda ?? true}
           />
         </div>
       </div>
