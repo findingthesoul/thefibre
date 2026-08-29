@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.18] — 2026-08-29 — an engagement can carry the app's own id
+
+Step 1 of §8 in `docs/brief-thread-engagements-from-apps.md`. Nothing on the
+app surface uses it yet; everything planned there depends on it, so it lands
+first and alone.
+
+### Added
+- **`thread_engagement.source_app` / `source_ref`**, with a partial unique index
+  on `(thread_id, source_app, source_ref)`.
+  - **Idempotency.** Publishing a thread is already idempotent on
+    `program.source_ref` (20260824170000) so a retried publish cannot create a
+    second public page. The same has to hold one level down: a retried sync of a
+    message sequence must not create a second welcome email.
+  - **Anchoring.** `trigger_engagement_id` names another engagement. A planner
+    laying down "opening ceremony" and "reminder, two days before the opening
+    ceremony" in one sync must name the first from inside the second, before it
+    has been told the first's platform id. Its own ref makes that possible.
+
+### Notes
+- Scoped per **thread**, not per workspace as `program_source_ref_idx` is: an
+  engagement only means anything inside its thread, and two festivals may both
+  call their opening message the same thing on the app's side.
+- Partial, because almost every engagement is written by a person in The
+  Thread's editor and carries neither column.
+- `app_record_link` deliberately not reused — its `platform_entity` is
+  CHECK-constrained to person / organisation / user, and widening that would
+  turn the entity-mapping table into a general id registry.
+- No routes yet. The scope decision in §8 step 2 comes before those.
+
+
 ## [0.18.17] — 2026-08-29 — a message that would never have sent
 
 Found while debugging, live on tester-2: a "Thank you" message anchored to an
