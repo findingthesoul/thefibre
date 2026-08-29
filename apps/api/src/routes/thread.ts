@@ -1483,6 +1483,83 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
   return c.json({ id: tpl.id }, 201);
 });
 
+/**
+ * Lay a template's engagements onto a thread, rebasing their dates onto the
+ * thread's start.
+ *
+ * Extracted so the app surface can create a thread from a template without a
+ * second copy of this. The two would drift, and the one that drifted would be
+ * the one nobody was looking at.
+ *
+ * `createdBy` is null for app-key callers — it is a FK to public."user" and
+ * there is no user behind a key.
+ */
+export async function seedTemplateEngagements(opts: {
+  db: { from: (t: string) => any };
+  workspaceId: string;
+  threadId: string;
+  structure: Record<string, unknown>;
+  startsOn: string | null;
+  createdBy: string | null;
+}): Promise<void> {
+  const { db, workspaceId, threadId, structure: st, startsOn, createdBy } = opts;
+  const engagements = Array.isArray(st.engagements)
+    ? (st.engagements as Record<string, unknown>[])
+    : [];
+  for (const e of engagements) {
+    let startsAt: string | null = null;
+    let endsAt: string | null = null;
+    let scheduledAt: string | null = null;
+    if (startsOn && typeof e.day_offset === 'number' && typeof e.time_of_day === 'string') {
+      const base = new Date(`${startsOn}T${e.time_of_day}:00Z`);
+      base.setUTCDate(base.getUTCDate() + e.day_offset);
+      const iso = base.toISOString();
+      const isActivity = ['event', 'conversation', 'workshop'].includes(String(e.type));
+      if (isActivity) {
+        startsAt = iso;
+        if (typeof e.duration_minutes === 'number') {
+          endsAt = new Date(base.getTime() + e.duration_minutes * 60_000).toISOString();
+        }
+      } else if (e.trigger_kind === 'fixed') {
+        scheduledAt = iso;
+      }
+    }
+    await db.from('thread_engagement').insert({
+      workspace_id: workspaceId,
+      thread_id: threadId,
+      title: e.title,
+      description: e.description ?? null,
+      type: e.type,
+      status: e.status === 'published' ? 'published' : 'draft',
+      starts_at: startsAt,
+      ends_at: endsAt,
+      scheduled_at: scheduledAt,
+      location: e.location ?? null,
+      location_url: e.location_url ?? null,
+      meeting_url: e.meeting_url ?? null,
+      meeting_provider: e.meeting_provider ?? null,
+      trigger_kind: e.trigger_kind ?? 'fixed',
+      trigger_anchor: e.trigger_anchor ?? null,
+      trigger_offset_days: e.trigger_offset_days ?? null,
+      trigger_time: e.trigger_time ?? null,
+      content: e.content ?? {},
+      position: (e.position as number) ?? 0,
+      show_in_agenda: e.show_in_agenda ?? true,
+      created_by: createdBy,
+    });
+  }
+}
+
+/** Does this template contain anything that can email a person? */
+export function templateHasMessages(structure: Record<string, unknown>): boolean {
+  const engagements = Array.isArray(structure.engagements)
+    ? (structure.engagements as Record<string, unknown>[])
+    : [];
+  return engagements.some((e) =>
+    (MESSAGE_TYPES as readonly string[]).includes(String(e.type)),
+  );
+}
+
 // POST /thread-templates/:id/instantiate — new thread from a template,
 // dates rebased onto the given start date.
 const Instantiate = z.object({
@@ -1566,49 +1643,14 @@ threadRoutes.post('/thread-templates/:id/instantiate', async (c) => {
     return c.json({ error: tErr?.code === '23505' ? 'slug already taken' : tErr?.message }, status);
   }
 
-  const engagements = Array.isArray(st.engagements) ? (st.engagements as Record<string, unknown>[]) : [];
-  for (const e of engagements) {
-    let startsAt: string | null = null;
-    let endsAt: string | null = null;
-    let scheduledAt: string | null = null;
-    if (startsOn && typeof e.day_offset === 'number' && typeof e.time_of_day === 'string') {
-      const base = new Date(`${startsOn}T${e.time_of_day}:00Z`);
-      base.setUTCDate(base.getUTCDate() + e.day_offset);
-      const iso = base.toISOString();
-      const isActivity = ['event', 'conversation', 'workshop'].includes(String(e.type));
-      if (isActivity) {
-        startsAt = iso;
-        if (typeof e.duration_minutes === 'number') {
-          endsAt = new Date(base.getTime() + e.duration_minutes * 60_000).toISOString();
-        }
-      } else if (e.trigger_kind === 'fixed') {
-        scheduledAt = iso;
-      }
-    }
-    await db.from('thread_engagement').insert({
-      workspace_id: ctx.workspaceId,
-      thread_id: thread.id,
-      title: e.title,
-      description: e.description ?? null,
-      type: e.type,
-      status: e.status === 'published' ? 'published' : 'draft',
-      starts_at: startsAt,
-      ends_at: endsAt,
-      scheduled_at: scheduledAt,
-      location: e.location ?? null,
-      location_url: e.location_url ?? null,
-      meeting_url: e.meeting_url ?? null,
-      meeting_provider: e.meeting_provider ?? null,
-      trigger_kind: e.trigger_kind ?? 'fixed',
-      trigger_anchor: e.trigger_anchor ?? null,
-      trigger_offset_days: e.trigger_offset_days ?? null,
-      trigger_time: e.trigger_time ?? null,
-      content: e.content ?? {},
-      position: (e.position as number) ?? 0,
-      show_in_agenda: e.show_in_agenda ?? true,
-      created_by: ctx.userId,
-    });
-  }
+  await seedTemplateEngagements({
+    db,
+    workspaceId: ctx.workspaceId,
+    threadId: thread.id,
+    structure: st,
+    startsOn,
+    createdBy: ctx.userId,
+  });
 
   return c.json({ id: thread.id }, 201);
 });

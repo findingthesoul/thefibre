@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.22] — 2026-08-29 — the organiser picks the structure
+
+Several thread templates, and the event organiser chooses between them from the
+app that owns the festival. Structure, not design: a template is the shape of a
+thread — its settings and its items — and the organiser fills in the content per
+event.
+
+### Added
+- **`GET /apps/:slug/thread/templates`** (`read:programs`) — what a festival can
+  be built from. Returns `title`, `scope`, `item_count` and `sends_messages`.
+  **`structure` itself is deliberately not returned**: it is The Thread's
+  internal shape, and an app that read it would end up depending on it. What an
+  organiser needs to choose is the name, a sense of size, and whether picking it
+  will email anyone.
+- **`template_id` on `POST /apps/:slug/thread/threads`** — build the event from
+  the chosen structure, its items rebased onto `starts_on`.
+
+### Security
+- **A template is not a way around `write:messages`.** The allow-list gates
+  publishing on `write:programs` and cannot see inside a template — but a
+  template carrying message-family items can email everyone who enrols. The
+  route loads the template first, and refuses with `missing-scope` when it
+  contains messages and the key lacks `write:messages`. Asserted in
+  `verify-external-app.mjs`: *"a template full of messages is not a way around
+  write:messages"* → 403.
+
+### Changed
+- **`seedTemplateEngagements` extracted** from The Thread's own
+  `/thread-templates/:id/instantiate`, which now calls it. One implementation
+  with two callers rather than two that drift — and the one that drifted would
+  be the one nobody was looking at. `templateHasMessages` alongside it.
+- The template is loaded and its scope checked **before** anything is written,
+  so a bad id or a missing scope cannot leave a half-built event behind.
+
+### Notes
+- `created_by` is null on the app path: there is no user behind a key.
+- All templates in the workspace are listed, not only workspace-scoped ones. A
+  template is authored structure with no personal data, and the key is
+  workspace-bound; `scope` is returned so an app can show or filter on it.
+- Verified end to end: the list reads, a festival builds from a template, and
+  the template's items arrive with it.
+
+
 ## [0.18.21] — 2026-08-29 — editing and deleting a message, and a refusal that reads like one
 
 Steps 4 and 5 of §8 in `docs/brief-thread-engagements-from-apps.md`, closing it.

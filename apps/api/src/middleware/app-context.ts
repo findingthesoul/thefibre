@@ -160,6 +160,7 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // The Thread — publish a programme as a public page, edit it, see who
   // registered. No write:enrolments anywhere: registration comes from the
   // public form, never from an app.
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/templates$/, scope: 'read:programs' },
   { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads$/, scope: 'write:programs' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads$/, scope: 'read:programs' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'read:programs' },

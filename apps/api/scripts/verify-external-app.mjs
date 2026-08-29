@@ -940,6 +940,77 @@ async function main() {
     `HTTP ${patched.status}`,
   );
 
+  // ---- Templates ---------------------------------------------------------
+  // The organiser picks a structure in the app that owns the festival, so the
+  // app must be able to see what is on offer and build from one.
+  const templates = await call(`/api/v1/apps/${SLUG}/thread/templates`, { token: THREADKEY });
+  check(
+    templates.status === 200 && Array.isArray(templates.body?.templates),
+    'it can see the structures a festival can be built from',
+    `HTTP ${templates.status}`,
+  );
+
+  // A template carrying messages must not be a way around write:messages.
+  // Planted service-side: authoring templates is not something a key may do.
+  const { data: tplRow } = await db
+    .from('thread_template')
+    .insert({
+      workspace_id: MY_WORKSPACE_ID,
+      title: 'verify-template-with-messages',
+      scope: 'workspace',
+      structure: {
+        format: 'event',
+        engagements: [
+          { title: 'Welcome', type: 'message', trigger_kind: 'on_enrolment', content: { body: 'hi' } },
+        ],
+      },
+    })
+    .select('id')
+    .single();
+
+  if (tplRow) {
+    const viaTemplate = await call(`/api/v1/apps/${SLUG}/thread/threads`, {
+      method: 'POST',
+      token: WRITER, // write:persons etc, but NOT write:messages
+      body: { title: 'Sneak', format: 'event', slug: `verify-sneak-${Date.now()}`, template_id: tplRow.id },
+    });
+    check(
+      viaTemplate.status === 403,
+      'a template full of messages is not a way around write:messages',
+      `HTTP ${viaTemplate.status}`,
+    );
+
+    const built = await call(`/api/v1/apps/${SLUG}/thread/threads`, {
+      method: 'POST',
+      token: THREADKEY,
+      body: {
+        title: 'Built from a template',
+        format: 'event',
+        slug: `verify-tpl-${Date.now()}`,
+        starts_on: '2026-10-01',
+        template_id: tplRow.id,
+      },
+    });
+    check(built.status === 201, 'it builds a festival from a chosen structure', `HTTP ${built.status}`);
+
+    if (built.body?.id) {
+      const seeded = await call(
+        `/api/v1/apps/${SLUG}/thread/threads/${built.body.id}/engagements`,
+        { token: THREADKEY },
+      );
+      check(
+        seeded.body?.engagements?.length === 1 && seeded.body.engagements[0].title === 'Welcome',
+        "and the template's items come with it",
+        `${seeded.body?.engagements?.length ?? 0} item(s)`,
+      );
+      await db.from('thread_engagement').delete().eq('thread_id', built.body.id);
+      const { data: bt } = await db.from('thread_thread').select('program_id').eq('id', built.body.id).maybeSingle();
+      await db.from('thread_thread').delete().eq('id', built.body.id);
+      if (bt) await db.from('program').delete().eq('id', bt.program_id);
+    }
+    await db.from('thread_template').delete().eq('id', tplRow.id);
+  }
+
   // ---- The messages around it -------------------------------------------
   // An app that can publish an event and not write a word to the people who
   // sign up is the gap docs/brief-thread-engagements-from-apps.md closes.

@@ -74,10 +74,13 @@ import {
   EngagementCreate,
   EngagementUpdate,
   MESSAGE_TYPES,
+  seedTemplateEngagements,
+  templateHasMessages,
   activityWindowError,
   dailyScheduleError,
 } from './thread.js';
 import type { RequestContext } from '../middleware/app-context.js';
+import { hasScope, scopeDenied } from '../middleware/app-context.js';
 
 // ---------------------------------------------------------------------------
 // Guards
@@ -187,6 +190,13 @@ const PublishThread = z.object({
    * The app key is already scoped to one workspace; that is enough to know.
    */
   organiser_person_id: z.string().uuid().optional(),
+  /**
+   * Build the event from one of the workspace's templates — the structure the
+   * organiser picked in their own app. Its engagements are laid down and its
+   * dates rebased onto starts_on, exactly as The Thread's own instantiate does
+   * (one shared implementation: seedTemplateEngagements).
+   */
+  template_id: z.string().uuid().optional(),
   intention: z.string().max(2000).nullable().optional(),
   starts_on: z.string().date().nullable().optional(),
   ends_on: z.string().date().nullable().optional(),
@@ -438,6 +448,29 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       }
     }
 
+    // A template's engagements are laid down after the thread exists. Loaded
+    // BEFORE anything is written so a bad id or a missing scope fails before
+    // a half-built event is left behind.
+    let template: { structure: Record<string, unknown> } | null = null;
+    if (b.template_id) {
+      const { data: tpl } = await adminClient
+        .from('thread_template')
+        .select('id, structure')
+        .eq('id', b.template_id)
+        .eq('workspace_id', ctx.workspaceId)
+        .maybeSingle();
+      if (!tpl) return c.json({ error: 'template not found in this workspace' }, 404);
+      template = { structure: (tpl.structure ?? {}) as Record<string, unknown> };
+
+      // The allow-list gates this route on write:programs, and it cannot know
+      // what is inside a template. A template carrying messages can email
+      // everyone who enrols, so applying it needs the scope that says so —
+      // otherwise template_id would be a way around write:messages.
+      if (templateHasMessages(template.structure) && !hasScope(ctx, 'write:messages')) {
+        return scopeDenied(c, 'write:messages');
+      }
+    }
+
     const { data: threadApp } = await adminClient
       .from('app')
       .select('id')
@@ -488,6 +521,22 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         { error: conflict ? `slug "${b.slug}" is already taken for that organiser` : tErr?.message ?? 'thread insert failed' },
         conflict ? 409 : 500,
       );
+    }
+
+    // The template's items, rebased onto the event's start date. One shared
+    // implementation with The Thread's own instantiate — see
+    // seedTemplateEngagements in routes/thread.ts.
+    //
+    // created_by is null: there is no user behind an app key.
+    if (template) {
+      await seedTemplateEngagements({
+        db: adminClient,
+        workspaceId: ctx.workspaceId,
+        threadId: thread.id,
+        structure: template.structure,
+        startsOn: b.starts_on ?? null,
+        createdBy: null,
+      });
     }
 
     const full = await ownThread(ctx, thread.id);
@@ -616,6 +665,47 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     return c.json({ id: host.id, person_id: host.person_id, role: host.role }, 201);
+  });
+
+  // -------------------------------------------------------------------------
+  // Templates — the structures an event can be built from.
+  //
+  // The organiser picks one in the app that owns the festival, so the app has
+  // to be able to see what is on offer. Structure only: a template holds the
+  // shape of a thread — its settings and its engagements — and no personal data.
+  // -------------------------------------------------------------------------
+  appsRoutes.get('/:slug/thread/templates', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const { data, error } = await adminClient
+      .from('thread_template')
+      .select('id, title, scope, structure, created_at')
+      .eq('workspace_id', ctx.workspaceId)
+      .order('title', { ascending: true });
+    if (error) {
+      console.error('[app-thread] template list failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+
+    // `structure` itself is not returned: it is The Thread's internal shape,
+    // and an app that read it would end up depending on it. What an organiser
+    // needs to choose is the name and a sense of size — plus whether picking
+    // it will send anyone email, which is the one consequence worth surfacing.
+    return c.json({
+      templates: (data ?? []).map((t) => {
+        const st = (t.structure ?? {}) as Record<string, unknown>;
+        const engagements = Array.isArray(st.engagements) ? st.engagements : [];
+        return {
+          id: t.id,
+          title: t.title,
+          scope: t.scope,
+          item_count: engagements.length,
+          sends_messages: templateHasMessages(st),
+          created_at: t.created_at,
+        };
+      }),
+    });
   });
 
   // -------------------------------------------------------------------------
