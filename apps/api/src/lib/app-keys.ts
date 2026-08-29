@@ -30,6 +30,20 @@ export const APP_SCOPES = [
   'read:activities',
   'write:activities',
   'write:curator_data',
+  // The Thread's message family, deliberately NOT folded into write:programs.
+  //
+  // write:programs publishes a public page and edits its settings. Nothing it
+  // grants can cause an email to reach a human — every send today originates
+  // from the public enrolment form. The moment an app can publish a
+  // message-family engagement, whatever scope allows it also means: this
+  // credential can email everyone enrolled in a programme, from the platform's
+  // domain, on a five-minute timer. Folding that into write:programs would have
+  // given it silently to every key already holding it, now and in future.
+  //
+  // The cost is real and was accepted: app_key.scopes is a stored column, so an
+  // existing key does not acquire this — the key is re-minted and the manifest
+  // re-approved. See docs/brief-thread-engagements-from-apps.md §5.
+  'write:messages',
   // Flow. Deliberately split read from write, and deliberately NOT a
   // 'write:flows' — an external app consumes a flow, it never authors one.
   // Editing steps, transitions and gates stays with the humans in Flow.

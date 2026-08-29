@@ -109,7 +109,7 @@ const slugField = z
 // Engagement families — type may only change within its family after
 // creation (thethread-v3 rule; see docs/thread-rebuild-plan.md).
 const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
-const MESSAGE_TYPES = ['reflection', 'practice', 'message', 'document', 'inspiration'] as const;
+export const MESSAGE_TYPES = ['reflection', 'practice', 'message', 'document', 'inspiration'] as const;
 const ENGAGEMENT_TYPES = [...ACTIVITY_TYPES, ...MESSAGE_TYPES] as const;
 
 function engagementFamily(type: string): 'activity' | 'message' {
@@ -726,7 +726,7 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
 // Engagements
 // ---------------------------------------------------------------------------
 
-const EngagementCreate = z.object({
+export const EngagementCreate = z.object({
   title: z.string().min(1).max(200),
   type: z.enum(ENGAGEMENT_TYPES),
   // The editor publishes new engagements by default; server default stays draft.
@@ -773,7 +773,7 @@ const EngagementCreate = z.object({
 // Activities must fall inside the thread's date window (Sjoerd 2026-07-02).
 // Message-family items are exempt — their whole point is firing before/after
 // the thread (relative + lifecycle triggers).
-async function activityWindowError(
+export async function activityWindowError(
   threadId: string,
   type: string,
   startsAt: string | null | undefined,
@@ -805,7 +805,7 @@ async function activityWindowError(
 }
 
 /** Per-day schedule sanity: each day's end must be after its start. */
-function dailyScheduleError(
+export function dailyScheduleError(
   sched: { date: string; start: string; end: string }[] | null | undefined,
 ): string | null {
   if (!sched || sched.length === 0) return null;

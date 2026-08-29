@@ -69,6 +69,12 @@
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import {
+  EngagementCreate,
+  MESSAGE_TYPES,
+  activityWindowError,
+  dailyScheduleError,
+} from './thread.js';
 import type { RequestContext } from '../middleware/app-context.js';
 
 // ---------------------------------------------------------------------------
@@ -608,6 +614,175 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
 
     return c.json({ id: host.id, person_id: host.person_id, role: host.role }, 201);
+  });
+
+  // -------------------------------------------------------------------------
+  // Engagements — the messages around an event.
+  //
+  // §8 steps 3 of docs/brief-thread-engagements-from-apps.md. The planner could
+  // publish a festival, describe it, credit its hosts, open enrolment and read
+  // who registered — and then not write a word that goes out to those people.
+  //
+  // MESSAGE FAMILY ONLY. Activities are the public agenda, they are validated
+  // against the programme's dates, and the planner has its own sessions model.
+  // Two systems both authoring the agenda is a sync problem nobody has scoped.
+  //
+  // The schema and both validators are IMPORTED from routes/thread.ts, not
+  // restated. A second copy of EngagementCreate would drift from the first.
+  // -------------------------------------------------------------------------
+  const AppEngagementCreate = EngagementCreate.extend({
+    /** Narrower than the user surface: no activities here. */
+    type: z.enum(MESSAGE_TYPES),
+    /** The app's own id for this item. What makes a retried sync idempotent. */
+    source_ref: z.string().uuid(),
+    /**
+     * Anchor to another engagement by the app's OWN ref, resolved server-side.
+     * Without it a planner laying down "opening ceremony" and "reminder, two
+     * days before it" in one pass would have to make two round trips and carry
+     * platform ids between them.
+     */
+    trigger_anchor_ref: z.string().uuid().nullable().optional(),
+  });
+
+  /** What an app may see of an engagement. thread_message_send never appears
+   *  here — who received what is per-person delivery data and stays behind the
+   *  wall (§6 of the brief). created_by is a user FK with no app-key meaning. */
+  function shapeEngagement(row: Record<string, unknown>) {
+    return {
+      id: row.id,
+      source_ref: row.source_ref,
+      type: row.type,
+      status: row.status,
+      title: row.title,
+      description: row.description,
+      content: row.content,
+      scheduled_at: row.scheduled_at,
+      trigger_kind: row.trigger_kind,
+      trigger_anchor: row.trigger_anchor,
+      trigger_engagement_id: row.trigger_engagement_id,
+      trigger_offset_days: row.trigger_offset_days,
+      trigger_time: row.trigger_time,
+      position: row.position,
+      show_in_agenda: row.show_in_agenda,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+    };
+  }
+
+  // One literal, deliberately not concatenated: supabase-js infers the row type
+  // from the select string, and a built-up string degrades it to GenericStringError.
+  const ENGAGEMENT_SELECT =
+    'id, source_app, source_ref, type, status, title, description, content, scheduled_at, trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, position, show_in_agenda, created_at, updated_at';
+
+  appsRoutes.post('/:slug/thread/threads/:id/engagements', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const body = AppEngagementCreate.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+    const b = body.data;
+
+    const thread = await ownThread(ctx, c.req.param('id'));
+    if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+    // One way of naming an anchor, not two.
+    if (b.trigger_anchor_ref && b.trigger_engagement_id) {
+      return c.json(
+        { error: 'name the anchor with trigger_anchor_ref or trigger_engagement_id, not both' },
+        400,
+      );
+    }
+
+    let anchorId = b.trigger_engagement_id ?? null;
+    if (b.trigger_anchor_ref) {
+      const { data: anchor } = await adminClient
+        .from('thread_engagement')
+        .select('id')
+        .eq('thread_id', thread.id)
+        .eq('source_app', ctx.appId)
+        .eq('source_ref', b.trigger_anchor_ref)
+        .maybeSingle();
+      if (!anchor) {
+        return c.json(
+          { error: `no engagement on this thread with source_ref ${b.trigger_anchor_ref}` },
+          404,
+        );
+      }
+      anchorId = anchor.id;
+    }
+
+    const windowErr = await activityWindowError(thread.id, b.type, b.starts_at, b.ends_at);
+    if (windowErr) return c.json({ error: windowErr }, 400);
+    const schedErr = dailyScheduleError(b.daily_schedule);
+    if (schedErr) return c.json({ error: schedErr }, 400);
+
+    // Idempotent on (thread_id, source_app, source_ref) — same shape as the
+    // thread publish above. A retried sync must not create a second welcome
+    // email.
+    const { data: existing } = await adminClient
+      .from('thread_engagement')
+      .select(ENGAGEMENT_SELECT)
+      .eq('thread_id', thread.id)
+      .eq('source_app', ctx.appId)
+      .eq('source_ref', b.source_ref)
+      .maybeSingle();
+    if (existing) {
+      return c.json({ ...shapeEngagement(existing), created: false }, 200);
+    }
+
+    const { trigger_anchor_ref: _ref, source_ref, ...rest } = b;
+    const { data: created, error } = await adminClient
+      .from('thread_engagement')
+      .insert({
+        ...rest,
+        trigger_engagement_id: anchorId,
+        workspace_id: ctx.workspaceId,
+        thread_id: thread.id,
+        source_app: ctx.appId,
+        source_ref,
+        // created_by stays null: it is a FK to public."user" and there is no
+        // user behind an app key (actorUserId, app-context.ts).
+      })
+      .select(ENGAGEMENT_SELECT)
+      .single();
+
+    if (error) {
+      // Two syncs racing: the partial unique index caught the second. Read the
+      // winner back rather than failing a caller that did nothing wrong.
+      if (error.code === '23505') {
+        const { data: won } = await adminClient
+          .from('thread_engagement')
+          .select(ENGAGEMENT_SELECT)
+          .eq('thread_id', thread.id)
+          .eq('source_app', ctx.appId)
+          .eq('source_ref', source_ref)
+          .maybeSingle();
+        if (won) return c.json({ ...shapeEngagement(won), created: false }, 200);
+      }
+      console.error('[app-thread] engagement insert failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+
+    return c.json({ ...shapeEngagement(created), created: true }, 201);
+  });
+
+  appsRoutes.get('/:slug/thread/threads/:id/engagements', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const thread = await ownThread(ctx, c.req.param('id'));
+    if (!thread) return c.json({ error: 'thread not found' }, 404);
+
+    const { data, error } = await adminClient
+      .from('thread_engagement')
+      .select(ENGAGEMENT_SELECT)
+      .eq('thread_id', thread.id)
+      .order('position', { ascending: true });
+    if (error) {
+      console.error('[app-thread] engagement list failed', error);
+      return c.json({ error: error.message }, 500);
+    }
+    return c.json({ engagements: (data ?? []).map(shapeEngagement) });
   });
 
   appsRoutes.patch('/:slug/thread/threads/:id', async (c) => {

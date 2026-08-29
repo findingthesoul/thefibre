@@ -141,6 +141,13 @@ const CONTRACT_SHAPES = {
  */
 const WALLED_OFF = [
   'answers',              // whatever the organiser asked on the registration form
+  // Per-person delivery: who received which message, when. One step from
+  // `answers` in kind. An app writes what should go out; it never learns who
+  // got it. See docs/brief-thread-engagements-from-apps.md §6.
+  'thread_message_send',
+  'sends',
+  'sent_at',
+  'recipients',
   'amount_cents',
   'coupon_id',
   'stripe_session_id',
@@ -376,6 +383,7 @@ async function main() {
       'read:programs',
       'write:programs',
       'read:enrolments',
+      'write:messages',
     ],
     entity_mappings: [
       {
@@ -875,7 +883,7 @@ async function main() {
 
   const mint4 = await call(`/api/v1/apps/${SLUG}/keys`, {
     method: 'POST',
-    body: { name: 'verification-thread', scopes: ['write:programs', 'read:programs', 'read:enrolments'] },
+    body: { name: 'verification-thread', scopes: ['write:programs', 'read:programs', 'read:enrolments', 'write:messages'] },
     token: jwt,
     appId: 'fibre-platform',
   });
@@ -930,6 +938,56 @@ async function main() {
       patched.body?.capacity === 40 && patched.body?.status === 'active',
     'it edits the page as the plan firms up — across programme AND storefront',
     `HTTP ${patched.status}`,
+  );
+
+  // ---- The messages around it -------------------------------------------
+  // An app that can publish an event and not write a word to the people who
+  // sign up is the gap docs/brief-thread-engagements-from-apps.md closes.
+  const engagement = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`, {
+    method: 'POST',
+    token: THREADKEY,
+    body: {
+      source_ref: randomUUID(),
+      type: 'message',
+      title: 'Welcome',
+      status: 'draft',
+      trigger_kind: 'on_enrolment',
+      content: { body: 'Welcome to the festival.' },
+    },
+  });
+  check(
+    engagement.status === 201 && engagement.body?.created === true,
+    'it writes a message into its own thread',
+    `HTTP ${engagement.status}`,
+  );
+
+  // Delivery data is per-person and stays behind the wall. This is the check
+  // that catches a select('*') regression — every other assertion would pass.
+  checkWall('the engagement response', engagement.body);
+
+  const engagementAgain = await call(
+    `/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`,
+    { method: 'GET', token: THREADKEY },
+  );
+  check(
+    engagementAgain.status === 200 && Array.isArray(engagementAgain.body?.engagements),
+    'it reads the sequence back',
+    `HTTP ${engagementAgain.status}`,
+  );
+  if (engagementAgain.body?.engagements?.[0]) {
+    checkWall('an engagement in the list', engagementAgain.body.engagements[0]);
+  }
+
+  // The scope that matters: without write:messages, no app can cause an email
+  // to reach a human. THREADKEY has it; the plain writer key does not.
+  const noMessages = await call(
+    `/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`,
+    { method: 'POST', token: WRITER, body: { source_ref: randomUUID(), type: 'message', title: 'x' } },
+  );
+  check(
+    noMessages.status === 403,
+    'a key without write:messages cannot write one',
+    `HTTP ${noMessages.status}`,
   );
 
   // A registration, planted the way the public form would: a platform

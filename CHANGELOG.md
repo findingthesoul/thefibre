@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.19] — 2026-08-29 — an app can write the messages around its own event
+
+Steps 2, 3 and 6 of §8 in `docs/brief-thread-engagements-from-apps.md`. The
+planner could publish a festival, describe it, credit its hosts, open enrolment
+and read who registered — and then not write a word that goes out to those
+people.
+
+### Added
+- **`write:messages`** — a new scope, deliberately not folded into
+  `write:programs`. Nothing on this surface could previously cause an email to
+  reach a human: `write:programs` publishes a page and edits settings, and every
+  send originates from the public enrolment form. The moment an app can publish
+  a message-family engagement, whatever scope allows it also means *this
+  credential can email everyone enrolled, from the platform's domain, on a
+  five-minute timer*. Folding that in would have granted it silently to every
+  key already holding `write:programs`.
+- **`POST /apps/:slug/thread/threads/:id/engagements`** (`write:messages`) and
+  **`GET`** the same path (`read:programs`).
+  - **Message family only.** Activities are the public agenda, validated against
+    the programme's dates, and the planner has its own sessions model — two
+    systems authoring one agenda is a sync problem nobody has scoped.
+  - **Idempotent** on `(thread_id, source_app, source_ref)`, returning
+    `created: true|false` exactly as the thread publish does, so a retried sync
+    cannot produce a second welcome email. A losing race on the unique index is
+    read back rather than failed.
+  - **`trigger_anchor_ref`** names the anchor by the app's *own* ref, resolved
+    server-side, so a sequence can be laid down in one pass before platform ids
+    exist. Naming both it and `trigger_engagement_id` is a 400.
+- **Verification, before the routes shipped rather than after** (§8 step 6):
+  `thread_message_send`, `sends`, `sent_at` and `recipients` joined `WALLED_OFF`,
+  and `verify-external-app.mjs` now writes an engagement, checks the wall on both
+  the create and the list response, and asserts a key **without**
+  `write:messages` is refused. All steps pass.
+
+### Notes
+- `EngagementCreate`, `MESSAGE_TYPES`, `activityWindowError` and
+  `dailyScheduleError` are **imported** from `routes/thread.ts`, not restated. A
+  second copy would drift from the first.
+- `created_by` stays null on app writes — it is a FK to `public."user"` and there
+  is no user behind an app key.
+- Delivery data stays behind the wall: no `thread_message_send`, no app-addressed
+  sends, and token substitution stays server-side. The app writes the token; it
+  never sees what the token resolves to.
+- **Action needed before the planner can use this:** `app_key.scopes` is a stored
+  column, so an existing key does not acquire the new scope. The fot-planner
+  manifest must declare `write:messages` and its key be re-minted.
+- Still open from the brief: §8 steps 4 (PATCH) and 5 (DELETE, which needs the
+  `thread_message_send` guard — deleting an engagement that has already sent
+  takes the dedup log with it and re-sends to everyone).
+
+
 ## [0.18.18] — 2026-08-29 — an engagement can carry the app's own id
 
 Step 1 of §8 in `docs/brief-thread-engagements-from-apps.md`. Nothing on the

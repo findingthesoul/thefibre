@@ -165,6 +165,11 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'read:programs' },
   { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'write:programs' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/enrolments$/, scope: 'read:enrolments' },
+  // Engagements. The WRITE is the only thing on this surface that can cause an
+  // email to reach a human, so it carries its own scope rather than riding on
+  // write:programs — see docs/brief-thread-engagements-from-apps.md §5.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'write:messages' },
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'read:programs' },
 
   // Who am I — lets an app verify its credential and see its own scopes.
   { method: 'GET', test: /^\/api\/v1\/apps\/whoami$/, scope: null },
