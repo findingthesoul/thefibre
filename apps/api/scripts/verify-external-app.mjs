@@ -978,6 +978,44 @@ async function main() {
     checkWall('an engagement in the list', engagementAgain.body.engagements[0]);
   }
 
+  const ENG_ID = engagement.body?.id;
+
+  const engPatch = await call(`/api/v1/apps/${SLUG}/thread/engagements/${ENG_ID}`, {
+    method: 'PATCH',
+    token: THREADKEY,
+    body: { title: 'Welcome, revised' },
+  });
+  check(
+    engPatch.status === 200 && engPatch.body?.title === 'Welcome, revised',
+    'it re-words a message that has not gone out yet',
+    `HTTP ${engPatch.status}`,
+  );
+  checkWall('the patched engagement', engPatch.body);
+
+  // Ownership is one level down: the engagement resolves to its thread, and
+  // the thread must belong to the calling app. A key for a different app on the
+  // same workspace must not reach it.
+  const engWrongApp = await call(`/api/v1/apps/${SLUG}/thread/engagements/${ENG_ID}`, {
+    method: 'PATCH',
+    token: WRITER,
+    body: { title: 'not yours' },
+  });
+  check(
+    engWrongApp.status === 403,
+    'a key without write:messages cannot re-word one either',
+    `HTTP ${engWrongApp.status}`,
+  );
+
+  const engDelete = await call(`/api/v1/apps/${SLUG}/thread/engagements/${ENG_ID}`, {
+    method: 'DELETE',
+    token: THREADKEY,
+  });
+  check(
+    engDelete.status === 204,
+    'it deletes a message that has not gone out yet',
+    `HTTP ${engDelete.status}`,
+  );
+
   // The scope that matters: without write:messages, no app can cause an email
   // to reach a human. THREADKEY has it; the plain writer key does not.
   const noMessages = await call(

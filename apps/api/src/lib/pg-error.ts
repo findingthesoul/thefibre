@@ -47,6 +47,13 @@ function byCode(e: PgLike): string | null {
       return 'One of the dates or times could not be read.';
     case '42501':
       return 'You do not have permission to change this.';
+    // A trigger's `raise exception`. Every one of these in this codebase is
+    // written for a person — "activity is append-only, write a correction row
+    // instead", "this message has already been sent to 2 people…" — so the
+    // raise text IS the sentence, and replacing it with a generic one throws
+    // away the only part that says what to do instead.
+    case 'P0001':
+      return e.message ?? null;
     // PostgREST: .single() found no row — deleted, or invisible under RLS.
     case 'PGRST116':
       return 'This could not be found. It may have been deleted, or you may not have access to it.';
@@ -72,6 +79,9 @@ export function pgErrorMessage(e: PgLike): string {
 /** HTTP status matching the cause — a rejected value is the caller's, not ours. */
 export function pgErrorStatus(e: PgLike): 400 | 403 | 404 | 409 | 500 {
   if (e.code === '23505') return 409;
+  // A trigger refusing on purpose is a conflict with the world's state, not a
+  // fault. Without this the freeze-once-sent rule reads as a 500 in the editor.
+  if (e.code === 'P0001') return 409;
   if (e.code === '42501') return 403;
   if (e.code === 'PGRST116') return 404;
   if (e.code && /^(23|22)/.test(e.code)) return 400;

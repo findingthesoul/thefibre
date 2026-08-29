@@ -69,8 +69,10 @@
 import type { Context, Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import {
   EngagementCreate,
+  EngagementUpdate,
   MESSAGE_TYPES,
   activityWindowError,
   dailyScheduleError,
@@ -783,6 +785,99 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       return c.json({ error: error.message }, 500);
     }
     return c.json({ engagements: (data ?? []).map(shapeEngagement) });
+  });
+
+  // -------------------------------------------------------------------------
+  // §8 steps 4 and 5: edit and delete a message.
+  //
+  // Ownership is checked ONE LEVEL DOWN, as the brief insists: resolve the
+  // engagement to its thread, then ownThread. workspace_id alone would let an
+  // app edit a message on a thread another app published.
+  //
+  // Neither route enforces "sent messages are frozen" itself — the database
+  // does (20260829140000), so The Thread's editor obeys the same rule. What
+  // these do is surface the refusal as a 409 carrying the trigger's own
+  // sentence, rather than a 500.
+  // -------------------------------------------------------------------------
+  // No omit needed: EngagementUpdate is EngagementCreate.partial(), and
+  // source_ref was only ever added on the app-side CREATE schema. An app names
+  // its own ref once, at creation; it addresses the engagement by id after that.
+  const AppEngagementUpdate = EngagementUpdate.extend({
+    type: z.enum(MESSAGE_TYPES).optional(),
+  });
+
+  /** The engagement, if it is on a thread this app published. */
+  async function ownEngagement(ctx: RequestContext, id: string) {
+    const { data: eng } = await adminClient
+      .from('thread_engagement')
+      .select('id, thread_id, type, starts_at, ends_at')
+      .eq('id', id)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!eng) return null;
+    const thread = await ownThread(ctx, eng.thread_id);
+    return thread ? eng : null;
+  }
+
+  appsRoutes.patch('/:slug/thread/engagements/:id', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const body = AppEngagementUpdate.safeParse(await c.req.json().catch(() => null));
+    if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+    const b = body.data;
+
+    const eng = await ownEngagement(ctx, c.req.param('id'));
+    if (!eng) return c.json({ error: 'engagement not found' }, 404);
+
+    // Message family only, both before and after. The user surface allows a
+    // move within a family; here there is only one family to move within.
+    if (b.type && !(MESSAGE_TYPES as readonly string[]).includes(eng.type)) {
+      return c.json({ error: 'this is an activity, not a message — not editable here' }, 400);
+    }
+
+    const windowErr = await activityWindowError(
+      eng.thread_id,
+      b.type ?? eng.type,
+      b.starts_at !== undefined ? b.starts_at : eng.starts_at,
+      b.ends_at !== undefined ? b.ends_at : eng.ends_at,
+    );
+    if (windowErr) return c.json({ error: windowErr }, 400);
+    const schedErr = dailyScheduleError(b.daily_schedule);
+    if (schedErr) return c.json({ error: schedErr }, 400);
+
+    const { data, error } = await adminClient
+      .from('thread_engagement')
+      .update({ ...b, updated_at: new Date().toISOString() })
+      .eq('id', eng.id)
+      .select(ENGAGEMENT_SELECT)
+      .single();
+    if (error) {
+      console.error('[app-thread] engagement patch failed', error);
+      return c.json(pgErrorBody(error), pgErrorStatus(error));
+    }
+    return c.json(shapeEngagement(data));
+  });
+
+  appsRoutes.delete('/:slug/thread/engagements/:id', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+
+    const eng = await ownEngagement(ctx, c.req.param('id'));
+    if (!eng) return c.json({ error: 'engagement not found' }, 404);
+
+    // A message that has gone out cannot be deleted — the trigger refuses, and
+    // pgErrorStatus turns that into a 409 with the reason. Deleting it would
+    // drop the record of who received it, and a re-sync would send it again.
+    const { error } = await adminClient
+      .from('thread_engagement')
+      .delete()
+      .eq('id', eng.id);
+    if (error) {
+      console.error('[app-thread] engagement delete failed', error);
+      return c.json(pgErrorBody(error), pgErrorStatus(error));
+    }
+    return c.body(null, 204);
   });
 
   appsRoutes.patch('/:slug/thread/threads/:id', async (c) => {

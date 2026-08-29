@@ -877,7 +877,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   return c.json(data, 201);
 });
 
-const EngagementUpdate = EngagementCreate.partial().extend({
+export const EngagementUpdate = EngagementCreate.partial().extend({
   status: z.enum(['draft', 'published', 'closed']).optional(),
   position: z.number().int().min(0).optional(),
 });

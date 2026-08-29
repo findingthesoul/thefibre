@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.21] — 2026-08-29 — editing and deleting a message, and a refusal that reads like one
+
+Steps 4 and 5 of §8 in `docs/brief-thread-engagements-from-apps.md`, closing it.
+
+### Added
+- **`PATCH`** and **`DELETE /apps/:slug/thread/engagements/:id`**, both
+  `write:messages`. Ownership is checked **one level down**, as the brief
+  insists: the engagement resolves to its thread, and the thread must belong to
+  the calling app. `workspace_id` alone would let one app edit a message on a
+  thread another app published.
+- Neither route enforces "sent messages are frozen" itself — the trigger from
+  v0.18.20 does, so The Thread's editor obeys the same rule. These surface the
+  refusal properly.
+
+### Fixed
+- **A deliberate refusal read as a server error.** `pgErrorStatus` had no case
+  for `P0001`, so every `raise exception` in the platform — append-only
+  activity, the super-admin interlock, and now freeze-once-sent — came back as
+  **500**, and `pgErrorMessage` replaced the trigger's carefully written
+  sentence with the generic *"The database would not accept this change."*
+  `P0001` now maps to **409**, and its message passes through untouched.
+
+  Every `raise exception` in the codebase was checked before doing this: all of
+  them are written for a person, which is what makes passing the text through
+  safe rather than a leak.
+
+  This fixes The Thread's editor as much as the app surface — the sentence
+  explaining *why* and what to do instead is the only useful part, and it was
+  being thrown away.
+
+### Verified
+`verify-external-app.mjs` passes in full, now including re-wording and deleting
+an unsent message, and refusing both without `write:messages`. Separately,
+through the running API on the human path: editing an unsent message returns
+200; editing a sent one returns **409** carrying *"this message has already been
+sent to 1 person and its wording cannot be changed…"*.
+
+### Notes
+- `EngagementUpdate` is imported from `routes/thread.ts`, like the create schema.
+  No `omit` needed — it is `EngagementCreate.partial()`, and `source_ref` only
+  ever existed on the app-side create. An app names its own ref once, at
+  creation, and addresses the engagement by id afterwards.
+
+
 ## [0.18.20] — 2026-08-29 — a message that has been sent cannot be altered
 
 Sjoerd's rule, and the reason he gave is the whole argument: a message sends to

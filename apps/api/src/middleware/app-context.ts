@@ -170,6 +170,8 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // write:programs — see docs/brief-thread-engagements-from-apps.md §5.
   { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'write:messages' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/engagements$/, scope: 'read:programs' },
+  { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/engagements\/[^/]+$/, scope: 'write:messages' },
+  { method: 'DELETE', test: /^\/api\/v1\/apps\/[^/]+\/thread\/engagements\/[^/]+$/, scope: 'write:messages' },
 
   // Who am I — lets an app verify its credential and see its own scopes.
   { method: 'GET', test: /^\/api\/v1\/apps\/whoami$/, scope: null },
