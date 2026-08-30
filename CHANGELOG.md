@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.27] — 2026-08-30 — the agenda reads back
+
+### Added
+- **Activity fields on the app-key engagement read** — `starts_at`, `ends_at`,
+  `daily_schedule`, `location`, `location_url`, `meeting_url`,
+  `meeting_provider` (additive). An app could always WRITE them; now it reads
+  them back, which is the door the planner's agenda migration was waiting on:
+  the site lays its sessions down in The Thread and renders its public agenda
+  from here, organiser edits included. `verify-external-app.mjs` pins the
+  full 24-key engagement shape and asserts the timing/place round-trip.
+
 ## [0.18.26] — 2026-08-30 — the organiser decides where they already look
 
 The festival planner's brief "enrolment review through the app key", both

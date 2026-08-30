@@ -133,6 +133,14 @@ const CONTRACT_SHAPES = {
     'progress_pct', 'enrolled_at', 'completed_at', 'payment_status', 'registered_at',
     'awaiting_approval',
   ],
+  engagement: [
+    'id', 'source_ref', 'type', 'status', 'title', 'description', 'content',
+    'starts_at', 'ends_at', 'daily_schedule', 'location', 'location_url',
+    'meeting_url', 'meeting_provider',
+    'scheduled_at', 'trigger_kind', 'trigger_anchor', 'trigger_engagement_id',
+    'trigger_offset_days', 'trigger_time', 'position', 'show_in_agenda',
+    'created_at', 'updated_at',
+  ],
 };
 
 /**
@@ -1113,6 +1121,9 @@ async function main() {
         source_ref: randomUUID(),
         type: 'event',
         title: 'Opening ceremony',
+        starts_at: '2026-11-02T09:00:00Z',
+        ends_at: '2026-11-02T10:00:00Z',
+        location: 'Main hall',
       },
     },
   );
@@ -1140,6 +1151,25 @@ async function main() {
   );
   check(outside.status === 400, 'an agenda item outside the event dates is refused', `HTTP ${outside.status}`);
   checkWall('the agenda item', agendaItem.body);
+  checkShape('engagement', agendaItem.body, CONTRACT_SHAPES.engagement);
+
+  // The agenda round-trips: what the app laid down — timing and place
+  // included — comes back through the list read. This is the door the
+  // planner's agenda migration walks through (site writes sessions here,
+  // renders its public agenda from here).
+  const engList = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/engagements`, {
+    token: THREADKEY,
+  });
+  const listedItem = (engList.body?.engagements ?? []).find(
+    (e) => e.id === agendaItem.body?.id,
+  );
+  check(
+    engList.status === 200 &&
+      listedItem?.starts_at === '2026-11-02T09:00:00+00:00' &&
+      listedItem?.location === 'Main hall',
+    'the agenda item reads back with its timing and place',
+    `${listedItem?.starts_at ?? 'missing'} @ ${listedItem?.location ?? 'missing'}`,
+  );
 
   if (agendaItem.body?.id) {
     const retype = await call(`/api/v1/apps/${SLUG}/thread/engagements/${agendaItem.body.id}`, {

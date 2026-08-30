@@ -760,6 +760,19 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
       title: row.title,
       description: row.description,
       content: row.content,
+      // The activity side — timing and place. An app could always WRITE these
+      // (EngagementCreate carries them); reading them back arrived 2026-08-30
+      // for the planner's agenda migration: the site lays its sessions down
+      // here, then renders its public agenda FROM here, organiser edits
+      // included. meeting_url is the organiser's operational data on the
+      // app's own thread — the public payload still reduces it to is_online.
+      starts_at: row.starts_at,
+      ends_at: row.ends_at,
+      daily_schedule: row.daily_schedule,
+      location: row.location,
+      location_url: row.location_url,
+      meeting_url: row.meeting_url,
+      meeting_provider: row.meeting_provider,
       scheduled_at: row.scheduled_at,
       trigger_kind: row.trigger_kind,
       trigger_anchor: row.trigger_anchor,
@@ -776,7 +789,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
   // One literal, deliberately not concatenated: supabase-js infers the row type
   // from the select string, and a built-up string degrades it to GenericStringError.
   const ENGAGEMENT_SELECT =
-    'id, source_app, source_ref, type, status, title, description, content, scheduled_at, trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, position, show_in_agenda, created_at, updated_at';
+    'id, source_app, source_ref, type, status, title, description, content, starts_at, ends_at, daily_schedule, location, location_url, meeting_url, meeting_provider, scheduled_at, trigger_kind, trigger_anchor, trigger_engagement_id, trigger_offset_days, trigger_time, position, show_in_agenda, created_at, updated_at';
 
   appsRoutes.post('/:slug/thread/threads/:id/engagements', async (c) => {
     const ctx = appKeyOnly(c);
