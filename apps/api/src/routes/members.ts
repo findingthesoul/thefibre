@@ -71,16 +71,24 @@ membersRoutes.post('/', async (c) => {
   const ctx = c.get('ctx');
   const email = body.data.email.trim().toLowerCase();
 
-  // Existing user?
+  // Already a member OF THIS WORKSPACE?
+  //
+  // Scoped to the workspace, and no longer refusing someone who belongs to
+  // another. Since v0.19.1 one person can hold a user row in several
+  // workspaces — that is the feature — so "already in another workspace" is
+  // now an ordinary fact about a colleague, not a reason to turn them away.
+  //
+  // The scope also fixes a real break: unscoped, `.eq('email', …)` returns
+  // several rows for such a person, maybeSingle() treats that as an ERROR
+  // rather than a result, and the invite would have read them as brand new.
+  // `unique (workspace_id, email)` makes maybeSingle() safe once scoped.
   let { data: u } = await adminClient
     .from('user')
     .select('id, email, full_name, workspace_id')
     .eq('email', email)
+    .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)
     .maybeSingle();
-  if (u && u.workspace_id !== ctx.workspaceId) {
-    return c.json({ error: 'that email already belongs to another Fibre workspace' }, 409);
-  }
 
   let isNew = false;
   if (!u) {

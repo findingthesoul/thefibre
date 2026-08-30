@@ -90,11 +90,26 @@ ssoRoutes.post('/access-check', async (c) => {
   const email = body.data.email;
 
   // 1. Does a user already exist for this email? (returning user)
+  //
+  // ORDERED, LIMIT 1 — not maybeSingle(). Since v0.19.1 one person can hold a
+  // user row in several workspaces, and maybeSingle() treats more than one row
+  // as an ERROR: `data` comes back null, this reads as "no account", and a
+  // returning member is shown the request-access form. That is precisely what
+  // happened to the first person to gain a second membership.
+  //
+  // Which workspace is returned barely matters, and deliberately so: the
+  // callback resolves the identity into it, then refreshes the session, and the
+  // access-token hook is what actually decides the active workspace — applying
+  // the person's own choice. This only has to name a workspace they really
+  // belong to, and the earliest is the same fallback the hook uses, so the two
+  // never disagree about where someone lands on a first sign-in.
   const { data: user } = await adminClient
     .from('user')
     .select('workspace_id')
     .eq('email', email)
     .is('deleted_at', null)
+    .order('created_at', { ascending: true })
+    .limit(1)
     .maybeSingle();
   if (user?.workspace_id) {
     return c.json({ status: 'existing', workspace_id: user.workspace_id });

@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.2] — 2026-08-30 — a second membership must not lock you out
+
+v0.19.1 let one account hold a user row in several workspaces. Two places still
+assumed exactly one, and the first person to gain a second membership was shown
+the request-access form on their own account.
+
+### Fixed
+- **`/sso/access-check` treated a second membership as no account at all.**
+  It looked the person up with `.maybeSingle()`, which treats more than one row
+  as an **error** rather than a result: `data` came back null, the check read as
+  "no account", and a returning member was sent to sign up. Now ordered,
+  `limit 1`.
+
+  Which workspace it returns barely matters, deliberately: the callback resolves
+  into it, refreshes the session, and the access-token hook decides the active
+  workspace by applying the person's own choice. This only has to name a
+  workspace they really belong to — and the earliest is the hook's own fallback,
+  so the two cannot disagree.
+
+- **Inviting a colleague refused anyone who was already in another workspace**,
+  with "that email already belongs to another Fibre workspace". That was correct
+  when an email meant one workspace and is exactly backwards now. The lookup is
+  scoped to the current workspace, where `unique (workspace_id, email)` makes
+  `.maybeSingle()` safe again, and the refusal is gone: inviting someone who
+  works in another workspace now does what you would expect.
+
+### Note
+Both are the same mistake — code that read "the user with this email" when the
+question had become "the user with this email, in this workspace". Every other
+by-email lookup in the API was checked; these were the two.
+
+
 ## [0.19.1] — 2026-08-30 — one account, several workspaces
 
 Until now the workspace you were in lived in your login token and nowhere else.
