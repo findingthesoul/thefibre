@@ -473,7 +473,30 @@ but The Thread's. You do get `payment_status` — a state, not an instrument.
 - **Invent an organiser.** The person you name must have a Fibre account and a
   Thread organiser profile. A page with no human behind it is not a page.
 
-Scopes: `read:programs`, `write:programs`, `read:enrolments`.
+**Reviewing applications** (`review:enrolments`, added 2026-08-30): a thread
+with `requires_approval` receives applications, not enrolments. The list marks
+them — `awaiting_approval` is true exactly when the organiser's decision is
+what the person is waiting for ('invited' alone is ambiguous: it also means
+"hasn't paid yet" on paid threads without a gate). Decide with:
+
+```
+POST /api/v1/apps/:slug/thread/enrolments/:id/approve
+POST /api/v1/apps/:slug/thread/enrolments/:id/decline
+```
+
+`:id` is the enrolment row's `id` from the list. Both act only on threads the
+app itself published — the same `source_app` rule as everything above. They
+run the exact machinery The Thread's own buttons run: approve flips the
+platform enrolment to `enrolled`, sends the confirmation, and releases the
+waiting on-enrolment/on-approval messages; decline drops it and expires any
+open checkout session. Both are idempotent — approving twice answers
+`{ ok, already: true }`.
+
+This is a *decision*, not a write: the person applied themselves, through the
+public form. There is still no way for an app to conjure an enrolment.
+
+Scopes: `read:programs`, `write:programs`, `read:enrolments`,
+`review:enrolments`.
 
 ## 6. The stability contract
 

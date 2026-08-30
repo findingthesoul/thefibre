@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.26] — 2026-08-30 — the organiser decides where they already look
+
+The festival planner's brief "enrolment review through the app key", both
+asks. A gated festival receives applications; its organiser reviews them on
+the site, not in The Thread.
+
+### Added
+- **`awaiting_approval`** on the app-key enrolments list (additive). The
+  platform `status` was already there, but 'invited' is ambiguous — it also
+  means "hasn't paid yet" on ungated paid threads. This is true exactly when
+  the organiser's decision is what the person is waiting for.
+- **`review:enrolments` scope** +
+  `POST /apps/:slug/thread/enrolments/:id/{approve,decline}`. A decision on
+  an enrolment the person created themselves — the app still cannot conjure
+  one (no `write:enrolments`, unchanged). Constrained to the app's own
+  threads (`source_app`), like every Thread surface. Both routes converge on
+  the SAME cores as The Thread's signed-in buttons —
+  `performApprove/DeclineEnrolment`, extracted from the existing routes, so
+  the confirmation email, the waiting on-enrolment/on-approval messages, the
+  activity rows and the checkout-session expiry on decline cannot drift
+  between the two doors.
+- `verify-external-app.mjs` step 7d: applications marked, refusal without the
+  scope, admit → enrolled, decline → dropped. All steps pass.
+- `docs/building-on-the-fibre.md` §5.5 documents the surface.
+
 ## [0.18.25] — 2026-08-30 — the editor is for the timeline
 
 ### Changed

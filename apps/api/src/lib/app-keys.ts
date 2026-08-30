@@ -59,6 +59,15 @@ export const APP_SCOPES = [
   'read:programs',
   'write:programs',
   'read:enrolments',
+  // Reviewing an application is a DECISION on an enrolment that already
+  // exists, not the creation of one — the person applied themselves, through
+  // the public form, on a thread with requires_approval. The app admits or
+  // declines; it still cannot conjure an enrolment, so everything the
+  // no-write:enrolments comment above protects stays protected. Split from
+  // read:enrolments because seeing a guest list and deciding who gets in are
+  // different authorities (docs: brief "enrolment review through the app
+  // key", 2026-08-30).
+  'review:enrolments',
 ] as const;
 
 export type AppScope = (typeof APP_SCOPES)[number];

@@ -131,6 +131,7 @@ const CONTRACT_SHAPES = {
   enrolment: [
     'id', 'enrolment_id', 'person_id', 'full_name', 'email', 'status',
     'progress_pct', 'enrolled_at', 'completed_at', 'payment_status', 'registered_at',
+    'awaiting_approval',
   ],
 };
 
@@ -384,6 +385,7 @@ async function main() {
       'write:programs',
       'read:enrolments',
       'write:messages',
+      'review:enrolments',
     ],
     entity_mappings: [
       {
@@ -883,7 +885,7 @@ async function main() {
 
   const mint4 = await call(`/api/v1/apps/${SLUG}/keys`, {
     method: 'POST',
-    body: { name: 'verification-thread', scopes: ['write:programs', 'read:programs', 'read:enrolments', 'write:messages'] },
+    body: { name: 'verification-thread', scopes: ['write:programs', 'read:programs', 'read:enrolments', 'write:messages', 'review:enrolments'] },
     token: jwt,
     appId: 'fibre-platform',
   });
@@ -1233,6 +1235,105 @@ async function main() {
   // before this step and these bindings would not exist yet.
   checkShape('thread', patched.body, CONTRACT_SHAPES.thread);
   checkShape('enrolment', registrant, CONTRACT_SHAPES.enrolment);
+
+  // ---- 7d. Review — admit and decline through the key ---------------------
+  step('7d', 'Review applications through the key (review:enrolments)');
+
+  // Approval gate on (fixture-planted; the gate is just a thread setting).
+  await db.from('thread_thread').update({ requires_approval: true }).eq('id', THREAD_ID);
+
+  // Two applications, the way the public form leaves them on a gated thread:
+  // platform enrolment 'invited', nothing paid. Emails stay on the reserved
+  // .example TLD — approve attempts a confirmation send, which fails inside
+  // its own try/catch and must not fail the run.
+  const applicants = [];
+  for (const n of [1, 2]) {
+    const { data: ap } = await db
+      .from('person')
+      .insert({
+        workspace_id: myUser.workspace_id,
+        email: `${PERSON_PREFIX}-applicant${n}@verify-host.example`,
+        first_name: 'Verify',
+        last_name: `Applicant${n}`,
+      })
+      .select('id')
+      .single();
+    const { data: en } = await db
+      .from('enrolment')
+      .insert({ program_id: fxProgramRow.id, person_id: ap.id, status: 'invited' })
+      .select('id')
+      .single();
+    const { data: teRow } = await db
+      .from('thread_enrolment')
+      .insert({
+        workspace_id: myUser.workspace_id,
+        thread_id: THREAD_ID,
+        enrolment_id: en.id,
+        person_id: ap.id,
+        payment_status: 'not_required',
+        request_id: `verify-${planRef}-applicant${n}`,
+      })
+      .select('id')
+      .single();
+    applicants.push({ teId: teRow.id });
+  }
+
+  const withApps = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/enrolments`, {
+    token: THREADKEY,
+  });
+  const appRows = withApps.body?.enrolments ?? [];
+  const waiting = appRows.filter((r) => r.awaiting_approval);
+  check(
+    waiting.length === 2 &&
+      appRows.some((r) => r.status === 'enrolled' && !r.awaiting_approval),
+    'awaiting_approval marks exactly the applications, never the enrolled',
+    `${waiting.length} waiting of ${appRows.length}`,
+  );
+
+  const reviewDenied = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[0].teId}/approve`,
+    { method: 'POST', token: FLOWKEY },
+  );
+  check(
+    reviewDenied.status === 403,
+    'a key without review:enrolments cannot admit anyone',
+    `HTTP ${reviewDenied.status}`,
+  );
+
+  const admit = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[0].teId}/approve`,
+    { method: 'POST', token: THREADKEY },
+  );
+  check(
+    admit.status === 200 && admit.body?.ok === true,
+    'admit flips an application to enrolled',
+    `HTTP ${admit.status}`,
+  );
+  const turnedDown = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[1].teId}/decline`,
+    { method: 'POST', token: THREADKEY },
+  );
+  check(
+    turnedDown.status === 200 && turnedDown.body?.ok === true,
+    'decline turns one down',
+    `HTTP ${turnedDown.status}`,
+  );
+
+  const afterReview = await call(`/api/v1/apps/${SLUG}/thread/threads/${THREAD_ID}/enrolments`, {
+    token: THREADKEY,
+  });
+  const reviewById = new Map((afterReview.body?.enrolments ?? []).map((r) => [r.id, r]));
+  check(
+    reviewById.get(applicants[0].teId)?.status === 'enrolled' &&
+      !reviewById.get(applicants[0].teId)?.awaiting_approval,
+    'the admitted application reads enrolled',
+    String(reviewById.get(applicants[0].teId)?.status),
+  );
+  check(
+    reviewById.get(applicants[1].teId)?.status === 'dropped',
+    'the declined application reads dropped',
+    String(reviewById.get(applicants[1].teId)?.status),
+  );
 
   const flowKeyOnThread = await call(`/api/v1/apps/${SLUG}/thread/threads`, { token: FLOWKEY });
   check(

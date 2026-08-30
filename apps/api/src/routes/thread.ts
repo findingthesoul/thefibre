@@ -2450,6 +2450,28 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
   if (loaded === 'forbidden') {
     return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
   }
+  return c.json(...(await performApproveEnrolment(loaded)));
+});
+
+// The approve/decline side-effect cores, shared with the app-key review
+// surface (routes/app-thread.ts). The scheduler + webhook + payment link rule
+// applies here too: everything converges on these, nothing forks them. The
+// caller settles WHO may act (a signed-in organiser via
+// loadEnrolmentForAction, an app key via its own-thread check); these do the
+// WHAT, identically for both.
+
+type EnrolmentActionLoaded = {
+  te: { id: string; enrolment_id: string };
+  person: { id: string; email: string | null };
+  thread: { id: string; workspace_id: string; language?: string | null };
+  program: { title: string; starts_on: string | null };
+  organiserName: string;
+  personName: string;
+};
+
+export async function performApproveEnrolment(
+  loaded: EnrolmentActionLoaded,
+): Promise<[Record<string, unknown>, 200 | 500]> {
   const { te, person, thread, program, organiserName, personName } = loaded;
 
   const { data: enr } = await adminClient
@@ -2457,14 +2479,14 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
     .select('status')
     .eq('id', te.enrolment_id)
     .maybeSingle();
-  if (!enr) return c.json({ error: 'platform enrolment missing' }, 500);
-  if (enr.status !== 'invited') return c.json({ ok: true, already: true, status: enr.status });
+  if (!enr) return [{ error: 'platform enrolment missing' }, 500];
+  if (enr.status !== 'invited') return [{ ok: true, already: true, status: enr.status }, 200];
 
   const { error: upErr } = await adminClient
     .from('enrolment')
     .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
     .eq('id', te.enrolment_id);
-  if (upErr) return c.json({ error: upErr.message }, 500);
+  if (upErr) return [{ error: upErr.message }, 500];
 
   await logEnrolmentActivity(
     thread.workspace_id,
@@ -2507,8 +2529,8 @@ threadRoutes.post('/enrolments/:id/approve', async (c) => {
       }
     }
   }
-  return c.json({ ok: true });
-});
+  return [{ ok: true }, 200];
+}
 
 // POST /threads/:id/participants — the organiser adds someone by hand
 // (walk-ins, phone signups, imports). Skips payment and approval: the
@@ -2785,13 +2807,20 @@ threadRoutes.post('/enrolments/:id/decline', async (c) => {
   if (loaded === 'forbidden') {
     return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
   }
+  return c.json(...(await performDeclineEnrolment(loaded)));
+});
+
+/** Decline core — see performApproveEnrolment above for why this is shared. */
+export async function performDeclineEnrolment(
+  loaded: EnrolmentActionLoaded,
+): Promise<[Record<string, unknown>, 200 | 500]> {
   const { te, person, thread, program } = loaded;
 
   const { error: upErr } = await adminClient
     .from('enrolment')
     .update({ status: 'dropped' })
     .eq('id', te.enrolment_id);
-  if (upErr) return c.json({ error: upErr.message }, 500);
+  if (upErr) return [{ error: upErr.message }, 500];
 
   // A declined participant must not be able to pay through a checkout tab
   // that is still open (review finding #5) — expire any pending session.
@@ -2822,8 +2851,8 @@ threadRoutes.post('/enrolments/:id/decline', async (c) => {
     'enrolment_declined',
     `Declined: ${program.title}`,
   );
-  return c.json({ ok: true });
-});
+  return [{ ok: true }, 200];
+}
 
 // POST /enrolments/:id/complete — → completed. Fires on_completion messages
 // and auto-issues the certificate when the thread awards one (the email

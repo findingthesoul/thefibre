@@ -80,6 +80,8 @@ import {
   templateHasMessages,
   activityWindowError,
   dailyScheduleError,
+  performApproveEnrolment,
+  performDeclineEnrolment,
 } from './thread.js';
 import type { RequestContext } from '../middleware/app-context.js';
 import { hasScope, scopeDenied } from '../middleware/app-context.js';
@@ -1127,6 +1129,11 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
           email: p?.email ?? null,
           // The platform's enrolment state — the registration itself.
           status: e?.status ?? null,
+          // The one operational fact a review surface needs, made legible:
+          // 'invited' alone is ambiguous (it also means "hasn't paid yet" on
+          // paid threads without approval). This is true exactly when the
+          // organiser's decision is what the person is waiting for.
+          awaiting_approval: !!thread.requires_approval && e?.status === 'invited',
           progress_pct: e?.progress_pct ?? null,
           enrolled_at: e?.enrolled_at ?? null,
           completed_at: e?.completed_at ?? null,
@@ -1137,5 +1144,82 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         };
       }),
     });
+  });
+
+  // -------------------------------------------------------------------------
+  // Review — admit or decline an application (scope: review:enrolments).
+  //
+  // A festival with requires_approval receives applications; the organiser
+  // reviews them on the app's own site. This is a DECISION on an enrolment
+  // the person created themselves through the public form — the app still
+  // cannot create one (no write:enrolments, see the top of this file).
+  //
+  // Authority: the key's workspace, AND the thread must be the app's own
+  // (program.source_app) — an app reviews applications on ITS festivals,
+  // never on threads a person made in The Thread's UI or another app's.
+  //
+  // Both routes converge on the same cores as The Thread's signed-in
+  // approve/decline (performApprove/DeclineEnrolment): same status flips,
+  // same confirmation email, same on_enrolment/on_approval messages, same
+  // activity rows, same Stripe-session expiry on decline. One WHAT, two WHOs.
+  // -------------------------------------------------------------------------
+
+  /** Load an enrolment for review iff it sits on a thread this app owns. */
+  async function loadOwnEnrolment(ctx: RequestContext, threadEnrolmentId: string) {
+    const { data: te } = await adminClient
+      .from('thread_enrolment')
+      .select('id, enrolment_id, person_id, thread_id')
+      .eq('id', threadEnrolmentId)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!te) return null;
+    const thread = await ownThread(ctx, te.thread_id as string);
+    if (!thread) return null;
+    const program = one(thread.program) as {
+      title?: string;
+      starts_on?: string | null;
+    } | null;
+    const organiser = one(thread.organiser) as { display_name?: string | null } | null;
+    const { data: person } = await adminClient
+      .from('person')
+      .select('id, email, first_name, last_name')
+      .eq('id', te.person_id as string)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!person || !program) return null;
+    return {
+      te: { id: te.id as string, enrolment_id: te.enrolment_id as string },
+      person: { id: person.id as string, email: (person.email as string | null) ?? null },
+      thread: {
+        id: thread.id as string,
+        workspace_id: thread.workspace_id as string,
+        language: (thread as { language?: string | null }).language ?? null,
+      },
+      program: {
+        title: program.title ?? '',
+        starts_on: program.starts_on ?? null,
+      },
+      organiserName: organiser?.display_name ?? 'The organiser',
+      personName:
+        [person.first_name, person.last_name].filter(Boolean).join(' ') || 'there',
+    };
+  }
+
+  // POST /apps/:slug/thread/enrolments/:id/approve — admit an application.
+  appsRoutes.post('/:slug/thread/enrolments/:id/approve', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+    const loaded = await loadOwnEnrolment(ctx, c.req.param('id'));
+    if (!loaded) return c.json({ error: 'enrolment not found' }, 404);
+    return c.json(...(await performApproveEnrolment(loaded)));
+  });
+
+  // POST /apps/:slug/thread/enrolments/:id/decline — turn one down.
+  appsRoutes.post('/:slug/thread/enrolments/:id/decline', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+    const loaded = await loadOwnEnrolment(ctx, c.req.param('id'));
+    if (!loaded) return c.json({ error: 'enrolment not found' }, 404);
+    return c.json(...(await performDeclineEnrolment(loaded)));
   });
 }

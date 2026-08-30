@@ -166,6 +166,11 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'read:programs' },
   { method: 'PATCH', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+$/, scope: 'write:programs' },
   { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/threads\/[^/]+\/enrolments$/, scope: 'read:enrolments' },
+  // Review — a decision on an application, not the creation of an enrolment.
+  // The handlers additionally require the thread to be the app's own
+  // (program.source_app), same as every Thread surface above.
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/enrolments\/[^/]+\/approve$/, scope: 'review:enrolments' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/enrolments\/[^/]+\/decline$/, scope: 'review:enrolments' },
   // Engagements. The WRITE is the only thing on this surface that can cause an
   // email to reach a human, so it carries its own scope rather than riding on
   // write:programs — see docs/brief-thread-engagements-from-apps.md §5.
