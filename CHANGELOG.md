@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.3] — 2026-08-30 — a seat can be moved to the right address
+
+An invite goes to an address, and a workspace membership IS that address: a row
+in `public."user"` keyed by (workspace_id, email). So an invite sent to the
+wrong one is not a field to correct — it is a seat under a name that is not
+theirs, holding the app grants somebody meant to give them.
+
+The Members screen can invite and can remove. It cannot say "this is the same
+person, under the address they actually use", because that is three writes that
+have to happen together: make the seat, move the grants, retire the old one.
+
+### Added
+- **`apps/api/scripts/transfer-membership.mjs`** — does exactly those three,
+  and nothing else. `--workspace <slug> --from <email> --to <email>`; a dry run
+  unless `FIBRE_TRANSFER_CONFIRM=1`. Where the target already holds a seat, the
+  grants are added to it rather than a second one being made.
+
+  It refuses to run if the old address owns anything — a thread, a flow, an
+  invoice, a Meet host record. Moving content is a different job and a person
+  should look at it; silently orphaning it is the failure this guard exists to
+  prevent. In practice a mis-addressed invite has never been signed into and
+  owns nothing.
+
+  The old user and person rows are soft-deleted (brief §6). The
+  `workspace_member` and `app_membership` rows are join rows and go outright —
+  left behind, a retired seat keeps appearing in the Members list.
+
+  It does not touch that person's seats in other workspaces. Since v0.19.1 one
+  account may hold several, and the usual reason to run this is to make the
+  address here match the one they already use elsewhere.
+
 ## [0.19.2] — 2026-08-30 — a second membership must not lock you out
 
 v0.19.1 let one account hold a user row in several workspaces. Two places still
