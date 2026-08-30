@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.18.25] — 2026-08-30 — the editor is for the timeline
+
+### Changed
+- The thread editor no longer renders the intention under the title. It was
+  fine when intentions were a sentence; once the Festival planner started
+  syncing full festival descriptions into the field, the whole text sat
+  between the title and the timeline and pushed the actual work below the
+  fold. It still lives in Settings → Basics and on the public page — the two
+  places it is actually for. The Team chip stays.
+
 ## [0.18.24] — 2026-08-29 — the app edits the agenda, because The Thread owns it
 
 `docs/brief-thread-engagements-from-apps.md` §7 held the activity family back:

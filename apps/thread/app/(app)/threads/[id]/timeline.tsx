@@ -345,18 +345,15 @@ export function ThreadTimeline({
         </a>
       </div>
 
-      {(thread.intention || team) && (
-        <div className="mt-2 ml-12 max-w-xl">
-          {thread.intention && (
-            <p className="text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
-          )}
-          {team && (
-            <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-muted">
-              <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
-                Team · {team.name}
-              </span>
-            </div>
-          )}
+      {/* The intention is deliberately NOT shown here. It lives in Settings →
+          Basics and on the public page; once the planner started syncing
+          full festival descriptions into it, it dominated the editor and
+          pushed the timeline below the fold (Sjoerd 2026-08-30). */}
+      {team && (
+        <div className="mt-2 ml-12 flex items-center gap-2 text-xs text-ink-muted">
+          <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
+            Team · {team.name}
+          </span>
         </div>
       )}
 
