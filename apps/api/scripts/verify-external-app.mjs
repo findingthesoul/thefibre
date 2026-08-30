@@ -131,7 +131,7 @@ const CONTRACT_SHAPES = {
   enrolment: [
     'id', 'enrolment_id', 'person_id', 'full_name', 'email', 'status',
     'progress_pct', 'enrolled_at', 'completed_at', 'payment_status', 'registered_at',
-    'awaiting_approval',
+    'awaiting_approval', 'checkin_code', 'checked_in_at',
   ],
   engagement: [
     'id', 'source_ref', 'type', 'status', 'title', 'description', 'content',
@@ -1363,6 +1363,46 @@ async function main() {
     reviewById.get(applicants[1].teId)?.status === 'dropped',
     'the declined application reads dropped',
     String(reviewById.get(applicants[1].teId)?.status),
+  );
+
+  // The door, on the same scope. The admitted applicant checks in — by id,
+  // and by scanning the very code the list handed us.
+  const admitted = reviewById.get(applicants[0].teId);
+  const scanned = await call(
+    `/api/v1/apps/${SLUG}/thread/checkin/${admitted?.checkin_code}`,
+    { token: THREADKEY },
+  );
+  check(
+    scanned.status === 200 && scanned.body?.id === applicants[0].teId,
+    'a scanned ticket resolves to its registration',
+    `HTTP ${scanned.status}`,
+  );
+  const doorTap = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[0].teId}/checkin`,
+    { method: 'POST', token: THREADKEY, body: {} },
+  );
+  check(
+    doorTap.status === 200 && doorTap.body?.ok === true && !!doorTap.body?.checked_in_at,
+    'the door tap checks them in',
+    `HTTP ${doorTap.status}`,
+  );
+  const doorAgain = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[0].teId}/checkin`,
+    { method: 'POST', token: THREADKEY, body: {} },
+  );
+  check(
+    doorAgain.status === 200 && doorAgain.body?.already === true,
+    'a second scan is harmless — the first timestamp wins',
+    `HTTP ${doorAgain.status}`,
+  );
+  const doorDenied = await call(
+    `/api/v1/apps/${SLUG}/thread/enrolments/${applicants[0].teId}/checkin`,
+    { method: 'POST', token: FLOWKEY, body: {} },
+  );
+  check(
+    doorDenied.status === 403,
+    'a key without review:enrolments cannot work the door',
+    `HTTP ${doorDenied.status}`,
   );
 
   const flowKeyOnThread = await call(`/api/v1/apps/${SLUG}/thread/threads`, { token: FLOWKEY });

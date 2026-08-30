@@ -388,3 +388,24 @@ export async function bulkIssueCertificates(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Check-in (the door)
+// ---------------------------------------------------------------------------
+
+export async function checkinEnrolment(
+  threadId: string,
+  enrolmentId: string,
+  undo = false,
+): Promise<{ ok: true; checked_in_at: string | null } | { ok: false; error: string }> {
+  try {
+    const r = await apiFetch<{ ok: boolean; checked_in_at: string | null }>(
+      `/api/v1/thread/enrolments/${enrolmentId}/checkin`,
+      { method: 'POST', body: JSON.stringify({ undo }) },
+    );
+    revalidatePath(`/threads/${threadId}/checkin`);
+    return { ok: true, checked_in_at: r.checked_in_at ?? null };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

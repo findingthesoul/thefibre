@@ -82,6 +82,7 @@ import {
   dailyScheduleError,
   performApproveEnrolment,
   performDeclineEnrolment,
+  performCheckinEnrolment,
 } from './thread.js';
 import type { RequestContext } from '../middleware/app-context.js';
 import { hasScope, scopeDenied } from '../middleware/app-context.js';
@@ -252,7 +253,7 @@ const PatchThread = z.object({
 });
 
 // The ONLY permitted column list on thread_enrolment. See THE WALL above.
-const ENROLMENT_SELECT = 'id, enrolment_id, person_id, payment_status, created_at';
+const ENROLMENT_SELECT = 'id, enrolment_id, person_id, payment_status, created_at, checkin_code, checked_in_at';
 
 /**
  * The workspace's own Thread organiser, created from its admin if it has none.
@@ -1147,6 +1148,12 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
           // paid threads without approval). This is true exactly when the
           // organiser's decision is what the person is waiting for.
           awaiting_approval: !!thread.requires_approval && e?.status === 'invited',
+          // The door. checkin_code is a capability that only OPENS read
+          // surfaces (the QR, the passes, the check-in page) — handing it to
+          // the app that runs the festival's own door tooling is operational,
+          // not personal, data. Wall fields stay walled.
+          checkin_code: r.checkin_code,
+          checked_in_at: r.checked_in_at,
           progress_pct: e?.progress_pct ?? null,
           enrolled_at: e?.enrolled_at ?? null,
           completed_at: e?.completed_at ?? null,
@@ -1234,5 +1241,60 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const loaded = await loadOwnEnrolment(ctx, c.req.param('id'));
     if (!loaded) return c.json({ error: 'enrolment not found' }, 404);
     return c.json(...(await performDeclineEnrolment(loaded)));
+  });
+
+  // -------------------------------------------------------------------------
+  // The door (scope: review:enrolments — admitting someone at the door is
+  // the same authority family as admitting their application, and a third
+  // scope would force another key re-mint for no new kind of power).
+  //
+  // GET  /checkin/:code            resolve a scanned ticket → who is this
+  // POST /enrolments/:id/checkin   { undo?: true } — same core as The
+  //                                Thread's own door list, first tap wins.
+  // -------------------------------------------------------------------------
+
+  appsRoutes.get('/:slug/thread/checkin/:code', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+    const code = c.req.param('code');
+    if (!/^[0-9a-f]{32}$/.test(code)) return c.json({ error: 'not found' }, 404);
+    const { data: te } = await adminClient
+      .from('thread_enrolment')
+      .select('id')
+      .eq('checkin_code', code)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!te) return c.json({ error: 'not found' }, 404);
+    const loaded = await loadOwnEnrolment(ctx, te.id as string);
+    if (!loaded) return c.json({ error: 'not found' }, 404);
+    const { data: state } = await adminClient
+      .from('thread_enrolment')
+      .select('checked_in_at, payment_status')
+      .eq('id', loaded.te.id)
+      .single();
+    const { data: enr } = await adminClient
+      .from('enrolment')
+      .select('status')
+      .eq('id', loaded.te.enrolment_id)
+      .maybeSingle();
+    return c.json({
+      id: loaded.te.id,
+      thread_id: loaded.thread.id,
+      full_name: loaded.personName === 'there' ? null : loaded.personName,
+      status: enr?.status ?? null,
+      payment_status: state?.payment_status ?? null,
+      checked_in_at: state?.checked_in_at ?? null,
+    });
+  });
+
+  appsRoutes.post('/:slug/thread/enrolments/:id/checkin', async (c) => {
+    const ctx = appKeyOnly(c);
+    if (!ctx) return notForUsers(c);
+    const body = (await c.req.json().catch(() => ({}))) as { undo?: boolean };
+    const loaded = await loadOwnEnrolment(ctx, c.req.param('id'));
+    if (!loaded) return c.json({ error: 'enrolment not found' }, 404);
+    return c.json(
+      ...(await performCheckinEnrolment(loaded, { undo: !!body.undo, byUserId: null })),
+    );
   });
 }

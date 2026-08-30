@@ -16,6 +16,7 @@ import {
   Trash2,
   Copy,
   UserCheck,
+  ScanLine,
   LayoutTemplate,
   Clock,
   MapPin,
@@ -323,6 +324,13 @@ export function ThreadTimeline({
         >
           <UserCheck size={17} strokeWidth={1.75} />
         </button>
+        <Link
+          href={`/threads/${thread.id}/checkin`}
+          className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
+          title="Check-in (door list)"
+        >
+          <ScanLine size={17} strokeWidth={1.75} />
+        </Link>
         <button
           type="button"
           onClick={() => {

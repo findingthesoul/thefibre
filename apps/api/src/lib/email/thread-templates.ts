@@ -13,13 +13,33 @@ export type ThreadEnrolmentEmail = {
   threadUrl: string;
   /** Public-surface locale (thread.language). Defaults to en. */
   locale?: string;
+  /**
+   * The door ticket. When present the email gains a QR block (image served
+   * by the API — data URIs are stripped by most mail clients) and, per
+   * configured wallet, an add-to-wallet link. All three URLs are built by
+   * the caller so this file stays free of env reads.
+   */
+  ticket?: {
+    qrUrl: string;
+    appleUrl: string | null;
+    googleUrl: string | null;
+  } | null;
 };
 
 // Public emails follow the thread's language (the catalog for the web
 // surfaces lives in apps/thread/lib/i18n.ts — keep vocabularies aligned).
 const EMAIL_I18N: Record<
   string,
-  { subject: string; hi: string; enrolled: string; starts: string; open: string }
+  {
+    subject: string;
+    hi: string;
+    enrolled: string;
+    starts: string;
+    open: string;
+    ticket: string;
+    apple: string;
+    google: string;
+  }
 > = {
   en: {
     subject: "You're enrolled: {title}",
@@ -27,6 +47,9 @@ const EMAIL_I18N: Record<
     enrolled: "You're enrolled in {title}{with}.",
     starts: 'It starts {date}.',
     open: 'Open the thread',
+    ticket: 'Your ticket — show this QR at the door.',
+    apple: 'Add to Apple Wallet',
+    google: 'Save to Google Wallet',
   },
   nl: {
     subject: 'Je bent ingeschreven: {title}',
@@ -34,6 +57,9 @@ const EMAIL_I18N: Record<
     enrolled: 'Je bent ingeschreven voor {title}{with}.',
     starts: 'Het begint op {date}.',
     open: 'Open de thread',
+    ticket: 'Je ticket — laat deze QR bij de deur zien.',
+    apple: 'Voeg toe aan Apple Wallet',
+    google: 'Opslaan in Google Wallet',
   },
   es: {
     subject: 'Estás inscrito: {title}',
@@ -41,6 +67,9 @@ const EMAIL_I18N: Record<
     enrolled: 'Estás inscrito en {title}{with}.',
     starts: 'Comienza el {date}.',
     open: 'Abrir el thread',
+    ticket: 'Tu entrada: muestra este QR en la puerta.',
+    apple: 'Añadir a Apple Wallet',
+    google: 'Guardar en Google Wallet',
   },
   pt: {
     subject: 'Você está inscrito: {title}',
@@ -48,6 +77,9 @@ const EMAIL_I18N: Record<
     enrolled: 'Você está inscrito em {title}{with}.',
     starts: 'Começa em {date}.',
     open: 'Abrir o thread',
+    ticket: 'Seu ingresso — mostre este QR na entrada.',
+    apple: 'Adicionar à Apple Wallet',
+    google: 'Salvar no Google Wallet',
   },
   de: {
     subject: 'Du bist angemeldet: {title}',
@@ -55,6 +87,9 @@ const EMAIL_I18N: Record<
     enrolled: 'Du bist für {title}{with} angemeldet.',
     starts: 'Es beginnt am {date}.',
     open: 'Thread öffnen',
+    ticket: 'Dein Ticket — zeig diesen QR-Code am Eingang.',
+    apple: 'Zu Apple Wallet hinzufügen',
+    google: 'In Google Wallet speichern',
   },
 };
 
@@ -200,6 +235,29 @@ ${emailSignoff()}`;
       <p style="margin:24px 0;">
         <a href="${c.threadUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(L.open)}</a>
       </p>
+      ${
+        c.ticket
+          ? `
+      <div style="margin:24px 0;padding:20px;border:1px solid #e7e5e4;border-radius:12px;text-align:center;">
+        <p style="margin:0 0 12px;font-size:14px;color:#525252;">${escapeHtml(L.ticket)}</p>
+        <img src="${c.ticket.qrUrl}" width="180" height="180" alt="QR" style="display:inline-block;width:180px;height:180px;" />
+        ${
+          c.ticket.appleUrl || c.ticket.googleUrl
+            ? `<p style="margin:14px 0 0;font-size:13px;">${[
+                c.ticket.appleUrl
+                  ? `<a href="${c.ticket.appleUrl}" style="color:#171717;">${escapeHtml(L.apple)}</a>`
+                  : '',
+                c.ticket.googleUrl
+                  ? `<a href="${c.ticket.googleUrl}" style="color:#171717;">${escapeHtml(L.google)}</a>`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' &nbsp;·&nbsp; ')}</p>`
+            : ''
+        }
+      </div>`
+          : ''
+      }
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
   );

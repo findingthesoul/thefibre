@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.0] — 2026-08-30 — the door
+
+Check-in, end to end (Sjoerd 2026-08-30). Migration
+`20260830120000_thread_checkin.sql`: every registration carries a
+`checkin_code` — a capability that only ever OPENS read surfaces; the state
+change always runs the organiser authority check (loadEnrolmentForAction).
+
+### Added
+- **The ticket in the confirmation email** — a QR block (image served by the
+  API; data URIs get stripped by mail clients) in all four sends: instant
+  enrol, approval, paid finalization, manually-added participant. i18n ×5.
+- **Wallet passes, env-gated** (`lib/checkin.ts`): Apple `.pkpass` (signed
+  event ticket, passkit-generator) and Save-to-Google-Wallet (RS256 JWT via
+  jose, object inline — no Wallet API round-trip). The email offers each
+  button only when the platform can honour it; unconfigured endpoints answer
+  503 with a sentence. Credentials are issuer accounts only Sjoerd can
+  create — new build-plan item.
+- **`/checkin/[code]`** in The Thread — the scan landing. Camera → link →
+  signed-in organiser one tap from done; first tap wins (two volunteers
+  scanning the same ticket both see "checked in", one timestamp). Undo for
+  mistaken taps. A guest scanning their own ticket gets a polite refusal.
+- **`/threads/[id]/checkin`** — the door list, mobile-first: search by name
+  or email, tap a row to check in/undo, running count, "not approved yet" /
+  "payment pending" flags. Linked from the timeline header (ScanLine icon).
+  Declined applications don't appear.
+- **The door through the app key** (the FOT planner's ask), riding on
+  `review:enrolments` — door admission is the same authority family as
+  application review: `checkin_code` + `checked_in_at` on the enrolments
+  list, `GET /apps/:slug/thread/checkin/:code`,
+  `POST /apps/:slug/thread/enrolments/:id/checkin` `{undo?}`. Same
+  `performCheckinEnrolment` core as The Thread's own door. Verifier 7d
+  extended: scan-resolve, tap, second-scan-harmless, refusal without scope.
+- `checked_in_at` on The Thread's own enrolments list (registrations dialog
+  data source, door list).
+
 ## [0.18.27] — 2026-08-30 — the agenda reads back
 
 ### Added

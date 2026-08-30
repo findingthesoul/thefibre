@@ -50,6 +50,16 @@ _The Festival of Trust planner stays EXTERNAL (Sjoerd, 2026-08-22): its own
 repo, consuming Fibre / Flow / later The Thread over the app-key surface. It is
 the live proof that path works. Item 1b carries what that needs from us._
 
+0. **Wallet issuer credentials (Sjoerd, not code)** — check-in ships with
+   QR-in-email working everywhere; the two wallet buttons appear only once
+   the platform can sign passes. Apple: a Pass Type ID + certificate from the
+   Apple Developer account → `fly secrets set APPLE_WALLET_CERT_PEM
+   APPLE_WALLET_KEY_PEM APPLE_WALLET_WWDR_PEM APPLE_WALLET_PASS_TYPE_ID
+   APPLE_WALLET_TEAM_ID` (optional `APPLE_WALLET_KEY_PASSPHRASE`). Google: a
+   Google Wallet issuer account + service account →
+   `GOOGLE_WALLET_ISSUER_ID GOOGLE_WALLET_SA_EMAIL GOOGLE_WALLET_SA_KEY_PEM`.
+   Code path is live and tested (503 with a sentence until configured).
+
 1. **Stripe secrets (Sjoerd, not code)** — `fly secrets set
    STRIPE_SECRET_KEY=…`; register the Thread webhook
    (`https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`,

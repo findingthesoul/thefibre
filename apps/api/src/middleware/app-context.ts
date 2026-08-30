@@ -171,6 +171,9 @@ const APP_KEY_ROUTES: AppKeyRoute[] = [
   // (program.source_app), same as every Thread surface above.
   { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/enrolments\/[^/]+\/approve$/, scope: 'review:enrolments' },
   { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/enrolments\/[^/]+\/decline$/, scope: 'review:enrolments' },
+  // The door rides on the same authority as review.
+  { method: 'GET', test: /^\/api\/v1\/apps\/[^/]+\/thread\/checkin\/[^/]+$/, scope: 'review:enrolments' },
+  { method: 'POST', test: /^\/api\/v1\/apps\/[^/]+\/thread\/enrolments\/[^/]+\/checkin$/, scope: 'review:enrolments' },
   // Engagements. The WRITE is the only thing on this surface that can cause an
   // email to reach a human, so it carries its own scope rather than riding on
   // write:programs — see docs/brief-thread-engagements-from-apps.md §5.

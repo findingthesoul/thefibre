@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
+import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
@@ -24,6 +25,34 @@ import { appUrl } from '@thefibre/shared';
 
 function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
+}
+
+/** Where the QR/pass images live — the API's own public base. */
+function apiPublicUrl(): string {
+  return process.env.API_PUBLIC_URL ?? 'https://thefibre-api.fly.dev';
+}
+
+/**
+ * The ticket block for a confirmation email, from a thread_enrolment id.
+ * Wallet links appear only when the platform can honour them (lib/checkin.ts
+ * env gates) — an email must never offer a button that 503s.
+ */
+async function emailTicketFor(
+  threadEnrolmentId: string,
+): Promise<{ qrUrl: string; appleUrl: string | null; googleUrl: string | null } | null> {
+  const { data } = await adminClient
+    .from('thread_enrolment')
+    .select('checkin_code')
+    .eq('id', threadEnrolmentId)
+    .maybeSingle();
+  const code = data?.checkin_code as string | undefined;
+  if (!code) return null;
+  const base = `${apiPublicUrl()}/api/v1/thread/public/checkin/${code}`;
+  return {
+    qrUrl: `${base}/qr.png`,
+    appleUrl: appleWalletConfig() ? `${base}/apple.pkpass` : null,
+    googleUrl: googleWalletConfig() ? `${base}/google` : null,
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -1952,6 +1981,102 @@ threadRoutes.post('/threads/:id/certificates/bulk', async (c) => {
 
 // GET /api/v1/thread/public/certificate/:number — the public certificate.
 // Snapshot-only: nothing here depends on live template/thread state.
+// ---------------------------------------------------------------------------
+// The ticket, publicly addressed by its check-in code (a capability that
+// arrived in the holder's own email). Everything here is READ — the QR
+// image, and the two wallet passes carrying the same QR. Checking in is a
+// signed-in organiser action; see /checkin/:code above.
+// ---------------------------------------------------------------------------
+
+/** Everything a pass needs, from just the code. Null if the code is unknown. */
+async function ticketForCode(code: string) {
+  if (!/^[0-9a-f]{32}$/.test(code)) return null;
+  const { data: te } = await adminClient
+    .from('thread_enrolment')
+    .select(
+      `checkin_code,
+       person:person_id (first_name, last_name),
+       thread:thread_id (slug,
+         organiser:organiser_id (display_name),
+         team:team_id (name),
+         program:program_id (title, starts_on))`,
+    )
+    .eq('checkin_code', code)
+    .maybeSingle();
+  if (!te) return null;
+  const person = Array.isArray(te.person) ? te.person[0] : te.person;
+  const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
+  const program = thread && (Array.isArray(thread.program) ? thread.program[0] : thread.program);
+  const organiser =
+    thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
+  const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
+  if (!person || !program) return null;
+  return {
+    code,
+    participantName:
+      [person.first_name, person.last_name].filter(Boolean).join(' ') || 'Participant',
+    threadTitle: (program.title as string) ?? '',
+    organiserName:
+      (team?.name as string | undefined) ??
+      (organiser?.display_name as string | undefined) ??
+      'The Thread',
+    startsOn: (program.starts_on as string | null) ?? null,
+    location: null,
+    checkinUrl: `${threadAppUrl()}/checkin/${code}`,
+  };
+}
+
+// GET /public/checkin/:code/qr.png — the QR the email embeds.
+threadRoutes.get('/public/checkin/:code/qr.png', async (c) => {
+  const t = await ticketForCode(c.req.param('code'));
+  if (!t) return c.json({ error: 'not found' }, 404);
+  const { default: QRCode } = await import('qrcode');
+  const png = await QRCode.toBuffer(t.checkinUrl, {
+    type: 'png',
+    width: 480,
+    margin: 2,
+    errorCorrectionLevel: 'M',
+  });
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'private, max-age=86400');
+  return c.body(new Uint8Array(png));
+});
+
+// GET /public/checkin/:code/apple.pkpass — Add to Apple Wallet.
+threadRoutes.get('/public/checkin/:code/apple.pkpass', async (c) => {
+  const cfg = appleWalletConfig();
+  if (!cfg) {
+    return c.json({ error: 'Apple Wallet is not configured on this platform yet' }, 503);
+  }
+  const t = await ticketForCode(c.req.param('code'));
+  if (!t) return c.json({ error: 'not found' }, 404);
+  try {
+    const pass = await appleWalletPass(cfg, t);
+    c.header('Content-Type', 'application/vnd.apple.pkpass');
+    c.header('Content-Disposition', 'attachment; filename="ticket.pkpass"');
+    return c.body(new Uint8Array(pass));
+  } catch (e) {
+    console.error('[thread/checkin] pkpass generation failed', e);
+    return c.json({ error: 'could not generate the pass' }, 500);
+  }
+});
+
+// GET /public/checkin/:code/google — 302 to Save to Google Wallet.
+threadRoutes.get('/public/checkin/:code/google', async (c) => {
+  const cfg = googleWalletConfig();
+  if (!cfg) {
+    return c.json({ error: 'Google Wallet is not configured on this platform yet' }, 503);
+  }
+  const t = await ticketForCode(c.req.param('code'));
+  if (!t) return c.json({ error: 'not found' }, 404);
+  try {
+    return c.redirect(await googleWalletSaveUrl(cfg, t), 302);
+  } catch (e) {
+    console.error('[thread/checkin] google wallet jwt failed', e);
+    return c.json({ error: 'could not generate the pass' }, 500);
+  }
+});
+
 threadRoutes.get('/public/certificate/:number', async (c) => {
   const { data } = await adminClient
     .from('thread_certificate')
@@ -2505,6 +2630,7 @@ export async function performApproveEnrolment(
         startsOn: program.starts_on,
         threadUrl: `${threadAppUrl()}/my`,
         locale: (thread as { language?: string }).language ?? 'en',
+        ticket: await emailTicketFor(te.id),
       });
       await sendEmail({ to: person.email, ...msg });
     } catch (e) {
@@ -2772,6 +2898,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
         startsOn: program.starts_on,
         threadUrl: `${threadAppUrl()}/my`,
         locale: (thread as { language?: string }).language ?? 'en',
+        ticket: await emailTicketFor(te.id),
       });
       await sendEmail({ to: email, ...msg });
     } catch (e) {
@@ -2988,6 +3115,7 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
       startsOn: program.starts_on,
       threadUrl: `${threadAppUrl()}/my`,
       locale: (thread as { language?: string }).language ?? 'en',
+      ticket: await emailTicketFor(te.id),
     });
     await sendEmail({ to: person.email, ...msg });
   } catch (e) {
@@ -3397,7 +3525,7 @@ threadRoutes.get('/enrolments', async (c) => {
   let q = db
     .from('thread_enrolment')
     .select(
-      `id, thread_id, payment_status, amount_cents, currency, answers, billing, stripe_session_id, created_at,
+      `id, thread_id, payment_status, amount_cents, currency, answers, billing, stripe_session_id, created_at, checked_in_at,
        person:person_id (id, first_name, last_name, email, phone, city, country, preferred_language),
        enrolment:enrolment_id (id, status, progress_pct, enrolled_at, completed_at),
        certificate:thread_certificate (certificate_number),
@@ -3416,6 +3544,135 @@ threadRoutes.get('/enrolments', async (c) => {
   }
   return c.json({ items: data ?? [] });
 });
+
+// ---------------------------------------------------------------------------
+// Check-in (Sjoerd 2026-08-30). The confirmation email carries a QR encoding
+// /checkin/<code> on the Thread app; scanning it lands a signed-in organiser
+// on that person's check-in page. The door list covers everyone else.
+//
+// The code is a capability that only ever OPENS things (the QR image, the
+// wallet passes, the check-in page's read). The state change is these two
+// routes, and both run the same authority as approve/decline —
+// loadEnrolmentForAction: admins, the thread's organiser, co-organiser
+// hosts, or the owning team. A guest scanning their own ticket sees a page
+// that politely refuses to act.
+// ---------------------------------------------------------------------------
+
+/** thread_enrolment id for a check-in code, or null. */
+async function enrolmentIdForCheckinCode(code: string): Promise<string | null> {
+  if (!/^[0-9a-f]{32}$/.test(code)) return null;
+  const { data } = await adminClient
+    .from('thread_enrolment')
+    .select('id')
+    .eq('checkin_code', code)
+    .maybeSingle();
+  return (data?.id as string | undefined) ?? null;
+}
+
+// GET /checkin/:code — resolve a scanned ticket for the check-in page.
+threadRoutes.get('/checkin/:code', async (c) => {
+  const ctx = c.get('ctx');
+  const teId = await enrolmentIdForCheckinCode(c.req.param('code'));
+  if (!teId) return c.json({ error: 'not found' }, 404);
+  const loaded = await loadEnrolmentForAction(ctx.jwt, teId, {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
+  const { te, person, thread, program, personName } = loaded;
+  const { data: state } = await adminClient
+    .from('thread_enrolment')
+    .select('checked_in_at, payment_status')
+    .eq('id', te.id)
+    .single();
+  const { data: enr } = await adminClient
+    .from('enrolment')
+    .select('status')
+    .eq('id', te.enrolment_id)
+    .maybeSingle();
+  return c.json({
+    id: te.id,
+    thread_id: thread.id,
+    person_name: personName,
+    email: person.email,
+    thread_title: program.title,
+    status: enr?.status ?? null,
+    payment_status: state?.payment_status ?? null,
+    checked_in_at: state?.checked_in_at ?? null,
+  });
+});
+
+// POST /enrolments/:id/checkin — { undo?: true } clears a mistaken tap.
+threadRoutes.post('/enrolments/:id/checkin', async (c) => {
+  const ctx = c.get('ctx');
+  const body = (await c.req.json().catch(() => ({}))) as { undo?: boolean };
+  const loaded = await loadEnrolmentForAction(ctx.jwt, c.req.param('id'), {
+    userId: ctx.userId,
+    workspaceId: ctx.workspaceId,
+  });
+  if (!loaded) return c.json({ error: 'not found' }, 404);
+  if (loaded === 'forbidden') {
+    return c.json({ error: 'only the thread organiser (or an admin) can do that' }, 403);
+  }
+  return c.json(
+    ...(await performCheckinEnrolment(loaded, {
+      undo: !!body.undo,
+      byUserId: ctx.userId || null,
+    })),
+  );
+});
+
+/** Check-in core — shared with the app-key door surface, like approve/decline. */
+export async function performCheckinEnrolment(
+  loaded: {
+    te: { id: string };
+    person: { id: string };
+    thread: { workspace_id: string };
+    program: { title: string };
+  },
+  opts: { undo: boolean; byUserId: string | null },
+): Promise<[Record<string, unknown>, 200 | 400 | 403 | 404 | 409 | 500]> {
+  const { te, person, thread, program } = loaded;
+
+  if (opts.undo) {
+    const { error } = await adminClient
+      .from('thread_enrolment')
+      .update({ checked_in_at: null, checked_in_by: null })
+      .eq('id', te.id);
+    if (error) return [pgErrorBody(error), pgErrorStatus(error)];
+    return [{ ok: true, checked_in_at: null }, 200];
+  }
+
+  const now = new Date().toISOString();
+  // Only from null → set: two volunteers scanning the same ticket both see
+  // "checked in", and the first timestamp wins.
+  const { data: updated, error } = await adminClient
+    .from('thread_enrolment')
+    .update({ checked_in_at: now, checked_in_by: opts.byUserId })
+    .eq('id', te.id)
+    .is('checked_in_at', null)
+    .select('checked_in_at')
+    .maybeSingle();
+  if (error) return [pgErrorBody(error), pgErrorStatus(error)];
+  if (!updated) {
+    const { data: cur } = await adminClient
+      .from('thread_enrolment')
+      .select('checked_in_at')
+      .eq('id', te.id)
+      .single();
+    return [{ ok: true, already: true, checked_in_at: cur?.checked_in_at ?? null }, 200];
+  }
+  await logEnrolmentActivity(
+    thread.workspace_id,
+    person.id,
+    'enrolment_checked_in',
+    `Checked in: ${program.title}`,
+  );
+  return [{ ok: true, checked_in_at: updated.checked_in_at }, 200];
+}
 
 // ===========================================================================
 // PUBLIC endpoints — no JWT (see PUBLIC_PREFIXES in app-context.ts).
@@ -4724,6 +4981,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       startsOn: program.starts_on,
       threadUrl: `${threadAppUrl()}/my`,
       locale: (thread as { language?: string }).language ?? 'en',
+      ticket: await emailTicketFor(threadEnrolment.id),
     });
     await sendEmail({ to: email, ...msg });
   } catch (e) {
