@@ -1,4 +1,4 @@
-import { UserMenu } from './user-menu';
+import { UserMenu, type WorkspaceChoice } from './user-menu';
 import { AppSwitcher, type AppEntry } from './app-switcher';
 import type { Prefs } from '@/lib/prefs-shared';
 
@@ -8,12 +8,14 @@ export function Topbar({
   prefs,
   current,
   apps,
+  workspaces = [],
 }: {
   email: string;
   fullName: string;
   prefs: Prefs;
   current: { slug: string; name: string };
   apps: AppEntry[];
+  workspaces?: WorkspaceChoice[];
 }) {
   const initials =
     (fullName || email)
@@ -32,6 +34,7 @@ export function Topbar({
         initials={initials}
         theme={prefs.theme}
         sidebar={prefs.sidebar}
+        workspaces={workspaces}
       />
     </header>
   );

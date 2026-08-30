@@ -13,6 +13,8 @@ type Me = {
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 
+type WorkspaceChoiceRow = { id: string; name: string | null; is_active: boolean };
+
 type WorkspaceApp = {
   deactivated_at: string | null;
   app: { slug: string } | { slug: string }[] | null;
@@ -54,6 +56,18 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // ignore — empty list means only The Fibre shows in the switcher
   }
 
+  // The workspaces this person belongs to. Almost everybody has one, and the
+  // menu hides the section when there is nothing to choose between — so this
+  // costs a request and changes nothing until somebody has two.
+  let workspaces: WorkspaceChoiceRow[] = [];
+  try {
+    const r = await apiFetch<{ workspaces: WorkspaceChoiceRow[] }>('/api/v1/auth/workspaces');
+    workspaces = r.workspaces;
+  } catch {
+    // Never fatal: not being able to list them must not stop the app rendering
+    // in the one you are already in.
+  }
+
   const apps = buildAppList({ memberships, workspaceApps });
 
   return (
@@ -71,6 +85,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           prefs={prefs}
           current={{ slug: 'fibre-platform', name: APPS['fibre-platform'].name }}
           apps={apps}
+          workspaces={workspaces}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>

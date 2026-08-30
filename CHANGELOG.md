@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.1] — 2026-08-30 — one account, several workspaces
+
+Until now the workspace you were in lived in your login token and nowhere else.
+The hook stamped one `workspace_id`; every policy asked the token rather than
+the person. `current_workspace_id()` is read **238 times across 32 migrations**,
+so the workspace was welded to the session — which is why reaching a second
+workspace meant a second email address, and switching meant signing out.
+
+### Added
+- **`user_active_workspace`** — which workspace a sign-in is currently acting
+  in. Keyed by `auth.users.id`, because that is the identity that spans
+  workspaces; `public."user".id` does not, it *is* the per-workspace row.
+  RLS on, **no policies**: only the service role writes it, so a client cannot
+  put itself in a tenant by writing the table directly.
+- **`GET /api/v1/auth/workspaces`** — the workspaces you belong to, and which
+  one this token is acting in.
+- **`POST /api/v1/auth/workspace`** — switch. Membership is the gate: you must
+  already have a live `user` row in the target. Returns `refresh_required`,
+  because recording the choice changes nothing until a new token is minted.
+- **A workspace section in the account menu**, which hides itself when there is
+  only one — as there is for almost everybody. Switching records the choice,
+  calls `refreshSession()` so the hook re-stamps the token, then re-renders.
+
+### Changed
+- **The token hook picks deterministically.** It was `limit 1` with no ordering
+  — fine with one row, arbitrary with two. Now: the chosen workspace if one is
+  set and still valid, otherwise the earliest membership. A hook that picked
+  differently on two consecutive sign-ins would look exactly like data
+  disappearing.
+- **`resolve_sso_identity` matches an identity within one workspace.** Step 1
+  matched on `(provider, provider_user_id)` alone, which is global — the same
+  Google identity legitimately has a row in each workspace, so it would have
+  resolved a sign-in into whichever was found first. There is deliberately no
+  unique constraint on that pair: one identity, many rows, one per workspace.
+
+### What deliberately did not change
+**Every RLS policy.** They all read `current_workspace_id()`, which still
+returns exactly one workspace. This changes *which* one and lets a person move
+between them; it does not let a token name two at once. A request is still
+answered inside exactly one tenant — the property the whole data wall rests on,
+and the one not worth trading for convenience.
+
+### Verified
+Against the live database, with a real second membership: with no choice set
+the session stays put; choosing a workspace lands the next token in it, with
+the right `app_user_id`; choosing back returns. Switching to a workspace you
+are not a member of is refused. And the data follows — 12 contacts in Festival
+of Trust, 23 in Solidarity Lab, same account, policies untouched.
+
+
 ## [0.19.0] — 2026-08-30 — the door
 
 Check-in, end to end (Sjoerd 2026-08-30). Migration
