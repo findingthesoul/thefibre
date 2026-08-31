@@ -409,3 +409,20 @@ export async function checkinEnrolment(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+
+export async function setThreadCategories(
+  threadId: string,
+  categoryIds: string[],
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${threadId}/categories`, {
+      method: 'PUT',
+      body: JSON.stringify({ category_ids: categoryIds }),
+    });
+    revalidatePath(`/threads/${threadId}`);
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

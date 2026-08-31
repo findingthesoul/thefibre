@@ -29,6 +29,7 @@ export type ThreadRow = {
   cover_url: string | null;
   is_public_listed: boolean;
   public_agenda: boolean;
+  categories?: { category: { id: string; name: string; slug: string } | { id: string; name: string; slug: string }[] | null }[];
   requires_approval: boolean;
   price_cents: number | null;
   price_currency: string | null;

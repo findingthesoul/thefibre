@@ -29,7 +29,7 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const [members, teams, certTemplates, me] = await Promise.all([
+  const [members, teams, certTemplates, me, categories] = await Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
@@ -40,6 +40,10 @@ export default async function ThreadDetailPage({
     apiFetch<{ personal_room_url: string | null }>('/api/v1/thread/me').catch(() => ({
       personal_room_url: null,
     })),
+  
+    apiFetch<{ items: { id: string; name: string; slug: string }[] }>(
+      '/api/v1/thread/categories',
+    ).catch(() => ({ items: [] as { id: string; name: string; slug: string }[] })),
   ]);
 
   // v3 layout: a single centred column, the thread as the main item, the
@@ -47,6 +51,7 @@ export default async function ThreadDetailPage({
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <ThreadTimeline
+      categories={categories.items}
         thread={thread}
         engagements={thread.engagements}
         members={thread.co_organisers}

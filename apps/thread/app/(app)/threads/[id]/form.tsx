@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { updateThread } from '../actions';
+import { setThreadCategories, updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
@@ -21,11 +21,14 @@ export function ThreadEditorForm({
   thread,
   compact = false,
   teams = [],
+  categories = [],
   onSaved,
 }: {
   thread: ThreadRow;
   compact?: boolean;
   teams?: { id: string; name: string }[];
+  /** The workspace's curated category list (Settings → Categories). */
+  categories?: { id: string; name: string; slug: string }[];
   /** Popups close after save (Sjoerd 2026-07-02). */
   onSaved?: () => void;
 }) {
@@ -41,6 +44,15 @@ export function ThreadEditorForm({
   const [startsOn, setStartsOn] = useState(program?.starts_on ?? '');
   const [pending, startTransition] = useTransition();
   const [coverUrl, setCoverUrl] = useState<string | null>(thread.cover_url);
+  const [selectedCats, setSelectedCats] = useState<Set<string>>(
+    () =>
+      new Set(
+        (thread.categories ?? [])
+          .map((r) => (Array.isArray(r.category) ? r.category[0] : r.category))
+          .filter(Boolean)
+          .map((cat) => cat!.id),
+      ),
+  );
   const [interaction, setInteraction] = useState<'page' | 'popup'>(
     thread.public_interaction ?? 'page',
   );
@@ -90,6 +102,8 @@ export function ThreadEditorForm({
     startTransition(async () => {
       const r = await updateThread(thread.id, patch);
       if (!r.ok) return setError(r.error);
+      const rc = await setThreadCategories(thread.id, [...selectedCats]);
+      if (!rc.ok) return setError(rc.error);
       setSaved(true);
       router.refresh();
       onSaved?.();
@@ -265,6 +279,41 @@ export function ThreadEditorForm({
             name="public_agenda"
             defaultChecked={thread.public_agenda ?? true}
           />
+
+          {categories.length > 0 && (
+            <div>
+              <span className="text-sm text-ink-subtle">Categories</span>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                {categories.map((cat) => {
+                  const on = selectedCats.has(cat.id);
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() =>
+                        setSelectedCats((prev) => {
+                          const next = new Set(prev);
+                          if (next.has(cat.id)) next.delete(cat.id);
+                          else next.add(cat.id);
+                          return next;
+                        })
+                      }
+                      className={`rounded-full px-3 py-1 text-xs ring-1 transition-colors ${
+                        on
+                          ? 'bg-ink text-ink-inverse ring-ink'
+                          : 'bg-surface text-ink-subtle ring-line hover:text-ink hover:ring-line-strong'
+                      }`}
+                    >
+                      {cat.name}
+                    </button>
+                  );
+                })}
+              </div>
+              <p className="mt-1.5 text-xs text-ink-muted">
+                Manage the list in Settings → Categories.
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

@@ -110,8 +110,9 @@ export default function DevelopersPage() {
             (slug), <code className="font-mono text-xs">?team=</code>,{' '}
             <code className="font-mono text-xs">?org=</code> or{' '}
             <code className="font-mono text-xs">?workspace=</code> (UUIDs); optionally{' '}
-            <code className="font-mono text-xs">?format=event|journey</code> to narrow to one
-            kind. Sorted by start date, soonest first. Returns{' '}
+            <code className="font-mono text-xs">?format=event|journey</code> and/or{' '}
+            <code className="font-mono text-xs">?category=&lt;slug&gt;</code> (the organiser's
+            categories, from Settings) to narrow it. Sorted by start date, soonest first. Returns{' '}
             <code className="font-mono text-xs">{'{ items: [...] }'}</code>.
           </p>
           <Fields
@@ -142,6 +143,11 @@ export default function DevelopersPage() {
                 name: 'public_interaction',
                 type: "'page' | 'popup'",
                 note: 'How the organiser wants this opened from a listing.',
+              },
+              {
+                name: 'categories',
+                type: '{name, slug}[]',
+                note: 'The organiser-curated categories this thread belongs to.',
               },
               { name: 'url', type: 'string', note: 'Canonical public page.' },
             ]}
@@ -197,6 +203,11 @@ export default function DevelopersPage() {
               },
               { name: 'certificate_enabled', type: 'boolean' },
               { name: 'share_participants_public', type: 'boolean' },
+              {
+                name: 'categories',
+                type: '{name, slug}[]',
+                note: 'The organiser-curated categories this thread belongs to.',
+              },
               {
                 name: 'public_agenda',
                 type: 'boolean',
@@ -302,7 +313,8 @@ export default function DevelopersPage() {
             <code className="font-mono text-xs">data-org</code> or{' '}
             <code className="font-mono text-xs">data-workspace</code> to widen a listing, and add{' '}
             <code className="font-mono text-xs">data-format=&quot;event|journey&quot;</code> to
-            narrow it to one kind. Every
+            narrow it to one kind, <code className="font-mono text-xs">data-category</code> to one
+            category. Every
             element inside carries a <code className="font-mono text-xs">te-</code> class: put a{' '}
             <code className="font-mono text-xs">&lt;style&gt;</code> block inside the div and it
             is lifted into the frame. Organisers get the full class reference, pre-filled with

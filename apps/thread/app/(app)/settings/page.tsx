@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { User, Building2, CreditCard, Cable, Code2, ChevronRight, type LucideIcon } from 'lucide-react';
+import { User, Building2, CreditCard, Cable, Code2, ChevronRight, type LucideIcon, Shapes } from 'lucide-react';
 import { PageContainer, PageHeader, SectionLabel } from '@/components/ui/page';
 
 export default function SettingsPage() {
@@ -45,6 +45,12 @@ export default function SettingsPage() {
             Icon={Code2}
             title="Website embeds"
             desc="Copy-paste snippets to show your threads and take enrolments on any website — Webflow included."
+          />
+          <Card
+            href="/settings/categories"
+            Icon={Shapes}
+            title="Categories"
+            desc="The curated list threads pick from — filterable on public listings and website embeds."
           />
         </div>
       </section>

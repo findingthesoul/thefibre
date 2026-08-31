@@ -8,7 +8,8 @@
  *   <div data-thread-embed="card" data-organiser="sjoerd" data-thread="my-event"></div>
  *   <a href="#" data-thread-embed="enrol" data-organiser="sjoerd" data-thread="my-event">Enrol</a>
  *
- * List embeds accept data-format="event|journey" to narrow to one kind.
+ * List embeds accept data-format="event|journey" to narrow to one kind,
+ * and data-category="<slug>" to narrow to one category (Settings \u2192 Categories).
  *
  * Optional data-lang="en|nl|es|pt|de" on any embed forces the UI language.
  *
@@ -87,7 +88,7 @@
     var css = extractCss(el);
     var f = makeIframe(ORIGIN + '/embed/list' + query({
       organiser: d.organiser, team: d.team, org: d.org, workspace: d.workspace,
-      format: d.format, compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
+      format: d.format, category: d.category, compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
     }));
     f.__teCss = css;
     el.appendChild(f);

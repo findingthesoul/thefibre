@@ -60,3 +60,51 @@ export async function updateWorkspaceSettings(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+// ---------------------------------------------------------------------------
+// Categories (Settings → Categories)
+// ---------------------------------------------------------------------------
+
+export async function createCategory(
+  name: string,
+  scope: 'workspace' | 'mine',
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch('/api/v1/thread/categories', {
+      method: 'POST',
+      body: JSON.stringify({ name, scope }),
+    });
+    revalidatePath('/settings/categories');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function renameCategory(
+  id: string,
+  name: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch(`/api/v1/thread/categories/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    revalidatePath('/settings/categories');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+export async function deleteCategory(
+  id: string,
+): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch(`/api/v1/thread/categories/${id}`, { method: 'DELETE' });
+    revalidatePath('/settings/categories');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

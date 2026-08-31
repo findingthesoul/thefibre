@@ -134,6 +134,7 @@ const SHAPES = {
     'price_currency',
     'language',
     'public_interaction',
+    'categories',
     'url',
   ],
   thread: [
@@ -148,6 +149,7 @@ const SHAPES = {
     'certificate_enabled',
     'share_participants_public',
     'public_agenda',
+    'categories',
     'registration_fields',
     'price_cents',
     'price_currency',

@@ -153,6 +153,7 @@ function fmtDayShort(date: string): string {
 }
 
 export function ThreadTimeline({
+  categories = [],
   thread,
   engagements,
   members,
@@ -161,6 +162,7 @@ export function ThreadTimeline({
   certTemplates,
   personalRoomUrl,
 }: {
+  categories?: { id: string; name: string; slug: string }[];
   thread: ThreadRow;
   engagements: EngagementRow[];
   members: ThreadMember[];
@@ -592,6 +594,7 @@ export function ThreadTimeline({
           <div onInput={() => setSettingsDirty(true)}>
             <SettingsTabs
               thread={thread}
+              categories={categories}
               teams={teams}
               certTemplates={certTemplates}
               members={members}
@@ -796,6 +799,7 @@ type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate' | 'embe
 
 function SettingsTabs({
   thread,
+  categories = [],
   teams,
   certTemplates,
   members,
@@ -806,6 +810,7 @@ function SettingsTabs({
   onSaved,
 }: {
   thread: ThreadRow;
+  categories?: { id: string; name: string; slug: string }[];
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
   members: ThreadMember[];
@@ -845,7 +850,13 @@ function SettingsTabs({
         </ul>
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
-        <ThreadEditorForm thread={thread} compact teams={teams} onSaved={onSaved} />
+        <ThreadEditorForm
+          thread={thread}
+          compact
+          teams={teams}
+          categories={categories}
+          onSaved={onSaved}
+        />
         <MembersPanel
           thread={thread}
           organiserName={organiserName}

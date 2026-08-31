@@ -117,7 +117,7 @@ async function ownThread(ctx: RequestContext, threadId: string) {
   const { data } = await adminClient
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
+      'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, categories:thread_thread_category (category:category_id (name, slug)), program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
     )
     .eq('id', threadId)
     .eq('workspace_id', ctx.workspaceId)
@@ -147,6 +147,11 @@ function shapeThread(row: Record<string, any>) {
     status: program.status ?? null,
     starts_on: program.starts_on ?? null,
     ends_on: program.ends_on ?? null,
+    // Additive: the thread's categories, name + public slug.
+    categories: (Array.isArray(row.categories) ? row.categories : [])
+      .map((r: Record<string, unknown>) => (Array.isArray(r.category) ? r.category[0] : r.category))
+      .filter(Boolean)
+      .map((cat: Record<string, unknown>) => ({ name: cat.name, slug: cat.slug })),
     intention: row.intention,
     timezone: row.timezone,
     language: row.language,
@@ -225,6 +230,14 @@ const PatchThread = z.object({
    * both sides, or the planner and The Thread will drift on what "live" means.
    */
   status: z.enum(['draft', 'active', 'completed', 'archived']).optional(),
+  /**
+   * Replace the thread's categories, BY NAME. The app speaks its own
+   * vocabulary ("Festivals"); the platform resolves each name to the
+   * workspace's category — minting it, workspace-scoped, when it does not
+   * exist yet — so a planner sync never has to manage platform ids. Slugs
+   * are stable once minted; renames in Settings keep them.
+   */
+  categories: z.array(z.string().min(1).max(60)).max(20).optional(),
 
   // --- §2 of the brief: columns that already existed and the app could not
   // reach. All live on thread_thread. Each shape mirrors its column exactly —
@@ -566,7 +579,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     const { data, error } = await adminClient
       .from('thread_thread')
       .select(
-        'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
+        'id, workspace_id, program_id, organiser_id, slug, intention, timezone, language, cover_url, is_public_listed, requires_approval, public_interaction, share_participants_public, share_participants_participants, price_cents, price_currency, capacity, created_at, updated_at, categories:thread_thread_category (category:category_id (name, slug)), program:program_id (id, title, format, status, starts_on, ends_on, source_app, source_ref), organiser:organiser_id (id, slug, display_name)',
       )
       .in('program_id', ids)
       .order('created_at', { ascending: false });
@@ -1048,6 +1061,52 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
     }
     if (b.price_cents !== undefined) threadPatch.price_cents = b.price_cents;
     if (b.price_currency !== undefined) threadPatch.price_currency = b.price_currency;
+
+    // Categories, by name — resolve to the workspace's rows, minting missing
+    // ones workspace-scoped. Replace-the-set semantics, same as the UI.
+    if (b.categories !== undefined) {
+      const wanted = [...new Set(b.categories.map((n) => n.trim()).filter(Boolean))];
+      const ids: string[] = [];
+      for (const name of wanted) {
+        const slug =
+          name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '')
+            .slice(0, 60) || 'category';
+        const { data: existing } = await adminClient
+          .from('thread_category')
+          .select('id')
+          .eq('workspace_id', ctx.workspaceId)
+          .eq('slug', slug)
+          .maybeSingle();
+        if (existing) {
+          ids.push(existing.id as string);
+          continue;
+        }
+        const { data: made, error: mkErr } = await adminClient
+          .from('thread_category')
+          .insert({ workspace_id: ctx.workspaceId, organiser_id: null, name, slug })
+          .select('id')
+          .single();
+        if (mkErr || !made) {
+          console.error('[app-thread] category mint failed', mkErr);
+          return c.json({ error: `could not create category "${name}"` }, 500);
+        }
+        ids.push(made.id as string);
+      }
+      const { error: delErr } = await adminClient
+        .from('thread_thread_category')
+        .delete()
+        .eq('thread_id', thread.id);
+      if (delErr) return c.json(pgErrorBody(delErr), pgErrorStatus(delErr));
+      if (ids.length) {
+        const { error: insErr } = await adminClient
+          .from('thread_thread_category')
+          .insert(ids.map((id) => ({ thread_id: thread.id, category_id: id })));
+        if (insErr) return c.json(pgErrorBody(insErr), pgErrorStatus(insErr));
+      }
+    }
 
     const program = one(thread.program) as { id: string; starts_on: string | null; ends_on: string | null } | null;
     const startsOn = (b.starts_on !== undefined ? b.starts_on : program?.starts_on) ?? null;

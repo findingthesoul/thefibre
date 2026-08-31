@@ -20,7 +20,7 @@ import { DEFAULT_EMBED_CSS } from './default-embed-css';
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
 export default async function EmbedsSettingsPage() {
-  const [organiser, threadsRes, teamsRes] = await Promise.all([
+  const [organiser, threadsRes, teamsRes, categoriesRes] = await Promise.all([
     apiFetch<OrganiserRow>('/api/v1/thread/me'),
     apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads').catch(() => ({
       items: [] as ThreadRow[],
@@ -28,6 +28,9 @@ export default async function EmbedsSettingsPage() {
     apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams').catch(() => ({
       items: [] as TeamOption[],
     })),
+    apiFetch<{ items: { name: string; slug: string }[] }>('/api/v1/thread/categories').catch(
+      () => ({ items: [] as { name: string; slug: string }[] }),
+    ),
   ]);
 
   // Feed the generator real threads: title from the program, public owner
@@ -159,6 +162,7 @@ ${DEFAULT_EMBED_CSS.split('\n').map((l) => (l ? '    ' + l : l)).join('\n')}  </
         <EmbedGenerator
           organiserSlug={organiser.slug}
           workspaceId={organiser.workspace_id}
+          categories={categoriesRes.items}
           threads={generatorThreads}
           teams={generatorTeams}
         />

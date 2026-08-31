@@ -336,6 +336,7 @@ const THREAD_SELECT = `
   price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   created_at, updated_at,
+  categories:thread_thread_category (category:category_id (id, name, slug)),
   program:program_id (id, title, format, status, starts_on, ends_on),
   organiser:organiser_id (id, slug, display_name, user_id),
   team:team_id (id, name, slug),
@@ -3546,6 +3547,138 @@ threadRoutes.get('/enrolments', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Categories (Sjoerd 2026-08-31): a curated list, not tags. Defined in
+// Settings — workspace-wide, or scoped to one organiser ("Only me") — and a
+// thread picks one or more. Slug is minted here from the name and unique per
+// workspace, so the public listing filter is unambiguous.
+// ---------------------------------------------------------------------------
+
+const CategoryBody = z.object({
+  name: z.string().min(1).max(60),
+  scope: z.enum(['workspace', 'mine']).optional(),
+});
+
+function categorySlug(name: string): string {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'category'
+  );
+}
+
+threadRoutes.get('/categories', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('thread_category')
+    .select('id, name, slug, organiser_id, position')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('position')
+    .order('name');
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
+  return c.json({ items: data ?? [] });
+});
+
+threadRoutes.post('/categories', async (c) => {
+  const body = CategoryBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  let organiserId: string | null = null;
+  if (body.data.scope === 'mine') {
+    const { data: org } = await db
+      .from('thread_organiser')
+      .select('id')
+      .eq('user_id', ctx.userId)
+      .maybeSingle();
+    if (!org) return c.json({ error: 'no organiser profile yet' }, 400);
+    organiserId = org.id;
+  }
+
+  const { data, error } = await db
+    .from('thread_category')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      organiser_id: organiserId,
+      name: body.data.name.trim(),
+      slug: categorySlug(body.data.name),
+    })
+    .select('id, name, slug, organiser_id, position')
+    .single();
+  if (error) {
+    if (error.code === '23505') {
+      return c.json({ error: 'A category with that name already exists.' }, 409);
+    }
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
+  }
+  return c.json(data, 201);
+});
+
+threadRoutes.patch('/categories/:id', async (c) => {
+  const body = CategoryBody.pick({ name: true }).safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  // Renaming keeps the slug: the slug is the public filter other websites
+  // may already embed, and a wording tweak must not break their listings.
+  const { data, error } = await db
+    .from('thread_category')
+    .update({ name: body.data.name.trim(), updated_at: new Date().toISOString() })
+    .eq('id', c.req.param('id'))
+    .select('id, name, slug, organiser_id, position')
+    .single();
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
+  return c.json(data);
+});
+
+threadRoutes.delete('/categories/:id', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('thread_category').delete().eq('id', c.req.param('id'));
+  if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
+  return c.body(null, 204);
+});
+
+// PUT /threads/:id/categories — replace the thread's set. A curated pick,
+// so the write is the whole selection, not add/remove churn.
+threadRoutes.put('/threads/:id/categories', async (c) => {
+  const body = z
+    .object({ category_ids: z.array(z.string().uuid()).max(20) })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.param('id');
+
+  // RLS scopes both tables, but validate the ids belong to this workspace so
+  // a stray id fails loudly instead of vanishing in the insert.
+  const { data: valid } = await db
+    .from('thread_category')
+    .select('id')
+    .eq('workspace_id', ctx.workspaceId)
+    .in('id', body.data.category_ids.length ? body.data.category_ids : ['00000000-0000-0000-0000-000000000000']);
+  const validIds = new Set((valid ?? []).map((r) => r.id));
+  const unknown = body.data.category_ids.filter((id) => !validIds.has(id));
+  if (unknown.length) return c.json({ error: 'unknown category id' }, 400);
+
+  const { error: delErr } = await db
+    .from('thread_thread_category')
+    .delete()
+    .eq('thread_id', threadId);
+  if (delErr) return c.json(pgErrorBody(delErr), pgErrorStatus(delErr));
+  if (body.data.category_ids.length) {
+    const { error: insErr } = await db
+      .from('thread_thread_category')
+      .insert(body.data.category_ids.map((id) => ({ thread_id: threadId, category_id: id })));
+    if (insErr) return c.json(pgErrorBody(insErr), pgErrorStatus(insErr));
+  }
+  return c.json({ ok: true, count: body.data.category_ids.length });
+});
+
+// ---------------------------------------------------------------------------
 // Check-in (Sjoerd 2026-08-30). The confirmation email carries a QR encoding
 // /checkin/<code> on the Thread app; scanning it lands a signed-in organiser
 // on that person's check-in page. The door list covers everyone else.
@@ -3872,6 +4005,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
        workspace_id, team_id, payment_destination,
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public, public_agenda,
+       categories:thread_thread_category (category:category_id (name, slug)),
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('slug', c.req.param('threadSlug'));
@@ -4053,6 +4187,11 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // Additive (rule 8): whether this thread shows a public agenda at all.
       // When false, `agenda` is always [].
       public_agenda: showAgenda,
+      // Additive (rule 8): the thread's categories, name + public slug.
+      categories: (Array.isArray(thread.categories) ? thread.categories : [])
+        .map((row) => (Array.isArray(row.category) ? row.category[0] : row.category))
+        .filter(Boolean)
+        .map((cat) => ({ name: (cat as { name: string }).name, slug: (cat as { slug: string }).slug })),
       registration_fields: thread.registration_fields ?? [],
       price_cents: price.price_cents,
       price_currency: price.price_currency,
@@ -4094,6 +4233,8 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   // documented at /developers). Anything else is ignored rather than an
   // error, so a typo degrades to the full list, not a broken widget.
   const format = c.req.query('format');
+  // Optional ?category=<slug> — same additive contract as ?format.
+  const categorySlugFilter = c.req.query('category');
   if (!organiserSlug && !teamId && !orgId && !workspaceId) {
     return c.json({ error: 'pass organiser, team, org or workspace' }, 400);
   }
@@ -4105,6 +4246,7 @@ threadRoutes.get('/public/embed/threads', async (c) => {
        organiser:organiser_id (slug, display_name),
        team:team_id (slug, name),
        organisation:organisation_id (id, name),
+       categories:thread_thread_category (category:category_id (name, slug)),
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
@@ -4128,6 +4270,12 @@ threadRoutes.get('/public/embed/threads', async (c) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
     if (!p || (p.status !== 'active' && p.status !== 'completed')) return false;
     if ((format === 'event' || format === 'journey') && p.format !== format) return false;
+    if (categorySlugFilter) {
+      const cats = (Array.isArray(t.categories) ? t.categories : [])
+        .map((row: Record<string, unknown>) => (Array.isArray(row.category) ? row.category[0] : row.category))
+        .filter(Boolean) as { slug?: string }[];
+      if (!cats.some((cat) => cat.slug === categorySlugFilter)) return false;
+    }
     return true;
   });
   const prices = await ticketPrices(live.map((t) => t.id));
@@ -4155,6 +4303,11 @@ threadRoutes.get('/public/embed/threads', async (c) => {
         price_currency: t.price_currency,
         language: (t as { language?: string }).language ?? 'en',
         public_interaction: (t as { public_interaction?: string }).public_interaction ?? 'page',
+        // Additive (rule 8): the thread's categories, name + public slug.
+        categories: (Array.isArray(t.categories) ? t.categories : [])
+          .map((row) => (Array.isArray(row.category) ? row.category[0] : row.category))
+          .filter(Boolean)
+          .map((cat) => ({ name: (cat as { name: string }).name, slug: (cat as { slug: string }).slug })),
         url: `${threadAppUrl()}/${ownerSlug}/${t.slug}`,
       };
     })

@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.9] — 2026-08-31 — a thread belongs somewhere
+
+Categories, as Sjoerd specified them: made in Settings, scoped to the
+workspace or to one organiser, and a thread picks one or more. **Not tags** —
+a curated list, not free text on the thread.
+
+### Added
+- **Settings → Categories** — add, rename, delete; "Whole workspace" or "Only
+  me". Renaming keeps the slug on purpose: the slug is the public filter other
+  websites may already embed, so a wording tweak must not break their
+  listings. Migration `20260831140000_thread_categories.sql`
+  (`thread_category` + `thread_thread_category`, slug unique per workspace so
+  a public filter is never ambiguous).
+- **Categories on the thread** — a chip row in thread settings → Basics,
+  multi-select, saved with the rest of the form
+  (`PUT /threads/:id/categories`, replace-the-set).
+- **Public + embeds** — `categories: {name, slug}[]` on the listing and
+  thread payloads (additive, rule 8), `?category=<slug>` on the listing,
+  `data-category` on the list embed, and a Category picker in the Settings →
+  Website embeds generator. /developers and verify-public-api.mjs updated.
+- **Through the app key** — `categories: string[]` on the thread PATCH, BY
+  NAME: the planner sends its own vocabulary and the platform resolves each
+  name to the workspace's category, minting missing ones workspace-scoped, so
+  a sync never manages platform ids.
+
 ## [0.19.8] — 2026-08-31 — a string, not a proxy
 
 ### Fixed

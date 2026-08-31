@@ -42,17 +42,21 @@ export function EmbedGenerator({
   workspaceId,
   threads,
   teams,
+  categories = [],
 }: {
   organiserSlug: string;
   workspaceId: string;
   threads: GeneratorThread[];
   teams: GeneratorTeam[];
+  categories?: { name: string; slug: string }[];
 }) {
   const [kind, setKind] = useState<Kind>('thread');
   // list: my threads, the whole workspace, or one team
   const [listOwner, setListOwner] = useState<string>('mine'); // 'mine' | 'workspace' | team id
   // list: narrow to one kind of thread ('all' | 'event' | 'journey')
   const [listFormat, setListFormat] = useState<string>('all');
+  // list: narrow to one category slug ('' = all) — Settings \u2192 Categories
+  const [listCategory, setListCategory] = useState<string>('');
   // changes the labels around the two blocks — Webflow has named places
   const [target, setTarget] = useState<'any' | 'webflow'>('any');
   const [threadId, setThreadId] = useState<string>(threads[0]?.id ?? '');
@@ -89,7 +93,8 @@ export function EmbedGenerator({
         listFormat === 'event' || listFormat === 'journey'
           ? ` data-format="${listFormat}"`
           : '';
-      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${langAttr}>${styleBlock}</div>`;
+      const categoryAttr = listCategory ? ` data-category="${listCategory}"` : '';
+      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
     if (kind === 'card') {
@@ -106,7 +111,7 @@ export function EmbedGenerator({
           .map((e) => e.key)
           .join(',')}"`;
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
-  }, [kind, listOwner, listFormat, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
+  }, [kind, listOwner, listFormat, listCategory, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${HOST}/embed.js" defer></script>`;
 
@@ -184,6 +189,23 @@ export function EmbedGenerator({
                 <option value="event">Events only</option>
                 <option value="journey">Journeys only</option>
               </select>
+              {categories.length > 0 && (
+                <>
+                  <span className="mt-2 block text-xs text-ink-subtle">Category</span>
+                  <select
+                    value={listCategory}
+                    onChange={(e) => setListCategory(e.target.value)}
+                    className={`${SELECT} mt-1`}
+                  >
+                    <option value="">All categories</option>
+                    {categories.map((cat) => (
+                      <option key={cat.slug} value={cat.slug}>
+                        {cat.name}
+                      </option>
+                    ))}
+                  </select>
+                </>
+              )}
             </label>
           ) : (
             <label className="block">
