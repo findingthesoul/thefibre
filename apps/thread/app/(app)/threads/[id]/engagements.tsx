@@ -324,8 +324,13 @@ export function EngagementDialog({
   function doDelete() {
     if (!engagement) return;
     startTransition(async () => {
-      await deleteEngagement(threadId, engagement.id);
+      // The result used to be discarded: a refused delete (a message that has
+      // already gone out is frozen) closed the dialog anyway and the item was
+      // still there afterwards, looking like "delete does nothing" (Sjoerd
+      // 2026-08-31). Say why instead.
+      const r = await deleteEngagement(threadId, engagement.id);
       setConfirmDelete(false);
+      if (!r.ok) return setError(r.error);
       onClose();
       router.refresh();
     });

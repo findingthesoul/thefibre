@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.11] — 2026-08-31 — days that belong together, and a refusal you can read
+
+### Changed
+- **The timeline moulds a multi-day activity to the days it covers.** A
+  two-day event and a conversation on its second day used to render as two
+  free-floating groups; the second day now attaches to the first as one
+  continuous block, each day keeping its own date badge. Days a single
+  activity spans form a "run"; separate days still sit apart.
+
+### Fixed
+- **"Delete does nothing"** on a message that had already been sent. Two
+  faults stacked: the dialog discarded the result of `deleteEngagement`, so a
+  refusal closed the dialog and left the item there; and `pgErrorMessage`
+  replaced the trigger's own carefully-written sentence with a generic line.
+  Our triggers (SQLSTATE P0001) now speak for themselves and answer 409 —
+  "This message has already been sent to 2 people and cannot be deleted…" —
+  and the dialog shows it instead of pretending to succeed.
+
 ## [0.19.10] — 2026-08-31 — the end follows the beginning
 
 ### Fixed

@@ -47,6 +47,11 @@ function byCode(e: PgLike): string | null {
       return 'One of the dates or times could not be read.';
     case '42501':
       return 'You do not have permission to change this.';
+    // P0001 — a `raise exception` from one of our own triggers. Those
+    // messages are written for the person reading them (see the
+    // sent-messages-are-frozen trigger), so passing ours through beats
+    // replacing it with a generic line. Handled in pgErrorMessage, which has
+    // the text; this case exists so byCode never claims it.
     // A trigger's `raise exception`. Every one of these in this codebase is
     // written for a person — "activity is append-only, write a correction row
     // instead", "this message has already been sent to 2 people…" — so the
@@ -69,6 +74,11 @@ function constraintName(e: PgLike): string | null {
 
 /** One sentence, safe to show in a dialog. */
 export function pgErrorMessage(e: PgLike): string {
+  // Our own triggers speak for themselves.
+  if (e.code === 'P0001' && e.message) {
+    const t = e.message.trim();
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
   const named = constraintName(e);
   if (named && BY_CONSTRAINT[named]) return BY_CONSTRAINT[named];
   const coded = byCode(e);
@@ -78,6 +88,8 @@ export function pgErrorMessage(e: PgLike): string {
 
 /** HTTP status matching the cause — a rejected value is the caller's, not ours. */
 export function pgErrorStatus(e: PgLike): 400 | 403 | 404 | 409 | 500 {
+  // A trigger refusing on the row's state is a conflict, not our failure.
+  if (e.code === 'P0001') return 409;
   if (e.code === '23505') return 409;
   // A trigger refusing on purpose is a conflict with the world's state, not a
   // fault. Without this the freeze-once-sent rule reads as a 500 in the editor.

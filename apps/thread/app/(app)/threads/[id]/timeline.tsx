@@ -137,6 +137,32 @@ function dayKey(iso: string): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
+/**
+ * Every day an activity occupies — one key for a single-day thing, the whole
+ * run for a multi-day one. Used to mould the timeline: a day that falls
+ * inside a longer activity should not float free of it (Sjoerd 2026-08-31,
+ * looking at a two-day event with a conversation on its second day).
+ */
+function coveredDays(e: EngagementRow): string[] {
+  const sched = e.daily_schedule ?? null;
+  if (sched?.length) return [...new Set(sched.map((d) => d.date))];
+  if (!e.starts_at) return [];
+  const first = dayKey(e.starts_at);
+  if (!e.ends_at) return [first];
+  const last = dayKey(e.ends_at);
+  if (last <= first) return [first];
+  const out: string[] = [];
+  const cur = new Date(`${first}T12:00:00`);
+  const end = new Date(`${last}T12:00:00`);
+  // 366 is the same ceiling daily_schedule carries; a runaway range should
+  // stop rather than build an unbounded list.
+  while (cur <= end && out.length < 366) {
+    out.push(dayKey(cur.toISOString()));
+    cur.setDate(cur.getDate() + 1);
+  }
+  return out;
+}
+
 function fmtTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
     new Date(iso),
@@ -221,7 +247,7 @@ export function ThreadTimeline({
     () => ({ starts_on: program?.starts_on ?? null, ends_on: program?.ends_on ?? null }),
     [program?.starts_on, program?.ends_on],
   );
-  const { triggered, triggeredEnd, groups, undated, byId } = useMemo(() => {
+  const { triggered, triggeredEnd, groups, runs, undated, byId } = useMemo(() => {
     const idMap = new Map(engagements.map((e) => [e.id, e]));
     const triggeredList = engagements
       .filter(isLifecycle)
@@ -242,12 +268,33 @@ export function ThreadTimeline({
       if (!map.has(k)) map.set(k, []);
       map.get(k)!.push(e);
     }
+    // Mould consecutive days that a single activity spans into one run, so a
+    // two-day event and whatever happens on its second day read as one block
+    // instead of two floating cards.
+    const dayEntries = [...map.entries()];
+    const linked = new Set<string>(); // "prevKey>thisKey" pairs an activity bridges
+    for (const e of dated) {
+      const days = coveredDays(e);
+      for (let i = 1; i < days.length; i++) linked.add(`${days[i - 1]}>${days[i]}`);
+    }
+    const runList: [string, EngagementRow[]][][] = [];
+    for (let i = 0; i < dayEntries.length; i++) {
+      const prev = dayEntries[i - 1];
+      const entry = dayEntries[i]!;
+      if (i > 0 && prev && linked.has(`${prev[0]}>${entry[0]}`)) {
+        runList[runList.length - 1]!.push(entry);
+      } else {
+        runList.push([entry]);
+      }
+    }
+
     return {
       // On-enrolment/approval messages open the timeline; on-completion ones
       // close it — they fire at the end, so they render at the end.
       triggered: triggeredList.filter((e) => e.trigger_kind !== 'on_completion'),
       triggeredEnd: triggeredList.filter((e) => e.trigger_kind === 'on_completion'),
-      groups: [...map.entries()],
+      groups: dayEntries,
+      runs: runList,
       undated: undatedList,
       byId: idMap,
     };
@@ -406,22 +453,26 @@ export function ThreadTimeline({
             </div>
           )}
 
-          {groups.map(([key, items]) => (
-            <div key={key} className="relative">
-              <DateBadge iso={items[0] ? whenOf(items[0], window, byId)! : key} />
-              <div>
-                {items.map((e, i) => (
-                  <EngagementCard
-                    key={e.id}
-                    engagement={e}
-                    attachTop={i > 0}
-                    attachBottom={i < items.length - 1}
-                    triggerText={triggerLabel(e, byId)}
-                    onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
-                    onQuickTime={() => setQuickTime(e)}
-                  />
-                ))}
-              </div>
+          {runs.map((run) => (
+            <div key={run[0]![0]} className="relative">
+              {run.map(([key, items], di) => (
+                <div key={key} className="relative">
+                  <DateBadge iso={items[0] ? whenOf(items[0], window, byId)! : key} />
+                  {items.map((e, i) => (
+                    <EngagementCard
+                      key={e.id}
+                      engagement={e}
+                      // Attach across the day boundary too: inside a run the
+                      // days are one continuous block.
+                      attachTop={di > 0 || i > 0}
+                      attachBottom={di < run.length - 1 || i < items.length - 1}
+                      triggerText={triggerLabel(e, byId)}
+                      onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
+                      onQuickTime={() => setQuickTime(e)}
+                    />
+                  ))}
+                </div>
+              ))}
             </div>
           ))}
 
