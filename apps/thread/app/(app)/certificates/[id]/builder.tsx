@@ -50,6 +50,7 @@ import {
   resolveDisplay,
   type CertAnchor,
   type CertElement,
+  type CertGuide,
   type CertField,
   type CertOrientation,
   type CertPageSize,
@@ -279,6 +280,12 @@ export function CertificateBuilder({
   // Position tool: which page corner positions are measured from, and in
   // what unit. Both are workspace-of-the-moment preferences, not template
   // data — the stored geometry stays percentages.
+  // Alignment guides, saved with the template (Sjoerd 2026-08-31). Design
+  // aids only: they live in their own column, so the snapshot an issued
+  // certificate keeps — page, background, elements — cannot include them.
+  const [guides, setGuides] = useState<CertGuide[]>(template.guides ?? []);
+  const [snapOn, setSnapOn] = useState(true);
+  const draggingGuideRef = useRef<{ axis: 'x' | 'y'; index: number | null } | null>(null);
   const [anchor, setAnchor] = useState<CertAnchor>('top-left');
   const [unit, setUnit] = useState<'mm' | 'px'>('mm');
   // The selected element's rendered size as a % of the page. Width is known
@@ -295,10 +302,18 @@ export function CertificateBuilder({
   } | null>(null);
 
   // Latest savable state, for global handlers and the debounced saver.
-  const stateRef = useRef({ name, pageSize, orientation, backgroundUrl, elements, scope, ownerTeamId });
+  const stateRef = useRef({ name, pageSize, orientation, backgroundUrl, elements, guides, scope, ownerTeamId });
   useEffect(() => {
-    stateRef.current = { name, pageSize, orientation, backgroundUrl, elements, scope, ownerTeamId };
+    stateRef.current = { name, pageSize, orientation, backgroundUrl, elements, guides, scope, ownerTeamId };
   });
+
+  // The drag handler is bound once; this is how it sees today's guides.
+  const snapRef = useRef<{
+    on: boolean;
+    guides: CertGuide[];
+    elements: CertElement[];
+    measuredH: number;
+  }>({ on: true, guides: [], elements: [], measuredH: 0 });
 
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -317,6 +332,7 @@ export function CertificateBuilder({
       orientation: s.orientation,
       background_url: s.backgroundUrl.trim() === '' ? null : s.backgroundUrl.trim(),
       elements: s.elements,
+      guides: s.guides,
       scope: s.scope,
       owner_team_id: s.scope === 'team' ? s.ownerTeamId || null : null,
     });
@@ -351,8 +367,46 @@ export function CertificateBuilder({
       const rect = canvasRef.current.getBoundingClientRect();
       const dx = ((e.clientX - drag.startX) / rect.width) * 100;
       const dy = ((e.clientY - drag.startY) / rect.height) * 100;
-      const x = Math.max(0, Math.min(95, drag.origX + dx));
-      const y = Math.max(0, Math.min(95, drag.origY + dy));
+      let x = Math.max(0, Math.min(95, drag.origX + dx));
+      let y = Math.max(0, Math.min(95, drag.origY + dy));
+
+      // Magnetism. Within ~1% of the page, an edge or centre pulls the
+      // element onto it — guides first, then the page's own edges and
+      // middles. Hold Alt to place freely.
+      if (snapRef.current.on && !e.altKey) {
+        const st = snapRef.current;
+        const moving = st.elements.find((el) => el.id === drag.id);
+        const w = moving?.width ?? 0;
+        const h = st.measuredH;
+        const TOL = 1;
+        const xTargets = [0, 50, 100, ...st.guides.filter((g) => g.axis === 'x').map((g) => g.pos)];
+        const yTargets = [0, 50, 100, ...st.guides.filter((g) => g.axis === 'y').map((g) => g.pos)];
+        // Each of the element's own three lines can catch a target.
+        for (const t of xTargets) {
+          for (const [edge, adjust] of [
+            [x, 0],
+            [x + w / 2, -w / 2],
+            [x + w, -w],
+          ] as [number, number][]) {
+            if (Math.abs(edge - t) <= TOL) {
+              x = t + adjust;
+              break;
+            }
+          }
+        }
+        for (const t of yTargets) {
+          for (const [edge, adjust] of [
+            [y, 0],
+            [y + h / 2, -h / 2],
+            [y + h, -h],
+          ] as [number, number][]) {
+            if (Math.abs(edge - t) <= TOL) {
+              y = t + adjust;
+              break;
+            }
+          }
+        }
+      }
       setElements((prev) => prev.map((el) => (el.id === drag.id ? { ...el, x, y } : el)));
     }
     function onUp() {
@@ -482,6 +536,10 @@ export function CertificateBuilder({
     );
   });
 
+  useEffect(() => {
+    snapRef.current = { on: snapOn, guides, elements, measuredH: measured.h };
+  });
+
   const page = pageMm(pageSize, orientation);
 
   /** Page-percent → the display unit. */
@@ -510,6 +568,61 @@ export function CertificateBuilder({
     const pos = anchorToTopLeft(anchor, next, size);
     updateEl({ x: round1(Math.max(-50, Math.min(150, pos.x))), y: round1(Math.max(-50, Math.min(150, pos.y))) });
   }
+
+  /** Drag off a ruler to lay a guide; drag it back onto the ruler to remove
+   *  it. Position is a percentage of the page, so a guide keeps its place if
+   *  the page size or orientation changes. */
+  function startGuideDrag(axis: 'x' | 'y', index: number | null, e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    draggingGuideRef.current = { axis, index };
+    if (index === null) {
+      // New guide: place it under the cursor immediately.
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const pos =
+        axis === 'x'
+          ? ((e.clientX - rect.left) / rect.width) * 100
+          : ((e.clientY - rect.top) / rect.height) * 100;
+      setGuides((g) => {
+        draggingGuideRef.current = { axis, index: g.length };
+        return [...g, { axis, pos: Math.max(0, Math.min(100, pos)) }];
+      });
+    }
+  }
+
+  useEffect(() => {
+    function onMove(e: MouseEvent) {
+      const g = draggingGuideRef.current;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      if (!g || g.index === null || !rect) return;
+      const pos =
+        g.axis === 'x'
+          ? ((e.clientX - rect.left) / rect.width) * 100
+          : ((e.clientY - rect.top) / rect.height) * 100;
+      setGuides((prev) =>
+        prev.map((gd, i) => (i === g.index ? { ...gd, pos: Math.max(0, Math.min(100, pos)) } : gd)),
+      );
+    }
+    function onUp(e: MouseEvent) {
+      const g = draggingGuideRef.current;
+      if (!g || g.index === null) return;
+      draggingGuideRef.current = null;
+      const rect = canvasRef.current?.getBoundingClientRect();
+      // Dropped back on (or past) the ruler — that means remove it.
+      const off =
+        rect &&
+        (g.axis === 'x' ? e.clientX < rect.left - 2 : e.clientY < rect.top - 2);
+      if (off) setGuides((prev) => prev.filter((_, i) => i !== g.index));
+      scheduleSave();
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+    return () => {
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+    };
+  }, [scheduleSave]);
 
   /** The remove handle: a dot on the selected element's corner, the way
    *  every design tool does it. It replaced a Delete button in the toolbar,
@@ -1138,6 +1251,35 @@ export function CertificateBuilder({
               2026-08-31). Shows the literal token, what it means, and what it
               becomes. Click to insert into the selected text element. */}
           <div>
+            <SectionLabel>Guides</SectionLabel>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
+              Drag off a ruler to lay one. Elements snap to guides and to the
+              page&apos;s edges and centre; hold Alt to place freely.
+            </p>
+            <label className="mt-2 flex items-center gap-2 text-xs text-ink-subtle">
+              <input
+                type="checkbox"
+                checked={snapOn}
+                onChange={(e) => setSnapOn(e.target.checked)}
+                className="accent-ink"
+              />
+              Snap to guides
+            </label>
+            {guides.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  setGuides([]);
+                  scheduleSave();
+                }}
+                className="mt-1.5 text-[11px] text-ink-subtle underline underline-offset-2 hover:text-ink"
+              >
+                Clear {guides.length} guide{guides.length === 1 ? '' : 's'}
+              </button>
+            )}
+          </div>
+
+          <div>
             <SectionLabel>Tokens</SectionLabel>
             <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
               Type these into any text element — they become the real value on
@@ -1231,7 +1373,32 @@ export function CertificateBuilder({
         {/* Canvas + properties */}
         <div className="flex-1 min-w-0">
           <div className="flex justify-center">
-            <div className="relative w-full max-w-[700px] shadow-lg">
+            {/* Rulers. Drag off one to lay a guide; drag a guide back onto a
+                ruler to remove it (Sjoerd 2026-08-31). Guides save WITH the
+                template and never reach an issued certificate — they live in
+                their own column, and the snapshot copies only page,
+                background and elements. */}
+            <div className="relative w-full max-w-[716px] pl-4 pt-4">
+              <div
+                onMouseDown={(e) => startGuideDrag('y', null, e)}
+                title="Drag down for a horizontal guide"
+                className="absolute left-4 right-0 top-0 h-4 cursor-ns-resize border border-line bg-surface-raised"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(90deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 10%)',
+                }}
+              />
+              <div
+                onMouseDown={(e) => startGuideDrag('x', null, e)}
+                title="Drag right for a vertical guide"
+                className="absolute left-0 top-4 bottom-0 w-4 cursor-ew-resize border border-line bg-surface-raised"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(180deg, rgba(0,0,0,0.22) 0 1px, transparent 1px 10%)',
+                }}
+              />
+
+              <div className="relative w-full shadow-lg">
               {/* Centre guides */}
               <div className="absolute inset-0 pointer-events-none z-10">
                 <div
@@ -1431,7 +1598,32 @@ export function CertificateBuilder({
                     </div>
                   );
                 })}
+
+                {/* Saved guides. Drag one to move it; drop it on the ruler to
+                    remove it. */}
+                {guides.map((g, i) => (
+                  <div
+                    key={`${g.axis}-${i}`}
+                    onMouseDown={(e) => startGuideDrag(g.axis, i, e)}
+                    title="Drag to move · drop on the ruler to remove"
+                    className={
+                      g.axis === 'x'
+                        ? 'absolute top-0 bottom-0 z-20 -ml-1 w-2 cursor-ew-resize'
+                        : 'absolute left-0 right-0 z-20 -mt-1 h-2 cursor-ns-resize'
+                    }
+                    style={g.axis === 'x' ? { left: `${g.pos}%` } : { top: `${g.pos}%` }}
+                  >
+                    <div
+                      className={
+                        g.axis === 'x'
+                          ? 'h-full w-px bg-sky-500/70 mx-auto'
+                          : 'w-full h-px bg-sky-500/70 my-auto'
+                      }
+                    />
+                  </div>
+                ))}
               </div>
+            </div>
             </div>
           </div>
 

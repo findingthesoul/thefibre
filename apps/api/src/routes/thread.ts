@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
@@ -535,6 +536,37 @@ threadRoutes.patch('/threads/:id', async (c) => {
     .eq('id', id)
     .single();
   if (eErr || !existing) return c.json({ error: 'not found' }, 404);
+
+  // How many events may be live at once. Free is one — a community group
+  // running one gathering a year should be able to stay there forever, and a
+  // second one at the same time is the moment this became an operation.
+  //
+  // Only the transition INTO active is checked. A thread already live stays
+  // live: a plan change must never take an event off the air while people are
+  // enrolling in it.
+  if (status === 'active') {
+    const plan = await planFor(ctx.workspaceId);
+    if (plan.threadLiveLimit !== null) {
+      const { count } = await adminClient
+        .from('program')
+        .select('id', { count: 'exact', head: true })
+        .eq('workspace_id', ctx.workspaceId)
+        .eq('status', 'active')
+        .neq('id', existing.program_id);
+      if ((count ?? 0) >= plan.threadLiveLimit) {
+        return c.json(
+          {
+            error:
+              plan.threadLiveLimit === 1
+                ? `${plan.name} keeps one event live at a time. Complete or archive the current one, or move up a plan to run several.`
+                : `${plan.name} keeps ${plan.threadLiveLimit} events live at a time.`,
+            plan: plan.name,
+          },
+          402,
+        );
+      }
+    }
+  }
 
   const programPatch: Record<string, unknown> = {};
   if (title !== undefined) programPatch.title = title;
@@ -1531,6 +1563,19 @@ const SaveAsTemplate = z.object({
 });
 
 threadRoutes.post('/threads/:id/save-as-template', async (c) => {
+  // Starter runs events from templates; Pro designs them. Instantiating one
+  // stays open on every plan — the gate is on authoring, not on using, or
+  // Starter would have no templates at all.
+  {
+    const ctx = c.get('ctx');
+    if (!(await can(ctx.workspaceId, 'thread_custom_templates'))) {
+      const plan = await planFor(ctx.workspaceId);
+      return c.json(
+        { error: needsPlan('Designing your own thread templates', 'Pro'), plan: plan.name },
+        402,
+      );
+    }
+  }
   const body = SaveAsTemplate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
@@ -2033,6 +2078,13 @@ threadRoutes.post('/enrolments/:id/reissue-certificate', async (c) => {
 
 // POST /api/v1/thread/enrolments/:id/certificate — issue one
 threadRoutes.post('/enrolments/:id/certificate', async (c) => {
+  {
+    const ctx = c.get('ctx');
+    if (!(await can(ctx.workspaceId, 'certificates'))) {
+      const plan = await planFor(ctx.workspaceId);
+      return c.json({ error: needsPlan('Certificates', 'Starter'), plan: plan.name }, 402);
+    }
+  }
   const ctx = c.get('ctx');
   // Visibility check through RLS first.
   const db = userClient(ctx.jwt);
@@ -2452,7 +2504,7 @@ async function filterVisibleTemplates<T extends ScopedTemplate>(
 }
 
 const CERT_TEMPLATE_SELECT =
-  'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, archived_at, created_by, created_at, updated_at';
+  'id, name, scope, owner_user_id, owner_team_id, page_size, orientation, background_url, elements, guides, archived_at, created_by, created_at, updated_at';
 
 threadRoutes.get('/certificate-templates', async (c) => {
   const ctx = c.get('ctx');
@@ -2473,6 +2525,13 @@ const CertTemplateCreate = z.object({
 });
 
 threadRoutes.post('/certificate-templates', async (c) => {
+  {
+    const ctx = c.get('ctx');
+    if (!(await can(ctx.workspaceId, 'certificates'))) {
+      const plan = await planFor(ctx.workspaceId);
+      return c.json({ error: needsPlan('Certificates', 'Starter'), plan: plan.name }, 402);
+    }
+  }
   const body = CertTemplateCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
@@ -2519,6 +2578,11 @@ const CertTemplateUpdate = z.object({
   orientation: z.enum(['portrait', 'landscape']).optional(),
   background_url: z.string().max(1000).nullable().optional(),
   elements: z.array(z.record(z.unknown())).optional(),
+  /** Alignment guides — design aids, never part of an issued certificate. */
+  guides: z
+    .array(z.object({ axis: z.enum(['x', 'y']), pos: z.number().min(0).max(100) }))
+    .max(60)
+    .optional(),
   scope: z.enum(['personal', 'team', 'workspace']).optional(),
   owner_team_id: z.string().uuid().nullable().optional(),
 });

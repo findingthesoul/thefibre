@@ -50,11 +50,15 @@ export type CertTemplate = {
   orientation: CertOrientation;
   background_url: string | null;
   elements: CertElement[];
+  guides?: CertGuide[];
   archived_at: string | null;
   created_by: string;
   created_at: string;
   updated_at: string;
 };
+
+/** An alignment guide: a line across the page at `pos` percent. */
+export type CertGuide = { axis: 'x' | 'y'; pos: number };
 
 export type CertShares = { user_ids: string[]; team_ids: string[] };
 

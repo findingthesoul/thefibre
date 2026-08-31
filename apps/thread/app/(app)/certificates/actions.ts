@@ -4,6 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { apiFetch, errorMessage } from '@/lib/api';
 import type {
   CertElement,
+  CertGuide,
   CertOrientation,
   CertPageSize,
   CertScope,
@@ -37,6 +38,7 @@ export async function updateCertificateTemplate(
     orientation?: CertOrientation;
     background_url?: string | null;
     elements?: CertElement[];
+    guides?: CertGuide[];
     scope?: CertScope;
     owner_team_id?: string | null;
   },

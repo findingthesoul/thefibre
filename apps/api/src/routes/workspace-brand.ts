@@ -18,6 +18,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { can, planFor, needsPlan } from '../lib/plan.js';
 
 export const workspaceBrandRoutes = new Hono();
 
@@ -82,6 +83,26 @@ workspaceBrandRoutes.patch('/', async (c) => {
   }
   const body = BrandPatch.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  // Your logo and your name in the inbox come with any paid plan. Your own
+  // sending DOMAIN is Pro: it is the one that costs us deliverability
+  // reputation and support, since it only works once SPF and DKIM are right.
+  const wantsBranding =
+    body.data.brand_logo_url !== undefined ||
+    body.data.email_from_name !== undefined ||
+    body.data.email_reply_to !== undefined;
+  if (wantsBranding && !(await can(ctx.workspaceId, 'email_branding'))) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan('Your own logo and sender name on email', 'Starter'), plan: plan.name }, 402);
+  }
+  if (
+    body.data.email_from_address !== undefined &&
+    (body.data.email_from_address ?? '').trim() &&
+    !(await can(ctx.workspaceId, 'custom_sender_domain'))
+  ) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan('Sending from your own domain', 'Pro'), plan: plan.name }, 402);
+  }
 
   const patch: Record<string, unknown> = {};
   for (const key of [

@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.23] — 2026-09-01 — rulers, guides, magnetism
+
+### Added
+- **Alignment guides on certificate templates, saved with the template.**
+  Rulers along the top and left of the canvas: drag off one to lay a guide,
+  drag a guide to move it, drop it back on the ruler to remove it. Positions
+  are percentages, so a guide keeps its place if the page size or orientation
+  changes.
+- **Snapping.** While dragging, an element's left/centre/right and
+  top/middle/bottom edges catch guides and the page's own edges and centres
+  within ~1%. Hold **Alt** to place freely; a "Snap to guides" checkbox turns
+  it off entirely.
+- Guides live in their own `guides` column
+  (`20260901100000_certificate_guides.sql`), not among `elements` — so the
+  snapshot an issued certificate keeps (page, background, elements) cannot
+  include them by construction. A design aid never becomes content.
+
 ## [0.19.22] — 2026-08-31 — a certificate that proves itself
 
 ### Added

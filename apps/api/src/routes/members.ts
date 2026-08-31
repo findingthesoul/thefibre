@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { seatAvailable, planFor } from '../lib/plan.js';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { sendEmail } from '../lib/email/client.js';
@@ -92,6 +93,28 @@ membersRoutes.post('/', async (c) => {
 
   let isNew = false;
   if (!u) {
+    // A seat is somebody who RUNS events. Participants are never seats and
+    // never become one by enrolling, so this only ever counts colleagues.
+    //
+    // Checked here, where a NEW seat is about to exist — a workspace already
+    // over its allowance keeps everybody it has. The limit binds on the next
+    // invite, never retroactively; nobody is removed by a pricing change.
+    const seat = await seatAvailable(ctx.workspaceId);
+    if (!seat.ok) {
+      const plan = await planFor(ctx.workspaceId);
+      const extra = seat.extraCents
+        ? ` Extra seats are €${(seat.extraCents / 100).toFixed(0)} each per month.`
+        : '';
+      return c.json(
+        {
+          error: `${plan.name} includes ${seat.included} ${seat.included === 1 ? 'seat' : 'seats'} and ${seat.used} are in use.${extra}`,
+          plan: plan.name,
+          seats_used: seat.used,
+          seats_included: seat.included,
+        },
+        402,
+      );
+    }
     isNew = true;
     // Identity invariant: every user has a paired person.
     let { data: person } = await adminClient

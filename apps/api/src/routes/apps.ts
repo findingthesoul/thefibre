@@ -10,6 +10,7 @@
 // docs/cross-app-entity-mapping.md for the contract these implement.
 
 import { Hono, type Context } from 'hono';
+import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
 import { invalidateAppSlugCache } from '../middleware/app-context.js';
@@ -283,6 +284,15 @@ appsRoutes.post('/:slug/keys', async (c) => {
   if (!app) return c.json({ error: 'unknown app' }, 404);
   if (app.status !== 'approved') {
     return c.json({ error: `app "${app.slug}" is ${app.status}, not approved` }, 400);
+  }
+
+  // An app key is a credential that works with no browser and no person behind
+  // it — the thing that lets a workspace wire The Fibre into its own software.
+  // Gated at the mint, not at use: keys already issued keep working, so a plan
+  // change never silently breaks somebody's running integration.
+  if (!(await can(ctx.workspaceId, 'app_keys'))) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan('API keys', 'Pro'), plan: plan.name }, 402);
   }
 
   // The app must be activated on this workspace — a key is a credential for a

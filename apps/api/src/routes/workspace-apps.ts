@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { can, planFor, needsPlan, type PlanFeature } from '../lib/plan.js';
 import { userClient, adminClient } from '../db.js';
 import { ensurePipelineFlow } from '../lib/pulse-pipeline.js';
 
@@ -16,7 +17,7 @@ export const workspaceAppsRoutes = new Hono();
 async function resolveInstallableApp(slug: string) {
   const { data } = await adminClient
     .from('app')
-    .select('id, slug, name, base_url, status, released_at')
+    .select('id, slug, name, base_url, status, released_at, kind')
     .eq('slug', slug)
     .maybeSingle();
   if (!data) return { app: null, error: 'app not found' as const };
@@ -68,6 +69,28 @@ workspaceAppsRoutes.post('/', async (c) => {
 
   const { app, error: resolveErr } = await resolveInstallableApp(slug);
   if (!app) return c.json({ error: resolveErr }, resolveErr === 'app not found' ? 404 : 400);
+
+  // The plan gate for Flow and Pulse, and it is the ONLY one they need.
+  // Both apps already refuse to render for a workspace that has not activated
+  // them (their layouts redirect to /no-access), so refusing the activation
+  // gates the whole app — no plan check scattered through their routes, and
+  // nothing half-open if one is missed.
+  //
+  // Third-party apps are gated the same way, one line further down the same
+  // list: installing somebody else's app is a Pro capability.
+  const GATED: Record<string, { feature: PlanFeature; label: string }> = {
+    'fibre-flow': { feature: 'flow', label: 'Fibre Flow' },
+    'fibre-pulse': { feature: 'pulse', label: 'Fibre Pulse' },
+  };
+  const gate = GATED[slug];
+  if (gate && !(await can(ctx.workspaceId, gate.feature))) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan(gate.label, 'Pro'), plan: plan.name }, 402);
+  }
+  if (app.kind === 'third_party' && !(await can(ctx.workspaceId, 'third_party_apps'))) {
+    const plan = await planFor(ctx.workspaceId);
+    return c.json({ error: needsPlan('Installing apps built outside The Fibre', 'Pro'), plan: plan.name }, 402);
+  }
 
   // Upsert workspace_app — re-activating a previously deactivated row clears
   // deactivated_at and bumps activated_at.
