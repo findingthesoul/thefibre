@@ -677,7 +677,13 @@ export function CertificateBuilder({
         </Button>
       </div>
 
-      {/* ── Properties bar (above the canvas) ───────────────────────── */}
+      {/* ── Properties bar (above the canvas) ───────────────────────────
+          Sticky: an A4 canvas is taller than the viewport, so styling an
+          element near the bottom of the page meant scrolling to it and
+          leaving every control behind (Sjoerd 2026-08-31). It now follows
+          down the page. The opaque background matters — the canvas scrolls
+          underneath it. */}
+      <div className="sticky top-0 z-20 -mt-1 bg-surface pt-1 pb-2">
       {selectedEl ? (
         // Fixed height + horizontal scroll: selecting an element must never
         // shift the canvas below (Sjoerd 2026-07-02).
@@ -918,6 +924,7 @@ export function CertificateBuilder({
           <span className="text-xs text-ink-muted">Select an element to edit its style</span>
         </div>
       )}
+      </div>
 
       {/* ── Main area ───────────────────────────────────────────────── */}
       <div className="mt-6 flex items-start gap-6">

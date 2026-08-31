@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.19] — 2026-08-31 — the controls come with you
+
+### Fixed
+- **The certificate builder's formatting bar sticks to the top while you
+  scroll.** An A4 canvas is taller than the viewport, so working on anything
+  near the bottom of the page meant scrolling to it and leaving every
+  control — font, size, colour, alignment, arrange, delete — behind. It now
+  follows down the page, opaque so the canvas passes underneath it.
+
 ## [0.19.18] — 2026-08-31 — a card keeps you where you are
 
 ### Changed
