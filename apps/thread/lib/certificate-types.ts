@@ -22,7 +22,9 @@ export type CertField =
 
 export type CertElement = {
   id: string;
-  type: 'field' | 'text' | 'image' | 'line';
+  /** 'qr' encodes the certificate's own verification page — the number is
+   *  only known at issuance, so the element carries no content of its own. */
+  type: 'field' | 'text' | 'image' | 'line' | 'qr';
   field?: CertField;
   content?: string; // text type; supports {token} substitution
   src?: string; // image type (URL)

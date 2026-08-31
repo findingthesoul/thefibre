@@ -28,6 +28,8 @@ export type CertSnapshot = {
 
 const BUILDER_WIDTH = 700; // font sizes in the doc are px at this width
 
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://thefibre-api.fly.dev';
+
 export function CertView({ snapshot }: { snapshot: CertSnapshot }) {
   const ref = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(1);
@@ -85,6 +87,21 @@ export function CertView({ snapshot }: { snapshot: CertSnapshot }) {
             return el.src ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img key={el.id} src={el.src} alt="" style={{ ...style, height: 'auto' }} />
+            ) : null;
+          }
+          if (el.type === 'qr') {
+            // Encodes this certificate's own page. Served by the API rather
+            // than generated here so it prints at whatever resolution the
+            // printer wants.
+            const number = values.certificate_number ?? '';
+            return number ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                key={el.id}
+                src={`${API_BASE}/api/v1/thread/public/certificate/${encodeURIComponent(number)}/qr.png`}
+                alt={`Verify certificate ${number}`}
+                style={{ ...style, height: 'auto' }}
+              />
             ) : null;
           }
           const text =

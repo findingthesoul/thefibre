@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.22] — 2026-08-31 — a certificate that proves itself
+
+### Added
+- **A QR code element for certificate templates.** Drop it on the design and
+  every issued certificate carries a code linking to its own verification
+  page — which is the point on paper: whoever is handed the certificate can
+  check it is real. `GET /public/certificate/:number/qr.png` generates it, so
+  it prints at whatever resolution the printer asks for. The builder shows a
+  placeholder, because the number only exists once a certificate is issued.
+
 ## [0.19.21] — 2026-08-31 — type the position, not drag it
 
 ### Added

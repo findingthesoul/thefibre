@@ -25,6 +25,7 @@ import {
   Minus,
   Plus,
   Share2,
+  QrCode,
   Trash2,
   X,
   Type,
@@ -439,6 +440,20 @@ export function CertificateBuilder({
       x: 10,
       y: 10,
       width: 30,
+      opacity: 100,
+    });
+  }
+
+  /** A QR of the certificate's own verification page. It carries no content:
+   *  the number only exists once a certificate is issued, so the builder shows
+   *  a placeholder and the real code is generated per certificate. */
+  function addQr() {
+    addElement({
+      id: generateElementId(),
+      type: 'qr',
+      x: 78,
+      y: 72,
+      width: 14,
       opacity: 100,
     });
   }
@@ -1185,6 +1200,15 @@ export function CertificateBuilder({
                 <ImageIcon size={12} strokeWidth={2} className="shrink-0" />
                 Image
               </button>
+              <button
+                type="button"
+                onClick={addQr}
+                title="A QR code linking to this certificate's own verification page"
+                className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-1.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors text-left"
+              >
+                <QrCode size={12} strokeWidth={2} className="shrink-0" />
+                QR code
+              </button>
             </div>
           </div>
 
@@ -1308,6 +1332,42 @@ export function CertificateBuilder({
                             Select, then upload an image
                           </div>
                         )}
+                      </div>
+                    );
+                  }
+
+                  if (el.type === 'qr') {
+                    return (
+                      <div
+                        key={el.id}
+                        ref={isSelected ? elBoxRef : undefined}
+                        className="absolute"
+                        style={{
+                          left: `${el.x}%`,
+                          top: `${el.y}%`,
+                          width: `${el.width}%`,
+                          opacity: el.opacity !== undefined ? el.opacity / 100 : 1,
+                          outline,
+                          outlineOffset: '2px',
+                          cursor: 'move',
+                        }}
+                        onMouseDown={(e) => onElementMouseDown(e, el.id)}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {isSelected && <RemoveHandle />}
+                        {/* A placeholder: the real code encodes the issued
+                            certificate's number, which does not exist yet. */}
+                        <div
+                          className="aspect-square w-full border border-black/20 bg-white p-[6%] pointer-events-none"
+                          style={{
+                            backgroundImage:
+                              'repeating-conic-gradient(#111 0% 25%, #fff 0% 50%)',
+                            backgroundSize: '18% 18%',
+                          }}
+                        />
+                        <div className="mt-0.5 text-center text-[7px] leading-none text-black/50 pointer-events-none">
+                          QR · verification page
+                        </div>
                       </div>
                     );
                   }

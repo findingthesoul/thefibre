@@ -2190,6 +2190,29 @@ threadRoutes.get('/public/certificate/:number', async (c) => {
   return c.json(data);
 });
 
+// GET /public/certificate/:number/qr.png — the QR a certificate carries,
+// encoding its own verification page. Printed on paper this is the whole
+// point: anyone holding the certificate can check it is real.
+threadRoutes.get('/public/certificate/:number/qr.png', async (c) => {
+  const number = c.req.param('number').toUpperCase();
+  const { data } = await adminClient
+    .from('thread_certificate')
+    .select('certificate_number')
+    .eq('certificate_number', number)
+    .maybeSingle();
+  if (!data) return c.json({ error: 'not found' }, 404);
+  const { default: QRCode } = await import('qrcode');
+  const png = await QRCode.toBuffer(`${threadAppUrl()}/certificate/${number}`, {
+    type: 'png',
+    width: 600,
+    margin: 1,
+    errorCorrectionLevel: 'M',
+  });
+  c.header('Content-Type', 'image/png');
+  c.header('Cache-Control', 'public, max-age=86400');
+  return c.body(new Uint8Array(png));
+});
+
 // ---------------------------------------------------------------------------
 // Tickets + coupons (v3-style pricing lists; editors open in popups)
 // ---------------------------------------------------------------------------
