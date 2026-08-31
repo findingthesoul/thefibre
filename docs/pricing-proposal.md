@@ -73,8 +73,10 @@ Prices ex-VAT, per workspace per month. Annual: two months free.
 |---|---|---|---|---|
 | Price | €0 | **€19** | **€49** | talk to us |
 | Annual (2 months free) | €0 | €190/yr | €490/yr | — |
-| Organisers | 1 | 5 | unlimited | unlimited |
+| Seats included | 1 | **2** | **5** | unlimited |
+| Extra seats | — | €8/seat/month | €8/seat/month | included |
 | Contacts | 250 | unlimited | unlimited | unlimited |
+| **Data kept** | **13 months** | for as long as you pay | for as long as you pay | for as long as you pay |
 | **Meet** | ✓ | ✓ | ✓ | ✓ |
 | **The Thread** | 1 live event | unlimited, **predefined templates** | unlimited, **design your own** | ✓ |
 | Certificates | — | ✓ | ✓ | ✓ |
@@ -88,7 +90,39 @@ Prices ex-VAT, per workspace per month. Annual: two months free.
 | Storage included | 1 GB | 5 GB | 25 GB | negotiated |
 | SSO, audit log, retention controls | — | — | — | ✓ |
 
-**Usage above the bundle:** €1 per 1,000 emails · €0.50 per GB per month.
+**Usage above the bundle:** €1 per 1,000 emails · €0.50 per GB per month ·
+€8 per extra seat per month.
+
+### Seats, and why they are small
+
+Two on Starter, five on Pro, unlimited on Enterprise (Sjoerd, 2026-08-31).
+
+This is a deliberate change of mind from "per workspace with an allowance
+nobody hits". A seat is a person who runs events, not a person who attends
+them — participants are never seats and never will be — so two is a real
+festival team and five is a real organisation. Beyond that, the workspace is
+getting more out of it and can pay a little more.
+
+The important half is what a seat is NOT: enrolling four hundred people costs
+nothing per person, and adding a facilitator to one thread costs nothing if
+they already hold a seat. The charge follows staff, not participation.
+
+**Existing workspaces over their seat count keep everybody.** The limit binds
+on the next invite, never retroactively — nobody is removed from a workspace
+by a pricing change.
+
+### Free keeps 13 months
+
+Data on the Free plan is archived after **13 months past** the event
+(Sjoerd, 2026-08-31). Thirteen rather than twelve on purpose: an annual
+festival planning next year's edition can still open last year's, which twelve
+months would have removed the week before they needed it.
+
+It is a real cost control — storage on a plan that pays nothing — and it is
+the honest trade for a Free tier that is permanent rather than a trial. It
+must come with: a warning email well before anything happens, an export, and
+an upgrade that stops the clock. Archived, not deleted, for as long as that is
+affordable.
 
 **Enterprise** is a conversation, not a price list. It exists so that the two
 workspaces that are Sjoerd's own businesses sit somewhere truthful — a `comped`
