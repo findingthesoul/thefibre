@@ -8,6 +8,8 @@ import { CalendarRange, Route } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from '../list/view-button';
+import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
+import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 
 type PublicThreadPayload = {
   organiser: { slug: string };
@@ -21,6 +23,10 @@ type PublicThreadPayload = {
     public_interaction?: 'page' | 'popup';
     program: { title: string; format: string; starts_on: string | null; ends_on: string | null } | null;
     enrolment_open: boolean;
+    capacity: number | null;
+    enrolled_count: number;
+    registration_fields: RegistrationField[];
+    tickets?: PublicTicket[];
   };
 };
 
@@ -55,6 +61,10 @@ export default async function EmbedCardPage({
   const organiser = str(sp.organiser);
   const threadSlug = str(sp.thread);
   const popup = str(sp.popup) === '1';
+  // ?form=1 (data-form) — the enrolment form sits IN the card, no click at
+  // all. The third shape Sjoerd asked for, next to "card with a button" and
+  // the full thread embed.
+  const withForm = str(sp.form) === '1';
   const rawLang = str(sp.lang);
 
   if (!organiser || !threadSlug) {
@@ -81,6 +91,8 @@ export default async function EmbedCardPage({
     : isLocale(thread.language)
       ? thread.language
       : 'en';
+  const spotsLeft =
+    thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
   const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
   const Icon = program?.format === 'journey' ? Route : CalendarRange;
   const publicUrl = `/${organiser}/${thread.slug}`;
@@ -111,16 +123,37 @@ export default async function EmbedCardPage({
             </div>
           </div>
         </div>
-        <div className="mt-3">
-          <ViewButton
-            url={publicUrl}
-            popup={popup && thread.public_interaction === 'popup'}
-            organiser={organiser}
-            thread={thread.slug}
-            lang={lang}
-            label={t(lang, 'view_and_enrol')}
-          />
-        </div>
+        {withForm ? (
+          <div className="mt-4">
+            <EnrolCard
+              organiserSlug={organiser}
+              organiserName={data.organiser.slug}
+              threadSlug={thread.slug}
+              priceCents={thread.price_cents}
+              priceCurrency={thread.price_currency}
+              tickets={thread.tickets ?? []}
+              registrationFields={thread.registration_fields ?? []}
+              enrolmentOpen={thread.enrolment_open && (spotsLeft == null || spotsLeft > 0)}
+              locale={lang}
+            />
+          </div>
+        ) : (
+          <div className="mt-3">
+            <ViewButton
+              url={publicUrl}
+              // ALWAYS the popup, never a link out (Sjoerd 2026-08-31). The
+              // card is already the information; sending someone to a full
+              // page to repeat it — and off the site they were reading — is
+              // the opposite of what a card is for. public_interaction picks
+              // how a LISTING opens a thread; a card has made that choice.
+              popup={popup}
+              organiser={organiser}
+              thread={thread.slug}
+              lang={lang}
+              label={t(lang, 'view_and_enrol')}
+            />
+          </div>
+        )}
       </div>
     </div>
   );

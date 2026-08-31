@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.18] — 2026-08-31 — a card keeps you where you are
+
+### Changed
+- **A card embed always opens the enrolment popup**, never links out to the
+  thread page. It used to defer to the thread's `public_interaction`, so a
+  page-interaction thread sent the visitor off the site — to read the same
+  cover, title, date and price the card had just shown them.
+  `public_interaction` decides how a LISTING opens a thread; a card has
+  already made that choice.
+
+### Added
+- **Card with the registration form in it** — `data-form="1"`, the third
+  shape: no click at all, the form sits inside the card. Offered in both
+  generators (Settings → Website embeds, and a thread's own Embed tab) and
+  documented at /developers.
+
 ## [0.19.17] — 2026-08-31 — whose email is this
 
 An enrolment sent three emails. The first ("request received") and the third

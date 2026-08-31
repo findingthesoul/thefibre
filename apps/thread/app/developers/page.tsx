@@ -301,6 +301,10 @@ export default function DevelopersPage() {
 <!-- one thread as a compact card: image, title, date, price, button -->
 <div data-thread-embed="card" data-organiser="your-slug" data-thread="your-thread"></div>
 
+<!-- same card with the registration form already open inside it -->
+<div data-thread-embed="card" data-organiser="your-slug" data-thread="your-thread"
+     data-form="1"></div>
+
 <!-- registration from any button -->
 <a href="#" data-thread-embed="enrol" data-organiser="your-slug"
    data-thread="your-thread">Register</a>`}</Code>

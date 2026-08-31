@@ -23,7 +23,7 @@ export type GeneratorThread = {
 
 export type GeneratorTeam = { id: string; name: string };
 
-type Kind = 'list' | 'thread' | 'card' | 'enrol';
+type Kind = 'list' | 'thread' | 'card' | 'card_form' | 'enrol';
 
 
 const ELEMENTS = [
@@ -97,8 +97,9 @@ export function EmbedGenerator({
       return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${categoryAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
-    if (kind === 'card') {
-      return `<div data-thread-embed="card" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${langAttr}>${styleBlock}</div>`;
+    if (kind === 'card' || kind === 'card_form') {
+      const formAttr = kind === 'card_form' ? ' data-form="1"' : '';
+      return `<div data-thread-embed="card" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${formAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (kind === 'enrol') {
       return `<a href="#" data-thread-embed="enrol" data-organiser="${thread.ownerSlug}"\n   data-thread="${thread.slug}"${langAttr}>${styleBlock}${buttonText || 'Enrol now'}</a>`;
@@ -136,12 +137,13 @@ export function EmbedGenerator({
         {/* What */}
         <div>
           <span className="text-xs text-ink-subtle">What do you want to embed?</span>
-          <div className="mt-1.5 grid grid-cols-4 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-xl">
+          <div className="mt-1.5 grid grid-cols-5 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-2xl">
             {(
               [
                 ['list', 'Thread list'],
                 ['thread', 'One thread'],
                 ['card', 'Card'],
+                ['card_form', 'Card + form'],
                 ['enrol', 'Enrol button'],
               ] as [Kind, string][]
             ).map(([k, label]) => (

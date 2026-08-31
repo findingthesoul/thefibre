@@ -22,7 +22,7 @@ export function ThreadEmbedPanel({
   ownerSlug: string;
   threadSlug: string;
 }) {
-  const [kind, setKind] = useState<'card' | 'enrol'>('card');
+  const [kind, setKind] = useState<'card' | 'card_form' | 'enrol'>('card');
   const [target, setTarget] = useState<'any' | 'webflow'>('any');
   const [lang, setLang] = useState('auto');
   const [buttonText, setButtonText] = useState('Enrol now');
@@ -34,7 +34,8 @@ export function ThreadEmbedPanel({
     if (kind === 'enrol') {
       return `<a href="#" data-thread-embed="enrol" data-organiser="${ownerSlug}"\n   data-thread="${threadSlug}"${langAttr}>${buttonText || 'Enrol now'}</a>`;
     }
-    return `<div data-thread-embed="card" data-organiser="${ownerSlug}"\n     data-thread="${threadSlug}"${langAttr}></div>`;
+    const formAttr = kind === 'card_form' ? ' data-form="1"' : '';
+    return `<div data-thread-embed="card" data-organiser="${ownerSlug}"\n     data-thread="${threadSlug}"${formAttr}${langAttr}></div>`;
   }, [kind, lang, buttonText, ownerSlug, threadSlug]);
 
   async function copy(which: string, text: string) {
@@ -63,10 +64,11 @@ export function ThreadEmbedPanel({
           <span className="text-xs text-ink-subtle">What</span>
           <select
             value={kind}
-            onChange={(e) => setKind(e.target.value as 'card' | 'enrol')}
+            onChange={(e) => setKind(e.target.value as 'card' | 'card_form' | 'enrol')}
             className={`${SELECT} mt-1`}
           >
             <option value="card">Card — image, title, date, price</option>
+            <option value="card_form">Card with the registration form in it</option>
             <option value="enrol">Registration button only</option>
           </select>
         </label>

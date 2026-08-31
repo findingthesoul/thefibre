@@ -6,6 +6,8 @@
  *   <div data-thread-embed="thread" data-organiser="sjoerd" data-thread="my-event"
  *        data-elements="cover,intention,enrol"></div>
  *   <div data-thread-embed="card" data-organiser="sjoerd" data-thread="my-event"></div>
+ *   <div data-thread-embed="card" data-organiser="sjoerd" data-thread="my-event"
+ *        data-form="1"></div>   <!-- card WITH the enrolment form in it -->
  *   <a href="#" data-thread-embed="enrol" data-organiser="sjoerd" data-thread="my-event">Enrol</a>
  *
  * List embeds accept data-format="event|journey" to narrow to one kind,
@@ -100,7 +102,8 @@
     var d = el.dataset;
     var css = extractCss(el);
     var f = makeIframe(ORIGIN + '/embed/card' + query({
-      organiser: d.organiser, thread: d.thread, theme: d.theme, lang: d.lang, popup: '1',
+      organiser: d.organiser, thread: d.thread, form: d.form,
+      theme: d.theme, lang: d.lang, popup: '1',
     }));
     f.__teCss = css;
     el.appendChild(f);
