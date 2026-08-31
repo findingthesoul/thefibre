@@ -6,6 +6,82 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.24] — 2026-09-01 — the plans mean something
+
+`docs/pricing-proposal.md`, decided: Free · Starter €19 · Pro €49 ·
+Enterprise. Seats 1 / 2 / 5 / unlimited. Free keeps 13 months.
+
+The billing spine has existed since May — `billing_plan`,
+`workspace_subscription` with a `comped` status, and a fee ladder read at
+every Stripe Checkout. What was missing is what a plan BUYS.
+
+_Housekeeping: the API code below was committed inside 1446b05 (a parallel
+session's `git add`), so it is not in that commit's diff by intent and its
+changelog entry does not mention it. It is described here, where it belongs._
+
+### Added
+- **`billing_plan` becomes a package.** New columns: `price_cents_month`,
+  `included_seats`, `extra_seat_cents_month`, `included_emails_month`,
+  `included_storage_gb`, `retention_months`. The old
+  `price_cents_user_month` stays and is no longer read — the model is per
+  workspace now, because a festival has two organisers and four hundred
+  participants, and per-seat prices the two while ignoring the four hundred.
+
+  Ids are not renamed: `org` keeps its id and reads as "Enterprise". It is a
+  foreign key from every live subscription, and renaming it to look nicer in
+  one admin screen is a migration across paying customers for no function.
+
+- **`lib/plan.ts` — the only thing that reads a plan.** `planFor`, `can`,
+  `seatAvailable`, `emailUsage`. Cached 60s: long enough to matter on every
+  gated request, short enough that an upgrade lands while the person who paid
+  is still looking at the screen.
+
+  **It fails open.** If the lookup errors, `can()` says yes. The asymmetry is
+  not close — a database hiccup that quietly downgrades a paying festival
+  mid-event costs trust that months of correct billing will not win back,
+  while the same hiccup letting someone design a template they had not paid
+  for costs nothing anyone will notice.
+
+- **The gates**, all answering 402 with the feature named and the plan that
+  has it:
+  - Flow and Pulse at app **activation** — one gate each, not a check
+    scattered through their routes. Both apps already refuse to render for a
+    workspace that has not activated them, so refusing the activation gates
+    the whole app with nothing left half-open.
+  - Third-party app installs (Pro), API-key minting (Pro).
+  - Email logo + sender name (Starter); sending from your own domain (Pro).
+  - Designing thread templates (Pro). **Using** one stays open on every plan —
+    the gate is on authoring, or Starter would have no templates at all.
+  - Certificates (Starter).
+  - Events live at once (Free: one). Only the transition INTO live is checked;
+    a thread already live stays live, because a plan change must never take an
+    event off the air while people are enrolling.
+  - Seats, on invite. Keys already minted keep working, and a workspace over
+    its allowance keeps everybody — the limit binds on the next invite, never
+    retroactively.
+
+- **`GET /api/v1/plan`** — what you are on, what you are using, what the next
+  one gives. Readable by any member: a plan is not a secret from the people it
+  limits. The catalogue comes from the same rows the gates read, so a pricing
+  screen cannot drift from what is enforced.
+
+- **An email meter that needed no instrumentation.** `thread_message_send` is
+  already one row per (engagement, person) — one email. Counted per calendar
+  month through the engagement's thread.
+
+### Changed
+- **Every existing workspace moved to Enterprise, comped.** They were all on
+  `free` + `comped` from before any of this was gated, and several are using
+  Flow, Pulse, app keys and custom templates. Leaving them on Free would have
+  taken those away the moment the gates landed. The first bill that removes
+  something is a betrayal, and these are the people who trusted it first. New
+  workspaces still start on Free.
+
+### Not yet
+Stripe Billing for the subscription itself, the plan screen, seat and overage
+invoicing, and the 13-month archive — which ships only with a warning, an
+export, and an upgrade that stops the clock.
+
 ## [0.19.23] — 2026-09-01 — rulers, guides, magnetism
 
 ### Added
