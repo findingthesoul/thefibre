@@ -22,11 +22,19 @@ the queue.
 
 _Last groomed 2026-08-29 (v0.18.17). Done items get removed, not ticked._
 
-**Plans as feature packages (Sjoerd, 2026-08-31 — design first, no code yet).**
-Raised while asking for workspace email branding: "probably we need to make
-packages with functionality per app: free, starter, pro, high end". The column
-already exists — `workspace.plan` ∈ free | starter | pro | enterprise — and
-nothing reads it. Every feature to date has been on for everyone.
+**Plans as feature packages — proposal written, numbers not decided.**
+See `docs/pricing-proposal.md` (2026-08-31). Sjoerd raised it while asking for
+email branding; he then narrowed it: sell the package not the parts, Flow and
+Pulse from the second paid level, Starter Thread on predefined templates only,
+cheap enough that nobody builds their own, monthly fee plus usage.
+
+Correction to what this note said first time: the billing spine EXISTS.
+`billing_plan` + `workspace_subscription` (with a `comped` status) shipped in
+20260519100000, and the transaction-fee ladder is live — `workspace_meet_fee`
+is read at every Stripe Checkout through `lib/fees.ts`. What is missing is the
+feature gates, Stripe Billing for the subscription itself, and the usage meter.
+`workspace.plan`, the text column, is legacy and ignored: the authoritative
+plan is `workspace_subscription.plan_id`.
 
 What needs deciding BEFORE anything is built, because each answer changes the
 shape of the gate:
