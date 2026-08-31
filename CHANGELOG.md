@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.5] — 2026-08-31 — work can change hands without the seat being retired
+
+v0.19.3 gave us the wrong-address case: make the seat, move the grants, retire
+the old one. It refuses outright when the old seat owns anything. This is that
+refusal's other half — a seat that has been *used*, whose work should now sit
+under the address its owner actually signs in with, while the old seat stays
+usable as a way back in.
+
+### Added
+- **`apps/api/scripts/hand-over.mjs`** — `--workspace <slug> --from <email>
+  --to <email>`, a dry run unless `FIBRE_HANDOVER_CONFIRM=1`. Moves the Thread
+  storefront (every thread hangs off it, so they follow), template and
+  certificate-design authorship, engagements, flow ownership and versions,
+  runs and open tasks, the Meet host record, Pulse budget lines and
+  commitments. The destination is granted whatever apps the source holds, or
+  it could not open what it now owns.
+
+  Four things it deliberately leaves, and prints as STAYS rather than passing
+  over in silence:
+
+  - `activity.created_by` — the log is append-only (brief §5). It records who
+    did a thing on a day; rewriting it makes the past say something that did
+    not happen.
+  - `workspace_app.activated_by` — the same kind of fact, and it grants
+    nothing today.
+  - `user_profile` — display name, timezone, payment details keyed to that
+    seat. The old seat is being kept, so it keeps its own.
+  - `app_membership` / `workspace_member` / `user_identity_provider` —
+    stripping these would leave a backup account that cannot sign in, which is
+    not a backup.
+
+  It stops before writing if the destination already has a Thread storefront:
+  two cannot be merged, and finding that out halfway through a run is worse
+  than not starting.
+
+Run today for the Festival of Trust workspace, moving the storefront, both
+threads, two templates, three engagements and two flows from
+`sjoerd+fot@soul.com` to `sjoerd@soul.com` — one account to sign in with, the
+plus-address kept as a way back in.
+
 ## [0.19.4] — 2026-08-31 — the person field is a search field
 
 Linking a person to an organisation, or enrolling one in a programme, meant
