@@ -91,6 +91,69 @@ export const PAGE_ASPECT: Record<CertPageSize, Record<CertOrientation, number>> 
   letter: { portrait: 1 / 1.2941, landscape: 1.2941 },
 };
 
+/**
+ * Real page dimensions in millimetres. Element positions are stored as
+ * percentages, which is right for rendering at any size — but an organiser
+ * placing a logo thinks in millimetres, so the position tool converts
+ * through these. px is CSS px at 96 dpi, the same ratio a browser prints at.
+ */
+export const PAGE_MM: Record<CertPageSize, { w: number; h: number }> = {
+  a4: { w: 210, h: 297 },
+  letter: { w: 215.9, h: 279.4 },
+};
+
+export const MM_PER_PX = 25.4 / 96;
+
+/** Page size in mm for a size + orientation. */
+export function pageMm(size: CertPageSize, orientation: CertOrientation): { w: number; h: number } {
+  const base = PAGE_MM[size];
+  return orientation === 'landscape' ? { w: base.h, h: base.w } : { w: base.w, h: base.h };
+}
+
+/** The nine reference points a position can be measured from. */
+export type CertAnchor =
+  | 'top-left' | 'top-center' | 'top-right'
+  | 'mid-left' | 'mid-center' | 'mid-right'
+  | 'bottom-left' | 'bottom-center' | 'bottom-right';
+
+export const ANCHOR_GRID: CertAnchor[] = [
+  'top-left', 'top-center', 'top-right',
+  'mid-left', 'mid-center', 'mid-right',
+  'bottom-left', 'bottom-center', 'bottom-right',
+];
+
+/**
+ * Percent position → distance from the chosen page anchor, in percent.
+ * The element's OWN matching edge is measured: "20mm from the right" means
+ * its right edge, which is what someone aligning a logo means. Positive
+ * numbers always point inward from the page edge.
+ */
+export function offsetFromAnchor(
+  anchor: CertAnchor,
+  el: { x: number; y: number; w: number; h: number },
+): { x: number; y: number } {
+  const [v, hz] = anchor.split('-') as ['top' | 'mid' | 'bottom', 'left' | 'center' | 'right'];
+  const x =
+    hz === 'left' ? el.x : hz === 'right' ? 100 - (el.x + el.w) : el.x + el.w / 2 - 50;
+  const y =
+    v === 'top' ? el.y : v === 'bottom' ? 100 - (el.y + el.h) : el.y + el.h / 2 - 50;
+  return { x, y };
+}
+
+/** The inverse: an anchor + offsets back to the stored top-left percent. */
+export function anchorToTopLeft(
+  anchor: CertAnchor,
+  off: { x: number; y: number },
+  size: { w: number; h: number },
+): { x: number; y: number } {
+  const [v, hz] = anchor.split('-') as ['top' | 'mid' | 'bottom', 'left' | 'center' | 'right'];
+  const x =
+    hz === 'left' ? off.x : hz === 'right' ? 100 - off.x - size.w : 50 + off.x - size.w / 2;
+  const y =
+    v === 'top' ? off.y : v === 'bottom' ? 100 - off.y - size.h : 50 + off.y - size.h / 2;
+  return { x, y };
+}
+
 export const PAGE_SIZE_LABELS: Record<CertPageSize, string> = {
   a4: 'A4',
   letter: 'Letter',

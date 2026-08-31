@@ -35,13 +35,19 @@ import { SectionLabel } from '@/components/ui/page';
 import { uploadAsset } from '@/lib/upload';
 import type { TeamOption, WorkspaceMember } from '@/lib/thread-types';
 import {
+  ANCHOR_GRID,
   FIELD_OPTIONS,
   FONT_OPTIONS,
+  MM_PER_PX,
   SAMPLE_VALUES,
+  anchorToTopLeft,
+  offsetFromAnchor,
+  pageMm,
   PAGE_ASPECT,
   elFontStyle,
   generateElementId,
   resolveDisplay,
+  type CertAnchor,
   type CertElement,
   type CertField,
   type CertOrientation,
@@ -269,6 +275,16 @@ export function CertificateBuilder({
   const [archived, setArchived] = useState(!!template.archived_at);
 
   const canvasRef = useRef<HTMLDivElement>(null);
+  // Position tool: which page corner positions are measured from, and in
+  // what unit. Both are workspace-of-the-moment preferences, not template
+  // data — the stored geometry stays percentages.
+  const [anchor, setAnchor] = useState<CertAnchor>('top-left');
+  const [unit, setUnit] = useState<'mm' | 'px'>('mm');
+  // The selected element's rendered size as a % of the page. Width is known
+  // from the model; HEIGHT is content-driven, so it is measured — without it
+  // the bottom and middle anchors would be guesses.
+  const elBoxRef = useRef<HTMLDivElement | null>(null);
+  const [measured, setMeasured] = useState<{ w: number; h: number }>({ w: 0, h: 0 });
   const draggingRef = useRef<{
     id: string;
     startX: number;
@@ -430,6 +446,54 @@ export function CertificateBuilder({
   function updateEl(patch: Partial<CertElement>) {
     if (!selectedId) return;
     updateElements(elements.map((el) => (el.id === selectedId ? { ...el, ...patch } : el)));
+  }
+
+  // Measure the selected element after every render that could change its
+  // size — the model knows its width, only the DOM knows how tall the text
+  // wrapped.
+  useEffect(() => {
+    const node = elBoxRef.current;
+    const canvas = canvasRef.current;
+    if (!node || !canvas) {
+      setMeasured({ w: 0, h: 0 });
+      return;
+    }
+    const c = canvas.getBoundingClientRect();
+    const r = node.getBoundingClientRect();
+    if (!c.width || !c.height) return;
+    const next = { w: (r.width / c.width) * 100, h: (r.height / c.height) * 100 };
+    setMeasured((prev) =>
+      Math.abs(prev.w - next.w) < 0.01 && Math.abs(prev.h - next.h) < 0.01 ? prev : next,
+    );
+  });
+
+  const page = pageMm(pageSize, orientation);
+
+  /** Page-percent → the display unit. */
+  function toUnit(pct: number, axis: 'x' | 'y'): number {
+    const mm = (pct / 100) * (axis === 'x' ? page.w : page.h);
+    return unit === 'mm' ? mm : mm / MM_PER_PX;
+  }
+  /** The display unit → page-percent. */
+  function fromUnit(value: number, axis: 'x' | 'y'): number {
+    const mm = unit === 'mm' ? value : value * MM_PER_PX;
+    return (mm / (axis === 'x' ? page.w : page.h)) * 100;
+  }
+  const round1 = (n: number) => Math.round(n * 10) / 10;
+
+  /** Move the selected element so its anchor offset becomes `value`. */
+  function setOffset(axis: 'x' | 'y', value: number) {
+    if (!selectedEl) return;
+    const size = { w: selectedEl.width, h: measured.h };
+    const cur = offsetFromAnchor(anchor, {
+      x: selectedEl.x,
+      y: selectedEl.y,
+      w: size.w,
+      h: size.h,
+    });
+    const next = { ...cur, [axis]: fromUnit(value, axis) };
+    const pos = anchorToTopLeft(anchor, next, size);
+    updateEl({ x: round1(Math.max(-50, Math.min(150, pos.x))), y: round1(Math.max(-50, Math.min(150, pos.y))) });
   }
 
   /** The remove handle: a dot on the selected element's corner, the way
@@ -729,29 +793,113 @@ export function CertificateBuilder({
                 </select>
               </div>
 
+              {/* Size in POINTS — what type is set in everywhere else
+                  (Sjoerd 2026-08-31). Stored as px, converted for display:
+                  1pt = 96/72 px, so existing designs keep their size. */}
               <div className="flex items-center gap-2">
                 <span className="text-xs text-ink-subtle whitespace-nowrap">Size</span>
                 <input
                   type="range"
-                  min={8}
-                  max={96}
-                  value={selectedEl.fontSize ?? 16}
-                  onChange={(e) => updateEl({ fontSize: Number(e.target.value) })}
+                  min={6}
+                  max={72}
+                  value={Math.round((selectedEl.fontSize ?? 16) * 0.75)}
+                  onChange={(e) => updateEl({ fontSize: Number(e.target.value) / 0.75 })}
                   className="w-20 accent-ink"
                 />
                 <input
                   type="number"
-                  min={8}
-                  max={96}
-                  value={selectedEl.fontSize ?? 16}
+                  min={6}
+                  max={72}
+                  step={0.5}
+                  value={Math.round((selectedEl.fontSize ?? 16) * 0.75 * 10) / 10}
                   onChange={(e) =>
-                    updateEl({ fontSize: Math.max(8, Math.min(96, Number(e.target.value))) })
+                    updateEl({
+                      fontSize: Math.max(6, Math.min(72, Number(e.target.value))) / 0.75,
+                    })
                   }
                   className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
                 />
+                <span className="text-xs text-ink-muted">pt</span>
               </div>
             </>
           )}
+
+          {/* Position — Illustrator's reference point, applied to the PAGE:
+              pick which corner/edge the numbers are measured from, then type
+              them. Positive always points inward, so "10mm from the right"
+              reads the same whichever corner you chose (Sjoerd 2026-08-31).
+              The element's own matching edge is measured; its height is taken
+              from the DOM because text height is content-driven. */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-ink-subtle whitespace-nowrap">Position</span>
+            <div
+              className="grid grid-cols-3 gap-px rounded border border-line p-px"
+              title="Measure from this point of the page"
+            >
+              {ANCHOR_GRID.map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  aria-label={a.replace('-', ' ')}
+                  title={a.replace('-', ' ')}
+                  onClick={() => setAnchor(a)}
+                  className={`h-[7px] w-[7px] rounded-[1px] ${
+                    anchor === a ? 'bg-ink' : 'bg-line hover:bg-ink-muted'
+                  }`}
+                />
+              ))}
+            </div>
+            <span className="text-xs text-ink-muted">X</span>
+            <input
+              type="number"
+              step={unit === 'mm' ? 0.5 : 1}
+              value={round1(
+                toUnit(
+                  offsetFromAnchor(anchor, {
+                    x: selectedEl.x,
+                    y: selectedEl.y,
+                    w: selectedEl.width,
+                    h: measured.h,
+                  }).x,
+                  'x',
+                ),
+              )}
+              onChange={(e) => setOffset('x', Number(e.target.value))}
+              className="w-16 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+            />
+            <span className="text-xs text-ink-muted">Y</span>
+            <input
+              type="number"
+              step={unit === 'mm' ? 0.5 : 1}
+              value={round1(
+                toUnit(
+                  offsetFromAnchor(anchor, {
+                    x: selectedEl.x,
+                    y: selectedEl.y,
+                    w: selectedEl.width,
+                    h: measured.h,
+                  }).y,
+                  'y',
+                ),
+              )}
+              onChange={(e) => setOffset('y', Number(e.target.value))}
+              className="w-16 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+            />
+            <div className="flex rounded-md border border-line overflow-hidden h-8">
+              {(['mm', 'px'] as const).map((u) => (
+                <button
+                  key={u}
+                  type="button"
+                  onClick={() => setUnit(u)}
+                  className={`px-1.5 text-[11px] ${
+                    unit === u ? 'bg-surface-sunken text-ink font-medium' : 'text-ink-subtle'
+                  }`}
+                >
+                  {u}
+                </button>
+              ))}
+            </div>
+          </div>
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-subtle whitespace-nowrap">
@@ -765,17 +913,20 @@ export function CertificateBuilder({
               onChange={(e) => updateEl({ width: Number(e.target.value) })}
               className="w-20 accent-ink"
             />
+            {/* Typed in the position tool's unit, not just dragged. */}
             <input
               type="number"
-              min={5}
-              max={100}
-              value={Math.round(selectedEl.width)}
+              min={0}
+              step={unit === 'mm' ? 0.5 : 1}
+              value={round1(toUnit(selectedEl.width, 'x'))}
               onChange={(e) =>
-                updateEl({ width: Math.max(5, Math.min(100, Number(e.target.value))) })
+                updateEl({
+                  width: Math.max(1, Math.min(100, fromUnit(Number(e.target.value), 'x'))),
+                })
               }
-              className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+              className="w-16 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
             />
-            <span className="text-xs text-ink-muted">%</span>
+            <span className="text-xs text-ink-muted">{unit}</span>
           </div>
 
           {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
@@ -846,9 +997,17 @@ export function CertificateBuilder({
               onChange={(e) => updateEl({ opacity: Number(e.target.value) })}
               className="w-16 accent-ink"
             />
-            <span className="text-xs text-ink-muted w-9 tabular-nums">
-              {selectedEl.opacity ?? 100}%
-            </span>
+            <input
+              type="number"
+              min={0}
+              max={100}
+              value={selectedEl.opacity ?? 100}
+              onChange={(e) =>
+                updateEl({ opacity: Math.max(0, Math.min(100, Number(e.target.value))) })
+              }
+              className="w-14 h-8 rounded-md border border-line bg-surface-raised px-1.5 text-xs text-center focus:border-line-strong focus:outline-none"
+            />
+            <span className="text-xs text-ink-muted">%</span>
           </div>
 
           {selectedEl.type === 'image' && (
@@ -1096,6 +1255,7 @@ export function CertificateBuilder({
                     return (
                       <div
                         key={el.id}
+                        ref={isSelected ? elBoxRef : undefined}
                         className="absolute"
                         style={{
                           left: `${el.x}%`,
@@ -1120,6 +1280,7 @@ export function CertificateBuilder({
                     return (
                       <div
                         key={el.id}
+                        ref={isSelected ? elBoxRef : undefined}
                         className="absolute"
                         style={{
                           left: `${el.x}%`,
@@ -1155,6 +1316,7 @@ export function CertificateBuilder({
                   return (
                     <div
                       key={el.id}
+                      ref={isSelected ? elBoxRef : undefined}
                       className="absolute"
                       style={{
                         left: `${el.x}%`,

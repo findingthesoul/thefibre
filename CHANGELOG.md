@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.21] — 2026-08-31 — type the position, not drag it
+
+### Added
+- **A position tool in the certificate builder, Illustrator-style.** A
+  nine-square reference picker chooses which point of the PAGE the numbers are
+  measured from — top-left, top-centre, right-middle, and so on — then X and Y
+  are typed in **mm or px**. Positive always points inward, so "10 from the
+  right" means the same whichever corner is selected. The element's own
+  matching edge is what gets measured, and its height comes from the DOM,
+  because how tall a line of text wraps is not in the model.
+- **Width is typeable** in the same unit, not only draggable.
+- **Opacity is typeable** as a percentage, next to its slider.
+- **Type is set in points.** Stored as px and converted for display
+  (1pt = 96/72px), so every existing design keeps the size it had.
+
+Page geometry lives in `lib/certificate-types.ts`: A4 210×297mm, Letter
+215.9×279.4mm, px at 96dpi — the ratio a browser prints at.
+
 ## [0.19.20] — 2026-08-31 — remove it where it is
 
 ### Changed
