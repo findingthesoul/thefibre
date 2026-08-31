@@ -54,6 +54,7 @@ import { saveThreadAsTemplate } from '../../templates/threads/actions';
 import { RegistrationPanel } from './registration';
 import { PricingPanel } from './pricing-panel';
 import { CertificatePanel } from './certificate-panel';
+import { ThreadEmbedPanel } from './embed-panel';
 
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
@@ -580,9 +581,11 @@ export function ThreadTimeline({
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
                 Cancel
               </Button>
-              <Button type="submit" form={`thread-${settingsTab}-form`}>
-                Save
-              </Button>
+              {settingsTab !== 'embed' && (
+                <Button type="submit" form={`thread-${settingsTab}-form`}>
+                  Save
+                </Button>
+              )}
             </>
           }
         >
@@ -789,7 +792,7 @@ function EngagementCard({
 // more tabs will come. All tabs stay in the DOM (Meet's pattern).
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate';
+type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate' | 'embed';
 
 function SettingsTabs({
   thread,
@@ -817,6 +820,7 @@ function SettingsTabs({
     { value: 'pricing', label: 'Pricing' },
     { value: 'registration', label: 'Registration' },
     { value: 'certificate', label: 'Certificate' },
+    { value: 'embed', label: 'Embed' },
   ] as const;
 
   return (
@@ -864,6 +868,12 @@ function SettingsTabs({
       </div>
       <div className={`pt-5 ${tab === 'certificate' ? '' : 'hidden'}`}>
         <CertificatePanel thread={thread} certTemplates={certTemplates} onSaved={onSaved} />
+      </div>
+      <div className={`pt-5 ${tab === 'embed' ? '' : 'hidden'}`}>
+        <ThreadEmbedPanel
+          ownerSlug={one(thread.team)?.slug ?? one(thread.organiser)?.slug ?? ''}
+          threadSlug={thread.slug}
+        />
       </div>
     </div>
   );

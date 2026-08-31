@@ -54,6 +54,7 @@ export default async function EmbedListPage({
   const team = str(sp.team);
   const org = str(sp.org);
   const workspace = str(sp.workspace);
+  const format = str(sp.format);
   const compact = str(sp.compact) === '1';
   // `theme=light` is accepted (and is the only theme); other values are
   // ignored for now — the layout forces light regardless.
@@ -79,6 +80,7 @@ export default async function EmbedListPage({
   if (team) qs.set('team', team);
   if (org) qs.set('org', org);
   if (workspace) qs.set('workspace', workspace);
+  if (format === 'event' || format === 'journey') qs.set('format', format);
 
   let items: EmbedThreadItem[] = [];
   try {

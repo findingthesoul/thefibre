@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.7] — 2026-08-31 — the event on your own website
+
+Website integration, both places Sjoerd named.
+
+### Added
+- **Card embed** — one thread as a compact card (cover, title, date, price,
+  one button honouring the thread's page/popup interaction):
+  `data-thread-embed="card"`, rendered by `/embed/card`. The thread-level
+  counterpart of the list.
+- **Thread settings → Embed tab** — the generator scoped to ONE thread: card
+  or registration button, language, and an Any-website / Webflow toggle that
+  labels the two blocks with Webflow's actual place names (Site settings →
+  Custom code → Head code; Embed element). Any-website also offers an
+  all-in-one block (embed.js is idempotent, a doubled script tag is safe).
+- **Settings → Website embeds generator** grows the same Webflow toggle, the
+  Card kind, and a list "Kind" filter — events only / journeys only — backed
+  by `?format=event|journey` on `GET /public/embed/threads` (additive,
+  ignored when invalid so a typo degrades to the full list, not a broken
+  widget) and `data-format` on the list embed. /developers documents both.
+
 ## [0.19.6] — 2026-08-31 — every app can switch workspace, to the ones it works in
 
 The switcher shipped in v0.19.1 only in The Fibre. Thread, Meet, Flow and Pulse

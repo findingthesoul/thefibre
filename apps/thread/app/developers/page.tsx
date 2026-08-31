@@ -109,8 +109,9 @@ export default function DevelopersPage() {
             A listing. Pass exactly one of <code className="font-mono text-xs">?organiser=</code>{' '}
             (slug), <code className="font-mono text-xs">?team=</code>,{' '}
             <code className="font-mono text-xs">?org=</code> or{' '}
-            <code className="font-mono text-xs">?workspace=</code> (UUIDs). Sorted by start
-            date, soonest first. Returns{' '}
+            <code className="font-mono text-xs">?workspace=</code> (UUIDs); optionally{' '}
+            <code className="font-mono text-xs">?format=event|journey</code> to narrow to one
+            kind. Sorted by start date, soonest first. Returns{' '}
             <code className="font-mono text-xs">{'{ items: [...] }'}</code>.
           </p>
           <Fields
@@ -286,6 +287,9 @@ export default function DevelopersPage() {
 <div data-thread-embed="thread" data-organiser="your-slug"
      data-thread="your-thread" data-elements="cover,intention,agenda,price,enrol"></div>
 
+<!-- one thread as a compact card: image, title, date, price, button -->
+<div data-thread-embed="card" data-organiser="your-slug" data-thread="your-thread"></div>
+
 <!-- registration from any button -->
 <a href="#" data-thread-embed="enrol" data-organiser="your-slug"
    data-thread="your-thread">Register</a>`}</Code>
@@ -296,7 +300,9 @@ export default function DevelopersPage() {
             <code className="font-mono text-xs">data-organiser</code> for{' '}
             <code className="font-mono text-xs">data-team</code>,{' '}
             <code className="font-mono text-xs">data-org</code> or{' '}
-            <code className="font-mono text-xs">data-workspace</code> to widen a listing. Every
+            <code className="font-mono text-xs">data-workspace</code> to widen a listing, and add{' '}
+            <code className="font-mono text-xs">data-format=&quot;event|journey&quot;</code> to
+            narrow it to one kind. Every
             element inside carries a <code className="font-mono text-xs">te-</code> class: put a{' '}
             <code className="font-mono text-xs">&lt;style&gt;</code> block inside the div and it
             is lifted into the frame. Organisers get the full class reference, pre-filled with

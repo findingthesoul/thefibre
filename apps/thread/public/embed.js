@@ -5,7 +5,10 @@
  *   <div data-thread-embed="list" data-organiser="sjoerd"></div>
  *   <div data-thread-embed="thread" data-organiser="sjoerd" data-thread="my-event"
  *        data-elements="cover,intention,enrol"></div>
+ *   <div data-thread-embed="card" data-organiser="sjoerd" data-thread="my-event"></div>
  *   <a href="#" data-thread-embed="enrol" data-organiser="sjoerd" data-thread="my-event">Enrol</a>
+ *
+ * List embeds accept data-format="event|journey" to narrow to one kind.
  *
  * Optional data-lang="en|nl|es|pt|de" on any embed forces the UI language.
  *
@@ -84,7 +87,19 @@
     var css = extractCss(el);
     var f = makeIframe(ORIGIN + '/embed/list' + query({
       organiser: d.organiser, team: d.team, org: d.org, workspace: d.workspace,
-      compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
+      format: d.format, compact: d.compact, theme: d.theme, lang: d.lang, popup: '1',
+    }));
+    f.__teCss = css;
+    el.appendChild(f);
+    inlineFrames.push(f);
+  }
+
+  // One thread as a compact card: cover, title, date, price, one button.
+  function mountCard(el) {
+    var d = el.dataset;
+    var css = extractCss(el);
+    var f = makeIframe(ORIGIN + '/embed/card' + query({
+      organiser: d.organiser, thread: d.thread, theme: d.theme, lang: d.lang, popup: '1',
     }));
     f.__teCss = css;
     el.appendChild(f);
@@ -213,6 +228,7 @@
       el.setAttribute('data-thread-embed-mounted', '1');
       var kind = el.getAttribute('data-thread-embed');
       if (kind === 'list') mountList(el);
+      else if (kind === 'card') mountCard(el);
       else if (kind === 'thread') mountThread(el);
       else if (kind === 'enrol') mountEnrol(el);
     }

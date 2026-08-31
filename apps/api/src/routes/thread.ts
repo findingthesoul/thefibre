@@ -4090,6 +4090,10 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   const teamId = c.req.query('team');
   const orgId = c.req.query('org');
   const workspaceId = c.req.query('workspace');
+  // Optional ?format=event|journey — narrow a listing to one kind (additive,
+  // documented at /developers). Anything else is ignored rather than an
+  // error, so a typo degrades to the full list, not a broken widget.
+  const format = c.req.query('format');
   if (!organiserSlug && !teamId && !orgId && !workspaceId) {
     return c.json({ error: 'pass organiser, team, org or workspace' }, 400);
   }
@@ -4122,7 +4126,9 @@ threadRoutes.get('/public/embed/threads', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
   const live = (data ?? []).filter((t) => {
     const p = Array.isArray(t.program) ? t.program[0] : t.program;
-    return p && (p.status === 'active' || p.status === 'completed');
+    if (!p || (p.status !== 'active' && p.status !== 'completed')) return false;
+    if ((format === 'event' || format === 'journey') && p.format !== format) return false;
+    return true;
   });
   const prices = await ticketPrices(live.map((t) => t.id));
   const items = live

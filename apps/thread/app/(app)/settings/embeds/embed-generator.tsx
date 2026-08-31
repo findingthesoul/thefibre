@@ -22,7 +22,7 @@ export type GeneratorThread = {
 
 export type GeneratorTeam = { id: string; name: string };
 
-type Kind = 'list' | 'thread' | 'enrol';
+type Kind = 'list' | 'thread' | 'card' | 'enrol';
 
 // The full element reference — every te-* class the embeds render, with
 // the default look spelled out. Integrators change values, not selectors.
@@ -69,6 +69,10 @@ export function EmbedGenerator({
   const [kind, setKind] = useState<Kind>('thread');
   // list: my threads, the whole workspace, or one team
   const [listOwner, setListOwner] = useState<string>('mine'); // 'mine' | 'workspace' | team id
+  // list: narrow to one kind of thread ('all' | 'event' | 'journey')
+  const [listFormat, setListFormat] = useState<string>('all');
+  // changes the labels around the two blocks — Webflow has named places
+  const [target, setTarget] = useState<'any' | 'webflow'>('any');
   const [threadId, setThreadId] = useState<string>(threads[0]?.id ?? '');
   const [elements, setElements] = useState<Set<string>>(new Set(ELEMENTS.map((e) => e.key)));
   const [lang, setLang] = useState<string>('auto');
@@ -99,9 +103,16 @@ export function EmbedGenerator({
           : listOwner === 'workspace'
             ? `data-workspace="${workspaceId}"`
             : `data-team="${listOwner}"`;
-      return `<div data-thread-embed="list" ${ownerAttr}${langAttr}>${styleBlock}</div>`;
+      const formatAttr =
+        listFormat === 'event' || listFormat === 'journey'
+          ? ` data-format="${listFormat}"`
+          : '';
+      return `<div data-thread-embed="list" ${ownerAttr}${formatAttr}${langAttr}>${styleBlock}</div>`;
     }
     if (!thread) return '<!-- create a thread first -->';
+    if (kind === 'card') {
+      return `<div data-thread-embed="card" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${langAttr}>${styleBlock}</div>`;
+    }
     if (kind === 'enrol') {
       return `<a href="#" data-thread-embed="enrol" data-organiser="${thread.ownerSlug}"\n   data-thread="${thread.slug}"${langAttr}>${styleBlock}${buttonText || 'Enrol now'}</a>`;
     }
@@ -113,7 +124,7 @@ export function EmbedGenerator({
           .map((e) => e.key)
           .join(',')}"`;
     return `<div data-thread-embed="thread" data-organiser="${thread.ownerSlug}"\n     data-thread="${thread.slug}"${elementsAttr}${langAttr}>${styleBlock}</div>`;
-  }, [kind, listOwner, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
+  }, [kind, listOwner, listFormat, thread, elements, lang, buttonText, includeCss, organiserSlug, workspaceId]);
 
   const scriptTag = `<script src="${HOST}/embed.js" defer></script>`;
 
@@ -138,11 +149,12 @@ export function EmbedGenerator({
         {/* What */}
         <div>
           <span className="text-xs text-ink-subtle">What do you want to embed?</span>
-          <div className="mt-1.5 grid grid-cols-3 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-md">
+          <div className="mt-1.5 grid grid-cols-4 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-xl">
             {(
               [
                 ['list', 'Thread list'],
                 ['thread', 'One thread'],
+                ['card', 'Card'],
                 ['enrol', 'Enrol button'],
               ] as [Kind, string][]
             ).map(([k, label]) => (
@@ -180,6 +192,16 @@ export function EmbedGenerator({
                   </option>
                 ))}
               </select>
+              <span className="mt-2 block text-xs text-ink-subtle">Kind</span>
+              <select
+                value={listFormat}
+                onChange={(e) => setListFormat(e.target.value)}
+                className={`${SELECT} mt-1`}
+              >
+                <option value="all">Events and journeys</option>
+                <option value="event">Events only</option>
+                <option value="journey">Journeys only</option>
+              </select>
             </label>
           ) : (
             <label className="block">
@@ -197,6 +219,19 @@ export function EmbedGenerator({
               </select>
             </label>
           )}
+
+          {/* Where it will be pasted — only changes the instructions */}
+          <label className="block">
+            <span className="text-xs text-ink-subtle">Website</span>
+            <select
+              value={target}
+              onChange={(e) => setTarget(e.target.value as 'any' | 'webflow')}
+              className={`${SELECT} mt-1`}
+            >
+              <option value="any">Any website</option>
+              <option value="webflow">Webflow</option>
+            </select>
+          </label>
 
           {/* Language */}
           <label className="block">
@@ -275,7 +310,9 @@ export function EmbedGenerator({
           <div>
             <div className="flex items-center justify-between">
               <span className="text-xs text-ink-subtle">
-                1 · Once per site, in the &lt;head&gt;
+                {target === 'webflow'
+                  ? '1 · Webflow: Site settings → Custom code → Head code (once per site)'
+                  : '1 · Once per site, in the <head> (or before </body>)'}
               </span>
               <CopyButton
                 copied={copied === 'script'}
@@ -288,7 +325,11 @@ export function EmbedGenerator({
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">2 · Where the embed should appear</span>
+              <span className="text-xs text-ink-subtle">
+                {target === 'webflow'
+                  ? '2 · Add an Embed element where it should appear, paste this'
+                  : '2 · Where the embed should appear'}
+              </span>
               <CopyButton
                 copied={copied === 'snippet'}
                 onClick={() => void copy('snippet', snippet)}
