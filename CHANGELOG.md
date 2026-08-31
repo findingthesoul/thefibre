@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.12] — 2026-08-31 — the address knows where it is
+
+### Added
+- **Type an address, get the map link offered.** Under Location link, once
+  there is an address and no link yet: "Use a Google Maps link for …" — one
+  click fills it. Built from Google's documented search URL, so there is no
+  geocoding service, no API key, and the address never leaves the browser
+  until someone clicks the finished link. Offered rather than auto-written:
+  a venue with its own page deserves that link instead, and silently
+  overwriting would bury it.
+
 ## [0.19.11] — 2026-08-31 — days that belong together, and a refusal you can read
 
 ### Changed

@@ -137,6 +137,19 @@ export function EngagementDialog({
   const [startsAt, setStartsAt] = useState<string>(toLocalInput(engagement?.starts_at ?? null));
   const [endsAt, setEndsAt] = useState<string>(toLocalInput(engagement?.ends_at ?? null));
 
+  // Location + its link. Controlled so typing an address can offer a maps
+  // link (Sjoerd 2026-08-31). No geocoding service and no API key: Google's
+  // documented search URL takes the address as a query, so the suggestion is
+  // built locally and the address never leaves the browser until someone
+  // clicks it. It is offered, never auto-written — a venue with its own page
+  // deserves that link instead, and silently overwriting would bury it.
+  const [location, setLocation] = useState<string>(engagement?.location ?? '');
+  const [locationUrl, setLocationUrl] = useState<string>(engagement?.location_url ?? '');
+  const mapsSuggestion =
+    location.trim().length > 3 && !locationUrl.trim()
+      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`
+      : null;
+
   /** Local "YYYY-MM-DDTHH:mm" → ms, and back. No timezone maths: these are
    *  the literal wall-clock strings the inputs speak. */
   const localMs = (v: string): number | null => {
@@ -433,15 +446,32 @@ export function EngagementDialog({
                   label="Location"
                   name="location"
                   placeholder="Venue or address"
-                  defaultValue={engagement?.location ?? ''}
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
                 />
-                <TextField
-                  label="Location link"
-                  name="location_url"
-                  type="url"
-                  placeholder="Maps or venue URL"
-                  defaultValue={engagement?.location_url ?? ''}
-                />
+                <div>
+                  <TextField
+                    label="Location link"
+                    name="location_url"
+                    type="url"
+                    placeholder="Maps or venue URL"
+                    value={locationUrl}
+                    onChange={(e) => setLocationUrl(e.target.value)}
+                  />
+                  {mapsSuggestion && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationUrl(mapsSuggestion);
+                        setDirty(true);
+                      }}
+                      className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink"
+                    >
+                      <MapPin size={12} strokeWidth={1.75} />
+                      Use a Google Maps link for “{location.trim()}”
+                    </button>
+                  )}
+                </div>
               </>
             ) : (
               <>
