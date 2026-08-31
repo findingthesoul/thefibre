@@ -35,6 +35,54 @@ async function myMemberships(ctx: { userId: string }) {
   return data ?? [];
 }
 
+// Which of someone's workspaces the calling app works in.
+//
+// Two conditions, the same pair every app layout checks on the way in: the
+// workspace has the app switched on, and this person's seat THERE has a grant
+// for it. A seat is per workspace, so the grant has to be looked up per seat
+// — the same human can hold The Thread in one workspace and not in another.
+//
+// Returns null for The Fibre itself, meaning "all of them". The platform is
+// not an app a workspace activates — it is the place the account lives — so
+// its switcher lists every seat, and its own app_membership row is about
+// admin rights, not entry.
+async function usableWorkspaces(
+  appSlug: string | undefined,
+  rows: { id: string; workspace_id: string }[],
+): Promise<Set<string> | null> {
+  if (!appSlug || appSlug === 'fibre-platform') return null;
+  if (!rows.length) return new Set();
+
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', appSlug)
+    .maybeSingle();
+  if (!app) return new Set();
+
+  const [{ data: grants }, { data: active }] = await Promise.all([
+    adminClient
+      .from('app_membership')
+      .select('user_id')
+      .eq('app_id', app.id)
+      .in('user_id', rows.map((r) => r.id)),
+    adminClient
+      .from('workspace_app')
+      .select('workspace_id')
+      .eq('app_id', app.id)
+      .is('deactivated_at', null)
+      .in('workspace_id', rows.map((r) => r.workspace_id)),
+  ]);
+
+  const granted = new Set((grants ?? []).map((g) => g.user_id));
+  const switchedOn = new Set((active ?? []).map((a) => a.workspace_id));
+  return new Set(
+    rows
+      .filter((r) => granted.has(r.id) && switchedOn.has(r.workspace_id))
+      .map((r) => r.workspace_id),
+  );
+}
+
 authRoutes.get('/workspaces', async (c) => {
   const ctx = c.get('ctx');
   if (ctx.auth !== 'user' || !ctx.userId) {
@@ -42,6 +90,7 @@ authRoutes.get('/workspaces', async (c) => {
   }
 
   const rows = await myMemberships(ctx);
+  const usable = await usableWorkspaces(ctx.appId, rows);
   return c.json({
     // The one this token is acting in — not the stored choice. If the two ever
     // disagree, what the token says is what the request will actually do.
@@ -54,6 +103,10 @@ authRoutes.get('/workspaces', async (c) => {
         slug: w?.slug ?? null,
         plan: w?.plan ?? null,
         is_active: r.workspace_id === ctx.workspaceId,
+        // Whether the app ASKING can actually be used there. The Thread, Meet,
+        // Flow and Pulse all bounce you to /no-access without a grant, so a
+        // switcher that offered every workspace would be offering dead ends.
+        has_app: usable === null || usable.has(r.workspace_id),
       };
     }),
   });

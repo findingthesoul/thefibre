@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.6] — 2026-08-31 — every app can switch workspace, to the ones it works in
+
+The switcher shipped in v0.19.1 only in The Fibre. Thread, Meet, Flow and Pulse
+have the same account menu, so being in the wrong workspace there meant going
+to The Fibre, switching, and coming back.
+
+### Added
+- **Workspace section in the account menu of Thread, Meet, Flow and Pulse.**
+  Same behaviour as The Fibre's: record the choice, refresh the token so the
+  access-token hook stamps the new workspace, re-read. Hidden when there is
+  nothing to choose between.
+- **`has_app` on `GET /auth/workspaces`.** Per workspace, whether the app that
+  asked — the `X-App-ID` on the request — can actually be used there: switched
+  on for the workspace, and granted to that person's seat in it. A seat is per
+  workspace, so the grant is looked up per seat; the same person can hold The
+  Thread in one workspace and not in another.
+
+  Each app lists only those. Without the filter the menu would offer dead
+  ends — every one of these apps redirects to `/no-access` without both halves,
+  so switching into a workspace you have no grant in would bounce you straight
+  out of the app you were using.
+
+  The Fibre is exempt and lists every seat: it is not an app a workspace
+  activates, it is where the account lives.
+
+### Changed
+- **Switching lands on the dashboard** rather than refreshing where you stood.
+  A contact, a thread, a flow run — every id on screen belongs to the workspace
+  being left, and means nothing in the one being entered. Refreshing in place
+  showed an empty page or a 404 as the reward for switching.
+
 ## [0.19.5] — 2026-08-31 — work can change hands without the seat being retired
 
 v0.19.3 gave us the wrong-address case: make the seat, move the grants, retire

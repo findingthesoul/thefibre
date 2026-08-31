@@ -4,6 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
 import { Sidebar } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
+import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
 
@@ -59,6 +60,25 @@ export default async function FlowAppLayout({
   const prefs = await readPrefs();
   const email = me.user.email;
   const fullName = me.user.full_name ?? email;
+  // The workspaces this person belongs to, narrowed to the ones where this app
+  // is switched on AND their seat there holds a grant for it — `has_app`,
+  // decided by the API from the X-App-ID this request carries.
+  //
+  // The narrowing is the point. The check above redirects to /no-access
+  // without both, so a switcher listing every workspace would be a menu of
+  // dead ends. What is left is nothing to choose between for almost everybody,
+  // and the menu hides the section in that case.
+  let workspaces: WorkspaceChoice[] = [];
+  try {
+    const r = await apiFetch<{ workspaces: (WorkspaceChoice & { has_app: boolean })[] }>(
+      '/api/v1/auth/workspaces',
+    );
+    workspaces = r.workspaces.filter((w) => w.has_app);
+  } catch {
+    // Never fatal: not being able to list them must not stop the app rendering
+    // in the one you are already in.
+  }
+
   const switcherApps = buildAppList({
     memberships: me.memberships,
     workspaceApps: apps,
@@ -74,6 +94,7 @@ export default async function FlowAppLayout({
           prefs={prefs}
           current={{ slug: 'fibre-flow', name: APPS['fibre-flow'].name }}
           apps={switcherApps}
+          workspaces={workspaces}
         />
         {/* Soft-cream content surface so the white cards inside
          (Scope, Details, lists, dialogs) lift cleanly off the page. */}

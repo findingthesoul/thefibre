@@ -14,6 +14,7 @@ import {
   Sparkles,
   LogOut,
   Check,
+  Building2,
 } from 'lucide-react';
 import { browserSupabase } from '@/lib/supabase/client';
 import {
@@ -26,6 +27,9 @@ import {
 // preference follows the user across apps, and dodges Safari's 7-day
 // ITP cap on document.cookie writes.
 import { savePref } from '@/lib/prefs-actions';
+import { switchWorkspace } from '@/lib/workspace-actions';
+
+export type WorkspaceChoice = { id: string; name: string | null; is_active: boolean };
 
 function applyTheme(theme: Theme) {
   const dark =
@@ -41,12 +45,15 @@ export function UserMenu({
   initials,
   theme: initialTheme,
   sidebar: initialSidebar,
+  workspaces = [],
 }: {
   email: string;
   fullName: string;
   initials: string;
   theme: Theme;
   sidebar: SidebarMode;
+  /** Only the ones this app can actually be used in; see the layout. */
+  workspaces?: WorkspaceChoice[];
 }) {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
@@ -86,6 +93,31 @@ export function UserMenu({
     });
   }
 
+  const [switching, setSwitching] = useState<string | null>(null);
+
+  function pickWorkspace(id: string) {
+    if (switching) return;
+    setSwitching(id);
+    startTransition(async () => {
+      const result = await switchWorkspace(id);
+      if (result.error) {
+        setSwitching(null);
+        return;
+      }
+      // The workspace lives in the token, so recording the choice changes
+      // nothing until a new token is issued. refreshSession() re-runs the
+      // access-token hook, which stamps the workspace we just chose.
+      await browserSupabase().auth.refreshSession();
+      // Home, not here: whatever is on screen belongs to the workspace being
+      // left, and a record id from one tenant is nothing in another. Refresh
+      // after, so the server components re-read with the new token.
+      router.replace('/dashboard');
+      router.refresh();
+      setSwitching(null);
+      setOpen(false);
+    });
+  }
+
   async function signOut() {
     await browserSupabase().auth.signOut();
     router.push('/');
@@ -116,6 +148,22 @@ export function UserMenu({
           <Item icon={Settings} label="Settings" href="/settings" onClick={() => setOpen(false)} />
           {/* Tour doesn't exist yet — visibly disabled, not silently dead. */}
           <Item icon={Compass} label="Take a tour" disabled />
+
+          {workspaces.length > 1 && (
+            <>
+              <Divider />
+              <SectionLabel>Workspace</SectionLabel>
+              {workspaces.map((w) => (
+                <Option
+                  key={w.id}
+                  icon={Building2}
+                  label={switching === w.id ? 'Switching…' : w.name ?? 'Untitled workspace'}
+                  active={w.is_active}
+                  onClick={() => pickWorkspace(w.id)}
+                />
+              ))}
+            </>
+          )}
 
           <Divider />
           <SectionLabel>Sidebar</SectionLabel>

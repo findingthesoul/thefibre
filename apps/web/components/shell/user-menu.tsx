@@ -108,8 +108,10 @@ export function UserMenu({
       // nothing until a new token is issued. refreshSession() re-runs the
       // access-token hook, which stamps the workspace we just chose.
       await browserSupabase().auth.refreshSession();
-      // Then the server components re-read with the new token. A plain
-      // refresh() is enough — everything on the page is derived from it.
+      // Home, not here: whatever is on screen belongs to the workspace being
+      // left, and a record id from one tenant is nothing in another. Refresh
+      // after, so the server components re-read with the new token.
+      router.replace('/dashboard');
       router.refresh();
       setSwitching(null);
       setOpen(false);
