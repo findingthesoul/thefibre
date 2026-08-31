@@ -29,7 +29,7 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const [members, teams, certTemplates, me, categories] = await Promise.all([
+  const [members, teams, certTemplates, me, categories, brand] = await Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
@@ -44,6 +44,11 @@ export default async function ThreadDetailPage({
     apiFetch<{ items: { id: string; name: string; slug: string }[] }>(
       '/api/v1/thread/categories',
     ).catch(() => ({ items: [] as { id: string; name: string; slug: string }[] })),
+    // Only so the registration tab can show what this thread inherits when it
+    // has no note of its own.
+    apiFetch<{ enrolment_note: string | null }>('/api/v1/workspace-brand').catch(() => ({
+      enrolment_note: null,
+    })),
   ]);
 
   // v3 layout: a single centred column, the thread as the main item, the
@@ -61,6 +66,7 @@ export default async function ThreadDetailPage({
         // them but disappear from the picker.
         certTemplates={certTemplates.items.filter((t) => !t.archived_at)}
         personalRoomUrl={me.personal_room_url}
+        workspaceNote={brand.enrolment_note}
       />
     </div>
   );

@@ -2,7 +2,27 @@
 // emails (branding.ts is the SPoT).
 
 import { emailSignoff } from '@thefibre/shared';
-import { shell, escapeHtml } from './templates.js';
+import { shell, escapeHtml, type EmailBrand } from './templates.js';
+
+/**
+ * The organiser's own words, dropped into the platform's email.
+ *
+ * Written by a human in a settings box, so newlines are paragraphs and
+ * everything else is escaped — this is text on its way into HTML, and the
+ * person writing it is not writing markup.
+ */
+function noteHtml(note: string | null | undefined): string {
+  if (!note?.trim()) return '';
+  const paragraphs = note
+    .trim()
+    .split(/\n{2,}/)
+    .map(
+      (para) =>
+        `<p style="margin:0 0 16px;font-size:15px;line-height:1.6;">${escapeHtml(para).replaceAll('\n', '<br />')}</p>`,
+    )
+    .join('');
+  return `<div style="margin:24px 0;padding:20px;border-left:3px solid #e7e5e4;">${paragraphs}</div>`;
+}
 
 export type ThreadEnrolmentEmail = {
   participantName: string;
@@ -24,6 +44,10 @@ export type ThreadEnrolmentEmail = {
     appleUrl: string | null;
     googleUrl: string | null;
   } | null;
+  /** The organiser's own message, if the workspace or thread has one. */
+  note?: string | null;
+  /** The workspace's logo, if it has one. */
+  brand?: EmailBrand | undefined;
 };
 
 // Public emails follow the thread's language (the catalog for the web
@@ -115,6 +139,7 @@ export function engagementMessage(c: {
   title: string;
   bodyText: string; // tokens already substituted; newlines preserved
   threadTitle: string;
+  brand?: EmailBrand | undefined;
 }): { subject: string; text: string; html: string } {
   const subject = c.title;
   const text = `${c.bodyText}\n\n${emailSignoff()}`;
@@ -125,6 +150,7 @@ export function engagementMessage(c: {
       <div style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(c.bodyText)}</div>
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
+    c.brand,
   );
   return { subject, text, html };
 }
@@ -159,6 +185,8 @@ export function enrolmentPending(c: {
   threadTitle: string;
   organiserName: string;
   locale?: string | null;
+  note?: string | null;
+  brand?: EmailBrand | undefined;
 }): { subject: string; text: string; html: string } {
   const loc = c.locale && PENDING_I18N[c.locale] ? c.locale : 'en';
   const L = PENDING_I18N[loc] ?? PENDING_I18N.en!;
@@ -171,14 +199,17 @@ export function enrolmentPending(c: {
     '{name}',
     c.participantName.split(/\s+/)[0] ?? c.participantName,
   );
-  const text = `${hi}\n\n${body}\n\n${emailSignoff()}`;
+  const note = c.note?.trim();
+  const text = `${hi}\n\n${body}\n${note ? `\n${note}\n` : ''}\n${emailSignoff()}`;
   const html = shell(
     c.threadTitle,
     `
       <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${escapeHtml(hi)}</p>
       <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${escapeHtml(body)}</p>
+      ${noteHtml(note)}
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
+    c.brand,
   );
   return { subject, text, html };
 }
@@ -208,11 +239,12 @@ export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   const enrolledLine = L.enrolled.replace('{title}', c.threadTitle).replace('{with}', withPart);
   const startLine = startDate ? L.starts.replace('{date}', startDate) : '';
 
+  const note = c.note?.trim();
   const text = `${hi}
 
 ${enrolledLine}
 ${startLine ? `\n${startLine}\n` : ''}
-${c.intention ? `${c.intention}\n\n` : ''}${c.threadUrl}
+${note ? `${note}\n\n` : ''}${c.intention ? `${c.intention}\n\n` : ''}${c.threadUrl}
 
 ${emailSignoff()}`;
 
@@ -227,6 +259,7 @@ ${emailSignoff()}`;
       <p style="margin:0 0 16px;font-size:15px;">
         ${enrolledHtml}${startLine ? ` ${escapeHtml(startLine)}` : ''}
       </p>
+      ${noteHtml(note)}
       ${
         c.intention
           ? `<p style="margin:0 0 16px;font-size:14px;color:#525252;">${escapeHtml(c.intention)}</p>`
@@ -260,6 +293,7 @@ ${emailSignoff()}`;
       }
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
+    c.brand,
   );
 
   return { subject, text, html };

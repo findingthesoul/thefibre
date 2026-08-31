@@ -31,6 +31,8 @@ export function RegistrationPanel({
   sharePublic: initialSharePublic = false,
   shareParticipants: initialShareParticipants = false,
   requiresApproval: initialRequiresApproval = false,
+  enrolmentNote: initialNote = null,
+  workspaceNote = null,
   onSaved,
 }: {
   threadId: string;
@@ -38,6 +40,10 @@ export function RegistrationPanel({
   sharePublic?: boolean;
   shareParticipants?: boolean;
   requiresApproval?: boolean;
+  /** This thread's own words. Null means it uses the workspace's. */
+  enrolmentNote?: string | null;
+  /** The workspace default, shown so you can see what you are replacing. */
+  workspaceNote?: string | null;
   onSaved?: () => void;
 }) {
   const router = useRouter();
@@ -45,6 +51,11 @@ export function RegistrationPanel({
   const [sharePublic, setSharePublic] = useState(initialSharePublic);
   const [shareParticipants, setShareParticipants] = useState(initialShareParticipants);
   const [requiresApproval, setRequiresApproval] = useState(initialRequiresApproval);
+  // Null and '' are different answers: null inherits the workspace's note, ''
+  // says this thread deliberately adds nothing. A textarea cannot express both,
+  // so the switch carries the distinction.
+  const [ownNote, setOwnNote] = useState(initialNote !== null && initialNote !== undefined);
+  const [note, setNote] = useState(initialNote ?? '');
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -94,6 +105,7 @@ export function RegistrationPanel({
         share_participants_public: sharePublic,
         share_participants_participants: shareParticipants,
         requires_approval: requiresApproval,
+        enrolment_note: ownNote ? note : null,
       });
       if (!r.ok) return setError(r.error);
       setSaved(true);
@@ -230,6 +242,43 @@ export function RegistrationPanel({
               setSaved(false);
             }}
           />
+        </div>
+      </div>
+
+      <div className="mt-8">
+        <SectionLabel>Your words in the enrolment emails</SectionLabel>
+        <p className="mt-2 text-xs text-ink-muted">
+          Shown inside the two emails this thread sends by itself — the one confirming the
+          request arrived, and the one carrying the ticket. Written once, it saves sending a
+          welcome of its own.
+        </p>
+        <div className="mt-3 space-y-3">
+          <SwitchField
+            label={<>Write something just for this thread</>}
+            checked={ownNote}
+            onChange={(v) => {
+              setOwnNote(v);
+              setSaved(false);
+            }}
+          />
+          {ownNote ? (
+            <textarea
+              className={INPUT}
+              rows={6}
+              value={note}
+              placeholder="Welcome — here is what to expect…"
+              onChange={(e) => {
+                setNote(e.target.value);
+                setSaved(false);
+              }}
+            />
+          ) : (
+            <p className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm whitespace-pre-wrap text-ink-subtle">
+              {workspaceNote?.trim()
+                ? workspaceNote
+                : 'The workspace has no note yet — Settings → Emails & defaults sets one for every thread.'}
+            </p>
+          )}
         </div>
       </div>
 

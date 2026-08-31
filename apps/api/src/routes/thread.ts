@@ -16,6 +16,7 @@ import {
   chargeAccountForItem,
   threadDestinationAccount,
 } from '../lib/payment-accounts.js';
+import { getWorkspaceBrand, noteFor } from '../lib/workspace-brand.js';
 import {
   enrolmentConfirmation,
   enrolmentPending,
@@ -335,6 +336,7 @@ const THREAD_SELECT = `
   intention, timezone, cover_url, is_public_listed, requires_approval,
   price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
+  enrolment_note,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -494,6 +496,9 @@ const ThreadUpdate = z.object({
   language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
   public_interaction: z.enum(['page', 'popup']).optional(),
   public_agenda: z.boolean().optional(),
+  // The organiser's own words inside the platform's enrolment emails. Null
+  // inherits the workspace default; '' is "this thread says nothing extra".
+  enrolment_note: z.string().max(4000).nullable().optional(),
   payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).optional(),
   share_participants_public: z.boolean().optional(),
   share_participants_participants: z.boolean().optional(),
@@ -2639,6 +2644,47 @@ async function loadEnrolmentForAction(
   };
 }
 
+// Who this thread's email is from, and what the organiser wanted said in it.
+//
+// One lookup, three answers: the logo for the shell, the sender for the
+// inbox, and the note that goes INSIDE the platform's own enrolment emails —
+// the reason this exists at all. Those two emails ("request received",
+// "you're enrolled" + QR) are compiled in and translated; the note is the
+// organiser's own words, so a welcome no longer needs an email of its own.
+//
+// The note is read from the thread when the caller did not select it, because
+// these send sites all select their own column lists and none of them can be
+// asked to know about this. Null there means inherit the workspace default.
+async function threadEmailIdentity(thread: {
+  id: string;
+  workspace_id: string;
+  enrolment_note?: string | null;
+}): Promise<{
+  note: string | null;
+  brand: { logoUrl: string | null; name: string | null };
+  sender: { fromName?: string; fromAddress?: string; replyTo?: string };
+}> {
+  const brand = await getWorkspaceBrand(thread.workspace_id);
+  let own = thread.enrolment_note;
+  if (own === undefined) {
+    const { data } = await adminClient
+      .from('thread_thread')
+      .select('enrolment_note')
+      .eq('id', thread.id)
+      .maybeSingle();
+    own = (data as { enrolment_note?: string | null } | null)?.enrolment_note ?? null;
+  }
+  return {
+    note: noteFor(own, brand),
+    brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+    sender: {
+      ...(brand.fromName ? { fromName: brand.fromName } : {}),
+      ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+      ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+    },
+  };
+}
+
 async function logEnrolmentActivity(
   workspaceId: string,
   personId: string,
@@ -2720,6 +2766,7 @@ export async function performApproveEnrolment(
 
   if (person.email) {
     try {
+      const identity = await threadEmailIdentity(thread);
       const msg = enrolmentConfirmation({
         participantName: personName,
         threadTitle: program.title,
@@ -2729,8 +2776,10 @@ export async function performApproveEnrolment(
         threadUrl: `${threadAppUrl()}/my`,
         locale: (thread as { language?: string }).language ?? 'en',
         ticket: await emailTicketFor(te.id),
+        note: identity.note,
+        brand: identity.brand,
       });
-      await sendEmail({ to: person.email, ...msg });
+      await sendEmail({ to: person.email, ...msg, ...identity.sender });
     } catch (e) {
       console.warn('[thread/approve] confirmation email failed', e);
     }
@@ -2988,6 +3037,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
 
   if (body.data.notify !== false) {
     try {
+      const identity = await threadEmailIdentity(thread);
       const msg = enrolmentConfirmation({
         participantName: name,
         threadTitle: program.title,
@@ -2997,8 +3047,10 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
         threadUrl: `${threadAppUrl()}/my`,
         locale: (thread as { language?: string }).language ?? 'en',
         ticket: await emailTicketFor(te.id),
+        note: identity.note,
+        brand: identity.brand,
       });
-      await sendEmail({ to: email, ...msg });
+      await sendEmail({ to: email, ...msg, ...identity.sender });
     } catch (e) {
       console.warn('[thread/participants] confirmation email failed', e);
     }
@@ -3205,6 +3257,7 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
 
   if (!person.email || !program) return;
   try {
+    const identity = await threadEmailIdentity(thread);
     const msg = enrolmentConfirmation({
       participantName: personName,
       threadTitle: program.title,
@@ -3214,8 +3267,10 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
       threadUrl: `${threadAppUrl()}/my`,
       locale: (thread as { language?: string }).language ?? 'en',
       ticket: await emailTicketFor(te.id),
+      note: identity.note,
+      brand: identity.brand,
     });
-    await sendEmail({ to: person.email, ...msg });
+    await sendEmail({ to: person.email, ...msg, ...identity.sender });
   } catch (e) {
     console.warn('[thread/paid] confirmation email failed', e);
   }
@@ -5206,13 +5261,16 @@ threadRoutes.post('/public/enrol', async (c) => {
   // on-enrolment messages follow at approval. Non-fatal either way.
   if (thread.requires_approval) {
     try {
+      const identity = await threadEmailIdentity(thread);
       const msg = enrolmentPending({
         participantName: d.name.trim(),
         threadTitle: program.title,
         organiserName: organiser.display_name ?? '',
         locale: (thread as { language?: string }).language ?? 'en',
+        note: identity.note,
+        brand: identity.brand,
       });
-      await sendEmail({ to: email, ...msg });
+      await sendEmail({ to: email, ...msg, ...identity.sender });
     } catch (e) {
       console.warn('[thread/public/enrol] pending email failed', e);
     }
@@ -5229,6 +5287,7 @@ threadRoutes.post('/public/enrol', async (c) => {
 
   // Confirmation email — non-fatal.
   try {
+    const identity = await threadEmailIdentity(thread);
     const msg = enrolmentConfirmation({
       participantName: d.name.trim(),
       threadTitle: program.title,
@@ -5238,8 +5297,10 @@ threadRoutes.post('/public/enrol', async (c) => {
       threadUrl: `${threadAppUrl()}/my`,
       locale: (thread as { language?: string }).language ?? 'en',
       ticket: await emailTicketFor(threadEnrolment.id),
+      note: identity.note,
+      brand: identity.brand,
     });
-    await sendEmail({ to: email, ...msg });
+    await sendEmail({ to: email, ...msg, ...identity.sender });
   } catch (e) {
     console.warn('[thread/public/enrol] confirmation email failed', e);
   }

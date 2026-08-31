@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.17] — 2026-08-31 — whose email is this
+
+An enrolment sent three emails. The first ("request received") and the third
+("you're enrolled", with the QR ticket) are the platform's — compiled in,
+translated into five languages, editable nowhere. The second existed only
+because the other two could not be written in.
+
+And all three arrived branded The Fibre, from The Fibre, for a festival that
+is not The Fibre.
+
+### Added
+- **The organiser's own words, inside the platform's two enrolment emails.**
+  Set once for the workspace at Settings → Emails & defaults, overridable per
+  thread on the Registration tab. Write it and the middle email is no longer
+  needed.
+
+  Null at the thread inherits the workspace's; empty string means this thread
+  deliberately adds nothing. A textarea cannot say both, so the thread carries
+  a switch — the same null-means-inherit shape as payment methods.
+
+  Newlines become paragraphs and everything else is escaped: this is text on
+  its way into HTML, written by someone who is not writing markup.
+
+- **Workspace branding on outgoing email.** `workspace.brand_logo_url` replaces
+  the platform wordmark at the top. The footer links, whitelist hint and legal
+  line stay — those are obligations, not decoration, and remain true whoever
+  the mail looks like it came from.
+
+- **A sender, in two halves with very different costs.** `email_from_name` is
+  free: a mailbox shows the display name, and the address behind it can stay
+  ours, so mail reads as "Festival of Trust" tonight with no setup at all.
+  `email_from_address` needs SPF and DKIM on that domain, verified with Resend.
+  `email_reply_to` is free again — the cheap way to be reachable under your own
+  domain while DNS is pending.
+
+  Set an address before the domain is verified and mail still arrives: the
+  send is retried from the platform address, keeping your name, and the refusal
+  is logged with what to do about it. Losing somebody's ticket to a DNS record
+  is not an acceptable way to find out.
+
+- **`GET/PATCH /api/v1/workspace-brand`** — admin-only, sibling of
+  workspace-billing. Read everywhere through `lib/workspace-brand.ts`.
+
+### Fixed
+- **Settings → Emails & defaults has been writing to nothing since v0.13.x.**
+  `thread_settings.email_from_name` and `email_footer_note` were stored and
+  editable, and no send site ever read them: someone set a sender name, saved
+  it, and every email since went out saying The Fibre. They are now read
+  fallbacks behind the platform values (the payments-SPoT arrangement), so
+  those saves finally mean something. Never written again.
+
 ## [0.19.16] — 2026-08-31 — the tokens, on screen
 
 ### Added

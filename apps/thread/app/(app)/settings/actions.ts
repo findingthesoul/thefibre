@@ -61,6 +61,21 @@ export async function updateWorkspaceSettings(
   }
 }
 
+// How this workspace's email looks and who it comes from. A PLATFORM
+// endpoint, not a Thread one — the same arrangement as Settings → Payments:
+// the value belongs to the workspace, every app's email uses it, and only one
+// of them needs to own the screen. thread_settings.{email_from_name,
+// email_footer_note} are read fallbacks now and are never written again.
+export async function updateWorkspaceBrand(patch: Record<string, unknown>): Promise<Result> {
+  try {
+    await apiFetch('/api/v1/workspace-brand', { method: 'PATCH', body: JSON.stringify(patch) });
+    revalidatePath('/settings/workspace');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Categories (Settings → Categories)
 // ---------------------------------------------------------------------------

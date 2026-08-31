@@ -64,7 +64,17 @@ function cancelUrl(c: Common): string {
 // centred wordmark, white canvas, Help / About / Legal footer, whitelist
 // hint, legal address line. Single source of truth so they look like one
 // product family. Exported so other apps' templates (Thread) share it.
-export function shell(title: string, bodyHtml: string): string {
+/**
+ * `brand` lets a workspace put its own logo at the top. Everything else stays:
+ * the footer links, the whitelist hint and the legal line are the platform's
+ * obligations, not decoration, and they are true of the mail whoever it looks
+ * like it came from.
+ */
+export type EmailBrand = { logoUrl?: string | null; name?: string | null };
+
+export function shell(title: string, bodyHtml: string, brand?: EmailBrand): string {
+  const logoUrl = brand?.logoUrl || BRAND_ASSETS.logoUrl;
+  const logoAlt = brand?.logoUrl ? brand.name || '' : BRAND_ASSETS.logoAlt;
   return `<!doctype html>
 <html lang="en">
 <body style="margin: 0; padding: 0; background: #ffffff; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #171717;">
@@ -72,7 +82,7 @@ export function shell(title: string, bodyHtml: string): string {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
-          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 32px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <img src="${logoUrl}" alt="${escapeHtml(logoAlt)}" width="140" style="display: block; margin: 0 auto 32px; border: 0; outline: none; text-decoration: none; height: auto; max-width: 140px;" />
           <div style="font-size: 12px; letter-spacing: 0.18em; text-transform: uppercase; color: #737373; margin-bottom: 8px;">${escapeHtml(title)}</div>
           <div style="text-align: left;">
             ${bodyHtml}

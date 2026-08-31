@@ -187,6 +187,7 @@ export function ThreadTimeline({
   teams,
   certTemplates,
   personalRoomUrl,
+  workspaceNote = null,
 }: {
   categories?: { id: string; name: string; slug: string }[];
   thread: ThreadRow;
@@ -196,6 +197,8 @@ export function ThreadTimeline({
   teams: TeamOption[];
   certTemplates: { id: string; name: string }[];
   personalRoomUrl: string | null;
+  /** The workspace's enrolment note, so a thread can see what it inherits. */
+  workspaceNote?: string | null;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -654,6 +657,7 @@ export function ThreadTimeline({
               tab={settingsTab}
               onTabChange={setSettingsTab}
               onSaved={closeSettings}
+              workspaceNote={workspaceNote}
             />
           </div>
         </Dialog>
@@ -859,6 +863,7 @@ function SettingsTabs({
   tab,
   onTabChange,
   onSaved,
+  workspaceNote = null,
 }: {
   thread: ThreadRow;
   categories?: { id: string; name: string; slug: string }[];
@@ -870,6 +875,7 @@ function SettingsTabs({
   tab: SettingsTab;
   onTabChange: (t: SettingsTab) => void;
   onSaved?: () => void;
+  workspaceNote?: string | null;
 }) {
   const tabs = [
     { value: 'basics', label: 'Basics' },
@@ -925,6 +931,8 @@ function SettingsTabs({
           sharePublic={thread.share_participants_public ?? false}
           shareParticipants={thread.share_participants_participants ?? false}
           requiresApproval={thread.requires_approval ?? false}
+          enrolmentNote={thread.enrolment_note ?? null}
+          workspaceNote={workspaceNote}
           onSaved={onSaved}
         />
       </div>
