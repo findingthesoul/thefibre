@@ -1,6 +1,7 @@
 // Public certificate page — anyone with the number can verify it.
 // Renders the issue-time snapshot; later template edits never change it.
 
+import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
 import { Linkedin, Printer } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -14,6 +15,36 @@ type CertPayload = {
   issued_at: string;
   template_snapshot: CertSnapshot;
 };
+
+/**
+ * The page title IS the PDF's filename: browsers name a "Save as PDF" after
+ * document.title. So the title is built as name . course . number rather
+ * than something decorative, and a folder of downloads sorts and searches
+ * the way an administrator needs (Sjoerd 2026-09-01).
+ *
+ * Characters that break filenames on some systems are replaced rather than
+ * stripped, so nothing silently runs together.
+ */
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ number: string }>;
+}): Promise<Metadata> {
+  const { number } = await params;
+  try {
+    const cert = await publicFetch<CertPayload>(
+      `/api/v1/thread/public/certificate/${encodeURIComponent(number)}`,
+    );
+    const course = cert.template_snapshot.values?.thread_title ?? '';
+    const safe = (v: string) => v.replace(/[\\/:*?"<>|]/g, '-').trim();
+    const title = [safe(cert.recipient_name), safe(course), safe(cert.certificate_number)]
+      .filter(Boolean)
+      .join(' \u00b7 ');
+    return { title: title || `Certificate ${number}` };
+  } catch {
+    return { title: `Certificate ${number}` };
+  }
+}
 
 export default async function CertificatePage({
   params,

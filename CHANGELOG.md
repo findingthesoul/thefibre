@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.27] — 2026-09-01 — a certificate that names itself
+
+### Added
+- **A saved certificate PDF is named after its holder.** The browser takes a
+  "Save as PDF" filename from the page title, so the title is now
+  `Name · Course · THR-2026-XXXXXX` instead of something decorative — a
+  folder of them sorts and searches the way an administrator needs.
+  Filename-hostile characters are replaced, not stripped.
+
 ## [0.19.26] — 2026-09-01 — show the whole logo
 
 ### Fixed
