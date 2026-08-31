@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.20] — 2026-08-31 — remove it where it is
+
+### Changed
+- **Delete moved onto the element.** A small dark dot with a cross sits on the
+  selected element's top-right corner, the way every design tool does it —
+  instead of a button in the toolbar, far from the thing it deletes. On all
+  three kinds (text/field, image, line); hidden while a text element is being
+  edited. Delete/Backspace still works, and the toolbar is one control
+  lighter.
+
 ## [0.19.19] — 2026-08-31 — the controls come with you
 
 ### Fixed

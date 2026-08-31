@@ -26,6 +26,7 @@ import {
   Plus,
   Share2,
   Trash2,
+  X,
   Type,
 } from 'lucide-react';
 import { ConfirmDialog } from '@/components/ui/dialog';
@@ -429,6 +430,28 @@ export function CertificateBuilder({
   function updateEl(patch: Partial<CertElement>) {
     if (!selectedId) return;
     updateElements(elements.map((el) => (el.id === selectedId ? { ...el, ...patch } : el)));
+  }
+
+  /** The remove handle: a dot on the selected element's corner, the way
+   *  every design tool does it. It replaced a Delete button in the toolbar,
+   *  which sat far from the thing it deleted and read as misplaced (Sjoerd
+   *  2026-08-31). Delete/Backspace still works. */
+  function RemoveHandle() {
+    return (
+      <button
+        type="button"
+        title="Remove this element (or press Delete)"
+        aria-label="Remove this element"
+        onMouseDown={(ev) => ev.stopPropagation()}
+        onClick={(ev) => {
+          ev.stopPropagation();
+          deleteSelected();
+        }}
+        className="absolute -right-2.5 -top-2.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-ink text-white shadow-sm ring-2 ring-white hover:bg-red-600"
+      >
+        <X size={11} strokeWidth={3} />
+      </button>
+    );
   }
 
   /** Grow a textarea to fit its content — see the editing textarea below. */
@@ -906,18 +929,6 @@ export function CertificateBuilder({
           </div>
 
         </div>
-        {/* Delete lives OUTSIDE the scrolling bar. It was inside, pinned
-            right — so with a text element's full set of controls it sat past
-            the scroll edge and read as "there is no way to delete this"
-            (Sjoerd 2026-08-31 asking how). Delete/Backspace does it too. */}
-        <Button
-          variant="danger"
-          size="sm"
-          onClick={deleteSelected}
-          title="Remove this element (or press Delete)"
-        >
-          Delete
-        </Button>
         </div>
       ) : (
         <div className="mt-4 h-[54px] rounded-lg border border-dashed border-line px-4 flex items-center">
@@ -1099,7 +1110,9 @@ export function CertificateBuilder({
                         }}
                         onMouseDown={(e) => onElementMouseDown(e, el.id)}
                         onClick={(e) => e.stopPropagation()}
-                      />
+                      >
+                        {isSelected && <RemoveHandle />}
+                      </div>
                     );
                   }
 
@@ -1120,6 +1133,7 @@ export function CertificateBuilder({
                         onMouseDown={(e) => onElementMouseDown(e, el.id)}
                         onClick={(e) => e.stopPropagation()}
                       >
+                        {isSelected && <RemoveHandle />}
                         {el.src ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
@@ -1155,6 +1169,7 @@ export function CertificateBuilder({
                       onClick={(e) => e.stopPropagation()}
                       onDoubleClick={(e) => onElementDoubleClick(e, el)}
                     >
+                      {isSelected && !isEditing && <RemoveHandle />}
                       {isEditing && el.type === 'text' ? (
                         <textarea
                           autoFocus
