@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.10] — 2026-08-31 — the end follows the beginning
+
+### Fixed
+- **Moving an activity's start date left the end date behind.** Ends was an
+  uncontrolled field with a `min`: picking a new start tightened the
+  constraint but never touched the value, so the dialog would sit there
+  reading "Starts 17 Sept · Ends 2 Sept" until someone noticed. Ends is
+  controlled now and moves with the start, **keeping the gap** — a 7½-hour
+  day stays 7½ hours, a two-day activity stays two days — the same way a
+  thread's engagements shift when the thread's own start date moves. With no
+  end yet (or one stranded before the start) it opens an hour.
+
 ## [0.19.9] — 2026-08-31 — a thread belongs somewhere
 
 Categories, as Sjoerd specified them: made in Settings, scoped to the

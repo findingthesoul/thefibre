@@ -128,8 +128,38 @@ export function EngagementDialog({
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const [dirty, setDirty] = useState(false);
-  // Ends can only follow Starts within the thread window.
+  // Ends can only follow Starts within the thread window — and it MOVES with
+  // it. Ends used to be uncontrolled with a `min`, so picking a new start
+  // tightened the constraint but left the old value sitting there: the dialog
+  // would show "Starts 17 Sept, Ends 2 Sept" until you noticed (Sjoerd
+  // 2026-08-31). Now the gap between them is preserved, the way a thread's
+  // engagements shift when the thread's own start date moves.
   const [startsAt, setStartsAt] = useState<string>(toLocalInput(engagement?.starts_at ?? null));
+  const [endsAt, setEndsAt] = useState<string>(toLocalInput(engagement?.ends_at ?? null));
+
+  /** Local "YYYY-MM-DDTHH:mm" → ms, and back. No timezone maths: these are
+   *  the literal wall-clock strings the inputs speak. */
+  const localMs = (v: string): number | null => {
+    const d = new Date(v);
+    return Number.isNaN(d.getTime()) ? null : d.getTime();
+  };
+  const localStr = (ms: number): string => {
+    const d = new Date(ms);
+    const pad = (n: number) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  };
+  const DEFAULT_SPAN_MS = 60 * 60 * 1000;
+
+  function onStartChange(next: string) {
+    const prevStart = localMs(startsAt);
+    const nextStart = localMs(next);
+    setStartsAt(next);
+    if (!nextStart) return;
+    const end = localMs(endsAt);
+    // Keep the duration when there was one; otherwise open an hour.
+    const span = prevStart && end && end > prevStart ? end - prevStart : DEFAULT_SPAN_MS;
+    setEndsAt(localStr(nextStart + span));
+  }
   // Per-day timing (multi-day activities): a master window fills every day,
   // any day can be overridden (Sjoerd 2026-07-10).
   const initialSched = engagement?.daily_schedule ?? null;
@@ -485,17 +515,18 @@ export function EngagementDialog({
                     <DateTimeField
                       label="Starts"
                       name="starts_at"
-                      defaultValue={toLocalInput(engagement?.starts_at ?? null)}
+                      value={startsAt}
                       min={threadStartsOn}
                       max={threadEndsOn}
-                      onChange={setStartsAt}
+                      onChange={onStartChange}
                     />
                     <DateTimeField
                       label="Ends"
                       name="ends_at"
-                      defaultValue={toLocalInput(engagement?.ends_at ?? null)}
+                      value={endsAt}
                       min={startsAt || threadStartsOn}
                       max={threadEndsOn}
+                      onChange={setEndsAt}
                     />
                   </>
                 ) : (
