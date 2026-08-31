@@ -76,6 +76,7 @@ export function PricingPanel({
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  const [copiedCode, setCopiedCode] = useState<string | null>(null);
   // Free/Paid stays a toggle (Sjoerd): Paid reveals the ticket + code lists.
   const [mode, setMode] = useState<'free' | 'paid' | null>(null);
   // Seed one default discount code the first time the user flips to Paid
@@ -247,19 +248,49 @@ export function PricingPanel({
               );
               return (
                 <li key={c.id}>
-                  <button
-                    type="button"
+                  {/* The row opens the editor; the CODE ITSELF copies to the
+                      clipboard (Sjoerd 2026-08-31) — a discount code exists to
+                      be sent to someone, and retyping it from the screen is
+                      how a typo reaches a customer. A div, not a button: the
+                      code is a real button and buttons cannot nest. */}
+                  <div
+                    role="button"
+                    tabIndex={0}
                     onClick={() => setDialog({ kind: 'coupon', coupon: c })}
-                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-sunken transition-colors"
+                    onKeyDown={(ev) => {
+                      if (ev.key === 'Enter' || ev.key === ' ') {
+                        ev.preventDefault();
+                        setDialog({ kind: 'coupon', coupon: c });
+                      }
+                    }}
+                    className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-sunken transition-colors cursor-pointer"
                   >
                     <TicketPercent
                       size={16}
                       strokeWidth={1.75}
                       className="text-ink-muted shrink-0"
                     />
-                    <span className={`text-sm font-mono ${dim ? 'text-ink-muted' : ''}`}>
-                      {c.code}
-                    </span>
+                    <button
+                      type="button"
+                      title="Copy this code"
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        void navigator.clipboard
+                          .writeText(c.code)
+                          .then(() => {
+                            setCopiedCode(c.id);
+                            setTimeout(() => setCopiedCode(null), 1500);
+                          })
+                          .catch(() => {
+                            /* clipboard blocked — the code is on screen */
+                          });
+                      }}
+                      className={`text-sm font-mono rounded px-1 -mx-1 hover:bg-surface-sunken hover:ring-1 hover:ring-line ${
+                        dim ? 'text-ink-muted' : ''
+                      }`}
+                    >
+                      {copiedCode === c.id ? 'Copied' : c.code}
+                    </button>
                     <span className="text-sm text-ink-subtle">{couponSummary(c)}</span>
                     <span className="ml-auto flex items-center gap-1.5">
                       {scopedTicket && <Chip muted>{scopedTicket.name} only</Chip>}
@@ -277,7 +308,7 @@ export function PricingPanel({
                       {expired && <Chip muted>Expired</Chip>}
                       {!c.is_active && <Chip muted>Inactive</Chip>}
                     </span>
-                  </button>
+                  </div>
                 </li>
               );
             })}

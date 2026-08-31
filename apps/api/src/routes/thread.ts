@@ -701,6 +701,14 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       price_cents: src.price_cents,
       price_currency: src.price_currency,
       payment_destination: src.payment_destination,
+      // Every one of these shipped AFTER this route was written and none was
+      // added to it, so a copy quietly reverted them to column defaults
+      // (Sjoerd 2026-08-31: a duplicated event lost its pricing). If you add
+      // a column to thread_thread that an organiser sets, add it here.
+      payment_methods: src.payment_methods,
+      share_participants_public: src.share_participants_public,
+      share_participants_participants: src.share_participants_participants,
+      public_agenda: src.public_agenda,
       public_interaction: src.public_interaction,
       capacity: src.capacity,
       registration_fields: src.registration_fields,
@@ -716,14 +724,81 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
     return c.json({ error: tErr?.message ?? 'thread failed' }, 500);
   }
 
+  // Tickets. THE pricing: when a thread has tickets they are the source of
+  // truth for its price (effectivePrice takes the lowest active one), so a
+  // copy without them reads "Free" however carefully price_cents was carried
+  // across. This is the bug Sjoerd hit.
+  const { data: srcTickets } = await db
+    .from('thread_ticket')
+    .select('*')
+    .eq('thread_id', src.id)
+    .order('position');
+  for (const t of srcTickets ?? []) {
+    await db.from('thread_ticket').insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: newThread.id,
+      name: t.name,
+      description: t.description,
+      price_cents: t.price_cents,
+      price_currency: t.price_currency,
+      quantity_limit: t.quantity_limit,
+      available_until: t.available_until,
+      payment_methods: t.payment_methods,
+      is_active: t.is_active,
+      position: t.position,
+    });
+  }
+
+  // Discount codes come too — the structure of an offer is part of the event
+  // being repeated. `used_count` is deliberately not carried: the new run
+  // starts its allowance at zero. Codes are unique per thread, so the same
+  // code on both threads is fine.
+  const { data: srcCoupons } = await db
+    .from('thread_coupon')
+    .select('*')
+    .eq('thread_id', src.id);
+  for (const cp of srcCoupons ?? []) {
+    await db.from('thread_coupon').insert({
+      workspace_id: ctx.workspaceId,
+      thread_id: newThread.id,
+      code: cp.code,
+      name: cp.name,
+      type: cp.type,
+      discount_percentage: cp.discount_percentage,
+      discount_amount_cents: cp.discount_amount_cents,
+      usage_limit: cp.usage_limit,
+      expires_at: cp.expires_at,
+      is_early_bird: cp.is_early_bird,
+      early_bird_deadline: cp.early_bird_deadline,
+      is_active: cp.is_active,
+      // ticket_id is deliberately dropped: it points at the SOURCE thread's
+      // ticket. Re-scoping a code to the copy's matching ticket would be
+      // guesswork; workspace-wide is the safe reading.
+    });
+  }
+
+  // Categories — the copy belongs where the original did.
+  const { data: srcCats } = await db
+    .from('thread_thread_category')
+    .select('category_id')
+    .eq('thread_id', src.id);
+  if (srcCats?.length) {
+    await db
+      .from('thread_thread_category')
+      .insert(srcCats.map((r) => ({ thread_id: newThread.id, category_id: r.category_id })));
+  }
+
   // Clone engagements (positions preserved; sends logs NOT copied).
   const { data: engagements } = await db
     .from('thread_engagement')
     .select('*')
     .eq('thread_id', src.id)
     .order('position');
+  // old id → new id, so an event-anchored message can be re-pointed at the
+  // COPY's event rather than left aiming at the original's.
+  const idMap = new Map<string, string>();
   for (const e of engagements ?? []) {
-    await db.from('thread_engagement').insert({
+    const { data: made } = await db.from('thread_engagement').insert({
       workspace_id: ctx.workspaceId,
       thread_id: newThread.id,
       title: e.title,
@@ -734,6 +809,9 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       status: e.status === 'published' ? 'published' : 'draft',
       starts_at: e.starts_at,
       ends_at: e.ends_at,
+      // Per-day times for multi-day activities — added in v0.13.x and never
+      // added here, so a duplicated two-day event lost its daily schedule.
+      daily_schedule: e.daily_schedule,
       location: e.location,
       location_url: e.location_url,
       meeting_url: e.meeting_url,
@@ -747,7 +825,26 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       position: e.position,
       show_in_agenda: e.show_in_agenda,
       created_by: ctx.userId,
-    });
+    })
+      .select('id')
+      .single();
+    if (made) idMap.set(e.id as string, made.id as string);
+  }
+
+  // Second pass: re-anchor the copies at each other. A message set to "1 day
+  // after the opening ceremony" must mean the COPY's ceremony; left as-is it
+  // pointed at the original's, so moving the copy's dates would not move it.
+  for (const e of engagements ?? []) {
+    const anchor = e.trigger_engagement_id as string | null;
+    const mineId = idMap.get(e.id as string);
+    if (!anchor || !mineId) continue;
+    const newAnchor = idMap.get(anchor);
+    if (newAnchor) {
+      await db
+        .from('thread_engagement')
+        .update({ trigger_engagement_id: newAnchor })
+        .eq('id', mineId);
+    }
   }
 
   return c.json({ id: newThread.id }, 201);

@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.13] — 2026-08-31 — a copy that is actually a copy
+
+### Fixed
+- **Duplicating a thread lost its pricing.** Tickets were never copied — and
+  when a thread has tickets they ARE its price (`effectivePrice` takes the
+  lowest active one), so the copy read "Free" no matter how carefully
+  `price_cents` was carried over. Verified against a real €1850/€500 thread:
+  the copy now carries both tickets, limits included.
+- Discount codes come along too, with `used_count` reset — the new run starts
+  its allowance at zero. `ticket_id` scoping is dropped rather than guessed at
+  (it pointed at the source thread's ticket).
+- **Columns that shipped after this route was written and were never added to
+  it**: `payment_methods`, `share_participants_public`,
+  `share_participants_participants`, `public_agenda` — each silently reverted
+  to its column default on every copy. Categories now copy as well.
+- **`daily_schedule`** on engagements: a duplicated two-day event lost its
+  per-day times.
+- **Event-anchored messages are re-anchored to the copy.** A message set to
+  "1 day after the opening ceremony" pointed at the ORIGINAL's ceremony, so
+  moving the copy's dates would not move it. Two-pass insert with an
+  old-id→new-id map.
+
+### Added
+- **Click a discount code to copy it.** The row still opens the editor; the
+  code itself is now its own button — a code exists to be sent to someone,
+  and retyping it off the screen is how a typo reaches a customer.
+
 ## [0.19.12] — 2026-08-31 — the address knows where it is
 
 ### Added
