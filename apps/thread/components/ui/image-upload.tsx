@@ -67,7 +67,7 @@ export function ImageUpload({
           <img
             src={value.trim()}
             alt=""
-            className="h-8 w-8 rounded-md border border-line object-cover bg-surface-sunken"
+            className="h-8 w-8 rounded-md border border-line object-contain bg-surface-sunken p-0.5"
           />
         )}
         <button
@@ -106,10 +106,14 @@ export function ImageUpload({
       {hasValue ? (
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* contain, never cover: cropping a logo to fill the box hides the
+              half someone is checking (Sjoerd 2026-09-01 — his lost its top).
+              Tall enough for a square mark, since plenty of logos are not
+              wide. */}
           <img
             src={value.trim()}
             alt=""
-            className="w-full h-20 rounded-md border border-line object-cover bg-surface-sunken"
+            className="w-full h-28 rounded-md border border-line object-contain bg-surface-sunken p-2"
           />
           <div className="mt-1.5 flex items-center gap-3">
             <button

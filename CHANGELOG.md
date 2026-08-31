@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.26] — 2026-09-01 — show the whole logo
+
+### Fixed
+- **The logo preview cropped the logo.** `object-cover` in a short box filled
+  the frame by cutting the image — a square mark lost its top, which is
+  exactly the half you look at to check the upload worked. It is `contain`
+  now, on a taller frame so a square logo is still legible, with padding so
+  it does not touch the border. Applies to the certificate builder's
+  background and element previews too, which shared the component.
+
 ## [0.19.25] — 2026-09-01 — upload the logo, don't host it first
 
 ### Changed
