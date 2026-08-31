@@ -22,6 +22,27 @@ the queue.
 
 _Last groomed 2026-08-29 (v0.18.17). Done items get removed, not ticked._
 
+**Plans as feature packages (Sjoerd, 2026-08-31 — design first, no code yet).**
+Raised while asking for workspace email branding: "probably we need to make
+packages with functionality per app: free, starter, pro, high end". The column
+already exists — `workspace.plan` ∈ free | starter | pro | enterprise — and
+nothing reads it. Every feature to date has been on for everyone.
+
+What needs deciding BEFORE anything is built, because each answer changes the
+shape of the gate:
+1. Per app or per workspace? Pulse on pro while Thread stays starter is a
+   different data model (`workspace_app.plan`) from one plan for the lot.
+2. What does exceeding a limit DO? Refuse the write, or keep working and show
+   a nudge? A festival mid-enrolment is the wrong place to discover a cap.
+3. Which features are actually plan-shaped? Custom sender domain, certificates,
+   an app key, seats — plausible. Nothing that would make existing workspaces
+   lose something they already use, or the first bill is a betrayal.
+4. Who can change a plan, and does downgrading delete anything? (It must not.)
+
+Read `workspace.plan` in exactly one helper when it lands, the way
+`lib/payment-accounts.ts` and `lib/workspace-brand.ts` do — a plan check
+scattered across routes cannot be reasoned about or changed.
+
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
 `thread.thefibre.app/developers`, and `scripts/verify-public-api.mjs` — run it
