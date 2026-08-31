@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.14] — 2026-08-31 — take it off the certificate, and say the date
+
+### Fixed
+- **You could not remove an element from a certificate template.**
+  `deleteSelected()` had been there since the builder shipped and nothing ever
+  called it. The properties bar now ends in **Remove**, and Delete/Backspace
+  does it too (ignored while a caret is in a field).
+
+### Added
+- **Every token, offered.** The bar named `{recipient_name}` and left the
+  other eight invisible — they all worked, `substituteFields` has handled any
+  `{token}` since the start. A picker now inserts any of them:
+  `{thread_title}`, `{start_date}`, `{end_date}`, `{issue_date}`,
+  `{org_name}`, `{certificate_number}`, `{criteria}`, `{issued_by}`.
+  Unknown tokens still pass through untouched rather than rendering as blanks.
+
 ## [0.19.13] — 2026-08-31 — a copy that is actually a copy
 
 ### Fixed

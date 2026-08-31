@@ -430,6 +430,22 @@ export function CertificateBuilder({
     updateElements(elements.map((el) => (el.id === selectedId ? { ...el, ...patch } : el)));
   }
 
+  // Delete / Backspace removes the selected element — unless the caret is in
+  // a field, where those keys mean what they always mean.
+  useEffect(() => {
+    function onKey(ev: KeyboardEvent) {
+      if (ev.key !== 'Delete' && ev.key !== 'Backspace') return;
+      if (!selectedId || editingId) return;
+      const t = ev.target as HTMLElement | null;
+      const tag = t?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || t?.isContentEditable) return;
+      ev.preventDefault();
+      deleteSelected();
+    }
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  });
+
   function deleteSelected() {
     if (!selectedId) return;
     updateElements(elements.filter((el) => el.id !== selectedId));
@@ -807,14 +823,50 @@ export function CertificateBuilder({
           )}
 
           {selectedEl.type === 'text' && editingId !== selectedEl.id && (
-            <span className="text-xs text-ink-muted italic">
-              Double-click to edit · use{' '}
-              <code className="not-italic rounded bg-surface-sunken px-1 font-mono text-[11px]">
-                {'{recipient_name}'}
-              </code>{' '}
-              tokens
-            </span>
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs text-ink-muted italic whitespace-nowrap">
+                Double-click to edit · insert
+              </span>
+              {/* Every token, not just one example. They all worked already —
+                  substituteFields has since the builder shipped — but the bar
+                  named one, so the other eight were invisible (Sjoerd
+                  2026-08-31 asking for {start_date}). Clicking appends it to
+                  the text. */}
+              <select
+                value=""
+                onChange={(ev) => {
+                  const token = ev.target.value;
+                  if (!token) return;
+                  const cur = selectedEl.content ?? '';
+                  updateEl({ content: cur ? `${cur} {${token}}` : `{${token}}` });
+                  ev.target.value = '';
+                }}
+                className="h-7 rounded-md border border-line bg-surface px-1.5 text-xs outline-none focus:border-ink"
+                title="Insert a token — it becomes the real value on the issued certificate"
+              >
+                <option value="">token…</option>
+                {FIELD_OPTIONS.map((f) => (
+                  <option key={f.field} value={f.field}>
+                    {f.label}
+                  </option>
+                ))}
+              </select>
+            </div>
           )}
+
+          {/* Remove the selected element. deleteSelected() existed from the
+              start but nothing ever called it, so there was no way to take
+              anything off the canvas (Sjoerd 2026-08-31). Delete/Backspace
+              works too, handled on the canvas. */}
+          <button
+            type="button"
+            onClick={deleteSelected}
+            title="Remove this element (Delete)"
+            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 h-7 text-xs text-ink-subtle hover:text-red-700 hover:bg-surface-sunken"
+          >
+            <Trash2 size={14} strokeWidth={1.75} />
+            Remove
+          </button>
 
           <div className="flex items-center gap-1">
             <span className="text-xs text-ink-subtle whitespace-nowrap">Arrange</span>
