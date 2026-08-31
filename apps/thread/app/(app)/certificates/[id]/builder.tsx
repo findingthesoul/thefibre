@@ -36,6 +36,7 @@ import type { TeamOption, WorkspaceMember } from '@/lib/thread-types';
 import {
   FIELD_OPTIONS,
   FONT_OPTIONS,
+  SAMPLE_VALUES,
   PAGE_ASPECT,
   elFontStyle,
   generateElementId,
@@ -680,7 +681,8 @@ export function CertificateBuilder({
       {selectedEl ? (
         // Fixed height + horizontal scroll: selecting an element must never
         // shift the canvas below (Sjoerd 2026-07-02).
-        <div className="mt-4 h-[54px] rounded-lg border border-line bg-surface-raised px-4 flex flex-nowrap items-center gap-x-5 overflow-x-auto overflow-y-hidden">
+        <div className="mt-4 flex items-stretch gap-3">
+        <div className="h-[54px] min-w-0 flex-1 rounded-lg border border-line bg-surface-raised px-4 flex flex-nowrap items-center gap-x-5 overflow-x-auto overflow-y-hidden">
           {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
             <>
               <div className="flex items-center gap-2">
@@ -861,20 +863,6 @@ export function CertificateBuilder({
             </div>
           )}
 
-          {/* Remove the selected element. deleteSelected() existed from the
-              start but nothing ever called it, so there was no way to take
-              anything off the canvas (Sjoerd 2026-08-31). Delete/Backspace
-              works too, handled on the canvas. */}
-          <button
-            type="button"
-            onClick={deleteSelected}
-            title="Remove this element (Delete)"
-            className="ml-auto inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 h-7 text-xs text-ink-subtle hover:text-red-700 hover:bg-surface-sunken"
-          >
-            <Trash2 size={14} strokeWidth={1.75} />
-            Remove
-          </button>
-
           <div className="flex items-center gap-1">
             <span className="text-xs text-ink-subtle whitespace-nowrap">Arrange</span>
             <button
@@ -911,11 +899,19 @@ export function CertificateBuilder({
             </button>
           </div>
 
-          <div className="ml-auto">
-            <Button variant="danger" size="sm" onClick={deleteSelected}>
-              Delete
-            </Button>
-          </div>
+        </div>
+        {/* Delete lives OUTSIDE the scrolling bar. It was inside, pinned
+            right — so with a text element's full set of controls it sat past
+            the scroll edge and read as "there is no way to delete this"
+            (Sjoerd 2026-08-31 asking how). Delete/Backspace does it too. */}
+        <Button
+          variant="danger"
+          size="sm"
+          onClick={deleteSelected}
+          title="Remove this element (or press Delete)"
+        >
+          Delete
+        </Button>
         </div>
       ) : (
         <div className="mt-4 h-[54px] rounded-lg border border-dashed border-line px-4 flex items-center">
@@ -942,6 +938,47 @@ export function CertificateBuilder({
                 </button>
               ))}
             </div>
+          </div>
+
+          {/* Every token, on screen. The dropdown in the properties bar can
+              insert them, but only while a text element is selected — and a
+              list you can read beats a list you must go looking for (Sjoerd
+              2026-08-31). Shows the literal token, what it means, and what it
+              becomes. Click to insert into the selected text element. */}
+          <div>
+            <SectionLabel>Tokens</SectionLabel>
+            <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
+              Type these into any text element — they become the real value on
+              each issued certificate.
+            </p>
+            <ul className="mt-2 space-y-1">
+              {FIELD_OPTIONS.map(({ field, label }) => {
+                const insertable = selectedEl?.type === 'text';
+                return (
+                  <li key={field}>
+                    <button
+                      type="button"
+                      disabled={!insertable}
+                      title={
+                        insertable
+                          ? `Insert {${field}} into the selected text`
+                          : 'Select a text element to insert this'
+                      }
+                      onClick={() => {
+                        const cur = selectedEl?.content ?? '';
+                        updateEl({ content: cur ? `${cur} {${field}}` : `{${field}}` });
+                      }}
+                      className="w-full rounded-md border border-line px-2.5 py-1.5 text-left transition-colors enabled:hover:border-line-strong enabled:hover:bg-surface-sunken disabled:cursor-default"
+                    >
+                      <span className="block font-mono text-[11px] text-ink">{`{${field}}`}</span>
+                      <span className="block text-[11px] text-ink-subtle">
+                        {label} · <span className="italic">{SAMPLE_VALUES[field] ?? ''}</span>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
 
           <div>

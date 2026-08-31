@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.16] — 2026-08-31 — the tokens, on screen
+
+### Added
+- **A Tokens panel in the certificate builder's left column** — all nine, each
+  showing the literal token, what it means, and what it becomes
+  (`{start_date}` · Start date · *8 Aug 2026*). Click one to insert it into
+  the selected text element. A list you can read beats a list you have to go
+  looking for.
+
+### Fixed
+- **Delete moved out of the scrolling properties bar.** It has been there
+  since v0.13.68, pinned right — but the bar scrolls horizontally, so with a
+  text element's full set of controls it sat past the scroll edge and read as
+  "there is no way to delete this". It is now outside the scroll area,
+  always visible. (Correcting the previous entry: the control existed; it was
+  unreachable, not absent. The duplicate "Remove" added in 0.19.14 is gone;
+  the Delete/Backspace shortcut stays.)
+
 ## [0.19.15] — 2026-08-31 — the box fits the words
 
 ### Fixed
