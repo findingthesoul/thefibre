@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { updateWorkspaceBrand } from '../actions';
 import { TextField, TextAreaField } from '@/components/ui/field';
+import { ImageUpload } from '@/components/ui/image-upload';
 import { Button } from '@/components/ui/button';
 import type { WorkspaceBrand } from './page';
 
@@ -26,6 +27,10 @@ export function WorkspaceForm({ brand }: { brand: WorkspaceBrand }) {
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, startTransition] = useTransition();
+  // The logo is uploaded, not typed. Most organisers have a PNG on their
+  // machine, not a public URL — asking for a URL meant finding somewhere to
+  // host it first (Sjoerd 2026-09-01). Pasting one still works.
+  const [logoUrl, setLogoUrl] = useState(brand.brand_logo_url ?? '');
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -35,7 +40,7 @@ export function WorkspaceForm({ brand }: { brand: WorkspaceBrand }) {
     const str = (k: string) => String(fd.get(k) ?? '').trim() || null;
     startTransition(async () => {
       const r = await updateWorkspaceBrand({
-        brand_logo_url: str('brand_logo_url'),
+        brand_logo_url: logoUrl.trim() || null,
         email_from_name: str('email_from_name'),
         email_from_address: str('email_from_address'),
         email_reply_to: str('email_reply_to'),
@@ -60,13 +65,17 @@ export function WorkspaceForm({ brand }: { brand: WorkspaceBrand }) {
       </section>
 
       <section className="space-y-6 border-t border-line pt-8">
-        <TextField
-          label="Logo"
-          name="brand_logo_url"
-          defaultValue={brand.brand_logo_url ?? ''}
-          placeholder="https://…/logo.png"
-          hint="Shown at the top of every email from this workspace, in place of The Fibre's. A public URL, about 280px wide."
-        />
+        <div>
+          <span className="text-sm text-ink-subtle">Logo</span>
+          <div className="mt-1 max-w-sm">
+            <ImageUpload
+              value={logoUrl}
+              onChange={setLogoUrl}
+              buttonLabel="Upload a logo"
+              hint="Shown at the top of every email from this workspace, in place of The Fibre's. About 280px wide."
+            />
+          </div>
+        </div>
         <TextField
           label="Sender name"
           name="email_from_name"

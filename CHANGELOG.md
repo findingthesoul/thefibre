@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.25] — 2026-09-01 — upload the logo, don't host it first
+
+### Changed
+- **Settings → Emails & defaults takes a logo upload.** It asked for a public
+  URL, which meant finding somewhere to host a PNG before you could brand an
+  email. Pick the file; pasting a URL still works for anyone who already has
+  one.
+- `ImageUpload` moved out of the certificate builder into
+  `components/ui/image-upload.tsx` — extracted the first time a second screen
+  needed it, rather than copied. The DateField copies that drifted
+  (v0.13.104) are why.
+
 ## [0.19.24] — 2026-09-01 — the plans mean something
 
 `docs/pricing-proposal.md`, decided: Free · Starter €19 · Pro €49 ·
