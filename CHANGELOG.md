@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.4] — 2026-08-31 — the person field is a search field
+
+Linking a person to an organisation, or enrolling one in a programme, meant
+picking from a dropdown of the first hundred contacts. Both halves of that fail
+as a workspace fills up: a hundred names is not a list you read, and contact
+101 was not offered at all — the person you wanted could be missing with
+nothing on screen to say so.
+
+### Changed
+- **`PersonCombobox`** replaces the person `<select>` in the organisation's
+  Add member dialog and the programme's Enrol dialog. Type a name; it queries
+  `/persons?q=` after a 200ms pause and lists matches with their email beside
+  them. Arrow keys and Enter work, as in the country picker it is shaped after.
+
+  It shows the page's first twenty contacts before you type, so picking a
+  recent one is still a single click and the field is never empty.
+
+  Search runs on the API under the caller's own RLS, so a picker can never
+  surface somebody its user could not already see. Out-of-order replies are
+  dropped rather than applied: without that guard a slow "ma" can land after a
+  fast "marja" and quietly replace the results you are looking at.
+
+  Typing after a pick clears the pick. The alternative — leaving the id set
+  while the text says something else — submits a person nobody chose.
+
+  Members already linked are excluded by id, which the page now passes down
+  rather than pre-filtering its list: a name typed in has to be filtered too,
+  not only a seeded one.
+
 ## [0.19.3] — 2026-08-30 — a seat can be moved to the right address
 
 An invite goes to an address, and a workspace membership IS that address: a row

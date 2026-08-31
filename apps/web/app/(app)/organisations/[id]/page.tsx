@@ -62,9 +62,12 @@ export default async function OrganisationOverview({
     // Non-fatal.
   }
   try {
-    const data = await apiFetch<{ items: PersonOption[] }>(`/api/v1/persons?limit=100`);
-    const memberIds = new Set(members.map((m) => m.person.id));
-    people = data.items.filter((p) => !memberIds.has(p.id));
+    // The first page only — what the picker shows before you type. Searching
+    // past it is the picker's job now, so this no longer has to be the whole
+    // contact list, and the members already linked are excluded there rather
+    // than here (a name typed in must be filtered too, not just a seeded one).
+    const data = await apiFetch<{ items: PersonOption[] }>(`/api/v1/persons?limit=20`);
+    people = data.items;
   } catch {
     // Non-fatal.
   }
@@ -113,7 +116,7 @@ export default async function OrganisationOverview({
       <section className="mt-12">
         <div className="flex items-center justify-between">
           <SectionLabel>Members</SectionLabel>
-          <AddMemberButton orgId={org.id} people={people} />
+          <AddMemberButton orgId={org.id} people={people} exclude={members.map((m) => m.person.id)} />
         </div>
         {members.length === 0 ? (
           <EmptyState>No members linked yet. Click Add member to link a contact.</EmptyState>

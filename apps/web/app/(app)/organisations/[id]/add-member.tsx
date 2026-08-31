@@ -6,6 +6,7 @@ import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
+import { PersonCombobox } from '@/components/ui/person-combobox';
 import { DateField } from '@/components/ui/date-field';
 import { addMember, type ActionResult } from './member-actions';
 
@@ -32,7 +33,16 @@ const INFLUENCE = [
   { value: 'both', label: 'Both' },
 ];
 
-export function AddMemberButton({ orgId, people }: { orgId: string; people: PersonOption[] }) {
+export function AddMemberButton({
+  orgId,
+  people,
+  exclude = [],
+}: {
+  orgId: string;
+  people: PersonOption[];
+  /** Already members — not offered again, seeded or searched. */
+  exclude?: string[];
+}) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -51,17 +61,6 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
       }
     });
   }
-
-  const personOptions = [
-    { value: '', label: '— Select person —' },
-    ...people.map((p) => ({
-      value: p.id,
-      label:
-        [p.first_name, p.last_name].filter(Boolean).join(' ') ||
-        p.email ||
-        p.id.slice(0, 8),
-    })),
-  ];
 
   return (
     <>
@@ -91,11 +90,12 @@ export function AddMemberButton({ orgId, people }: { orgId: string; people: Pers
       >
         <form id="add-member-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="md:col-span-2">
-            <SelectField
+            <PersonCombobox
               label="Person"
               name="person_id"
               required
-              options={personOptions}
+              people={people}
+              exclude={exclude}
               errors={state.fieldErrors?.person_id}
             />
           </div>

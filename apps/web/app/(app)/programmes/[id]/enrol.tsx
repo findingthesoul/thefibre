@@ -6,6 +6,7 @@ import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { SelectField } from '@/components/ui/field';
+import { PersonCombobox } from '@/components/ui/person-combobox';
 import { enrolPerson, type ActionResult } from '../actions';
 
 export type PersonOption = {
@@ -28,17 +29,6 @@ export function EnrolButton({ programmeId, people }: { programmeId: string; peop
   const [state, setState] = useState<ActionResult>({});
   const [personId, setPersonId] = useState('');
   const [status, setStatus] = useState('invited');
-
-  const options = [
-    { value: '', label: '— Select person —' },
-    ...people.map((p) => ({
-      value: p.id,
-      label:
-        [p.first_name, p.last_name].filter(Boolean).join(' ') ||
-        p.email ||
-        p.id.slice(0, 8),
-    })),
-  ];
 
   function doEnrol() {
     if (!personId) {
@@ -81,7 +71,7 @@ export function EnrolButton({ programmeId, people }: { programmeId: string; peop
         }
       >
         <div className="space-y-4">
-          <SelectField label="Person" name="person_id" required options={options} value={personId} onChange={(e) => setPersonId(e.target.value)} />
+          <PersonCombobox label="Person" name="person_id" required people={people} value={personId} onChange={setPersonId} />
           <SelectField label="Initial status" name="status" options={STATUSES} value={status} onChange={(e) => setStatus(e.target.value)} />
           {state.error && (
             <div className="rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">{state.error}</div>
