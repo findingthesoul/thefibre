@@ -1,7 +1,7 @@
 # Pricing — a proposal
 
 **Status:** proposal, 2026-08-31. Nothing built. **Prices set by Sjoerd
-2026-08-31: Starter €14, Pro €39.** The rest of this argues for a shape and
+2026-08-31: Starter €19, Pro €49.** The rest of this argues for a shape and
 shows what it costs to run.
 
 Sjoerd's constraints, taken as fixed:
@@ -71,8 +71,8 @@ Prices ex-VAT, per workspace per month. Annual: two months free.
 
 | | **Free** | **Starter** | **Pro** | **Enterprise** |
 |---|---|---|---|---|
-| Price | €0 | **€14** | **€39** | talk to us |
-| Annual (2 months free) | €0 | €140/yr | €390/yr | — |
+| Price | €0 | **€19** | **€49** | talk to us |
+| Annual (2 months free) | €0 | €190/yr | €490/yr | — |
 | Organisers | 1 | 5 | unlimited | unlimited |
 | Contacts | 250 | unlimited | unlimited | unlimited |
 | **Meet** | ✓ | ✓ | ✓ | ✓ |
@@ -97,12 +97,12 @@ like customers who never pay.
 
 ### Why these numbers
 
-**€14 Starter.** Below the threshold where an organisation convenes a meeting
+**€19 Starter.** Below the threshold where an organisation convenes a meeting
 about it — the kind of number a treasurer approves without an agenda item. The
 competition at that price is not another product, it is Mailchimp plus
 Eventbrite plus a spreadsheet, which costs more and does less.
 
-**€39 Pro.** Flow and Pulse are what you reach for when the work is continuous
+**€49 Pro.** Flow and Pulse are what you reach for when the work is continuous
 rather than one event a year — the point at which someone is running an
 operation rather than an occasion. Roughly the price of one hour of the
 bookkeeping Pulse replaces.
@@ -113,17 +113,17 @@ and wrong in the flattering direction: 2% of €2,500 is €50, nowhere near a
 year of Pro. The cap is per ticket, so the honest sum is per ticket too. On
 €80 tickets: Free costs €1.60 each, Starter €0.80, Pro nothing.
 
-| Tickets a year, at €80 | Free | Starter €14 | Pro €39 |
+| Tickets a year, at €80 | Free | Starter €19 | Pro €49 |
 |---|---|---|---|
-| 100 | €160 | €248 | €468 |
-| 400 | €640 | €488 | €468 |
-| 1,000 | €1,600 | €968 | €468 |
+| 100 | €160 | €308 | €588 |
+| 400 | €640 | €548 | €588 |
+| 1,000 | €1,600 | €1,028 | €588 |
 
-Which says something better than a sales line: **below roughly 250 tickets a
-year, Free is genuinely the cheapest place to be**, and it should be — that is
-the community group running one gathering. Around 300–500 tickets Starter wins.
-Past that Pro is cheaper than the fee it removes, and the organiser can check
-that themselves on the back of an envelope.
+Which says something better than a sales line. **Below about 285 tickets a
+year, Free is genuinely the cheapest place to be** — and it should be; that is
+the community group running one gathering. From there to roughly 450, Starter
+wins. Past 450 Pro costs less than the fee it removes, and the organiser can
+check that on the back of an envelope.
 
 So Pro is sold by Flow, Pulse and designing your own threads. The fee ladder is
 a nudge at the edges, not the argument.
@@ -173,12 +173,12 @@ invoices before quoting them):
 | Domains | ~2 |
 | **Fixed floor** | **~€75** |
 
-**Break-even is six Starter customers, or two Pro.** Everything above that is
+**Break-even is four Starter customers, or two Pro.** Everything above that is
 close to margin, because the marginal cost of one more workspace is a few
 database rows and its own email.
 
 That is the real argument for constraint 5. The cost of building this yourself
-is not €14 a month, it is a developer — and the person who says "I'll just
+is not €19 a month, it is a developer — and the person who says "I'll just
 build it" is comparing against a price low enough that the comparison is
 embarrassing.
 
@@ -236,7 +236,7 @@ per-seat model and its app list are the parts to ignore.
 ## What I need decided
 
 1. **Per workspace, or per seat?** Everything above assumes per workspace.
-2. ~~€19 / €49~~ — **settled: €14 / €39** (2026-08-31).
+2. ~~open~~ — **settled: €19 / €49** (2026-08-31).
 3. **Does Starter really waive most of the fee?** 1% capped at €1 is generous.
    The alternative is Starter at 2% and only Pro waiving it, which pushes
    harder toward Pro.
