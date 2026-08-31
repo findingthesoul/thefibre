@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
+import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { SectionLabel } from '@/components/ui/page';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
@@ -24,25 +25,6 @@ export type GeneratorTeam = { id: string; name: string };
 
 type Kind = 'list' | 'thread' | 'card' | 'enrol';
 
-// The full element reference — every te-* class the embeds render, with
-// the default look spelled out. Integrators change values, not selectors.
-export const DEFAULT_EMBED_CSS = `/* The Thread embed — all elements. Paste INSIDE the embed element;
-   it only affects this embed (and its popup), never your page. */
-.te-card        { background: #ffffff; border: 1px solid #e5e5e2; border-radius: 12px; }
-.te-cover       { border-radius: 12px; }
-.te-kicker      { color: #8a8a86; letter-spacing: .08em; }         /* EVENT / JOURNEY */
-.te-title       { color: #1a1a17; font-size: 20px; }
-.te-intention   { color: #55554f; }
-.te-meta        { color: #8a8a86; }                                 /* dates · price */
-.te-price       { color: #1a1a17; }
-.te-label       { color: #8a8a86; }                                 /* section headings */
-.te-list        { }                                                 /* the list wrapper */
-.te-agenda      { }
-.te-agenda-item { }
-.te-enrol       { }                                                 /* the enrol card */
-.te-input       { border: 1px solid #e5e5e2; border-radius: 6px; }
-.te-button      { background: #1a1a17; color: #ffffff; border-radius: 6px; }
-`;
 
 const ELEMENTS = [
   { key: 'cover', label: 'Cover image' },

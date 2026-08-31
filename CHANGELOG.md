@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.8] — 2026-08-31 — a string, not a proxy
+
+### Fixed
+- **Settings → Website embeds 500'd in production** ("Application error",
+  digest only). `DEFAULT_EMBED_CSS` lived in embed-generator.tsx — a
+  `'use client'` module — and every export of a client module reaches a
+  Server Component as a client-reference proxy, not the value. The page
+  calls `.split('\n')` on it during SSR; on the proxy that throws. The
+  constant now lives in its own server-safe module
+  (`default-embed-css.ts`), imported by both sides as a plain string.
+
 ## [0.19.7] — 2026-08-31 — the event on your own website
 
 Website integration, both places Sjoerd named.

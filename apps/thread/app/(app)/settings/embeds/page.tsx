@@ -9,10 +9,13 @@ import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
 import {
   EmbedGenerator,
-  DEFAULT_EMBED_CSS,
   type GeneratorThread,
   type GeneratorTeam,
 } from './embed-generator';
+// From its own server-safe module — never from the client module above:
+// a 'use client' export reaches a Server Component as a proxy, and calling
+// .split on the proxy was exactly the production 500 this page had.
+import { DEFAULT_EMBED_CSS } from './default-embed-css';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
