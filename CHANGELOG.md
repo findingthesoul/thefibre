@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.15] — 2026-08-31 — the box fits the words
+
+### Fixed
+- **A text element shrank when you started editing it** in the certificate
+  builder. Reading, it was a div that grew to its content; editing, it became
+  a `rows={3}` textarea with `overflow: hidden` — so anything longer than
+  three lines collapsed on double-click, and what you typed past that was
+  clipped out of sight. The textarea now grows to fit, so editing looks like
+  the certificate will.
+
 ## [0.19.14] — 2026-08-31 — take it off the certificate, and say the date
 
 ### Fixed

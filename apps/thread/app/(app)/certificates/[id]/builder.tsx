@@ -430,6 +430,13 @@ export function CertificateBuilder({
     updateElements(elements.map((el) => (el.id === selectedId ? { ...el, ...patch } : el)));
   }
 
+  /** Grow a textarea to fit its content — see the editing textarea below. */
+  function autoGrow(node: HTMLTextAreaElement | null) {
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${node.scrollHeight}px`;
+  }
+
   // Delete / Backspace removes the selected element — unless the caret is in
   // a field, where those keys mean what they always mean.
   useEffect(() => {
@@ -1108,7 +1115,17 @@ export function CertificateBuilder({
                         <textarea
                           autoFocus
                           value={el.content ?? ''}
-                          onChange={(e) => updateEl({ content: e.target.value })}
+                          // Grow with the text. rows={3} + overflow:hidden
+                          // meant a longer text SHRANK to three lines the
+                          // moment you double-clicked into it, and everything
+                          // typed past that was clipped out of sight (Sjoerd
+                          // 2026-08-31). The box now matches its content, so
+                          // editing looks like the certificate does.
+                          ref={autoGrow}
+                          onChange={(e) => {
+                            autoGrow(e.currentTarget);
+                            updateEl({ content: e.target.value });
+                          }}
                           onBlur={() => setEditingId(null)}
                           onKeyDown={(e) => {
                             if (e.key === 'Escape') setEditingId(null);
@@ -1123,7 +1140,7 @@ export function CertificateBuilder({
                             minHeight: '1.5em',
                             overflow: 'hidden',
                           }}
-                          rows={3}
+                          rows={1}
                         />
                       ) : (
                         <div className="whitespace-pre-wrap break-words" style={elFontStyle(el)}>
