@@ -11,7 +11,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
-import { forgetAllPlans } from '../lib/plan.js';
+import { forgetAllPlans, sortPlans } from '../lib/plan.js';
 import { isSuperAdminUser } from '../lib/super-admin.js';
 
 export const adminPlansRoutes = new Hono();
@@ -44,7 +44,7 @@ adminPlansRoutes.get('/', async (c) => {
   }
 
   return c.json({
-    plans: (plans ?? []).map((p) => ({
+    plans: sortPlans(plans ?? []).map((p) => ({
       ...p,
       workspaces: counts[p.id] ?? { total: 0, comped: 0 },
     })),

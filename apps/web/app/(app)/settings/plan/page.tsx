@@ -2,6 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel, EmptyState } from '@/components/ui/page';
 import { ENTITY } from '@thefibre/shared';
 import { FEATURE_GROUPS, eur, feePhrase, type CataloguePlan } from '@/lib/plans';
+import { UpgradePanel } from './upgrade';
 
 // Settings → Plan — the page every needsPlan() refusal has pointed at since
 // the gates landed ("Settings → Plan has the details"). Three answers in one
@@ -32,6 +33,13 @@ type PlanPayload = {
   };
   usage: { seats_used: number; emails_this_month: number; emails_included: number | null };
   catalogue: CataloguePlan[];
+  billing?: {
+    available: boolean;
+    subscribed: boolean;
+    interval: string | null;
+    current_period_end: string | null;
+    cancel_at_period_end: boolean;
+  };
 };
 
 export default async function PlanPage() {
@@ -52,7 +60,15 @@ export default async function PlanPage() {
     );
   }
 
-  const { plan, usage, catalogue } = data;
+  const { plan, usage, catalogue, billing } = data;
+  const renewLine =
+    billing?.subscribed && billing.current_period_end
+      ? `${billing.cancel_at_period_end ? 'Ends' : 'Renews'} ${new Date(
+          billing.current_period_end,
+        ).toLocaleDateString('en-GB', { dateStyle: 'medium' })}${
+          billing.interval ? ` · billed ${billing.interval}` : ''
+        }`
+      : null;
 
   return (
     <PageContainer max="4xl">
@@ -89,15 +105,32 @@ export default async function PlanPage() {
                         ? ` · ${eur(plan.effective_price_cents_year)} per year (two months free)`
                         : ''
                     }.`}
+              {renewLine ? ` ${renewLine}.` : ''}
             </p>
           </div>
           <a
             href={`mailto:${ENTITY.whitelistEmail}?subject=${encodeURIComponent('Changing our Fibre plan')}`}
             className="rounded-md border border-line px-4 py-2 text-sm hover:bg-surface-sunken"
           >
-            Talk to us about changing plan
+            Talk to us
           </a>
         </div>
+
+        {billing?.available && (
+          <UpgradePanel
+            currentPlanId={plan.id}
+            comped={plan.comped}
+            subscribed={billing.subscribed}
+            targets={catalogue
+              .filter((p) => p.id !== 'org')
+              .map((p) => ({
+                id: p.id,
+                name: p.name,
+                price_cents_month: p.price_cents_month,
+                price_cents_year: p.price_cents_year,
+              }))}
+          />
+        )}
 
         {/* Usage ------------------------------------------------------ */}
         <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 text-sm sm:grid-cols-3">

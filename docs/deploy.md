@@ -128,13 +128,19 @@ No deploy needed — the project is already running. Two things to keep in sync:
 
 ## Stripe (payments)
 
-Two webhook endpoints must exist in the Stripe dashboard (Developers →
+Three webhook endpoints must exist in the Stripe dashboard (Developers →
 Webhooks), each with its own signing secret set on Fly:
 
 | Endpoint | Events | Fly secret |
 |---|---|---|
 | `https://thefibre-api.fly.dev/api/v1/meet/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired`, `payment_intent.payment_failed` | `STRIPE_WEBHOOK_SECRET` |
 | `https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook` | `checkout.session.completed`, `checkout.session.expired` | `STRIPE_THREAD_WEBHOOK_SECRET` (falls back to `STRIPE_WEBHOOK_SECRET` if shared) |
+| `https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook` | `checkout.session.completed`, `customer.subscription.updated`, `customer.subscription.deleted`, `invoice.paid`, `invoice.payment_failed` | `STRIPE_BILLING_WEBHOOK_SECRET` (no fallback — deliberate) |
+
+The billing endpoint is the workspace's own Fibre subscription (platform
+account, Solidarity Lab). Also run `node apps/api/scripts/sync-stripe-plans.mjs`
+once after prices change — it creates the Products/Prices and writes their ids
+onto `billing_plan`; checkout 503s until it has run.
 
 `STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per
 person/workspace in Settings → Payments (the platform SPoT:

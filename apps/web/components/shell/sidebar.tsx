@@ -17,6 +17,7 @@ import {
   Boxes,
   Layers,
   Receipt,
+  TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
 import type { SidebarMode } from '@/lib/prefs-shared';
@@ -159,6 +160,7 @@ function NavSections({
                     { href: '/admin/access-requests', label: 'Access requests', icon: UserCheck },
                     { href: '/admin/workspaces', label: 'Workspaces', icon: Layers },
                     { href: '/admin/plans', label: 'Plans', icon: Receipt },
+                    { href: '/admin/economics', label: 'Economics', icon: TrendingUp },
                     { href: '/admin/apps', label: 'App registry', icon: Boxes },
                   ]
                 : []),

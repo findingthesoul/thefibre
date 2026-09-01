@@ -91,6 +91,23 @@ export function forgetAllPlans(): void {
   cache.clear();
 }
 
+/**
+ * The order every catalogue renders in. Sorting by price puts Enterprise
+ * (priced 0 because it is a conversation) before Free; this is the honest
+ * ladder. Unknown ids sort after, by price.
+ */
+const PLAN_ORDER = ['free', 'starter', 'pro', 'org'];
+export function sortPlans<T extends { id: string; price_cents_month?: number | null }>(
+  rows: T[],
+): T[] {
+  return [...rows].sort((a, b) => {
+    const ai = PLAN_ORDER.indexOf(a.id);
+    const bi = PLAN_ORDER.indexOf(b.id);
+    if (ai !== -1 || bi !== -1) return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    return (a.price_cents_month ?? 0) - (b.price_cents_month ?? 0);
+  });
+}
+
 export async function planFor(workspaceId: string): Promise<Plan> {
   if (!workspaceId) return UNKNOWN;
   const hit = cache.get(workspaceId);

@@ -122,6 +122,9 @@ const PUBLIC_PREFIXES = [
   // + its Stripe webhook (signature-verified inside the handler).
   '/api/v1/thread/public/',
   '/api/v1/thread/stripe-webhook',
+  // Platform-subscription webhook (routes/billing.ts) — signature-verified
+  // inside the handler with its own secret.
+  '/api/v1/billing/stripe-webhook',
 ];
 
 // ---------------------------------------------------------------------------

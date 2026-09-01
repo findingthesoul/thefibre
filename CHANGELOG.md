@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.21.0] — 2026-09-01 — the subscription itself, and the operator's ledger
+
+Productisation slices 2 + 3 (docs/productisation-proposal.md). Slice 1 gave
+the plans their surfaces; this makes them chargeable, and gives the operator
+somewhere to look.
+
+### Added
+- **Stripe Billing** (`routes/billing.ts`) — the workspace's own Fibre
+  subscription, on the PLATFORM Stripe account, fully separate from Connect:
+  - `POST /api/v1/billing/checkout` — subscription-mode Checkout (admin+).
+    Tailored prices ride as inline `price_data` on the plan's Product; VAT id
+    collection + promotion codes on. Comped workspaces are refused politely;
+    a live subscription is redirected to the portal.
+  - `POST /api/v1/billing/portal` — Stripe's hosted portal (card, plan
+    switches, cancellation, invoice history).
+  - `POST /api/v1/billing/stripe-webhook` — its OWN secret
+    (`STRIPE_BILLING_WEBHOOK_SECRET`, no fallback). Drives
+    `workspace_subscription`; **every paid subscription invoice lands in the
+    purchase ledger under `fibre-platform`**, so a workspace sees its Fibre
+    invoices on the same Invoices page as everything else, and Pulse's settle
+    loop can see them. A canceled subscription moves status, never features —
+    what a lapsed plan may DO is a later, deliberate decision.
+  - `scripts/sync-stripe-plans.mjs` — one Product per plan, monthly + yearly
+    Prices, ids written onto `billing_plan`
+    (migration `20260901200000`). Checkout 503s until run.
+  - Settings → Plan grew the money buttons: upgrade (monthly/yearly per
+    package) when Stripe is configured, "Manage billing" once subscribed,
+    renews/ends line from the live subscription.
+- **/admin/economics** — the operator's view from platform tables only: MRR /
+  ARR, by-plan distribution, paying workspaces (tailored + past_due flagged),
+  the on-the-house list with reasons, 30/90-day ledger income (subscription
+  invoices vs Connect fees), access-request pipeline. Costs are deliberately
+  NOT here — the data wall applies to the operator too.
+- **Operating costs seeded into Pulse** (`scripts/seed-operating-costs.mjs`,
+  run today): Fly €7, Supabase €25, Vercel €20, Resend €20, domains €2,
+  Stripe ~€5 as monthly budget lines ("Platform infrastructure") in
+  Solidarity Lab's workspace — correct the amounts there as real invoices
+  arrive. Pulse remains the business view; /admin/economics the platform one.
+- Catalogues everywhere now sort Free → Starter → Pro → Enterprise
+  (`sortPlans`) instead of by price, which put Enterprise (€0, POA) first.
+
+### For Sjoerd (nothing confirms until these are done)
+1. Register the billing webhook:
+   `https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook`
+   (checkout.session.completed, customer.subscription.updated/deleted,
+   invoice.paid, invoice.payment_failed) and
+   `fly secrets set STRIPE_BILLING_WEBHOOK_SECRET=whsec_…`.
+2. Run `node apps/api/scripts/sync-stripe-plans.mjs` once (needs
+   STRIPE_SECRET_KEY in apps/api/.env or the environment).
+3. The Thread Connect webhook from July is STILL unregistered — that makes
+   two on the list.
+
 ## [0.20.0] — 2026-09-01 — the plans get their surfaces
 
 Productisation, slice one (docs/productisation-proposal.md). The pricing

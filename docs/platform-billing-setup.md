@@ -33,21 +33,21 @@ build + ship Phase 1-3 against test mode, then flip to live.
 
 ## Step 2 — Set up the webhook endpoint
 
-The webhook lives at `https://thefibre-api.fly.dev/api/v1/billing/webhook`
-(not built yet — Phase 1 will). Configure Stripe to send to it now
-so the secret exists when the code lands.
+The webhook lives at `https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook`
+(**built, 2026-09-01** — `apps/api/src/routes/billing.ts`).
 
 1. Stripe dashboard → **Developers → Webhooks → Add endpoint**.
-2. **Endpoint URL**: `https://thefibre-api.fly.dev/api/v1/billing/webhook`
+2. **Endpoint URL**: `https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook`
 3. **Listen to events**: pick exactly these (don't subscribe to all events; it's noisy):
    - `checkout.session.completed`
-   - `customer.subscription.created`
    - `customer.subscription.updated`
    - `customer.subscription.deleted`
    - `invoice.paid`
    - `invoice.payment_failed`
 4. Click **Add endpoint**.
-5. On the endpoint detail page, copy **Signing secret** (`whsec_…`).
+5. On the endpoint detail page, copy **Signing secret** (`whsec_…`) — it goes
+   on Fly as **`STRIPE_BILLING_WEBHOOK_SECRET`** (its own name; no fallback to
+   the Meet/Thread secrets, deliberately).
 
 ## Step 3 — Set the Fly secrets
 
@@ -56,9 +56,12 @@ From the repo root, on the same Mac that has Fly CLI installed:
 ```bash
 fly secrets set \
   STRIPE_SECRET_KEY="sk_test_…" \
-  STRIPE_WEBHOOK_SECRET="whsec_…" \
+  STRIPE_BILLING_WEBHOOK_SECRET="whsec_…" \
   -a thefibre-api
 ```
+
+(`STRIPE_WEBHOOK_SECRET` / `STRIPE_THREAD_WEBHOOK_SECRET` are the separate
+Meet/Thread Connect endpoints — see docs/deploy.md.)
 
 This deploys to all machines and restarts them. ~1 minute.
 
@@ -70,26 +73,20 @@ Only needed if we eventually embed Elements; harmless to set now:
 2. Add `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_…` to **Production and Preview**.
 3. Same for `thefibre-meet` project if Meet ever needs Elements (not initially).
 
-## Step 5 — Create the Products + Prices
+## Step 5 — Create the Products + Prices (now a script)
 
-In Stripe Test mode → **Products → Add product**. Create three
-products, each with two prices (monthly + annual):
+**Superseded 2026-09-01** — do NOT create products by hand. The model moved to
+per-workspace packages (Free / Starter €19 / Pro €49 / Enterprise, see
+docs/pricing-proposal.md) and the sync is automated:
 
-| Product | Lookup key | Monthly price | Annual price |
-|---|---|---|---|
-| Fibre Free | `fibre_free` | €0 / month | (skip — no annual on free) |
-| Fibre Pro | `fibre_pro` | €15 / user / month | €144 / user / year |
-| Fibre Org | `fibre_org` | €30 / user / month | €288 / user / year |
+```bash
+node apps/api/scripts/sync-stripe-plans.mjs
+```
 
-For each price:
-- **Pricing model**: Standard pricing → Per unit
-- **Billing period**: Monthly or Yearly
-- **Lookup key**: `pro_monthly`, `pro_annual`, `org_monthly`,
-  `org_annual` (these strings go into Fibre's `billing_plan` table)
-- **Currency**: EUR
-
-Copy each Price's `price_…` id — Phase 1 seeds them into
-`billing_plan` rows.
+It reads `billing_plan`, creates one Product per sellable plan with a monthly
+and a yearly Price, and writes the ids back onto the rows. Idempotent; rerun
+whenever prices change on /admin/plans (a changed amount deactivates the old
+Price and creates a new one). Checkout returns 503 until it has run once.
 
 ## Step 6 — Enable Stripe Tax
 

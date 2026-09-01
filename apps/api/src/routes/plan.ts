@@ -10,7 +10,8 @@
 
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
-import { planFor, seatsUsed, emailUsage } from '../lib/plan.js';
+import { planFor, seatsUsed, emailUsage, sortPlans } from '../lib/plan.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
 
 export const planRoutes = new Hono();
 
@@ -28,9 +29,20 @@ planRoutes.get('/', async (c) => {
   const { data: catalogue } = await adminClient
     .from('billing_plan')
     .select(
-      'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features',
+      'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features, stripe_price_id_month',
     )
     .order('price_cents_month');
+
+  // Whether the upgrade button can be a real checkout (Stripe key present and
+  // plans synced) or has to stay "talk to us". The price ids themselves stay
+  // server-side.
+  const stripeReady =
+    stripeOrNull() !== null && (catalogue ?? []).some((p) => p.stripe_price_id_month);
+  const { data: sub } = await adminClient
+    .from('workspace_subscription')
+    .select('stripe_subscription_id, billing_interval, current_period_end, cancel_at_period_end')
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
 
   return c.json({
     plan: {
@@ -59,6 +71,13 @@ planRoutes.get('/', async (c) => {
       emails_this_month: email.sent,
       emails_included: email.included,
     },
-    catalogue: catalogue ?? [],
+    catalogue: sortPlans(catalogue ?? []).map(({ stripe_price_id_month: _omit, ...rest }) => rest),
+    billing: {
+      available: stripeReady,
+      subscribed: Boolean(sub?.stripe_subscription_id),
+      interval: sub?.billing_interval ?? null,
+      current_period_end: sub?.current_period_end ?? null,
+      cancel_at_period_end: sub?.cancel_at_period_end ?? false,
+    },
   });
 });

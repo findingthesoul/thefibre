@@ -8,6 +8,7 @@
 
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
+import { sortPlans } from '../lib/plan.js';
 
 export const publicPlansRoutes = new Hono();
 
@@ -25,5 +26,5 @@ publicPlansRoutes.get('/', async (c) => {
   // Cache at the edge for a few minutes — prices change rarely and this is
   // unauthenticated read traffic on the marketing page.
   c.header('Cache-Control', 'public, max-age=300');
-  return c.json({ plans: data ?? [] });
+  return c.json({ plans: sortPlans(data ?? []) });
 });

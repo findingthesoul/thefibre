@@ -15,7 +15,11 @@ async function appId(slug: string): Promise<string | null> {
 }
 
 export type PurchaseWrite = {
-  appSlug: 'the-thread' | 'fibre-meet' | 'fibre-pulse';
+  // 'fibre-platform' rows are the workspace's own Fibre subscription invoices
+  // (routes/billing.ts webhook) — they appear in that workspace's Invoices
+  // page like any other purchase, and /admin/economics sums them as platform
+  // income.
+  appSlug: 'the-thread' | 'fibre-meet' | 'fibre-pulse' | 'fibre-platform';
   workspaceId: string;
   itemRef: string;
   personId?: string | null;
