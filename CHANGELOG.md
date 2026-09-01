@@ -6,7 +6,7 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [0.19.31] — 2026-09-01 — the whole logo
+## [0.19.32] — 2026-09-01 — the whole logo
 
 The workspace logo preview showed "festiv / tru" — a wordmark cropped to a
 square and presented as if that were the logo.
