@@ -31,7 +31,12 @@ type PlanPayload = {
     thread_live_limit: number | null;
     features: Record<string, boolean | number | null>;
   };
-  usage: { seats_used: number; emails_this_month: number; emails_included: number | null };
+  usage: {
+    seats_used: number;
+    emails_this_month: number;
+    emails_included: number | null;
+    extra_seats?: number;
+  };
   catalogue: CataloguePlan[];
   billing?: {
     available: boolean;
@@ -139,9 +144,13 @@ export default async function PlanPage() {
             used={usage.seats_used}
             included={plan.included_seats}
             note={
-              plan.extra_seat_cents_month
-                ? `Extra seats ${eur(plan.extra_seat_cents_month)}/month`
-                : undefined
+              usage.extra_seats && plan.extra_seat_cents_month
+                ? `${usage.extra_seats} extra × ${eur(plan.extra_seat_cents_month)} = ${eur(
+                    usage.extra_seats * plan.extra_seat_cents_month,
+                  )}/month${billing?.subscribed ? ', on your subscription' : ''}`
+                : plan.extra_seat_cents_month
+                  ? `Extra seats ${eur(plan.extra_seat_cents_month)}/month`
+                  : undefined
             }
           />
           <Usage label="Email this month" used={usage.emails_this_month} included={usage.emails_included} />

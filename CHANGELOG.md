@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.22.0] — 2026-09-01 — a seat costs eight euros, and now it says so on the bill
+
+*"We should wire it."* Extra-seat billing, end to end
+(migration `20260901210000`, `lib/seat-billing.ts`).
+
+### Added
+- **Seat Prices per plan** — `billing_plan.stripe_price_id_seat_{month,year}`,
+  created by `sync-stripe-plans.mjs` on the plan's Product. Yearly seats
+  follow the same two-months-free rule as the base (€80/seat/yr), so "yearly
+  is two months free" is true of the whole invoice.
+- **One reconciler** (`reconcileSeatBilling`) — the subscription carries an
+  extra-seat item with quantity = seats over the allowance, prorated by
+  Stripe. Compares before touching, so the webhook echo of its own update is
+  a no-op. Fails SOFT: a Stripe hiccup logs and lets the invite through; the
+  quantity converges on the next event.
+- **Checkout counts existing seats** against the plan being bought — a
+  14-seat workspace buying Pro is billed €49 + 9×€8 from day one (503 with a
+  clear message if seat prices aren't synced yet).
+- **An invite past the allowance is now charged, not refused** — on a
+  workspace with a live subscription, the 6th Pro seat adds a prorated €8
+  item. The 402 remains exactly where there is nothing to charge: Free,
+  comped, unpaid.
+- **Portal plan switches re-count** — the billing webhook resolves the plan
+  from the price actually on the subscription (never items[0], which may be
+  the seat item) and re-reconciles against the new allowance.
+- Settings → Plan shows the arithmetic: "9 extra × €8 = €72/month, on your
+  subscription". docs/pricing-worked-examples.md updated (soul.com yearly:
+  Starter €1,150 / Pro €1,210).
+
+Still standing from 0.21.0: nothing charges until Sjoerd sets the Stripe key
++ webhook secrets and runs the sync script.
+
 ## [0.21.1] — 2026-09-01 — a face for the tab
 
 - **Favicon at last** (`apps/web/app/icon.svg`) — the yellow sidebar tile

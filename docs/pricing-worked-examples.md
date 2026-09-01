@@ -24,8 +24,11 @@ things (a workspace user). Participants, enrollees and invitees never count._
 | Base | €19 | €49 |
 | Extra seats | 12 × €8 = €96 | 9 × €8 = €72 |
 | **Per month** | **€115** | **€121** |
-| Per year (annual billing) | €1,342 | €1,354 |
+| Per year (annual billing) | €190 + 12×€80 = **€1,150** | €490 + 9×€80 = **€1,210** |
 | Fee on paid enrolments | 1%, max €1 | 0% |
+
+_Yearly seats follow the same two-months-free rule as the base (€80/seat/yr),
+so "yearly is two months free" is true of the whole invoice._
 
 → At 14 seats the two plans nearly converge, so **Pro is the obvious choice**
 (€6 more buys Flow, Pulse, custom threads, 0% fees).
@@ -66,9 +69,18 @@ Created on `/admin/workspaces` → New workspace → plan **Pro**, tailored
 | They pay | €25/mo — shown as their price on Settings → Plan |
 | You see | €25 in /admin/economics MRR, flagged "tailored" |
 
-## Caveat
+## How seats bill (wired v0.22.0)
 
-The seat **limit** is enforced today (binds on the next invite, never
-retroactively), but extra-seat **invoicing** is not wired into Stripe yet —
-that is P4 in docs/productisation-proposal.md. Until then a 14-seat workspace
-on Pro is charged €49 and blocked at the 6th invite, rather than billed €121.
+Extra seats are a second item on the Stripe subscription, quantity = seats
+over the allowance, prorated by Stripe on every change
+(`lib/seat-billing.ts`):
+
+- **Checkout** counts existing seats against the plan being bought — soul.com
+  buying Pro is billed €49 + 9×€8 from day one.
+- **An invite past the allowance** on a subscribed workspace is *charged*
+  (prorated €8), not refused. The 402 remains only where there is nothing to
+  charge: Free, comped, or unpaid workspaces.
+- **A plan switch in the portal** re-counts seats against the new allowance
+  automatically (webhook → reconcile).
+- Nobody is ever removed by a pricing change — the limit still only binds on
+  the next invite.

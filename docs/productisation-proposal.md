@@ -206,9 +206,11 @@ end-to-end only after Sjoerd's Stripe steps — there is currently NO
   registers the webhook + secret.
 - **P3 — Operator economics:** `/admin/economics`; Pulse cost seed;
   subscription income → purchase ledger → Pulse settle.
-- **P4 — Meters that bill:** email/storage overage lines on the monthly
-  invoice, 80% warnings, seat-limit enforcement on invite (never
-  retroactive), the 13-month Free archive (warning email + export first).
+- **P4 — Meters that bill:** ~~seat billing~~ shipped 0.22.0
+  (lib/seat-billing.ts — quantity on the subscription, prorated; billable
+  invites are charged, not refused). Remaining: email/storage overage lines
+  on the monthly invoice, 80% warnings, the 13-month Free archive (warning
+  email + export first).
 - **P5 — Website polish:** product pages per app, favicon/OG, screenshots,
   and the self-serve flip when the trial ends.
 

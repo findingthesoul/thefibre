@@ -70,6 +70,10 @@ planRoutes.get('/', async (c) => {
       seats_used: seats,
       emails_this_month: email.sent,
       emails_included: email.included,
+      // Seats past the allowance — billed as a quantity on the subscription
+      // (lib/seat-billing.ts) when one exists.
+      extra_seats:
+        plan.includedSeats === null ? 0 : Math.max(0, seats - plan.includedSeats),
     },
     catalogue: sortPlans(catalogue ?? []).map(({ stripe_price_id_month: _omit, ...rest }) => rest),
     billing: {

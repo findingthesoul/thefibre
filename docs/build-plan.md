@@ -37,9 +37,11 @@ seeded into Pulse. What remains:
    `STRIPE_BILLING_WEBHOOK_SECRET`, run
    `node apps/api/scripts/sync-stripe-plans.mjs` once. Checklist:
    docs/platform-billing-setup.md (updated for the package model).
-2. **P4 — meters that bill** (proposal §4): email/storage overage lines on
-   the monthly invoice, 80% warnings, seat-limit enforcement on invite (never
-   retroactive), the 13-month Free archive (warning email + export first).
+2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
+   quantity item on the subscription, prorated; invites past the allowance
+   are charged, not refused). Remaining: email/storage overage lines on the
+   monthly invoice, 80% warnings, the 13-month Free archive (warning email +
+   export first).
 3. **P5 — website polish**: product pages per app, OG image (favicon shipped),
    screenshots, self-serve signup flip when the trial ends.
 4. Decisions D1–D6 in docs/productisation-proposal.md §5 were built as

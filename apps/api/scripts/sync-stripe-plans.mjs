@@ -49,7 +49,7 @@ const stripe = new Stripe(STRIPE_KEY, { apiVersion: '2026-04-22.dahlia' });
 const { data: plans, error } = await db
   .from('billing_plan')
   .select(
-    'id, name, price_cents_month, price_cents_year, stripe_product_id, stripe_price_id_month, stripe_price_id_year',
+    'id, name, price_cents_month, price_cents_year, extra_seat_cents_month, stripe_product_id, stripe_price_id_month, stripe_price_id_year, stripe_price_id_seat_month, stripe_price_id_seat_year',
   );
 if (error) {
   console.error('billing_plan read failed:', error.message);
@@ -123,12 +123,32 @@ for (const plan of plans ?? []) {
     'year',
   );
 
+  // Extra seats: their own Prices on the same Product, quantity-billed by
+  // lib/seat-billing.ts. Yearly follows the same two-months-free rule as the
+  // base (×10), so "yearly is two months free" is true of the whole invoice.
+  const seatMonthId = await ensurePrice(
+    plan,
+    productId,
+    plan.stripe_price_id_seat_month,
+    plan.extra_seat_cents_month,
+    'month',
+  );
+  const seatYearId = await ensurePrice(
+    plan,
+    productId,
+    plan.stripe_price_id_seat_year,
+    plan.extra_seat_cents_month ? plan.extra_seat_cents_month * 10 : null,
+    'year',
+  );
+
   const { error: uErr } = await db
     .from('billing_plan')
     .update({
       stripe_product_id: productId,
       stripe_price_id_month: monthId,
       stripe_price_id_year: yearId,
+      stripe_price_id_seat_month: seatMonthId,
+      stripe_price_id_seat_year: seatYearId,
     })
     .eq('id', plan.id);
   if (uErr) {

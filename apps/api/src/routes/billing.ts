@@ -23,8 +23,9 @@ import type Stripe from 'stripe';
 import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
-import { forgetPlan } from '../lib/plan.js';
+import { forgetPlan, seatsUsed } from '../lib/plan.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { reconcileSeatBilling } from '../lib/seat-billing.js';
 
 export const billingRoutes = new Hono();
 
@@ -69,7 +70,7 @@ billingRoutes.post('/checkout', async (c) => {
     adminClient
       .from('billing_plan')
       .select(
-        'id, name, price_cents_month, price_cents_year, stripe_product_id, stripe_price_id_month, stripe_price_id_year',
+        'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, stripe_product_id, stripe_price_id_month, stripe_price_id_year, stripe_price_id_seat_month, stripe_price_id_seat_year',
       )
       .eq('id', plan_id)
       .maybeSingle(),
@@ -125,6 +126,26 @@ billingRoutes.post('/checkout', async (c) => {
     );
   }
 
+  // Seats over the allowance ride on the same subscription as a second item
+  // (quantity-billed). Counted against the plan being BOUGHT, so a 14-seat
+  // workspace checking out on Pro is billed 49 + 9×8 from day one.
+  let seatLine: { price: string; quantity: number } | null = null;
+  if (plan.included_seats !== null && plan.extra_seat_cents_month) {
+    const used = await seatsUsed(ctx.workspaceId);
+    const overage = Math.max(0, used - plan.included_seats);
+    if (overage > 0) {
+      const seatPriceId =
+        interval === 'monthly' ? plan.stripe_price_id_seat_month : plan.stripe_price_id_seat_year;
+      if (!seatPriceId) {
+        return c.json(
+          { error: 'seat prices not synced to Stripe yet — run scripts/sync-stripe-plans.mjs' },
+          503,
+        );
+      }
+      seatLine = { price: seatPriceId, quantity: overage };
+    }
+  }
+
   // One customer per workspace, created lazily and remembered immediately so
   // a retried checkout reuses it.
   let customerId = sub.stripe_customer_id as string | null;
@@ -156,6 +177,7 @@ billingRoutes.post('/checkout', async (c) => {
             },
           }
         : { quantity: 1, price: listPrice! },
+      ...(seatLine ? [seatLine] : []),
     ],
     // B2B: collect the address + VAT number so Stripe's invoice is a legal one.
     billing_address_collection: 'required',
@@ -249,12 +271,37 @@ async function applySubscription(sub: Stripe.Subscription): Promise<void> {
     return;
   }
 
-  const item = sub.items?.data?.[0];
-  const interval = item?.price?.recurring?.interval === 'year' ? 'annual' : 'monthly';
+  // The subscription can carry TWO items — the base plan and the extra-seat
+  // item (lib/seat-billing.ts). The base item is the one whose price is a
+  // plan's month/year price; never assume items[0].
+  const priceIds = (sub.items?.data ?? []).map((i) => i.price?.id).filter(Boolean) as string[];
+  let basePlanId: string | undefined;
+  let baseItem = sub.items?.data?.[0];
+  if (priceIds.length > 0) {
+    const { data: byPrice } = await adminClient
+      .from('billing_plan')
+      .select('id, stripe_price_id_month, stripe_price_id_year')
+      .or(
+        priceIds
+          .map((id) => `stripe_price_id_month.eq.${id},stripe_price_id_year.eq.${id}`)
+          .join(','),
+      );
+    const match = (byPrice ?? [])[0];
+    if (match) {
+      basePlanId = match.id;
+      baseItem =
+        sub.items.data.find(
+          (i) =>
+            i.price?.id === match.stripe_price_id_month ||
+            i.price?.id === match.stripe_price_id_year,
+        ) ?? baseItem;
+    }
+  }
+  const interval = baseItem?.price?.recurring?.interval === 'year' ? 'annual' : 'monthly';
   // current_period_end moved onto the item in newer API versions; take
   // whichever this event carries.
   const periodEnd =
-    (item as unknown as { current_period_end?: number })?.current_period_end ??
+    (baseItem as unknown as { current_period_end?: number })?.current_period_end ??
     (sub as unknown as { current_period_end?: number }).current_period_end ??
     null;
 
@@ -268,19 +315,10 @@ async function applySubscription(sub: Stripe.Subscription): Promise<void> {
   if (customerId) patch.stripe_customer_id = customerId;
   if (periodEnd) patch.current_period_end = new Date(periodEnd * 1000).toISOString();
   if (sub.trial_end) patch.trial_ends_at = new Date(sub.trial_end * 1000).toISOString();
-  // The plan follows the subscription's metadata (set at checkout, preserved
-  // by the portal's plan switches via the price's metadata fallback below).
-  const planId =
-    sub.metadata?.plan_id ??
-    (item?.price?.id
-      ? (
-          await adminClient
-            .from('billing_plan')
-            .select('id')
-            .or(`stripe_price_id_month.eq.${item.price.id},stripe_price_id_year.eq.${item.price.id}`)
-            .maybeSingle()
-        ).data?.id
-      : undefined);
+  // The plan follows the price actually on the subscription (a portal plan
+  // switch changes the price, not the checkout metadata), with the original
+  // checkout metadata as fallback.
+  const planId = basePlanId ?? sub.metadata?.plan_id;
   if (planId) patch.plan_id = planId;
 
   const { error } = await adminClient
@@ -289,6 +327,10 @@ async function applySubscription(sub: Stripe.Subscription): Promise<void> {
     .eq('workspace_id', target);
   if (error) console.error('[billing/webhook] subscription update failed', error);
   forgetPlan(target);
+  // A plan switch changes the seat allowance — re-count the extra-seat item
+  // against the new plan. Idempotent, so the webhook echo of its own update
+  // is a no-op.
+  void reconcileSeatBilling(target);
 }
 
 async function subscriptionDeleted(sub: Stripe.Subscription): Promise<void> {
