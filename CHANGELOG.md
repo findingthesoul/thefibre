@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.33] — 2026-09-01 — the enrolment emails belong to the thread
+
+*"Enrolment emails — should that not be part of a thread? With a default text
+that can be altered?"*
+
+Yes. The Thread already had messages that fire on enrolment and on approval,
+token substitution, per-person dedup, five languages and an editor people
+know — and the platform was sending its own email straight past all of it.
+Last night's editable *note* was a paragraph inserted into an email you could
+not see. This is the right shape: the email **is** a message in the timeline.
+
+### Added
+- **`thread_engagement.system_role`** — `enrolment_received` /
+  `enrolment_confirmed`. Ordinary messages in every other respect: they sit in
+  the timeline, read in the thread's language, and are edited like any other.
+- **Seeded, not required.** A new thread gets them at creation; an existing one
+  the first time it is opened. The default wording is composed from the strings
+  the compiled emails already use, in all five languages — so a seeded default
+  says exactly what today's email says, without anybody inventing prose in a
+  language they do not speak.
+- **`on_application`** joins the trigger vocabulary. There was `on_enrolment`
+  and `on_approval`, but the moment somebody *applies* to a gated thread had no
+  name — which is precisely why that email could only ever be the platform's.
+- **The ticket attaches itself.** For `enrolment_confirmed` the sender appends
+  the QR block; it is not a token in the body. An organiser rewriting their
+  welcome must not be able to delete the ticket from their own ticket email.
+- **`{start_date}`** as an alias for `{date}` — the token Sjoerd reached for
+  unprompted, and the one that reads better in a sentence written by hand.
+
+### Changed
+- **Transactional messages are exempt from the freeze** (Sjoerd's call,
+  2026-09-01). `20260829140000` froze a message once sent, because two people
+  receiving different words under one title is a lie the system tells for you.
+  A ticket email meets that rule on the first enrolment and would be stuck with
+  any typo for the life of the thread. These are addressed to one person at the
+  moment they enrol, not broadcast to a cohort, so the wording may change and
+  reaches whoever enrols next.
+- **The compiled emails stand down** when a thread has its own, and remain the
+  fallback when it does not. Delete a seeded message and enrolment still works
+  — nobody loses a ticket by tidying up.
+- **Triggered sends now carry the workspace's logo and sender**, which they
+  did not: only the platform's own emails had been given the branding shipped
+  in v0.19.17.
+
 ## [0.19.32] — 2026-09-01 — the whole logo
 
 The workspace logo preview showed "festiv / tru" — a wordmark cropped to a

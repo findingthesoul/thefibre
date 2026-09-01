@@ -21,6 +21,7 @@ import {
 } from '../lib/payment-accounts.js';
 import { getWorkspaceBrand, noteFor } from '../lib/workspace-brand.js';
 import {
+  systemMessageDefaults,
   enrolmentConfirmation,
   enrolmentPending,
   engagementMessage,
@@ -444,6 +445,11 @@ threadRoutes.post('/threads', async (c) => {
       status,
     );
   }
+  // The two transactional messages, seeded so they are there to be read and
+  // edited from the first minute rather than appearing out of nowhere the day
+  // somebody enrols.
+  await ensureSystemEngagements(thread.id);
+
   return c.json(thread, 201);
 });
 
@@ -458,6 +464,10 @@ threadRoutes.get('/threads/:id', async (c) => {
     .eq('id', c.req.param('id'))
     .single();
   if (error || !thread) return c.json({ error: 'not found' }, 404);
+
+  // Threads that existed before the transactional messages did get theirs the
+  // first time somebody opens them. Idempotent, and cheap: one count.
+  await ensureSystemEngagements(thread.id);
 
   const [{ data: engagements }, { data: coOrganisers }] = await Promise.all([
     db
@@ -2723,10 +2733,86 @@ async function loadEnrolmentForAction(
 // The note is read from the thread when the caller did not select it, because
 // these send sites all select their own column lists and none of them can be
 // asked to know about this. Null there means inherit the workspace default.
+// ---------------------------------------------------------------------------
+// The two messages the platform sends on the organiser's behalf.
+//
+// They are ordinary message engagements with a system_role, so they show up in
+// the timeline, read in the thread's language, and are edited in the editor
+// everybody already knows (Sjoerd, 2026-09-01: "should that not be part of a
+// thread? With a default text that can be altered?").
+//
+// Seeded, not required. Delete one and the send falls back to the platform's
+// compiled email — nobody loses a ticket by tidying up.
+// ---------------------------------------------------------------------------
+export async function ensureSystemEngagements(threadId: string): Promise<void> {
+  const { data: thread } = await adminClient
+    .from('thread_thread')
+    .select('id, workspace_id, language, requires_approval')
+    .eq('id', threadId)
+    .maybeSingle();
+  if (!thread) return;
+
+  const { data: existing } = await adminClient
+    .from('thread_engagement')
+    .select('system_role')
+    .eq('thread_id', threadId)
+    .not('system_role', 'is', null);
+  const have = new Set((existing ?? []).map((r) => r.system_role as string));
+
+  const defaults = systemMessageDefaults((thread as { language?: string }).language ?? 'en');
+  const rows: Record<string, unknown>[] = [];
+
+  // "Your ticket" — on approval where a thread is gated, on enrolment where it
+  // is not. One row either way: which moment it fires at is the trigger's job.
+  if (!have.has('enrolment_confirmed')) {
+    rows.push({
+      workspace_id: thread.workspace_id,
+      thread_id: threadId,
+      system_role: 'enrolment_confirmed',
+      type: 'message',
+      status: 'published',
+      trigger_kind: thread.requires_approval ? 'on_approval' : 'on_enrolment',
+      title: defaults.enrolment_confirmed.title,
+      description: defaults.enrolment_confirmed.body,
+      // Out of the agenda: it is an email, not something that happens on a day.
+      show_in_agenda: false,
+      position: -2,
+    });
+  }
+  if (thread.requires_approval && !have.has('enrolment_received')) {
+    rows.push({
+      workspace_id: thread.workspace_id,
+      thread_id: threadId,
+      system_role: 'enrolment_received',
+      type: 'message',
+      status: 'published',
+      trigger_kind: 'on_application',
+      title: defaults.enrolment_received.title,
+      description: defaults.enrolment_received.body,
+      show_in_agenda: false,
+      position: -3,
+    });
+  }
+  if (!rows.length) return;
+  const { error } = await adminClient.from('thread_engagement').insert(rows);
+  if (error) console.warn('[thread] could not seed system messages', error.message);
+}
+
+/** Does this thread carry its own version of one of them? */
+async function hasSystemMessage(threadId: string, role: string): Promise<boolean> {
+  const { count } = await adminClient
+    .from('thread_engagement')
+    .select('id', { count: 'exact', head: true })
+    .eq('thread_id', threadId)
+    .eq('system_role', role)
+    .eq('status', 'published');
+  return (count ?? 0) > 0;
+}
+
 async function threadEmailIdentity(thread: {
   id: string;
   workspace_id: string;
-  enrolment_note?: string | null;
+  enrolment_note?: string | null | undefined;
 }): Promise<{
   note: string | null;
   brand: { logoUrl: string | null; name: string | null };
@@ -2833,7 +2919,10 @@ export async function performApproveEnrolment(
   );
 
   if (person.email) {
-    try {
+    // The thread's own confirmation, when it has one, is sent by the trigger
+    // below with the ticket attached — so this compiled fallback stands down.
+    if (!(await hasSystemMessage(thread.id, 'enrolment_confirmed')))
+      try {
       const identity = await threadEmailIdentity(thread);
       const msg = enrolmentConfirmation({
         participantName: personName,
@@ -3324,7 +3413,10 @@ export async function finalizePaidEnrolment(threadEnrolmentId: string): Promise<
     .eq('id', te.enrolment_id);
 
   if (!person.email || !program) return;
-  try {
+  // The thread's own confirmation, when it has one, is sent by the trigger
+  // below with the ticket attached — so this compiled fallback stands down.
+  if (!(await hasSystemMessage(thread.id, 'enrolment_confirmed')))
+    try {
     const identity = await threadEmailIdentity(thread);
     const msg = enrolmentConfirmation({
       participantName: personName,
@@ -5328,6 +5420,31 @@ threadRoutes.post('/public/enrol', async (c) => {
   // Approval-required: a "request received" email; the confirmation +
   // on-enrolment messages follow at approval. Non-fatal either way.
   if (thread.requires_approval) {
+    // The thread's own version, if it has one — seeded at creation, edited in
+    // the timeline. sendTriggeredMessages does the send, the dedup and the
+    // logging, exactly as it does for every other message.
+    if (await hasSystemMessage(thread.id, 'enrolment_received')) {
+      await sendTriggeredMessages({
+        threadId: thread.id,
+        trigger: 'on_application',
+        personId: person.id,
+        email,
+        name: d.name.trim(),
+        threadTitle: program.title,
+        organiserName: organiser.display_name ?? '',
+        startsOn: program.starts_on,
+        locale: (thread as { language?: string }).language ?? 'en',
+      });
+      return c.json(
+        {
+          ok: true,
+          enrolment_id: threadEnrolment.id,
+          pending_approval: true,
+          has_account: hasAccount === true,
+        },
+        201,
+      );
+    }
     try {
       const identity = await threadEmailIdentity(thread);
       const msg = enrolmentPending({
@@ -5353,8 +5470,11 @@ threadRoutes.post('/public/enrol', async (c) => {
     );
   }
 
-  // Confirmation email — non-fatal.
-  try {
+  // Confirmation email — non-fatal. Skipped entirely when the thread carries
+  // its own: the on_enrolment triggered send below is that message, ticket
+  // attached, and two confirmations would be worse than the wrong one.
+  const ownConfirmation = await hasSystemMessage(thread.id, 'enrolment_confirmed');
+  if (!ownConfirmation) try {
     const identity = await threadEmailIdentity(thread);
     const msg = enrolmentConfirmation({
       participantName: d.name.trim(),
@@ -5449,23 +5569,41 @@ function renderMessageBody(
 
 export async function sendTriggeredMessages(opts: {
   threadId: string;
-  trigger: 'on_enrolment' | 'on_approval' | 'on_completion';
+  trigger: 'on_enrolment' | 'on_approval' | 'on_completion' | 'on_application';
   personId: string;
   email: string;
   name: string;
   threadTitle: string;
   organiserName: string;
   startsOn: string | null;
+  /** The thread's language, for the ticket block's wording. */
+  locale?: string | undefined;
 }): Promise<void> {
   const { data: messages } = await adminClient
     .from('thread_engagement')
-    .select('id, title, type, description, content')
+    .select('id, title, type, description, content, system_role')
     .eq('thread_id', opts.threadId)
     .eq('status', 'published')
     .eq('trigger_kind', opts.trigger)
     .in('type', MESSAGE_TYPES as unknown as string[])
     .order('position', { ascending: true });
   if (!messages?.length) return;
+
+  // The workspace's logo and sender, so a message from a thread looks like the
+  // organisation's mail and not the platform's. The thread is fetched for its
+  // workspace: brand lookups are per workspace, and an empty one silently
+  // yields the platform's own branding, which is the bug this comment exists
+  // to stop somebody re-introducing.
+  const { data: ownerThread } = await adminClient
+    .from('thread_thread')
+    .select('workspace_id, enrolment_note')
+    .eq('id', opts.threadId)
+    .maybeSingle();
+  const identity = await threadEmailIdentity({
+    id: opts.threadId,
+    workspace_id: ownerThread?.workspace_id ?? '',
+    enrolment_note: (ownerThread as { enrolment_note?: string | null } | null)?.enrolment_note,
+  });
 
   const tokens: Record<string, string> = {
     '{name}': opts.name.split(/\s+/)[0] ?? opts.name,
@@ -5477,6 +5615,9 @@ export async function sendTriggeredMessages(opts: {
         )
       : '',
   };
+  // {start_date} reads better in a sentence somebody is writing by hand, and
+  // is the token Sjoerd reached for unprompted. Same value, two names.
+  tokens['{start_date}'] = tokens['{date}'] ?? '';
   const substitute = (s: string) =>
     Object.entries(tokens).reduce((acc, [k, v]) => acc.replaceAll(k, v), s);
 
@@ -5497,13 +5638,29 @@ export async function sendTriggeredMessages(opts: {
     const body = substitute(
       renderMessageBody(m.type, (m.content ?? {}) as Record<string, unknown>, m.description),
     );
+    // The ticket rides on whichever message admits you, and is attached here
+    // rather than written into the text — an organiser editing their welcome
+    // must not be able to delete the ticket from their own ticket email.
+    let ticket: Awaited<ReturnType<typeof emailTicketFor>> = null;
+    if (m.system_role === 'enrolment_confirmed') {
+      const { data: te } = await adminClient
+        .from('thread_enrolment')
+        .select('id')
+        .eq('thread_id', opts.threadId)
+        .eq('person_id', opts.personId)
+        .maybeSingle();
+      if (te) ticket = await emailTicketFor(te.id);
+    }
     const msg = engagementMessage({
       title: substitute(m.title),
       bodyText: body,
       threadTitle: opts.threadTitle,
+      brand: identity.brand,
+      ticket,
+      locale: opts.locale ?? 'en',
     });
     try {
-      await sendEmail({ to: opts.email, ...msg });
+      await sendEmail({ to: opts.email, ...msg, ...identity.sender });
     } catch (e) {
       console.warn('[thread] triggered message send failed', { engagement: m.id, e });
     }

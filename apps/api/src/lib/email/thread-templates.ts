@@ -133,6 +133,71 @@ const EMAIL_DATE_LOCALE: Record<string, string> = {
   de: 'de-DE',
 };
 
+export type EmailTicket = {
+  qrUrl: string;
+  appleUrl: string | null;
+  googleUrl: string | null;
+};
+
+/**
+ * The QR block.
+ *
+ * Exported because the ticket no longer belongs to one hard-coded email: since
+ * v0.19.33 the confirmation can be a message the organiser wrote themselves,
+ * and the ticket is appended to it by the sender. Never by the text — an
+ * organiser editing their welcome should not be able to delete the ticket from
+ * their own ticket email.
+ */
+export function ticketBlock(ticket: EmailTicket | null | undefined, locale: string): string {
+  if (!ticket) return '';
+  const L = EMAIL_I18N[locale] ?? EMAIL_I18N.en!;
+  return `
+      <div style="margin:24px 0;padding:20px;border:1px solid #e7e5e4;border-radius:12px;text-align:center;">
+        <p style="margin:0 0 12px;font-size:14px;color:#525252;">${escapeHtml(L.ticket)}</p>
+        <img src="${ticket.qrUrl}" width="180" height="180" alt="QR" style="display:inline-block;width:180px;height:180px;" />
+        ${
+          ticket.appleUrl || ticket.googleUrl
+            ? `<p style="margin:14px 0 0;font-size:13px;">${[
+                ticket.appleUrl
+                  ? `<a href="${ticket.appleUrl}" style="color:#171717;">${escapeHtml(L.apple)}</a>`
+                  : '',
+                ticket.googleUrl
+                  ? `<a href="${ticket.googleUrl}" style="color:#171717;">${escapeHtml(L.google)}</a>`
+                  : '',
+              ]
+                .filter(Boolean)
+                .join(' &nbsp;·&nbsp; ')}</p>`
+            : ''
+        }
+      </div>`;
+}
+
+/** The default wording for the messages the platform seeds into a thread.
+ *
+ *  Composed from the strings the compiled emails already use, in all five
+ *  languages — so a seeded default says exactly what today's email says, in
+ *  the thread's language, without anybody inventing new prose in languages
+ *  they do not speak. The organiser edits it from there. */
+export function systemMessageDefaults(locale: string): {
+  enrolment_received: { title: string; body: string };
+  enrolment_confirmed: { title: string; body: string };
+} {
+  const loc = EMAIL_I18N[locale] ? locale : 'en';
+  const L = EMAIL_I18N[loc] ?? EMAIL_I18N.en!;
+  const P = PENDING_I18N[loc] ?? PENDING_I18N.en!;
+  const withOrganiser = (WITH_I18N[loc] ?? WITH_I18N.en!).replaceAll('{organiser}', '{organiser}');
+  return {
+    enrolment_received: {
+      title: P.subject,
+      body: `${L.hi}\n\n${P.body.replaceAll('{with}', withOrganiser)}`,
+    },
+    enrolment_confirmed: {
+      title: L.subject,
+      body: `${L.hi}\n\n${L.enrolled.replaceAll('{with}', withOrganiser)} ${L.starts.replaceAll('{date}', '{start_date}')}`,
+    },
+  };
+}
+
 // A message-family engagement rendered as an email — used by every
 // triggered send (lifecycle triggers AND the 5-minute scheduler).
 export function engagementMessage(c: {
@@ -140,6 +205,9 @@ export function engagementMessage(c: {
   bodyText: string; // tokens already substituted; newlines preserved
   threadTitle: string;
   brand?: EmailBrand | undefined;
+  /** Appended after the body when this message is the one that admits you. */
+  ticket?: EmailTicket | null | undefined;
+  locale?: string | undefined;
 }): { subject: string; text: string; html: string } {
   const subject = c.title;
   const text = `${c.bodyText}\n\n${emailSignoff()}`;
@@ -148,6 +216,7 @@ export function engagementMessage(c: {
     `
       <h2 style="margin:0 0 16px;font-size:18px;font-weight:600;">${escapeHtml(c.title)}</h2>
       <div style="font-size:15px;line-height:1.6;white-space:pre-wrap;">${escapeHtml(c.bodyText)}</div>
+      ${ticketBlock(c.ticket, c.locale ?? 'en')}
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
     c.brand,
@@ -268,29 +337,7 @@ ${emailSignoff()}`;
       <p style="margin:24px 0;">
         <a href="${c.threadUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(L.open)}</a>
       </p>
-      ${
-        c.ticket
-          ? `
-      <div style="margin:24px 0;padding:20px;border:1px solid #e7e5e4;border-radius:12px;text-align:center;">
-        <p style="margin:0 0 12px;font-size:14px;color:#525252;">${escapeHtml(L.ticket)}</p>
-        <img src="${c.ticket.qrUrl}" width="180" height="180" alt="QR" style="display:inline-block;width:180px;height:180px;" />
-        ${
-          c.ticket.appleUrl || c.ticket.googleUrl
-            ? `<p style="margin:14px 0 0;font-size:13px;">${[
-                c.ticket.appleUrl
-                  ? `<a href="${c.ticket.appleUrl}" style="color:#171717;">${escapeHtml(L.apple)}</a>`
-                  : '',
-                c.ticket.googleUrl
-                  ? `<a href="${c.ticket.googleUrl}" style="color:#171717;">${escapeHtml(L.google)}</a>`
-                  : '',
-              ]
-                .filter(Boolean)
-                .join(' &nbsp;·&nbsp; ')}</p>`
-            : ''
-        }
-      </div>`
-          : ''
-      }
+      ${ticketBlock(c.ticket, loc)}
       <p style="margin:24px 0 0;font-size:14px;color:#525252;">${escapeHtml(emailSignoff())}</p>
     `,
     c.brand,
