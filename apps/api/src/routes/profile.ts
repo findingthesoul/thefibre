@@ -1,6 +1,12 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
-import { adminClient, userClient } from '../db.js';
+import { adminClient } from '../db.js';
+import {
+  ensureProfile,
+  saveProfile,
+  billingFor,
+  saveBilling,
+} from '../lib/identity-profile.js';
 
 // ===========================================================================
 // The platform public profile — ONE face per user, inherited by every app
@@ -12,27 +18,18 @@ export const profileRoutes = new Hono();
 
 profileRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
-  let { data: profile } = await db
-    .from('user_profile')
-    .select('*')
-    .eq('user_id', ctx.userId)
-    .maybeSingle();
-  if (!profile) {
-    const { data: u } = await adminClient
-      .from('user')
-      .select('full_name')
-      .eq('id', ctx.userId)
-      .single();
-    const { data: created, error } = await adminClient
-      .from('user_profile')
-      .insert({ user_id: ctx.userId, display_name: u?.full_name ?? null })
-      .select('*')
-      .single();
-    if (error || !created) return c.json({ error: 'failed to provision profile' }, 500);
-    profile = created;
-  }
-  return c.json(profile);
+  // Your profile follows you between workspaces; your payment details do too,
+  // and they live apart because everyone in a workspace may read the first and
+  // nobody but you may read the second (20260901160000).
+  const [profile, billing] = await Promise.all([
+    ensureProfile(ctx.userId).catch((e: unknown) => {
+      console.error('[profile GET] provision failed', e);
+      return null;
+    }),
+    billingFor(ctx.userId),
+  ]);
+  if (!profile) return c.json({ error: 'failed to provision profile' }, 500);
+  return c.json({ ...profile, ...billing });
 });
 
 const ProfilePatch = z.object({
@@ -62,29 +59,40 @@ profileRoutes.patch('/', async (c) => {
   const body = ProfilePatch.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  const db = userClient(ctx.jwt);
-  const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
-  if (patch.stripe_account_id === '') patch.stripe_account_id = null;
-  const { data, error } = await db
-    .from('user_profile')
-    .update(patch)
-    .eq('user_id', ctx.userId)
-    .select('*')
-    .single();
-  if (error) return c.json({ error: error.message }, 500);
 
-  // The SPoT resolution falls back to the legacy app-local columns, so a
-  // write here (especially a DISCONNECT) must overwrite them too — otherwise
-  // clearing the platform value would resurrect the old account.
-  if ('stripe_account_id' in body.data) {
-    await adminClient
-      .from('meet_host')
-      .update({ stripe_account_id: patch.stripe_account_id })
-      .eq('user_id', ctx.userId);
+  const { stripe_account_id, invoice_details, default_payment_methods, ...face } = body.data;
+
+  if (Object.keys(face).length) {
+    const r = await saveProfile(ctx.userId, face);
+    if (r.error) return c.json({ error: r.error }, 500);
+  }
+
+  const billing: Record<string, unknown> = {};
+  if (stripe_account_id !== undefined) billing.stripe_account_id = stripe_account_id || null;
+  if (invoice_details !== undefined) billing.invoice_details = invoice_details;
+  if (default_payment_methods !== undefined) {
+    billing.default_payment_methods = default_payment_methods;
+  }
+  if (Object.keys(billing).length) {
+    const r = await saveBilling(ctx.userId, billing);
+    if (r.error) return c.json({ error: r.error }, 500);
+  }
+
+  // The payments SPoT still falls back to the app-local columns, so a write
+  // here — a DISCONNECT above all — has to overwrite them, or clearing the
+  // platform value resurrects the old account.
+  if (stripe_account_id !== undefined) {
+    const value = stripe_account_id || null;
+    await adminClient.from('meet_host').update({ stripe_account_id: value }).eq('user_id', ctx.userId);
     await adminClient
       .from('thread_organiser')
-      .update({ stripe_account_id: patch.stripe_account_id })
+      .update({ stripe_account_id: value })
       .eq('user_id', ctx.userId);
   }
-  return c.json(data);
+
+  const [profile, saved] = await Promise.all([
+    ensureProfile(ctx.userId),
+    billingFor(ctx.userId),
+  ]);
+  return c.json({ ...profile, ...saved });
 });

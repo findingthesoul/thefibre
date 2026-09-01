@@ -3,6 +3,7 @@
 // app-local columns remain read fallbacks for rows never migrated.
 
 import { adminClient } from '../db.js';
+import { billingFor } from './identity-profile.js';
 
 export type InvoiceDetails = {
   legal_name?: string;
@@ -10,8 +11,17 @@ export type InvoiceDetails = {
   tax_no?: string;
 } | null;
 
-/** Personal Stripe Connect account: user_profile → thread_organiser → meet_host. */
+/**
+ * Personal Stripe Connect account:
+ * identity_billing → user_profile → thread_organiser → meet_host.
+ *
+ * identity_billing is keyed by email, so the account follows the person
+ * between workspaces rather than being re-connected per seat
+ * (20260901160000). The three behind it are read fallbacks, oldest last.
+ */
 export async function personalStripeAccount(userId: string): Promise<string | null> {
+  const billing = await billingFor(userId);
+  if (billing.stripe_account_id) return billing.stripe_account_id;
   const { data: p } = await adminClient
     .from('user_profile')
     .select('stripe_account_id')
@@ -50,6 +60,8 @@ export async function workspaceStripeAccount(workspaceId: string): Promise<strin
 
 /** Invoice issuer identity, personal level (workspace as caller fallback). */
 export async function personalInvoiceDetails(userId: string): Promise<InvoiceDetails> {
+  const billing = await billingFor(userId);
+  if (billing.invoice_details) return billing.invoice_details as InvoiceDetails;
   const { data: p } = await adminClient
     .from('user_profile')
     .select('invoice_details')
@@ -81,6 +93,10 @@ export async function workspaceInvoiceDetails(workspaceId: string): Promise<Invo
 
 /** Account-level default payment methods (inheritance root). */
 export async function defaultPaymentMethods(userId: string): Promise<('stripe' | 'invoice')[]> {
+  const billing = await billingFor(userId);
+  if (billing.default_payment_methods?.length) {
+    return billing.default_payment_methods as ('stripe' | 'invoice')[];
+  }
   const { data: p } = await adminClient
     .from('user_profile')
     .select('default_payment_methods')

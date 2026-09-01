@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { profileFor } from '../lib/identity-profile.js';
 import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
 import { adminClient, userClient } from '../db.js';
@@ -1876,11 +1877,7 @@ meetRoutes.get('/me', async (c) => {
   // .photo_url are read fallbacks for anything not yet migrated; nothing
   // writes them. The host row keeps what is genuinely Meet's: the slug its
   // booking page lives at, working hours, the room.
-  const { data: profile } = await adminClient
-    .from('user_profile')
-    .select('display_name, bio, photo_url, timezone')
-    .eq('user_id', ctx.userId)
-    .maybeSingle();
+  const profile = await profileFor(ctx.userId);
 
   return c.json({
     ...safe,

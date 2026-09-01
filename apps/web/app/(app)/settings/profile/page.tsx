@@ -24,6 +24,22 @@ type Me = {
   };
 };
 
+const METHOD: Record<string, string> = {
+  google: 'Google',
+  magic_link: 'Emailed code',
+  microsoft: 'Microsoft',
+  linkedin: 'LinkedIn',
+};
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div>
+      <dt className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</dt>
+      <dd className="mt-0.5">{value}</dd>
+    </div>
+  );
+}
+
 export default async function ProfileSettingsPage() {
   let me: Me | null = null;
   let profile: PublicProfile | null = null;
@@ -63,25 +79,28 @@ export default async function ProfileSettingsPage() {
             }
             email={me.user.email}
           />
-          <div className="mt-10 border-t border-line pt-6 text-xs text-ink-muted space-y-1">
-            <div>
-              <span className="uppercase tracking-wider">Email</span> · {me.user.email}{' '}
-              <span>— managed by your identity provider</span>
-            </div>
-            <div>
-              <span className="uppercase tracking-wider">Sign-in method</span> ·{' '}
-              {me.user.primary_auth_method ?? '—'}
-            </div>
-            {me.user.last_sign_in && (
-              <div>
-                <span className="uppercase tracking-wider">Last sign-in</span> ·{' '}
-                {new Date(me.user.last_sign_in).toLocaleString('en-GB', {
-                  dateStyle: 'medium',
-                  timeStyle: 'short',
-                })}
-              </div>
-            )}
-          </div>
+          <section className="mt-12 border-t border-line pt-8">
+            <div className="text-[10px] uppercase tracking-wider text-ink-muted">Signing in</div>
+            <dl className="mt-3 rounded-lg border border-line bg-surface-raised p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
+              <Row label="Email" value={me.user.email} />
+              <Row label="Method" value={METHOD[me.user.primary_auth_method ?? ''] ?? '—'} />
+              {me.user.last_sign_in && (
+                <Row
+                  label="Last sign-in"
+                  value={new Date(me.user.last_sign_in).toLocaleString('en-GB', {
+                    dateStyle: 'medium',
+                    timeStyle: 'short',
+                  })}
+                />
+              )}
+            </dl>
+            <p className="mt-3 text-xs text-ink-muted">
+              Your email is your identity here: it is how the platform finds every workspace you
+              belong to, so it cannot be changed from this screen yet. Ask and we will move it.
+              There is no password to manage — you sign in with Google, or with a code sent to
+              this address.
+            </p>
+          </section>
         </>
       )}
     </PageContainer>

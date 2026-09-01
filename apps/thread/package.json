@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/thread",
-  "version": "0.19.29",
+  "version": "0.19.30",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",
@@ -9,15 +9,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "next": "^15.0.0",
-    "react": "^19.0.0",
-    "react-dom": "^19.0.0",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.0",
     "@thefibre/shared": "workspace:*",
     "clsx": "^2.1.1",
-    "tailwind-merge": "^3.5.0",
-    "lucide-react": "^0.460.0"
+    "jsqr": "^1.4.0",
+    "lucide-react": "^0.460.0",
+    "next": "^15.0.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwind-merge": "^3.5.0"
   },
   "devDependencies": {
     "@types/node": "^22.7.0",

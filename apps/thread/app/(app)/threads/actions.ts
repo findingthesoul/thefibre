@@ -426,3 +426,57 @@ export async function setThreadCategories(
     return { ok: false, error: errorMessage(e) };
   }
 }
+
+/**
+ * One scan, one verdict. The door needs a single answer it can paint across
+ * the screen — admitted, refused, or already in — so resolving the code and
+ * opening the door happen here rather than as two round trips from the phone.
+ *
+ * "Already checked in" is a REFUSAL, not a success: a ticket opens the door
+ * once, and the same QR arriving twice is the thing a door exists to notice.
+ * Undo in the list, then rescan, stays the honest path back.
+ */
+export type ScanVerdict =
+  | { kind: 'admitted'; name: string }
+  | { kind: 'already'; name: string; at: string }
+  | { kind: 'refused'; reason: string };
+
+export async function scanTicket(threadId: string, code: string): Promise<ScanVerdict> {
+  type Resolved = {
+    id: string;
+    thread_id: string;
+    person_name: string;
+    status: string | null;
+    checked_in_at: string | null;
+  };
+  let found: Resolved;
+  try {
+    found = await apiFetch<Resolved>(`/api/v1/thread/checkin/${code}`);
+  } catch (e) {
+    const msg = errorMessage(e);
+    return {
+      kind: 'refused',
+      reason: /not found/i.test(msg) ? 'Not a ticket for this event' : msg,
+    };
+  }
+  if (found.thread_id !== threadId) {
+    return { kind: 'refused', reason: 'Ticket for another event' };
+  }
+  if (found.checked_in_at) {
+    return { kind: 'already', name: found.person_name, at: found.checked_in_at };
+  }
+  try {
+    const r = await apiFetch<{ ok: boolean; already?: boolean; checked_in_at: string | null }>(
+      `/api/v1/thread/enrolments/${found.id}/checkin`,
+      { method: 'POST', body: JSON.stringify({}) },
+    );
+    // Two phones on the same ticket in the same second: the API answers
+    // `already` to whichever lost, and the door says so.
+    if (r.already && r.checked_in_at) {
+      return { kind: 'already', name: found.person_name, at: r.checked_in_at };
+    }
+    return { kind: 'admitted', name: found.person_name };
+  } catch (e) {
+    return { kind: 'refused', reason: errorMessage(e) };
+  }
+}

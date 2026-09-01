@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { profileFor } from '../lib/identity-profile.js';
 import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
@@ -198,11 +199,7 @@ threadRoutes.get('/me', async (c) => {
   // lib/payment-accounts (user_profile first, app columns as fallback).
   // Platform profile provides the shared display fields; the organiser row
   // holds app-level overrides (docs/platform-spot-members-profile.md).
-  const { data: profile } = await adminClient
-    .from('user_profile')
-    .select('display_name, bio, photo_url, timezone')
-    .eq('user_id', ctx.userId)
-    .maybeSingle();
+  const profile = await profileFor(ctx.userId);
 
   return c.json({
     ...organiser,

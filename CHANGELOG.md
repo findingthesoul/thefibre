@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.30] — 2026-09-01 — your profile is yours, not your seat's
+
+*"If I'm in various workspaces, do I need to make a profile over and over?"*
+
+He did. The data said so: his Solidarity Lab profile held a bio and his invoice
+details, his Festival of Trust profile held a photo and neither. Tahirih had
+one profile and one blank. Yesterday's "one profile" was only ever one profile
+*per workspace*.
+
+One line caused it. `user_profile.user_id` references `public."user"(id)`, and
+a user row is per workspace. A seat is per workspace on purpose — role, apps,
+visibility all differ per tenant. A face is not one of those things.
+
+### Added
+- **`identity_profile`**, keyed by email — the same key that already finds
+  someone's seats across workspaces (v0.19.1). The backfill takes the fullest
+  answer per field rather than picking a row: Sjoerd's merged profile has the
+  photo from one workspace and the bio from the other.
+- **`identity_billing`**, keyed by email, **owner-only**.
+- **`lib/identity-profile.ts`** — one reader, so the fallback to the old
+  per-seat rows exists in one place and can be deleted in one place.
+- **A "Signing in" section** on the profile page: email, method, last sign-in,
+  and a plain statement that the email cannot be changed here yet because it is
+  the key to every workspace you belong to.
+
+### Fixed
+- **Personal invoice details were readable by the whole workspace.**
+  `user_profile`'s read policy is workspace-wide — correct when the row held a
+  name, a bio and a photo ("they're public faces"), and quietly wrong from
+  v0.13.95, when the payments SPoT added `invoice_details` and
+  `stripe_account_id` to the same row. Since then a member's personal legal
+  name, home address and tax number have been readable by every other member of
+  their workspace.
+
+  RLS cannot withhold a column, so the private half moved to its own table with
+  its own policy. Nobody but the owner can read `identity_billing`.
+
+### Changed
+- `/api/v1/profile`, The Thread's and Meet's `/me`, and every personal reader
+  in `lib/payment-accounts.ts` now resolve identity-first, with the per-seat
+  rows as fallbacks. Nothing writes the old columns.
+
 ## [0.19.29] — 2026-09-01 — the same page, not the same content twice
 
 Sjoerd, on the two profile screens side by side: *"It's not the same yet."*
