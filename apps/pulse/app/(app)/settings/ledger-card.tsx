@@ -63,7 +63,7 @@ export function LedgerCard({ settings }: { settings: PulseSettings }) {
           <div>
             <p className="text-sm text-ink">Include in the cashflow</p>
             <p className="mt-0.5 text-xs text-ink-muted">
-              Open Stripe/invoice purchases from Meet and The Thread project as receivables.
+              Open Stripe/invoice purchases from Meet and Thread project as receivables.
             </p>
           </div>
           <Switch

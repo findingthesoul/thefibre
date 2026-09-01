@@ -571,7 +571,7 @@ pulseRoutes.get('/stages', async (c) => {
 });
 
 const AUTHOR_IN_FLOW =
-  'the pipeline is authored in Fibre Flow — edit the Pipeline flow there; Pulse mirrors it';
+  'the pipeline is authored in Flow — edit the Pipeline flow there; Pulse mirrors it';
 
 pulseRoutes.post('/stages', async (c) => c.json({ error: AUTHOR_IN_FLOW }, 409));
 pulseRoutes.delete('/stages/:id', async (c) => c.json({ error: AUTHOR_IN_FLOW }, 409));

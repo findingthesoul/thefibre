@@ -2,7 +2,7 @@ import { Users } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { ContactsList, type Run } from './contacts-list';
 
-export const metadata = { title: 'Contacts — Fibre Flow' };
+export const metadata = { title: 'Contacts — Flow' };
 
 export default async function ContactsPage() {
   let runs: Run[] = [];

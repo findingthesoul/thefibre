@@ -194,7 +194,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">The Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
       </footer>
     </Shell>
   );

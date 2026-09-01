@@ -10,7 +10,7 @@
 import type { Metadata } from 'next';
 
 export const metadata: Metadata = {
-  title: 'Developers — The Thread',
+  title: 'Developers — Thread',
   description:
     'The public read API for threads, agendas and listings, plus the embeddable widgets.',
 };
@@ -339,7 +339,7 @@ export default function DevelopersPage() {
         </section>
 
         <footer className="mt-16 border-t border-line pt-6 text-xs text-ink-muted">
-          Questions, or something here is wrong? <span className="font-medium">The Thread</span>{' '}
+          Questions, or something here is wrong? <span className="font-medium">Thread</span>{' '}
           · The Fibre
         </footer>
       </main>

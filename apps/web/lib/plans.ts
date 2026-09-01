@@ -35,7 +35,7 @@ export type FeatureGroup = { app: string; rows: FeatureRow[] };
 
 export const FEATURE_GROUPS: FeatureGroup[] = [
   {
-    app: 'Fibre Meet',
+    app: 'Meet',
     rows: [
       // Meet is in every tier by decision (pricing-proposal D-list) — there is
       // deliberately no 'meet' gate key. The fee ladder is what varies, and it
@@ -43,9 +43,9 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     ],
   },
   {
-    app: 'The Thread',
+    app: 'Thread',
     rows: [
-      { key: 'thread', label: 'The Thread', kind: 'flag' },
+      { key: 'thread', label: 'Thread', kind: 'flag' },
       {
         key: 'thread_live_limit',
         label: 'Live events at once',
@@ -57,15 +57,15 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     ],
   },
   {
-    app: 'Fibre Flow',
-    rows: [{ key: 'flow', label: 'Fibre Flow', kind: 'flag' }],
+    app: 'Flow',
+    rows: [{ key: 'flow', label: 'Flow', kind: 'flag' }],
   },
   {
-    app: 'Fibre Pulse',
-    rows: [{ key: 'pulse', label: 'Fibre Pulse', kind: 'flag' }],
+    app: 'Pulse',
+    rows: [{ key: 'pulse', label: 'Pulse', kind: 'flag' }],
   },
   {
-    app: 'The Fibre platform',
+    app: 'Platform',
     rows: [
       { key: 'email_branding', label: 'Your logo + sender name on email', kind: 'flag' },
       { key: 'custom_sender_domain', label: 'Your own sending domain', kind: 'flag' },

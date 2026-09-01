@@ -8,7 +8,7 @@ import { teamName, type CashflowScope, type InvolvedTeam } from '../cashflow/typ
 import CashflowChart, { type Projection } from './cashflow-chart';
 import { DashboardScopePicker } from './scope-picker';
 
-export const metadata = { title: 'Fibre Pulse' };
+export const metadata = { title: 'Pulse' };
 
 async function safeItems<T>(path: string): Promise<T[]> {
   try {

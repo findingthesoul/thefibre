@@ -125,7 +125,7 @@ export function RegistrationPanel({
       </div>
       <p className="mt-2 text-xs text-ink-muted">
         Asked on the public enrolment form, after name and email. Answers stay
-        in The Thread — they never cross to the platform timeline.
+        in Thread — they never cross to the platform timeline.
       </p>
 
       {fields.length === 0 && (

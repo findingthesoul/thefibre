@@ -110,7 +110,7 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit learning profile — Fibre Learn"
+      title="Edit learning profile — Learn"
       size="lg"
       footer={
         <>

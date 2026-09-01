@@ -17,7 +17,7 @@ export default function SettingsPage() {
     // about you and the workspace is edited once, in The Fibre.
     hosted: ['payments', 'connections'],
     appSection: {
-      label: 'The Thread',
+      label: 'Thread',
       entries: [
         {
           href: '/settings/profile',
@@ -45,7 +45,7 @@ export default function SettingsPage() {
     <PageContainer max="4xl">
       <PageHeader
         title="Settings"
-        description="You, the workspace, and The Thread. The same four sections in every Fibre app."
+        description="You, the workspace, and Thread. The same four sections in every Fibre app."
       />
       <SettingsCards sections={sections} link={Link} />
     </PageContainer>

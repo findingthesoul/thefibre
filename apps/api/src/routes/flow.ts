@@ -860,7 +860,7 @@ flowRoutes.delete('/flows/:id', async (c) => {
     .maybeSingle();
   if (sys?.system_key === 'pulse_pipeline') {
     return c.json(
-      { error: 'This flow is the Pulse pipeline — the cashflow tool reads it. Deactivate Fibre Pulse before deleting it.' },
+      { error: 'This flow is the Pulse pipeline — the cashflow tool reads it. Deactivate Pulse before deleting it.' },
       409,
     );
   }

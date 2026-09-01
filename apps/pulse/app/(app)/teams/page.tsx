@@ -1,7 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { TeamsView } from './teams-view';
 
-export const metadata = { title: 'Teams · Fibre Pulse' };
+export const metadata = { title: 'Teams · Pulse' };
 
 // Teams live under People (the Thread pattern — Sjoerd 2026-07-09). Teams
 // themselves are a platform primitive (created/membered in Meet for now);

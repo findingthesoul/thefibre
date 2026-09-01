@@ -79,8 +79,8 @@ workspaceAppsRoutes.post('/', async (c) => {
   // Third-party apps are gated the same way, one line further down the same
   // list: installing somebody else's app is a Pro capability.
   const GATED: Record<string, { feature: PlanFeature; label: string }> = {
-    'fibre-flow': { feature: 'flow', label: 'Fibre Flow' },
-    'fibre-pulse': { feature: 'pulse', label: 'Fibre Pulse' },
+    'fibre-flow': { feature: 'flow', label: 'Flow' },
+    'fibre-pulse': { feature: 'pulse', label: 'Pulse' },
   };
   const gate = GATED[slug];
   if (gate && !(await can(ctx.workspaceId, gate.feature))) {

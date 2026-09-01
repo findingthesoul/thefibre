@@ -184,7 +184,7 @@ export function PlanMatrix({ plans }: { plans: AdminPlan[] }) {
       <p className="mt-3 max-w-2xl text-xs leading-relaxed text-ink-muted">
         This matrix edits the values of existing capabilities. Adding a <em>new</em> capability is a
         code change (a <code className="font-mono">PlanFeature</code> key plus its gate) — the same
-        deliberate rule as app-key scopes. Fibre Meet is in every package by decision; only its fee
+        deliberate rule as app-key scopes. Meet is in every package by decision; only its fee
         ladder varies, above.
       </p>
     </div>

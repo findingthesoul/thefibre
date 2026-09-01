@@ -21,7 +21,7 @@ export default async function ContactsPage() {
     <PageContainer>
       <PageHeader
         title="Contacts"
-        description="The people The Thread knows — everyone who has enrolled in one of your threads."
+        description="The people Thread knows — everyone who has enrolled in one of your threads."
       />
 
       {error && <ErrorBanner>Couldn&apos;t load contacts: {error}</ErrorBanner>}

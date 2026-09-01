@@ -612,7 +612,7 @@ meetRoutes.post('/public/bookings', async (c) => {
           invoice_creation: {
             enabled: true,
             invoice_data: {
-              description: `${mt.name} — booking on Fibre Meet`,
+              description: `${mt.name} — booking on Meet`,
               metadata: {
                 booking_id: booking.id,
                 mt_slug: mt.slug,
@@ -622,7 +622,7 @@ meetRoutes.post('/public/bookings', async (c) => {
               // good place for the support address per ENTITY in
               // packages/shared/branding.ts. Hard-coded here because
               // this string ends up on the host's invoice, not ours.
-              footer: 'Issued automatically by Fibre Meet on behalf of the host.',
+              footer: 'Issued automatically by Meet on behalf of the host.',
             },
           },
           // Collect a billing address so the auto-generated invoice
@@ -701,7 +701,7 @@ meetRoutes.post('/public/bookings', async (c) => {
           to: hostEmail,
           subject: `Approval needed: ${mt.name} — ${inviteeName}`,
           text: `${inviteeName} (${inviteeEmail}) requested ${mt.name} for ${starts.toISOString()}.\n\nReview and approve at ${meetAppUrl()}/bookings\n\n${emailSignoff()}`,
-          html: `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Fibre Meet →</a></p>`,
+          html: `<p><strong>${escapeHtml(inviteeName)}</strong> (${escapeHtml(inviteeEmail)}) requested <strong>${escapeHtml(mt.name)}</strong>.</p><p><a href="${meetAppUrl()}/bookings">Review in Meet →</a></p>`,
           replyTo: inviteeEmail,
         });
       } catch (e) {

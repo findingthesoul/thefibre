@@ -55,7 +55,7 @@ export function MeetProfileEdit({
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Edit Meet profile — Fibre Meet"
+        title="Edit Meet profile — Meet"
         size="lg"
         footer={
           <>
@@ -113,7 +113,7 @@ export function MeetProfileEdit({
             name="host_notes"
             defaultValue={initial?.host_notes ?? ''}
             rows={6}
-            hint="Private. Only workspace members with Fibre Meet access see this."
+            hint="Private. Only workspace members with Meet access see this."
           />
           {state.error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">

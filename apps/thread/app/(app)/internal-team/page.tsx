@@ -35,7 +35,7 @@ export default async function InternalTeamPage() {
     <PageContainer>
       <PageHeader
         title="Internal team"
-        description="Who in the workspace can use The Thread — read-only here."
+        description="Who in the workspace can use Thread — read-only here."
       />
 
       {/* Membership is managed at platform level — the single point of truth

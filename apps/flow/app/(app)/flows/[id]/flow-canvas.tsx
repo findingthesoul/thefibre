@@ -919,7 +919,7 @@ function EdgePanel({
   return (
     <Drawer title="Transition" onClose={onClose}>
       <datalist id="flow-contact-action-types">
-        <option value="meeting_booked">Booked a Fibre Meet</option>
+        <option value="meeting_booked">Booked a Meet</option>
         <option value="meeting_requested">Requested a Meet (needs approval)</option>
         <option value="meeting_attended">Attended a Meet</option>
         <option value="thread.enrolment.attended">Attended a Thread session</option>

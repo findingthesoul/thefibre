@@ -70,7 +70,7 @@ export async function MeetTab({ personId }: { personId: string }) {
   return (
     <>
       <div className="text-xs text-ink-subtle">
-        What <span className="text-ink font-medium">Fibre Meet</span> knows
+        What <span className="text-ink font-medium">Meet</span> knows
         about this person: meetings booked + the host&apos;s private notes.
         Identity (name, email) is owned by the platform.
       </div>

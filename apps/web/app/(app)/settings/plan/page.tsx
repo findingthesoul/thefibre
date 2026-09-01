@@ -224,7 +224,7 @@ export default async function PlanPage() {
           </table>
         </div>
         <p className="mt-3 text-xs text-ink-muted">
-          Prices ex-VAT, per workspace per month. Fibre Meet is in every package. Downgrading never
+          Prices ex-VAT, per workspace per month. Meet is in every package. Downgrading never
           deletes anything — what a smaller plan lacks becomes read-only, not gone.
         </p>
       </section>

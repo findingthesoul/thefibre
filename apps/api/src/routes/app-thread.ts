@@ -100,7 +100,7 @@ function notForUsers(c: Context) {
   return c.json(
     {
       error:
-        'this surface is for app keys; a signed-in user should use /api/v1/thread/* which is bounded by The Thread’s own permissions',
+        'this surface is for app keys; a signed-in user should use /api/v1/thread/* which is bounded by Thread’s own permissions',
     },
     403,
   );
@@ -431,7 +431,7 @@ export function registerAppThreadRoutes(appsRoutes: Hono) {
         .maybeSingle();
       if (!data) {
         return c.json(
-          { error: 'that person has no Thread organiser profile — they need to visit The Thread’s settings once' },
+          { error: 'that person has no Thread organiser profile — they need to visit Thread’s settings once' },
           400,
         );
       }

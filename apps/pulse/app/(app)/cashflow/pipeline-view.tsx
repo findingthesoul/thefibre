@@ -136,7 +136,7 @@ export function PipelineView({
       <div className="max-w-6xl">
         <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
         <p className="mt-1 text-sm text-ink-muted">
-          Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Fibre Flow).
+          Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Flow).
         </p>
       </div>
       {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the

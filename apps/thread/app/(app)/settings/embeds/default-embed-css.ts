@@ -9,7 +9,7 @@
 
 // The full element reference — every te-* class the embeds render, with
 // the default look spelled out. Integrators change values, not selectors.
-export const DEFAULT_EMBED_CSS = `/* The Thread embed — all elements. Paste INSIDE the embed element;
+export const DEFAULT_EMBED_CSS = `/* Thread embed — all elements. Paste INSIDE the embed element;
    it only affects this embed (and its popup), never your page. */
 .te-card        { background: #ffffff; border: 1px solid #e5e5e2; border-radius: 12px; }
 .te-cover       { border-radius: 12px; }

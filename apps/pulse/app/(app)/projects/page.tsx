@@ -2,7 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { ProjectsView } from './projects-view';
 import type { InvolvedTeam, Project } from './types';
 
-export const metadata = { title: 'Teams & projects · Fibre Pulse' };
+export const metadata = { title: 'Teams & projects · Pulse' };
 
 export default async function ProjectsPage() {
   let teams: InvolvedTeam[] = [];

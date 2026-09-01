@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { SlidersHorizontal } from 'lucide-react';
-import { appUrl } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from './page-chrome';
 
@@ -10,7 +10,7 @@ export default function SettingsPage() {
     hosted: ['payments'],
     omit: ['connections'],
     appSection: {
-      label: 'Fibre Pulse',
+      label: appName('fibre-pulse'),
       entries: [
         {
           href: '/settings/planner',

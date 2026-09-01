@@ -12,7 +12,7 @@ import {
   type CashflowTeam,
 } from './invoices-client';
 
-export const metadata = { title: 'Invoices · Fibre Pulse' };
+export const metadata = { title: 'Invoices · Pulse' };
 export const dynamic = 'force-dynamic';
 
 // Raw shape of GET /api/v1/pulse/involved-teams — team joins can come back

@@ -43,13 +43,13 @@ export function StagesCard({ stages, flowUrl }: { stages: Stage[]; flowUrl: stri
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-sm text-ink-subtle hover:text-ink hover:underline"
           >
-            Edit the flow in Fibre Flow
+            Edit the flow in Flow
             <ExternalLink size={13} strokeWidth={1.75} />
           </a>
         )}
       </div>
       <p className="px-5 py-3 text-sm text-ink-muted border-b border-line/60">
-        The pipeline is a Fibre Flow — steps, order and names are edited there and mirrored
+        The pipeline is a Flow — steps, order and names are edited there and mirrored
         here. What each step <em>means for the money</em> (weighted, committed, won, lost) is
         set here, per stage.
       </p>
@@ -171,7 +171,7 @@ function KindDialog({ stage, onClose }: { stage: Stage; onClose: () => void }) {
           </select>
           <p className="mt-1 text-xs text-ink-muted">
             Terminal steps of the flow (positive/negative ends) are re-imposed as won/lost on
-            the next sync. Rename or reorder the stage itself in Fibre Flow.
+            the next sync. Rename or reorder the stage itself in Flow.
           </p>
         </div>
         <div>

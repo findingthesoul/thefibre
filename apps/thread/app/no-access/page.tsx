@@ -6,15 +6,15 @@ export default function NoAccess() {
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-xl px-6 py-20">
         <div className="text-xs uppercase tracking-[0.18em] text-neutral-500">
-          The Thread
+          Thread
         </div>
         <h1 className="mt-3 text-3xl font-medium tracking-tight">
           Not yet available for this account
         </h1>
         <p className="mt-4 text-neutral-600 leading-relaxed">
           Your account either doesn&apos;t exist on The Fibre yet, or this
-          workspace hasn&apos;t turned The Thread on. Apply for a Fibre
-          account, or ask your workspace admin to activate The Thread under{' '}
+          workspace hasn&apos;t turned Thread on. Apply for a Fibre
+          account, or ask your workspace admin to activate Thread under{' '}
           <em>Settings → Apps</em>.
         </p>
         <div className="mt-10 flex gap-5">

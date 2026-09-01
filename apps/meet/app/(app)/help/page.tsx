@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { appUrl } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
 
-export const metadata = { title: 'Help — Fibre Meet' };
+export const metadata = { title: `Help — ${appName('fibre-meet')}` };
 
 type Me = { memberships: { app: { slug: string } | { slug: string }[] | null }[] };
 type WorkspaceApp = {
@@ -42,7 +42,7 @@ const SECTIONS: HelpSection[] = [
     label: 'Internal team',
     href: '/internal-team',
     blurb:
-      "Workspace members who can sign in to Fibre Meet. External collaborators don't live here — add them per team.",
+      "Workspace members who can sign in to Meet. External collaborators don't live here — add them per team.",
   },
   {
     label: 'Settings',

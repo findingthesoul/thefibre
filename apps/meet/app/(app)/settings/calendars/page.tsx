@@ -72,7 +72,7 @@ export default async function CalendarsPage() {
           <div className="mt-6 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle leading-relaxed">
             <div className="font-medium text-ink">Don&apos;t see a calendar you expected?</div>
             <p className="mt-2">
-              Fibre Meet shows every Google calendar you own or have write access
+              Meet shows every Google calendar you own or have write access
               to. Add the calendar inside Google Calendar and disconnect /
               reconnect the integration to refresh the list.
             </p>

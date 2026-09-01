@@ -6,7 +6,7 @@ import {
   type CashflowTeam,
 } from './accounts-client';
 
-export const metadata = { title: 'Accounts · Fibre Pulse' };
+export const metadata = { title: 'Accounts · Pulse' };
 
 // Raw shape of GET /api/v1/pulse/involved-teams — team joins can come back
 // as an object or a one-element array depending on the relationship.

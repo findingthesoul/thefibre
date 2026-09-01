@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { appUrl } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
 
-export const metadata = { title: 'Help · Fibre Pulse' };
+export const metadata = { title: `Help · ${appName('fibre-pulse')}` };
 
 type Me = { memberships: { app: { slug: string } | { slug: string }[] | null }[] };
 type WorkspaceApp = {
@@ -20,7 +20,7 @@ const SECTIONS: HelpSection[] = [
     label: 'Cashflow',
     href: '/cashflow',
     blurb:
-      'Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Fibre Flow).',
+      'Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Flow).',
   },
   {
     label: 'Projects',

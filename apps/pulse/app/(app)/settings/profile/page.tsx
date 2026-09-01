@@ -8,7 +8,7 @@ import { ProfileForm, type PlatformProfile } from './form';
 // photo upload via the Thread-only uploads endpoint) on top; Pulse has no
 // public page, so those pieces were dropped.
 
-export const metadata = { title: 'Profile settings · Fibre Pulse' };
+export const metadata = { title: 'Profile settings · Pulse' };
 
 export default async function ProfileSettingsPage() {
   const profile = await apiFetch<PlatformProfile>('/api/v1/profile');

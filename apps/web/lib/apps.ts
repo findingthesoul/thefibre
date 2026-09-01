@@ -33,7 +33,7 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   },
   'fibre-meet': {
     slug: 'fibre-meet',
-    label: 'Fibre Meet',
+    label: 'Meet',
     // No per-app sub-resources via SubResourceSection — the fibre-meet tab
     // renders its own bespoke layout (profile + upcoming + past meetings).
     // Change-context fields were removed v2.1.3 (they belong to a future
@@ -43,13 +43,13 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   },
   'the-thread': {
     slug: 'the-thread',
-    label: 'The Thread',
+    label: 'Thread',
     personSubResources: [],
     orgSubResources: [],
   },
   'fibre-flow': {
     slug: 'fibre-flow',
-    label: 'Fibre Flow',
+    label: 'Flow',
     // Flow's contact tab renders its own bespoke layout (runs + tasks);
     // no SubResourceSection-driven curator tables.
     personSubResources: [],
@@ -57,7 +57,7 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   },
   'fibre-pulse': {
     slug: 'fibre-pulse',
-    label: 'Fibre Pulse',
+    label: 'Pulse',
     // Pulse owns its own money-relationship fields in its schema; no
     // platform-profile SubResourceSection tables (payment-terms curator
     // field is a future addition — proposal §2.5).
@@ -66,13 +66,13 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   },
   'fibre-sales': {
     slug: 'fibre-sales',
-    label: 'Fibre Sales',
+    label: 'Sales',
     personSubResources: ['relationship', 'billing'],
     orgSubResources: ['relationship', 'billing'],
   },
   'fibre-learn': {
     slug: 'fibre-learn',
-    label: 'Fibre Learn',
+    label: 'Learn',
     personSubResources: ['learning'],
     orgSubResources: [],
   },

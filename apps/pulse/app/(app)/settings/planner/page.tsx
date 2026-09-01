@@ -25,7 +25,7 @@ import type {
 // live one level up so their './actions' / './shared' imports (also used by
 // the Teams page) stay put.
 
-export const metadata = { title: 'Planner settings · Fibre Pulse' };
+export const metadata = { title: 'Planner settings · Pulse' };
 
 export default async function PlannerSettingsPage() {
   let settings: PulseSettings = null;

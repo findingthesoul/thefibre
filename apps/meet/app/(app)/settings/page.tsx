@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { Globe, Clock, CalendarDays, Plug } from 'lucide-react';
-import { appUrl } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from '@/components/ui/page';
 
@@ -11,7 +11,7 @@ export default function SettingsIndex() {
     fibreUrl: appUrl('fibre-platform', process.env),
     hosted: ['payments'],
     appSection: {
-      label: 'Fibre Meet',
+      label: appName('fibre-meet'),
       entries: [
         {
           href: '/settings/profile',

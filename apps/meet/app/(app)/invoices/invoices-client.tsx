@@ -60,8 +60,8 @@ type Scope = 'me' | 'team' | 'workspace';
 
 const APP_OPTIONS = [
   { key: 'all', label: 'All apps' },
-  { key: 'fibre-meet', label: 'Fibre Meet' },
-  { key: 'the-thread', label: 'The Thread' },
+  { key: 'fibre-meet', label: 'Meet' },
+  { key: 'the-thread', label: 'Thread' },
 ] as const;
 
 export function InvoicesClient({

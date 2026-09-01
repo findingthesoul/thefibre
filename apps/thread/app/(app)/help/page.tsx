@@ -4,7 +4,7 @@ import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
 
-export const metadata = { title: 'Help — The Thread' };
+export const metadata = { title: 'Help — Thread' };
 
 type Me = { memberships: { app: { slug: string } | { slug: string }[] | null }[] };
 type WorkspaceApp = {
@@ -36,7 +36,7 @@ const SECTIONS: HelpSection[] = [
   {
     label: 'Contacts',
     href: '/contacts',
-    blurb: 'The people The Thread knows — everyone who has enrolled in one of your threads.',
+    blurb: 'The people Thread knows — everyone who has enrolled in one of your threads.',
   },
   {
     label: 'Teams',
@@ -47,7 +47,7 @@ const SECTIONS: HelpSection[] = [
   {
     label: 'Internal team',
     href: '/internal-team',
-    blurb: 'Who in the workspace can use The Thread — read-only here.',
+    blurb: 'Who in the workspace can use Thread — read-only here.',
   },
   {
     label: 'Settings',

@@ -149,7 +149,7 @@ export default async function PricingPage() {
                   <CompareRow label="Storage" plans={plans} value={(p) => (p.included_storage_gb === null ? 'Negotiated' : `${p.included_storage_gb} GB`)} />
                   <CompareRow label="Data kept" plans={plans} value={(p) => (p.retention_months ? `${p.retention_months} months` : 'While you pay')} />
                   <CompareRow label="Fee on paid enrolments" plans={plans} value={(p) => feePhrase(p.meet_paid_pct, p.meet_paid_cap_cents)} />
-                  <CompareRow label="Fibre Meet" plans={plans} value={() => '✓'} />
+                  <CompareRow label="Meet" plans={plans} value={() => '✓'} />
                   {FEATURE_GROUPS.filter((g) => g.rows.length > 0).flatMap((g) =>
                     g.rows.map((row) => (
                       <tr key={row.key} className="border-b border-neutral-100 last:border-0">

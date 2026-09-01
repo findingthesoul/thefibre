@@ -73,7 +73,7 @@ export default async function PublicOrganiserPage({
         </section>
 
         <footer className="mt-16 text-xs text-ink-muted">
-          Powered by <span className="font-medium">The Thread</span> · The Fibre
+          Powered by <span className="font-medium">Thread</span> · The Fibre
         </footer>
       </main>
     </div>

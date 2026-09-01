@@ -42,9 +42,18 @@ seeded into Pulse. What remains:
    are charged, not refused). Remaining: email/storage overage lines on the
    monthly invoice, 80% warnings, the 13-month Free archive (warning email +
    export first).
-3. **P5 — website polish**: product pages per app, OG image (favicon shipped),
-   screenshots, self-serve signup flip when the trial ends.
-4. Decisions D1–D6 in docs/productisation-proposal.md §5 were built as
+3. **P5 — website polish**: OG image (favicon shipped), screenshots,
+   self-serve signup flip when the trial ends. Now under the naming brief
+   (docs/naming-brief.md): Thread-first — NO per-app product pages (Meet /
+   Sales / Flow are functions in Thread's service, never sibling products).
+4. **Naming brief follow-ups** (docs/naming-brief.md, decided 2026-09-01;
+   display renames + Thread-first landing shipped v0.23.0):
+   - Meet standalone vs event-type-inside-Thread — PRODUCT decision, Sjoerd.
+   - Domain strategy (thread-branded public domain?) — decide with the
+     staging build (docs/environments.md Phase 0), one DNS afternoon.
+   - /terms + /privacy-policy still carry old names — bundle with the lawyer
+     review (queue item 1c), don't edit unreviewed legal text piecemeal.
+5. Decisions D1–D6 in docs/productisation-proposal.md §5 were built as
    recommended ("continue building, don't wait" — Sjoerd, 2026-09-01, while
    sporting); mark the section RESOLVED once he has read it.
 

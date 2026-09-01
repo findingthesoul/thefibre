@@ -66,7 +66,7 @@ const INSTALLABLE_META: Record<
   },
   'fibre-pulse': {
     body:
-      'Business planner — cashflow projection and budgeting on contacts and offerings. Opportunities, invoices and a pipeline that reads as a Fibre Flow; reads the purchase ledger for actuals.',
+      'Business planner — cashflow projection and budgeting on contacts and offerings. Opportunities, invoices and a pipeline that reads as a Flow; reads the purchase ledger for actuals.',
     status: 'Active',
   },
   'fibre-sales': {

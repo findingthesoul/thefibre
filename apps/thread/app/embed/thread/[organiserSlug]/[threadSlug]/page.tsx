@@ -239,7 +239,7 @@ export default async function EmbedThreadPage({
       )}
 
       <footer className="mt-6 text-[11px] text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">The Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
       </footer>
     </div>
   );

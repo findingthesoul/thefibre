@@ -18,7 +18,10 @@ export function stripeOrNull(): Stripe | null {
     // Pin the API version so a Stripe-side upgrade doesn't silently change
     // our request/response shapes. Update deliberately when needed.
     apiVersion: '2026-04-22.dahlia',
-    appInfo: { name: 'Fibre Meet', version: '2.0.0' },
+    // SDK telemetry shown in Stripe's dashboard, not customer-facing. Named
+    // for the platform: this one client serves Meet, Thread and the
+    // subscription billing alike.
+    appInfo: { name: 'The Fibre', version: '1.0.0' },
   });
   return cached;
 }

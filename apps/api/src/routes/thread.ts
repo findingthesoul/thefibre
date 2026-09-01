@@ -2187,7 +2187,7 @@ async function ticketForCode(code: string) {
     organiserName:
       (team?.name as string | undefined) ??
       (organiser?.display_name as string | undefined) ??
-      'The Thread',
+      'Thread',
     startsOn: (program.starts_on as string | null) ?? null,
     location: null,
     checkinUrl: `${threadAppUrl()}/checkin/${code}`,
@@ -5383,8 +5383,8 @@ threadRoutes.post('/public/enrol', async (c) => {
           invoice_creation: {
             enabled: true,
             invoice_data: {
-              description: `${program.title} — enrolment via The Thread`,
-              footer: 'Issued automatically by The Thread on behalf of the organiser.',
+              description: `${program.title} — enrolment via Thread`,
+              footer: 'Issued automatically by Thread on behalf of the organiser.',
             },
           },
           billing_address_collection: 'required',

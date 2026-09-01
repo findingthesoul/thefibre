@@ -77,7 +77,7 @@ export default async function CertificatePage({
   const addToLinkedIn =
     'https://www.linkedin.com/profile/add?startTask=CERTIFICATION_NAME' +
     `&name=${encodeURIComponent(values.thread_title ?? 'Certificate')}` +
-    `&organizationName=${encodeURIComponent(values.org_name || values.issued_by || 'The Thread')}` +
+    `&organizationName=${encodeURIComponent(values.org_name || values.issued_by || 'Thread')}` +
     `&issueYear=${issuedDate.getFullYear()}&issueMonth=${issuedDate.getMonth() + 1}` +
     `&certUrl=${encodeURIComponent(certUrl)}` +
     `&certId=${encodeURIComponent(cert.certificate_number)}`;
@@ -121,7 +121,7 @@ export default async function CertificatePage({
         <footer className="mt-6 text-center text-xs text-ink-muted print:hidden">
           <span className="font-mono">{cert.certificate_number}</span> · issued to{' '}
           {cert.recipient_name} on {issued} · Powered by{' '}
-          <span className="font-medium">The Thread</span> · The Fibre
+          <span className="font-medium">Thread</span> · The Fibre
         </footer>
       </main>
     </div>

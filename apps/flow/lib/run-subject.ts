@@ -68,4 +68,4 @@ export function isPulseRun(run: RunSubject): boolean {
   return run.source_app === 'fibre-pulse';
 }
 
-export const PULSE_BADGE_TITLE = 'mirrored from Fibre Pulse — stage changes sync both ways';
+export const PULSE_BADGE_TITLE = 'mirrored from Pulse — stage changes sync both ways';

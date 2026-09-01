@@ -1,10 +1,10 @@
 import Link from 'next/link';
-import { appUrl } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
 
-export const metadata = { title: 'Help — Fibre Flow' };
+export const metadata = { title: `Help — ${appName('fibre-flow')}` };
 
 type Me = { memberships: { app: { slug: string } | { slug: string }[] | null }[] };
 type WorkspaceApp = {

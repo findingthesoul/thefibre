@@ -65,7 +65,7 @@ export async function ensurePipelineFlow(workspaceId: string, ownerUserId: strin
       workspace_id: workspaceId,
       name: 'Pipeline',
       description:
-        'The sales pipeline. Fibre Pulse reads this flow: every opportunity in the cashflow sits at one of these steps. Edit the steps here; set their money semantics (weighted/committed) in Pulse → Settings.',
+        'The sales pipeline. Pulse reads this flow: every opportunity in the cashflow sits at one of these steps. Edit the steps here; set their money semantics (weighted/committed) in Pulse → Settings.',
       scope: 'workspace',
       owner_user_id: ownerUserId,
       visibility: 'org_wide',

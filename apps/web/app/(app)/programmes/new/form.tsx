@@ -9,11 +9,11 @@ import { createProgramme } from '../actions';
 
 const FORMATS = [
   { value: '', label: '—' },
-  { value: 'meeting', label: 'Meeting — Fibre Meet' },
-  { value: 'event', label: 'Event — The Thread' },
-  { value: 'journey', label: 'Journey — The Thread' },
-  { value: 'self_paced', label: 'Self-paced — Fibre Learn' },
-  { value: 'blended', label: 'Blended — Fibre Learn' },
+  { value: 'meeting', label: 'Meeting — Meet' },
+  { value: 'event', label: 'Event — Thread' },
+  { value: 'journey', label: 'Journey — Thread' },
+  { value: 'self_paced', label: 'Self-paced — Learn' },
+  { value: 'blended', label: 'Blended — Learn' },
 ];
 
 export function NewProgrammeForm() {

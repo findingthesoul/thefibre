@@ -1,7 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { BudgetActions, BudgetList, type BudgetLine, type Member } from './budget-client';
 
-export const metadata = { title: 'Budget · Fibre Pulse' };
+export const metadata = { title: 'Budget · Pulse' };
 
 export default async function BudgetPage() {
   let items: BudgetLine[] = [];

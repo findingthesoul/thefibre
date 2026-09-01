@@ -3,12 +3,12 @@ import Image from 'next/image';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInLink } from './sign-in-button';
-import { APPS, ENTITY, BRAND_ASSETS } from '@thefibre/shared';
+import { ENTITY, BRAND_ASSETS } from '@thefibre/shared';
 
-const FIBRE = APPS['fibre-platform'];
-// The logo lives in apps/web/public/brand/the-fibre.png and is served at
-// /brand/the-fibre.png. BRAND_ASSETS.logoUrl is the absolute URL used in
-// emails — same file, different surface.
+// The public landing, positioned per docs/naming-brief.md (2026-09-01):
+// Thread is the flagship people meet and say out loud; Meet / Sales / Flow
+// are functions in its service, never siblings with equal billing; Fibre
+// appears once, backstage, as the foundation — never the pitch.
 
 export default async function LandingPage() {
   // If already signed in, jump straight to the dashboard — mirrors meet/flow.
@@ -38,13 +38,17 @@ export default async function LandingPage() {
             In an invited trial — access is by request
           </div>
           <h1 className="mt-5 text-5xl font-medium tracking-tight leading-tight">
-            Relationships, kept honestly.
+            Thread
           </h1>
-          <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
-            A platform for the people, organisations and programmes behind
-            purpose-driven work. EU-hosted, GDPR-native, cooperative-owned.
-            One place for the relationships your work depends on — without
-            the surveillance most software adds.
+          <p className="mt-3 text-2xl text-neutral-600 tracking-tight">
+            The learning journey a person walks.
+          </p>
+          <p className="mt-6 text-lg text-neutral-600 leading-relaxed max-w-2xl">
+            A festival, a course, a programme — for the person in it, these are
+            not events on a calendar. They are one journey: the first hello,
+            the enrolment, the sessions, the certificate, the invitation to
+            what comes next. Thread holds that whole arc, so the people who
+            organise it can walk alongside instead of chasing spreadsheets.
           </p>
 
           <div className="mt-10 flex items-center gap-5">
@@ -64,79 +68,58 @@ export default async function LandingPage() {
           </div>
         </header>
 
-        {/* The family — one platform, apps that each do one thing well. */}
+        {/* What walking a Thread involves — functions in its service, not
+            sibling products. */}
         <section className="mt-24">
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-            One platform, four apps
+            What a Thread carries
           </div>
-          <div className="mt-5 grid gap-6 sm:grid-cols-2">
-            <AppCard
-              app={APPS['fibre-meet']}
-              body="Booking pages, paid sessions, and meetings that land in the shared contact graph instead of a silo."
+          <div className="mt-5 space-y-6">
+            <Function
+              title="Enrolment that feels like a welcome"
+              body="Public pages in five languages, tickets and gentle payment, approval when a journey needs a doorkeeper — and every email a message in the journey's own voice, sent at the right moment."
             />
-            <AppCard
-              app={APPS['the-thread']}
-              body="Programmes and events end to end: enrolment, tickets, timed emails, approval, certificates."
+            <Function
+              title="Meetings, inside the journey"
+              body="Sessions and one-to-ones are scheduled and recorded as part of the Thread — how meetings happen here, not a separate tool to learn."
             />
-            <AppCard
-              app={APPS['fibre-flow']}
-              body="People in motion — applicants, participants and members moving through stages everyone can see."
+            <Function
+              title="The arc, visible"
+              body="Who has begun, who is mid-way, who crossed the finish — with certificates issued when they do. The people flow underneath is an engine, not a dashboard anyone must study."
             />
-            <AppCard
-              app={APPS['fibre-pulse']}
-              body="Cashflow and runway for the organisation behind the work, fed by the money the other apps take."
+            <Function
+              title="Relationships that persist"
+              body="The same person recognised across journeys and years — so next year's edition starts from a relationship, not a fresh import."
             />
           </div>
-        </section>
-
-        <section className="mt-24 grid gap-8 md:grid-cols-2">
-          <Feature
-            title="One profile per person"
-            body="The same contact across meetings, journeys, sales and learning — one identity, kept in the EU, owned by you."
-          />
-          <Feature
-            title="Apps that earn their data"
-            body="Every field stored on a person exists because a specific app needs it. No “might be useful later”. GDPR Article 5(1)(c) by construction."
-          />
-          <Feature
-            title="The data wall"
-            body="Each app keeps its own content. Only short event records (“meeting attended”, “session completed”) cross the wall. Sensitive notes never leave."
-          />
-          <Feature
-            title="Independently owned"
-            body={`${ENTITY.name} — built to last, not to flip. No advertising, no profiling, no third-party trackers.`}
-          />
         </section>
 
         <section className="mt-20">
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-            What it currently does
+            Under the hood
           </div>
-          <ul className="mt-4 space-y-3 text-sm text-neutral-700 leading-relaxed">
-            <li>· Identity, contact graph, organisations and programmes</li>
-            <li>· Per-app profile tabs that appear only when an app has data on the person</li>
-            <li>· Activity timeline across all installed apps</li>
-            <li>· Privacy dashboard — consents, erasure, full transparency</li>
-            <li>· Fibre Meet, The Thread, Fibre Flow and Fibre Pulse as first-party apps</li>
-            <li>
-              · Four packages, per workspace —{' '}
-              <Link className="underline" href="/pricing">
-                see pricing
-              </Link>
-            </li>
-          </ul>
+          <p className="mt-4 text-sm text-neutral-600 leading-relaxed max-w-2xl">
+            Thread runs on The Fibre — a shared foundation for identity and
+            relationships, hosted in the EU, GDPR-native, holding nothing it
+            cannot justify. A learner never needs to know it is there; the
+            organisations trusting us with their people&rsquo;s data sometimes
+            do, and{' '}
+            <Link className="underline" href="/about">
+              we are glad to explain it
+            </Link>
+            . No advertising, no profiling, no data sold.
+          </p>
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.hostedLine}
+          {ENTITY.name} · {ENTITY.hostedLine}
           <br />
-          No advertising. No profiling. No data sold.{' '}
-          {/* /privacy is the SIGNED-IN consent dashboard, inside (app) — linking
-              a logged-out visitor there bounced them straight back here. */}
           <Link className="underline" href="/pricing">
             Pricing
           </Link>{' '}
           ·{' '}
+          {/* /privacy is the SIGNED-IN consent dashboard, inside (app) — linking
+              a logged-out visitor there bounced them straight back here. */}
           <Link className="underline" href="/privacy-policy">
             Privacy
           </Link>{' '}
@@ -155,32 +138,11 @@ export default async function LandingPage() {
   );
 }
 
-function Feature({ title, body }: { title: string; body: string }) {
+function Function({ title, body }: { title: string; body: string }) {
   return (
-    <div>
+    <div className="max-w-2xl">
       <h3 className="text-base font-medium">{title}</h3>
-      <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{body}</p>
-    </div>
-  );
-}
-
-function AppCard({
-  app,
-  body,
-}: {
-  app: { name: string; tagline: string; brandLetters: string };
-  body: string;
-}) {
-  return (
-    <div className="rounded-xl border border-neutral-200 p-5">
-      <div className="flex items-center gap-2.5">
-        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-yellow-300 text-[10px] font-semibold tracking-tight text-neutral-900">
-          {app.brandLetters}
-        </span>
-        <h3 className="text-base font-medium">{app.name}</h3>
-      </div>
-      <p className="mt-2 text-sm italic text-neutral-500">{app.tagline}</p>
-      <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{body}</p>
+      <p className="mt-1.5 text-sm text-neutral-600 leading-relaxed">{body}</p>
     </div>
   );
 }

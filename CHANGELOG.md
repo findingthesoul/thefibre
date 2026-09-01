@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.23.0] — 2026-09-01 — Thread stands alone
+
+The naming brief arrived and was decided in one message (saved verbatim:
+docs/naming-brief.md): **Fibre is the invisible foundation. Thread is the
+flagship, the product people meet and feel. Meet, Sales and Flow are
+functional tools that serve Thread, not siblings competing with it.** The
+test that decided it: a word only earns textile language if a customer would
+say it out loud.
+
+### Changed
+- **branding.ts, the single source, renamed**: Thread ("The learning journey
+  a person walks."), Meet ("How meetings happen inside a Thread."), Flow,
+  Pulse, Sales, Learn. The Fibre keeps its name, backstage. **Slugs, ids and
+  URLs did not move** — `the-thread`, `fibre-meet` etc. are FKs and published
+  API contract; the plan-ids precedent (`org` displays as "Enterprise")
+  applied family-wide.
+- **The landing page is Thread-first** (Brief B): Thread as the name and the
+  journey as the story; four *functions* it carries instead of the
+  one-platform-four-apps sibling grid; Fibre reduced to one "under the hood"
+  paragraph. Tone per the brief: accompaniers who walk alongside.
+- **~55 files of display copy swept across all five apps + shared + API**
+  (four parallel agents, strict lanes): dialog titles, settings labels,
+  invoice filter chips, no-access pages, help pages, metadata titles,
+  powered-by footers ("Thread · The Fibre"), wallet passes
+  (Apple organizationName / Google issuerName), Stripe invoice descriptions
+  and footers, host-approval email, 402 plan-gate labels, error messages,
+  Flow/Pulse cross-references ("authored in Flow", "Deactivate Pulse").
+- The 5-language Thread catalog needed **nothing** — the brand was never in
+  translated strings; every translated "thread" is the common noun for a
+  journey, which stays by design.
+- Stripe SDK `appInfo` renamed 'Fibre Meet' → 'The Fibre' (it is the
+  platform-wide client; dashboard telemetry only).
+
+### Deliberately not changed
+- `/terms` + `/privacy-policy` (one "Fibre Meet" sentence remains) — legal
+  text pending lawyer review; renamed with that review, not piecemeal.
+- Google Wallet classId `…the_thread_ticket` — a registered identifier at
+  Google; renaming orphans the class.
+- Code comments naming the old brands — history, not copy.
+- Reserved/rejected names (Tapestry, Stitch, Knot, Loom, Warp, Shuttle,
+  Spindle) appear nowhere in product code; kept that way.
+
+### Parked, per the brief + tomorrow's session
+Meet standalone vs an event type inside Thread (product decision); the
+domain strategy (with the staging build, docs/environments.md Phase 0);
+Thread-as-platform (do not build for it yet).
+
 ## [0.22.3] — 2026-09-01 — the operator sees the costs, and the tools get their own tab
 
 Two of Sjoerd's observations, minutes apart: "on the economics page I don't

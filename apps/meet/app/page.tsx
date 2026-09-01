@@ -26,7 +26,7 @@ export default async function MeetLanding() {
         </h1>
         <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
           Design the agenda. Facilitate live. Capture the outcomes that
-          actually carry forward. Fibre Meet is the meeting platform inside
+          actually carry forward. Meet is the meeting platform inside
           The Fibre — built for facilitators, not for calendars.
         </p>
 

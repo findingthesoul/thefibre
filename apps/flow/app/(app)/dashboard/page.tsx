@@ -2,7 +2,7 @@ import { Workflow, CheckSquare, Users, Star, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
 
-export const metadata = { title: 'Fibre Flow' };
+export const metadata = { title: 'Flow' };
 
 type FlowRow = {
   id: string;

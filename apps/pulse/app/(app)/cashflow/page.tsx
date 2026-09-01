@@ -25,7 +25,7 @@ import type {
   TeamOption,
 } from './types';
 
-export const metadata = { title: 'Cashflow · Fibre Pulse' };
+export const metadata = { title: 'Cashflow · Pulse' };
 
 // Every picker degrades to empty on failure — the page still renders.
 async function safeItems<T>(path: string): Promise<T[]> {

@@ -29,7 +29,7 @@ export default async function InternalTeamPage() {
     <PageContainer max="4xl">
       <PageHeader
         title="Internal team"
-        description="Workspace members who can sign in to Fibre Meet. External collaborators don't live here — add them per team."
+        description="Workspace members who can sign in to Meet. External collaborators don't live here — add them per team."
       />
 
       {/* Transition notice: membership management is moving to the platform
@@ -49,7 +49,7 @@ export default async function InternalTeamPage() {
       <section className="mt-10">
         <SectionLabel>Internal team ({items.length})</SectionLabel>
         <p className="mt-1 text-sm text-ink-subtle">
-          Everyone who can sign in to Fibre Meet. Admins can change roles and
+          Everyone who can sign in to Meet. Admins can change roles and
           relationship types.
         </p>
         <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">

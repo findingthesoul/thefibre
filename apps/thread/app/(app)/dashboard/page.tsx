@@ -33,7 +33,7 @@ export default async function ThreadDashboard() {
   return (
     <PageContainer>
       <PageHeader
-        title={`Welcome to the Thread, ${firstName}`}
+        title={`Welcome to Thread, ${firstName}`}
         description={today}
       />
 
@@ -54,7 +54,7 @@ export default async function ThreadDashboard() {
           <p className="mt-3 text-sm text-ink-subtle leading-relaxed">
             Identity (the person, the organisation), the platform activity
             log, and shared programme/enrolment state. Curator data tagged for
-            The Thread also lives on The Fibre but is only visible to Thread
+            Thread also lives on The Fibre but is only visible to Thread
             members.
           </p>
         </div>

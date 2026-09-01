@@ -46,7 +46,7 @@ export function ProfileForm({ profile, email }: { profile: PublicProfile; email:
       }}
       footer={
         <p className="text-xs text-ink-muted">
-          Signed in as {email}. Every app inherits this profile — The Thread and Meet can override
+          Signed in as {email}. Every app inherits this profile — Thread and Meet can override
           the name and photo on their own public pages.
         </p>
       }

@@ -8,7 +8,7 @@ import { apiFetch } from '@/lib/api';
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
 import { PaymentsForm } from './form';
 
-export const metadata = { title: 'Payments settings · Fibre Pulse' };
+export const metadata = { title: 'Payments settings · Pulse' };
 export const dynamic = 'force-dynamic';
 
 type Personal = {

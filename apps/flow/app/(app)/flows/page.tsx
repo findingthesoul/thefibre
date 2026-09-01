@@ -4,7 +4,7 @@ import { apiFetch } from '@/lib/api';
 import { NewFlowButton } from './new-flow';
 import { FavoriteStar } from './favorite-star';
 
-export const metadata = { title: 'Flows — Fibre Flow' };
+export const metadata = { title: 'Flows — Flow' };
 
 type FlowRow = {
   id: string;

@@ -139,7 +139,7 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
           name="enrolment_note"
           rows={5}
           defaultValue={workspace.enrolment_note ?? ''}
-          hint="Shown inside the emails The Thread sends when someone registers. A single event can override it."
+          hint="Shown inside the emails Thread sends when someone registers. A single event can override it."
         />
       </section>
 

@@ -67,6 +67,11 @@ export const BRAND_ASSETS = {
  *  product's display name in legal / footer / email-signature contexts. */
 export const PLATFORM_APP_ID = 'fibre-platform' as const;
 
+// Display names follow docs/naming-brief.md (decided 2026-09-01): Thread is
+// the flagship and stands alone; Meet / Sales / Flow / Learn are plain
+// function names serving it; Fibre is the backstage foundation and keeps its
+// name only where the audience is technical. SLUGS (the record keys) are
+// FKs and published API contract — they NEVER change; only these labels do.
 export const APPS: Record<AppId, AppBrand> = {
   'fibre-platform': {
     name: 'The Fibre',
@@ -78,34 +83,34 @@ export const APPS: Record<AppId, AppBrand> = {
     available: true,
   },
   'fibre-meet': {
-    name: 'Fibre Meet',
+    name: 'Meet',
     shortName: 'Meet',
     brandLetters: 'fm',
-    tagline: 'A meeting is a thing of its own.',
+    tagline: 'How meetings happen inside a Thread.',
     url: 'https://meet.thefibre.app',
     urlEnv: 'NEXT_PUBLIC_MEET_URL',
     available: true,
   },
   'the-thread': {
-    name: 'The Thread',
+    name: 'Thread',
     shortName: 'Thread',
     brandLetters: 'tt',
-    tagline: 'The arc that carries the work.',
+    tagline: 'The learning journey a person walks.',
     url: 'https://thread.thefibre.app',
     urlEnv: 'NEXT_PUBLIC_THREAD_URL',
     available: true,
   },
   'fibre-flow': {
-    name: 'Fibre Flow',
+    name: 'Flow',
     shortName: 'Flow',
     brandLetters: 'ff',
-    tagline: 'People in motion — flows that hold the work.',
+    tagline: 'The engine underneath — pipelines and task gates.',
     url: 'https://flow.thefibre.app',
     urlEnv: 'NEXT_PUBLIC_FLOW_URL',
     available: true,
   },
   'fibre-pulse': {
-    name: 'Fibre Pulse',
+    name: 'Pulse',
     shortName: 'Pulse',
     brandLetters: 'fp',
     tagline: 'The heartbeat of the business — cashflow, planned.',
@@ -114,16 +119,16 @@ export const APPS: Record<AppId, AppBrand> = {
     available: true,
   },
   'fibre-sales': {
-    name: 'Fibre Sales',
+    name: 'Sales',
     shortName: 'Sales',
     brandLetters: 'fs',
-    tagline: 'Account relationships, deals, invoicing.',
+    tagline: 'Moving a prospect toward becoming a Thread.',
     url: 'https://sales.thefibre.app',
     urlEnv: 'NEXT_PUBLIC_SALES_URL',
     available: false,
   },
   'fibre-learn': {
-    name: 'Fibre Learn',
+    name: 'Learn',
     shortName: 'Learn',
     brandLetters: 'fl',
     tagline: 'Self-paced learning — modules, reflections.',

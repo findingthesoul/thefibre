@@ -27,7 +27,7 @@ export default async function FlowLanding() {
         <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
           A flow is a sequence of steps, with gate tasks holding each contact
           until the right things have happened. Sales pipelines, project
-          intakes, partnership arcs — Fibre Flow holds the journeys your
+          intakes, partnership arcs — Flow holds the journeys your
           people are actually on.
         </p>
 

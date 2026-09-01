@@ -1,7 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { TasksList, type Task } from './tasks-list';
 
-export const metadata = { title: 'Tasks — Fibre Flow' };
+export const metadata = { title: 'Tasks — Flow' };
 
 export default async function TasksPage() {
   let items: Task[] = [];

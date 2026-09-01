@@ -98,7 +98,7 @@ export async function appleWalletPass(cfg: AppleWalletConfig, t: Ticket): Promis
     formatVersion: 1,
     passTypeIdentifier: cfg.passTypeId,
     teamIdentifier: cfg.teamId,
-    organizationName: t.organiserName || 'The Thread',
+    organizationName: t.organiserName || 'Thread',
     serialNumber: t.code,
     description: t.threadTitle,
     foregroundColor: 'rgb(23,23,23)',
@@ -154,7 +154,7 @@ export async function googleWalletSaveUrl(cfg: GoogleWalletConfig, t: Ticket): P
     eventTicketClasses: [
       {
         id: classId,
-        issuerName: 'The Thread',
+        issuerName: 'Thread',
         eventName: { defaultValue: { language: 'en', value: t.threadTitle } },
         reviewStatus: 'UNDER_REVIEW',
       },
