@@ -17,6 +17,8 @@ const CreateBody = z.object({
   full_name: z.string().min(1).max(200),
   organisation_name: z.string().max(200).nullable().optional(),
   reason: z.string().max(2000).nullable().optional(),
+  /** The package picked on /pricing or the form. Advisory — see migration. */
+  desired_plan: z.string().max(40).nullable().optional(),
 });
 
 signupRequestsRoutes.post('/', async (c) => {
@@ -26,8 +28,21 @@ signupRequestsRoutes.post('/', async (c) => {
   const ip = c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ?? null;
   const ua = c.req.header('user-agent') ?? null;
 
+  // Validate the plan against the catalogue, but never fail a signup over it —
+  // an unknown id (stale link, renamed plan) degrades to "not sure yet".
+  let desiredPlan: string | null = null;
+  if (body.data.desired_plan) {
+    const { data: plan } = await adminClient
+      .from('billing_plan')
+      .select('id')
+      .eq('id', body.data.desired_plan)
+      .maybeSingle();
+    desiredPlan = plan?.id ?? null;
+  }
+
   const { error } = await adminClient.from('signup_request').insert({
     ...body.data,
+    desired_plan: desiredPlan,
     status: 'pending',
     ip_address: ip,
     user_agent: ua,
@@ -151,9 +166,22 @@ signupRequestsRoutes.patch('/:id', async (c) => {
   // email you when your workspace is ready" since v0.14 — this is that email.
   // Fire-and-forget: the approval already happened, and a mail hiccup must
   // not make the button look like it failed (the applicant can still sign in).
+  //
+  // If they picked a paid package on the form, the email says where to
+  // activate it — the workspace itself starts on Free until they check out.
+  let desiredPlanName: string | null = null;
+  if (reqRow.desired_plan && reqRow.desired_plan !== 'free') {
+    const { data: plan } = await adminClient
+      .from('billing_plan')
+      .select('name')
+      .eq('id', reqRow.desired_plan)
+      .maybeSingle();
+    desiredPlanName = plan?.name ?? null;
+  }
   const welcome = renderWorkspaceReadyEmail({
     fullName: reqRow.full_name ?? '',
     workspaceName: wsName,
+    desiredPlanName,
   });
   void sendEmail({ to: reqRow.email, ...welcome }).catch((e) =>
     console.error('[signup-requests PATCH approve] welcome email failed', e),

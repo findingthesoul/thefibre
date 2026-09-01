@@ -111,7 +111,7 @@ export default async function PricingPage() {
                 </ul>
                 <div className="mt-auto pt-5">
                   <Link
-                    href="/request-access"
+                    href={`/request-access?plan=${p.id}`}
                     className={`block rounded-md px-4 py-2 text-center text-sm font-medium ${
                       p.id === 'pro'
                         ? 'bg-neutral-900 text-white hover:bg-neutral-800'

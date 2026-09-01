@@ -22,10 +22,15 @@ const PLATFORM = APPS[PLATFORM_APP_ID];
 export function renderWorkspaceReadyEmail(args: {
   fullName: string;
   workspaceName: string;
+  /** Paid package picked on the request form — names where to activate it. */
+  desiredPlanName?: string | null;
 }): RenderedEmail {
   const signInUrl = `${PLATFORM.url}/sign-in`;
   const firstName = args.fullName.trim().split(/\s+/)[0] || 'there';
   const subject = `Your ${PLATFORM.name} workspace is ready`;
+  const planLine = args.desiredPlanName
+    ? `You asked for the ${args.desiredPlanName} package — your workspace starts on Free, and you can activate ${args.desiredPlanName} under Settings → Plan once you're in.`
+    : null;
 
   const text = [
     PLATFORM.name,
@@ -37,6 +42,7 @@ export function renderWorkspaceReadyEmail(args: {
     '',
     'Sign in with this email address (Google or a one-time code both work):',
     signInUrl,
+    ...(planLine ? ['', planLine] : []),
     '',
     'If you did not request access to The Fibre, you can ignore this email —',
     'nothing happens until you sign in.',
@@ -76,6 +82,12 @@ export function renderWorkspaceReadyEmail(args: {
           <p style="margin: 0; color: #737373; font-size: 14px; text-align: center;">
             Use this email address — Google or a one-time code both work.
           </p>
+
+          ${
+            planLine
+              ? `<p style="margin: 24px 0 0; color: #525252; font-size: 15px; line-height: 1.5;">${escapeHtml(planLine)}</p>`
+              : ''
+          }
 
           <p style="margin: 32px 0 0; color: #737373; font-size: 13px; line-height: 1.6; max-width: 440px;">
             If you did not request access to ${escapeHtml(PLATFORM.name)}, you can ignore this

@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.22.2] — 2026-09-01 — the form asks which product
+
+*"I have registered — but never I had to make the choice for a product."*
+Sjoerd, testing his own funnel. /pricing said €19 and €49 and then the
+request form ignored the answer.
+
+### Added
+- **Package choice on /request-access** — pill selector (Free / Starter /
+  Pro / Enterprise / "Not sure yet"), rendered from the same public catalogue
+  as /pricing so names and prices cannot drift. Arriving from a /pricing card
+  preselects it (`?plan=starter`); `signup_request.desired_plan` carries it
+  (migration `20260901230000`, FK to billing_plan; unknown ids degrade to
+  null, never fail a signup).
+- **/admin/access-requests shows it** — a "wants Pro" chip beside the name,
+  so approval decisions see intent.
+- **The welcome email closes the loop** — a paid pick adds "your workspace
+  starts on Free; activate Pro under Settings → Plan once you're in."
+  Deliberate: approval still provisions Free — a paid plan begins at
+  checkout, after sign-in, when there is somebody to charge.
+- The form says so too: "your workspace starts free either way, and nothing
+  is charged until you choose to upgrade inside."
+
 ## [0.22.1] — 2026-09-01 — an hour after signing in, everything broke
 
 Contacts: "Couldn't load contacts: API 401". Settings → Apps: the same. Admin →

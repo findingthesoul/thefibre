@@ -23,6 +23,9 @@ export async function submitRequestAccess(
     full_name: strOrNull(formData.get('full_name')) ?? '',
     organisation_name: strOrNull(formData.get('organisation_name')),
     reason: strOrNull(formData.get('reason')),
+    // '' = "not sure yet" → null. Validated (and degraded, never refused)
+    // against the catalogue server-side.
+    desired_plan: strOrNull(formData.get('desired_plan')),
   };
 
   if (!body.email || !body.full_name) {

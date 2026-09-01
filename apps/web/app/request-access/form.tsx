@@ -6,7 +6,15 @@ import { submitRequestAccess, type RequestAccessResult } from './actions';
 const INPUT =
   'mt-1 w-full rounded-md border border-neutral-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-400 focus:border-neutral-900 focus:outline-none';
 
-export function RequestAccessForm() {
+export type PackageOption = { id: string; name: string; priceLabel: string };
+
+export function RequestAccessForm({
+  packages,
+  preselected,
+}: {
+  packages: PackageOption[];
+  preselected: string | null;
+}) {
   const [state, action, pending] = useActionState<RequestAccessResult, FormData>(
     submitRequestAccess,
     {},
@@ -56,6 +64,29 @@ export function RequestAccessForm() {
         errors={state.fieldErrors?.reason}
       />
 
+      {packages.length > 0 && (
+        <fieldset>
+          <legend className="text-sm text-neutral-700">
+            Which package are you interested in?
+          </legend>
+          <div className="mt-2 flex flex-wrap gap-2">
+            {packages.map((p) => (
+              <PackagePill
+                key={p.id}
+                value={p.id}
+                label={`${p.name} · ${p.priceLabel}`}
+                defaultChecked={preselected === p.id}
+              />
+            ))}
+            <PackagePill value="" label="Not sure yet" defaultChecked={preselected === null} />
+          </div>
+          <p className="mt-2 text-xs text-neutral-500">
+            Just so we know — your workspace starts free either way, and nothing is charged
+            until you choose to upgrade inside.
+          </p>
+        </fieldset>
+      )}
+
       {state.error && (
         <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           {state.error}
@@ -70,6 +101,31 @@ export function RequestAccessForm() {
         {pending ? 'Sending…' : 'Request access'}
       </button>
     </form>
+  );
+}
+
+function PackagePill({
+  value,
+  label,
+  defaultChecked,
+}: {
+  value: string;
+  label: string;
+  defaultChecked: boolean;
+}) {
+  return (
+    <label className="cursor-pointer">
+      <input
+        type="radio"
+        name="desired_plan"
+        value={value}
+        defaultChecked={defaultChecked}
+        className="peer sr-only"
+      />
+      <span className="inline-block rounded-full border border-neutral-300 px-3.5 py-1.5 text-sm text-neutral-700 transition-colors peer-checked:border-neutral-900 peer-checked:bg-neutral-900 peer-checked:text-white hover:border-neutral-500">
+        {label}
+      </span>
+    </label>
   );
 }
 

@@ -9,10 +9,18 @@ type SignupRequest = {
   full_name: string;
   organisation_name: string | null;
   reason: string | null;
+  desired_plan: string | null;
   status: 'pending' | 'approved' | 'denied';
   workspace_id: string | null;
   created_at: string;
   decided_at: string | null;
+};
+
+const PLAN_LABEL: Record<string, string> = {
+  free: 'Free',
+  starter: 'Starter',
+  pro: 'Pro',
+  org: 'Enterprise',
 };
 
 type Me = {
@@ -82,7 +90,14 @@ export default async function AdminAccessRequestsPage({
               <li key={r.id} className="p-5">
                 <div className="flex items-start justify-between gap-6">
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{r.full_name}</div>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-medium">{r.full_name}</span>
+                      {r.desired_plan && (
+                        <span className="shrink-0 rounded-full border border-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
+                          wants {PLAN_LABEL[r.desired_plan] ?? r.desired_plan}
+                        </span>
+                      )}
+                    </div>
                     <div className="text-sm text-ink-subtle">{r.email}</div>
                     {r.organisation_name && (
                       <div className="text-sm mt-1">{r.organisation_name}</div>
