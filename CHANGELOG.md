@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.31] — 2026-09-01 — the door answers out loud
+
+The Thread's door now behaves exactly like festivaloftrust.com's, so both
+feel identical at the entrance.
+
+### Added
+- **A camera scanner on the door list.** BarcodeDetector where the browser
+  really has it — only when it names `qr_code`, because on desktop the
+  constructor exists while the implementation answers `[]` forever — and a
+  jsQR frame-grab fallback everywhere else (Safari).
+- **Full-screen verdict, ~2.2s.** Green with a huge ✓ and the guest's name in
+  display type over "Checked in"; red with ✕ and the reason over "Not
+  admitted". Tap dismisses early, scanning continues underneath,
+  `aria-live="assertive"`, and one buzz for green / three for red where
+  `navigator.vibrate` exists.
+- **Already scanned is a refusal, in red**: "«name» was already checked in at
+  14:32", in the EVENT's timezone. A ticket opens the door once; the same QR
+  twice is what a door exists to notice. Undo in the list, then rescan, is
+  the way back.
+- Repeat reads of the same code are ignored for 4s, so one ticket held in
+  front of the lens does not strobe.
+
+### Changed
+- **One door at a time.** While the camera is live the per-guest taps are
+  disabled and greyed, with a line saying why — a thumb resting on the list
+  must not admit someone mid-scan. Search stays live in both modes.
+
 ## [0.19.30] — 2026-09-01 — your profile is yours, not your seat's
 
 *"If I'm in various workspaces, do I need to make a profile over and over?"*

@@ -23,11 +23,16 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
   const { id } = await params;
 
   let title = '';
+  let timezone = 'Europe/Amsterdam';
   try {
     const thread = await apiFetch<{
+      timezone: string | null;
       program: { title: string } | { title: string }[] | null;
     }>(`/api/v1/thread/threads/${id}`);
     title = one(thread.program)?.title ?? '';
+    // Times at the door are read in the event's own timezone — "already
+    // checked in at 14:32" has to mean 14:32 where the door is.
+    timezone = thread.timezone ?? timezone;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -62,7 +67,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
         </Link>
       </nav>
       <h1 className="mt-3 text-xl font-medium tracking-tight">Check-in</h1>
-      <DoorList threadId={id} initialRows={rows} />
+      <DoorList threadId={id} initialRows={rows} timezone={timezone} />
     </main>
   );
 }
