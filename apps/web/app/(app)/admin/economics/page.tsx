@@ -269,11 +269,25 @@ export default async function AdminEconomicsPage() {
   );
 }
 
-function Stat({ label, value }: { label: string; value: string }) {
+function Stat({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: string;
+  tone?: 'good' | 'bad';
+}) {
+  const toneClass =
+    tone === 'bad'
+      ? 'text-red-700 dark:text-red-400'
+      : tone === 'good'
+        ? 'text-emerald-700 dark:text-emerald-400'
+        : '';
   return (
     <div className="rounded-lg border border-line bg-surface-raised px-5 py-4">
       <div className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</div>
-      <div className="mt-1 text-2xl font-medium tracking-tight">{value}</div>
+      <div className={`mt-1 text-2xl font-medium tracking-tight ${toneClass}`}>{value}</div>
     </div>
   );
 }
