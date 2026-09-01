@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.31] — 2026-09-01 — the whole logo
+
+The workspace logo preview showed "festiv / tru" — a wordmark cropped to a
+square and presented as if that were the logo.
+
+### Fixed
+- **`PhotoField` emitted `object-cover` and `object-contain` together** for the
+  square shape. Both are the same utility group, so the stylesheet's order
+  decided it, not the order they were written in, and cover won. A class list
+  that contradicts itself has an answer; it just is not the one you meant.
+- **A logo is no longer forced into a square.** Fixed height, free width, up to
+  240px, on white with a little padding — the proportions the logo was drawn
+  with. A face is still cropped to a circle, which is what a face wants.
+
 ## [0.19.31] — 2026-09-01 — the door answers out loud
 
 The Thread's door now behaves exactly like festivaloftrust.com's, so both

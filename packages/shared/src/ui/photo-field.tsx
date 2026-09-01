@@ -65,13 +65,20 @@ export function PhotoField({
       {name && <input type="hidden" name={name} value={value ?? ''} />}
       {value ? (
         <div className="mt-1 flex items-center gap-3">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {/* A face is cropped to a circle; a logo is not cropped at all.
+              Wordmarks are wide — squeezing one into a square box showed
+              "festiv / tru" and called it a logo. Fixed height, free width,
+              nothing cut off.
+
+              eslint-disable-next-line @next/next/no-img-element */}
           <img
             src={value}
             alt=""
-            className={`h-16 w-16 object-cover ring-1 ring-line ${
-              shape === 'circle' ? 'rounded-full' : 'rounded-md bg-surface-raised object-contain'
-            }`}
+            className={
+              shape === 'circle'
+                ? 'h-16 w-16 rounded-full object-cover ring-1 ring-line'
+                : 'h-16 w-auto max-w-[240px] rounded-md border border-line bg-white object-contain p-2'
+            }
           />
           <div className="flex flex-col gap-1">
             <button
