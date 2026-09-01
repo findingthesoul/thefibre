@@ -1,0 +1,46 @@
+# Staging twin of fly.toml — see docs/environments.md.
+# Deploy: fly deploy -c fly.staging.toml --remote-only
+#
+# Differences from prod, both deliberate:
+#  - scale-to-zero: prod pins one machine warm because the Supabase SEND
+#    EMAIL hook calls our API with a 5s ceiling; staging skips that hook
+#    (Supabase default auth emails), so cold starts only cost the first
+#    visitor of the day ~10s. The access-token hook is a Postgres function —
+#    no API round-trip, unaffected.
+
+app = 'thefibre-api-staging'
+primary_region = 'fra'
+
+[build]
+  dockerfile = 'apps/api/Dockerfile'
+
+[deploy]
+  release_command = "echo 'Migrations are pushed manually via supabase CLI — see docs/environments.md Phase 3.'"
+
+[env]
+  API_PORT = '8080'
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = 'stop'
+  auto_start_machines = true
+  min_machines_running = 0
+  processes = ['app']
+
+  [http_service.concurrency]
+    type = 'requests'
+    hard_limit = 200
+    soft_limit = 100
+
+  [[http_service.checks]]
+    interval = '30s'
+    timeout = '3s'
+    grace_period = '10s'
+    method = 'get'
+    path = '/health'
+
+[[vm]]
+  memory = '512mb'
+  cpu_kind = 'shared'
+  cpus = 1

@@ -34,6 +34,11 @@ type Economics = {
     d90: { fees_cents: number; subscriptions_cents: number; sales_count: number };
   };
   pipeline: Record<string, number>;
+  costs?: {
+    lines: { label: string; cadence: string; amount_cents: number; monthly_cents: number }[];
+    monthly_total_cents: number;
+    category: string;
+  };
 };
 
 export default async function AdminEconomicsPage() {
@@ -59,20 +64,74 @@ export default async function AdminEconomicsPage() {
   const planRows = Object.entries(data.by_plan);
   const income30 = data.income.d30;
   const income90 = data.income.d90;
+  const costsMo = data.costs?.monthly_total_cents ?? 0;
+  const netMo = data.mrr_cents - costsMo;
 
   return (
     <PageContainer max="4xl">
       <PageHeader
         title="Economics"
-        description="What the platform earns: subscriptions, fees on paid enrolments, and who is on the house. Costs and the full business view live in Pulse."
+        description="What the platform earns, what it costs to run, and who is on the house. Costs are your Pulse budget lines — edit them there."
       />
 
       {/* Headline ------------------------------------------------------ */}
-      <section className="mt-10 grid gap-4 sm:grid-cols-4">
+      <section className="mt-10 grid gap-4 sm:grid-cols-3">
         <Stat label="MRR" value={eur(data.mrr_cents)} />
+        <Stat label="Costs / month" value={eur(costsMo)} />
+        <Stat
+          label="Net / month"
+          value={`${netMo < 0 ? '−' : ''}${eur(Math.abs(netMo))}`}
+          tone={netMo < 0 ? 'bad' : 'good'}
+        />
         <Stat label="ARR (run rate)" value={eur(data.arr_cents)} />
         <Stat label="Paying workspaces" value={String(data.paying.length)} />
         <Stat label="On the house" value={String(data.comped.length)} />
+      </section>
+
+      {/* Costs --------------------------------------------------------- */}
+      <section className="mt-12">
+        <SectionLabel>Operating costs</SectionLabel>
+        {!data.costs || data.costs.lines.length === 0 ? (
+          <EmptyState>
+            No cost lines found. Run{' '}
+            <code className="font-mono text-xs">apps/api/scripts/seed-operating-costs.mjs</code> or
+            add budget lines with category &ldquo;{data.costs?.category ?? 'Platform infrastructure'}&rdquo;
+            in Pulse → Budget.
+          </EmptyState>
+        ) : (
+          <>
+            <div className="mt-3 overflow-x-auto rounded-lg border border-line bg-surface-raised">
+              <table className="w-full text-sm">
+                <tbody>
+                  {data.costs.lines.map((l) => (
+                    <tr key={l.label} className="border-b border-line/60">
+                      <td className="px-4 py-2.5 text-ink-subtle">{l.label}</td>
+                      <td className="px-4 py-2.5 text-xs text-ink-muted">
+                        {l.cadence !== 'monthly'
+                          ? `${eur(l.amount_cents)} ${l.cadence}`
+                          : ''}
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono">
+                        {eur(l.monthly_cents)}/mo
+                      </td>
+                    </tr>
+                  ))}
+                  <tr className="bg-surface-sunken/60">
+                    <td className="px-4 py-2.5 font-medium">Total</td>
+                    <td />
+                    <td className="px-4 py-2.5 text-right font-mono font-medium">
+                      {eur(data.costs.monthly_total_cents)}/mo
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <p className="mt-2 text-xs text-ink-muted">
+              These are your Pulse budget lines with category &ldquo;{data.costs.category}&rdquo; —
+              edit amounts, add lines or archive them in Pulse → Budget and they update here.
+            </p>
+          </>
+        )}
       </section>
 
       {/* Income -------------------------------------------------------- */}

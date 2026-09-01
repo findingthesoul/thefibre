@@ -157,6 +157,14 @@ adminEconomicsRoutes.get('/', async (c) => {
     pipeline[r.status] = (pipeline[r.status] ?? 0) + 1;
   }
 
+  // Operating costs — the operator's own Pulse budget lines (category
+  // "Platform infrastructure", seeded by scripts/seed-operating-costs.mjs,
+  // edited in Pulse → Budget). Scoped to workspaces the requesting super
+  // admin is a MEMBER of: this reads their own data under their own
+  // authority, the same in-family table sharing Meet/Thread/Flow practise —
+  // not a peek into any tenant's books.
+  const costs = await operatingCosts(ctx.userId);
+
   return c.json({
     mrr_cents: mrr,
     arr_cents: mrr * 12,
@@ -165,5 +173,61 @@ adminEconomicsRoutes.get('/', async (c) => {
     comped,
     income,
     pipeline,
+    costs,
   });
 });
+
+const COST_CATEGORY = 'Platform infrastructure';
+
+/** Cadence → what it costs per month. */
+function monthlyCents(amountCents: number, cadence: string): number {
+  switch (cadence) {
+    case 'weekly':
+      return Math.round((amountCents * 52) / 12);
+    case 'fortnightly':
+      return Math.round((amountCents * 26) / 12);
+    case 'quarterly':
+      return Math.round(amountCents / 3);
+    case 'yearly':
+      return Math.round(amountCents / 12);
+    default:
+      return amountCents; // monthly
+  }
+}
+
+async function operatingCosts(userId: string): Promise<{
+  lines: { label: string; cadence: string; amount_cents: number; monthly_cents: number }[];
+  monthly_total_cents: number;
+  category: string;
+}> {
+  const { data: memberships } = await adminClient
+    .from('workspace_member')
+    .select('workspace_id')
+    .eq('user_id', userId);
+  const wsIds = (memberships ?? []).map((m) => m.workspace_id);
+  if (wsIds.length === 0) return { lines: [], monthly_total_cents: 0, category: COST_CATEGORY };
+
+  const { data: rows } = await adminClient
+    .from('pulse_budget_line')
+    .select('label, cadence, amount_cents, direction, included')
+    .in('workspace_id', wsIds)
+    .eq('category', COST_CATEGORY)
+    .eq('direction', 'out')
+    .is('archived_at', null);
+
+  const lines = (rows ?? [])
+    .filter((r) => r.included)
+    .map((r) => ({
+      label: r.label as string,
+      cadence: r.cadence as string,
+      amount_cents: Number(r.amount_cents),
+      monthly_cents: monthlyCents(Number(r.amount_cents), r.cadence as string),
+    }))
+    .sort((a, b) => b.monthly_cents - a.monthly_cents);
+
+  return {
+    lines,
+    monthly_total_cents: lines.reduce((s, l) => s + l.monthly_cents, 0),
+    category: COST_CATEGORY,
+  };
+}

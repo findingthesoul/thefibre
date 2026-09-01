@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.22.3] — 2026-09-01 — the operator sees the costs, and the tools get their own tab
+
+Two of Sjoerd's observations, minutes apart: "on the economics page I don't
+see the costs" and "I want to see a separate cashflow for the tools."
+
+### Added
+- **/admin/economics shows operating costs** — the Pulse budget lines with
+  category "Platform infrastructure", cadence-normalised to €/month, with a
+  total and a **Net/month** headline (MRR − costs). Read under the operator's
+  own authority, scoped to workspaces the requesting super admin is a member
+  of — not a peek into any tenant's books. Editing stays in Pulse → Budget;
+  this page only reads.
+- **"The Fibre" cashflow tab in Pulse** — tabs are separate cashflows keyed
+  on teams, so the tools now live on a team of their own:
+  seed-operating-costs.mjs v2 creates team "The Fibre" (slug the-fibre) in
+  Solidarity Lab, registers it as a Pulse involved team, and stamps the six
+  cost lines with it. Run tonight: the workspace cashflow is clean of tooling
+  again, and Pulse → Cashflow has a The Fibre tab with its own virtual bank
+  and projection.
+- **docs/environments.md** — the staging plan for tomorrow, step by step:
+  two decisions (separate apex domain for cookie isolation; free-tier
+  Supabase), six lettered blocks of Sjoerd clicks (~45 min), first-light
+  checklist ending in a test-card Pro purchase, the promote rhythm, and the
+  gotcha list. `fly.staging.toml` checked in (scale-to-zero — staging skips
+  the email hook, so cold starts are harmless there).
+
 ## [0.22.2] — 2026-09-01 — the form asks which product
 
 *"I have registered — but never I had to make the choice for a product."*
