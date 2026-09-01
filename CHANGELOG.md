@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.22.1] — 2026-09-01 — an hour after signing in, everything broke
+
+Contacts: "Couldn't load contacts: API 401". Settings → Apps: the same. Admin →
+Apps and Access requests: Next's white "Application error" page. All at once,
+to somebody who was plainly signed in — his name and both his workspaces were
+right there in the menu.
+
+**Not an authentication failure. A token-refresh failure**, and it has been
+latent since the beginning: it needs a tab open for an hour to appear.
+
+A Supabase access token lasts an hour. The browser refreshes it in the
+background — but a **server component cannot**, because it may read cookies and
+not write them. `lib/supabase/server.ts` has always swallowed that write with a
+comment saying as much. So once the token aged out, every server-rendered page
+asked for a session, got null, and threw its own 401 before reaching the API.
+Pages that caught it printed "API 401"; pages that did not crashed.
+
+### Fixed
+- **`middleware.ts` in all five apps.** Middleware is the one place in Next
+  that can read the request's cookies *and* write cookies onto the response, so
+  the refresh belongs there: `getUser()` performs it as a side effect when the
+  token is stale, and the new cookies go back with the response.
+
+  Both halves of `setAll` matter — the request copy so the rest of that pass
+  sees the new token, the response copy so the browser keeps it.
+
+  Public pages are untouched: a visitor with no session has nothing to refresh.
+
+_Read the API log first, says CLAUDE.md, and it was right here too: the 401 was
+never in the API's logs, because no request ever reached it._
+
 ## [0.22.0] — 2026-09-01 — a seat costs eight euros, and now it says so on the bill
 
 *"We should wire it."* Extra-seat billing, end to end
