@@ -22,25 +22,54 @@ function strOrNull(v: FormDataEntryValue | null): string | null {
   return s.length ? s : null;
 }
 
-export async function updateMe(
-  _prev: ActionResult,
-  formData: FormData,
-): Promise<ActionResult> {
-  const full_name = strOrNull(formData.get('full_name'));
-  const avatar_url = strOrNull(formData.get('avatar_url'));
-  if (!full_name) return { error: 'Name is required.' };
 
+/**
+ * One profile, saved in one call from the caller's point of view.
+ *
+ * Two writes underneath, and the second is the point: `user_profile` is the
+ * face every app inherits, while `user.full_name` and `user.avatar_url` are
+ * what the sidebar, the member list and the invite emails read. Left apart
+ * they drift, and you get the thing Sjoerd noticed — two profile screens
+ * disagreeing about who you are.
+ *
+ * The profile is authoritative; the user row is kept in step with it.
+ */
+export async function saveProfile(patch: {
+  display_name: string | null;
+  bio: string | null;
+  photo_url: string | null;
+  timezone: string | null;
+}): Promise<ActionResult> {
   try {
-    await apiFetch('/api/v1/auth/me', {
-      method: 'PATCH',
-      body: JSON.stringify({ full_name, avatar_url }),
-    });
+    await apiFetch('/api/v1/profile', { method: 'PATCH', body: JSON.stringify(patch) });
+    if (patch.display_name) {
+      await apiFetch('/api/v1/auth/me', {
+        method: 'PATCH',
+        body: JSON.stringify({ full_name: patch.display_name, avatar_url: patch.photo_url }),
+      });
+    }
   } catch (e) {
     return unwrap(e);
   }
-
+  revalidatePath('/settings/profile');
   revalidatePath('/settings');
   revalidatePath('/dashboard');
+  return { ok: true };
+}
+
+/** The workspace itself — name, logo, invoices, the sender of its email. */
+export async function saveWorkspace(patch: Record<string, unknown>): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/workspace', { method: 'PATCH', body: JSON.stringify(patch) });
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const body = e.body as { error?: string } | undefined;
+      return { error: typeof body?.error === 'string' ? body.error : `API ${e.status}` };
+    }
+    return unwrap(e);
+  }
+  revalidatePath('/settings/workspace');
+  revalidatePath('/settings');
   return { ok: true };
 }
 
@@ -109,26 +138,3 @@ export async function inviteMember(input: InviteInput): Promise<InviteResult> {
 // Fibre apps (Meet and Thread inherit these).
 // ---------------------------------------------------------------------------
 
-export async function updateProfile(
-  _prev: ActionResult,
-  formData: FormData,
-): Promise<ActionResult> {
-  const patch = {
-    display_name: strOrNull(formData.get('display_name')),
-    bio: strOrNull(formData.get('bio')),
-    photo_url: strOrNull(formData.get('photo_url')),
-    timezone: strOrNull(formData.get('timezone')),
-  };
-
-  try {
-    await apiFetch('/api/v1/profile', {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    });
-  } catch (e) {
-    return unwrap(e);
-  }
-
-  revalidatePath('/settings');
-  return { ok: true };
-}

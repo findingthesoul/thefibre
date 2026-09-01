@@ -6,6 +6,62 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.28] — 2026-09-01 — one profile, one workspace
+
+Two questions on the same evening, with the same answer underneath.
+
+*"How come the profile page of The Thread has improved, but it is not the same
+as The Fibre? It should be one. The Thread should be leading."*
+
+*"Where can I change info from the workspace? Like name, address, logo,
+invoice."*
+
+### Changed
+- **The Fibre's profile is now The Thread's.** It had two forms: "Your details"
+  (full name, **Avatar URL**) writing `user`, and "Public profile" (display
+  name, bio, **Photo URL**, timezone) writing `user_profile`. Two names and two
+  pictures, in two tables, free to disagree — and neither was the good version,
+  which had been in The Thread all along.
+
+  One form now: upload a photo, name, bio, timezone. It saves the profile every
+  app inherits **and** keeps `user.full_name` / `avatar_url` in step, because
+  those are what the sidebar and the member list read; left apart they drift,
+  which is how there came to be two of everything.
+
+  The timezone stays a picker rather than The Thread's free-text IANA field —
+  the one place The Fibre was ahead. "Europe/Amsterdam" typed by hand is a
+  support ticket waiting to happen.
+
+- **`PhotoField` moved to `@thefibre/shared/ui/photo-field`** and both apps use
+  it. `upload` is injected rather than imported: each app talks to the API with
+  its own session and `X-App-ID`, and a shared component reaching for one app's
+  client would work there and mysteriously fail next door.
+
+### Added
+- **Settings → Workspace, in The Fibre.** Name, logo, invoice details (legal
+  name, address, tax number), sender name, reply-to, sending domain, and the
+  enrolment note.
+
+  The name **could not be changed at all** before this — read-only on the
+  settings page, with no endpoint behind it. The address and tax number lived
+  in Settings → Payments inside two other apps; the logo in The Thread's email
+  settings. Three places and a hole.
+
+- **`GET/PATCH /api/v1/workspace`** — the same handler as `/workspace-brand`
+  (which stays, because The Thread's settings page is written against it),
+  widened with `name` and `invoice_details`.
+
+- **`POST /api/v1/uploads`** — an image, from any app. Was `/thread/uploads`,
+  which is still mounted and still works; the handler moved to
+  `lib/uploads.ts` when The Fibre needed the same thing. The bucket keeps the
+  name `thread-assets`: renaming it would mean rewriting stored URLs across
+  live threads to make one identifier read nicely.
+
+### Removed
+- `settings/profile-form.tsx` and the two actions behind it (`updateMe`,
+  `updateProfile`). Superseded, and a second way to write a profile is exactly
+  how the two drifted apart.
+
 ## [0.19.27] — 2026-09-01 — a certificate that names itself
 
 ### Added

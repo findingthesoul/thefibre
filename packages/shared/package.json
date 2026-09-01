@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.19.27",
+  "version": "0.19.28",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,10 @@
     "./ui/help": {
       "types": "./dist/ui/help.d.ts",
       "default": "./dist/ui/help.js"
+    },
+    "./ui/photo-field": {
+      "types": "./dist/ui/photo-field.d.ts",
+      "default": "./dist/ui/photo-field.js"
     }
   },
   "files": [

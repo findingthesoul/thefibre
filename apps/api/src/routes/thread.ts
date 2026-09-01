@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
@@ -2421,31 +2422,9 @@ threadRoutes.delete('/coupons/:id', async (c) => {
 // Multipart form: field "file". Stored in the public thread-assets bucket.
 // ---------------------------------------------------------------------------
 
-threadRoutes.post('/uploads', async (c) => {
-  const ctx = c.get('ctx');
-  const body = await c.req.parseBody();
-  const file = body.file;
-  if (!(file instanceof File)) return c.json({ error: 'multipart field "file" required' }, 400);
-  if (file.size > 5 * 1024 * 1024) return c.json({ error: 'max 5MB' }, 400);
-  // Raster images only — SVG/HTML in a public bucket is stored XSS.
-  if (!['image/png', 'image/jpeg', 'image/webp', 'image/gif', 'image/avif'].includes(file.type)) {
-    return c.json({ error: 'images only (png, jpeg, webp, gif, avif)' }, 400);
-  }
-  const ext = (file.name.split('.').pop() ?? 'png').toLowerCase().replace(/[^a-z0-9]/g, '');
-  const path = `${ctx.workspaceId}/${crypto.randomUUID()}.${ext}`;
-  const { error } = await adminClient.storage
-    .from('thread-assets')
-    .upload(path, Buffer.from(await file.arrayBuffer()), {
-      contentType: file.type || 'application/octet-stream',
-      upsert: false,
-    });
-  if (error) {
-    console.error('[thread/uploads] failed', error);
-    return c.json({ error: error.message }, 500);
-  }
-  const { data } = adminClient.storage.from('thread-assets').getPublicUrl(path);
-  return c.json({ url: data.publicUrl }, 201);
-});
+// Kept at its old path so anything already posting here keeps working; the
+// handler moved to lib/uploads.ts when The Fibre needed the same thing.
+threadRoutes.post('/uploads', handleUpload);
 
 // ---------------------------------------------------------------------------
 // Certificate templates — CRUD + personal/team/workspace visibility.

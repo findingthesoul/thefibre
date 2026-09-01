@@ -1,4 +1,13 @@
-// What this workspace's email looks like, and who it comes from.
+// The workspace itself: what it is called, what it looks like, where its
+// invoices come from, and who its email is from.
+//
+// It began as email branding alone and grew into the answer to "where do I
+// change the workspace's name?" — which had no answer at all: the name was
+// read-only on The Fibre's settings page and no route could change it. The
+// address and tax number lived in Settings → Payments, the logo in The
+// Thread's email settings, the name nowhere. One screen needs one endpoint.
+//
+// Mounted at /api/v1/workspace and, unchanged, at /api/v1/workspace-brand.
 //
 // Sibling of workspace-billing.ts, and the same rule: admin-or-above, values
 // on the workspace row, read everywhere through lib/workspace-brand.ts rather
@@ -36,10 +45,16 @@ workspaceBrandRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   const { data } = await adminClient
     .from('workspace')
-    .select('name, brand_logo_url, email_from_name, email_from_address, email_reply_to, enrolment_note')
+    .select(
+      'name, slug, brand_logo_url, email_from_name, email_from_address, email_reply_to, enrolment_note, invoice_details',
+    )
     .eq('id', ctx.workspaceId)
     .maybeSingle();
   return c.json({
+    name: data?.name ?? null,
+    slug: data?.slug ?? null,
+    invoice_details: data?.invoice_details ?? null,
+    // Kept under its old key as well: the Thread settings screen reads it.
     workspace_name: data?.name ?? null,
     brand_logo_url: data?.brand_logo_url ?? null,
     email_from_name: data?.email_from_name ?? null,
@@ -55,6 +70,19 @@ workspaceBrandRoutes.get('/', async (c) => {
 const blankToNull = (s: string | null | undefined) => (s && s.trim() ? s.trim() : null);
 
 const BrandPatch = z.object({
+  // The workspace's own name. Not nullable and not blankable — a workspace
+  // with no name shows up as an empty row in every switcher and member list.
+  name: z.string().trim().min(1).max(200).optional(),
+  // The seller block on invoices. Same shape as user_profile.invoice_details
+  // (payments SPoT) so the two can be read by one renderer.
+  invoice_details: z
+    .object({
+      legal_name: z.string().max(200).optional(),
+      address: z.string().max(500).optional(),
+      tax_no: z.string().max(60).optional(),
+    })
+    .nullable()
+    .optional(),
   brand_logo_url: z.string().max(500).nullable().optional(),
   email_from_name: z.string().max(100).nullable().optional(),
   email_from_address: z
@@ -105,6 +133,8 @@ workspaceBrandRoutes.patch('/', async (c) => {
   }
 
   const patch: Record<string, unknown> = {};
+  if (body.data.name !== undefined) patch.name = body.data.name.trim();
+  if (body.data.invoice_details !== undefined) patch.invoice_details = body.data.invoice_details;
   for (const key of [
     'brand_logo_url',
     'email_from_name',

@@ -97,7 +97,15 @@ export default async function SettingsPage() {
               <p className="mt-3 text-sm text-ink-subtle">Not linked to a workspace.</p>
             )}
             <p className="mt-3 text-xs text-ink-muted">
-              Multi-workspace switching is on the roadmap. For now your account is bound to one workspace.
+              <Link
+                href="/settings/workspace"
+                className="text-ink-subtle hover:text-ink underline underline-offset-2"
+              >
+                Edit the workspace →
+              </Link>{' '}
+              — its name, logo, invoice details and the sender of its email. An account can
+              belong to several workspaces; switch between them from the menu under your
+              initials.
             </p>
           </section>
 

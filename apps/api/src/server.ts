@@ -24,6 +24,7 @@ import { purchasesRoutes } from './routes/purchases.js';
 import { workspaceBillingRoutes } from './routes/workspace-billing.js';
 import { workspaceBrandRoutes } from './routes/workspace-brand.js';
 import { planRoutes } from './routes/plan.js';
+import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
@@ -208,7 +209,11 @@ v1.route('/members', membersRoutes);
 v1.route('/purchases', purchasesRoutes);
 v1.route('/workspace-billing', workspaceBillingRoutes);
 v1.route('/workspace-brand', workspaceBrandRoutes);
+// The same handler under the name the screen actually has. /workspace-brand
+// stays because The Thread's settings page is written against it.
+v1.route('/workspace', workspaceBrandRoutes);
 v1.route('/plan', planRoutes);
+v1.route('/uploads', uploadRoutes);
 v1.route('/profile', profileRoutes);
 v1.route('/apps', appsRoutes);
 v1.route('/auth-hook', authHookRoutes);
