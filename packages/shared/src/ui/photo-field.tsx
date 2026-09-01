@@ -31,14 +31,14 @@ export function PhotoField({
 }: {
   label: string;
   /** Hidden input name, for forms read with FormData. */
-  name?: string;
+  name?: string | undefined;
   value: string | null;
   onChange: (url: string | null) => void;
   upload: (file: File) => Promise<string>;
-  hint?: string;
+  hint?: string | undefined;
   /** A face is round; a logo is not. */
-  shape?: 'circle' | 'square';
-  onError?: (message: string) => void;
+  shape?: 'circle' | 'square' | undefined;
+  onError?: ((message: string) => void) | undefined;
 }) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);

@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.19.29] — 2026-09-01 — the same page, not the same content twice
+
+Sjoerd, on the two profile screens side by side: *"It's not the same yet."*
+Then, when they matched: *"It should be exactly the same page.. not different
+pages with the same content. Right?"* And before both: *"the settings should be
+the same in the whole app environment. Otherwise it is mystery meat."*
+
+Right. Sharing a component was half an answer — two URLs that edit the same
+person are still two places to keep in step, and the one that gets forgotten is
+where the drift starts.
+
+### Changed
+- **One profile, in The Fibre.** The Thread and Meet no longer edit your name,
+  photo, bio or timezone. They keep what is genuinely theirs — the ADDRESS of
+  their public page — and link to the profile for the rest, showing a read-only
+  preview of what that page will display.
+
+  `20260901140000` fills the platform profile from whatever the apps already
+  held, then clears their copies. Before it, the app columns won: Sjoerd's face
+  was on his organiser row while his platform profile sat empty, which is
+  exactly the screen he was looking at. `thread_organiser` and `meet_host` keep
+  the columns as read fallbacks, marked deprecated. Nothing writes them.
+
+  The cost, stated: an organiser who deliberately used a different name or
+  photo on their public page than on their profile loses the distinction.
+  Today that is nobody.
+
+- **The same four sections in all five apps** — You · Workspace · This app ·
+  The Fibre — from one definition in `@thefibre/shared/ui/settings`. Same
+  order, same words, same descriptions, so muscle memory survives moving
+  between apps.
+
+  An entry that lives in The Fibre is **labelled "in The Fibre"** and carries
+  an external-link icon. A card that silently changes domain is precisely the
+  mystery meat being removed.
+
+- **Flow has a settings page for the first time.** Its gear went nowhere. It
+  has nothing of its own to configure yet, and says so.
+
+- **The Fibre's settings index** drops the read-only block that repeated the
+  workspace's name, slug, plan and creation date, and the list of app
+  memberships. Facts on a page you could not act on; the name is now editable
+  at Settings → Workspace.
+
+- **The Thread's Emails & defaults is gone**, having become the second page
+  editing the workspace — Settings → Workspace in The Fibre is the one.
+
+### Added
+- **`@thefibre/shared/ui/profile-form`** — the form itself, not just its
+  widgets. Both apps had the same fields and the same field kit, byte for byte,
+  and still produced different screens: one led with the name and paired photo
+  with timezone, the other led with a full-width photo. Layout is what drifts.
+- **`@thefibre/shared/ui/fields`** — the field kit, which existed identically
+  in two apps. The per-app copies stay for now; moving every consumer is its
+  own sweep.
+
+### Not yet
+Payments still has a page in both Meet and The Thread, both writing the same
+platform values. Same duplication, one level down — it needs a payments page in
+The Fibre before those two can become links.
+
 ## [0.19.28] — 2026-09-01 — one profile, one workspace
 
 Two questions on the same evening, with the same answer underneath.

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.19.28",
+  "version": "0.19.29",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -21,6 +21,18 @@
     "./ui/photo-field": {
       "types": "./dist/ui/photo-field.d.ts",
       "default": "./dist/ui/photo-field.js"
+    },
+    "./ui/settings": {
+      "types": "./dist/ui/settings.d.ts",
+      "default": "./dist/ui/settings.js"
+    },
+    "./ui/fields": {
+      "types": "./dist/ui/fields.d.ts",
+      "default": "./dist/ui/fields.js"
+    },
+    "./ui/profile-form": {
+      "types": "./dist/ui/profile-form.d.ts",
+      "default": "./dist/ui/profile-form.js"
     }
   },
   "files": [

@@ -206,9 +206,14 @@ threadRoutes.get('/me', async (c) => {
 
   return c.json({
     ...organiser,
-    display_name: organiser.display_name ?? profile?.display_name ?? null,
-    bio: organiser.bio ?? profile?.bio ?? null,
-    photo_url: organiser.photo_url ?? profile?.photo_url ?? null,
+    // The platform profile FIRST. It used to be the other way round, which is
+    // how one person ended up with a photo on their organiser page and none on
+    // their profile — two records, no way to tell which was current
+    // (20260901140000). The organiser columns are read fallbacks now and
+    // nothing writes them.
+    display_name: profile?.display_name ?? organiser.display_name ?? null,
+    bio: profile?.bio ?? organiser.bio ?? null,
+    photo_url: profile?.photo_url ?? organiser.photo_url ?? null,
     personal_room_url: await userPersonalRoom(ctx.userId),
     stripe_account_id: await personalStripeAccount(ctx.userId),
   });

@@ -1872,8 +1872,22 @@ meetRoutes.get('/me', async (c) => {
   const { google_refresh_token, ...safe } = host as Record<string, unknown> & {
     google_refresh_token: string | null;
   };
+  // One profile, and it is the platform's (20260901140000). meet_host.bio and
+  // .photo_url are read fallbacks for anything not yet migrated; nothing
+  // writes them. The host row keeps what is genuinely Meet's: the slug its
+  // booking page lives at, working hours, the room.
+  const { data: profile } = await adminClient
+    .from('user_profile')
+    .select('display_name, bio, photo_url, timezone')
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+
   return c.json({
     ...safe,
+    display_name: profile?.display_name ?? null,
+    bio: profile?.bio ?? (safe as { bio?: string | null }).bio ?? null,
+    photo_url: profile?.photo_url ?? (safe as { photo_url?: string | null }).photo_url ?? null,
+    timezone: profile?.timezone ?? (safe as { timezone?: string | null }).timezone ?? null,
     personal_room_url: await userPersonalRoom(ctx.userId),
     // Payments SPoT — user_profile first, the old column only as fallback.
     stripe_account_id: await personalStripeAccount(ctx.userId),

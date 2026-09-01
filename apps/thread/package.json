@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/thread",
-  "version": "0.19.28",
+  "version": "0.19.29",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3002",

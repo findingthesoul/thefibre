@@ -1,103 +1,53 @@
 import Link from 'next/link';
-import { User, Building2, CreditCard, Cable, Code2, ChevronRight, type LucideIcon, Shapes } from 'lucide-react';
-import { PageContainer, PageHeader, SectionLabel } from '@/components/ui/page';
+import { Globe, Code2, Shapes } from 'lucide-react';
+import { appUrl } from '@thefibre/shared';
+import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
+import { PageContainer, PageHeader } from '@/components/ui/page';
+
+// Same four sections, same order, same words as every other app — see
+// packages/shared/src/ui/settings.tsx for why that matters.
+
+const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
 export default function SettingsPage() {
+  const fibre = appUrl('fibre-platform', process.env);
+  const sections = platformSettings({
+    fibreUrl: fibre,
+    // The Thread serves your payments and your connections; everything else
+    // about you and the workspace is edited once, in The Fibre.
+    hosted: ['payments', 'connections'],
+    appSection: {
+      label: 'The Thread',
+      entries: [
+        {
+          href: '/settings/profile',
+          icon: <Globe {...ICON} />,
+          title: 'Public page',
+          desc: 'The address your organiser page lives at, and what it shows.',
+        },
+        {
+          href: '/settings/embeds',
+          icon: <Code2 {...ICON} />,
+          title: 'Website embeds',
+          desc: 'Copy-paste snippets to show your threads and take enrolments on any website.',
+        },
+        {
+          href: '/settings/categories',
+          icon: <Shapes {...ICON} />,
+          title: 'Categories',
+          desc: 'The labels threads can be filed under, workspace-wide or your own.',
+        },
+      ],
+    },
+  });
+
   return (
     <PageContainer max="4xl">
-      <PageHeader title="Settings" description="Your organiser profile and workspace defaults." />
-
-      <section className="mt-10">
-        <SectionLabel>Personal</SectionLabel>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card
-            href="/settings/profile"
-            Icon={User}
-            title="Profile"
-            desc="Your public organiser page — slug, name, bio, photo, timezone."
-          />
-        </div>
-      </section>
-
-      <section className="mt-10">
-        <SectionLabel>Workspace</SectionLabel>
-        <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card
-            href="/settings/workspace"
-            Icon={Building2}
-            title="Emails & defaults"
-            desc="Sender name and the email footer note."
-          />
-          <Card
-            href="/settings/payments"
-            Icon={CreditCard}
-            title="Payments"
-            desc="Your Stripe account and the workspace's — one connection per person, shared across Meet and Thread."
-          />
-          <Card
-            href="/settings/connections"
-            Icon={Cable}
-            title="Connections"
-            desc="Google Calendar and your personal meeting room — one connection per person, shared across Meet and Thread."
-          />
-          <Card
-            href="/settings/embeds"
-            Icon={Code2}
-            title="Website embeds"
-            desc="Copy-paste snippets to show your threads and take enrolments on any website — Webflow included."
-          />
-          <Card
-            href="/settings/categories"
-            Icon={Shapes}
-            title="Categories"
-            desc="The curated list threads pick from — filterable on public listings and website embeds."
-          />
-        </div>
-      </section>
+      <PageHeader
+        title="Settings"
+        description="You, the workspace, and The Thread. The same four sections in every Fibre app."
+      />
+      <SettingsCards sections={sections} link={Link} />
     </PageContainer>
   );
-}
-
-function Card({
-  href,
-  Icon,
-  title,
-  desc,
-  disabled,
-  external,
-}: {
-  href?: string;
-  Icon: LucideIcon;
-  title: string;
-  desc: string;
-  disabled?: boolean;
-  external?: boolean;
-}) {
-  const inner = (
-    <div
-      className={`flex items-start gap-3.5 rounded-lg border border-line bg-surface-raised p-4 transition-colors ${
-        disabled ? 'opacity-50' : 'hover:border-line-strong'
-      }`}
-    >
-      <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
-        <Icon size={17} strokeWidth={1.75} className="text-ink-subtle" />
-      </span>
-      <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{title}</div>
-        <p className="mt-0.5 text-xs text-ink-subtle leading-relaxed">{desc}</p>
-      </div>
-      {!disabled && (
-        <ChevronRight size={16} strokeWidth={1.75} className="text-ink-muted shrink-0 mt-1" />
-      )}
-    </div>
-  );
-  if (disabled || !href) return inner;
-  if (external) {
-    return (
-      <a href={href} target="_blank" rel="noreferrer">
-        {inner}
-      </a>
-    );
-  }
-  return <Link href={href}>{inner}</Link>;
 }
