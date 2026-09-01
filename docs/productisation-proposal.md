@@ -191,6 +191,11 @@ later phase; hand-kept budget lines are honest enough at ~€75/mo.
 
 ## 4 · Build plan (phased)
 
+_Status 2026-09-01, same day: **P1 shipped as v0.20.0, P2 + P3 as v0.21.0**
+(Sjoerd: "continue building, don't wait with questions"). P2 confirms
+end-to-end only after Sjoerd's Stripe steps — there is currently NO
+`STRIPE_SECRET_KEY` on Fly at all. P4 + P5 open._
+
 - **P1 — Plan surfaces (no Stripe):** `price_cents_year` +
   `custom_price_cents_*` migration; `/admin/plans` matrix (view + edit);
   Settings → Plan; `/api/v1/public/plans` + public `/pricing` page; landing
@@ -208,6 +213,10 @@ later phase; hand-kept budget lines are honest enough at ~€75/mo.
   and the self-serve flip when the trial ends.
 
 ## 5 · Decisions for Sjoerd
+
+_All six were built as recommended on 2026-09-01 under the standing "keep
+building" instruction. Nothing is hard to reverse — say the word and any of
+them changes. Mark this section RESOLVED once read._
 
 - **D1** — The `/admin/plans` matrix is *editable* (prices + feature
   checkboxes, live within 60 s), not just a presentation? (§2.1 —

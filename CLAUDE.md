@@ -92,7 +92,48 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
-## Where we left off — 2026-08-22 (v0.14.0)
+## Where we left off — 2026-09-01 (v0.21.0)
+
+**Productisation shipped in two slices** (docs/productisation-proposal.md is
+the umbrella; docs/pricing-proposal.md holds the decided numbers — Free /
+Starter €19 / Pro €49 / Enterprise POA, per workspace):
+
+- **/admin/plans** — editable tier matrix (prices monthly+yearly, allowances,
+  fee ladder, feature checkboxes grouped by app). Edits the same
+  `billing_plan` rows `lib/plan.ts` gates on; new feature KEYS stay a deploy.
+- **Settings → Plan** (fibre web) — current plan incl. comped/tailored
+  badges, usage, catalogue, upgrade/portal buttons. The other apps' settings
+  hubs link to it ("in The Fibre").
+- **/pricing** (public) + landing trial chip + app-family section. Catalogue
+  comes from no-auth `GET /api/v1/public/plans`; canonical order via
+  `sortPlans` (free→starter→pro→org, never by price).
+- **/admin/workspaces** — real plan shown (never legacy `workspace.plan`,
+  which is now fully dead: unread AND unwritten), Plan… dialog (move plan,
+  comp with reason, tailored `custom_price_cents_month/year`), New workspace
+  button (the invited-in door for social enterprises).
+- **Stripe Billing** — routes/billing.ts (subscription checkout, portal,
+  webhook w/ own `STRIPE_BILLING_WEBHOOK_SECRET`), sync-stripe-plans.mjs.
+  Paid subscription invoices land in the purchase ledger as `fibre-platform`
+  rows. **BLOCKED on Sjoerd: no STRIPE_SECRET_KEY exists on Fly at all**
+  (Meet/Thread checkout 503 in prod too) — steps in
+  docs/platform-billing-setup.md.
+- **/admin/economics** — MRR/ARR, by-plan, comps w/ reasons, 30/90d ledger
+  income, signup pipeline. Platform tables only; costs live in Pulse
+  (seed-operating-costs.mjs, run 2026-09-01: ~€79/mo as budget lines in
+  Solidarity Lab).
+- Approval email now actually sends (lib/email/platform-templates.ts).
+
+Rules that follow: super-admin checks go through `lib/super-admin.ts`;
+`forgetAllPlans()` after any billing_plan write; prices (incl. tailored)
+never gate features — gates always follow `plan_id`.
+
+Open: P4 (metered overage, seat enforcement on invite, 13-month Free
+archive) and P5 (product pages, OG image, self-serve flip) in the proposal;
+build-plan.md Open queue is groomed.
+
+---
+
+## Where we left off before that — 2026-08-22 (v0.14.0)
 
 **The platform now hosts apps written outside this monorepo.**
 `docs/brief-external-apps.md` (written from a real, half-failed attempt to

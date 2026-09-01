@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.21.1] — 2026-09-01 — a face for the tab
+
+- **Favicon at last** (`apps/web/app/icon.svg`) — the yellow sidebar tile
+  with the lowercase letters, now in the browser tab. `public/` had exactly
+  one file since day one; shared links stop looking bare. (OG image is P5.)
+- Docs groomed to match the two productisation releases: build-plan Open
+  queue rewritten (Sjoerd's Stripe steps are item 1 — no STRIPE_SECRET_KEY
+  exists on Fly at all), CLAUDE.md "Where we left off", proposal §4/§5
+  status lines, platform-billing-setup.md updated for the package model +
+  sync script.
+
 ## [0.21.0] — 2026-09-01 — the subscription itself, and the operator's ledger
 
 Productisation slices 2 + 3 (docs/productisation-proposal.md). Slice 1 gave

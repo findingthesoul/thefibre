@@ -20,36 +20,31 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-08-29 (v0.18.17). Done items get removed, not ticked._
+_Last groomed 2026-09-01 (v0.21.0). Done items get removed, not ticked._
 
-**Plans as feature packages — proposal written, numbers not decided.**
-See `docs/pricing-proposal.md` (2026-08-31). Sjoerd raised it while asking for
-email branding; he then narrowed it: sell the package not the parts, Flow and
-Pulse from the second paid level, Starter Thread on predefined templates only,
-cheap enough that nobody builds their own, monthly fee plus usage.
+**Productisation — Sjoerd's two Stripe steps, then the metered phases.**
+The plans are decided (docs/pricing-proposal.md), gated (0.19.24), surfaced
+and chargeable (0.20.0 + 0.21.0 — docs/productisation-proposal.md is the
+umbrella): /admin/plans matrix, Settings → Plan, public /pricing, tailored
+pricing + comps + New workspace on /admin/workspaces, approval email, Stripe
+Billing code (checkout/portal/webhook), /admin/economics, operating costs
+seeded into Pulse. What remains:
 
-Correction to what this note said first time: the billing spine EXISTS.
-`billing_plan` + `workspace_subscription` (with a `comped` status) shipped in
-20260519100000, and the transaction-fee ladder is live — `workspace_meet_fee`
-is read at every Stripe Checkout through `lib/fees.ts`. What is missing is the
-feature gates, Stripe Billing for the subscription itself, and the usage meter.
-`workspace.plan`, the text column, is legacy and ignored: the authoritative
-plan is `workspace_subscription.plan_id`.
-
-What needs deciding BEFORE anything is built, because each answer changes the
-shape of the gate:
-1. Per app or per workspace? Pulse on pro while Thread stays starter is a
-   different data model (`workspace_app.plan`) from one plan for the lot.
-2. What does exceeding a limit DO? Refuse the write, or keep working and show
-   a nudge? A festival mid-enrolment is the wrong place to discover a cap.
-3. Which features are actually plan-shaped? Custom sender domain, certificates,
-   an app key, seats — plausible. Nothing that would make existing workspaces
-   lose something they already use, or the first bill is a betrayal.
-4. Who can change a plan, and does downgrading delete anything? (It must not.)
-
-Read `workspace.plan` in exactly one helper when it lands, the way
-`lib/payment-accounts.ts` and `lib/workspace-brand.ts` do — a plan check
-scattered across routes cannot be reasoned about or changed.
+1. **Sjoerd, blocking everything paid:** there is NO `STRIPE_SECRET_KEY` on
+   Fly at all (checked 2026-09-01 — Meet/Thread checkouts 503 too). Set the
+   key, register BOTH webhooks (thread + billing — endpoints and events in
+   docs/deploy.md), set `STRIPE_THREAD_WEBHOOK_SECRET` +
+   `STRIPE_BILLING_WEBHOOK_SECRET`, run
+   `node apps/api/scripts/sync-stripe-plans.mjs` once. Checklist:
+   docs/platform-billing-setup.md (updated for the package model).
+2. **P4 — meters that bill** (proposal §4): email/storage overage lines on
+   the monthly invoice, 80% warnings, seat-limit enforcement on invite (never
+   retroactive), the 13-month Free archive (warning email + export first).
+3. **P5 — website polish**: product pages per app, OG image (favicon shipped),
+   screenshots, self-serve signup flip when the trial ends.
+4. Decisions D1–D6 in docs/productisation-proposal.md §5 were built as
+   recommended ("continue building, don't wait" — Sjoerd, 2026-09-01, while
+   sporting); mark the section RESOLVED once he has read it.
 
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
