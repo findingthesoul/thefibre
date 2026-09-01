@@ -73,11 +73,21 @@ const CONNECT_STEPS: { who: string; what: string; then: string }[] = [
 export default async function AboutFibrePage() {
   let me: Me | null = null;
   let workspaceApps: WorkspaceApp[] = [];
+  let planName: string | null = null;
 
   try {
     me = await apiFetch<Me>('/api/v1/auth/me');
   } catch {
     me = null;
+  }
+  try {
+    // The real plan. me.workspace.plan is the legacy text column, which is
+    // ignored by everything that matters — showing it here kept it looking
+    // alive (docs/productisation-proposal.md §3.2).
+    const p = await apiFetch<{ plan: { name: string } }>('/api/v1/plan');
+    planName = p.plan.name;
+  } catch {
+    planName = null;
   }
   try {
     const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
@@ -99,7 +109,7 @@ export default async function AboutFibrePage() {
         <dl className="grid grid-cols-2 gap-x-8 gap-y-4 rounded-lg border border-line bg-surface-raised p-5 text-sm md:grid-cols-4">
           <Fact label="Version" value={`v${VERSION}`} mono />
           <Fact label="Workspace" value={me?.workspace?.name ?? '—'} />
-          <Fact label="Plan" value={me?.workspace?.plan ?? '—'} />
+          <Fact label="Plan" value={planName ?? '—'} />
           <Fact label="Apps switched on" value={String(workspaceApps.length)} />
           <Fact label="Data lives in" value="Ireland (EU)" />
           <Fact label="Served from" value="Frankfurt (EU)" />

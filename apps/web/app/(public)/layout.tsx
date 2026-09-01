@@ -32,6 +32,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
 
         <footer className="mt-24 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
           <nav className="flex flex-wrap gap-x-5 gap-y-1">
+            <Link className="hover:text-neutral-900" href="/pricing">
+              Pricing
+            </Link>
             <Link className="hover:text-neutral-900" href="/about">
               About
             </Link>

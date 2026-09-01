@@ -24,6 +24,8 @@ import { purchasesRoutes } from './routes/purchases.js';
 import { workspaceBillingRoutes } from './routes/workspace-billing.js';
 import { workspaceBrandRoutes } from './routes/workspace-brand.js';
 import { planRoutes } from './routes/plan.js';
+import { adminPlansRoutes } from './routes/admin-plans.js';
+import { publicPlansRoutes } from './routes/public-plans.js';
 import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
@@ -213,6 +215,8 @@ v1.route('/workspace-brand', workspaceBrandRoutes);
 // stays because The Thread's settings page is written against it.
 v1.route('/workspace', workspaceBrandRoutes);
 v1.route('/plan', planRoutes);
+v1.route('/admin/plans', adminPlansRoutes);
+v1.route('/public/plans', publicPlansRoutes);
 v1.route('/uploads', uploadRoutes);
 v1.route('/profile', profileRoutes);
 v1.route('/apps', appsRoutes);

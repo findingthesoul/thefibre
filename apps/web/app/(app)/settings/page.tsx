@@ -17,10 +17,10 @@ export const metadata = { title: 'Settings · The Fibre' };
 export default function SettingsPage() {
   const sections = platformSettings({
     fibreUrl: '',
-    hosted: ['profile', 'workspace', 'members', 'apps', 'about', 'privacy'],
+    hosted: ['profile', 'workspace', 'members', 'apps', 'plan', 'about', 'privacy'],
     // Payments and connections are set up inside the apps that use them —
     // Meet and The Thread — and both write platform values.
-    omit: ['payments', 'connections', 'plan'],
+    omit: ['payments', 'connections'],
   });
 
   return (

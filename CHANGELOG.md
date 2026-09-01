@@ -6,6 +6,61 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.20.0] — 2026-09-01 — the plans get their surfaces
+
+Productisation, slice one (docs/productisation-proposal.md). The pricing
+model was decided 2026-08-31 and the gates went live in 0.19.24 — but every
+*surface* was missing: no plan screen, no admin matrix, no public price list,
+no way to give a social enterprise a tailored deal, and the approval email
+the request-access flow had been promising since v0.14 was never sent.
+
+### Added
+- **/admin/plans — the tier matrix, editable.** Plans as columns, every
+  functionality as checkbox rows grouped by app (The Thread, Flow, Pulse,
+  platform), monthly + yearly prices, allowances and the fee ladder. It edits
+  the same `billing_plan` rows the gates read, so the matrix, the public
+  pricing page and enforcement cannot drift. New feature *keys* remain a
+  deploy, deliberately (same rule as app-key scopes).
+- **Settings → Plan** — the page every `needsPlan()` refusal has pointed at.
+  What you are on (incl. comped / tailored badges and effective price), what
+  you are using (seats, email vs bundle), and all packages side by side. The
+  shared settings card existed since the settings hub; it is un-omitted.
+- **/pricing** — public price list on the marketing site, rendered from the
+  new no-auth `GET /api/v1/public/plans` (catalogue only, no PII; server-side
+  fetch, CORS untouched). Trial banner; every CTA routes to request-access.
+- **Tailored pricing + comps on /admin/workspaces.** Each workspace row shows
+  its REAL plan (`workspace_subscription`, not the legacy text column) with a
+  Plan… dialog: move plan, comp with a written reason, or set a custom price
+  (`workspace_subscription.custom_price_cents_month/year`, null = list).
+  Prices never gate features — gates always follow the plan.
+- **New workspace button** — the invited-in door for social enterprises,
+  with plan/comp/tailored price set at creation
+  (`POST /api/v1/workspaces`, super-admin). The signup request stays the door
+  for people who ask; there is still no delete.
+- **`billing_plan.price_cents_year`** — yearly prices stored (€190/€490, two
+  months free), not computed, so a future promo can break the ×10 rule
+  without lying. Migration `20260901190000` (…180000 was taken — the
+  same-day-collision gotcha, again).
+- **The approval email exists.** Approving an access request now sends the
+  branded "Your workspace is ready" welcome (`platform-templates.ts`) —
+  /request-access and /access-pending had promised it since v0.14.
+- **Landing page grows up a little**: invited-trial chip, the four-app family
+  section (from `branding.ts`, single-sourced), pricing links.
+
+### Changed
+- `GET /api/v1/plan` also returns yearly + *effective* prices (tailored ?? 
+  list) and a `tailored` flag.
+- `/settings/about` and `/admin/workspaces` stopped reading the legacy
+  `workspace.plan` column; signup approval stopped writing it. The column is
+  now fully dead.
+- `lib/plan.ts` gained `forgetAllPlans()` — a plan edit invalidates the whole
+  60s cache, not one workspace's entry.
+- Super-admin checks share one helper (`lib/super-admin.ts`).
+
+### Still not built (next slices, in the proposal)
+Stripe Billing for the subscription itself (P2), /admin/economics + Pulse
+cost seed (P3), metered overage + the 13-month archive (P4).
+
 ## [0.19.33] — 2026-09-01 — the enrolment emails belong to the thread
 
 *"Enrolment emails — should that not be part of a thread? With a default text

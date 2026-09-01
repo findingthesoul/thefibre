@@ -1,7 +1,8 @@
 import { redirect } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
-import { WorkspaceList, type Workspace } from './list';
+import { WorkspaceList, type Workspace, type PlanOption } from './list';
+import { NewWorkspaceButton } from './new-workspace';
 
 export const metadata = { title: 'Workspaces' };
 
@@ -14,10 +15,15 @@ export default async function AdminWorkspacesPage() {
   if (!me.user.is_super_admin) redirect('/dashboard');
 
   let items: Workspace[] = [];
+  let plans: PlanOption[] = [];
   let error: string | null = null;
   try {
-    const data = await apiFetch<{ items: Workspace[] }>('/api/v1/workspaces');
-    items = data.items;
+    const [ws, pl] = await Promise.all([
+      apiFetch<{ items: Workspace[] }>('/api/v1/workspaces'),
+      apiFetch<{ plans: PlanOption[] }>('/api/v1/admin/plans'),
+    ]);
+    items = ws.items;
+    plans = pl.plans;
   } catch {
     error = 'Could not load workspaces.';
   }
@@ -28,7 +34,8 @@ export default async function AdminWorkspacesPage() {
     <PageContainer max="4xl">
       <PageHeader
         title="Workspaces"
-        description="Every tenant on the platform. Read-only — a workspace is created by approving an access request, and nothing here deletes one."
+        description="Every tenant on the platform: who they are, what plan they sit on, and the levers for tailored deals."
+        actions={<NewWorkspaceButton plans={plans} />}
       />
 
       <section className="mt-10">
@@ -43,20 +50,21 @@ export default async function AdminWorkspacesPage() {
           )}
         </div>
 
-        {error ? <EmptyState>{error}</EmptyState> : <WorkspaceList items={items} />}
+        {error ? <EmptyState>{error}</EmptyState> : <WorkspaceList items={items} plans={plans} />}
       </section>
 
       <section className="mt-12 border-t border-line pt-6">
-        <SectionLabel>Why there is nothing to click here</SectionLabel>
+        <SectionLabel>The two doors, and the missing third</SectionLabel>
         <div className="mt-3 max-w-2xl space-y-3 text-sm leading-relaxed text-ink-subtle">
           <p>
-            A workspace is created in exactly one place: approving an access request on{' '}
-            <span className="font-medium text-ink">Access requests</span>. That approval is a
-            person reading an application, which is the point of it — so there is no &ldquo;new
-            workspace&rdquo; button, here or anywhere.
+            A workspace comes into being in exactly two ways: approving an application on{' '}
+            <span className="font-medium text-ink">Access requests</span> (the door for people who
+            ask), or the <span className="font-medium text-ink">New workspace</span> button above
+            (the door for organisations we invite — with their plan, comp or tailored price set at
+            creation). Both are a person deciding, which is the point.
           </p>
           <p>
-            There is no delete either. <code className="font-mono text-xs">workspace_id</code> is
+            There is still no delete. <code className="font-mono text-xs">workspace_id</code> is
             referenced by 54 tables, so removing one is a cascade you cannot preview from a confirm
             dialog. If you need a workspace gone, it should be provably empty first &mdash; the
             counts above are how you check.

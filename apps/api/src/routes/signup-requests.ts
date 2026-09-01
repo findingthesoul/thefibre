@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
+import { sendEmail } from '../lib/email/client.js';
+import { renderWorkspaceReadyEmail } from '../lib/email/platform-templates.js';
 
 export const signupRequestsRoutes = new Hono();
 
@@ -117,9 +119,12 @@ signupRequestsRoutes.patch('/:id', async (c) => {
   const slug = `${slugBase}-${Math.random().toString(36).slice(2, 6)}`;
   const wsName = reqRow.organisation_name ?? reqRow.full_name ?? reqRow.email;
 
+  // No `plan` here: the text column is legacy (the authoritative plan is
+  // workspace_subscription, created by the on-insert trigger) and writing it
+  // kept it looking alive.
   const { data: ws, error: wsErr } = await adminClient
     .from('workspace')
-    .insert({ slug, name: wsName, plan: 'free' })
+    .insert({ slug, name: wsName })
     .select('id')
     .single();
   if (wsErr || !ws) {
@@ -141,5 +146,18 @@ signupRequestsRoutes.patch('/:id', async (c) => {
     console.error('[signup-requests PATCH approve] update failed', uErr);
     return c.json({ error: uErr.message }, 500);
   }
+
+  // The welcome. /request-access and /access-pending have promised "we'll
+  // email you when your workspace is ready" since v0.14 — this is that email.
+  // Fire-and-forget: the approval already happened, and a mail hiccup must
+  // not make the button look like it failed (the applicant can still sign in).
+  const welcome = renderWorkspaceReadyEmail({
+    fullName: reqRow.full_name ?? '',
+    workspaceName: wsName,
+  });
+  void sendEmail({ to: reqRow.email, ...welcome }).catch((e) =>
+    console.error('[signup-requests PATCH approve] welcome email failed', e),
+  );
+
   return c.json({ ok: true, workspace_id: ws.id });
 });

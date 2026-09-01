@@ -33,7 +33,11 @@ export default async function LandingPage() {
             priority
             className="h-12 w-auto"
           />
-          <h1 className="mt-8 text-5xl font-medium tracking-tight leading-tight">
+          <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
+            <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />
+            In an invited trial — access is by request
+          </div>
+          <h1 className="mt-5 text-5xl font-medium tracking-tight leading-tight">
             Relationships, kept honestly.
           </h1>
           <p className="mt-5 text-lg text-neutral-600 leading-relaxed max-w-2xl">
@@ -50,9 +54,40 @@ export default async function LandingPage() {
             >
               Request access
             </Link>
+            <Link
+              href="/pricing"
+              className="rounded-md border border-neutral-300 px-5 py-2.5 text-sm font-medium hover:bg-neutral-50"
+            >
+              Pricing
+            </Link>
             <SignInLink />
           </div>
         </header>
+
+        {/* The family — one platform, apps that each do one thing well. */}
+        <section className="mt-24">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
+            One platform, four apps
+          </div>
+          <div className="mt-5 grid gap-6 sm:grid-cols-2">
+            <AppCard
+              app={APPS['fibre-meet']}
+              body="Booking pages, paid sessions, and meetings that land in the shared contact graph instead of a silo."
+            />
+            <AppCard
+              app={APPS['the-thread']}
+              body="Programmes and events end to end: enrolment, tickets, timed emails, approval, certificates."
+            />
+            <AppCard
+              app={APPS['fibre-flow']}
+              body="People in motion — applicants, participants and members moving through stages everyone can see."
+            />
+            <AppCard
+              app={APPS['fibre-pulse']}
+              body="Cashflow and runway for the organisation behind the work, fed by the money the other apps take."
+            />
+          </div>
+        </section>
 
         <section className="mt-24 grid gap-8 md:grid-cols-2">
           <Feature
@@ -82,7 +117,13 @@ export default async function LandingPage() {
             <li>· Per-app profile tabs that appear only when an app has data on the person</li>
             <li>· Activity timeline across all installed apps</li>
             <li>· Privacy dashboard — consents, erasure, full transparency</li>
-            <li>· Fibre Meet, The Thread and Fibre Flow as first-party apps</li>
+            <li>· Fibre Meet, The Thread, Fibre Flow and Fibre Pulse as first-party apps</li>
+            <li>
+              · Four packages, per workspace —{' '}
+              <Link className="underline" href="/pricing">
+                see pricing
+              </Link>
+            </li>
           </ul>
         </section>
 
@@ -92,6 +133,10 @@ export default async function LandingPage() {
           No advertising. No profiling. No data sold.{' '}
           {/* /privacy is the SIGNED-IN consent dashboard, inside (app) — linking
               a logged-out visitor there bounced them straight back here. */}
+          <Link className="underline" href="/pricing">
+            Pricing
+          </Link>{' '}
+          ·{' '}
           <Link className="underline" href="/privacy-policy">
             Privacy
           </Link>{' '}
@@ -114,6 +159,27 @@ function Feature({ title, body }: { title: string; body: string }) {
   return (
     <div>
       <h3 className="text-base font-medium">{title}</h3>
+      <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{body}</p>
+    </div>
+  );
+}
+
+function AppCard({
+  app,
+  body,
+}: {
+  app: { name: string; tagline: string; brandLetters: string };
+  body: string;
+}) {
+  return (
+    <div className="rounded-xl border border-neutral-200 p-5">
+      <div className="flex items-center gap-2.5">
+        <span className="inline-flex h-7 w-7 items-center justify-center rounded-md bg-yellow-300 text-[10px] font-semibold tracking-tight text-neutral-900">
+          {app.brandLetters}
+        </span>
+        <h3 className="text-base font-medium">{app.name}</h3>
+      </div>
+      <p className="mt-2 text-sm italic text-neutral-500">{app.tagline}</p>
       <p className="mt-2 text-sm text-neutral-600 leading-relaxed">{body}</p>
     </div>
   );

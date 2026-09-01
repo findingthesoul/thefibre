@@ -28,7 +28,7 @@ planRoutes.get('/', async (c) => {
   const { data: catalogue } = await adminClient
     .from('billing_plan')
     .select(
-      'id, name, price_cents_month, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features',
+      'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features',
     )
     .order('price_cents_month');
 
@@ -39,6 +39,13 @@ planRoutes.get('/', async (c) => {
       status: plan.status,
       comped: plan.comped,
       price_cents_month: plan.priceCentsMonth,
+      price_cents_year: plan.priceCentsYear,
+      // What THIS workspace actually pays — a tailored price when a super
+      // admin set one, the list price otherwise. Display uses this; the
+      // feature gates never do.
+      effective_price_cents_month: plan.customPriceCentsMonth ?? plan.priceCentsMonth,
+      effective_price_cents_year: plan.customPriceCentsYear ?? plan.priceCentsYear,
+      tailored: plan.customPriceCentsMonth !== null || plan.customPriceCentsYear !== null,
       included_seats: plan.includedSeats,
       extra_seat_cents_month: plan.extraSeatCentsMonth,
       included_emails_month: plan.includedEmailsMonth,

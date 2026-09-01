@@ -34,6 +34,11 @@ export type Plan = {
   id: string;
   name: string;
   priceCentsMonth: number;
+  /** Null = not offered yearly (Enterprise is a conversation, not a price). */
+  priceCentsYear: number | null;
+  /** Tailored price for THIS workspace. Null = list price. Display + Stripe only — never a gate. */
+  customPriceCentsMonth: number | null;
+  customPriceCentsYear: number | null;
   includedSeats: number | null;
   extraSeatCentsMonth: number | null;
   includedEmailsMonth: number | null;
@@ -52,6 +57,9 @@ const UNKNOWN: Plan = {
   id: 'unknown',
   name: 'Unknown',
   priceCentsMonth: 0,
+  priceCentsYear: null,
+  customPriceCentsMonth: null,
+  customPriceCentsYear: null,
   includedSeats: null,
   extraSeatCentsMonth: null,
   includedEmailsMonth: null,
@@ -74,6 +82,15 @@ export function forgetPlan(workspaceId: string): void {
   cache.delete(workspaceId);
 }
 
+/**
+ * Editing a billing_plan row changes the answer for EVERY workspace on that
+ * plan; the cache is keyed by workspace, so the only honest invalidation is
+ * all of it. Called from the /admin/plans PATCH.
+ */
+export function forgetAllPlans(): void {
+  cache.clear();
+}
+
 export async function planFor(workspaceId: string): Promise<Plan> {
   if (!workspaceId) return UNKNOWN;
   const hit = cache.get(workspaceId);
@@ -82,9 +99,10 @@ export async function planFor(workspaceId: string): Promise<Plan> {
   const { data, error } = await adminClient
     .from('workspace_subscription')
     .select(
-      `status, plan:plan_id (
-         id, name, price_cents_month, included_seats, extra_seat_cents_month,
-         included_emails_month, included_storage_gb, retention_months, features
+      `status, custom_price_cents_month, custom_price_cents_year, plan:plan_id (
+         id, name, price_cents_month, price_cents_year, included_seats,
+         extra_seat_cents_month, included_emails_month, included_storage_gb,
+         retention_months, features
        )`,
     )
     .eq('workspace_id', workspaceId)
@@ -98,6 +116,7 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     id: string;
     name: string;
     price_cents_month: number;
+    price_cents_year: number | null;
     included_seats: number | null;
     extra_seat_cents_month: number | null;
     included_emails_month: number | null;
@@ -110,6 +129,9 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     id: row.id,
     name: row.name,
     priceCentsMonth: row.price_cents_month ?? 0,
+    priceCentsYear: row.price_cents_year ?? null,
+    customPriceCentsMonth: data.custom_price_cents_month ?? null,
+    customPriceCentsYear: data.custom_price_cents_year ?? null,
     includedSeats: row.included_seats,
     extraSeatCentsMonth: row.extra_seat_cents_month,
     includedEmailsMonth: row.included_emails_month,
