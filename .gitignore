@@ -43,3 +43,4 @@ Thumbs.db
 # Test
 coverage/
 .claude/
+apps/*/.env.staging

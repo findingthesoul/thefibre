@@ -22,7 +22,7 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const envPath = resolve(__dirname, '../.env');
+const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
 const env = Object.fromEntries(
   readFileSync(envPath, 'utf-8')
     .split('\n')

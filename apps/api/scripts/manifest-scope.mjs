@@ -42,7 +42,7 @@ const APP_SCOPES = [
     .matchAll(/'([a-z_]+:[a-z_]+)'/g),
 ].map((m) => m[1]);
 const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '../.env'), 'utf-8')
+  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
     .split('\n')
     .filter((l) => l && !l.startsWith('#'))
     .map((l) => l.split('=', 2))

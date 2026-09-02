@@ -38,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '../.env'), 'utf-8')
+  readFileSync(resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env'), 'utf-8')
     .split('\n')
     .filter((l) => l && !l.startsWith('#'))
     .map((l) => l.split('=', 2))

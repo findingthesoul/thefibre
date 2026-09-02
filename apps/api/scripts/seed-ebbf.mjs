@@ -21,7 +21,7 @@ import { fileURLToPath } from 'node:url';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // Load env from apps/api/.env (simple parser — just URL + service key).
-const envPath = resolve(__dirname, '../.env');
+const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
 const env = Object.fromEntries(
   readFileSync(envPath, 'utf-8')
     .split('\n')

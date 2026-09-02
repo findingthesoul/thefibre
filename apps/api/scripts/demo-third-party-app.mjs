@@ -31,7 +31,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 
 // --- Env ------------------------------------------------------------------
 
-const envPath = resolve(__dirname, '../.env');
+const envPath = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
 const env = Object.fromEntries(
   readFileSync(envPath, 'utf-8')
     .split('\n')
