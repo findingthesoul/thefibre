@@ -81,6 +81,12 @@ TransIP DNS. Gotchas hit and solved, for the next environment:
   $150/mo add-on); apex was auto-set to redirect to www — flipped.
 - Vercel env vars must target ONLY the staging branch ("Only"), or they
   collide with the existing all-preview variables.
+- **The 10th variable**: `NEXT_PUBLIC_COOKIE_DOMAIN=.thefibre.tech` — the
+  supabase clients set auth cookies with an explicit domain
+  (apps/web/lib/supabase/{client,server}.ts). The inherited prod value
+  (`.thefibre.app`) made browsers silently REJECT every staging cookie →
+  "PKCE code verifier not found" on sign-in. Add it per project, staging
+  branch only. It is also what shares sign-in across the staging subdomains.
 
 ### The original by-the-hand guide (kept for the next environment)
 
@@ -189,7 +195,15 @@ For **each** of the five projects (web, meet, thread, flow, pulse):
    key + both live webhooks on `thefibre-api.fly.dev` — is the standing
    item that unblocks real payments. Same clicks, live toggle.)
 
-## Phase 3 — first light (together, ~20 min)
+## Phase 3 — first light — ✅ DONE 2026-09-02 evening
+
+Migrations, bootstrap (default workspace + super-admin user pre-linked),
+EBBF seed, API live, five domains serving, Google sign-in verified by Sjoerd
+("login works"). Remaining from the checklist: the Stripe test-mode
+rehearsal (blocked on keys) and verify-external-app/public-api runs against
+staging — fold into the first staging-gated promote.
+
+### The original checklist (kept for the next environment)
 
 1. **Migrations**: write the staging project ref into
    `supabase/.staging-ref`, then run `scripts/db-push-staging.sh` → all ~80
