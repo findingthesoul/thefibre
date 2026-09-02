@@ -63,7 +63,26 @@ Upgrade to Pro (€25/mo) only if the pause annoys us.
       exit); staging's project ref lives in `supabase/.staging-ref` (commit
       it once known).
 
-## Phase 2 — Sjoerd's steps, by the hand (~45 min of clicking)
+## Phase 2 — Sjoerd's steps — ✅ DONE 2026-09-02
+
+All six blocks completed. Live values: Supabase ref `lukhyylwhhjyihqtghvw`,
+Fly app `thefibre-api-staging` (shared IPv4 66.241.124.217), domains on
+TransIP DNS. Gotchas hit and solved, for the next environment:
+- Supabase free projects need a FREE org, and the account-wide cap is 2
+  active — the dormant thethread-v3 was archived (pg_dump) + paused to free
+  a slot (~/Projects/thefibre-archives/).
+- Google no longer reveals existing client secrets; "Add secret" mints a
+  second valid one.
+- A fresh Fly app has NO public IPs until `fly ips allocate-v4 --shared`.
+- TransIP: delete the default AAAA parking record; external CNAMEs need a
+  trailing dot; the green "DNS Opslaan" button is the actual save.
+- Vercel: staging domains are PREVIEW deployments → Vercel Authentication
+  had to be turned OFF per project (the per-domain Exceptions feature is a
+  $150/mo add-on); apex was auto-set to redirect to www — flipped.
+- Vercel env vars must target ONLY the staging branch ("Only"), or they
+  collide with the existing all-preview variables.
+
+### The original by-the-hand guide (kept for the next environment)
 
 ### A · Supabase — the staging database (~10 min)
 
