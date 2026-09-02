@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TextField, TextAreaField } from '@/components/ui/field';
 import { uploadAsset } from '@/lib/upload';
 import { updateHost, type SaveResult } from '../actions';
+import { MEET_HOST } from '@/lib/public-host';
 
 type Initial = {
   slug: string;
@@ -48,7 +49,7 @@ export function ProfileForm({ initial }: { initial: Initial }) {
         </label>
         <div className="mt-1 flex items-stretch rounded-md border border-line bg-surface-raised overflow-hidden focus-within:border-line-strong">
           <span className="px-3 flex items-center text-sm text-ink-muted bg-surface-sunken border-r border-line whitespace-nowrap">
-            meet.thefibre.app/
+            {MEET_HOST}/
           </span>
           <input
             name="slug"

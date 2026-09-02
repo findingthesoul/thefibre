@@ -14,6 +14,7 @@ import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { TeamForm } from '../form';
 import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
 import { VisibilityCard } from './visibility';
+import { MEET_HOST } from '@/lib/public-host';
 
 type Team = {
   id: string;
@@ -186,7 +187,7 @@ export default async function TeamDetailPage({
                   key={mt.id}
                   href={`/meeting-types/${mt.id}`}
                   primary={mt.name}
-                  secondary={`meet.thefibre.app${bookingPath}`}
+                  secondary={`${MEET_HOST}${bookingPath}`}
                   meta={
                     <>
                       {!mt.is_active && (

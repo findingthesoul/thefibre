@@ -9,6 +9,7 @@ import {
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 import { NewMeetingTypeMenu } from './new-menu';
+import { MEET_HOST } from '@/lib/public-host';
 
 type Team = { id: string; name: string; my_role: 'lead' | 'member' };
 
@@ -71,7 +72,7 @@ export default async function MeetingTypesPage() {
               key={mt.id}
               href={`/meeting-types/${mt.id}`}
               primary={mt.name}
-              secondary={`meet.thefibre.app${bookingPath}`}
+              secondary={`${MEET_HOST}${bookingPath}`}
               meta={
                 <>
                   {!mt.is_active && (

@@ -43,24 +43,25 @@ months.)
 a week idle — first request of the day is slow, acceptable for staging).
 Upgrade to Pro (€25/mo) only if the pause annoys us.
 
-## Phase 1 — Claude's prep (no accounts needed; can happen before/while)
+## Phase 1 — Claude's prep — ✅ DONE 2026-09-02 morning
 
-- [ ] **`fly.staging.toml`** — copy of `fly.toml` with `app =
-      'thefibre-api-staging'`; everything else identical (same Dockerfile,
-      same health checks, `min_machines_running = 1` can drop to `0` on
-      staging to save the ~€5/mo — cold starts are fine there **except**
-      that auth hooks have a 5s ceiling; keep `1` if sign-in flakes).
-- [ ] **Domain audit** — the code is already env-driven in the right places:
-      app URLs via `NEXT_PUBLIC_FIBRE_URL` / `_MEET_URL` / `_THREAD_URL` /
-      `_FLOW_URL` / `_PULSE_URL` (branding.ts `urlEnv`), API base via
-      `NEXT_PUBLIC_API_BASE_URL`, extra CORS origins via `CORS_ORIGINS`
-      (comma-separated, `apps/api/src/server.ts`). Claude greps for any
-      remaining hardcoded `thefibre.app` in redirects/cookies and fixes them
-      to read the envs.
-- [ ] **`scripts/smoke-staging.mjs`** — automated pass of the Phase 3
-      checklist below (health, public plans, public thread page, sign-in
-      redirect chain up to the OAuth hop).
-- [ ] **deploy.md** gains a "Staging" section = this file's Phase 4.
+- [x] **`fly.staging.toml`** — checked in (scale-to-zero: staging skips the
+      email hook, so cold starts are harmless; the access-token hook is a
+      Postgres function, no API round-trip).
+- [x] **Domain audit** — app URLs were already env-driven
+      (`NEXT_PUBLIC_FIBRE_URL` / `_MEET_URL` / `_THREAD_URL` / `_FLOW_URL` /
+      `_PULSE_URL`, `NEXT_PUBLIC_API_BASE_URL`, `CORS_ORIGINS`). The
+      stragglers — booking-link host displays in Meet (slug prefixes,
+      team/meeting-type lists, profile "Public URL"), one Pulse invite hint —
+      now derive from `appUrl(...)` via `apps/meet/lib/public-host.ts`, so
+      staging shows staging URLs.
+- [x] **`scripts/smoke-staging.mjs`** — health, catalogue (4 plans, Free
+      first), 401 enforcement, landing/pricing/sign-in render. Gate the
+      promote on it.
+- [x] **`scripts/db-push-staging.sh` / `db-push-prod.sh`** — the staging
+      wrapper links, pushes, and ALWAYS restores the prod link (trap on
+      exit); staging's project ref lives in `supabase/.staging-ref` (commit
+      it once known).
 
 ## Phase 2 — Sjoerd's steps, by the hand (~45 min of clicking)
 
@@ -171,14 +172,11 @@ For **each** of the five projects (web, meet, thread, flow, pulse):
 
 ## Phase 3 — first light (together, ~20 min)
 
-1. **Migrations**: Claude runs `supabase link --project-ref <staging-ref>`
-   then `supabase db push` → all ~80 migrations apply to staging.
-   ⚠️ Then Sjoerd does step A5 (enable the access-token hook).
-   ⚠️ Afterwards Claude re-links to prod (`supabase link --project-ref
-   zfsyyokepyycefbxiblc`) — the link is machine-global state; forgetting
-   this pushes staging experiments at prod. (We'll wrap both in
-   `scripts/db-push-staging.sh` / `db-push-prod.sh` so it's impossible to
-   forget.)
+1. **Migrations**: write the staging project ref into
+   `supabase/.staging-ref`, then run `scripts/db-push-staging.sh` → all ~80
+   migrations apply to staging and the CLI link is restored to prod
+   automatically (trap on exit — a bare `supabase db push` afterwards still
+   means prod). ⚠️ Then Sjoerd does step A5 (enable the access-token hook).
 2. **Deploy the API**: `fly deploy -c fly.staging.toml --remote-only`.
    Check `https://thefibre-api-staging.fly.dev/health`.
 3. **Deploy the apps**: `git push origin main:staging` → five Vercel

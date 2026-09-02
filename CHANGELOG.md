@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.23.1] — 2026-09-02 — staging prep, and links that tell the truth
+
+Phase 1 of docs/environments.md, done before the clicking starts.
+
+### Added
+- `scripts/db-push-staging.sh` / `db-push-prod.sh` — the staging wrapper
+  links, pushes, and ALWAYS restores the prod link (trap on exit), so a bare
+  `supabase db push` afterwards still means prod. Staging ref goes in
+  `supabase/.staging-ref`.
+- `scripts/smoke-staging.mjs` — health, plan catalogue, 401 enforcement,
+  landing/pricing/sign-in render; gates the promote.
+
+### Changed
+- Meet's booking-link host displays (slug prefixes, team + meeting-type
+  lists, profile "Public URL") and Pulse's invite hint now derive from
+  `appUrl(...)` (`apps/meet/lib/public-host.ts`) instead of a hardcoded
+  `meet.thefibre.app` — staging will show staging URLs.
+
+### Domain news
+Sjoerd owns **thethread.app** (currently an earlier standalone Thread).
+Architecture agreed in principle: thethread.app becomes the public face
+(marketing + public thread pages) — customers meet Thread; the signed-in
+operator apps stay on *.thefibre.app (shared SSO cookie apex, Fibre
+backstage). Cutover is its own slice pending one answer: what still lives on
+the old app. Staging stays on a neutral apex regardless.
+
 ## [0.23.0] — 2026-09-01 — Thread stands alone
 
 The naming brief arrived and was decided in one message (saved verbatim:

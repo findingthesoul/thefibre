@@ -8,6 +8,7 @@ import {
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
+import { MEET_HOST } from '@/lib/public-host';
 
 type Team = {
   id: string;
@@ -50,7 +51,7 @@ export default async function TeamsPage() {
                 key={t.id}
                 href={`/teams/${t.id}`}
                 primary={t.name}
-                secondary={`meet.thefibre.app/${t.slug}`}
+                secondary={`${MEET_HOST}/${t.slug}`}
                 meta={
                   <>
                     {!t.is_active && (

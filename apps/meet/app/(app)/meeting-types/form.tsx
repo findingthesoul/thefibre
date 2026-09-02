@@ -16,6 +16,7 @@ import {
   type Schedule,
 } from '@/components/working-hours-editor';
 import { createMeetingType, savePollSlots, saveIntakeFields, updateMeetingType, type SaveResult } from './actions';
+import { MEET_HOST } from '@/lib/public-host';
 
 export type MeetingTypeFormValues = {
   id?: string;
@@ -188,18 +189,18 @@ export function MeetingTypeForm({
   const effectiveTeamId =
     scope === 'team' ? teamId || teams[0]?.id || '' : '';
 
-  // Slug prefix depends on scope. For personal: meet.thefibre.app/<host-slug>/
-  // For team: meet.thefibre.app/<team-slug>/
+  // Slug prefix depends on scope. For personal: <meet-host>/<host-slug>/
+  // For team: <meet-host>/<team-slug>/
   // If the team scope is selected but no team is picked yet, fall back to
   // the first team in the list (which is the visible default).
   const fallbackTeamId = effectiveTeamId || teams[0]?.id;
   const teamSlugForPrefix = teams.find((t) => t.id === fallbackTeamId)?.slug;
   const prefix =
     scope === 'team' && teamSlugForPrefix
-      ? `meet.thefibre.app/${teamSlugForPrefix}/`
+      ? `${MEET_HOST}/${teamSlugForPrefix}/`
       : hostSlug
-        ? `meet.thefibre.app/${hostSlug}/`
-        : 'meet.thefibre.app/';
+        ? `${MEET_HOST}/${hostSlug}/`
+        : `${MEET_HOST}/`;
 
   // Availability is hidden for one_off (single fixed time, nothing to schedule)
   // and repurposed for poll into a candidate-slots editor (label changes).
@@ -470,7 +471,7 @@ export function MeetingTypeForm({
               <span>
                 <span className="font-medium">Available on personal overview page</span>
                 <span className="block text-xs text-ink-muted mt-0.5">
-                  When checked, this meeting type appears in the list at meet.thefibre.app/{prefix.replace('meet.thefibre.app/', '').replace(/\/$/, '') || 'your-slug'}. Uncheck to keep it bookable only via the direct link.
+                  When checked, this meeting type appears in the list at {MEET_HOST}/{prefix.replace(`${MEET_HOST}/`, '').replace(/\/$/, '') || 'your-slug'}. Uncheck to keep it bookable only via the direct link.
                 </span>
               </span>
             </label>

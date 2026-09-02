@@ -24,6 +24,10 @@ import {
   type CashflowGrant,
 } from './actions';
 import type { CashflowScope, MemberOption, PulseAccount, Projection } from './types';
+import { appUrl } from '@thefibre/shared';
+
+// Display host for the invite hint — staging shows staging (env-driven).
+const FIBRE_HOST = new URL(appUrl('fibre-platform', { NEXT_PUBLIC_FIBRE_URL: process.env.NEXT_PUBLIC_FIBRE_URL })).host;
 
 type Rule = NonNullable<Projection['reservation_rules']>[number];
 
@@ -253,7 +257,7 @@ export function CashflowSettingsDialog({
                   ))}
                 {members.filter((m) => m.user_id !== currentUserId).length === 0 && (
                   <p className="px-3 py-2 text-sm text-ink-muted">
-                    No other members yet — invite people from thefibre.app → Settings → Members.
+                    No other members yet — invite people from {FIBRE_HOST} → Settings → Members.
                   </p>
                 )}
               </div>

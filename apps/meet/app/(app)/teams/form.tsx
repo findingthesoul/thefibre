@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { TextAreaField } from '@/components/ui/field';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { createTeam, updateTeam, type SaveResult } from './actions';
+import { MEET_HOST } from '@/lib/public-host';
 
 export type TeamFormValues = {
   id?: string;
@@ -29,7 +30,7 @@ export function TeamForm({ initial }: { initial: TeamFormValues }) {
         nameLabel="Team name"
         initialName={initial.name ?? ''}
         initialSlug={initial.slug ?? ''}
-        slugHint="meet.thefibre.app/<this>"
+        slugHint={`${MEET_HOST}/<this>`}
       />
       <TextAreaField
         label="Description"
