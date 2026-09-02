@@ -12,7 +12,7 @@ const arg = (name, fallback) => {
   return i !== -1 ? process.argv[i + 1] : fallback;
 };
 const API = (arg('api', process.env.STAGING_API_URL ?? 'https://thefibre-api-staging.fly.dev')).replace(/\/$/, '');
-const WEB = (arg('web', process.env.STAGING_WEB_URL ?? 'https://thefibre.dev')).replace(/\/$/, '');
+const WEB = (arg('web', process.env.STAGING_WEB_URL ?? 'https://thefibre.tech')).replace(/\/$/, '');
 
 let failed = 0;
 async function check(label, fn) {

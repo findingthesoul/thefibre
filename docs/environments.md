@@ -32,9 +32,9 @@ A lot of "we need a dev environment" is covered by those.
 so the apps can single-sign-on. If staging lived at
 `staging.thefibre.app`, prod and staging would read each other's cookies
 (same parent domain) — sessions bleeding between real and test data.
-**Recommendation: a separate cheap apex, e.g. `thefibre.dev`** (€10/yr):
-`thefibre.dev`, `meet.thefibre.dev`, `thread.thefibre.dev`,
-`flow.thefibre.dev`, `pulse.thefibre.dev`. Clean cookie isolation, same
+**Recommendation: a separate cheap apex, e.g. `thefibre.tech`** (€10/yr):
+`thefibre.tech`, `meet.thefibre.tech`, `thread.thefibre.tech`,
+`flow.thefibre.tech`, `pulse.thefibre.tech`. Clean cookie isolation, same
 subdomain shape as prod. (The staging API needs no custom domain —
 `thefibre-api-staging.fly.dev`, mirroring how prod ran on `fly.dev` for
 months.)
@@ -79,8 +79,8 @@ Upgrade to Pro (€25/mo) only if the pause annoys us.
    `GOOGLE_CLIENT_ID` + secret as prod (they're in your password manager /
    prod Supabase dashboard).
 4. **Auth → URL Configuration**:
-   - Site URL: `https://thefibre.dev` (or whatever D1 chose)
-   - Redirect URLs: add `https://thefibre.dev/auth/callback` and
+   - Site URL: `https://thefibre.tech` (or whatever D1 chose)
+   - Redirect URLs: add `https://thefibre.tech/auth/callback` and
      `http://localhost:3000/auth/callback`
 5. ⚠️ **Auth → Hooks → "Customize Access Token (JWT) Claims"** → enable,
    pick `public.custom_access_token_hook`. **Do this AFTER Claude has pushed
@@ -115,7 +115,7 @@ fly secrets set -a thefibre-api-staging \
   SSO_INTERNAL_SECRET="<generate: openssl rand -hex 32>" \
   GOOGLE_CLIENT_ID="<same as prod>" \
   GOOGLE_CLIENT_SECRET="<same as prod>" \
-  CORS_ORIGINS="https://thefibre.dev,https://meet.thefibre.dev,https://thread.thefibre.dev,https://flow.thefibre.dev,https://pulse.thefibre.dev"
+  CORS_ORIGINS="https://thefibre.tech,https://meet.thefibre.tech,https://thread.thefibre.tech,https://flow.thefibre.tech,https://pulse.thefibre.tech"
 ```
 
 Leave `RESEND_API_KEY` **unset** on purpose: the email client no-ops and
@@ -124,7 +124,7 @@ person. Leave the Stripe secrets for step F.
 
 ### D · The domain (~5 min)
 
-1. Buy `thefibre.dev` (or D1's choice) at your registrar.
+1. Buy `thefibre.tech` (or D1's choice) at your registrar.
 2. That's it for now — the DNS records come from Vercel in step E (it shows
    you the exact A/CNAME values when you add each domain).
 
@@ -140,12 +140,12 @@ For **each** of the five projects (web, meet, thread, flow, pulse):
      values
    - `SSO_INTERNAL_SECRET` = the one you generated in step C
    - The five URL overrides, staging values:
-     `NEXT_PUBLIC_FIBRE_URL=https://thefibre.dev`,
-     `NEXT_PUBLIC_MEET_URL=https://meet.thefibre.dev`,
+     `NEXT_PUBLIC_FIBRE_URL=https://thefibre.tech`,
+     `NEXT_PUBLIC_MEET_URL=https://meet.thefibre.tech`,
      `NEXT_PUBLIC_THREAD_URL=…`, `NEXT_PUBLIC_FLOW_URL=…`,
      `NEXT_PUBLIC_PULSE_URL=…`
 2. **Settings → Domains** — add the project's staging domain
-   (`thefibre.dev` for web, `meet.thefibre.dev` for meet, …) and assign it
+   (`thefibre.tech` for web, `meet.thefibre.tech` for meet, …) and assign it
    to the **`staging` branch** (Vercel asks; pick branch, type `staging`).
    Add the DNS records Vercel shows you at the registrar.
 
@@ -185,8 +185,8 @@ For **each** of the five projects (web, meet, thread, flow, pulse):
    staging env (both scripts read env; we'll pass staging values).
 5. **Smoke checklist** (Claude drives, Sjoerd watches):
    - [ ] `/health` ok, `/api/v1/public/plans` returns 4 plans
-   - [ ] Sign in with Google at `thefibre.dev` → dashboard, contacts render
-   - [ ] Hop to `meet.thefibre.dev` — still signed in (cookie SSO works)
+   - [ ] Sign in with Google at `thefibre.tech` → dashboard, contacts render
+   - [ ] Hop to `meet.thefibre.tech` — still signed in (cookie SSO works)
    - [ ] Open a Thread public page, enrol with a test email
    - [ ] Run `sync-stripe-plans.mjs` against staging (test mode) →
          Settings → Plan shows upgrade buttons
