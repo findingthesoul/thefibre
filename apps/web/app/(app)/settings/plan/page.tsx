@@ -128,6 +128,18 @@ export default async function PlanPage({
           few moments (refresh if it hasn&rsquo;t).
         </div>
       )}
+      {billing?.cancel_at_period_end && billing.current_period_end && (
+        <div className="mt-6 rounded-lg border border-amber-600/40 bg-amber-500/10 px-5 py-4 text-sm leading-relaxed">
+          <span className="font-medium">
+            Your subscription ends{' '}
+            {new Date(billing.current_period_end).toLocaleDateString('en-GB', {
+              dateStyle: 'long',
+            })}
+          </span>
+          {' '}— the workspace drops to Free then. Everything you built stays; picking a plan back
+          up is one click in &ldquo;Manage billing&rdquo;.
+        </div>
+      )}
 
       {/* Current plan ------------------------------------------------- */}
       <section className="mt-10 rounded-lg border border-line bg-surface-raised p-6">
