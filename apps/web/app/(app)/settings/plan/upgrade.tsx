@@ -55,7 +55,7 @@ export function UpgradePanel({
       <div className="flex flex-wrap items-center gap-3">
         {subscribed ? (
           <Button variant="secondary" size="sm" onClick={() => go(openPortal)} disabled={pending}>
-            {pending ? 'Opening…' : 'Manage billing — invoices, card, cancel'}
+            {pending ? 'Opening…' : 'Change plan, cancel, invoices, card — Manage billing'}
           </Button>
         ) : (
           upgrades.map((t) => (
@@ -82,6 +82,12 @@ export function UpgradePanel({
         <p className="mt-2 text-xs text-ink-muted">
           Checkout and card details run on Stripe — we never see the number. Yearly is two months
           free.
+        </p>
+      )}
+      {subscribed && (
+        <p className="mt-2 text-xs text-ink-muted">
+          Switching up or down prorates automatically; cancelling takes effect at the period end
+          and drops the workspace to Free — everything you built stays.
         </p>
       )}
     </div>
