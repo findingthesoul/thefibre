@@ -182,8 +182,10 @@ export default async function PlanPage({
         {billing?.available && (
           <UpgradePanel
             currentPlanId={plan.id}
+            currentInterval={billing.interval}
             comped={plan.comped}
             subscribed={billing.subscribed}
+            cancelling={billing.cancel_at_period_end}
             targets={catalogue
               .filter((p) => p.id !== 'org')
               .map((p) => ({

@@ -33,6 +33,39 @@ export async function startCheckout(
   }
 }
 
+export async function switchPlan(
+  planId: string,
+  interval: 'monthly' | 'annual',
+): Promise<BillingActionResult> {
+  try {
+    await apiFetch('/api/v1/billing/switch', {
+      method: 'POST',
+      body: JSON.stringify({ plan_id: planId, interval }),
+    });
+    return {};
+  } catch (e) {
+    return { error: message(e) };
+  }
+}
+
+export async function cancelPlan(): Promise<BillingActionResult> {
+  try {
+    await apiFetch('/api/v1/billing/cancel', { method: 'POST' });
+    return {};
+  } catch (e) {
+    return { error: message(e) };
+  }
+}
+
+export async function resumePlan(): Promise<BillingActionResult> {
+  try {
+    await apiFetch('/api/v1/billing/resume', { method: 'POST' });
+    return {};
+  } catch (e) {
+    return { error: message(e) };
+  }
+}
+
 export async function openPortal(): Promise<BillingActionResult> {
   try {
     const r = await apiFetch<{ url: string }>('/api/v1/billing/portal', { method: 'POST' });

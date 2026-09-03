@@ -201,6 +201,145 @@ billingRoutes.post('/checkout', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// POST /switch — change plan/interval IN-APP on a live subscription.
+//
+// Stripe as rails only (the 2026-09-03 principle): we update the
+// subscription's base item to the target price with proration — the card on
+// file pays the difference, no checkout page. The seat item is dropped and
+// immediately re-reconciled against the NEW plan's allowance and seat price.
+// The webhook confirms what we already wrote (idempotent convergence).
+// ---------------------------------------------------------------------------
+const SwitchBody = z.object({
+  plan_id: z.string().min(1).max(40),
+  interval: z.enum(['monthly', 'annual']),
+});
+
+billingRoutes.post('/switch', async (c) => {
+  const ctx = c.get('ctx');
+  if (ctx.auth !== 'user' || !ctx.userId) return c.json({ error: 'user session required' }, 403);
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'changing the plan needs an admin role' }, 403);
+  }
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'Stripe is not configured on this environment' }, 503);
+
+  const body = SwitchBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const { plan_id, interval } = body.data;
+
+  const [{ data: plan }, { data: sub }] = await Promise.all([
+    adminClient
+      .from('billing_plan')
+      .select(
+        'id, name, price_cents_month, price_cents_year, stripe_product_id, stripe_price_id_month, stripe_price_id_year',
+      )
+      .eq('id', plan_id)
+      .maybeSingle(),
+    adminClient
+      .from('workspace_subscription')
+      .select('status, stripe_subscription_id, custom_price_cents_month, custom_price_cents_year')
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle(),
+  ]);
+  if (!plan) return c.json({ error: `unknown plan "${plan_id}"` }, 400);
+  if (!sub?.stripe_subscription_id) {
+    return c.json({ error: 'no live subscription — use the upgrade buttons instead' }, 409);
+  }
+
+  const custom =
+    interval === 'monthly' ? sub.custom_price_cents_month : sub.custom_price_cents_year;
+  const listPrice = interval === 'monthly' ? plan.stripe_price_id_month : plan.stripe_price_id_year;
+  if (!custom && !listPrice) {
+    return c.json({ error: `${plan.name} is not sold ${interval}` }, 400);
+  }
+
+  // Which subscription item is the base plan, which the seat rider?
+  const stripeSub = await stripe.subscriptions.retrieve(sub.stripe_subscription_id);
+  const { data: allPlans } = await adminClient
+    .from('billing_plan')
+    .select('stripe_price_id_month, stripe_price_id_year, stripe_price_id_seat_month, stripe_price_id_seat_year');
+  const basePriceIds = new Set(
+    (allPlans ?? []).flatMap((p) => [p.stripe_price_id_month, p.stripe_price_id_year]).filter(Boolean),
+  );
+  const baseItem =
+    stripeSub.items.data.find((i) => i.price && basePriceIds.has(i.price.id)) ??
+    stripeSub.items.data[0];
+  const seatItems = stripeSub.items.data.filter((i) => i.id !== baseItem?.id);
+  if (!baseItem) return c.json({ error: 'subscription has no items — check Stripe' }, 500);
+
+  await stripe.subscriptions.update(sub.stripe_subscription_id, {
+    items: [
+      custom
+        ? {
+            id: baseItem.id,
+            price_data: {
+              currency: 'eur',
+              product: plan.stripe_product_id!,
+              unit_amount: custom,
+              recurring: { interval: interval === 'monthly' ? ('month' as const) : ('year' as const) },
+            },
+          }
+        : { id: baseItem.id, price: listPrice! },
+      // Seat riders are re-created against the new plan by the reconciler.
+      ...seatItems.map((i) => ({ id: i.id, deleted: true as const })),
+    ],
+    // always_invoice: the proration is invoiced and charged/credited NOW —
+    // so the switch produces a real invoice that lands in OUR ledger via
+    // invoice.paid immediately, not a silent adjustment on next month's bill
+    // ("and invoicing" — Sjoerd, 2026-09-03).
+    proration_behavior: 'always_invoice',
+    cancel_at_period_end: false,
+    metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
+  });
+
+  // Optimistic write so the screen flips immediately; the webhook confirms.
+  await adminClient
+    .from('workspace_subscription')
+    .update({
+      plan_id: plan.id,
+      billing_interval: interval,
+      cancel_at_period_end: false,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('workspace_id', ctx.workspaceId);
+  forgetPlan(ctx.workspaceId);
+  void ensurePlanApps(ctx.workspaceId);
+  void reconcileSeatBilling(ctx.workspaceId);
+
+  return c.json({ ok: true, plan: plan.id, interval });
+});
+
+// ---------------------------------------------------------------------------
+// POST /cancel + /resume — downgrade-to-Free at period end, and the way back.
+// ---------------------------------------------------------------------------
+async function setCancelFlag(c: import('hono').Context, value: boolean) {
+  const ctx = c.get('ctx');
+  if (ctx.auth !== 'user' || !ctx.userId) return c.json({ error: 'user session required' }, 403);
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'changing the plan needs an admin role' }, 403);
+  }
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'Stripe is not configured on this environment' }, 503);
+  const { data: sub } = await adminClient
+    .from('workspace_subscription')
+    .select('stripe_subscription_id')
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!sub?.stripe_subscription_id) return c.json({ error: 'no live subscription' }, 409);
+
+  await stripe.subscriptions.update(sub.stripe_subscription_id, { cancel_at_period_end: value });
+  await adminClient
+    .from('workspace_subscription')
+    .update({ cancel_at_period_end: value, updated_at: new Date().toISOString() })
+    .eq('workspace_id', ctx.workspaceId);
+  forgetPlan(ctx.workspaceId);
+  return c.json({ ok: true, cancel_at_period_end: value });
+}
+
+billingRoutes.post('/cancel', (c) => setCancelFlag(c, true));
+billingRoutes.post('/resume', (c) => setCancelFlag(c, false));
+
+// ---------------------------------------------------------------------------
 // POST /portal — card changes, plan switches, cancellation. Stripe's page.
 // ---------------------------------------------------------------------------
 billingRoutes.post('/portal', async (c) => {
