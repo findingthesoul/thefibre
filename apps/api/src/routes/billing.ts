@@ -184,6 +184,10 @@ billingRoutes.post('/checkout', async (c) => {
     // B2B: collect the address + VAT number so Stripe's invoice is a legal one.
     billing_address_collection: 'required',
     tax_id_collection: { enabled: true },
+    // Required whenever tax-id/address collection runs against an EXISTING
+    // customer (we create the customer before the session): Stripe writes
+    // what the buyer types back onto the customer record.
+    customer_update: { name: 'auto', address: 'auto' },
     allow_promotion_codes: true,
     success_url: `${planUrl()}?upgraded=1`,
     cancel_url: planUrl(),
