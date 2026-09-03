@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.24.1] — 2026-09-03 — the welcome parade is two apps
+
+*"Pulse can stay out of the loop for now, as does flow."* Auto-activation now
+covers Meet + Thread only. Pro still makes Flow + Pulse AVAILABLE in
+Settings → Apps — switching them on stays a human act, fitting the naming
+brief: backstage tools, not sibling products.
+
 ## [0.24.0] — 2026-09-03 — sign up like a customer, not an applicant
 
 Sjoerd walked the funnel as a customer and called it: *"Very nonlogical.

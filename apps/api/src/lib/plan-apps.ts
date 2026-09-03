@@ -5,8 +5,10 @@
 // Rules:
 //  - Meet + Thread come with every plan (Meet is in every tier by decision;
 //    Thread is the product).
-//  - Flow + Pulse switch on automatically the moment the plan includes them
-//    (Pro checkout webhook calls this).
+//  - Flow + Pulse deliberately do NOT auto-activate (Sjoerd, 2026-09-03:
+//    "Pulse can stay out of the loop for now, as does flow"). Pro makes them
+//    AVAILABLE in Settings → Apps; switching them on stays a human act —
+//    they are backstage tools, not part of the welcome parade.
 //  - RESPECTS deliberate deactivation: an app the workspace switched OFF
 //    stays off — we only create rows that never existed.
 //  - Every live user in the workspace gets app_membership (role member) for
@@ -14,17 +16,12 @@
 //    their plan paid for.
 
 import { adminClient } from '../db.js';
-import { planFor } from './plan.js';
-import { ensurePipelineFlow } from './pulse-pipeline.js';
 
 const ALWAYS = ['fibre-meet', 'the-thread'];
 
 export async function ensurePlanApps(workspaceId: string): Promise<void> {
   try {
-    const plan = await planFor(workspaceId);
     const slugs = [...ALWAYS];
-    if (plan.features.flow === true) slugs.push('fibre-flow');
-    if (plan.features.pulse === true) slugs.push('fibre-pulse');
 
     const { data: apps } = await adminClient
       .from('app')
@@ -46,7 +43,6 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
-    let activatedPulse = false;
     for (const app of apps) {
       if (!known.has(app.id)) {
         const { error } = await adminClient
@@ -56,7 +52,6 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
           console.error('[plan-apps] activate failed', app.slug, error.message);
           continue;
         }
-        if (app.slug === 'fibre-pulse') activatedPulse = true;
       }
       // Membership for everyone in the workspace, existing rows untouched.
       for (const u of users ?? []) {
@@ -69,11 +64,6 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
       }
     }
 
-    if (activatedPulse && users?.[0]) {
-      await ensurePipelineFlow(workspaceId, users[0].id).catch((e) =>
-        console.error('[plan-apps] pipeline flow seed failed', e),
-      );
-    }
   } catch (e) {
     // Fire-and-forget from webhooks and sign-in — never let activation
     // convenience break the flow that called it.
