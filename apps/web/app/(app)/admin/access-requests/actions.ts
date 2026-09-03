@@ -24,3 +24,18 @@ export async function decideRequest(
   revalidatePath('/admin/access-requests');
   return { ok: true };
 }
+
+/** The signup door: true = self-serve (auto-approve), false = velvet rope. */
+export async function setAutoApprove(value: boolean): Promise<DecideResult> {
+  try {
+    await apiFetch('/api/v1/admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ key: 'auto_approve_signups', value }),
+    });
+  } catch (e) {
+    if (e instanceof ApiError) return { error: `API ${e.status}` };
+    return { error: 'unknown error' };
+  }
+  revalidatePath('/admin/access-requests');
+  return { ok: true };
+}

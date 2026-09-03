@@ -9,7 +9,8 @@ import { NextResponse, type NextRequest } from 'next/server';
 import { serverSupabase } from '@/lib/supabase/server';
 
 type AccessCheck =
-  | { status: 'existing' | 'approved'; workspace_id: string }
+  | { status: 'existing'; workspace_id: string }
+  | { status: 'approved'; workspace_id: string; desired_plan?: string | null }
   | { status: 'pending' | 'denied' | 'unknown' };
 
 export async function GET(req: NextRequest) {
@@ -95,6 +96,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.redirect(new URL('/access-pending', url.origin));
   }
   const workspaceId = access.workspace_id;
+
+  // Signup v2: a first sign-in that chose a paid package lands on Settings →
+  // Plan to finish paying — not on an empty dashboard hunting for the price.
+  let destination = next;
+  if (
+    access.status === 'approved' &&
+    access.desired_plan &&
+    access.desired_plan !== 'free' &&
+    next === '/dashboard'
+  ) {
+    destination = `/settings/plan?welcome=${encodeURIComponent(access.desired_plan)}`;
+  }
+
   if (identity) {
     try {
       const res = await fetch(`${apiBase}/api/v1/sso/resolve`, {
@@ -121,5 +135,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL(next, url.origin));
+  return NextResponse.redirect(new URL(destination, url.origin));
 }

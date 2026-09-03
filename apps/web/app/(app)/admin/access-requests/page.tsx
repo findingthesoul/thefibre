@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
 import { DecideButtons } from './decide';
+import { DoorToggle } from './door-toggle';
 
 type SignupRequest = {
   id: string;
@@ -50,6 +51,16 @@ export default async function AdminAccessRequestsPage({
     // Non-fatal — show empty.
   }
 
+  let autoApprove = true;
+  try {
+    const s = await apiFetch<{ settings: { auto_approve_signups?: boolean } }>(
+      '/api/v1/admin/settings',
+    );
+    autoApprove = s.settings.auto_approve_signups ?? true;
+  } catch {
+    /* default */
+  }
+
   const counts = {
     pending: 'Pending review',
     approved: 'Approved',
@@ -61,6 +72,7 @@ export default async function AdminAccessRequestsPage({
       <PageHeader
         title="Access requests"
         description="Applications to join The Fibre. Approval provisions a new workspace; the applicant lands in it the next time they sign in."
+        actions={<DoorToggle initial={autoApprove} />}
       />
 
       <nav className="mt-4 flex items-center gap-4 text-sm">

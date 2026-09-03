@@ -11,9 +11,11 @@ export type PackageOption = { id: string; name: string; priceLabel: string };
 export function RequestAccessForm({
   packages,
   preselected,
+  mode = 'invited',
 }: {
   packages: PackageOption[];
   preselected: string | null;
+  mode?: 'open' | 'invited';
 }) {
   const [state, action, pending] = useActionState<RequestAccessResult, FormData>(
     submitRequestAccess,
@@ -21,6 +23,24 @@ export function RequestAccessForm({
   );
 
   if (state.ok) {
+    if (state.approved) {
+      // Signup v2: auto-approved — the workspace already exists.
+      return (
+        <div className="rounded-md border border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-700 leading-relaxed">
+          <div className="font-medium text-neutral-900">Your workspace is ready. 🎉</div>
+          <p className="mt-2">
+            We&apos;ve sent a welcome email too, but there&apos;s nothing to wait for —
+            sign in with the same email address and you&apos;re in.
+          </p>
+          <a
+            href="/sign-in"
+            className="mt-4 inline-block rounded-md bg-neutral-900 px-5 py-2.5 text-sm font-medium text-white hover:bg-neutral-800"
+          >
+            Sign in now
+          </a>
+        </div>
+      );
+    }
     return (
       <div className="rounded-md border border-neutral-200 bg-neutral-50 p-6 text-sm text-neutral-700 leading-relaxed">
         <div className="font-medium text-neutral-900">
@@ -98,7 +118,13 @@ export function RequestAccessForm({
         disabled={pending}
         className="rounded-md bg-neutral-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-neutral-800 disabled:opacity-50"
       >
-        {pending ? 'Sending…' : 'Request access'}
+        {pending
+          ? mode === 'open'
+            ? 'Creating…'
+            : 'Sending…'
+          : mode === 'open'
+            ? 'Create workspace'
+            : 'Request access'}
       </button>
     </form>
   );

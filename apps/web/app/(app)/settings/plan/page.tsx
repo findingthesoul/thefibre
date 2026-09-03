@@ -47,7 +47,12 @@ type PlanPayload = {
   };
 };
 
-export default async function PlanPage() {
+export default async function PlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string; upgraded?: string }>;
+}) {
+  const { welcome, upgraded } = await searchParams;
   let data: PlanPayload | null = null;
   try {
     data = await apiFetch<PlanPayload>('/api/v1/plan');
@@ -82,6 +87,24 @@ export default async function PlanPage() {
         title="Plan"
         description="What this workspace is on, what it is using, and what the other packages offer."
       />
+
+      {welcome && (
+        <div className="mt-6 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-5 py-4 text-sm leading-relaxed">
+          <span className="font-medium">Welcome — your workspace is ready.</span>{' '}
+          You picked{' '}
+          <span className="font-medium">
+            {catalogue.find((p) => p.id === welcome)?.name ?? welcome}
+          </span>{' '}
+          when signing up: activate it below whenever you&rsquo;re ready, or just start on Free —
+          nothing is charged until you do.
+        </div>
+      )}
+      {upgraded && (
+        <div className="mt-6 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-5 py-4 text-sm">
+          <span className="font-medium">Payment received</span> — your plan updates here within a
+          few moments (refresh if it hasn&rsquo;t).
+        </div>
+      )}
 
       {/* Current plan ------------------------------------------------- */}
       <section className="mt-10 rounded-lg border border-line bg-surface-raised p-6">

@@ -142,6 +142,32 @@ export default async function WorkspaceAppsPage() {
     if (!error) error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
 
+  // Apps outside the workspace's plan are NOT shown (Signup v2, Sjoerd
+  // 2026-09-03: "other apps are not visible") — the plan decides the product,
+  // this page manages it. An app that is somehow already ACTIVE stays visible
+  // regardless, so a downgrade never hides a switch you might need.
+  // Fail OPEN like the gates: an unreadable plan hides nothing.
+  let features: Record<string, unknown> = { flow: true, pulse: true, third_party_apps: true };
+  try {
+    const p = await apiFetch<{ plan: { id: string; features: Record<string, unknown> } }>(
+      '/api/v1/plan',
+    );
+    if (p.plan.id !== 'unknown') features = p.plan.features;
+  } catch {
+    /* keep the open fallback */
+  }
+  const activeSlugs = new Set(
+    installed.filter((w) => !w.deactivated_at).map((w) => appOf(w)?.slug ?? ''),
+  );
+  const inPlan = (a: CatalogueApp): boolean => {
+    if (activeSlugs.has(a.slug)) return true;
+    if (a.kind === 'third_party') return features.third_party_apps === true;
+    if (a.slug === 'fibre-flow') return features.flow === true;
+    if (a.slug === 'fibre-pulse') return features.pulse === true;
+    return true; // Meet, Thread, and the not-built-yet roadmap entries
+  };
+  catalogue = catalogue.filter(inPlan);
+
   // First party first, then alphabetically — so the apps someone recognises
   // don't get pushed down the page as third-party ones arrive.
   const available = catalogue

@@ -7,14 +7,15 @@ import Link from 'next/link';
 
 const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
 
-async function loadPackages(): Promise<PackageOption[]> {
+async function loadPackages(): Promise<{ packages: PackageOption[]; mode: 'open' | 'invited' }> {
   try {
     const r = await fetch(`${apiBase}/api/v1/public/plans`, { next: { revalidate: 300 } });
-    if (!r.ok) return [];
+    if (!r.ok) return { packages: [], mode: 'invited' };
     const data = (await r.json()) as {
       plans: { id: string; name: string; price_cents_month: number }[];
+      signup_mode?: 'open' | 'invited';
     };
-    return data.plans.map((p) => ({
+    const packages = data.plans.map((p) => ({
       id: p.id,
       name: p.name,
       priceLabel:
@@ -24,8 +25,9 @@ async function loadPackages(): Promise<PackageOption[]> {
             ? 'free'
             : `€${Math.round(p.price_cents_month / 100)}/mo`,
     }));
+    return { packages, mode: data.signup_mode ?? 'invited' };
   } catch {
-    return [];
+    return { packages: [], mode: 'invited' };
   }
 }
 
@@ -35,7 +37,7 @@ export default async function RequestAccessPage({
   searchParams: Promise<{ plan?: string }>;
 }) {
   const { plan } = await searchParams;
-  const packages = await loadPackages();
+  const { packages, mode } = await loadPackages();
   const preselected = packages.some((p) => p.id === plan) ? plan! : null;
 
   return (
@@ -48,15 +50,17 @@ export default async function RequestAccessPage({
           ← The Fibre
         </Link>
 
-        <h1 className="mt-8 text-3xl font-medium tracking-tight">Request access</h1>
+        <h1 className="mt-8 text-3xl font-medium tracking-tight">
+          {mode === 'open' ? 'Create your workspace' : 'Request access'}
+        </h1>
         <p className="mt-3 text-neutral-600 leading-relaxed">
-          The Fibre is invitation-only while we onboard partners and pilot
-          organisations. Tell us a little about yourself; we&apos;ll be in touch
-          once your account is ready.
+          {mode === 'open'
+            ? 'Pick a package, tell us who you are — your workspace is ready straight away, and nothing is charged until you choose to upgrade inside.'
+            : 'The Fibre is invitation-only while we onboard partners and pilot organisations. Tell us a little about yourself; we\u2019ll be in touch once your account is ready.'}
         </p>
 
         <div className="mt-10">
-          <RequestAccessForm packages={packages} preselected={preselected} />
+          <RequestAccessForm packages={packages} preselected={preselected} mode={mode} />
         </div>
 
         <div className="mt-12 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">

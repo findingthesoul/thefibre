@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { ensurePlanApps } from '../lib/plan-apps.js';
 
 /**
  * SSO callback — receives provider profile after Supabase Auth has verified
@@ -67,6 +68,11 @@ ssoRoutes.post('/resolve', async (c) => {
     });
     return c.json({ error: error.message }, 500);
   }
+  // Signup v2: the plan's apps switch on and this user gets membership in
+  // them — idempotent, respects deliberate deactivations, never blocks
+  // sign-in (fire-and-forget with its own error handling).
+  void ensurePlanApps(body.data.workspace_id);
+
   return c.json(data?.[0] ?? null);
 });
 
@@ -118,7 +124,7 @@ ssoRoutes.post('/access-check', async (c) => {
   // 2. Most recent signup_request for this email (any status)
   const { data: req } = await adminClient
     .from('signup_request')
-    .select('status, workspace_id')
+    .select('status, workspace_id, desired_plan')
     .eq('email', email)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -126,7 +132,13 @@ ssoRoutes.post('/access-check', async (c) => {
 
   if (!req) return c.json({ status: 'unknown' });
   if (req.status === 'approved' && req.workspace_id) {
-    return c.json({ status: 'approved', workspace_id: req.workspace_id });
+    // desired_plan lets the callback route a first sign-in with a paid pick
+    // straight to Settings → Plan instead of an empty dashboard (Signup v2).
+    return c.json({
+      status: 'approved',
+      workspace_id: req.workspace_id,
+      desired_plan: req.desired_plan ?? null,
+    });
   }
   if (req.status === 'pending') return c.json({ status: 'pending' });
   if (req.status === 'denied') return c.json({ status: 'denied' });

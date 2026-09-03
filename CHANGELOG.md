@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.24.0] — 2026-09-03 — sign up like a customer, not an applicant
+
+Sjoerd walked the funnel as a customer and called it: *"Very nonlogical.
+Sign up: choose your plan, fill in your payment info, apps are activated…
+other apps are not visible. By default approve (make a toggle)."* This is
+that funnel.
+
+### Added
+- **Auto-approve signups (default ON)** — a signup approves itself:
+  workspace created, plan apps switched on, welcome email sent, and the form
+  says "Your workspace is ready — sign in now" instead of "we'll be in
+  touch". `platform_setting` table (migration `20260903120000`) carries the
+  switch; a **toggle on /admin/access-requests** restores the velvet rope.
+  One shared implementation (`lib/signup-approval.ts`) serves both the auto
+  path and the admin's Approve button.
+- **The plan assembles the product** (`lib/plan-apps.ts`): Meet + Thread
+  activate on every plan at approval; Pro's checkout webhook auto-activates
+  Flow + Pulse (and seeds the Pulse pipeline flow). Runs again at every
+  sign-in to fill app memberships for new users. Idempotent, respects
+  deliberate deactivations, never blocks the caller.
+- **Apps outside the plan are invisible** on Settings → Apps (active ones
+  stay visible so a downgrade never hides a switch). Fails open like the
+  gates.
+- **Paid pick lands on payment**: a first sign-in whose signup chose a paid
+  package is routed to Settings → Plan (welcome banner naming the package)
+  instead of an empty dashboard.
+- **Self-serve downgrade**: sync-stripe-plans.mjs now provisions a Stripe
+  billing-portal configuration (switch Starter↔Pro monthly/yearly, cancel at
+  period end; id stored per-database in platform_setting and passed
+  explicitly). A subscription that ends drops the workspace to **Free** —
+  data kept, active apps stay active; gates bind on the next activation,
+  mirroring the seat rule.
+- **The public site follows the door**: `signup_mode` on
+  `GET /api/v1/public/plans`; landing + pricing + the form swap chip, copy
+  and CTAs ("Start free" / "Get started") when self-serve is on.
+
+### Ops (same day)
+Staging got real email (Resend key, "(staging)" sender) and a pinned machine
+(the email hook's 5s ceiling + the in-process scheduler both need a warm
+machine); Stripe live + sandbox fully wired incl. both portal configs.
+
 ## [0.23.1] — 2026-09-02 — staging prep, and links that tell the truth
 
 Phase 1 of docs/environments.md, done before the clicking starts.

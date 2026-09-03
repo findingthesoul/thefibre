@@ -2,11 +2,9 @@
 # Deploy: fly deploy -c fly.staging.toml --remote-only
 #
 # Differences from prod, both deliberate:
-#  - scale-to-zero: prod pins one machine warm because the Supabase SEND
-#    EMAIL hook calls our API with a 5s ceiling; staging skips that hook
-#    (Supabase default auth emails), so cold starts only cost the first
-#    visitor of the day ~10s. The access-token hook is a Postgres function —
-#    no API round-trip, unaffected.
+#  - one machine pinned (since 2026-09-03): staging now runs the real email
+#    hook (5s ceiling — cold start eats it) and the in-process message
+#    scheduler, which only ticks while a machine is awake. ~€2-3/mo.
 
 app = 'thefibre-api-staging'
 primary_region = 'fra'
@@ -23,9 +21,9 @@ primary_region = 'fra'
 [http_service]
   internal_port = 8080
   force_https = true
-  auto_stop_machines = 'stop'
+  auto_stop_machines = 'off'
   auto_start_machines = true
-  min_machines_running = 0
+  min_machines_running = 1
   processes = ['app']
 
   [http_service.concurrency]

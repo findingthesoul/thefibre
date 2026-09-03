@@ -157,6 +157,58 @@ for (const plan of plans ?? []) {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Billing-portal configuration — self-serve up/downgrade + cancellation
+// (Signup v2). One configuration, tagged fibre=default, allowing switches
+// between Starter and Pro (monthly + yearly) and cancel-at-period-end. Its id
+// is written to platform_setting so routes/billing.ts passes it explicitly —
+// per-database, so sandbox and live never share a configuration id.
+// ---------------------------------------------------------------------------
+const { data: portalRows } = await db
+  .from('billing_plan')
+  .select('id, stripe_product_id, stripe_price_id_month, stripe_price_id_year')
+  .in('id', ['starter', 'pro']);
+const portalProducts = (portalRows ?? [])
+  .filter((r) => r.stripe_product_id && r.stripe_price_id_month)
+  .map((r) => ({
+    product: r.stripe_product_id,
+    prices: [r.stripe_price_id_month, r.stripe_price_id_year].filter(Boolean),
+  }));
+
+if (portalProducts.length) {
+  const returnUrl = `${env.NEXT_PUBLIC_FIBRE_URL ?? 'https://thefibre.app'}/settings/plan`;
+  const params = {
+    business_profile: { headline: 'The Fibre — your plan' },
+    features: {
+      invoice_history: { enabled: true },
+      payment_method_update: { enabled: true },
+      customer_update: { enabled: true, allowed_updates: ['email', 'address', 'tax_id'] },
+      subscription_cancel: { enabled: true, mode: 'at_period_end' },
+      subscription_update: {
+        enabled: true,
+        default_allowed_updates: ['price'],
+        products: portalProducts,
+        proration_behavior: 'create_prorations',
+      },
+    },
+    default_return_url: returnUrl,
+    metadata: { fibre: 'default' },
+  };
+  const existingCfgs = await stripe.billingPortal.configurations.list({ limit: 20 });
+  const mine = existingCfgs.data.find((c) => c.metadata?.fibre === 'default');
+  const cfg = mine
+    ? await stripe.billingPortal.configurations.update(mine.id, params)
+    : await stripe.billingPortal.configurations.create(params);
+  const { error: psErr } = await db
+    .from('platform_setting')
+    .upsert(
+      { key: 'stripe_portal_configuration', value: cfg.id, updated_at: new Date().toISOString() },
+      { onConflict: 'key' },
+    );
+  if (psErr) console.error('portal config id write failed:', psErr.message);
+  console.log(`portal configuration: ${cfg.id} (switch Starter↔Pro, cancel at period end)`);
+}
+
 console.log('\nDone. Checkout is live once STRIPE_BILLING_WEBHOOK_SECRET is also set —');
 console.log('register https://thefibre-api.fly.dev/api/v1/billing/stripe-webhook for:');
 console.log('  checkout.session.completed, customer.subscription.updated,');

@@ -3,6 +3,8 @@
 export type RequestAccessResult = {
   ok?: boolean;
   alreadyRequested?: boolean;
+  /** Signup v2: auto-approved — the workspace exists, sign in now. */
+  approved?: boolean;
   error?: string;
   fieldErrors?: Record<string, string[]>;
 };
@@ -50,8 +52,16 @@ export async function submitRequestAccess(
         ...(fieldErrors ? { fieldErrors } : {}),
       };
     }
-    const data = (await res.json()) as { ok: boolean; already_requested?: boolean };
-    return { ok: true, alreadyRequested: data.already_requested ?? false };
+    const data = (await res.json()) as {
+      ok: boolean;
+      already_requested?: boolean;
+      approved?: boolean;
+    };
+    return {
+      ok: true,
+      alreadyRequested: data.already_requested ?? false,
+      approved: data.approved ?? false,
+    };
   } catch (e) {
     console.error('submitRequestAccess', e);
     return { error: 'Could not reach the server. Please try again in a minute.' };

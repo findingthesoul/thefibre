@@ -25,25 +25,33 @@ const BLURB: Record<string, string> = {
   org: 'For organisations with their own requirements. A conversation, not a price list.',
 };
 
-async function loadPlans(): Promise<CataloguePlan[]> {
+async function loadPlans(): Promise<{ plans: CataloguePlan[]; mode: 'open' | 'invited' }> {
   try {
     const r = await fetch(`${apiBase}/api/v1/public/plans`, { next: { revalidate: 300 } });
-    if (!r.ok) return [];
-    const data = (await r.json()) as { plans: CataloguePlan[] };
-    return data.plans ?? [];
+    if (!r.ok) return { plans: [], mode: 'invited' };
+    const data = (await r.json()) as {
+      plans: CataloguePlan[];
+      signup_mode?: 'open' | 'invited';
+    };
+    return { plans: data.plans ?? [], mode: data.signup_mode ?? 'invited' };
   } catch {
-    return [];
+    return { plans: [], mode: 'invited' };
   }
 }
 
 export default async function PricingPage() {
-  const plans = await loadPlans();
+  const { plans, mode } = await loadPlans();
+  const cta = mode === 'open' ? 'Get started' : 'Request access';
 
   return (
     <div className="mt-12">
       <div className="inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
-        <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />
-        The Fibre is in an invited trial — access is by request
+        <span
+          className={`inline-block h-1.5 w-1.5 rounded-full ${mode === 'open' ? 'bg-emerald-500' : 'bg-yellow-400'}`}
+        />
+        {mode === 'open'
+          ? 'Free to start — upgrade whenever it earns it'
+          : 'The Fibre is in an invited trial — access is by request'}
       </div>
 
       <h1 className="mt-6 text-4xl font-medium tracking-tight">Pricing</h1>
@@ -118,7 +126,7 @@ export default async function PricingPage() {
                         : 'border border-neutral-300 hover:bg-neutral-50'
                     }`}
                   >
-                    Request access
+                    {cta}
                   </Link>
                 </div>
               </div>

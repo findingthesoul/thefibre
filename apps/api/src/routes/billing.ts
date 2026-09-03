@@ -26,6 +26,8 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { forgetPlan, seatsUsed } from '../lib/plan.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { reconcileSeatBilling } from '../lib/seat-billing.js';
+import { ensurePlanApps } from '../lib/plan-apps.js';
+import { getSetting } from '../lib/platform-settings.js';
 
 export const billingRoutes = new Hono();
 
@@ -216,9 +218,14 @@ billingRoutes.post('/portal', async (c) => {
   if (!sub?.stripe_customer_id) {
     return c.json({ error: 'no billing account yet — upgrade first' }, 404);
   }
+  // The configuration created by sync-stripe-plans.mjs (plan switches +
+  // cancellation). Passed explicitly so we never depend on which config the
+  // Stripe dashboard happens to consider "default".
+  const portalConfig = await getSetting<string | null>('stripe_portal_configuration', null);
   const session = await stripe.billingPortal.sessions.create({
     customer: sub.stripe_customer_id,
     return_url: planUrl(),
+    ...(portalConfig ? { configuration: portalConfig } : {}),
   });
   return c.json({ url: session.url });
 });
@@ -331,6 +338,9 @@ async function applySubscription(sub: Stripe.Subscription): Promise<void> {
   // against the new plan. Idempotent, so the webhook echo of its own update
   // is a no-op.
   void reconcileSeatBilling(target);
+  // …and switches on the apps the new plan includes (Pro brings Flow +
+  // Pulse). Signup v2: the product assembles itself.
+  void ensurePlanApps(target);
 }
 
 async function subscriptionDeleted(sub: Stripe.Subscription): Promise<void> {
@@ -339,12 +349,15 @@ async function subscriptionDeleted(sub: Stripe.Subscription): Promise<void> {
     sub.metadata?.workspace_id ??
     (customerId ? (await workspaceForCustomer(customerId))?.workspace_id : null);
   if (!target) return;
-  // Status moves; the plan and its data stay. What a lapsed plan may DO about
-  // features is a deliberate later decision (docs/pricing-proposal.md: the
-  // first bill that takes something away is a betrayal) — not a webhook's.
+  // Self-serve downgrade (Signup v2): a subscription that ends — cancelled in
+  // the portal, or lapsed — puts the workspace back on FREE. Nothing is
+  // deleted (pricing-proposal.md: read-only, not gone; the way back is a
+  // click) and already-active apps stay active — gates only bind on new
+  // activations, mirroring the seat rule "binds on the next invite".
   const { error } = await adminClient
     .from('workspace_subscription')
     .update({
+      plan_id: 'free',
       status: 'canceled',
       stripe_subscription_id: null,
       cancel_at_period_end: false,
@@ -456,6 +469,7 @@ billingRoutes.post('/stripe-webhook', async (c) => {
             .eq('workspace_id', workspaceId);
           if (error) console.error('[billing/webhook] checkout completion failed', error);
           forgetPlan(workspaceId);
+          void ensurePlanApps(workspaceId);
         }
         break;
       }

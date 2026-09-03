@@ -5,6 +5,21 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { SignInLink } from './sign-in-button';
 import { ENTITY, BRAND_ASSETS } from '@thefibre/shared';
 
+const apiBase = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
+
+// Whether the door is open (auto-approve, the default) or invited-only —
+// same source as /pricing, so the story never disagrees with the form.
+async function signupMode(): Promise<'open' | 'invited'> {
+  try {
+    const r = await fetch(`${apiBase}/api/v1/public/plans`, { next: { revalidate: 300 } });
+    if (!r.ok) return 'invited';
+    const d = (await r.json()) as { signup_mode?: 'open' | 'invited' };
+    return d.signup_mode ?? 'invited';
+  } catch {
+    return 'invited';
+  }
+}
+
 // The public landing, positioned per docs/naming-brief.md (2026-09-01):
 // Thread is the flagship people meet and say out loud; Meet / Sales / Flow
 // are functions in its service, never siblings with equal billing; Fibre
@@ -21,6 +36,8 @@ export default async function LandingPage() {
   } = await supabase.auth.getUser();
   if (user) redirect('/dashboard');
 
+  const mode = await signupMode();
+
   return (
     <main className="min-h-screen bg-white text-neutral-900">
       <div className="mx-auto max-w-3xl px-6 py-20">
@@ -34,8 +51,14 @@ export default async function LandingPage() {
             className="h-12 w-auto"
           />
           <div className="mt-8 inline-flex items-center gap-2 rounded-full border border-neutral-200 bg-neutral-50 px-3 py-1 text-xs text-neutral-600">
-            <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />
-            In an invited trial — access is by request
+            <span
+              className={`inline-block h-1.5 w-1.5 rounded-full ${
+                mode === 'open' ? 'bg-emerald-500' : 'bg-yellow-400'
+              }`}
+            />
+            {mode === 'open'
+              ? 'Free to start — no card needed'
+              : 'In an invited trial — access is by request'}
           </div>
           <h1 className="mt-5 text-5xl font-medium tracking-tight leading-tight">
             Thread
@@ -56,7 +79,7 @@ export default async function LandingPage() {
               href="/request-access"
               className="rounded-md bg-neutral-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-neutral-800"
             >
-              Request access
+              {mode === 'open' ? 'Start free' : 'Request access'}
             </Link>
             <Link
               href="/pricing"
