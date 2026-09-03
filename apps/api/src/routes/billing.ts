@@ -306,6 +306,30 @@ billingRoutes.post('/switch', async (c) => {
   void ensurePlanApps(ctx.workspaceId);
   void reconcileSeatBilling(ctx.workspaceId);
 
+  // Travel through Stripe ONLY when genuinely needed (Sjoerd's phrase): an
+  // off-session proration charge can be refused pending 3-D Secure. If the
+  // switch's invoice is still open, hand back Stripe's hosted invoice page
+  // so the customer can authenticate — invoice.paid then converges us.
+  try {
+    const invoices = await stripe.invoices.list({
+      subscription: sub.stripe_subscription_id,
+      limit: 1,
+    });
+    const latest = invoices.data[0];
+    if (latest && latest.status === 'open' && latest.hosted_invoice_url) {
+      return c.json({
+        ok: true,
+        plan: plan.id,
+        interval,
+        // The client redirects here — same field checkout/portal use.
+        url: latest.hosted_invoice_url,
+        needs_authentication: true,
+      });
+    }
+  } catch (e) {
+    console.warn('[billing/switch] latest-invoice check failed (non-fatal)', e);
+  }
+
   return c.json({ ok: true, plan: plan.id, interval });
 });
 
