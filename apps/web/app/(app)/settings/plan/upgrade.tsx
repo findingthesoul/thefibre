@@ -87,8 +87,7 @@ export function UpgradePanel({
 
   return (
     <div className="mt-6 border-t border-line pt-5">
-      {!cancelling && (
-        <div className="mb-3 inline-flex rounded-md border border-line p-0.5 text-xs">
+      <div className="mb-3 inline-flex rounded-md border border-line p-0.5 text-xs">
           {(['monthly', 'annual'] as const).map((iv) => (
             <button
               key={iv}
@@ -101,8 +100,7 @@ export function UpgradePanel({
               {iv === 'monthly' ? 'Monthly' : 'Yearly — 2 months free'}
             </button>
           ))}
-        </div>
-      )}
+      </div>
 
       <div className="flex flex-wrap items-center gap-2">
         {cancelling && (
@@ -111,8 +109,7 @@ export function UpgradePanel({
           </Button>
         )}
 
-        {!cancelling &&
-          paid.map((t) => {
+        {paid.map((t) => {
             const cents = interval === 'monthly' ? t.price_cents_month : t.price_cents_year;
             if (cents === null || cents === 0) return null;
             const isCurrent = t.id === currentPlanId && interval === (currentInterval ?? 'monthly');
@@ -144,7 +141,7 @@ export function UpgradePanel({
                 {label}
               </Button>
             );
-          })}
+        })}
 
         {subscribed && !cancelling && (
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => setConfirm({ kind: 'cancel' })}>
@@ -181,7 +178,11 @@ export function UpgradePanel({
           if (confirm?.kind === 'switch') run(() => switchPlan(confirm.planId, confirm.interval));
         }}
         title={confirm?.kind === 'switch' ? `Switch to ${confirm.label}?` : ''}
-        message="The difference is prorated and invoiced immediately on your card on file. Your allowances change right away."
+        message={
+          cancelling
+            ? 'This also removes the pending cancellation. The difference is prorated and invoiced immediately on your card on file.'
+            : 'The difference is prorated and invoiced immediately on your card on file. Your allowances change right away.'
+        }
         confirmLabel="Switch now"
         pending={pending}
       />
