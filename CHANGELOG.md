@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+### Fixed / guarded
+- **Staging app domains misrouted** (Sjoerd: "Meet and The Thread does not
+  open in my .tech account"): meet/thread/flow/pulse.thefibre.tech all serve
+  the WEB app — every CNAME points at the web project's Vercel DNS target.
+  Fix is dashboard work (per-project domain + CNAME; steps in
+  docs/environments.md gotchas). `scripts/smoke-staging.mjs` now asserts
+  each app subdomain serves its own app by `<title>`, so the promote gate
+  catches domain misroutes from now on.
+
+### Proposed
+- **First-visit onboarding for Meet + Thread** — docs/onboarding-proposal.md:
+  role-aware derived "Set up" card (person + workspace-admin steps) and a
+  first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
+  item 6.
+
 ## [0.24.1] — 2026-09-03 — the welcome parade is two apps
 
 *"Pulse can stay out of the loop for now, as does flow."* Auto-activation now

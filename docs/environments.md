@@ -203,6 +203,11 @@ EBBF seed, API live, five domains serving, Google sign-in verified by Sjoerd
 rehearsal (blocked on keys) and verify-external-app/public-api runs against
 staging — fold into the first staging-gated promote.
 
+⚠️ **Open (Sjoerd, 2026-09-03): the four app subdomains are misrouted** —
+meet/thread/flow/pulse.thefibre.tech all serve the web app. See the last
+gotcha below for the exact fix (per-project Vercel domain + per-project
+CNAME target). Until then, only `thefibre.tech` itself works on staging.
+
 ### The original checklist (kept for the next environment)
 
 1. **Migrations**: write the staging project ref into
@@ -268,3 +273,15 @@ free · Vercel included · Stripe test mode free. **Total ≈ €5/mo.**
 - Migration filenames: 14-digit timestamps, and check
   `supabase migration list` for same-day collisions (bitten twice on
   2026-09-01).
+- **Each staging domain must be added to ITS OWN Vercel project** (bitten
+  2026-09-03: all four app subdomains — meet/thread/flow/pulse.thefibre.tech
+  — served the WEB app; Sjoerd reported "Meet and The Thread don't open on
+  .tech"). Diagnosis: all four CNAMEs pointed at `5966874a…vercel-dns-016.com`
+  — the web project's per-project DNS target (prod's per-app domains each
+  have a distinct target). Fix, per app project in Vercel: Settings →
+  Domains → add `<app>.thefibre.tech`, assign to the `staging` branch (if
+  Vercel says the domain is attached to the web project, move/remove it
+  there first), then set the TransIP CNAME to the target THAT project shows
+  (trailing dot!). `scripts/smoke-staging.mjs` now asserts each app
+  subdomain serves its own app (by `<title>`), so the promote gate catches
+  this class of misroute.

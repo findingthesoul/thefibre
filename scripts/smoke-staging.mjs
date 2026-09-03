@@ -77,5 +77,28 @@ await check('sign-in page reachable', async () => {
   if (!r.ok) throw new Error(`status ${r.status}`);
 });
 
+// Each app subdomain must serve ITS OWN app. Caught for real on 2026-09-03:
+// all four .tech app domains were serving the web project (Vercel domain →
+// project assignment / DNS CNAME target), so "Meet doesn't open on staging".
+// The <title> comes from each app's root layout (APPS[slug].name in
+// @thefibre/shared branding.ts) — a title mismatch means the domain is
+// routed to the wrong Vercel project.
+const apex = new URL(WEB).hostname.replace(/^www\./, '');
+const APP_TITLES = { meet: 'Meet', thread: 'Thread', flow: 'Flow', pulse: 'Pulse' };
+for (const [sub, title] of Object.entries(APP_TITLES)) {
+  await check(`${sub}.${apex} serves ${title}, not another app`, async () => {
+    const r = await get(`https://${sub}.${apex}/`);
+    if (!r.ok) throw new Error(`status ${r.status}`);
+    const m = (await r.text()).match(/<title>([^<]*)<\/title>/);
+    if (!m) throw new Error('no <title> in HTML');
+    if (m[1] !== title) {
+      throw new Error(
+        `title is "${m[1]}" — this domain is serving the wrong app; ` +
+        'check the Vercel domain→project assignment and the DNS CNAME target'
+      );
+    }
+  });
+}
+
 console.log(failed === 0 ? '\nAll green.' : `\n${failed} check(s) failed.`);
 process.exit(failed === 0 ? 0 : 1);
