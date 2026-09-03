@@ -71,6 +71,29 @@ export default async function PlanPage({
   }
 
   const { plan, usage, catalogue, billing } = data;
+
+  // The workspace's own Fibre invoices — fibre-platform rows in the purchase
+  // ledger, written by the billing webhook. Where you bought the plan is
+  // where its invoices live (Sjoerd, 2026-09-03: "Where can I see my invoice
+  // as a workspace?"). Admin-scoped; non-admins simply see no section.
+  type Invoice = {
+    id: string;
+    item_label: string;
+    amount_cents: number;
+    currency: string;
+    status: string;
+    paid_at: string | null;
+    stripe_invoice_url: string | null;
+  };
+  let invoices: Invoice[] = [];
+  try {
+    const inv = await apiFetch<{ items: Invoice[] }>(
+      '/api/v1/purchases?scope=workspace&app=fibre-platform',
+    );
+    invoices = inv.items;
+  } catch {
+    /* non-admin or none — section hides itself */
+  }
   const renewLine =
     billing?.subscribed && billing.current_period_end
       ? `${billing.cancel_at_period_end ? 'Ends' : 'Renews'} ${new Date(
@@ -185,6 +208,40 @@ export default async function PlanPage({
           </div>
         </dl>
       </section>
+
+      {/* Your Fibre invoices ------------------------------------------- */}
+      {invoices.length > 0 && (
+        <section className="mt-12">
+          <SectionLabel>Your Fibre invoices</SectionLabel>
+          <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface-raised">
+            {invoices.map((inv) => (
+              <li key={inv.id} className="flex items-baseline justify-between gap-4 px-4 py-3 text-sm">
+                <div className="min-w-0">
+                  <span className="truncate">{inv.item_label}</span>
+                  <span className="ml-2 text-xs text-ink-muted">
+                    {inv.paid_at
+                      ? new Date(inv.paid_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })
+                      : inv.status}
+                  </span>
+                </div>
+                <div className="flex shrink-0 items-baseline gap-3">
+                  <span className="font-mono">{eur(inv.amount_cents)}</span>
+                  {inv.stripe_invoice_url && (
+                    <a
+                      href={inv.stripe_invoice_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs underline underline-offset-2 text-ink-subtle hover:text-ink"
+                    >
+                      Invoice (PDF)
+                    </a>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
 
       {/* The packages -------------------------------------------------- */}
       <section className="mt-12">
