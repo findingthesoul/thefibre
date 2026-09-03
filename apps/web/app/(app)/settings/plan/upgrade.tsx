@@ -74,28 +74,36 @@ export function UpgradePanel({
     });
   }
 
+  // One billing toggle for the whole row (Sjoerd, 2026-09-03: "1
+  // subscription with a toggle for per year"). Declared before any early
+  // return — hooks must run unconditionally.
+  const [interval, setInterval] = useState<'monthly' | 'annual'>(
+    currentInterval === 'annual' ? 'annual' : 'monthly',
+  );
+
   if (comped) return null; // nothing to buy — the plan was granted
 
   const paid = targets.filter((t) => t.price_cents_month > 0);
 
-  // Every plan×interval combination that isn't the current one.
-  const options = paid.flatMap((t) => {
-    const opts: { planId: string; name: string; interval: 'monthly' | 'annual'; priceLabel: string }[] = [];
-    if (!(t.id === currentPlanId && currentInterval === 'monthly')) {
-      opts.push({ planId: t.id, name: t.name, interval: 'monthly', priceLabel: `${eur(t.price_cents_month)}/mo` });
-    }
-    if (
-      t.price_cents_year !== null &&
-      t.price_cents_year > 0 &&
-      !(t.id === currentPlanId && currentInterval === 'annual')
-    ) {
-      opts.push({ planId: t.id, name: t.name, interval: 'annual', priceLabel: `${eur(t.price_cents_year)}/yr` });
-    }
-    return opts;
-  });
-
   return (
     <div className="mt-6 border-t border-line pt-5">
+      {!cancelling && (
+        <div className="mb-3 inline-flex rounded-md border border-line p-0.5 text-xs">
+          {(['monthly', 'annual'] as const).map((iv) => (
+            <button
+              key={iv}
+              type="button"
+              onClick={() => setInterval(iv)}
+              className={`rounded px-3 py-1.5 transition-colors ${
+                interval === iv ? 'bg-ink text-ink-inverse' : 'text-ink-subtle hover:text-ink'
+              }`}
+            >
+              {iv === 'monthly' ? 'Monthly' : 'Yearly — 2 months free'}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-center gap-2">
         {cancelling && (
           <Button size="sm" onClick={() => run(resumePlan)} disabled={pending}>
@@ -104,19 +112,32 @@ export function UpgradePanel({
         )}
 
         {!cancelling &&
-          options.map((o) => {
-            const label = `${o.name} — ${o.priceLabel}`;
+          paid.map((t) => {
+            const cents = interval === 'monthly' ? t.price_cents_month : t.price_cents_year;
+            if (cents === null || cents === 0) return null;
+            const isCurrent = t.id === currentPlanId && interval === (currentInterval ?? 'monthly');
+            const label = `${t.name} — ${eur(cents)}/${interval === 'monthly' ? 'mo' : 'yr'}`;
+            if (isCurrent) {
+              return (
+                <span
+                  key={t.id}
+                  className="inline-flex h-8 items-center rounded-md border border-line px-3 text-sm text-ink-muted"
+                >
+                  {t.name} — current plan
+                </span>
+              );
+            }
             return (
               <Button
-                key={`${o.planId}-${o.interval}`}
-                variant={subscribed ? 'secondary' : o.planId === 'pro' && o.interval === 'monthly' ? 'primary' : 'secondary'}
+                key={t.id}
+                variant={!subscribed && t.id === 'pro' ? 'primary' : 'secondary'}
                 size="sm"
                 disabled={pending}
                 onClick={() => {
                   if (subscribed) {
-                    setConfirm({ kind: 'switch', planId: o.planId, name: o.name, interval: o.interval, label });
+                    setConfirm({ kind: 'switch', planId: t.id, name: t.name, interval, label });
                   } else {
-                    run(() => startCheckout(o.planId, o.interval));
+                    run(() => startCheckout(t.id, interval));
                   }
                 }}
               >
