@@ -20,7 +20,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import type Stripe from 'stripe';
-import { appUrl } from '@thefibre/shared';
+import { appUrl, ENTITY } from '@thefibre/shared';
+import { sendReceipt } from './purchases.js';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { forgetPlan, seatsUsed } from '../lib/plan.js';
@@ -560,12 +561,28 @@ async function invoicePaid(invoice: Stripe.Invoice): Promise<void> {
     periodEnd ? ` (until ${new Date(periodEnd * 1000).toISOString().slice(0, 10)})` : ''
   }`;
 
+  // The invoice's own facts land in the ledger row, so the Fibre can present
+  // the invoice ITSELF — Stripe's PDF becomes a footnote ("my invoices are
+  // still in Stripe" — Sjoerd, 2026-09-04).
+  const addr = invoice.customer_address;
+  const billing = {
+    number: invoice.number ?? null,
+    company: invoice.customer_name ?? ws?.name ?? null,
+    address: addr?.line1 ?? null,
+    postal_code: addr?.postal_code ?? null,
+    city: addr?.city ?? null,
+    country: addr?.country ?? null,
+    tax_no: invoice.customer_tax_ids?.[0]?.value ?? null,
+    period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+  };
+
+  const itemRef = invoice.id ?? `invoice-${Date.now()}`;
   await recordPurchase({
     appSlug: 'fibre-platform',
     workspaceId: row.workspace_id,
-    itemRef: invoice.id ?? `invoice-${Date.now()}`,
+    itemRef,
     itemLabel: label,
-    payerName: ws?.name ?? '',
+    payerName: invoice.customer_name ?? ws?.name ?? '',
     payerEmail: invoice.customer_email ?? null,
     amountCents: invoice.amount_paid ?? 0,
     currency: (invoice.currency ?? 'eur').toUpperCase(),
@@ -578,7 +595,22 @@ async function invoicePaid(invoice: Stripe.Invoice): Promise<void> {
     status: 'paid',
     stripeInvoiceId: invoice.id ?? null,
     stripeInvoiceUrl: invoice.hosted_invoice_url ?? null,
+    billing,
   });
+
+  // Receipt from the FIBRE (not just Stripe's mail): the same receipt style
+  // every other purchase gets, with the platform as seller.
+  const { data: saved } = await adminClient
+    .from('purchase')
+    .select('payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url')
+    .eq('stripe_invoice_id', invoice.id ?? '')
+    .maybeSingle();
+  if (saved) {
+    void sendReceipt(row.workspace_id, saved as Record<string, unknown>, {
+      legal_name: ENTITY.name,
+      address: ENTITY.address,
+    }).catch((e) => console.error('[billing/webhook] receipt email failed', e));
+  }
 }
 
 async function invoiceFailed(invoice: Stripe.Invoice): Promise<void> {

@@ -269,10 +269,14 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
 
 // Reusable: email the payer their receipt (with the hosted invoice PDF
 // button when one exists). Settled purchases without a Stripe document
-// still get the receipt itself.
-async function sendReceipt(
+// still get the receipt itself. EXPORTED for the platform-subscription
+// webhook (routes/billing.ts), which passes the PLATFORM as seller — a
+// workspace's own invoice details are the wrong "From" on an invoice the
+// platform sends TO that workspace.
+export async function sendReceipt(
   workspaceId: string,
   purchase: Record<string, unknown>,
+  sellerOverride?: SellerDetails,
 ): Promise<{ ok: true } | { error: string; code: number }> {
   const p = purchase as unknown as {
     payer_name: string;
@@ -283,7 +287,7 @@ async function sendReceipt(
     status?: string;
   };
   if (!p.payer_email) return { error: 'no payer email on file', code: 409 };
-  const seller = await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null);
+  const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
   const button = p.stripe_invoice_url
     ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
     : '';

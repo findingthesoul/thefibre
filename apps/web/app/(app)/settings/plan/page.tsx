@@ -240,16 +240,14 @@ export default async function PlanPage({
                 </div>
                 <div className="flex shrink-0 items-baseline gap-3">
                   <span className="font-mono">{eur(inv.amount_cents)}</span>
-                  {inv.stripe_invoice_url && (
-                    <a
-                      href={inv.stripe_invoice_url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-xs underline underline-offset-2 text-ink-subtle hover:text-ink"
-                    >
-                      Invoice (PDF)
-                    </a>
-                  )}
+                  {/* The Fibre's own invoice view — Stripe's copy is a
+                      footnote on the detail page, not the destination. */}
+                  <a
+                    href={`/settings/plan/invoices/${inv.id}`}
+                    className="text-xs underline underline-offset-2 text-ink-subtle hover:text-ink"
+                  >
+                    View invoice
+                  </a>
                 </div>
               </li>
             ))}
