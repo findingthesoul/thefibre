@@ -30,13 +30,13 @@ pricing + comps + New workspace on /admin/workspaces, approval email, Stripe
 Billing code (checkout/portal/webhook), /admin/economics, operating costs
 seeded into Pulse. What remains:
 
-1. **Sjoerd, blocking everything paid:** there is NO `STRIPE_SECRET_KEY` on
-   Fly at all (checked 2026-09-01 — Meet/Thread checkouts 503 too). Set the
-   key, register BOTH webhooks (thread + billing — endpoints and events in
-   docs/deploy.md), set `STRIPE_THREAD_WEBHOOK_SECRET` +
-   `STRIPE_BILLING_WEBHOOK_SECRET`, run
-   `node apps/api/scripts/sync-stripe-plans.mjs` once. Checklist:
-   docs/platform-billing-setup.md (updated for the package model).
+1. ~~Stripe~~ **DONE 2026-09-03**: live key + all three webhook secrets on
+   prod (meet/thread/billing — the July item, finally), sandbox twins on
+   staging, live + test Products/Prices synced. ⚠️ Residual: the Stripe
+   account showed "capabilities paused — required task overdue" in the
+   sandbox view; if a real charge bounces, complete that verification task
+   in the Stripe dashboard. First real end-to-end charge still unrehearsed —
+   staging test-card rehearsal is armed and waiting.
 2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
