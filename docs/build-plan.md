@@ -95,12 +95,9 @@ the live proof that path works. Item 1b carries what that needs from us._
    `GOOGLE_WALLET_ISSUER_ID GOOGLE_WALLET_SA_EMAIL GOOGLE_WALLET_SA_KEY_PEM`.
    Code path is live and tested (503 with a sentence until configured).
 
-1. **Stripe secrets (Sjoerd, not code)** — `fly secrets set
-   STRIPE_SECRET_KEY=…`; register the Thread webhook
-   (`https://thefibre-api.fly.dev/api/v1/thread/stripe-webhook`,
-   checkout.session.completed + .expired) + `STRIPE_THREAD_WEBHOOK_SECRET`;
-   then an end-to-end paid test. Card payments stay hidden on public
-   enrol forms until this lands.
+1. ~~Stripe secrets~~ — DONE 2026-09-03 (see the productisation block at the
+   top: live key + meet/thread/billing webhooks on prod, sandbox on staging).
+   The end-to-end paid test is the one remaining piece of this item.
 1b. **Seed the planner's nine steps as a flow** — the platform work is DONE
    (0.15.0 app-key access to Flow; 0.16.0 `flow_task.step_id` +
    `flow_definition.progression`, with a self-paced toggle in Flow's UI;
