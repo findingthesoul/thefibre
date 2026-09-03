@@ -17,6 +17,7 @@ import {
   Boxes,
   Layers,
   Receipt,
+  ReceiptText,
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
@@ -161,6 +162,7 @@ function NavSections({
                     { href: '/admin/workspaces', label: 'Workspaces', icon: Layers },
                     { href: '/admin/plans', label: 'Plans', icon: Receipt },
                     { href: '/admin/economics', label: 'Economics', icon: TrendingUp },
+                    { href: '/admin/invoices', label: 'Invoices', icon: ReceiptText },
                     { href: '/admin/apps', label: 'App registry', icon: Boxes },
                   ]
                 : []),

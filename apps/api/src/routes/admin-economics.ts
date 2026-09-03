@@ -177,6 +177,42 @@ adminEconomicsRoutes.get('/', async (c) => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// GET /invoices — the SELLER's view of the platform's own invoices: every
+// fibre-platform purchase row across all workspaces (they live in each
+// customer's workspace, so the normal workspace-scoped Invoices pages can't
+// show the operator this list). Same ledger, other side of the counter.
+// ---------------------------------------------------------------------------
+adminEconomicsRoutes.get('/invoices', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isSuperAdminUser(ctx))) {
+    return c.json({ error: 'super admin required' }, 403);
+  }
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-platform')
+    .maybeSingle();
+  if (!app) return c.json({ items: [] });
+
+  // Newest first; 200 covers years at current scale. Revisit with a cursor
+  // when the platform has more paying workspaces than this page can hold —
+  // a fine problem to have.
+  const { data, error } = await adminClient
+    .from('purchase')
+    .select(
+      'id, item_label, amount_cents, currency, status, method, paid_at, refunded_at, created_at, payer_name, payer_email, stripe_invoice_url, workspace:workspace_id (name, slug)',
+    )
+    .eq('app_id', app.id)
+    .order('created_at', { ascending: false })
+    .limit(200);
+  if (error) {
+    console.error('[admin-economics invoices]', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ items: data ?? [] });
+});
+
 const COST_CATEGORY = 'Platform infrastructure';
 
 /** Cadence → what it costs per month. */
