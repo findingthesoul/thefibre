@@ -160,7 +160,7 @@ export function UpgradePanel({
       </div>
 
       {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
-      {!subscribed && options.length > 0 && (
+      {!subscribed && paid.length > 0 && (
         <p className="mt-2 text-xs text-ink-muted">
           Checkout and card details run on Stripe — we never see the number. Yearly is two months
           free.
