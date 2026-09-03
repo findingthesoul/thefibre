@@ -46,6 +46,8 @@ export type Plan = {
   retentionMonths: number | null;
   /** Null means no limit; a number is how many threads may be live at once. */
   threadLiveLimit: number | null;
+  /** How many event templates the workspace may use; null = the whole library. */
+  threadTemplateLimit: number | null;
   features: Record<string, unknown>;
   /** True when the subscription is not paying but is not cut off either. */
   comped: boolean;
@@ -66,6 +68,7 @@ const UNKNOWN: Plan = {
   includedStorageGb: null,
   retentionMonths: null,
   threadLiveLimit: null,
+  threadTemplateLimit: null,
   features: {},
   comped: false,
   status: 'unknown',
@@ -156,6 +159,8 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     retentionMonths: row.retention_months,
     threadLiveLimit:
       typeof features.thread_live_limit === 'number' ? features.thread_live_limit : null,
+    threadTemplateLimit:
+      typeof features.thread_template_limit === 'number' ? features.thread_template_limit : null,
     features,
     comped: data.status === 'comped',
     status: data.status,

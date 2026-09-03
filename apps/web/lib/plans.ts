@@ -52,6 +52,12 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
         kind: 'limit',
         note: 'Empty = unlimited',
       },
+      {
+        key: 'thread_template_limit',
+        label: 'Event templates',
+        kind: 'limit',
+        note: 'Empty = the whole library',
+      },
       { key: 'thread_custom_templates', label: 'Design your own threads', kind: 'flag' },
       { key: 'certificates', label: 'Certificates', kind: 'flag' },
     ],

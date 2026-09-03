@@ -37,6 +37,13 @@ seeded into Pulse. What remains:
    sandbox view; if a real charge bounces, complete that verification task
    in the Stripe dashboard. First real end-to-end charge still unrehearsed —
    staging test-card rehearsal is armed and waiting.
+1e. **Event template library (Thread)** — the plan dimension shipped 0.24.3
+   (`thread_template_limit`: 1 / 5 / ∞ / ∞, editable on /admin/plans, shown
+   on /pricing). What remains needs CONTENT + enforcement: Sjoerd designs
+   the standard event templates; the platform grows a shared template
+   library (today's thread templates are workspace-scoped duplicates); the
+   new-thread flow offers library templates filtered by the plan's limit;
+   the designer stays behind thread_custom_templates (Pro+).
 2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
