@@ -85,10 +85,6 @@ seeded into Pulse. What remains:
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
    a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
-7. **Staging domains misrouted (Sjoerd, not code)** — meet/thread/flow/
-   pulse.thefibre.tech all serve the web app; fix is per-project Vercel
-   domain assignment + CNAME (docs/environments.md, last gotcha).
-   smoke-staging.mjs now fails until this is done.
 
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
