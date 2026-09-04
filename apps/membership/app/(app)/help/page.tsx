@@ -39,10 +39,10 @@ const SECTIONS: HelpSection[] = [
       'The catalogue tiers draw from — spaces, programmes, perks — each with links to the thing itself.',
   },
   {
-    label: 'Access',
-    href: '/access',
+    label: 'Access (on products)',
+    href: '/products',
     blurb:
-      'What each tier unlocks in the outside world (a Circle space, a thread). Grants sync automatically as members come and go.',
+      'Each product carries what it unlocks (a Circle space, a Fibre seat, a thread) — synced automatically as members come and go. Sync overview under Products.',
   },
   {
     label: 'Settings',

@@ -7,7 +7,6 @@ import {
   LayoutDashboard,
   Layers,
   Package,
-  KeyRound,
   HelpCircle,
   Receipt,
   Settings,
@@ -39,11 +38,10 @@ const NAV: NavSection[] = [
     items: [{ href: '/invoices', label: 'Invoices', icon: Receipt }],
   },
   {
+    // Access lives ON products (2026-09-05) — no separate nav entry; the
+    // sync overview is linked from the Products page.
     label: 'Setup',
-    items: [
-      { href: '/access', label: 'Access', icon: KeyRound },
-      { href: '/settings', label: 'Settings', icon: Settings },
-    ],
+    items: [{ href: '/settings', label: 'Settings', icon: Settings }],
   },
 ];
 

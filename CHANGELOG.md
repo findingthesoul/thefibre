@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.37.1] — 2026-09-05 — Membership 0.5.1: access is VISIBLY under products
+
+### Changed
+- Sjoerd's close-of-day check was right: grants moved onto products in
+  0.36.0 but the EXPERIENCE hadn't — Access still sat in the sidebar as
+  its own page. Now: product cards show what they unlock, the sidebar
+  entry is gone, the sync overview hangs off Products, help copy updated.
+  Half-done is not done.
+
 ## [0.37.0] — 2026-09-05 — Membership 0.5.0: seats wait for a yes
 
 ### Added

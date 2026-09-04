@@ -60,9 +60,17 @@ export function ProductsClient({
             them into tiers under Tiers.
           </p>
         </div>
-        <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
+        <div className="flex items-center gap-2">
+          <a
+            href="/access"
+            className="text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
+          >
+            Sync overview
+          </a>
+          <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
           New product
         </Button>
+        </div>
       </div>
 
       {archivedCount > 0 && (
@@ -98,7 +106,7 @@ export function ProductsClient({
               onDragEnd={() => setDragIdx(null)}
               className={dragIdx === i ? 'opacity-50' : ''}
             >
-              <ProductCard product={p} onEdit={setEditing} />
+              <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} onEdit={setEditing} />
             </div>
           ))}
         </div>
@@ -110,7 +118,27 @@ export function ProductsClient({
   );
 }
 
-function ProductCard({ product, onEdit }: { product: Product; onEdit: (p: Product) => void }) {
+function accessLine(grants: import('../access/types').Grant[]): string {
+  return grants
+    .map((g) =>
+      g.kind === 'circle'
+        ? `Circle space ${g.config?.space_id ?? ''}`
+        : g.kind === 'fibre_seat'
+          ? `Fibre seat (${g.config?.role ?? 'organiser'})`
+          : `Thread ${g.config?.thread_slug ?? ''}`,
+    )
+    .join(' · ');
+}
+
+function ProductCard({
+  product,
+  productGrants,
+  onEdit,
+}: {
+  product: Product;
+  productGrants: import('../access/types').Grant[];
+  onEdit: (p: Product) => void;
+}) {
   const characteristics = product.characteristics ?? [];
   const links = product.links ?? [];
   return (
@@ -151,6 +179,11 @@ function ProductCard({ product, onEdit }: { product: Product; onEdit: (p: Produc
               {c}
             </span>
           ))}
+        </div>
+      )}
+      {productGrants.length > 0 && (
+        <div className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
+          Unlocks: {accessLine(productGrants)}
         </div>
       )}
       {links.length > 0 && (
