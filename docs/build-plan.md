@@ -79,12 +79,30 @@ seeded into Pulse. What remains:
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
    a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
-7. **Membership app (soul.com community)** — proposal drafted 2026-09-04
-   (docs/membership-proposal.md): new in-family app, yearly tiered member
-   subscriptions on the workspace's Stripe account, Circle.so access sync
-   as the v1 "SSO", org seats prepped. ALL decisions D1–D6 accepted
-   2026-09-04 ("I want to build. No question asked."). **Build in
-   progress** — phasing in proposal §4.
+7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
+   v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
+   7th app, slug `membership` (display name may become **Hyve** — one
+   branding.ts edit), schema+RLS, subscription checkout on the
+   workspace's Stripe account, Connect webhook, renewal scheduler,
+   Circle sync worker, all six admin surfaces, public join page,
+   website embeds (/embed/tiers + /embed/button, me-* classes), Fibre
+   web profile tab, workspace-level currency SPoT. Migrations applied
+   staging+prod; API deployed both. **Remaining — Sjoerd, not code:**
+   - Vercel project `thefibre-membership` (root apps/membership) +
+     domain membership.thefibre.app (+ membership.thefibre.tech on
+     staging — its OWN project, the 2026-09-03 misroute lesson) + the
+     standard env vars (docs/environments.md §E, now "six projects").
+   - Stripe **Connect** webhook endpoint
+     `https://thefibre-api.fly.dev/api/v1/membership/stripe-webhook`
+     (checkout.session.completed, invoice.paid, invoice.payment_failed,
+     customer.subscription.updated/deleted — "listen on connected
+     accounts") → `fly secrets set STRIPE_MEMBERSHIP_WEBHOOK_SECRET`.
+   - Create the soul.com workspace, activate Membership (Settings →
+     Apps), connect its Stripe account, add the Circle API token.
+   **Roadmap (proposal §3.6):** Memberful-style integrations catalogue —
+   each tool = a new access_grant kind + worker (deploy, not migration);
+   then org seats (§3.5), OAuth provider phase 2, plan-gating +
+   /pricing surface when Membership gets a price.
 
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
