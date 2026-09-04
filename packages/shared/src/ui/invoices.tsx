@@ -291,7 +291,7 @@ export function InvoicesArea({
                 disabled
                   ? 'text-ink-muted opacity-50 cursor-not-allowed'
                   : scope === key
-                    ? 'bg-surface-sunken text-ink font-medium'
+                    ? 'bg-ink text-ink-inverse font-medium'
                     : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
               }`}
             >
@@ -323,7 +323,7 @@ export function InvoicesArea({
               onClick={() => setApp(o.key)}
               className={`text-xs px-2.5 py-1 rounded-full ring-1 transition-colors ${
                 app === o.key
-                  ? 'ring-line-strong bg-surface-sunken text-ink font-medium'
+                  ? 'ring-ink bg-ink text-ink-inverse font-medium'
                   : 'ring-line bg-surface-raised text-ink-subtle hover:text-ink'
               }`}
             >

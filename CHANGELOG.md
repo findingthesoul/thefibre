@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.33.2] — 2026-09-05 — selected means selected
+
+### Fixed
+- **Selected state is unmistakable platform-wide**: the shared Invoices
+  area's Me/Team/Workspace switch and app chips (one edit → Meet, Thread
+  and Membership at once — the extraction paying for itself same-day),
+  plus Membership's filter chips: active = dark pill, inverse text.
+- **Four sign-in screens were broken in dark mode** (meet/flow/pulse/
+  membership carried raw bg-white/neutral-* classes) — swapped to
+  semantic tokens. Found by the component sweep.
+
+### Added
+- **docs/component-inventory.md** — the full six-app duplication sweep
+  (~8,000 lines, mostly byte-identical), four extraction phases queued
+  under build-plan 1g. docs/i18n-proposal.md (D1–D5 pending) landed the
+  same evening.
+
 ## [0.33.1] — 2026-09-05 — Membership 0.2.3: thread links are picked, not typed
 
 ### Changed

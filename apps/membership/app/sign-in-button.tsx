@@ -85,7 +85,7 @@ export function SignInButton() {
         <button
           type="button"
           onClick={() => setStage('enter-email')}
-          className="w-full text-sm text-neutral-600 hover:text-neutral-900 underline underline-offset-4"
+          className="w-full text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
         >
           or sign in with an email code
         </button>
@@ -106,12 +106,12 @@ export function SignInButton() {
             placeholder="you@example.com"
             required
             autoFocus
-            className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-sm focus:border-neutral-400 focus:outline-none"
+            className="w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
           />
           <button
             type="submit"
             disabled={busy || !email.trim()}
-            className="w-full rounded-md border border-neutral-200 bg-white text-neutral-900 px-4 py-2 text-sm font-medium hover:bg-neutral-50 disabled:opacity-50"
+            className="w-full rounded-md border border-line bg-surface-raised text-ink px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-50"
           >
             {busy ? 'Sending…' : 'Email me a sign-in code'}
           </button>
@@ -126,7 +126,7 @@ export function SignInButton() {
           }}
           className="space-y-2"
         >
-          <div className="text-xs text-neutral-600">
+          <div className="text-xs text-ink-subtle">
             Check <strong>{email}</strong>. Enter the 8-digit code below, or
             click the link in the email.
           </div>
@@ -140,7 +140,7 @@ export function SignInButton() {
             placeholder="12345678"
             required
             autoFocus
-            className="w-full rounded-md border border-neutral-200 bg-white px-3 py-2 text-base tracking-[0.3em] text-center font-mono focus:border-neutral-400 focus:outline-none"
+            className="w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-base tracking-[0.3em] text-center font-mono focus:border-line-strong focus:outline-none"
           />
           <button
             type="submit"
@@ -156,7 +156,7 @@ export function SignInButton() {
               setCode('');
               setError(null);
             }}
-            className="block w-full text-center text-xs text-neutral-500 hover:text-neutral-700 underline underline-offset-2"
+            className="block w-full text-center text-xs text-ink-muted hover:text-ink-subtle underline underline-offset-2"
           >
             Use a different email
           </button>

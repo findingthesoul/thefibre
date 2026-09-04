@@ -73,7 +73,7 @@ export function TiersClient({
           onClick={() => setShowArchived((v) => !v)}
           className={`mt-4 inline-flex items-center rounded-full border px-3 py-1 text-xs transition-colors ${
             showArchived
-              ? 'border-line-strong bg-surface-sunken text-ink'
+              ? 'border-ink bg-ink text-ink-inverse'
               : 'border-line text-ink-subtle hover:text-ink'
           }`}
         >

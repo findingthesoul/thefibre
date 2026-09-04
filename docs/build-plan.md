@@ -49,10 +49,12 @@ seeded into Pulse. What remains:
    components; same look, same data, same behaviour everywhere")**:
    converge the per-app copies into `@thefibre/shared/ui` the way
    invoice-dialog and the settings hub already are. Known drift:
-   invoices-client.tsx ×4+ (meet/thread/pulse/membership),
-   settings/payments form ×3, page-chrome ×5. Extract when next touched —
-   and NEVER add another copy. Companion UI rule now standing: ordering
-   is drag-and-drop, never a numeric sort field.
+   full sweep 2026-09-05 in docs/component-inventory.md (~8,000
+   duplicated lines, four extraction phases). Invoices area DONE
+   (@thefibre/shared/ui/invoices, v0.33.0). Work the phases in order;
+   NEVER add another copy. Companion UI rules standing: ordering is
+   drag-and-drop, never a numeric sort field; dates use the shared
+   DateField; selected states are the dark-pill treatment (v0.33.2).
 2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
