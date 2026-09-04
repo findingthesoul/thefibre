@@ -88,6 +88,13 @@ seeded into Pulse. What remains:
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
    a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
+6b. **Multilingual platform** — docs/i18n-proposal.md drafted 2026-09-05
+   (background agent): extend Thread's typed 5-locale catalog via a
+   @thefibre/shared ./i18n subpath; four-way locale source (content /
+   user pref / relationship-row stamp for scheduler emails / user
+   locale for auth emails). Decisions D1–D5 await Sjoerd; commit is P1
+   (Membership public + emails) + P2 (auth emails + user locale) only —
+   admin UIs stay demand-driven.
 7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
    v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
    7th app, slug `membership` (display name may become **Hyve** — one
