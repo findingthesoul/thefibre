@@ -68,6 +68,16 @@ Upgrade to Pro (€25/mo) only if the pause annoys us.
 All six blocks completed. Live values: Supabase ref `lukhyylwhhjyihqtghvw`,
 Fly app `thefibre-api-staging` (shared IPv4 66.241.124.217), domains on
 TransIP DNS. Gotchas hit and solved, for the next environment:
+- **Env vars go in ALL FIVE projects, and empty commits rebuild nothing.**
+  The app projects ran for two days on inherited PROD preview values (prod
+  Supabase ref baked into staging bundles; Meet 500'd on a malformed URL) —
+  only the web project had been given the staging set. Each app needs ~7
+  vars (branch-scoped "Only staging"): API base, Supabase URL + anon key,
+  cookie domain, FIBRE_URL, its own app URL, SSO secret. To rebuild after
+  an env change, push a commit that touches `packages/shared` — an empty
+  commit is SKIPPED by every project the diff doesn't reach. And a broken
+  var is fixed by EDITING its row; adding again just errors "already
+  exists".
 - **Storage buckets are not migrations.** `supabase db push` carries the
   schema only; a fresh project has no buckets and every upload 500s with
   "Bucket not found" (hit 2026-09-04, profile photo). `bootstrap-staging.mjs`
