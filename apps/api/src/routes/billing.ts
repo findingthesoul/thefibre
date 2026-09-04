@@ -585,19 +585,41 @@ async function invoicePaid(invoice: Stripe.Invoice): Promise<void> {
     console.error('[billing/webhook] invoice for unknown customer', invoice.id, customerId);
     return;
   }
-  const { data: plan } = await adminClient
-    .from('billing_plan')
-    .select('name')
-    .eq('id', row.plan_id)
-    .maybeSingle();
-  const { data: ws } = await adminClient
-    .from('workspace')
-    .select('name')
-    .eq('id', row.workspace_id)
-    .maybeSingle();
+  // The plan NAME comes from the invoice's own price, not the workspace's
+  // current plan_id — the checkout invoice.paid can race checkout.completed,
+  // which mislabeled the first Starter invoice "The Fibre — Free". Iterated
+  // in reverse so a proration invoice (credit line first, charge line last)
+  // names the plan being bought, not the one being left.
+  const linePriceIds = (invoice.lines?.data ?? [])
+    .map((l) => {
+      const line = l as unknown as {
+        price?: { id?: string };
+        pricing?: { price_details?: { price?: string } };
+      };
+      return line.price?.id ?? line.pricing?.price_details?.price ?? null;
+    })
+    .filter((id): id is string => Boolean(id))
+    .reverse();
+  const [{ data: allPlans }, { data: fallbackPlan }, { data: ws }] = await Promise.all([
+    adminClient
+      .from('billing_plan')
+      .select('name, stripe_price_id_month, stripe_price_id_year'),
+    adminClient.from('billing_plan').select('name').eq('id', row.plan_id).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', row.workspace_id).maybeSingle(),
+  ]);
+  const planName =
+    linePriceIds
+      .map((id) =>
+        (allPlans ?? []).find(
+          (p) => p.stripe_price_id_month === id || p.stripe_price_id_year === id,
+        ),
+      )
+      .find(Boolean)?.name ??
+    fallbackPlan?.name ??
+    row.plan_id;
 
   const periodEnd = invoice.lines?.data?.[0]?.period?.end;
-  const label = `The Fibre — ${plan?.name ?? row.plan_id}${
+  const label = `The Fibre — ${planName}${
     periodEnd ? ` (until ${new Date(periodEnd * 1000).toISOString().slice(0, 10)})` : ''
   }`;
 

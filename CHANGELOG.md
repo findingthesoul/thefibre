@@ -21,6 +21,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.28.5] — 2026-09-04
+
+### Fixed
+- **Invoice labels name the plan on the invoice, not the workspace's plan
+  of the moment**: invoice.paid can race checkout.completed, which labeled
+  the first Starter invoice "The Fibre — Free". The plan now resolves from
+  the invoice's own line prices (reverse order, so a proration names the
+  plan being bought); workspace plan stays as fallback.
+- Also in this release: two staging-rebuild touches of @thefibre/shared
+  (no behaviour change) from the env-var repair.
+
 ## [0.28.4] — 2026-09-04 — SVG logos, sanitised
 
 ### Added
