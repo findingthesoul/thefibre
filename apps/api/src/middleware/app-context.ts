@@ -125,6 +125,10 @@ const PUBLIC_PREFIXES = [
   // Platform-subscription webhook (routes/billing.ts) — signature-verified
   // inside the handler with its own secret.
   '/api/v1/billing/stripe-webhook',
+  // Membership join page (public catalog + checkout start) + its Connect
+  // webhook (signature-verified inside the handler, own secret).
+  '/api/v1/membership/public/',
+  '/api/v1/membership/stripe-webhook',
 ];
 
 // ---------------------------------------------------------------------------

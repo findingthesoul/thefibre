@@ -1,6 +1,19 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
+import { stripeOrNull } from '../lib/stripe/client.js';
+import { workspaceStripeAccount } from '../lib/payment-accounts.js';
+import { recordPurchase } from '../lib/purchases.js';
+import { sendReceipt } from './purchases.js';
+import { sendEmail } from '../lib/email/client.js';
+import { getWorkspaceBrand } from '../lib/workspace-brand.js';
+import {
+  membershipWelcome,
+  membershipRenewalReminder,
+  membershipPaymentFailed,
+  membershipLapsed,
+} from '../lib/email/membership-templates.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -540,3 +553,718 @@ membershipRoutes.put('/settings', async (c) => {
   if (error) return fail(c, 'put settings', error);
   return c.json({ ok: true });
 });
+
+// ===========================================================================
+// PUBLIC surface — the join page (no auth; adminClient with explicit
+// workspace scoping throughout, the /thread/public pattern).
+// ===========================================================================
+
+const MEMBERSHIP_APP_URL = process.env.MEMBERSHIP_APP_URL ?? 'https://membership.thefibre.app';
+
+// The workspace must have the app activated for its join page to exist.
+async function publicWorkspace(slug: string): Promise<{ id: string; slug: string; name: string } | null> {
+  const { data: ws } = await adminClient
+    .from('workspace')
+    .select('id, slug, name')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (!ws) return null;
+  const app = await appId();
+  if (!app) return null;
+  const { data: wa } = await adminClient
+    .from('workspace_app')
+    .select('id')
+    .eq('workspace_id', ws.id)
+    .eq('app_id', app)
+    .is('deactivated_at', null)
+    .maybeSingle();
+  return wa ? ws : null;
+}
+
+membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
+  const ws = await publicWorkspace(c.req.param('workspaceSlug'));
+  if (!ws) return c.json({ error: 'not found' }, 404);
+
+  const [{ data: tiers }, { data: products }, { data: settings }] = await Promise.all([
+    adminClient
+      .from('membership_tier')
+      .select(
+        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, membership_tier_product ( product_id )',
+      )
+      .eq('workspace_id', ws.id)
+      .is('archived_at', null)
+      .order('sort_order', { ascending: true }),
+    adminClient
+      .from('membership_product')
+      .select('id, name, description, characteristics, links, sort_order')
+      .eq('workspace_id', ws.id)
+      .is('archived_at', null)
+      .order('sort_order', { ascending: true }),
+    adminClient
+      .from('membership_settings')
+      .select('join_page, circle_community_url')
+      .eq('workspace_id', ws.id)
+      .maybeSingle(),
+  ]);
+
+  return c.json({
+    workspace: { slug: ws.slug, name: ws.name },
+    tiers: (tiers ?? []).map((t) => ({
+      ...t,
+      product_ids: (t.membership_tier_product ?? []).map((l: { product_id: string }) => l.product_id),
+      membership_tier_product: undefined,
+    })),
+    products: products ?? [],
+    join_page: settings?.join_page ?? {},
+  });
+});
+
+const PublicJoin = z.object({
+  workspace_slug: z.string().min(1).max(100),
+  tier_id: z.string().uuid(),
+  interval: z.enum(['year', 'month']).default('year'),
+  email: z.string().email(),
+  name: z.string().min(1).max(200),
+  request_id: z.string().min(8).max(100),
+});
+
+// The workspace's plan fee, as Stripe wants it for subscriptions: a percent.
+// The fixed cap from lib/fees.ts cannot apply — application_fee_amount does
+// not exist in subscription mode (documented in the proposal §3.3).
+async function platformFeePercent(workspaceId: string): Promise<number> {
+  try {
+    const { data: feeRows } = await adminClient.rpc('workspace_meet_fee', { ws_id: workspaceId });
+    const row = Array.isArray(feeRows) ? (feeRows[0] as { pct: number | string } | undefined) : null;
+    if (row) {
+      const pct = typeof row.pct === 'string' ? parseFloat(row.pct) : row.pct;
+      if (Number.isFinite(pct)) return Math.round(pct * 100 * 100) / 100; // 0.02 → 2
+    }
+  } catch (e) {
+    console.warn('[membership] fee lookup failed, defaulting to 2%', e);
+  }
+  return 2;
+}
+
+membershipRoutes.post('/public/join', async (c) => {
+  const body = PublicJoin.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+  const email = d.email.trim().toLowerCase();
+
+  const ws = await publicWorkspace(d.workspace_slug);
+  if (!ws) return c.json({ error: 'not found' }, 404);
+
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+  const account = await workspaceStripeAccount(ws.id);
+  if (!account) {
+    return c.json({ error: 'This community has not connected payments yet.' }, 503);
+  }
+
+  const { data: tier } = await adminClient
+    .from('membership_tier')
+    .select('id, name, price_cents_year, price_cents_month, currency')
+    .eq('id', d.tier_id)
+    .eq('workspace_id', ws.id)
+    .is('archived_at', null)
+    .maybeSingle();
+  if (!tier) return c.json({ error: 'tier not found' }, 404);
+  const amount = d.interval === 'year' ? tier.price_cents_year : tier.price_cents_month;
+  if (amount == null || amount <= 0) {
+    return c.json({ error: `This tier has no ${d.interval}ly price.` }, 400);
+  }
+
+  // Auto-account (the Thread enrol pattern): email-only, verify at sign-in.
+  try {
+    const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+    if (hasAccount !== true) {
+      await adminClient.auth.admin.createUser({ email, email_confirm: true });
+    }
+  } catch (e) {
+    console.warn('[membership/public/join] account auto-create failed', e);
+  }
+
+  // Create-or-match the person (case-insensitive email match, no wildcards).
+  let personId: string;
+  const { data: existingPerson } = await adminClient
+    .from('person')
+    .select('id')
+    .eq('workspace_id', ws.id)
+    .ilike('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (existingPerson) {
+    personId = existingPerson.id;
+  } else {
+    const parts = d.name.trim().split(/\s+/);
+    const { data: created, error: personErr } = await adminClient
+      .from('person')
+      .insert({
+        workspace_id: ws.id,
+        first_name: parts[0] ?? d.name.trim(),
+        last_name: parts.slice(1).join(' ') || '',
+        email,
+      })
+      .select('id')
+      .single();
+    if (personErr || !created) {
+      console.error('[membership/public/join] person insert failed', personErr);
+      return c.json({ error: 'could not create your contact record' }, 500);
+    }
+    personId = created.id;
+  }
+
+  // Already an active member? Send them to sign-in instead of double-charging.
+  const { data: existingMember } = await adminClient
+    .from('membership_member')
+    .select('id, status')
+    .eq('workspace_id', ws.id)
+    .eq('person_id', personId)
+    .maybeSingle();
+  if (existingMember && (existingMember.status === 'active' || existingMember.status === 'grace')) {
+    return c.json({ already_member: true });
+  }
+
+  const feePercent = await platformFeePercent(ws.id);
+  const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: 'subscription',
+        line_items: [
+          {
+            price_data: {
+              currency: (tier.currency ?? 'EUR').toLowerCase(),
+              product_data: { name: `${ws.name} membership — ${tier.name}` },
+              unit_amount: amount,
+              recurring: { interval: d.interval },
+            },
+            quantity: 1,
+          },
+        ],
+        subscription_data: {
+          ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),
+          metadata: { workspace_id: ws.id, person_id: personId, tier_id: tier.id },
+        },
+        customer_email: email,
+        billing_address_collection: 'required',
+        allow_promotion_codes: true,
+        metadata: { workspace_id: ws.id, person_id: personId, tier_id: tier.id, request_id: d.request_id },
+        success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${base}?cancelled=1`,
+      },
+      { stripeAccount: account },
+    );
+  } catch (e) {
+    console.error('[membership/public/join] checkout create failed', e);
+    return c.json({ error: 'could not start checkout' }, 502);
+  }
+
+  return c.json({ url: session.url });
+});
+
+// ===========================================================================
+// Stripe webhook (Connect events from workspaces' accounts).
+// Own secret, NO fallback — the billing.ts rule: a webhook verifying
+// against the wrong endpoint's secret is an outage dressed as security.
+// ===========================================================================
+
+// Both checkout.session.completed and the FIRST invoice.paid can create the
+// member (webhook ordering is not guaranteed) — they converge here.
+async function ensureMemberFromSubscription(
+  account: string,
+  subscriptionId: string,
+): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string } | null> {
+  const { data: existing } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, tier_id, status')
+    .eq('stripe_subscription_id', subscriptionId)
+    .maybeSingle();
+  if (existing) return existing;
+
+  const stripe = stripeOrNull();
+  if (!stripe) return null;
+  const sub = await stripe.subscriptions.retrieve(subscriptionId, {}, { stripeAccount: account });
+  const meta = sub.metadata ?? {};
+  if (!meta.workspace_id || !meta.person_id || !meta.tier_id) {
+    console.error('[membership webhook] subscription without membership metadata', subscriptionId);
+    return null;
+  }
+
+  const periodEnd = sub.items.data[0]?.current_period_end ?? null;
+  const renewsAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+  const customer = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id ?? null;
+
+  // Rejoin reuses the (workspace, person) row — history survives the lapse.
+  const { data: prior } = await adminClient
+    .from('membership_member')
+    .select('id, status')
+    .eq('workspace_id', meta.workspace_id)
+    .eq('person_id', meta.person_id)
+    .maybeSingle();
+
+  if (prior) {
+    await adminClient
+      .from('membership_member')
+      .update({
+        tier_id: meta.tier_id,
+        status: 'active',
+        renews_at: renewsAt,
+        lapsed_at: null,
+        deleted_at: null,
+        stripe_subscription_id: subscriptionId,
+        stripe_customer_id: customer,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', prior.id);
+    const rejoining = prior.status === 'lapsed' || prior.status === 'cancelled';
+    await logMemberActivity(
+      meta.workspace_id,
+      meta.person_id,
+      rejoining ? 'membership_rejoined' : 'membership_joined',
+      rejoining ? 'Rejoined' : 'Joined',
+    );
+    await reconcileMemberAccess(prior.id);
+    return { id: prior.id, workspace_id: meta.workspace_id, person_id: meta.person_id, tier_id: meta.tier_id, status: 'active' };
+  }
+
+  const { data: created, error } = await adminClient
+    .from('membership_member')
+    .insert({
+      workspace_id: meta.workspace_id,
+      person_id: meta.person_id,
+      tier_id: meta.tier_id,
+      status: 'active',
+      renews_at: renewsAt,
+      stripe_subscription_id: subscriptionId,
+      stripe_customer_id: customer,
+    })
+    .select('id, workspace_id, person_id, tier_id, status')
+    .single();
+  if (error) {
+    // 23505 = a concurrent webhook created it — read it back.
+    if (error.code === '23505') {
+      const { data: raced } = await adminClient
+        .from('membership_member')
+        .select('id, workspace_id, person_id, tier_id, status')
+        .eq('workspace_id', meta.workspace_id)
+        .eq('person_id', meta.person_id)
+        .maybeSingle();
+      return raced ?? null;
+    }
+    console.error('[membership webhook] member insert failed', error);
+    return null;
+  }
+
+  const { data: tier } = await adminClient
+    .from('membership_tier')
+    .select('name')
+    .eq('id', meta.tier_id)
+    .maybeSingle();
+  await logMemberActivity(meta.workspace_id, meta.person_id, 'membership_joined', `Joined · ${tier?.name ?? 'membership'}`);
+  await reconcileMemberAccess(created.id);
+
+  // Welcome email, workspace-branded.
+  try {
+    const [{ data: person }, { data: ws }, brand] = await Promise.all([
+      adminClient.from('person').select('first_name, email').eq('id', meta.person_id).maybeSingle(),
+      adminClient.from('workspace').select('name').eq('id', meta.workspace_id).maybeSingle(),
+      getWorkspaceBrand(meta.workspace_id),
+    ]);
+    if (person?.email) {
+      const msg = membershipWelcome({
+        name: person.first_name ?? 'there',
+        communityName: ws?.name ?? 'the community',
+        tierName: tier?.name ?? 'membership',
+        renewsAt,
+        brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      });
+      await sendEmail({
+        to: person.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        ...(brand.fromName ? { fromName: brand.fromName } : {}),
+        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+      });
+    }
+  } catch (e) {
+    console.warn('[membership webhook] welcome email failed', e);
+  }
+
+  return created;
+}
+
+
+// Subscription id off an invoice — the field moved across Stripe API
+// versions (top-level → parent.subscription_details), so read defensively.
+function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
+  const inv = invoice as unknown as {
+    subscription?: string | { id?: string } | null;
+    parent?: { subscription_details?: { subscription?: string | { id?: string } | null } | null } | null;
+  };
+  const raw = inv.subscription ?? inv.parent?.subscription_details?.subscription ?? null;
+  if (!raw) return null;
+  return typeof raw === 'string' ? raw : raw.id ?? null;
+}
+
+async function memberForInvoice(
+  account: string,
+  invoice: Stripe.Invoice,
+): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string } | null> {
+  const subId = invoiceSubscriptionId(invoice);
+  if (subId) {
+    const member = await ensureMemberFromSubscription(account, subId);
+    if (member) return member;
+  }
+  const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+  if (!customerId) return null;
+  const { data } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, tier_id, status')
+    .eq('stripe_customer_id', customerId)
+    .maybeSingle();
+  return data;
+}
+
+async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): Promise<void> {
+  const member = await memberForInvoice(account, invoice);
+  if (!member) {
+    // A connected account's invoice that isn't a membership (workspaces use
+    // Stripe for their own things too) — not ours, not an error.
+    return;
+  }
+
+  const [{ data: tier }, { data: person }, { data: ws }] = await Promise.all([
+    adminClient.from('membership_tier').select('name').eq('id', member.tier_id).maybeSingle(),
+    adminClient.from('person').select('first_name, last_name, email').eq('id', member.person_id).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', member.workspace_id).maybeSingle(),
+  ]);
+
+  const periodEnd = invoice.lines?.data?.[0]?.period?.end;
+  const renewsAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
+  const isRenewal = invoice.billing_reason === 'subscription_cycle';
+
+  const patch: Record<string, unknown> = { status: 'active', updated_at: new Date().toISOString() };
+  if (renewsAt) patch.renews_at = renewsAt;
+  await adminClient.from('membership_member').update(patch).eq('id', member.id);
+  if (isRenewal) {
+    await logMemberActivity(member.workspace_id, member.person_id, 'membership_renewed', `Renewed · ${tier?.name ?? ''}`);
+    await reconcileMemberAccess(member.id);
+  }
+
+  // The ledger row — one per billing period, keyed by the Stripe invoice.
+  // Seller VAT (inclusive split) is stamped by recordPurchase itself.
+  const addr = invoice.customer_address;
+  const label = `${ws?.name ?? 'Community'} membership — ${tier?.name ?? ''}${
+    periodEnd ? ` (until ${new Date(periodEnd * 1000).toISOString().slice(0, 10)})` : ''
+  }`;
+  const itemRef = invoice.id ?? `membership-invoice-${member.id}-${Date.now()}`;
+  await recordPurchase({
+    appSlug: 'membership',
+    workspaceId: member.workspace_id,
+    itemRef,
+    personId: member.person_id,
+    itemLabel: label,
+    payerName:
+      invoice.customer_name ?? [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+    payerEmail: invoice.customer_email ?? person?.email ?? null,
+    amountCents: invoice.amount_paid ?? 0,
+    currency: (invoice.currency ?? 'eur').toUpperCase(),
+    method: 'stripe',
+    status: 'paid',
+    stripeInvoiceId: invoice.id ?? null,
+    stripeInvoiceUrl: invoice.hosted_invoice_url ?? null,
+    stripeAccountId: account,
+    billing: {
+      number: invoice.number ?? null,
+      company: invoice.customer_name ?? null,
+      address: addr?.line1 ?? null,
+      postal_code: addr?.postal_code ?? null,
+      city: addr?.city ?? null,
+      country: addr?.country ?? null,
+      period_end: renewsAt,
+      pdf: invoice.invoice_pdf ?? null,
+    },
+  });
+
+  // Receipt in the house style, the WORKSPACE as seller (no override —
+  // sellerDetailsFor resolves the workspace's own invoice details).
+  const { data: saved } = await adminClient
+    .from('purchase')
+    .select('payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id')
+    .eq('stripe_invoice_id', invoice.id ?? '')
+    .maybeSingle();
+  if (saved) {
+    void sendReceipt(member.workspace_id, saved as Record<string, unknown>).catch((e) =>
+      console.error('[membership/webhook] receipt email failed', e),
+    );
+  }
+}
+
+async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice): Promise<void> {
+  const member = await memberForInvoice(account, invoice);
+  if (!member) return;
+  if (member.status === 'active') {
+    await adminClient
+      .from('membership_member')
+      .update({ status: 'grace', updated_at: new Date().toISOString() })
+      .eq('id', member.id);
+    await logMemberActivity(member.workspace_id, member.person_id, 'membership_payment_failed', 'Payment failed — grace period');
+  }
+
+  // One email per failed invoice (dedup on the invoice id).
+  const { error: dedupErr } = await adminClient
+    .from('membership_reminder_send')
+    .insert({ member_id: member.id, reminder_kind: 'payment_failed', period_ref: invoice.id ?? 'unknown' });
+  if (dedupErr) {
+    if (dedupErr.code !== '23505') console.warn('[membership/webhook] dedup insert failed', dedupErr);
+    return;
+  }
+  const [{ data: person }, { data: ws }, { data: tier }, brand] = await Promise.all([
+    adminClient.from('person').select('first_name, email').eq('id', member.person_id).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', member.workspace_id).maybeSingle(),
+    adminClient.from('membership_tier').select('name').eq('id', member.tier_id).maybeSingle(),
+    getWorkspaceBrand(member.workspace_id),
+  ]);
+  if (person?.email) {
+    const msg = membershipPaymentFailed({
+      name: person.first_name ?? 'there',
+      communityName: ws?.name ?? 'the community',
+      tierName: tier?.name ?? 'membership',
+      brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+    });
+    await sendEmail({
+      to: person.email,
+      subject: msg.subject,
+      html: msg.html,
+      text: msg.text,
+      ...(brand.fromName ? { fromName: brand.fromName } : {}),
+      ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+      ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+    });
+  }
+}
+
+async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscription): Promise<void> {
+  const { data: member } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, status')
+    .eq('stripe_subscription_id', sub.id)
+    .maybeSingle();
+  if (!member || member.status === 'lapsed' || member.status === 'cancelled') return;
+
+  await adminClient
+    .from('membership_member')
+    .update({ status: 'lapsed', lapsed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+    .eq('id', member.id);
+  await logMemberActivity(member.workspace_id, member.person_id, 'membership_lapsed', 'Membership lapsed');
+  await reconcileMemberAccess(member.id);
+
+  try {
+    const [{ data: person }, { data: ws }, brand] = await Promise.all([
+      adminClient.from('person').select('first_name, email').eq('id', member.person_id).maybeSingle(),
+      adminClient.from('workspace').select('name, slug').eq('id', member.workspace_id).maybeSingle(),
+      getWorkspaceBrand(member.workspace_id),
+    ]);
+    if (person?.email) {
+      const msg = membershipLapsed({
+        name: person.first_name ?? 'there',
+        communityName: ws?.name ?? 'the community',
+        joinUrl: ws?.slug ? `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}` : null,
+        brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      });
+      await sendEmail({
+        to: person.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        ...(brand.fromName ? { fromName: brand.fromName } : {}),
+        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+      });
+    }
+  } catch (e) {
+    console.warn('[membership/webhook] lapsed email failed', e);
+  }
+}
+
+membershipRoutes.post('/stripe-webhook', async (c) => {
+  const stripe = stripeOrNull();
+  // Own secret, NO fallback (the billing.ts rule): a webhook verifying
+  // against another endpoint's secret is an outage dressed as security.
+  const secret = process.env.STRIPE_MEMBERSHIP_WEBHOOK_SECRET;
+  if (!stripe || !secret) {
+    console.error('[membership/webhook] not configured (key or STRIPE_MEMBERSHIP_WEBHOOK_SECRET missing)');
+    return c.json({ error: 'not configured' }, 503);
+  }
+  const sig = c.req.header('stripe-signature');
+  if (!sig) return c.json({ error: 'missing signature' }, 400);
+
+  let event: Stripe.Event;
+  try {
+    event = await stripe.webhooks.constructEventAsync(await c.req.text(), sig, secret);
+  } catch (e) {
+    console.error('[membership/webhook] signature verification failed', e);
+    return c.json({ error: 'bad signature' }, 400);
+  }
+
+  // Membership charges live on CONNECTED accounts — this must be a Connect
+  // endpoint. An event without .account is from the platform account and
+  // belongs to another webhook.
+  const account = (event as unknown as { account?: string }).account;
+  if (!account) return c.json({ received: true, ignored: 'no connected account' });
+
+  try {
+    switch (event.type) {
+      case 'checkout.session.completed': {
+        const session = event.data.object as Stripe.Checkout.Session;
+        if (session.mode !== 'subscription') break;
+        // Only sessions the join flow created (Thread's checkouts share
+        // these accounts — metadata is the discriminator).
+        if (!session.metadata?.tier_id || !session.metadata?.person_id) break;
+        const subId =
+          typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
+        if (subId) await ensureMemberFromSubscription(account, subId);
+        break;
+      }
+      case 'invoice.paid':
+        await membershipInvoicePaid(account, event.data.object as Stripe.Invoice);
+        break;
+      case 'invoice.payment_failed':
+        await membershipInvoiceFailed(account, event.data.object as Stripe.Invoice);
+        break;
+      case 'customer.subscription.deleted':
+        await membershipSubscriptionDeleted(account, event.data.object as Stripe.Subscription);
+        break;
+      case 'customer.subscription.updated': {
+        // Keep renews_at honest (plan changes, pauses, resumed dunning).
+        const sub = event.data.object as Stripe.Subscription;
+        const periodEnd = sub.items.data[0]?.current_period_end;
+        if (periodEnd) {
+          await adminClient
+            .from('membership_member')
+            .update({ renews_at: new Date(periodEnd * 1000).toISOString(), updated_at: new Date().toISOString() })
+            .eq('stripe_subscription_id', sub.id);
+        }
+        break;
+      }
+      default:
+        break;
+    }
+  } catch (e) {
+    // 500 → Stripe retries. Every handler above is idempotent (member
+    // upsert converges, ledger keyed on invoice id, emails deduped).
+    console.error('[membership/webhook] handler failed', event.type, e);
+    return c.json({ error: 'handler failed' }, 500);
+  }
+
+  return c.json({ received: true });
+});
+
+// ===========================================================================
+// Renewal scheduler — rides the server.ts 5-minute tick (the
+// maybeSyncVatRates pattern: added alongside, never forked).
+// ===========================================================================
+
+const REMINDER_DAYS_BEFORE = 14;
+const MANUAL_GRACE_DAYS = 14;
+
+export async function runMembershipScheduler(): Promise<{ reminded: number; graced: number; lapsed: number }> {
+  const now = Date.now();
+  const out = { reminded: 0, graced: 0, lapsed: 0 };
+
+  // 1 · Upcoming-renewal reminders (active members, renews_at within 14d).
+  const windowEnd = new Date(now + REMINDER_DAYS_BEFORE * 24 * 60 * 60 * 1000).toISOString();
+  const { data: upcoming } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, tier_id, renews_at, stripe_subscription_id')
+    .eq('status', 'active')
+    .not('renews_at', 'is', null)
+    .gt('renews_at', new Date(now).toISOString())
+    .lte('renews_at', windowEnd)
+    .is('deleted_at', null);
+
+  for (const m of upcoming ?? []) {
+    // Dedup per renewal cycle: the date being warned about IS the cycle key.
+    const periodRef = `renewal:${(m.renews_at as string).slice(0, 10)}`;
+    const { error: dedupErr } = await adminClient
+      .from('membership_reminder_send')
+      .insert({ member_id: m.id, reminder_kind: 'renewal_upcoming', period_ref: periodRef });
+    if (dedupErr) {
+      if (dedupErr.code !== '23505') console.warn('[membership/scheduler] dedup failed', dedupErr);
+      continue;
+    }
+    try {
+      const [{ data: person }, { data: ws }, { data: tier }, brand] = await Promise.all([
+        adminClient.from('person').select('first_name, email').eq('id', m.person_id).maybeSingle(),
+        adminClient.from('workspace').select('name').eq('id', m.workspace_id).maybeSingle(),
+        adminClient
+          .from('membership_tier')
+          .select('name, price_cents_year, price_cents_month, currency')
+          .eq('id', m.tier_id)
+          .maybeSingle(),
+        getWorkspaceBrand(m.workspace_id),
+      ]);
+      if (!person?.email) continue;
+      const msg = membershipRenewalReminder({
+        name: person.first_name ?? 'there',
+        communityName: ws?.name ?? 'the community',
+        tierName: tier?.name ?? 'membership',
+        renewsAt: m.renews_at as string,
+        amountCents: tier?.price_cents_year ?? tier?.price_cents_month ?? null,
+        currency: tier?.currency ?? 'EUR',
+        brand: { logoUrl: brand.logoUrl, name: brand.fromName },
+      });
+      await sendEmail({
+        to: person.email,
+        subject: msg.subject,
+        html: msg.html,
+        text: msg.text,
+        ...(brand.fromName ? { fromName: brand.fromName } : {}),
+        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+      });
+      out.reminded += 1;
+    } catch (e) {
+      console.warn('[membership/scheduler] reminder failed for member', m.id, e);
+    }
+  }
+
+  // 2 · Manually-added members (no Stripe subscription — invoice/comped):
+  // past renews_at → grace; 14 days past → lapsed. Stripe-backed members
+  // move through the webhook instead, never here.
+  const { data: overdue } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, status, renews_at')
+    .in('status', ['active', 'grace'])
+    .is('stripe_subscription_id', null)
+    .not('renews_at', 'is', null)
+    .lt('renews_at', new Date(now).toISOString())
+    .is('deleted_at', null);
+
+  for (const m of overdue ?? []) {
+    const renewsAtMs = new Date(m.renews_at as string).getTime();
+    const pastGrace = now - renewsAtMs > MANUAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
+    if (m.status === 'active') {
+      await adminClient
+        .from('membership_member')
+        .update({ status: 'grace', updated_at: new Date().toISOString() })
+        .eq('id', m.id);
+      await logMemberActivity(m.workspace_id, m.person_id, 'membership_payment_failed', 'Renewal overdue — grace period');
+      out.graced += 1;
+    } else if (pastGrace) {
+      await adminClient
+        .from('membership_member')
+        .update({ status: 'lapsed', lapsed_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq('id', m.id);
+      await logMemberActivity(m.workspace_id, m.person_id, 'membership_lapsed', 'Membership lapsed');
+      await reconcileMemberAccess(m.id);
+      out.lapsed += 1;
+    }
+  }
+
+  return out;
+}

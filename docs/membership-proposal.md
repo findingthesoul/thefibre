@@ -131,8 +131,21 @@ Stripe account (NOT the platform's billing account). New webhook route
 (`/api/v1/membership/stripe-webhook`, own secret, same shape as Thread's):
 `invoice.paid` → extend `renews_at` + `recordPurchase`; payment failure →
 `grace`; final failure / cancellation → `lapsed` + revoke access grants.
-**Stripe Tax on from day one** (D5) so B2C VAT data is right from the first
-member.
+
+**Two build-time amendments (2026-09-04, from the codebase):**
+
+1. *No Stripe Tax after all.* The platform deliberately runs DIY VAT
+   (`lib/vat-stripe.ts`: "no Stripe Tax fee", `automatic_tax` disabled
+   everywhere, Stripe Tax used only as a weekly drift sensor). Membership
+   follows the house rails: tier prices are **VAT-inclusive**, and
+   `recordPurchase` stamps the seller's inclusive VAT split into the
+   ledger automatically (the Thread pattern). D5's substance survives —
+   OSS registration when the €10k threshold nears is unchanged.
+2. *The platform fee is a percent.* Stripe has no
+   `application_fee_amount` in subscription mode — only
+   `application_fee_percent`. So membership charges carry the plan's fee
+   **percentage without the fixed cap** (Free 2%, waived on Pro/Org, from
+   the same `workspace_meet_fee` RPC).
 
 ### 3.4 Lifecycle + renewal machinery
 

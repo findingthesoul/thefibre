@@ -17,7 +17,7 @@ import { workspacesRoutes } from './routes/workspaces.js';
 import { meetRoutes } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
-import { membershipRoutes } from './routes/membership.js';
+import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
 import { membersRoutes } from './routes/members.js';
@@ -255,11 +255,18 @@ setTimeout(() => {
   void runThreadMessageScheduler().catch((e) =>
     console.error('[thread/scheduler] initial run failed', e),
   );
+  void runMembershipScheduler().catch((e) =>
+    console.error('[membership/scheduler] initial run failed', e),
+  );
 }, 20_000);
 setInterval(() => {
   // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
   void maybeSyncVatRates();
   void runThreadMessageScheduler().catch((e) =>
     console.error('[thread/scheduler] run failed', e),
+  );
+  // Membership renewal reminders + manual-member grace/lapse sweep.
+  void runMembershipScheduler().catch((e) =>
+    console.error('[membership/scheduler] run failed', e),
   );
 }, SCHEDULER_INTERVAL_MS);
