@@ -144,5 +144,28 @@ for (const app of apps ?? []) {
   if (error) console.error(`app_membership ${app.slug} failed (non-fatal):`, error.message);
 }
 
+// 4. Storage buckets — NOT part of migrations (Supabase storage lives
+// outside the schema), so a fresh project has none and every upload 500s
+// with "Bucket not found" (hit 2026-09-04, profile photo on staging).
+const H = {
+  apikey: env.SUPABASE_SERVICE_ROLE_KEY,
+  Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`,
+  'Content-Type': 'application/json',
+};
+for (const bucket of [
+  // Mirrors prod config: public, 5MB, images only (uploads.ts serves public URLs).
+  { id: 'thread-assets', name: 'thread-assets', public: true, file_size_limit: 5242880, allowed_mime_types: ['image/png', 'image/jpeg', 'image/webp', 'image/svg+xml'] },
+  { id: 'fibre-assets', name: 'fibre-assets', public: true },
+]) {
+  const r = await fetch(`${env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/bucket`, {
+    method: 'POST',
+    headers: H,
+    body: JSON.stringify(bucket),
+  });
+  if (r.ok) console.log(`storage bucket ${bucket.id} created`);
+  else if (r.status === 400 || r.status === 409) console.log(`storage bucket ${bucket.id} exists`);
+  else console.error(`storage bucket ${bucket.id} failed:`, r.status, await r.text());
+}
+
 console.log(`\nBootstrap done. ${email} can sign in with Google now; then run:`);
 console.log('  FIBRE_ENV_FILE=.env.staging node scripts/seed-ebbf.mjs');

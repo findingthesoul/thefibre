@@ -68,6 +68,11 @@ Upgrade to Pro (€25/mo) only if the pause annoys us.
 All six blocks completed. Live values: Supabase ref `lukhyylwhhjyihqtghvw`,
 Fly app `thefibre-api-staging` (shared IPv4 66.241.124.217), domains on
 TransIP DNS. Gotchas hit and solved, for the next environment:
+- **Storage buckets are not migrations.** `supabase db push` carries the
+  schema only; a fresh project has no buckets and every upload 500s with
+  "Bucket not found" (hit 2026-09-04, profile photo). `bootstrap-staging.mjs`
+  now creates `thread-assets` + `fibre-assets` (public, mirroring prod
+  config) — re-run it, or create them by hand, on any new project.
 - Supabase free projects need a FREE org, and the account-wide cap is 2
   active — the dormant thethread-v3 was archived (pg_dump) + paused to free
   a slot (~/Projects/thefibre-archives/).
