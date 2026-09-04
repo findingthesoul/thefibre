@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.32.1",
+  "version": "0.33.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -37,6 +37,10 @@
     "./ui/invoice-dialog": {
       "types": "./dist/ui/invoice-dialog.d.ts",
       "default": "./dist/ui/invoice-dialog.js"
+    },
+    "./ui/invoices": {
+      "types": "./dist/ui/invoices.d.ts",
+      "default": "./dist/ui/invoices.js"
     }
   },
   "files": [

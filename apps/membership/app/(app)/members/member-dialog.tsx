@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
+import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { getMemberAccess, patchMember } from './actions';
 import { StatusBadge } from './status-badge';
@@ -117,15 +118,12 @@ export function MemberDialog({
             </select>
           </div>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Renews on</label>
-          <input
-            type="date"
-            value={renewsAt}
-            onChange={(e) => setRenewsAt(e.target.value)}
-            className={INPUT}
-          />
-        </div>
+        <DateField
+          label="Renews on"
+          name="renews_at"
+          defaultValue={renewsAt || null}
+          onValueChange={setRenewsAt}
+        />
         <div>
           <label className="block text-sm font-medium mb-1">Notes</label>
           <textarea

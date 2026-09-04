@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.33.0] — 2026-09-05 — components first
+
+### Changed
+- **THE Invoices area is a shared component**
+  (@thefibre/shared/ui/invoices): Meet, Thread and Membership each
+  collapsed their ~450-line invoices-client into a dozen-line wrapper
+  injecting server actions. One implementation, one app-chip list (now
+  incl. Pulse + Membership) everywhere. Pulse's variant carries ledger
+  extras — converge when next touched.
+- **Membership renews-on fields use the shared DateField** (Sjoerd's
+  screenshot: native browser calendar vs Thread's — "thread is
+  leading").
+- **CLAUDE.md gains the binding Components-first rule**: check shared +
+  the other apps before building any surface; new recurring surfaces are
+  born in @thefibre/shared; never fork a per-app variant. Component
+  inventory rescan + i18n architecture proposal both running as
+  background agents.
+
 ## [0.32.1] — 2026-09-05 — Membership 0.2.1: the invisible link field
 
 ### Fixed

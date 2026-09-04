@@ -64,6 +64,18 @@ cd apps/api && node scripts/seed-ebbf.mjs
 
 Creates the brief §8 worked example: EBBF Athens 2026 conference + post-Athens journey + board working session, 7 people, EBBF org with members + identity + system context, ~11 enrolments, ~21 activity events spread across 90 days, per-app curator data for Marja and Daniel. Idempotent — safe to re-run.
 
+### Components first (Sjoerd, 2026-09-05 — binding)
+
+Before building ANY UI surface: check `packages/shared/src/ui` and the
+other five apps. If it exists anywhere, use the shared component — or
+extract it to `packages/shared` and port the copies. **Never fork a new
+per-app variant.** New recurring surfaces are BORN in `@thefibre/shared`
+with the app-bound pieces (apiFetch, server actions) injected as props
+(see `ui/invoices.tsx` for the pattern). When copies disagree, Thread is
+design-leading. Two companions: ordering UIs are drag-and-drop, never a
+numeric sort field; dates always use the shared `DateField`, never a
+native `<input type="date">`.
+
 ### Parallel agents — when to use them
 
 Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + org refactor). Rules:

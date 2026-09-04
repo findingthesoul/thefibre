@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
+import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
 import { createMember, createPerson, searchPersons } from './actions';
 import { dateToIso } from './member-dialog';
@@ -204,18 +205,13 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Renews on</label>
-          <input
-            type="date"
-            value={renewsAt}
-            onChange={(e) => setRenewsAt(e.target.value)}
-            className={INPUT}
-          />
-          <p className="mt-1.5 text-xs text-ink-muted">
-            Optional — the scheduler moves overdue manual members to grace, then lapsed.
-          </p>
-        </div>
+        <DateField
+          label="Renews on"
+          name="renews_at"
+          defaultValue={renewsAt || null}
+          onValueChange={setRenewsAt}
+          hint="Optional — the scheduler moves overdue manual members to grace, then lapsed."
+        />
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
