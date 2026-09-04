@@ -1,17 +1,17 @@
 import Link from 'next/link';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APPS, appName, type AppId } from '@thefibre/shared';
+import { APP_IDS, appName, appUrl, type AppId } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 
-const APP_DOMAINS: Record<string, string> = {
-  'fibre-meet': APPS['fibre-meet'].url,
-  'the-thread': APPS['the-thread'].url,
-  'fibre-flow': APPS['fibre-flow'].url,
-  'fibre-pulse': APPS['fibre-pulse'].url,
-  'fibre-sales': APPS['fibre-sales'].url,
-  'fibre-learn': APPS['fibre-learn'].url,
-};
+// appUrl (env-aware), NEVER APPS[slug].url: the raw registry value is the
+// PRODUCTION default, so the staging dashboard linked people to production —
+// where their staging session doesn't exist ("going to Meet lands me on a
+// login page", Sjoerd 2026-09-05). Derived from APP_IDS so a new app can't
+// be forgotten (the old hardcoded map was missing Membership).
+const APP_DOMAINS: Record<string, string> = Object.fromEntries(
+  APP_IDS.filter((s) => s !== 'fibre-platform').map((s) => [s, appUrl(s, process.env)]),
+);
 
 type Activity = {
   id: string;

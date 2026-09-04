@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation';
-import { APPS } from '@thefibre/shared';
+import { APPS, appUrl } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -99,7 +99,10 @@ function describe(a: CatalogueApp) {
     status: meta?.status ?? ('Active' as const),
     kind: a.kind,
     released: !!a.released_at,
-    link: a.homepage_url ?? a.base_url,
+    // In-family apps link via appUrl (env-aware — the catalogue's base_url
+    // is the production address even in the staging DB); third-party apps
+    // keep their own declared link.
+    link: known ? appUrl(a.slug as keyof typeof APPS, process.env) : (a.homepage_url ?? a.base_url),
   };
 }
 

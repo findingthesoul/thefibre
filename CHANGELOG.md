@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.39.1] — 2026-09-05 — staging links stay on staging
+
+### Fixed
+- **The Fibre dashboard's app cards linked to PRODUCTION from staging**
+  (Sjoerd: "going to Meet lands me on a login page" — his .tech session
+  doesn't exist on .app). The cards used the registry's raw production
+  URLs instead of env-aware appUrl, AND the hardcoded map was missing
+  Membership — now derived from APP_IDS so a new app can't be forgotten.
+  Settings → Apps got the same treatment (the catalogue's base_url is
+  the production address even in the staging DB; in-family links now go
+  through appUrl, third-party apps keep their declared link).
+
 ## [0.39.0] — 2026-09-05 — Membership 0.6.0 · Thread 3.33.0: the parallel round
 
 Six lanes, one afternoon — five agents + the main line, strict file
