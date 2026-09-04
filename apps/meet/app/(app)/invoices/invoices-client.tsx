@@ -9,7 +9,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   BadgeEuro,
   Link2,
-  ExternalLink,
   Mail,
   RotateCcw,
   Search,
@@ -22,11 +21,13 @@ import {
   resendInvoice,
   refundPurchase,
   markPurchasePaid,
+  emailInvoice,
   sendPaymentLink,
   type PurchaseList,
   type PurchaseRow,
 } from './actions';
-import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
+import { InvoiceDialog } from '@thefibre/shared/ui/invoice-dialog';
+import { ConfirmDialog } from '@/components/ui/dialog';
 
 // PostgREST joins come back object-or-array — normalise.
 function one<T>(v: T | T[] | null): T | null {
@@ -338,129 +339,87 @@ export function InvoicesClient({
         </div>
       )}
 
-      {/* Detail dialog — Fibre bottom-bar contract. */}
+      {/* Detail dialog — THE canonical invoice viewer (shared); management
+          actions stay app-side in its action bar (build-plan 1f). */}
       {detail && (
-        <Dialog
+        <InvoiceDialog
+          purchase={detail}
           open
           onClose={() => setDetail(null)}
-          title={detail.item_label}
-          description={`${detail.payer_name || detail.payer_email} · ${fmtDate(detail.created_at)}`}
-          size="lg"
-          footer={
+          pdfHref={`/invoices/${detail.id}/pdf`}
+          onEmail={async (to) => {
+            const r = await emailInvoice(detail.id, to);
+            return r.ok ? null : r.error;
+          }}
+          actions={
             <>
-              <div className="mr-auto flex items-center gap-1.5">
-                {detail.status === 'paid' && (
+              {detail.status === 'paid' && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<RotateCcw size={14} />}
+                  disabled={busy}
+                  onClick={() => setConfirmRefund(detail)}
+                >
+                  Reimburse
+                </Button>
+              )}
+              {detail.method === 'invoice' && detail.status === 'pending' && (
+                <>
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    leading={<RotateCcw size={14} />}
+                    leading={<BadgeEuro size={14} />}
                     disabled={busy}
-                    onClick={() => setConfirmRefund(detail)}
+                    onClick={() => void run(markPurchasePaid, detail, 'Marked as paid.')}
                   >
-                    Reimburse
+                    Mark paid
                   </Button>
-                )}
-                {detail.method === 'invoice' && detail.status === 'pending' && (
-                  <>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      leading={<BadgeEuro size={14} />}
-                      disabled={busy}
-                      onClick={() => void run(markPurchasePaid, detail, 'Marked as paid.')}
-                    >
-                      Mark paid
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="sm"
-                      leading={<Link2 size={14} />}
-                      disabled={busy}
-                      onClick={() =>
-                        void run(sendPaymentLink, detail, 'Payment link sent to the payer.')
-                      }
-                    >
-                      Send payment link
-                    </Button>
-                  </>
-                )}
-                {detail.stripe_invoice_url && (
                   <Button
                     type="button"
                     variant="ghost"
                     size="sm"
-                    leading={<Mail size={14} />}
+                    leading={<Link2 size={14} />}
                     disabled={busy}
-                    onClick={() => void run(resendInvoice, detail, 'Invoice sent to the payer.')}
+                    onClick={() =>
+                      void run(sendPaymentLink, detail, 'Payment link sent to the payer.')
+                    }
                   >
-                    Resend invoice
+                    Send payment link
                   </Button>
-                )}
-              </div>
-              <Button type="button" variant="secondary" onClick={() => setDetail(null)}>
-                Close
-              </Button>
+                </>
+              )}
+              {detail.stripe_invoice_url && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<Mail size={14} />}
+                  disabled={busy}
+                  onClick={() => void run(resendInvoice, detail, 'Invoice sent to the payer.')}
+                >
+                  Resend invoice
+                </Button>
+              )}
             </>
           }
         >
-          <div className="space-y-3 text-sm">
-            <Row label="Payer">
-              {detail.payer_name}
-              {detail.payer_email ? ` · ${detail.payer_email}` : ''}
-            </Row>
-            <Row label="Amount">{fmt(detail.amount_cents, detail.currency)}</Row>
-            <Row label="Method">
-              {detail.method === 'invoice'
-                ? 'By invoice'
-                : detail.method === 'free'
-                  ? 'Free — discount code'
-                  : 'Card (Stripe)'}
-            </Row>
-            <Row label="Status">
-              <span className="capitalize">{detail.status}</span>
-              {detail.paid_at ? ` · paid ${fmtDate(detail.paid_at)}` : ''}
-              {detail.refunded_at ? ` · refunded ${fmtDate(detail.refunded_at)}` : ''}
-            </Row>
-            {(detail.platform_fee_cents > 0 ||
-              detail.vendor_share_cents > 0 ||
-              detail.org_share_cents > 0) && (
-              <Row label="Split">
-                Fee {fmt(detail.platform_fee_cents, detail.currency)} · Organiser{' '}
-                {fmt(detail.vendor_share_cents, detail.currency)} · Workspace{' '}
-                {fmt(detail.org_share_cents, detail.currency)}
-              </Row>
-            )}
-            {detail.billing && Object.values(detail.billing).some(Boolean) && (
-              <Row label="Billing">
-                {[
-                  detail.billing.company,
-                  detail.billing.address,
-                  [detail.billing.postal_code, detail.billing.city].filter(Boolean).join(' '),
-                  detail.billing.country,
-                  detail.billing.tax_no ? `Tax/VAT ${detail.billing.tax_no}` : null,
-                ]
-                  .filter(Boolean)
-                  .join(' · ')}
-              </Row>
-            )}
-            {detail.stripe_invoice_url && (
-              <Row label="Invoice">
-                <a
-                  href={detail.stripe_invoice_url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-ink"
-                >
-                  Open hosted invoice <ExternalLink size={12} />
-                </a>
-              </Row>
-            )}
-            {notice && <p className="text-xs text-ink-subtle">{notice}</p>}
-          </div>
-        </Dialog>
+          {(detail.platform_fee_cents > 0 ||
+            detail.vendor_share_cents > 0 ||
+            detail.org_share_cents > 0) && (
+            <div className="text-ink-subtle">
+              Split: fee {fmt(detail.platform_fee_cents, detail.currency)} · organiser{' '}
+              {fmt(detail.vendor_share_cents, detail.currency)} · workspace{' '}
+              {fmt(detail.org_share_cents, detail.currency)}
+            </div>
+          )}
+          {detail.refunded_at && (
+            <div className="mt-1 text-ink-subtle">Refunded {fmtDate(detail.refunded_at)}</div>
+          )}
+          {notice && <p className="mt-1 text-ink-subtle">{notice}</p>}
+        </InvoiceDialog>
       )}
 
       <ConfirmDialog
@@ -492,11 +451,3 @@ export function InvoicesClient({
   );
 }
 
-function Row({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-3">
-      <span className="w-24 shrink-0 text-ink-muted">{label}</span>
-      <span className="min-w-0 flex-1">{children}</span>
-    </div>
-  );
-}

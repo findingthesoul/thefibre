@@ -96,3 +96,16 @@ export async function markPurchasePaid(id: string): Promise<SimpleResult> {
 export async function sendPaymentLink(id: string): Promise<SimpleResult> {
   return post(id, 'send-payment-link');
 }
+
+/** Email the invoice/receipt to any address (the shared invoice dialog). */
+export async function emailInvoice(id: string, to: string): Promise<SimpleResult> {
+  try {
+    await apiFetch(`/api/v1/purchases/${encodeURIComponent(id)}/resend-invoice`, {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}

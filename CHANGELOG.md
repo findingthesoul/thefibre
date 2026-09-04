@@ -21,6 +21,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.29.0] — 2026-09-04 — one invoice viewer for the whole family
+
+*"One ref of truth for the whole app (fibre, meet, thread)"* — now actually
+true everywhere ("make it so").
+
+### Changed
+- **Thread, Meet and Pulse adopt the shared invoice dialog**
+  (`@thefibre/shared/ui/invoice-dialog`) for the purchase detail view —
+  the same document popup as Settings → Plan: share link, Download PDF
+  (each app grew its own `/invoices/:id/pdf` session-carrying pass-through),
+  Email to… (any address), subtotal/VAT/total when the row carries tax.
+- The shared dialog grew an `actions` slot (app-side management buttons —
+  Reimburse, Mark paid incl. Pulse's account+date variant, Send payment
+  link, Resend invoice — stay each app's own) and a `children` slot (fee
+  split, refund note); `seller` became optional (hidden when an app cannot
+  name it yet — the organiser-VAT work will fill it).
+- Three near-identical 100-line detail dialogs deleted.
+
 ## [0.28.5] — 2026-09-04
 
 ### Fixed

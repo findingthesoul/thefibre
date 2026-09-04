@@ -59,15 +59,24 @@ export function InvoiceDialog({
   pdfHref,
   /** Send the receipt/invoice email to an address; resolve to error text or null. */
   onEmail,
+  actions,
+  children,
 }: {
   purchase: InvoicePurchase;
-  seller: InvoiceSeller;
+  /** Omit when the app cannot name the seller — the From block is hidden. */
+  seller?: InvoiceSeller;
   open: boolean;
   onClose: () => void;
   printHref?: string;
   /** The app's own PDF endpoint — used for Download PDF when provided. */
   pdfHref?: string;
   onEmail?: (to: string) => Promise<string | null>;
+  /** App-side management buttons (reimburse, mark paid, …) — rendered in the
+   *  action bar after the built-ins. The document stays canonical; what an
+   *  app can DO to a purchase stays the app's. */
+  actions?: ReactNode;
+  /** Extra rows under the document (fee split, refund notes, notices). */
+  children?: ReactNode;
 }) {
   const [copied, setCopied] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
@@ -181,6 +190,7 @@ export function InvoiceDialog({
               Print
             </a>
           )}
+          {actions}
         </div>
 
         {emailOpen && (
@@ -209,12 +219,14 @@ export function InvoiceDialog({
         {/* The document ------------------------------------------------ */}
         <div className="overflow-y-auto px-5 py-4 text-sm">
           <div className="flex items-start justify-between gap-4">
-            <Block label="From">
-              <div className="font-medium">{seller.legal_name}</div>
-              {seller.address && <div className="text-ink-subtle">{seller.address}</div>}
-              {seller.tax_no && <div className="text-ink-subtle">VAT: {seller.tax_no}</div>}
-            </Block>
-            <Block label="Billed to" right>
+            {seller && (
+              <Block label="From">
+                <div className="font-medium">{seller.legal_name}</div>
+                {seller.address && <div className="text-ink-subtle">{seller.address}</div>}
+                {seller.tax_no && <div className="text-ink-subtle">VAT: {seller.tax_no}</div>}
+              </Block>
+            )}
+            <Block label="Billed to" right={Boolean(seller)}>
               <div>{b.company ?? purchase.payer_name}</div>
               {buyerAddress && <div className="text-ink-subtle">{buyerAddress}</div>}
               {b.tax_no && <div className="text-ink-subtle">VAT: {b.tax_no}</div>}
@@ -256,6 +268,7 @@ export function InvoiceDialog({
               </span>
             )}
           </div>
+          {children && <div className="mt-4 border-t border-line pt-3 text-xs">{children}</div>}
         </div>
       </div>
     </div>
