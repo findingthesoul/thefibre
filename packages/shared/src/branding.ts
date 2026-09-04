@@ -118,6 +118,15 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_PULSE_URL',
     available: true,
   },
+  'membership': {
+    name: 'Membership',
+    shortName: 'Membership',
+    brandLetters: 'mb',
+    tagline: 'Your community, subscribed — tiers, renewals, access.',
+    url: 'https://membership.thefibre.app',
+    urlEnv: 'NEXT_PUBLIC_MEMBERSHIP_URL',
+    available: true,
+  },
   'fibre-sales': {
     name: 'Sales',
     shortName: 'Sales',

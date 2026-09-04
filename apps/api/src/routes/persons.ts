@@ -664,8 +664,38 @@ personsRoutes.get('/:id/apps', async (c) => {
       .eq('invitee_email', person.email);
     if ((count ?? 0) > 0) slugs.add('fibre-meet');
   }
+
+  // Membership's curator data IS the member row (no separate profile table —
+  // tier/status/renewal live on membership_member). RLS-gated like the rest:
+  // callers without the app see nothing, so no slug appears.
+  const { count: memberCount } = await db
+    .from('membership_member')
+    .select('id', { count: 'exact', head: true })
+    .eq('person_id', personId);
+  if ((memberCount ?? 0) > 0) slugs.add('membership');
+
   return c.json({ apps: Array.from(slugs).sort() });
 });
+// Membership tab data — bespoke like /:id/meet: the curator data is the
+// member row itself (tier, status, renewal), not an upsertProfile table.
+// Writes stay on the membership routes; this is the profile-tab read.
+personsRoutes.get('/:id/membership', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_member')
+    .select(
+      'id, status, started_at, renews_at, lapsed_at, notes, tier:tier_id (id, name, price_cents_year, price_cents_month, currency)',
+    )
+    .eq('person_id', c.req.param('id'))
+    .maybeSingle();
+  if (error) {
+    console.error('[persons GET membership]', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json({ member: data ?? null });
+});
+
 personsRoutes.patch('/:id/learning', async (c) => {
   const body = LearningUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);

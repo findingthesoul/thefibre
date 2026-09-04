@@ -20,7 +20,7 @@ export type PurchaseWrite = {
   // (routes/billing.ts webhook) — they appear in that workspace's Invoices
   // page like any other purchase, and /admin/economics sums them as platform
   // income.
-  appSlug: 'the-thread' | 'fibre-meet' | 'fibre-pulse' | 'fibre-platform';
+  appSlug: 'the-thread' | 'fibre-meet' | 'fibre-pulse' | 'membership' | 'fibre-platform';
   workspaceId: string;
   itemRef: string;
   personId?: string | null;
