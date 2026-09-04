@@ -1,148 +1,137 @@
 'use client';
 
-import { useActionState, useRef, useState } from 'react';
-import { ImagePlus, X } from 'lucide-react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
+import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { TextField, TextAreaField } from '@/components/ui/field';
-import { uploadAsset } from '@/lib/upload';
-import { updateHost, type SaveResult } from '../actions';
+import { updatePublicPage } from '../actions';
 import { MEET_HOST } from '@/lib/public-host';
 
-type Initial = {
-  slug: string;
-  bio: string | null;
-  location: string | null;
-  photo_url: string | null;
-};
+/**
+ * The address and Meet's own fields — and a window onto the profile that
+ * fills the page. Ported to the Thread model (2026-09-05, Sjoerd:
+ * "Profile page of Fibre is not the same as Meet… supposed to become a
+ * component"): name, photo and bio are shown, not editable — they are
+ * editable in exactly one place, The Fibre. A read-only echo with a link
+ * is honest; a second form is how the two drifted (and how a photo lived
+ * on the booking page but not the profile).
+ */
+export function PublicPageForm({
+  host,
+  fibreProfileUrl,
+}: {
+  host: {
+    slug: string;
+    location: string | null;
+    display_name: string | null;
+    bio: string | null;
+    photo_url: string | null;
+  };
+  fibreProfileUrl: string;
+}) {
+  const router = useRouter();
+  const [slug, setSlug] = useState(host.slug);
+  const [location, setLocation] = useState(host.location ?? '');
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+  const [pending, start] = useTransition();
 
-export function ProfileForm({ initial }: { initial: Initial }) {
-  const [state, formAction, pending] = useActionState<SaveResult, FormData>(
-    updateHost,
-    {},
-  );
-  const [slug, setSlug] = useState(initial.slug);
-  const [photoUrl, setPhotoUrl] = useState<string | null>(initial.photo_url ?? null);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  async function onPickPhoto(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setUploadError(null);
-    try {
-      setPhotoUrl(await uploadAsset(file));
-    } catch (err) {
-      setUploadError(err instanceof Error ? err.message : 'upload failed');
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
+  function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSaved(false);
+    if (!slug.trim()) return setError('Pick a public URL.');
+    start(async () => {
+      const r = await updatePublicPage({ slug: slug.trim(), location: location.trim() || null });
+      if (!r.ok) return setError(r.error ?? 'could not save');
+      setSaved(true);
+      router.refresh();
+    });
   }
 
   return (
-    <form action={formAction} className="space-y-5">
-      <div>
-        <label className="block text-sm text-ink-subtle">
-          Public URL <span className="text-red-600">*</span>
-        </label>
-        <div className="mt-1 flex items-stretch rounded-md border border-line bg-surface-raised overflow-hidden focus-within:border-line-strong">
-          <span className="px-3 flex items-center text-sm text-ink-muted bg-surface-sunken border-r border-line whitespace-nowrap">
+    <form onSubmit={onSubmit} className="mt-8 space-y-8 max-w-xl">
+      <label className="block">
+        <span className="text-sm text-ink-subtle">
+          Public URL<span className="text-red-600"> *</span>
+        </span>
+        <div className="mt-1 flex">
+          <span className="inline-flex items-center rounded-l-md border border-r-0 border-line bg-surface-sunken px-3 text-sm text-ink-muted">
             {MEET_HOST}/
           </span>
           <input
-            name="slug"
+            className="w-full rounded-r-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
             value={slug}
-            onChange={(e) => setSlug(e.target.value.replace(/[^a-z0-9-]/g, ''))}
-            required
-            pattern="[a-z0-9-]+"
-            className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none min-w-0"
+            onChange={(e) => {
+              setSlug(e.target.value);
+              setSaved(false);
+            }}
           />
         </div>
         <span className="mt-1 block text-xs text-ink-muted">
-          Changing this updates your public booking link.
+          Your booking page lives under this address.
         </span>
-      </div>
-      <TextAreaField
-        label="Bio"
-        name="bio"
-        defaultValue={initial.bio ?? ''}
-        rows={4}
-      />
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextField
-          label="Location"
-          name="location"
-          defaultValue={initial.location ?? ''}
+      </label>
+
+      <label className="block">
+        <span className="text-sm text-ink-subtle">Location</span>
+        <input
+          className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
+          value={location}
+          onChange={(e) => {
+            setLocation(e.target.value);
+            setSaved(false);
+          }}
           placeholder="Amsterdam, NL"
         />
-        <div>
-          <span className="text-sm text-ink-subtle">Photo</span>
-          {/* The upload happens client-side; the saved URL rides along with
-              the form submit via this hidden field. */}
-          <input type="hidden" name="photo_url" value={photoUrl ?? ''} />
-          <input
-            ref={fileRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={onPickPhoto}
-          />
-          {photoUrl ? (
-            <div className="mt-1 flex items-center gap-3">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={photoUrl}
-                alt=""
-                className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
-              />
-              <div className="flex flex-col gap-1">
-                <button
-                  type="button"
-                  onClick={() => fileRef.current?.click()}
-                  className="text-xs text-ink-subtle hover:text-ink text-left"
-                >
-                  Replace
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPhotoUrl(null)}
-                  className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
-                >
-                  <X size={11} strokeWidth={1.75} /> Remove
-                </button>
-              </div>
-            </div>
+        <span className="mt-1 block text-xs text-ink-muted">
+          Shown on your booking page — the one field that is Meet&apos;s own.
+        </span>
+      </label>
+
+      <section className="border-t border-line pt-8">
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">What it shows</div>
+        <div className="mt-3 flex items-start gap-4 rounded-lg border border-line bg-surface-raised p-4">
+          {host.photo_url ? (
+            /* eslint-disable-next-line @next/next/no-img-element */
+            <img
+              src={host.photo_url}
+              alt=""
+              className="h-14 w-14 rounded-full object-cover ring-1 ring-line shrink-0"
+            />
           ) : (
-            <button
-              type="button"
-              disabled={uploading}
-              onClick={() => fileRef.current?.click()}
-              className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-            >
-              <ImagePlus size={16} strokeWidth={1.75} />
-              {uploading ? 'Uploading…' : 'Upload photo'}
-            </button>
+            <div className="h-14 w-14 rounded-full bg-surface-sunken ring-1 ring-line shrink-0" />
           )}
-          {uploadError && (
-            <span className="mt-1 block text-xs text-red-700">{uploadError}</span>
-          )}
+          <div className="min-w-0">
+            <div className="text-sm font-medium">{host.display_name ?? '—'}</div>
+            <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
+              {host.bio || 'No bio yet.'}
+            </p>
+          </div>
         </div>
+        <a
+          href={fibreProfileUrl}
+          className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+        >
+          Edit your profile in The Fibre
+          <ExternalLink size={12} strokeWidth={1.75} />
+        </a>
+        <p className="mt-2 text-xs text-ink-muted">
+          One profile, used by every app — so it is edited in one place.
+        </p>
+      </section>
+
+      {error && (
+        <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
+          {error}
+        </p>
+      )}
+      <div className="flex items-center gap-3">
+        <Button type="submit" disabled={pending}>
+          {pending ? 'Saving…' : 'Save'}
+        </Button>
+        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
       </div>
-      {state.error && (
-        <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
-          {state.error}
-        </div>
-      )}
-      {state.ok && (
-        <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          Saved.
-        </div>
-      )}
-      <Button type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Save changes'}
-      </Button>
     </form>
   );
 }

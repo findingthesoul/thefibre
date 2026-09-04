@@ -191,12 +191,16 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
   const { data: host, error: hErr } = await adminClient
     .from('meet_host')
     .select(
-      'id, slug, bio, photo_url, location, timezone, user:user_id (full_name, email, avatar_url), workspace_id',
+      'id, slug, bio, photo_url, location, timezone, user_id, user:user_id (full_name, email, avatar_url), workspace_id',
     )
     .eq('slug', hostSlug)
     .single();
 
   if (hErr || !host) return c.json({ error: 'host not found' }, 404);
+  // One profile, and it is the platform's (20260901140000): the public page
+  // prefers it, meet_host columns are read fallbacks only. Without this, a
+  // bio edited in The Fibre never reached the booking page.
+  const hostProfile = await profileFor((host as { user_id?: string }).user_id ?? '');
 
   const { data: mts } = await adminClient
     .from('meet_meeting_type')
@@ -212,11 +216,12 @@ meetRoutes.get('/public/host/:host_slug', async (c) => {
   return c.json({
     id: host.id,
     slug: host.slug,
-    full_name: userObj?.full_name ?? null,
+    full_name: hostProfile?.display_name ?? userObj?.full_name ?? null,
     avatar_url: userObj?.avatar_url ?? null,
-    bio: host.bio,
-    photo_url: host.photo_url,
+    bio: hostProfile?.bio ?? host.bio,
+    photo_url: hostProfile?.photo_url ?? host.photo_url,
     location: host.location,
+    // timezone stays the HOST's — it anchors availability math.
     timezone: host.timezone,
     meeting_types: mts ?? [],
   });
@@ -262,15 +267,16 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
   }
 
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
+  const mtHostProfile = await profileFor((host as { user_id?: string }).user_id ?? '');
   return c.json({
     meeting_type: { ...mt, poll_slots: pollSlots },
     host: {
       id: host.id,
       slug: host.slug,
-      full_name: userObj?.full_name ?? null,
+      full_name: mtHostProfile?.display_name ?? userObj?.full_name ?? null,
       avatar_url: userObj?.avatar_url ?? null,
-      bio: host.bio,
-      photo_url: host.photo_url,
+      bio: mtHostProfile?.bio ?? host.bio,
+      photo_url: mtHostProfile?.photo_url ?? host.photo_url,
       location: host.location,
       timezone: host.timezone,
     },
@@ -1908,12 +1914,14 @@ const HostUpdate = z.object({
       message: `reserved word — pick something else (reserved: ${[...RESERVED_SLUGS].sort().slice(0, 8).join(', ')}…)`,
     })
     .optional(),
-  bio: z.string().max(2000).nullable().optional(),
+  // bio / photo_url are GONE from this schema (2026-09-05): "one profile,
+  // and it is the platform's" — Meet's UI stopped editing them; accepting
+  // them here would keep resurrecting the dead columns. timezone STAYS:
+  // it anchors working hours (availability math), which is Meet's own.
   location: z.string().max(200).nullable().optional(),
   personal_room_url: z.string().max(500).nullable().optional(),
   timezone: z.string().max(100).optional(),
   working_hours: z.record(z.array(z.object({ start: z.string(), end: z.string() }))).nullable().optional(),
-  photo_url: z.string().max(500).nullable().optional(),
   // (stripe_account_id intentionally NOT accepted — payments are a
   // platform SPoT; Settings → Payments writes /api/v1/profile.)
   // Host-level default for new MTs. Per-MT override lives on

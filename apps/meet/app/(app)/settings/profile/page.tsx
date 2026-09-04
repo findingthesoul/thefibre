@@ -1,16 +1,22 @@
 import { apiFetch, ApiError } from '@/lib/api';
+import { appUrl } from '@thefibre/shared';
 import {
   PageContainer,
   PageHeader,
   Breadcrumb,
   ErrorBanner,
 } from '@/components/ui/page';
-import { ProfileForm } from './form';
+import { PublicPageForm } from './form';
+
+// Your public page — its ADDRESS and location, which are the only parts of
+// a profile that belong to Meet. Name, photo and bio come from the platform
+// profile (one editor, in The Fibre) — same page shape as The Thread's.
 
 type Host = {
   slug: string;
-  bio: string | null;
   location: string | null;
+  display_name: string | null;
+  bio: string | null;
   photo_url: string | null;
 };
 
@@ -25,12 +31,16 @@ export default async function ProfilePage() {
   return (
     <PageContainer max="3xl">
       <Breadcrumb href="/settings" label="Settings" />
-      <PageHeader title="Profile" description="How you appear on your public booking page." />
+      <PageHeader
+        title="Public page"
+        description="Where your booking page lives, and what it shows."
+      />
       {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
       {host && (
-        <div className="mt-10">
-          <ProfileForm initial={host} />
-        </div>
+        <PublicPageForm
+          host={host}
+          fibreProfileUrl={`${appUrl('fibre-platform', process.env)}/settings/profile`}
+        />
       )}
     </PageContainer>
   );

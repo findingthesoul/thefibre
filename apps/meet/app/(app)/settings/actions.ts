@@ -104,3 +104,19 @@ export async function disconnectGoogle(): Promise<SaveResult> {
   revalidatePath('/settings');
   return { ok: true };
 }
+
+// Plain-patch twin of updateHost for the converged Public page form
+// (2026-09-05): slug + location only — the profile itself is edited in
+// The Fibre ("one profile, and it is the platform's").
+export async function updatePublicPage(patch: {
+  slug?: string;
+  location?: string | null;
+}): Promise<SaveResult> {
+  try {
+    await apiFetch('/api/v1/meet/me', { method: 'PATCH', body: JSON.stringify(patch) });
+    revalidatePath('/settings/profile');
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: formatApiError(e) };
+  }
+}

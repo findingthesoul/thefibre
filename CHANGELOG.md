@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.38.0] — 2026-09-05 — the trust items: Members list + one profile everywhere
+
+### Changed
+- **Fibre Members page rebuilt to the house pattern** (Sjoerd's spec):
+  a list — Name / Email / Role / Relationship / Apps summary / Joined;
+  clicking a row opens the settings dialog (role, relationship, per-app
+  — / Member / Admin, saves-on-change with optimistic revert); Add
+  member opens the invite dialog (which now grants app-ADMIN at invite
+  time too). 309 inline-card lines → list + two dialogs.
+- **Meet's profile page ported to the converged model** (Thread's, decided
+  2026-09-01 but never applied to Meet): "Public page" = URL + location
+  (Meet's own fields) + a read-only echo of name/photo/bio with "Edit
+  your profile in The Fibre". PATCH /meet/me no longer accepts
+  bio/photo_url (write-dead columns stop resurrecting); timezone stays
+  Meet-owned — it anchors availability math.
+- **Public booking pages read the platform profile first** (bio/photo/
+  name) with meet_host as fallback — a bio edited in The Fibre now
+  actually reaches the booking page.
+- **Pulse's orphaned duplicate profile editor deleted** (its hub already
+  linked to The Fibre; the page was a third editor waiting to drift).
+
 ## [0.37.1] — 2026-09-05 — Membership 0.5.1: access is VISIBLY under products
 
 ### Changed
