@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.36.0] — 2026-09-05 — Membership 0.4.0: the product carries its access
+
+### Changed
+- **Access grants attach to PRODUCTS** (Sjoerd: "why is this not under
+  products" — the product is the promise, so it carries the fulfillment):
+  the product dialog gains an Access section (Circle space / Thread /
+  Fibre seat with the billed-seat warning); a tier grants everything its
+  included products carry; entitlement re-reconciles when a tier's
+  product set or a product's access changes. The Access page becomes the
+  overview (sync status + retry); tier-level grants stay valid as legacy.
+
+### Added
+- **Shared SearchSelect** (@thefibre/shared/ui/search-select) — the
+  list-with-search-field component; first consumer is the thread picker
+  (which also showed BLANK rows: a thread's title lives on its paired
+  program — mapping fixed). Timezone pickers + the three hand-rolled
+  comboboxes converge here (inventory item).
+
+### Queued
+- Pricing rules (§3.9) pinned as the NEXT Membership increment.
+- Thread: workspace-scope threads (design call — public URL contract) and
+  per-event images inside a thread — both Sjoerd asks, 2026-09-05.
+
 ## [0.35.0] — 2026-09-05 — Membership 0.3.0: the seat grant + currencies go platform-wide
 
 ### Added

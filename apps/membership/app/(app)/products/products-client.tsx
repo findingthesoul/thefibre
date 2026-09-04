@@ -13,10 +13,12 @@ export function ProductsClient({
   products,
   currency,
   threadOptions,
+  grants,
 }: {
   products: Product[];
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
   threadOptions: { slug: string; title: string }[];
+  grants: import('../access/types').Grant[];
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -102,8 +104,8 @@ export function ProductsClient({
         </div>
       )}
 
-      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} grants={[]} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} grants={grants.filter((g) => g.product_id === editing.id)} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
 }

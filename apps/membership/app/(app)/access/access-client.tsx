@@ -19,12 +19,16 @@ export function AccessClient({
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Grant | null>(null);
 
-  // Group by tier, in tier sort order; grants on unknown (archived) tiers last.
+  // Group by tier, in tier sort order; grants on unknown (archived) tiers
+  // last. Product-attached grants (the norm since 2026-09-05) group under
+  // the synthetic 'products' bucket — their tiers follow from which tiers
+  // include the product.
   const byTier = new Map<string, Grant[]>();
   for (const g of grants) {
-    const list = byTier.get(g.tier_id) ?? [];
+    const key = g.tier_id ?? 'products';
+    const list = byTier.get(key) ?? [];
     list.push(g);
-    byTier.set(g.tier_id, list);
+    byTier.set(key, list);
   }
   const knownTierIds = new Set(tiers.map((t) => t.id));
   const orphanTierIds = [...byTier.keys()].filter((id) => !knownTierIds.has(id));
@@ -37,12 +41,13 @@ export function AccessClient({
         <div>
           <h1 className="text-[28px] font-semibold tracking-tight text-ink">Access</h1>
           <p className="mt-1 text-sm text-ink-muted">
-            What each tier unlocks — Circle spaces and Threads are granted when a member joins
-            and revoked when they lapse.
+            The overview of everything membership unlocks — granted when a member joins, revoked
+            when they lapse. Access is configured on PRODUCTS (each product carries what it
+            unlocks); tiers grant it by including the product.
           </p>
         </div>
-        <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
-          New grant
+        <Button variant="secondary" leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
+          Tier-level grant (legacy)
         </Button>
       </div>
 
@@ -55,7 +60,7 @@ export function AccessClient({
       {grants.length === 0 ? (
         <div className="mt-10 rounded-2xl bg-surface-raised border border-line p-8 text-center">
           <p className="text-sm text-ink-muted">
-            No grants yet. Add one to connect a tier to a Circle space or a Thread.
+            Nothing granted yet — open a product and add what it unlocks under Access.
           </p>
         </div>
       ) : (

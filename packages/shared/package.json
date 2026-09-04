@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.35.0",
+  "version": "0.36.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -45,6 +45,10 @@
     "./ui/currency-editor": {
       "types": "./dist/ui/currency-editor.d.ts",
       "default": "./dist/ui/currency-editor.js"
+    },
+    "./ui/search-select": {
+      "types": "./dist/ui/search-select.d.ts",
+      "default": "./dist/ui/search-select.js"
     }
   },
   "files": [

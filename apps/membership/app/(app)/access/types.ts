@@ -11,13 +11,15 @@ export const GRANT_KIND_LABELS: Record<GrantKind, string> = {
 
 export type Grant = {
   id: string;
-  tier_id: string;
+  tier_id: string | null;
+  product_id: string | null;
   kind: GrantKind;
   // Non-secret targeting only: {space_id} for circle, {thread_slug} for thread.
   config: Record<string, unknown>;
   created_at: string;
-  // tier embeds can come back as object OR single-element array from PostgREST.
+  // embeds can come back as object OR single-element array from PostgREST.
   tier: { name: string } | { name: string }[] | null;
+  product: { name: string } | { name: string }[] | null;
 };
 
 export function grantTierName(t: Grant['tier']): string {

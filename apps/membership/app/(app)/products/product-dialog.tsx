@@ -6,6 +6,9 @@ import { Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { createProduct, patchProduct } from './actions';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import { createGrant, deleteGrant } from '../access/actions';
+import { GRANT_KIND_LABELS, type Grant, type GrantKind as AccessKind } from '../access/types';
 import { LINK_KINDS, LINK_KIND_LABELS, type LinkKind, type Product, type ProductLink } from './types';
 
 const INPUT =
@@ -36,6 +39,7 @@ export function ProductDialog({
   product,
   currency: workspaceCurrency,
   threadOptions,
+  grants,
   nextSortOrder,
   onClose,
 }: {
@@ -43,6 +47,8 @@ export function ProductDialog({
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
   /** The workspace's threads — thread-kind links pick a slug, never type one. */
   threadOptions: { slug: string; title: string }[];
+  /** Access carried by THIS product (the product is the promise — 2026-09-05). */
+  grants: Grant[];
   /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
   onClose: () => void;
@@ -62,6 +68,77 @@ export function ProductDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
+
+  // Access rows are saved IMMEDIATELY via the grants API (they need the
+  // product row to exist) — optimistic local list, refresh on close.
+  const [access, setAccess] = useState<Grant[]>(grants);
+  const [accessKind, setAccessKind] = useState<AccessKind>('circle');
+  const [accessRef, setAccessRef] = useState('');
+  const [accessRole, setAccessRole] = useState<'organiser' | 'admin'>('organiser');
+  const [accessBusy, setAccessBusy] = useState(false);
+
+  async function addAccess() {
+    if (!product) return;
+    if (accessKind !== 'fibre_seat' && !accessRef.trim()) {
+      setError(accessKind === 'circle' ? 'Space ID is required.' : 'Thread slug is required.');
+      return;
+    }
+    setAccessBusy(true);
+    setError(null);
+    const r = await createGrant({
+      product_id: product.id,
+      kind: accessKind,
+      config:
+        accessKind === 'circle'
+          ? { space_id: accessRef.trim() }
+          : accessKind === 'fibre_seat'
+            ? { role: accessRole }
+            : { thread_slug: accessRef.trim() },
+    });
+    setAccessBusy(false);
+    if (r.error || !r.data) {
+      setError(r.error ?? 'could not add access');
+      return;
+    }
+    setAccess((prev) => [
+      ...prev,
+      {
+        id: r.data!.id,
+        tier_id: null,
+        product_id: product.id,
+        kind: accessKind,
+        config:
+          accessKind === 'circle'
+            ? { space_id: accessRef.trim() }
+            : accessKind === 'fibre_seat'
+              ? { role: accessRole }
+              : { thread_slug: accessRef.trim() },
+        created_at: new Date().toISOString(),
+        tier: null,
+        product: { name: product.name },
+      },
+    ]);
+    setAccessRef('');
+    router.refresh();
+  }
+
+  async function removeAccess(id: string) {
+    setAccessBusy(true);
+    const r = await deleteGrant(id);
+    setAccessBusy(false);
+    if (r.error) {
+      setError(r.error);
+      return;
+    }
+    setAccess((prev) => prev.filter((g) => g.id !== id));
+    router.refresh();
+  }
+
+  function accessSummary(g: Grant): string {
+    if (g.kind === 'circle') return `Circle space ${g.config?.space_id ?? ''}`;
+    if (g.kind === 'fibre_seat') return `Fibre seat (${g.config?.role ?? 'organiser'})`;
+    return `Thread ${g.config?.thread_slug ?? ''}`;
+  }
 
   function setLink(i: number, patch: Partial<LinkRow>) {
     setLinks((prev) => prev.map((l, j) => (j === i ? { ...l, ...patch } : l)));
@@ -248,21 +325,18 @@ export function ProductDialog({
                   ))}
                 </select>
                 {l.kind === 'thread' && threadOptions.length > 0 ? (
-                  <select
+                  <SearchSelect
                     value={l.ref}
-                    onChange={(e) => setLink(i, { ref: e.target.value })}
-                    className={INPUT}
-                  >
-                    <option value="">Pick a thread…</option>
-                    {threadOptions.map((t) => (
-                      <option key={t.slug} value={t.slug}>
-                        {t.title}
-                      </option>
-                    ))}
-                    {l.ref && !threadOptions.some((t) => t.slug === l.ref) && (
-                      <option value={l.ref}>{l.ref}</option>
-                    )}
-                  </select>
+                    onChange={(ref) => setLink(i, { ref })}
+                    options={[
+                      ...threadOptions.map((t) => ({ value: t.slug, label: t.title, hint: t.slug })),
+                      ...(l.ref && !threadOptions.some((t) => t.slug === l.ref)
+                        ? [{ value: l.ref, label: l.ref }]
+                        : []),
+                    ]}
+                    placeholder="Pick a thread…"
+                    className="w-full"
+                  />
                 ) : (
                   <input
                     value={l.ref}
@@ -299,6 +373,79 @@ export function ProductDialog({
             Add link
           </Button>
         </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Access</label>
+          <p className="mb-2 text-sm text-ink-muted">
+            What this product actually unlocks — synced automatically as members join and lapse.
+            A tier that includes this product grants all of it.
+          </p>
+          {!product ? (
+            <p className="text-sm text-ink-muted">Save the product first, then add access.</p>
+          ) : (
+            <>
+              {access.length > 0 && (
+                <ul className="mb-2 rounded-md border border-line divide-y divide-line/60">
+                  {access.map((g) => (
+                    <li key={g.id} className="flex items-center justify-between px-3 py-2 text-sm">
+                      <span className="text-ink">{accessSummary(g)}</span>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        aria-label="Remove access"
+                        disabled={accessBusy}
+                        onClick={() => void removeAccess(g.id)}
+                      >
+                        <Trash2 size={16} strokeWidth={1.75} />
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <div className="flex items-center gap-2">
+                <select
+                  value={accessKind}
+                  onChange={(e) => setAccessKind(e.target.value as AccessKind)}
+                  className="w-36 shrink-0 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
+                >
+                  {(Object.keys(GRANT_KIND_LABELS) as AccessKind[]).map((k) => (
+                    <option key={k} value={k}>
+                      {GRANT_KIND_LABELS[k]}
+                    </option>
+                  ))}
+                </select>
+                {accessKind === 'fibre_seat' ? (
+                  <select
+                    value={accessRole}
+                    onChange={(e) => setAccessRole(e.target.value as 'organiser' | 'admin')}
+                    className={INPUT}
+                  >
+                    <option value="organiser">Organiser seat</option>
+                    <option value="admin">Admin seat</option>
+                  </select>
+                ) : (
+                  <input
+                    value={accessRef}
+                    onChange={(e) => setAccessRef(e.target.value)}
+                    placeholder={accessKind === 'circle' ? 'Space ID' : 'Thread slug'}
+                    className={INPUT}
+                  />
+                )}
+                <Button type="button" variant="secondary" size="sm" disabled={accessBusy} onClick={() => void addAccess()}>
+                  {accessBusy ? '…' : 'Add access'}
+                </Button>
+              </div>
+              {accessKind === 'fibre_seat' && (
+                <p className="mt-1.5 text-xs text-amber-700">
+                  Fibre seats are billed on your workspace subscription — each member this
+                  activates adds a seat.
+                </p>
+              )}
+            </>
+          )}
+        </div>
+
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}

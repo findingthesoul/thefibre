@@ -90,13 +90,20 @@ const PatchMember = z.object({
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
 // deliberately has no CHECK so adding one here is enough.
 const GrantKind = z.enum(['circle', 'thread', 'fibre_seat']);
-const CreateGrant = z.object({
-  tier_id: z.string().uuid(),
-  kind: GrantKind,
-  // Non-secret targeting only ({space_id} / {thread_slug}). Credentials go
-  // in membership_settings, service-role only.
-  config: z.record(z.string(), z.unknown()).default({}),
-});
+// Grants attach to a PRODUCT (the promise carries its fulfillment —
+// 2026-09-05); tier_id remains accepted for the legacy tier-level rows.
+const CreateGrant = z
+  .object({
+    product_id: z.string().uuid().optional(),
+    tier_id: z.string().uuid().optional(),
+    kind: GrantKind,
+    // Non-secret targeting only ({space_id} / {thread_slug} / {role}).
+    // Credentials go in membership_settings, service-role only.
+    config: z.record(z.string(), z.unknown()).default({}),
+  })
+  .refine((v) => Boolean(v.product_id) !== Boolean(v.tier_id), {
+    message: 'exactly one of product_id or tier_id',
+  });
 
 const PutSettings = z.object({
   circle_api_token: z.string().max(500).optional().nullable(),
@@ -177,10 +184,17 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
     .maybeSingle();
   if (!member) return;
 
-  const { data: grants } = await adminClient
-    .from('membership_access_grant')
-    .select('id')
-    .eq('tier_id', member.tier_id);
+  // Entitlement = legacy tier-level grants + grants carried by the tier's
+  // products (tier → membership_tier_product → product → grants).
+  const [{ data: tierGrants }, { data: tierProducts }] = await Promise.all([
+    adminClient.from('membership_access_grant').select('id').eq('tier_id', member.tier_id),
+    adminClient.from('membership_tier_product').select('product_id').eq('tier_id', member.tier_id),
+  ]);
+  const productIds = (tierProducts ?? []).map((tp) => tp.product_id);
+  const { data: productGrants } = productIds.length
+    ? await adminClient.from('membership_access_grant').select('id').in('product_id', productIds)
+    : { data: [] as { id: string }[] };
+  const grants = [...(tierGrants ?? []), ...(productGrants ?? [])];
 
   if (member.status === 'active' || member.status === 'grace') {
     for (const g of grants ?? []) {
@@ -219,6 +233,26 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       .eq('member_id', member.id)
       .eq('status', 'pending');
   }
+}
+
+// Access composition changed (tier's products, or a product's grants) —
+// re-reconcile everyone currently entitled through that tier.
+export async function reconcileTierMembers(tierId: string): Promise<void> {
+  const { data: members } = await adminClient
+    .from('membership_member')
+    .select('id')
+    .eq('tier_id', tierId)
+    .in('status', ['active', 'grace'])
+    .is('deleted_at', null);
+  for (const m of members ?? []) await reconcileMemberAccess(m.id);
+}
+
+async function reconcileProductMembers(productId: string): Promise<void> {
+  const { data: links } = await adminClient
+    .from('membership_tier_product')
+    .select('tier_id')
+    .eq('product_id', productId);
+  for (const l of links ?? []) await reconcileTierMembers(l.tier_id);
 }
 
 // ---------------------------------------------------------------------------
@@ -305,6 +339,7 @@ membershipRoutes.put('/tiers/:id/products', async (c) => {
     const { error } = await db.from('membership_tier_product').insert(toInsert);
     if (error) return fail(c, 'link tier products', error);
   }
+  if (toDelete.length || toInsert.length) void reconcileTierMembers(tierId);
   return c.json({ ok: true });
 });
 
@@ -497,7 +532,7 @@ membershipRoutes.get('/grants', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_access_grant')
-    .select('id, tier_id, kind, config, created_at, tier:tier_id (name)')
+    .select('id, tier_id, product_id, kind, config, created_at, tier:tier_id (name), product:product_id (name)')
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list grants', error);
   return c.json({ items: data ?? [] });
@@ -514,17 +549,26 @@ membershipRoutes.post('/grants', async (c) => {
     .select('id')
     .single();
   if (error) return fail(c, 'create grant', error);
+  if (body.data.tier_id) void reconcileTierMembers(body.data.tier_id);
+  else if (body.data.product_id) void reconcileProductMembers(body.data.product_id);
   return c.json({ id: data.id }, 201);
 });
 
 membershipRoutes.delete('/grants/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const { data: before } = await db
+    .from('membership_access_grant')
+    .select('tier_id, product_id')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
   // Grants aren't personal data — hard delete is fine; the journal rows
   // cascade. Members keep external access until a future sync sweep; v1
   // treats grant removal as configuration, not revocation.
   const { error } = await db.from('membership_access_grant').delete().eq('id', c.req.param('id'));
   if (error) return fail(c, 'delete grant', error);
+  if (before?.tier_id) void reconcileTierMembers(before.tier_id);
+  else if (before?.product_id) void reconcileProductMembers(before.product_id);
   return c.json({ ok: true });
 });
 

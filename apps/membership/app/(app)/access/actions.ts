@@ -23,7 +23,8 @@ function formatApiError(e: unknown): string {
 }
 
 export async function createGrant(input: {
-  tier_id: string;
+  tier_id?: string;
+  product_id?: string;
   kind: GrantKind;
   config: Record<string, unknown>;
 }): Promise<ActionResult<{ id: string }>> {

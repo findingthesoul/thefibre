@@ -75,6 +75,13 @@ seeded into Pulse. What remains:
    self-serve signup flip when the trial ends. Now under the naming brief
    (docs/naming-brief.md): Thread-first — NO per-app product pages (Meet /
    Sales / Flow are functions in Thread's service, never sibling products).
+3b. **Thread asks (Sjoerd, 2026-09-05)**: (a) WORKSPACE-scoped threads —
+   New-thread offers Personal/Team only; workspace scope touches the
+   public-URL contract (organiser/team slugs are published), needs a
+   design call (workspace slug as public face?). (b) Per-EVENT images
+   inside a thread (cover_url exists thread-wide; events in the timeline
+   have none). (c) Adopt shared SearchSelect for timezone pickers +
+   converge the three comboboxes (inventory).
 4. **Naming brief follow-ups** (docs/naming-brief.md, decided 2026-09-01;
    display renames + Thread-first landing shipped v0.23.0):
    - Meet standalone vs event-type-inside-Thread — PRODUCT decision, Sjoerd.
@@ -124,6 +131,11 @@ seeded into Pulse. What remains:
    - Create the soul.com workspace, activate Membership there, connect
      its Stripe account, add the Circle API token, create the first
      tier, rehearse a test join on membership.thefibre.tech.
+   NEXT INCREMENT: pricing rules §3.9 (region multipliers, Sjoerd's
+   country list, self-declared country + card-mismatch admin warning).
+   Then: member self-serve portal; Circle SSO spike (WP-OAuth-preset
+   shaped endpoints — Custom SSO is Circle-Plus-paywalled, presets are
+   not; Sjoerd's screenshots 2026-09-05).
    **Roadmap (proposal §3.6):** Memberful-style integrations catalogue —
    each tool = a new access_grant kind + worker (deploy, not migration);
    then org seats (§3.5), OAuth provider phase 2, plan-gating +
