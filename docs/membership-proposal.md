@@ -212,6 +212,40 @@ Membership is the **system of record**; the family plugs in around it:
   brief-flow-as-planner-engine gap 5: community/org state doesn't belong
   inside Flow).
 
+### 3.9 Pricing rules (designed 2026-09-05, decisions accepted — next increment)
+
+Sjoerd's case: purchasing-power pricing per country (ZA 75%, AO 50%, NL
+100% — he has the list). Generalised the access-grant way: rule KINDS are
+a deploy-time vocabulary, workspaces configure INSTANCES as data.
+
+```
+membership_pricing_rule (
+  id, workspace_id, tier_id nullable,   -- null = all tiers
+  kind,                                 -- 'region' first
+  config jsonb                          -- {"ZA":75,"AO":50,"default":100}
+)
+```
+
+Mechanics: checkout already builds prices inline (price_data), so the
+join flow resolves rules server-side (amount × multiplier), stamps the
+fired rule into subscription metadata, and the join page says so
+plainly ("€90/year — adjusted for South Africa").
+
+Decisions (Sjoerd, 2026-09-05):
+- **Country is self-declared** on the join form (no IP guessing) and
+  stored on the member record.
+- **Card-country mismatch → warning to the workspace admin** (Stripe
+  reports the card's country after payment; a mismatch flags, never
+  blocks).
+- **Migration is deliberate, never silent**: the declared country is
+  editable (admin now, member portal later); a change re-resolves the
+  rule **from the next renewal** (no mid-cycle charge/credit — the seat
+  policy). IP changes never touch a price.
+
+Future kinds from the same layer: solidarity chooser (self-select
+50/75/100 — no geo at all), student, early-bird. A kind is a deploy,
+never a migration.
+
 ### 3.7 Surfaces
 
 - **Public join page** (per workspace): tiers, checkout — Webflow-embeddable

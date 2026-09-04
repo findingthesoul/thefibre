@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.31.2] — 2026-09-05 — Membership 0.1.1: add-member creates contacts
+
+### Fixed
+- **Add member dead-ended on people who weren't contacts yet** ("Pick a
+  person first" with no way forward): the dialog now offers Create
+  "<name>" as a new contact — inline name+email, POST /persons, then the
+  membership. First caught adding Peter Test member on staging.
+
+### Decided
+- **Pricing rules designed** (proposal §3.9): purchasing-power pricing as
+  a rule layer (kind 'region', config per workspace). Country
+  self-declared at join; card-country mismatch warns the admin;
+  migration is deliberate and reprices from the next renewal. Build is
+  the next Membership increment.
+
+### Known
+- Product links reported as not saving — reproduction pending (dialog,
+  schema and route all check out in isolation; needs a live request in
+  the API log).
+
 ## [0.31.1] — 2026-09-05 — the activation grant was never landing
 
 ### Fixed

@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { createMember, searchPersons } from './actions';
+import { createMember, createPerson, searchPersons } from './actions';
 import { dateToIso } from './member-dialog';
 import { personName, type MemberPerson, type Tier } from './types';
 
@@ -16,6 +16,11 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MemberPerson[]>([]);
   const [person, setPerson] = useState<MemberPerson | null>(null);
+  // New-contact mode: the typed name isn't a contact yet — create one
+  // inline instead of dead-ending on "pick a person first".
+  const [newContact, setNewContact] = useState(false);
+  const [newName, setNewName] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [tierId, setTierId] = useState(tiers[0]?.id ?? '');
   const [renewsAt, setRenewsAt] = useState('');
   const [busy, setBusy] = useState(false);
@@ -36,8 +41,8 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
-    if (!person) {
-      setError('Pick a person first.');
+    if (!person && !newContact) {
+      setError('Pick a person, or create a new contact.');
       return;
     }
     if (!tierId) {
@@ -46,8 +51,31 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     }
     setBusy(true);
     setError(null);
+
+    let personId = person?.id ?? null;
+    if (!personId && newContact) {
+      const name = newName.trim();
+      if (!name || !newEmail.trim()) {
+        setError('A new contact needs a name and an email address.');
+        setBusy(false);
+        return;
+      }
+      const parts = name.split(/\s+/);
+      const created = await createPerson({
+        first_name: parts[0] ?? name,
+        last_name: parts.slice(1).join(' ') || '',
+        email: newEmail.trim(),
+      });
+      if (created.error || !created.data) {
+        setError(created.error ?? 'could not create the contact');
+        setBusy(false);
+        return;
+      }
+      personId = created.data.id;
+    }
+
     const res = await createMember({
-      person_id: person.id,
+      person_id: personId!,
       tier_id: tierId,
       renews_at: renewsAt ? dateToIso(renewsAt) : null,
     });
@@ -97,6 +125,35 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                 Change
               </button>
             </div>
+          ) : newContact ? (
+            <div className="space-y-2 rounded-md border border-line bg-surface-sunken p-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs uppercase tracking-wider text-ink-muted">New contact</span>
+                <button
+                  type="button"
+                  className="text-xs text-ink-subtle hover:text-ink underline"
+                  onClick={() => setNewContact(false)}
+                >
+                  Search instead
+                </button>
+              </div>
+              <input
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Full name"
+                className={INPUT}
+              />
+              <input
+                type="email"
+                value={newEmail}
+                onChange={(e) => setNewEmail(e.target.value)}
+                placeholder="Email address"
+                className={INPUT}
+              />
+              <p className="text-xs text-ink-muted">
+                Creates the contact in The Fibre, then adds the membership.
+              </p>
+            </div>
           ) : (
             <>
               <input
@@ -121,6 +178,18 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                     </li>
                   ))}
                 </ul>
+              )}
+              {query.trim().length >= 2 && (
+                <button
+                  type="button"
+                  className="mt-1.5 w-full rounded-md border border-dashed border-line px-3 py-2 text-left text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken"
+                  onClick={() => {
+                    setNewContact(true);
+                    setNewName(query.trim());
+                  }}
+                >
+                  ＋ Create “{query.trim()}” as a new contact
+                </button>
               )}
             </>
           )}

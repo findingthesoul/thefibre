@@ -90,3 +90,22 @@ export async function searchPersons(q: string): Promise<ActionResult<{ items: Me
     return { error: formatApiError(e) };
   }
 }
+
+// Manual add needs a door for people who aren't contacts yet (the
+// "Peter Test member" case — typing a new name dead-ended on "pick a
+// person first"). POST /persons is the platform's contact-creation door.
+export async function createPerson(input: {
+  first_name: string;
+  last_name: string;
+  email: string;
+}): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ id: string }>('/api/v1/persons', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    return { ok: true, data: { id: r.id } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
