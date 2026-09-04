@@ -29,9 +29,17 @@ export function GrantDialog({
   const [tierId, setTierId] = useState(grant?.tier_id ?? tiers[0]?.id ?? '');
   const [kind, setKind] = useState<GrantKind>(grant?.kind ?? 'circle');
   const [ref, setRef] = useState(() => {
-    const raw = grant?.kind === 'circle' ? grant?.config?.space_id : grant?.config?.thread_slug;
+    const raw =
+      grant?.kind === 'circle'
+        ? grant?.config?.space_id
+        : grant?.kind === 'fibre_seat'
+          ? grant?.config?.role
+          : grant?.config?.thread_slug;
     return typeof raw === 'string' || typeof raw === 'number' ? String(raw) : '';
   });
+  const [seatRole, setSeatRole] = useState<'organiser' | 'admin'>(
+    grant?.config?.role === 'admin' ? 'admin' : 'organiser',
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -43,7 +51,7 @@ export function GrantDialog({
       setError('Pick a tier.');
       return;
     }
-    if (!ref.trim()) {
+    if (kind !== 'fibre_seat' && !ref.trim()) {
       setError(kind === 'circle' ? 'Space ID is required.' : 'Thread slug is required.');
       return;
     }
@@ -52,7 +60,12 @@ export function GrantDialog({
     const res = await createGrant({
       tier_id: tierId,
       kind,
-      config: kind === 'circle' ? { space_id: ref.trim() } : { thread_slug: ref.trim() },
+      config:
+        kind === 'circle'
+          ? { space_id: ref.trim() }
+          : kind === 'fibre_seat'
+            ? { role: seatRole }
+            : { thread_slug: ref.trim() },
     });
     if (res.error) {
       setError(res.error);
@@ -142,18 +155,38 @@ export function GrantDialog({
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">
-            {kind === 'circle' ? 'Space ID' : 'Thread slug'}
-          </label>
-          <input
-            value={ref}
-            onChange={(e) => setRef(e.target.value)}
-            disabled={existing}
-            placeholder={kind === 'circle' ? 'e.g. 123456' : 'e.g. post-athens-journey'}
-            className={INPUT}
-          />
-        </div>
+        {kind === 'fibre_seat' ? (
+          <div>
+            <label className="block text-sm font-medium mb-1">Workspace role</label>
+            <select
+              value={seatRole}
+              onChange={(e) => setSeatRole(e.target.value as 'organiser' | 'admin')}
+              disabled={existing}
+              className={INPUT}
+            >
+              <option value="organiser">Organiser</option>
+              <option value="admin">Admin</option>
+            </select>
+            <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40">
+              Each member this grant activates becomes a <strong>billed seat</strong> on your
+              workspace&apos;s Fibre subscription (prorated when added; a lapsed member&apos;s
+              seat stops billing from the next period).
+            </div>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium mb-1">
+              {kind === 'circle' ? 'Space ID' : 'Thread slug'}
+            </label>
+            <input
+              value={ref}
+              onChange={(e) => setRef(e.target.value)}
+              disabled={existing}
+              placeholder={kind === 'circle' ? 'e.g. 123456' : 'e.g. post-athens-journey'}
+              className={INPUT}
+            />
+          </div>
+        )}
         {kind === 'circle' && !circleTokenSet && (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-300 dark:border-amber-900/40">
             Add your Circle API token in Settings for this grant to sync.

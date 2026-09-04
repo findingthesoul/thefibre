@@ -25,7 +25,7 @@
 // so this package keeps no Next.js dependency (same arrangement as HelpPage).
 
 import type { ReactNode } from 'react';
-import { ChevronRight, ExternalLink } from 'lucide-react';
+import { ChevronRight, ExternalLink , Coins } from 'lucide-react';
 
 /** next/link, structurally. See HelpLink in help.tsx for why it is loose. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -153,6 +153,7 @@ export type PlatformSettingKey =
   | 'workspace'
   | 'members'
   | 'apps'
+  | 'currencies'
   | 'plan'
   | 'about'
   | 'privacy';
@@ -204,6 +205,13 @@ const CANON: Record<
     desc: 'Which apps this workspace uses, and the keys that let your own software in.',
     icon: <LayoutGrid {...ICON} />,
     path: '/settings/apps',
+  },
+  currencies: {
+    section: 'workspace',
+    title: 'Currencies',
+    desc: 'Which currencies this workspace sells in, and the default — one list for everything priced.',
+    icon: <Coins {...ICON} />,
+    path: '/settings/currencies',
   },
   plan: {
     section: 'workspace',

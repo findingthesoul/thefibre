@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Globe, Plug, Code2, Coins } from 'lucide-react';
+import { Globe, Plug, Code2 } from 'lucide-react';
 import { appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from './page-chrome';
@@ -39,12 +39,6 @@ export default function SettingsPage() {
           icon: <Code2 {...ICON} />,
           title: 'Website embeds',
           desc: 'Copy-paste snippets to show tiers and take joins on any website.',
-        },
-        {
-          href: '/settings/currencies',
-          icon: <Coins {...ICON} />,
-          title: 'Currencies',
-          desc: 'Which currencies this workspace sells in — one list for everything priced.',
         },
       ],
     },

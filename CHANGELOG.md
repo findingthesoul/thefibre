@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.35.0] — 2026-09-05 — Membership 0.3.0: the seat grant + currencies go platform-wide
+
+### Added
+- **Grant kind fibre_seat** (proposal §3.10 built): a tier can grant a
+  workspace seat — the worker provisions user + workspace_member with the
+  invite flow's exact seat policy (allowance → billable → refuse, error
+  surfaced in the journal), reconciles seat billing both ways, revoke
+  closes the seat from the next period. The grant dialog names the
+  billed-seat cost before save. The built-in integration — same journal
+  and cadence as Circle.
+- **ECB reference rates** (/api/v1/currencies/rates, Frankfurter mirror,
+  12h cache): indicative conversion display; charging never converts.
+
+### Changed
+- **Currencies is a platform-wide setting now** (Sjoerd: "currency should
+  be a platform-wide setting… a module"): settings-canon key under
+  Workspace, edited at The Fibre → Settings → Currencies (shared
+  CurrencyEditor component with injected save), every app's hub links
+  there; Membership's app-section copy removed. Per-product currency
+  shift stays (built yesterday); ECB rates shown on the editor.
+
 ## [0.34.0] — 2026-09-05 — app access without workspace admin
 
 ### Added

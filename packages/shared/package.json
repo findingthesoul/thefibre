@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.34.0",
+  "version": "0.35.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -41,6 +41,10 @@
     "./ui/invoices": {
       "types": "./dist/ui/invoices.d.ts",
       "default": "./dist/ui/invoices.js"
+    },
+    "./ui/currency-editor": {
+      "types": "./dist/ui/currency-editor.d.ts",
+      "default": "./dist/ui/currency-editor.js"
     }
   },
   "files": [

@@ -15,6 +15,7 @@ import {
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
 import { runCircleAccessSync } from '../lib/circle.js';
+import { runFibreSeatSync } from '../lib/fibre-seat.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -88,7 +89,7 @@ const PatchMember = z.object({
 
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
 // deliberately has no CHECK so adding one here is enough.
-const GrantKind = z.enum(['circle', 'thread']);
+const GrantKind = z.enum(['circle', 'thread', 'fibre_seat']);
 const CreateGrant = z.object({
   tier_id: z.string().uuid(),
   kind: GrantKind,
@@ -1316,11 +1317,16 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
     }
   }
 
-  // 3 · Drain the access journal (Circle invites / removals).
+  // 3 · Drain the access journal (Circle invites / removals, Fibre seats).
   try {
     await runCircleAccessSync();
   } catch (e) {
     console.error('[membership/scheduler] circle sync failed', e);
+  }
+  try {
+    await runFibreSeatSync();
+  } catch (e) {
+    console.error('[membership/scheduler] fibre-seat sync failed', e);
   }
 
   return out;
