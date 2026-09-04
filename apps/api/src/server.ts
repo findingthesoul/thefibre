@@ -34,6 +34,7 @@ import { uploadRoutes } from './routes/uploads.js';
 import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
+import { maybeSyncVatRates } from './lib/vat-sync.js';
 
 const app = new Hono();
 
@@ -247,6 +248,8 @@ setTimeout(() => {
   );
 }, 20_000);
 setInterval(() => {
+  // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
+  void maybeSyncVatRates();
   void runThreadMessageScheduler().catch((e) =>
     console.error('[thread/scheduler] run failed', e),
   );

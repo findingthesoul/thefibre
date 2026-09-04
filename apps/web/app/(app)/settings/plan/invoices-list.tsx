@@ -50,6 +50,7 @@ export function InvoicesList({ invoices }: { invoices: InvoicePurchase[] }) {
           open
           onClose={() => setOpenId(null)}
           printHref={`/settings/plan/invoices/${open.id}`}
+          pdfHref={`/settings/plan/invoices/${open.id}/pdf`}
           onEmail={async (to) => {
             const r = await emailInvoice(open.id, to);
             return r.error ?? null;

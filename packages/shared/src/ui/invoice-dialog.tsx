@@ -56,6 +56,7 @@ export function InvoiceDialog({
   onClose,
   /** Absolute or app-relative href of the full-page (printable) invoice. */
   printHref,
+  pdfHref,
   /** Send the receipt/invoice email to an address; resolve to error text or null. */
   onEmail,
 }: {
@@ -64,6 +65,8 @@ export function InvoiceDialog({
   open: boolean;
   onClose: () => void;
   printHref?: string;
+  /** The app's own PDF endpoint — used for Download PDF when provided. */
+  pdfHref?: string;
   onEmail?: (to: string) => Promise<string | null>;
 }) {
   const [copied, setCopied] = useState(false);
@@ -93,7 +96,7 @@ export function InvoiceDialog({
   ]
     .filter(Boolean)
     .join(', ');
-  const pdfUrl = b.pdf ?? purchase.stripe_invoice_url ?? null;
+  const pdfUrl = pdfHref ?? b.pdf ?? purchase.stripe_invoice_url ?? null;
   const shareUrl =
     purchase.stripe_invoice_url ??
     (printHref && typeof window !== 'undefined' ? new URL(printHref, window.location.origin).href : null);

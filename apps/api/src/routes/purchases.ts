@@ -7,6 +7,7 @@
 
 import { Hono } from 'hono';
 import { ENTITY } from '@thefibre/shared';
+import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { sendEmail } from '../lib/email/client.js';
@@ -315,6 +316,30 @@ export async function sendReceipt(
   }
   return { ok: true };
 }
+
+// GET /api/v1/purchases/:id/pdf — the FIBRE's invoice as a PDF, drawn from
+// the ledger row ("Download PDF opens Stripe" — it must not). Platform rows
+// carry the platform as seller; app sales carry the resolved seller SPoT.
+purchasesRoutes.get('/:id/pdf', async (c) => {
+  const ctx = c.get('ctx');
+  const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
+  if ('error' in r) return c.json({ error: r.error }, r.code as 404);
+  const p = r.purchase as unknown as PdfInvoice & { organiser_user_id?: string | null };
+  const seller =
+    r.appSlug === 'fibre-platform'
+      ? { legal_name: ENTITY.name, address: ENTITY.address }
+      : ((await sellerDetailsFor(ctx.workspaceId, p.organiser_user_id ?? null)) ?? {
+          legal_name: '',
+        });
+  const pdf = await buildInvoicePdf(p, { legal_name: seller.legal_name ?? '', ...seller });
+  const number = String(p.billing?.number ?? (r.purchase as { id: string }).id);
+  return new Response(new Uint8Array(pdf), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${number.replace(/[^A-Za-z0-9-]/g, '')}.pdf"`,
+    },
+  });
+});
 
 // POST /api/v1/purchases/:id/resend-invoice — receipt to the payer, or to
 // any address given in the body ("email to" on the invoice popup). Platform

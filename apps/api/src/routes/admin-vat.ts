@@ -4,6 +4,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { getVatRates, setVatRates } from '../lib/vat.js';
+import { syncVatRatesFromStripe, lastVatSync } from '../lib/vat-sync.js';
 import { isSuperAdminUser } from '../lib/super-admin.js';
 
 export const adminVatRoutes = new Hono();
@@ -11,7 +12,16 @@ export const adminVatRoutes = new Hono();
 adminVatRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
   if (!(await isSuperAdminUser(ctx))) return c.json({ error: 'super admin required' }, 403);
-  return c.json(await getVatRates());
+  const [rates, sync] = await Promise.all([getVatRates(), lastVatSync()]);
+  return c.json({ ...rates, last_sync: sync });
+});
+
+// The magic, on demand: probe Stripe Tax per country, apply + report drift.
+adminVatRoutes.post('/sync', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isSuperAdminUser(ctx))) return c.json({ error: 'super admin required' }, 403);
+  const log = await syncVatRatesFromStripe();
+  return c.json(log);
 });
 
 const Body = z.object({

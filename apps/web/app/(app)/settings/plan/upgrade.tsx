@@ -151,7 +151,7 @@ export function UpgradePanel({
 
         {subscribed && (
           <Button variant="ghost" size="sm" onClick={() => run(openPortal)} disabled={pending}>
-            Invoices &amp; card
+            Payment method
           </Button>
         )}
       </div>
