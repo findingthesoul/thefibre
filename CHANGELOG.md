@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.31.1] — 2026-09-05 — the activation grant was never landing
+
+### Fixed
+- **Activating an app never granted the activator app_membership** —
+  app_membership deliberately has no authenticated write policy, so the
+  workspace-apps route's userClient upsert was silently RLS-refused since
+  the day it was written. Every earlier app's grants came from migrations
+  and bootstraps; Membership was the first activation with no fallback
+  (symptom: toggle says ACTIVE, app switcher never shows it, the app
+  itself bounces to no-access). The grant now runs on adminClient — the
+  one deliberate code path allowed to write that table; the table stays
+  locked to self-serve writes on purpose. Sjoerd's staging grant
+  backfilled by hand.
+
 ## [0.31.0] — 2026-09-05 — Membership 0.1.0: the 7th app, whole
 
 *"I want to build. No question asked. A full integrated platform."*

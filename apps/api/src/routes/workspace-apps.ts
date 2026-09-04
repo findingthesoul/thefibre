@@ -121,7 +121,16 @@ workspaceAppsRoutes.post('/', async (c) => {
 
   // Grant the activating user membership for this app (idempotent).
   // Default role = 'admin' — they activated it; they own its config.
-  const { error: mErr } = await db
+  //
+  // adminClient ON PURPOSE: app_membership deliberately has no authenticated
+  // write policy (a self-serve INSERT policy would let anyone grant
+  // themselves any app via PostgREST). Through userClient this upsert was
+  // silently RLS-refused since the day it was written — every earlier app's
+  // grants came from migrations/bootstraps, and Membership (2026-09-05) was
+  // the first activation with nothing to fall back on. The middleware has
+  // already authenticated ctx.userId, and activating an app for your
+  // workspace is exactly the moment you're entitled to a seat in it.
+  const { error: mErr } = await adminClient
     .from('app_membership')
     .upsert(
       {
@@ -133,8 +142,7 @@ workspaceAppsRoutes.post('/', async (c) => {
     );
   if (mErr) {
     console.error('[workspace-apps POST] membership upsert', mErr);
-    // Non-fatal: the app is activated. The user can grant themselves access
-    // via a future members UI.
+    // Non-fatal: the app is activated; an admin can re-toggle to retry.
   }
 
   return c.json({ ok: true, app, workspace_app: wapp });
