@@ -44,12 +44,6 @@ seeded into Pulse. What remains:
    library (today's thread templates are workspace-scoped duplicates); the
    new-thread flow offers library templates filtered by the plan's limit;
    the designer stays behind thread_custom_templates (Pro+).
-1f. **Adopt the shared invoice dialog family-wide** —
-   `@thefibre/shared/ui/invoice-dialog` (0.26.1) is the one ref of truth for
-   viewing/sharing an invoice (share link / PDF / email-to / print). Meet,
-   Thread and Pulse invoices-client.tsx each carry a near-identical detail
-   dialog: converge them on the shared component (their action buttons —
-   reimburse, mark-paid, send-payment-link — stay app-side around it).
 2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
