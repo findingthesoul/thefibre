@@ -57,8 +57,11 @@ seeded into Pulse. What remains:
    export first). Seat follow-ups (Sjoerd, 2026-09-04):
    - **Member removal doesn't exist yet** — /members has GET/POST/PATCH but
      no DELETE, so a seat can't be closed. Build it, call
-     `reconcileSeatBilling` after (the reconciler already shrinks the
-     quantity — Stripe credits the unused time by proration).
+     `reconcileSeatBilling` after. DECIDED (Sjoerd, 2026-09-04): a removed
+     seat stops billing FROM THE NEXT PERIOD, no mid-month credit — shrink
+     the quantity with `proration_behavior: 'none'` ("only active and
+     minimum"; the paid month runs out, the next invoice counts fewer).
+     Additions stay prorated from the day they land.
    - **Confirm the cost when an invite adds a paid seat** ("if you go
      beyond accepting a seat, you have to accept the monthly extra pay"):
      invite past the allowance → the admin sees "this adds €8/month to your
