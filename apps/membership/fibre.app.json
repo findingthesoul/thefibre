@@ -1,0 +1,26 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "membership",
+  "app_name": "Membership",
+  "version": "0.1.0",
+  "description": "Tiered community memberships: recurring subscriptions, a product catalogue, and access to member spaces.",
+  "scopes_requested": [],
+  "entity_mappings": [
+    { "entity": "person", "mapping_kind": "curator_data", "fields": ["tier", "status", "started_at", "renews_at"] }
+  ],
+  "curator_fields": [
+    { "entity": "person", "field": "tier", "justification": "Which membership tier this person holds — gates access grants and pricing." },
+    { "entity": "person", "field": "status", "justification": "Lifecycle state (active/grace/lapsed/cancelled) — drives access sync and renewal machinery." },
+    { "entity": "person", "field": "renews_at", "justification": "Next renewal date — drives reminders and the grace/lapse sweep." }
+  ],
+  "activity_types": [
+    { "type": "membership_joined", "subject": "Joined · {tier}" },
+    { "type": "membership_renewed", "subject": "Renewed · {tier}" },
+    { "type": "membership_tier_changed", "subject": "Tier changed · {tier}" },
+    { "type": "membership_payment_failed", "subject": "Payment failed — grace period" },
+    { "type": "membership_lapsed", "subject": "Membership lapsed" },
+    { "type": "membership_rejoined", "subject": "Rejoined" },
+    { "type": "membership_cancelled", "subject": "Membership cancelled" }
+  ],
+  "deactivation": "Member records, tiers and products stay in place (soft state); access sync stops. Reactivation resumes where it left off."
+}
