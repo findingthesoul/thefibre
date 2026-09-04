@@ -84,7 +84,7 @@ await check('sign-in page reachable', async () => {
 // @thefibre/shared branding.ts) — a title mismatch means the domain is
 // routed to the wrong Vercel project.
 const apex = new URL(WEB).hostname.replace(/^www\./, '');
-const APP_TITLES = { meet: 'Meet', thread: 'Thread', flow: 'Flow', pulse: 'Pulse' };
+const APP_TITLES = { meet: 'Meet', thread: 'Thread', flow: 'Flow', pulse: 'Pulse', membership: 'Membership' };
 for (const [sub, title] of Object.entries(APP_TITLES)) {
   await check(`${sub}.${apex} serves ${title}, not another app`, async () => {
     const r = await get(`https://${sub}.${apex}/`);

@@ -168,9 +168,9 @@ person. Leave the Stripe secrets for step F.
 2. That's it for now — the DNS records come from Vercel in step E (it shows
    you the exact A/CNAME values when you add each domain).
 
-### E · Vercel — five projects, staging env (~15 min, repetitive)
+### E · Vercel — six projects, staging env (~15 min, repetitive)
 
-For **each** of the five projects (web, meet, thread, flow, pulse):
+For **each** of the six projects (web, meet, thread, flow, pulse, membership):
 
 1. **Settings → Environment Variables** — add these, scoped to
    **Preview** and (important) limited to the **`staging` branch** where the

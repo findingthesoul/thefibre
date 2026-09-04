@@ -14,6 +14,7 @@ import {
   membershipPaymentFailed,
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
+import { runCircleAccessSync } from '../lib/circle.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -511,6 +512,42 @@ membershipRoutes.delete('/grants/:id', async (c) => {
   const { error } = await db.from('membership_access_grant').delete().eq('id', c.req.param('id'));
   if (error) return fail(c, 'delete grant', error);
   return c.json({ ok: true });
+});
+
+// Retry failed syncs: error rows flip back to the direction the member's
+// CURRENT state implies, and the next scheduler tick re-runs them.
+membershipRoutes.post('/access/retry', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx.workspaceId, ctx.userId))) {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  const { data: errored } = await adminClient
+    .from('membership_member_access')
+    .select(
+      'id, access_grant_id, member:member_id (workspace_id, status, tier_id), grant:access_grant_id (tier_id)',
+    )
+    .eq('status', 'error');
+  let retried = 0;
+  for (const row of (errored ?? []) as unknown as {
+    id: string;
+    member: { workspace_id: string; status: string; tier_id: string } | null;
+    grant: { tier_id: string } | null;
+  }[]) {
+    if (row.member?.workspace_id !== ctx.workspaceId) continue;
+    const entitled =
+      (row.member.status === 'active' || row.member.status === 'grace') &&
+      row.grant?.tier_id === row.member.tier_id;
+    await adminClient
+      .from('membership_member_access')
+      .update({
+        status: entitled ? 'pending' : 'revoke_pending',
+        last_error: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', row.id);
+    retried += 1;
+  }
+  return c.json({ retried });
 });
 
 // ---------------------------------------------------------------------------
@@ -1264,6 +1301,13 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
       await reconcileMemberAccess(m.id);
       out.lapsed += 1;
     }
+  }
+
+  // 3 · Drain the access journal (Circle invites / removals).
+  try {
+    await runCircleAccessSync();
+  } catch (e) {
+    console.error('[membership/scheduler] circle sync failed', e);
   }
 
   return out;
