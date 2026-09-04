@@ -277,6 +277,7 @@ export async function sendReceipt(
   workspaceId: string,
   purchase: Record<string, unknown>,
   sellerOverride?: SellerDetails,
+  toOverride?: string,
 ): Promise<{ ok: true } | { error: string; code: number }> {
   const p = purchase as unknown as {
     payer_name: string;
@@ -286,14 +287,15 @@ export async function sendReceipt(
     organiser_user_id?: string | null;
     status?: string;
   };
-  if (!p.payer_email) return { error: 'no payer email on file', code: 409 };
+  const recipient = toOverride ?? p.payer_email;
+  if (!recipient) return { error: 'no payer email on file', code: 409 };
   const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
   const button = p.stripe_invoice_url
     ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
     : '';
   try {
     await sendEmail({
-      to: p.payer_email,
+      to: recipient,
       subject: `${p.status === 'pending' ? 'Invoice' : 'Your receipt'} — ${p.item_label}`,
       html: receiptHtml(purchase as unknown as ReceiptPurchase, button, seller),
       text: `Your receipt for ${p.item_label}${p.stripe_invoice_url ? `: ${p.stripe_invoice_url}` : ''}`,
@@ -305,12 +307,21 @@ export async function sendReceipt(
   return { ok: true };
 }
 
-// POST /api/v1/purchases/:id/resend-invoice — receipt to the payer.
+// POST /api/v1/purchases/:id/resend-invoice — receipt to the payer, or to
+// any address given in the body ("email to" on the invoice popup). Platform
+// subscription rows carry the PLATFORM as seller — the workspace's own
+// details are the buyer there, never the "From".
 purchasesRoutes.post('/:id/resend-invoice', async (c) => {
   const ctx = c.get('ctx');
   const r = await loadForAction(ctx.jwt, ctx.userId, ctx.workspaceId, c.req.param('id'));
   if ('error' in r) return c.json({ error: r.error }, r.code as 404);
-  const sent = await sendReceipt(ctx.workspaceId, r.purchase);
+  const body = (await c.req.json().catch(() => ({}))) as { to?: string };
+  const to = typeof body.to === 'string' && /.+@.+\..+/.test(body.to) ? body.to : undefined;
+  const seller =
+    r.appSlug === 'fibre-platform'
+      ? { legal_name: ENTITY.name, address: ENTITY.address }
+      : undefined;
+  const sent = await sendReceipt(ctx.workspaceId, r.purchase, seller, to);
   if ('error' in sent) return c.json({ error: sent.error }, sent.code as 409);
   return c.json({ ok: true });
 });
@@ -511,7 +522,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );
     await sendEmail({
-      to: p.payer_email,
+      to: recipient,
       subject: `Payment link — ${p.item_label}`,
       html: receiptHtml(
         p,

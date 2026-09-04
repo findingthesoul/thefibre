@@ -33,6 +33,10 @@
     "./ui/profile-form": {
       "types": "./dist/ui/profile-form.d.ts",
       "default": "./dist/ui/profile-form.js"
+    },
+    "./ui/invoice-dialog": {
+      "types": "./dist/ui/invoice-dialog.d.ts",
+      "default": "./dist/ui/invoice-dialog.js"
     }
   },
   "files": [

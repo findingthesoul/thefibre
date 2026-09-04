@@ -574,6 +574,8 @@ async function invoicePaid(invoice: Stripe.Invoice): Promise<void> {
     country: addr?.country ?? null,
     tax_no: invoice.customer_tax_ids?.[0]?.value ?? null,
     period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    // Direct PDF download (invoice_pdf), distinct from the hosted page.
+    pdf: invoice.invoice_pdf ?? null,
   };
 
   const itemRef = invoice.id ?? `invoice-${Date.now()}`;

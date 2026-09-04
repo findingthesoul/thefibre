@@ -3,6 +3,8 @@ import { PageContainer, PageHeader, Breadcrumb, SectionLabel, EmptyState } from 
 import { ENTITY } from '@thefibre/shared';
 import { FEATURE_GROUPS, eur, feePhrase, type CataloguePlan } from '@/lib/plans';
 import { UpgradePanel } from './upgrade';
+import { InvoicesList } from './invoices-list';
+import type { InvoicePurchase } from '@thefibre/shared/ui/invoice-dialog';
 
 // Settings → Plan — the page every needsPlan() refusal has pointed at since
 // the gates landed ("Settings → Plan has the details"). Three answers in one
@@ -73,21 +75,12 @@ export default async function PlanPage({
   const { plan, usage, catalogue, billing } = data;
 
   // The workspace's own Fibre invoices — fibre-platform rows in the purchase
-  // ledger, written by the billing webhook. Where you bought the plan is
-  // where its invoices live (Sjoerd, 2026-09-03: "Where can I see my invoice
-  // as a workspace?"). Admin-scoped; non-admins simply see no section.
-  type Invoice = {
-    id: string;
-    item_label: string;
-    amount_cents: number;
-    currency: string;
-    status: string;
-    paid_at: string | null;
-    stripe_invoice_url: string | null;
-  };
-  let invoices: Invoice[] = [];
+  // ledger, written by the billing webhook. Opened in the SHARED invoice
+  // dialog (share link / PDF / email to / print) — the one viewer for the
+  // whole family. Admin-scoped; non-admins simply see no section.
+  let invoices: InvoicePurchase[] = [];
   try {
-    const inv = await apiFetch<{ items: Invoice[] }>(
+    const inv = await apiFetch<{ items: InvoicePurchase[] }>(
       '/api/v1/purchases?scope=workspace&app=fibre-platform',
     );
     invoices = inv.items;
@@ -227,31 +220,7 @@ export default async function PlanPage({
       {invoices.length > 0 && (
         <section className="mt-12">
           <SectionLabel>Your Fibre invoices</SectionLabel>
-          <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface-raised">
-            {invoices.map((inv) => (
-              <li key={inv.id} className="flex items-baseline justify-between gap-4 px-4 py-3 text-sm">
-                <div className="min-w-0">
-                  <span className="truncate">{inv.item_label}</span>
-                  <span className="ml-2 text-xs text-ink-muted">
-                    {inv.paid_at
-                      ? new Date(inv.paid_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })
-                      : inv.status}
-                  </span>
-                </div>
-                <div className="flex shrink-0 items-baseline gap-3">
-                  <span className="font-mono">{eur(inv.amount_cents)}</span>
-                  {/* The Fibre's own invoice view — Stripe's copy is a
-                      footnote on the detail page, not the destination. */}
-                  <a
-                    href={`/settings/plan/invoices/${inv.id}`}
-                    className="text-xs underline underline-offset-2 text-ink-subtle hover:text-ink"
-                  >
-                    View invoice
-                  </a>
-                </div>
-              </li>
-            ))}
-          </ul>
+          <InvoicesList invoices={invoices} />
         </section>
       )}
 

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation';
 import { ENTITY } from '@thefibre/shared';
 import { apiFetch } from '@/lib/api';
 import { eur } from '@/lib/plans';
+import { AutoPrint } from './auto-print';
 
 // The invoice, IN the Fibre ("my invoices are still in Stripe" — Sjoerd,
 // 2026-09-04). Rendered entirely from the ledger row: the webhook captures
@@ -38,10 +39,13 @@ type Purchase = {
 
 export default async function FibreInvoicePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ print?: string }>;
 }) {
   const { id } = await params;
+  const { print } = await searchParams;
   let invoice: Purchase | undefined;
   try {
     const data = await apiFetch<{ items: Purchase[] }>(
@@ -65,6 +69,7 @@ export default async function FibreInvoicePage({
 
   return (
     <div className="mx-auto max-w-2xl px-8 py-12 print:px-0 print:py-0">
+      {print && <AutoPrint />}
       <div className="mb-8 flex items-center justify-between print:hidden">
         <Link href="/settings/plan" className="text-sm text-ink-subtle hover:text-ink">
           ← Plan

@@ -66,6 +66,19 @@ export async function resumePlan(): Promise<BillingActionResult> {
   }
 }
 
+/** Email an invoice/receipt to any address (the shared invoice dialog). */
+export async function emailInvoice(id: string, to: string): Promise<BillingActionResult> {
+  try {
+    await apiFetch(`/api/v1/purchases/${encodeURIComponent(id)}/resend-invoice`, {
+      method: 'POST',
+      body: JSON.stringify({ to }),
+    });
+    return {};
+  } catch (e) {
+    return { error: message(e) };
+  }
+}
+
 export async function openPortal(): Promise<BillingActionResult> {
   try {
     const r = await apiFetch<{ url: string }>('/api/v1/billing/portal', { method: 'POST' });
