@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.34.0] — 2026-09-05 — app access without workspace admin
+
+### Added
+- **Per-app access with roles on the Members page** (Fibre web): each
+  activated app gets a — / Member / Admin select per person. The
+  checkboxes existed but their allow-list was stale (Pulse and Membership
+  missing — now the catalogue answers, the v0.14.0 rule) and every save
+  silently downgraded app-admins to member (role now explicit).
+- **App-level admin** (has_app_role): role 'admin' on the Membership app
+  manages tiers/members/grants/settings WITHOUT workspace admin — the
+  "soul office" case: grant the office people Membership (Admin), the
+  rest stay out entirely; members themselves get the self-serve portal
+  (queued).
+
+### Notes
+- Member portal (each member sees only their own membership) queued as
+  its own build in the proposal §3.7 follow-up.
+
 ## [0.33.2] — 2026-09-05 — selected means selected
 
 ### Fixed

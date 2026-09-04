@@ -113,16 +113,29 @@ function fail(c: any, where: string, error: { message: string; code?: string; de
 }
 
 // membership_settings is service-role-only (it holds the Circle token), so
-// RLS can't gate it — check the role explicitly, the workspace_member way.
-async function isWorkspaceAdmin(workspaceId: string, userId: string): Promise<boolean> {
+// RLS can't gate it — check explicitly. Two doors (2026-09-05, "some people
+// should have access other than the workspace admin"): workspace admin, or
+// app-level role 'admin' on Membership (mirrors the has_app_role RLS gate).
+async function isMembershipAdmin(workspaceId: string, userId: string): Promise<boolean> {
   if (!userId) return false;
-  const { data } = await adminClient
-    .from('workspace_member')
-    .select('workspace_role')
-    .eq('workspace_id', workspaceId)
+  const [{ data: wm }, app] = await Promise.all([
+    adminClient
+      .from('workspace_member')
+      .select('workspace_role')
+      .eq('workspace_id', workspaceId)
+      .eq('user_id', userId)
+      .maybeSingle(),
+    appId(),
+  ]);
+  if (wm?.workspace_role === 'admin' || wm?.workspace_role === 'super_admin') return true;
+  if (!app) return false;
+  const { data: am } = await adminClient
+    .from('app_membership')
+    .select('role')
     .eq('user_id', userId)
+    .eq('app_id', app)
     .maybeSingle();
-  return data?.workspace_role === 'admin' || data?.workspace_role === 'super_admin';
+  return am?.role === 'admin';
 }
 
 const membershipAppId = { id: null as string | null };
@@ -518,7 +531,7 @@ membershipRoutes.delete('/grants/:id', async (c) => {
 // CURRENT state implies, and the next scheduler tick re-runs them.
 membershipRoutes.post('/access/retry', async (c) => {
   const ctx = c.get('ctx');
-  if (!(await isWorkspaceAdmin(ctx.workspaceId, ctx.userId))) {
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
     return c.json({ error: 'admin only' }, 403);
   }
   const { data: errored } = await adminClient
@@ -556,7 +569,7 @@ membershipRoutes.post('/access/retry', async (c) => {
 
 membershipRoutes.get('/settings', async (c) => {
   const ctx = c.get('ctx');
-  if (!(await isWorkspaceAdmin(ctx.workspaceId, ctx.userId))) {
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
     return c.json({ error: 'admin only' }, 403);
   }
   const { data, error } = await adminClient
@@ -577,7 +590,7 @@ membershipRoutes.put('/settings', async (c) => {
   const body = PutSettings.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
-  if (!(await isWorkspaceAdmin(ctx.workspaceId, ctx.userId))) {
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
     return c.json({ error: 'admin only' }, 403);
   }
   const row: Record<string, unknown> = { workspace_id: ctx.workspaceId, updated_at: new Date().toISOString() };

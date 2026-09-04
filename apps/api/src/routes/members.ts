@@ -17,7 +17,58 @@ import { wouldOrphanWorkspace, ORPHAN_ERROR } from '../lib/workspace-roles.js';
 
 export const membersRoutes = new Hono();
 
-const GRANTABLE = ['fibre-meet', 'the-thread', 'fibre-flow', 'fibre-sales', 'fibre-learn'];
+// Ask the catalogue, never a hardcoded list (the v0.14.0 rule — this WAS a
+// stale allow-list: Pulse and Membership were missing, so their checkboxes
+// never appeared on the Members page). First-party approved apps only;
+// external apps reach the platform through app keys, not user grants.
+let grantableCache: { slugs: string[]; at: number } | null = null;
+async function grantableSlugs(): Promise<string[]> {
+  if (grantableCache && Date.now() - grantableCache.at < 5 * 60 * 1000) {
+    return grantableCache.slugs;
+  }
+  const { data } = await adminClient
+    .from('app')
+    .select('slug')
+    .eq('status', 'approved')
+    .eq('kind', 'first_party')
+    .neq('slug', 'fibre-platform');
+  const slugs = (data ?? []).map((a) => a.slug);
+  grantableCache = { slugs, at: Date.now() };
+  return slugs;
+}
+
+// One grant entry: bare slug (role member) or {slug, role}. The role is
+// APP-level: 'admin' manages that app's content without workspace admin
+// (has_app_role gates in RLS — Membership first).
+const AppGrant = z.union([
+  z.string(),
+  z.object({ slug: z.string(), role: z.enum(['member', 'admin']).default('member') }),
+]);
+type AppGrantIn = z.infer<typeof AppGrant>;
+function normalizeGrants(list: AppGrantIn[]): { slug: string; role: 'member' | 'admin' }[] {
+  return list.map((g) => (typeof g === 'string' ? { slug: g, role: 'member' as const } : { slug: g.slug, role: g.role }));
+}
+
+// Reconcile a user's app grants against the wanted set. Sets the role
+// explicitly (the UI always sends the full picture), deletes the rest.
+async function syncAppGrants(userId: string, wanted: { slug: string; role: 'member' | 'admin' }[]) {
+  const grantable = await grantableSlugs();
+  const bySlug = new Map(wanted.filter((w) => grantable.includes(w.slug)).map((w) => [w.slug, w.role]));
+  const { data: allApps } = await adminClient
+    .from('app')
+    .select('id, slug')
+    .in('slug', grantable.length ? grantable : ['-']);
+  for (const app of allApps ?? []) {
+    const role = bySlug.get(app.slug);
+    if (role) {
+      await adminClient
+        .from('app_membership')
+        .upsert({ user_id: userId, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
+    } else {
+      await adminClient.from('app_membership').delete().eq('user_id', userId).eq('app_id', app.id);
+    }
+  }
+}
 
 membersRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
@@ -64,7 +115,7 @@ const MemberInvite = z.object({
   name: z.string().max(200).optional(),
   workspace_role: z.enum(['super_admin', 'admin', 'organiser']).default('organiser'),
   relationship_type: z.enum(['internal', 'external']).default('internal'),
-  apps: z.array(z.string()).default([]),
+  apps: z.array(AppGrant).default([]),
 });
 
 membersRoutes.post('/', async (c) => {
@@ -182,14 +233,21 @@ membersRoutes.post('/', async (c) => {
     { onConflict: 'user_id,workspace_id' },
   );
 
-  // App grants.
-  const slugs = body.data.apps.filter((s) => GRANTABLE.includes(s));
-  if (slugs.length) {
-    const { data: apps } = await adminClient.from('app').select('id, slug').in('slug', slugs);
+  // App grants — additive on invite (never strips grants the user already
+  // holds from another workspace context).
+  const wanted = normalizeGrants(body.data.apps);
+  if (wanted.length) {
+    const grantable = await grantableSlugs();
+    const usable = wanted.filter((w) => grantable.includes(w.slug));
+    const { data: apps } = await adminClient
+      .from('app')
+      .select('id, slug')
+      .in('slug', usable.length ? usable.map((w) => w.slug) : ['-']);
     for (const app of apps ?? []) {
+      const role = usable.find((w) => w.slug === app.slug)?.role ?? 'member';
       await adminClient
         .from('app_membership')
-        .upsert({ user_id: u.id, app_id: app.id, role: 'member' }, { onConflict: 'user_id,app_id' });
+        .upsert({ user_id: u.id, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
     }
   }
 
@@ -232,8 +290,9 @@ ${emailSignoff()}`;
 const MemberPatch = z.object({
   workspace_role: z.enum(['super_admin', 'admin', 'organiser']).optional(),
   relationship_type: z.enum(['internal', 'external']).optional(),
-  /** Replace the user's app grants (fibre-platform is never touched). */
-  apps: z.array(z.string()).optional(),
+  /** Replace the user's app grants incl. app-level roles (fibre-platform
+   *  is never touched). Bare strings mean role 'member'. */
+  apps: z.array(AppGrant).optional(),
 });
 
 membersRoutes.patch('/:userId', async (c) => {
@@ -273,27 +332,8 @@ membersRoutes.patch('/:userId', async (c) => {
   }
 
   if (body.data.apps) {
-    const slugs = body.data.apps.filter((s) => GRANTABLE.includes(s));
-    const { data: allApps } = await adminClient
-      .from('app')
-      .select('id, slug')
-      .in('slug', GRANTABLE);
-    for (const app of allApps ?? []) {
-      if (slugs.includes(app.slug)) {
-        await adminClient
-          .from('app_membership')
-          .upsert(
-            { user_id: userId, app_id: app.id, role: 'member' },
-            { onConflict: 'user_id,app_id' },
-          );
-      } else {
-        await adminClient
-          .from('app_membership')
-          .delete()
-          .eq('user_id', userId)
-          .eq('app_id', app.id);
-      }
-    }
+    // The UI sends the full grant picture incl. roles — reconcile against it.
+    await syncAppGrants(userId, normalizeGrants(body.data.apps));
   }
 
   return c.json({ ok: true });

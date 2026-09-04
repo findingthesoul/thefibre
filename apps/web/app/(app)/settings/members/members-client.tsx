@@ -57,8 +57,8 @@ function MemberRow({ member, appSlugs }: { member: Member; appSlugs: AppSlug[] }
   // Optimistic view of the mutable bits. Reverted on API error.
   const [role, setRole] = useState(member.workspace_role);
   const [relationship, setRelationship] = useState(member.relationship_type);
-  const [grants, setGrants] = useState<Set<string>>(
-    () => new Set(member.apps.map((a) => a.slug)),
+  const [grants, setGrants] = useState<Map<string, string>>(
+    () => new Map(member.apps.map((a) => [a.slug, a.role])),
   );
 
   function patch(p: MemberPatch, revert: () => void) {
@@ -86,14 +86,17 @@ function MemberRow({ member, appSlugs }: { member: Member; appSlugs: AppSlug[] }
     patch({ relationship_type: next }, () => setRelationship(prev));
   }
 
-  function onGrant(slug: string, checked: boolean) {
-    const prev = new Set(grants);
-    const next = new Set(grants);
-    if (checked) next.add(slug);
+  function onGrant(slug: string, role: '' | 'member' | 'admin') {
+    const prev = new Map(grants);
+    const next = new Map(grants);
+    if (role) next.set(slug, role);
     else next.delete(slug);
     setGrants(next);
-    // apps REPLACES the grant set on the API side.
-    patch({ apps: [...next] }, () => setGrants(prev));
+    // apps REPLACES the grant set (incl. app-level roles) on the API side.
+    patch(
+      { apps: [...next.entries()].map(([s, r]) => ({ slug: s, role: r as 'member' | 'admin' })) },
+      () => setGrants(prev),
+    );
   }
 
   return (
@@ -152,18 +155,23 @@ function MemberRow({ member, appSlugs }: { member: Member; appSlugs: AppSlug[] }
             </span>
             <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-2 py-1.5">
               {appSlugs.map((slug) => (
-                <label
-                  key={slug}
-                  className="inline-flex items-center gap-1.5 text-sm cursor-pointer"
-                >
-                  <input
-                    type="checkbox"
-                    className="accent-ink"
-                    checked={grants.has(slug)}
+                <label key={slug} className="inline-flex items-center gap-1.5 text-sm">
+                  <span className={grants.has(slug) ? 'text-ink' : 'text-ink-muted'}>
+                    {APPS[slug].label}
+                  </span>
+                  {/* — = no access · Member = uses the app · Admin = manages
+                      the app's content without workspace admin (RLS
+                      has_app_role gate — Membership honours it first). */}
+                  <select
+                    value={grants.get(slug) ?? ''}
                     disabled={pending}
-                    onChange={(e) => onGrant(slug, e.target.checked)}
-                  />
-                  {APPS[slug].label}
+                    onChange={(e) => onGrant(slug, e.target.value as '' | 'member' | 'admin')}
+                    className="rounded-md border border-line bg-surface-raised px-1.5 py-0.5 text-xs focus:border-line-strong focus:outline-none"
+                  >
+                    <option value="">—</option>
+                    <option value="member">Member</option>
+                    <option value="admin">Admin</option>
+                  </select>
                 </label>
               ))}
             </div>

@@ -82,7 +82,7 @@ export type MemberPatch = {
   workspace_role?: 'super_admin' | 'admin' | 'organiser' | undefined;
   relationship_type?: 'internal' | 'external' | undefined;
   /** REPLACES the member's app-grant set. */
-  apps?: string[] | undefined;
+  apps?: { slug: string; role: 'member' | 'admin' }[] | string[] | undefined;
 };
 
 export async function updateMember(
@@ -106,7 +106,7 @@ export type InviteInput = {
   name?: string | undefined;
   workspace_role?: 'super_admin' | 'admin' | 'organiser' | undefined;
   relationship_type?: 'internal' | 'external' | undefined;
-  apps: string[];
+  apps: ({ slug: string; role: 'member' | 'admin' } | string)[];
 };
 
 export type InviteResult = ActionResult & { invited?: boolean | undefined };
