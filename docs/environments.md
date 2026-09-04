@@ -208,10 +208,17 @@ EBBF seed, API live, five domains serving, Google sign-in verified by Sjoerd
 rehearsal (blocked on keys) and verify-external-app/public-api runs against
 staging — fold into the first staging-gated promote.
 
-⚠️ **Open (Sjoerd, 2026-09-03): the four app subdomains are misrouted** —
-meet/thread/flow/pulse.thefibre.tech all serve the web app. See the last
-gotcha below for the exact fix (per-project Vercel domain + per-project
-CNAME target). Until then, only `thefibre.tech` itself works on staging.
+✅ **Resolved 2026-09-04: the four app subdomains route correctly** (smoke
+all green). The working recipe, for the next environment — three layers,
+all needed: (1) TransIP CNAME per subdomain to the Vercel DNS target
+(identical target for every project is FINE — Vercel routes by which
+project claims the domain, not by the CNAME value); (2) in each APP
+project: Add Existing → the subdomain → Vercel offers a "Move Domain"
+dialog when the web project holds it (takes care of the removal too) →
+then Edit the domain and assign branch `staging`; (3) Settings →
+Deployment Protection → Vercel Authentication OFF per app project —
+otherwise every request 302s to vercel.com/sso-api (the web project needed
+the same on day one).
 
 ### The original checklist (kept for the next environment)
 
