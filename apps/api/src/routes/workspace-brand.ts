@@ -46,7 +46,7 @@ workspaceBrandRoutes.get('/', async (c) => {
   const { data } = await adminClient
     .from('workspace')
     .select(
-      'name, slug, brand_logo_url, email_from_name, email_from_address, email_reply_to, enrolment_note, invoice_details',
+      'name, slug, brand_logo_url, email_from_name, email_from_address, email_reply_to, enrolment_note, invoice_details, default_currency, currencies',
     )
     .eq('id', ctx.workspaceId)
     .maybeSingle();
@@ -54,6 +54,10 @@ workspaceBrandRoutes.get('/', async (c) => {
     name: data?.name ?? null,
     slug: data?.slug ?? null,
     invoice_details: data?.invoice_details ?? null,
+    // Workspace-level currency SPoT (2026-09-04): which currencies this
+    // workspace sells in, and the default for newly priced things.
+    default_currency: data?.default_currency ?? 'EUR',
+    currencies: data?.currencies ?? ['EUR'],
     // Kept under its old key as well: the Thread settings screen reads it.
     workspace_name: data?.name ?? null,
     brand_logo_url: data?.brand_logo_url ?? null,
@@ -102,6 +106,11 @@ const BrandPatch = z.object({
       message: 'Must be an email address',
     }),
   enrolment_note: z.string().max(4000).nullable().optional(),
+  // Currency SPoT. The default must be one of the listed currencies —
+  // normalized below rather than rejected, so a UI sending them separately
+  // can't wedge the workspace.
+  default_currency: z.string().regex(/^[A-Za-z]{3}$/).optional(),
+  currencies: z.array(z.string().regex(/^[A-Za-z]{3}$/)).min(1).max(10).optional(),
 });
 
 workspaceBrandRoutes.patch('/', async (c) => {
@@ -143,6 +152,21 @@ workspaceBrandRoutes.patch('/', async (c) => {
     'enrolment_note',
   ] as const) {
     if (body.data[key] !== undefined) patch[key] = blankToNull(body.data[key]);
+  }
+  if (body.data.currencies !== undefined || body.data.default_currency !== undefined) {
+    const { data: current } = await adminClient
+      .from('workspace')
+      .select('default_currency, currencies')
+      .eq('id', ctx.workspaceId)
+      .maybeSingle();
+    let currencies = ((body.data.currencies ?? current?.currencies ?? ['EUR']) as string[]).map(
+      (x) => x.toUpperCase(),
+    );
+    currencies = [...new Set(currencies)];
+    let def = (body.data.default_currency ?? current?.default_currency ?? 'EUR').toUpperCase();
+    if (!currencies.includes(def)) currencies = [def, ...currencies];
+    patch.currencies = currencies;
+    patch.default_currency = def;
   }
   if (!Object.keys(patch).length) return c.json({ ok: true, unchanged: true });
 

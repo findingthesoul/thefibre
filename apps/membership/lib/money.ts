@@ -1,10 +1,13 @@
-// Cents → localized currency string. All Membership amounts are integer cents in
-// the tier currency (EUR default).
+// Cents → localized currency string. All Membership amounts are integer cents
+// in the tier currency (EUR default). Whole-euro amounts drop the decimals;
+// a €19,50 tier keeps them (Pulse's always-round-down would misprice it).
 export function money(cents: number, currency = 'EUR'): string {
+  const whole = cents % 100 === 0;
   return new Intl.NumberFormat('nl-NL', {
     style: 'currency',
     currency,
-    maximumFractionDigits: 0,
+    minimumFractionDigits: whole ? 0 : 2,
+    maximumFractionDigits: whole ? 0 : 2,
   }).format(cents / 100);
 }
 

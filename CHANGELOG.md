@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.31.0] — 2026-09-05 — Membership 0.1.0: the 7th app, whole
+
+*"I want to build. No question asked. A full integrated platform."*
+
+The soul.com community case, built as a family app in one day
+(docs/membership-proposal.md, D1–D6 all accepted 2026-09-04). Slug
+`membership` — display name deliberately swappable in branding.ts alone
+(Hyve is on the table).
+
+### Added
+- **Membership app** (membership.thefibre.app, port 3005, own VERSION
+  0.1.0): tiered recurring community memberships on the workspace's
+  connected Stripe account. Schema `membership_*` (tiers, products,
+  tier↔product links, members, access grants, sync journal, settings,
+  reminder dedup) with the house RLS shapes; app row via the open
+  catalogue, `released_at` latch flipped in this release.
+- **Money**: public join page (`/<workspace-slug>`) → subscription
+  Checkout (price_data, plan fee as `application_fee_percent` — no fixed
+  cap in subscription mode, documented); Connect webhook
+  (`STRIPE_MEMBERSHIP_WEBHOOK_SECRET`, no fallback) where
+  checkout.completed and the first invoice.paid converge idempotently;
+  one ledger row per billing period keyed by Stripe invoice id; receipts
+  with the workspace as seller. DIY VAT rails (inclusive split via
+  recordPurchase), NOT Stripe Tax — proposal §3.3 amended.
+- **Lifecycle machinery** on the 5-min tick: 14-day renewal reminders
+  (deduped per cycle), grace/lapse sweep for manual members, and the
+  **Circle.so access sync worker** draining the journal (invite on join,
+  space/community removal on revoke, errors surfaced +
+  `POST /membership/access/retry`). Activity events for every transition
+  — Flow reacts, never decides (proposal §3.8).
+- **Surfaces**: dashboard (actives, grace, annual value, renewing soon),
+  members (filters, add/edit dialogs, access journal), tiers + products
+  (catalogue with links), access grants, settings (join page copy, Circle
+  token, embed-code generator). **Website embeds** (`/embed/tiers`,
+  `/embed/button`) — iframe + height postMessage, stable `me-*` classes,
+  the Thread pattern.
+- **Fibre web**: emergent Membership profile tab on contacts (member row
+  IS the curator data; `/persons/:id/apps` + `/persons/:id/membership`).
+- **Workspace currency SPoT** (Sjoerd: "single point of truth on
+  workspace level"): `workspace.default_currency` + `workspace.currencies`
+  read/written through `/api/v1/workspace`; membership tier/product
+  dialogs offer the workspace's list; Settings → Currencies card writes
+  the platform endpoint. Organiser-level override deliberately deferred
+  (follows the payment-accounts chain when needed).
+
+### Decided
+- Integrations roadmap: a growing Memberful-style catalogue — each tool =
+  a new `access_grant.kind` + worker (deploy, not migration); Circle is
+  worker #1 and the template.
+- Plan-gating for Membership deliberately deferred — any workspace can
+  activate it while soul.com dogfoods; gate when pricing is decided.
+
 ### Fixed / guarded
 - **Staging app domains misrouted** (Sjoerd: "Meet and The Thread does not
   open in my .tech account"): meet/thread/flow/pulse.thefibre.tech all serve

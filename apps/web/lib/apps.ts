@@ -10,6 +10,7 @@ export type AppSlug =
   | 'the-thread'
   | 'fibre-flow'
   | 'fibre-pulse'
+  | 'membership'
   | 'fibre-sales'
   | 'fibre-learn';
 
@@ -64,6 +65,15 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
     personSubResources: [],
     orgSubResources: [],
   },
+  'membership': {
+    slug: 'membership',
+    label: 'Membership',
+    // Membership's curator data IS the member row (tier, status, renewal) —
+    // the tab renders its own bespoke layout, like Meet's. No
+    // SubResourceSection-driven curator tables.
+    personSubResources: [],
+    orgSubResources: [],
+  },
   'fibre-sales': {
     slug: 'fibre-sales',
     label: 'Sales',
@@ -84,6 +94,7 @@ export const APP_ORDER: AppSlug[] = [
   'the-thread',
   'fibre-flow',
   'fibre-pulse',
+  'membership',
   'fibre-sales',
   'fibre-learn',
 ];

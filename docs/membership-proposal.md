@@ -178,6 +178,18 @@ adding a `kind` is a deploy, like app-key scopes.
 tools that consume OIDC — noting Circle's own SSO consumption is
 Enterprise-plan-gated, so this waits for scale that justifies both builds.
 
+**The direction (Sjoerd, 2026-09-05): a growing integrations catalogue,
+Memberful-style** (memberful.com/integrations — Discord, Discourse,
+WordPress, the email-marketing sync family, Zapier). Membership becomes
+the tool that connects a community to whatever it runs on. The
+architecture is already shaped for it: each integration is (a) a new
+`access_grant.kind` + its worker in the sync loop (a deploy, not a
+migration — Circle is worker #1 and the template), (b) where the tool
+needs credentials, a column on `membership_settings` (service-role only),
+and (c) where the tool wants identity rather than provisioning, the
+phase-2 OAuth provider. Build them demand-first: each new community
+workspace names its stack, that names the next worker.
+
 ### 3.8 Flow + Pulse integration (accepted 2026-09-04)
 
 Membership is the **system of record**; the family plugs in around it:

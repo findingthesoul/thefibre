@@ -8,6 +8,7 @@ import { RelationshipEdit, type RelationshipRow } from '../../relationship/edit'
 import { LearningEdit, type LearningRow } from '../../learning/edit';
 import { PersonBillingEdit, type PersonBillingRow } from '../../billing/edit';
 import { MeetTab } from '../../meet/tab';
+import { MembershipTab } from '../../membership/tab';
 import { countryName } from '@/lib/countries';
 
 function AppChip({ slug }: { slug: AppSlug }) {
@@ -41,6 +42,12 @@ export default async function ContactAppTab({
   // meetings + activity), not the generic curator-section layout.
   if (appSlug === 'fibre-meet') {
     return <MeetTab personId={id} />;
+  }
+
+  // Membership likewise: its curator data is the member row itself (tier,
+  // status, renewal), rendered read-only — writes happen in the Membership app.
+  if (appSlug === 'membership') {
+    return <MembershipTab personId={id} />;
   }
 
   const app = APPS[appSlug];
