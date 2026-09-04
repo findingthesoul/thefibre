@@ -193,16 +193,16 @@ Accepted in chat (Sjoerd, 2026-09-04):
 - **D3 — Workspace**: soul.com is a workspace on the production Fibre;
   "SSO" v1 = Circle.so access sync via Admin API.
 
-Pending (recommendations stated, Sjoerd decides):
+Accepted as recommended ("I want to build. No question asked. A full
+integrated platform." — Sjoerd, 2026-09-04, mid-build-session):
 
-- **D4 — Tier changes**: recommend **upgrade = immediate + prorated
-  charge; downgrade/cancel = takes effect at renewal, no refunds** (Stripe
+- **D4 — Tier changes**: **upgrade = immediate + prorated charge;
+  downgrade/cancel = takes effect at renewal, no refunds** (Stripe
   Billing's native behaviour, and consistent with the 2026-09-04 seat
   decision).
 - **D5 — VAT**: B2C consumer rules apply (VAT at the member's country once
-  past the €10k cross-border threshold). Recommend **Stripe Tax from day
-  one**; **OSS registration** with the Belastingdienst when the threshold
-  nears (that step is Sjoerd's, not code).
-- **D6 — Build vs Memberful**: recommend **build** (reasons in §2).
-  Memberful stays the reference spec; it is also the fallback if speed ever
-  trumps the 4.9% + data-residency + family-app arguments.
+  past the €10k cross-border threshold). **Stripe Tax from day one**; **OSS
+  registration** with the Belastingdienst when the threshold nears (that
+  step is Sjoerd's, not code).
+- **D6 — Build vs Memberful**: **build** (reasons in §2). Memberful stays
+  the reference spec.

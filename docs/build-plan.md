@@ -88,9 +88,9 @@ seeded into Pulse. What remains:
 7. **Membership app (soul.com community)** — proposal drafted 2026-09-04
    (docs/membership-proposal.md): new in-family app, yearly tiered member
    subscriptions on the workspace's Stripe account, Circle.so access sync
-   as the v1 "SSO", org seats prepped. D1–D3 accepted in chat; **D4–D6
-   (tier-change policy, VAT/Stripe Tax, build-vs-Memberful) await Sjoerd**
-   — no code before those.
+   as the v1 "SSO", org seats prepped. ALL decisions D1–D6 accepted
+   2026-09-04 ("I want to build. No question asked."). **Build in
+   progress** — phasing in proposal §4.
 
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
