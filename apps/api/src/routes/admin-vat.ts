@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { getVatRates, setVatRates } from '../lib/vat.js';
 import { syncVatRatesFromStripe, lastVatSync } from '../lib/vat-sync.js';
+import { ensureStripeTaxRates } from '../lib/vat-stripe.js';
 import { isSuperAdminUser } from '../lib/super-admin.js';
 
 export const adminVatRoutes = new Hono();
@@ -39,5 +40,7 @@ adminVatRoutes.put('/', async (c) => {
     return c.json({ error: 'home_country must have a rate' }, 400);
   }
   await setVatRates(body.data);
+  // Mirror the change into Stripe tax_rate objects (fire-and-forget).
+  void ensureStripeTaxRates();
   return c.json({ ok: true });
 });

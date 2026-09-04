@@ -29,6 +29,11 @@ import { recordPurchase } from '../lib/purchases.js';
 import { reconcileSeatBilling } from '../lib/seat-billing.js';
 import { ensurePlanApps } from '../lib/plan-apps.js';
 import { getSetting } from '../lib/platform-settings.js';
+import {
+  dynamicTaxRateIds,
+  taxRateIdFor,
+  applyReverseChargeIfEligible,
+} from '../lib/vat-stripe.js';
 
 export const billingRoutes = new Hono();
 
@@ -165,23 +170,32 @@ billingRoutes.post('/checkout', async (c) => {
       .eq('workspace_id', ctx.workspaceId);
   }
 
+  // DIY VAT: OUR tax-rate objects ride as dynamic_tax_rates — Checkout picks
+  // the one matching the billing address the customer types. No Stripe Tax,
+  // no 0.5% fee; the /admin/vat table decides.
+  const vatRateIds = await dynamicTaxRateIds();
+  const withVat = <T extends object>(item: T): T =>
+    vatRateIds.length ? { ...item, dynamic_tax_rates: vatRateIds } : item;
+
   type CheckoutCreateParams = NonNullable<Parameters<Stripe['checkout']['sessions']['create']>[0]>;
   const baseSessionParams: CheckoutCreateParams = {
     mode: 'subscription' as const,
     customer: customerId,
     line_items: [
-      custom
-        ? {
-            quantity: 1,
-            price_data: {
-              currency: 'eur',
-              product: plan.stripe_product_id!,
-              unit_amount: custom,
-              recurring: { interval: interval === 'monthly' ? ('month' as const) : ('year' as const) },
-            },
-          }
-        : { quantity: 1, price: listPrice! },
-      ...(seatLine ? [seatLine] : []),
+      withVat(
+        custom
+          ? {
+              quantity: 1,
+              price_data: {
+                currency: 'eur',
+                product: plan.stripe_product_id!,
+                unit_amount: custom,
+                recurring: { interval: interval === 'monthly' ? ('month' as const) : ('year' as const) },
+              },
+            }
+          : { quantity: 1, price: listPrice! },
+      ),
+      ...(seatLine ? [withVat(seatLine)] : []),
     ],
     // B2B: collect the address + VAT number so Stripe's invoice is a legal one.
     billing_address_collection: 'required',
@@ -199,23 +213,7 @@ billingRoutes.post('/checkout', async (c) => {
     },
   };
 
-  // VAT via Stripe Tax (prices are ex-VAT): 21% NL, reverse charge for EU
-  // B2B with a validated VAT id, out of scope elsewhere. Falls back to
-  // tax-less checkout until Stripe Tax is ACTIVATED in the dashboard —
-  // enabling it here must never turn checkout off.
-  let session;
-  try {
-    session = await stripe.checkout.sessions.create({
-      ...baseSessionParams,
-      automatic_tax: { enabled: true },
-    });
-  } catch (e) {
-    console.warn(
-      '[billing/checkout] automatic tax refused (activate Stripe Tax in the dashboard) — proceeding without',
-      e instanceof Error ? e.message : e,
-    );
-    session = await stripe.checkout.sessions.create(baseSessionParams);
-  }
+  const session = await stripe.checkout.sessions.create(baseSessionParams);
 
   return c.json({ url: session.url });
 });
@@ -287,7 +285,25 @@ billingRoutes.post('/switch', async (c) => {
   const seatItems = stripeSub.items.data.filter((i) => i.id !== baseItem?.id);
   if (!baseItem) return c.json({ error: 'subscription has no items — check Stripe' }, 500);
 
+  // DIY VAT: the customer's country rate from OUR table rides on the SAME
+  // update that invoices the proration — otherwise the switch invoice would
+  // escape untaxed. Reverse-charged customers get no rate (their exemption
+  // zeroes it).
+  let defaultTaxRates: string[] | undefined;
+  try {
+    const cust = await stripe.customers.retrieve(
+      typeof stripeSub.customer === 'string' ? stripeSub.customer : stripeSub.customer.id,
+    );
+    if (!cust.deleted && cust.tax_exempt !== 'reverse') {
+      const rateId = await taxRateIdFor(cust.address?.country ?? null);
+      if (rateId) defaultTaxRates = [rateId];
+    }
+  } catch (e) {
+    console.warn('[billing/switch] tax-rate lookup failed (switching untaxed)', e);
+  }
+
   await stripe.subscriptions.update(sub.stripe_subscription_id, {
+    ...(defaultTaxRates ? { default_tax_rates: defaultTaxRates } : {}),
     items: [
       custom
         ? {
@@ -312,11 +328,6 @@ billingRoutes.post('/switch', async (c) => {
     metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
   });
 
-  // Best-effort: make sure the subscription computes VAT from here on
-  // (no-op until Stripe Tax is activated in the dashboard).
-  await stripe.subscriptions
-    .update(sub.stripe_subscription_id, { automatic_tax: { enabled: true } })
-    .catch(() => {});
 
   // Optimistic write so the screen flips immediately; the webhook confirms.
   await adminClient
@@ -721,6 +732,11 @@ billingRoutes.post('/stripe-webhook', async (c) => {
           if (error) console.error('[billing/webhook] checkout completion failed', error);
           forgetPlan(workspaceId);
           void ensurePlanApps(workspaceId);
+          // EU B2B with a VIES-valid VAT number → reverse-charged for every
+          // invoice after this one.
+          if (typeof session.customer === 'string') {
+            void applyReverseChargeIfEligible(session.customer);
+          }
         }
         break;
       }

@@ -35,6 +35,7 @@ import { profileRoutes } from './routes/profile.js';
 import { appsRoutes } from './routes/apps.js';
 import { authHookRoutes } from './routes/auth-hook.js';
 import { maybeSyncVatRates } from './lib/vat-sync.js';
+import { ensureStripeTaxRates } from './lib/vat-stripe.js';
 
 const app = new Hono();
 
@@ -241,6 +242,10 @@ serve({ fetch: app.fetch, port }, ({ port }) => {
 // The Fly machine is pinned warm (min_machines_running=1), so an in-process
 // interval is reliable; every send is dedup-logged, so restarts/overlaps
 // are safe. First run shortly after boot, then every 5 minutes.
+// DIY VAT: mirror the /admin/vat table into Stripe tax_rate objects at boot
+// (idempotent — touches Stripe only on drift).
+setTimeout(() => void ensureStripeTaxRates(), 15_000);
+
 const SCHEDULER_INTERVAL_MS = 5 * 60 * 1000;
 setTimeout(() => {
   void runThreadMessageScheduler().catch((e) =>

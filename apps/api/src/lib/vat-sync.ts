@@ -11,6 +11,7 @@ import { getVatRates, setVatRates } from './vat.js';
 import { getSetting, setSetting } from './platform-settings.js';
 import { sendEmail } from './email/client.js';
 import { ENTITY } from '@thefibre/shared';
+import { ensureStripeTaxRates } from './vat-stripe.js';
 
 export type VatSyncLog = {
   at: string;
@@ -61,6 +62,7 @@ export async function syncVatRatesFromStripe(): Promise<VatSyncLog> {
   log.ok = log.errors.length === 0 || log.changes.length > 0;
   if (log.changes.length > 0) {
     await setVatRates(cfg);
+    void ensureStripeTaxRates();
     const lines = log.changes.map((c) => `  ${c.country}: ${c.from}% → ${c.to}%`).join('\n');
     void sendEmail({
       to: ENTITY.whitelistEmail,
