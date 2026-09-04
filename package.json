@@ -1,8 +1,8 @@
 {
   "name": "thefibre",
-  "version": "0.24.1",
+  "version": "0.28.1",
   "private": true,
-  "description": "The Fibre — relationship intelligence for purpose-driven work",
+  "description": "The Fibre \u2014 relationship intelligence for purpose-driven work",
   "packageManager": "pnpm@9.12.0",
   "engines": {
     "node": ">=20.0.0"

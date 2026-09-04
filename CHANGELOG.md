@@ -21,6 +21,187 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.28.1] — 2026-09-04 — legacy subscriptions accept our tax rates
+
+### Fixed
+- **Switch 500 on subscriptions born under Stripe Tax**: a subscription
+  created via checkout while `automatic_tax` was still in the charge path
+  refuses manual rates ("Manual tax rates cannot be used when
+  automatic_tax[enabled]=true"). The switch update now disables automatic
+  tax in the same call that pins the country rate — a no-op on post-0.28
+  subscriptions.
+- **The release record itself**: v0.24.2 through v0.28.0 shipped as commits
+  without CHANGELOG entries or version bumps (the sidebar sat on 0.24.1 for
+  ten releases). Backfilled below from the commit record; versions
+  re-synced at 0.28.1.
+
+## [0.28.0] — 2026-09-04 — the Fibre collects its own VAT
+
+*"We can do tax collections ourselves, no?"* Go given. Stripe Tax (and its
+0.5% per transaction) is out of the money path; the /admin/vat table now
+collects directly.
+
+### Added
+- **Our rates become Stripe tax_rate objects** (`lib/vat-stripe.ts`):
+  mirrored at boot, on every /admin/vat save, and when the weekly sensor
+  applies a law change. Stripe rates are immutable — a change archives the
+  old object and creates a new one; removed countries archive.
+- **Checkout charges from OUR table**: `dynamic_tax_rates` on every line —
+  Stripe picks the country's rate from the billing address the customer
+  types, applying a number it did not choose.
+- **Switches invoice tax correctly**: the customer's country rate rides on
+  the same subscription update that generates the proration invoice.
+- **Reverse charge, validated by the EU itself** (`lib/vies.ts`): after
+  checkout, an EU non-NL business customer's VAT number is checked against
+  VIES; valid → `tax_exempt='reverse'` on the customer. VIES down → soft
+  fail, never blocking a checkout.
+- Ledger capture, dialog, page, PDF and receipt email needed no changes —
+  manual rates populate the same tax fields.
+
+Stripe Tax stays activated ONLY as the sensor behind the weekly rate probe,
+never in the charge path.
+
+## [0.27.1] — 2026-09-04 — VAT auto-sync, the Fibre's own invoice PDF
+
+### Added
+- **The VAT table syncs itself** (`lib/vat-sync.ts`): weekly probe of
+  Stripe's tax engine (a €100 test calculation per EU country), drift
+  applied to the /admin/vat table, operator email on every change, log in
+  `platform_setting.vat_sync_log`. Piggybacks on the scheduler interval.
+- **Download PDF downloads OUR PDF** ("Download PDF opens Stripe" — no):
+  pdfkit A4 invoice (`lib/invoice-pdf.ts`) served at
+  `GET /purchases/:id/pdf`, reached from the web app via a
+  session-carrying pass-through route.
+- Portal button shrinks to "Payment method" — its last remaining duty.
+
+## [0.27.0] — 2026-09-04 — VAT: computed on card rails, owned by the Fibre
+
+### Added
+- **The VAT module** ("build a VAT module… so we can update it regularly"):
+  EU-27 rate table stored as platform data (`lib/vat.ts`,
+  `platform_setting.vat_rates`), editable at /admin/vat, `computeVat()`
+  (home rate / EU reverse charge / destination rate / out of scope) for
+  non-Stripe rails. Migration `20260904120000_vat_rates`.
+- Stripe Tax on checkout (with graceful fallback until activated) — later
+  replaced by DIY collection in 0.28.0.
+- Tax breakdown (subtotal/tax_cents/tax_label) captured into
+  `purchase.billing` by the webhook and rendered on the invoice dialog,
+  the invoice page, the PDF and the receipt email.
+
+## [0.26.1] — 2026-09-04 — the invoice popup
+
+### Added
+- **THE canonical invoice viewer** ("one ref of truth for the whole app —
+  fibre, meet, thread"): `@thefibre/shared/ui/invoice-dialog`, self-contained
+  popup with Share link / Download PDF / Email to… / Print, adopted on
+  Settings → Plan. Family-wide adoption queued (build-plan 1f).
+- Webhook captures the Stripe-hosted PDF url; `POST
+  /purchases/:id/resend-invoice` takes a `to` override and uses the
+  platform seller for fibre-platform rows.
+
+### Fixed
+- Follow-up commit: ENTITY import + an overreaching `recipient` rename that
+  broke purchases.ts (and both deploys). Build gating tightened.
+
+## [0.26.0] — 2026-09-04 — the invoice lives in the Fibre
+
+### Added
+- **Webhook writes the invoice onto the ledger**: number, buyer
+  company/address/tax id, service period, subtotal — the Fibre document is
+  complete without asking Stripe anything.
+- **In-Fibre invoice page** (`/settings/plan/invoices/:id`), print-ready
+  (`?print=1` auto-opens the dialog).
+- **Receipt email from the platform**: shared receipt machinery with
+  Solidarity Lab as seller block. Stripe's hosted copy demoted to a
+  footnote link.
+
+## [0.25.3] — 2026-09-03
+
+### Fixed
+- **SCA fallback on switches**: when the proration charge needs
+  confirmation, the open invoice's hosted page is returned and the browser
+  redirected there instead of failing silently.
+
+## [0.25.2] — 2026-09-03
+
+### Fixed
+- Plan buttons stay visible during a pending cancellation — picking a plan
+  un-cancels and switches in one act (was: cancelled workspaces had no way
+  back to a paid plan).
+
+## [0.25.1] — 2026-09-03
+
+### Added
+- Billing-interval toggle on the plan controls ("1 subscription with a
+  toggle for per year"): Monthly / Yearly — 2 months free, switch invoiced
+  like any other plan change.
+
+### Fixed
+- Follow-up commit: leftover `options` reference in the interval-toggle
+  panel broke the web build.
+
+## [0.25.0] — 2026-09-03 — in-app plan switching
+
+*"Why can't someone upgrade or downgrade themselves?"* Now they can,
+without leaving the Fibre.
+
+### Added
+- **`POST /billing/switch`**: updates the Stripe subscription directly
+  (base item swapped, seat riders re-created by the reconciler),
+  `proration_behavior: 'always_invoice'` so every change produces a real
+  invoice in our ledger immediately.
+- **Cancel / Resume** endpoints + confirm dialogs on Settings → Plan; the
+  full control set lives in the app, Stripe demoted to rails.
+
+## [0.24.8] — 2026-09-03
+
+### Added
+- Amber banner with the exact end date for cancelled subscriptions ("It
+  would be nice that the end date would be shown").
+
+## [0.24.7] — 2026-09-03 — the seller side of the ledger
+
+### Added
+- **/admin/invoices**: cross-workspace invoice list for the platform
+  operator, read from the purchase ledger. Doctrine locked in: Stripe is
+  rails (payment + tax + legal PDF); the Fibre ledger is the system of
+  record. A future PSP is a `method` value + a webhook calling
+  `recordPurchase()`.
+
+## [0.24.6] — 2026-09-03
+
+### Added
+- Fibre invoices on Settings → Plan ("Where can I see my invoice as a
+  workspace?") — the workspace's own purchases from the ledger.
+
+## [0.24.5] — 2026-09-03
+
+### Fixed
+- Checkout 400 with an existing customer: `tax_id_collection` requires
+  `customer_update: {name: 'auto', address: 'auto'}`.
+
+## [0.24.4] — 2026-09-03
+
+### Fixed
+- **New workspaces start `active` on Free, not comped**: the auto-create
+  trigger's 'comped' default hid all self-serve billing from every new
+  customer ("Still no way to upgrade for me as client"). Migration
+  `20260903160000`; deliberate comps untouched.
+
+## [0.24.3] — 2026-09-03
+
+### Added
+- **Event templates join the price list** (1 / 5 / unlimited / unlimited):
+  `thread_template_limit` as a numeric plan dimension — seeded,
+  matrix-editable, public on /pricing, exposed on the Plan type. Library +
+  enforcement queued (1e) pending template designs.
+
+## [0.24.2] — 2026-09-03
+
+### Changed
+- The portal button says what it does (change plan, cancel) — superseded in
+  0.27.1 when the portal shrank to "Payment method".
+
 ## [0.24.1] — 2026-09-03 — the welcome parade is two apps
 
 *"Pulse can stay out of the loop for now, as does flow."* Auto-activation now

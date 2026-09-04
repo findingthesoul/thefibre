@@ -303,6 +303,12 @@ billingRoutes.post('/switch', async (c) => {
   }
 
   await stripe.subscriptions.update(sub.stripe_subscription_id, {
+    // Subscriptions born via checkout while Stripe Tax was still in the
+    // charge path carry automatic_tax=true, and Stripe refuses manual rates
+    // on those ("Manual tax rates cannot be used when
+    // automatic_tax[enabled]=true"). DIY VAT owns the rate now, so switch
+    // automatic tax off on every update — a no-op on post-v0.28 subs.
+    automatic_tax: { enabled: false },
     ...(defaultTaxRates ? { default_tax_rates: defaultTaxRates } : {}),
     items: [
       custom
