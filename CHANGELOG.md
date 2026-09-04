@@ -21,6 +21,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.28.4] — 2026-09-04 — SVG logos, sanitised
+
+### Added
+- **SVG upload** ("Logo upload: no SVG?" — logos are SVGs): accepted on the
+  shared upload route, but every SVG passes through DOMPurify's SVG profile
+  first (scripts, event handlers, javascript: URIs, foreignObject stripped
+  by an audited sanitizer — the raw-SVG stored-XSS reason for the old block
+  stays answered). An SVG that sanitises to nothing is refused with advice.
+
+### Fixed
+- Bucket mime allowlist aligned with the route on BOTH projects — it
+  omitted gif/avif (route accepted them, storage then 500'd) and svg.
+
 ## [0.28.3] — 2026-09-04
 
 ### Fixed
