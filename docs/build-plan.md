@@ -85,6 +85,12 @@ seeded into Pulse. What remains:
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
    a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
+7. **Membership app (soul.com community)** — proposal drafted 2026-09-04
+   (docs/membership-proposal.md): new in-family app, yearly tiered member
+   subscriptions on the workspace's Stripe account, Circle.so access sync
+   as the v1 "SSO", org seats prepped. D1–D3 accepted in chat; **D4–D6
+   (tier-change policy, VAT/Stripe Tax, build-vs-Memberful) await Sjoerd**
+   — no code before those.
 
 _The Thread's public read API is a published contract as of v0.18.15
 (docs/brief-thread-public-api.md): three CORS-open GET routes, rate limiting,
