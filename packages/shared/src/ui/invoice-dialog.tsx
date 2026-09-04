@@ -97,9 +97,12 @@ export function InvoiceDialog({
     .filter(Boolean)
     .join(', ');
   const pdfUrl = pdfHref ?? b.pdf ?? purchase.stripe_invoice_url ?? null;
+  // The share link is OUR invoice page — Stripe's hosted copy only when the
+  // app gave us no page at all (the ledger is the record, Stripe is rails).
   const shareUrl =
-    purchase.stripe_invoice_url ??
-    (printHref && typeof window !== 'undefined' ? new URL(printHref, window.location.origin).href : null);
+    (printHref && typeof window !== 'undefined'
+      ? new URL(printHref, window.location.origin).href
+      : null) ?? purchase.stripe_invoice_url;
 
   async function copyLink() {
     if (!shareUrl) return;

@@ -21,6 +21,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.28.3] — 2026-09-04
+
+### Fixed
+- **Share link shares OUR invoice page**, not Stripe's hosted copy — the
+  dialog preferred `stripe_invoice_url`; now the app's own invoice page
+  leads and Stripe is the fallback only when no page href was wired.
+
 ## [0.28.2] — 2026-09-04 — the billing country moves in-app
 
 ### Fixed
