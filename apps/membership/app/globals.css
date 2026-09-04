@@ -3,18 +3,16 @@
 @tailwind utilities;
 
 :root {
-  /* Cool-grey / slate palette — pure-white cards float on a soft grey canvas
-     (clean-dashboard look). */
   --surface: 255 255 255;
-  --surface-sunken: 238 241 246; /* cool light grey board background */
+  --surface-sunken: 247 247 244;
   --surface-raised: 255 255 255;
-  --ink: 15 23 42; /* slate-900 */
-  --ink-subtle: 71 85 105; /* slate-600 */
-  --ink-muted: 148 163 184; /* slate-400 */
-  --ink-inverse: 248 250 252;
-  --line: 226 232 240; /* slate-200 */
-  --line-strong: 203 213 225; /* slate-300 */
-  --accent: 15 23 42;
+  --ink: 17 20 24;
+  --ink-subtle: 75 85 99;
+  --ink-muted: 156 163 175;
+  --ink-inverse: 250 250 247;
+  --line: 229 231 235;
+  --line-strong: 209 213 219;
+  --accent: 17 20 24;
 }
 
 .dark {
@@ -42,20 +40,4 @@ html {
 .dark html,
 html.dark {
   color-scheme: dark;
-}
-
-/* Soft, diffuse card shadow (clean-dashboard look). White cards float on the
-   cool-grey canvas with a gentle, spread shadow rather than a hard border. */
-@layer utilities {
-  /* Softened 2026-07-02 (Sjoerd: "shadow too big, too bulky — more subtle"). */
-  .shadow-card {
-    box-shadow:
-      0 1px 2px rgba(15, 23, 42, 0.03),
-      0 6px 14px -10px rgba(15, 23, 42, 0.1);
-  }
-  .shadow-card-hover:hover {
-    box-shadow:
-      0 1px 3px rgba(15, 23, 42, 0.05),
-      0 10px 22px -12px rgba(15, 23, 42, 0.16);
-  }
 }

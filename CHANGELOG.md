@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.31.4] — 2026-09-05 — Membership 0.1.3: Meet's warm palette
+
+### Changed
+- Membership wears Meet's interface palette (warm neutrals) instead of
+  the cool slate it inherited from the Pulse scaffold (Sjoerd: "make the
+  color setting the same as in meet"). One globals.css swap — the token
+  system did its job.
+
 ## [0.31.3] — 2026-09-05 — Membership 0.1.2: link rows stop failing silently
 
 ### Fixed
