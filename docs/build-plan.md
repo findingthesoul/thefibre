@@ -44,6 +44,15 @@ seeded into Pulse. What remains:
    library (today's thread templates are workspace-scoped duplicates); the
    new-thread flow offers library templates filtered by the plan's limit;
    the designer stays behind thread_custom_templates (Pro+).
+1g. **Standard components, one implementation (Sjoerd, 2026-09-05:
+   "every setting page, profile page, invoice screen — standard platform
+   components; same look, same data, same behaviour everywhere")**:
+   converge the per-app copies into `@thefibre/shared/ui` the way
+   invoice-dialog and the settings hub already are. Known drift:
+   invoices-client.tsx ×4+ (meet/thread/pulse/membership),
+   settings/payments form ×3, page-chrome ×5. Extract when next touched —
+   and NEVER add another copy. Companion UI rule now standing: ordering
+   is drag-and-drop, never a numeric sort field.
 2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the

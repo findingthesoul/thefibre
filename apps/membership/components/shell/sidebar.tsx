@@ -9,6 +9,7 @@ import {
   Package,
   KeyRound,
   HelpCircle,
+  Receipt,
   Settings,
   UsersRound,
   type LucideIcon,
@@ -32,6 +33,10 @@ const NAV: NavSection[] = [
       { href: '/tiers', label: 'Tiers', icon: Layers },
       { href: '/products', label: 'Products', icon: Package },
     ],
+  },
+  {
+    label: 'Money',
+    items: [{ href: '/invoices', label: 'Invoices', icon: Receipt }],
   },
   {
     label: 'Setup',

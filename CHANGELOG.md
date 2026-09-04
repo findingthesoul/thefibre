@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.32.0] — 2026-09-05 — Membership 0.2.0: one way of working
+
+### Added
+- **Invoices page** in Membership (ported byte-true from Meet's, ledger
+  scope Me/Workspace, Membership chip in the app filter) + **Settings →
+  Payments** (the Pulse form). Sidebar grows a Money section.
+- **Drag-and-drop ordering** for tiers and products — the numeric Sort
+  order fields are gone (Sjoerd: "order of things is always drag and
+  drop, not with numbers"). New items join at the end.
+
+### Changed
+- **Settings is the canonical hub** (platformSettings + SettingsCards —
+  "same four sections, same order, same words as every other app");
+  Join page / Integrations / Website embeds / Currencies became
+  subpages. **Circle.so is row one of an Integrations LIST**, the
+  Memberful-style catalogue the roadmap names.
+- Standing rule recorded (build-plan 1g): recurring surfaces are shared
+  platform components — never another per-app copy.
+
 ## [0.31.4] — 2026-09-05 — Membership 0.1.3: Meet's warm palette
 
 ### Changed

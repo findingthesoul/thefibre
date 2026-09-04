@@ -1,90 +1,64 @@
-import { ExternalLink } from 'lucide-react';
+import Link from 'next/link';
+import { Globe, Plug, Code2, Coins } from 'lucide-react';
 import { appUrl } from '@thefibre/shared';
-import { apiFetch, ApiError } from '@/lib/api';
+import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from './page-chrome';
-import { JoinPageCard } from './join-page-card';
-import { CircleCard } from './circle-card';
-import { CurrencyCard } from './currency-card';
-import { EmbedsCard } from './embeds-card';
-import { workspaceCurrencies } from '@/lib/workspace-currency';
 
-type MembershipSettings = {
-  circle_community_url: string | null;
-  circle_api_token_set: boolean;
-  join_page: Record<string, unknown>;
-};
+// Same four sections, same order, same words as every other app — see
+// packages/shared/src/ui/settings.tsx for why that matters. (Sjoerd,
+// 2026-09-05: "why does it have to be different… please use one way of
+// working" — this page started as bespoke cards and got the Thread shape.)
 
-type Me = {
-  workspace: { id: string; slug: string; name: string } | null;
-};
+const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
-export default async function MembershipSettingsPage() {
-  // Settings are admin-only on the API (403 for everyone else) — render the
-  // page gracefully rather than erroring.
-  let settings: MembershipSettings | null = null;
-  let adminOnly = false;
-  try {
-    settings = await apiFetch<MembershipSettings>('/api/v1/membership/settings');
-  } catch (e) {
-    if (e instanceof ApiError && e.status === 403) adminOnly = true;
-    else throw e;
-  }
-
-  const me = await apiFetch<Me>('/api/v1/auth/me').catch(() => null);
-  const workspaceSlug = me?.workspace?.slug ?? null;
-  const currency = await workspaceCurrencies();
-
-  const host = appUrl('membership', process.env);
-  const publicUrl = workspaceSlug
-    ? `${host}/${encodeURIComponent(workspaceSlug)}`
-    : `${host}/<workspace-slug>`;
-  const fibreSettingsUrl = `${appUrl('fibre-platform', process.env)}/settings`;
+export default function SettingsPage() {
+  const fibre = appUrl('fibre-platform', process.env);
+  const sections = platformSettings({
+    fibreUrl: fibre,
+    // Membership serves your payments (the Stripe account subscriptions
+    // charge on); everything else about you and the workspace is edited
+    // once, in The Fibre.
+    hosted: ['payments'],
+    appSection: {
+      label: 'Membership',
+      entries: [
+        {
+          href: '/settings/join-page',
+          icon: <Globe {...ICON} />,
+          title: 'Join page',
+          desc: 'The public page where people become members — headline, intro, address.',
+        },
+        {
+          href: '/settings/integrations',
+          icon: <Plug {...ICON} />,
+          title: 'Integrations',
+          desc: 'The tools membership unlocks for members — Circle.so today, more to come.',
+        },
+        {
+          href: '/settings/embeds',
+          icon: <Code2 {...ICON} />,
+          title: 'Website embeds',
+          desc: 'Copy-paste snippets to show tiers and take joins on any website.',
+        },
+        {
+          href: '/settings/currencies',
+          icon: <Coins {...ICON} />,
+          title: 'Currencies',
+          desc: 'Which currencies this workspace sells in — one list for everything priced.',
+        },
+      ],
+    },
+  });
 
   return (
     <PageContainer max="4xl">
       <PageHeader
         title="Settings"
-        description="The public join page, the Circle connection and website embeds."
+        description="You, the workspace, and Membership. The same four sections in every Fibre app."
       />
-
-      {adminOnly ? (
-        <p className="mt-8 rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-subtle">
-          Membership settings are for workspace admins only. Ask an admin if something here
-          needs changing.
-        </p>
-      ) : (
-        <div className="mt-8 space-y-6">
-          <JoinPageCard joinPage={settings?.join_page ?? {}} publicUrl={publicUrl} />
-          <CurrencyCard
-            defaultCurrency={currency.default_currency}
-            currencies={currency.currencies}
-          />
-          <CircleCard
-            communityUrl={settings?.circle_community_url ?? null}
-            tokenSet={settings?.circle_api_token_set ?? false}
-          />
-          {workspaceSlug ? (
-            <EmbedsCard host={host} workspaceSlug={workspaceSlug} />
-          ) : (
-            <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-subtle">
-              Embed snippets need the workspace slug — it could not be loaded right now.
-            </p>
-          )}
-        </div>
-      )}
-
-      <a
-        href={fibreSettingsUrl}
-        className="mt-6 flex items-center justify-between rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm hover:bg-surface-sunken"
-      >
-        <span>
-          <span className="font-medium">More settings in The Fibre</span>
-          <span className="block text-xs text-ink-subtle">
-            Profile, workspace, payments, apps and plan.
-          </span>
-        </span>
-        <ExternalLink size={15} strokeWidth={1.75} className="text-ink-muted" />
-      </a>
+      <div className="mt-8">
+        <SettingsCards sections={sections} link={Link} />
+      </div>
     </PageContainer>
   );
 }

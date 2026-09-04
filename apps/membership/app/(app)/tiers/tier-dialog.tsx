@@ -26,11 +26,14 @@ export function TierDialog({
   tier,
   products,
   currency: workspaceCurrency,
+  nextSortOrder,
   onClose,
 }: {
   tier: Tier | null; // null = new
   products: Product[];
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
+  /** Where a NEW tier lands: the end of the list. Reordering is drag-and-drop on the list itself. */
+  nextSortOrder: number;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -43,7 +46,6 @@ export function TierDialog({
   const [priceYear, setPriceYear] = useState(centsToEuro(tier?.price_cents_year ?? null));
   const [priceMonth, setPriceMonth] = useState(centsToEuro(tier?.price_cents_month ?? null));
   const [characteristics, setCharacteristics] = useState((tier?.characteristics ?? []).join('\n'));
-  const [sortOrder, setSortOrder] = useState(String(tier?.sort_order ?? 0));
   const [productIds, setProductIds] = useState<Set<string>>(new Set(tier?.product_ids ?? []));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -80,7 +82,8 @@ export function TierDialog({
         .filter(Boolean),
       price_cents_year: euroToCents(priceYear),
       price_cents_month: euroToCents(priceMonth),
-      sort_order: parseInt(sortOrder, 10) || 0,
+      // Existing tiers keep their position; a new one joins at the end.
+      sort_order: tier ? (tier.sort_order ?? 0) : nextSortOrder,
     };
 
     let tierId = tier?.id ?? null;
@@ -258,16 +261,6 @@ export function TierDialog({
               ))}
             </div>
           )}
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Sort order</label>
-          <input
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            inputMode="numeric"
-            className={`${INPUT} max-w-[8rem]`}
-          />
-          <p className="mt-1.5 text-xs text-ink-muted">Lower numbers list first.</p>
         </div>
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

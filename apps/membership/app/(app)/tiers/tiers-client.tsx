@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
+import { patchTier } from './actions';
 import { TierDialog } from './tier-dialog';
 import type { Tier } from './types';
 import type { Product } from '../products/types';
@@ -18,12 +20,37 @@ export function TiersClient({
   products: Product[];
   currency: WorkspaceCurrencies;
 }) {
+  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Tier | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
-  const archivedCount = tiers.filter((t) => t.archived_at).length;
-  const visible = showArchived ? tiers : tiers.filter((t) => !t.archived_at);
+  // Local copy so a drag reorders instantly; props re-sync after refresh.
+  const [items, setItems] = useState(tiers);
+  useEffect(() => setItems(tiers), [tiers]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const archivedCount = items.filter((t) => t.archived_at).length;
+  const visible = showArchived ? items : items.filter((t) => !t.archived_at);
+
+  // Ordering is drag-and-drop, never a number field (Sjoerd, 2026-09-05).
+  // Drop → splice locally → persist sort_order = index*10 for what moved.
+  async function dropOn(target: number) {
+    const from = dragIdx;
+    setDragIdx(null);
+    if (from === null || from === target) return;
+    const list = [...visible];
+    const [moved] = list.splice(from, 1);
+    list.splice(target, 0, moved);
+    // Archived items keep their positions; only the visible order persists.
+    setItems(showArchived ? list : [...list, ...items.filter((t) => t.archived_at)]);
+    await Promise.all(
+      list
+        .map((t, i) => (t.sort_order === i * 10 ? null : patchTier(t.id, { sort_order: i * 10 })))
+        .filter(Boolean),
+    );
+    router.refresh();
+  }
 
   return (
     <>
@@ -63,17 +90,27 @@ export function TiersClient({
         </div>
       ) : (
         <div className="mt-6 space-y-4">
-          {visible.map((t) => (
-            <TierCard key={t.id} tier={t} onEdit={setEditing} />
+          {visible.map((t, i) => (
+            <div
+              key={t.id}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => void dropOn(i)}
+              onDragEnd={() => setDragIdx(null)}
+              className={dragIdx === i ? 'opacity-50' : ''}
+            >
+              <TierCard tier={t} onEdit={setEditing} />
+            </div>
           ))}
         </div>
       )}
 
       {creating && (
-        <TierDialog tier={null} products={products} currency={currency} onClose={() => setCreating(false)} />
+        <TierDialog tier={null} products={products} currency={currency} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />
       )}
       {editing && (
-        <TierDialog tier={editing} products={products} currency={currency} onClose={() => setEditing(null)} />
+        <TierDialog tier={editing} products={products} currency={currency} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />
       )}
     </>
   );

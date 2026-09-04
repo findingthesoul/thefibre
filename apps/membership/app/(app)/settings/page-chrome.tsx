@@ -1,4 +1,6 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
+import { ChevronLeft } from 'lucide-react';
 
 // Settings-page chrome — the Pulse settings variant of Thread's canonical
 // components/ui/page.tsx, trimmed to what this lane uses.
@@ -31,6 +33,20 @@ export function PageHeader({
       <h1 className="text-[28px] font-semibold tracking-tight text-ink">{title}</h1>
       {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
     </header>
+  );
+}
+
+export function Breadcrumb({ href, label }: { href: string; label: string }) {
+  return (
+    <nav className="mb-6 text-sm">
+      <Link
+        href={href}
+        className="inline-flex items-center gap-1 text-ink-subtle hover:text-ink"
+      >
+        <ChevronLeft size={14} strokeWidth={1.75} />
+        {label}
+      </Link>
+    </nav>
   );
 }
 

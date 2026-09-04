@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
+import { patchProduct } from './actions';
 import { ProductDialog } from './product-dialog';
 import { LINK_KIND_LABELS, type Product } from './types';
 
@@ -14,12 +16,35 @@ export function ProductsClient({
   products: Product[];
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
 }) {
+  const router = useRouter();
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Product | null>(null);
   const [showArchived, setShowArchived] = useState(false);
 
-  const archivedCount = products.filter((p) => p.archived_at).length;
-  const visible = showArchived ? products : products.filter((p) => !p.archived_at);
+  // Local copy so a drag reorders instantly; props re-sync after refresh.
+  const [items, setItems] = useState(products);
+  useEffect(() => setItems(products), [products]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  const archivedCount = items.filter((p) => p.archived_at).length;
+  const visible = showArchived ? items : items.filter((p) => !p.archived_at);
+
+  // Ordering is drag-and-drop, never a number field (Sjoerd, 2026-09-05).
+  async function dropOn(target: number) {
+    const from = dragIdx;
+    setDragIdx(null);
+    if (from === null || from === target) return;
+    const list = [...visible];
+    const [moved] = list.splice(from, 1);
+    list.splice(target, 0, moved);
+    setItems(showArchived ? list : [...list, ...items.filter((p) => p.archived_at)]);
+    await Promise.all(
+      list
+        .map((p, i) => (p.sort_order === i * 10 ? null : patchProduct(p.id, { sort_order: i * 10 })))
+        .filter(Boolean),
+    );
+    router.refresh();
+  }
 
   return (
     <>
@@ -59,14 +84,24 @@ export function ProductsClient({
         </div>
       ) : (
         <div className="mt-6 space-y-4">
-          {visible.map((p) => (
-            <ProductCard key={p.id} product={p} onEdit={setEditing} />
+          {visible.map((p, i) => (
+            <div
+              key={p.id}
+              draggable
+              onDragStart={() => setDragIdx(i)}
+              onDragOver={(e) => e.preventDefault()}
+              onDrop={() => void dropOn(i)}
+              onDragEnd={() => setDragIdx(null)}
+              className={dragIdx === i ? 'opacity-50' : ''}
+            >
+              <ProductCard product={p} onEdit={setEditing} />
+            </div>
           ))}
         </div>
       )}
 
-      {creating && <ProductDialog product={null} currency={currency} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
 }

@@ -35,10 +35,13 @@ const REF_PLACEHOLDERS: Record<LinkKind, string> = {
 export function ProductDialog({
   product,
   currency: workspaceCurrency,
+  nextSortOrder,
   onClose,
 }: {
   product: Product | null; // null = new
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
+  /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
+  nextSortOrder: number;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -53,7 +56,6 @@ export function ProductDialog({
   const [links, setLinks] = useState<LinkRow[]>(
     (product?.links ?? []).map((l) => ({ kind: l.kind, ref: l.ref, label: l.label ?? '' })),
   );
-  const [sortOrder, setSortOrder] = useState(String(product?.sort_order ?? 0));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
@@ -96,7 +98,8 @@ export function ProductDialog({
           ref: l.ref.trim(),
           ...(l.label.trim() ? { label: l.label.trim() } : {}),
         })),
-      sort_order: parseInt(sortOrder, 10) || 0,
+      // Existing products keep their position; a new one joins at the end.
+      sort_order: product ? (product.sort_order ?? 0) : nextSortOrder,
     };
     const res = product ? await patchProduct(product.id, input) : await createProduct(input);
     if (res.error) {
@@ -270,16 +273,6 @@ export function ProductDialog({
           >
             Add link
           </Button>
-        </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Sort order</label>
-          <input
-            value={sortOrder}
-            onChange={(e) => setSortOrder(e.target.value)}
-            inputMode="numeric"
-            className={`${INPUT} max-w-[8rem]`}
-          />
-          <p className="mt-1.5 text-xs text-ink-muted">Lower numbers list first.</p>
         </div>
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
