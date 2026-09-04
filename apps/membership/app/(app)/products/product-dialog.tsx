@@ -232,7 +232,11 @@ export function ProductDialog({
                 <select
                   value={l.kind}
                   onChange={(e) => setLink(i, { kind: e.target.value as LinkKind })}
-                  className={`${INPUT} w-36 shrink-0`}
+                  // NOT the shared INPUT class: its w-full beat the w-36 and
+                  // the select swallowed the whole row, pushing the ref +
+                  // label fields out of the dialog — the true root cause of
+                  // "my links don't save" (the field to fill was invisible).
+                  className="w-36 shrink-0 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
                 >
                   {LINK_KINDS.map((k) => (
                     <option key={k} value={k}>

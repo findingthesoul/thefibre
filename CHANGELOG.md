@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.32.1] — 2026-09-05 — Membership 0.2.1: the invisible link field
+
+### Fixed
+- **The links saga's true root cause**: the link-row kind select carried
+  both w-full (shared INPUT class) and w-36 — w-full won, the select
+  swallowed the row, and the ref + label fields rendered off-dialog.
+  The user was asked to fill a field he could not see. Select now has
+  its own width-free class. (Sjoerd's screenshot found it.)
+
 ## [0.32.0] — 2026-09-05 — Membership 0.2.0: one way of working
 
 ### Added
