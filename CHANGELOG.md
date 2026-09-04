@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.31.3] — 2026-09-05 — Membership 0.1.2: link rows stop failing silently
+
+### Fixed
+- **Product links "didn't save"** — they were never sent: the dialog
+  silently dropped any link row whose middle (ref) field was empty.
+  Caught live: PATCH 200 with links []. An added row with an empty ref
+  now blocks the save with a message naming the field, instead of
+  discarding the user's intent.
+
 ## [0.31.2] — 2026-09-05 — Membership 0.1.1: add-member creates contacts
 
 ### Fixed

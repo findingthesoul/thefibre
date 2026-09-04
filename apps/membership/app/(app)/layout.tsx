@@ -11,7 +11,7 @@ import { APPS } from '@thefibre/shared';
 // Membership has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
 // rebuild of an existing one). See CLAUDE.md "Version bumps".
-const VERSION = '0.1.1';
+const VERSION = '0.1.2';
 
 type Me = {
   user: { id: string; email: string; full_name: string | null };

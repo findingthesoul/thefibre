@@ -68,6 +68,16 @@ export function ProductDialog({
       setError('Name is required.');
       return;
     }
+    // Link rows without a ref used to be dropped SILENTLY on save — which
+    // read as "my links don't save" (caught live 2026-09-05: PATCH 200,
+    // links []). The user added the row on purpose; an empty middle field
+    // now stops the save and says exactly what's missing.
+    if (links.some((l) => !l.ref.trim())) {
+      setError(
+        'A link row is missing its middle field — the slug, ID or URL it points at. Fill it in or remove the row (trash icon).',
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     const input = {
