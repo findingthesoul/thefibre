@@ -35,6 +35,9 @@ export type InvoicePurchase = {
     tax_no?: string | null;
     period_end?: string | null;
     pdf?: string | null;
+    subtotal_cents?: number | null;
+    tax_cents?: number | null;
+    tax_label?: string | null;
   } | null;
 };
 
@@ -216,8 +219,16 @@ export function InvoiceDialog({
           <div className="mt-5 rounded-md border border-line">
             <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3">
               <span className="min-w-0">{purchase.item_label}</span>
-              <span className="shrink-0 font-mono">{money(purchase.amount_cents, purchase.currency)}</span>
+              <span className="shrink-0 font-mono">
+                {money(b.subtotal_cents ?? purchase.amount_cents, purchase.currency)}
+              </span>
             </div>
+            {typeof b.tax_cents === 'number' && (b.tax_cents > 0 || b.tax_label) && (
+              <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 text-ink-subtle">
+                <span>{b.tax_label ?? 'VAT'}</span>
+                <span className="font-mono">{money(b.tax_cents, purchase.currency)}</span>
+              </div>
+            )}
             <div className="flex items-baseline justify-between gap-4 px-4 py-3">
               <span className="font-medium">Total ({purchase.currency})</span>
               <span className="font-mono text-base font-medium">

@@ -34,6 +34,9 @@ type Purchase = {
     country?: string | null;
     tax_no?: string | null;
     period_end?: string | null;
+    subtotal_cents?: number | null;
+    tax_cents?: number | null;
+    tax_label?: string | null;
   } | null;
 };
 
@@ -148,8 +151,16 @@ export default async function FibreInvoicePage({
                   </span>
                 )}
               </td>
-              <td className="py-3 text-right font-mono">{eur(invoice.amount_cents)}</td>
+              <td className="py-3 text-right font-mono">
+                {eur(b.subtotal_cents ?? invoice.amount_cents)}
+              </td>
             </tr>
+            {typeof b.tax_cents === 'number' && (b.tax_cents > 0 || b.tax_label) && (
+              <tr className="border-b border-line/60 text-ink-subtle">
+                <td className="py-3">{b.tax_label ?? 'VAT'}</td>
+                <td className="py-3 text-right font-mono">{eur(b.tax_cents)}</td>
+              </tr>
+            )}
             <tr>
               <td className="py-4 font-medium">Total ({invoice.currency})</td>
               <td className="py-4 text-right font-mono text-lg font-medium">

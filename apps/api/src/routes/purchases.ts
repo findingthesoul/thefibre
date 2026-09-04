@@ -176,7 +176,7 @@ type ReceiptPurchase = {
   method: string;
   status?: string;
   created_at: string;
-  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string } | null;
+  billing?: { company?: string; address?: string; postal_code?: string; city?: string; country?: string; tax_no?: string; subtotal_cents?: number | null; tax_cents?: number | null; tax_label?: string | null } | null;
 };
 
 type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } | null;
@@ -226,10 +226,18 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
   ]
     .filter(Boolean)
     .join(', ');
+  const fmt = (cents: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: p.currency || 'EUR' }).format(cents / 100);
   const billingRows = [
     p.billing?.company ? row('Billed to', p.billing.company) : '',
     billingAddress ? row('Address', billingAddress) : '',
     p.billing?.tax_no ? row('Tax / VAT no.', p.billing.tax_no) : '',
+    typeof p.billing?.subtotal_cents === 'number' && (p.billing?.tax_cents ?? 0) > 0
+      ? row('Subtotal', fmt(p.billing.subtotal_cents))
+      : '',
+    typeof p.billing?.tax_cents === 'number' && ((p.billing.tax_cents ?? 0) > 0 || p.billing?.tax_label)
+      ? row(p.billing?.tax_label ?? 'VAT', fmt(p.billing.tax_cents ?? 0))
+      : '',
   ].join('');
   // A pending purchase is an invoice, not a receipt — say so
   // (review 2026-07-05: resend on a pending row mailed a "Receipt" with a

@@ -165,8 +165,9 @@ billingRoutes.post('/checkout', async (c) => {
       .eq('workspace_id', ctx.workspaceId);
   }
 
-  const session = await stripe.checkout.sessions.create({
-    mode: 'subscription',
+  type CheckoutCreateParams = NonNullable<Parameters<Stripe['checkout']['sessions']['create']>[0]>;
+  const baseSessionParams: CheckoutCreateParams = {
+    mode: 'subscription' as const,
     customer: customerId,
     line_items: [
       custom
@@ -196,7 +197,25 @@ billingRoutes.post('/checkout', async (c) => {
     subscription_data: {
       metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
     },
-  });
+  };
+
+  // VAT via Stripe Tax (prices are ex-VAT): 21% NL, reverse charge for EU
+  // B2B with a validated VAT id, out of scope elsewhere. Falls back to
+  // tax-less checkout until Stripe Tax is ACTIVATED in the dashboard —
+  // enabling it here must never turn checkout off.
+  let session;
+  try {
+    session = await stripe.checkout.sessions.create({
+      ...baseSessionParams,
+      automatic_tax: { enabled: true },
+    });
+  } catch (e) {
+    console.warn(
+      '[billing/checkout] automatic tax refused (activate Stripe Tax in the dashboard) — proceeding without',
+      e instanceof Error ? e.message : e,
+    );
+    session = await stripe.checkout.sessions.create(baseSessionParams);
+  }
 
   return c.json({ url: session.url });
 });
@@ -292,6 +311,12 @@ billingRoutes.post('/switch', async (c) => {
     cancel_at_period_end: false,
     metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
   });
+
+  // Best-effort: make sure the subscription computes VAT from here on
+  // (no-op until Stripe Tax is activated in the dashboard).
+  await stripe.subscriptions
+    .update(sub.stripe_subscription_id, { automatic_tax: { enabled: true } })
+    .catch(() => {});
 
   // Optimistic write so the screen flips immediately; the webhook confirms.
   await adminClient
@@ -565,7 +590,32 @@ async function invoicePaid(invoice: Stripe.Invoice): Promise<void> {
   // the invoice ITSELF — Stripe's PDF becomes a footnote ("my invoices are
   // still in Stripe" — Sjoerd, 2026-09-04).
   const addr = invoice.customer_address;
+  // Tax breakdown — field names moved across Stripe API versions, so read
+  // defensively: sum of tax amounts, subtotal ex-tax, reverse-charge flag.
+  const inv = invoice as unknown as {
+    total_tax_amounts?: { amount: number }[];
+    total_taxes?: { amount: number }[];
+    tax?: number | null;
+    total_excluding_tax?: number | null;
+    subtotal?: number | null;
+    customer_tax_exempt?: string | null;
+  };
+  const taxCents =
+    inv.total_tax_amounts?.reduce((a, t) => a + (t.amount ?? 0), 0) ??
+    inv.total_taxes?.reduce((a, t) => a + (t.amount ?? 0), 0) ??
+    inv.tax ??
+    0;
+  const subtotalCents = inv.total_excluding_tax ?? inv.subtotal ?? (invoice.amount_paid ?? 0) - taxCents;
+  const reverseCharge = inv.customer_tax_exempt === 'reverse';
+  const taxPct = subtotalCents > 0 && taxCents > 0 ? Math.round((taxCents / subtotalCents) * 100) : null;
   const billing = {
+    subtotal_cents: subtotalCents,
+    tax_cents: taxCents,
+    tax_label: reverseCharge
+      ? 'VAT reverse-charged'
+      : taxCents > 0
+        ? `VAT ${taxPct ?? ''}%`.trim()
+        : null,
     number: invoice.number ?? null,
     company: invoice.customer_name ?? ws?.name ?? null,
     address: addr?.line1 ?? null,
