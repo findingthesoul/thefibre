@@ -165,6 +165,28 @@ adding a `kind` is a deploy, like app-key scopes.
 tools that consume OIDC — noting Circle's own SSO consumption is
 Enterprise-plan-gated, so this waits for scale that justifies both builds.
 
+### 3.8 Flow + Pulse integration (accepted 2026-09-04)
+
+Membership is the **system of record**; the family plugs in around it:
+
+- **Pulse — automatic.** Subscription payments are `purchase` rows, and the
+  ledger is Pulse's actuals feed: membership income appears in soul.com's
+  cashflow with zero new wiring. Later (post-v1): Pulse ingests the renewal
+  book (`renews_at` × tier price per active member) as high-likelihood
+  expected income — recurring revenue is the most forecastable line a
+  workspace can have.
+- **Flow — reacts, never decides.** Membership emits activity events at
+  every lifecycle moment (joined / renewed / tier-changed / lapsed /
+  rejoined, declared in the manifest). Flow's existing activity
+  auto-complete trigger means workspaces can build Flows on top from day
+  one — onboarding flow, win-back flow, renewal-risk kanban — with no new
+  Flow code. The hard line: the active/grace/lapsed state machine is driven
+  by Stripe webhooks and lives on `member.status`, written directly and
+  instantly queryable (Circle sync and the join page read it). Flow
+  *reacts* to transitions; it does not *own* them (consistent with
+  brief-flow-as-planner-engine gap 5: community/org state doesn't belong
+  inside Flow).
+
 ### 3.7 Surfaces
 
 - **Public join page** (per workspace): tiers, checkout — Webflow-embeddable
