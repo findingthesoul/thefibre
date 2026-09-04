@@ -6,6 +6,7 @@
 // backstop for every read.
 
 import { Hono } from 'hono';
+import { ENTITY } from '@thefibre/shared';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { sendEmail } from '../lib/email/client.js';
@@ -522,7 +523,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );
     await sendEmail({
-      to: recipient,
+      to: p.payer_email,
       subject: `Payment link — ${p.item_label}`,
       html: receiptHtml(
         p,
