@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.33.1] — 2026-09-05 — Membership 0.2.3: thread links are picked, not typed
+
+### Changed
+- Thread-kind product links offer a picker of the workspace's actual
+  threads (cross-app read on the user's own RLS identity; empty list
+  falls back to the text field). Circle-space picking waits on a token +
+  spaces proxy.
+- Proposal §3.10: grant kind fibre_seat designed (tier ⇒ workspace seat;
+  billed-seat caveat stated in the dialog) — build on Sjoerd's go.
+
 ## [0.33.0] — 2026-09-05 — components first
 
 ### Changed

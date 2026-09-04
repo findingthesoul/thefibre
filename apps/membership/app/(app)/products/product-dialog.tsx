@@ -35,11 +35,14 @@ const REF_PLACEHOLDERS: Record<LinkKind, string> = {
 export function ProductDialog({
   product,
   currency: workspaceCurrency,
+  threadOptions,
   nextSortOrder,
   onClose,
 }: {
   product: Product | null; // null = new
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
+  /** The workspace's threads — thread-kind links pick a slug, never type one. */
+  threadOptions: { slug: string; title: string }[];
   /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
   onClose: () => void;
@@ -244,12 +247,30 @@ export function ProductDialog({
                     </option>
                   ))}
                 </select>
-                <input
-                  value={l.ref}
-                  onChange={(e) => setLink(i, { ref: e.target.value })}
-                  placeholder={REF_PLACEHOLDERS[l.kind]}
-                  className={INPUT}
-                />
+                {l.kind === 'thread' && threadOptions.length > 0 ? (
+                  <select
+                    value={l.ref}
+                    onChange={(e) => setLink(i, { ref: e.target.value })}
+                    className={INPUT}
+                  >
+                    <option value="">Pick a thread…</option>
+                    {threadOptions.map((t) => (
+                      <option key={t.slug} value={t.slug}>
+                        {t.title}
+                      </option>
+                    ))}
+                    {l.ref && !threadOptions.some((t) => t.slug === l.ref) && (
+                      <option value={l.ref}>{l.ref}</option>
+                    )}
+                  </select>
+                ) : (
+                  <input
+                    value={l.ref}
+                    onChange={(e) => setLink(i, { ref: e.target.value })}
+                    placeholder={REF_PLACEHOLDERS[l.kind]}
+                    className={INPUT}
+                  />
+                )}
                 <input
                   value={l.label}
                   onChange={(e) => setLink(i, { label: e.target.value })}

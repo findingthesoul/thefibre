@@ -12,9 +12,11 @@ import { LINK_KIND_LABELS, type Product } from './types';
 export function ProductsClient({
   products,
   currency,
+  threadOptions,
 }: {
   products: Product[];
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
+  threadOptions: { slug: string; title: string }[];
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -100,8 +102,8 @@ export function ProductsClient({
         </div>
       )}
 
-      {creating && <ProductDialog product={null} currency={currency} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
 }

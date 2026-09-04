@@ -246,6 +246,22 @@ Future kinds from the same layer: solidarity chooser (self-select
 50/75/100 — no geo at all), student, early-bird. A kind is a deploy,
 never a migration.
 
+### 3.10 Grant kind `fibre_seat` (asked 2026-09-05, designed — build on go)
+
+"Someone who becomes a certain membership type also gets a seat in
+Fibre." Yes — it is the access-grant architecture doing what it's for: a
+grant kind whose worker, on activation, ensures the member has an auth
+account (the join flow already auto-creates one), a `user` +
+`workspace_member` row (role from `config.role`, default organiser), and
+platform app membership; on revoke it removes the workspace seat
+(`DELETE /members` semantics — stops billing from the next period).
+
+The caveat that makes it a deliberate choice: **seats are billed** on
+the workspace's own Fibre subscription (seat billing, v0.22.0). A tier
+carrying this grant adds a seat's monthly cost per member to the
+workspace's bill — the grant dialog states this in so many words before
+save.
+
 ### 3.7 Surfaces
 
 - **Public join page** (per workspace): tiers, checkout — Webflow-embeddable
