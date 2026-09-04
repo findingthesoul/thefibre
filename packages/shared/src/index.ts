@@ -61,3 +61,4 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
 // Touching this file rebuilds all five Vercel apps (they all depend on
 // @thefibre/shared) — used 2026-09-04 to force staging env-var pickup.
+// rebuild marker 2 (meet env fix, 2026-09-04)
