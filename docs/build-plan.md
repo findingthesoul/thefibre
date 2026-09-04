@@ -87,18 +87,25 @@ seeded into Pulse. What remains:
    Circle sync worker, all six admin surfaces, public join page,
    website embeds (/embed/tiers + /embed/button, me-* classes), Fibre
    web profile tab, workspace-level currency SPoT. Migrations applied
-   staging+prod; API deployed both. **Remaining — Sjoerd, not code:**
-   - Vercel project `thefibre-membership` (root apps/membership) +
-     domain membership.thefibre.app (+ membership.thefibre.tech on
-     staging — its OWN project, the 2026-09-03 misroute lesson) + the
-     standard env vars (docs/environments.md §E, now "six projects").
+   staging+prod; API deployed both. FULLY DEPLOYED 2026-09-05: Vercel
+   project + both domains live, sign-in verified, activated on the
+   default workspace (prod+staging). The setup day also yielded v0.31.1
+   (activation now really grants app_membership — RLS had no write
+   policy) and scripts/verify-vercel-env.mjs (env-matrix audit/fix;
+   first run caught a staging anon key in membership's PROD scope).
+   Prod SSO_INTERNAL_SECRET rotated 2026-09-05.
+   **Remaining — Sjoerd, not code:**
    - Stripe **Connect** webhook endpoint
      `https://thefibre-api.fly.dev/api/v1/membership/stripe-webhook`
      (checkout.session.completed, invoice.paid, invoice.payment_failed,
-     customer.subscription.updated/deleted — "listen on connected
-     accounts") → `fly secrets set STRIPE_MEMBERSHIP_WEBHOOK_SECRET`.
-   - Create the soul.com workspace, activate Membership (Settings →
-     Apps), connect its Stripe account, add the Circle API token.
+     customer.subscription.updated/deleted — MUST pick "listen on
+     Connected accounts" AT CREATION, it can't be flipped later) →
+     `fly secrets set STRIPE_MEMBERSHIP_WEBHOOK_SECRET`. Was mid-redo
+     2026-09-05. Staging twin (test mode → thefibre-api-staging)
+     recommended for the test-card rehearsal.
+   - Create the soul.com workspace, activate Membership there, connect
+     its Stripe account, add the Circle API token, create the first
+     tier, rehearse a test join on membership.thefibre.tech.
    **Roadmap (proposal §3.6):** Memberful-style integrations catalogue —
    each tool = a new access_grant kind + worker (deploy, not migration);
    then org seats (§3.5), OAuth provider phase 2, plan-gating +
