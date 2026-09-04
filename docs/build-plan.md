@@ -54,7 +54,15 @@ seeded into Pulse. What remains:
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
    monthly invoice, 80% warnings, the 13-month Free archive (warning email +
-   export first).
+   export first). Seat follow-ups (Sjoerd, 2026-09-04):
+   - **Member removal doesn't exist yet** — /members has GET/POST/PATCH but
+     no DELETE, so a seat can't be closed. Build it, call
+     `reconcileSeatBilling` after (the reconciler already shrinks the
+     quantity — Stripe credits the unused time by proration).
+   - **Confirm the cost when an invite adds a paid seat** ("if you go
+     beyond accepting a seat, you have to accept the monthly extra pay"):
+     invite past the allowance → the admin sees "this adds €8/month to your
+     subscription" and confirms before the invite sends.
 3. **P5 — website polish**: OG image (favicon shipped), screenshots,
    self-serve signup flip when the trial ends. Now under the naming brief
    (docs/naming-brief.md): Thread-first — NO per-app product pages (Meet /
