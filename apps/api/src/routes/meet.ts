@@ -1172,7 +1172,8 @@ meetRoutes.get('/google/auth-start', async (c) => {
   const ctx = c.get('ctx');
   // Connections are a user-level SPoT surfaced in more than one app — the
   // callback returns to whichever app started the flow.
-  const returnTo = c.req.query('return') === 'thread' ? 'thread' : 'meet';
+  const q = c.req.query('return');
+  const returnTo = q === 'thread' || q === 'fibre' ? q : 'meet';
   const state = await new SignJWT({
     user_id: ctx.userId,
     workspace_id: ctx.workspaceId,
@@ -1214,6 +1215,10 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     if (payload.return_to === 'thread') {
       const threadUrl = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
       settingsUrl = `${threadUrl}/settings/connections`;
+    }
+    if (payload.return_to === 'fibre') {
+      const fibreUrl = process.env.NEXT_PUBLIC_FIBRE_URL ?? 'https://thefibre.app';
+      settingsUrl = `${fibreUrl}/settings/connections`;
     }
     if (!userId || !workspaceId) throw new Error('bad state');
   } catch {

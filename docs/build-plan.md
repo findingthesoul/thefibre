@@ -44,6 +44,12 @@ seeded into Pulse. What remains:
    library (today's thread templates are workspace-scoped duplicates); the
    new-thread flow offers library templates filtered by the plan's limit;
    the designer stays behind thread_custom_templates (Pro+).
+1f3. **Members page redo (Sjoerd spec, 2026-09-05)**: list rows; click a
+   name → settings popup; Add button → invite popup (house pattern, like
+   Membership's members page). Same session: **profile convergence** —
+   Fibre /settings/profile and Meet/Thread profile overlays must share
+   ONE layout (platform identity block + app overlay block beneath,
+   shared components); "does not feel trustworthy" when they differ.
 1g. **Standard components, one implementation (Sjoerd, 2026-09-05:
    "every setting page, profile page, invoice screen — standard platform
    components; same look, same data, same behaviour everywhere")**:

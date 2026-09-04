@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
-import { getMemberAccess, patchMember } from './actions';
+import { approveAccess, getMemberAccess, patchMember } from './actions';
 import { StatusBadge } from './status-badge';
 import { personName, type Member, type MemberAccess, type MemberStatus, type Tier } from './types';
 
@@ -22,6 +22,7 @@ export function dateToIso(date: string): string {
 const ACCESS_STYLES: Record<string, string> = {
   granted: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-300',
   pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
+  awaiting_approval: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
   revoke_pending: 'bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300',
   revoked: 'bg-surface-sunken text-ink-muted',
   error: 'bg-red-100 text-red-800 dark:bg-red-950/40 dark:text-red-300',
@@ -159,6 +160,29 @@ export function MemberDialog({
                     </span>
                   )}
                   {a.last_error && <span className="text-xs text-red-700 truncate">{a.last_error}</span>}
+                  {a.status === 'awaiting_approval' && (
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => {
+                        setBusy(true);
+                        setError(null);
+                        void approveAccess(a.id).then((r) => {
+                          setBusy(false);
+                          if (r.error) setError(r.error);
+                          else {
+                            setAccess((prev) =>
+                              prev?.map((x) => (x.id === a.id ? { ...x, status: 'granted' } : x)) ?? prev,
+                            );
+                            router.refresh();
+                          }
+                        });
+                      }}
+                      className="ml-auto rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-ink-inverse hover:opacity-90 disabled:opacity-50"
+                    >
+                      Approve seat
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>

@@ -1,5 +1,6 @@
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
 import { CircleCard } from '../circle-card';
+import { SeatPolicyCard } from '../seat-policy-card';
 import { loadSettings } from '../shared';
 
 // The integrations LIST (Sjoerd, 2026-09-05: "a list of integrations with
@@ -45,9 +46,24 @@ export default async function IntegrationsSettings() {
                 tokenSet={settings?.circle_api_token_set ?? false}
               />
             </div>
+            <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-line bg-surface-sunken px-5 py-3">
+              <div className="flex items-center gap-2.5">
+                <span className="text-sm font-medium text-ink">The Fibre</span>
+                <span className="text-xs text-ink-muted">workspace seats — built in</span>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-2.5 py-0.5 text-[11px] font-medium text-emerald-800">
+                Always connected
+              </span>
+            </div>
+            <div className="!mt-0 rounded-b-lg border border-line">
+              <SeatPolicyCard
+                mode={(settings as { fibre_seat_mode?: 'auto' | 'approve' } | null)?.fibre_seat_mode ?? 'approve'}
+                allowBilled={(settings as { allow_billed_seats?: boolean } | null)?.allow_billed_seats ?? false}
+              />
+            </div>
             <p className="text-xs text-ink-muted">
               More integrations land here as they're built — Discord, Discourse, email tools.
-              Each one becomes available as an access grant on your tiers.
+              Each one becomes available as an access grant on your tiers' products.
             </p>
           </>
         )}

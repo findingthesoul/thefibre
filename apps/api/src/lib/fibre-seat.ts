@@ -22,7 +22,7 @@ type JournalRow = {
   member: { id: string; workspace_id: string; person_id: string } | null;
 };
 
-async function grantSeat(
+export async function grantSeat(
   workspaceId: string,
   personId: string,
   config: Record<string, unknown> | null,
@@ -116,8 +116,42 @@ export async function runFibreSeatSync(): Promise<{ granted: number; revoked: nu
     (r) => r.grant?.kind === 'fibre_seat' && r.member,
   );
 
+  // Per-workspace seat policy (membership_settings): 'approve' parks every
+  // seat for a human; 'auto' provisions free-allowance seats but still
+  // parks BILLED seats unless allow_billed_seats consents.
+  const wsIds = [...new Set(rows.map((r) => r.member!.workspace_id))];
+  const { data: settingsRows } = wsIds.length
+    ? await adminClient
+        .from('membership_settings')
+        .select('workspace_id, fibre_seat_mode, allow_billed_seats')
+        .in('workspace_id', wsIds)
+    : { data: [] as { workspace_id: string; fibre_seat_mode: string; allow_billed_seats: boolean }[] };
+  const policy = new Map((settingsRows ?? []).map((r) => [r.workspace_id, r]));
+
   for (const row of rows) {
     if (row.status === 'pending') {
+      const pol = policy.get(row.member!.workspace_id);
+      const mode = pol?.fibre_seat_mode ?? 'approve';
+      if (mode === 'approve') {
+        await adminClient
+          .from('membership_member_access')
+          .update({ status: 'awaiting_approval', last_error: null, updated_at: new Date().toISOString() })
+          .eq('id', row.id);
+        continue;
+      }
+      // auto mode: a seat that would BILL still needs the standing consent.
+      const seat = await seatAvailable(row.member!.workspace_id);
+      if (!seat.ok && !(pol?.allow_billed_seats ?? false)) {
+        await adminClient
+          .from('membership_member_access')
+          .update({
+            status: 'awaiting_approval',
+            last_error: `would add a billed seat (${seat.used}/${seat.included} in use) — approve to charge it`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', row.id);
+        continue;
+      }
       const r = await grantSeat(row.member!.workspace_id, row.member!.person_id, row.grant!.config);
       await adminClient
         .from('membership_member_access')

@@ -15,7 +15,7 @@ import {
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
 import { runCircleAccessSync } from '../lib/circle.js';
-import { runFibreSeatSync } from '../lib/fibre-seat.js';
+import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
 
 // ===========================================================================
 // Fibre Membership — the community-subscription API.
@@ -109,6 +109,10 @@ const PutSettings = z.object({
   circle_api_token: z.string().max(500).optional().nullable(),
   circle_community_url: z.string().url().max(500).optional().nullable(),
   join_page: z.record(z.string(), z.unknown()).optional(),
+  // Fibre-seat policy (2026-09-05): approve-or-auto, and the standing
+  // consent for seats that bill above the plan allowance.
+  fibre_seat_mode: z.enum(['auto', 'approve']).optional(),
+  allow_billed_seats: z.boolean().optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -213,7 +217,10 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       .select('id, access_grant_id, status')
       .eq('member_id', member.id);
     for (const row of stale ?? []) {
-      if (!grantIds.includes(row.access_grant_id) && (row.status === 'granted' || row.status === 'pending')) {
+      if (
+        !grantIds.includes(row.access_grant_id) &&
+        (row.status === 'granted' || row.status === 'pending' || row.status === 'awaiting_approval')
+      ) {
         await adminClient
           .from('membership_member_access')
           .update({ status: row.status === 'granted' ? 'revoke_pending' : 'revoked', updated_at: new Date().toISOString() })
@@ -231,7 +238,7 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       .from('membership_member_access')
       .update({ status: 'revoked', updated_at: new Date().toISOString() })
       .eq('member_id', member.id)
-      .eq('status', 'pending');
+      .in('status', ['pending', 'awaiting_approval']);
   }
 }
 
@@ -572,6 +579,40 @@ membershipRoutes.delete('/grants/:id', async (c) => {
   return c.json({ ok: true });
 });
 
+// Approve a parked seat: provisions synchronously — the human clicked, so
+// the answer (granted or a concrete error) comes back on the same request.
+// Approval IS the consent, so it overrides mode and the billed-seat gate
+// (grantSeat still refuses when the plan can neither include nor bill it).
+membershipRoutes.post('/access/:id/approve', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isMembershipAdmin(ctx.workspaceId, ctx.userId))) {
+    return c.json({ error: 'admin only' }, 403);
+  }
+  const { data: row } = await adminClient
+    .from('membership_member_access')
+    .select('id, status, grant:access_grant_id (kind, config), member:member_id (id, workspace_id, person_id)')
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  const grant = Array.isArray(row?.grant) ? row?.grant[0] : row?.grant;
+  const member = Array.isArray(row?.member) ? row?.member[0] : row?.member;
+  if (!row || !grant || !member || member.workspace_id !== ctx.workspaceId) {
+    return c.json({ error: 'not found' }, 404);
+  }
+  if (row.status !== 'awaiting_approval') return c.json({ error: 'nothing to approve' }, 409);
+  if (grant.kind !== 'fibre_seat') return c.json({ error: 'only seat grants park for approval' }, 400);
+
+  const r = await grantSeat(member.workspace_id, member.person_id, grant.config);
+  await adminClient
+    .from('membership_member_access')
+    .update(
+      r.ok
+        ? { status: 'granted', external_ref: r.userId, last_error: null, synced_at: new Date().toISOString(), updated_at: new Date().toISOString() }
+        : { status: 'error', last_error: r.error, updated_at: new Date().toISOString() },
+    )
+    .eq('id', row.id);
+  return r.ok ? c.json({ ok: true }) : c.json({ error: r.error }, 409);
+});
+
 // Retry failed syncs: error rows flip back to the direction the member's
 // CURRENT state implies, and the next scheduler tick re-runs them.
 membershipRoutes.post('/access/retry', async (c) => {
@@ -619,7 +660,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, join_page, updated_at')
+    .select('workspace_id, circle_api_token, circle_community_url, join_page, fibre_seat_mode, allow_billed_seats, updated_at')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -628,6 +669,8 @@ membershipRoutes.get('/settings', async (c) => {
     // The token never leaves the API — only whether one is set.
     circle_api_token_set: Boolean(data?.circle_api_token),
     join_page: data?.join_page ?? {},
+    fibre_seat_mode: data?.fibre_seat_mode ?? 'approve',
+    allow_billed_seats: data?.allow_billed_seats ?? false,
   });
 });
 
@@ -642,6 +685,8 @@ membershipRoutes.put('/settings', async (c) => {
   if (body.data.circle_api_token !== undefined) row.circle_api_token = body.data.circle_api_token;
   if (body.data.circle_community_url !== undefined) row.circle_community_url = body.data.circle_community_url;
   if (body.data.join_page !== undefined) row.join_page = body.data.join_page;
+  if (body.data.fibre_seat_mode !== undefined) row.fibre_seat_mode = body.data.fibre_seat_mode;
+  if (body.data.allow_billed_seats !== undefined) row.allow_billed_seats = body.data.allow_billed_seats;
   const { error } = await adminClient
     .from('membership_settings')
     .upsert(row, { onConflict: 'workspace_id' });

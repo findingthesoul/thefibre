@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.37.0] — 2026-09-05 — Membership 0.5.0: seats wait for a yes
+
+### Added
+- **Seat approvals**: fibre_seat grants park as awaiting_approval — an
+  Approve-seat button on the member provisions synchronously. Policy
+  lives on the built-in Fibre integration row (Integrations page):
+  approve-or-auto, plus the standing consent "seats above the allowance
+  may be billed" (without it a costing seat ALWAYS waits). Lapse cleans
+  parked rows up like pending ones.
+- **The Fibre hosts /settings/connections** (was a 404 from every hub —
+  the canon linked a page only Thread had). Ported with return=fibre on
+  the Google flow.
+
+### Fixed
+- **Meet profile save 500** ("row violates RLS for meet_root_slug"): the
+  slug-registry sync triggers lacked SECURITY DEFINER, so user-session
+  saves wrote the registry as authenticated — same disease as the
+  v0.31.1 grant bug, found by Sjoerd on staging.
+
+### Queued
+- Fibre Members page redo to the house list+dialog pattern (Sjoerd's
+  spec) and profile-page convergence (platform block + app overlay, one
+  shared layout) — trust depends on it.
+
 ## [0.36.0] — 2026-09-05 — Membership 0.4.0: the product carries its access
 
 ### Changed

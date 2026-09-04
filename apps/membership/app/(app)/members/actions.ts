@@ -109,3 +109,15 @@ export async function createPerson(input: {
     return { error: formatApiError(e) };
   }
 }
+
+
+// Approve a parked seat (awaiting_approval) — provisions synchronously.
+export async function approveAccess(id: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/access/${id}/approve`, { method: 'POST' });
+    revalidatePath('/members');
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
