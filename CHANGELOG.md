@@ -21,6 +21,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.30.0] — 2026-09-04 — VAT on sales: workspace, then organiser
+
+*"VAT is workspace and then organiser. Workspace is organiser too."*
+
+### Added
+- **Seller-side VAT on app sales** (`lib/seller-vat.ts`): the workspace's
+  invoice details carry the default VAT config; a person selling under
+  their own name overrides with their profile's. Team and workspace sales
+  follow the workspace — the workspace IS an organiser.
+- **Settings → Payments (Thread + Meet)** grew "VAT on sales": a
+  VAT-registered toggle + rate, at both My-account and Workspace level,
+  stored in the payments SPoT (invoice_details jsonb — no migration).
+- **Ticket prices stay what buyers see**: rates are INCLUSIVE. At
+  `recordPurchase` every app sale gets the split stamped into billing
+  (subtotal / tax / "incl. VAT 21%"), so the invoice popup, page, PDF and
+  receipt email all show it — one stamping point covers Thread card +
+  invoice-method enrolments and Meet bookings. Platform (fibre-platform)
+  rows keep their Stripe-computed tax untouched.
+- recordPurchase now merges billing over the existing row's on updates —
+  a webhook confirm can no longer clobber the enrol form's buyer details.
+
 ## [0.29.0] — 2026-09-04 — one invoice viewer for the whole family
 
 *"One ref of truth for the whole app (fibre, meet, thread)"* — now actually

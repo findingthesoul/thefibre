@@ -9,6 +9,10 @@ export type InvoiceDetails = {
   legal_name?: string;
   address?: string;
   tax_no?: string;
+  // Seller-side VAT on sales (lib/seller-vat.ts): workspace default,
+  // organiser override. Rates are inclusive — they split, never add.
+  vat_registered?: boolean;
+  vat_rate_pct?: number | null;
 } | null;
 
 /**

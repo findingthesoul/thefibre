@@ -49,6 +49,8 @@ const ProfilePatch = z.object({
       legal_name: z.string().max(200).optional(),
       address: z.string().max(500).optional(),
       tax_no: z.string().max(60).optional(),
+      vat_registered: z.boolean().optional(),
+      vat_rate_pct: z.number().min(0).max(100).nullable().optional(),
     })
     .nullable()
     .optional(),

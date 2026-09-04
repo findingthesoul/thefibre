@@ -5,6 +5,7 @@
 
 import { adminClient } from '../db.js';
 import { settleFromPurchase } from './pulse-ledger.js';
+import { resolveSellerVat, inclusiveVat } from './seller-vat.js';
 
 const appIds = new Map<string, string>();
 async function appId(slug: string): Promise<string | null> {
@@ -77,14 +78,47 @@ export async function recordPurchase(w: PurchaseWrite): Promise<void> {
   if (w.status === 'paid') row.paid_at = now;
   if (w.status === 'refunded') row.refunded_at = now;
 
+  // Seller-side VAT (lib/seller-vat.ts): app sales get the seller's
+  // inclusive split stamped into billing — the platform's own invoices
+  // (fibre-platform) arrive with Stripe-computed tax and are left alone.
+  // Only on writes that carry the amount (the creating write), and never
+  // over a breakdown the caller already provided.
+  const callerBilling = (w.billing ?? null) as Record<string, unknown> | null;
+  if (
+    w.appSlug !== 'fibre-platform' &&
+    typeof w.amountCents === 'number' &&
+    w.amountCents > 0 &&
+    callerBilling?.tax_cents === undefined
+  ) {
+    try {
+      const vat = await resolveSellerVat(w.workspaceId, w.organiserUserId ?? null);
+      if (vat) {
+        const split = inclusiveVat(w.amountCents, vat.rate_pct);
+        row.billing = {
+          ...(callerBilling ?? {}),
+          subtotal_cents: split.subtotal_cents,
+          tax_cents: split.tax_cents,
+          tax_label: vat.label,
+        };
+      }
+    } catch (e) {
+      console.error('[purchases] seller VAT resolution failed (recorded untaxed)', e);
+    }
+  }
+
   // No upsert-with-partial-merge in PostgREST: update first, insert if new.
   const { data: existing } = await adminClient
     .from('purchase')
-    .select('id')
+    .select('id, billing')
     .eq('app_id', app)
     .eq('item_ref', w.itemRef)
     .maybeSingle();
   if (existing) {
+    // Never clobber billing facts an earlier write stored (the invoice-method
+    // enrol form's buyer details, a prior VAT stamp) — merge under this write.
+    if (row.billing !== undefined && existing.billing) {
+      row.billing = { ...(existing.billing as Record<string, unknown>), ...(row.billing as Record<string, unknown>) };
+    }
     const { error } = await adminClient.from('purchase').update(row).eq('id', existing.id);
     if (error) console.error('[purchases] update failed', error);
     // P4: a paid ledger row settles the plan it belongs to (fire-and-forget).

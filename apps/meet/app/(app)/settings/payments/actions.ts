@@ -18,7 +18,15 @@ function errorMessage(e: unknown): string {
   return e instanceof Error ? e.message : 'unknown error';
 }
 
-export type InvoiceDetails = { legal_name?: string; address?: string; tax_no?: string };
+export type InvoiceDetails = {
+  legal_name?: string;
+  address?: string;
+  tax_no?: string;
+  // Seller-side VAT: workspace default, organiser override; rates are
+  // inclusive — they split the ticket price on the invoice, never add.
+  vat_registered?: boolean;
+  vat_rate_pct?: number | null;
+};
 
 export async function updateMyPayments(
   accountId: string | null,

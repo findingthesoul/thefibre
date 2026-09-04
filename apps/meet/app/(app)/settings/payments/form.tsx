@@ -98,6 +98,10 @@ function AccountSection({
   const [legalName, setLegalName] = useState(initialDetails?.legal_name ?? '');
   const [address, setAddress] = useState(initialDetails?.address ?? '');
   const [taxNo, setTaxNo] = useState(initialDetails?.tax_no ?? '');
+  const [vatOn, setVatOn] = useState(initialDetails?.vat_registered ?? false);
+  const [vatRate, setVatRate] = useState(
+    initialDetails?.vat_rate_pct != null ? String(initialDetails.vat_rate_pct) : '21',
+  );
   const [stripeOn, setStripeOn] = useState(initialMethods ? initialMethods.includes('stripe') : true);
   const [invoiceOn, setInvoiceOn] = useState(initialMethods ? initialMethods.includes('invoice') : false);
   const [error, setError] = useState<string | null>(null);
@@ -121,6 +125,13 @@ function AccountSection({
     if (legalName.trim()) details.legal_name = legalName.trim();
     if (address.trim()) details.address = address.trim();
     if (taxNo.trim()) details.tax_no = taxNo.trim();
+    const rate = Number(vatRate.replace(',', '.'));
+    if (vatOn && (!Number.isFinite(rate) || rate <= 0 || rate > 100)) {
+      setError('VAT rate must be between 0 and 100.');
+      return;
+    }
+    details.vat_registered = vatOn;
+    details.vat_rate_pct = vatOn ? rate : null;
     const methods: ('stripe' | 'invoice')[] = [
       ...(stripeOn ? (['stripe'] as const) : []),
       ...(invoiceOn ? (['invoice'] as const) : []),
@@ -196,6 +207,32 @@ function AccountSection({
               className={`${INPUT} max-w-none`}
             />
           </label>
+
+          <div>
+            <span className="text-xs text-ink-subtle">VAT on sales</span>
+            <div className="mt-1.5 flex flex-wrap items-center gap-5">
+              <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
+                <input type="checkbox" checked={vatOn} onChange={(e) => setVatOn(e.target.checked)} />
+                VAT registered — show VAT on invoices
+              </label>
+              {vatOn && (
+                <label className="inline-flex items-center gap-2 text-sm text-ink-subtle">
+                  Rate
+                  <input
+                    value={vatRate}
+                    onChange={(e) => setVatRate(e.target.value)}
+                    inputMode="decimal"
+                    className="w-16 rounded-md border border-line bg-surface-raised px-2 py-1 text-sm text-right focus:border-line-strong focus:outline-none"
+                  />
+                  %
+                </label>
+              )}
+            </div>
+            <p className="mt-1 text-[11px] text-ink-muted max-w-xl">
+              Prices stay what buyers see — the invoice splits out the included VAT
+              (&ldquo;incl. VAT 21%&rdquo;). Personal settings override the workspace&rsquo;s.
+            </p>
+          </div>
 
           {showMethods && (
             <div>
