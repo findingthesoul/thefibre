@@ -18,6 +18,7 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { eur } from '@/lib/plans';
+import { COUNTRIES } from '@/lib/countries';
 import { startCheckout, openPortal, switchPlan, cancelPlan, resumePlan } from './actions';
 
 type Target = {
@@ -80,6 +81,10 @@ export function UpgradePanel({
   const [interval, setInterval] = useState<'monthly' | 'annual'>(
     currentInterval === 'annual' ? 'annual' : 'monthly',
   );
+  // Billing country for a FIRST checkout — the VAT rate is pinned before the
+  // Stripe page exists (dynamic per-address rates are gone from Stripe's
+  // API). The webhook corrects future invoices if the typed address differs.
+  const [country, setCountry] = useState('NL');
 
   if (comped) return null; // nothing to buy — the plan was granted
 
@@ -134,7 +139,7 @@ export function UpgradePanel({
                   if (subscribed) {
                     setConfirm({ kind: 'switch', planId: t.id, name: t.name, interval, label });
                   } else {
-                    run(() => startCheckout(t.id, interval));
+                    run(() => startCheckout(t.id, interval, country));
                   }
                 }}
               >
@@ -156,11 +161,28 @@ export function UpgradePanel({
         )}
       </div>
 
+      {!subscribed && paid.length > 0 && (
+        <label className="mt-3 flex items-center gap-2 text-xs text-ink-subtle">
+          Billing country
+          <select
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+            className="h-8 rounded-md border border-line bg-surface px-2 text-sm text-ink focus:outline-none focus:ring-1 focus:ring-line-strong"
+          >
+            {COUNTRIES.map((c) => (
+              <option key={c.code} value={c.code}>
+                {c.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+
       {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
       {!subscribed && paid.length > 0 && (
         <p className="mt-2 text-xs text-ink-muted">
-          Checkout and card details run on Stripe — we never see the number. Yearly is two months
-          free.
+          Checkout and card details run on Stripe — we never see the number. VAT is added at your
+          country&apos;s rate. Yearly is two months free.
         </p>
       )}
       {subscribed && !cancelling && (

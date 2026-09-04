@@ -21,6 +21,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
   first-visit tour offer. Decisions D1–D3 with Sjoerd; queued as build-plan
   item 6.
 
+## [0.28.2] — 2026-09-04 — the billing country moves in-app
+
+### Fixed
+- **Checkout 500**: Stripe has removed `dynamic_tax_rates` from current API
+  versions ("the feature you are trying to use is deprecated") — the
+  address-driven rate pick chosen in 0.28.0 cannot exist anymore. The rate
+  must be known BEFORE the session: the upgrade panel now carries a
+  billing-country select (defaults NL), and `/billing/checkout` pins that
+  country's rate as the subscription's default tax rate from birth — the
+  first invoice is taxed. Non-EU country → out of scope, no rate.
+- **Typed-address reconciliation** (`reconcileSubscriptionTax`): after
+  checkout the webhook compares the address the buyer actually typed at
+  Stripe with the pinned rate; a mismatch corrects every future invoice and
+  logs loudly so the first one can be checked. The reverse-charge pass runs
+  inside the same call.
+
 ## [0.28.1] — 2026-09-04 — legacy subscriptions accept our tax rates
 
 ### Fixed

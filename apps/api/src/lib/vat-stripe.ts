@@ -1,10 +1,12 @@
 // DIY VAT on Stripe rails — no Stripe Tax fee ("we can do tax collections
 // ourselves, no?" — Sjoerd, 2026-09-04, go given). OUR table (/admin/vat)
-// becomes plain Stripe tax_rate objects; Checkout picks the right one from
-// the billing address via dynamic_tax_rates; renewals carry it as the
-// subscription's default; EU B2B customers with a VIES-validated VAT number
-// are marked tax_exempt='reverse'. Stripe applies numbers; it decides
-// nothing.
+// becomes plain Stripe tax_rate objects; checkout pins the rate for the
+// billing country the buyer chose in-app (dynamic_tax_rates is dead on
+// current Stripe API versions — country must be known up front); renewals
+// carry it as the subscription's default; the post-checkout reconciliation
+// corrects the rate if the address typed at Stripe names a different
+// country; EU B2B customers with a VIES-validated VAT number are marked
+// tax_exempt='reverse'. Stripe applies numbers; it decides nothing.
 
 import type Stripe from 'stripe';
 import { stripeOrNull } from './stripe/client.js';
@@ -60,13 +62,7 @@ export async function ensureStripeTaxRates(): Promise<void> {
   }
 }
 
-/** All active rate ids — Checkout's dynamic_tax_rates chooses by address. */
-export async function dynamicTaxRateIds(): Promise<string[]> {
-  const map = await getStripeRateMap();
-  return Object.values(map).map((r) => r.id);
-}
-
-/** The single rate for a country (renewals / switches), or null. */
+/** The single rate for a country (checkout / renewals / switches), or null. */
 export async function taxRateIdFor(country: string | null): Promise<string | null> {
   if (!country) return null;
   const map = await getStripeRateMap();
@@ -102,6 +98,46 @@ export async function applyReverseChargeIfEligible(customerId: string): Promise<
     console.log(`[vat-stripe] ${customerId} reverse-charged (${country}, VIES-validated)`);
   } catch (e) {
     console.error('[vat-stripe] reverse-charge pass failed', e);
+  }
+}
+
+/**
+ * Post-checkout tax reconciliation. The rate was pinned from the country the
+ * buyer chose IN-APP, but the address they then typed at Stripe is the legal
+ * one. If the two disagree, correct the subscription's default rate so every
+ * following invoice taxes by the real country (the first invoice keeps the
+ * pinned rate — logged loudly so the operator can credit/rebill if it ever
+ * matters). Also runs the reverse-charge pass.
+ */
+export async function reconcileSubscriptionTax(
+  customerId: string,
+  subscriptionId: string | null,
+): Promise<void> {
+  await applyReverseChargeIfEligible(customerId);
+  try {
+    const stripe = stripeOrNull();
+    if (!stripe || !subscriptionId) return;
+    const customer = await stripe.customers.retrieve(customerId);
+    if (customer.deleted || customer.tax_exempt === 'reverse') return;
+    const country = customer.address?.country?.toUpperCase() ?? null;
+    const rightId = await taxRateIdFor(country);
+    const sub = await stripe.subscriptions.retrieve(subscriptionId);
+    const currentIds = (sub.default_tax_rates ?? []).map((r) => r.id);
+    const same = rightId
+      ? currentIds.length === 1 && currentIds[0] === rightId
+      : currentIds.length === 0;
+    if (same) return;
+    await stripe.subscriptions.update(subscriptionId, {
+      automatic_tax: { enabled: false },
+      // '' is Stripe's documented way to unset default_tax_rates.
+      default_tax_rates: rightId ? [rightId] : ('' as unknown as string[]),
+      proration_behavior: 'none',
+    });
+    console.warn(
+      `[vat-stripe] ${subscriptionId}: billing address says ${country ?? 'out of scope'} but checkout taxed [${currentIds.join(',')}] — future invoices corrected; check the first one`,
+    );
+  } catch (e) {
+    console.error('[vat-stripe] subscription tax reconciliation failed', e);
   }
 }
 

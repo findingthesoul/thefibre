@@ -18,11 +18,12 @@ function message(e: unknown): string {
 export async function startCheckout(
   planId: string,
   interval: 'monthly' | 'annual',
+  country?: string,
 ): Promise<BillingActionResult> {
   try {
     const r = await apiFetch<{ url: string }>('/api/v1/billing/checkout', {
       method: 'POST',
-      body: JSON.stringify({ plan_id: planId, interval }),
+      body: JSON.stringify({ plan_id: planId, interval, country }),
     });
     return { url: r.url };
   } catch (e) {

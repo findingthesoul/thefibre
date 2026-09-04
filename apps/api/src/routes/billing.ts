@@ -29,11 +29,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { reconcileSeatBilling } from '../lib/seat-billing.js';
 import { ensurePlanApps } from '../lib/plan-apps.js';
 import { getSetting } from '../lib/platform-settings.js';
-import {
-  dynamicTaxRateIds,
-  taxRateIdFor,
-  applyReverseChargeIfEligible,
-} from '../lib/vat-stripe.js';
+import { taxRateIdFor, reconcileSubscriptionTax } from '../lib/vat-stripe.js';
 
 export const billingRoutes = new Hono();
 
@@ -57,6 +53,10 @@ function planUrl(): string {
 const CheckoutBody = z.object({
   plan_id: z.string().min(1).max(40),
   interval: z.enum(['monthly', 'annual']),
+  // Billing country chosen in-app. Stripe removed dynamic_tax_rates, so the
+  // VAT rate must be pinned BEFORE the session exists; the post-checkout
+  // reconciliation corrects future invoices if the typed address disagrees.
+  country: z.string().trim().length(2).optional(),
 });
 
 billingRoutes.post('/checkout', async (c) => {
@@ -72,7 +72,7 @@ billingRoutes.post('/checkout', async (c) => {
 
   const body = CheckoutBody.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  const { plan_id, interval } = body.data;
+  const { plan_id, interval, country } = body.data;
 
   const [{ data: plan }, { data: sub }, { data: ws }, { data: me }] = await Promise.all([
     adminClient
@@ -170,32 +170,29 @@ billingRoutes.post('/checkout', async (c) => {
       .eq('workspace_id', ctx.workspaceId);
   }
 
-  // DIY VAT: OUR tax-rate objects ride as dynamic_tax_rates — Checkout picks
-  // the one matching the billing address the customer types. No Stripe Tax,
-  // no 0.5% fee; the /admin/vat table decides.
-  const vatRateIds = await dynamicTaxRateIds();
-  const withVat = <T extends object>(item: T): T =>
-    vatRateIds.length ? { ...item, dynamic_tax_rates: vatRateIds } : item;
+  // DIY VAT: the rate for the billing country chosen in-app rides as the
+  // subscription's default tax rate from birth — the FIRST invoice is taxed.
+  // (Stripe's dynamic_tax_rates, which picked by typed address, is removed
+  // from current API versions.) No country / non-EU → out of scope, no rate.
+  const vatRateId = await taxRateIdFor(country ?? null);
 
   type CheckoutCreateParams = NonNullable<Parameters<Stripe['checkout']['sessions']['create']>[0]>;
   const baseSessionParams: CheckoutCreateParams = {
     mode: 'subscription' as const,
     customer: customerId,
     line_items: [
-      withVat(
-        custom
-          ? {
-              quantity: 1,
-              price_data: {
-                currency: 'eur',
-                product: plan.stripe_product_id!,
-                unit_amount: custom,
-                recurring: { interval: interval === 'monthly' ? ('month' as const) : ('year' as const) },
-              },
-            }
-          : { quantity: 1, price: listPrice! },
-      ),
-      ...(seatLine ? [withVat(seatLine)] : []),
+      custom
+        ? {
+            quantity: 1,
+            price_data: {
+              currency: 'eur',
+              product: plan.stripe_product_id!,
+              unit_amount: custom,
+              recurring: { interval: interval === 'monthly' ? ('month' as const) : ('year' as const) },
+            },
+          }
+        : { quantity: 1, price: listPrice! },
+      ...(seatLine ? [seatLine] : []),
     ],
     // B2B: collect the address + VAT number so Stripe's invoice is a legal one.
     billing_address_collection: 'required',
@@ -210,6 +207,7 @@ billingRoutes.post('/checkout', async (c) => {
     metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
     subscription_data: {
       metadata: { workspace_id: ctx.workspaceId, plan_id: plan.id },
+      ...(vatRateId ? { default_tax_rates: [vatRateId] } : {}),
     },
   };
 
@@ -738,10 +736,14 @@ billingRoutes.post('/stripe-webhook', async (c) => {
           if (error) console.error('[billing/webhook] checkout completion failed', error);
           forgetPlan(workspaceId);
           void ensurePlanApps(workspaceId);
-          // EU B2B with a VIES-valid VAT number → reverse-charged for every
-          // invoice after this one.
+          // Reverse charge (EU B2B, VIES-valid) + rate correction when the
+          // address typed at Stripe names a different country than the one
+          // chosen in-app.
           if (typeof session.customer === 'string') {
-            void applyReverseChargeIfEligible(session.customer);
+            void reconcileSubscriptionTax(
+              session.customer,
+              typeof session.subscription === 'string' ? session.subscription : null,
+            );
           }
         }
         break;
