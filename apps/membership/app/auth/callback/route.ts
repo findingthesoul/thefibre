@@ -12,6 +12,10 @@ export async function GET(req: NextRequest) {
   const url = new URL(req.url);
   const code = url.searchParams.get('code');
   const next = url.searchParams.get('next') ?? '/dashboard';
+  // Members signing in for /my (or the OAuth continue page) are NOT
+  // workspace users — skip the workspace access gate for those routes
+  // (the Thread /my precedent; the portal API scopes by their own email).
+  const memberRoute = next.startsWith('/my') || next.startsWith('/oauth-continue');
 
   const supabase = await serverSupabase();
 
@@ -46,6 +50,11 @@ export async function GET(req: NextRequest) {
   const identity =
     user.identities?.find((i) => i.provider === rawProvider) ??
     user.identities?.[0];
+
+  if (memberRoute) {
+    // A member's session is enough — no workspace account required.
+    return NextResponse.redirect(new URL(next, url.origin));
+  }
 
   if (!ssoSecret || !email) {
     return NextResponse.redirect(new URL(next, url.origin));

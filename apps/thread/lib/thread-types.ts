@@ -128,6 +128,8 @@ export type EngagementRow = {
   daily_schedule: DailyTime[] | null;
   location: string | null;
   location_url: string | null;
+  /** Per-engagement image — the timeline-level sibling of the thread's cover_url. */
+  image_url: string | null;
   meeting_url: string | null;
   meeting_provider: 'google_meet' | 'zoom' | 'teams' | 'personal_room' | 'custom' | null;
   scheduled_at: string | null;

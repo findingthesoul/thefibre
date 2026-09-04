@@ -17,6 +17,7 @@ type AgendaItem = {
   ends_at: string | null;
   daily_schedule: { date: string; start: string; end: string }[] | null;
   location: string | null;
+  image_url?: string | null;
   is_online: boolean;
 };
 
@@ -206,6 +207,14 @@ export default async function PublicThreadPage({
                       className="rounded-lg border border-line bg-surface-raised px-4 py-3"
                     >
                       <div className="text-sm font-medium">{a.title}</div>
+                      {a.image_url && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={a.image_url}
+                          alt=""
+                          className="mt-2 w-full max-h-48 rounded-lg ring-1 ring-line object-cover"
+                        />
+                      )}
                       {a.description && (
                         <div
                           className="mt-0.5 text-sm text-ink-subtle leading-relaxed [&_ul]:list-disc [&_ol]:list-decimal [&_ul,&_ol]:pl-5 [&_a]:underline"

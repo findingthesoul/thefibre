@@ -35,6 +35,13 @@ export default async function JoinedPage({
         </p>
         <p className="mt-8 text-sm">
           <Link
+            href="/my"
+            className="text-ink-subtle hover:text-ink underline underline-offset-2"
+          >
+            View your membership
+          </Link>
+          <span className="mx-2 text-ink-muted">·</span>
+          <Link
             href={`/${encodeURIComponent(workspaceSlug)}`}
             className="text-ink-subtle hover:text-ink underline underline-offset-2"
           >

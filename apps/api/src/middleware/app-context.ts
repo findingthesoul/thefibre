@@ -129,6 +129,10 @@ const PUBLIC_PREFIXES = [
   // webhook (signature-verified inside the handler, own secret).
   '/api/v1/membership/public/',
   '/api/v1/membership/stripe-webhook',
+  // Member portal (participant JWT verified in-handler, the /my pattern)
+  // + the OAuth provider endpoints (their own auth story by definition).
+  '/api/v1/membership/portal/',
+  '/api/v1/oauth/',
 ];
 
 // ---------------------------------------------------------------------------

@@ -59,6 +59,10 @@ export type PublicProduct = {
 };
 
 export type PublicCatalog = {
+  price_logic?: {
+    rules: { when: { attr: string; op: string; values: string[] }; pct: number; label?: string }[];
+    default_pct: number;
+  } | null;
   workspace: { slug: string; name: string };
   tiers: PublicTier[];
   products: PublicProduct[];

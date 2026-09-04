@@ -22,6 +22,7 @@ import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { Button } from '@/components/ui/button';
 import { Switch, SwitchField } from '@/components/ui/switch';
+import { ImageUpload } from '@/components/ui/image-upload';
 
 /** ISO → value for the date-time picker in the browser's zone. */
 export function toLocalInput(iso: string | null): string {
@@ -145,6 +146,9 @@ export function EngagementDialog({
   // deserves that link instead, and silently overwriting would bury it.
   const [location, setLocation] = useState<string>(engagement?.location ?? '');
   const [locationUrl, setLocationUrl] = useState<string>(engagement?.location_url ?? '');
+  // Per-engagement image (Sjoerd 2026-09-05) — the thread has one cover, an
+  // event on the timeline can carry its own. Same upload path as the cover.
+  const [imageUrl, setImageUrl] = useState<string>(engagement?.image_url ?? '');
   const mapsSuggestion =
     location.trim().length > 3 && !locationUrl.trim()
       ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(location.trim())}`
@@ -287,6 +291,7 @@ export function EngagementDialog({
             ...common,
             ...perDayPayload,
             ...where,
+            image_url: imageUrl.trim() || null,
           }
         : {
             ...common,
@@ -317,6 +322,7 @@ export function EngagementDialog({
         daily_schedule: engagement.daily_schedule,
         location: engagement.location,
         location_url: engagement.location_url,
+        image_url: engagement.image_url,
         meeting_url: engagement.meeting_url,
         meeting_provider: engagement.meeting_provider,
         scheduled_at: engagement.scheduled_at,
@@ -421,6 +427,22 @@ export function EngagementDialog({
             )}
             {family === 'activity' && (
               <>
+            {/* Image — this event's own picture on the public agenda. */}
+            <div>
+              <span className="text-sm text-ink-subtle">Image</span>
+              <div className="mt-1">
+                <ImageUpload
+                  value={imageUrl}
+                  onChange={(url) => {
+                    setImageUrl(url);
+                    setDirty(true);
+                  }}
+                  buttonLabel="Add an image"
+                  hint="Shown with this event on the public agenda."
+                />
+              </div>
+            </div>
+
             {/* Where: in person / virtual */}
             <div>
               <span className="text-sm text-ink-subtle">Where</span>

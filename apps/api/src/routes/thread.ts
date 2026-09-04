@@ -864,6 +864,7 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       daily_schedule: e.daily_schedule,
       location: e.location,
       location_url: e.location_url,
+      image_url: e.image_url,
       meeting_url: e.meeting_url,
       meeting_provider: e.meeting_provider,
       scheduled_at: e.scheduled_at,
@@ -926,6 +927,10 @@ export const EngagementCreate = z.object({
     .optional(),
   location: z.string().max(500).nullable().optional(),
   location_url: z.string().max(1000).nullable().optional(),
+  // Per-engagement image (2026-09-05) — the thread has cover_url, an event
+  // on the timeline can carry its own. Same shape: a URL, usually from
+  // /api/v1/thread/uploads.
+  image_url: z.string().max(1000).nullable().optional(),
   meeting_url: z.string().max(1000).nullable().optional(),
   meeting_provider: z
     .enum(['google_meet', 'zoom', 'teams', 'personal_room', 'custom'])
@@ -1033,6 +1038,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       daily_schedule: body.data.daily_schedule ?? null,
       location: body.data.location ?? null,
       location_url: body.data.location_url ?? null,
+      image_url: body.data.image_url ?? null,
       meeting_url: body.data.meeting_url ?? null,
       meeting_provider: body.data.meeting_provider ?? null,
       scheduled_at: body.data.scheduled_at ?? null,
@@ -1643,6 +1649,7 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
       position: e.position,
       location: e.location,
       location_url: e.location_url,
+      image_url: e.image_url,
       meeting_url: e.meeting_url,
       meeting_provider: e.meeting_provider,
       show_in_agenda: e.show_in_agenda,
@@ -1727,6 +1734,7 @@ export async function seedTemplateEngagements(opts: {
       scheduled_at: scheduledAt,
       location: e.location ?? null,
       location_url: e.location_url ?? null,
+      image_url: e.image_url ?? null,
       meeting_url: e.meeting_url ?? null,
       meeting_provider: e.meeting_provider ?? null,
       trigger_kind: e.trigger_kind ?? 'fixed',
@@ -4363,7 +4371,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     ? { data: [] as never[] }
     : await adminClient
     .from('thread_engagement')
-    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, meeting_url')
+    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, image_url, meeting_url')
     .eq('thread_id', thread.id)
     .eq('status', 'published')
     .eq('show_in_agenda', true)

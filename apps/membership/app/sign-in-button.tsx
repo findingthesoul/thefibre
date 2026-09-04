@@ -5,7 +5,7 @@ import { browserSupabase } from '@/lib/supabase/client';
 
 type Stage = 'idle' | 'enter-email' | 'enter-code';
 
-export function SignInButton() {
+export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<Stage>('idle');
   const [email, setEmail] = useState('');
@@ -19,7 +19,7 @@ export function SignInButton() {
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
+        redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         queryParams: { prompt: 'select_account' },
       },
     });
@@ -38,7 +38,7 @@ export function SignInButton() {
     const { error } = await supabase.auth.signInWithOtp({
       email: email.trim(),
       options: {
-        emailRedirectTo: `${window.location.origin}/auth/callback`,
+        emailRedirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         shouldCreateUser: true,
       },
     });
@@ -67,7 +67,7 @@ export function SignInButton() {
       setBusy(false);
       return;
     }
-    window.location.href = '/auth/callback';
+    window.location.href = `/auth/callback?next=${encodeURIComponent(next)}`;
   }
 
   return (

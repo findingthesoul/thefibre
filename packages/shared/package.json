@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.38.0",
+  "version": "0.39.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -30,6 +30,30 @@
       "types": "./dist/ui/fields.d.ts",
       "default": "./dist/ui/fields.js"
     },
+    "./ui/button": {
+      "types": "./dist/ui/button.d.ts",
+      "default": "./dist/ui/button.js"
+    },
+    "./ui/dialog": {
+      "types": "./dist/ui/dialog.d.ts",
+      "default": "./dist/ui/dialog.js"
+    },
+    "./ui/switch": {
+      "types": "./dist/ui/switch.d.ts",
+      "default": "./dist/ui/switch.js"
+    },
+    "./ui/list": {
+      "types": "./dist/ui/list.d.ts",
+      "default": "./dist/ui/list.js"
+    },
+    "./ui/theme-script": {
+      "types": "./dist/ui/theme-script.d.ts",
+      "default": "./dist/ui/theme-script.js"
+    },
+    "./ui/app-switcher": {
+      "types": "./dist/ui/app-switcher.d.ts",
+      "default": "./dist/ui/app-switcher.js"
+    },
     "./ui/profile-form": {
       "types": "./dist/ui/profile-form.d.ts",
       "default": "./dist/ui/profile-form.js"
@@ -49,6 +73,10 @@
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",
       "default": "./dist/ui/search-select.js"
+    },
+    "./countries": {
+      "types": "./dist/countries.d.ts",
+      "default": "./dist/countries.js"
     }
   },
   "files": [

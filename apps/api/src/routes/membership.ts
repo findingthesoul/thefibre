@@ -8,6 +8,7 @@ import { recordPurchase } from '../lib/purchases.js';
 import { sendReceipt } from './purchases.js';
 import { sendEmail } from '../lib/email/client.js';
 import { getWorkspaceBrand } from '../lib/workspace-brand.js';
+import { shell, escapeHtml } from '../lib/email/templates.js';
 import {
   membershipWelcome,
   membershipRenewalReminder,
@@ -15,6 +16,12 @@ import {
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
 import { runCircleAccessSync } from '../lib/circle.js';
+import {
+  applyPct,
+  evaluatePriceLogic,
+  priceLogicFor,
+  type PriceLogic,
+} from '../lib/pricing.js';
 import { runFibreSeatSync, grantSeat } from '../lib/fibre-seat.js';
 
 // ===========================================================================
@@ -85,6 +92,9 @@ const PatchMember = z.object({
   status: MemberStatus.optional(),
   renews_at: z.string().datetime().optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
+  // Self-declared country — a DELIBERATE change (§3.9): reprices the
+  // subscription from the next renewal, never mid-cycle.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional().nullable(),
 });
 
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
@@ -498,7 +508,7 @@ membershipRoutes.patch('/members/:id', async (c) => {
 
   const { data: before, error: readErr } = await db
     .from('membership_member')
-    .select('id, person_id, tier_id, status, tier:tier_id (name)')
+    .select('id, person_id, tier_id, status, country, stripe_subscription_id, workspace_id, tier:tier_id (name)')
     .eq('id', memberId)
     .maybeSingle();
   if (readErr) return fail(c, 'read member', readErr);
@@ -527,8 +537,85 @@ membershipRoutes.patch('/members/:id', async (c) => {
     if (entry) await logMemberActivity(ctx.workspaceId, before.person_id, entry[0], entry[1]);
   }
   if (body.data.tier_id || body.data.status) await reconcileMemberAccess(memberId);
+
+  // Country changed on a live subscription → reprice FROM THE NEXT RENEWAL
+  // (proration none — the seat policy's sibling). Failures are surfaced,
+  // not swallowed: a price that silently didn't change is worse than an
+  // error the admin sees.
+  const newCountry = body.data.country === undefined ? undefined : body.data.country?.toUpperCase() ?? null;
+  if (
+    newCountry !== undefined &&
+    newCountry !== (before.country?.toUpperCase() ?? null) &&
+    before.stripe_subscription_id
+  ) {
+    const r = await repriceMemberSubscription(memberId);
+    if (!r.ok) return c.json({ ok: true, reprice_error: r.error });
+    await logMemberActivity(
+      ctx.workspaceId,
+      before.person_id,
+      'membership_repriced',
+      `Repriced from next renewal (${newCountry ?? 'no country'})`,
+    );
+    return c.json({ ok: true, repriced: true });
+  }
   return c.json({ ok: true });
 });
+
+// Re-resolve the pricing logic for a member's CURRENT tier/interval and move
+// the live subscription onto the new amount from the next period. A new
+// Price object is created on the connected account (price_data cannot be
+// used on subscription updates); proration_behavior 'none' means the paid
+// period runs out untouched.
+async function repriceMemberSubscription(
+  memberId: string,
+): Promise<{ ok: true; amount: number } | { ok: false; error: string }> {
+  const stripe = stripeOrNull();
+  if (!stripe) return { ok: false, error: 'payments not configured' };
+  const { data: m } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, tier_id, country, stripe_subscription_id')
+    .eq('id', memberId)
+    .maybeSingle();
+  if (!m?.stripe_subscription_id) return { ok: false, error: 'no live subscription' };
+  const account = await workspaceStripeAccount(m.workspace_id);
+  if (!account) return { ok: false, error: 'workspace has no Stripe account' };
+
+  const sub = await stripe.subscriptions.retrieve(m.stripe_subscription_id, {}, { stripeAccount: account });
+  const item = sub.items.data[0];
+  if (!item) return { ok: false, error: 'subscription has no items' };
+  const interval = item.price.recurring?.interval === 'month' ? 'month' : 'year';
+
+  const { data: tier } = await adminClient
+    .from('membership_tier')
+    .select('price_cents_year, price_cents_month, currency')
+    .eq('id', m.tier_id)
+    .maybeSingle();
+  const base = interval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
+  if (base == null || base <= 0) return { ok: false, error: `tier has no ${interval}ly price` };
+
+  const logic = await priceLogicFor(m.workspace_id, m.tier_id);
+  const { pct } = evaluatePriceLogic(logic, { country: m.country, interval });
+  const amount = applyPct(base, pct);
+  if (amount === item.price.unit_amount) return { ok: true, amount };
+
+  const productId = typeof item.price.product === 'string' ? item.price.product : item.price.product?.id;
+  if (!productId) return { ok: false, error: 'could not resolve the Stripe product' };
+  const newPrice = await stripe.prices.create(
+    {
+      product: productId,
+      currency: item.price.currency,
+      unit_amount: amount,
+      recurring: { interval },
+    },
+    { stripeAccount: account },
+  );
+  await stripe.subscriptions.update(
+    m.stripe_subscription_id,
+    { items: [{ id: item.id, price: newPrice.id }], proration_behavior: 'none' },
+    { stripeAccount: account },
+  );
+  return { ok: true, amount };
+}
 
 // ---------------------------------------------------------------------------
 // Access grants
@@ -650,6 +737,61 @@ membershipRoutes.post('/access/retry', async (c) => {
 });
 
 // ---------------------------------------------------------------------------
+// Pricing rules — the logic builder (§3.9, generalised). One 'price_logic'
+// set per (workspace × tier-or-null); declarative rows, first match wins.
+// ---------------------------------------------------------------------------
+
+const PriceConditionZ = z.object({
+  attr: z.enum(['country', 'interval']),
+  op: z.enum(['in', 'not_in']),
+  values: z.array(z.string().min(1).max(20)).min(1).max(100),
+});
+const PriceLogicZ = z.object({
+  rules: z
+    .array(
+      z.object({
+        when: PriceConditionZ,
+        pct: z.number().min(1).max(1000),
+        label: z.string().max(120).optional(),
+      }),
+    )
+    .max(50),
+  default_pct: z.number().min(1).max(1000).default(100),
+});
+
+membershipRoutes.get('/pricing-rules', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('membership_pricing_rule')
+    .select('id, tier_id, kind, config, updated_at')
+    .eq('kind', 'price_logic');
+  if (error) return fail(c, 'list pricing rules', error);
+  return c.json({ items: data ?? [] });
+});
+
+membershipRoutes.put('/pricing-rules', async (c) => {
+  const body = z
+    .object({ tier_id: z.string().uuid().nullable().default(null), config: PriceLogicZ })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { error } = await db.from('membership_pricing_rule').upsert(
+    {
+      workspace_id: ctx.workspaceId,
+      tier_id: body.data.tier_id,
+      kind: 'price_logic',
+      config: body.data.config,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'workspace_id,kind,tier_id' },
+  );
+  if (error) return fail(c, 'save pricing rules', error);
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
 // Settings (service-role-only table — explicit admin check, token masked)
 // ---------------------------------------------------------------------------
 
@@ -747,8 +889,11 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .maybeSingle(),
   ]);
 
+  const priceLogic = await priceLogicFor(ws.id, null);
+
   return c.json({
     workspace: { slug: ws.slug, name: ws.name },
+    price_logic: priceLogic,
     tiers: (tiers ?? []).map((t) => ({
       ...t,
       product_ids: (t.membership_tier_product ?? []).map((l: { product_id: string }) => l.product_id),
@@ -765,6 +910,9 @@ const PublicJoin = z.object({
   interval: z.enum(['year', 'month']).default('year'),
   email: z.string().email(),
   name: z.string().min(1).max(200),
+  // SELF-DECLARED country (§3.9 D1) — drives the pricing logic. Optional:
+  // no country matches no country-rule, so the default pct applies.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
   request_id: z.string().min(8).max(100),
 });
 
@@ -809,10 +957,17 @@ membershipRoutes.post('/public/join', async (c) => {
     .is('archived_at', null)
     .maybeSingle();
   if (!tier) return c.json({ error: 'tier not found' }, 404);
-  const amount = d.interval === 'year' ? tier.price_cents_year : tier.price_cents_month;
-  if (amount == null || amount <= 0) {
+  const baseAmount = d.interval === 'year' ? tier.price_cents_year : tier.price_cents_month;
+  if (baseAmount == null || baseAmount <= 0) {
     return c.json({ error: `This tier has no ${d.interval}ly price.` }, 400);
   }
+  // Pricing logic (§3.9): evaluated SERVER-SIDE — the join page preview is
+  // a courtesy, this number is the charge.
+  const country = d.country?.toUpperCase() ?? null;
+  const logic = await priceLogicFor(ws.id, tier.id);
+  const { pct, matched } = evaluatePriceLogic(logic, { country, interval: d.interval });
+  const amount = applyPct(baseAmount, pct);
+  if (amount <= 0) return c.json({ error: 'This price resolves to zero — check the pricing rules.' }, 400);
 
   // Auto-account (the Thread enrol pattern): email-only, verify at sign-in.
   try {
@@ -885,7 +1040,13 @@ membershipRoutes.post('/public/join', async (c) => {
         ],
         subscription_data: {
           ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),
-          metadata: { workspace_id: ws.id, person_id: personId, tier_id: tier.id },
+          metadata: {
+            workspace_id: ws.id,
+            person_id: personId,
+            tier_id: tier.id,
+            ...(country ? { country } : {}),
+            applied_pct: String(pct),
+          },
         },
         customer_email: email,
         billing_address_collection: 'required',
@@ -955,6 +1116,7 @@ async function ensureMemberFromSubscription(
         deleted_at: null,
         stripe_subscription_id: subscriptionId,
         stripe_customer_id: customer,
+        ...(meta.country ? { country: meta.country } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', prior.id);
@@ -979,6 +1141,7 @@ async function ensureMemberFromSubscription(
       renews_at: renewsAt,
       stripe_subscription_id: subscriptionId,
       stripe_customer_id: customer,
+      ...(meta.country ? { country: meta.country } : {}),
     })
     .select('id, workspace_id, person_id, tier_id, status')
     .single();
@@ -1069,6 +1232,59 @@ async function memberForInvoice(
   return data;
 }
 
+async function warnOnCardCountryMismatch(
+  account: string,
+  invoice: Stripe.Invoice,
+  member: { id: string; workspace_id: string; person_id: string },
+): Promise<void> {
+  const { data: m } = await adminClient
+    .from('membership_member')
+    .select('country')
+    .eq('id', member.id)
+    .maybeSingle();
+  const declared = m?.country?.toUpperCase();
+  if (!declared) return;
+
+  const stripe = stripeOrNull();
+  if (!stripe) return;
+  const chargeId = (invoice as unknown as { charge?: string | { id?: string } | null }).charge;
+  const chargeRef = typeof chargeId === 'string' ? chargeId : chargeId?.id;
+  if (!chargeRef) return;
+  const charge = await stripe.charges.retrieve(chargeRef, {}, { stripeAccount: account });
+  const cardCountry = charge.payment_method_details?.card?.country?.toUpperCase();
+  if (!cardCountry || cardCountry === declared) return;
+
+  // One warning per invoice.
+  const { error: dedupErr } = await adminClient
+    .from('membership_reminder_send')
+    .insert({ member_id: member.id, reminder_kind: 'card_country_mismatch', period_ref: invoice.id ?? 'unknown' });
+  if (dedupErr) return; // 23505 = already warned
+
+  const [{ data: person }, { data: admins }, brand] = await Promise.all([
+    adminClient.from('person').select('first_name, last_name, email').eq('id', member.person_id).maybeSingle(),
+    adminClient
+      .from('workspace_member')
+      .select('user:user_id (email)')
+      .eq('workspace_id', member.workspace_id)
+      .in('workspace_role', ['admin', 'super_admin']),
+    getWorkspaceBrand(member.workspace_id),
+  ]);
+  const name = [person?.first_name, person?.last_name].filter(Boolean).join(' ') || person?.email || 'A member';
+  for (const row of admins ?? []) {
+    const u = Array.isArray(row.user) ? row.user[0] : row.user;
+    if (!u?.email) continue;
+    await sendEmail({
+      to: u.email,
+      subject: `Pricing check: ${name} declared ${declared}, paid with a ${cardCountry} card`,
+      text: `${name} joined with country ${declared} (which sets their membership price) but paid with a card issued in ${cardCountry}.
+
+Nothing was blocked — this is a heads-up so you can review the membership if it looks off. You can change their country on the member (it reprices from the next renewal).`,
+      html: '',
+      ...(brand.fromName ? { fromName: brand.fromName } : {}),
+    });
+  }
+}
+
 async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): Promise<void> {
   const member = await memberForInvoice(account, invoice);
   if (!member) {
@@ -1129,6 +1345,14 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
       pdf: invoice.invoice_pdf ?? null,
     },
   });
+
+  // Card-country vs declared-country (§3.9 D3): mismatch WARNS the
+  // workspace admins, never blocks. Once per invoice (dedup table).
+  try {
+    await warnOnCardCountryMismatch(account, invoice, member);
+  } catch (e) {
+    console.warn('[membership/webhook] card-country check failed', e);
+  }
 
   // Receipt in the house style, the WORKSPACE as seller (no override —
   // sellerDetailsFor resolves the workspace's own invoice details).

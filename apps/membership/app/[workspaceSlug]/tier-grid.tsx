@@ -5,9 +5,34 @@
 
 import { useMemo, useState } from 'react';
 import { Check } from 'lucide-react';
+import { COUNTRIES } from '@thefibre/shared/countries';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from '@/lib/public-api';
 import { money } from '@/lib/money';
 import { Button } from '@/components/ui/button';
+
+// Pricing logic (§3.9): the catalog carries the workspace's price_logic;
+// this PREVIEW mirrors the server's evaluator — the server recomputes the
+// authoritative amount at checkout, so a tampered preview changes nothing.
+export type PriceLogic = {
+  rules: { when: { attr: string; op: string; values: string[] }; pct: number; label?: string }[];
+  default_pct: number;
+};
+function previewPct(logic: PriceLogic | null, country: string, interval: 'year' | 'month'): number {
+  if (!logic) return 100;
+  for (const r of logic.rules ?? []) {
+    const actual = r.when.attr === 'country' ? country : r.when.attr === 'interval' ? interval : '';
+    if (!actual) continue;
+    const inSet = r.when.values.map((v) => v.toUpperCase()).includes(actual.toUpperCase());
+    if ((r.when.op === 'in' && inSet) || (r.when.op === 'not_in' && !inSet)) return r.pct;
+  }
+  return logic.default_pct ?? 100;
+}
+function adjust(cents: number, pct: number): number {
+  return Math.max(0, Math.round((cents * pct) / 100));
+}
+
+const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }));
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
@@ -19,14 +44,21 @@ export function TierGrid({
   tiers,
   products,
   initialTierId,
+  priceLogic = null,
 }: {
   workspaceSlug: string;
   tiers: PublicTier[];
   products: PublicProduct[];
   initialTierId: string | null;
+  priceLogic?: PriceLogic | null;
 }) {
   const [openTierId, setOpenTierId] = useState<string | null>(
     initialTierId && tiers.some((t) => t.id === initialTierId) ? initialTierId : null,
+  );
+  // Self-declared country (§3.9 D1) — one choice for the whole page.
+  const [country, setCountry] = useState('');
+  const hasCountryRules = Boolean(
+    priceLogic?.rules?.some((r) => r.when.attr === 'country'),
   );
   const productNames = useMemo(
     () => new Map(products.map((p) => [p.id, p.name])),
@@ -41,21 +73,39 @@ export function TierGrid({
         : 'sm:grid-cols-2 lg:grid-cols-3';
 
   return (
-    <div className={`mt-10 grid grid-cols-1 gap-6 ${cols}`}>
-      {tiers.map((tier) => (
-        <TierCard
-          key={tier.id}
-          workspaceSlug={workspaceSlug}
-          tier={tier}
-          includedProducts={tier.product_ids
-            .map((id) => productNames.get(id))
-            .filter((n): n is string => Boolean(n))}
-          open={openTierId === tier.id}
-          onOpen={() => setOpenTierId(tier.id)}
-          onClose={() => setOpenTierId(null)}
-        />
-      ))}
-    </div>
+    <>
+      {hasCountryRules && (
+        <div className="mt-8 mx-auto max-w-md text-center">
+          <label className="block text-sm text-ink-subtle mb-1.5">
+            Where are you based? Prices adjust to your country.
+          </label>
+          <SearchSelect
+            value={country}
+            onChange={setCountry}
+            options={COUNTRY_OPTIONS}
+            placeholder="Pick your country…"
+            className="w-full text-left"
+          />
+        </div>
+      )}
+      <div className={`mt-10 grid grid-cols-1 gap-6 ${cols}`}>
+        {tiers.map((tier) => (
+          <TierCard
+            key={tier.id}
+            workspaceSlug={workspaceSlug}
+            tier={tier}
+            includedProducts={tier.product_ids
+              .map((id) => productNames.get(id))
+              .filter((n): n is string => Boolean(n))}
+            open={openTierId === tier.id}
+            onOpen={() => setOpenTierId(tier.id)}
+            onClose={() => setOpenTierId(null)}
+            country={country}
+            priceLogic={priceLogic}
+          />
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -66,6 +116,8 @@ function TierCard({
   open,
   onOpen,
   onClose,
+  country,
+  priceLogic,
 }: {
   workspaceSlug: string;
   tier: PublicTier;
@@ -73,10 +125,18 @@ function TierCard({
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
+  country: string;
+  priceLogic: PriceLogic | null;
 }) {
   const currency = tier.currency ?? 'EUR';
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
   const hasMonth = tier.price_cents_month != null && tier.price_cents_month > 0;
+  const yearPct = previewPct(priceLogic, country, 'year');
+  const monthPct = previewPct(priceLogic, country, 'month');
+  const adjustedYear = hasYear ? adjust(tier.price_cents_year!, yearPct) : null;
+  const adjustedMonth = hasMonth ? adjust(tier.price_cents_month!, monthPct) : null;
+  const countryName = country ? (COUNTRIES.find((c) => c.code === country)?.name ?? country) : null;
+  const isAdjusted = (hasYear && yearPct !== 100) || (hasMonth && monthPct !== 100);
 
   // Named to avoid shadowing window.setInterval.
   const [interval, setBillingInterval] = useState<'year' | 'month'>(hasYear ? 'year' : 'month');
@@ -109,6 +169,7 @@ function TierCard({
             interval,
             email,
             name,
+            ...(country ? { country } : {}),
             request_id: requestId,
           }),
         },
@@ -143,14 +204,14 @@ function TierCard({
         {hasYear ? (
           <>
             <span className="text-2xl font-semibold tabular-nums">
-              {money(tier.price_cents_year!, currency)}
+              {money(adjustedYear!, currency)}
             </span>
             <span className="text-sm text-ink-subtle">/ year</span>
           </>
         ) : hasMonth ? (
           <>
             <span className="text-2xl font-semibold tabular-nums">
-              {money(tier.price_cents_month!, currency)}
+              {money(adjustedMonth!, currency)}
             </span>
             <span className="text-sm text-ink-subtle">/ month</span>
           </>
@@ -160,7 +221,7 @@ function TierCard({
       </div>
       {hasYear && hasMonth && (
         <div className="mt-0.5 text-xs text-ink-muted">
-          or {money(tier.price_cents_month!, currency)} / month
+          or {money(adjustedMonth!, currency)} / month
         </div>
       )}
 
@@ -212,8 +273,8 @@ function TierCard({
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
                 {(
                   [
-                    ['year', `${money(tier.price_cents_year!, currency)} / year`],
-                    ['month', `${money(tier.price_cents_month!, currency)} / month`],
+                    ['year', `${money(adjustedYear!, currency)} / year`],
+                    ['month', `${money(adjustedMonth!, currency)} / month`],
                   ] as const
                 ).map(([k, label]) => (
                   <button

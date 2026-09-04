@@ -55,6 +55,7 @@ export async function patchMember(
     status?: MemberStatus;
     renews_at?: string | null; // full ISO datetime or null
     notes?: string | null;
+    country?: string | null; // ISO alpha-2; reprices from next renewal
   },
 ): Promise<ActionResult> {
   try {

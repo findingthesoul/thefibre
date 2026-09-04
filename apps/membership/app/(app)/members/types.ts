@@ -14,6 +14,7 @@ export type Member = {
   status: MemberStatus;
   started_at: string | null;
   renews_at: string | null;
+  country?: string | null;
   lapsed_at: string | null;
   notes: string | null;
   person: MemberPerson | null;

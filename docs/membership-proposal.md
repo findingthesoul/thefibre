@@ -212,11 +212,18 @@ Membership is the **system of record**; the family plugs in around it:
   brief-flow-as-planner-engine gap 5: community/org state doesn't belong
   inside Flow).
 
-### 3.9 Pricing rules (designed 2026-09-05, decisions accepted — next increment)
+### 3.9 Pricing rules (BUILT 2026-09-05 — as the generalised LOGIC BUILDER)
 
 Sjoerd's case: purchasing-power pricing per country (ZA 75%, AO 50%, NL
-100% — he has the list). Generalised the access-grant way: rule KINDS are
-a deploy-time vocabulary, workspaces configure INSTANCES as data.
+100%). Generalised further at build time (Sjoerd: "can we not make a
+logic builder… other people can build other logic?"): rules are
+declarative CONDITION ROWS — when <attr> <is/is not one of> <values> →
+price = <pct>% — first match wins, default pct otherwise. The attribute
+vocabulary is deploy-time (country, billing interval today; date windows
+/ member status are code additions, not migrations). Deliberately rows,
+never a canvas: money logic must be auditable at a glance. Editor at
+Membership → Settings → Pricing rules; evaluation is ALWAYS server-side
+(the join-page preview mirrors it as a courtesy).
 
 ```
 membership_pricing_rule (

@@ -62,6 +62,7 @@ export default async function PublicJoinPage({
             tiers={tiers}
             products={products}
             initialTierId={initialTierId}
+            priceLogic={catalog.price_logic ?? null}
           />
         )}
 

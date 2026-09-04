@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.39.0] — 2026-09-05 — Membership 0.6.0 · Thread 3.33.0: the parallel round
+
+Six lanes, one afternoon — five agents + the main line, strict file
+lanes, everything typechecked together before this commit.
+
+### Added
+- **Pricing rules as a LOGIC BUILDER** (§3.9 generalised, Sjoerd: "other
+  people can build other logic"): declarative rows (when country/interval
+  is/is-not-one-of → price %), first match wins, editor at Membership →
+  Settings → Pricing rules with SearchSelect country chips. Join page:
+  self-declared country + live adjusted preview; the server recomputes
+  authoritatively at checkout and stamps country+pct into subscription
+  metadata. Country stored on the member; admin change REPRICES FROM THE
+  NEXT RENEWAL (new Price on the connected account, proration none).
+  Card-country mismatch emails the admins (deduped) — never blocks.
+- **Member self-serve portal**: membership.thefibre.app/my — every
+  membership the signed-in email holds (any workspace), invoices, and
+  Manage payment via a Stripe billing-portal session on the connected
+  account; manual/comped members get the quiet "managed by the
+  community" note. Auth callback learned member routes (/my,
+  /oauth-continue) need a session, not a workspace account.
+- **Per-event images in threads** (Thread 3.33.0): activity-family
+  engagements carry image_url — edit dialog upload (cover pipeline),
+  public agenda + embeds render it (te-agenda-image hook), duplication
+  and templates keep it.
+- **Circle SSO spike** (docs/spike-circle-sso.md): /api/v1/oauth
+  {authorize, continue, token, me} shaped to Circle's WP-OAuth preset —
+  membership-gated sign-in (active/grace only, re-checked live). NOT
+  wired to Circle; staging test first, the doc says exactly how.
+- **docs/brief-workspace-threads.md**: workspace-scoped threads design
+  (recommendation: a workspace-kind organiser row, zero new public
+  routes); D1–D3 await Sjoerd.
+
+### Changed
+- **Extraction phase 1 executed** (component-inventory): button, dialog,
+  switch, list, fields, theme-script, app-switcher live ONCE in
+  @thefibre/shared; six apps hold 4-line shims. ~1,640 net lines gone,
+  zero page changes.
+
 ## [0.38.0] — 2026-09-05 — the trust items: Members list + one profile everywhere
 
 ### Changed

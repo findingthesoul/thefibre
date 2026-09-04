@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Globe, Plug, Code2 } from 'lucide-react';
+import { Globe, Plug, Code2, Percent } from 'lucide-react';
 import { appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from './page-chrome';
@@ -33,6 +33,12 @@ export default function SettingsPage() {
           icon: <Plug {...ICON} />,
           title: 'Integrations',
           desc: 'The tools membership unlocks for members — Circle.so today, more to come.',
+        },
+        {
+          href: '/settings/pricing',
+          icon: <Percent {...ICON} />,
+          title: 'Pricing rules',
+          desc: 'Price logic — purchasing-power pricing by country, first matching rule wins.',
         },
         {
           href: '/settings/embeds',

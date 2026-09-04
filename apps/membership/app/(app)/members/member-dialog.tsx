@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
+import { COUNTRIES } from '@thefibre/shared/countries';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { Button } from '@/components/ui/button';
 import { approveAccess, getMemberAccess, patchMember } from './actions';
 import { StatusBadge } from './status-badge';
@@ -41,6 +43,7 @@ export function MemberDialog({
   const [tierId, setTierId] = useState(member.tier_id);
   const [status, setStatus] = useState<MemberStatus>(member.status);
   const [renewsAt, setRenewsAt] = useState(member.renews_at?.slice(0, 10) ?? '');
+  const [country, setCountry] = useState((member as { country?: string | null }).country ?? '');
   const [notes, setNotes] = useState(member.notes ?? '');
   const [access, setAccess] = useState<MemberAccess[] | null>(null);
   const [busy, setBusy] = useState(false);
@@ -65,6 +68,7 @@ export function MemberDialog({
       status,
       renews_at: renewsAt ? dateToIso(renewsAt) : null,
       notes: notes.trim() || null,
+      country: country || null,
     });
     if (res.error) {
       setError(res.error);
@@ -125,6 +129,20 @@ export function MemberDialog({
           defaultValue={renewsAt || null}
           onValueChange={setRenewsAt}
         />
+        <div>
+          <label className="block text-sm font-medium mb-1">Country</label>
+          <SearchSelect
+            value={country}
+            onChange={setCountry}
+            options={COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }))}
+            placeholder="Not declared"
+            className="w-full"
+          />
+          <p className="mt-1.5 text-xs text-ink-muted">
+            Self-declared — drives the pricing rules. Changing it reprices a live subscription
+            from the NEXT renewal (never mid-cycle).
+          </p>
+        </div>
         <div>
           <label className="block text-sm font-medium mb-1">Notes</label>
           <textarea

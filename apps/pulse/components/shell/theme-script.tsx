@@ -1,11 +1,4 @@
-// Inlined into <head> to apply the theme class before first paint — avoids
-// the light→dark flash. Reads the cookie set by the user menu.
-export function ThemeScript() {
-  const code = `(function(){try{
-    var m = document.cookie.match(/(?:^|; )thefibre\\.theme=([^;]+)/);
-    var t = m ? decodeURIComponent(m[1]) : 'system';
-    var dark = t === 'dark' || (t === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-    document.documentElement.classList.toggle('dark', dark);
-  }catch(e){}})();`;
-  return <script dangerouslySetInnerHTML={{ __html: code }} />;
-}
+// Re-export of the shared component — the implementation lives in
+// packages/shared/src/ui/theme-script.tsx (single source of truth; per-app
+// copies retired 2026-09-05, component-inventory Phase 1).
+export { ThemeScript } from '@thefibre/shared/ui/theme-script';

@@ -137,11 +137,18 @@ seeded into Pulse. What remains:
    - Create the soul.com workspace, activate Membership there, connect
      its Stripe account, add the Circle API token, create the first
      tier, rehearse a test join on membership.thefibre.tech.
-   NEXT INCREMENT: pricing rules §3.9 (region multipliers, Sjoerd's
-   country list, self-declared country + card-mismatch admin warning).
-   Then: member self-serve portal; Circle SSO spike (WP-OAuth-preset
-   shaped endpoints — Custom SSO is Circle-Plus-paywalled, presets are
-   not; Sjoerd's screenshots 2026-09-05).
+   SHIPPED 2026-09-05 pm (the parallel-agents round): pricing rules
+   §3.9 as the generalised LOGIC BUILDER (Settings → Pricing rules;
+   country self-declared on join; card-mismatch admin email; country
+   change reprices from next renewal); member self-serve portal (/my on
+   the membership app + /api/v1/membership/portal, Stripe billing-portal
+   handoff); per-event images in threads; extraction PHASE 1 (~1,640
+   net lines into @thefibre/shared). Circle SSO spike:
+   docs/spike-circle-sso.md + /api/v1/oauth endpoints — TEST ON STAGING
+   before touching Circle's SSO screen. Workspace-threads design:
+   docs/brief-workspace-threads.md (D1–D3 await Sjoerd).
+   STILL QUEUED: à-la-carte product buying; i18n P1 (D1–D5 unread);
+   extraction phases 2–4; SearchSelect adoption sweep.
    **Roadmap (proposal §3.6):** Memberful-style integrations catalogue —
    each tool = a new access_grant kind + worker (deploy, not migration);
    then org seats (§3.5), OAuth provider phase 2, plan-gating +
