@@ -319,7 +319,10 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
           }
           compedDescription="Free — no invoice."
         >
-          <div className="ml-6 flex items-center gap-3 text-sm">
+          {/* flex-wrap: the dialog renders as a bottom sheet below `sm`
+              (v0.45.0) — two interval labels + the hint don't fit one row
+              at phone width. */}
+          <div className="ml-6 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
             {hasYear && (
               <label className="flex items-center gap-1.5">
                 <input
