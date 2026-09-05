@@ -225,7 +225,30 @@ machine-readable code; the catalog on the surface translates.
   *content* — the workspace writes them in the language of its audience,
   the platform never translates them. i18n covers chrome only.
 
-## 5 · Decisions
+## 5 · Decisions — DECIDED (Sjoerd, 2026-09-05)
+
+All five decided; D1 sharpened, D4 overridden:
+
+- **D1 ACCEPTED + sharpened**: signed-in Fibre interface = ONE user-level
+  language setting, app-wide. Public pages = content language. And the
+  Thread refinement: `thread.language` conflated two functions — the
+  FACILITATION language (information: what the course is run in, the
+  organiser's) and the PAGE/system language (buttons, system messages,
+  the platform's). They become two fields; content is the organiser's
+  responsibility, chrome is ours.
+- **D2 ACCEPTED** — matches how Sjoerd built it before: "a list of all
+  the buttons and instructions, translated; add a language via code."
+- **D3 ACCEPTED** — P1+P2 now, admin UIs on demand, API errors never.
+- **D4 OVERRIDDEN — add FRENCH NOW** ("we're active in French-speaking
+  areas"): LOCALES becomes en/nl/es/pt/de/fr; every existing catalog and
+  email table gains FR (machine-drafted, marked for native review);
+  thread.language CHECK widened in a fresh migration.
+- **D5 ACCEPTED** — workspace default public language, per-content
+  override keeps winning.
+
+_Original recommendations kept below for the record._
+
+### Original recommendations
 
 - **D1 — Locale source**: the four-way split of §2.3 — content language
   for public surfaces, `savePref` cookie + `user_profile.locale` for
