@@ -334,6 +334,29 @@ Smaller / noted (from the 2026-07-05 debug pass): engagement status
 messages (by design, at-most-once); date-picker min is date-only so the
 server end-after-start check is the real guard for same-day times.
 
+### Stripe Connect webhook — DONE 2026-09-05 (was THE revenue blocker)
+
+Both membership webhook endpoints registered and verified end-to-end:
+LIVE "the production API" + sandbox("staging") "membership-staging", both
+Connected-accounts scope, 5 events, API 2026-04-22.dahlia. Secrets on
+both Fly apps. Verified: forged calls get 400 bad-signature on both; a
+REAL connected-account event (subscription create+cancel on a throwaway
+acct, deleted after) delivered to staging and returned 200.
+
+Learned along the way (Stripe housekeeping still open for Sjoerd):
+- There are TWO sandboxes: "staging" (the real twin — the staging API's
+  key lives here) and "Solidarity Lab B.V." (accidental). The SL B.V.
+  sandbox holds FOUR junk endpoints (meet/billing/thread pointing at the
+  PROD api + a misplaced membership one) — delete all four.
+- "Accounts v1 support" feature flag is now ENABLED in the staging
+  sandbox (needed for any account creation with the current integration;
+  new Stripe accounts/sandboxes default to v2-only).
+- The "Multiple capabilities paused — required task overdue" banner: if
+  it shows in LIVE, complete the task or real charges may bounce.
+- Staging test-card rehearsal still to do: connect a Stripe account to a
+  staging workspace (Settings → Payments), join a priced tier with
+  4242…, watch the member confirm.
+
 ## Outstanding for Sjoerd
 
 - **Decide Meet ↔ Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
