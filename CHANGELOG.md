@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.2] — 2026-09-05 — interval row wraps in sheet form
+
+### Fixed
+- Membership's yearly/monthly interval row inside the billing choice
+  wraps at phone width (dialogs render as bottom sheets below `sm`
+  since v0.45.0 — the fixed row clipped there).
+
 ## [0.45.1] — 2026-09-05 — one billing choice
 
 ### Changed
