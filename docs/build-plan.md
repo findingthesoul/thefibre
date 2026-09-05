@@ -343,11 +343,18 @@ both Fly apps. Verified: forged calls get 400 bad-signature on both; a
 REAL connected-account event (subscription create+cancel on a throwaway
 acct, deleted after) delivered to staging and returned 200.
 
-Learned along the way (Stripe housekeeping still open for Sjoerd):
+Learned along the way (Stripe housekeeping):
 - There are TWO sandboxes: "staging" (the real twin — the staging API's
-  key lives here) and "Solidarity Lab B.V." (accidental). The SL B.V.
-  sandbox holds FOUR junk endpoints (meet/billing/thread pointing at the
-  PROD api + a misplaced membership one) — delete all four.
+  key lives here) and "Solidarity Lab B.V." (accidental). During cleanup
+  the STAGING sandbox's four destinations got deleted by mistake (the
+  two look identical); all four were RECREATED via the API 2026-09-05
+  (meet/billing/thread "Your account" + membership Connect, api_version
+  pinned) and all four staging Fly secrets rotated to the new endpoints.
+  Delivery re-verified with a real connected-account event (200).
+- CHECK: the SL B.V. sandbox may still hold its four junk endpoints
+  (meet/billing/thread → PROD api + a misplaced membership one) — if
+  "no destinations left" referred to staging, delete the SL B.V. set
+  too. Identify by the sandbox switcher label before deleting.
 - "Accounts v1 support" feature flag is now ENABLED in the staging
   sandbox (needed for any account creation with the current integration;
   new Stripe accounts/sandboxes default to v2-only).
