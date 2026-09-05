@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.47.0] — 2026-09-06 — Membership 0.11.0: Google Workspace joins the integrations
+
+### Added
+- **Google Workspace integration** (Sjoerd: "in Lapsed, can we also
+  pause the USER in Google?"): the second integration row after Circle.
+  A new 'google_user' access grant kind — put it on a product and a
+  member's Google account is SUSPENDED when their membership lapses and
+  reactivated when they (re)join; accounts are never created or deleted.
+  Works for org seats too (seats ride the same journal). Setup:
+  Settings → Integrations → Google Workspace — a service account with
+  domain-wide delegation + the admin email it impersonates; the key is
+  write-only (stored server-side, echoed only as "connected"). The
+  worker mints its own RS256 JWTs (no SDK) and runs on the scheduler
+  tick beside Circle and Fibre seats. Migration on both DBs.
+
 ## [0.46.2] — 2026-09-06 — the Profile item goes somewhere
 
 ### Fixed

@@ -51,7 +51,7 @@ export function GrantDialog({
       setError('Pick a tier.');
       return;
     }
-    if (kind !== 'fibre_seat' && !ref.trim()) {
+    if (kind !== 'fibre_seat' && kind !== 'google_user' && !ref.trim()) {
       setError(kind === 'circle' ? 'Space ID is required.' : 'Thread slug is required.');
       return;
     }

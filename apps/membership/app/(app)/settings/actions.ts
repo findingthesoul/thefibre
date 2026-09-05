@@ -57,6 +57,18 @@ export async function saveCircle(input: {
   });
 }
 
+// Google Workspace integration credential — same undefined/null/string
+// contract as the Circle token.
+export async function saveGoogle(input: {
+  google_admin_email: string | null;
+  google_sa_json?: string | null;
+}): Promise<ActionResult> {
+  return putSettings({
+    google_admin_email: input.google_admin_email,
+    ...(input.google_sa_json !== undefined ? { google_sa_json: input.google_sa_json } : {}),
+  });
+}
+
 // Currency SPoT lives on the WORKSPACE (platform endpoint), not membership
 // settings — one list for everything the workspace prices.
 export async function saveCurrencies(input: {

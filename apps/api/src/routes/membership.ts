@@ -18,6 +18,7 @@ import {
 } from '../lib/email/membership-templates.js';
 import { LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { runCircleAccessSync } from '../lib/circle.js';
+import { runGoogleUserSync } from '../lib/google-admin.js';
 import {
   applyPct,
   evaluatePriceLogic,
@@ -130,7 +131,7 @@ const PatchMember = z.object({
 
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
 // deliberately has no CHECK so adding one here is enough.
-const GrantKind = z.enum(['circle', 'thread', 'fibre_seat']);
+const GrantKind = z.enum(['circle', 'thread', 'fibre_seat', 'google_user']);
 // Grants attach to a PRODUCT (the promise carries its fulfillment —
 // 2026-09-05); tier_id remains accepted for the legacy tier-level rows.
 const CreateGrant = z
@@ -148,6 +149,10 @@ const CreateGrant = z
 
 const PutSettings = z.object({
   circle_api_token: z.string().max(500).optional().nullable(),
+  // Google Workspace integration: the service-account key JSON (secret —
+  // write-only, GET only echoes google_configured) + the delegation admin.
+  google_sa_json: z.string().max(10000).optional().nullable(),
+  google_admin_email: z.string().email().max(320).optional().nullable(),
   circle_community_url: z.string().url().max(500).optional().nullable(),
   join_page: z.record(z.string(), z.unknown()).optional(),
   // Fibre-seat policy (2026-09-05): approve-or-auto, and the standing
@@ -1368,7 +1373,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at')
+    .select('workspace_id, circle_api_token, circle_community_url, google_sa_json, google_admin_email, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -1376,6 +1381,8 @@ membershipRoutes.get('/settings', async (c) => {
     circle_community_url: data?.circle_community_url ?? null,
     // The token never leaves the API — only whether one is set.
     circle_api_token_set: Boolean(data?.circle_api_token),
+    google_configured: Boolean(data?.google_sa_json && data?.google_admin_email),
+    google_admin_email: data?.google_admin_email ?? null,
     join_page: data?.join_page ?? {},
     fibre_seat_mode: data?.fibre_seat_mode ?? 'approve',
     allow_billed_seats: data?.allow_billed_seats ?? false,
@@ -1393,6 +1400,8 @@ membershipRoutes.put('/settings', async (c) => {
   const row: Record<string, unknown> = { workspace_id: ctx.workspaceId, updated_at: new Date().toISOString() };
   if (body.data.circle_api_token !== undefined) row.circle_api_token = body.data.circle_api_token;
   if (body.data.circle_community_url !== undefined) row.circle_community_url = body.data.circle_community_url;
+  if (body.data.google_sa_json !== undefined) row.google_sa_json = body.data.google_sa_json;
+  if (body.data.google_admin_email !== undefined) row.google_admin_email = body.data.google_admin_email;
   if (body.data.join_page !== undefined) row.join_page = body.data.join_page;
   if (body.data.fibre_seat_mode !== undefined) row.fibre_seat_mode = body.data.fibre_seat_mode;
   if (body.data.allow_billed_seats !== undefined) row.allow_billed_seats = body.data.allow_billed_seats;
@@ -2552,6 +2561,11 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
     await runFibreSeatSync();
   } catch (e) {
     console.error('[membership/scheduler] fibre-seat sync failed', e);
+  }
+  try {
+    await runGoogleUserSync();
+  } catch (e) {
+    console.error('[membership/scheduler] google sync failed', e);
   }
 
   return out;

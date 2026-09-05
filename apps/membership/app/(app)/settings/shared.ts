@@ -6,6 +6,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 export type MembershipSettings = {
   circle_community_url: string | null;
   circle_api_token_set: boolean;
+  google_configured: boolean;
+  google_admin_email: string | null;
   join_page: Record<string, unknown>;
   /** Public page language (i18n P1) — optional until the API ships it. */
   locale?: string | null;

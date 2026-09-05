@@ -1,12 +1,13 @@
 // Local shapes for the access surface (GET /api/v1/membership/grants).
 
-export const GRANT_KINDS = ['circle', 'thread', 'fibre_seat'] as const;
+export const GRANT_KINDS = ['circle', 'thread', 'fibre_seat', 'google_user'] as const;
 export type GrantKind = (typeof GRANT_KINDS)[number];
 
 export const GRANT_KIND_LABELS: Record<GrantKind, string> = {
   circle: 'Circle space',
   thread: 'Thread',
   fibre_seat: 'Fibre seat',
+  google_user: 'Google account',
 };
 
 export type Grant = {

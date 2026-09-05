@@ -1,5 +1,6 @@
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
 import { CircleCard } from '../circle-card';
+import { GoogleCard } from '../google-card';
 import { SeatPolicyCard } from '../seat-policy-card';
 import { loadSettings } from '../shared';
 
@@ -48,6 +49,27 @@ export default async function IntegrationsSettings() {
             </div>
             <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-line bg-surface-sunken px-5 py-3">
               <div className="flex items-center gap-2.5">
+                <span className="text-sm font-medium text-ink">Google Workspace</span>
+                <span className="text-xs text-ink-muted">account suspension on lapse</span>
+              </div>
+              <span
+                className={`rounded-full px-2.5 py-0.5 text-[11px] font-medium ${
+                  settings?.google_configured
+                    ? 'bg-emerald-100 text-emerald-800'
+                    : 'border border-line text-ink-muted'
+                }`}
+              >
+                {settings?.google_configured ? 'Connected' : 'Not connected'}
+              </span>
+            </div>
+            <div className="!mt-0 rounded-b-lg border border-line">
+              <GoogleCard
+                adminEmail={settings?.google_admin_email ?? null}
+                configured={settings?.google_configured ?? false}
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-t-lg border border-b-0 border-line bg-surface-sunken px-5 py-3">
+              <div className="flex items-center gap-2.5">
                 <span className="text-sm font-medium text-ink">The Fibre</span>
                 <span className="text-xs text-ink-muted">workspace seats — built in</span>
               </div>
@@ -62,7 +84,7 @@ export default async function IntegrationsSettings() {
               />
             </div>
             <p className="text-xs text-ink-muted">
-              More integrations land here as they're built — Discord, Discourse, email tools.
+              More integrations land here as they're built — Slack, Discord, email tools.
               Each one becomes available as an access grant on your tiers' products.
             </p>
           </>

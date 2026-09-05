@@ -80,7 +80,7 @@ export function ProductDialog({
 
   async function addAccess() {
     if (!product) return;
-    if (accessKind !== 'fibre_seat' && !accessRef.trim()) {
+    if (accessKind !== 'fibre_seat' && accessKind !== 'google_user' && !accessRef.trim()) {
       setError(accessKind === 'circle' ? 'Space ID is required.' : 'Thread slug is required.');
       return;
     }
@@ -94,7 +94,9 @@ export function ProductDialog({
           ? { space_id: accessRef.trim() }
           : accessKind === 'fibre_seat'
             ? { role: accessRole }
-            : { thread_slug: accessRef.trim() },
+            : accessKind === 'google_user'
+              ? {}
+              : { thread_slug: accessRef.trim() },
     });
     setAccessBusy(false);
     if (r.error || !r.data) {
@@ -113,7 +115,9 @@ export function ProductDialog({
             ? { space_id: accessRef.trim() }
             : accessKind === 'fibre_seat'
               ? { role: accessRole }
-              : { thread_slug: accessRef.trim() },
+              : accessKind === 'google_user'
+                ? {}
+                : { thread_slug: accessRef.trim() },
         created_at: new Date().toISOString(),
         tier: null,
         product: { name: product.name },
@@ -138,6 +142,7 @@ export function ProductDialog({
   function accessSummary(g: Grant): string {
     if (g.kind === 'circle') return `Circle space ${g.config?.space_id ?? ''}`;
     if (g.kind === 'fibre_seat') return `Fibre seat (${g.config?.role ?? 'organiser'})`;
+    if (g.kind === 'google_user') return 'Google account (active while member)';
     return `Thread ${g.config?.thread_slug ?? ''}`;
   }
 
