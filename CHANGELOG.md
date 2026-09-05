@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.6] — 2026-09-06 — CORS origins come from the registry
+
+### Fixed
+- The API's CORS allowlist is derived from the app registry (APP_IDS x
+  appUrl) instead of a hand-written list — the hand-list pattern struck
+  a third time when membership.thefibre.tech was missing from staging's
+  CORS_ORIGINS and blocked the join page during the payment rehearsal
+  (staging secret also fixed). An eighth app can no longer be forgotten.
+
+### Rehearsed
+- **First end-to-end membership payment on staging**: join page → Stripe
+  Checkout (test card) on the connected account → webhook 200s → active
+  member with subscription + correct renewal → EUR 2,000 paid ledger row
+  → access grants journaled. Production webhook armed and waiting for
+  the first real member.
+
 ## [0.45.5] — 2026-09-05 — skip-builds diffs the whole push
 
 ### Fixed

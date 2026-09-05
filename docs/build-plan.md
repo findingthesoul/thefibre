@@ -360,9 +360,12 @@ Learned along the way (Stripe housekeeping):
   new Stripe accounts/sandboxes default to v2-only).
 - The "Multiple capabilities paused — required task overdue" banner: if
   it shows in LIVE, complete the task or real charges may bounce.
-- Staging test-card rehearsal still to do: connect a Stripe account to a
-  staging workspace (Settings → Payments), join a priced tier with
-  4242…, watch the member confirm.
+- Staging test-card rehearsal DONE 2026-09-06: EUR 2,000 Soul Fellowship
+  joined with the test card on a synthetic connected account
+  (acct_1UCS0ELHO1HI5S0R, kept as a staging fixture wired to the
+  'default' workspace) — webhook 200s, active member, paid ledger row.
+  Flushed out + fixed: membership.thefibre.tech missing from staging
+  CORS (secret updated; allowlist derived from the registry, v0.45.6).
 
 ## Outstanding for Sjoerd
 
