@@ -19,7 +19,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendEmail } from '../lib/email/client.js';
 import { renderAuthEmail } from '../lib/email/auth-templates.js';
-import { adminClient } from '../db.js';
+import { platformEmailLocale } from '../lib/email/platform-i18n.js';
 
 export const authHookRoutes = new Hono();
 
@@ -148,18 +148,13 @@ authHookRoutes.post('/email', async (c) => {
   }
 
   // The recipient's language (i18n P2): identity_profile.locale where they
-  // have one, English otherwise. The profile SPoT is keyed by email — the
-  // same key Supabase gives us — and a non-fatal miss just means English.
+  // have one, English otherwise — the ONE resolver every platform-side
+  // email shares. Non-fatal: locale is a nicety, never block an OTP on it.
   let locale: string | null = null;
   try {
-    const { data: identity } = await adminClient
-      .from('identity_profile')
-      .select('locale')
-      .eq('email', user.email)
-      .maybeSingle();
-    locale = identity?.locale ?? null;
+    locale = await platformEmailLocale(user.email);
   } catch {
-    /* locale is a nicety — never block an OTP on it */
+    /* fall through to English */
   }
 
   const rendered = renderAuthEmail(

@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.44.1] — 2026-09-05 — one email-locale resolver
+
+### Changed
+- The auth hook now resolves the recipient's language through
+  `platformEmailLocale()` (platform-i18n.ts) instead of its own inline
+  identity_profile lookup — one resolver for every platform-side email.
+
+
 ## [0.44.0] — 2026-09-05 — auth emails speak six languages (i18n P2 complete)
 
 ### Added
