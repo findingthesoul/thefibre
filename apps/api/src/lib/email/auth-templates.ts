@@ -68,7 +68,7 @@ export function renderAuthEmail(
   const chrome = CHROME[loc];
   const name = brand?.name || PLATFORM.name;
   const subject = copy.subject.replaceAll('{platform}', name);
-  const text = buildText({ args, copy, chrome });
+  const text = buildText({ args, copy, chrome, senderName: brand?.name ?? undefined });
   const html = buildHtml({ args, copy, chrome, loc, brand: brand ?? undefined });
   return { subject, text, html };
 }
@@ -558,13 +558,17 @@ function buildText({
   args,
   copy,
   chrome,
+  senderName,
 }: {
   args: RenderArgs;
   copy: Copy;
   chrome: Chrome;
+  /** The community's name on branded sends — the text part must agree with
+   *  the subject + HTML (cross-session review, 2026-09-06). */
+  senderName?: string | undefined;
 }): string {
   const lines: string[] = [];
-  lines.push(PLATFORM.name);
+  lines.push(senderName || PLATFORM.name);
   lines.push('');
   lines.push(copy.headline);
   lines.push('');

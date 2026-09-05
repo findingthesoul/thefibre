@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.46.1] — 2026-09-06 — branded auth emails: text part agrees
+
+### Fixed
+- The plain-text half of a community-branded sign-in email still opened
+  with "The Fibre" while the subject and HTML said the community —
+  buildText now receives the sender name. (Cross-session review nit.)
+
 ## [0.46.0] — 2026-09-06 — Membership 0.10.0: orgs hold seats, meters bill, emails come from the community
 
 Three parallel lanes + Sjoerd's live rehearsal findings, one release.
