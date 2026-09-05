@@ -88,6 +88,12 @@ seeded into Pulse. What remains:
    inside a thread (cover_url exists thread-wide; events in the timeline
    have none). (c) Adopt shared SearchSelect for timezone pickers +
    converge the three comboboxes (inventory).
+3c. **Mobile follow-ups** (bottom menu SHIPPED v0.45.0 to all six apps:
+   shared ui/bottom-nav + dialog sheet mode + h-dvh layouts): the tail is
+   per-screen polish on the operational surfaces (wide tables, dense
+   toolbars) as Sjoerd's phone testing surfaces them. The BUILDERS
+   (timeline editor, certificate designer, flow canvas) stay
+   desktop-first by design — don't chase touch support there.
 4. **Naming brief follow-ups** (docs/naming-brief.md, decided 2026-09-01;
    display renames + Thread-first landing shipped v0.23.0):
    - Meet standalone vs event-type-inside-Thread — PRODUCT decision, Sjoerd.
