@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { APP_IDS, appUrl } from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
@@ -57,16 +58,12 @@ app.use('*', logger());
 // Configurable via `CORS_ORIGINS` (comma-separated) for staging / extra
 // preview deploys. Empty `origin` (server-to-server, same-origin, native
 // fetch) is always allowed.
-const PROD_ORIGINS = new Set<string>([
-  'https://thefibre.app',
-  'https://meet.thefibre.app',
-  'https://thread.thefibre.app',
-  'https://flow.thefibre.app',
-  'https://pulse.thefibre.app',
-  'https://membership.thefibre.app',
-  'https://sales.thefibre.app',
-  'https://learn.thefibre.app',
-]);
+// Derived from the app registry, NEVER hand-listed (the v0.39.1 rule): the
+// hand-written copy was missing membership.thefibre.tech on staging, which
+// CORS-blocked the join page during the 2026-09-05 payment rehearsal — the
+// third "new app forgotten in a list" bug. appUrl with no env = the
+// production origins; staging's extra .tech origins ride CORS_ORIGINS.
+const PROD_ORIGINS = new Set<string>(APP_IDS.map((slug) => appUrl(slug)));
 const DEV_ORIGINS = new Set<string>([
   'http://localhost:3000', // apps/web dev
   'http://localhost:3001', // apps/meet dev
