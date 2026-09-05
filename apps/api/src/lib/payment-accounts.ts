@@ -181,6 +181,23 @@ export async function chargeAccountForItem(
   appSlug: string,
   itemRef: string,
 ): Promise<string | null> {
+  if (appSlug === 'membership') {
+    // Membership charges always run on the WORKSPACE account; the purchase
+    // row itself knows the workspace, whatever shape its item_ref has.
+    const { data: app } = await adminClient
+      .from('app')
+      .select('id')
+      .eq('slug', 'membership')
+      .maybeSingle();
+    if (!app) return null;
+    const { data: row } = await adminClient
+      .from('purchase')
+      .select('workspace_id')
+      .eq('app_id', app.id)
+      .eq('item_ref', itemRef)
+      .maybeSingle();
+    return row ? workspaceStripeAccount(row.workspace_id) : null;
+  }
   if (appSlug === 'fibre-meet') {
     const { data: b } = await adminClient
       .from('meet_booking')

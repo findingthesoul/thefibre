@@ -26,18 +26,26 @@ export async function createMember(input: {
   person_id: string;
   tier_id: string;
   renews_at: string | null; // full ISO datetime or null
-}): Promise<ActionResult<{ id: string }>> {
+  country?: string | null;
+  billing?: 'comped' | 'invoice';
+  interval?: 'year' | 'month';
+  invite?: boolean;
+}): Promise<ActionResult<{ id: string; invoice_error?: string }>> {
   try {
-    const r = await apiFetch<{ id: string }>('/api/v1/membership/members', {
+    const r = await apiFetch<{ id: string; invoice_error?: string }>('/api/v1/membership/members', {
       method: 'POST',
       body: JSON.stringify({
         person_id: input.person_id,
         tier_id: input.tier_id,
         ...(input.renews_at ? { renews_at: input.renews_at } : {}),
+        ...(input.country ? { country: input.country } : {}),
+        ...(input.billing ? { billing: input.billing } : {}),
+        ...(input.interval ? { interval: input.interval } : {}),
+        ...(input.invite !== undefined ? { invite: input.invite } : {}),
       }),
     });
     revalidatePath('/members');
-    return { ok: true, data: { id: r.id } };
+    return { ok: true, data: r };
   } catch (e) {
     // 409 = already a member — the API's message is already user-facing.
     if (e instanceof ApiError && e.status === 409) {
@@ -99,6 +107,11 @@ export async function createPerson(input: {
   first_name: string;
   last_name: string;
   email: string;
+  phone?: string;
+  street?: string;
+  postal_code?: string;
+  city?: string;
+  country?: string;
 }): Promise<ActionResult<{ id: string }>> {
   try {
     const r = await apiFetch<{ id: string }>('/api/v1/persons', {
@@ -113,6 +126,23 @@ export async function createPerson(input: {
 
 
 // Approve a parked seat (awaiting_approval) — provisions synchronously.
+// VAT lives in the app-tagged person_billing curator row — added from
+// Membership, it is Membership's field (the app justifies the field).
+export async function savePersonBilling(
+  personId: string,
+  input: { tax_id: string },
+): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/persons/${personId}/billing`, {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    });
+    return { ok: true };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
 export async function approveAccess(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/membership/access/${id}/approve`, { method: 'POST' });

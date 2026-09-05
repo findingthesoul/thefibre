@@ -15,6 +15,7 @@ import {
   membershipPaymentFailed,
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
+import { LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { runCircleAccessSync } from '../lib/circle.js';
 import {
   applyPct,
@@ -86,6 +87,14 @@ const CreateMember = z.object({
   started_at: z.string().datetime().optional(),
   renews_at: z.string().datetime().optional().nullable(),
   notes: z.string().max(4000).optional().nullable(),
+  // Manual add = usually the INVOICED case (Sjoerd, 2026-09-05): 'invoice'
+  // creates a pending ledger invoice (tier price × pricing rules) and
+  // emails it; 'comped' is free and quiet. country feeds the pricing
+  // rules; invite sends the sign-in email for the member portal.
+  country: z.string().regex(/^[A-Za-z]{2}$/).optional().nullable(),
+  billing: z.enum(['comped', 'invoice']).default('comped'),
+  interval: z.enum(['year', 'month']).default('year'),
+  invite: z.boolean().default(false),
 });
 const PatchMember = z.object({
   tier_id: z.string().uuid().optional(),
@@ -123,6 +132,9 @@ const PutSettings = z.object({
   // consent for seats that bill above the plan allowance.
   fibre_seat_mode: z.enum(['auto', 'approve']).optional(),
   allow_billed_seats: z.boolean().optional(),
+  // Default language of the community's public surfaces + member emails
+  // (i18n P1). Per-member locale overrides it once known.
+  locale: z.enum(LOCALES).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -158,6 +170,21 @@ async function isMembershipAdmin(workspaceId: string, userId: string): Promise<b
     .eq('app_id', app)
     .maybeSingle();
   return am?.role === 'admin';
+}
+
+// The email-locale chain (i18n P1): member.locale ?? membership_settings
+// .locale ?? 'en'. Every member-facing send resolves through here.
+async function memberEmailLocale(
+  workspaceId: string,
+  memberLocale: string | null | undefined,
+): Promise<Locale> {
+  if (isLocale(memberLocale)) return memberLocale;
+  const { data } = await adminClient
+    .from('membership_settings')
+    .select('locale')
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  return toLocale(data?.locale);
 }
 
 const membershipAppId = { id: null as string | null };
@@ -482,9 +509,14 @@ membershipRoutes.post('/members', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  const { billing, interval, invite, country, ...memberFields } = body.data;
   const { data, error } = await db
     .from('membership_member')
-    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .insert({
+      ...memberFields,
+      ...(country ? { country: country.toUpperCase() } : {}),
+      workspace_id: ctx.workspaceId,
+    })
     .select('id, person_id, tier_id, status')
     .single();
   if (error) {
@@ -493,10 +525,114 @@ membershipRoutes.post('/members', async (c) => {
     }
     return fail(c, 'create member', error);
   }
-  const { data: tier } = await db.from('membership_tier').select('name').eq('id', data.tier_id).maybeSingle();
+  const { data: tier } = await db
+    .from('membership_tier')
+    .select('name, price_cents_year, price_cents_month, currency')
+    .eq('id', data.tier_id)
+    .maybeSingle();
   await logMemberActivity(ctx.workspaceId, data.person_id, 'membership_joined', `Joined · ${tier?.name ?? 'membership'}`);
   await reconcileMemberAccess(data.id);
-  return c.json({ id: data.id }, 201);
+
+  const [{ data: person }, { data: ws }, brand] = await Promise.all([
+    adminClient
+      .from('person')
+      .select('first_name, last_name, email, street, postal_code, city, country')
+      .eq('id', data.person_id)
+      .maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', ctx.workspaceId).maybeSingle(),
+    getWorkspaceBrand(ctx.workspaceId),
+  ]);
+
+  // Invoice path: a PENDING ledger row (tier price × pricing rules for the
+  // declared country), invoiced by email in the house style. Mark paid /
+  // send payment link live on the Invoices page like every other invoice.
+  let invoiceError: string | null = null;
+  if (billing === 'invoice') {
+    const base = interval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
+    if (base == null || base <= 0) {
+      invoiceError = `The tier has no ${interval}ly price — member created without an invoice.`;
+    } else if (!person?.email) {
+      invoiceError = 'The person has no email — member created without an invoice.';
+    } else {
+      const logic = await priceLogicFor(ctx.workspaceId, data.tier_id);
+      const { pct } = evaluatePriceLogic(logic, { country: country ?? null, interval });
+      const amount = applyPct(base, pct);
+      const { data: pb } = await adminClient
+        .from('person_billing')
+        .select('tax_id, legal_name')
+        .eq('person_id', data.person_id)
+        .maybeSingle();
+      const itemRef = `member-inv-${data.id}-1`;
+      await recordPurchase({
+        appSlug: 'membership',
+        workspaceId: ctx.workspaceId,
+        itemRef,
+        personId: data.person_id,
+        payerName:
+          pb?.legal_name ?? [person.first_name, person.last_name].filter(Boolean).join(' '),
+        payerEmail: person.email,
+        itemLabel: `${ws?.name ?? 'Community'} membership — ${tier?.name ?? ''} (${interval}ly)`,
+        amountCents: amount,
+        currency: tier?.currency ?? 'EUR',
+        method: 'invoice',
+        status: 'pending',
+        billing: {
+          address: person.street ?? null,
+          postal_code: person.postal_code ?? null,
+          city: person.city ?? null,
+          country: person.country ?? country ?? null,
+          ...(pb?.tax_id ? { tax_no: pb.tax_id } : {}),
+        },
+      });
+      const { data: saved } = await adminClient
+        .from('purchase')
+        .select(
+          'payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+        )
+        .eq('item_ref', itemRef)
+        .maybeSingle();
+      if (saved) {
+        void sendReceipt(ctx.workspaceId, saved as Record<string, unknown>).catch((e) =>
+          console.error('[membership] manual invoice email failed', e),
+        );
+      }
+    }
+  }
+
+  // Invite: the member-portal sign-in email. Auth account first (the join
+  // flow's auto-create), then a workspace-branded note.
+  if (invite && person?.email) {
+    try {
+      const { data: hasAccount } = await adminClient.rpc('auth_user_exists', {
+        p_email: person.email.toLowerCase(),
+      });
+      if (hasAccount !== true) {
+        await adminClient.auth.admin.createUser({
+          email: person.email.toLowerCase(),
+          email_confirm: true,
+        });
+      }
+      const first = person.first_name ?? 'there';
+      const communityName = ws?.name ?? 'the community';
+      await sendEmail({
+        to: person.email,
+        subject: `Your ${communityName} membership`,
+        text: `Hi ${first},\n\nYou are a member of ${communityName} (${tier?.name ?? 'membership'}). See your membership, invoices and payment details any time:\n\n${MEMBERSHIP_APP_URL}/my\n\nSign in with this email address.`,
+        html: shell(
+          `Your ${communityName} membership`,
+          `<p>Hi ${escapeHtml(first)},</p><p>You are a member of <strong>${escapeHtml(communityName)}</strong> (${escapeHtml(tier?.name ?? 'membership')}). See your membership, invoices and payment details any time:</p><p style="margin:24px 0 0;"><a href="${MEMBERSHIP_APP_URL}/my" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">Open your membership</a></p><p style="margin-top:16px;color:#737373;font-size:13px;">Sign in with this email address.</p>`,
+          { logoUrl: brand.logoUrl, name: brand.fromName },
+        ),
+        ...(brand.fromName ? { fromName: brand.fromName } : {}),
+        ...(brand.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+        ...(brand.replyTo ? { replyTo: brand.replyTo } : {}),
+      });
+    } catch (e) {
+      console.warn('[membership] invite email failed', e);
+    }
+  }
+
+  return c.json({ id: data.id, ...(invoiceError ? { invoice_error: invoiceError } : {}) }, 201);
 });
 
 membershipRoutes.patch('/members/:id', async (c) => {
@@ -802,7 +938,7 @@ membershipRoutes.get('/settings', async (c) => {
   }
   const { data, error } = await adminClient
     .from('membership_settings')
-    .select('workspace_id, circle_api_token, circle_community_url, join_page, fibre_seat_mode, allow_billed_seats, updated_at')
+    .select('workspace_id, circle_api_token, circle_community_url, join_page, fibre_seat_mode, allow_billed_seats, locale, updated_at')
     .eq('workspace_id', ctx.workspaceId)
     .maybeSingle();
   if (error) return fail(c, 'get settings', error);
@@ -813,6 +949,7 @@ membershipRoutes.get('/settings', async (c) => {
     join_page: data?.join_page ?? {},
     fibre_seat_mode: data?.fibre_seat_mode ?? 'approve',
     allow_billed_seats: data?.allow_billed_seats ?? false,
+    locale: toLocale(data?.locale),
   });
 });
 
@@ -829,6 +966,7 @@ membershipRoutes.put('/settings', async (c) => {
   if (body.data.join_page !== undefined) row.join_page = body.data.join_page;
   if (body.data.fibre_seat_mode !== undefined) row.fibre_seat_mode = body.data.fibre_seat_mode;
   if (body.data.allow_billed_seats !== undefined) row.allow_billed_seats = body.data.allow_billed_seats;
+  if (body.data.locale !== undefined) row.locale = body.data.locale;
   const { error } = await adminClient
     .from('membership_settings')
     .upsert(row, { onConflict: 'workspace_id' });
@@ -884,7 +1022,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .order('sort_order', { ascending: true }),
     adminClient
       .from('membership_settings')
-      .select('join_page, circle_community_url')
+      .select('join_page, circle_community_url, locale')
       .eq('workspace_id', ws.id)
       .maybeSingle(),
   ]);
@@ -893,6 +1031,8 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
 
   return c.json({
     workspace: { slug: ws.slug, name: ws.name },
+    // The join page's default language (additive — rule 8).
+    locale: toLocale(settings?.locale),
     price_logic: priceLogic,
     tiers: (tiers ?? []).map((t) => ({
       ...t,
@@ -913,6 +1053,9 @@ const PublicJoin = z.object({
   // SELF-DECLARED country (§3.9 D1) — drives the pricing logic. Optional:
   // no country matches no country-rule, so the default pct applies.
   country: z.string().regex(/^[A-Za-z]{2}$/).optional(),
+  // UI hint: the language the visitor joined in. Invalid values are ignored
+  // (never a 400) — the workspace default applies instead.
+  locale: z.string().max(10).optional(),
   request_id: z.string().min(8).max(100),
 });
 
@@ -941,6 +1084,11 @@ membershipRoutes.post('/public/join', async (c) => {
 
   const ws = await publicWorkspace(d.workspace_slug);
   if (!ws) return c.json({ error: 'not found' }, 404);
+
+  // The visitor's language: a validated UI hint (invalid → ignored). The
+  // resolved value rides the redirect (lang=…) and, when new, the member row.
+  const joinLocale = isLocale(d.locale) ? d.locale : null;
+  const resolvedLocale = joinLocale ?? (await memberEmailLocale(ws.id, null));
 
   const stripe = stripeOrNull();
   if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
@@ -1012,10 +1160,18 @@ membershipRoutes.post('/public/join', async (c) => {
   // Already an active member? Send them to sign-in instead of double-charging.
   const { data: existingMember } = await adminClient
     .from('membership_member')
-    .select('id, status')
+    .select('id, status, locale')
     .eq('workspace_id', ws.id)
     .eq('person_id', personId)
     .maybeSingle();
+  // Backfill-on-touch: a locale is only ever stamped onto a member row that
+  // has none — an existing preference is never overwritten by a join visit.
+  if (existingMember && joinLocale && existingMember.locale == null) {
+    await adminClient
+      .from('membership_member')
+      .update({ locale: joinLocale, updated_at: new Date().toISOString() })
+      .eq('id', existingMember.id);
+  }
   if (existingMember && (existingMember.status === 'active' || existingMember.status === 'grace')) {
     return c.json({ already_member: true });
   }
@@ -1045,6 +1201,7 @@ membershipRoutes.post('/public/join', async (c) => {
             person_id: personId,
             tier_id: tier.id,
             ...(country ? { country } : {}),
+            ...(joinLocale ? { locale: joinLocale } : {}),
             applied_pct: String(pct),
           },
         },
@@ -1052,8 +1209,8 @@ membershipRoutes.post('/public/join', async (c) => {
         billing_address_collection: 'required',
         allow_promotion_codes: true,
         metadata: { workspace_id: ws.id, person_id: personId, tier_id: tier.id, request_id: d.request_id },
-        success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}`,
-        cancel_url: `${base}?cancelled=1`,
+        success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
+        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
       },
       { stripeAccount: account },
     );

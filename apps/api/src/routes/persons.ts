@@ -46,6 +46,12 @@ const PersonCreate = z.object({
   email: z.string().email(),
   preferred_name: z.string().max(100).optional(),
   country: z.string().length(2).optional(),
+  // Full intake from moment one (Sjoerd, 2026-09-05: invoiced members need
+  // phone/address/VAT when they are CREATED, not on a later edit).
+  phone: z.string().max(50).optional(),
+  street: z.string().max(200).optional(),
+  postal_code: z.string().max(20).optional(),
+  city: z.string().max(100).optional(),
 });
 
 personsRoutes.post('/', async (c) => {
@@ -336,7 +342,7 @@ personsRoutes.delete('/:id', async (c) => {
 async function upsertProfile<T extends Record<string, unknown>>(
   c: import('hono').Context,
   table: string,
-  appSlug: 'fibre-platform' | 'fibre-meet' | 'the-thread' | 'fibre-sales' | 'fibre-learn',
+  appSlug: string,
   body: T,
 ) {
   const ctx = c.get('ctx');
@@ -616,7 +622,7 @@ personsRoutes.get('/:id/billing', (c) => getProfile(c, 'person_billing'));
 personsRoutes.patch('/:id/billing', async (c) => {
   const body = BillingUpdate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
-  return upsertProfile(c, 'person_billing', 'fibre-sales', {
+  return upsertProfile(c, 'person_billing', c.get('ctx').appId, {
     ...body.data,
     updated_at: new Date().toISOString(),
   });

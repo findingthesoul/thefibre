@@ -2,15 +2,23 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import { COUNTRIES } from '@thefibre/shared/countries';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
-import { createMember, createPerson, searchPersons } from './actions';
+import { createMember, createPerson, savePersonBilling, searchPersons } from './actions';
 import { dateToIso } from './member-dialog';
 import { personName, type MemberPerson, type Tier } from './types';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
+
+const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
+
+function money(cents: number, currency: string): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
+}
 
 export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: () => void }) {
   const router = useRouter();
@@ -22,10 +30,30 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
   const [newContact, setNewContact] = useState(false);
   const [newName, setNewName] = useState('');
   const [newEmail, setNewEmail] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newStreet, setNewStreet] = useState('');
+  const [newPostal, setNewPostal] = useState('');
+  const [newCity, setNewCity] = useState('');
+  // Country doubles as the pricing-rules input, so it applies to existing
+  // contacts too, not only new ones.
+  const [country, setCountry] = useState('');
+  const [vat, setVat] = useState('');
   const [tierId, setTierId] = useState(tiers[0]?.id ?? '');
+  const [billing, setBilling] = useState<'invoice' | 'comped'>('invoice');
+  const [interval, setInterval] = useState<'year' | 'month'>('year');
+  const [invite, setInvite] = useState(true);
   const [renewsAt, setRenewsAt] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const tier = tiers.find((t) => t.id === tierId) ?? null;
+  const hasYear = (tier?.price_cents_year ?? 0) > 0;
+  const hasMonth = (tier?.price_cents_month ?? 0) > 0;
+  const priced = hasYear || hasMonth;
+  const effectiveInterval: 'year' | 'month' =
+    interval === 'year' ? (hasYear ? 'year' : 'month') : hasMonth ? 'month' : 'year';
+  const baseCents =
+    effectiveInterval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
 
   // Debounced search-as-you-type; results come via a server action because
   // the API session lives server-side.
@@ -66,6 +94,11 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
         first_name: parts[0] ?? name,
         last_name: parts.slice(1).join(' ') || '',
         email: newEmail.trim(),
+        ...(newPhone.trim() ? { phone: newPhone.trim() } : {}),
+        ...(newStreet.trim() ? { street: newStreet.trim() } : {}),
+        ...(newPostal.trim() ? { postal_code: newPostal.trim() } : {}),
+        ...(newCity.trim() ? { city: newCity.trim() } : {}),
+        ...(country ? { country } : {}),
       });
       if (created.error || !created.data) {
         setError(created.error ?? 'could not create the contact');
@@ -75,18 +108,37 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       personId = created.data.id;
     }
 
+    if (vat.trim() && personId) {
+      const b = await savePersonBilling(personId, { tax_id: vat.trim() });
+      if (b.error) {
+        setError(`Could not save the VAT number: ${b.error}`);
+        setBusy(false);
+        return;
+      }
+    }
+
     const res = await createMember({
       person_id: personId!,
       tier_id: tierId,
       renews_at: renewsAt ? dateToIso(renewsAt) : null,
+      country: country || null,
+      billing: priced ? billing : 'comped',
+      interval: effectiveInterval,
+      invite,
     });
     if (res.error) {
       setError(res.error);
       setBusy(false);
       return;
     }
-    onClose();
     router.refresh();
+    if (res.data?.invoice_error) {
+      // The member exists — keep the dialog open so the warning is read.
+      setError(`Member added, but: ${res.data.invoice_error}`);
+      setBusy(false);
+      return;
+    }
+    onClose();
   }
 
   return (
@@ -94,7 +146,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       open
       onClose={onClose}
       title="Add member"
-      description="Manual add — for invoiced or comped memberships. Paid joins come through the join page."
+      description="Manual add — invoiced by email, or comped. Paid card joins come through the join page."
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
@@ -151,6 +203,33 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                 placeholder="Email address"
                 className={INPUT}
               />
+              <input
+                type="tel"
+                value={newPhone}
+                onChange={(e) => setNewPhone(e.target.value)}
+                placeholder="Phone (optional)"
+                className={INPUT}
+              />
+              <input
+                value={newStreet}
+                onChange={(e) => setNewStreet(e.target.value)}
+                placeholder="Street and number"
+                className={INPUT}
+              />
+              <div className="grid grid-cols-[1fr_2fr] gap-2">
+                <input
+                  value={newPostal}
+                  onChange={(e) => setNewPostal(e.target.value)}
+                  placeholder="Postal code"
+                  className={INPUT}
+                />
+                <input
+                  value={newCity}
+                  onChange={(e) => setNewCity(e.target.value)}
+                  placeholder="City"
+                  className={INPUT}
+                />
+              </div>
               <p className="text-xs text-ink-muted">
                 Creates the contact in The Fibre, then adds the membership.
               </p>
@@ -195,6 +274,29 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             </>
           )}
         </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-sm font-medium mb-1">Country</label>
+            <SearchSelect
+              value={country}
+              onChange={setCountry}
+              options={COUNTRY_OPTIONS}
+              placeholder="Pick a country…"
+              searchPlaceholder="Search countries…"
+            />
+            <p className="mt-1 text-xs text-ink-muted">Pricing rules use this.</p>
+          </div>
+          <div>
+            <label className="block text-sm font-medium mb-1">VAT number</label>
+            <input
+              value={vat}
+              onChange={(e) => setVat(e.target.value)}
+              placeholder="If applicable"
+              className={INPUT}
+            />
+            <p className="mt-1 text-xs text-ink-muted">Shown on their invoices.</p>
+          </div>
+        </div>
         <div>
           <label className="block text-sm font-medium mb-1">Tier</label>
           <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={INPUT}>
@@ -205,6 +307,85 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             ))}
           </select>
         </div>
+        <div>
+          <label className="block text-sm font-medium mb-1">Billing</label>
+          <div className="space-y-1.5 rounded-md border border-line bg-surface-sunken p-3">
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="billing"
+                className="mt-0.5"
+                checked={priced && billing === 'invoice'}
+                disabled={!priced}
+                onChange={() => setBilling('invoice')}
+              />
+              <span>
+                <span className="font-medium">Invoice</span>
+                <span className="block text-xs text-ink-muted">
+                  {priced
+                    ? 'Creates a pending invoice and emails it — pay by transfer or payment link.'
+                    : 'This tier has no price — only comped is possible.'}
+                </span>
+              </span>
+            </label>
+            {priced && billing === 'invoice' && (
+              <div className="ml-6 flex items-center gap-3 text-sm">
+                {hasYear && (
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="interval"
+                      checked={effectiveInterval === 'year'}
+                      onChange={() => setInterval('year')}
+                    />
+                    Yearly{tier?.price_cents_year ? ` · ${money(tier.price_cents_year, tier.currency)}` : ''}
+                  </label>
+                )}
+                {hasMonth && (
+                  <label className="flex items-center gap-1.5">
+                    <input
+                      type="radio"
+                      name="interval"
+                      checked={effectiveInterval === 'month'}
+                      onChange={() => setInterval('month')}
+                    />
+                    Monthly{tier?.price_cents_month ? ` · ${money(tier.price_cents_month, tier.currency)}` : ''}
+                  </label>
+                )}
+                {baseCents != null && baseCents > 0 && country && (
+                  <span className="text-xs text-ink-muted">Pricing rules may adjust this.</span>
+                )}
+              </div>
+            )}
+            <label className="flex items-start gap-2 text-sm">
+              <input
+                type="radio"
+                name="billing"
+                className="mt-0.5"
+                checked={!priced || billing === 'comped'}
+                onChange={() => setBilling('comped')}
+              />
+              <span>
+                <span className="font-medium">Comped</span>
+                <span className="block text-xs text-ink-muted">Free — no invoice.</span>
+              </span>
+            </label>
+          </div>
+        </div>
+        <label className="flex items-start gap-2 text-sm">
+          <input
+            type="checkbox"
+            className="mt-0.5"
+            checked={invite}
+            onChange={(e) => setInvite(e.target.checked)}
+          />
+          <span>
+            Send an invitation email
+            <span className="block text-xs text-ink-muted">
+              Welcomes them and links their member page (membership, invoices, payment details).
+            </span>
+          </span>
+        </label>
         <DateField
           label="Renews on"
           name="renews_at"

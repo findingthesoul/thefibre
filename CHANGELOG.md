@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.40.0] — 2026-09-05 — Membership 0.7.0: manual add is an invoiced intake
+
+### Added
+- **Add member is now a full intake** (Sjoerd: contact details "from
+  moment one", "people receive an invoice right?"). The dialog takes
+  phone, street/postal/city, country (SearchSelect, feeds the pricing
+  rules) and a VAT number (stored as Membership's app-tagged
+  person_billing row — the app justifies the field).
+- **Billing choice on manual add**: Invoice (default when the tier is
+  priced) creates a PENDING purchase-ledger row — tier price × pricing
+  rules for the declared country — and emails the invoice in the house
+  style; Mark paid / Send payment link work from the Invoices page like
+  any other invoice. Comped stays free and quiet.
+- **Invitation email** (checkbox, on by default): ensures the auth
+  account exists and sends a workspace-branded welcome linking the
+  member portal (/my).
+
+### Changed
+- `POST /persons` accepts phone/street/postal_code/city; `person` table
+  gained a `phone` column (both DBs migrated).
+- `PATCH /persons/:id/billing` now tags the curator row with the CALLING
+  app instead of a hardcoded slug.
+- chargeAccountForItem resolves membership invoices to the workspace's
+  connected Stripe account, so Send payment link works for them.
+
 ## [0.39.1] — 2026-09-05 — staging links stay on staging
 
 ### Fixed
