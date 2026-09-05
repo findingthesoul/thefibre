@@ -84,22 +84,37 @@ const PatchProduct = CreateProduct.partial().extend({
 });
 
 const MemberStatus = z.enum(['active', 'grace', 'lapsed', 'cancelled']);
-const CreateMember = z.object({
-  person_id: z.string().uuid(),
-  tier_id: z.string().uuid(),
-  status: MemberStatus.default('active'),
-  started_at: z.string().datetime().optional(),
-  renews_at: z.string().datetime().optional().nullable(),
-  notes: z.string().max(4000).optional().nullable(),
-  // Manual add = usually the INVOICED case (Sjoerd, 2026-09-05): 'invoice'
-  // creates a pending ledger invoice (tier price × pricing rules) and
-  // emails it; 'comped' is free and quiet. country feeds the pricing
-  // rules; invite sends the sign-in email for the member portal.
-  country: z.string().regex(/^[A-Za-z]{2}$/).optional().nullable(),
-  billing: z.enum(['comped', 'invoice']).default('comped'),
-  interval: z.enum(['year', 'month']).default('year'),
-  invite: z.boolean().default(false),
-});
+const CreateMember = z
+  .object({
+    // Exactly one of person_id / organisation_id (§3.5 v1): an org
+    // membership is a membership_member row with organisation_id set and
+    // person_id NULL; its people occupy seats (see /members/:id/seats).
+    person_id: z.string().uuid().optional(),
+    organisation_id: z.string().uuid().optional(),
+    seat_allowance: z.number().int().min(1).max(10000).optional(),
+    tier_id: z.string().uuid(),
+    status: MemberStatus.default('active'),
+    started_at: z.string().datetime().optional(),
+    renews_at: z.string().datetime().optional().nullable(),
+    notes: z.string().max(4000).optional().nullable(),
+    // Manual add = usually the INVOICED case (Sjoerd, 2026-09-05): 'invoice'
+    // creates a pending ledger invoice (tier price × pricing rules) and
+    // emails it; 'comped' is free and quiet. country feeds the pricing
+    // rules; invite sends the sign-in email for the member portal.
+    // For ORG memberships: country/invite are person concepts and ignored;
+    // 'invoice' bills the ORGANISATION (tier price × seats, org_billing
+    // contact). NO Stripe subscription for orgs in v1 — deliberate.
+    country: z.string().regex(/^[A-Za-z]{2}$/).optional().nullable(),
+    billing: z.enum(['comped', 'invoice']).default('comped'),
+    interval: z.enum(['year', 'month']).default('year'),
+    invite: z.boolean().default(false),
+  })
+  .refine((v) => Boolean(v.person_id) !== Boolean(v.organisation_id), {
+    message: 'exactly one of person_id or organisation_id',
+  })
+  .refine((v) => !v.seat_allowance || v.organisation_id, {
+    message: 'seat_allowance only applies to organisation memberships',
+  });
 const PatchMember = z.object({
   tier_id: z.string().uuid().optional(),
   status: MemberStatus.optional(),
@@ -108,6 +123,9 @@ const PatchMember = z.object({
   // Self-declared country — a DELIBERATE change (§3.9): reprices the
   // subscription from the next renewal, never mid-cycle.
   country: z.string().regex(/^[A-Za-z]{2}$/).optional().nullable(),
+  // Org memberships only (ignored on person rows): raising it opens seats,
+  // lowering it never evicts — occupancy above allowance just blocks adds.
+  seat_allowance: z.number().int().min(1).max(10000).optional(),
 });
 
 // Grant kinds are a deploy-time vocabulary (like app-key scopes) — the DB
@@ -200,12 +218,17 @@ async function appId(): Promise<string | null> {
 }
 
 // Activity is the sanctioned wall-crossing: type + subject only, append-only.
+// personId may be null for ORG membership rows — activity.person_id is NOT
+// NULL and the platform has no organisation_id on activity yet (known open
+// item), so org-level lifecycle events are simply not logged in v1. Seat
+// grants/removals ARE logged, on the seated person.
 export async function logMemberActivity(
   workspaceId: string,
-  personId: string,
+  personId: string | null | undefined,
   type: string,
   subject: string,
 ): Promise<void> {
+  if (!personId) return;
   const app = await appId();
   if (!app) return;
   await adminClient.from('activity').insert({
@@ -224,10 +247,19 @@ export async function logMemberActivity(
 export async function reconcileMemberAccess(memberId: string): Promise<void> {
   const { data: member } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, tier_id, status')
+    .select('id, workspace_id, person_id, organisation_id, tier_id, status')
     .eq('id', memberId)
     .maybeSingle();
   if (!member) return;
+
+  // ORG membership (person_id NULL): the org itself holds no external
+  // access — its SEATED PEOPLE do. Fan out: sync every seat row to the
+  // org's tier + status, then reconcile each seat like the individual
+  // member it mechanically is. Seats are person rows, so no recursion.
+  if (member.organisation_id) {
+    await reconcileOrgSeats(member as { id: string; tier_id: string; status: string });
+    return;
+  }
 
   // Entitlement = legacy tier-level grants + grants carried by the tier's
   // products (tier → membership_tier_product → product → grants) + grants
@@ -342,6 +374,46 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       .eq('member_id', member.id)
       .in('access_grant_id', boughtGrantIds)
       .in('status', ['revoke_pending', 'revoked']);
+  }
+}
+
+// Seats follow the org membership (§3.5): tier and status propagate from
+// the org row to its seat rows, then each seat reconciles as an individual
+// member — a lapse revoke-flags every seated person's grants (with the
+// bought-product exception living inside reconcileMemberAccess itself).
+//
+// Status convention: a seat row set 'cancelled' was INDIVIDUALLY removed
+// by an admin and is never touched here — org-driven transitions only move
+// seats between 'active' and 'lapsed', so a rejoining org re-arms its
+// lapsed seats without resurrecting removed ones (the 2026-09-05 rejoin
+// re-arm rule then flips their revoked journal rows back to pending).
+export async function reconcileOrgSeats(org: {
+  id: string;
+  tier_id: string;
+  status: string;
+}): Promise<void> {
+  const { data: seats } = await adminClient
+    .from('membership_member')
+    .select('id, person_id, tier_id, status')
+    .eq('org_member_id', org.id)
+    .is('deleted_at', null);
+  const target = org.status === 'active' || org.status === 'grace' ? 'active' : 'lapsed';
+  for (const seat of seats ?? []) {
+    if (seat.status !== 'cancelled' && (seat.status !== target || seat.tier_id !== org.tier_id)) {
+      const patch: Record<string, unknown> = {
+        tier_id: org.tier_id,
+        status: target,
+        updated_at: new Date().toISOString(),
+      };
+      if (target === 'lapsed' && seat.status !== 'lapsed') patch.lapsed_at = new Date().toISOString();
+      if (target === 'active') patch.lapsed_at = null;
+      const { error } = await adminClient.from('membership_member').update(patch).eq('id', seat.id);
+      if (error) {
+        console.error('[membership] seat propagation failed', seat.id, error);
+        continue;
+      }
+    }
+    if (seat.status !== 'cancelled') await reconcileMemberAccess(seat.id);
   }
 }
 
@@ -510,8 +582,11 @@ const MemberListQuery = z.object({
 });
 
 const MEMBER_SELECT =
-  'id, person_id, organisation_id, tier_id, status, started_at, renews_at, lapsed_at, stripe_subscription_id, notes, created_at, ' +
-  'person:person_id (id, first_name, last_name, email), tier:tier_id (id, name)';
+  'id, person_id, organisation_id, seat_allowance, org_member_id, tier_id, status, started_at, renews_at, lapsed_at, stripe_subscription_id, notes, created_at, ' +
+  'person:person_id (id, first_name, last_name, email), tier:tier_id (id, name), ' +
+  'organisation:organisation_id (id, name), ' +
+  // A seat row's parent org membership → the organisation it seats under.
+  'org_member:org_member_id (id, organisation:organisation_id (id, name))';
 
 membershipRoutes.get('/members', async (c) => {
   const parsed = MemberListQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
@@ -534,15 +609,21 @@ membershipRoutes.get('/members', async (c) => {
 
   // The concatenated select string defeats supabase-js type inference —
   // rows come back as GenericStringError without the cast.
-  type MemberRow = { id: string; person: { first_name?: string; last_name?: string; email?: string } | null };
+  type MemberRow = {
+    id: string;
+    person: { first_name?: string; last_name?: string; email?: string } | null;
+    organisation: { name?: string } | null;
+  };
   let rows = (data ?? []) as unknown as MemberRow[];
-  // Person-name search filters the page in memory — PostgREST can't ilike
-  // across the embedded relation. Acceptable at community scale; revisit
-  // with an RPC if a workspace passes ~thousands of members.
+  // Person/org-name search filters the page in memory — PostgREST can't
+  // ilike across the embedded relation. Acceptable at community scale;
+  // revisit with an RPC if a workspace passes ~thousands of members.
   if (q) {
     const needle = q.toLowerCase();
     rows = rows.filter((m) =>
-      [m.person?.first_name, m.person?.last_name, m.person?.email].some((v) => v?.toLowerCase().includes(needle)),
+      [m.person?.first_name, m.person?.last_name, m.person?.email, m.organisation?.name].some((v) =>
+        v?.toLowerCase().includes(needle),
+      ),
     );
   }
   const hasMore = rows.length > limit;
@@ -576,18 +657,28 @@ membershipRoutes.post('/members', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const { billing, interval, invite, country, ...memberFields } = body.data;
+  const isOrg = Boolean(memberFields.organisation_id);
   const { data, error } = await db
     .from('membership_member')
     .insert({
       ...memberFields,
-      ...(country ? { country: country.toUpperCase() } : {}),
+      // Org rows always carry an allowance (the UI sends one; default 1).
+      ...(isOrg && !memberFields.seat_allowance ? { seat_allowance: 1 } : {}),
+      ...(country && !isOrg ? { country: country.toUpperCase() } : {}),
       workspace_id: ctx.workspaceId,
     })
-    .select('id, person_id, tier_id, status')
+    .select('id, person_id, organisation_id, seat_allowance, tier_id, status')
     .single();
   if (error) {
     if (error.code === '23505') {
-      return c.json({ error: 'This person already has a membership in this workspace.' }, 409);
+      return c.json(
+        {
+          error: isOrg
+            ? 'This organisation already has a membership in this workspace.'
+            : 'This person already has a membership in this workspace.',
+        },
+        409,
+      );
     }
     return fail(c, 'create member', error);
   }
@@ -596,6 +687,91 @@ membershipRoutes.post('/members', async (c) => {
     .select('name, price_cents_year, price_cents_month, currency')
     .eq('id', data.tier_id)
     .maybeSingle();
+
+  // ORG membership (§3.5 v1): manual/invoice billing only — the org pays by
+  // invoice (tier price × seats) against its org_billing contact. No Stripe
+  // subscription, no invite email (the portal is a person surface), no
+  // activity row (activity.person_id is NOT NULL; org activity is a known
+  // open platform item). Seats are added afterwards via /members/:id/seats.
+  if (isOrg) {
+    let invoiceError: string | null = null;
+    if (billing === 'invoice') {
+      const base = interval === 'year' ? tier?.price_cents_year : tier?.price_cents_month;
+      const seatCount = data.seat_allowance ?? 1;
+      const [{ data: org }, { data: ob }] = await Promise.all([
+        adminClient
+          .from('organisation')
+          .select('name, legal_name, street, postal_code, city, country')
+          .eq('id', data.organisation_id)
+          .maybeSingle(),
+        adminClient
+          .from('org_billing')
+          .select('legal_name, tax_id, billing_email, billing_street, billing_postal_code, billing_city, billing_country')
+          .eq('org_id', data.organisation_id)
+          .maybeSingle(),
+      ]);
+      const payerEmail = ob?.billing_email ?? null;
+      if (base == null || base <= 0) {
+        invoiceError = `The tier has no ${interval}ly price — membership created without an invoice.`;
+      } else if (!payerEmail) {
+        invoiceError =
+          'The organisation has no billing email — membership created without an invoice. Add one on the organisation and re-send from the Invoices page.';
+      } else {
+        // Deliberately NO pricing-logic evaluation: §3.9 rules key on
+        // person attributes (self-declared country, interval discounts for
+        // individuals) — org invoices are flat tier price × seats.
+        const amount = base * seatCount;
+        const itemRef = `member-inv-${data.id}-1`;
+        await recordPurchase({
+          appSlug: 'membership',
+          workspaceId: ctx.workspaceId,
+          itemRef,
+          organiserUserId: ctx.userId || null,
+          payerName: ob?.legal_name ?? org?.legal_name ?? org?.name ?? 'Organisation',
+          payerEmail,
+          itemLabel: `${(await adminClient.from('workspace').select('name').eq('id', ctx.workspaceId).maybeSingle()).data?.name ?? 'Community'} membership — ${tier?.name ?? ''} (${seatCount} seat${seatCount === 1 ? '' : 's'}, ${interval}ly)`,
+          amountCents: amount,
+          currency: tier?.currency ?? 'EUR',
+          method: 'invoice',
+          status: 'pending',
+          billing: {
+            company: ob?.legal_name ?? org?.legal_name ?? org?.name ?? null,
+            address: ob?.billing_street ?? org?.street ?? null,
+            postal_code: ob?.billing_postal_code ?? org?.postal_code ?? null,
+            city: ob?.billing_city ?? org?.city ?? null,
+            country: ob?.billing_country ?? org?.country ?? null,
+            ...(ob?.tax_id ? { tax_no: ob.tax_id } : {}),
+          },
+        });
+        const { data: saved } = await adminClient
+          .from('purchase')
+          .select(
+            'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+          )
+          .eq('item_ref', itemRef)
+          .maybeSingle();
+        if (saved) {
+          const payUrl = await createMembershipPaymentLink({
+            purchaseId: saved.id,
+            workspaceId: ctx.workspaceId,
+            amountCents: amount,
+            currency: tier?.currency ?? 'EUR',
+            itemLabel: saved.item_label,
+            payerEmail,
+          });
+          void sendReceipt(
+            ctx.workspaceId,
+            saved as Record<string, unknown>,
+            undefined,
+            undefined,
+            payUrl ? payButtonHtml(payUrl) : undefined,
+          ).catch((e) => console.error('[membership] org invoice email failed', e));
+        }
+      }
+    }
+    return c.json({ id: data.id, ...(invoiceError ? { invoice_error: invoiceError } : {}) }, 201);
+  }
+
   await logMemberActivity(ctx.workspaceId, data.person_id, 'membership_joined', `Joined · ${tier?.name ?? 'membership'}`);
   await reconcileMemberAccess(data.id);
 
@@ -728,13 +904,17 @@ membershipRoutes.patch('/members/:id', async (c) => {
 
   const { data: before, error: readErr } = await db
     .from('membership_member')
-    .select('id, person_id, tier_id, status, country, stripe_subscription_id, workspace_id, tier:tier_id (name)')
+    .select('id, person_id, organisation_id, tier_id, status, country, stripe_subscription_id, workspace_id, tier:tier_id (name)')
     .eq('id', memberId)
     .maybeSingle();
   if (readErr) return fail(c, 'read member', readErr);
   if (!before) return c.json({ error: 'not found' }, 404);
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  // Person concepts stay off org rows and vice versa (the DB CHECKs would
+  // reject them anyway — strip early for a clean error surface).
+  if (before.organisation_id) delete patch.country;
+  else delete patch.seat_allowance;
   if (body.data.status === 'lapsed' && before.status !== 'lapsed') patch.lapsed_at = new Date().toISOString();
   const { error } = await db.from('membership_member').update(patch).eq('id', memberId);
   if (error) return fail(c, 'patch member', error);
@@ -778,6 +958,172 @@ membershipRoutes.patch('/members/:id', async (c) => {
     );
     return c.json({ ok: true, repriced: true });
   }
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Org membership seats (§3.5 v1). A seat is a person-keyed membership_member
+// row whose org_member_id points at the org membership — mechanically an
+// individual member (same journal, workers, portal, profile tab), whose tier
+// and status FOLLOW the org row (reconcileOrgSeats). 'cancelled' on a seat =
+// individually removed (soft); org-driven transitions use active/lapsed.
+// ---------------------------------------------------------------------------
+
+const SEAT_SELECT =
+  'id, person_id, status, started_at, lapsed_at, created_at, person:person_id (id, first_name, last_name, email)';
+
+async function orgMemberRow(db: ReturnType<typeof userClient>, memberId: string) {
+  const { data } = await db
+    .from('membership_member')
+    .select('id, workspace_id, organisation_id, seat_allowance, tier_id, status')
+    .eq('id', memberId)
+    .maybeSingle();
+  return data && data.organisation_id ? data : null;
+}
+
+membershipRoutes.get('/members/:id/seats', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const org = await orgMemberRow(db, c.req.param('id'));
+  if (!org) return c.json({ error: 'not found' }, 404);
+  const { data, error } = await db
+    .from('membership_member')
+    .select(SEAT_SELECT)
+    .eq('org_member_id', org.id)
+    .order('created_at', { ascending: true });
+  if (error) return fail(c, 'list seats', error);
+  const items = data ?? [];
+  const occupied = items.filter((s) => s.status === 'active' || s.status === 'grace').length;
+  return c.json({ items, occupied, allowance: org.seat_allowance ?? 1 });
+});
+
+const CreateSeat = z.object({ person_id: z.string().uuid() });
+
+membershipRoutes.post('/members/:id/seats', async (c) => {
+  const body = CreateSeat.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const org = await orgMemberRow(db, c.req.param('id'));
+  if (!org) return c.json({ error: 'not found' }, 404);
+
+  // Allowance gate: occupied seats vs seat_allowance. Never bills anything —
+  // an org over its allowance simply can't add (raise the allowance first;
+  // the next org invoice covers it).
+  const { count: occupied } = await db
+    .from('membership_member')
+    .select('id', { count: 'exact', head: true })
+    .eq('org_member_id', org.id)
+    .in('status', ['active', 'grace']);
+  const allowance = org.seat_allowance ?? 1;
+  if ((occupied ?? 0) >= allowance) {
+    return c.json(
+      { error: `All ${allowance} seat${allowance === 1 ? ' is' : 's are'} occupied — raise the seat allowance first.` },
+      409,
+    );
+  }
+
+  // The seat's status follows the org membership from birth.
+  const target = org.status === 'active' || org.status === 'grace' ? 'active' : 'lapsed';
+
+  // A person holds ONE membership per workspace (unique workspace_id ×
+  // person_id): re-adding a removed seat of THIS org re-arms the same row;
+  // any other existing membership is a 409.
+  const { data: existing } = await db
+    .from('membership_member')
+    .select('id, org_member_id, status')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('person_id', body.data.person_id)
+    .maybeSingle();
+  let seatId: string;
+  if (existing) {
+    if (existing.org_member_id !== org.id) {
+      return c.json(
+        { error: 'This person already has a membership in this workspace (own or via another organisation).' },
+        409,
+      );
+    }
+    if (existing.status === 'active' || existing.status === 'grace') {
+      return c.json({ error: 'This person already occupies a seat.' }, 409);
+    }
+    const { error } = await db
+      .from('membership_member')
+      .update({ status: target, tier_id: org.tier_id, lapsed_at: null, updated_at: new Date().toISOString() })
+      .eq('id', existing.id);
+    if (error) return fail(c, 'rearm seat', error);
+    seatId = existing.id;
+  } else {
+    const { data: created, error } = await db
+      .from('membership_member')
+      .insert({
+        workspace_id: ctx.workspaceId,
+        person_id: body.data.person_id,
+        tier_id: org.tier_id,
+        status: target,
+        org_member_id: org.id,
+      })
+      .select('id')
+      .single();
+    if (error) {
+      if (error.code === '23505') {
+        return c.json({ error: 'This person already has a membership in this workspace.' }, 409);
+      }
+      return fail(c, 'create seat', error);
+    }
+    seatId = created.id;
+  }
+
+  const { data: orgRow } = await db
+    .from('organisation')
+    .select('name')
+    .eq('id', org.organisation_id)
+    .maybeSingle();
+  await logMemberActivity(
+    ctx.workspaceId,
+    body.data.person_id,
+    'membership_seat_granted',
+    `Seat granted · ${orgRow?.name ?? 'organisation'}`,
+  );
+  // Seat-holders get the tier's grants exactly like an individual member.
+  await reconcileMemberAccess(seatId);
+  return c.json({ id: seatId }, 201);
+});
+
+// Soft removal: the seat row (and its journal history) stays, status
+// 'cancelled' marks it individually removed — reconcile revoke-flags the
+// person's grants, EXCEPT grants from products they bought outright (the
+// same exception as individual members, built into reconcileMemberAccess).
+membershipRoutes.delete('/members/:id/seats/:seatId', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const org = await orgMemberRow(db, c.req.param('id'));
+  if (!org) return c.json({ error: 'not found' }, 404);
+  const { data: seat } = await db
+    .from('membership_member')
+    .select('id, person_id, status, org_member_id')
+    .eq('id', c.req.param('seatId'))
+    .maybeSingle();
+  if (!seat || seat.org_member_id !== org.id) return c.json({ error: 'not found' }, 404);
+  if (seat.status === 'cancelled') return c.json({ ok: true });
+
+  const { error } = await db
+    .from('membership_member')
+    .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+    .eq('id', seat.id);
+  if (error) return fail(c, 'remove seat', error);
+
+  const { data: orgRow } = await db
+    .from('organisation')
+    .select('name')
+    .eq('id', org.organisation_id)
+    .maybeSingle();
+  await logMemberActivity(
+    ctx.workspaceId,
+    seat.person_id,
+    'membership_seat_removed',
+    `Seat removed · ${orgRow?.name ?? 'organisation'}`,
+  );
+  await reconcileMemberAccess(seat.id);
   return c.json({ ok: true });
 });
 
@@ -1516,6 +1862,10 @@ async function ensureMemberFromSubscription(
         renews_at: renewsAt,
         lapsed_at: null,
         deleted_at: null,
+        // A lapsed/removed SEAT holder joining on their own card takes the
+        // row over as a personal membership — detach it from the org so
+        // org-driven propagation stops steering their tier/status.
+        org_member_id: null,
         stripe_subscription_id: subscriptionId,
         stripe_customer_id: customer,
         ...(meta.country ? { country: meta.country } : {}),

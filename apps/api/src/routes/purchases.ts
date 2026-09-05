@@ -8,6 +8,7 @@
 import { Hono } from 'hono';
 import { ENTITY } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
+import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
@@ -199,7 +200,12 @@ async function sellerDetailsFor(
 }
 
 // Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
-function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDetails): string {
+function receiptHtml(
+  p: ReceiptPurchase,
+  buttonHtml: string,
+  seller?: SellerDetails,
+  brand?: { logoUrl?: string | null; name?: string | null },
+): string {
   const amount = new Intl.NumberFormat('en-GB', {
     style: 'currency',
     currency: p.currency || 'EUR',
@@ -275,12 +281,13 @@ function receiptHtml(p: ReceiptPurchase, buttonHtml: string, seller?: SellerDeta
        </tr>
      </table>
      ${buttonHtml}`,
+    brand ?? undefined,
   );
 }
 
-// Reusable: email the payer their receipt (with the hosted invoice PDF
-// button when one exists). Settled purchases without a Stripe document
-// still get the receipt itself. EXPORTED for the platform-subscription
+// Reusable: email the payer their receipt/invoice, sent AS THE WORKSPACE
+// with OUR generated PDF attached (never Stripe's hosted page). EXPORTED
+// for the platform-subscription
 // webhook (routes/billing.ts), which passes the PLATFORM as seller — a
 // workspace's own invoice details are the wrong "From" on an invoice the
 // platform sends TO that workspace.
@@ -302,16 +309,38 @@ export async function sendReceipt(
   const recipient = toOverride ?? p.payer_email;
   if (!recipient) return { error: 'no payer email on file', code: 409 };
   const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
-  const button =
-    (p.stripe_invoice_url
-      ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
-      : '') + (extraButtonHtml ?? '');
+
+  // Sender identity: the WORKSPACE (Sjoerd, 2026-09-06: "sender was The
+  // Fibre, which is not the workspace owner"). Platform-sent invoices
+  // (billing.ts passes sellerOverride) correctly stay The Fibre.
+  const brand = sellerOverride ? null : await getWorkspaceBrand(workspaceId).catch(() => null);
+
+  // The invoice/receipt PDF is OURS, attached — never Stripe's hosted page
+  // ("Stripe is rails, the ledger is the record"; Sjoerd, 2026-09-06: "the
+  // PDF was on Stripe"). A PDF failure must not block the email.
+  let attachments: { filename: string; content: string }[] | undefined;
+  try {
+    const inv = purchase as unknown as PdfInvoice & { id?: string };
+    const pdf = await buildInvoicePdf(inv, {
+      legal_name: seller?.legal_name ?? '',
+      ...(seller ?? {}),
+    });
+    const number = String(inv.billing?.number ?? inv.id ?? 'invoice').replace(/[^A-Za-z0-9-]/g, '');
+    attachments = [{ filename: `invoice-${number}.pdf`, content: pdf.toString('base64') }];
+  } catch (e) {
+    console.error('[purchases] receipt pdf failed — sending without attachment', e);
+  }
+
   try {
     await sendEmail({
       to: recipient,
       subject: `${p.status === 'pending' ? 'Invoice' : 'Your receipt'} — ${p.item_label}`,
-      html: receiptHtml(purchase as unknown as ReceiptPurchase, button, seller),
-      text: `Your receipt for ${p.item_label}${p.stripe_invoice_url ? `: ${p.stripe_invoice_url}` : ''}`,
+      html: receiptHtml(purchase as unknown as ReceiptPurchase, extraButtonHtml ?? '', seller, brand ?? undefined),
+      text: `Your ${p.status === 'pending' ? 'invoice' : 'receipt'} for ${p.item_label} is attached.`,
+      ...(brand?.fromName ? { fromName: brand.fromName } : {}),
+      ...(brand?.fromAddress ? { fromAddress: brand.fromAddress } : {}),
+      ...(brand?.replyTo ? { replyTo: brand.replyTo } : {}),
+      ...(attachments ? { attachments } : {}),
     });
   } catch (e) {
     console.error('[purchases] resend receipt failed', e);

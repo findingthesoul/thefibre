@@ -2,7 +2,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { UserPlus, ChevronRight, Search, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { UserPlus, ChevronRight, LayoutGrid, List as ListIcon } from 'lucide-react';
+import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
 import { Dialog } from '@/components/ui/dialog';
 import { searchPersons, startRun } from '../actions';
 import { RunModal } from './run-modal';
@@ -341,24 +342,27 @@ function Board({
 
 function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => void }) {
   const router = useRouter();
-  const [q, setQ] = useState('');
-  const [results, setResults] = useState<Person[]>([]);
-  const [searching, setSearching] = useState(false);
+  const [personId, setPersonId] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function runSearch(value: string) {
-    setQ(value);
-    setSearching(true);
-    const res = await searchPersons(value);
-    setSearching(false);
-    if (res.data) setResults(res.data);
+  // The shared SearchSelect owns the debounce, the stale guard and the
+  // loading row — this dialog only maps people to options and starts the run.
+  async function loadPeople(q: string): Promise<SearchSelectOption[]> {
+    const res = await searchPersons(q);
+    return (res.data ?? []).map((p) => ({
+      value: p.id,
+      label: personDisplayName(p),
+      ...(p.email ? { hint: p.email } : {}),
+    }));
   }
 
-  async function pick(personId: string) {
+  async function pick(id: string) {
+    setPersonId(id);
+    if (!id) return;
     setBusy(true);
     setError(null);
-    const res = await startRun(flowId, personId);
+    const res = await startRun(flowId, id);
     setBusy(false);
     if (res.error) {
       setError(res.error);
@@ -375,40 +379,20 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
   return (
     <Dialog open onClose={onClose} title="Add a contact to the flow">
       <div>
-          <div className="relative">
-            <Search size={16} className="absolute left-3 top-2.5 text-ink-muted" />
-            <input
-              autoFocus
-              value={q}
-              onChange={(e) => runSearch(e.target.value)}
-              placeholder="Search people by name or email"
-              className="w-full rounded-md border border-line pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
-            />
+        <SearchSelect
+          value={personId}
+          onChange={(id) => void pick(id)}
+          loadOptions={loadPeople}
+          disabled={busy}
+          placeholder="Pick a person…"
+          searchPlaceholder="Search people by name or email"
+        />
+        {busy && <div className="mt-3 text-sm text-ink-muted">Adding to the flow…</div>}
+        {error && (
+          <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
           </div>
-          {error && (
-            <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
-            </div>
-          )}
-          <div className="mt-3 max-h-72 overflow-y-auto">
-            {searching && <div className="text-sm text-ink-muted px-1 py-2">Searching…</div>}
-            {!searching && results.length === 0 && (
-              <div className="text-sm text-ink-muted px-1 py-2">
-                {q ? 'No matches.' : 'Start typing to find a contact.'}
-              </div>
-            )}
-            {results.map((p) => (
-              <button
-                key={p.id}
-                disabled={busy}
-                onClick={() => pick(p.id)}
-                className="w-full text-left rounded-md px-3 py-2 hover:bg-surface-sunken disabled:opacity-60"
-              >
-                <div className="text-sm font-medium">{personDisplayName(p)}</div>
-                {p.email && <div className="text-xs text-ink-muted">{p.email}</div>}
-              </button>
-            ))}
-          </div>
+        )}
       </div>
     </Dialog>
   );

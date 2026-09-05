@@ -4,6 +4,7 @@ import { ENTITY } from '@thefibre/shared';
 import { FEATURE_GROUPS, eur, feePhrase, type CataloguePlan } from '@/lib/plans';
 import { UpgradePanel } from './upgrade';
 import { InvoicesList } from './invoices-list';
+import { ReactivateBanner } from './reactivate';
 import type { InvoicePurchase } from '@thefibre/shared/ui/invoice-dialog';
 
 // Settings → Plan — the page every needsPlan() refusal has pointed at since
@@ -49,6 +50,26 @@ type PlanPayload = {
   };
 };
 
+// GET /api/v1/billing/usage — the P4 meters: storage alongside email, the
+// overage unit prices, and the archive flags. Separate call so the page
+// degrades to the /plan numbers when it fails.
+type MeterPayload = {
+  emails: {
+    used: number;
+    included: number | null;
+    overage_cents_per_1000: number | null;
+    projected_overage_cents: number;
+  };
+  storage: {
+    bytes: number;
+    included_gb: number | null;
+    overage_cents_per_gb: number | null;
+    projected_overage_cents: number;
+  };
+  warnings: { meter: string; sent_at: string }[];
+  archive: { archived_at: string | null; archive_warned_at: string | null };
+};
+
 export default async function PlanPage({
   searchParams,
 }: {
@@ -56,10 +77,16 @@ export default async function PlanPage({
 }) {
   const { welcome, upgraded } = await searchParams;
   let data: PlanPayload | null = null;
+  let meters: MeterPayload | null = null;
   try {
     data = await apiFetch<PlanPayload>('/api/v1/plan');
   } catch {
     // fall through to the empty state
+  }
+  try {
+    meters = await apiFetch<MeterPayload>('/api/v1/billing/usage');
+  } catch {
+    // meters are additive — the page still renders on the /plan numbers
   }
 
   if (!data) {
@@ -120,6 +147,13 @@ export default async function PlanPage({
           <span className="font-medium">Payment received</span> — your plan updates here within a
           few moments (refresh if it hasn&rsquo;t).
         </div>
+      )}
+      {meters?.archive.archived_at && (
+        <ReactivateBanner
+          archivedOn={new Date(meters.archive.archived_at).toLocaleDateString('en-GB', {
+            dateStyle: 'long',
+          })}
+        />
       )}
       {billing?.cancel_at_period_end && billing.current_period_end && (
         <div className="mt-6 rounded-lg border border-amber-600/40 bg-amber-500/10 px-5 py-4 text-sm leading-relaxed">
@@ -191,7 +225,7 @@ export default async function PlanPage({
         )}
 
         {/* Usage ------------------------------------------------------ */}
-        <dl className="mt-6 grid gap-x-8 gap-y-4 border-t border-line pt-5 text-sm sm:grid-cols-3">
+        <dl className="mt-6 grid gap-x-8 gap-y-5 border-t border-line pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <Usage
             label="Seats"
             used={usage.seats_used}
@@ -206,7 +240,41 @@ export default async function PlanPage({
                   : undefined
             }
           />
-          <Usage label="Email this month" used={usage.emails_this_month} included={usage.emails_included} />
+          <Usage
+            label="Email this month"
+            used={meters?.emails.used ?? usage.emails_this_month}
+            included={meters?.emails.included ?? usage.emails_included}
+            note={
+              meters && meters.emails.projected_overage_cents > 0
+                ? `${eur(meters.emails.projected_overage_cents)} overage so far, on next month's invoice`
+                : meters?.emails.overage_cents_per_1000 != null
+                  ? `Over the allowance: ${eur(meters.emails.overage_cents_per_1000)}/1,000 emails`
+                  : undefined
+            }
+          />
+          {meters && (
+            <Usage
+              label="Storage"
+              used={meters.storage.bytes}
+              included={
+                meters.storage.included_gb === null
+                  ? null
+                  : meters.storage.included_gb * 1_000_000_000
+              }
+              format={(bytes) =>
+                bytes >= 1_000_000_000
+                  ? `${(bytes / 1_000_000_000).toFixed(1)} GB`
+                  : `${Math.round(bytes / 1_000_000)} MB`
+              }
+              note={
+                meters.storage.projected_overage_cents > 0
+                  ? `${eur(meters.storage.projected_overage_cents)} overage, on next month's invoice`
+                  : meters.storage.overage_cents_per_gb != null
+                    ? `Over the allowance: ${eur(meters.storage.overage_cents_per_gb)}/GB`
+                    : undefined
+              }
+            />
+          )}
           <div>
             <dt className="text-[10px] uppercase tracking-wider text-ink-muted">Data kept</dt>
             <dd className="mt-1 text-ink">
@@ -298,23 +366,49 @@ function Usage({
   used,
   included,
   note,
+  format = (v) => v.toLocaleString('en-GB'),
 }: {
   label: string;
   used: number;
   included: number | null;
   note?: string | undefined;
+  /** How a raw value renders — bytes become "1.2 GB", counts stay counts. */
+  format?: (v: number) => string;
 }) {
-  const over = included !== null && used > included;
+  const pct = included !== null && included > 0 ? (used / included) * 100 : null;
+  const over = pct !== null && pct > 100;
+  const warm = pct !== null && pct >= 80 && !over;
   return (
     <div>
       <dt className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</dt>
       <dd className="mt-1">
         <span className={`font-mono ${over ? 'text-amber-700 dark:text-amber-400' : 'text-ink'}`}>
-          {used.toLocaleString('en-GB')}
+          {format(used)}
         </span>
-        <span className="text-ink-muted"> / {included === null ? '∞' : included.toLocaleString('en-GB')}</span>
+        <span className="text-ink-muted"> / {included === null ? '∞' : format(included)}</span>
       </dd>
-      {note && <div className="mt-0.5 text-xs text-ink-muted">{note}</div>}
+      {pct !== null && (
+        <div
+          className="mt-1.5 h-1.5 w-full max-w-[180px] overflow-hidden rounded-full bg-surface-sunken"
+          role="progressbar"
+          aria-valuenow={Math.round(Math.min(pct, 100))}
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-label={`${label}: ${Math.round(pct)}% of allowance used`}
+        >
+          <div
+            className={`h-full rounded-full ${
+              over
+                ? 'bg-amber-600 dark:bg-amber-500'
+                : warm
+                  ? 'bg-amber-400 dark:bg-amber-400/80'
+                  : 'bg-neutral-900 dark:bg-neutral-100'
+            }`}
+            style={{ width: `${Math.min(pct, 100)}%` }}
+          />
+        </div>
+      )}
+      {note && <div className="mt-1 text-xs text-ink-muted">{note}</div>}
     </div>
   );
 }

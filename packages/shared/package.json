@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.45.6",
+  "version": "0.46.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -73,6 +73,22 @@
     "./ui/search-select": {
       "types": "./dist/ui/search-select.d.ts",
       "default": "./dist/ui/search-select.js"
+    },
+    "./ui/app-landing": {
+      "types": "./dist/ui/app-landing.d.ts",
+      "default": "./dist/ui/app-landing.js"
+    },
+    "./no-access": {
+      "types": "./dist/no-access.d.ts",
+      "default": "./dist/no-access.js"
+    },
+    "./root-layout": {
+      "types": "./dist/root-layout.d.ts",
+      "default": "./dist/root-layout.js"
+    },
+    "./invoice-pdf-route": {
+      "types": "./dist/invoice-pdf-route.d.ts",
+      "default": "./dist/invoice-pdf-route.js"
     },
     "./countries": {
       "types": "./dist/countries.d.ts",

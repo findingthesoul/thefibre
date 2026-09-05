@@ -19,6 +19,7 @@ import { meetRoutes } from './routes/meet.js';
 import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
+import { runBillingMeterTick } from './routes/billing.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
@@ -261,6 +262,11 @@ setTimeout(() => {
   void runMembershipScheduler().catch((e) =>
     console.error('[membership/scheduler] initial run failed', e),
   );
+  // Usage meters: 80% warnings, overage invoice items, Free archive sweep
+  // (hourly guard lives inside the lib).
+  void runBillingMeterTick().catch((e) =>
+    console.error('[billing/meters] initial run failed', e),
+  );
 }, 20_000);
 setInterval(() => {
   // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
@@ -271,5 +277,8 @@ setInterval(() => {
   // Membership renewal reminders + manual-member grace/lapse sweep.
   void runMembershipScheduler().catch((e) =>
     console.error('[membership/scheduler] run failed', e),
+  );
+  void runBillingMeterTick().catch((e) =>
+    console.error('[billing/meters] run failed', e),
   );
 }, SCHEDULER_INTERVAL_MS);

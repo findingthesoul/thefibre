@@ -8,6 +8,9 @@ export type EmailMessage = {
   text: string;
   html: string;
   replyTo?: string | undefined;
+  /** Attached files (Resend: base64 content). Used for the internal invoice
+   *  PDF — the ledger is the record, never Stripe's hosted page. */
+  attachments?: { filename: string; content: string }[] | undefined;
   /**
    * Who it comes from, when a workspace has said. Two halves with very
    * different costs: a display NAME is free — a mailbox shows it and nothing
@@ -69,6 +72,7 @@ export async function sendEmail(msg: EmailMessage): Promise<void> {
     html: msg.html,
   };
   if (msg.replyTo) body.reply_to = msg.replyTo;
+  if (msg.attachments?.length) body.attachments = msg.attachments;
 
   let r = await post(key, body);
 

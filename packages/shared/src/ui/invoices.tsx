@@ -166,6 +166,7 @@ function GhostBtn({
 }
 
 export function InvoicesArea({
+  defaultScope = 'me',
   teams,
   defaultApp = 'all',
   appOptions = DEFAULT_APP_OPTIONS,
@@ -176,8 +177,11 @@ export function InvoicesArea({
   defaultApp?: string;
   appOptions?: { key: string; label: string }[];
   actions: InvoiceActions;
+  /** Membership lands admins on 'workspace' — membership sales have no
+   *  personal seller, so 'me' is empty there (Sjoerd, 2026-09-06). */
+  defaultScope?: Scope;
 }) {
-  const [scope, setScope] = useState<Scope>('me');
+  const [scope, setScope] = useState<Scope>(defaultScope);
   const [app, setApp] = useState<string>(defaultApp);
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
   const [q, setQ] = useState('');
@@ -202,6 +206,12 @@ export function InvoicesArea({
         cursor,
       });
       if (!r.ok) {
+        // A non-admin landing on a workspace default (Membership opens
+        // there) falls back to Me instead of erroring.
+        if (scope === 'workspace' && defaultScope === 'workspace' && /admin/i.test(r.error)) {
+          setScope('me');
+          return null;
+        }
         setError(r.error);
         return null;
       }

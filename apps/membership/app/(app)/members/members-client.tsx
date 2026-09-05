@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { AddMemberDialog } from './add-member-dialog';
 import { MemberDialog } from './member-dialog';
 import { StatusBadge } from './status-badge';
-import { personName, type Member, type MemberStatus, type Tier } from './types';
+import { memberName, type Member, type MemberStatus, type Tier } from './types';
 
 const CHIPS: { label: string; value: MemberStatus | '' }[] = [
   { label: 'All', value: '' },
@@ -118,8 +118,23 @@ export function MembersClient({ members, tiers }: { members: Member[]; tiers: Ti
                   onClick={() => setSelected(m)}
                   className="cursor-pointer hover:bg-surface-sunken"
                 >
-                  <td className="px-5 py-3 text-ink">{personName(m.person)}</td>
-                  <td className="px-5 py-3 text-ink-muted">{m.person?.email ?? '—'}</td>
+                  <td className="px-5 py-3 text-ink">
+                    {memberName(m)}
+                    {m.organisation_id ? (
+                      <span className="ml-2 rounded-full bg-surface-sunken px-2 py-0.5 text-xs text-ink-subtle">
+                        Organisation
+                      </span>
+                    ) : m.org_member_id ? (
+                      <span className="ml-2 text-xs text-ink-muted">
+                        Seat{m.org_member?.organisation?.name ? ` · ${m.org_member.organisation.name}` : ''}
+                      </span>
+                    ) : null}
+                  </td>
+                  <td className="px-5 py-3 text-ink-muted">
+                    {m.organisation_id
+                      ? `${m.seat_allowance ?? 1} seat${(m.seat_allowance ?? 1) === 1 ? '' : 's'}`
+                      : m.person?.email ?? '—'}
+                  </td>
                   <td className="px-5 py-3">{m.tier?.name ?? '—'}</td>
                   <td className="px-5 py-3">
                     <StatusBadge status={m.status} />

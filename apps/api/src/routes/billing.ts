@@ -30,8 +30,15 @@ import { reconcileSeatBilling } from '../lib/seat-billing.js';
 import { ensurePlanApps } from '../lib/plan-apps.js';
 import { getSetting } from '../lib/platform-settings.js';
 import { taxRateIdFor, reconcileSubscriptionTax } from '../lib/vat-stripe.js';
+import { meterSnapshot, runUsageMeterTick } from '../lib/usage-meters.js';
 
 export const billingRoutes = new Hono();
+
+// The P4 meter sweeps (80% warnings, overage invoice items, Free archive),
+// re-exported so server.ts can ride them on the existing 5-minute scheduler
+// interval — one line there: `void runBillingMeterTick().catch(...)`. The
+// hourly guard and all dedup live inside lib/usage-meters.ts.
+export { runUsageMeterTick as runBillingMeterTick };
 
 async function isAdmin(userId: string, workspaceId: string): Promise<boolean> {
   const { data } = await adminClient
@@ -46,6 +53,46 @@ async function isAdmin(userId: string, workspaceId: string): Promise<boolean> {
 function planUrl(): string {
   return `${appUrl('fibre-platform', process.env)}/settings/plan`;
 }
+
+// ---------------------------------------------------------------------------
+// GET /usage — the workspace's meters: email + storage against the plan's
+// allowances, overage unit prices, this month's 80% warning stamps, and the
+// archive flags. Member-readable, like GET /plan: an allowance is not a
+// secret from the people it limits. Settings → Plan renders this.
+// ---------------------------------------------------------------------------
+billingRoutes.get('/usage', async (c) => {
+  const ctx = c.get('ctx');
+  if (ctx.auth !== 'user' || !ctx.userId) {
+    return c.json({ error: 'user session required' }, 403);
+  }
+  const snapshot = await meterSnapshot(ctx.workspaceId);
+  return c.json(snapshot);
+});
+
+// ---------------------------------------------------------------------------
+// POST /reactivate — the way back from the 13-month Free archive. Admin-only,
+// one click, and the flags are simply cleared: archive was a gate, never a
+// deletion, so there is nothing to restore.
+// ---------------------------------------------------------------------------
+billingRoutes.post('/reactivate', async (c) => {
+  const ctx = c.get('ctx');
+  if (ctx.auth !== 'user' || !ctx.userId) {
+    return c.json({ error: 'user session required' }, 403);
+  }
+  if (!(await isAdmin(ctx.userId, ctx.workspaceId))) {
+    return c.json({ error: 'reactivating the workspace needs an admin role' }, 403);
+  }
+  const { error } = await adminClient
+    .from('workspace')
+    .update({ archived_at: null, archive_warned_at: null })
+    .eq('id', ctx.workspaceId);
+  if (error) {
+    console.error('[billing/reactivate] failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  console.log(`[billing] workspace reactivated from archive: ${ctx.workspaceId}`);
+  return c.json({ ok: true });
+});
 
 // ---------------------------------------------------------------------------
 // POST /checkout — start (or replace) the subscription.

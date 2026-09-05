@@ -80,6 +80,16 @@ export async function emailInvoice(id: string, to: string): Promise<BillingActio
   }
 }
 
+/** The way back from the 13-month Free archive — clears the flag, admin-only. */
+export async function reactivateWorkspace(): Promise<BillingActionResult> {
+  try {
+    await apiFetch('/api/v1/billing/reactivate', { method: 'POST' });
+    return {};
+  } catch (e) {
+    return { error: message(e) };
+  }
+}
+
 export async function openPortal(): Promise<BillingActionResult> {
   try {
     const r = await apiFetch<{ url: string }>('/api/v1/billing/portal', { method: 'POST' });

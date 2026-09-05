@@ -43,6 +43,10 @@ export type Plan = {
   extraSeatCentsMonth: number | null;
   includedEmailsMonth: number | null;
   includedStorageGb: number | null;
+  /** Cents per 1,000 emails past the allowance. Null = overage not billed. */
+  emailOverageCentsPer1000: number | null;
+  /** Cents per GB past the allowance, per month. Null = overage not billed. */
+  storageOverageCentsPerGb: number | null;
   retentionMonths: number | null;
   /** Null means no limit; a number is how many threads may be live at once. */
   threadLiveLimit: number | null;
@@ -66,6 +70,8 @@ const UNKNOWN: Plan = {
   extraSeatCentsMonth: null,
   includedEmailsMonth: null,
   includedStorageGb: null,
+  emailOverageCentsPer1000: null,
+  storageOverageCentsPerGb: null,
   retentionMonths: null,
   threadLiveLimit: null,
   threadTemplateLimit: null,
@@ -122,6 +128,7 @@ export async function planFor(workspaceId: string): Promise<Plan> {
       `status, custom_price_cents_month, custom_price_cents_year, plan:plan_id (
          id, name, price_cents_month, price_cents_year, included_seats,
          extra_seat_cents_month, included_emails_month, included_storage_gb,
+         email_overage_cents_per_1000, storage_overage_cents_per_gb,
          retention_months, features
        )`,
     )
@@ -141,6 +148,8 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     extra_seat_cents_month: number | null;
     included_emails_month: number | null;
     included_storage_gb: number | null;
+    email_overage_cents_per_1000: number | null;
+    storage_overage_cents_per_gb: number | null;
     retention_months: number | null;
     features: Record<string, unknown> | null;
   };
@@ -156,6 +165,8 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     extraSeatCentsMonth: row.extra_seat_cents_month,
     includedEmailsMonth: row.included_emails_month,
     includedStorageGb: row.included_storage_gb,
+    emailOverageCentsPer1000: row.email_overage_cents_per_1000 ?? null,
+    storageOverageCentsPerGb: row.storage_overage_cents_per_gb ?? null,
     retentionMonths: row.retention_months,
     threadLiveLimit:
       typeof features.thread_live_limit === 'number' ? features.thread_live_limit : null,
@@ -219,28 +230,63 @@ export async function seatAvailable(
   };
 }
 
-/** Emails this workspace has sent this calendar month, against its bundle. */
-export async function emailUsage(
+/**
+ * Emails this workspace sent in [from, to). thread_message_send is one row per
+ * (engagement, person) — one email, and already written by every triggered
+ * send. No new instrumentation.
+ *
+ * It carries no workspace of its own, so the count reaches one through the
+ * engagement's thread. !inner makes the join a filter rather than a
+ * left-join that would count every workspace's mail as this one's.
+ */
+export async function emailsSentBetween(
   workspaceId: string,
-): Promise<{ sent: number; included: number | null }> {
-  const plan = await planFor(workspaceId);
-  const since = new Date();
-  since.setUTCDate(1);
-  since.setUTCHours(0, 0, 0, 0);
-  // thread_message_send is one row per (engagement, person) — one email, and
-  // already written by every triggered send. No new instrumentation.
-  //
-  // It carries no workspace of its own, so the count reaches one through the
-  // engagement's thread. !inner makes the join a filter rather than a
-  // left-join that would count every workspace's mail as this one's.
-  const { count, error } = await adminClient
+  from: Date,
+  to?: Date,
+): Promise<number> {
+  let q = adminClient
     .from('thread_message_send')
     .select('id, engagement:engagement_id!inner(thread:thread_id!inner(workspace_id))', {
       count: 'exact',
       head: true,
     })
     .eq('engagement.thread.workspace_id', workspaceId)
-    .gte('sent_at', since.toISOString());
+    .gte('sent_at', from.toISOString());
+  if (to) q = q.lt('sent_at', to.toISOString());
+  const { count, error } = await q;
   if (error) console.warn('[plan] email usage count failed', error.message);
-  return { sent: count ?? 0, included: plan.includedEmailsMonth };
+  return count ?? 0;
+}
+
+/** First instant (UTC) of the calendar month `monthsAgo` months back. */
+export function monthStartUTC(monthsAgo = 0): Date {
+  const d = new Date();
+  d.setUTCDate(1);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCMonth(d.getUTCMonth() - monthsAgo);
+  return d;
+}
+
+/** Emails this workspace has sent this calendar month, against its bundle. */
+export async function emailUsage(
+  workspaceId: string,
+): Promise<{ sent: number; included: number | null }> {
+  const plan = await planFor(workspaceId);
+  const sent = await emailsSentBetween(workspaceId, monthStartUTC());
+  return { sent, included: plan.includedEmailsMonth };
+}
+
+/**
+ * Bytes this workspace has uploaded — storage.objects under the workspace-
+ * prefixed paths both upload routes write (thread-assets + fibre-assets),
+ * summed by the SECURITY DEFINER function from 20260906110000. GB here is
+ * decimal (10^9), matching what the plan matrix and pricing page say.
+ */
+export async function storageUsage(
+  workspaceId: string,
+): Promise<{ bytes: number; includedGb: number | null }> {
+  const plan = await planFor(workspaceId);
+  const { data, error } = await adminClient.rpc('workspace_storage_bytes', { ws: workspaceId });
+  if (error) console.warn('[plan] storage usage count failed', error.message);
+  return { bytes: typeof data === 'number' ? data : Number(data ?? 0), includedGb: plan.includedStorageGb };
 }

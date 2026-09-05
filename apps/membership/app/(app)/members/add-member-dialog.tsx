@@ -8,9 +8,11 @@ import { COUNTRIES } from '@thefibre/shared/countries';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
-import { createMember, createPerson, savePersonBilling, searchPersons } from './actions';
+import { createMember, createPerson, savePersonBilling, searchOrganisations, searchPersons } from './actions';
 import { dateToIso } from './member-dialog';
 import { personName, type MemberPerson, type Tier } from './types';
+
+type OrgResult = { id: string; name: string | null; domain?: string | null };
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
@@ -23,6 +25,13 @@ function money(cents: number, currency: string): string {
 
 export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: () => void }) {
   const router = useRouter();
+  // Who holds the membership: a person (default) or an ORGANISATION whose
+  // people occupy seats under it (§3.5 v1 — invoice/comped only).
+  const [kind, setKind] = useState<'person' | 'organisation'>('person');
+  const [orgQuery, setOrgQuery] = useState('');
+  const [orgResults, setOrgResults] = useState<OrgResult[]>([]);
+  const [org, setOrg] = useState<OrgResult | null>(null);
+  const [seatAllowance, setSeatAllowance] = useState(5);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<MemberPerson[]>([]);
   const [person, setPerson] = useState<MemberPerson | null>(null);
@@ -69,14 +78,59 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     return () => clearTimeout(t);
   }, [query, person]);
 
-  async function submit(e?: React.FormEvent<HTMLFormElement>) {
-    e?.preventDefault();
-    if (!person && !newContact) {
-      setError('Pick a person, or create a new contact.');
+  // Organisation search — the same pattern against /organisations.
+  useEffect(() => {
+    if (org || orgQuery.trim().length < 2) {
+      setOrgResults([]);
       return;
     }
+    const t = setTimeout(() => {
+      searchOrganisations(orgQuery.trim()).then((r) => setOrgResults(r.data?.items ?? []));
+    }, 250);
+    return () => clearTimeout(t);
+  }, [orgQuery, org]);
+
+  async function submit(e?: React.FormEvent<HTMLFormElement>) {
+    e?.preventDefault();
     if (!tierId) {
       setError('Pick a tier.');
+      return;
+    }
+
+    // Organisation branch: tier + seat allowance; invoiced to the org (or
+    // comped). Seats are added from the member dialog afterwards.
+    if (kind === 'organisation') {
+      if (!org) {
+        setError('Pick an organisation.');
+        return;
+      }
+      setBusy(true);
+      setError(null);
+      const res = await createMember({
+        organisation_id: org.id,
+        seat_allowance: seatAllowance,
+        tier_id: tierId,
+        renews_at: renewsAt ? dateToIso(renewsAt) : null,
+        billing: priced ? billing : 'comped',
+        interval: effectiveInterval,
+      });
+      if (res.error) {
+        setError(res.error);
+        setBusy(false);
+        return;
+      }
+      router.refresh();
+      if (res.data?.invoice_error) {
+        setError(`Membership added, but: ${res.data.invoice_error}`);
+        setBusy(false);
+        return;
+      }
+      onClose();
+      return;
+    }
+
+    if (!person && !newContact) {
+      setError('Pick a person, or create a new contact.');
       return;
     }
     setBusy(true);
@@ -160,6 +214,89 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       }
     >
       <form id="add-member-form" onSubmit={submit} className="space-y-4">
+        <div className="flex items-center gap-1.5">
+          {(['person', 'organisation'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              onClick={() => setKind(k)}
+              className={`rounded-full px-3 py-1 text-sm capitalize transition-colors ${
+                kind === k ? 'bg-ink text-ink-inverse' : 'bg-surface-sunken text-ink-subtle hover:text-ink'
+              }`}
+            >
+              {k}
+            </button>
+          ))}
+        </div>
+
+        {kind === 'organisation' && (
+          <>
+            <div>
+              <label className="block text-sm font-medium mb-1">Organisation</label>
+              {org ? (
+                <div className="flex items-center justify-between rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm">
+                  <div>
+                    <span className="text-ink">{org.name ?? 'Unnamed organisation'}</span>
+                    {org.domain && <span className="ml-2 text-ink-muted">{org.domain}</span>}
+                  </div>
+                  <button
+                    type="button"
+                    className="text-xs text-ink-subtle hover:text-ink underline"
+                    onClick={() => {
+                      setOrg(null);
+                      setOrgQuery('');
+                    }}
+                  >
+                    Change
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <input
+                    autoFocus
+                    value={orgQuery}
+                    onChange={(e) => setOrgQuery(e.target.value)}
+                    placeholder="Search organisations by name or domain…"
+                    className={INPUT}
+                  />
+                  {orgResults.length > 0 && (
+                    <ul className="mt-1 rounded-md border border-line bg-surface-raised divide-y divide-line/60 overflow-hidden">
+                      {orgResults.map((o) => (
+                        <li key={o.id}>
+                          <button
+                            type="button"
+                            onClick={() => setOrg(o)}
+                            className="w-full text-left px-3 py-2 text-sm hover:bg-surface-sunken"
+                          >
+                            <span className="text-ink">{o.name ?? 'Unnamed organisation'}</span>
+                            {o.domain && <span className="ml-2 text-ink-muted">{o.domain}</span>}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </>
+              )}
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-1">Seat allowance</label>
+              <input
+                type="number"
+                min={1}
+                max={10000}
+                value={seatAllowance}
+                onChange={(e) => setSeatAllowance(Math.max(1, Number(e.target.value) || 1))}
+                className={INPUT}
+              />
+              <p className="mt-1 text-xs text-ink-muted">
+                How many people may occupy seats. The invoice is the tier price × seats; seats are
+                assigned from the member afterwards.
+              </p>
+            </div>
+          </>
+        )}
+
+        {kind === 'person' && (
         <div>
           <label className="block text-sm font-medium mb-1">Person</label>
           {person ? (
@@ -275,6 +412,8 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             </>
           )}
         </div>
+        )}
+        {kind === 'person' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
             <label className="block text-sm font-medium mb-1">Country</label>
@@ -298,6 +437,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             <p className="mt-1 text-xs text-ink-muted">Shown on their invoices.</p>
           </div>
         </div>
+        )}
         <div>
           <label className="block text-sm font-medium mb-1">Tier</label>
           <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={INPUT}>
@@ -350,6 +490,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             )}
           </div>
         </BillingChoice>
+        {kind === 'person' && (
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"
@@ -364,6 +505,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             </span>
           </span>
         </label>
+        )}
         <DateField
           label="Renews on"
           name="renews_at"

@@ -23,6 +23,8 @@ export type AdminPlan = {
   extra_seat_cents_month: number | null;
   included_emails_month: number | null;
   included_storage_gb: number | null;
+  email_overage_cents_per_1000: number | null;
+  storage_overage_cents_per_gb: number | null;
   retention_months: number | null;
   meet_paid_pct: number;
   meet_paid_cap_cents: number | null;
@@ -37,6 +39,8 @@ type NumericField =
   | 'extra_seat_cents_month'
   | 'included_emails_month'
   | 'included_storage_gb'
+  | 'email_overage_cents_per_1000'
+  | 'storage_overage_cents_per_gb'
   | 'retention_months'
   | 'meet_paid_cap_cents';
 
@@ -159,6 +163,17 @@ export function PlanMatrix({ plans }: { plans: AdminPlan[] }) {
             )} />
             <EditableRow label="Data kept (months)" plans={merged} render={(p) => (
               <CountInput value={p.retention_months} placeholder="while paying" onChange={(v) => edit(p.id, { retention_months: v })} />
+            )} />
+            {/* Empty = the allowance is SOFT: past it, nothing bills and
+                nothing stops — the 80% warning email says as much. A price
+                here makes the monthly overage an invoice item on the
+                workspace's subscription. */}
+            <GroupRow label="Overage (empty = not billed)" span={merged.length} />
+            <EditableRow label="Extra email (€/1,000/month)" plans={merged} render={(p) => (
+              <EuroInput cents={p.email_overage_cents_per_1000} nullable placeholder="not billed" onChange={(v) => edit(p.id, { email_overage_cents_per_1000: v })} />
+            )} />
+            <EditableRow label="Extra storage (€/GB/month)" plans={merged} render={(p) => (
+              <EuroInput cents={p.storage_overage_cents_per_gb} nullable placeholder="not billed" onChange={(v) => edit(p.id, { storage_overage_cents_per_gb: v })} />
             )} />
             <GroupRow label="Fee on paid enrolments" span={merged.length} />
             <EditableRow label="Percentage" plans={merged} render={(p) => (

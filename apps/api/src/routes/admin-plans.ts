@@ -17,7 +17,7 @@ import { isSuperAdminUser } from '../lib/super-admin.js';
 export const adminPlansRoutes = new Hono();
 
 const PLAN_COLUMNS =
-  'id, name, price_cents_month, price_cents_year, price_cents_user_month, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features, created_at';
+  'id, name, price_cents_month, price_cents_year, price_cents_user_month, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, email_overage_cents_per_1000, storage_overage_cents_per_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features, created_at';
 
 adminPlansRoutes.get('/', async (c) => {
   const ctx = c.get('ctx');
@@ -64,6 +64,8 @@ const PatchBody = z
     extra_seat_cents_month: z.number().int().min(0).nullable(),
     included_emails_month: z.number().int().min(0).nullable(),
     included_storage_gb: z.number().int().min(0).nullable(),
+  email_overage_cents_per_1000: z.number().int().min(0).nullable().optional(),
+  storage_overage_cents_per_gb: z.number().int().min(0).nullable().optional(),
     retention_months: z.number().int().min(1).nullable(),
     meet_paid_pct: z.number().min(0).max(1),
     meet_paid_cap_cents: z.number().int().min(0).nullable(),

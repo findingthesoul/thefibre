@@ -2,7 +2,7 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
-import type { Member, MemberAccess, MemberPerson, MemberStatus } from './types';
+import type { Member, MemberAccess, MemberPerson, MemberStatus, Seat } from './types';
 
 export type ActionResult<T = unknown> = { ok?: boolean; error?: string; data?: T };
 
@@ -23,7 +23,11 @@ function formatApiError(e: unknown): string {
 }
 
 export async function createMember(input: {
-  person_id: string;
+  // Exactly one of person_id / organisation_id: an org membership holds
+  // seats its people occupy (§3.5 v1 — invoice/comped only, no Stripe).
+  person_id?: string;
+  organisation_id?: string;
+  seat_allowance?: number;
   tier_id: string;
   renews_at: string | null; // full ISO datetime or null
   country?: string | null;
@@ -35,7 +39,9 @@ export async function createMember(input: {
     const r = await apiFetch<{ id: string; invoice_error?: string }>('/api/v1/membership/members', {
       method: 'POST',
       body: JSON.stringify({
-        person_id: input.person_id,
+        ...(input.person_id ? { person_id: input.person_id } : {}),
+        ...(input.organisation_id ? { organisation_id: input.organisation_id } : {}),
+        ...(input.seat_allowance ? { seat_allowance: input.seat_allowance } : {}),
         tier_id: input.tier_id,
         ...(input.renews_at ? { renews_at: input.renews_at } : {}),
         ...(input.country ? { country: input.country } : {}),
@@ -64,6 +70,7 @@ export async function patchMember(
     renews_at?: string | null; // full ISO datetime or null
     notes?: string | null;
     country?: string | null; // ISO alpha-2; reprices from next renewal
+    seat_allowance?: number; // org memberships only
   },
 ): Promise<ActionResult> {
   try {
@@ -95,6 +102,66 @@ export async function searchPersons(q: string): Promise<ActionResult<{ items: Me
       `/api/v1/persons?q=${encodeURIComponent(q)}&limit=8`,
     );
     return { ok: true, data: { items: r.items ?? [] } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// Organisation picker search — the persons pattern against /organisations
+// (matches name and domain server-side).
+export async function searchOrganisations(
+  q: string,
+): Promise<ActionResult<{ items: { id: string; name: string | null; domain?: string | null }[] }>> {
+  try {
+    const r = await apiFetch<{ items: { id: string; name: string | null; domain?: string | null }[] }>(
+      `/api/v1/organisations?q=${encodeURIComponent(q)}&limit=8`,
+    );
+    return { ok: true, data: { items: r.items ?? [] } };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+// --- Org membership seats (§3.5 v1) ----------------------------------------
+
+export async function listSeats(
+  memberId: string,
+): Promise<ActionResult<{ items: Seat[]; occupied: number; allowance: number }>> {
+  try {
+    const r = await apiFetch<{ items: Seat[]; occupied: number; allowance: number }>(
+      `/api/v1/membership/members/${memberId}/seats`,
+    );
+    return { ok: true, data: r };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function addSeat(memberId: string, personId: string): Promise<ActionResult<{ id: string }>> {
+  try {
+    const r = await apiFetch<{ id: string }>(`/api/v1/membership/members/${memberId}/seats`, {
+      method: 'POST',
+      body: JSON.stringify({ person_id: personId }),
+    });
+    revalidatePath('/members');
+    return { ok: true, data: r };
+  } catch (e) {
+    // 409s carry a user-facing message (allowance full, already a member).
+    if (e instanceof ApiError && e.status === 409) {
+      const body = e.body as { error?: string } | undefined;
+      return { error: body?.error ?? 'Could not add the seat.' };
+    }
+    return { error: formatApiError(e) };
+  }
+}
+
+// Soft removal — the seat row stays (status 'cancelled'); grants are
+// revoke-flagged except bought-product grants, like an individual lapse.
+export async function removeSeat(memberId: string, seatId: string): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/membership/members/${memberId}/seats/${seatId}`, { method: 'DELETE' });
+    revalidatePath('/members');
+    return { ok: true };
   } catch (e) {
     return { error: formatApiError(e) };
   }

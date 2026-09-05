@@ -13,6 +13,8 @@ export type PlanPatch = {
   extra_seat_cents_month?: number | null;
   included_emails_month?: number | null;
   included_storage_gb?: number | null;
+  email_overage_cents_per_1000?: number | null;
+  storage_overage_cents_per_gb?: number | null;
   retention_months?: number | null;
   meet_paid_pct?: number;
   meet_paid_cap_cents?: number | null;

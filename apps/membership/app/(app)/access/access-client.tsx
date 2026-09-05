@@ -46,9 +46,11 @@ export function AccessClient({
             unlocks); tiers grant it by including the product.
           </p>
         </div>
-        <Button variant="secondary" leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
-          Tier-level grant (legacy)
-        </Button>
+        {/* No add-button here: access is configured ON PRODUCTS (decided
+            2026-09-05). The legacy tier-level rows below stay visible until
+            they're moved onto products, but new ones can't be created —
+            the button confused more than it helped (Sjoerd, 2026-09-06:
+            "what does the right top mean?"). */}
       </div>
 
       {hasCircleGrant && !circleTokenSet && (
@@ -70,7 +72,7 @@ export function AccessClient({
             .map((t) => (
               <TierGroup
                 key={t.id}
-                title={t.name}
+                title={`${t.name} — tier-level (legacy: move onto a product)`}
                 items={byTier.get(t.id) ?? []}
                 onEdit={setEditing}
               />

@@ -8,8 +8,9 @@ import { COUNTRIES } from '@thefibre/shared/countries';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { Button } from '@/components/ui/button';
 import { approveAccess, getMemberAccess, patchMember } from './actions';
+import { OrgSeats } from './org-seats';
 import { StatusBadge } from './status-badge';
-import { personName, type Member, type MemberAccess, type MemberStatus, type Tier } from './types';
+import { memberName, type Member, type MemberAccess, type MemberStatus, type Tier } from './types';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
@@ -40,16 +41,22 @@ export function MemberDialog({
   onClose: () => void;
 }) {
   const router = useRouter();
+  // Org membership: the organisation holds the membership; its people
+  // occupy seats (rendered below). Person concepts (country, access
+  // journal) hide; seat allowance appears instead.
+  const isOrg = Boolean(member.organisation_id);
   const [tierId, setTierId] = useState(member.tier_id);
   const [status, setStatus] = useState<MemberStatus>(member.status);
   const [renewsAt, setRenewsAt] = useState(member.renews_at?.slice(0, 10) ?? '');
   const [country, setCountry] = useState((member as { country?: string | null }).country ?? '');
+  const [seatAllowance, setSeatAllowance] = useState(member.seat_allowance ?? 1);
   const [notes, setNotes] = useState(member.notes ?? '');
   const [access, setAccess] = useState<MemberAccess[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (isOrg) return; // the org row has no journal — its seats do
     let live = true;
     getMemberAccess(member.id).then((r) => {
       if (live) setAccess(r.data?.access ?? []);
@@ -57,7 +64,7 @@ export function MemberDialog({
     return () => {
       live = false;
     };
-  }, [member.id]);
+  }, [member.id, isOrg]);
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
@@ -68,7 +75,7 @@ export function MemberDialog({
       status,
       renews_at: renewsAt ? dateToIso(renewsAt) : null,
       notes: notes.trim() || null,
-      country: country || null,
+      ...(isOrg ? { seat_allowance: seatAllowance } : { country: country || null }),
     });
     if (res.error) {
       setError(res.error);
@@ -83,8 +90,8 @@ export function MemberDialog({
     <Dialog
       open
       onClose={onClose}
-      title={personName(member.person)}
-      description={member.person?.email ?? undefined}
+      title={memberName(member)}
+      description={isOrg ? 'Organisation membership' : member.person?.email ?? undefined}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
@@ -129,20 +136,38 @@ export function MemberDialog({
           defaultValue={renewsAt || null}
           onValueChange={setRenewsAt}
         />
-        <div>
-          <label className="block text-sm font-medium mb-1">Country</label>
-          <SearchSelect
-            value={country}
-            onChange={setCountry}
-            options={COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }))}
-            placeholder="Not declared"
-            className="w-full"
-          />
-          <p className="mt-1.5 text-xs text-ink-muted">
-            Self-declared — drives the pricing rules. Changing it reprices a live subscription
-            from the NEXT renewal (never mid-cycle).
-          </p>
-        </div>
+        {isOrg ? (
+          <div>
+            <label className="block text-sm font-medium mb-1">Seat allowance</label>
+            <input
+              type="number"
+              min={1}
+              max={10000}
+              value={seatAllowance}
+              onChange={(e) => setSeatAllowance(Math.max(1, Number(e.target.value) || 1))}
+              className={INPUT}
+            />
+            <p className="mt-1.5 text-xs text-ink-muted">
+              How many people may occupy seats. Lowering it never removes anyone — it only blocks
+              new seats.
+            </p>
+          </div>
+        ) : (
+          <div>
+            <label className="block text-sm font-medium mb-1">Country</label>
+            <SearchSelect
+              value={country}
+              onChange={setCountry}
+              options={COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }))}
+              placeholder="Not declared"
+              className="w-full"
+            />
+            <p className="mt-1.5 text-xs text-ink-muted">
+              Self-declared — drives the pricing rules. Changing it reprices a live subscription
+              from the NEXT renewal (never mid-cycle).
+            </p>
+          </div>
+        )}
         <div>
           <label className="block text-sm font-medium mb-1">Notes</label>
           <textarea
@@ -154,6 +179,9 @@ export function MemberDialog({
           />
         </div>
 
+        {isOrg && <OrgSeats memberId={member.id} />}
+
+        {!isOrg && (
         <div>
           <div className="text-sm font-medium mb-1">Access sync</div>
           {access === null ? (
@@ -206,6 +234,7 @@ export function MemberDialog({
             </ul>
           )}
         </div>
+        )}
 
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

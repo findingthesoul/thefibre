@@ -18,8 +18,55 @@ import { Hono } from 'hono';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendEmail } from '../lib/email/client.js';
-import { renderAuthEmail } from '../lib/email/auth-templates.js';
+import { renderAuthEmail, type AuthEmailBrand } from '../lib/email/auth-templates.js';
 import { platformEmailLocale } from '../lib/email/platform-i18n.js';
+import { adminClient } from '../db.js';
+import { getWorkspaceBrand } from '../lib/workspace-brand.js';
+
+// Whose email is this? A platform user signs in to The Fibre — platform
+// brand. An address that is ONLY a person (member/participant) in exactly
+// one workspace belongs to that COMMUNITY — its brand fronts the email
+// (Sjoerd, 2026-09-06). Ambiguous (several workspaces) or unknown →
+// platform. Never fatal: branding must not block a sign-in code.
+async function resolveAuthBrand(
+  email: string,
+): Promise<{ brand: AuthEmailBrand | null; from: { fromName?: string; fromAddress?: string; replyTo?: string } }> {
+  try {
+    const lower = email.toLowerCase();
+    const { data: platformUser } = await adminClient
+      .from('user')
+      .select('id')
+      .ilike('email', lower)
+      .is('deleted_at', null)
+      .maybeSingle();
+    if (platformUser) return { brand: null, from: {} };
+    const { data: persons } = await adminClient
+      .from('person')
+      .select('workspace_id')
+      .ilike('email', lower)
+      .is('deleted_at', null)
+      .limit(5);
+    const workspaceIds = [...new Set((persons ?? []).map((p) => p.workspace_id))];
+    if (workspaceIds.length !== 1) return { brand: null, from: {} };
+    const wb = await getWorkspaceBrand(workspaceIds[0]);
+    const { data: ws } = await adminClient
+      .from('workspace')
+      .select('name')
+      .eq('id', workspaceIds[0])
+      .maybeSingle();
+    return {
+      brand: { name: wb.fromName ?? ws?.name ?? null, logoUrl: wb.logoUrl ?? null },
+      from: {
+        ...(wb.fromName ? { fromName: wb.fromName } : {}),
+        ...(wb.fromAddress ? { fromAddress: wb.fromAddress } : {}),
+        ...(wb.replyTo ? { replyTo: wb.replyTo } : {}),
+      },
+    };
+  } catch (e) {
+    console.warn('[auth-hook] brand resolution failed — platform brand', e);
+    return { brand: null, from: {} };
+  }
+}
 
 export const authHookRoutes = new Hono();
 
@@ -157,6 +204,8 @@ authHookRoutes.post('/email', async (c) => {
     /* fall through to English */
   }
 
+  const { brand, from } = await resolveAuthBrand(user.email);
+
   const rendered = renderAuthEmail(
     action,
     {
@@ -166,6 +215,7 @@ authHookRoutes.post('/email', async (c) => {
       validityMinutes: 30,
     },
     locale,
+    brand,
   );
 
   try {
@@ -174,6 +224,7 @@ authHookRoutes.post('/email', async (c) => {
       subject: rendered.subject,
       text: rendered.text,
       html: rendered.html,
+      ...from,
     });
   } catch (e) {
     console.error('[auth-hook] send failed', e);

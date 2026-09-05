@@ -52,17 +52,24 @@ type RenderArgs = {
 
 export type RenderedEmail = { subject: string; text: string; html: string };
 
+export type AuthEmailBrand = { name?: string | null; logoUrl?: string | null };
+
 export function renderAuthEmail(
   action: AuthEmailActionType,
   args: RenderArgs,
   locale?: string | null,
+  // A member signing in belongs to a COMMUNITY, not to The Fibre (Sjoerd,
+  // 2026-09-06: "the email with the code was Fibre, not the workspace").
+  // The hook resolves the brand from who knows the email; absent = platform.
+  brand?: AuthEmailBrand | null,
 ): RenderedEmail {
   const loc = toLocale(locale);
   const copy = (COPY[action] ?? COPY.magiclink)[loc];
   const chrome = CHROME[loc];
-  const subject = copy.subject.replaceAll('{platform}', PLATFORM.name);
+  const name = brand?.name || PLATFORM.name;
+  const subject = copy.subject.replaceAll('{platform}', name);
   const text = buildText({ args, copy, chrome });
-  const html = buildHtml({ args, copy, chrome, loc });
+  const html = buildHtml({ args, copy, chrome, loc, brand: brand ?? undefined });
   return { subject, text, html };
 }
 
@@ -597,11 +604,13 @@ function buildHtml({
   copy,
   chrome,
   loc,
+  brand,
 }: {
   args: RenderArgs;
   copy: Copy;
   chrome: Chrome;
   loc: Locale;
+  brand?: AuthEmailBrand | undefined;
 }): string {
   const codeBox = args.token
     ? `
@@ -643,8 +652,15 @@ function buildHtml({
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
-          <!-- Platform wordmark -->
-          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <!-- Sender wordmark: the workspace's when the sign-in belongs to a
+               community member, the platform's otherwise. -->
+          ${
+            brand?.logoUrl
+              ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name ?? '')}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />`
+              : brand?.name
+                ? `<div style="margin: 0 auto 48px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: #171717;">${escapeHtml(brand.name)}</div>`
+                : `<img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />`
+          }
 
           <h1 style="margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">
             ${escapeHtml(copy.headline)}

@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.46.0] — 2026-09-06 — Membership 0.10.0: orgs hold seats, meters bill, emails come from the community
+
+Three parallel lanes + Sjoerd's live rehearsal findings, one release.
+
+### Added
+- **Org memberships with seats** (§3.5 v1): an organisation holds a
+  membership (tier × seat allowance, invoice/comped billing — org as
+  payer, price × seats); its people occupy seats that get the tier's
+  access grants through the same journal and workers as individual
+  members. Seat management on the member dialog ("4 of 10 seats",
+  add/remove soft); org lapse fans out to every seat (bought products
+  exempt, as ever).
+- **P4 metering**: email + storage usage against plan allowances
+  (progress bars on Settings → Plan), one 80%-warning email per meter
+  per month to admins, overage invoice items on the Stripe subscription
+  for closed months (prices per-plan on /admin/plans; empty = soft
+  allowance, nothing bills), and the 13-month Free archive (12-month
+  warning w/ export pointer → soft archive flag + reactivation, never
+  deletion).
+- **SearchSelect async search** (loadOptions): web's person + country
+  comboboxes and Flow's add-contact dialog converge on the shared
+  component (~250 lines retired). Pulse's create-flow combobox stays —
+  it's not a list-with-filter.
+- Phase-4 shared factories: root layout, no-access page, app landing,
+  invoice-pdf route — ported ×5/×4/×4/×4.
+
+### Fixed (from Sjoerd's live testing)
+- **Invoices/receipts send AS THE WORKSPACE** (sender name, reply-to,
+  logo) with **our own PDF attached** — the Stripe-hosted invoice page
+  is gone from emails entirely. Platform-sent invoices still come from
+  The Fibre, correctly.
+- **Sign-in-code emails brand as the community** when the address
+  belongs to exactly one workspace's member; platform users keep The
+  Fibre.
+- Membership → Invoices opens on the Workspace scope (membership sales
+  have no personal seller — "Me" was always empty); non-admins fall
+  back to Me.
+- Access page: the "Tier-level grant (legacy)" button is gone (access
+  is configured on products); remaining legacy rows are labeled for
+  migration.
+- Membership's landing page carried Pulse's copy wholesale; its invoice
+  PDF route sent X-App-ID fibre-meet (invoices mislabeled as Meet's).
+  Both caught by the phase-4 sweep.
+
+### Notes
+- Migrations 20260906100000 (org members) + 20260906110000 (usage
+  meters + archive) applied to BOTH databases.
+- Queued next: google_user grant kind (suspend Google Workspace account
+  on lapse), optional add-on products on the join page.
+
 ## [0.45.6] — 2026-09-06 — CORS origins come from the registry
 
 ### Fixed

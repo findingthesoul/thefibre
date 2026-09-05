@@ -25,6 +25,10 @@ export function InvoicesClient({
   return (
     <InvoicesArea
       teams={teams}
+      // Membership sales have no personal seller — 'me' is always empty
+      // here (Sjoerd, 2026-09-06: "the invoice is not in the membership
+      // invoices"). Admins land on Workspace; non-admins fall back to Me.
+      defaultScope="workspace"
       defaultApp={defaultApp ?? 'all'}
       actions={{
         listPurchases,
