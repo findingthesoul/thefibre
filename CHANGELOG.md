@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.5] — 2026-09-05 — skip-builds diffs the whole push
+
+### Fixed
+- vercel-ignore diffed only the LAST commit (HEAD^), but Vercel builds
+  once per push — an app-touching commit buried in a multi-commit push
+  would have been silently skipped. The diff base is now the branch's
+  last deployed sha (VERCEL_GIT_PREVIOUS_SHA) when resolvable, HEAD^ as
+  fallback, build-to-be-safe otherwise. (Caught in cross-session
+  review.)
+
 ## [0.45.4] — 2026-09-05 — builds only what changed
 
 ### Changed

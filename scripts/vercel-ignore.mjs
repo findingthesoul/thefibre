@@ -15,7 +15,12 @@
 //     exports always come with new src files).
 //   - pnpm-lock.yaml or pnpm-workspace.yaml (dependency graph changed).
 //
-// Safety: any doubt (no parent commit, git error, unknown app) → build.
+// Diff base: Vercel builds once per PUSH, not per commit — HEAD^ would miss
+// an app-touching commit buried in a multi-commit push (e.g. fix + version
+// stamp). VERCEL_GIT_PREVIOUS_SHA (the branch's last deployed sha) is the
+// correct base when set and present in the clone; HEAD^ is the fallback.
+//
+// Safety: any doubt (no usable base, git error, unknown app) → build.
 
 import { execSync } from 'node:child_process';
 
@@ -30,10 +35,29 @@ const run = (cmd) => execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] }).toStri
 let root;
 try {
   root = run('git rev-parse --show-toplevel');
-  run('git rev-parse HEAD^');
 } catch {
-  console.log('[vercel-ignore] no parent commit / not a git checkout — building');
+  console.log('[vercel-ignore] not a git checkout — building');
   process.exit(1);
+}
+
+let base = null;
+const prev = process.env.VERCEL_GIT_PREVIOUS_SHA;
+if (prev && /^[0-9a-f]{7,40}$/i.test(prev)) {
+  try {
+    run(`git -C ${JSON.stringify(root)} cat-file -e ${prev}^{commit}`);
+    base = prev;
+  } catch {
+    // Previous deploy's sha isn't in this (shallow) clone — fall back.
+  }
+}
+if (!base) {
+  try {
+    run(`git -C ${JSON.stringify(root)} rev-parse HEAD^`);
+    base = 'HEAD^';
+  } catch {
+    console.log('[vercel-ignore] no usable diff base — building');
+    process.exit(1);
+  }
 }
 
 const paths = [
@@ -47,10 +71,10 @@ const paths = [
 
 try {
   execSync(
-    `git -C ${JSON.stringify(root)} diff --quiet HEAD^ HEAD -- ${paths.map((p) => JSON.stringify(p)).join(' ')}`,
+    `git -C ${JSON.stringify(root)} diff --quiet ${base} HEAD -- ${paths.map((p) => JSON.stringify(p)).join(' ')}`,
     { stdio: ['ignore', 'pipe', 'pipe'] },
   );
-  console.log(`[vercel-ignore] no changes for ${app} — skipping build`);
+  console.log(`[vercel-ignore] no changes for ${app} since ${base} — skipping build`);
   process.exit(0);
 } catch {
   console.log(`[vercel-ignore] changes detected for ${app} — building`);
