@@ -6,7 +6,8 @@ import { adminClient } from '../db.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
-import { wouldOrphanWorkspace, ORPHAN_ERROR } from '../lib/workspace-roles.js';
+import { wouldOrphanWorkspace, ORPHAN_ERROR, isAdminRole } from '../lib/workspace-roles.js';
+import type { RequestContext } from '../middleware/app-context.js';
 
 // ===========================================================================
 // Platform members management — THE single point of truth for who is in the
@@ -110,18 +111,43 @@ membersRoutes.get('/', async (c) => {
   });
 });
 
+// The caller's workspace role — read fresh, never from a claim, so a
+// demotion takes effect on the next request rather than the next sign-in.
+async function callerWorkspaceRole(ctx: RequestContext): Promise<string> {
+  const { data } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', ctx.userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  return data?.workspace_role ?? 'organiser';
+}
+
 const MemberInvite = z.object({
   email: z.string().email().max(320),
   name: z.string().max(200).optional(),
   workspace_role: z.enum(['super_admin', 'admin', 'organiser']).default('organiser'),
   relationship_type: z.enum(['internal', 'external']).default('internal'),
   apps: z.array(AppGrant).default([]),
+  /**
+   * "If you go beyond a free seat, you accept the monthly extra pay" (Sjoerd,
+   * 2026-09-04). When the invite would add a PAID seat, the first request
+   * comes back 402 with `requires_seat_confirmation` + the server-computed
+   * cost; the UI re-submits with this flag after the admin explicitly
+   * confirms. Never trusted for the price — only for the consent.
+   */
+  accept_seat_cost: z.boolean().default(false),
 });
 
 membersRoutes.post('/', async (c) => {
   const body = MemberInvite.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+  // Same gate as DELETE (2026-09-05): the page redirect alone guarded these,
+  // so a direct API call from an organiser could invite/change members.
+  if (!isAdminRole(await callerWorkspaceRole(ctx))) {
+    return c.json({ error: 'only admins can invite members' }, 403);
+  }
   const email = body.data.email.trim().toLowerCase();
 
   // Already a member OF THIS WORKSPACE?
@@ -143,6 +169,23 @@ membersRoutes.post('/', async (c) => {
     .is('deleted_at', null)
     .maybeSingle();
 
+  // A previously REMOVED member leaves a soft-deleted user row behind, and
+  // `unique (workspace_id, email)` means a fresh insert would collide with
+  // it. Re-inviting them resurrects that row instead — same user id, same
+  // person link — and reopens a seat, so it walks through the same seat gate
+  // as a brand-new colleague.
+  let removed: typeof u = null;
+  if (!u) {
+    const { data: dead } = await adminClient
+      .from('user')
+      .select('id, email, full_name, workspace_id')
+      .eq('email', email)
+      .eq('workspace_id', ctx.workspaceId)
+      .not('deleted_at', 'is', null)
+      .maybeSingle();
+    removed = dead ?? null;
+  }
+
   let isNew = false;
   if (!u) {
     // A seat is somebody who RUNS events. Participants are never seats and
@@ -157,11 +200,10 @@ membersRoutes.post('/', async (c) => {
     // prorated, as a quantity on the subscription). The 402 remains for
     // workspaces with nothing to charge: Free, comped, unpaid.
     const seat = await seatAvailable(ctx.workspaceId);
-    let billNewSeat = false;
     if (!seat.ok) {
-      billNewSeat = await seatBillable(ctx.workspaceId);
+      const billNewSeat = await seatBillable(ctx.workspaceId);
+      const plan = await planFor(ctx.workspaceId);
       if (!billNewSeat) {
-        const plan = await planFor(ctx.workspaceId);
         const extra = seat.extraCents
           ? ` Extra seats are €${(seat.extraCents / 100).toFixed(0)} each per month.`
           : '';
@@ -175,8 +217,51 @@ membersRoutes.post('/', async (c) => {
           402,
         );
       }
+      // The seat CAN be billed — but never silently. The admin must accept
+      // the recurring cost first (decided 2026-09-04). The price is computed
+      // HERE, from the billing plan; the client only ever echoes consent
+      // back, never the number.
+      if (!body.data.accept_seat_cost) {
+        const costCents = seat.extraCents ?? plan.extraSeatCentsMonth;
+        return c.json(
+          {
+            error:
+              costCents != null
+                ? `This invite adds €${(costCents / 100).toFixed(costCents % 100 === 0 ? 0 : 2)}/month to your subscription.`
+                : 'This invite adds a paid seat to your subscription.',
+            code: 'seat-cost-confirmation-required',
+            requires_seat_confirmation: true,
+            seat_cost_cents_month: costCents ?? null,
+            currency: 'EUR',
+            plan: plan.name,
+            seats_used: seat.used,
+            seats_included: seat.included,
+          },
+          402,
+        );
+      }
     }
     isNew = true;
+    if (removed) {
+      // Same colleague, same row, seat reopened. Clearing deleted_at is the
+      // whole resurrection — person link and email survive removal intact.
+      const { error: rErr } = await adminClient
+        .from('user')
+        .update({
+          deleted_at: null,
+          ...(body.data.name ? { full_name: body.data.name } : {}),
+        })
+        .eq('id', removed.id)
+        .eq('workspace_id', ctx.workspaceId);
+      if (rErr) {
+        console.error('[members] user resurrect failed', rErr);
+        return c.json({ error: rErr.message }, 500);
+      }
+      u = removed;
+    }
+  }
+
+  if (isNew && !u) {
     // Identity invariant: every user has a paired person.
     let { data: person } = await adminClient
       .from('person')
@@ -221,6 +306,10 @@ membersRoutes.post('/', async (c) => {
       await adminClient.from('person').update({ user_id: u.id }).eq('id', person.id);
     }
   }
+
+  // Belt for the type-checker and for a truly impossible fall-through: every
+  // path above either assigned `u` or returned.
+  if (!u) return c.json({ error: 'invite failed' }, 500);
 
   // Workspace membership.
   await adminClient.from('workspace_member').upsert(
@@ -299,6 +388,9 @@ membersRoutes.patch('/:userId', async (c) => {
   const body = MemberPatch.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+  if (!isAdminRole(await callerWorkspaceRole(ctx))) {
+    return c.json({ error: 'only admins can change members' }, 403);
+  }
   const userId = c.req.param('userId');
 
   // Scope check: the target must be a member of this workspace.
@@ -335,6 +427,91 @@ membersRoutes.patch('/:userId', async (c) => {
     // The UI sends the full grant picture incl. roles — reconcile against it.
     await syncAppGrants(userId, normalizeGrants(body.data.apps));
   }
+
+  return c.json({ ok: true });
+});
+
+// ---------------------------------------------------------------------------
+// Remove a member — the path that finally lets a seat CLOSE (build-plan P4,
+// decided 2026-09-04).
+//
+// Removal is SOFT, per the platform rule: the workspace's `user` row gets
+// `deleted_at` (never a hard delete — it is the seat AND personal data), which
+// is exactly what `seatsUsed` counts, so the seat stops existing the moment
+// the row is soft-deleted. The workspace_member edge and the per-row app
+// grants are relationship state, not personal data — they are removed the way
+// syncAppGrants already removes grants. The PERSON stays: a removed colleague
+// remains a contact in the graph.
+//
+// JWT effect: custom_access_token_hook filters `deleted_at is null`, so on the
+// next token refresh this workspace stops resolving for them — the hook falls
+// back to their earliest remaining workspace, or to no claims at all (RLS then
+// denies everything) if this was their only one.
+//
+// Billing: reconcileSeatBilling runs after — and a quantity SHRINK uses
+// proration_behavior 'none', so the removed seat stops billing from the NEXT
+// period with no mid-month credit. Re-inviting the same email resurrects the
+// same user row (see POST above).
+// ---------------------------------------------------------------------------
+membersRoutes.delete('/:userId', async (c) => {
+  const ctx = c.get('ctx');
+  // App keys never reach /members (default-deny route table), but the check
+  // costs nothing and documents that removal is a human admin's act.
+  if (ctx.auth !== 'user') return c.json({ error: 'user session required' }, 403);
+  if (!isAdminRole(await callerWorkspaceRole(ctx))) {
+    return c.json({ error: 'removing a member needs an admin role' }, 403);
+  }
+  const userId = c.req.param('userId');
+
+  const { data: member } = await adminClient
+    .from('workspace_member')
+    .select('user_id, workspace_role')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('user_id', userId)
+    .maybeSingle();
+  if (!member) return c.json({ error: 'not found' }, 404);
+
+  // Guard rails. The last super admin can't go — nobody would be left who can
+  // hand out the role. And removal is the demotion-to-nothing case of the
+  // orphan rule: the workspace must keep at least one admin-class member.
+  if (member.workspace_role === 'super_admin') {
+    const { count } = await adminClient
+      .from('workspace_member')
+      .select('*', { count: 'exact', head: true })
+      .eq('workspace_id', ctx.workspaceId)
+      .eq('workspace_role', 'super_admin');
+    if ((count ?? 0) <= 1) {
+      return c.json(
+        { error: 'this is the workspace’s only super admin — promote someone else first' },
+        409,
+      );
+    }
+  }
+  if (await wouldOrphanWorkspace(userId, ctx.workspaceId, 'organiser')) {
+    return c.json({ error: ORPHAN_ERROR }, 409);
+  }
+
+  // Soft-delete the user row — scoped to THIS workspace; the same person's
+  // rows in other workspaces are untouched.
+  const { error: delErr } = await adminClient
+    .from('user')
+    .update({ deleted_at: new Date().toISOString() })
+    .eq('id', userId)
+    .eq('workspace_id', ctx.workspaceId);
+  if (delErr) return c.json({ error: delErr.message }, 500);
+
+  // Membership edge + app grants go with the seat (grants belong to the
+  // per-workspace user row, so this strips nothing in any other workspace).
+  await adminClient
+    .from('workspace_member')
+    .delete()
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('user_id', userId);
+  await adminClient.from('app_membership').delete().eq('user_id', userId);
+
+  // Seat count just shrank — shrink the subscription quantity (no credit;
+  // next period). Fire-and-forget: a Stripe hiccup never blocks the removal.
+  void reconcileSeatBilling(ctx.workspaceId);
 
   return c.json({ ok: true });
 });

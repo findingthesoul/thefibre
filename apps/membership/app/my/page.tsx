@@ -24,6 +24,19 @@ type PortalMembership = {
   has_stripe: boolean;
 };
 
+type PortalProduct = {
+  purchase_id: string;
+  workspace: { name: string; slug: string };
+  product: {
+    name: string;
+    description: string | null;
+    links: { ref: string; label: string | null }[];
+  };
+  amount_cents: number;
+  currency: string;
+  purchased_at: string;
+};
+
 type PortalInvoice = {
   id: string;
   item_label: string;
@@ -75,10 +88,21 @@ export default async function MyPage() {
   if (!session) return <SignedOut />;
 
   // `locale` is the member's resolved language (i18n P1) — optional until
-  // the API ships it; English until then.
-  let data: { email: string; locale?: string | null; items: PortalMembership[] };
+  // the API ships it; English until then. `products` is the à-la-carte
+  // purchase list (2026-09-06) — likewise optional.
+  let data: {
+    email: string;
+    locale?: string | null;
+    items: PortalMembership[];
+    products?: PortalProduct[];
+  };
   try {
-    data = await publicFetch<{ email: string; locale?: string | null; items: PortalMembership[] }>(
+    data = await publicFetch<{
+      email: string;
+      locale?: string | null;
+      items: PortalMembership[];
+      products?: PortalProduct[];
+    }>(
       '/api/v1/membership/portal/me',
       { headers: { Authorization: `Bearer ${session.access_token}` } },
     );
@@ -109,7 +133,7 @@ export default async function MyPage() {
       <h1 className="text-2xl font-medium tracking-tight">{t(locale, 'my_memberships')}</h1>
       <p className="mt-1 text-sm text-ink-subtle">{data.email}</p>
 
-      {data.items.length === 0 && (
+      {data.items.length === 0 && (data.products?.length ?? 0) === 0 && (
         <p className="mt-8 text-sm text-ink-subtle">{t(locale, 'no_memberships')}</p>
       )}
 
@@ -190,6 +214,55 @@ export default async function MyPage() {
           );
         })}
       </ul>
+
+      {(data.products?.length ?? 0) > 0 && (
+        <>
+          <h2 className="mt-12 text-lg font-medium tracking-tight">
+            {t(locale, 'my_products')}
+          </h2>
+          <ul className="mt-4 space-y-4">
+            {data.products!.map((p) => (
+              <li
+                key={p.purchase_id}
+                className="rounded-xl border border-line bg-surface-raised p-5"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="text-base font-medium truncate">{p.product.name}</div>
+                    <div className="mt-0.5 text-sm text-ink-subtle">{p.workspace.name}</div>
+                    {p.product.description && (
+                      <p className="mt-2 text-sm text-ink-subtle leading-relaxed">
+                        {p.product.description}
+                      </p>
+                    )}
+                  </div>
+                  <span className="text-sm shrink-0 tabular-nums">
+                    {money(p.amount_cents, p.currency)}
+                  </span>
+                </div>
+                <div className="mt-2 text-xs text-ink-muted">
+                  {t(locale, 'purchased_on', { date: fmtDate(p.purchased_at, locale) })}
+                </div>
+                {p.product.links.length > 0 && (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {p.product.links.map((l, i) => (
+                      <a
+                        key={i}
+                        href={l.ref}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-ink-subtle hover:text-ink hover:border-line-strong"
+                      >
+                        {l.label ?? t(locale, 'open_link')}
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
 
       <footer className="mt-16 text-xs text-ink-muted">
         {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre

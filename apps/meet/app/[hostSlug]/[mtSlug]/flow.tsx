@@ -17,6 +17,7 @@ import { Label } from '@/components/ui/label';
 import { IntakeFieldsRenderer } from '@/components/intake-fields-renderer';
 import type { IntakeField } from '@/lib/intake';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
+import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
 
 type Props = {
   ownerSlug: string;
@@ -98,6 +99,15 @@ function tzOptions(): string[] {
     'Asia/Dubai',
     'Australia/Sydney',
   ];
+}
+
+// Options for the shared SearchSelect, built once per page load.
+let cachedTzSelectOptions: SearchSelectOption[] | null = null;
+function tzSelectOptions(): SearchSelectOption[] {
+  if (!cachedTzSelectOptions) {
+    cachedTzSelectOptions = tzOptions().map((z) => ({ value: z, label: z }));
+  }
+  return cachedTzSelectOptions;
 }
 
 function detectTz(fallback: string): string {
@@ -385,17 +395,13 @@ function SlotPickerFlow({
         <div className="pt-4 border-t border-neutral-200 flex flex-wrap items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
           <span className="text-neutral-500">Time zone:</span>
-          <select
+          <SearchSelect
+            className="w-64"
             value={tz}
-            onChange={(e) => setTz(e.target.value)}
-            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-          >
-            {tzOptions().map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={setTz}
+            options={tzSelectOptions()}
+            searchPlaceholder="Search timezones…"
+          />
           <div className="ml-auto inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
               type="button"
@@ -765,17 +771,13 @@ function OneOffFlow({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
-          <select
+          <SearchSelect
+            className="w-64"
             value={tz}
-            onChange={(e) => setTz(e.target.value)}
-            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-          >
-            {tzOptions().map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={setTz}
+            options={tzSelectOptions()}
+            searchPlaceholder="Search timezones…"
+          />
           <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
               type="button"
@@ -953,17 +955,13 @@ function PollFlow({
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3 text-sm">
           <Globe className="h-4 w-4 text-neutral-500" strokeWidth={1.5} />
-          <select
+          <SearchSelect
+            className="w-64"
             value={tz}
-            onChange={(e) => setTz(e.target.value)}
-            className="rounded-md border border-neutral-200 bg-white px-2 py-1 text-sm"
-          >
-            {tzOptions().map((option) => (
-              <option key={option} value={option}>
-                {option}
-              </option>
-            ))}
-          </select>
+            onChange={setTz}
+            options={tzSelectOptions()}
+            searchPlaceholder="Search timezones…"
+          />
           <div className="inline-flex rounded-md border border-neutral-200 bg-neutral-50 p-0.5 text-xs">
             <button
               type="button"

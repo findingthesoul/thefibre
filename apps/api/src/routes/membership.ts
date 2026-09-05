@@ -74,6 +74,9 @@ const CreateProduct = z.object({
     .array(z.object({ kind: LinkKind, ref: z.string().min(1).max(500), label: z.string().max(200).optional() }))
     .max(30)
     .optional(),
+  // À-la-carte (2026-09-06): standalone selling is an EXPLICIT setting, not
+  // inferred from price — a priced product can still be tier-only.
+  purchasable: z.boolean().optional(),
   sort_order: z.number().int().optional(),
 });
 const PatchProduct = CreateProduct.partial().extend({
@@ -221,22 +224,42 @@ export async function logMemberActivity(
 export async function reconcileMemberAccess(memberId: string): Promise<void> {
   const { data: member } = await adminClient
     .from('membership_member')
-    .select('id, tier_id, status')
+    .select('id, workspace_id, person_id, tier_id, status')
     .eq('id', memberId)
     .maybeSingle();
   if (!member) return;
 
   // Entitlement = legacy tier-level grants + grants carried by the tier's
-  // products (tier → membership_tier_product → product → grants).
-  const [{ data: tierGrants }, { data: tierProducts }] = await Promise.all([
+  // products (tier → membership_tier_product → product → grants) + grants
+  // carried by products this person BOUGHT à la carte (2026-09-06). Bought
+  // products are owned outright — their grants ride the member's journal
+  // rows but survive tier changes AND lapse.
+  const [{ data: tierGrants }, { data: tierProducts }, { data: bought }] = await Promise.all([
     adminClient.from('membership_access_grant').select('id').eq('tier_id', member.tier_id),
     adminClient.from('membership_tier_product').select('product_id').eq('tier_id', member.tier_id),
+    adminClient
+      .from('membership_product_purchase')
+      .select('product_id')
+      .eq('workspace_id', member.workspace_id)
+      .eq('person_id', member.person_id)
+      .eq('status', 'paid'),
   ]);
   const productIds = (tierProducts ?? []).map((tp) => tp.product_id);
   const { data: productGrants } = productIds.length
     ? await adminClient.from('membership_access_grant').select('id').in('product_id', productIds)
     : { data: [] as { id: string }[] };
-  const grants = [...(tierGrants ?? []), ...(productGrants ?? [])];
+  const boughtProductIds = [...new Set((bought ?? []).map((b) => b.product_id))];
+  const { data: boughtGrants } = boughtProductIds.length
+    ? await adminClient.from('membership_access_grant').select('id').in('product_id', boughtProductIds)
+    : { data: [] as { id: string }[] };
+  const boughtGrantIds = (boughtGrants ?? []).map((g) => g.id);
+  const grants = [
+    ...(tierGrants ?? []),
+    ...(productGrants ?? []),
+    ...(boughtGrants ?? []).filter(
+      (bg) => !(tierGrants ?? []).some((g) => g.id === bg.id) && !(productGrants ?? []).some((g) => g.id === bg.id),
+    ),
+  ];
 
   if (member.status === 'active' || member.status === 'grace') {
     for (const g of grants ?? []) {
@@ -266,17 +289,48 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
       }
     }
   } else {
-    // Lapsed / cancelled — everything granted gets revoke-flagged.
-    await adminClient
+    // Lapsed / cancelled — everything granted gets revoke-flagged, EXCEPT
+    // grants from products the person bought à la carte: those were paid
+    // for outright and do not lapse with the subscription.
+    let revokeGranted = adminClient
       .from('membership_member_access')
       .update({ status: 'revoke_pending', updated_at: new Date().toISOString() })
       .eq('member_id', member.id)
       .eq('status', 'granted');
-    await adminClient
+    let revokePending = adminClient
       .from('membership_member_access')
       .update({ status: 'revoked', updated_at: new Date().toISOString() })
       .eq('member_id', member.id)
       .in('status', ['pending', 'awaiting_approval']);
+    if (boughtGrantIds.length) {
+      const list = `(${boughtGrantIds.join(',')})`;
+      revokeGranted = revokeGranted.not('access_grant_id', 'in', list);
+      revokePending = revokePending.not('access_grant_id', 'in', list);
+    }
+    await revokeGranted;
+    await revokePending;
+    // A lapsed member still owns their bought products — keep their journal
+    // rows alive (a purchase while lapsed lands here too).
+    for (const gid of boughtGrantIds) {
+      const { error } = await adminClient
+        .from('membership_member_access')
+        .insert({ member_id: member.id, access_grant_id: gid, status: 'pending' });
+      if (error && error.code !== '23505') {
+        console.error('[membership] access journal insert failed', error);
+      }
+    }
+  }
+
+  // A bought grant whose journal row was revoke-flagged earlier (revoked on
+  // a lapse before the purchase, say) flips back to pending — the insert
+  // above no-ops on the unique key, so this is the re-arm path.
+  if (boughtGrantIds.length) {
+    await adminClient
+      .from('membership_member_access')
+      .update({ status: 'pending', last_error: null, updated_at: new Date().toISOString() })
+      .eq('member_id', member.id)
+      .in('access_grant_id', boughtGrantIds)
+      .in('status', ['revoke_pending', 'revoked']);
   }
 }
 
@@ -397,7 +451,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, sort_order, archived_at, created_at')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -1035,7 +1089,9 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .order('sort_order', { ascending: true }),
     adminClient
       .from('membership_product')
-      .select('id, name, description, characteristics, links, sort_order')
+      // price/purchasable are additive (à-la-carte, 2026-09-06): the page
+      // shows a Buy button only for purchasable products with a price.
+      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order')
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
       .order('sort_order', { ascending: true }),
@@ -1235,6 +1291,162 @@ membershipRoutes.post('/public/join', async (c) => {
     );
   } catch (e) {
     console.error('[membership/public/join] checkout create failed', e);
+    return c.json({ error: 'could not start checkout' }, 502);
+  }
+
+  return c.json({ url: session.url });
+});
+
+// ---------------------------------------------------------------------------
+// À-la-carte product buying (2026-09-06). The join flow's machinery — auto
+// account, person create-or-match, Checkout on the workspace's connected
+// account — but mode 'payment' (one-off), and a FLAT price: the pricing
+// logic builder (§3.9) scopes to tiers and its attributes (country,
+// interval) are subscription concepts, so products deliberately skip it.
+// ---------------------------------------------------------------------------
+
+const PublicBuy = z.object({
+  workspace_slug: z.string().min(1).max(100),
+  product_id: z.string().uuid(),
+  email: z.string().email(),
+  name: z.string().min(1).max(200),
+  locale: z.string().max(10).optional(),
+  request_id: z.string().min(8).max(100),
+});
+
+membershipRoutes.post('/public/buy', async (c) => {
+  const body = PublicBuy.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const d = body.data;
+  const email = d.email.trim().toLowerCase();
+
+  const ws = await publicWorkspace(d.workspace_slug);
+  if (!ws) return c.json({ error: 'not found' }, 404);
+
+  const buyLocale = isLocale(d.locale) ? d.locale : null;
+  const resolvedLocale = buyLocale ?? (await memberEmailLocale(ws.id, null));
+
+  const stripe = stripeOrNull();
+  if (!stripe) return c.json({ error: 'payments are not configured' }, 503);
+  const account = await workspaceStripeAccount(ws.id);
+  if (!account) {
+    return c.json({ error: 'This community has not connected payments yet.' }, 503);
+  }
+
+  // Server-authoritative price: the product row IS the price. purchasable
+  // is the product's own setting — a priced tier-only product stays unbuyable.
+  const { data: product } = await adminClient
+    .from('membership_product')
+    .select('id, name, price_cents, currency, purchasable')
+    .eq('id', d.product_id)
+    .eq('workspace_id', ws.id)
+    .is('archived_at', null)
+    .maybeSingle();
+  if (!product) return c.json({ error: 'product not found' }, 404);
+  if (!product.purchasable || product.price_cents == null || product.price_cents <= 0) {
+    return c.json({ error: 'This product cannot be bought on its own.' }, 400);
+  }
+  const amount = product.price_cents;
+
+  // Auto-account (the join-flow pattern): email-only, verify at sign-in.
+  try {
+    const { data: hasAccount } = await adminClient.rpc('auth_user_exists', { p_email: email });
+    if (hasAccount !== true) {
+      await adminClient.auth.admin.createUser({ email, email_confirm: true });
+    }
+  } catch (e) {
+    console.warn('[membership/public/buy] account auto-create failed', e);
+  }
+
+  // Create-or-match the person (case-insensitive email match, no wildcards).
+  let personId: string;
+  const { data: existingPerson } = await adminClient
+    .from('person')
+    .select('id')
+    .eq('workspace_id', ws.id)
+    .ilike('email', email)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (existingPerson) {
+    personId = existingPerson.id;
+  } else {
+    const parts = d.name.trim().split(/\s+/);
+    const { data: created, error: personErr } = await adminClient
+      .from('person')
+      .insert({
+        workspace_id: ws.id,
+        first_name: parts[0] ?? d.name.trim(),
+        last_name: parts.slice(1).join(' ') || '',
+        email,
+      })
+      .select('id')
+      .single();
+    if (personErr || !created) {
+      console.error('[membership/public/buy] person insert failed', personErr);
+      return c.json({ error: 'could not create your contact record' }, 500);
+    }
+    personId = created.id;
+  }
+
+  // Already owns it? Say so instead of double-charging (mirror of the join
+  // flow's already_member).
+  const { data: owned } = await adminClient
+    .from('membership_product_purchase')
+    .select('id')
+    .eq('workspace_id', ws.id)
+    .eq('person_id', personId)
+    .eq('product_id', product.id)
+    .eq('status', 'paid')
+    .limit(1)
+    .maybeSingle();
+  if (owned) return c.json({ already_purchased: true });
+
+  // One-off payment mode allows the FIXED fee amount — same plan-aware
+  // percent as the join flow, applied to this charge.
+  const feePercent = await platformFeePercent(ws.id);
+  const applicationFeeCents = Math.round((amount * feePercent) / 100);
+
+  const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: 'payment',
+        line_items: [
+          {
+            price_data: {
+              currency: (product.currency ?? 'EUR').toLowerCase(),
+              product_data: { name: `${ws.name} — ${product.name}` },
+              unit_amount: amount,
+            },
+            quantity: 1,
+          },
+        ],
+        payment_intent_data: {
+          ...(applicationFeeCents > 0 ? { application_fee_amount: applicationFeeCents } : {}),
+          metadata: { workspace_id: ws.id, person_id: personId, membership_product_id: product.id },
+        },
+        customer_email: email,
+        billing_address_collection: 'required',
+        allow_promotion_codes: true,
+        // membership_product_id + person_id is the webhook discriminator —
+        // distinct from membership_purchase_id (manual-invoice pay links)
+        // and from the subscription join flow's tier_id.
+        metadata: {
+          workspace_id: ws.id,
+          person_id: personId,
+          membership_product_id: product.id,
+          request_id: d.request_id,
+        },
+        success_url: `${base}/purchased?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
+        cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
+      },
+      // request_id doubles as the Stripe idempotency key: a double-submit
+      // from the same page visit returns the SAME session, never two.
+      { stripeAccount: account, idempotencyKey: `membuy_${d.request_id}` },
+    );
+  } catch (e) {
+    console.error('[membership/public/buy] checkout create failed', e);
     return c.json({ error: 'could not start checkout' }, 502);
   }
 
@@ -1640,6 +1852,132 @@ async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscr
   }
 }
 
+// À-la-carte completion: record the purchase (app fact + platform ledger),
+// grant the product's access, mail the receipt. Idempotency anchor: the
+// membership_product_purchase unique stripe_session_id — a webhook retry
+// hits 23505 and returns before any second email.
+async function membershipProductPurchased(
+  account: string,
+  session: Stripe.Checkout.Session,
+): Promise<void> {
+  const meta = session.metadata ?? {};
+  const productId = meta.membership_product_id;
+  const personId = meta.person_id;
+  const workspaceId = meta.workspace_id;
+  if (!productId || !personId || !workspaceId) {
+    console.error('[membership/webhook] product purchase without metadata', session.id);
+    return;
+  }
+
+  const { data: product } = await adminClient
+    .from('membership_product')
+    .select('id, name, links, price_cents, currency')
+    .eq('id', productId)
+    .eq('workspace_id', workspaceId)
+    .maybeSingle();
+  if (!product) {
+    console.error('[membership/webhook] purchased product not found', productId);
+    return;
+  }
+
+  const amount = session.amount_total ?? product.price_cents ?? 0;
+  const currency = (session.currency ?? product.currency ?? 'eur').toUpperCase();
+
+  const { error: insertErr } = await adminClient.from('membership_product_purchase').insert({
+    workspace_id: workspaceId,
+    person_id: personId,
+    product_id: product.id,
+    stripe_session_id: session.id,
+    amount_cents: amount,
+    currency,
+    status: 'paid',
+  });
+  if (insertErr) {
+    if (insertErr.code === '23505') return; // webhook retry — already done
+    console.error('[membership/webhook] product purchase insert failed', insertErr);
+    return;
+  }
+
+  const [{ data: person }, { data: ws }] = await Promise.all([
+    adminClient.from('person').select('first_name, last_name, email').eq('id', personId).maybeSingle(),
+    adminClient.from('workspace').select('name').eq('id', workspaceId).maybeSingle(),
+  ]);
+
+  // The ledger row (Stripe is rails, the ledger is the record). Keyed on the
+  // session id — recordPurchase's update-first-insert-second keeps retries
+  // safe even if the row above ever loosens.
+  const itemRef = `product-${session.id}`;
+  const paymentIntent =
+    typeof session.payment_intent === 'string' ? session.payment_intent : session.payment_intent?.id ?? null;
+  const addr = session.customer_details?.address;
+  await recordPurchase({
+    appSlug: 'membership',
+    workspaceId,
+    itemRef,
+    personId,
+    payerName:
+      session.customer_details?.name ??
+      [person?.first_name, person?.last_name].filter(Boolean).join(' '),
+    payerEmail: session.customer_details?.email ?? person?.email ?? null,
+    itemLabel: `${ws?.name ?? 'Community'} — ${product.name}`,
+    amountCents: amount,
+    currency,
+    method: 'stripe',
+    status: 'paid',
+    stripePaymentIntent: paymentIntent,
+    stripeAccountId: account,
+    billing: {
+      address: addr?.line1 ?? null,
+      postal_code: addr?.postal_code ?? null,
+      city: addr?.city ?? null,
+      country: addr?.country ?? null,
+    },
+  });
+
+  await logMemberActivity(workspaceId, personId, 'membership_product_purchased', `Purchased · ${product.name}`);
+
+  // Access: the reconcile folds paid product purchases into the member's
+  // entitlement, so an existing member (any status — bought grants survive
+  // lapse) gets journal rows the sync workers drain. A buyer with no member
+  // row gets their grants the moment one appears (same reconcile); their
+  // links are delivered right away via /my and the receipt below.
+  const { data: member } = await adminClient
+    .from('membership_member')
+    .select('id')
+    .eq('workspace_id', workspaceId)
+    .eq('person_id', personId)
+    .maybeSingle();
+  if (member) await reconcileMemberAccess(member.id);
+
+  // Receipt in the house style; the product's links ride along so the buyer
+  // can reach what they bought straight from the email.
+  const { data: saved } = await adminClient
+    .from('purchase')
+    .select(
+      'payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+    )
+    .eq('item_ref', itemRef)
+    .maybeSingle();
+  if (saved) {
+    const links = Array.isArray(product.links)
+      ? (product.links as { kind?: string; ref?: string; label?: string }[]).filter(
+          (l) => l?.kind === 'url' && typeof l.ref === 'string' && /^https?:\/\//.test(l.ref),
+        )
+      : [];
+    const linksHtml = links.length
+      ? `<p style="margin:24px 0 0;">${links
+          .map(
+            (l) =>
+              `<a href="${escapeHtml(l.ref!)}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;margin-right:8px;">${escapeHtml(l.label || product.name)}</a>`,
+          )
+          .join('')}</p>`
+      : undefined;
+    void sendReceipt(workspaceId, saved as Record<string, unknown>, undefined, undefined, linksHtml).catch(
+      (e) => console.error('[membership/webhook] product receipt failed', e),
+    );
+  }
+}
+
 membershipRoutes.post('/stripe-webhook', async (c) => {
   const stripe = stripeOrNull();
   // Own secret, NO fallback (the billing.ts rule): a webhook verifying
@@ -1689,6 +2027,12 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
               console.error('[membership/webhook] paid receipt failed', e),
             );
           }
+          break;
+        }
+        // À-la-carte product purchases (distinct discriminator — this
+        // branch never sees membership_purchase_id sessions, handled above).
+        if (session.mode === 'payment' && session.metadata?.membership_product_id) {
+          await membershipProductPurchased(account, session);
           break;
         }
         if (session.mode !== 'subscription') break;

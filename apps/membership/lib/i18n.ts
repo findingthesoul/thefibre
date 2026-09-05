@@ -201,6 +201,66 @@ const CATALOG = {
     fr: 'Annuler', // MT
   },
 
+  // ── à-la-carte products (buy standalone) ─────────────────────────────
+  products_headline: {
+    en: 'Also available',
+    nl: 'Ook verkrijgbaar',
+    es: 'También disponible', // MT
+    pt: 'Também disponível', // MT
+    de: 'Auch erhältlich', // MT
+    fr: 'Également disponible', // MT
+  },
+  one_off: {
+    en: 'one-off',
+    nl: 'eenmalig',
+    es: 'pago único', // MT
+    pt: 'pagamento único', // MT
+    de: 'einmalig', // MT
+    fr: 'paiement unique', // MT
+  },
+  buy: {
+    en: 'Buy',
+    nl: 'Kopen',
+    es: 'Comprar', // MT
+    pt: 'Comprar', // MT
+    de: 'Kaufen', // MT
+    fr: 'Acheter', // MT
+  },
+  already_purchased_note: {
+    en: 'You already own this — check your email for sign-in.',
+    nl: 'Je hebt dit al — kijk in je e-mail om in te loggen.',
+    es: 'Ya lo tienes — revisa tu correo para iniciar sesión.', // MT
+    pt: 'Você já tem isto — verifique seu e-mail para entrar.', // MT
+    de: 'Das gehört dir schon — sieh in deinem Postfach nach, um dich anzumelden.', // MT
+    fr: 'Tu le possèdes déjà — vérifie tes e-mails pour te connecter.', // MT
+  },
+
+  // ── purchased (success) page ─────────────────────────────────────────
+  purchased_thanks: {
+    en: 'Thank you for your purchase!',
+    nl: 'Bedankt voor je aankoop!',
+    es: '¡Gracias por tu compra!', // MT
+    pt: 'Obrigado pela sua compra!', // MT
+    de: 'Danke für deinen Kauf!', // MT
+    fr: 'Merci pour ton achat !', // MT
+  },
+  purchased_note: {
+    en: 'Your purchase is confirmed — a receipt with your access links is on its way to your inbox.',
+    nl: 'Je aankoop is bevestigd — een bevestiging met je toegangslinks is onderweg naar je inbox.',
+    es: 'Tu compra está confirmada — te llegará un recibo con tus enlaces de acceso al correo.', // MT
+    pt: 'Sua compra está confirmada — um recibo com seus links de acesso está a caminho do seu e-mail.', // MT
+    de: 'Dein Kauf ist bestätigt — eine Quittung mit deinen Zugangslinks ist auf dem Weg in dein Postfach.', // MT
+    fr: 'Ton achat est confirmé — un reçu avec tes liens d’accès arrive dans ta boîte mail.', // MT
+  },
+  view_purchases: {
+    en: 'View your purchases',
+    nl: 'Bekijk je aankopen',
+    es: 'Ver tus compras', // MT
+    pt: 'Ver suas compras', // MT
+    de: 'Deine Käufe ansehen', // MT
+    fr: 'Voir tes achats', // MT
+  },
+
   // ── joined (success) page ────────────────────────────────────────────
   joined_welcome: {
     en: 'Welcome to {name}!',
@@ -341,6 +401,30 @@ const CATALOG = {
     pt: 'Cancelada', // MT
     de: 'Gekündigt', // MT
     fr: 'Annulée', // MT
+  },
+  my_products: {
+    en: 'My products',
+    nl: 'Mijn producten',
+    es: 'Mis productos', // MT
+    pt: 'Meus produtos', // MT
+    de: 'Meine Produkte', // MT
+    fr: 'Mes produits', // MT
+  },
+  purchased_on: {
+    en: 'Purchased on {date}',
+    nl: 'Gekocht op {date}',
+    es: 'Comprado el {date}', // MT
+    pt: 'Comprado em {date}', // MT
+    de: 'Gekauft am {date}', // MT
+    fr: 'Acheté le {date}', // MT
+  },
+  open_link: {
+    en: 'Open',
+    nl: 'Openen',
+    es: 'Abrir', // MT
+    pt: 'Abrir', // MT
+    de: 'Öffnen', // MT
+    fr: 'Ouvrir', // MT
   },
   managed_by_community: {
     en: 'This membership is managed by the community — contact them to make changes.',

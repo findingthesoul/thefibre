@@ -21,6 +21,8 @@ export type PublicProfile = {
   bio: string | null;
   photo_url: string | null;
   timezone: string | null;
+  /** UI + email language (i18n P2) — edited by LanguagePicker, not this form. */
+  locale?: string | null;
 };
 
 export function ProfileForm({ profile, email }: { profile: PublicProfile; email: string }) {

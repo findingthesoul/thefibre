@@ -59,6 +59,7 @@ export function ProductDialog({
   const currencyOptions = [...new Set([...workspaceCurrency.currencies, currency])];
   const [description, setDescription] = useState(product?.description ?? '');
   const [price, setPrice] = useState(centsToEuro(product?.price_cents ?? null));
+  const [purchasable, setPurchasable] = useState(product?.purchasable ?? false);
   const [characteristics, setCharacteristics] = useState(
     (product?.characteristics ?? []).join('\n'),
   );
@@ -171,6 +172,7 @@ export function ProductDialog({
         .map((l) => l.trim())
         .filter(Boolean),
       price_cents: euroToCents(price),
+      purchasable,
       links: links
         .filter((l) => l.ref.trim())
         .map((l): ProductLink => ({
@@ -285,6 +287,23 @@ export function ProductDialog({
               ))}
             </select>
           )}
+        </div>
+        <div>
+          <label className="flex items-start gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={purchasable}
+              onChange={(e) => setPurchasable(e.target.checked)}
+              className="mt-0.5"
+            />
+            <span>
+              <span className="font-medium">Can be bought on its own</span>
+              <span className="block text-xs text-ink-muted mt-0.5">
+                Shows a Buy button on your public membership page (needs a price). Buyers get
+                the product&apos;s links and access without needing a membership.
+              </span>
+            </span>
+          </label>
         </div>
         <div>
           <label className="block text-sm font-medium mb-1">Characteristics</label>

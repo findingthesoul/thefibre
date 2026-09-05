@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -89,6 +89,42 @@
     "./ui/embed-frame": {
       "types": "./dist/ui/embed-frame.d.ts",
       "default": "./dist/ui/embed-frame.js"
+    },
+    "./ui/page": {
+      "types": "./dist/ui/page.d.ts",
+      "default": "./dist/ui/page.js"
+    },
+    "./ui/danger-confirm": {
+      "types": "./dist/ui/danger-confirm.d.ts",
+      "default": "./dist/ui/danger-confirm.js"
+    },
+    "./ui/form-error": {
+      "types": "./dist/ui/form-error.d.ts",
+      "default": "./dist/ui/form-error.js"
+    },
+    "./ui/toast": {
+      "types": "./dist/ui/toast.d.ts",
+      "default": "./dist/ui/toast.js"
+    },
+    "./prefs": {
+      "types": "./dist/prefs.d.ts",
+      "default": "./dist/prefs.js"
+    },
+    "./ui/user-menu": {
+      "types": "./dist/ui/user-menu.d.ts",
+      "default": "./dist/ui/user-menu.js"
+    },
+    "./ui/sidebar-shell": {
+      "types": "./dist/ui/sidebar-shell.d.ts",
+      "default": "./dist/ui/sidebar-shell.js"
+    },
+    "./ui/topbar": {
+      "types": "./dist/ui/topbar.d.ts",
+      "default": "./dist/ui/topbar.js"
+    },
+    "./auth-callback": {
+      "types": "./dist/auth-callback.d.ts",
+      "default": "./dist/auth-callback.js"
     }
   },
   "files": [

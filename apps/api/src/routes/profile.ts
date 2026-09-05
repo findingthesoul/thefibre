@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { isLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import {
   ensureProfile,
@@ -37,6 +38,14 @@ const ProfilePatch = z.object({
   bio: z.string().max(2000).nullable().optional(),
   photo_url: z.string().max(1000).nullable().optional(),
   timezone: z.string().max(100).optional(),
+  // ONE user-level UI/email language (i18n P2, D1). Validated against the
+  // shared LOCALES so the list has a single source; null = no preference.
+  locale: z
+    .string()
+    .max(8)
+    .nullable()
+    .optional()
+    .refine((v) => v == null || isLocale(v), 'unsupported locale'),
   // Payments SPoT (personal level) — every app reads these.
   stripe_account_id: z
     .string()

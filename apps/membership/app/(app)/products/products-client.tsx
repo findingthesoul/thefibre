@@ -150,6 +150,11 @@ function ProductCard({
       <div className="flex items-baseline justify-between gap-4">
         <div className="flex items-baseline gap-2">
           <span className="text-base font-semibold tracking-tight text-ink">{product.name}</span>
+          {product.purchasable && (
+            <span className="rounded-full border border-emerald-300/60 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
+              Buyable
+            </span>
+          )}
           {product.archived_at && (
             <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-muted">
               Archived

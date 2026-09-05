@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
+import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_LOCALE } from '@/lib/prefs-shared';
 
 export type ActionResult = {
   ok?: boolean;
@@ -54,6 +56,27 @@ export async function saveProfile(patch: {
   revalidatePath('/settings/profile');
   revalidatePath('/settings');
   revalidatePath('/dashboard');
+  return { ok: true };
+}
+
+/**
+ * ONE user-level language (i18n P2, D1) — a preference, not app content, so
+ * it lands in both places a preference lives: identity_profile.locale via
+ * the profile PATCH (the durable copy — cookies die), and the domain-wide
+ * `thefibre.locale` cookie via savePref (same mechanism as theme/sidebar,
+ * so every app can read it without an API round-trip). '' = no preference.
+ */
+export async function saveLocale(locale: string | null): Promise<ActionResult> {
+  try {
+    await apiFetch('/api/v1/profile', {
+      method: 'PATCH',
+      body: JSON.stringify({ locale: locale || null }),
+    });
+  } catch (e) {
+    return unwrap(e);
+  }
+  await savePref(COOKIE_LOCALE, locale ?? '');
+  revalidatePath('/settings/profile');
   return { ok: true };
 }
 

@@ -19,6 +19,7 @@ export function SearchSelect({
   searchPlaceholder = 'Search…',
   disabled,
   className = '',
+  name,
 }: {
   value: string;
   onChange: (value: string) => void;
@@ -27,6 +28,9 @@ export function SearchSelect({
   searchPlaceholder?: string;
   disabled?: boolean;
   className?: string;
+  /** Render a hidden input so the value rides FormData submits — saves every
+   *  call site hand-rolling one (sweep 2026-09-05). */
+  name?: string;
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
@@ -63,6 +67,7 @@ export function SearchSelect({
 
   return (
     <div ref={rootRef} className={`relative ${className}`}>
+      {name && <input type="hidden" name={name} value={value} />}
       <button
         type="button"
         disabled={disabled}

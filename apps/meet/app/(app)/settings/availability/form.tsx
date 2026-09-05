@@ -1,8 +1,9 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { useActionState, useMemo, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/field';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import {
   WorkingHoursEditor,
   coerceSchedule,
@@ -21,6 +22,18 @@ export function AvailabilityForm({ initial }: { initial: Initial }) {
     {},
   );
   const [hours, setHours] = useState<Schedule>(coerceSchedule(initial.working_hours));
+  const [timezone, setTimezone] = useState(initial.timezone);
+
+  // Full IANA list where the runtime has it (ES2022); otherwise the field
+  // falls back to free text, same as the shared profile form.
+  const timezones = useMemo(() => {
+    const intl = Intl as unknown as { supportedValuesOf?: (key: string) => string[] };
+    try {
+      return intl.supportedValuesOf?.('timeZone') ?? [];
+    } catch {
+      return [];
+    }
+  }, []);
 
   return (
     <form action={formAction} className="space-y-6">
@@ -31,12 +44,27 @@ export function AvailabilityForm({ initial }: { initial: Initial }) {
         </p>
 
         <div className="mt-5">
-          <TextField
-            label="Timezone"
-            name="timezone"
-            defaultValue={initial.timezone}
-            placeholder="Europe/Amsterdam"
-          />
+          {timezones.length > 0 ? (
+            <div>
+              <span className="text-sm text-ink-subtle">Timezone</span>
+              <SearchSelect
+                className="mt-1"
+                value={timezone}
+                onChange={setTimezone}
+                options={timezones.map((tz) => ({ value: tz, label: tz }))}
+                placeholder="Europe/Amsterdam"
+                searchPlaceholder="Search timezones…"
+              />
+              <input type="hidden" name="timezone" value={timezone} />
+            </div>
+          ) : (
+            <TextField
+              label="Timezone"
+              name="timezone"
+              defaultValue={initial.timezone}
+              placeholder="Europe/Amsterdam"
+            />
+          )}
         </div>
 
         <div className="mt-6">

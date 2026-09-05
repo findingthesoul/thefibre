@@ -11,6 +11,11 @@ import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+// Circular with routes/purchases.ts (it imports finalizePaidEnrolment from
+// here) — safe: both are hoisted function declarations, called only at
+// request time.
+import { sendReceipt } from './purchases.js';
+import { createThreadPaymentLink, threadPayButtonHtml } from '../lib/thread-payment-link.js';
 import { userPersonalRoom } from '../lib/connections.js';
 import {
   personalStripeAccount,
@@ -2988,15 +2993,24 @@ export async function performApproveEnrolment(
 }
 
 // POST /threads/:id/participants — the organiser adds someone by hand
-// (walk-ins, phone signups, imports). Skips payment and approval: the
-// person lands as 'enrolled' immediately. Authority = admins, the thread
-// organiser, co-organiser hosts, or members of the owning team (workspace
-// visibility is NOT authority — review finding #1 applies to enrolment
-// creation too).
+// (walk-ins, phone signups, imports). Free/comped adds skip payment and
+// approval: the person lands as 'enrolled' immediately. Paid threads take
+// billing = 'invoice' (Sjoerd 2026-09-05: "adding people manually to a
+// course that is actually paid should be an ask to send an invoice"): the
+// enrolment parks exactly like the public invoice-method flow (pending
+// payment, 'invited' platform status) and a pending ledger invoice is
+// emailed — mark-paid / the payment link converge on finalizePaidEnrolment.
+// Authority = admins, the thread organiser, co-organiser hosts, or members
+// of the owning team (workspace visibility is NOT authority — review
+// finding #1 applies to enrolment creation too).
 const ManualParticipant = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(320),
   notify: z.boolean().optional(),
+  billing: z.enum(['invoice', 'comped']).optional(),
+  // Which ticket sets the invoice amount — the price is resolved
+  // server-side from the ticket row, never trusted from the client.
+  ticket_id: z.string().uuid().nullable().optional(),
 });
 
 threadRoutes.post('/threads/:id/participants', async (c) => {
@@ -3007,7 +3021,7 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
   const { data: thread } = await db
     .from('thread_thread')
     .select(
-      'id, workspace_id, program_id, team_id, capacity, language, organiser:organiser_id (user_id, display_name, user:user_id (full_name)), program:program_id (id, title, starts_on, status)',
+      'id, workspace_id, program_id, team_id, capacity, language, price_cents, price_currency, organiser:organiser_id (user_id, display_name, user:user_id (full_name)), program:program_id (id, title, starts_on, status)',
     )
     .eq('id', c.req.param('id'))
     .maybeSingle();
@@ -3066,6 +3080,45 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       { error: `this thread is ${programStatus} — participants can no longer be added` },
       409,
     );
+  }
+
+  // Invoice billing: resolve the amount server-side BEFORE any writes — the
+  // chosen ticket's price, else the thread's effective price (cheapest
+  // active ticket / legacy price_cents, same rule as the public pages).
+  const invoiced = body.data.billing === 'invoice';
+  let chosenTicket: { id: string; name: string } | null = null;
+  let invoiceAmount = 0;
+  let invoiceCurrency = 'EUR';
+  if (invoiced) {
+    if (body.data.ticket_id) {
+      const { data: ticket } = await adminClient
+        .from('thread_ticket')
+        .select('id, name, price_cents, price_currency')
+        .eq('id', body.data.ticket_id)
+        .eq('thread_id', thread.id)
+        .eq('is_active', true)
+        .maybeSingle();
+      if (!ticket) {
+        return c.json({ error: 'that ticket is not available on this thread' }, 409);
+      }
+      chosenTicket = { id: ticket.id, name: ticket.name };
+      invoiceAmount = ticket.price_cents;
+      invoiceCurrency = ticket.price_currency ?? 'EUR';
+    } else {
+      const prices = await ticketPrices([thread.id]);
+      const eff = effectivePrice(
+        thread as { id: string; price_cents: number | null; price_currency?: string | null },
+        prices,
+      );
+      invoiceAmount = eff.price_cents ?? 0;
+      invoiceCurrency = eff.price_currency ?? 'EUR';
+    }
+    if (invoiceAmount <= 0) {
+      return c.json(
+        { error: 'this thread has no price — add the participant as comped instead' },
+        409,
+      );
+    }
   }
 
   // Capacity holds for manual adds too — raise it to add more.
@@ -3139,8 +3192,11 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     if (dup) {
       // Companion exists. Door override: invited (unapproved/unpaid) and
       // dropped people get re-activated; live or finished states are
-      // reported honestly and left alone (review 2026-07-05).
-      if (platEnrolment.status === 'invited' || platEnrolment.status === 'dropped') {
+      // reported honestly and left alone (review 2026-07-05). NOT when the
+      // organiser chose Invoice — lifting an unpaid enrolment to 'enrolled'
+      // would silently comp it; their outstanding invoice lives on the
+      // Invoices page instead.
+      if (!invoiced && (platEnrolment.status === 'invited' || platEnrolment.status === 'dropped')) {
         await adminClient
           .from('enrolment')
           .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
@@ -3152,10 +3208,16 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     enrolmentId = platEnrolment.id;
     // Only lift invited/dropped — never regress completed/active platform
     // state (it would leave completed_at set with status 'enrolled').
+    // Invoiced adds park at 'invited' instead: finalizePaidEnrolment lifts
+    // them when the invoice is settled (mark-paid / payment link / webhook).
     if (platEnrolment.status === 'invited' || platEnrolment.status === 'dropped') {
       await adminClient
         .from('enrolment')
-        .update({ status: 'enrolled', enrolled_at: new Date().toISOString() })
+        .update(
+          invoiced
+            ? { status: 'invited', enrolled_at: null }
+            : { status: 'enrolled', enrolled_at: new Date().toISOString() },
+        )
         .eq('id', enrolmentId);
     }
   } else {
@@ -3164,8 +3226,10 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       .insert({
         program_id: thread.program_id,
         person_id: person.id,
-        status: 'enrolled',
-        enrolled_at: new Date().toISOString(),
+        // Invoiced adds park at 'invited' until payment — the exact shape
+        // the public invoice-method flow leaves behind.
+        status: invoiced ? 'invited' : 'enrolled',
+        enrolled_at: invoiced ? null : new Date().toISOString(),
       })
       .select('id')
       .single();
@@ -3183,7 +3247,10 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       thread_id: thread.id,
       enrolment_id: enrolmentId,
       person_id: person.id,
-      payment_status: 'not_required',
+      ticket_id: chosenTicket?.id ?? null,
+      amount_cents: invoiced ? invoiceAmount : null,
+      currency: invoiced ? invoiceCurrency : null,
+      payment_status: invoiced ? 'pending' : 'not_required',
       request_id: `manual:${crypto.randomUUID()}`,
     })
     .select('id')
@@ -3217,7 +3284,72 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     `Registered: ${program.title}`,
   );
 
-  if (body.data.notify !== false) {
+  // Invoice path: a PENDING ledger row emailed in the house receipt style
+  // (the membership v0.40 pattern). No confirmation email yet — settling the
+  // invoice (mark-paid, payment link, webhook) runs finalizePaidEnrolment,
+  // which sends it along with the on_enrolment messages.
+  if (invoiced) {
+    // Address for the invoice: whatever the contact record already carries.
+    const { data: pFull } = await adminClient
+      .from('person')
+      .select('street, postal_code, city, country')
+      .eq('id', person.id)
+      .maybeSingle();
+    await recordPurchase({
+      appSlug: 'the-thread',
+      workspaceId: thread.workspace_id,
+      itemRef: te.id,
+      personId: person.id,
+      payerName: name,
+      payerEmail: email,
+      itemLabel: `${program.title}${chosenTicket?.name ? ` · ${chosenTicket.name}` : ''}`,
+      // The adding organiser is the seller contact — without it the invoice
+      // is invisible on their "Me" scope.
+      organiserUserId: ctx.userId || null,
+      teamId: threadTeamId,
+      amountCents: invoiceAmount,
+      currency: invoiceCurrency,
+      method: 'invoice',
+      status: 'pending',
+      billing: {
+        address: pFull?.street ?? null,
+        postal_code: pFull?.postal_code ?? null,
+        city: pFull?.city ?? null,
+        country: pFull?.country ?? null,
+      },
+    });
+    const { data: saved } = await adminClient
+      .from('purchase')
+      .select(
+        'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+      )
+      .eq('item_ref', te.id)
+      .maybeSingle();
+    if (saved) {
+      // Pay button straight in the invoice email — when the organiser has no
+      // connected Stripe account the invoice still goes out, bank-transfer
+      // style. The session lands on thread_enrolment.stripe_session_id, so
+      // the existing webhook / mark-paid machinery owns it from here.
+      const payUrl = await createThreadPaymentLink({
+        purchaseId: saved.id,
+        threadEnrolmentId: te.id,
+        workspaceId: thread.workspace_id,
+        amountCents: invoiceAmount,
+        currency: invoiceCurrency,
+        itemLabel: saved.item_label,
+        payerEmail: email,
+      });
+      void sendReceipt(
+        thread.workspace_id,
+        saved as Record<string, unknown>,
+        undefined,
+        undefined,
+        payUrl ? threadPayButtonHtml(payUrl) : undefined,
+      ).catch((e) => console.error('[thread/participants] invoice email failed', e));
+    }
+  }
+
+  if (!invoiced && body.data.notify !== false) {
     try {
       const identity = await threadEmailIdentity(thread);
       const msg = enrolmentConfirmation({
@@ -3251,7 +3383,10 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
       console.warn('[thread/participants] triggered messages failed', e);
     }
   }
-  return c.json({ ok: true, enrolment_id: te.id }, 201);
+  return c.json(
+    { ok: true, enrolment_id: te.id, ...(invoiced ? { invoice_pending: true } : {}) },
+    201,
+  );
 });
 
 // POST /enrolments/:id/decline — invited → dropped. No email (organisers

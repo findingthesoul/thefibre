@@ -17,6 +17,8 @@ export type IdentityProfile = {
   bio: string | null;
   photo_url: string | null;
   timezone: string | null;
+  /** UI + email language (i18n P2, D1) — one of LOCALES, null = no preference. */
+  locale: string | null;
 };
 
 const EMPTY: IdentityProfile = {
@@ -24,6 +26,7 @@ const EMPTY: IdentityProfile = {
   bio: null,
   photo_url: null,
   timezone: null,
+  locale: null,
 };
 
 async function emailFor(userId: string): Promise<string | null> {
@@ -49,7 +52,7 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
   const [{ data: identity }, { data: legacy }] = await Promise.all([
     adminClient
       .from('identity_profile')
-      .select('display_name, bio, photo_url, timezone')
+      .select('display_name, bio, photo_url, timezone, locale')
       .eq('email', email)
       .maybeSingle(),
     adminClient
@@ -64,6 +67,8 @@ export async function profileFor(userId: string): Promise<IdentityProfile> {
     bio: identity?.bio ?? legacy?.bio ?? null,
     photo_url: identity?.photo_url ?? legacy?.photo_url ?? null,
     timezone: identity?.timezone ?? legacy?.timezone ?? null,
+    // No legacy fallback — user_profile never had a locale (column born 20260906020000).
+    locale: identity?.locale ?? null,
   };
 }
 
@@ -73,7 +78,7 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
   if (!email) throw new Error('no email for user');
   const existing = await adminClient
     .from('identity_profile')
-    .select('display_name, bio, photo_url, timezone')
+    .select('display_name, bio, photo_url, timezone, locale')
     .eq('email', email)
     .maybeSingle();
   if (existing.data) return { ...existing.data, email };
@@ -92,11 +97,12 @@ export async function ensureProfile(userId: string): Promise<IdentityProfile & {
     bio: legacy.bio,
     photo_url: legacy.photo_url,
     timezone: legacy.timezone ?? 'Europe/Amsterdam',
+    // locale deliberately unseeded: null = no preference chosen yet.
   };
   const { data: created, error } = await adminClient
     .from('identity_profile')
     .upsert(seed, { onConflict: 'email' })
-    .select('display_name, bio, photo_url, timezone')
+    .select('display_name, bio, photo_url, timezone, locale')
     .single();
   if (error || !created) throw new Error(error?.message ?? 'could not provision profile');
   return { ...created, email };

@@ -6,6 +6,56 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.43.0] — 2026-09-05 — Membership 0.8.0 · Thread 3.34.0 · Meet 2.5.0: the backlog round
+
+Five parallel lanes (strict file ownership, one combined typecheck), plus
+extraction phases 2–4 shared-side on the main line. Sjoerd's standing
+order: "Once done, don't wait for me. Build everything."
+
+### Added
+- **Thread: manual adds to paid threads ask to send an invoice** (the
+  Membership v0.40 pattern, ported): Add participant dialog offers
+  Invoice (default, ticket-priced server-side) or Comped. Invoice parks
+  the enrolment at invited/payment-pending, records the pending purchase
+  (adding admin as seller), emails the invoice with a Pay online button
+  on the organiser's connected account; mark-paid / payment-link /
+  webhook all converge on finalizePaidEnrolment, which lifts the
+  enrolment and fires the confirmation emails.
+- **Membership: à-la-carte product buying** — products gain "Can be
+  bought on its own"; the public page shows an Also-available grid; a
+  one-off Checkout on the connected account (flat price, plan-aware fee)
+  lands in membership_product_purchase (person-keyed — no fake member
+  rows), grants ride the existing access journal (and survive lapse —
+  bought outright), purchases show on /my, receipts carry the product
+  links. i18n ×6.
+- **i18n P2** — user-level UI language: identity_profile.locale (the
+  profile SPoT; the proposal's user_profile is a dead fallback), profile
+  API + Settings → Profile picker + domain-wide thefibre.locale cookie;
+  platform welcome email now renders in the recipient's locale ×6.
+  App-chrome translation is P3.
+- **Workspace seats: removal + cost confirm** — DELETE /members/:userId
+  (soft delete; last-super-admin and last-admin guards; re-invite
+  resurrects the row), seat SHRINK bills from the next period
+  (proration none) while additions stay prorated; invites past the
+  allowance 402 with the server-computed monthly cost and the UI
+  confirms explicitly before re-submitting. POST/PATCH /members now
+  require admin (was page-redirect-only).
+- **SearchSelect sweep** — meet availability + all three public-booking
+  timezone pickers, thread embed generator's thread picker; shared
+  SearchSelect gains a `name` prop; the shared profile form's timezone
+  is a SearchSelect now.
+- **@thefibre/shared extraction phases 2–4 (shared side)** — ui/page
+  (align + leading superset), ui/danger-confirm, ui/form-error, ui/toast,
+  ./prefs, ui/user-menu (callbacks injected), ui/sidebar-shell (factory),
+  ui/topbar, ./auth-callback (superset of six drifted copies). Pulse
+  fully ported (~470 lines removed); remaining app ports queued.
+
+### Notes
+- Migrations: identity_profile.locale + membership_product_purchase
+  (+ product.purchasable) — applied to BOTH databases.
+- Known gap queued: rejoining members' revoked tier grants never re-arm
+  (fixed for bought products only) — see build-plan.
+
 ## [0.42.0] — 2026-09-05 — the invoice email pays online
 
 ### Added

@@ -114,7 +114,7 @@ membershipPortalRoutes.get('/me', async (c) => {
     .select('id')
     .eq('email', email.toLowerCase())
     .is('deleted_at', null);
-  if (!persons?.length) return c.json({ email, items: [] });
+  if (!persons?.length) return c.json({ email, items: [], products: [] });
 
   const { data: members } = await adminClient
     .from('membership_member')
@@ -141,6 +141,52 @@ membershipPortalRoutes.get('/me', async (c) => {
     }
   }
 
+  // À-la-carte purchases (2026-09-06): person-keyed, so they surface even
+  // when the buyer holds no membership. Additive `products` array.
+  const { data: purchases } = await adminClient
+    .from('membership_product_purchase')
+    .select(
+      `id, workspace_id, amount_cents, currency, status, created_at,
+       product:product_id (name, description, links),
+       workspace:workspace_id (name, slug)`,
+    )
+    .in('person_id', persons.map((p) => p.id))
+    .eq('status', 'paid')
+    .order('created_at', { ascending: false });
+
+  type PurchaseRow = {
+    id: string;
+    amount_cents: number;
+    currency: string;
+    created_at: string;
+    product:
+      | { name: string; description: string | null; links: unknown }
+      | { name: string; description: string | null; links: unknown }[]
+      | null;
+    workspace: { name: string; slug: string } | { name: string; slug: string }[] | null;
+  };
+  const products = ((purchases ?? []) as unknown as PurchaseRow[]).map((p) => {
+    const product = one(p.product);
+    const ws = one(p.workspace);
+    const links = Array.isArray(product?.links)
+      ? (product!.links as { kind?: string; ref?: string; label?: string }[]).filter(
+          (l) => l?.kind === 'url' && typeof l.ref === 'string' && /^https?:\/\//.test(l.ref),
+        )
+      : [];
+    return {
+      purchase_id: p.id,
+      workspace: { name: ws?.name ?? '', slug: ws?.slug ?? '' },
+      product: {
+        name: product?.name ?? '',
+        description: product?.description ?? null,
+        links: links.map((l) => ({ ref: l.ref!, label: l.label ?? null })),
+      },
+      amount_cents: p.amount_cents,
+      currency: p.currency,
+      purchased_at: p.created_at,
+    };
+  });
+
   const items = ((members ?? []) as MemberRow[]).map((m) => {
     const ws = one(m.workspace);
     const tier = one(m.tier);
@@ -165,7 +211,7 @@ membershipPortalRoutes.get('/me', async (c) => {
     };
   });
 
-  return c.json({ email, items });
+  return c.json({ email, items, products });
 });
 
 // GET /me/invoices?member_id=… — that member's purchase-ledger rows.

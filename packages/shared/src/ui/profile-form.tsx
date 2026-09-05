@@ -23,6 +23,7 @@
 import { useMemo, useState, useTransition } from 'react';
 import { PhotoField } from './photo-field.js';
 import { TextField, TextAreaField, SelectField } from './fields.js';
+import { SearchSelect } from './search-select.js';
 
 export type ProfileValues = {
   display_name: string;
@@ -148,12 +149,19 @@ export function ProfileForm({
           hint={photoHint}
         />
         {timezones.length > 0 ? (
-          <SelectField
-            label="Timezone"
-            value={timezone}
-            onChange={(e) => touched(setTimezone)(e.target.value)}
-            options={timezones.map((tz) => ({ value: tz, label: tz }))}
-          />
+          // div, not label: a label wrapping SearchSelect's internal button
+          // misdirects clicks (sweep 2026-09-05).
+          <div className="block">
+            <span className="text-sm text-ink-subtle">Timezone</span>
+            <SearchSelect
+              className="mt-1"
+              value={timezone}
+              onChange={touched(setTimezone)}
+              options={timezones.map((tz) => ({ value: tz, label: tz }))}
+              placeholder="Pick a timezone…"
+              searchPlaceholder="Search timezones…"
+            />
+          </div>
         ) : (
           <TextField
             label="Timezone"

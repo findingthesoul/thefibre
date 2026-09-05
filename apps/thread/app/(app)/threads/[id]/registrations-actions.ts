@@ -81,15 +81,25 @@ export async function listThreadEnrolments(
 
 export async function addThreadParticipant(
   threadId: string,
-  input: { name: string; email: string; notify: boolean },
+  input: {
+    name: string;
+    email: string;
+    notify: boolean;
+    // Paid threads: 'invoice' emails a pending invoice (amount resolved
+    // server-side from the ticket); 'comped' is today's free add.
+    billing?: 'invoice' | 'comped';
+    ticket_id?: string | null;
+  },
 ): Promise<
-  { ok: true; already: boolean; reactivated: boolean } | { ok: false; error: string }
+  | { ok: true; already: boolean; reactivated: boolean; invoicePending: boolean }
+  | { ok: false; error: string }
 > {
   try {
     const r = await apiFetch<{
       ok: boolean;
       already_enrolled?: boolean;
       reactivated?: boolean;
+      invoice_pending?: boolean;
     }>(`/api/v1/thread/threads/${threadId}/participants`, {
       method: 'POST',
       body: JSON.stringify(input),
@@ -98,6 +108,59 @@ export async function addThreadParticipant(
       ok: true,
       already: r.already_enrolled === true,
       reactivated: r.reactivated === true,
+      invoicePending: r.invoice_pending === true,
+    };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
+// Pricing context for the add-participant popup: the thread's legacy price
+// plus its active tickets (tickets are THE price source when they exist).
+export type ThreadPricingTicket = {
+  id: string;
+  name: string;
+  price_cents: number;
+  price_currency: string;
+};
+export type ThreadPricing = {
+  price_cents: number | null;
+  price_currency: string | null;
+  tickets: ThreadPricingTicket[];
+};
+
+export async function getThreadPricing(
+  threadId: string,
+): Promise<{ ok: true; pricing: ThreadPricing } | { ok: false; error: string }> {
+  try {
+    const [thread, tickets] = await Promise.all([
+      apiFetch<{ price_cents: number | null; price_currency: string | null }>(
+        `/api/v1/thread/threads/${threadId}`,
+      ),
+      apiFetch<{
+        items: {
+          id: string;
+          name: string;
+          price_cents: number;
+          price_currency: string;
+          is_active: boolean;
+        }[];
+      }>(`/api/v1/thread/threads/${threadId}/tickets`),
+    ]);
+    return {
+      ok: true,
+      pricing: {
+        price_cents: thread.price_cents ?? null,
+        price_currency: thread.price_currency ?? null,
+        tickets: (tickets.items ?? [])
+          .filter((t) => t.is_active)
+          .map((t) => ({
+            id: t.id,
+            name: t.name,
+            price_cents: t.price_cents,
+            price_currency: t.price_currency,
+          })),
+      },
     };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };

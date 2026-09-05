@@ -28,6 +28,7 @@ export type ProductInput = {
   description: string | null;
   characteristics: string[];
   price_cents: number | null;
+  purchasable: boolean;
   links: ProductLink[];
   sort_order: number;
 };

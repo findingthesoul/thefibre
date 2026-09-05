@@ -1,6 +1,7 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { ProfileForm, type PublicProfile } from './profile-form';
+import { LanguagePicker } from './language-picker';
 
 // One profile.
 //
@@ -79,6 +80,7 @@ export default async function ProfileSettingsPage() {
             }
             email={me.user.email}
           />
+          <LanguagePicker initial={profile?.locale ?? null} />
           <section className="mt-12 border-t border-line pt-8">
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">Signing in</div>
             <dl className="mt-3 rounded-lg border border-line bg-surface-raised p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">

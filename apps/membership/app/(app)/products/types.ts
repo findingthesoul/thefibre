@@ -23,6 +23,8 @@ export type Product = {
   characteristics: string[] | null;
   price_cents: number | null;
   currency: string;
+  /** À-la-carte (2026-09-06): can be bought standalone on the public page. */
+  purchasable: boolean;
   links: ProductLink[] | null;
   sort_order: number | null;
   archived_at: string | null;

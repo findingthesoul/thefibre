@@ -7,6 +7,7 @@
 import { adminClient } from '../db.js';
 import { sendEmail } from './email/client.js';
 import { renderWorkspaceReadyEmail } from './email/platform-templates.js';
+import { platformEmailLocale } from './email/platform-i18n.js';
 import { ensurePlanApps } from './plan-apps.js';
 
 type SignupRow = {
@@ -75,6 +76,7 @@ export async function approveSignup(
     fullName: reqRow.full_name ?? '',
     workspaceName: wsName,
     desiredPlanName,
+    locale: await platformEmailLocale(reqRow.email),
   });
   void sendEmail({ to: reqRow.email, ...welcome }).catch((e) =>
     console.error('[signup-approval] welcome email failed', e),

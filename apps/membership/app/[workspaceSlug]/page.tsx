@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { fetchCatalog, PublicApiError, type PublicCatalog } from '@/lib/public-api';
 import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
 import { TierGrid } from './tier-grid';
+import { ProductGrid } from './product-grid';
 
 // Public join page — no auth, no sidebar. Anyone with the link sees the
 // workspace's tiers and joins via Stripe Checkout.
@@ -70,6 +71,9 @@ export default async function PublicJoinPage({
             locale={locale}
           />
         )}
+
+        {/* À-la-carte products — renders nothing when no product is purchasable. */}
+        <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} />
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
           {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre

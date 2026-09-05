@@ -2,10 +2,11 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { Dialog } from '@/components/ui/dialog';
+import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { APPS, type AppSlug } from '@/lib/apps';
 import { updateMember, type MemberPatch } from '../actions';
+import { removeMember } from './actions';
 import type { Member } from './members-client';
 
 const SELECT_CLASS =
@@ -26,6 +27,7 @@ export function MemberRowDialog({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
 
   // Optimistic view of the mutable bits. Reverted on API error.
   const [role, setRole] = useState(member.workspace_role);
@@ -59,6 +61,21 @@ export function MemberRowDialog({
     patch({ relationship_type: next }, () => setRelationship(prev));
   }
 
+  function onRemove() {
+    setError(null);
+    start(async () => {
+      const r = await removeMember(member.user_id);
+      if (r.error) {
+        setConfirmingRemove(false);
+        setError(r.error);
+      } else {
+        setConfirmingRemove(false);
+        onClose();
+        router.refresh();
+      }
+    });
+  }
+
   function onGrant(slug: string, role: '' | 'member' | 'admin') {
     const prev = new Map(grants);
     const next = new Map(grants);
@@ -79,9 +96,21 @@ export function MemberRowDialog({
       title={member.full_name ?? member.email}
       description={member.email}
       footer={
-        <Button variant="secondary" onClick={onClose}>
-          Close
-        </Button>
+        <>
+          {/* Destructive left, Close right — the house dialog contract. */}
+          <div className="mr-auto">
+            <Button
+              variant="danger"
+              disabled={pending}
+              onClick={() => setConfirmingRemove(true)}
+            >
+              Remove…
+            </Button>
+          </div>
+          <Button variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+        </>
       }
     >
       <div className={`space-y-4 ${pending ? 'opacity-70' : ''}`}>
@@ -152,6 +181,24 @@ export function MemberRowDialog({
           {' · '}Changes save immediately.
         </p>
       </div>
+
+      <ConfirmDialog
+        open={confirmingRemove}
+        onCancel={() => setConfirmingRemove(false)}
+        onConfirm={onRemove}
+        title="Remove member"
+        message={
+          <>
+            Remove {member.full_name ?? member.email} from this workspace? They lose access to
+            the workspace and its apps; they stay in your contacts. If this seat is billed, it
+            stops billing from the next period — the paid month runs out, with no mid-month
+            credit.
+          </>
+        }
+        confirmLabel="Remove member"
+        destructive
+        pending={pending}
+      />
     </Dialog>
   );
 }

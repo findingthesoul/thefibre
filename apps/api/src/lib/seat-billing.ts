@@ -10,6 +10,13 @@
 // It fails SOFT: a Stripe hiccup logs and returns, it never blocks an invite.
 // The person joins now; the next reconcile (webhook, next invite, checkout)
 // repairs the quantity. Money converges, colleagues don't wait.
+//
+// PRORATION IS ASYMMETRIC, deliberately (Sjoerd, 2026-09-04): a seat ADDED
+// mid-month is prorated from the day it lands (Stripe's default), but a seat
+// REMOVED stops billing from the NEXT period — no mid-month credit. The paid
+// month runs out; the next invoice simply counts fewer. So every quantity
+// GROW uses 'create_prorations' and every SHRINK (including removing the
+// item entirely) uses proration_behavior: 'none'.
 
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
@@ -83,18 +90,29 @@ export async function reconcileSeatBilling(workspaceId: string): Promise<void> {
     const seatItem = sub.items.data.find((i) => i.price?.id === ctx.seatPriceId);
 
     if (!seatItem && overage > 0) {
+      // Grow from nothing — prorated from today, the seat is in use now.
       await stripe.subscriptionItems.create({
         subscription: ctx.subscriptionId,
         price: ctx.seatPriceId,
         quantity: overage,
+        proration_behavior: 'create_prorations',
       });
       console.log(`[seats] ${workspaceId}: +seat item ×${overage}`);
     } else if (seatItem && overage === 0) {
-      await stripe.subscriptionItems.del(seatItem.id);
-      console.log(`[seats] ${workspaceId}: seat item removed`);
+      // Shrink to nothing — no credit; the next invoice carries no seat line.
+      await stripe.subscriptionItems.del(seatItem.id, { proration_behavior: 'none' });
+      console.log(`[seats] ${workspaceId}: seat item removed (no credit — next period)`);
     } else if (seatItem && seatItem.quantity !== overage) {
-      await stripe.subscriptionItems.update(seatItem.id, { quantity: overage });
-      console.log(`[seats] ${workspaceId}: seat item ${seatItem.quantity} → ${overage}`);
+      const grow = overage > (seatItem.quantity ?? 0);
+      await stripe.subscriptionItems.update(seatItem.id, {
+        quantity: overage,
+        // Grow: prorated from the day the seat lands. Shrink: the paid month
+        // runs out, the NEXT invoice counts fewer — never a mid-month credit.
+        proration_behavior: grow ? 'create_prorations' : 'none',
+      });
+      console.log(
+        `[seats] ${workspaceId}: seat item ${seatItem.quantity} → ${overage}${grow ? '' : ' (no credit — next period)'}`,
+      );
     }
   } catch (e) {
     console.error('[seats] reconcile failed (will converge on next event)', workspaceId, e);

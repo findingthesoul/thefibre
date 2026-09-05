@@ -9,6 +9,7 @@ import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { SectionLabel } from '@/components/ui/page';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
@@ -210,20 +211,17 @@ export function EmbedGenerator({
               )}
             </label>
           ) : (
-            <label className="block">
+            <div>
               <span className="text-xs text-ink-subtle">Thread</span>
-              <select
+              <SearchSelect
+                className="mt-1"
                 value={threadId}
-                onChange={(e) => setThreadId(e.target.value)}
-                className={`${SELECT} mt-1`}
-              >
-                {threads.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.title}
-                  </option>
-                ))}
-              </select>
-            </label>
+                onChange={setThreadId}
+                options={threads.map((t) => ({ value: t.id, label: t.title }))}
+                placeholder="Pick a thread…"
+                searchPlaceholder="Search threads…"
+              />
+            </div>
           )}
 
           {/* Where it will be pasted — only changes the instructions */}

@@ -13,13 +13,11 @@ import {
   declineEnrolment,
   completeEnrolment,
   markEnrolmentPaid,
-  addThreadParticipant,
   type ThreadEnrolmentItem,
 } from './registrations-actions';
+import { AddParticipantDialog } from './add-participant-dialog';
 import { one } from '@/lib/thread-types';
 import { Dialog } from '@/components/ui/dialog';
-import { TextField } from '@/components/ui/field';
-import { SwitchField } from '@/components/ui/switch';
 import {
   ParticipantDialog,
   type ParticipantRow,
@@ -53,11 +51,10 @@ export function RegistrationsDialog({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [detail, setDetail] = useState<ParticipantRow | null>(null);
-  // Manual add — walk-ins, phone signups (Sjoerd 2026-07-04). Skips payment
-  // and approval; the person lands as enrolled immediately.
+  // Manual add — walk-ins, phone signups (Sjoerd 2026-07-04). Lives in its
+  // own popup since the billing choice landed (paid threads invoice by
+  // default — Sjoerd 2026-09-05).
   const [adding, setAdding] = useState(false);
-  const [addBusy, setAddBusy] = useState(false);
-  const [addNotice, setAddNotice] = useState<string | null>(null);
   const [addInfo, setAddInfo] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -73,35 +70,6 @@ export function RegistrationsDialog({
       cancelled = true;
     };
   }, [threadId]);
-
-  async function submitAdd(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    const fd = new FormData(e.currentTarget);
-    const name = String(fd.get('name') ?? '').trim();
-    const email = String(fd.get('email') ?? '').trim();
-    if (!name || !email) return;
-    setAddBusy(true);
-    setAddNotice(null);
-    setAddInfo(null);
-    const r = await addThreadParticipant(threadId, {
-      name,
-      email,
-      notify: fd.get('notify') === 'on',
-    });
-    if (!r.ok) {
-      setAddNotice(r.error);
-    } else if (r.already) {
-      setAddInfo('Already enrolled — no changes made.');
-    } else {
-      setAdding(false);
-      if (r.reactivated) {
-        setAddInfo('Re-activated an earlier registration — the person is enrolled again.');
-      }
-      const list = await listThreadEnrolments(threadId);
-      if (list.ok) setItems(list.items);
-    }
-    setAddBusy(false);
-  }
 
   async function run(id: string, fn: (id: string) => Promise<{ ok: boolean; error?: string }>) {
     setBusy(id);
@@ -131,8 +99,8 @@ export function RegistrationsDialog({
               size="sm"
               leading={<UserPlus size={14} />}
               onClick={() => {
-                setAdding((a) => !a);
-                setAddNotice(null);
+                setAdding(true);
+                setAddInfo(null);
               }}
             >
               Add participant
@@ -162,39 +130,23 @@ export function RegistrationsDialog({
         </p>
       )}
 
+      {addInfo && (
+        <p className="mb-3 text-sm text-ink-subtle border border-line bg-surface-sunken/40 rounded-md px-3 py-2">
+          {addInfo}
+        </p>
+      )}
+
       {adding && (
-        <form
-          onSubmit={submitAdd}
-          className="mb-4 rounded-lg border border-line bg-surface-sunken/40 p-4 space-y-3"
-        >
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <TextField label="Name" name="name" required />
-            <TextField label="Email" name="email" type="email" required />
-          </div>
-          <SwitchField
-            label="Send the confirmation email and welcome messages"
-            name="notify"
-            defaultChecked
-          />
-          {addNotice && <p className="text-sm text-red-700">{addNotice}</p>}
-          {addInfo && <p className="text-sm text-ink-subtle">{addInfo}</p>}
-          <div className="flex items-center gap-2">
-            <Button type="submit" size="sm" disabled={addBusy}>
-              {addBusy ? 'Adding…' : 'Add participant'}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => {
-                setAdding(false);
-                setAddNotice(null);
-              }}
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        <AddParticipantDialog
+          threadId={threadId}
+          onClose={() => setAdding(false)}
+          onAdded={(info) => {
+            setAddInfo(info);
+            void listThreadEnrolments(threadId).then((r) => {
+              if (r.ok) setItems(r.items);
+            });
+          }}
+        />
       )}
 
       {!error && items === null && (
