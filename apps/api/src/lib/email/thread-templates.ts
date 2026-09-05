@@ -1,7 +1,7 @@
 // The Thread's transactional emails — same visual shell as Meet + auth
 // emails (branding.ts is the SPoT).
 
-import { emailSignoff } from '@thefibre/shared';
+import { emailSignoff, INTL_LOCALES, toLocale, type Locale } from '@thefibre/shared';
 import { shell, escapeHtml, type EmailBrand } from './templates.js';
 
 /**
@@ -52,8 +52,11 @@ export type ThreadEnrolmentEmail = {
 
 // Public emails follow the thread's language (the catalog for the web
 // surfaces lives in apps/thread/lib/i18n.ts — keep vocabularies aligned).
+// Typed Record<Locale, …>: adding a locale to the shared list breaks this
+// file at typecheck until every table has an entry. Machine-drafted lines
+// carry `// MT` pending native review (nl reviewed by Sjoerd, unmarked).
 const EMAIL_I18N: Record<
-  string,
+  Locale,
   {
     subject: string;
     hi: string;
@@ -115,22 +118,25 @@ const EMAIL_I18N: Record<
     apple: 'Zu Apple Wallet hinzufügen',
     google: 'In Google Wallet speichern',
   },
+  fr: {
+    subject: 'Ton inscription est confirmée : {title}', // MT
+    hi: 'Bonjour {name},', // MT
+    enrolled: 'Ton inscription à {title}{with} est confirmée.', // MT
+    starts: 'Ça commence le {date}.', // MT
+    open: 'Ouvrir le thread', // MT
+    ticket: 'Ton billet — montre ce QR à l’entrée.', // MT
+    apple: 'Ajouter à Apple Wallet', // MT
+    google: 'Enregistrer dans Google Wallet', // MT
+  },
 };
 
-const WITH_I18N: Record<string, string> = {
+const WITH_I18N: Record<Locale, string> = {
   en: ' with {organiser}',
   nl: ' bij {organiser}',
   es: ' con {organiser}',
   pt: ' com {organiser}',
   de: ' bei {organiser}',
-};
-
-const EMAIL_DATE_LOCALE: Record<string, string> = {
-  en: 'en-GB',
-  nl: 'nl-NL',
-  es: 'es-ES',
-  pt: 'pt-PT',
-  de: 'de-DE',
+  fr: ' avec {organiser}', // MT
 };
 
 export type EmailTicket = {
@@ -150,7 +156,7 @@ export type EmailTicket = {
  */
 export function ticketBlock(ticket: EmailTicket | null | undefined, locale: string): string {
   if (!ticket) return '';
-  const L = EMAIL_I18N[locale] ?? EMAIL_I18N.en!;
+  const L = EMAIL_I18N[toLocale(locale)];
   return `
       <div style="margin:24px 0;padding:20px;border:1px solid #e7e5e4;border-radius:12px;text-align:center;">
         <p style="margin:0 0 12px;font-size:14px;color:#525252;">${escapeHtml(L.ticket)}</p>
@@ -174,18 +180,18 @@ export function ticketBlock(ticket: EmailTicket | null | undefined, locale: stri
 
 /** The default wording for the messages the platform seeds into a thread.
  *
- *  Composed from the strings the compiled emails already use, in all five
- *  languages — so a seeded default says exactly what today's email says, in
+ *  Composed from the strings the compiled emails already use, in every
+ *  locale — so a seeded default says exactly what today's email says, in
  *  the thread's language, without anybody inventing new prose in languages
  *  they do not speak. The organiser edits it from there. */
 export function systemMessageDefaults(locale: string): {
   enrolment_received: { title: string; body: string };
   enrolment_confirmed: { title: string; body: string };
 } {
-  const loc = EMAIL_I18N[locale] ? locale : 'en';
-  const L = EMAIL_I18N[loc] ?? EMAIL_I18N.en!;
-  const P = PENDING_I18N[loc] ?? PENDING_I18N.en!;
-  const withOrganiser = (WITH_I18N[loc] ?? WITH_I18N.en!).replaceAll('{organiser}', '{organiser}');
+  const loc = toLocale(locale);
+  const L = EMAIL_I18N[loc];
+  const P = PENDING_I18N[loc];
+  const withOrganiser = WITH_I18N[loc].replaceAll('{organiser}', '{organiser}');
   return {
     enrolment_received: {
       title: P.subject,
@@ -226,7 +232,7 @@ export function engagementMessage(c: {
 
 // Approval-required threads: "request received" — the confirmation email
 // follows once the organiser approves.
-const PENDING_I18N: Record<string, { subject: string; body: string }> = {
+const PENDING_I18N: Record<Locale, { subject: string; body: string }> = {
   en: {
     subject: 'Request received: {title}',
     body: 'Your enrolment request for {title}{with} has been received. You will get a confirmation as soon as the organiser approves it.',
@@ -247,6 +253,10 @@ const PENDING_I18N: Record<string, { subject: string; body: string }> = {
     subject: 'Anfrage erhalten: {title}',
     body: 'Deine Anmeldeanfrage für {title}{with} ist eingegangen. Du erhältst eine Bestätigung, sobald die Organisation sie genehmigt.',
   },
+  fr: {
+    subject: 'Demande reçue : {title}', // MT
+    body: 'Ta demande d’inscription à {title}{with} a bien été reçue. Tu recevras une confirmation dès que l’organisateur l’aura approuvée.', // MT
+  },
 };
 
 export function enrolmentPending(c: {
@@ -257,14 +267,14 @@ export function enrolmentPending(c: {
   note?: string | null;
   brand?: EmailBrand | undefined;
 }): { subject: string; text: string; html: string } {
-  const loc = c.locale && PENDING_I18N[c.locale] ? c.locale : 'en';
-  const L = PENDING_I18N[loc] ?? PENDING_I18N.en!;
+  const loc = toLocale(c.locale);
+  const L = PENDING_I18N[loc];
   const withPart = c.organiserName
-    ? (WITH_I18N[loc] ?? WITH_I18N.en!).replaceAll('{organiser}', c.organiserName)
+    ? WITH_I18N[loc].replaceAll('{organiser}', c.organiserName)
     : '';
   const subject = L.subject.replaceAll('{title}', c.threadTitle);
   const body = L.body.replaceAll('{title}', c.threadTitle).replaceAll('{with}', withPart);
-  const hi = (EMAIL_I18N[loc] ?? EMAIL_I18N.en!).hi.replaceAll(
+  const hi = EMAIL_I18N[loc].hi.replaceAll(
     '{name}',
     c.participantName.split(/\s+/)[0] ?? c.participantName,
   );
@@ -288,14 +298,14 @@ export function enrolmentConfirmation(c: ThreadEnrolmentEmail): {
   text: string;
   html: string;
 } {
-  const loc = c.locale && EMAIL_I18N[c.locale] ? c.locale : 'en';
-  const L = EMAIL_I18N[loc] ?? EMAIL_I18N.en!;
+  const loc = toLocale(c.locale);
+  const L = EMAIL_I18N[loc];
   const first = c.participantName.split(/\s+/)[0] ?? '';
   const withPart = c.organiserName
-    ? (WITH_I18N[loc] ?? WITH_I18N.en!).replace('{organiser}', c.organiserName)
+    ? WITH_I18N[loc].replace('{organiser}', c.organiserName)
     : '';
   const startDate = c.startsOn
-    ? new Intl.DateTimeFormat(EMAIL_DATE_LOCALE[loc] ?? 'en-GB', {
+    ? new Intl.DateTimeFormat(INTL_LOCALES[loc], {
         weekday: 'long',
         day: 'numeric',
         month: 'long',

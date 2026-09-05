@@ -1,25 +1,25 @@
 // The Thread — public-surface translations (Sjoerd 2026-07-02).
 //
 // THE RULE: every string a participant can see (public pages, enrol flow,
-// embeds) lives HERE, in all five languages. The catalog is typed so a key
-// missing a translation fails `pnpm typecheck` — that is how the list stays
-// complete as the product grows. Default locale: en.
+// embeds) lives HERE, in all locales. The locale list itself lives in
+// @thefibre/shared/i18n (one definition for the whole platform); the
+// catalog stays per-surface, next to its consumers. The catalog is typed
+// so a key missing a translation fails `pnpm typecheck` — that is how the
+// list stays complete as the product grows. Default locale: en.
+//
+// French entries are machine-drafted (marked // MT) pending native review.
 //
 // Internal/admin UI stays English; this is for the outside world.
 
-export const LOCALES = ['en', 'nl', 'es', 'pt', 'de'] as const;
-export type Locale = (typeof LOCALES)[number];
-export const DEFAULT_LOCALE: Locale = 'en';
+import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
 
-export const LOCALE_LABELS: Record<Locale, string> = {
-  en: 'English',
-  nl: 'Nederlands',
-  es: 'Español',
-  pt: 'Português',
-  de: 'Deutsch',
-};
-
-type Entry = Record<Locale, string>;
+export {
+  LOCALES,
+  DEFAULT_LOCALE,
+  LOCALE_LABELS,
+  isLocale,
+  type Locale,
+} from '@thefibre/shared/i18n';
 
 const CATALOG = {
   // ── shared ────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const CATALOG = {
     es: 'Gratis',
     pt: 'Gratuito',
     de: 'Kostenlos',
+    fr: 'Gratuit', // MT
   },
   event: {
     en: 'Event',
@@ -36,6 +37,7 @@ const CATALOG = {
     es: 'Evento',
     pt: 'Evento',
     de: 'Veranstaltung',
+    fr: 'Événement', // MT
   },
   journey: {
     en: 'Journey',
@@ -43,6 +45,7 @@ const CATALOG = {
     es: 'Recorrido',
     pt: 'Jornada',
     de: 'Reise',
+    fr: 'Parcours', // MT
   },
   powered_by: {
     en: 'Powered by',
@@ -50,6 +53,7 @@ const CATALOG = {
     es: 'Desarrollado por',
     pt: 'Desenvolvido por',
     de: 'Bereitgestellt von',
+    fr: 'Propulsé par', // MT
   },
   online: {
     en: 'Online',
@@ -57,6 +61,15 @@ const CATALOG = {
     es: 'En línea',
     pt: 'Online',
     de: 'Online',
+    fr: 'En ligne', // MT
+  },
+  facilitated_in: {
+    en: 'Facilitated in {language}',
+    nl: 'Voertaal: {language}',
+    es: 'Se facilita en {language}',
+    pt: 'Facilitado em {language}',
+    de: 'Durchgeführt auf {language}',
+    fr: 'Animé en {language}', // MT
   },
 
   // ── organiser page ───────────────────────────────────────────────────
@@ -66,6 +79,7 @@ const CATALOG = {
     es: 'Threads',
     pt: 'Threads',
     de: 'Threads',
+    fr: 'Threads', // MT
   },
   nothing_public: {
     en: 'Nothing public right now.',
@@ -73,6 +87,7 @@ const CATALOG = {
     es: 'Nada público por ahora.',
     pt: 'Nada público no momento.',
     de: 'Derzeit nichts Öffentliches.',
+    fr: 'Rien de public pour le moment.', // MT
   },
 
   // ── thread page ──────────────────────────────────────────────────────
@@ -82,6 +97,7 @@ const CATALOG = {
     es: 'Agenda',
     pt: 'Programação',
     de: 'Programm',
+    fr: 'Programme', // MT
   },
   spots_left: {
     en: '{n} spots left',
@@ -89,6 +105,7 @@ const CATALOG = {
     es: 'Quedan {n} plazas',
     pt: 'Restam {n} vagas',
     de: 'Noch {n} Plätze frei',
+    fr: 'Il reste {n} places', // MT
   },
   full: {
     en: 'Full',
@@ -96,6 +113,7 @@ const CATALOG = {
     es: 'Completo',
     pt: 'Lotado',
     de: 'Ausgebucht',
+    fr: 'Complet', // MT
   },
   certificate_on_completion: {
     en: 'Certificate on completion',
@@ -103,6 +121,7 @@ const CATALOG = {
     es: 'Certificado al finalizar',
     pt: 'Certificado ao concluir',
     de: 'Zertifikat nach Abschluss',
+    fr: 'Certificat à la fin', // MT
   },
 
   // ── enrol card ───────────────────────────────────────────────────────
@@ -112,6 +131,7 @@ const CATALOG = {
     es: 'Inscribirse',
     pt: 'Inscrever-se',
     de: 'Anmelden',
+    fr: "S'inscrire", // MT
   },
   name: {
     en: 'Name',
@@ -119,6 +139,7 @@ const CATALOG = {
     es: 'Nombre',
     pt: 'Nome',
     de: 'Name',
+    fr: 'Nom', // MT
   },
   email: {
     en: 'Email',
@@ -126,6 +147,7 @@ const CATALOG = {
     es: 'Correo electrónico',
     pt: 'E-mail',
     de: 'E-Mail',
+    fr: 'E-mail', // MT
   },
   choose: {
     en: 'Choose…',
@@ -133,6 +155,7 @@ const CATALOG = {
     es: 'Elegir…',
     pt: 'Escolher…',
     de: 'Auswählen…',
+    fr: 'Choisir…', // MT
   },
   keep_me_posted: {
     en: 'Keep me posted about future threads from {organiser}.',
@@ -140,6 +163,7 @@ const CATALOG = {
     es: 'Mantenme al tanto de futuros threads de {organiser}.',
     pt: 'Quero receber novidades sobre futuros threads de {organiser}.',
     de: 'Halte mich über künftige Threads von {organiser} auf dem Laufenden.',
+    fr: 'Tiens-moi au courant des prochains threads de {organiser}.', // MT
   },
   enrol_free: {
     en: 'Enrol for free',
@@ -147,6 +171,7 @@ const CATALOG = {
     es: 'Inscribirse gratis',
     pt: 'Inscrever-se gratuitamente',
     de: 'Kostenlos anmelden',
+    fr: "S'inscrire gratuitement", // MT
   },
   enrol_paid: {
     en: 'Enrol — {price}',
@@ -154,6 +179,7 @@ const CATALOG = {
     es: 'Inscribirse — {price}',
     pt: 'Inscrever-se — {price}',
     de: 'Anmelden — {price}',
+    fr: "S'inscrire — {price}", // MT
   },
   enrolling: {
     en: 'Enrolling…',
@@ -161,6 +187,7 @@ const CATALOG = {
     es: 'Inscribiendo…',
     pt: 'Inscrevendo…',
     de: 'Anmeldung läuft…',
+    fr: 'Inscription en cours…', // MT
   },
   enrolment_closed: {
     en: 'Enrolment is closed for this thread.',
@@ -168,6 +195,7 @@ const CATALOG = {
     es: 'Las inscripciones están cerradas para este thread.',
     pt: 'As inscrições estão encerradas para este thread.',
     de: 'Die Anmeldung für diesen Thread ist geschlossen.',
+    fr: 'Les inscriptions sont closes pour ce thread.', // MT
   },
   enrolled_success: {
     en: "You're enrolled. A confirmation is on its way to your inbox — see you in the thread.",
@@ -175,6 +203,7 @@ const CATALOG = {
     es: 'Ya estás inscrito. Te llegará una confirmación a tu correo — nos vemos en el thread.',
     pt: 'Você está inscrito. Uma confirmação está a caminho do seu e-mail — até logo no thread.',
     de: 'Du bist angemeldet. Eine Bestätigung ist auf dem Weg in dein Postfach — bis gleich im Thread.',
+    fr: 'Tu es inscrit·e. Une confirmation est en route vers ta boîte mail — à bientôt dans le thread.', // MT
   },
   payment_method: {
     en: 'Payment',
@@ -182,6 +211,7 @@ const CATALOG = {
     es: 'Pago',
     pt: 'Pagamento',
     de: 'Zahlung',
+    fr: 'Paiement', // MT
   },
   pay_online: {
     en: 'Pay online',
@@ -189,6 +219,7 @@ const CATALOG = {
     es: 'Pagar en línea',
     pt: 'Pagar online',
     de: 'Online bezahlen',
+    fr: 'Payer en ligne', // MT
   },
   pay_by_invoice: {
     en: 'Receive an invoice',
@@ -196,6 +227,7 @@ const CATALOG = {
     es: 'Recibir una factura',
     pt: 'Receber uma fatura',
     de: 'Auf Rechnung',
+    fr: 'Recevoir une facture', // MT
   },
   redirecting_payment: {
     en: 'Taking you to the payment page…',
@@ -203,6 +235,7 @@ const CATALOG = {
     es: 'Te llevamos a la página de pago…',
     pt: 'Levando você para a página de pagamento…',
     de: 'Du wirst zur Zahlungsseite weitergeleitet…',
+    fr: 'Direction la page de paiement…', // MT
   },
   payment_success_msg: {
     en: 'Payment received — you are enrolled. A confirmation is on its way to your inbox.',
@@ -210,6 +243,7 @@ const CATALOG = {
     es: 'Pago recibido — estás inscrito. Te llegará una confirmación a tu correo.',
     pt: 'Pagamento recebido — você está inscrito. Uma confirmação está a caminho do seu e-mail.',
     de: 'Zahlung erhalten — du bist angemeldet. Eine Bestätigung ist auf dem Weg in dein Postfach.',
+    fr: 'Paiement reçu — tu es inscrit·e. Une confirmation est en route vers ta boîte mail.', // MT
   },
   payment_cancelled_msg: {
     en: 'The payment was cancelled — nothing was charged. You can try again below.',
@@ -217,6 +251,7 @@ const CATALOG = {
     es: 'El pago se canceló — no se cobró nada. Puedes intentarlo de nuevo abajo.',
     pt: 'O pagamento foi cancelado — nada foi cobrado. Você pode tentar novamente abaixo.',
     de: 'Die Zahlung wurde abgebrochen — es wurde nichts abgebucht. Du kannst es unten erneut versuchen.',
+    fr: "Le paiement a été annulé — rien n'a été débité. Tu peux réessayer ci-dessous.", // MT
   },
   invoice_pending_msg: {
     en: 'Your enrolment is registered. The organiser will send you an invoice — your spot is confirmed once it is paid.',
@@ -224,6 +259,7 @@ const CATALOG = {
     es: 'Tu inscripción está registrada. El organizador te enviará una factura — tu plaza se confirma en cuanto esté pagada.',
     pt: 'Sua inscrição foi registrada. O organizador enviará uma fatura — sua vaga é confirmada assim que for paga.',
     de: 'Deine Anmeldung ist registriert. Die Organisation schickt dir eine Rechnung — dein Platz ist bestätigt, sobald sie bezahlt ist.',
+    fr: "Ton inscription est enregistrée. L'organisateur t'enverra une facture — ta place est confirmée dès qu'elle est payée.", // MT
   },
   enrolment_pending_msg: {
     en: 'Your request has been received. The organiser will review it — you will get a confirmation email once you are approved.',
@@ -231,6 +267,7 @@ const CATALOG = {
     es: 'Hemos recibido tu solicitud. El organizador la revisará — recibirás un correo de confirmación en cuanto te aprueben.',
     pt: 'Seu pedido foi recebido. O organizador vai analisá-lo — você receberá um e-mail de confirmação assim que for aprovado.',
     de: 'Deine Anfrage ist eingegangen. Die Organisation prüft sie — du erhältst eine Bestätigungsmail, sobald du zugelassen bist.',
+    fr: "Ta demande a bien été reçue. L'organisateur va l'examiner — tu recevras un e-mail de confirmation dès que tu seras accepté·e.", // MT
   },
   company_name: {
     en: 'Company / organisation (for the invoice)',
@@ -238,6 +275,7 @@ const CATALOG = {
     es: 'Empresa / organización (para la factura)',
     pt: 'Empresa / organização (para a fatura)',
     de: 'Firma / Organisation (für die Rechnung)',
+    fr: 'Entreprise / organisation (pour la facture)', // MT
   },
   billing_address: {
     en: 'Billing address',
@@ -245,6 +283,7 @@ const CATALOG = {
     es: 'Dirección de facturación',
     pt: 'Endereço de faturamento',
     de: 'Rechnungsadresse',
+    fr: 'Adresse de facturation', // MT
   },
   postal_code: {
     en: 'Postal code',
@@ -252,6 +291,7 @@ const CATALOG = {
     es: 'Código postal',
     pt: 'Código postal',
     de: 'Postleitzahl',
+    fr: 'Code postal', // MT
   },
   city: {
     en: 'City',
@@ -259,6 +299,7 @@ const CATALOG = {
     es: 'Ciudad',
     pt: 'Cidade',
     de: 'Ort',
+    fr: 'Ville', // MT
   },
   country: {
     en: 'Country',
@@ -266,6 +307,7 @@ const CATALOG = {
     es: 'País',
     pt: 'País',
     de: 'Land',
+    fr: 'Pays', // MT
   },
   tax_number: {
     en: 'Tax / VAT number (optional)',
@@ -273,6 +315,7 @@ const CATALOG = {
     es: 'NIF / número de IVA (opcional)',
     pt: 'NIF / número de IVA (opcional)',
     de: 'USt-IdNr. (optional)',
+    fr: 'Numéro de TVA (facultatif)', // MT
   },
   discount_code: {
     en: 'Discount code',
@@ -280,6 +323,7 @@ const CATALOG = {
     es: 'Código de descuento',
     pt: 'Código de desconto',
     de: 'Rabattcode',
+    fr: 'Code de réduction', // MT
   },
   apply: {
     en: 'Apply',
@@ -287,6 +331,7 @@ const CATALOG = {
     es: 'Aplicar',
     pt: 'Aplicar',
     de: 'Einlösen',
+    fr: 'Appliquer', // MT
   },
   code_applied: {
     en: 'Code {code} applied.',
@@ -294,6 +339,7 @@ const CATALOG = {
     es: 'Código {code} aplicado.',
     pt: 'Código {code} aplicado.',
     de: 'Code {code} eingelöst.',
+    fr: 'Code {code} appliqué.', // MT
   },
   create_account: {
     en: 'Create your account',
@@ -301,6 +347,7 @@ const CATALOG = {
     es: 'Crea tu cuenta',
     pt: 'Crie sua conta',
     de: 'Konto erstellen',
+    fr: 'Crée ton compte', // MT
   },
   sign_in_personal_page: {
     en: 'Sign in to your personal page',
@@ -308,6 +355,7 @@ const CATALOG = {
     es: 'Inicia sesión en tu página personal',
     pt: 'Entre na sua página pessoal',
     de: 'Bei deiner persönlichen Seite anmelden',
+    fr: 'Connecte-toi à ta page personnelle', // MT
   },
   account_note: {
     en: 'One Fibre account for everything — your threads, bookings and certificates in one place.',
@@ -315,6 +363,7 @@ const CATALOG = {
     es: 'Una cuenta Fibre para todo — tus threads, reservas y certificados en un solo lugar.',
     pt: 'Uma conta Fibre para tudo — seus threads, reservas e certificados num só lugar.',
     de: 'Ein Fibre-Konto für alles — deine Threads, Buchungen und Zertifikate an einem Ort.',
+    fr: 'Un seul compte Fibre pour tout — tes threads, réservations et certificats au même endroit.', // MT
   },
   recent_activity: {
     en: 'Recent activity',
@@ -322,6 +371,7 @@ const CATALOG = {
     es: 'Actividad reciente',
     pt: 'Atividade recente',
     de: 'Letzte Aktivität',
+    fr: 'Activité récente', // MT
   },
   already_enrolled: {
     en: "You're already enrolled with this email address. Everything about this thread lives on your personal page.",
@@ -329,6 +379,7 @@ const CATALOG = {
     es: 'Ya estás inscrito con este correo. Todo sobre este thread está en tu página personal.',
     pt: 'Você já está inscrito com este e-mail. Tudo sobre este thread está na sua página pessoal.',
     de: 'Du bist mit dieser E-Mail-Adresse bereits angemeldet. Alles zu diesem Thread findest du auf deiner persönlichen Seite.',
+    fr: 'Tu es déjà inscrit·e avec cette adresse e-mail. Tout ce qui concerne ce thread se trouve sur ta page personnelle.', // MT
   },
   open_personal_page: {
     en: 'Open your personal page',
@@ -336,6 +387,7 @@ const CATALOG = {
     es: 'Abrir tu página personal',
     pt: 'Abrir sua página pessoal',
     de: 'Persönliche Seite öffnen',
+    fr: 'Ouvrir ta page personnelle', // MT
   },
   name_email_required: {
     en: 'Name and email are required.',
@@ -343,6 +395,7 @@ const CATALOG = {
     es: 'El nombre y el correo son obligatorios.',
     pt: 'Nome e e-mail são obrigatórios.',
     de: 'Name und E-Mail sind erforderlich.',
+    fr: "Le nom et l'e-mail sont obligatoires.", // MT
   },
   fill_in_field: {
     en: 'Please fill in “{field}”.',
@@ -350,6 +403,7 @@ const CATALOG = {
     es: 'Completa “{field}”.',
     pt: 'Preencha “{field}”.',
     de: 'Bitte fülle „{field}“ aus.',
+    fr: 'Merci de remplir « {field} ».', // MT
   },
   something_wrong: {
     en: 'Something went wrong — please try again.',
@@ -357,6 +411,7 @@ const CATALOG = {
     es: 'Algo salió mal — inténtalo de nuevo.',
     pt: 'Algo deu errado — tente novamente.',
     de: 'Etwas ist schiefgelaufen — bitte versuche es erneut.',
+    fr: 'Un problème est survenu — réessaie.', // MT
   },
   email_consent_note: {
     en: "We'll email you about this thread (that's required to take part). Nothing else without your say-so.",
@@ -364,6 +419,7 @@ const CATALOG = {
     es: 'Te escribiremos sobre este thread (necesario para participar). Nada más sin tu permiso.',
     pt: 'Enviaremos e-mails sobre este thread (necessário para participar). Nada além disso sem a sua permissão.',
     de: 'Wir mailen dir zu diesem Thread (das ist zur Teilnahme nötig). Sonst nichts ohne dein Einverständnis.',
+    fr: "On t'enverra des e-mails sur ce thread (nécessaire pour participer). Rien d'autre sans ton accord.", // MT
   },
 
   // ── policies ─────────────────────────────────────────────────────────
@@ -373,6 +429,7 @@ const CATALOG = {
     es: 'política de privacidad',
     pt: 'política de privacidade',
     de: 'Datenschutzerklärung',
+    fr: 'politique de confidentialité', // MT
   },
   policy_agree: {
     en: 'I agree to the {policy}.',
@@ -380,6 +437,7 @@ const CATALOG = {
     es: 'Acepto la {policy}.',
     pt: 'Concordo com a {policy}.',
     de: 'Ich stimme der {policy} zu.',
+    fr: "J'accepte la {policy}.", // MT
   },
   policy_required: {
     en: 'Please agree to the {policy} to enrol.',
@@ -387,6 +445,7 @@ const CATALOG = {
     es: 'Acepta la {policy} para inscribirte.',
     pt: 'Aceite a {policy} para se inscrever.',
     de: 'Bitte stimme der {policy} zu, um dich anzumelden.',
+    fr: "Accepte la {policy} pour t'inscrire.", // MT
   },
 
   // ── participant portal ───────────────────────────────────────────────
@@ -396,6 +455,7 @@ const CATALOG = {
     es: 'Tus threads',
     pt: 'Seus threads',
     de: 'Deine Threads',
+    fr: 'Tes threads', // MT
   },
   portal_hello: {
     en: 'Hi {name} — everything you are enrolled in, in one place.',
@@ -403,6 +463,7 @@ const CATALOG = {
     es: 'Hola {name} — todo en lo que estás inscrito, en un solo lugar.',
     pt: 'Olá {name} — tudo em que você está inscrito, num só lugar.',
     de: 'Hallo {name} — alles, wofür du angemeldet bist, an einem Ort.',
+    fr: 'Salut {name} — tout ce à quoi tu es inscrit·e, au même endroit.', // MT
   },
   portal_none: {
     en: 'No enrolments yet.',
@@ -410,6 +471,7 @@ const CATALOG = {
     es: 'Aún no hay inscripciones.',
     pt: 'Ainda não há inscrições.',
     de: 'Noch keine Anmeldungen.',
+    fr: "Pas encore d'inscriptions.", // MT
   },
   portal_signin_note: {
     en: "Sign in with the email address you enrolled with to see everything you're part of.",
@@ -417,6 +479,7 @@ const CATALOG = {
     es: 'Inicia sesión con el correo con el que te inscribiste para ver todo aquello de lo que formas parte.',
     pt: 'Entre com o e-mail com que você se inscreveu para ver tudo de que faz parte.',
     de: 'Melde dich mit der E-Mail-Adresse an, mit der du dich eingeschrieben hast, um alles zu sehen, woran du teilnimmst.',
+    fr: "Connecte-toi avec l'adresse e-mail utilisée pour t'inscrire afin de voir tout ce dont tu fais partie.", // MT
   },
   fellow_participants: {
     en: 'Also in this thread',
@@ -424,6 +487,7 @@ const CATALOG = {
     es: 'También en este thread',
     pt: 'Também neste thread',
     de: 'Ebenfalls in diesem Thread',
+    fr: 'Aussi dans ce thread', // MT
   },
 
   // ── sign-in (email code + Google) ────────────────────────────────────
@@ -433,6 +497,7 @@ const CATALOG = {
     es: 'Continuar con Google',
     pt: 'Continuar com o Google',
     de: 'Weiter mit Google',
+    fr: 'Continuer avec Google', // MT
   },
   email_me_code: {
     en: 'Email me a code',
@@ -440,6 +505,7 @@ const CATALOG = {
     es: 'Envíame un código',
     pt: 'Envie-me um código',
     de: 'Code per E-Mail senden',
+    fr: 'Recevoir un code par e-mail', // MT
   },
   code_sent: {
     en: 'We sent an 8-digit code to {email}.',
@@ -447,6 +513,7 @@ const CATALOG = {
     es: 'Hemos enviado un código de 8 dígitos a {email}.',
     pt: 'Enviamos um código de 8 dígitos para {email}.',
     de: 'Wir haben einen 8-stelligen Code an {email} gesendet.',
+    fr: 'Nous avons envoyé un code à 8 chiffres à {email}.', // MT
   },
   enter_code: {
     en: 'Enter the 8-digit code',
@@ -454,6 +521,7 @@ const CATALOG = {
     es: 'Introduce el código de 8 dígitos',
     pt: 'Digite o código de 8 dígitos',
     de: 'Gib den 8-stelligen Code ein',
+    fr: 'Saisis le code à 8 chiffres', // MT
   },
   verify_code: {
     en: 'Verify code',
@@ -461,6 +529,7 @@ const CATALOG = {
     es: 'Verificar código',
     pt: 'Verificar código',
     de: 'Code bestätigen',
+    fr: 'Vérifier le code', // MT
   },
   sending: {
     en: 'Sending…',
@@ -468,6 +537,7 @@ const CATALOG = {
     es: 'Enviando…',
     pt: 'Enviando…',
     de: 'Wird gesendet…',
+    fr: 'Envoi en cours…', // MT
   },
   verifying: {
     en: 'Verifying…',
@@ -475,6 +545,7 @@ const CATALOG = {
     es: 'Verificando…',
     pt: 'Verificando…',
     de: 'Wird geprüft…',
+    fr: 'Vérification…', // MT
   },
   redirecting: {
     en: 'Redirecting…',
@@ -482,6 +553,7 @@ const CATALOG = {
     es: 'Redirigiendo…',
     pt: 'Redirecionando…',
     de: 'Weiterleitung…',
+    fr: 'Redirection…', // MT
   },
   use_different_email: {
     en: 'Use a different email',
@@ -489,6 +561,7 @@ const CATALOG = {
     es: 'Usar otro correo',
     pt: 'Usar outro e-mail',
     de: 'Andere E-Mail-Adresse verwenden',
+    fr: 'Utiliser une autre adresse e-mail', // MT
   },
   code_send_failed: {
     en: "We couldn't send the code — check the address and try again.",
@@ -496,6 +569,7 @@ const CATALOG = {
     es: 'No pudimos enviar el código — revisa la dirección e inténtalo de nuevo.',
     pt: 'Não foi possível enviar o código — verifique o endereço e tente novamente.',
     de: 'Der Code konnte nicht gesendet werden — prüfe die Adresse und versuche es erneut.',
+    fr: "Impossible d'envoyer le code — vérifie l'adresse et réessaie.", // MT
   },
   code_invalid: {
     en: "That code didn't work — check it and try again.",
@@ -503,6 +577,7 @@ const CATALOG = {
     es: 'Ese código no funcionó — revísalo e inténtalo de nuevo.',
     pt: 'Esse código não funcionou — verifique e tente novamente.',
     de: 'Dieser Code hat nicht funktioniert — prüfe ihn und versuche es erneut.',
+    fr: "Ce code n'a pas fonctionné — vérifie-le et réessaie.", // MT
   },
   portal_expired: {
     en: 'This link has expired — enrol again or use a newer email.',
@@ -510,6 +585,7 @@ const CATALOG = {
     es: 'Este enlace ha caducado — inscríbete de nuevo o usa un correo más reciente.',
     pt: 'Este link expirou — inscreva-se novamente ou use um e-mail mais recente.',
     de: 'Dieser Link ist abgelaufen — melde dich erneut an oder nutze eine neuere E-Mail.',
+    fr: 'Ce lien a expiré — inscris-toi à nouveau ou utilise un e-mail plus récent.', // MT
   },
 
   whos_coming: {
@@ -518,6 +594,7 @@ const CATALOG = {
     es: 'Quiénes vienen',
     pt: 'Quem vem',
     de: 'Wer kommt',
+    fr: 'Qui vient', // MT
   },
   show_my_name: {
     en: 'Show my name to other participants.',
@@ -525,6 +602,7 @@ const CATALOG = {
     es: 'Mostrar mi nombre a otros participantes.',
     pt: 'Mostrar meu nome aos outros participantes.',
     de: 'Meinen Namen anderen Teilnehmenden zeigen.',
+    fr: 'Montrer mon nom aux autres participants.', // MT
   },
 
   ticket: {
@@ -533,6 +611,7 @@ const CATALOG = {
     es: 'Entrada',
     pt: 'Ingresso',
     de: 'Ticket',
+    fr: 'Billet', // MT
   },
   sold_out: {
     en: 'Sold out',
@@ -540,6 +619,7 @@ const CATALOG = {
     es: 'Agotado',
     pt: 'Esgotado',
     de: 'Ausverkauft',
+    fr: 'Épuisé', // MT
   },
 
   // ── embeds ───────────────────────────────────────────────────────────
@@ -549,27 +629,11 @@ const CATALOG = {
     es: 'Ver e inscribirse',
     pt: 'Ver e inscrever-se',
     de: 'Ansehen & anmelden',
+    fr: "Voir et s'inscrire", // MT
   },
-} satisfies Record<string, Entry>;
+} satisfies Record<string, I18nEntry>;
 
 export type I18nKey = keyof typeof CATALOG;
 
-export function isLocale(v: string | null | undefined): v is Locale {
-  return !!v && (LOCALES as readonly string[]).includes(v);
-}
-
 /** Translate a key; {placeholders} substituted from vars. */
-export function t(
-  locale: Locale | string | null | undefined,
-  key: I18nKey,
-  vars?: Record<string, string | number>,
-): string {
-  const loc: Locale = isLocale(typeof locale === 'string' ? locale : null)
-    ? (locale as Locale)
-    : DEFAULT_LOCALE;
-  let s = CATALOG[key][loc];
-  if (vars) {
-    for (const [k, v] of Object.entries(vars)) s = s.replaceAll(`{${k}}`, String(v));
-  }
-  return s;
-}
+export const t = makeT(CATALOG);

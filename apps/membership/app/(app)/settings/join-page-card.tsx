@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { LOCALES, LOCALE_LABELS, toLocale, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from './page-chrome';
 import { saveJoinPage } from './actions';
@@ -12,14 +13,17 @@ const INPUT =
 export function JoinPageCard({
   joinPage,
   publicUrl,
+  initialLocale,
 }: {
   joinPage: Record<string, unknown>;
   publicUrl: string;
+  initialLocale?: string | null;
 }) {
   const [headline, setHeadline] = useState(
     typeof joinPage.headline === 'string' ? joinPage.headline : '',
   );
   const [intro, setIntro] = useState(typeof joinPage.intro === 'string' ? joinPage.intro : '');
+  const [locale, setLocale] = useState<Locale>(toLocale(initialLocale));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -30,11 +34,14 @@ export function JoinPageCard({
     setBusy(true);
     setError(null);
     setSaved(false);
-    const r = await saveJoinPage({
-      ...joinPage,
-      headline: headline.trim(),
-      intro: intro.trim(),
-    });
+    const r = await saveJoinPage(
+      {
+        ...joinPage,
+        headline: headline.trim(),
+        intro: intro.trim(),
+      },
+      locale,
+    );
     setBusy(false);
     if (r.error) setError(r.error);
     else {
@@ -77,6 +84,24 @@ export function JoinPageCard({
             placeholder="A few sentences about what membership means here."
             className={`${INPUT} mt-1 resize-y`}
           />
+        </label>
+        <label className="block">
+          <span className="text-xs text-ink-subtle">Public page language</span>
+          <select
+            value={locale}
+            onChange={(e) => setLocale(toLocale(e.target.value))}
+            className={`${INPUT} mt-1`}
+          >
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>
+                {LOCALE_LABELS[l]}
+              </option>
+            ))}
+          </select>
+          <span className="mt-1 block text-xs text-ink-muted">
+            The language of the join page, embeds and member emails. Your own headline and
+            intro are shown as written.
+          </span>
         </label>
         {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         <div className="flex items-center gap-3">

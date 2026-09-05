@@ -6,23 +6,24 @@
 
 import { useState } from 'react';
 import { browserSupabase } from '@/lib/supabase/client';
-
-const MANAGED_NOTE =
-  'This membership is managed by the community — contact them to make changes.';
+import { t, type Locale } from '@/lib/i18n';
 
 export function ManagePaymentButton({
   memberId,
   hasStripe,
+  locale = 'en',
 }: {
   memberId: string;
   hasStripe: boolean;
+  /** Resolved server-side by the page (Thread pattern) — never from cookies. */
+  locale?: Locale;
 }) {
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   if (!hasStripe) {
-    return <p className="text-xs text-ink-muted">{MANAGED_NOTE}</p>;
+    return <p className="text-xs text-ink-muted">{t(locale, 'managed_by_community')}</p>;
   }
   if (note) {
     return <p className="text-xs text-ink-muted">{note}</p>;
@@ -37,7 +38,7 @@ export function ManagePaymentButton({
         data: { session },
       } = await supabase.auth.getSession();
       if (!session) {
-        setError('Your session expired — reload the page and sign in again.');
+        setError(t(locale, 'session_expired'));
         return;
       }
       const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'http://localhost:8080';
@@ -50,17 +51,17 @@ export function ManagePaymentButton({
         body: JSON.stringify({ member_id: memberId }),
       });
       if (res.status === 409) {
-        setNote(MANAGED_NOTE);
+        setNote(t(locale, 'managed_by_community'));
         return;
       }
       if (!res.ok) {
-        setError('Could not open the payment portal — try again shortly.');
+        setError(t(locale, 'portal_error'));
         return;
       }
       const { url } = (await res.json()) as { url: string };
       window.location.href = url;
     } catch {
-      setError('Could not open the payment portal — try again shortly.');
+      setError(t(locale, 'portal_error'));
     } finally {
       setBusy(false);
     }
@@ -74,7 +75,7 @@ export function ManagePaymentButton({
         disabled={busy}
         className="rounded-md border border-line bg-surface-raised px-4 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50"
       >
-        {busy ? 'Opening…' : 'Manage payment'}
+        {busy ? t(locale, 'opening') : t(locale, 'manage_payment')}
       </button>
       {error && <p className="text-xs text-red-700">{error}</p>}
     </div>

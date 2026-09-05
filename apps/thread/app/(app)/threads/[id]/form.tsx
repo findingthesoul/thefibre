@@ -93,6 +93,7 @@ export function ThreadEditorForm({
       public_agenda: fd.get('public_agenda') === 'on',
       team_id: String(fd.get('team_id') ?? '') || null,
       language: String(fd.get('language') ?? 'en'),
+      facilitation_language: String(fd.get('facilitation_language') ?? '').trim() || null,
       cover_url: coverUrl,
       public_interaction: interaction,
     };
@@ -206,13 +207,21 @@ export function ThreadEditorForm({
               hint="IANA name, e.g. Europe/Amsterdam."
             />
             <SelectField
-              label="Public language"
+              label="Page language"
               name="language"
               defaultValue={thread.language ?? 'en'}
               options={LOCALES.map((l) => ({ value: l, label: LOCALE_LABELS[l] }))}
-              hint="Public page, enrol form, embeds and participant emails."
+              hint="Buttons, system messages and emails — what the platform says around your content."
             />
           </div>
+
+          <TextField
+            label="Facilitation language"
+            name="facilitation_language"
+            defaultValue={thread.facilitation_language ?? ''}
+            placeholder="e.g. Greek — defaults to the page language"
+            hint="What the thread is run in — shown on the public page when it differs."
+          />
 
           <SelectField
               label="Team"

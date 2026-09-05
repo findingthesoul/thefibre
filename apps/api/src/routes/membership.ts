@@ -1233,10 +1233,10 @@ membershipRoutes.post('/public/join', async (c) => {
 async function ensureMemberFromSubscription(
   account: string,
   subscriptionId: string,
-): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string } | null> {
+): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string; locale: string | null } | null> {
   const { data: existing } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, tier_id, status')
+    .select('id, workspace_id, person_id, tier_id, status, locale')
     .eq('stripe_subscription_id', subscriptionId)
     .maybeSingle();
   if (existing) return existing;
@@ -1254,10 +1254,13 @@ async function ensureMemberFromSubscription(
   const renewsAt = periodEnd ? new Date(periodEnd * 1000).toISOString() : null;
   const customer = typeof sub.customer === 'string' ? sub.customer : sub.customer?.id ?? null;
 
+  // The join page's language rides the subscription metadata (like country).
+  const metaLocale = isLocale(meta.locale) ? meta.locale : null;
+
   // Rejoin reuses the (workspace, person) row — history survives the lapse.
   const { data: prior } = await adminClient
     .from('membership_member')
-    .select('id, status')
+    .select('id, status, locale')
     .eq('workspace_id', meta.workspace_id)
     .eq('person_id', meta.person_id)
     .maybeSingle();
@@ -1274,6 +1277,8 @@ async function ensureMemberFromSubscription(
         stripe_subscription_id: subscriptionId,
         stripe_customer_id: customer,
         ...(meta.country ? { country: meta.country } : {}),
+        // Backfill-on-touch only — an existing locale is never overwritten.
+        ...(metaLocale && prior.locale == null ? { locale: metaLocale } : {}),
         updated_at: new Date().toISOString(),
       })
       .eq('id', prior.id);
@@ -1285,7 +1290,7 @@ async function ensureMemberFromSubscription(
       rejoining ? 'Rejoined' : 'Joined',
     );
     await reconcileMemberAccess(prior.id);
-    return { id: prior.id, workspace_id: meta.workspace_id, person_id: meta.person_id, tier_id: meta.tier_id, status: 'active' };
+    return { id: prior.id, workspace_id: meta.workspace_id, person_id: meta.person_id, tier_id: meta.tier_id, status: 'active', locale: prior.locale ?? metaLocale };
   }
 
   const { data: created, error } = await adminClient
@@ -1299,15 +1304,16 @@ async function ensureMemberFromSubscription(
       stripe_subscription_id: subscriptionId,
       stripe_customer_id: customer,
       ...(meta.country ? { country: meta.country } : {}),
+      ...(metaLocale ? { locale: metaLocale } : {}),
     })
-    .select('id, workspace_id, person_id, tier_id, status')
+    .select('id, workspace_id, person_id, tier_id, status, locale')
     .single();
   if (error) {
     // 23505 = a concurrent webhook created it — read it back.
     if (error.code === '23505') {
       const { data: raced } = await adminClient
         .from('membership_member')
-        .select('id, workspace_id, person_id, tier_id, status')
+        .select('id, workspace_id, person_id, tier_id, status, locale')
         .eq('workspace_id', meta.workspace_id)
         .eq('person_id', meta.person_id)
         .maybeSingle();
@@ -1338,6 +1344,7 @@ async function ensureMemberFromSubscription(
         communityName: ws?.name ?? 'the community',
         tierName: tier?.name ?? 'membership',
         renewsAt,
+        locale: await memberEmailLocale(meta.workspace_id, created.locale),
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
       });
       await sendEmail({
@@ -1373,7 +1380,7 @@ function invoiceSubscriptionId(invoice: Stripe.Invoice): string | null {
 async function memberForInvoice(
   account: string,
   invoice: Stripe.Invoice,
-): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string } | null> {
+): Promise<{ id: string; workspace_id: string; person_id: string; tier_id: string; status: string; locale: string | null } | null> {
   const subId = invoiceSubscriptionId(invoice);
   if (subId) {
     const member = await ensureMemberFromSubscription(account, subId);
@@ -1383,7 +1390,7 @@ async function memberForInvoice(
   if (!customerId) return null;
   const { data } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, tier_id, status')
+    .select('id, workspace_id, person_id, tier_id, status, locale')
     .eq('stripe_customer_id', customerId)
     .maybeSingle();
   return data;
@@ -1555,6 +1562,7 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
       name: person.first_name ?? 'there',
       communityName: ws?.name ?? 'the community',
       tierName: tier?.name ?? 'membership',
+      locale: await memberEmailLocale(member.workspace_id, member.locale),
       brand: { logoUrl: brand.logoUrl, name: brand.fromName },
     });
     await sendEmail({
@@ -1572,7 +1580,7 @@ async function membershipInvoiceFailed(account: string, invoice: Stripe.Invoice)
 async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscription): Promise<void> {
   const { data: member } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, status')
+    .select('id, workspace_id, person_id, status, locale')
     .eq('stripe_subscription_id', sub.id)
     .maybeSingle();
   if (!member || member.status === 'lapsed' || member.status === 'cancelled') return;
@@ -1595,6 +1603,7 @@ async function membershipSubscriptionDeleted(account: string, sub: Stripe.Subscr
         name: person.first_name ?? 'there',
         communityName: ws?.name ?? 'the community',
         joinUrl: ws?.slug ? `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}` : null,
+        locale: await memberEmailLocale(member.workspace_id, member.locale),
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
       });
       await sendEmail({
@@ -1701,7 +1710,7 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
   const windowEnd = new Date(now + REMINDER_DAYS_BEFORE * 24 * 60 * 60 * 1000).toISOString();
   const { data: upcoming } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, tier_id, renews_at, stripe_subscription_id')
+    .select('id, workspace_id, person_id, tier_id, renews_at, stripe_subscription_id, locale')
     .eq('status', 'active')
     .not('renews_at', 'is', null)
     .gt('renews_at', new Date(now).toISOString())
@@ -1737,6 +1746,7 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
         renewsAt: m.renews_at as string,
         amountCents: tier?.price_cents_year ?? tier?.price_cents_month ?? null,
         currency: tier?.currency ?? 'EUR',
+        locale: await memberEmailLocale(m.workspace_id, m.locale as string | null),
         brand: { logoUrl: brand.logoUrl, name: brand.fromName },
       });
       await sendEmail({

@@ -1,8 +1,8 @@
 import { notFound } from 'next/navigation';
-import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
+import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
-import { t, isLocale, type Locale } from '@/lib/i18n';
+import { t, isLocale, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
 import { one } from '@/lib/thread-types';
 
@@ -34,6 +34,7 @@ type PublicThreadDetail = {
     intention: string | null;
     timezone: string;
     language: string;
+    facilitation_language?: string | null;
     cover_url: string | null;
     capacity: number | null;
     price_cents: number | null;
@@ -132,6 +133,12 @@ export default async function EmbedThreadPage({
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
   const enrolOnly = elements.size === 1 && elements.has('enrol');
+  // Informational meta line — only when the thread is run in something other
+  // than the page language itself (free text, organiser-entered).
+  const facilitationLanguage = thread.facilitation_language?.trim() || null;
+  const showFacilitatedIn =
+    !!facilitationLanguage &&
+    facilitationLanguage.toLowerCase() !== LOCALE_LABELS[lang].toLowerCase();
 
   return (
     <div className={enrolOnly ? 'max-w-md' : 'max-w-2xl'}>
@@ -155,7 +162,7 @@ export default async function EmbedThreadPage({
         <p className="te-intention mt-2 text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
       )}
 
-      {(spotsLeft != null || thread.certificate_enabled) && (
+      {(spotsLeft != null || thread.certificate_enabled || showFacilitatedIn) && (
         <div className="te-meta mt-3 flex flex-wrap items-center gap-4 text-xs text-ink-subtle">
           {spotsLeft != null && (
             <span className="inline-flex items-center gap-1.5">
@@ -167,6 +174,12 @@ export default async function EmbedThreadPage({
             <span className="inline-flex items-center gap-1.5">
               <Award size={13} strokeWidth={1.75} />
               {t(lang, 'certificate_on_completion')}
+            </span>
+          )}
+          {showFacilitatedIn && (
+            <span className="inline-flex items-center gap-1.5 text-ink-muted">
+              <Languages size={13} strokeWidth={1.75} />
+              {t(lang, 'facilitated_in', { language: facilitationLanguage! })}
             </span>
           )}
         </div>

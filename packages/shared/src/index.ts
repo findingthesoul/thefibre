@@ -59,6 +59,11 @@ export const ACTIVITY_TYPES = [
 ] as const;
 export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 
+// i18n mechanism (LOCALES, Locale, makeT, …) — also available as the
+// subpath export './i18n' for the Next apps; re-exported here so the API
+// can keep importing from the root.
+export * from './i18n.js';
+
 // Touching this file rebuilds all five Vercel apps (they all depend on
 // @thefibre/shared) — used 2026-09-04 to force staging env-var pickup.
 // rebuild marker 2 (meet env fix, 2026-09-04)

@@ -27,7 +27,11 @@ export default async function JoinPageSettings() {
             Workspace admins only.
           </p>
         ) : (
-          <JoinPageCard joinPage={settings?.join_page ?? {}} publicUrl={publicUrl} />
+          <JoinPageCard
+            joinPage={settings?.join_page ?? {}}
+            publicUrl={publicUrl}
+            initialLocale={settings?.locale ?? null}
+          />
         )}
       </div>
     </PageContainer>

@@ -9,6 +9,7 @@ import { COUNTRIES } from '@thefibre/shared/countries';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { publicFetch, PublicApiError, type PublicProduct, type PublicTier } from '@/lib/public-api';
 import { money } from '@/lib/money';
+import { t, type Locale } from '@/lib/i18n';
 import { Button } from '@/components/ui/button';
 
 // Pricing logic (§3.9): the catalog carries the workspace's price_logic;
@@ -45,12 +46,15 @@ export function TierGrid({
   products,
   initialTierId,
   priceLogic = null,
+  locale = 'en',
 }: {
   workspaceSlug: string;
   tiers: PublicTier[];
   products: PublicProduct[];
   initialTierId: string | null;
   priceLogic?: PriceLogic | null;
+  /** Resolved server-side by the page (Thread pattern) — never from cookies. */
+  locale?: Locale;
 }) {
   const [openTierId, setOpenTierId] = useState<string | null>(
     initialTierId && tiers.some((t) => t.id === initialTierId) ? initialTierId : null,
@@ -77,13 +81,13 @@ export function TierGrid({
       {hasCountryRules && (
         <div className="mt-8 mx-auto max-w-md text-center">
           <label className="block text-sm text-ink-subtle mb-1.5">
-            Where are you based? Prices adjust to your country.
+            {t(locale, 'country_question')}
           </label>
           <SearchSelect
             value={country}
             onChange={setCountry}
             options={COUNTRY_OPTIONS}
-            placeholder="Pick your country…"
+            placeholder={t(locale, 'country_placeholder')}
             className="w-full text-left"
           />
         </div>
@@ -102,6 +106,7 @@ export function TierGrid({
             onClose={() => setOpenTierId(null)}
             country={country}
             priceLogic={priceLogic}
+            locale={locale}
           />
         ))}
       </div>
@@ -118,6 +123,7 @@ function TierCard({
   onClose,
   country,
   priceLogic,
+  locale,
 }: {
   workspaceSlug: string;
   tier: PublicTier;
@@ -127,6 +133,7 @@ function TierCard({
   onClose: () => void;
   country: string;
   priceLogic: PriceLogic | null;
+  locale: Locale;
 }) {
   const currency = tier.currency ?? 'EUR';
   const hasYear = tier.price_cents_year != null && tier.price_cents_year > 0;
@@ -155,7 +162,7 @@ function TierCard({
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get('name') ?? '').trim();
     const email = String(fd.get('email') ?? '').trim();
-    if (!name || !email) return setError('Please fill in your name and email.');
+    if (!name || !email) return setError(t(locale, 'fill_name_email'));
 
     setState('submitting');
     try {
@@ -170,6 +177,7 @@ function TierCard({
             email,
             name,
             ...(country ? { country } : {}),
+            locale,
             request_id: requestId,
           }),
         },
@@ -184,15 +192,11 @@ function TierCard({
         return;
       }
       setState('idle');
-      setError('Something went wrong — please try again.');
+      setError(t(locale, 'something_wrong'));
     } catch (err) {
       setState('idle');
       const body = err instanceof PublicApiError ? (err.body as { error?: unknown }) : null;
-      setError(
-        typeof body?.error === 'string'
-          ? body.error
-          : 'Something went wrong — please try again.',
-      );
+      setError(typeof body?.error === 'string' ? body.error : t(locale, 'something_wrong'));
     }
   }
 
@@ -206,22 +210,22 @@ function TierCard({
             <span className="text-2xl font-semibold tabular-nums">
               {money(adjustedYear!, currency)}
             </span>
-            <span className="text-sm text-ink-subtle">/ year</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'per_year')}</span>
           </>
         ) : hasMonth ? (
           <>
             <span className="text-2xl font-semibold tabular-nums">
               {money(adjustedMonth!, currency)}
             </span>
-            <span className="text-sm text-ink-subtle">/ month</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'per_month')}</span>
           </>
         ) : (
-          <span className="text-sm text-ink-subtle">Price on request</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'price_on_request')}</span>
         )}
       </div>
       {hasYear && hasMonth && (
         <div className="mt-0.5 text-xs text-ink-muted">
-          or {money(adjustedMonth!, currency)} / month
+          {t(locale, 'or_month', { price: money(adjustedMonth!, currency) })}
         </div>
       )}
 
@@ -242,7 +246,9 @@ function TierCard({
 
       {includedProducts.length > 0 && (
         <div className="mt-4">
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">Includes</div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'includes')}
+          </div>
           <ul className="mt-1.5 space-y-1">
             {includedProducts.map((name) => (
               <li key={name} className="text-sm text-ink-subtle">
@@ -256,7 +262,7 @@ function TierCard({
       <div className="mt-auto pt-5">
         {state === 'already' ? (
           <p className="text-sm text-ink-subtle rounded-md border border-line bg-surface px-3 py-2.5">
-            You&apos;re already a member — check your email for sign-in.
+            {t(locale, 'already_member_note')}
           </p>
         ) : !open ? (
           <Button
@@ -265,7 +271,7 @@ function TierCard({
             onClick={onOpen}
             disabled={!hasYear && !hasMonth}
           >
-            Join
+            {t(locale, 'join')}
           </Button>
         ) : (
           <form onSubmit={onSubmit} className="space-y-2.5">
@@ -273,8 +279,8 @@ function TierCard({
               <div className="grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
                 {(
                   [
-                    ['year', `${money(adjustedYear!, currency)} / year`],
-                    ['month', `${money(adjustedMonth!, currency)} / month`],
+                    ['year', `${money(adjustedYear!, currency)} ${t(locale, 'per_year')}`],
+                    ['month', `${money(adjustedMonth!, currency)} ${t(locale, 'per_month')}`],
                   ] as const
                 ).map(([k, label]) => (
                   <button
@@ -294,7 +300,7 @@ function TierCard({
             )}
             <input
               name="name"
-              placeholder="Your name"
+              placeholder={t(locale, 'your_name')}
               autoComplete="name"
               required
               className={INPUT}
@@ -302,7 +308,7 @@ function TierCard({
             <input
               name="email"
               type="email"
-              placeholder="you@example.com"
+              placeholder={t(locale, 'email_placeholder')}
               autoComplete="email"
               required
               className={INPUT}
@@ -314,17 +320,17 @@ function TierCard({
               disabled={state === 'submitting' || state === 'redirecting'}
             >
               {state === 'redirecting'
-                ? 'Taking you to payment…'
+                ? t(locale, 'taking_to_payment')
                 : state === 'submitting'
-                  ? 'One moment…'
-                  : 'Continue to payment'}
+                  ? t(locale, 'one_moment')
+                  : t(locale, 'continue_to_payment')}
             </Button>
             <button
               type="button"
               onClick={onClose}
               className="w-full text-xs text-ink-muted hover:text-ink"
             >
-              Cancel
+              {t(locale, 'cancel')}
             </button>
           </form>
         )}

@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.41.0] — 2026-09-05 — i18n P1 + one shared embed integration (Thread 3.34.0 · Membership 0.8.0)
+
+### Added
+- **French is a platform language.** `@thefibre/shared` gained the `./i18n`
+  module — `LOCALES` (now en/nl/es/pt/de/**fr**), `Locale`, `LOCALE_LABELS`,
+  `INTL_LOCALES`, `makeT` — the ONE definition the typed catalogs consume
+  (i18n proposal D1–D5, decided 2026-09-05). Thread's catalog (74 keys) and
+  all thread email tables carry FR; machine-drafted lines are marked `// MT`
+  for native review.
+- **The language split** (D1 sharpened): `thread.language` is now explicitly
+  the PAGE language (buttons, system messages, emails — ours); the new
+  free-text `facilitation_language` says what the course is RUN in (the
+  organiser's, informational). Editor has both fields; public + embed thread
+  pages show a "Facilitated in …" chip when it differs.
+- **Membership speaks six languages on its money surfaces**: join page, tier
+  grid, joined page, tier/button embeds and the /my portal render through a
+  new typed catalog (43 keys ×6). Workspace default via Settings → Join
+  page → "Public page language" (`membership_settings.locale`); `?lang=` /
+  `data-lang` override; the joining member's active language is stamped on
+  `membership_member.locale` (via Stripe metadata — the row is
+  webhook-created) so scheduler emails know it forever.
+- **Membership lifecycle emails ×6** (welcome, renewal reminder, payment
+  failed, lapsed) — locale chain member → workspace default → en; dates and
+  amounts format per locale. **Certificate emails ×6** too (closes the
+  build-plan item), including locale-formatted dates on the certificate
+  snapshot itself.
+- **One embed integration for every app** (Sjoerd: "embeds should be
+  @thefibre/shared"). The loader mechanism moved to
+  `@thefibre/shared/embed-loader`; Thread's `/embed.js` is now served from
+  it (behavior-identical port of the static file, which is deleted), and
+  Membership gained its own `/embed.js` — integrators paste one script +
+  `<div data-membership-embed="tiers|button" data-workspace="…">` with
+  auto-sizing, `data-lang`, and `<style>`-inside-the-div custom CSS, exactly
+  like Thread. The iframe-side halves (height reporter, CSS receiver) are
+  shared components; both apps' copies are shims. Settings → Website embeds
+  in Membership now emits the script+div snippets.
+
+### Changed
+- Public thread payloads (incl. `/public/…` routes) additively carry
+  `facilitation_language`; membership public catalog carries `locale`;
+  membership settings GET/PUT and the /my portal payload carry `locale`.
+- Migration `20260905230000`: thread language CHECK widened for fr,
+  `thread_thread.facilitation_language`, `membership_settings.locale`,
+  `membership_member.locale` (applied to both DBs).
+
 ## [0.40.0] — 2026-09-05 — Membership 0.7.0: manual add is an invoiced intake
 
 ### Added

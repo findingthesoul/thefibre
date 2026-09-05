@@ -5,6 +5,7 @@
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { money } from '@/lib/money';
+import { DEFAULT_LOCALE, INTL_LOCALES, t, toLocale, type I18nKey, type Locale } from '@/lib/i18n';
 import { SignInButton } from '../sign-in-button';
 import { ManagePaymentButton } from './manage-payment-button';
 
@@ -40,19 +41,28 @@ const STATUS_STYLES: Record<string, string> = {
   cancelled: 'bg-surface-sunken text-ink-muted ring-line',
 };
 
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+const STATUS_KEYS: Record<string, I18nKey> = {
+  active: 'status_active',
+  grace: 'status_grace',
+  lapsed: 'status_lapsed',
+  cancelled: 'status_cancelled',
+};
+
+function fmtDate(iso: string, locale: Locale): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(new Date(iso));
 }
 
-function tierPrice(t: PortalMembership['tier']): string | null {
-  const currency = t.currency ?? 'EUR';
+function tierPrice(tier: PortalMembership['tier'], locale: Locale): string | null {
+  const currency = tier.currency ?? 'EUR';
   const parts: string[] = [];
-  if (t.price_cents_month != null) parts.push(`${money(t.price_cents_month, currency)} / month`);
-  if (t.price_cents_year != null) parts.push(`${money(t.price_cents_year, currency)} / year`);
+  if (tier.price_cents_month != null)
+    parts.push(`${money(tier.price_cents_month, currency)} ${t(locale, 'per_month')}`);
+  if (tier.price_cents_year != null)
+    parts.push(`${money(tier.price_cents_year, currency)} ${t(locale, 'per_year')}`);
   return parts.length ? parts.join(' · ') : null;
 }
 
@@ -64,9 +74,11 @@ export default async function MyPage() {
 
   if (!session) return <SignedOut />;
 
-  let data: { email: string; items: PortalMembership[] };
+  // `locale` is the member's resolved language (i18n P1) — optional until
+  // the API ships it; English until then.
+  let data: { email: string; locale?: string | null; items: PortalMembership[] };
   try {
-    data = await publicFetch<{ email: string; items: PortalMembership[] }>(
+    data = await publicFetch<{ email: string; locale?: string | null; items: PortalMembership[] }>(
       '/api/v1/membership/portal/me',
       { headers: { Authorization: `Bearer ${session.access_token}` } },
     );
@@ -90,20 +102,20 @@ export default async function MyPage() {
     }),
   );
 
+  const locale = toLocale(data?.locale ?? null);
+
   return (
     <Shell>
-      <h1 className="text-2xl font-medium tracking-tight">My memberships</h1>
+      <h1 className="text-2xl font-medium tracking-tight">{t(locale, 'my_memberships')}</h1>
       <p className="mt-1 text-sm text-ink-subtle">{data.email}</p>
 
       {data.items.length === 0 && (
-        <p className="mt-8 text-sm text-ink-subtle">
-          No memberships are linked to this email yet.
-        </p>
+        <p className="mt-8 text-sm text-ink-subtle">{t(locale, 'no_memberships')}</p>
       )}
 
       <ul className="mt-8 space-y-4">
         {data.items.map((m, i) => {
-          const price = tierPrice(m.tier);
+          const price = tierPrice(m.tier, locale);
           const rows = invoices[i] ?? [];
           return (
             <li
@@ -119,28 +131,32 @@ export default async function MyPage() {
                   </div>
                 </div>
                 <span
-                  className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
+                  className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                     STATUS_STYLES[m.status] ?? STATUS_STYLES.lapsed
                   }`}
                 >
-                  {m.status}
+                  {STATUS_KEYS[m.status] ? t(locale, STATUS_KEYS[m.status]) : m.status}
                 </span>
               </div>
 
               {m.renews_at && (
                 <div className="mt-2 text-xs text-ink-muted">
-                  Renews on {fmtDate(m.renews_at)}
+                  {t(locale, 'renews_on', { date: fmtDate(m.renews_at, locale) })}
                 </div>
               )}
 
               <div className="mt-4">
-                <ManagePaymentButton memberId={m.member_id} hasStripe={m.has_stripe} />
+                <ManagePaymentButton
+                  memberId={m.member_id}
+                  hasStripe={m.has_stripe}
+                  locale={locale}
+                />
               </div>
 
               {rows.length > 0 && (
                 <details className="mt-4 group">
                   <summary className="cursor-pointer text-xs text-ink-subtle hover:text-ink select-none">
-                    Invoices ({rows.length})
+                    {t(locale, 'invoices_count', { n: rows.length })}
                   </summary>
                   <ul className="mt-2 divide-y divide-line border border-line rounded-lg">
                     {rows.map((inv) => (
@@ -153,7 +169,7 @@ export default async function MyPage() {
                           {money(inv.amount_cents, inv.currency)}
                         </span>
                         <span className="text-xs text-ink-muted shrink-0 tabular-nums">
-                          {fmtDate(inv.created_at)}
+                          {fmtDate(inv.created_at, locale)}
                         </span>
                         {inv.stripe_invoice_url && (
                           <a
@@ -162,7 +178,7 @@ export default async function MyPage() {
                             rel="noreferrer"
                             className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 shrink-0"
                           >
-                            View
+                            {t(locale, 'view')}
                           </a>
                         )}
                       </li>
@@ -176,19 +192,21 @@ export default async function MyPage() {
       </ul>
 
       <footer className="mt-16 text-xs text-ink-muted">
-        Powered by <span className="font-medium">Membership</span> · The Fibre
+        {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre
       </footer>
     </Shell>
   );
 }
 
 function SignedOut() {
+  // No member payload yet, so no resolved language — default locale.
   return (
     <Shell>
-      <h1 className="text-2xl font-medium tracking-tight">My memberships</h1>
+      <h1 className="text-2xl font-medium tracking-tight">
+        {t(DEFAULT_LOCALE, 'my_memberships')}
+      </h1>
       <p className="mt-2 text-sm text-ink-subtle max-w-md leading-relaxed">
-        Sign in with the email your membership is registered under to see your
-        memberships, invoices and payment settings.
+        {t(DEFAULT_LOCALE, 'signed_out_note')}
       </p>
       <div className="mt-6">
         <SignInButton next="/my" />

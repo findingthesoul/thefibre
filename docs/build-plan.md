@@ -103,13 +103,19 @@ seeded into Pulse. What remains:
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
    a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
-6b. **Multilingual platform** — docs/i18n-proposal.md drafted 2026-09-05
-   (background agent): extend Thread's typed 5-locale catalog via a
-   @thefibre/shared ./i18n subpath; four-way locale source (content /
-   user pref / relationship-row stamp for scheduler emails / user
-   locale for auth emails). Decisions D1–D5 await Sjoerd; commit is P1
-   (Membership public + emails) + P2 (auth emails + user locale) only —
-   admin UIs stay demand-driven.
+6b. **Multilingual platform** — docs/i18n-proposal.md; D1–D5 decided
+   2026-09-05 (D4 overridden: FRENCH NOW). **P1 SHIPPED in v0.41.0**:
+   @thefibre/shared ./i18n (six locales incl. fr), Thread catalog+emails
+   ×6, thread.language split into page vs facilitation language,
+   Membership public surfaces + lifecycle emails ×6, certificate emails
+   ×6, membership_settings.locale + membership_member.locale. Same round:
+   ONE shared embed integration (@thefibre/shared/embed-loader — both
+   apps serve /embed.js from it; Membership embeds are now script+div).
+   **NEXT: P2** — auth-templates ×6 (8 templates), platform-templates ×6,
+   user_profile.locale + Settings field + fibre_locale in savePref's
+   allow-list (~1–2 sessions). Admin UIs (P3) stay demand-driven; API
+   errors (P4) never. MT burn-down: `grep -rn '// MT'` lists every
+   machine-drafted string awaiting native review (NL: Sjoerd).
 7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
    v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
    7th app, slug `membership` (display name may become **Hyve** — one
@@ -244,8 +250,9 @@ the live proof that path works. Item 1b carries what that needs from us._
    actual Stripe transfers of the workspace share are deferred.
 4. **Role-gating beyond Invoices** — enrolments/contacts visibility per the
    tiers (proposal §3.8, deliberately out of v1).
-5. **Certificate email i18n** (EN-only today) + `customer_tax_ids` so the
-   Stripe legal invoice carries the buyer's VAT number.
+5. ~~Certificate email i18n~~ **done in v0.41.0** (×6, thread's page
+   language). Still open here: `customer_tax_ids` so the Stripe legal
+   invoice carries the buyer's VAT number.
 6. **Uploads: per-app membership gate** — any workspace member can upload
    images today (MIME + 5MB limits exist since 0.13.108); the middleware
    never checks app_membership on /thread/uploads + /meet/uploads.

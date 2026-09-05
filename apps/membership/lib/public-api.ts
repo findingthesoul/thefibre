@@ -64,6 +64,8 @@ export type PublicCatalog = {
     default_pct: number;
   } | null;
   workspace: { slug: string; name: string };
+  /** Workspace default page language (i18n P1) — optional until the API ships it. */
+  locale?: string | null;
   tiers: PublicTier[];
   products: PublicProduct[];
   join_page: { headline?: string; intro?: string } & Record<string, unknown>;

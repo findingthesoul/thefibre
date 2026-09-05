@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
+import { isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
@@ -51,6 +52,7 @@ type MemberRow = {
   started_at: string;
   renews_at: string | null;
   stripe_customer_id: string | null;
+  locale: string | null;
   workspace: { name: string; slug: string } | { name: string; slug: string }[] | null;
   tier:
     | {
@@ -117,13 +119,27 @@ membershipPortalRoutes.get('/me', async (c) => {
   const { data: members } = await adminClient
     .from('membership_member')
     .select(
-      `id, workspace_id, person_id, status, started_at, renews_at, stripe_customer_id,
+      `id, workspace_id, person_id, status, started_at, renews_at, stripe_customer_id, locale,
        workspace:workspace_id (name, slug),
        tier:tier_id (name, price_cents_year, price_cents_month, currency)`,
     )
     .in('person_id', persons.map((p) => p.id))
     .is('deleted_at', null)
     .order('started_at', { ascending: false });
+
+  // Workspace default locales, for members without one of their own
+  // (member.locale ?? membership_settings.locale ?? 'en').
+  const workspaceIds = [...new Set(((members ?? []) as MemberRow[]).map((m) => m.workspace_id))];
+  const settingsLocale = new Map<string, string>();
+  if (workspaceIds.length) {
+    const { data: settings } = await adminClient
+      .from('membership_settings')
+      .select('workspace_id, locale')
+      .in('workspace_id', workspaceIds);
+    for (const s of settings ?? []) {
+      if (s.locale) settingsLocale.set(s.workspace_id as string, s.locale as string);
+    }
+  }
 
   const items = ((members ?? []) as MemberRow[]).map((m) => {
     const ws = one(m.workspace);
@@ -143,6 +159,9 @@ membershipPortalRoutes.get('/me', async (c) => {
       // Additive convenience for the UI: manual/comped members have no
       // Stripe subscription, so "Manage payment" would only ever 409.
       has_stripe: !!m.stripe_customer_id,
+      // The member's resolved language, so the portal chrome can follow it
+      // (additive, i18n P1).
+      locale: isLocale(m.locale) ? m.locale : toLocale(settingsLocale.get(m.workspace_id)),
     };
   });
 

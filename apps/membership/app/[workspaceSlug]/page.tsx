@@ -1,9 +1,13 @@
 import { notFound } from 'next/navigation';
 import { fetchCatalog, PublicApiError, type PublicCatalog } from '@/lib/public-api';
+import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
 import { TierGrid } from './tier-grid';
 
 // Public join page — no auth, no sidebar. Anyone with the link sees the
 // workspace's tiers and joins via Stripe Checkout.
+//
+// Language: ?lang= (validated) wins, else the workspace's own page language
+// from the catalog, else English.
 
 export default async function PublicJoinPage({
   params,
@@ -16,6 +20,7 @@ export default async function PublicJoinPage({
   const sp = await searchParams;
   const cancelled = sp.cancelled === '1';
   const initialTierId = typeof sp.tier === 'string' ? sp.tier : null;
+  const langParam = typeof sp.lang === 'string' ? sp.lang : null;
 
   let catalog: PublicCatalog;
   try {
@@ -25,11 +30,13 @@ export default async function PublicJoinPage({
     throw e;
   }
 
+  const locale: Locale = isLocale(langParam) ? langParam : toLocale(catalog?.locale ?? null);
+
   const { workspace, tiers, products, join_page: joinPage } = catalog;
   const headline =
     typeof joinPage.headline === 'string' && joinPage.headline.trim()
       ? joinPage.headline
-      : `Join ${workspace.name}`;
+      : t(locale, 'join_headline', { name: workspace.name });
   const intro = typeof joinPage.intro === 'string' && joinPage.intro.trim() ? joinPage.intro : null;
 
   return (
@@ -47,15 +54,12 @@ export default async function PublicJoinPage({
 
         {cancelled && (
           <div className="mx-auto mt-6 max-w-lg rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
-            Checkout was cancelled — nothing was charged. Pick a tier below whenever
-            you&apos;re ready.
+            {t(locale, 'checkout_cancelled')}
           </div>
         )}
 
         {tiers.length === 0 ? (
-          <p className="mt-12 text-center text-sm text-ink-subtle">
-            No membership tiers are available yet — check back soon.
-          </p>
+          <p className="mt-12 text-center text-sm text-ink-subtle">{t(locale, 'no_tiers')}</p>
         ) : (
           <TierGrid
             workspaceSlug={workspace.slug}
@@ -63,11 +67,12 @@ export default async function PublicJoinPage({
             products={products}
             initialTierId={initialTierId}
             priceLogic={catalog.price_logic ?? null}
+            locale={locale}
           />
         )}
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
-          Powered by <span className="font-medium">Membership</span> · The Fibre
+          {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre
         </footer>
       </main>
     </div>

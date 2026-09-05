@@ -1,11 +1,11 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { Clock, MapPin, Video, Users, Award } from 'lucide-react';
+import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { serverSupabase } from '@/lib/supabase/server';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from './enrol-form';
-import { t, type Locale } from '@/lib/i18n';
+import { t, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { one } from '@/lib/thread-types';
 
 type AgendaItem = {
@@ -29,6 +29,7 @@ type PublicThreadDetail = {
     intention: string | null;
     timezone: string;
     language: Locale;
+    facilitation_language?: string | null;
     cover_url: string | null;
     capacity: number | null;
     price_cents: number | null;
@@ -127,6 +128,12 @@ export default async function PublicThreadPage({
   const dates = fmtDates(program?.starts_on ?? null, program?.ends_on ?? null);
   const spotsLeft =
     thread.capacity != null ? Math.max(0, thread.capacity - thread.enrolled_count) : null;
+  // Informational meta line — only when the thread is run in something other
+  // than the page language itself (free text, organiser-entered).
+  const facilitationLanguage = thread.facilitation_language?.trim() || null;
+  const showFacilitatedIn =
+    !!facilitationLanguage &&
+    facilitationLanguage.toLowerCase() !== LOCALE_LABELS[lang].toLowerCase();
 
   return (
     <div className="min-h-screen bg-surface-sunken">
@@ -175,6 +182,12 @@ export default async function PublicThreadPage({
                 <span className="inline-flex items-center gap-1.5">
                   <Award size={14} strokeWidth={1.75} />
                   {t(lang, 'certificate_on_completion')}
+                </span>
+              )}
+              {showFacilitatedIn && (
+                <span className="inline-flex items-center gap-1.5 text-ink-muted">
+                  <Languages size={14} strokeWidth={1.75} />
+                  {t(lang, 'facilitated_in', { language: facilitationLanguage! })}
                 </span>
               )}
             </div>

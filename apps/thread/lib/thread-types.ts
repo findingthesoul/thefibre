@@ -2,6 +2,8 @@
 // PostgREST returns FK joins as object-or-array depending on the relation;
 // normalize with one() before use.
 
+import type { Locale } from '@/lib/i18n';
+
 export type ProgramCore = {
   id: string;
   title: string;
@@ -37,7 +39,9 @@ export type ThreadRow = {
   price_currency: string | null;
   payment_destination: 'workspace' | 'personal' | null;
   payment_methods: ('stripe' | 'invoice')[] | null;
-  language: 'en' | 'nl' | 'es' | 'pt' | 'de';
+  language: Locale;
+  /** Free text — the language the thread is RUN in (informational; null = same as `language`). */
+  facilitation_language: string | null;
   public_interaction: 'page' | 'popup';
   share_participants_public: boolean | null;
   share_participants_participants: boolean | null;

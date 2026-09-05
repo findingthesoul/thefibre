@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.39.1",
+  "version": "0.41.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -77,6 +77,18 @@
     "./countries": {
       "types": "./dist/countries.d.ts",
       "default": "./dist/countries.js"
+    },
+    "./i18n": {
+      "types": "./dist/i18n.d.ts",
+      "default": "./dist/i18n.js"
+    },
+    "./embed-loader": {
+      "types": "./dist/embed-loader.d.ts",
+      "default": "./dist/embed-loader.js"
+    },
+    "./ui/embed-frame": {
+      "types": "./dist/ui/embed-frame.d.ts",
+      "default": "./dist/ui/embed-frame.js"
     }
   },
   "files": [

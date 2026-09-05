@@ -35,11 +35,13 @@ async function putSettings(patch: Record<string, unknown>): Promise<ActionResult
 }
 
 // join_page is stored whole — the caller merges into the fetched object so
-// keys this card doesn't know about survive the save.
+// keys this card doesn't know about survive the save. `locale` is its own
+// settings column (the public page language), saved in the same PUT.
 export async function saveJoinPage(
   joinPage: Record<string, unknown>,
+  locale?: string,
 ): Promise<ActionResult> {
-  return putSettings({ join_page: joinPage });
+  return putSettings({ join_page: joinPage, ...(locale ? { locale } : {}) });
 }
 
 export async function saveCircle(input: {

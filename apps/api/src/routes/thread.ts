@@ -26,7 +26,8 @@ import {
   enrolmentPending,
   engagementMessage,
 } from '../lib/email/thread-templates.js';
-import { appUrl } from '@thefibre/shared';
+import { appUrl, LOCALES, INTL_LOCALES, toLocale } from '@thefibre/shared';
+import { certT } from '../lib/email/certificate-i18n.js';
 
 function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
@@ -339,7 +340,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, payment_methods, language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
   created_at, updated_at,
@@ -507,7 +508,12 @@ const ThreadUpdate = z.object({
   price_cents: z.number().int().min(0).nullable().optional(),
   price_currency: z.string().length(3).nullable().optional(),
   payment_destination: z.enum(['workspace', 'personal']).nullable().optional(),
-  language: z.enum(['en', 'nl', 'es', 'pt', 'de']).optional(),
+  // Page/system language — the platform's chrome + emails (i18n P1 split:
+  // this is OUR language; what the course is RUN in is facilitation_language).
+  language: z.enum(LOCALES).optional(),
+  // Facilitation language — informational, the organiser's. Free text on
+  // purpose (a thread can be facilitated in Greek); null = same as `language`.
+  facilitation_language: z.string().max(100).nullable().optional(),
   public_interaction: z.enum(['page', 'popup']).optional(),
   public_agenda: z.boolean().optional(),
   // The organiser's own words inside the platform's enrolment emails. Null
@@ -745,6 +751,7 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       intention: src.intention,
       timezone: src.timezone,
       language: src.language,
+      facilitation_language: src.facilitation_language,
       cover_url: src.cover_url,
       is_public_listed: false,
       requires_approval: src.requires_approval,
@@ -1627,6 +1634,7 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
     intention: thread.intention,
     timezone: thread.timezone,
     language: thread.language,
+    facilitation_language: thread.facilitation_language,
     cover_url: thread.cover_url,
     requires_approval: thread.requires_approval,
     public_interaction: thread.public_interaction,
@@ -1932,11 +1940,15 @@ async function issueCertificate(
     [person.first_name, person.last_name].filter(Boolean).join(' ') || person.email || '';
   const number = await generateCertNumber();
 
+  // Dates on the certificate (and in its email) speak the thread's language.
+  const certLocale = toLocale((thread as { language?: string }).language);
   const fmt = (d: string | null) =>
     d
-      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-          new Date(d),
-        )
+      ? new Intl.DateTimeFormat(INTL_LOCALES[certLocale], {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        }).format(new Date(d))
       : '';
 
   // The full snapshot: template doc + resolved token values. The public page
@@ -1980,10 +1992,13 @@ async function issueCertificate(
   if (person.email) {
     try {
       const certUrl = `${threadAppUrl()}/certificate/${number}`;
+      const title = prog?.title ?? thread.slug;
+      const firstName = recipientName.split(/\s+/)[0] ?? recipientName;
       const msg = engagementMessage({
-        title: `Your certificate — ${prog?.title ?? thread.slug}`,
-        bodyText: `Congratulations, ${recipientName.split(/\s+/)[0]}!\n\nYour certificate for ${prog?.title ?? thread.slug} is ready:\n${certUrl}\n\nCertificate number: ${number}`,
-        threadTitle: prog?.title ?? thread.slug,
+        title: certT(certLocale, 'cert_subject', { title }),
+        bodyText: `${certT(certLocale, 'cert_congrats', { name: firstName })}\n\n${certT(certLocale, 'cert_ready', { title })}\n${certUrl}\n\n${certT(certLocale, 'cert_number_line', { number })}`,
+        threadTitle: title,
+        locale: certLocale,
       });
       await sendEmail({ to: person.email, ...msg });
     } catch (e) {
@@ -2043,9 +2058,10 @@ async function reissueCertificate(threadEnrolmentId: string): Promise<IssueResul
 
   const fmt = (d: string | null) =>
     d
-      ? new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'long', year: 'numeric' }).format(
-          new Date(d),
-        )
+      ? new Intl.DateTimeFormat(
+          INTL_LOCALES[toLocale((thread as { language?: string }).language)],
+          { day: 'numeric', month: 'long', year: 'numeric' },
+        ).format(new Date(d))
       : '';
 
   const snapshot = {
@@ -2624,7 +2640,7 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
     .select(
       `id,
        person:person_id (first_name, email),
-       thread:thread_id (slug, program:program_id (title)),
+       thread:thread_id (slug, language, program:program_id (title)),
        certificate:thread_certificate (certificate_number)`,
     )
     .eq('id', c.req.param('id'))
@@ -2640,18 +2656,19 @@ threadRoutes.post('/enrolments/:id/send-certificate', async (c) => {
 
   const certUrl = `${threadAppUrl()}/certificate/${encodeURIComponent(cert.certificate_number)}`;
   const title = program?.title ?? 'your thread';
+  const loc = toLocale((thread as { language?: string } | null)?.language);
   try {
     await sendEmail({
       to: person.email,
-      subject: `Your certificate — ${title}`,
+      subject: certT(loc, 'cert_subject', { title }),
       html: shell(
-        'Your certificate',
-        `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Hi ${escapeHtml(person.first_name ?? '')},</p>
-         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">Congratulations — your certificate for <strong>${escapeHtml(title)}</strong> is ready.</p>
-         <p style="margin:24px 0;"><a href="${certUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View your certificate</a></p>
-         <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">Certificate ${escapeHtml(cert.certificate_number)} — this page verifies it, prints it, and adds it to your LinkedIn profile.</p>`,
+        certT(loc, 'cert_subject', { title }),
+        `<p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${escapeHtml(certT(loc, 'cert_hi', { name: person.first_name ?? '' }))}</p>
+         <p style="font-size:15px;line-height:1.6;margin:0 0 16px;">${certT(loc, 'cert_ready_sentence', { title: `<strong>${escapeHtml(title)}</strong>` })}</p>
+         <p style="margin:24px 0;"><a href="${certUrl}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">${escapeHtml(certT(loc, 'cert_view'))}</a></p>
+         <p style="font-size:13px;color:#6b7280;line-height:1.6;margin:0;">${escapeHtml(certT(loc, 'cert_footer', { number: cert.certificate_number }))}</p>`,
       ),
-      text: `Congratulations — your certificate for ${title} is ready: ${certUrl}`,
+      text: `${certT(loc, 'cert_ready_sentence', { title })} ${certUrl}`,
     });
   } catch (e) {
     console.error('[thread/certificates] send email failed', e);
@@ -4321,7 +4338,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   let tq = adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, timezone, language, cover_url, capacity, requires_approval,
+      `id, slug, intention, timezone, language, facilitation_language, cover_url, capacity, requires_approval,
        workspace_id, team_id, payment_destination,
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public, public_agenda,
@@ -4498,6 +4515,9 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       intention: thread.intention,
       timezone: thread.timezone,
       language: thread.language ?? 'en',
+      // Additive (rule 8): the language the thread is RUN in — informational,
+      // the organiser's; null = same as `language` (the page/chrome language).
+      facilitation_language: thread.facilitation_language ?? null,
       cover_url: thread.cover_url,
       capacity: thread.capacity,
       // Honest before enrolling: a place here is requested, not taken.
