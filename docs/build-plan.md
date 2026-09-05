@@ -113,11 +113,16 @@ seeded into Pulse. What remains:
    ×6, membership_settings.locale + membership_member.locale. Same round:
    ONE shared embed integration (@thefibre/shared/embed-loader — both
    apps serve /embed.js from it; Membership embeds are now script+div).
-   **NEXT: P2** — auth-templates ×6 (8 templates), platform-templates ×6,
-   user_profile.locale + Settings field + fibre_locale in savePref's
-   allow-list (~1–2 sessions). Admin UIs (P3) stay demand-driven; API
-   errors (P4) never. MT burn-down: `grep -rn '// MT'` lists every
-   machine-drafted string awaiting native review (NL: Sjoerd).
+   **P2 SHIPPED same day** (split across the two parallel sessions):
+   v0.43.0 — identity_profile.locale (NOT user_profile: that's a dead
+   read-only fallback since the profile SPoT moved) + Settings → Profile
+   language picker + thefibre.locale cookie in savePref + platform
+   emails ×6 (platform-i18n.ts, exports platformEmailLocale — THE
+   resolver for platform-side emails); v0.44.0/0.44.1 — all 8
+   auth-templates ×6, auth hook resolves via platformEmailLocale.
+   Remaining: admin UIs (P3) stay demand-driven; API errors (P4) never.
+   MT burn-down: `grep -rn '// MT'` lists every machine-drafted string
+   awaiting native review (NL: Sjoerd).
 7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
    v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
    7th app, slug `membership` (display name may become **Hyve** — one
