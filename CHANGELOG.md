@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.3] — 2026-09-05 — the sidebar gets its height back
+
+### Fixed
+- **Desktop sidebars collapsed to a sliver in all six apps** (Sjoerd,
+  live: "scroll shows the buttons are there"): v0.45.0's responsive
+  wrapper around the sidebar broke its height chain — the shell's aside
+  positions absolutely against a parent whose height fell to zero, so
+  the nav squeezed into an invisible scroll strip. The shell root now
+  carries `h-full`.
+
 ## [0.45.2] — 2026-09-05 — interval row wraps in sheet form
 
 ### Fixed

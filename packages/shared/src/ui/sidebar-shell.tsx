@@ -63,10 +63,15 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
     const renderedW = showPanel ? PANEL_W : RAIL_W;
 
     return (
+      // h-full is load-bearing: the aside positions absolutely against this
+      // div, and since v0.45.0 the layouts wrap it in a plain `hidden
+      // md:block` div — without an explicit height the chain collapses to 0
+      // and the nav squeezes into an invisible scroll strip (Sjoerd, live,
+      // 2026-09-05).
       <div
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
-        className={`${reservedW} shrink-0 relative`}
+        className={`${reservedW} h-full shrink-0 relative`}
       >
         <aside
           className={`absolute inset-y-0 left-0 ${renderedW} bg-surface-sunken border-r border-line flex flex-col transition-[width] duration-150 ease-out z-30 ${
