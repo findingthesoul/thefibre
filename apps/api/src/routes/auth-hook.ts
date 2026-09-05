@@ -19,6 +19,7 @@ import { createHmac, timingSafeEqual } from 'node:crypto';
 import { z } from 'zod';
 import { sendEmail } from '../lib/email/client.js';
 import { renderAuthEmail } from '../lib/email/auth-templates.js';
+import { adminClient } from '../db.js';
 
 export const authHookRoutes = new Hono();
 
@@ -146,12 +147,31 @@ authHookRoutes.post('/email', async (c) => {
     confirmationUrl = email_data.redirect_to;
   }
 
-  const rendered = renderAuthEmail(action, {
-    email: user.email,
-    token: email_data.token ?? null,
-    confirmationUrl,
-    validityMinutes: 30,
-  });
+  // The recipient's language (i18n P2): identity_profile.locale where they
+  // have one, English otherwise. The profile SPoT is keyed by email — the
+  // same key Supabase gives us — and a non-fatal miss just means English.
+  let locale: string | null = null;
+  try {
+    const { data: identity } = await adminClient
+      .from('identity_profile')
+      .select('locale')
+      .eq('email', user.email)
+      .maybeSingle();
+    locale = identity?.locale ?? null;
+  } catch {
+    /* locale is a nicety — never block an OTP on it */
+  }
+
+  const rendered = renderAuthEmail(
+    action,
+    {
+      email: user.email,
+      token: email_data.token ?? null,
+      confirmationUrl,
+      validityMinutes: 30,
+    },
+    locale,
+  );
 
   try {
     await sendEmail({

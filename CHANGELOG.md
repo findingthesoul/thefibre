@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.44.0] — 2026-09-05 — auth emails speak six languages (i18n P2 complete)
+
+### Added
+- **All 8 auth emails ×6** (sign-in code, signup confirm, invite, password
+  reset, both email-change confirms, reauthentication) — the last open P2
+  surface. OTP codes are seen by every non-Google invitee, so this is
+  effectively public. Locale: `identity_profile.locale` where the recipient
+  has one (resolved in the auth hook by email, non-fatal on miss), English
+  otherwise. Copy tables are `Record<Locale, …>` — a missing locale fails
+  typecheck; non-EN lines carry `// MT` for native review. With v0.43.0's
+  platform emails + Settings language picker, **i18n P2 is complete**.
+
+### Fixed
+- `apps/web/lib/version.ts` was committed EMPTY in v0.43.1 (a write race
+  between two parallel sessions sharing the working tree) while the layout
+  still imports `VERSION` from it — the web app could not build from main.
+  Restored.
+
 ## [0.43.2] — 2026-09-05 — rejoining members get their access back
 
 ### Fixed
