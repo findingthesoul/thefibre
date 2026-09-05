@@ -270,9 +270,20 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
         console.error('[membership] access journal insert failed', error);
       }
     }
+    const grantIds = (grants ?? []).map((g) => g.id);
+    // REJOIN re-arm (gap found 2026-09-05): a lapse leaves the rows revoked,
+    // and the inserts above no-op on the unique key — so a rejoining member's
+    // entitled grants must flip back to pending or they never re-sync.
+    if (grantIds.length) {
+      await adminClient
+        .from('membership_member_access')
+        .update({ status: 'pending', last_error: null, updated_at: new Date().toISOString() })
+        .eq('member_id', member.id)
+        .in('access_grant_id', grantIds)
+        .in('status', ['revoke_pending', 'revoked']);
+    }
     // A tier change leaves stale granted rows for OTHER tiers' grants —
     // flag them for revocation.
-    const grantIds = (grants ?? []).map((g) => g.id);
     const { data: stale } = await adminClient
       .from('membership_member_access')
       .select('id, access_grant_id, status')

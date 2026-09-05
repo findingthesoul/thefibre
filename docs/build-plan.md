@@ -77,11 +77,6 @@ seeded into Pulse. What remains:
    extract the billing-choice block (Invoice/Comped radio + sub-options)
    into @thefibre/shared/ui now that Membership and Thread both carry a
    copy (the components-first second-use rule).
-3a2. **Rejoin grant gap (found in the v0.43.0 à-la-carte lane)**: a
-   member who lapses (tier grants revoked) and later rejoins never gets
-   tier grants re-armed — reconcileMemberAccess's insert conflicts with
-   the old `revoked` journal rows and leaves them revoked. Fixed for
-   BOUGHT-product grants only; apply the same re-arm to tier grants.
 3a3. **SearchSelect enhancements (sweep 2026-09-05)**: async
    loadOptions (converges flow AddContactDialog + web person-combobox),
    label/hint prop, drop-up collision handling. Remaining bespoke

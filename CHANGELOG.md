@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.43.2] — 2026-09-05 — rejoining members get their access back
+
+### Fixed
+- **Rejoin grant gap**: a member who lapsed (grants revoked) and later
+  rejoined never re-synced — reconcileMemberAccess's inserts no-op on
+  the unique key and the revoked rows stayed revoked. Entitled grants
+  now re-arm to pending on an active/grace reconcile, mirroring the
+  bought-product re-arm path.
+
 ## [0.43.1] — 2026-09-05 — the shell is one component
 
 ### Changed
