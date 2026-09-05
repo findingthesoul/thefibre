@@ -10,6 +10,7 @@ import { ENTITY } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
+import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -25,7 +26,7 @@ import { platformFeeCents } from '../lib/fees.js';
 export const purchasesRoutes = new Hono();
 
 const PURCHASE_SELECT =
-  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, billing, paid_at, refunded_at, created_at';
+  'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, stripe_session_id, billing, paid_at, refunded_at, created_at';
 
 async function workspaceRole(userId: string, workspaceId: string): Promise<string> {
   const { data } = await adminClient
@@ -288,6 +289,7 @@ export async function sendReceipt(
   purchase: Record<string, unknown>,
   sellerOverride?: SellerDetails,
   toOverride?: string,
+  extraButtonHtml?: string,
 ): Promise<{ ok: true } | { error: string; code: number }> {
   const p = purchase as unknown as {
     payer_name: string;
@@ -300,9 +302,10 @@ export async function sendReceipt(
   const recipient = toOverride ?? p.payer_email;
   if (!recipient) return { error: 'no payer email on file', code: 409 };
   const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
-  const button = p.stripe_invoice_url
-    ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
-    : '';
+  const button =
+    (p.stripe_invoice_url
+      ? `<p style="margin:24px 0 0;"><a href="${p.stripe_invoice_url}" style="display:inline-block;background:#171717;color:#ffffff;font-size:14px;padding:10px 20px;border-radius:8px;text-decoration:none;">View invoice (PDF)</a></p>`
+      : '') + (extraButtonHtml ?? '');
   try {
     await sendEmail({
       to: recipient,
@@ -473,10 +476,42 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   if (p.method !== 'invoice' || p.status !== 'pending') {
     return c.json({ error: 'payment links apply to pending invoice-method purchases' }, 409);
   }
-  if (r.appSlug !== 'the-thread') {
-    return c.json({ error: 'payment links are available for Thread purchases only (for now)' }, 409);
-  }
   if (!p.payer_email) return c.json({ error: 'no payer email on file' }, 409);
+
+  // Membership invoices get their link from the shared helper (it expires
+  // the previous session and stores the new one on the purchase row); the
+  // webhook and mark-paid both converge on the same purchase.
+  if (r.appSlug === 'membership') {
+    const url = await createMembershipPaymentLink({
+      purchaseId: p.id,
+      workspaceId: ctx.workspaceId,
+      amountCents: p.amount_cents,
+      currency: p.currency,
+      itemLabel: p.item_label,
+      payerEmail: p.payer_email,
+    });
+    if (!url) return c.json({ error: 'payments are not connected for this workspace' }, 409);
+    const seller = await sellerDetailsFor(
+      ctx.workspaceId,
+      (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
+    );
+    try {
+      await sendEmail({
+        to: p.payer_email,
+        subject: `Payment link — ${p.item_label}`,
+        html: receiptHtml(p, payButtonHtml(url), seller),
+        text: `Pay online for ${p.item_label}: ${url}`,
+      });
+    } catch (e) {
+      console.error('[purchases] membership payment link email failed', e);
+      return c.json({ error: 'sending failed — try again' }, 500);
+    }
+    return c.json({ ok: true });
+  }
+
+  if (r.appSlug !== 'the-thread') {
+    return c.json({ error: 'payment links are available for Thread and Membership purchases only (for now)' }, 409);
+  }
   const stripe = stripeOrNull();
   if (!stripe) return c.json({ error: 'payments not configured' }, 503);
 
@@ -635,6 +670,19 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
     await finalizePaidEnrolment(p.item_ref);
   } else if (r.appSlug === 'fibre-meet') {
     await adminClient.from('meet_booking').update({ payment_status: 'paid' }).eq('id', p.item_ref);
+  } else if (r.appSlug === 'membership') {
+    // Same double-pay guard: a live payment-link session would stay payable
+    // after the manual mark — expire it (session lives on the purchase row).
+    const sess = (r.purchase as { stripe_session_id?: string | null }).stripe_session_id;
+    const account = (r.purchase as { stripe_account_id?: string | null }).stripe_account_id;
+    const stripe = stripeOrNull();
+    if (sess && account && stripe) {
+      try {
+        await stripe.checkout.sessions.expire(sess, undefined, { stripeAccount: account });
+      } catch {
+        /* already expired or completed */
+      }
+    }
   }
   await adminClient
     .from('purchase')

@@ -6,6 +6,7 @@ import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { sendReceipt } from './purchases.js';
+import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
 import { sendEmail } from '../lib/email/client.js';
 import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
@@ -568,6 +569,9 @@ membershipRoutes.post('/members', async (c) => {
         workspaceId: ctx.workspaceId,
         itemRef,
         personId: data.person_id,
+        // The adding admin is the seller contact — without it the invoice is
+        // invisible on their "Me" scope ("my invoice list is also empty").
+        organiserUserId: ctx.userId || null,
         payerName:
           pb?.legal_name ?? [person.first_name, person.last_name].filter(Boolean).join(' '),
         payerEmail: person.email,
@@ -587,14 +591,29 @@ membershipRoutes.post('/members', async (c) => {
       const { data: saved } = await adminClient
         .from('purchase')
         .select(
-          'payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+          'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
         )
         .eq('item_ref', itemRef)
         .maybeSingle();
       if (saved) {
-        void sendReceipt(ctx.workspaceId, saved as Record<string, unknown>).catch((e) =>
-          console.error('[membership] manual invoice email failed', e),
-        );
+        // Pay button straight in the invoice email ("no payment link though") —
+        // when the workspace has no connected Stripe account the invoice still
+        // goes out, bank-transfer style.
+        const payUrl = await createMembershipPaymentLink({
+          purchaseId: saved.id,
+          workspaceId: ctx.workspaceId,
+          amountCents: amount,
+          currency: tier?.currency ?? 'EUR',
+          itemLabel: saved.item_label,
+          payerEmail: person.email,
+        });
+        void sendReceipt(
+          ctx.workspaceId,
+          saved as Record<string, unknown>,
+          undefined,
+          undefined,
+          payUrl ? payButtonHtml(payUrl) : undefined,
+        ).catch((e) => console.error('[membership] manual invoice email failed', e));
       }
     }
   }
@@ -1651,6 +1670,27 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
+        // One-off payment links for manual-add invoices: the metadata carries
+        // the purchase id; mark it paid and mail the receipt. Idempotent —
+        // the status guard makes a retry a no-op.
+        if (session.mode === 'payment' && session.metadata?.membership_purchase_id) {
+          const purchaseId = session.metadata.membership_purchase_id;
+          const { data: paidRow } = await adminClient
+            .from('purchase')
+            .update({ status: 'paid', paid_at: new Date().toISOString() })
+            .eq('id', purchaseId)
+            .eq('status', 'pending')
+            .select(
+              'workspace_id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+            )
+            .maybeSingle();
+          if (paidRow) {
+            void sendReceipt(paidRow.workspace_id, paidRow as Record<string, unknown>).catch((e) =>
+              console.error('[membership/webhook] paid receipt failed', e),
+            );
+          }
+          break;
+        }
         if (session.mode !== 'subscription') break;
         // Only sessions the join flow created (Thread's checkouts share
         // these accounts — metadata is the discriminator).

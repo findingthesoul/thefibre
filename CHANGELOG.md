@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.42.0] — 2026-09-05 — the invoice email pays online
+
+### Added
+- **Pay button in the manual-add invoice email** (Sjoerd: "No payment
+  link though… in the email"): adding a member with Invoice billing now
+  creates a Stripe Checkout session on the workspace's connected account
+  (plan-aware fee) and the invoice email carries Pay online next to the
+  bank-transfer default. No connected account → the invoice still goes
+  out, without the button.
+- **Send payment link works for Membership invoices** (was Thread-only);
+  the membership Connect webhook completes payment-mode sessions (marks
+  the ledger row paid + mails the receipt), and Mark paid expires any
+  live session — the Thread double-pay guard, same rule.
+- `purchase.stripe_session_id` column (both DBs migrated) — one-off
+  payment-link sessions live on the ledger row itself.
+
+### Fixed
+- **Manual-add invoices were invisible on the admin's Me scope** ("my
+  invoice list is also empty"): the adding admin is now stamped as
+  organiser on the purchase row; the Workspace scope always had it.
+
 ## [0.41.0] — 2026-09-05 — i18n P1 + one shared embed integration (Thread 3.34.0 · Membership 0.8.0)
 
 ### Added
