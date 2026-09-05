@@ -73,10 +73,6 @@ seeded into Pulse. What remains:
    self-serve signup flip when the trial ends. Now under the naming brief
    (docs/naming-brief.md): Thread-first — NO per-app product pages (Meet /
    Sales / Flow are functions in Thread's service, never sibling products).
-3a. **Invoiced manual add — Thread port SHIPPED v0.43.0.** Remaining:
-   extract the billing-choice block (Invoice/Comped radio + sub-options)
-   into @thefibre/shared/ui now that Membership and Thread both carry a
-   copy (the components-first second-use rule).
 3a3. **SearchSelect enhancements (sweep 2026-09-05)**: async
    loadOptions (converges flow AddContactDialog + web person-combobox),
    label/hint prop, drop-up collision handling. Remaining bespoke

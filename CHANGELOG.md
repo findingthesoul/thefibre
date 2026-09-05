@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.1] — 2026-09-05 — one billing choice
+
+### Changed
+- **BillingChoice extracted to @thefibre/shared/ui** (second-use rule):
+  the Invoice-or-Comped block born in Membership's Add-member and
+  copied into Thread's Add-participant is one component now — apps pass
+  labels/descriptions and optional sub-options (Membership's
+  yearly/monthly row); the box, radios and disabled-invoice handling
+  live in shared.
+
 ## [0.45.0] — 2026-09-05 — the mobile round (all six apps · bottom menu)
 
 ### Added

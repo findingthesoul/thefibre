@@ -9,6 +9,7 @@
 // amount always comes from the chosen ticket, resolved server-side.
 
 import { useEffect, useState } from 'react';
+import { BillingChoice } from '@thefibre/shared/ui/billing-choice';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
 import { SwitchField } from '@/components/ui/switch';
@@ -145,42 +146,14 @@ export function AddParticipantDialog({
         )}
 
         {pricing !== null && invoiceable && (
-          <div>
-            <label className="block text-sm font-medium mb-1">Billing</label>
-            <div className="space-y-1.5 rounded-md border border-line bg-surface-sunken p-3">
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="billing"
-                  className="mt-0.5"
-                  checked={billing === 'invoice'}
-                  onChange={() => setBilling('invoice')}
-                />
-                <span>
-                  <span className="font-medium">Invoice · {money(amountCents, currency)}</span>
-                  <span className="block text-xs text-ink-muted">
-                    Emails a pending invoice now — pay by transfer or the pay-online link. The
-                    confirmation email follows once it&apos;s paid.
-                  </span>
-                </span>
-              </label>
-              <label className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="billing"
-                  className="mt-0.5"
-                  checked={billing === 'comped'}
-                  onChange={() => setBilling('comped')}
-                />
-                <span>
-                  <span className="font-medium">Comped / free</span>
-                  <span className="block text-xs text-ink-muted">
-                    No invoice — the person is enrolled right away.
-                  </span>
-                </span>
-              </label>
-            </div>
-          </div>
+          <BillingChoice
+            value={billing}
+            onChange={setBilling}
+            invoiceLabel={`Invoice · ${money(amountCents, currency)}`}
+            invoiceDescription="Emails a pending invoice now — pay by transfer or the pay-online link. The confirmation email follows once it's paid."
+            compedLabel="Comped / free"
+            compedDescription="No invoice — the person is enrolled right away."
+          />
         )}
 
         {!invoiced && (

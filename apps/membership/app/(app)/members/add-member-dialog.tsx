@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import { BillingChoice } from '@thefibre/shared/ui/billing-choice';
 import { COUNTRIES } from '@thefibre/shared/countries';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
@@ -307,71 +308,45 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             ))}
           </select>
         </div>
-        <div>
-          <label className="block text-sm font-medium mb-1">Billing</label>
-          <div className="space-y-1.5 rounded-md border border-line bg-surface-sunken p-3">
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="billing"
-                className="mt-0.5"
-                checked={priced && billing === 'invoice'}
-                disabled={!priced}
-                onChange={() => setBilling('invoice')}
-              />
-              <span>
-                <span className="font-medium">Invoice</span>
-                <span className="block text-xs text-ink-muted">
-                  {priced
-                    ? 'Creates a pending invoice and emails it — pay by transfer or payment link.'
-                    : 'This tier has no price — only comped is possible.'}
-                </span>
-              </span>
-            </label>
-            {priced && billing === 'invoice' && (
-              <div className="ml-6 flex items-center gap-3 text-sm">
-                {hasYear && (
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="interval"
-                      checked={effectiveInterval === 'year'}
-                      onChange={() => setInterval('year')}
-                    />
-                    Yearly{tier?.price_cents_year ? ` · ${money(tier.price_cents_year, tier.currency)}` : ''}
-                  </label>
-                )}
-                {hasMonth && (
-                  <label className="flex items-center gap-1.5">
-                    <input
-                      type="radio"
-                      name="interval"
-                      checked={effectiveInterval === 'month'}
-                      onChange={() => setInterval('month')}
-                    />
-                    Monthly{tier?.price_cents_month ? ` · ${money(tier.price_cents_month, tier.currency)}` : ''}
-                  </label>
-                )}
-                {baseCents != null && baseCents > 0 && country && (
-                  <span className="text-xs text-ink-muted">Pricing rules may adjust this.</span>
-                )}
-              </div>
+        <BillingChoice
+          value={billing}
+          onChange={setBilling}
+          invoiceDisabled={!priced}
+          invoiceDescription={
+            priced
+              ? 'Creates a pending invoice and emails it — pay by transfer or payment link.'
+              : 'This tier has no price — only comped is possible.'
+          }
+          compedDescription="Free — no invoice."
+        >
+          <div className="ml-6 flex items-center gap-3 text-sm">
+            {hasYear && (
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="interval"
+                  checked={effectiveInterval === 'year'}
+                  onChange={() => setInterval('year')}
+                />
+                Yearly{tier?.price_cents_year ? ` · ${money(tier.price_cents_year, tier.currency)}` : ''}
+              </label>
             )}
-            <label className="flex items-start gap-2 text-sm">
-              <input
-                type="radio"
-                name="billing"
-                className="mt-0.5"
-                checked={!priced || billing === 'comped'}
-                onChange={() => setBilling('comped')}
-              />
-              <span>
-                <span className="font-medium">Comped</span>
-                <span className="block text-xs text-ink-muted">Free — no invoice.</span>
-              </span>
-            </label>
+            {hasMonth && (
+              <label className="flex items-center gap-1.5">
+                <input
+                  type="radio"
+                  name="interval"
+                  checked={effectiveInterval === 'month'}
+                  onChange={() => setInterval('month')}
+                />
+                Monthly{tier?.price_cents_month ? ` · ${money(tier.price_cents_month, tier.currency)}` : ''}
+              </label>
+            )}
+            {baseCents != null && baseCents > 0 && country && (
+              <span className="text-xs text-ink-muted">Pricing rules may adjust this.</span>
+            )}
           </div>
-        </div>
+        </BillingChoice>
         <label className="flex items-start gap-2 text-sm">
           <input
             type="checkbox"

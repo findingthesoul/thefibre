@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.45.0",
+  "version": "0.45.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -93,6 +93,10 @@
     "./ui/bottom-nav": {
       "types": "./dist/ui/bottom-nav.d.ts",
       "default": "./dist/ui/bottom-nav.js"
+    },
+    "./ui/billing-choice": {
+      "types": "./dist/ui/billing-choice.d.ts",
+      "default": "./dist/ui/billing-choice.js"
     },
     "./ui/page": {
       "types": "./dist/ui/page.d.ts",
