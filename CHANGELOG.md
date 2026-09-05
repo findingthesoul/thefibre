@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.46.2] — 2026-09-06 — the Profile item goes somewhere
+
+### Fixed
+- **Profile 404 in Membership and Pulse** (Sjoerd hit it live on staging):
+  the shared user-menu defaults its Profile item to `/settings/profile`,
+  a route neither app has — they own no profile content, identity is
+  Fibre's. Their layouts now pass an env-aware absolute link to the ONE
+  profile editor (`appUrl('fibre-platform')/settings/profile`), threaded
+  through the topbar/user-menu shims. Flow's deliberate hide stays.
+
+
 ## [0.46.1] — 2026-09-06 — branded auth emails: text part agrees
 
 ### Fixed

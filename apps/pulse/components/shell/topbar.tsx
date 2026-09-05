@@ -13,6 +13,7 @@ export function Topbar({
   current,
   apps,
   workspaces = [],
+  profileHref,
 }: {
   email: string;
   fullName: string;
@@ -20,6 +21,8 @@ export function Topbar({
   current: { slug: string; name: string };
   apps: AppEntry[];
   workspaces?: WorkspaceChoice[];
+  /** Absolute URL of the ONE profile editor (Fibre web), env-aware from the layout. */
+  profileHref?: string | null;
 }) {
   return (
     <TopbarFrame
@@ -32,6 +35,7 @@ export function Topbar({
           theme={prefs.theme}
           sidebar={prefs.sidebar}
           workspaces={workspaces}
+          profileHref={profileHref}
         />
       }
     />

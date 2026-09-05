@@ -20,6 +20,7 @@ export function UserMenu(props: {
   theme: Theme;
   sidebar: SidebarMode;
   workspaces?: WorkspaceChoice[];
+  profileHref?: string | null;
 }) {
   const router = useRouter();
   return (

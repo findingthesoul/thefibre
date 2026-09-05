@@ -21,6 +21,7 @@ export function UserMenu(props: {
   sidebar: SidebarMode;
   /** Only the ones this app can actually be used in; see the layout. */
   workspaces?: WorkspaceChoice[];
+  profileHref?: string | null;
 }) {
   const router = useRouter();
   return (

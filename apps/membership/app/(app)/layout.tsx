@@ -6,7 +6,7 @@ import { Sidebar, MobileNav } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS } from '@thefibre/shared';
+import { APPS, appUrl } from '@thefibre/shared';
 
 // Membership has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
@@ -99,6 +99,7 @@ export default async function MembershipAppLayout({
           current={{ slug: 'membership', name: APPS['membership'].name }}
           apps={switcherApps}
           workspaces={workspaces}
+          profileHref={`${appUrl('fibre-platform', process.env)}/settings/profile`}
         />
         {/* Soft-cream content surface so the white cards inside
          (Scope, Details, lists, dialogs) lift cleanly off the page. */}
