@@ -1,13 +1,11 @@
 // Constants + types safe to import from both server and client components.
-// (lib/prefs.ts is server-only — uses next/headers.)
+// (lib/prefs.ts is server-only — uses next/headers.) The implementation
+// lives in @thefibre/shared/prefs (extraction phase 3).
 
-export type Theme = 'light' | 'dark' | 'system';
-export type SidebarMode = 'expanded' | 'collapsed' | 'hover';
-
-export type Prefs = {
-  theme: Theme;
-  sidebar: SidebarMode;
-};
-
-export const COOKIE_THEME = 'thefibre.theme';
-export const COOKIE_SIDEBAR = 'thefibre.sidebar';
+export {
+  COOKIE_THEME,
+  COOKIE_SIDEBAR,
+  type Theme,
+  type SidebarMode,
+  type Prefs,
+} from '@thefibre/shared/prefs';

@@ -34,6 +34,7 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
     nav,
     brandLetters,
     brandName,
+    brandContent,
     mode,
     version,
     homeHref = '/dashboard',
@@ -42,6 +43,9 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
     nav: SidebarNavSection[];
     brandLetters: string;
     brandName: string;
+    /** Replaces the plain-text brand name when the panel is open — web's
+     *  handwritten wordmark image. The yellow tile always renders. */
+    brandContent?: ReactNode;
     mode: SidebarMode;
     version: string;
     homeHref?: string;
@@ -74,11 +78,12 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
               <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-yellow-300 text-ink font-semibold text-[11px] tracking-tight shrink-0">
                 {brandLetters}
               </span>
-              {showPanel && (
-                <span className="text-sm font-medium tracking-tight whitespace-nowrap">
-                  {brandName}
-                </span>
-              )}
+              {showPanel &&
+                (brandContent ?? (
+                  <span className="text-sm font-medium tracking-tight whitespace-nowrap">
+                    {brandName}
+                  </span>
+                ))}
             </LinkComponent>
           </div>
 

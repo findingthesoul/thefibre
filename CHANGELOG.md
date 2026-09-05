@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.43.1] — 2026-09-05 — the shell is one component
+
+### Changed
+- **Extraction phases 2–4, app ports** (~1,900 more duplicated lines
+  retired): all six apps now render their sidebar via the shared
+  SidebarShell (NAV stays per-app; web passes its wordmark image and
+  admin sections in), the shared UserMenu (savePref / workspace switch /
+  sign-out injected), the shared TopbarFrame, the shared page-chrome kit
+  (page/danger-confirm/form-error shims), and @thefibre/shared/prefs.
+  Five auth callbacks (meet, flow, pulse, thread, membership) are now
+  the ONE shared factory — the superset of the drifted copies, so
+  thread/flow/pulse gain the verifyOtp arrival path and the magic-link
+  provider mapping they silently lacked. Web's callback keeps its own
+  richer flow (access-pending handling) — noted in the inventory.
+- Flow's user-menu Settings link now respects the environment
+  (NEXT_PUBLIC_FIBRE_URL) — the old copy hardcoded production, the same
+  env-leak class as v0.39.1's dashboard cards.
+
 ## [0.43.0] — 2026-09-05 — Membership 0.8.0 · Thread 3.34.0 · Meet 2.5.0: the backlog round
 
 Five parallel lanes (strict file ownership, one combined typecheck), plus
