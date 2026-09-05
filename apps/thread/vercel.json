@@ -3,5 +3,8 @@
   "framework": "nextjs",
   "buildCommand": "cd ../.. && pnpm --filter @thefibre/thread... build",
   "installCommand": "cd ../.. && pnpm install",
-  "regions": ["fra1"]
+  "ignoreCommand": "node ../../scripts/vercel-ignore.mjs thread",
+  "regions": [
+    "fra1"
+  ]
 }

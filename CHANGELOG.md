@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.4] — 2026-09-05 — builds only what changed
+
+### Changed
+- **Vercel skips builds for unchanged apps** (Sjoerd: €150 of usage in
+  five days — every release rebuilt all six apps on both branches, ~150
+  builds on the busiest day). Each app's vercel.json now carries an
+  `ignoreCommand` (scripts/vercel-ignore.mjs): build only when the app's
+  own folder, packages/shared, or the lockfile changed — the release
+  ritual's version-bump churn (nine package.json fields) deliberately
+  does NOT trigger builds. All six vercel.json files made identical in
+  shape while at it.
+
 ## [0.45.3] — 2026-09-05 — the sidebar gets its height back
 
 ### Fixed
