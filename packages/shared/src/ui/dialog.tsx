@@ -57,14 +57,16 @@ export function Dialog({ open, onClose, title, description, children, footer, si
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-ink/40"
+      // Mobile: a bottom sheet (full width, rounded top, safe-area padding).
+      // ≥sm: the centred card it always was.
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-ink/40"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
       <div
         ref={ref}
-        className={`${SIZES[size]} w-full rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[85vh]`}
+        className={`${SIZES[size]} w-full rounded-t-xl sm:rounded-lg bg-surface-raised border border-line shadow-xl flex flex-col max-h-[92dvh] sm:max-h-[85vh] pb-[env(safe-area-inset-bottom)] sm:pb-0`}
       >
         <header className="flex items-start justify-between gap-4 px-5 py-4 border-b border-line">
           <div>

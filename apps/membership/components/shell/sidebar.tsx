@@ -14,6 +14,7 @@ import {
   UsersRound,
 } from 'lucide-react';
 import { createSidebarShell, type SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
+import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import type { SidebarMode } from '@/lib/prefs-shared';
 import { APPS } from '@thefibre/shared';
 
@@ -44,6 +45,7 @@ const NAV: SidebarNavSection[] = [
 ];
 
 const SidebarShell = createSidebarShell(Link, usePathname);
+const BottomNavShell = createBottomNav(Link, usePathname);
 
 export function Sidebar({ mode, version }: { mode: SidebarMode; version: string }) {
   return (
@@ -55,4 +57,9 @@ export function Sidebar({ mode, version }: { mode: SidebarMode; version: string 
       version={version}
     />
   );
+}
+
+// The same NAV as a bottom tab bar — rendered by the layout below `md`.
+export function MobileNav({ version }: { version: string }) {
+  return <BottomNavShell nav={NAV} version={version} />;
 }

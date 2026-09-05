@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.44.1",
+  "version": "0.45.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -89,6 +89,10 @@
     "./ui/embed-frame": {
       "types": "./dist/ui/embed-frame.d.ts",
       "default": "./dist/ui/embed-frame.js"
+    },
+    "./ui/bottom-nav": {
+      "types": "./dist/ui/bottom-nav.d.ts",
+      "default": "./dist/ui/bottom-nav.js"
     },
     "./ui/page": {
       "types": "./dist/ui/page.d.ts",

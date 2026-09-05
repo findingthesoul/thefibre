@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.45.0] — 2026-09-05 — the mobile round (all six apps · bottom menu)
+
+### Added
+- **The signed-in apps are mobile-ready** (Sjoerd: "make the interface of
+  fibre and thread mobile ready — bottom menu"; shipped to ALL six since
+  the shell is one shared component). Below `md` the sidebar hides and a
+  bottom tab bar takes over: the first four nav items as tabs plus a
+  "More" sheet carrying the full sectioned nav, Help and the version
+  line. `@thefibre/shared/ui/bottom-nav` (createBottomNav factory, same
+  Link/usePathname injection as the sidebar shell) is fed by the SAME
+  per-app `SidebarNavSection[]` arrays — one nav, two chromes. Web's
+  admin sections ride along via the extracted `buildSections()`.
+- **Dialogs become bottom sheets on phones**: the shared Dialog slides to
+  the bottom edge below `sm` (full width, rounded top, safe-area
+  padding) — every app inherits it, zero call-site changes.
+
+### Changed
+- App shells use `h-dvh` (mobile URL-bar-correct) instead of `h-screen`;
+  the bottom bar is a flex sibling of `<main>`, never overlaying content.
+  Desktop is pixel-identical: the SidebarShell itself is untouched.
+
+
 ## [0.44.1] — 2026-09-05 — one email-locale resolver
 
 ### Changed

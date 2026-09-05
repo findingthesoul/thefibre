@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { readPrefs } from '@/lib/prefs';
 import { apiFetch } from '@/lib/api';
-import { Sidebar } from '@/components/shell/sidebar';
+import { Sidebar, MobileNav } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
@@ -71,13 +71,16 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const apps = buildAppList({ memberships, workspaceApps });
 
   return (
-    <div className="h-screen flex bg-surface">
-      <Sidebar
-        mode={prefs.sidebar}
-        version={VERSION}
-        isSuperAdmin={isSuperAdmin}
-        isWorkspaceAdmin={isWorkspaceAdmin}
-      />
+    <div className="h-dvh flex bg-surface">
+      {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
+      <div className="hidden md:block shrink-0">
+        <Sidebar
+          mode={prefs.sidebar}
+          version={VERSION}
+          isSuperAdmin={isSuperAdmin}
+          isWorkspaceAdmin={isWorkspaceAdmin}
+        />
+      </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
           email={email}
@@ -88,6 +91,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           workspaces={workspaces}
         />
         <main className="flex-1 overflow-y-auto">{children}</main>
+        <MobileNav
+          version={VERSION}
+          isSuperAdmin={isSuperAdmin}
+          isWorkspaceAdmin={isWorkspaceAdmin}
+        />
       </div>
     </div>
   );

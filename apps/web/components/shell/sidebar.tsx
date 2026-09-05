@@ -24,6 +24,7 @@ import {
   TrendingUp,
 } from 'lucide-react';
 import { createSidebarShell, type SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
+import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
 import type { SidebarMode } from '@/lib/prefs-shared';
 import { APPS } from '@thefibre/shared';
 
@@ -57,19 +58,11 @@ const NAV: SidebarNavSection[] = [
 ];
 
 const SidebarShell = createSidebarShell(Link, usePathname);
+const BottomNavShell = createBottomNav(Link, usePathname);
 
-export function Sidebar({
-  mode,
-  version,
-  isSuperAdmin = false,
-  isWorkspaceAdmin = false,
-}: {
-  mode: SidebarMode;
-  version: string;
-  isSuperAdmin?: boolean;
-  isWorkspaceAdmin?: boolean;
-}) {
-  const sections: SidebarNavSection[] = [
+// One nav for both chromes: the sidebar (≥md) and the bottom tab bar.
+function buildSections(isSuperAdmin: boolean, isWorkspaceAdmin: boolean): SidebarNavSection[] {
+  return [
     ...NAV,
     ...(isSuperAdmin || isWorkspaceAdmin
       ? [
@@ -95,10 +88,22 @@ export function Sidebar({
         ]
       : []),
   ];
+}
 
+export function Sidebar({
+  mode,
+  version,
+  isSuperAdmin = false,
+  isWorkspaceAdmin = false,
+}: {
+  mode: SidebarMode;
+  version: string;
+  isSuperAdmin?: boolean;
+  isWorkspaceAdmin?: boolean;
+}) {
   return (
     <SidebarShell
-      nav={sections}
+      nav={buildSections(isSuperAdmin, isWorkspaceAdmin)}
       brandLetters={BRAND.brandLetters}
       brandName={BRAND.name}
       brandContent={
@@ -117,4 +122,17 @@ export function Sidebar({
       version={version}
     />
   );
+}
+
+// The same nav as a bottom tab bar — rendered by the layout below `md`.
+export function MobileNav({
+  version,
+  isSuperAdmin = false,
+  isWorkspaceAdmin = false,
+}: {
+  version: string;
+  isSuperAdmin?: boolean;
+  isWorkspaceAdmin?: boolean;
+}) {
+  return <BottomNavShell nav={buildSections(isSuperAdmin, isWorkspaceAdmin)} version={version} />;
 }

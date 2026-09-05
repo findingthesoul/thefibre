@@ -2,7 +2,7 @@ import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
-import { Sidebar } from '@/components/shell/sidebar';
+import { Sidebar, MobileNav } from '@/components/shell/sidebar';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
@@ -11,7 +11,7 @@ import { APPS } from '@thefibre/shared';
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
 // cross-package releases like 0.13.x). See CLAUDE.md "Version bumps".
-const VERSION = '2.5.0';
+const VERSION = '2.6.0';
 
 type Me = {
   user: { id: string; email: string; full_name: string | null };
@@ -85,8 +85,11 @@ export default async function MeetAppLayout({
   });
 
   return (
-    <div className="h-screen flex bg-surface">
-      <Sidebar mode={prefs.sidebar} version={VERSION} />
+    <div className="h-dvh flex bg-surface">
+      {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
+      <div className="hidden md:block shrink-0">
+        <Sidebar mode={prefs.sidebar} version={VERSION} />
+      </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar
           email={email}
@@ -101,6 +104,7 @@ export default async function MeetAppLayout({
         <main className="flex-1 overflow-y-auto bg-surface-sunken">
           {children}
         </main>
+        <MobileNav version={VERSION} />
       </div>
     </div>
   );
