@@ -81,6 +81,16 @@ seeded into Pulse. What remains:
    self-serve signup flip when the trial ends. Now under the naming brief
    (docs/naming-brief.md): Thread-first — NO per-app product pages (Meet /
    Sales / Flow are functions in Thread's service, never sibling products).
+3a. **Invoiced manual add, everywhere (Sjoerd, 2026-09-05: "should be a
+   shared too — adding people manually to a paid course should be an ask
+   to send an invoice")**: Membership's Add-member intake (v0.40.0 —
+   contact details + country + VAT, billing choice Invoice/Comped that
+   writes a pending ledger row and emails the invoice, invite email) is
+   the pattern. Port it to THREAD's manual enrolment: adding someone to
+   a PAID thread asks "send an invoice?" and reuses the same machinery
+   (recordPurchase pending + sendReceipt + payment link). Extract the
+   billing-choice block + intake fields into @thefibre/shared/ui at this
+   second use (the components-first rule).
 3b. **Thread asks (Sjoerd, 2026-09-05)**: (a) WORKSPACE-scoped threads —
    New-thread offers Personal/Team only; workspace scope touches the
    public-URL contract (organiser/team slugs are published), needs a
