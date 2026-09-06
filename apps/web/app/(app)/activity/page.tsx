@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { ACTIVITY_TYPES, APP_IDS, appName, type AppId } from '@thefibre/shared';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 
 type Activity = {
   id: string;
@@ -25,6 +27,7 @@ export default async function ActivityPage({
   searchParams: Promise<{ app_id?: string; type?: string; after?: string }>;
 }) {
   const { app_id, type, after } = await searchParams;
+  const locale = await uiLocale();
 
   // Resolve app_id slug → uuid (the API expects uuid).
   const params = new URLSearchParams();
@@ -65,19 +68,17 @@ export default async function ActivityPage({
   return (
     <div className="mx-auto max-w-5xl px-8 py-10">
       <header>
-        <h1 className="text-2xl font-medium tracking-tight">Activity</h1>
-        <p className="mt-1 text-sm text-ink-subtle">
-          The accumulated record of every meaningful interaction across every app.
-        </p>
+        <h1 className="text-2xl font-medium tracking-tight">{t(locale, 'nav_activity')}</h1>
+        <p className="mt-1 text-sm text-ink-subtle">{t(locale, 'activity_blurb')}</p>
       </header>
 
       <form className="mt-6 flex flex-wrap gap-3" action="/activity">
-        <Select name="type" defaultValue={type ?? ''} placeholder="All types">
-          {ACTIVITY_TYPES.map((t: string) => (
-            <option key={t} value={t}>{t}</option>
+        <Select name="type" defaultValue={type ?? ''} placeholder={t(locale, 'all_types')}>
+          {ACTIVITY_TYPES.map((v: string) => (
+            <option key={v} value={v}>{v}</option>
           ))}
         </Select>
-        <Select name="app_id" defaultValue={app_id ?? ''} placeholder="All apps">
+        <Select name="app_id" defaultValue={app_id ?? ''} placeholder={t(locale, 'all_apps')}>
           {APP_IDS.map((slug: string) => (
             <option key={slug} value={slug}>{appName(slug as AppId) ?? slug}</option>
           ))}
@@ -86,27 +87,27 @@ export default async function ActivityPage({
           type="submit"
           className="rounded-md border border-line bg-surface-raised px-3 py-1.5 text-sm hover:bg-surface-sunken"
         >
-          Apply
+          {t(locale, 'apply')}
         </button>
         {(type || app_id) && (
           <Link
             href="/activity"
             className="rounded-md px-3 py-1.5 text-sm text-ink-subtle hover:text-ink"
           >
-            Clear
+            {t(locale, 'clear')}
           </Link>
         )}
       </form>
 
       {error && (
         <div className="mt-6 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
-          Couldn't load activity: {error}
+          {t(locale, 'activity_load_failed')} {error}
         </div>
       )}
 
       {!error && activities.length === 0 && (
         <div className="mt-10 rounded-lg border border-line bg-surface-sunken p-6 text-sm text-ink-subtle">
-          No activity yet. Events written by apps will appear here.
+          {t(locale, 'no_activity_yet')}
         </div>
       )}
 
@@ -120,12 +121,12 @@ export default async function ActivityPage({
               <li key={a.id} className="relative">
                 <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink" />
                 <div className="text-xs uppercase tracking-wider text-ink-muted">
-                  {new Date(a.occurred_at).toLocaleString('en-GB', {
+                  {new Date(a.occurred_at).toLocaleString(INTL_LOCALES[locale], {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}
                   {' · '}
-                  {a.app ? appName(a.app.slug as AppId) ?? a.app.name : 'Unknown app'}
+                  {a.app ? appName(a.app.slug as AppId) ?? a.app.name : t(locale, 'unknown_app')}
                   {' · '}
                   <span>{a.type}</span>
                 </div>
@@ -152,7 +153,7 @@ export default async function ActivityPage({
             href={{ pathname: '/activity', query: { ...(type ? { type } : {}), ...(app_id ? { app_id } : {}), after: next } }}
             className="rounded-md border border-line bg-surface-raised px-4 py-2 text-sm hover:bg-surface-sunken"
           >
-            Load older →
+            {t(locale, 'load_older')} →
           </Link>
         </div>
       )}

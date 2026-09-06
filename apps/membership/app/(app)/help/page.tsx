@@ -3,6 +3,8 @@ import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export const metadata = { title: `Help · ${appName('membership')}` };
 
@@ -14,44 +16,43 @@ type WorkspaceApp = {
 
 // Mirrors NAV in components/shell/sidebar.tsx, with the blurbs the pages
 // themselves already use.
-const SECTIONS: HelpSection[] = [
-  {
-    label: 'Membership',
-    href: '/dashboard',
-    blurb: 'Your community at a glance — active members, renewals coming up, recent joins.',
-  },
-  {
-    label: 'Members',
-    href: '/members',
-    blurb:
-      'Everyone who holds (or held) a membership: tier, status, renewal date. Add someone manually or let the join page do it.',
-  },
-  {
-    label: 'Tiers',
-    href: '/tiers',
-    blurb:
-      'What you sell: yearly (and optionally monthly) prices, what each tier includes, in the order the join page shows them.',
-  },
-  {
-    label: 'Products',
-    href: '/products',
-    blurb:
-      'The catalogue tiers draw from — spaces, programmes, perks — each with links to the thing itself.',
-  },
-  {
-    label: 'Access (on products)',
-    href: '/products',
-    blurb:
-      'Each product carries what it unlocks (a Circle space, a Fibre seat, a thread) — synced automatically as members come and go. Sync overview under Products.',
-  },
-  {
-    label: 'Settings',
-    href: '/settings',
-    blurb: 'The join page, the Circle connection, and your Fibre profile.',
-  },
-];
+function sections(locale: Locale): HelpSection[] {
+  return [
+    {
+      label: t(locale, 'nav_membership'),
+      href: '/dashboard',
+      blurb: t(locale, 'help_dash_blurb'),
+    },
+    {
+      label: t(locale, 'nav_members'),
+      href: '/members',
+      blurb: t(locale, 'help_members_blurb'),
+    },
+    {
+      label: t(locale, 'nav_tiers'),
+      href: '/tiers',
+      blurb: t(locale, 'help_tiers_blurb'),
+    },
+    {
+      label: t(locale, 'nav_products'),
+      href: '/products',
+      blurb: t(locale, 'help_products_blurb'),
+    },
+    {
+      label: t(locale, 'help_access_label'),
+      href: '/products',
+      blurb: t(locale, 'help_access_blurb'),
+    },
+    {
+      label: t(locale, 'nav_settings'),
+      href: '/settings',
+      blurb: t(locale, 'help_settings_blurb'),
+    },
+  ];
+}
 
 export default async function MembershipHelpPage() {
+  const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
@@ -64,10 +65,11 @@ export default async function MembershipHelpPage() {
   return (
     <HelpPage
       appId="membership"
-      sections={SECTIONS}
+      sections={sections(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}
+      locale={locale}
     />
   );
 }

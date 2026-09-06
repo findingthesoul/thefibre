@@ -1,6 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { appUrl } from '@thefibre/shared';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 type Tier = {
   id: string;
@@ -27,17 +28,21 @@ function getTier(m: Member): Tier | null {
   return Array.isArray(m.tier) ? m.tier[0] ?? null : m.tier;
 }
 
-const STATUS_LABEL: Record<Member['status'], string> = {
-  active: 'Active',
-  grace: 'Grace',
-  lapsed: 'Lapsed',
-  cancelled: 'Cancelled',
+const STATUS_LABEL: Record<Member['status'], UiKey> = {
+  active: 'consent_active',
+  grace: 'member_grace',
+  lapsed: 'member_lapsed',
+  cancelled: 'cancelled',
 };
 
-function money(cents: number | null | undefined, currency: string | null | undefined): string | null {
+function money(
+  cents: number | null | undefined,
+  currency: string | null | undefined,
+  locale: Locale,
+): string | null {
   if (cents === null || cents === undefined) return null;
   const whole = cents % 100 === 0;
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(INTL_LOCALES[locale], {
     style: 'currency',
     currency: currency || 'EUR',
     minimumFractionDigits: whole ? 0 : 2,
@@ -45,15 +50,15 @@ function money(cents: number | null | undefined, currency: string | null | undef
   }).format(cents / 100);
 }
 
-function fmtDate(iso: string) {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDate(iso: string, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(new Date(iso));
 }
 
-export async function MembershipTab({ personId }: { personId: string }) {
+export async function MembershipTab({ personId, locale }: { personId: string; locale: Locale }) {
   let data: MembershipData = { member: null };
   try {
     data = await apiFetch<MembershipData>(`/api/v1/persons/${personId}/membership`);
@@ -65,30 +70,26 @@ export async function MembershipTab({ personId }: { personId: string }) {
 
   return (
     <>
-      <div className="text-xs text-ink-subtle">
-        What <span className="text-ink font-medium">Membership</span> knows
-        about this person: tier, status and renewal. Identity (name, email) is
-        owned by the platform.
-      </div>
+      <div className="text-xs text-ink-subtle">{t(locale, 'membership_tab_blurb')}</div>
 
       {!member ? (
         <div className="mt-8">
-          <EmptyState>No membership data.</EmptyState>
+          <EmptyState>{t(locale, 'no_membership_data')}</EmptyState>
         </div>
       ) : (
-        <MemberCard member={member} />
+        <MemberCard member={member} locale={locale} />
       )}
     </>
   );
 }
 
-function MemberCard({ member }: { member: Member }) {
+function MemberCard({ member, locale }: { member: Member; locale: Locale }) {
   const tier = getTier(member);
-  const yearly = money(tier?.price_cents_year, tier?.currency);
-  const monthly = money(tier?.price_cents_month, tier?.currency);
+  const yearly = money(tier?.price_cents_year, tier?.currency, locale);
+  const monthly = money(tier?.price_cents_month, tier?.currency, locale);
   const price = [
-    yearly ? `${yearly}/year` : null,
-    monthly ? `${monthly}/month` : null,
+    yearly ? `${yearly}${t(locale, 'per_year_short')}` : null,
+    monthly ? `${monthly}${t(locale, 'per_month_short')}` : null,
   ]
     .filter(Boolean)
     .join(' · ');
@@ -101,11 +102,11 @@ function MemberCard({ member }: { member: Member }) {
           href={appUrl('membership', process.env)}
           className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
         >
-          Manage in Membership
+          {t(locale, 'manage_in_membership')}
         </a>
       </div>
       <div className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-        <Label>Tier</Label>
+        <Label>{t(locale, 'tier')}</Label>
         <Value>
           {tier ? (
             <>
@@ -116,23 +117,23 @@ function MemberCard({ member }: { member: Member }) {
             <Muted>—</Muted>
           )}
         </Value>
-        <Label>Status</Label>
+        <Label>{t(locale, 'status')}</Label>
         <Value>
-          <StatusChip status={member.status} />
+          <StatusChip status={member.status} locale={locale} />
         </Value>
-        <Label>Member since</Label>
-        <Value>{member.started_at ? fmtDate(member.started_at) : <Muted>—</Muted>}</Value>
-        <Label>Renews on</Label>
-        <Value>{member.renews_at ? fmtDate(member.renews_at) : <Muted>—</Muted>}</Value>
+        <Label>{t(locale, 'member_since')}</Label>
+        <Value>{member.started_at ? fmtDate(member.started_at, locale) : <Muted>—</Muted>}</Value>
+        <Label>{t(locale, 'renews_on')}</Label>
+        <Value>{member.renews_at ? fmtDate(member.renews_at, locale) : <Muted>—</Muted>}</Value>
         {member.lapsed_at && (
           <>
-            <Label>Lapsed on</Label>
-            <Value>{fmtDate(member.lapsed_at)}</Value>
+            <Label>{t(locale, 'lapsed_on')}</Label>
+            <Value>{fmtDate(member.lapsed_at, locale)}</Value>
           </>
         )}
         {member.notes && (
           <>
-            <Label>Notes</Label>
+            <Label>{t(locale, 'notes')}</Label>
             <Value>
               <p className="whitespace-pre-wrap">{member.notes}</p>
             </Value>
@@ -143,7 +144,7 @@ function MemberCard({ member }: { member: Member }) {
   );
 }
 
-function StatusChip({ status }: { status: Member['status'] }) {
+function StatusChip({ status, locale }: { status: Member['status']; locale: Locale }) {
   const cls =
     status === 'active'
       ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
@@ -154,7 +155,7 @@ function StatusChip({ status }: { status: Member['status'] }) {
     <span
       className={`text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 border ${cls}`}
     >
-      {STATUS_LABEL[status]}
+      {t(locale, STATUS_LABEL[status])}
     </span>
   );
 }

@@ -3,6 +3,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { ButtonLink } from '@/components/ui/button';
 import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 type Person = {
   id: string;
@@ -19,6 +21,7 @@ export default async function ContactsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  const locale = await uiLocale();
 
   let items: Person[] = [];
   let error: string | null = null;
@@ -34,10 +37,10 @@ export default async function ContactsPage({
   return (
     <PageContainer>
       <PageHeader
-        title="Contacts"
+        title={t(locale, 'nav_contacts')}
         actions={
           <ButtonLink href="/contacts/new" leading={<Plus size={14} strokeWidth={2.25} />}>
-            Add person
+            {t(locale, 'add_person')}
           </ButtonLink>
         }
       />
@@ -47,17 +50,17 @@ export default async function ContactsPage({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Search name or email…"
+          placeholder={t(locale, 'search_name_email')}
           className="w-full rounded-md border border-line bg-surface-raised pl-9 pr-3 py-2 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
         />
       </form>
 
-      {error && <ErrorBanner>Couldn't load contacts: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'contacts_load_failed')} {error}</ErrorBanner>}
 
       {!error && items.length === 0 && (
         <EmptyState>
-          No contacts yet.{' '}
-          <a href="/contacts/new" className="underline">Add the first one</a>.
+          {t(locale, 'no_contacts_yet')}{' '}
+          <a href="/contacts/new" className="underline">{t(locale, 'add_first_one')}</a>.
         </EmptyState>
       )}
 

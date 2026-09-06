@@ -16,6 +16,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { createAccount, recordSnapshots } from '../accounts/actions';
 import { toastError } from './toast';
+import { t, type Locale } from '@/lib/i18n-ui';
 import type { CashflowScope, PulseAccount } from './types';
 
 const STORE_PREFIX = 'thefibre.pulse.bank-prompt:';
@@ -62,8 +63,10 @@ export function BankPrompt({
   accounts,
   scopeKey,
   open,
+  locale,
   onClose,
 }: {
+  locale: Locale;
   // The active tab's accounts (banks + reserves) — the auto prompt only
   // fires when there is at least one.
   accounts: PulseAccount[];
@@ -134,7 +137,7 @@ export function BankPrompt({
     const res = await recordSnapshots(todayLocalIso(), entries);
     setBusy(false);
     if (res.error) {
-      toastError(`Could not update the balances — ${res.error}`);
+      toastError(t(locale, 'balances_error', { error: res.error }));
       return;
     }
     setAutoOpen(false);
@@ -148,15 +151,15 @@ export function BankPrompt({
     <Dialog
       open
       onClose={close}
-      title="What does the bank say?"
-      description="Today's balances anchor the projection."
+      title={t(locale, 'bank_prompt_title')}
+      description={t(locale, 'bank_prompt_desc')}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={close} disabled={busy}>
-            Not now
+            {t(locale, 'not_now')}
           </Button>
           <Button type="button" onClick={() => void save()} disabled={busy}>
-            {busy ? 'Saving…' : 'Save balances'}
+            {busy ? t(locale, 'saving') : t(locale, 'save_balances')}
           </Button>
         </>
       }
@@ -170,7 +173,7 @@ export function BankPrompt({
               </span>
               {a.kind === 'reserve' && (
                 <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
-                  reserve
+                  {t(locale, 'reserve_lc')}
                 </span>
               )}
             </span>
@@ -179,7 +182,7 @@ export function BankPrompt({
               onChange={(e) => setValues((v) => ({ ...v, [a.id]: e.target.value }))}
               inputMode="decimal"
               placeholder="0,00"
-              aria-label={`Balance for ${a.name}`}
+              aria-label={t(locale, 'balance_for_aria', { name: a.name })}
               className="w-32 rounded-md border border-line bg-white px-2 py-1.5 text-right text-sm tabular-nums focus:outline-none focus:ring-2 focus:ring-neutral-300"
             />
           </div>
@@ -191,7 +194,7 @@ export function BankPrompt({
             onChange={(e) => setEveryDay(e.target.checked)}
             className="h-3.5 w-3.5 rounded border-line"
           />
-          Open on the first visit each day
+          {t(locale, 'open_first_visit')}
         </label>
       </div>
     </Dialog>
@@ -208,6 +211,7 @@ export function CreateBankDialog({
   scopeTeamId,
   currentUserId,
   initialKind,
+  locale,
   onClose,
 }: {
   tabName: string;
@@ -215,12 +219,13 @@ export function CreateBankDialog({
   scopeTeamId: string | null;
   currentUserId: string | null;
   initialKind: 'bank' | 'reserve';
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(
-    initialKind === 'reserve' ? `${tabName} reserve` : `${tabName} bank`,
-  );
+  const bankDefault = t(locale, 'tab_bank_name', { tab: tabName });
+  const reserveDefault = t(locale, 'tab_reserve_name', { tab: tabName });
+  const [name, setName] = useState(initialKind === 'reserve' ? reserveDefault : bankDefault);
   const [kind, setKind] = useState<'bank' | 'reserve'>(initialKind);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,7 +234,7 @@ export function CreateBankDialog({
     e?.preventDefault();
     const n = name.trim();
     if (!n) {
-      setError('Give the account a name.');
+      setError(t(locale, 'give_account_name'));
       return;
     }
     setBusy(true);
@@ -254,22 +259,22 @@ export function CreateBankDialog({
     <Dialog
       open
       onClose={onClose}
-      title={kind === 'reserve' ? 'New reserve' : 'Create bank'}
-      description={`A virtual account for the ${tabName} cashflow — its balance anchors the projection.`}
+      title={kind === 'reserve' ? t(locale, 'new_reserve') : t(locale, 'create_bank')}
+      description={t(locale, 'create_bank_desc', { tab: tabName })}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="create-bank-form" disabled={busy}>
-            {busy ? 'Creating…' : 'Create'}
+            {busy ? t(locale, 'creating') : t(locale, 'create')}
           </Button>
         </>
       }
     >
       <form id="create-bank-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Name</label>
+          <label className="mb-1 block text-sm font-medium">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
@@ -278,12 +283,12 @@ export function CreateBankDialog({
           />
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Kind</label>
+          <label className="mb-1 block text-sm font-medium">{t(locale, 'kind')}</label>
           <div className="inline-flex rounded-lg ring-1 ring-line bg-surface-raised p-0.5">
             {(
               [
-                ['bank', 'Bank'],
-                ['reserve', 'Reserve'],
+                ['bank', t(locale, 'bank')],
+                ['reserve', t(locale, 'reserve')],
               ] as const
             ).map(([key, label]) => (
               <button
@@ -292,11 +297,11 @@ export function CreateBankDialog({
                 onClick={() => {
                   // Follow the default name along as long as it's untouched.
                   setName((cur) => {
-                    const defaults = [`${tabName} bank`, `${tabName} reserve`];
+                    const defaults = [bankDefault, reserveDefault];
                     return defaults.includes(cur.trim())
                       ? key === 'reserve'
-                        ? `${tabName} reserve`
-                        : `${tabName} bank`
+                        ? reserveDefault
+                        : bankDefault
                       : cur;
                   });
                   setKind(key);

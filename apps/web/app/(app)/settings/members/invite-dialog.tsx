@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/field';
 import { APPS, type AppSlug } from '@/lib/apps';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { inviteMember } from './actions';
 
 const SELECT_CLASS =
@@ -13,9 +14,11 @@ const SELECT_CLASS =
 
 export function InviteDialog({
   appSlugs,
+  locale,
   onClose,
 }: {
   appSlugs: AppSlug[];
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -73,22 +76,26 @@ export function InviteDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Add member"
-      description="Invite someone into the workspace and grant only the apps they need."
+      title={t(locale, 'add_member')}
+      description={t(locale, 'invite_blurb')}
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="invite-member-form" disabled={pending || !email.trim()}>
-            {pending ? 'Sending…' : seatConfirm ? 'Confirm and send invite' : 'Send invite'}
+            {pending
+              ? t(locale, 'sending')
+              : seatConfirm
+                ? t(locale, 'confirm_send_invite')
+                : t(locale, 'send_invite')}
           </Button>
         </>
       }
     >
       <form id="invite-member-form" onSubmit={submit} className="space-y-4">
         <TextField
-          label="Email"
+          label={t(locale, 'email_label')}
           name="email"
           type="email"
           required
@@ -101,28 +108,28 @@ export function InviteDialog({
           placeholder="them@example.org"
         />
         <TextField
-          label="Name"
+          label={t(locale, 'name')}
           name="name"
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="Optional"
+          placeholder={t(locale, 'optional')}
         />
 
         <label className="block">
-          <span className="text-sm text-ink-subtle">Relationship</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'relationship')}</span>
           <select
             className={SELECT_CLASS}
             value={relationship}
             onChange={(e) => setRelationship(e.target.value as 'internal' | 'external')}
           >
-            <option value="internal">Internal</option>
-            <option value="external">External</option>
+            <option value="internal">{t(locale, 'internal')}</option>
+            <option value="external">{t(locale, 'external')}</option>
           </select>
         </label>
 
         {appSlugs.length > 0 && (
           <div>
-            <span className="text-sm text-ink-subtle">Apps</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'nav_apps')}</span>
             <div className="mt-2 space-y-2">
               {appSlugs.map((slug) => (
                 <label key={slug} className="flex items-center justify-between gap-4 text-sm">
@@ -135,21 +142,21 @@ export function InviteDialog({
                     className="w-32 rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:border-line-strong focus:outline-none"
                   >
                     <option value="">—</option>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
+                    <option value="member">{t(locale, 'role_member')}</option>
+                    <option value="admin">{t(locale, 'role_admin')}</option>
                   </select>
                 </label>
               ))}
             </div>
             <p className="mt-1 text-xs text-ink-muted">
-              No access by default — grant only what they need.
+              {t(locale, 'no_access_by_default')}
             </p>
           </div>
         )}
 
         {seatConfirm && (
           <div className="rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900">
-            {seatConfirm} Sending the invite confirms the extra monthly cost.
+            {seatConfirm} {t(locale, 'seat_confirm_suffix')}
           </div>
         )}
 

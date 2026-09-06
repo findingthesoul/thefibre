@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import { Trash2 } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { createProduct, patchProduct } from './actions';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { createGrant, deleteGrant } from '../access/actions';
-import { GRANT_KIND_LABELS, type Grant, type GrantKind as AccessKind } from '../access/types';
-import { LINK_KINDS, LINK_KIND_LABELS, type LinkKind, type Product, type ProductLink } from './types';
+import { GRANT_KINDS, type Grant, type GrantKind as AccessKind } from '../access/types';
+import { LINK_KINDS, type LinkKind, type Product, type ProductLink } from './types';
 
 const INPUT =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
@@ -28,11 +29,25 @@ function centsToEuro(c: number | null): string {
 // Editable link row — ref stays a free string (a slug, a space id, a URL).
 type LinkRow = { kind: LinkKind; ref: string; label: string };
 
-const REF_PLACEHOLDERS: Record<LinkKind, string> = {
-  thread: 'Thread slug',
-  meet: 'Meet ref',
-  circle_space: 'Space ID',
-  url: 'https://…',
+const LINK_KIND_KEYS: Record<LinkKind, UiKey> = {
+  thread: 'link_kind_thread',
+  meet: 'link_kind_meet',
+  circle_space: 'link_kind_circle_space',
+  url: 'link_kind_url',
+};
+
+const GRANT_KIND_KEYS: Record<AccessKind, UiKey> = {
+  circle: 'grant_kind_circle',
+  thread: 'grant_kind_thread',
+  fibre_seat: 'grant_kind_fibre_seat',
+  google_user: 'grant_kind_google_user',
+};
+
+// The url placeholder is a URL scheme, not prose — same in every locale.
+const REF_PLACEHOLDER_KEYS: Record<Exclude<LinkKind, 'url'>, UiKey> = {
+  thread: 'thread_slug_ph',
+  meet: 'meet_ref_ph',
+  circle_space: 'space_id_ph',
 };
 
 export function ProductDialog({
@@ -40,6 +55,7 @@ export function ProductDialog({
   currency: workspaceCurrency,
   threadOptions,
   grants,
+  locale,
   nextSortOrder,
   onClose,
 }: {
@@ -49,6 +65,7 @@ export function ProductDialog({
   threadOptions: { slug: string; title: string }[];
   /** Access carried by THIS product (the product is the promise — 2026-09-05). */
   grants: Grant[];
+  locale: Locale;
   /** Where a NEW product lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
   onClose: () => void;
@@ -81,7 +98,9 @@ export function ProductDialog({
   async function addAccess() {
     if (!product) return;
     if (accessKind !== 'fibre_seat' && accessKind !== 'google_user' && !accessRef.trim()) {
-      setError(accessKind === 'circle' ? 'Space ID is required.' : 'Thread slug is required.');
+      setError(
+        accessKind === 'circle' ? t(locale, 'space_id_required') : t(locale, 'thread_slug_required'),
+      );
       return;
     }
     setAccessBusy(true);
@@ -100,7 +119,7 @@ export function ProductDialog({
     });
     setAccessBusy(false);
     if (r.error || !r.data) {
-      setError(r.error ?? 'could not add access');
+      setError(r.error ?? t(locale, 'could_not_add_access'));
       return;
     }
     setAccess((prev) => [
@@ -140,10 +159,12 @@ export function ProductDialog({
   }
 
   function accessSummary(g: Grant): string {
-    if (g.kind === 'circle') return `Circle space ${g.config?.space_id ?? ''}`;
-    if (g.kind === 'fibre_seat') return `Fibre seat (${g.config?.role ?? 'organiser'})`;
-    if (g.kind === 'google_user') return 'Google account (active while member)';
-    return `Thread ${g.config?.thread_slug ?? ''}`;
+    if (g.kind === 'circle')
+      return t(locale, 'circle_space_target', { ref: String(g.config?.space_id ?? '') });
+    if (g.kind === 'fibre_seat')
+      return t(locale, 'fibre_seat_target', { role: String(g.config?.role ?? 'organiser') });
+    if (g.kind === 'google_user') return t(locale, 'google_account_target');
+    return t(locale, 'thread_target', { ref: String(g.config?.thread_slug ?? '') });
   }
 
   function setLink(i: number, patch: Partial<LinkRow>) {
@@ -153,7 +174,7 @@ export function ProductDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     // Link rows without a ref used to be dropped SILENTLY on save — which
@@ -161,9 +182,7 @@ export function ProductDialog({
     // links []). The user added the row on purpose; an empty middle field
     // now stops the save and says exactly what's missing.
     if (links.some((l) => !l.ref.trim())) {
-      setError(
-        'A link row is missing its middle field — the slug, ID or URL it points at. Fill it in or remove the row (trash icon).',
-      );
+      setError(t(locale, 'link_row_missing_ref'));
       return;
     }
     setBusy(true);
@@ -222,7 +241,7 @@ export function ProductDialog({
     <Dialog
       open
       onClose={onClose}
-      title={product ? 'Edit product' : 'New product'}
+      title={product ? t(locale, 'edit_product') : t(locale, 'new_product')}
       size="lg"
       footer={
         <>
@@ -234,47 +253,53 @@ export function ProductDialog({
               disabled={busy}
               onClick={handleArchive}
             >
-              {product.archived_at ? 'Unarchive' : confirmArchive ? 'Really archive?' : 'Archive'}
+              {product.archived_at
+                ? t(locale, 'unarchive')
+                : confirmArchive
+                  ? t(locale, 'really_archive_q')
+                  : t(locale, 'archive')}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="product-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
     >
       <form id="product-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Community space"
+            placeholder={t(locale, 'product_name_ph')}
             className={INPUT}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'description')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional_ph')}
             className={INPUT}
           />
         </div>
         <div className="flex items-end gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1">Price ({currency})</label>
+            <label className="block text-sm font-medium mb-1">
+              {t(locale, 'price_with_currency', { currency })}
+            </label>
             <input
               value={price}
               onChange={(e) => setPrice(e.target.value)}
               inputMode="decimal"
-              placeholder="Leave empty when included in a tier"
+              placeholder={t(locale, 'price_included_ph')}
               className={`${INPUT} max-w-[14rem]`}
             />
           </div>
@@ -283,7 +308,7 @@ export function ProductDialog({
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
               className={`${INPUT} max-w-[7rem]`}
-              aria-label="Currency"
+              aria-label={t(locale, 'currency')}
             >
               {currencyOptions.map((c) => (
                 <option key={c} value={c}>
@@ -302,33 +327,28 @@ export function ProductDialog({
               className="mt-0.5"
             />
             <span>
-              <span className="font-medium">Can be bought on its own</span>
+              <span className="font-medium">{t(locale, 'purchasable_label')}</span>
               <span className="block text-xs text-ink-muted mt-0.5">
-                Shows a Buy button on your public membership page (needs a price). Buyers get
-                the product&apos;s links and access without needing a membership.
+                {t(locale, 'purchasable_hint')}
               </span>
             </span>
           </label>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Characteristics</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'characteristics')}</label>
           <textarea
             value={characteristics}
             onChange={(e) => setCharacteristics(e.target.value)}
             rows={3}
-            placeholder={'One per line, e.g.\nWeekly office hours\nRecordings archive'}
+            placeholder={t(locale, 'product_characteristics_ph')}
             className={INPUT}
           />
-          <p className="mt-1.5 text-xs text-ink-muted">
-            One per line — shown as bullet points on the join page.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'characteristics_hint')}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Links</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'links')}</label>
           {links.length === 0 && (
-            <p className="mb-2 text-sm text-ink-muted">
-              What this product points at — a Thread, a Meet, a Circle space or a plain URL.
-            </p>
+            <p className="mb-2 text-sm text-ink-muted">{t(locale, 'links_blurb')}</p>
           )}
           <div className="space-y-2">
             {links.map((l, i) => (
@@ -344,7 +364,7 @@ export function ProductDialog({
                 >
                   {LINK_KINDS.map((k) => (
                     <option key={k} value={k}>
-                      {LINK_KIND_LABELS[k]}
+                      {t(locale, LINK_KIND_KEYS[k])}
                     </option>
                   ))}
                 </select>
@@ -353,33 +373,33 @@ export function ProductDialog({
                     value={l.ref}
                     onChange={(ref) => setLink(i, { ref })}
                     options={[
-                      ...threadOptions.map((t) => ({ value: t.slug, label: t.title, hint: t.slug })),
-                      ...(l.ref && !threadOptions.some((t) => t.slug === l.ref)
+                      ...threadOptions.map((x) => ({ value: x.slug, label: x.title, hint: x.slug })),
+                      ...(l.ref && !threadOptions.some((x) => x.slug === l.ref)
                         ? [{ value: l.ref, label: l.ref }]
                         : []),
                     ]}
-                    placeholder="Pick a thread…"
+                    placeholder={t(locale, 'pick_thread_ph')}
                     className="w-full"
                   />
                 ) : (
                   <input
                     value={l.ref}
                     onChange={(e) => setLink(i, { ref: e.target.value })}
-                    placeholder={REF_PLACEHOLDERS[l.kind]}
+                    placeholder={l.kind === 'url' ? 'https://…' : t(locale, REF_PLACEHOLDER_KEYS[l.kind])}
                     className={INPUT}
                   />
                 )}
                 <input
                   value={l.label}
                   onChange={(e) => setLink(i, { label: e.target.value })}
-                  placeholder="Label (optional)"
+                  placeholder={t(locale, 'label_optional_ph')}
                   className={INPUT}
                 />
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon"
-                  aria-label="Remove link"
+                  aria-label={t(locale, 'remove_link')}
                   onClick={() => setLinks((prev) => prev.filter((_, j) => j !== i))}
                 >
                   <Trash2 size={16} strokeWidth={1.75} />
@@ -394,18 +414,15 @@ export function ProductDialog({
             className="mt-2"
             onClick={() => setLinks((prev) => [...prev, { kind: 'url', ref: '', label: '' }])}
           >
-            Add link
+            {t(locale, 'add_link')}
           </Button>
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Access</label>
-          <p className="mb-2 text-sm text-ink-muted">
-            What this product actually unlocks — synced automatically as members join and lapse.
-            A tier that includes this product grants all of it.
-          </p>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'access_label')}</label>
+          <p className="mb-2 text-sm text-ink-muted">{t(locale, 'product_access_blurb')}</p>
           {!product ? (
-            <p className="text-sm text-ink-muted">Save the product first, then add access.</p>
+            <p className="text-sm text-ink-muted">{t(locale, 'save_product_first')}</p>
           ) : (
             <>
               {access.length > 0 && (
@@ -417,7 +434,7 @@ export function ProductDialog({
                         type="button"
                         variant="ghost"
                         size="icon"
-                        aria-label="Remove access"
+                        aria-label={t(locale, 'remove_access')}
                         disabled={accessBusy}
                         onClick={() => void removeAccess(g.id)}
                       >
@@ -433,9 +450,9 @@ export function ProductDialog({
                   onChange={(e) => setAccessKind(e.target.value as AccessKind)}
                   className="w-36 shrink-0 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
                 >
-                  {(Object.keys(GRANT_KIND_LABELS) as AccessKind[]).map((k) => (
+                  {GRANT_KINDS.map((k) => (
                     <option key={k} value={k}>
-                      {GRANT_KIND_LABELS[k]}
+                      {t(locale, GRANT_KIND_KEYS[k])}
                     </option>
                   ))}
                 </select>
@@ -445,25 +462,26 @@ export function ProductDialog({
                     onChange={(e) => setAccessRole(e.target.value as 'organiser' | 'admin')}
                     className={INPUT}
                   >
-                    <option value="organiser">Organiser seat</option>
-                    <option value="admin">Admin seat</option>
+                    <option value="organiser">{t(locale, 'organiser_seat')}</option>
+                    <option value="admin">{t(locale, 'admin_seat')}</option>
                   </select>
                 ) : (
                   <input
                     value={accessRef}
                     onChange={(e) => setAccessRef(e.target.value)}
-                    placeholder={accessKind === 'circle' ? 'Space ID' : 'Thread slug'}
+                    placeholder={
+                      accessKind === 'circle' ? t(locale, 'space_id_ph') : t(locale, 'thread_slug_ph')
+                    }
                     className={INPUT}
                   />
                 )}
                 <Button type="button" variant="secondary" size="sm" disabled={accessBusy} onClick={() => void addAccess()}>
-                  {accessBusy ? '…' : 'Add access'}
+                  {accessBusy ? '…' : t(locale, 'add_access')}
                 </Button>
               </div>
               {accessKind === 'fibre_seat' && (
                 <p className="mt-1.5 text-xs text-amber-700">
-                  Fibre seats are billed on your workspace subscription — each member this
-                  activates adds a seat.
+                  {t(locale, 'fibre_seat_billing_warning')}
                 </p>
               )}
             </>

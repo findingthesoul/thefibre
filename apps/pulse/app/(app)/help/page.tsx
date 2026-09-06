@@ -3,6 +3,8 @@ import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export const metadata = { title: `Help · ${appName('fibre-pulse')}` };
 
@@ -14,51 +16,21 @@ type WorkspaceApp = {
 
 // Mirrors NAV in components/shell/sidebar.tsx, with the blurbs the pages
 // themselves already use.
-const SECTIONS: HelpSection[] = [
-  { label: 'Pulse', href: '/dashboard', blurb: 'Runway at a glance, and the dips ahead of it.' },
-  {
-    label: 'Cashflow',
-    href: '/cashflow',
-    blurb:
-      'Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Flow).',
-  },
-  {
-    label: 'Projects',
-    href: '/projects',
-    blurb:
-      'Projects run under your involved teams (hubs/incubators) or free-standing.',
-  },
-  {
-    label: 'Budget',
-    href: '/budget',
-    blurb:
-      'Recurring lines expand into the projection automatically. Toggled-off lines stay here, out of the numbers.',
-  },
-  {
-    label: 'Teams',
-    href: '/teams',
-    blurb:
-      'Teams are a Fibre platform primitive — one team, every app. Toggle which ones take part in the planner.',
-  },
-  {
-    label: 'Invoices',
-    href: '/invoices',
-    blurb: 'Every purchase across your Fibre apps — search, resend invoices, reimburse.',
-  },
-  {
-    label: 'Accounts',
-    href: '/accounts',
-    blurb:
-      'Balance snapshots anchor the projection. Reserves are earmarked money — in the bank, not yours to spend.',
-  },
-  {
-    label: 'Settings',
-    href: '/settings',
-    blurb: "Your Fibre profile, payments and the planner's assumptions.",
-  },
-];
+function sections(locale: Locale): HelpSection[] {
+  return [
+    { label: 'Pulse', href: '/dashboard', blurb: t(locale, 'help_pulse_blurb') },
+    { label: t(locale, 'nav_cashflow'), href: '/cashflow', blurb: t(locale, 'cashflow_blurb') },
+    { label: t(locale, 'nav_projects'), href: '/projects', blurb: t(locale, 'projects_blurb') },
+    { label: t(locale, 'nav_budget'), href: '/budget', blurb: t(locale, 'budget_blurb') },
+    { label: t(locale, 'nav_teams'), href: '/teams', blurb: t(locale, 'teams_blurb') },
+    { label: t(locale, 'nav_invoices'), href: '/invoices', blurb: t(locale, 'invoices_blurb') },
+    { label: t(locale, 'nav_accounts'), href: '/accounts', blurb: t(locale, 'accounts_blurb') },
+    { label: t(locale, 'nav_settings'), href: '/settings', blurb: t(locale, 'settings_help_blurb') },
+  ];
+}
 
 export default async function PulseHelpPage() {
+  const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
@@ -71,10 +43,11 @@ export default async function PulseHelpPage() {
   return (
     <HelpPage
       appId="fibre-pulse"
-      sections={SECTIONS}
+      sections={sections(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}
+      locale={locale}
     />
   );
 }

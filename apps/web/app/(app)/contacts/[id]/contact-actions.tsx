@@ -8,6 +8,7 @@ import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField } from '@/components/ui/field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { updatePerson, deletePerson, type ActionResult } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type EditablePerson = {
   id: string;
@@ -26,7 +27,7 @@ export type EditablePerson = {
   preferred_language: string | null;
 };
 
-export function ContactActions({ person }: { person: EditablePerson }) {
+export function ContactActions({ person, locale }: { person: EditablePerson; locale: Locale }) {
   const [editOpen, setEditOpen] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [deleting, startDelete] = useTransition();
@@ -46,7 +47,7 @@ export function ContactActions({ person }: { person: EditablePerson }) {
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setEditOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <Button
         variant="danger"
@@ -54,15 +55,17 @@ export function ContactActions({ person }: { person: EditablePerson }) {
         leading={<Trash2 size={14} strokeWidth={1.75} />}
         onClick={() => setConfirmOpen(true)}
       >
-        Delete
+        {t(locale, 'delete')}
       </Button>
 
-      <EditDialog open={editOpen} onClose={() => setEditOpen(false)} person={person} />
+      <EditDialog open={editOpen} onClose={() => setEditOpen(false)} person={person} locale={locale} />
       <ConfirmDialog
         open={confirmOpen}
-        title="Delete contact"
-        message={`Soft-delete ${person.first_name ?? ''} ${person.last_name ?? ''}? Personal data stays in the database (deleted_at flag) — only a GDPR erasure removes it.`}
-        confirmLabel="Delete"
+        title={t(locale, 'delete_contact')}
+        message={t(locale, 'delete_contact_msg', {
+          name: `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim(),
+        })}
+        confirmLabel={t(locale, 'delete')}
         destructive
         pending={deleting}
         onCancel={() => setConfirmOpen(false)}
@@ -76,10 +79,12 @@ function EditDialog({
   open,
   onClose,
   person,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   person: EditablePerson;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -102,41 +107,43 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit contact"
+      title={t(locale, 'edit_contact')}
       size="lg"
       footer={
         <>
-          <Button variant="secondary" onClick={onClose} disabled={pending}>Cancel</Button>
+          <Button variant="secondary" onClick={onClose} disabled={pending}>
+            {t(locale, 'cancel')}
+          </Button>
           <Button type="submit" form="contact-identity-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
     >
       <form id="contact-identity-form" onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <TextField label="First name" name="first_name" defaultValue={person.first_name ?? ''} required errors={state.fieldErrors?.first_name} />
-        <TextField label="Last name" name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
-        <TextField label="Preferred name" name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />
-        <TextField label="Pronouns" name="pronouns" defaultValue={person.pronouns ?? ''} placeholder="she/her, they/them, …" errors={state.fieldErrors?.pronouns} />
-        <TextField label="Email" name="email" type="email" defaultValue={person.email ?? ''} required errors={state.fieldErrors?.email} />
-        <TextField label="Phone" name="phone" defaultValue={person.phone ?? ''} errors={state.fieldErrors?.phone} />
+        <TextField label={t(locale, 'first_name')} name="first_name" defaultValue={person.first_name ?? ''} required errors={state.fieldErrors?.first_name} />
+        <TextField label={t(locale, 'last_name')} name="last_name" defaultValue={person.last_name ?? ''} required errors={state.fieldErrors?.last_name} />
+        <TextField label={t(locale, 'preferred_name')} name="preferred_name" defaultValue={person.preferred_name ?? ''} errors={state.fieldErrors?.preferred_name} />
+        <TextField label={t(locale, 'pronouns')} name="pronouns" defaultValue={person.pronouns ?? ''} placeholder="she/her, they/them, …" errors={state.fieldErrors?.pronouns} />
+        <TextField label={t(locale, 'email_label')} name="email" type="email" defaultValue={person.email ?? ''} required errors={state.fieldErrors?.email} />
+        <TextField label={t(locale, 'phone')} name="phone" defaultValue={person.phone ?? ''} errors={state.fieldErrors?.phone} />
         <TextField label="LinkedIn" name="linkedin_url" defaultValue={person.linkedin_url ?? ''} placeholder="linkedin.com/in/…" errors={state.fieldErrors?.linkedin_url} />
-        <TextField label="Street" name="street" defaultValue={person.street ?? ''} errors={state.fieldErrors?.street} />
-        <TextField label="Postal code" name="postal_code" defaultValue={person.postal_code ?? ''} errors={state.fieldErrors?.postal_code} />
-        <TextField label="City" name="city" defaultValue={person.city ?? ''} errors={state.fieldErrors?.city} />
-        <TextField label="Region" name="region" defaultValue={person.region ?? ''} errors={state.fieldErrors?.region} />
+        <TextField label={t(locale, 'street')} name="street" defaultValue={person.street ?? ''} errors={state.fieldErrors?.street} />
+        <TextField label={t(locale, 'postal_code')} name="postal_code" defaultValue={person.postal_code ?? ''} errors={state.fieldErrors?.postal_code} />
+        <TextField label={t(locale, 'city')} name="city" defaultValue={person.city ?? ''} errors={state.fieldErrors?.city} />
+        <TextField label={t(locale, 'region')} name="region" defaultValue={person.region ?? ''} errors={state.fieldErrors?.region} />
         <CountryCombobox
-          label="Country"
+          label={t(locale, 'country')}
           name="country"
           defaultValue={person.country}
           errors={state.fieldErrors?.country}
         />
         <TextField
-          label="Preferred language"
+          label={t(locale, 'preferred_language')}
           name="preferred_language"
           defaultValue={person.preferred_language ?? ''}
           placeholder="en, nl, fr…"
-          hint="ISO 639 code, e.g. nl or en-GB"
+          hint={t(locale, 'iso_639_hint')}
           maxLength={10}
           errors={state.fieldErrors?.preferred_language}
         />

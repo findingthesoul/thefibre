@@ -19,6 +19,8 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { eur } from '@/lib/plans';
 import { COUNTRIES } from '@/lib/countries';
+// Aliased: the plan-target map below already binds `t` per row.
+import { t as tr, type Locale } from '@/lib/i18n-ui';
 import { startCheckout, openPortal, switchPlan, cancelPlan, resumePlan } from './actions';
 
 type Target = {
@@ -29,6 +31,7 @@ type Target = {
 };
 
 export function UpgradePanel({
+  locale,
   currentPlanId,
   currentInterval,
   comped,
@@ -36,6 +39,7 @@ export function UpgradePanel({
   cancelling,
   targets,
 }: {
+  locale: Locale;
   currentPlanId: string;
   currentInterval: string | null;
   comped: boolean;
@@ -59,7 +63,7 @@ export function UpgradePanel({
       if (r.usePortal) {
         const p = await openPortal();
         if (p.url) window.location.href = p.url;
-        else setError(p.error ?? 'could not open the billing portal');
+        else setError(p.error ?? tr(locale, 'portal_open_failed'));
         return;
       }
       if (r.url) {
@@ -102,7 +106,7 @@ export function UpgradePanel({
                 interval === iv ? 'bg-ink text-ink-inverse' : 'text-ink-subtle hover:text-ink'
               }`}
             >
-              {iv === 'monthly' ? 'Monthly' : 'Yearly — 2 months free'}
+              {iv === 'monthly' ? tr(locale, 'monthly') : tr(locale, 'yearly_two_free')}
             </button>
           ))}
       </div>
@@ -110,7 +114,7 @@ export function UpgradePanel({
       <div className="flex flex-wrap items-center gap-2">
         {cancelling && (
           <Button size="sm" onClick={() => run(resumePlan)} disabled={pending}>
-            {pending ? 'Working…' : 'Keep my plan'}
+            {pending ? tr(locale, 'working') : tr(locale, 'keep_my_plan')}
           </Button>
         )}
 
@@ -118,14 +122,16 @@ export function UpgradePanel({
             const cents = interval === 'monthly' ? t.price_cents_month : t.price_cents_year;
             if (cents === null || cents === 0) return null;
             const isCurrent = t.id === currentPlanId && interval === (currentInterval ?? 'monthly');
-            const label = `${t.name} — ${eur(cents)}/${interval === 'monthly' ? 'mo' : 'yr'}`;
+            const label = `${t.name} — ${eur(cents)}${
+              interval === 'monthly' ? tr(locale, 'per_mo') : tr(locale, 'per_yr')
+            }`;
             if (isCurrent) {
               return (
                 <span
                   key={t.id}
                   className="inline-flex h-8 items-center rounded-md border border-line px-3 text-sm text-ink-muted"
                 >
-                  {t.name} — current plan
+                  {t.name} — {tr(locale, 'current_plan')}
                 </span>
               );
             }
@@ -150,20 +156,20 @@ export function UpgradePanel({
 
         {subscribed && !cancelling && (
           <Button variant="ghost" size="sm" disabled={pending} onClick={() => setConfirm({ kind: 'cancel' })}>
-            Downgrade to Free
+            {tr(locale, 'downgrade_to_free')}
           </Button>
         )}
 
         {subscribed && (
           <Button variant="ghost" size="sm" onClick={() => run(openPortal)} disabled={pending}>
-            Payment method
+            {tr(locale, 'payment_method')}
           </Button>
         )}
       </div>
 
       {!subscribed && paid.length > 0 && (
         <label className="mt-3 flex items-center gap-2 text-xs text-ink-subtle">
-          Billing country
+          {tr(locale, 'billing_country')}
           <select
             value={country}
             onChange={(e) => setCountry(e.target.value)}
@@ -180,17 +186,10 @@ export function UpgradePanel({
 
       {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
       {!subscribed && paid.length > 0 && (
-        <p className="mt-2 text-xs text-ink-muted">
-          Checkout and card details run on Stripe — we never see the number. VAT is added at your
-          country&apos;s rate. Yearly is two months free.
-        </p>
+        <p className="mt-2 text-xs text-ink-muted">{tr(locale, 'checkout_stripe_note')}</p>
       )}
       {subscribed && !cancelling && (
-        <p className="mt-2 text-xs text-ink-muted">
-          Switching charges or credits the difference immediately, on the card on file, with an
-          invoice below. Downgrading to Free takes effect at the period end — everything you built
-          stays.
-        </p>
+        <p className="mt-2 text-xs text-ink-muted">{tr(locale, 'switch_note')}</p>
       )}
 
       <ConfirmDialog
@@ -199,22 +198,22 @@ export function UpgradePanel({
         onConfirm={() => {
           if (confirm?.kind === 'switch') run(() => switchPlan(confirm.planId, confirm.interval));
         }}
-        title={confirm?.kind === 'switch' ? `Switch to ${confirm.label}?` : ''}
-        message={
-          cancelling
-            ? 'This also removes the pending cancellation. The difference is prorated and invoiced immediately on your card on file.'
-            : 'The difference is prorated and invoiced immediately on your card on file. Your allowances change right away.'
+        title={
+          confirm?.kind === 'switch' ? tr(locale, 'switch_to_q', { label: confirm.label }) : ''
         }
-        confirmLabel="Switch now"
+        message={
+          cancelling ? tr(locale, 'switch_msg_cancelling') : tr(locale, 'switch_msg')
+        }
+        confirmLabel={tr(locale, 'switch_now')}
         pending={pending}
       />
       <ConfirmDialog
         open={confirm?.kind === 'cancel'}
         onCancel={() => setConfirm(null)}
         onConfirm={() => run(cancelPlan)}
-        title="Downgrade to Free?"
-        message="Your plan stays active until the end of the paid period, then the workspace drops to Free. Nothing is deleted, and coming back is one click."
-        confirmLabel="Downgrade at period end"
+        title={tr(locale, 'downgrade_to_free_q')}
+        message={tr(locale, 'downgrade_msg')}
+        confirmLabel={tr(locale, 'downgrade_at_period_end')}
         destructive
         pending={pending}
       />

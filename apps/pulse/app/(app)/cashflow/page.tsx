@@ -1,5 +1,6 @@
 import { cookies } from 'next/headers';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
 import {
   COOKIE_CASHFLOW_FIT,
   COOKIE_CASHFLOW_SCOPE,
@@ -126,6 +127,7 @@ export default async function PipelinePage({
 }: {
   searchParams: Promise<{ show?: string; scope?: string; team?: string }>;
 }) {
+  const locale = await uiLocale();
   // The rhythm comes first — the projection fetch pins its granularity.
   // ?show=week|fortnight|month|quarter overrides the display rhythm
   // (Sjoerd 2026-07-08: "Add a show (per week, per month, per quarter)").
@@ -234,6 +236,7 @@ export default async function PipelinePage({
   return (
     <div className="px-6 py-10">
       <PipelineView
+        locale={locale}
         initialView={initialView}
         initialFit={initialFit}
         items={shownItems}

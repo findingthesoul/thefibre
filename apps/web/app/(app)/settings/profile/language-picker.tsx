@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { LOCALES, LOCALE_LABELS, isLocale } from '@thefibre/shared';
 import { saveLocale } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 // The Language setting (i18n P2, D1: ONE user-level language, app-wide).
 //
@@ -22,7 +23,7 @@ import { saveLocale } from '../actions';
 const SELECT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
 
-export function LanguagePicker({ initial }: { initial: string | null }) {
+export function LanguagePicker({ initial, locale }: { initial: string | null; locale: Locale }) {
   const router = useRouter();
   const [value, setValue] = useState(isLocale(initial) ? initial : '');
   const [error, setError] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function LanguagePicker({ initial }: { initial: string | null }) {
       const r = await saveLocale(next || null);
       if (!r.ok) {
         setValue(prev);
-        setError(r.error ?? 'Could not save');
+        setError(r.error ?? t(locale, 'could_not_save'));
         return;
       }
       // The whole chrome speaks this language now — repaint it.
@@ -46,16 +47,18 @@ export function LanguagePicker({ initial }: { initial: string | null }) {
 
   return (
     <section className="mt-12 border-t border-line pt-8">
-      <div className="text-[10px] uppercase tracking-wider text-ink-muted">Language</div>
+      <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+        {t(locale, 'language')}
+      </div>
       <label className="mt-3 block max-w-xs">
-        <span className="text-sm text-ink-subtle">Preferred language</span>
+        <span className="text-sm text-ink-subtle">{t(locale, 'preferred_language')}</span>
         <select
           className={SELECT_CLASS}
           value={value}
           disabled={pending}
           onChange={(e) => onChange(e.target.value)}
         >
-          <option value="">No preference (English)</option>
+          <option value="">{t(locale, 'no_preference_english')}</option>
           {LOCALES.map((l) => (
             <option key={l} value={l}>
               {LOCALE_LABELS[l]}
@@ -63,10 +66,7 @@ export function LanguagePicker({ initial }: { initial: string | null }) {
           ))}
         </select>
       </label>
-      <p className="mt-3 text-xs text-ink-muted">
-        One setting for all of The Fibre&apos;s apps. Today it sets the language of the emails the
-        platform sends you; the app screens themselves are in English for now.
-      </p>
+      <p className="mt-3 text-xs text-ink-muted">{t(locale, 'language_note')}</p>
       {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
     </section>
   );

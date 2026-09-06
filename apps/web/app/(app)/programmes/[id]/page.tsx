@@ -2,6 +2,8 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, SectionLabel, EmptyState } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { EnrolButton, type PersonOption } from './enrol';
 
 type Programme = {
@@ -24,22 +26,22 @@ type Enrolment = {
   person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
 };
 
-const FORMAT_LABEL: Record<string, string> = {
-  meeting: 'Meeting',
-  event: 'Event',
-  journey: 'Journey',
-  self_paced: 'Self-paced',
-  blended: 'Blended',
+const FORMAT_LABEL: Record<string, UiKey> = {
+  meeting: 'format_meeting',
+  event: 'format_event',
+  journey: 'format_journey',
+  self_paced: 'format_self_paced',
+  blended: 'format_blended',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  active: 'Active',
-  completed: 'Completed',
-  archived: 'Archived',
-  invited: 'Invited',
-  enrolled: 'Enrolled',
-  dropped: 'Dropped',
+const STATUS_LABEL: Record<string, UiKey> = {
+  draft: 'status_draft',
+  active: 'consent_active',
+  completed: 'status_prog_completed',
+  archived: 'status_archived',
+  invited: 'status_invited',
+  enrolled: 'status_enrolled',
+  dropped: 'status_dropped',
 };
 
 export default async function ProgrammeDetail({
@@ -48,6 +50,7 @@ export default async function ProgrammeDetail({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await uiLocale();
 
   let p: Programme;
   let enrolments: Enrolment[] = [];
@@ -72,41 +75,43 @@ export default async function ProgrammeDetail({
     // Non-fatal — Enrol dialog will have no options.
   }
 
-  const dates = formatDateRange(p.starts_on, p.ends_on);
+  const dates = formatDateRange(p.starts_on, p.ends_on, locale);
+  const fmtLabel = FORMAT_LABEL[p.format] ? t(locale, FORMAT_LABEL[p.format]!) : p.format;
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/programmes" label="Programmes" />
+      <Breadcrumb href="/programmes" label={t(locale, 'nav_programmes')} />
       <PageHeader
         title={p.title}
-        description={[FORMAT_LABEL[p.format] ?? p.format, p.app?.name, dates].filter(Boolean).join(' · ')}
+        description={[fmtLabel, p.app?.name, dates].filter(Boolean).join(' · ')}
       />
 
       <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
-        <Field label="Format" value={FORMAT_LABEL[p.format] ?? p.format} />
-        <Field label="Status" value={STATUS_LABEL[p.status] ?? p.status} />
-        <Field label="Delivered by" value={p.app?.name ?? null} />
-        <Field label="Starts" value={fmtDate(p.starts_on)} />
-        <Field label="Ends" value={fmtDate(p.ends_on)} />
-        <Field label="Created" value={fmtDate(p.created_at)} />
+        <Field label={t(locale, 'format')} value={fmtLabel} />
+        <Field
+          label={t(locale, 'status')}
+          value={STATUS_LABEL[p.status] ? t(locale, STATUS_LABEL[p.status]!) : p.status}
+        />
+        <Field label={t(locale, 'delivered_by')} value={p.app?.name ?? null} />
+        <Field label={t(locale, 'starts_label')} value={fmtDate(p.starts_on, locale)} />
+        <Field label={t(locale, 'ends_label')} value={fmtDate(p.ends_on, locale)} />
+        <Field label={t(locale, 'created')} value={fmtDate(p.created_at, locale)} />
       </section>
 
       <section className="mt-12">
         <div className="flex items-center justify-between">
-          <SectionLabel>Enrolments</SectionLabel>
-          <EnrolButton programmeId={p.id} people={people} />
+          <SectionLabel>{t(locale, 'enrolments')}</SectionLabel>
+          <EnrolButton programmeId={p.id} people={people} locale={locale} />
         </div>
         {enrolments.length === 0 ? (
-          <EmptyState>
-            No enrolments yet. Click Enrol person to add the first one.
-          </EmptyState>
+          <EmptyState>{t(locale, 'no_enrolments_yet')}</EmptyState>
         ) : (
           <ListGroup>
             {enrolments.map((e) => {
               const name =
                 [e.person.first_name, e.person.last_name].filter(Boolean).join(' ') ||
                 e.person.email ||
-                'Unnamed';
+                t(locale, 'unnamed');
               return (
                 <ListRow
                   key={e.id}
@@ -115,7 +120,7 @@ export default async function ProgrammeDetail({
                   secondary={e.person.email ?? '—'}
                   meta={
                     <span className="text-xs">
-                      {STATUS_LABEL[e.status] ?? e.status}
+                      {STATUS_LABEL[e.status] ? t(locale, STATUS_LABEL[e.status]!) : e.status}
                       {typeof e.progress_pct === 'number' && e.progress_pct > 0 && ` · ${e.progress_pct}%`}
                     </span>
                   }
@@ -138,15 +143,19 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-function fmtDate(s: string | null): string | null {
+function fmtDate(s: string | null, locale: Locale): string | null {
   if (!s) return null;
-  return new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  return new Date(s).toLocaleDateString(INTL_LOCALES[locale], {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+  });
 }
 
-function formatDateRange(start: string | null, end: string | null): string | null {
+function formatDateRange(start: string | null, end: string | null, locale: Locale): string | null {
   if (!start && !end) return null;
-  if (start && end) return `${fmtDate(start)} – ${fmtDate(end)}`;
-  if (start) return `from ${fmtDate(start)}`;
-  if (end) return `until ${fmtDate(end!)}`;
+  if (start && end) return `${fmtDate(start, locale)} – ${fmtDate(end, locale)}`;
+  if (start) return `${t(locale, 'from')} ${fmtDate(start, locale)}`;
+  if (end) return `${t(locale, 'until')} ${fmtDate(end!, locale)}`;
   return null;
 }

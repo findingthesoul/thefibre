@@ -36,6 +36,7 @@ import { InvoiceDialog } from '@thefibre/shared/ui/invoice-dialog';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 
 /** PostgREST join normalizer: object-or-array → object. */
 function one<T>(v: T | T[] | null | undefined): T | null {
@@ -60,13 +61,16 @@ export type CashflowTeam = { team_id: string; name: string };
 // Which cashflow chip does this account carry? (Same rule as the Accounts
 // page — null there means "no chip", here the group is named Workspace.)
 function cashflowLabel(
+  locale: Locale,
   a: Pick<InvoiceAccount, 'team_id' | 'owner_user_id'>,
   teams: CashflowTeam[],
   myUserId: string | null,
 ): string {
-  if (a.owner_user_id) return a.owner_user_id === myUserId ? 'Me' : 'Personal';
-  if (a.team_id) return teams.find((t) => t.team_id === a.team_id)?.name ?? 'Team';
-  return 'Workspace';
+  if (a.owner_user_id)
+    return a.owner_user_id === myUserId ? t(locale, 'me') : t(locale, 'personal');
+  if (a.team_id)
+    return teams.find((row) => row.team_id === a.team_id)?.name ?? t(locale, 'team');
+  return t(locale, 'workspace');
 }
 
 const STATUS_STYLES: Record<string, string> = {
@@ -76,14 +80,14 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-50 text-red-700 ring-red-200',
 };
 
-function fmt(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'EUR' }).format(
+function fmt(intlLocale: string, cents: number, currency: string): string {
+  return new Intl.NumberFormat(intlLocale, { style: 'currency', currency: currency || 'EUR' }).format(
     cents / 100,
   );
 }
 
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDate(intlLocale: string, iso: string): string {
+  return new Intl.DateTimeFormat(intlLocale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -96,8 +100,9 @@ function todayLocalIso(): string {
 
 type Scope = 'me' | 'team' | 'workspace';
 
+// App names are product names — only "All apps" localizes.
 const APP_OPTIONS = [
-  { key: 'all', label: 'All apps' },
+  { key: 'all', label: null },
   { key: 'fibre-pulse', label: 'Pulse' },
   { key: 'fibre-meet', label: 'Meet' },
   { key: 'the-thread', label: 'Thread' },
@@ -117,6 +122,7 @@ export function InvoicesClient({
   accounts,
   cashflowTeams,
   myUserId,
+  locale,
 }: {
   teams: { id: string; name: string }[];
   /** Which app's sales to show first — the current app, typically. */
@@ -126,7 +132,9 @@ export function InvoicesClient({
   /** Involved teams — names for the cashflow group labels. */
   cashflowTeams: CashflowTeam[];
   myUserId: string | null;
+  locale: Locale;
 }) {
+  const intl = INTL_LOCALES[locale];
   const [scope, setScope] = useState<Scope>('me');
   const [app, setApp] = useState<string>(defaultApp);
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
@@ -199,7 +207,11 @@ export function InvoicesClient({
     setLoadingMore(false);
   }
 
-  async function run(action: (id: string) => Promise<{ ok: boolean } | { ok: false; error: string }>, row: PurchaseRow, okMsg: string) {
+  async function run(
+    action: (id: string) => Promise<{ ok: boolean } | { ok: false; error: string }>,
+    row: PurchaseRow,
+    okMsg: string,
+  ) {
     setBusy(true);
     setNotice(null);
     const r = await action(row.id);
@@ -229,22 +241,33 @@ export function InvoicesClient({
   const accountGroups = (() => {
     const groups = new Map<string, InvoiceAccount[]>();
     for (const a of accounts) {
-      const label = cashflowLabel(a, cashflowTeams, myUserId);
+      const label = cashflowLabel(locale, a, cashflowTeams, myUserId);
       const list = groups.get(label) ?? [];
       list.push(a);
       groups.set(label, list);
     }
     const rank = (label: string) =>
-      label === 'Workspace' ? 0 : label === 'Me' ? 1 : label === 'Personal' ? 3 : 2;
+      label === t(locale, 'workspace')
+        ? 0
+        : label === t(locale, 'me')
+          ? 1
+          : label === t(locale, 'personal')
+            ? 3
+            : 2;
     return [...groups.entries()].sort(
       (a, b) => rank(a[0]) - rank(b[0]) || a[0].localeCompare(b[0]),
     );
   })();
 
   const scopes: { key: Scope; label: string; Icon: typeof User; disabled?: boolean }[] = [
-    { key: 'me', label: 'Me', Icon: User },
-    { key: 'team', label: 'Team', Icon: Users, disabled: teams.length === 0 },
-    { key: 'workspace', label: 'Workspace', Icon: Building2, disabled: data ? !isAdmin : false },
+    { key: 'me', label: t(locale, 'me'), Icon: User },
+    { key: 'team', label: t(locale, 'team'), Icon: Users, disabled: teams.length === 0 },
+    {
+      key: 'workspace',
+      label: t(locale, 'workspace'),
+      Icon: Building2,
+      disabled: data ? !isAdmin : false,
+    },
   ];
 
   return (
@@ -259,7 +282,7 @@ export function InvoicesClient({
               disabled={disabled}
               title={
                 key === 'workspace' && disabled
-                  ? 'Workspace-wide invoices need an Admin role'
+                  ? t(locale, 'ws_invoices_admin_title')
                   : undefined
               }
               onClick={() => setScope(key)}
@@ -283,9 +306,9 @@ export function InvoicesClient({
             onChange={(e) => setTeamId(e.target.value)}
             className="h-9 rounded-md border border-line bg-surface-raised px-2.5 text-sm focus:border-line-strong focus:outline-none"
           >
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            {teams.map((row) => (
+              <option key={row.id} value={row.id}>
+                {row.name}
               </option>
             ))}
           </select>
@@ -303,7 +326,7 @@ export function InvoicesClient({
                   : 'ring-line bg-surface-raised text-ink-subtle hover:text-ink'
               }`}
             >
-              {o.label}
+              {o.label ?? t(locale, 'all_apps')}
             </button>
           ))}
         </div>
@@ -313,7 +336,7 @@ export function InvoicesClient({
           <input
             defaultValue=""
             onChange={(e) => onSearchInput(e.target.value)}
-            placeholder="Search payer, email or item…"
+            placeholder={t(locale, 'search_purchases_ph')}
             className="w-full h-9 rounded-md border border-line bg-surface-raised pl-9 pr-3 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
           />
         </div>
@@ -322,36 +345,42 @@ export function InvoicesClient({
       {/* Totals — one row per currency, never summed across (review #12). */}
       {data && (
         <div className="mt-4 space-y-1">
-          {data.totals.currencies.map((t) => (
-            <div key={t.currency} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+          {data.totals.currencies.map((tot) => (
+            <div key={tot.currency} className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
               {data.totals.currencies.length > 1 && (
-                <span className="text-xs font-medium text-ink-muted w-8">{t.currency}</span>
+                <span className="text-xs font-medium text-ink-muted w-8">{tot.currency}</span>
               )}
               <span>
-                <span className="text-ink-muted">Paid</span>{' '}
-                <span className="font-medium tabular-nums">{fmt(t.paid_cents, t.currency)}</span>
-              </span>
-              <span>
-                <span className="text-ink-muted">Pending</span>{' '}
+                <span className="text-ink-muted">{t(locale, 'paid')}</span>{' '}
                 <span className="font-medium tabular-nums">
-                  {fmt(t.pending_cents, t.currency)}
+                  {fmt(intl, tot.paid_cents, tot.currency)}
                 </span>
               </span>
               <span>
-                <span className="text-ink-muted">Refunded</span>{' '}
+                <span className="text-ink-muted">{t(locale, 'pending')}</span>{' '}
                 <span className="font-medium tabular-nums">
-                  {fmt(t.refunded_cents, t.currency)}
+                  {fmt(intl, tot.pending_cents, tot.currency)}
                 </span>
               </span>
               <span>
-                <span className="text-ink-muted">Platform fees</span>{' '}
-                <span className="font-medium tabular-nums">{fmt(t.fees_cents, t.currency)}</span>
+                <span className="text-ink-muted">{t(locale, 'refunded')}</span>{' '}
+                <span className="font-medium tabular-nums">
+                  {fmt(intl, tot.refunded_cents, tot.currency)}
+                </span>
+              </span>
+              <span>
+                <span className="text-ink-muted">{t(locale, 'platform_fees')}</span>{' '}
+                <span className="font-medium tabular-nums">
+                  {fmt(intl, tot.fees_cents, tot.currency)}
+                </span>
               </span>
             </div>
           ))}
           <div className="text-xs text-ink-muted">
-            {data.totals.count} purchase{data.totals.count === 1 ? '' : 's'}
-            {data.totals.count >= 2000 ? ' (first 2000)' : ''}
+            {data.totals.count === 1
+              ? t(locale, 'purchase_count_one')
+              : t(locale, 'purchase_count_many', { n: data.totals.count })}
+            {data.totals.count >= 2000 ? t(locale, 'first_2000') : ''}
           </div>
         </div>
       )}
@@ -371,7 +400,7 @@ export function InvoicesClient({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <EmptyState>No purchases in this view yet.</EmptyState>
+        <EmptyState>{t(locale, 'no_purchases')}</EmptyState>
       ) : (
         <ul className="mt-4 divide-y divide-line border border-line rounded-lg bg-surface-raised">
           {items.map((row) => {
@@ -390,19 +419,33 @@ export function InvoicesClient({
                       {rowApp?.name ? ` · ${rowApp.name}` : ''}
                     </div>
                   </div>
-                  <span className="text-xs text-ink-muted shrink-0">{fmtDate(row.created_at)}</span>
+                  <span className="text-xs text-ink-muted shrink-0">
+                    {fmtDate(intl, row.created_at)}
+                  </span>
                   <span className="text-sm font-medium tabular-nums shrink-0">
-                    {fmt(row.amount_cents, row.currency)}
+                    {fmt(intl, row.amount_cents, row.currency)}
                   </span>
                   <span className="text-[11px] text-ink-muted shrink-0 w-14">
-                    {row.method === 'invoice' ? 'Invoice' : row.method === 'free' ? 'Free (code)' : 'Card'}
+                    {row.method === 'invoice'
+                      ? t(locale, 'method_invoice')
+                      : row.method === 'free'
+                        ? t(locale, 'method_free')
+                        : t(locale, 'method_card')}
                   </span>
                   <span
                     className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
                       STATUS_STYLES[row.status] ?? STATUS_STYLES.pending
                     }`}
                   >
-                    {row.status}
+                    {row.status === 'pending'
+                      ? t(locale, 'status_pending')
+                      : row.status === 'paid'
+                        ? t(locale, 'status_paid')
+                        : row.status === 'refunded'
+                          ? t(locale, 'status_refunded')
+                          : row.status === 'failed'
+                            ? t(locale, 'status_failed')
+                            : row.status}
                   </span>
                 </button>
               </li>
@@ -414,7 +457,7 @@ export function InvoicesClient({
       {data?.next_cursor && (
         <div className="mt-3">
           <Button variant="secondary" size="sm" disabled={loadingMore} onClick={() => void loadMore()}>
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore ? t(locale, 'loading') : t(locale, 'load_more')}
           </Button>
         </div>
       )}
@@ -442,7 +485,7 @@ export function InvoicesClient({
                   disabled={busy}
                   onClick={() => setConfirmRefund(detail)}
                 >
-                  Reimburse
+                  {t(locale, 'reimburse')}
                 </Button>
               )}
               {detail.method === 'invoice' && detail.status === 'pending' && (
@@ -455,7 +498,7 @@ export function InvoicesClient({
                     disabled={busy}
                     onClick={() => openMarkPaid(detail)}
                   >
-                    Mark paid
+                    {t(locale, 'mark_paid')}
                   </Button>
                   <Button
                     type="button"
@@ -464,10 +507,10 @@ export function InvoicesClient({
                     leading={<Link2 size={14} />}
                     disabled={busy}
                     onClick={() =>
-                      void run(sendPaymentLink, detail, 'Payment link sent to the payer.')
+                      void run(sendPaymentLink, detail, t(locale, 'link_sent_notice'))
                     }
                   >
-                    Send payment link
+                    {t(locale, 'send_payment_link')}
                   </Button>
                 </>
               )}
@@ -478,9 +521,9 @@ export function InvoicesClient({
                   size="sm"
                   leading={<Mail size={14} />}
                   disabled={busy}
-                  onClick={() => void run(resendInvoice, detail, 'Invoice sent to the payer.')}
+                  onClick={() => void run(resendInvoice, detail, t(locale, 'invoice_sent_notice'))}
                 >
-                  Resend invoice
+                  {t(locale, 'resend_invoice')}
                 </Button>
               )}
             </>
@@ -490,13 +533,17 @@ export function InvoicesClient({
             detail.vendor_share_cents > 0 ||
             detail.org_share_cents > 0) && (
             <div className="text-ink-subtle">
-              Split: fee {fmt(detail.platform_fee_cents, detail.currency)} · organiser{' '}
-              {fmt(detail.vendor_share_cents, detail.currency)} · workspace{' '}
-              {fmt(detail.org_share_cents, detail.currency)}
+              {t(locale, 'split_line', {
+                fee: fmt(intl, detail.platform_fee_cents, detail.currency),
+                org: fmt(intl, detail.vendor_share_cents, detail.currency),
+                ws: fmt(intl, detail.org_share_cents, detail.currency),
+              })}
             </div>
           )}
           {detail.refunded_at && (
-            <div className="mt-1 text-ink-subtle">Refunded {fmtDate(detail.refunded_at)}</div>
+            <div className="mt-1 text-ink-subtle">
+              {t(locale, 'refunded_on', { d: fmtDate(intl, detail.refunded_at) })}
+            </div>
           )}
           {notice && <p className="mt-1 text-ink-subtle">{notice}</p>}
         </InvoiceDialog>
@@ -507,8 +554,9 @@ export function InvoicesClient({
         <Dialog
           open
           onClose={() => setMarkPaid(null)}
-          title="Mark as paid"
+          title={t(locale, 'mark_paid_title')}
           description={`${markPaid.payer_name || markPaid.payer_email} · ${fmt(
+            intl,
             markPaid.amount_cents,
             markPaid.currency,
           )}`}
@@ -521,7 +569,7 @@ export function InvoicesClient({
                 disabled={busy}
                 onClick={() => setMarkPaid(null)}
               >
-                Cancel
+                {t(locale, 'cancel')}
               </Button>
               <Button
                 type="button"
@@ -536,18 +584,18 @@ export function InvoicesClient({
                         account_id: paidAccountId || undefined,
                       }),
                     row,
-                    'Marked as paid.',
+                    t(locale, 'marked_paid_notice'),
                   ).then(() => setMarkPaid(null));
                 }}
               >
-                {busy ? 'Working…' : 'Mark paid'}
+                {busy ? t(locale, 'working') : t(locale, 'mark_paid')}
               </Button>
             </>
           }
         >
           <div className="space-y-4">
             <DateField
-              label="Paid date"
+              label={t(locale, 'paid_date')}
               name="paid_date"
               defaultValue={paidDate}
               required
@@ -555,7 +603,7 @@ export function InvoicesClient({
             />
             <div>
               <label className="block text-sm text-ink-subtle mb-1" htmlFor="paid-account">
-                Received on account
+                {t(locale, 'received_on_account')}
               </label>
               <select
                 id="paid-account"
@@ -563,7 +611,7 @@ export function InvoicesClient({
                 onChange={(e) => setPaidAccountId(e.target.value)}
                 className="w-full h-9 rounded-md border border-line bg-surface-raised px-2.5 text-sm focus:border-line-strong focus:outline-none"
               >
-                <option value="">— don&rsquo;t record —</option>
+                <option value="">{t(locale, 'dont_record')}</option>
                 {accountGroups.map(([label, list]) => (
                   <optgroup key={label} label={label}>
                     {list.map((a) => (
@@ -574,9 +622,7 @@ export function InvoicesClient({
                   </optgroup>
                 ))}
               </select>
-              <p className="mt-1.5 text-xs text-ink-muted">
-                Adds a balance snapshot on the chosen account and settles the matching plan line.
-              </p>
+              <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'mark_paid_hint')}</p>
             </div>
           </div>
         </Dialog>
@@ -588,22 +634,22 @@ export function InvoicesClient({
         onConfirm={() => {
           const row = confirmRefund;
           setConfirmRefund(null);
-          if (row) void run(refundPurchase, row, 'Reimbursed in full.');
+          if (row) void run(refundPurchase, row, t(locale, 'reimbursed_notice'));
         }}
-        title="Reimburse this purchase?"
+        title={t(locale, 'reimburse_q')}
         message={
           confirmRefund
-            ? `${confirmRefund.payer_name || confirmRefund.payer_email} gets ${fmt(
-                confirmRefund.amount_cents,
-                confirmRefund.currency,
-              )} back in full${
-                confirmRefund.method === 'stripe'
-                  ? ' via Stripe (the platform fee is returned too)'
-                  : ' — recorded here; the money moves outside Stripe'
-              }. There is no partial refund.`
+            ? t(locale, 'reimburse_msg', {
+                payer: confirmRefund.payer_name || confirmRefund.payer_email || '',
+                amount: fmt(intl, confirmRefund.amount_cents, confirmRefund.currency),
+                via:
+                  confirmRefund.method === 'stripe'
+                    ? t(locale, 'reimburse_via_stripe')
+                    : t(locale, 'reimburse_via_outside'),
+              })
             : ''
         }
-        confirmLabel="Reimburse"
+        confirmLabel={t(locale, 'reimburse')}
         destructive
         pending={busy}
       />

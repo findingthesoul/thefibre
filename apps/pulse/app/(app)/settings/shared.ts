@@ -137,20 +137,8 @@ export function centsToEuroInput(cents: number | null | undefined): string {
 export const INPUT_CLS =
   'w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300';
 
-export const MONTH_NAMES = [
-  'January',
-  'February',
-  'March',
-  'April',
-  'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
-];
+// MONTH_NAMES was removed in i18n P3 — the rhythm card now derives localized
+// month names via Intl.DateTimeFormat.
 
 export const ERROR_CLS =
   'rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700';

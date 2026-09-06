@@ -17,6 +17,7 @@ import {
   type CommitmentFieldPatch,
 } from './actions';
 import { toastError } from './toast';
+import { t, type Locale } from '@/lib/i18n-ui';
 import {
   commitmentNetTotal,
   computeSortUpdates,
@@ -75,6 +76,7 @@ function InlineInput({
   alignRight,
   ariaLabel,
   inputMode,
+  locale,
   onCommit,
   onEditingChange,
 }: {
@@ -84,6 +86,7 @@ function InlineInput({
   alignRight?: boolean;
   ariaLabel: string;
   inputMode?: 'decimal' | 'text';
+  locale: Locale;
   onCommit: (raw: string) => void;
   // Focus mode (Sjoerd 2026-07-09: "when working IN an item... others are
   // closed") — the table listens to know which row is being worked in.
@@ -130,7 +133,7 @@ function InlineInput({
         setEditing(true);
         onEditingChange?.(true);
       }}
-      title="Click to edit"
+      title={t(locale, 'click_to_edit')}
       className={`block w-full min-w-0 truncate rounded px-1 py-0.5 hover:bg-slate-100 ${
         alignRight ? 'text-right tabular-nums' : 'text-left'
       } ${displayClass}`}
@@ -145,6 +148,7 @@ function InlineSelect({
   value,
   options,
   ariaLabel,
+  locale,
   onCommit,
   onEditingChange,
 }: {
@@ -152,6 +156,7 @@ function InlineSelect({
   value: string;
   options: { value: string; label: string }[];
   ariaLabel: string;
+  locale: Locale;
   onCommit: (v: string) => void;
   onEditingChange?: (editing: boolean) => void;
 }) {
@@ -193,7 +198,7 @@ function InlineSelect({
         setEditing(true);
         onEditingChange?.(true);
       }}
-      title="Click to change"
+      title={t(locale, 'click_to_change')}
       className="block w-full min-w-0 truncate rounded px-1 py-0.5 text-left hover:bg-slate-100"
     >
       {display}
@@ -208,6 +213,7 @@ export function CounterpartyTable({
   items,
   stages,
   invoiceFilter,
+  locale,
   onEdit,
   onOpenGroup,
 }: {
@@ -216,6 +222,7 @@ export function CounterpartyTable({
   // "Only invoiced" / "Not invoiced" — INCOME rows only (costs always show);
   // the group net total stays over ALL items (the controls row says so).
   invoiceFilter: InvoiceFilter;
+  locale: Locale;
   onEdit: (cm: Commitment) => void;
   // Clicking the counterparty NAME opens the per-org popup ("I want per org
   // a popup") — the chevron keeps folding; separate hit areas.
@@ -261,7 +268,7 @@ export function CounterpartyTable({
     setOverrides((o) => ({ ...o, [id]: { ...o[id], ...patch } }));
     const res = await patchCommitmentField(id, patch);
     if (res.error) {
-      toastError(`Could not save: ${res.error}`);
+      toastError(t(locale, 'could_not_save', { error: res.error }));
       setOverrides((o) => {
         const next = { ...o };
         delete next[id];
@@ -282,7 +289,7 @@ export function CounterpartyTable({
     const name =
       cm.organisation?.name ??
       (cm.person ? `${cm.person.first_name ?? ''} ${cm.person.last_name ?? ''}`.trim() : null) ??
-      'No counterparty yet';
+      t(locale, 'no_counterparty_yet');
     const key = cm.organisation?.id ?? cm.person?.id ?? '—';
     const g = groups.get(key) ?? { name, items: [] };
     g.items.push(cm);
@@ -319,7 +326,7 @@ export function CounterpartyTable({
     });
     const res = await patchCommitmentSortOrders(updates);
     if (res.error) {
-      toastError(`Could not reorder: ${res.error}`);
+      toastError(t(locale, 'could_not_reorder', { error: res.error }));
       setSortOverrides(prev);
       return;
     }
@@ -457,7 +464,7 @@ export function CounterpartyTable({
               <span
                 {...gripProps({ kind: 'group', groupKey: gKey })}
                 onClick={(e) => e.stopPropagation()}
-                title="Drag to reorder — the whole group moves"
+                title={t(locale, 'drag_reorder_group')}
                 className="shrink-0 -ml-2 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
               >
                 <GripVertical size={13} strokeWidth={2} />
@@ -471,7 +478,11 @@ export function CounterpartyTable({
                   toggleGroup(gKey);
                 }}
                 aria-expanded={open}
-                aria-label={`${open ? 'Fold' : 'Unfold'} ${g.name}`}
+                aria-label={
+                  open
+                    ? t(locale, 'fold_name', { name: g.name })
+                    : t(locale, 'unfold_name', { name: g.name })
+                }
                 className="shrink-0 -m-1 p-1"
               >
                 {open ? (
@@ -489,7 +500,7 @@ export function CounterpartyTable({
                     e.stopPropagation();
                     onOpenGroup(gKey);
                   }}
-                  title="Open — opportunities & invoices"
+                  title={t(locale, 'open_org_title')}
                   className="min-w-0 truncate text-left hover:underline underline-offset-2"
                 >
                   {g.name}
@@ -511,13 +522,13 @@ export function CounterpartyTable({
           {open && (
           <>
           <div className={`${ROW_GRID} px-5 py-1.5 border-b border-line/60 text-[11px] text-ink-muted`}>
-            <span>Item</span>
-            <span className="text-right">No.</span>
-            <span className="text-right">Unit €</span>
-            <span className="text-right">= Total</span>
-            <span>Recurring</span>
-            <span>Stage</span>
-            <span className="text-right">Prob.</span>
+            <span>{t(locale, 'th_item')}</span>
+            <span className="text-right">{t(locale, 'th_no')}</span>
+            <span className="text-right">{t(locale, 'th_unit_eur')}</span>
+            <span className="text-right">{t(locale, 'th_eq_total')}</span>
+            <span>{t(locale, 'th_recurring')}</span>
+            <span>{t(locale, 'th_stage')}</span>
+            <span className="text-right">{t(locale, 'th_prob')}</span>
             <span />
           </div>
           <div className="divide-y divide-line/60">
@@ -529,7 +540,8 @@ export function CounterpartyTable({
               const locked = stage?.kind === 'committed' || stage?.kind === 'won';
               const total = commitmentNetTotal(view);
               // Editing a stage key that vanished from the flow stays
-              // selectable rather than silently moving the item.
+              // selectable rather than silently moving the item. Stage labels
+              // are workspace CONTENT (authored in Flow) — not translated.
               const stageOptions = (
                 stage
                   ? sortedStages
@@ -564,14 +576,14 @@ export function CounterpartyTable({
                   <div className="flex items-center gap-2 min-w-0">
                     <span
                       {...gripProps({ kind: 'item', groupKey: gKey, id: cm.id })}
-                      title="Drag to reorder"
+                      title={t(locale, 'drag_to_reorder')}
                       className="shrink-0 -ml-1 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
                     >
                       <GripVertical size={12} strokeWidth={2} />
                     </span>
                     <span
                       aria-hidden
-                      title={isCost ? 'Cost' : 'Income'}
+                      title={isCost ? t(locale, 'cost') : t(locale, 'income')}
                       className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                         isCost ? 'bg-rose-400' : 'bg-emerald-400'
                       }`}
@@ -580,7 +592,8 @@ export function CounterpartyTable({
                       display={view.label}
                       displayClass="text-ink"
                       initial={view.label}
-                      ariaLabel={`Label for ${view.label}`}
+                      ariaLabel={t(locale, 'label_for_aria', { label: view.label })}
+                      locale={locale}
                       onEditingChange={rowFocus}
                       onCommit={(raw) => {
                         const v = raw.trim();
@@ -589,7 +602,7 @@ export function CounterpartyTable({
                     />
                     {view.invoice_no && (
                       <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-px text-[10px] font-medium text-sky-700 ring-1 ring-sky-200">
-                        Invoice {view.invoice_no}
+                        {t(locale, 'invoice_no', { no: view.invoice_no })}
                       </span>
                     )}
                   </div>
@@ -601,7 +614,8 @@ export function CounterpartyTable({
                     initial={String(view.quantity)}
                     alignRight
                     inputMode="decimal"
-                    ariaLabel={`Quantity for ${view.label}`}
+                    ariaLabel={t(locale, 'quantity_for_aria', { label: view.label })}
+                    locale={locale}
                     onEditingChange={rowFocus}
                     onCommit={(raw) => {
                       const n = parseFloat(raw.trim().replace(',', '.'));
@@ -628,7 +642,8 @@ export function CounterpartyTable({
                     }
                     alignRight
                     inputMode="decimal"
-                    ariaLabel={`Unit price for ${view.label}`}
+                    ariaLabel={t(locale, 'unit_price_for_aria', { label: view.label })}
+                    locale={locale}
                     onEditingChange={rowFocus}
                     onCommit={(raw) => {
                       if (!raw.trim()) {
@@ -648,10 +663,10 @@ export function CounterpartyTable({
                   <span
                     title={
                       view.items && view.items.length > 0
-                        ? 'Sum of the offering rows'
+                        ? t(locale, 'total_title_items')
                         : view.unit_amount_cents != null
-                          ? 'Quantity × unit price'
-                          : 'Sum of unsettled expected payments'
+                          ? t(locale, 'total_title_qty')
+                          : t(locale, 'total_title_lines')
                     }
                     className={`px-1 text-right tabular-nums font-medium ${
                       isCost
@@ -672,10 +687,12 @@ export function CounterpartyTable({
                     display={
                       view.repeat_cadence ? (
                         isCost ? (
-                          <span className="text-xs text-ink-muted">{view.repeat_cadence}</span>
+                          <span className="text-xs text-ink-muted">
+                            {t(locale, `cadence_${view.repeat_cadence}` as 'cadence_weekly')}
+                          </span>
                         ) : (
                           <span className="rounded-full bg-sky-50 px-1.5 py-px text-xs font-medium text-sky-700">
-                            ↻ {view.repeat_cadence}
+                            ↻ {t(locale, `cadence_${view.repeat_cadence}` as 'cadence_weekly')}
                           </span>
                         )
                       ) : (
@@ -684,10 +701,14 @@ export function CounterpartyTable({
                     }
                     value={view.repeat_cadence ?? ''}
                     options={[
-                      { value: '', label: "Doesn't repeat" },
-                      ...CADENCES.map((c) => ({ value: c, label: c })),
+                      { value: '', label: t(locale, 'doesnt_repeat') },
+                      ...CADENCES.map((c) => ({
+                        value: c,
+                        label: t(locale, `cadence_${c}` as 'cadence_weekly'),
+                      })),
                     ]}
-                    ariaLabel={`Recurring for ${view.label}`}
+                    ariaLabel={t(locale, 'recurring_for_aria', { label: view.label })}
+                    locale={locale}
                     onEditingChange={rowFocus}
                     onCommit={(v) => {
                       if (v === '') {
@@ -719,7 +740,8 @@ export function CounterpartyTable({
                       }
                       value={view.stage}
                       options={stageOptions}
-                      ariaLabel={`Stage for ${view.label}`}
+                      ariaLabel={t(locale, 'stage_for_aria', { label: view.label })}
+                      locale={locale}
                       onEditingChange={rowFocus}
                       onCommit={(v) => {
                         // Entering a stage takes its default probability
@@ -743,7 +765,7 @@ export function CounterpartyTable({
                   ) : locked ? (
                     <span
                       className="px-1 text-right text-xs text-ink-muted tabular-nums"
-                      title="Committed money counts in full"
+                      title={t(locale, 'committed_full_title')}
                     >
                       100%
                     </span>
@@ -754,7 +776,8 @@ export function CounterpartyTable({
                       initial={String(view.probability)}
                       alignRight
                       inputMode="decimal"
-                      ariaLabel={`Probability for ${view.label}`}
+                      ariaLabel={t(locale, 'prob_for_aria', { label: view.label })}
+                      locale={locale}
                       onEditingChange={rowFocus}
                       onCommit={(raw) => {
                         const n = parseInt(raw.trim(), 10);
@@ -770,8 +793,8 @@ export function CounterpartyTable({
                   {/* Everything else (payments, counterparty, notes…) → dialog */}
                   <button
                     type="button"
-                    aria-label={`Open ${view.label}`}
-                    title="Open — payments, counterparty, notes…"
+                    aria-label={t(locale, 'open_row_aria', { label: view.label })}
+                    title={t(locale, 'open_row_title')}
                     onClick={() => onEdit(view)}
                     className="h-7 w-7 inline-flex items-center justify-center justify-self-end rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
                   >

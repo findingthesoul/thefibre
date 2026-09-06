@@ -1,5 +1,6 @@
 import { apiFetch } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { MeetProfileEdit, type MeetProfileRow } from './edit';
 
 type Booking = {
@@ -44,9 +45,9 @@ function getHostName(b: Booking): string | null {
   return u?.full_name ?? mt.host.slug ?? null;
 }
 
-function fmtDate(iso: string) {
+function fmtDate(iso: string, locale: Locale) {
   const d = new Date(iso);
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -56,7 +57,7 @@ function fmtDate(iso: string) {
   }).format(d);
 }
 
-export async function MeetTab({ personId }: { personId: string }) {
+export async function MeetTab({ personId, locale }: { personId: string; locale: Locale }) {
   let data: MeetData = { profile: null, upcoming_bookings: [], past_bookings: [] };
   try {
     data = await apiFetch<MeetData>(`/api/v1/persons/${personId}/meet`);
@@ -69,55 +70,51 @@ export async function MeetTab({ personId }: { personId: string }) {
 
   return (
     <>
-      <div className="text-xs text-ink-subtle">
-        What <span className="text-ink font-medium">Meet</span> knows
-        about this person: meetings booked + the host&apos;s private notes.
-        Identity (name, email) is owned by the platform.
-      </div>
+      <div className="text-xs text-ink-subtle">{t(locale, 'meet_tab_blurb')}</div>
 
       {/* Meet profile (host notes, VIP/blocked, preferred tz) */}
       <section className="mt-8">
         <div className="flex items-center justify-between">
-          <SectionLabel>Meet profile</SectionLabel>
-          <MeetProfileEdit personId={personId} initial={profile} />
+          <SectionLabel>{t(locale, 'meet_profile')}</SectionLabel>
+          <MeetProfileEdit personId={personId} initial={profile} locale={locale} />
         </div>
         <div className="mt-4 grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-          <Label>Status</Label>
+          <Label>{t(locale, 'status')}</Label>
           <Value>
             <div className="flex flex-wrap gap-1.5">
               {profile?.vip && <Chip tone="emerald">VIP</Chip>}
-              {profile?.blocked && <Chip tone="red">Blocked</Chip>}
+              {profile?.blocked && <Chip tone="red">{t(locale, 'blocked')}</Chip>}
               {!profile?.vip && !profile?.blocked && (
                 <span className="text-ink-muted">—</span>
               )}
             </div>
           </Value>
-          <Label>Preferred timezone</Label>
+          <Label>{t(locale, 'preferred_timezone')}</Label>
           <Value>{profile?.invitee_timezone ?? <Muted>—</Muted>}</Value>
-          <Label>Host notes</Label>
+          <Label>{t(locale, 'host_notes')}</Label>
           <Value>
             {profile?.host_notes ? (
               <p className="whitespace-pre-wrap">{profile.host_notes}</p>
             ) : (
-              <Muted>None.</Muted>
+              <Muted>{t(locale, 'none')}</Muted>
             )}
           </Value>
-          <Label>Total meetings</Label>
+          <Label>{t(locale, 'total_meetings')}</Label>
           <Value>{total === 0 ? <Muted>—</Muted> : total}</Value>
         </div>
       </section>
 
       {/* Upcoming */}
       <section className="mt-14">
-        <SectionLabel>Upcoming meetings</SectionLabel>
+        <SectionLabel>{t(locale, 'upcoming_meetings')}</SectionLabel>
         {upcoming_bookings.length === 0 ? (
           <div className="mt-4">
-            <EmptyState>No upcoming meetings with this person.</EmptyState>
+            <EmptyState>{t(locale, 'no_upcoming_meetings')}</EmptyState>
           </div>
         ) : (
           <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {upcoming_bookings.map((b) => (
-              <BookingRow key={b.id} b={b} />
+              <BookingRow key={b.id} b={b} locale={locale} />
             ))}
           </ul>
         )}
@@ -125,15 +122,15 @@ export async function MeetTab({ personId }: { personId: string }) {
 
       {/* Past */}
       <section className="mt-14">
-        <SectionLabel>Past meetings</SectionLabel>
+        <SectionLabel>{t(locale, 'past_meetings')}</SectionLabel>
         {past_bookings.length === 0 ? (
           <div className="mt-4">
-            <EmptyState>No past meetings with this person.</EmptyState>
+            <EmptyState>{t(locale, 'no_past_meetings')}</EmptyState>
           </div>
         ) : (
           <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {past_bookings.map((b) => (
-              <BookingRow key={b.id} b={b} />
+              <BookingRow key={b.id} b={b} locale={locale} />
             ))}
           </ul>
         )}
@@ -142,7 +139,7 @@ export async function MeetTab({ personId }: { personId: string }) {
   );
 }
 
-function BookingRow({ b }: { b: Booking }) {
+function BookingRow({ b, locale }: { b: Booking; locale: Locale }) {
   const mt = getMt(b);
   const hostName = getHostName(b);
   const cancelled = b.status === 'cancelled';
@@ -152,12 +149,12 @@ function BookingRow({ b }: { b: Booking }) {
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="font-medium">
-            {mt?.name ?? 'Meeting'}
+            {mt?.name ?? t(locale, 'meeting')}
             {hostName && (
-              <span className="text-ink-subtle font-normal"> · with {hostName}</span>
+              <span className="text-ink-subtle font-normal"> · {t(locale, 'with')} {hostName}</span>
             )}
           </div>
-          <div className="mt-1 text-xs text-ink-muted">{fmtDate(b.starts_at)}</div>
+          <div className="mt-1 text-xs text-ink-muted">{fmtDate(b.starts_at, locale)}</div>
           {b.alternative_location && (
             <div className="mt-1 text-xs text-ink-muted">{b.alternative_location}</div>
           )}
@@ -172,7 +169,11 @@ function BookingRow({ b }: { b: Booking }) {
                   : 'bg-ink text-surface-raised border-ink'
             }`}
           >
-            {cancelled ? 'Cancelled' : pending ? 'Pending' : 'Confirmed'}
+            {cancelled
+              ? t(locale, 'cancelled')
+              : pending
+                ? t(locale, 'pending')
+                : t(locale, 'confirmed')}
           </span>
         </div>
       </div>

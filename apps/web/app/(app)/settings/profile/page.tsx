@@ -1,5 +1,7 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, ErrorBanner } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { ProfileForm, type PublicProfile } from './profile-form';
 import { LanguagePicker } from './language-picker';
 
@@ -42,6 +44,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 export default async function ProfileSettingsPage() {
+  const locale = await uiLocale();
   let me: Me | null = null;
   let profile: PublicProfile | null = null;
   let error: string | null = null;
@@ -59,13 +62,13 @@ export default async function ProfileSettingsPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'nav_settings')} />
       <PageHeader
-        title="Profile"
-        description="Who you are on The Fibre. Every app inherits this."
+        title={t(locale, 'profile_title')}
+        description={t(locale, 'profile_blurb')}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load your profile: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'profile_load_failed')} {error}</ErrorBanner>}
 
       {me && (
         <>
@@ -79,29 +82,34 @@ export default async function ProfileSettingsPage() {
               }
             }
             email={me.user.email}
+            locale={locale}
           />
-          <LanguagePicker initial={profile?.locale ?? null} />
+          <LanguagePicker initial={profile?.locale ?? null} locale={locale} />
           <section className="mt-12 border-t border-line pt-8">
-            <div className="text-[10px] uppercase tracking-wider text-ink-muted">Signing in</div>
+            <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+              {t(locale, 'signing_in')}
+            </div>
             <dl className="mt-3 rounded-lg border border-line bg-surface-raised p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-3 text-sm">
-              <Row label="Email" value={me.user.email} />
-              <Row label="Method" value={METHOD[me.user.primary_auth_method ?? ''] ?? '—'} />
+              <Row label={t(locale, 'email_label')} value={me.user.email} />
+              <Row
+                label={t(locale, 'method')}
+                value={
+                  me.user.primary_auth_method === 'magic_link'
+                    ? t(locale, 'emailed_code')
+                    : METHOD[me.user.primary_auth_method ?? ''] ?? '—'
+                }
+              />
               {me.user.last_sign_in && (
                 <Row
-                  label="Last sign-in"
-                  value={new Date(me.user.last_sign_in).toLocaleString('en-GB', {
+                  label={t(locale, 'last_sign_in')}
+                  value={new Date(me.user.last_sign_in).toLocaleString(INTL_LOCALES[locale], {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}
                 />
               )}
             </dl>
-            <p className="mt-3 text-xs text-ink-muted">
-              Your email is your identity here: it is how the platform finds every workspace you
-              belong to, so it cannot be changed from this screen yet. Ask and we will move it.
-              There is no password to manage — you sign in with Google, or with a code sent to
-              this address.
-            </p>
+            <p className="mt-3 text-xs text-ink-muted">{t(locale, 'email_identity_note')}</p>
           </section>
         </>
       )}

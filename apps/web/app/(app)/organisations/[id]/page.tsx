@@ -10,6 +10,8 @@ import {
   DomainVerification,
   type DomainVerificationState,
 } from './domain-verification';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 type Organisation = {
   id: string;
@@ -45,6 +47,7 @@ export default async function OrganisationOverview({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await uiLocale();
 
   let org: Organisation;
   let members: Member[] = [];
@@ -94,47 +97,47 @@ export default async function OrganisationOverview({
   return (
     <>
       <section className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
-        <Field label="Domain" value={org.domain} />
-        <Field label="Website" value={org.website} link />
+        <Field label={t(locale, 'domain')} value={org.domain} />
+        <Field label={t(locale, 'website')} value={org.website} link />
         <Field label="LinkedIn" value={org.linkedin_url} link />
-        <Field label="Address" value={addressLine || null} />
-        <Field label="Location" value={location || null} />
-        <Field label="Sector" value={org.sector} />
-        <Field label="Size" value={org.size_band} />
-        <Field label="Type" value={org.org_type} />
+        <Field label={t(locale, 'address_label')} value={addressLine || null} />
+        <Field label={t(locale, 'location')} value={location || null} />
+        <Field label={t(locale, 'sector')} value={org.sector} />
+        <Field label={t(locale, 'size')} value={org.size_band} />
+        <Field label={t(locale, 'type')} value={org.org_type} />
       </section>
 
       {org.domain && (
         <section className="mt-12">
-          <SectionLabel>Domain verification</SectionLabel>
+          <SectionLabel>{t(locale, 'domain_verification')}</SectionLabel>
           <div className="mt-3">
-            <DomainVerification orgId={org.id} initial={domainVerification} />
+            <DomainVerification orgId={org.id} initial={domainVerification} locale={locale} />
           </div>
         </section>
       )}
 
       <section className="mt-12">
         <div className="flex items-center justify-between">
-          <SectionLabel>Members</SectionLabel>
-          <AddMemberButton orgId={org.id} people={people} exclude={members.map((m) => m.person.id)} />
+          <SectionLabel>{t(locale, 'members_title')}</SectionLabel>
+          <AddMemberButton orgId={org.id} people={people} exclude={members.map((m) => m.person.id)} locale={locale} />
         </div>
         {members.length === 0 ? (
-          <EmptyState>No members linked yet. Click Add member to link a contact.</EmptyState>
+          <EmptyState>{t(locale, 'no_members_linked')}</EmptyState>
         ) : (
           <ListGroup>
             {members.map((m) => {
               const name =
                 [m.person.first_name, m.person.last_name].filter(Boolean).join(' ') ||
                 m.person.email ||
-                'Unnamed';
+                t(locale, 'unnamed');
               return (
                 <ListRow
                   key={m.id}
                   href={`/contacts/${m.person.id}`}
                   primary={name}
                   secondary={[m.title, m.department].filter(Boolean).join(' · ') || '—'}
-                  meta={m.is_primary ? <span className="uppercase">Primary</span> : null}
-                  trailing={<EndMemberButton orgId={org.id} membershipId={m.id} personLabel={name} />}
+                  meta={m.is_primary ? <span className="uppercase">{t(locale, 'primary')}</span> : null}
+                  trailing={<EndMemberButton orgId={org.id} membershipId={m.id} personLabel={name} locale={locale} />}
                 />
               );
             })}

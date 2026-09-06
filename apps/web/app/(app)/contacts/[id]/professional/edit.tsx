@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
 import { updateProfessional, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type ProfessionalRow = {
   current_title: string | null;
@@ -22,37 +23,39 @@ export type ProfessionalRow = {
   spoken_at_events: string[] | null;
 };
 
-const SENIORITY_OPTIONS = [
+const seniorityOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'junior', label: 'Junior' },
-  { value: 'mid', label: 'Mid' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'lead', label: 'Lead' },
-  { value: 'executive', label: 'Executive' },
-  { value: 'board', label: 'Board' },
+  { value: 'junior', label: t(locale, 'seniority_junior') },
+  { value: 'mid', label: t(locale, 'seniority_mid') },
+  { value: 'senior', label: t(locale, 'seniority_senior') },
+  { value: 'lead', label: t(locale, 'seniority_lead') },
+  { value: 'executive', label: t(locale, 'seniority_executive') },
+  { value: 'board', label: t(locale, 'seniority_board') },
 ];
 
-const CAREER_STAGE_OPTIONS = [
+const careerStageOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'early', label: 'Early' },
-  { value: 'established', label: 'Established' },
-  { value: 'senior', label: 'Senior' },
-  { value: 'transitioning', label: 'Transitioning' },
-  { value: 'portfolio', label: 'Portfolio' },
+  { value: 'early', label: t(locale, 'career_early') },
+  { value: 'established', label: t(locale, 'career_established') },
+  { value: 'senior', label: t(locale, 'career_senior') },
+  { value: 'transitioning', label: t(locale, 'career_transitioning') },
+  { value: 'portfolio', label: t(locale, 'career_portfolio') },
 ];
 
-const BOOL_OPTIONS = [
+const boolOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'true', label: 'Yes' },
-  { value: 'false', label: 'No' },
+  { value: 'true', label: t(locale, 'yes') },
+  { value: 'false', label: t(locale, 'no') },
 ];
 
 export function ProfessionalEdit({
   personId,
   initial,
+  locale,
 }: {
   personId: string;
   initial: ProfessionalRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -64,13 +67,14 @@ export function ProfessionalEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         personId={personId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -81,11 +85,13 @@ function EditDialog({
   onClose,
   personId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   personId: string;
   initial: ProfessionalRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -122,15 +128,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit professional profile"
+      title={t(locale, 'edit_professional_profile')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="professional-profile-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -141,49 +147,49 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <TextField
-          label="Current title"
+          label={t(locale, 'current_title')}
           name="current_title"
           maxLength={200}
           defaultValue={row.current_title ?? ''}
           errors={state.fieldErrors?.current_title}
         />
         <TextField
-          label="Current department"
+          label={t(locale, 'current_department')}
           name="current_department"
           maxLength={200}
           defaultValue={row.current_department ?? ''}
           errors={state.fieldErrors?.current_department}
         />
         <SelectField
-          label="Seniority level"
+          label={t(locale, 'seniority_level')}
           name="seniority_level"
           defaultValue={row.seniority_level ?? ''}
-          options={SENIORITY_OPTIONS}
+          options={seniorityOptions(locale)}
           errors={state.fieldErrors?.seniority_level}
         />
         <TextField
-          label="Sector"
+          label={t(locale, 'sector')}
           name="sector"
           maxLength={200}
           defaultValue={row.sector ?? ''}
           errors={state.fieldErrors?.sector}
         />
         <TextField
-          label="Expertise areas"
+          label={t(locale, 'expertise_areas')}
           name="expertise_areas"
           defaultValue={(row.expertise_areas ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.expertise_areas}
         />
         <TextField
-          label="Industries worked in"
+          label={t(locale, 'industries_worked_in')}
           name="industries_worked_in"
           defaultValue={(row.industries_worked_in ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.industries_worked_in}
         />
         <TextField
-          label="Years of experience"
+          label={t(locale, 'years_of_experience')}
           name="years_of_experience"
           type="number"
           min={0}
@@ -192,14 +198,14 @@ function EditDialog({
           errors={state.fieldErrors?.years_of_experience}
         />
         <SelectField
-          label="Career stage"
+          label={t(locale, 'career_stage')}
           name="career_stage"
           defaultValue={row.career_stage ?? ''}
-          options={CAREER_STAGE_OPTIONS}
+          options={careerStageOptions(locale)}
           errors={state.fieldErrors?.career_stage}
         />
         <SelectField
-          label="Independent"
+          label={t(locale, 'independent')}
           name="is_independent"
           defaultValue={
             row.is_independent === null || row.is_independent === undefined
@@ -208,21 +214,21 @@ function EditDialog({
                 ? 'true'
                 : 'false'
           }
-          options={BOOL_OPTIONS}
+          options={boolOptions(locale)}
           errors={state.fieldErrors?.is_independent}
         />
         <TextField
-          label="Certifications"
+          label={t(locale, 'certifications')}
           name="certifications"
           defaultValue={(row.certifications ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.certifications}
         />
         <TextField
-          label="Spoken at events"
+          label={t(locale, 'spoken_at_events')}
           name="spoken_at_events"
           defaultValue={(row.spoken_at_events ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.spoken_at_events}
         />
 

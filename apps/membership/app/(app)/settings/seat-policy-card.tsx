@@ -7,14 +7,17 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { saveSeatPolicy } from './actions';
 
 export function SeatPolicyCard({
   mode: initialMode,
   allowBilled: initialAllowBilled,
+  locale,
 }: {
   mode: 'auto' | 'approve';
   allowBilled: boolean;
+  locale: Locale;
 }) {
   const [mode, setMode] = useState<'auto' | 'approve'>(initialMode);
   const [allowBilled, setAllowBilled] = useState(initialAllowBilled);
@@ -39,14 +42,16 @@ export function SeatPolicyCard({
   return (
     <div className="p-5 space-y-4">
       <div>
-        <label className="block text-sm font-medium mb-1">When a tier grants a seat</label>
+        <label className="block text-sm font-medium mb-1">
+          {t(locale, 'when_tier_grants_seat')}
+        </label>
         <select
           value={mode}
           onChange={(e) => setMode(e.target.value as 'auto' | 'approve')}
           className="rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none"
         >
-          <option value="approve">Wait for approval — each seat needs an Approve click on the member</option>
-          <option value="auto">Automatic — seats within the plan allowance provision on their own</option>
+          <option value="approve">{t(locale, 'seat_mode_approve')}</option>
+          <option value="auto">{t(locale, 'seat_mode_auto')}</option>
         </select>
       </div>
       <label className="flex items-start gap-2.5 text-sm cursor-pointer">
@@ -57,18 +62,14 @@ export function SeatPolicyCard({
           className="mt-0.5 accent-ink"
         />
         <span>
-          <span className="text-ink">Seats above the plan allowance may be billed</span>
-          <span className="block text-xs text-ink-muted">
-            Standing consent: extra seats are charged on your Fibre subscription (prorated when
-            added; a lapsed member&apos;s seat stops billing from the next period). Without this,
-            a seat that would cost money always waits for approval.
-          </span>
+          <span className="text-ink">{t(locale, 'allow_billed_label')}</span>
+          <span className="block text-xs text-ink-muted">{t(locale, 'allow_billed_hint')}</span>
         </span>
       </label>
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-ink-muted">Saved.</p>}
+      {saved && <p className="text-sm text-ink-muted">{t(locale, 'saved_dot')}</p>}
       <Button type="button" onClick={save} disabled={busy}>
-        {busy ? 'Saving…' : 'Save seat policy'}
+        {busy ? t(locale, 'saving') : t(locale, 'save_seat_policy')}
       </Button>
     </div>
   );

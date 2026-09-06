@@ -16,6 +16,7 @@ import {
 } from './actions';
 import { SectionLabel } from '../page-chrome';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 const INPUT =
   'mt-1 w-full max-w-md rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
@@ -28,6 +29,7 @@ export function PaymentsForm({
   workspaceDetails,
   workspaceMethods,
   isAdmin,
+  locale,
 }: {
   personalAccount: string | null;
   personalDetails: InvoiceDetails | null;
@@ -36,12 +38,14 @@ export function PaymentsForm({
   workspaceDetails: InvoiceDetails | null;
   workspaceMethods: ('stripe' | 'invoice')[] | null;
   isAdmin: boolean;
+  locale: Locale;
 }) {
   return (
     <div className="mt-8 space-y-10">
       <AccountSection
-        label="My account"
-        description="Payouts for your personal sales — one connection, every Fibre app uses it. The invoice details appear as the seller on receipts for your personal sales."
+        locale={locale}
+        label={t(locale, 'my_account')}
+        description={t(locale, 'my_account_desc')}
         initialAccount={personalAccount}
         initialDetails={personalDetails}
         initialMethods={personalMethods}
@@ -49,27 +53,28 @@ export function PaymentsForm({
         save={(acct, details, methods) => updateMyPayments(acct, details, methods)}
       />
       <AccountSection
-        label="Workspace account"
-        description="Payouts for team sales and anything routed to the workspace. Teams don't hold their own accounts — team sales land here, with these invoice details as the seller."
+        locale={locale}
+        label={t(locale, 'workspace_account')}
+        description={t(locale, 'workspace_account_desc')}
         initialAccount={workspaceAccount}
         initialDetails={workspaceDetails}
         initialMethods={workspaceMethods}
         showMethods
-        methodsHint="team & workspace sales inherit these"
+        methodsHint={t(locale, 'methods_hint_ws')}
         save={(acct, details, methods) => updateWorkspacePayments(acct, details, methods)}
         disabled={!isAdmin}
-        disabledNote="Managed by workspace admins."
+        disabledNote={t(locale, 'managed_by_admins')}
       />
       <p className="text-xs text-ink-muted max-w-xl leading-relaxed">
-        The Stripe account id starts with <code className="font-mono">acct_</code> (Stripe →
-        Settings → Account details). Leaving it empty disconnects. Payment options inherit
-        downward: account default first, each app can override per item.
+        {t(locale, 'acct_hint_1')} <code className="font-mono">acct_</code>{' '}
+        {t(locale, 'acct_hint_2')}
       </p>
     </div>
   );
 }
 
 function AccountSection({
+  locale,
   label,
   description,
   initialAccount,
@@ -81,6 +86,7 @@ function AccountSection({
   disabled = false,
   disabledNote,
 }: {
+  locale: Locale;
   label: string;
   description: string;
   initialAccount: string | null;
@@ -113,11 +119,11 @@ function AccountSection({
     setSaved(false);
     const acct = account.trim();
     if (acct && !acct.startsWith('acct_')) {
-      setError('A Stripe account id starts with acct_');
+      setError(t(locale, 'acct_starts_error'));
       return;
     }
     if (showMethods && !stripeOn && !invoiceOn) {
-      setError('Keep at least one payment option on.');
+      setError(t(locale, 'keep_one_method_error'));
       return;
     }
     const details: InvoiceDetails = {};
@@ -151,7 +157,7 @@ function AccountSection({
               : 'ring-line bg-surface-sunken text-ink-muted'
           }`}
         >
-          {initialAccount ? 'Connected' : 'Not connected'}
+          {initialAccount ? t(locale, 'connected') : t(locale, 'not_connected')}
         </span>
       </div>
       <p className="mt-1.5 text-xs text-ink-subtle max-w-xl leading-relaxed">{description}</p>
@@ -160,7 +166,7 @@ function AccountSection({
       ) : (
         <div className="mt-3 space-y-4">
           <label className="block">
-            <span className="text-xs text-ink-subtle">Stripe account id</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'stripe_account_id')}</span>
             <input
               value={account}
               onChange={(e) => setAccount(e.target.value)}
@@ -172,7 +178,7 @@ function AccountSection({
           </label>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
             <label className="block">
-              <span className="text-xs text-ink-subtle">Legal name (on invoices)</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'legal_name_invoices')}</span>
               <input
                 value={legalName}
                 onChange={(e) => setLegalName(e.target.value)}
@@ -181,7 +187,7 @@ function AccountSection({
               />
             </label>
             <label className="block">
-              <span className="text-xs text-ink-subtle">Tax / VAT number</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'tax_vat_number')}</span>
               <input
                 value={taxNo}
                 onChange={(e) => setTaxNo(e.target.value)}
@@ -191,7 +197,7 @@ function AccountSection({
             </label>
           </div>
           <label className="block max-w-2xl">
-            <span className="text-xs text-ink-subtle">Address (on invoices)</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'address_invoices')}</span>
             <textarea
               value={address}
               onChange={(e) => setAddress(e.target.value)}
@@ -203,7 +209,8 @@ function AccountSection({
           {showMethods && (
             <div>
               <span className="text-xs text-ink-subtle">
-                Default payment options — {methodsHint ?? 'your personal sales inherit these'}
+                {t(locale, 'default_payment_options')}{' '}
+                {methodsHint ?? t(locale, 'methods_hint_personal')}
               </span>
               <div className="mt-1.5 flex items-center gap-5">
                 <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
@@ -212,7 +219,7 @@ function AccountSection({
                     checked={stripeOn}
                     onChange={(e) => setStripeOn(e.target.checked)}
                   />
-                  Pay online (card)
+                  {t(locale, 'pay_online_card')}
                 </label>
                 <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
                   <input
@@ -220,7 +227,7 @@ function AccountSection({
                     checked={invoiceOn}
                     onChange={(e) => setInvoiceOn(e.target.checked)}
                   />
-                  Pay per invoice
+                  {t(locale, 'pay_per_invoice')}
                 </label>
               </div>
             </div>
@@ -229,9 +236,9 @@ function AccountSection({
           {error && <p className="text-xs text-red-700">{error}</p>}
           <div className="flex items-center gap-3">
             <Button type="submit" size="sm" disabled={pending}>
-              {pending ? 'Saving…' : 'Save'}
+              {pending ? t(locale, 'saving') : t(locale, 'save')}
             </Button>
-            {saved && <span className="text-xs text-ink-subtle">Saved.</span>}
+            {saved && <span className="text-xs text-ink-subtle">{t(locale, 'saved_notice')}</span>}
           </div>
         </div>
       )}

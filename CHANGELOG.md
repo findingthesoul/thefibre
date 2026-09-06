@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.51.0] — 2026-09-06 — i18n P3 complete: all six apps in six languages (Pulse 0.29.0 · Membership 0.13.0)
+
+### Added
+- **Fibre web (667 keys), Pulse (594) and Membership admin (~330) join
+  Wave 1** — P3 is complete: every signed-in surface of all six apps
+  renders in en/nl/es/pt/de/fr from the one Settings → Profile language
+  setting. Settings, members, plan, privacy, person/org profiles and all
+  curator dialogs, the entire cashflow planner (period grid, opportunity
+  dialogs, charts), membership tiers/products/access/pricing rules incl.
+  the Google Workspace card, and every sidebar/bottom-nav label.
+- `INTL_LOCALES.pt` is now `pt-BR`, matching the catalogs' Brazilian
+  register (flip together with the prose if native review prefers
+  European Portuguese).
+
+### Deliberately still English (documented decisions)
+- `/admin/**` (internal super-admin surfaces), the "How The Fibre works"
+  editorial explainer (authored voice — a per-locale pass of its own if
+  wanted), printable invoice/receipt documents (the seller's legal
+  document), raw API error pass-throughs, static browser-tab titles.
+
+### Notes
+- MT burn-down: `grep -rn "// MT"` across catalogs is the native-review
+  list; NL is written to native quality and awaits Sjoerd's read. Known
+  divergence for that pass: ES "Settings" (Ajustes vs Configuración).
+
+
 ## [0.50.0] — 2026-09-06 — i18n P3 Wave 1: Thread, Meet and Flow speak six languages (Thread 3.36.0 · Meet 2.7.0 · Flow 1.16.0)
 
 ### Added

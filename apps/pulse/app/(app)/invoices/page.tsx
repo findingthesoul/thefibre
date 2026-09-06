@@ -5,6 +5,8 @@
 // record which bank the money landed on), so they're fetched here too.
 
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { PageContainer, PageHeader } from '../settings/page-chrome';
 import {
   InvoicesClient,
@@ -35,6 +37,7 @@ async function involvedTeams(): Promise<CashflowTeam[]> {
 }
 
 export default async function InvoicesPage() {
+  const locale = await uiLocale();
   const [teams, accounts, cashflowTeams, myUserId] = await Promise.all([
     // Workspace teams for the Team scope switcher — RLS on the purchases
     // query proves membership, so listing them all is safe.
@@ -55,15 +58,16 @@ export default async function InvoicesPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Invoices"
-        description="Every purchase across your Fibre apps — search, resend invoices, reimburse."
+        title={t(locale, 'invoices')}
+        description={t(locale, 'invoices_blurb')}
       />
       <InvoicesClient
-        teams={teams.map((t) => ({ id: t.id, name: t.name }))}
+        teams={teams.map((row) => ({ id: row.id, name: row.name }))}
         defaultApp="fibre-pulse"
         accounts={accounts}
         cashflowTeams={cashflowTeams}
         myUserId={myUserId}
+        locale={locale}
       />
     </PageContainer>
   );

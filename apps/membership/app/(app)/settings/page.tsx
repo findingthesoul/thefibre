@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Globe, Plug, Code2, Percent } from 'lucide-react';
 import { appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { PageContainer, PageHeader } from './page-chrome';
 
 // Same four sections, same order, same words as every other app — see
@@ -11,40 +13,42 @@ import { PageContainer, PageHeader } from './page-chrome';
 
 const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
-export default function SettingsPage() {
+export default async function SettingsPage() {
+  const locale = await uiLocale();
   const fibre = appUrl('fibre-platform', process.env);
   const sections = platformSettings({
+    locale,
     fibreUrl: fibre,
     // Membership serves your payments (the Stripe account subscriptions
     // charge on); everything else about you and the workspace is edited
     // once, in The Fibre.
     hosted: ['payments'],
     appSection: {
-      label: 'Membership',
+      label: t(locale, 'nav_membership'),
       entries: [
         {
           href: '/settings/join-page',
           icon: <Globe {...ICON} />,
-          title: 'Join page',
-          desc: 'The public page where people become members — headline, intro, address.',
+          title: t(locale, 'st_join_title'),
+          desc: t(locale, 'st_join_desc'),
         },
         {
           href: '/settings/integrations',
           icon: <Plug {...ICON} />,
-          title: 'Integrations',
-          desc: 'The tools membership unlocks for members — Circle.so today, more to come.',
+          title: t(locale, 'st_integrations_title'),
+          desc: t(locale, 'st_integrations_desc'),
         },
         {
           href: '/settings/pricing',
           icon: <Percent {...ICON} />,
-          title: 'Pricing rules',
-          desc: 'Price logic — purchasing-power pricing by country, first matching rule wins.',
+          title: t(locale, 'st_pricing_title'),
+          desc: t(locale, 'st_pricing_desc'),
         },
         {
           href: '/settings/embeds',
           icon: <Code2 {...ICON} />,
-          title: 'Website embeds',
-          desc: 'Copy-paste snippets to show tiers and take joins on any website.',
+          title: t(locale, 'st_embeds_title'),
+          desc: t(locale, 'st_embeds_desc'),
         },
       ],
     },
@@ -52,12 +56,9 @@ export default function SettingsPage() {
 
   return (
     <PageContainer max="4xl">
-      <PageHeader
-        title="Settings"
-        description="You, the workspace, and Membership. The same four sections in every Fibre app."
-      />
+      <PageHeader title={t(locale, 'nav_settings')} description={t(locale, 'settings_blurb')} />
       <div className="mt-8">
-        <SettingsCards sections={sections} link={Link} />
+        <SettingsCards sections={sections} link={Link} locale={locale} />
       </div>
     </PageContainer>
   );

@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { Plus, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import { updatePulseSettings } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { ERROR_CLS, INPUT_CLS, type PulseSettings, type VatTariff } from './shared';
 
 // Mirrors the migration's seeded default — shown when settings carry none.
@@ -23,7 +24,7 @@ const DEFAULT_TARIFFS: VatTariff[] = [
 type TariffRow = { key: number; label: string; pct: string };
 let rowSeq = 0;
 
-export function InvoicingCard({ settings }: { settings: PulseSettings }) {
+export function InvoicingCard({ settings, locale }: { settings: PulseSettings; locale: Locale }) {
   const router = useRouter();
   const [prefix, setPrefix] = useState(settings?.invoice_prefix ?? '');
   const [autoSend, setAutoSend] = useState(settings?.invoice_auto_send ?? false);
@@ -98,13 +99,13 @@ export function InvoicingCard({ settings }: { settings: PulseSettings }) {
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line">
-        <span className="text-sm font-semibold tracking-tight">Invoicing</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'invoicing')}</span>
       </div>
       <div className="px-5 py-4 space-y-4">
         <div className="grid gap-4 sm:grid-cols-3 items-end">
           <div>
             <label htmlFor="invoice-prefix" className="block text-sm font-medium mb-1">
-              Number prefix
+              {t(locale, 'number_prefix')}
             </label>
             <input
               id="invoice-prefix"
@@ -120,38 +121,31 @@ export function InvoicingCard({ settings }: { settings: PulseSettings }) {
                   e.currentTarget.blur();
                 }
               }}
-              placeholder="e.g. 2026-"
+              placeholder={t(locale, 'prefix_ph')}
               disabled={busy}
               className={INPUT_CLS}
             />
           </div>
           <div>
-            <span className="block text-sm font-medium mb-1">Next number</span>
+            <span className="block text-sm font-medium mb-1">{t(locale, 'next_number')}</span>
             <p className="px-3 py-2 text-sm text-ink tabular-nums rounded-md bg-surface-sunken">
               {preview}
             </p>
           </div>
-          <p className="text-xs text-ink-muted sm:pb-2.5">
-            Assigned when an opportunity transfers to an invoice — the sequence advances by
-            itself.
-          </p>
+          <p className="text-xs text-ink-muted sm:pb-2.5">{t(locale, 'invoice_seq_hint')}</p>
         </div>
 
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-ink">Send invoices automatically</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Every created invoice is emailed to the contact person straight away.
-            </p>
+            <p className="text-sm text-ink">{t(locale, 'auto_send')}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'auto_send_hint')}</p>
           </div>
           <Switch checked={autoSend} onChange={(v) => void toggleAutoSend(v)} disabled={busy} />
         </div>
 
         <div className="border-t border-line pt-4">
-          <p className="text-sm font-medium">VAT tariffs</p>
-          <p className="mt-0.5 text-xs text-ink-muted">
-            The tariffs the income/cost popup offers — label + percentage.
-          </p>
+          <p className="text-sm font-medium">{t(locale, 'vat_tariffs')}</p>
+          <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'vat_tariffs_hint')}</p>
           <div className="mt-3 space-y-2">
             {rows.map((r) => (
               <div key={r.key} className="grid grid-cols-[minmax(0,1fr)_90px_28px] gap-2 items-center">
@@ -159,8 +153,8 @@ export function InvoicingCard({ settings }: { settings: PulseSettings }) {
                   value={r.label}
                   onChange={(e) => patchRow(r.key, { label: e.target.value })}
                   onBlur={() => void commitTariffs(rows)}
-                  placeholder="e.g. Hoog 21%"
-                  aria-label="Tariff label"
+                  placeholder={t(locale, 'tariff_label_ph')}
+                  aria-label={t(locale, 'tariff_label_aria')}
                   disabled={busy}
                   className={INPUT_CLS}
                 />
@@ -170,13 +164,13 @@ export function InvoicingCard({ settings }: { settings: PulseSettings }) {
                   onBlur={() => void commitTariffs(rows)}
                   placeholder="21"
                   inputMode="decimal"
-                  aria-label="Tariff percentage"
+                  aria-label={t(locale, 'tariff_pct_aria')}
                   disabled={busy}
                   className={`${INPUT_CLS} text-right tabular-nums`}
                 />
                 <button
                   type="button"
-                  aria-label={`Remove ${r.label || 'tariff'}`}
+                  aria-label={t(locale, 'remove_named', { name: r.label || t(locale, 'tariff_lc') })}
                   onClick={() => removeRow(r.key)}
                   disabled={busy}
                   className="h-7 w-7 inline-flex items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
@@ -193,7 +187,7 @@ export function InvoicingCard({ settings }: { settings: PulseSettings }) {
             className="mt-2 inline-flex items-center gap-1 text-xs font-medium text-ink-subtle hover:text-ink"
           >
             <Plus size={13} strokeWidth={2} />
-            Add tariff
+            {t(locale, 'add_tariff')}
           </button>
         </div>
 

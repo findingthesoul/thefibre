@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { updateIdentity, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type IdentityRow = {
   mission_statement: string | null;
@@ -21,48 +22,50 @@ export type IdentityRow = {
   identity_notes: string | null;
 };
 
-const GOVERNANCE = [
+const governanceOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'hierarchical', label: 'Hierarchical' },
-  { value: 'flat', label: 'Flat' },
-  { value: 'matrix', label: 'Matrix' },
-  { value: 'holacracy', label: 'Holacracy' },
-  { value: 'cooperative', label: 'Cooperative' },
+  { value: 'hierarchical', label: t(locale, 'gov_hierarchical') },
+  { value: 'flat', label: t(locale, 'gov_flat') },
+  { value: 'matrix', label: t(locale, 'gov_matrix') },
+  { value: 'holacracy', label: t(locale, 'gov_holacracy') },
+  { value: 'cooperative', label: t(locale, 'org_type_cooperative') },
 ];
 
-const OWNERSHIP = [
+const ownershipOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'private', label: 'Private' },
-  { value: 'public', label: 'Public' },
-  { value: 'family', label: 'Family' },
-  { value: 'employee', label: 'Employee' },
-  { value: 'state', label: 'State' },
-  { value: 'ngo', label: 'NGO' },
+  { value: 'private', label: t(locale, 'org_type_private') },
+  { value: 'public', label: t(locale, 'org_type_public') },
+  { value: 'family', label: t(locale, 'ownership_family') },
+  { value: 'employee', label: t(locale, 'ownership_employee') },
+  { value: 'state', label: t(locale, 'ownership_state') },
+  { value: 'ngo', label: t(locale, 'org_type_ngo') },
 ];
 
-const DECISION_STYLE = [
+const decisionStyleOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'top_down', label: 'Top-down' },
-  { value: 'consultative', label: 'Consultative' },
-  { value: 'consensus', label: 'Consensus' },
-  { value: 'delegated', label: 'Delegated' },
+  { value: 'top_down', label: t(locale, 'decision_top_down') },
+  { value: 'consultative', label: t(locale, 'decision_consultative') },
+  { value: 'consensus', label: t(locale, 'decision_consensus') },
+  { value: 'delegated', label: t(locale, 'decision_delegated') },
 ];
 
-const MATURITY = [
+const maturityOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'startup', label: 'Startup' },
-  { value: 'growth', label: 'Growth' },
-  { value: 'established', label: 'Established' },
-  { value: 'legacy', label: 'Legacy' },
-  { value: 'transitioning', label: 'Transitioning' },
+  { value: 'startup', label: t(locale, 'maturity_startup') },
+  { value: 'growth', label: t(locale, 'maturity_growth') },
+  { value: 'established', label: t(locale, 'career_established') },
+  { value: 'legacy', label: t(locale, 'maturity_legacy') },
+  { value: 'transitioning', label: t(locale, 'career_transitioning') },
 ];
 
 export function IdentityEdit({
   orgId,
   initial,
+  locale,
 }: {
   orgId: string;
   initial: IdentityRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -74,13 +77,14 @@ export function IdentityEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         orgId={orgId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -91,11 +95,13 @@ function EditDialog({
   onClose,
   orgId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   orgId: string;
   initial: IdentityRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -118,15 +124,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit identity"
+      title={t(locale, 'edit_identity')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="org-identity-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -137,57 +143,57 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <SelectField
-          label="Governance model"
+          label={t(locale, 'governance_model')}
           name="governance_model"
           defaultValue={initial?.governance_model ?? ''}
-          options={GOVERNANCE}
+          options={governanceOptions(locale)}
           errors={state.fieldErrors?.governance_model}
         />
         <TextField
-          label="Stated values"
+          label={t(locale, 'stated_values')}
           name="stated_values"
           defaultValue={(initial?.stated_values ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.stated_values}
         />
         <SelectField
-          label="Ownership type"
+          label={t(locale, 'ownership_type')}
           name="ownership_type"
           defaultValue={initial?.ownership_type ?? ''}
-          options={OWNERSHIP}
+          options={ownershipOptions(locale)}
           errors={state.fieldErrors?.ownership_type}
         />
         <TextField
-          label="Cultural descriptors"
+          label={t(locale, 'cultural_descriptors')}
           name="cultural_descriptors"
           defaultValue={(initial?.cultural_descriptors ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.cultural_descriptors}
         />
         <SelectField
-          label="Decision-making style"
+          label={t(locale, 'decision_making_style')}
           name="decision_making_style"
           defaultValue={initial?.decision_making_style ?? ''}
-          options={DECISION_STYLE}
+          options={decisionStyleOptions(locale)}
           errors={state.fieldErrors?.decision_making_style}
         />
         <TextField
-          label="Languages of operation"
+          label={t(locale, 'languages_of_operation')}
           name="languages_of_operation"
           defaultValue={(initial?.languages_of_operation ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.languages_of_operation}
         />
         <SelectField
-          label="Maturity stage"
+          label={t(locale, 'maturity_stage')}
           name="maturity_stage"
           defaultValue={initial?.maturity_stage ?? ''}
-          options={MATURITY}
+          options={maturityOptions(locale)}
           errors={state.fieldErrors?.maturity_stage}
         />
         <div className="md:col-span-2">
           <TextAreaField
-            label="Mission statement"
+            label={t(locale, 'mission_statement')}
             name="mission_statement"
             defaultValue={initial?.mission_statement ?? ''}
             maxLength={2000}
@@ -196,7 +202,7 @@ function EditDialog({
         </div>
         <div className="md:col-span-2">
           <TextAreaField
-            label="Vision statement"
+            label={t(locale, 'vision_statement')}
             name="vision_statement"
             defaultValue={initial?.vision_statement ?? ''}
             maxLength={2000}
@@ -205,7 +211,7 @@ function EditDialog({
         </div>
         <div className="md:col-span-2">
           <TextAreaField
-            label="Notes"
+            label={t(locale, 'notes')}
             name="identity_notes"
             defaultValue={initial?.identity_notes ?? ''}
             maxLength={5000}

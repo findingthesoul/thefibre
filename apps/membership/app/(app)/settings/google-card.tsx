@@ -8,6 +8,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { SectionLabel } from './page-chrome';
 import { saveGoogle } from './actions';
 
@@ -17,9 +18,11 @@ const INPUT =
 export function GoogleCard({
   adminEmail,
   configured,
+  locale,
 }: {
   adminEmail: string | null;
   configured: boolean;
+  locale: Locale;
 }) {
   const [admin, setAdmin] = useState(adminEmail ?? '');
   // Empty string = untouched (keep the stored key). The API only ever says
@@ -54,11 +57,7 @@ export function GoogleCard({
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-5">
       <SectionLabel>Google Workspace</SectionLabel>
-      <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
-        Pause members&apos; Google accounts when their membership lapses, and reactivate them
-        when they rejoin — never creates or deletes accounts. Needs a service account with
-        domain-wide delegation; the key is stored server-side and never shown again.
-      </p>
+      <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">{t(locale, 'google_blurb')}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -67,7 +66,7 @@ export function GoogleCard({
         className="mt-4 space-y-3"
       >
         <label className="block">
-          <span className="text-xs text-ink-subtle">Workspace admin email (impersonated)</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'google_admin_email_label')}</span>
           <input
             type="email"
             value={admin}
@@ -78,12 +77,13 @@ export function GoogleCard({
         </label>
         <label className="block">
           <span className="text-xs text-ink-subtle">
-            Service-account key (JSON){configured ? ' — a key is stored; paste to replace' : ''}
+            {t(locale, 'sa_key_label')}
+            {configured ? t(locale, 'sa_key_stored_suffix') : ''}
           </span>
           <textarea
             value={saJson}
             onChange={(e) => setSaJson(e.target.value)}
-            placeholder={configured ? '••••••••  (stored)' : '{ "type": "service_account", … }'}
+            placeholder={configured ? t(locale, 'stored_ph') : '{ "type": "service_account", … }'}
             rows={4}
             className={`mt-1 font-mono text-xs ${INPUT}`}
           />
@@ -91,14 +91,14 @@ export function GoogleCard({
         {error && <p className="text-sm text-red-700">{error}</p>}
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
           {configured && (
             <Button type="button" variant="secondary" disabled={busy} onClick={() => void save(true)}>
-              Disconnect
+              {t(locale, 'disconnect')}
             </Button>
           )}
-          {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+          {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved_dot')}</span>}
         </div>
       </form>
     </section>

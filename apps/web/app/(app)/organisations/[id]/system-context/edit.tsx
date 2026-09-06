@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { updateSystemContext, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type SystemContextRow = {
   transformation_stage: string | null;
@@ -23,38 +24,40 @@ export type SystemContextRow = {
   enablers: string[] | null;
 };
 
-const STAGES = [
+const stageOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'pre_awareness', label: 'Pre-awareness' },
-  { value: 'exploring', label: 'Exploring' },
-  { value: 'committed', label: 'Committed' },
-  { value: 'in_programme', label: 'In programme' },
-  { value: 'sustaining', label: 'Sustaining' },
-  { value: 'alumni', label: 'Alumni' },
+  { value: 'pre_awareness', label: t(locale, 'stage_pre_awareness') },
+  { value: 'exploring', label: t(locale, 'stage_exploring') },
+  { value: 'committed', label: t(locale, 'stage_committed') },
+  { value: 'in_programme', label: t(locale, 'stage_in_programme') },
+  { value: 'sustaining', label: t(locale, 'stage_sustaining') },
+  { value: 'alumni', label: t(locale, 'stage_alumni') },
 ];
 
-const STABILITY = [
+const stabilityOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'stable', label: 'Stable' },
-  { value: 'transitioning', label: 'Transitioning' },
-  { value: 'turbulent', label: 'Turbulent' },
+  { value: 'stable', label: t(locale, 'stability_stable') },
+  { value: 'transitioning', label: t(locale, 'career_transitioning') },
+  { value: 'turbulent', label: t(locale, 'stability_turbulent') },
 ];
 
-const READINESS = [
+const readinessOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'not_ready', label: 'Not ready' },
-  { value: 'cautious', label: 'Cautious' },
-  { value: 'open', label: 'Open' },
-  { value: 'ready', label: 'Ready' },
-  { value: 'driving', label: 'Driving' },
+  { value: 'not_ready', label: t(locale, 'readiness_not_ready') },
+  { value: 'cautious', label: t(locale, 'readiness_cautious') },
+  { value: 'open', label: t(locale, 'readiness_open') },
+  { value: 'ready', label: t(locale, 'readiness_ready') },
+  { value: 'driving', label: t(locale, 'stance_driving') },
 ];
 
 export function SystemContextEdit({
   orgId,
   initial,
+  locale,
 }: {
   orgId: string;
   initial: SystemContextRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -66,13 +69,14 @@ export function SystemContextEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         orgId={orgId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -83,11 +87,13 @@ function EditDialog({
   onClose,
   orgId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   orgId: string;
   initial: SystemContextRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -110,15 +116,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit system context — Meet"
+      title={t(locale, 'edit_system_context')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="org-system-context-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -129,64 +135,64 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <SelectField
-          label="Transformation stage"
+          label={t(locale, 'transformation_stage')}
           name="transformation_stage"
           defaultValue={initial?.transformation_stage ?? ''}
-          options={STAGES}
+          options={stageOptions(locale)}
           errors={state.fieldErrors?.transformation_stage}
         />
         <SelectField
-          label="Leadership stability"
+          label={t(locale, 'leadership_stability')}
           name="leadership_stability"
           defaultValue={initial?.leadership_stability ?? ''}
-          options={STABILITY}
+          options={stabilityOptions(locale)}
           errors={state.fieldErrors?.leadership_stability}
         />
         <SelectField
-          label="Change readiness"
+          label={t(locale, 'change_readiness')}
           name="change_readiness"
           defaultValue={initial?.change_readiness ?? ''}
-          options={READINESS}
+          options={readinessOptions(locale)}
           errors={state.fieldErrors?.change_readiness}
         />
         <TextField
-          label="Active change themes"
+          label={t(locale, 'active_change_themes')}
           name="active_change_themes"
           defaultValue={initial?.active_change_themes?.join(', ') ?? ''}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.active_change_themes}
         />
         <TextField
-          label="Structural tensions"
+          label={t(locale, 'structural_tensions')}
           name="structural_tensions"
           defaultValue={initial?.structural_tensions?.join(', ') ?? ''}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.structural_tensions}
         />
         <TextField
-          label="Previous interventions"
+          label={t(locale, 'previous_interventions')}
           name="previous_interventions"
           defaultValue={initial?.previous_interventions?.join(', ') ?? ''}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.previous_interventions}
         />
         <TextField
-          label="Blockers"
+          label={t(locale, 'blockers')}
           name="blockers"
           defaultValue={initial?.blockers?.join(', ') ?? ''}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.blockers}
         />
         <TextField
-          label="Enablers"
+          label={t(locale, 'enablers')}
           name="enablers"
           defaultValue={initial?.enablers?.join(', ') ?? ''}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.enablers}
         />
         <div className="md:col-span-2">
           <TextAreaField
-            label="Strategic priorities"
+            label={t(locale, 'strategic_priorities')}
             name="strategic_priorities"
             defaultValue={initial?.strategic_priorities ?? ''}
             maxLength={2000}
@@ -195,7 +201,7 @@ function EditDialog({
         </div>
         <div className="md:col-span-2">
           <TextAreaField
-            label="Current challenges"
+            label={t(locale, 'current_challenges')}
             name="current_challenges"
             defaultValue={initial?.current_challenges ?? ''}
             maxLength={2000}
@@ -204,7 +210,7 @@ function EditDialog({
         </div>
         <div className="md:col-span-2">
           <TextAreaField
-            label="Lessons from previous work"
+            label={t(locale, 'lessons_previous_work')}
             name="lessons_from_previous_work"
             defaultValue={initial?.lessons_from_previous_work ?? ''}
             maxLength={2000}
@@ -215,16 +221,16 @@ function EditDialog({
           <TextAreaField
             label={
               <>
-                Political landscape
+                {t(locale, 'political_landscape')}
                 <span className="ml-2 inline-block rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
-                  Sensitive
+                  {t(locale, 'sensitive')}
                 </span>
               </>
             }
             name="political_landscape"
             defaultValue={initial?.political_landscape ?? ''}
             maxLength={5000}
-            hint="Workspace admins and the person who wrote it. Per brief §5.D3."
+            hint={t(locale, 'political_landscape_hint')}
             errors={state.fieldErrors?.political_landscape}
           />
         </div>

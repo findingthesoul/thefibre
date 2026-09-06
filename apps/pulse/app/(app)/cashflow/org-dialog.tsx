@@ -19,6 +19,7 @@ import { Plus } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { commitmentNetTotal, type Commitment, type StageOption } from './types';
 
 // Stage chips colour by KIND (same palette as the grid + table).
@@ -35,8 +36,8 @@ const UNKNOWN_STAGE_STYLE = 'bg-slate-50 text-slate-500';
 // shows (shared rule in types.ts).
 const itemTotal = commitmentNetTotal;
 
-function fmtDate(iso: string): string {
-  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
+function fmtDate(intlLocale: string, iso: string): string {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString(intlLocale, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -48,6 +49,7 @@ export function OrgDialog({
   name,
   items,
   stages,
+  locale,
   onOpenItem,
   onAdd,
   onClose,
@@ -55,10 +57,12 @@ export function OrgDialog({
   name: string;
   items: Commitment[];
   stages: StageOption[];
+  locale: Locale;
   onOpenItem: (cm: Commitment) => void; // opens OpportunityDialog layered on top
   onAdd: () => void; // opens OpportunityDialog for a NEW item, counterparty preselected
   onClose: () => void;
 }) {
+  const intl = INTL_LOCALES[locale];
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
 
   // Net total (income − costs) across everything on this counterparty.
@@ -92,7 +96,10 @@ export function OrgDialog({
       title={name}
       description={
         <>
-          {items.length} item{items.length === 1 ? '' : 's'} · net{' '}
+          {items.length === 1
+            ? t(locale, 'n_items_one')
+            : t(locale, 'n_items_many', { n: items.length })}{' '}
+          · {t(locale, 'net_lc')}{' '}
           <span className={net < 0 ? 'text-rose-700' : 'text-emerald-700'}>
             {net < 0 ? '−' : ''}
             {money(Math.abs(net))}
@@ -109,18 +116,18 @@ export function OrgDialog({
             leading={<Plus size={14} strokeWidth={2} />}
             onClick={onAdd}
           >
-            Add
+            {t(locale, 'add')}
           </Button>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         </>
       }
     >
       <div className="space-y-5">
         <Group
-          title="Opportunities"
-          empty="Nothing in the pipeline for this counterparty."
+          title={t(locale, 'opportunities')}
+          empty={t(locale, 'no_pipeline_for_cp')}
         >
           {opportunities.map((cm) => {
             const stage = stageByKey.get(cm.stage);
@@ -135,7 +142,7 @@ export function OrgDialog({
               >
                 <span
                   aria-hidden
-                  title={isCost ? 'Cost' : 'Income'}
+                  title={isCost ? t(locale, 'cost') : t(locale, 'income')}
                   className={`h-1.5 w-1.5 shrink-0 rounded-full ${
                     isCost ? 'bg-rose-400' : 'bg-emerald-400'
                   }`}
@@ -143,7 +150,7 @@ export function OrgDialog({
                 <span className="min-w-0 flex-1 truncate text-ink">{cm.label}</span>
                 {cm.invoice_no && (
                   <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-                    Invoice {cm.invoice_no}
+                    {t(locale, 'invoice_no', { no: cm.invoice_no })}
                   </span>
                 )}
                 {/* Stage + probability are pipeline info — income only. On
@@ -177,8 +184,8 @@ export function OrgDialog({
         </Group>
 
         <Group
-          title="Invoices & receivables"
-          empty="No invoices or receivables yet."
+          title={t(locale, 'invoices_receivables')}
+          empty={t(locale, 'no_invoices_yet')}
         >
           {invoiced.map((cm) => {
             const invoiceLines = cm.lines.filter((l) => l.invoice_ref || l.invoiced_at);
@@ -196,7 +203,7 @@ export function OrgDialog({
                   <span className="min-w-0 flex-1 truncate text-ink">{cm.label}</span>
                   {cm.invoice_no && (
                     <span className="shrink-0 rounded-full bg-sky-50 px-1.5 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-                      Invoice {cm.invoice_no}
+                      {t(locale, 'invoice_no', { no: cm.invoice_no })}
                     </span>
                   )}
                   <span
@@ -220,15 +227,15 @@ export function OrgDialog({
                         className="flex items-center gap-2 pl-3.5 text-xs text-ink-muted"
                       >
                         <span className="min-w-0 flex-1 truncate">
-                          {l.invoice_ref ? `#${l.invoice_ref}` : 'expected payment'}
+                          {l.invoice_ref ? `#${l.invoice_ref}` : t(locale, 'expected_payment_lc')}
                         </span>
                         <span className="shrink-0 tabular-nums">{money(l.amount_cents)}</span>
                         <span className="shrink-0 w-32 text-right">
                           {l.settled_at
-                            ? `settled ${fmtDate(l.settled_at)}`
+                            ? t(locale, 'settled_d', { d: fmtDate(intl, l.settled_at) })
                             : l.invoiced_at
-                              ? `invoiced ${fmtDate(l.invoiced_at)}`
-                              : `expected ${fmtDate(l.expected_date)}`}
+                              ? t(locale, 'invoiced_d', { d: fmtDate(intl, l.invoiced_at) })
+                              : t(locale, 'expected_d', { d: fmtDate(intl, l.expected_date) })}
                         </span>
                       </div>
                     ))}

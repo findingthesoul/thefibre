@@ -61,12 +61,14 @@ export type Tier = {
   currency: string;
 };
 
-export function personName(p: MemberPerson | null): string {
+// The `unknown` fallbacks let callers pass a translated string (i18n P3);
+// the English default keeps locale-less call sites compiling.
+export function personName(p: MemberPerson | null, unknown = 'Unknown person'): string {
   const name = [p?.first_name, p?.last_name].filter(Boolean).join(' ');
-  return name || p?.email || 'Unknown person';
+  return name || p?.email || unknown;
 }
 
-export function memberName(m: Member): string {
-  if (m.organisation_id) return m.organisation?.name ?? 'Unknown organisation';
-  return personName(m.person);
+export function memberName(m: Member, unknownPerson?: string, unknownOrg?: string): string {
+  if (m.organisation_id) return m.organisation?.name ?? unknownOrg ?? 'Unknown organisation';
+  return personName(m.person, unknownPerson);
 }

@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { DateTimeField } from '@/components/ui/date-field';
 import { updateRelationship, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type RelationshipRow = {
   source: string | null;
@@ -22,40 +23,45 @@ export type RelationshipRow = {
   first_contact_at: string | null;
 };
 
-const SOURCES = [
+const sourceOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'event_attendee', label: 'Event attendee' },
-  { value: 'referral', label: 'Referral' },
-  { value: 'cold_outreach', label: 'Cold outreach' },
-  { value: 'client_contact', label: 'Client contact' },
-  { value: 'inbound', label: 'Inbound' },
+  { value: 'event_attendee', label: t(locale, 'source_event_attendee') },
+  { value: 'referral', label: t(locale, 'source_referral') },
+  { value: 'cold_outreach', label: t(locale, 'source_cold_outreach') },
+  { value: 'client_contact', label: t(locale, 'source_client_contact') },
+  { value: 'inbound', label: t(locale, 'source_inbound') },
 ];
 
-const STRENGTHS = [
+const strengthOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'weak', label: 'Weak' },
-  { value: 'warm', label: 'Warm' },
-  { value: 'strong', label: 'Strong' },
-  { value: 'advocate', label: 'Advocate' },
+  { value: 'weak', label: t(locale, 'strength_weak') },
+  { value: 'warm', label: t(locale, 'strength_warm') },
+  { value: 'strong', label: t(locale, 'strength_strong') },
+  { value: 'advocate', label: t(locale, 'strength_advocate') },
 ];
 
-const COMM_PREFS = ['', 'email', 'phone', 'linkedin', 'in_person'].map((v) => ({
-  value: v,
-  label: v ? v.replace('_', ' ') : '—',
-}));
-
-const YES_NO = [
+const commPrefOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'true', label: 'Yes' },
-  { value: 'false', label: 'No' },
+  { value: 'email', label: t(locale, 'email_label') },
+  { value: 'phone', label: t(locale, 'phone') },
+  { value: 'linkedin', label: t(locale, 'comm_linkedin') },
+  { value: 'in_person', label: t(locale, 'comm_in_person') },
+];
+
+const yesNoOptions = (locale: Locale) => [
+  { value: '', label: '—' },
+  { value: 'true', label: t(locale, 'yes') },
+  { value: 'false', label: t(locale, 'no') },
 ];
 
 export function RelationshipEdit({
   personId,
   initial,
+  locale,
 }: {
   personId: string;
   initial: RelationshipRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -67,13 +73,14 @@ export function RelationshipEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         personId={personId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -84,11 +91,13 @@ function EditDialog({
   onClose,
   personId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   personId: string;
   initial: RelationshipRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -115,15 +124,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit relationship context — Sales"
+      title={t(locale, 'edit_relationship_context')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="relationship-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -134,50 +143,50 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <SelectField
-          label="Source"
+          label={t(locale, 'source')}
           name="source"
           defaultValue={initial?.source ?? ''}
-          options={SOURCES}
+          options={sourceOptions(locale)}
           errors={state.fieldErrors?.source}
         />
         <TextField
-          label="Source detail"
+          label={t(locale, 'source_detail')}
           name="source_detail"
           maxLength={500}
           defaultValue={initial?.source_detail ?? ''}
           errors={state.fieldErrors?.source_detail}
         />
         <TextField
-          label="Introduced by"
+          label={t(locale, 'introduced_by')}
           name="introduced_by"
-          placeholder="Person UUID, optional"
+          placeholder={t(locale, 'person_uuid_optional')}
           defaultValue={initial?.introduced_by ?? ''}
           errors={state.fieldErrors?.introduced_by}
         />
         <SelectField
-          label="Relationship strength"
+          label={t(locale, 'relationship_strength')}
           name="relationship_strength"
           defaultValue={initial?.relationship_strength ?? ''}
-          options={STRENGTHS}
+          options={strengthOptions(locale)}
           errors={state.fieldErrors?.relationship_strength}
         />
         <SelectField
-          label="Communication preference"
+          label={t(locale, 'communication_preference')}
           name="communication_preference"
           defaultValue={initial?.communication_preference ?? ''}
-          options={COMM_PREFS}
+          options={commPrefOptions(locale)}
           errors={state.fieldErrors?.communication_preference}
         />
         <TextField
-          label="Best time to reach"
+          label={t(locale, 'best_time_to_reach')}
           name="best_time_to_reach"
           maxLength={200}
-          placeholder="Tuesday afternoons"
+          placeholder={t(locale, 'best_time_ph')}
           defaultValue={initial?.best_time_to_reach ?? ''}
           errors={state.fieldErrors?.best_time_to_reach}
         />
         <SelectField
-          label="Key contact"
+          label={t(locale, 'key_contact')}
           name="is_key_contact"
           defaultValue={
             initial?.is_key_contact === true
@@ -186,11 +195,11 @@ function EditDialog({
                 ? 'false'
                 : ''
           }
-          options={YES_NO}
+          options={yesNoOptions(locale)}
           errors={state.fieldErrors?.is_key_contact}
         />
         <SelectField
-          label="Ambassador"
+          label={t(locale, 'ambassador')}
           name="is_ambassador"
           defaultValue={
             initial?.is_ambassador === true
@@ -199,17 +208,17 @@ function EditDialog({
                 ? 'false'
                 : ''
           }
-          options={YES_NO}
+          options={yesNoOptions(locale)}
           errors={state.fieldErrors?.is_ambassador}
         />
         <DateTimeField
-          label="First contact at"
+          label={t(locale, 'first_contact_at')}
           name="first_contact_at"
           defaultValue={dtDefault}
         />
         <div className="md:col-span-2">
           <TextAreaField
-            label="First contact notes"
+            label={t(locale, 'first_contact_notes')}
             name="first_contact_notes"
             maxLength={2000}
             defaultValue={initial?.first_contact_notes ?? ''}

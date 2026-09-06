@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export const metadata = { title: 'Help — The Fibre' };
 
@@ -13,48 +15,28 @@ type WorkspaceApp = {
 
 // Mirrors NAV in components/shell/sidebar.tsx. Blurbs are the ones the pages
 // themselves already use, so Help never says something the page contradicts.
-const SECTIONS: HelpSection[] = [
-  {
-    label: 'Home',
-    href: '/dashboard',
-    blurb: 'Your apps, and what has moved recently across them.',
-  },
-  {
-    label: 'Contacts',
-    href: '/contacts',
-    blurb:
-      'Every person the workspace knows. Identity lives here; each app that holds something about them adds its own tab to their profile.',
-  },
-  {
-    label: 'Organisations',
-    href: '/organisations',
-    blurb: 'Organisations, who belongs to them, and the same per-app tabs as a person.',
-  },
-  {
-    label: 'Programmes',
-    href: '/programmes',
-    blurb:
-      'Events, journeys, meetings, courses. Each programme belongs to the app that delivers it.',
-  },
-  {
-    label: 'Activity',
-    href: '/activity',
-    blurb:
-      'The accumulated record of every meaningful interaction across every app. Add-only: a mistake is corrected by a new line, never by rewriting the old one.',
-  },
-  {
-    label: 'Privacy',
-    href: '/privacy',
-    blurb: 'Your data, your consents, your rights. EU-hosted, GDPR-native.',
-  },
-  {
-    label: 'Settings',
-    href: '/settings',
-    blurb: 'Your profile, your workspace, your access — and which apps are switched on.',
-  },
-];
+function sections(locale: Locale): HelpSection[] {
+  return [
+    { label: t(locale, 'nav_home'), href: '/dashboard', blurb: t(locale, 'help_home_blurb') },
+    { label: t(locale, 'nav_contacts'), href: '/contacts', blurb: t(locale, 'help_contacts_blurb') },
+    {
+      label: t(locale, 'nav_organisations'),
+      href: '/organisations',
+      blurb: t(locale, 'help_organisations_blurb'),
+    },
+    {
+      label: t(locale, 'nav_programmes'),
+      href: '/programmes',
+      blurb: t(locale, 'help_programmes_blurb'),
+    },
+    { label: t(locale, 'nav_activity'), href: '/activity', blurb: t(locale, 'help_activity_blurb') },
+    { label: t(locale, 'nav_privacy'), href: '/privacy', blurb: t(locale, 'privacy_blurb') },
+    { label: t(locale, 'nav_settings'), href: '/settings', blurb: t(locale, 'help_settings_blurb') },
+  ];
+}
 
 export default async function WebHelpPage() {
+  const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
@@ -67,10 +49,11 @@ export default async function WebHelpPage() {
   return (
     <HelpPage
       appId="fibre-platform"
-      sections={SECTIONS}
+      sections={sections(locale)}
       otherApps={apps}
       aboutHref="/settings/about"
       link={Link}
+      locale={locale}
     />
   );
 }

@@ -8,6 +8,7 @@ import { COUNTRIES } from '@thefibre/shared/countries';
 import { Dialog } from '@/components/ui/dialog';
 import { DateField } from '@/components/ui/date-field';
 import { Button } from '@/components/ui/button';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { createMember, createPerson, savePersonBilling, searchOrganisations, searchPersons } from './actions';
 import { dateToIso } from './member-dialog';
 import { personName, type MemberPerson, type Tier } from './types';
@@ -19,11 +20,21 @@ const INPUT =
 
 const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name }));
 
-function money(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
+function money(cents: number, currency: string, locale: Locale): string {
+  return new Intl.NumberFormat(INTL_LOCALES[locale], { style: 'currency', currency }).format(
+    cents / 100,
+  );
 }
 
-export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: () => void }) {
+export function AddMemberDialog({
+  tiers,
+  locale,
+  onClose,
+}: {
+  tiers: Tier[];
+  locale: Locale;
+  onClose: () => void;
+}) {
   const router = useRouter();
   // Who holds the membership: a person (default) or an ORGANISATION whose
   // people occupy seats under it (§3.5 v1 — invoice/comped only).
@@ -56,7 +67,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const tier = tiers.find((t) => t.id === tierId) ?? null;
+  const tier = tiers.find((x) => x.id === tierId) ?? null;
   const hasYear = (tier?.price_cents_year ?? 0) > 0;
   const hasMonth = (tier?.price_cents_month ?? 0) > 0;
   const priced = hasYear || hasMonth;
@@ -72,10 +83,10 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       setResults([]);
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       searchPersons(query.trim()).then((r) => setResults(r.data?.items ?? []));
     }, 250);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [query, person]);
 
   // Organisation search — the same pattern against /organisations.
@@ -84,16 +95,16 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       setOrgResults([]);
       return;
     }
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       searchOrganisations(orgQuery.trim()).then((r) => setOrgResults(r.data?.items ?? []));
     }, 250);
-    return () => clearTimeout(t);
+    return () => clearTimeout(timer);
   }, [orgQuery, org]);
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!tierId) {
-      setError('Pick a tier.');
+      setError(t(locale, 'pick_a_tier'));
       return;
     }
 
@@ -101,7 +112,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     // comped). Seats are added from the member dialog afterwards.
     if (kind === 'organisation') {
       if (!org) {
-        setError('Pick an organisation.');
+        setError(t(locale, 'pick_an_organisation'));
         return;
       }
       setBusy(true);
@@ -121,7 +132,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
       }
       router.refresh();
       if (res.data?.invoice_error) {
-        setError(`Membership added, but: ${res.data.invoice_error}`);
+        setError(t(locale, 'membership_added_but', { error: res.data.invoice_error }));
         setBusy(false);
         return;
       }
@@ -130,7 +141,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     }
 
     if (!person && !newContact) {
-      setError('Pick a person, or create a new contact.');
+      setError(t(locale, 'pick_person_or_new'));
       return;
     }
     setBusy(true);
@@ -140,7 +151,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     if (!personId && newContact) {
       const name = newName.trim();
       if (!name || !newEmail.trim()) {
-        setError('A new contact needs a name and an email address.');
+        setError(t(locale, 'new_contact_needs'));
         setBusy(false);
         return;
       }
@@ -156,7 +167,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
         ...(country ? { country } : {}),
       });
       if (created.error || !created.data) {
-        setError(created.error ?? 'could not create the contact');
+        setError(created.error ?? t(locale, 'could_not_create_contact'));
         setBusy(false);
         return;
       }
@@ -166,7 +177,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     if (vat.trim() && personId) {
       const b = await savePersonBilling(personId, { tax_id: vat.trim() });
       if (b.error) {
-        setError(`Could not save the VAT number: ${b.error}`);
+        setError(t(locale, 'vat_save_failed', { error: b.error }));
         setBusy(false);
         return;
       }
@@ -189,7 +200,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     router.refresh();
     if (res.data?.invoice_error) {
       // The member exists — keep the dialog open so the warning is read.
-      setError(`Member added, but: ${res.data.invoice_error}`);
+      setError(t(locale, 'member_added_but', { error: res.data.invoice_error }));
       setBusy(false);
       return;
     }
@@ -200,15 +211,15 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
     <Dialog
       open
       onClose={onClose}
-      title="Add member"
-      description="Manual add — invoiced by email, or comped. Paid card joins come through the join page."
+      title={t(locale, 'add_member')}
+      description={t(locale, 'add_member_desc')}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="add-member-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
@@ -220,11 +231,11 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
               key={k}
               type="button"
               onClick={() => setKind(k)}
-              className={`rounded-full px-3 py-1 text-sm capitalize transition-colors ${
+              className={`rounded-full px-3 py-1 text-sm transition-colors ${
                 kind === k ? 'bg-ink text-ink-inverse' : 'bg-surface-sunken text-ink-subtle hover:text-ink'
               }`}
             >
-              {k}
+              {k === 'person' ? t(locale, 'kind_person') : t(locale, 'kind_organisation')}
             </button>
           ))}
         </div>
@@ -232,11 +243,13 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
         {kind === 'organisation' && (
           <>
             <div>
-              <label className="block text-sm font-medium mb-1">Organisation</label>
+              <label className="block text-sm font-medium mb-1">
+                {t(locale, 'kind_organisation')}
+              </label>
               {org ? (
                 <div className="flex items-center justify-between rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm">
                   <div>
-                    <span className="text-ink">{org.name ?? 'Unnamed organisation'}</span>
+                    <span className="text-ink">{org.name ?? t(locale, 'unnamed_organisation')}</span>
                     {org.domain && <span className="ml-2 text-ink-muted">{org.domain}</span>}
                   </div>
                   <button
@@ -247,7 +260,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                       setOrgQuery('');
                     }}
                   >
-                    Change
+                    {t(locale, 'change')}
                   </button>
                 </div>
               ) : (
@@ -256,7 +269,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                     autoFocus
                     value={orgQuery}
                     onChange={(e) => setOrgQuery(e.target.value)}
-                    placeholder="Search organisations by name or domain…"
+                    placeholder={t(locale, 'search_orgs_ph')}
                     className={INPUT}
                   />
                   {orgResults.length > 0 && (
@@ -268,7 +281,9 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                             onClick={() => setOrg(o)}
                             className="w-full text-left px-3 py-2 text-sm hover:bg-surface-sunken"
                           >
-                            <span className="text-ink">{o.name ?? 'Unnamed organisation'}</span>
+                            <span className="text-ink">
+                              {o.name ?? t(locale, 'unnamed_organisation')}
+                            </span>
                             {o.domain && <span className="ml-2 text-ink-muted">{o.domain}</span>}
                           </button>
                         </li>
@@ -279,7 +294,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
               )}
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Seat allowance</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'seat_allowance')}</label>
               <input
                 type="number"
                 min={1}
@@ -288,21 +303,18 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                 onChange={(e) => setSeatAllowance(Math.max(1, Number(e.target.value) || 1))}
                 className={INPUT}
               />
-              <p className="mt-1 text-xs text-ink-muted">
-                How many people may occupy seats. The invoice is the tier price × seats; seats are
-                assigned from the member afterwards.
-              </p>
+              <p className="mt-1 text-xs text-ink-muted">{t(locale, 'seat_allowance_hint')}</p>
             </div>
           </>
         )}
 
         {kind === 'person' && (
         <div>
-          <label className="block text-sm font-medium mb-1">Person</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'kind_person')}</label>
           {person ? (
             <div className="flex items-center justify-between rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm">
               <div>
-                <span className="text-ink">{personName(person)}</span>
+                <span className="text-ink">{personName(person, t(locale, 'unknown_person'))}</span>
                 {person.email && <span className="ml-2 text-ink-muted">{person.email}</span>}
               </div>
               <button
@@ -313,64 +325,64 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                   setQuery('');
                 }}
               >
-                Change
+                {t(locale, 'change')}
               </button>
             </div>
           ) : newContact ? (
             <div className="space-y-2 rounded-md border border-line bg-surface-sunken p-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs uppercase tracking-wider text-ink-muted">New contact</span>
+                <span className="text-xs uppercase tracking-wider text-ink-muted">
+                  {t(locale, 'new_contact')}
+                </span>
                 <button
                   type="button"
                   className="text-xs text-ink-subtle hover:text-ink underline"
                   onClick={() => setNewContact(false)}
                 >
-                  Search instead
+                  {t(locale, 'search_instead')}
                 </button>
               </div>
               <input
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
-                placeholder="Full name"
+                placeholder={t(locale, 'full_name_ph')}
                 className={INPUT}
               />
               <input
                 type="email"
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="Email address"
+                placeholder={t(locale, 'email_address_ph')}
                 className={INPUT}
               />
               <input
                 type="tel"
                 value={newPhone}
                 onChange={(e) => setNewPhone(e.target.value)}
-                placeholder="Phone (optional)"
+                placeholder={t(locale, 'phone_optional_ph')}
                 className={INPUT}
               />
               <input
                 value={newStreet}
                 onChange={(e) => setNewStreet(e.target.value)}
-                placeholder="Street and number"
+                placeholder={t(locale, 'street_ph')}
                 className={INPUT}
               />
               <div className="grid grid-cols-[1fr_2fr] gap-2">
                 <input
                   value={newPostal}
                   onChange={(e) => setNewPostal(e.target.value)}
-                  placeholder="Postal code"
+                  placeholder={t(locale, 'postal_ph')}
                   className={INPUT}
                 />
                 <input
                   value={newCity}
                   onChange={(e) => setNewCity(e.target.value)}
-                  placeholder="City"
+                  placeholder={t(locale, 'city_ph')}
                   className={INPUT}
                 />
               </div>
-              <p className="text-xs text-ink-muted">
-                Creates the contact in The Fibre, then adds the membership.
-              </p>
+              <p className="text-xs text-ink-muted">{t(locale, 'creates_contact_hint')}</p>
             </div>
           ) : (
             <>
@@ -378,7 +390,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                 autoFocus
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search contacts by name or email…"
+                placeholder={t(locale, 'search_contacts_ph')}
                 className={INPUT}
               />
               {results.length > 0 && (
@@ -390,7 +402,9 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                         onClick={() => setPerson(p)}
                         className="w-full text-left px-3 py-2 text-sm hover:bg-surface-sunken"
                       >
-                        <span className="text-ink">{personName(p)}</span>
+                        <span className="text-ink">
+                          {personName(p, t(locale, 'unknown_person'))}
+                        </span>
                         {p.email && <span className="ml-2 text-ink-muted">{p.email}</span>}
                       </button>
                     </li>
@@ -406,7 +420,7 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                     setNewName(query.trim());
                   }}
                 >
-                  ＋ Create “{query.trim()}” as a new contact
+                  {t(locale, 'create_as_new_contact', { name: query.trim() })}
                 </button>
               )}
             </>
@@ -416,34 +430,34 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
         {kind === 'person' && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-sm font-medium mb-1">Country</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'country')}</label>
             <SearchSelect
               value={country}
               onChange={setCountry}
               options={COUNTRY_OPTIONS}
-              placeholder="Pick a country…"
-              searchPlaceholder="Search countries…"
+              placeholder={t(locale, 'pick_country_ph')}
+              searchPlaceholder={t(locale, 'search_countries_ph')}
             />
-            <p className="mt-1 text-xs text-ink-muted">Pricing rules use this.</p>
+            <p className="mt-1 text-xs text-ink-muted">{t(locale, 'pricing_rules_use_this')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">VAT number</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'vat_number')}</label>
             <input
               value={vat}
               onChange={(e) => setVat(e.target.value)}
-              placeholder="If applicable"
+              placeholder={t(locale, 'if_applicable_ph')}
               className={INPUT}
             />
-            <p className="mt-1 text-xs text-ink-muted">Shown on their invoices.</p>
+            <p className="mt-1 text-xs text-ink-muted">{t(locale, 'shown_on_their_invoices')}</p>
           </div>
         </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1">Tier</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'tier')}</label>
           <select value={tierId} onChange={(e) => setTierId(e.target.value)} className={INPUT}>
-            {tiers.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            {tiers.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.name}
               </option>
             ))}
           </select>
@@ -453,11 +467,9 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
           onChange={setBilling}
           invoiceDisabled={!priced}
           invoiceDescription={
-            priced
-              ? 'Creates a pending invoice and emails it — pay by transfer or payment link.'
-              : 'This tier has no price — only comped is possible.'
+            priced ? t(locale, 'billing_invoice_desc') : t(locale, 'billing_no_price_desc')
           }
-          compedDescription="Free — no invoice."
+          compedDescription={t(locale, 'billing_comped_desc')}
         >
           {/* flex-wrap: the dialog renders as a bottom sheet below `sm`
               (v0.45.0) — two interval labels + the hint don't fit one row
@@ -471,7 +483,10 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                   checked={effectiveInterval === 'year'}
                   onChange={() => setInterval('year')}
                 />
-                Yearly{tier?.price_cents_year ? ` · ${money(tier.price_cents_year, tier.currency)}` : ''}
+                {t(locale, 'yearly')}
+                {tier?.price_cents_year
+                  ? ` · ${money(tier.price_cents_year, tier.currency, locale)}`
+                  : ''}
               </label>
             )}
             {hasMonth && (
@@ -482,11 +497,16 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
                   checked={effectiveInterval === 'month'}
                   onChange={() => setInterval('month')}
                 />
-                Monthly{tier?.price_cents_month ? ` · ${money(tier.price_cents_month, tier.currency)}` : ''}
+                {t(locale, 'monthly')}
+                {tier?.price_cents_month
+                  ? ` · ${money(tier.price_cents_month, tier.currency, locale)}`
+                  : ''}
               </label>
             )}
             {baseCents != null && baseCents > 0 && country && (
-              <span className="text-xs text-ink-muted">Pricing rules may adjust this.</span>
+              <span className="text-xs text-ink-muted">
+                {t(locale, 'pricing_rules_may_adjust')}
+              </span>
             )}
           </div>
         </BillingChoice>
@@ -499,19 +519,17 @@ export function AddMemberDialog({ tiers, onClose }: { tiers: Tier[]; onClose: ()
             onChange={(e) => setInvite(e.target.checked)}
           />
           <span>
-            Send an invitation email
-            <span className="block text-xs text-ink-muted">
-              Welcomes them and links their member page (membership, invoices, payment details).
-            </span>
+            {t(locale, 'send_invite')}
+            <span className="block text-xs text-ink-muted">{t(locale, 'send_invite_hint')}</span>
           </span>
         </label>
         )}
         <DateField
-          label="Renews on"
+          label={t(locale, 'renews_on')}
           name="renews_at"
           defaultValue={renewsAt || null}
           onValueChange={setRenewsAt}
-          hint="Optional — the scheduler moves overdue manual members to grace, then lapsed."
+          hint={t(locale, 'renews_hint')}
         />
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

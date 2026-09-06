@@ -8,6 +8,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
 import { updateOrgRelationship, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type OrgRelationshipRow = {
   primary_owner: string | null;
@@ -24,40 +25,42 @@ export type OrgRelationshipRow = {
   next_planned_contact: string | null;
 };
 
-const STAGES = [
+const stageOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'prospect', label: 'Prospect' },
-  { value: 'engaged', label: 'Engaged' },
-  { value: 'active_client', label: 'Active client' },
-  { value: 'alumni', label: 'Alumni' },
-  { value: 'dormant', label: 'Dormant' },
-  { value: 'lost', label: 'Lost' },
+  { value: 'prospect', label: t(locale, 'rel_stage_prospect') },
+  { value: 'engaged', label: t(locale, 'rel_stage_engaged') },
+  { value: 'active_client', label: t(locale, 'rel_stage_active_client') },
+  { value: 'alumni', label: t(locale, 'stage_alumni') },
+  { value: 'dormant', label: t(locale, 'rel_stage_dormant') },
+  { value: 'lost', label: t(locale, 'rel_stage_lost') },
 ];
 
-const HEALTH = [
+const healthOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'active', label: 'Active' },
-  { value: 'at_risk', label: 'At risk' },
-  { value: 'dormant', label: 'Dormant' },
-  { value: 'lost', label: 'Lost' },
-  { value: 'never_converted', label: 'Never converted' },
+  { value: 'active', label: t(locale, 'consent_active') },
+  { value: 'at_risk', label: t(locale, 'health_at_risk') },
+  { value: 'dormant', label: t(locale, 'rel_stage_dormant') },
+  { value: 'lost', label: t(locale, 'rel_stage_lost') },
+  { value: 'never_converted', label: t(locale, 'health_never_converted') },
 ];
 
-const ENGAGEMENT = [
+const engagementOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'facilitation', label: 'Facilitation' },
-  { value: 'learning', label: 'Learning' },
-  { value: 'advisory', label: 'Advisory' },
-  { value: 'speaking', label: 'Speaking' },
-  { value: 'mixed', label: 'Mixed' },
+  { value: 'facilitation', label: t(locale, 'engagement_facilitation') },
+  { value: 'learning', label: t(locale, 'engagement_learning') },
+  { value: 'advisory', label: t(locale, 'engagement_advisory') },
+  { value: 'speaking', label: t(locale, 'engagement_speaking') },
+  { value: 'mixed', label: t(locale, 'engagement_mixed') },
 ];
 
 export function OrgRelationshipEdit({
   orgId,
   initial,
+  locale,
 }: {
   orgId: string;
   initial: OrgRelationshipRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -69,13 +72,14 @@ export function OrgRelationshipEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         orgId={orgId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -86,11 +90,13 @@ function EditDialog({
   onClose,
   orgId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   orgId: string;
   initial: OrgRelationshipRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -113,15 +119,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit commercial relationship — Sales"
+      title={t(locale, 'edit_commercial_relationship')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="org-relationship-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -132,28 +138,28 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <SelectField
-          label="Relationship stage"
+          label={t(locale, 'relationship_stage')}
           name="relationship_stage"
           defaultValue={initial?.relationship_stage ?? ''}
-          options={STAGES}
+          options={stageOptions(locale)}
           errors={state.fieldErrors?.relationship_stage}
         />
         <SelectField
-          label="Health status"
+          label={t(locale, 'health_status')}
           name="health_status"
           defaultValue={initial?.health_status ?? ''}
-          options={HEALTH}
+          options={healthOptions(locale)}
           errors={state.fieldErrors?.health_status}
         />
         <SelectField
-          label="Engagement type"
+          label={t(locale, 'engagement_type')}
           name="engagement_type"
           defaultValue={initial?.engagement_type ?? ''}
-          options={ENGAGEMENT}
+          options={engagementOptions(locale)}
           errors={state.fieldErrors?.engagement_type}
         />
         <TextField
-          label="Total participants reached"
+          label={t(locale, 'total_participants_reached')}
           name="total_participants_reached"
           type="number"
           min={0}
@@ -161,7 +167,7 @@ function EditDialog({
           errors={state.fieldErrors?.total_participants_reached}
         />
         <TextField
-          label="Touchpoints count"
+          label={t(locale, 'touchpoints_count')}
           name="touchpoints_count"
           type="number"
           min={0}
@@ -169,39 +175,39 @@ function EditDialog({
           errors={state.fieldErrors?.touchpoints_count}
         />
         <DateField
-          label="Last touchpoint at"
+          label={t(locale, 'last_touchpoint')}
           name="last_touchpoint_at"
           defaultValue={initial?.last_touchpoint_at ?? ''}
         />
         <DateField
-          label="Next planned contact"
+          label={t(locale, 'next_planned_contact')}
           name="next_planned_contact"
           defaultValue={initial?.next_planned_contact ?? ''}
         />
         <TextField
-          label="Programmes completed"
+          label={t(locale, 'programmes_completed')}
           name="programmes_completed"
           defaultValue={(initial?.programmes_completed ?? []).join(', ')}
-          hint="Comma-separated programme names"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.programmes_completed}
         />
         <TextField
-          label="Primary owner"
+          label={t(locale, 'primary_owner')}
           name="primary_owner"
           defaultValue={initial?.primary_owner ?? ''}
-          placeholder="Owner user UUID, optional"
+          placeholder={t(locale, 'person_uuid_optional')}
           errors={state.fieldErrors?.primary_owner}
         />
         <TextField
-          label="Secondary owner"
+          label={t(locale, 'secondary_owner')}
           name="secondary_owner"
           defaultValue={initial?.secondary_owner ?? ''}
-          placeholder="Secondary owner user UUID, optional"
+          placeholder={t(locale, 'person_uuid_optional')}
           errors={state.fieldErrors?.secondary_owner}
         />
         <div className="md:col-span-2">
           <TextAreaField
-            label="Next opportunity"
+            label={t(locale, 'next_opportunity')}
             name="next_opportunity"
             defaultValue={initial?.next_opportunity ?? ''}
             maxLength={1000}
@@ -210,7 +216,7 @@ function EditDialog({
         </div>
         <div className="md:col-span-2">
           <TextAreaField
-            label="Relationship history"
+            label={t(locale, 'relationship_history')}
             name="relationship_history"
             defaultValue={initial?.relationship_history ?? ''}
             maxLength={5000}

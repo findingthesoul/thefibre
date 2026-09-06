@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { SectionLabel } from './page-chrome';
 import { saveCircle } from './actions';
 
@@ -12,9 +13,11 @@ const INPUT =
 export function CircleCard({
   communityUrl,
   tokenSet,
+  locale,
 }: {
   communityUrl: string | null;
   tokenSet: boolean;
+  locale: Locale;
 }) {
   const [url, setUrl] = useState(communityUrl ?? '');
   // Empty string = untouched (keep the stored token). The API only ever says
@@ -49,10 +52,7 @@ export function CircleCard({
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-5">
       <SectionLabel>Circle</SectionLabel>
-      <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
-        Connect your Circle community so tiers can grant space access automatically. The API
-        token is stored server-side and never shown again.
-      </p>
+      <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">{t(locale, 'circle_blurb')}</p>
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -61,7 +61,7 @@ export function CircleCard({
         className="mt-4 space-y-3 max-w-xl"
       >
         <label className="block">
-          <span className="text-xs text-ink-subtle">Community URL</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'community_url')}</span>
           <input
             value={url}
             onChange={(e) => setUrl(e.target.value)}
@@ -71,20 +71,20 @@ export function CircleCard({
           />
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">API token</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'api_token')}</span>
           <input
             value={token}
             onChange={(e) => setToken(e.target.value)}
             type="password"
             autoComplete="off"
-            placeholder={tokenSet ? '••••• saved' : 'Paste a Circle API token'}
+            placeholder={tokenSet ? t(locale, 'token_saved_ph') : t(locale, 'paste_token_ph')}
             className={`${INPUT} mt-1`}
           />
         </label>
         {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
           {tokenSet && (
             <Button
@@ -94,10 +94,14 @@ export function CircleCard({
               disabled={busy}
               onClick={() => void save(true)}
             >
-              Remove token
+              {t(locale, 'remove_token')}
             </Button>
           )}
-          {saved && <span className="text-xs text-emerald-700 dark:text-emerald-400">Saved</span>}
+          {saved && (
+            <span className="text-xs text-emerald-700 dark:text-emerald-400">
+              {t(locale, 'saved')}
+            </span>
+          )}
         </div>
       </form>
     </section>

@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 import { uploadAsset } from '@/lib/upload';
 import { saveWorkspace } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type Workspace = {
   name: string | null;
@@ -30,7 +31,7 @@ export type Workspace = {
  * one button, because a person changing their organisation's name has usually
  * just changed its address too.
  */
-export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
+export function WorkspaceForm({ workspace, locale }: { workspace: Workspace; locale: Locale }) {
   const router = useRouter();
   const [logo, setLogo] = useState<string | null>(workspace.brand_logo_url ?? null);
   const [error, setError] = useState<string | null>(null);
@@ -45,7 +46,7 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
     const fd = new FormData(e.currentTarget);
     const str = (k: string) => String(fd.get(k) ?? '').trim();
     const name = str('name');
-    if (!name) return setError('A workspace needs a name.');
+    if (!name) return setError(t(locale, 'workspace_needs_name'));
     const details = {
       legal_name: str('legal_name'),
       address: str('address'),
@@ -64,7 +65,7 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
         email_from_address: str('email_from_address') || null,
         enrolment_note: str('enrolment_note') || null,
       });
-      if (!r.ok) return setError(r.error ?? 'could not save');
+      if (!r.ok) return setError(r.error ?? t(locale, 'could_not_save'));
       setSaved(true);
       router.refresh();
     });
@@ -74,13 +75,13 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
     <form onSubmit={onSubmit} className="mt-8 space-y-10 max-w-xl">
       <section className="space-y-6">
         <TextField
-          label="Name"
+          label={t(locale, 'name')}
           name="name"
           defaultValue={workspace.name ?? ''}
-          hint={workspace.slug ? `Address: ${workspace.slug}` : undefined}
+          hint={workspace.slug ? `${t(locale, 'address_label')}: ${workspace.slug}` : undefined}
         />
         <PhotoField
-          label="Logo"
+          label={t(locale, 'logo')}
           shape="square"
           value={logo}
           onChange={(url) => {
@@ -89,57 +90,57 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
           }}
           upload={uploadAsset}
           onError={setError}
-          hint="Shown at the top of email this workspace sends, in place of The Fibre's."
+          hint={t(locale, 'logo_hint')}
         />
       </section>
 
       <section className="space-y-6 border-t border-line pt-8">
-        <SectionLabel>On your invoices</SectionLabel>
+        <SectionLabel>{t(locale, 'on_your_invoices')}</SectionLabel>
         <TextField
-          label="Legal name"
+          label={t(locale, 'legal_name')}
           name="legal_name"
           defaultValue={inv.legal_name ?? ''}
-          placeholder={workspace.name ?? 'Your organisation B.V.'}
-          hint="The entity that sells, if it differs from the name above."
+          placeholder={workspace.name ?? t(locale, 'legal_name_ph')}
+          hint={t(locale, 'legal_name_hint')}
         />
         <TextAreaField
-          label="Address"
+          label={t(locale, 'address_label')}
           name="address"
           rows={3}
           defaultValue={inv.address ?? ''}
           placeholder={'Street 1\n1234 AB City\nNetherlands'}
         />
-        <TextField label="Tax number" name="tax_no" defaultValue={inv.tax_no ?? ''} />
+        <TextField label={t(locale, 'tax_number')} name="tax_no" defaultValue={inv.tax_no ?? ''} />
       </section>
 
       <section className="space-y-6 border-t border-line pt-8">
-        <SectionLabel>Email</SectionLabel>
+        <SectionLabel>{t(locale, 'email_label')}</SectionLabel>
         <TextField
-          label="Sender name"
+          label={t(locale, 'sender_name')}
           name="email_from_name"
           defaultValue={workspace.email_from_name ?? ''}
           placeholder={workspace.name ?? ''}
-          hint="What an inbox shows. Free — the address behind it can stay ours."
+          hint={t(locale, 'sender_name_hint')}
         />
         <TextField
-          label="Replies go to"
+          label={t(locale, 'replies_go_to')}
           name="email_reply_to"
           defaultValue={workspace.email_reply_to ?? ''}
           placeholder="hello@yourdomain.com"
         />
         <TextField
-          label="Sender address"
+          label={t(locale, 'sender_address')}
           name="email_from_address"
           defaultValue={workspace.email_from_address ?? ''}
           placeholder="hello@yourdomain.com"
-          hint="Your own domain needs SPF and DKIM records on it. Until they are verified, email still goes out — from our address, with your name."
+          hint={t(locale, 'sender_address_hint')}
         />
         <TextAreaField
-          label="Your words in the enrolment emails"
+          label={t(locale, 'enrolment_note_label')}
           name="enrolment_note"
           rows={5}
           defaultValue={workspace.enrolment_note ?? ''}
-          hint="Shown inside the emails Thread sends when someone registers. A single event can override it."
+          hint={t(locale, 'enrolment_note_hint')}
         />
       </section>
 
@@ -150,11 +151,11 @@ export function WorkspaceForm({ workspace }: { workspace: Workspace }) {
       )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending || !workspace.editable}>
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t(locale, 'saving') : t(locale, 'save')}
         </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved_notice')}</span>}
         {!workspace.editable && (
-          <span className="text-sm text-ink-subtle">Only a workspace admin can change this.</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'admin_only_change')}</span>
         )}
       </div>
     </form>

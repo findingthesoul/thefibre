@@ -4,6 +4,8 @@ import { APP_IDS, appName, type AppId } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 
 // crossAppHref (env-aware), NEVER APPS[slug].url: the raw registry value is
 // the PRODUCTION default, so the staging dashboard linked people to
@@ -41,6 +43,7 @@ function appOf(w: WorkspaceApp): AppRef | null {
 }
 
 export default async function Dashboard() {
+  const locale = await uiLocale();
   const supabase = await serverSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
@@ -56,7 +59,7 @@ export default async function Dashboard() {
     '';
   const firstName = fullName.split(/\s+/)[0] ?? '';
 
-  const today = new Intl.DateTimeFormat('en-GB', {
+  const today = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -82,26 +85,30 @@ export default async function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
-      <h1 className="text-3xl font-medium tracking-tight">Welcome, {firstName}</h1>
+      <h1 className="text-3xl font-medium tracking-tight">
+        {t(locale, 'welcome_name', { name: firstName })}
+      </h1>
       <p className="mt-1 text-sm text-ink-subtle">{today}</p>
 
       <section className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label="Contacts" value={persons?.items.length} icon={<Users size={16} strokeWidth={1.75} />} href="/contacts" />
-        <Stat label="Organisations" value={orgs?.items.length} icon={<Building2 size={16} strokeWidth={1.75} />} href="/organisations" />
-        <Stat label="Programmes" value={programmes?.items.length} icon={<CalendarRange size={16} strokeWidth={1.75} />} href="/programmes" />
-        <Stat label="Activity" value={activity?.items.length} icon={<Activity size={16} strokeWidth={1.75} />} href="/activity" />
+        <Stat label={t(locale, 'nav_contacts')} value={persons?.items.length} icon={<Users size={16} strokeWidth={1.75} />} href="/contacts" />
+        <Stat label={t(locale, 'nav_organisations')} value={orgs?.items.length} icon={<Building2 size={16} strokeWidth={1.75} />} href="/organisations" />
+        <Stat label={t(locale, 'nav_programmes')} value={programmes?.items.length} icon={<CalendarRange size={16} strokeWidth={1.75} />} href="/programmes" />
+        <Stat label={t(locale, 'nav_activity')} value={activity?.items.length} icon={<Activity size={16} strokeWidth={1.75} />} href="/activity" />
       </section>
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
         <section>
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">Recent activity</div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'recent_activity')}
+          </div>
           {activity && activity.items.length > 0 ? (
             <ol className="mt-3 border-l border-line pl-5 space-y-4">
               {activity.items.map((a) => (
                 <li key={a.id} className="relative">
                   <span className="absolute -left-[22px] top-1.5 w-2 h-2 rounded-full bg-ink" />
                   <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-                    {new Date(a.occurred_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                    {new Date(a.occurred_at).toLocaleDateString(INTL_LOCALES[locale], { day: 'numeric', month: 'short' })}
                     {' · '}{a.app?.name ?? a.type}
                   </div>
                   <div className="mt-0.5 text-sm">{a.subject}</div>
@@ -109,15 +116,17 @@ export default async function Dashboard() {
               ))}
             </ol>
           ) : (
-            <p className="mt-3 text-sm text-ink-subtle">Nothing yet.</p>
+            <p className="mt-3 text-sm text-ink-subtle">{t(locale, 'nothing_yet')}</p>
           )}
           <Link href="/activity" className="mt-4 inline-block text-xs text-ink-subtle hover:text-ink underline underline-offset-2">
-            See all →
+            {t(locale, 'see_all')} →
           </Link>
         </section>
 
         <section>
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">Active programmes</div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'active_programmes')}
+          </div>
           {activeProgrammes.length > 0 ? (
             <ul className="mt-3 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
               {activeProgrammes.slice(0, 5).map((p) => (
@@ -125,38 +134,40 @@ export default async function Dashboard() {
                   <Link href={`/programmes/${p.id}`} className="block px-4 py-3 hover:bg-surface-sunken">
                     <div className="font-medium text-sm truncate">{p.title}</div>
                     <div className="text-xs text-ink-subtle mt-0.5">
-                      {p.format}{p.starts_on && ` · starts ${new Date(p.starts_on).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`}
+                      {p.format}{p.starts_on && ` · ${t(locale, 'starts')} ${new Date(p.starts_on).toLocaleDateString(INTL_LOCALES[locale], { day: 'numeric', month: 'short' })}`}
                     </div>
                   </Link>
                 </li>
               ))}
             </ul>
           ) : (
-            <p className="mt-3 text-sm text-ink-subtle">No active programmes.</p>
+            <p className="mt-3 text-sm text-ink-subtle">{t(locale, 'no_active_programmes')}</p>
           )}
           <Link href="/programmes" className="mt-4 inline-block text-xs text-ink-subtle hover:text-ink underline underline-offset-2">
-            See all →
+            {t(locale, 'see_all')} →
           </Link>
         </section>
       </div>
 
       <section className="mt-14">
         <div className="flex items-baseline justify-between">
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">Your apps</div>
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'your_apps')}
+          </div>
           <Link
             href="/settings/apps"
             className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
           >
-            Manage →
+            {t(locale, 'manage')} →
           </Link>
         </div>
         {activeAppSlugs.size === 0 ? (
           <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
-            No apps activated yet for this workspace.{' '}
+            {t(locale, 'no_apps_activated')}{' '}
             <Link href="/settings/apps" className="underline">
-              Turn on an app
+              {t(locale, 'turn_on_an_app')}
             </Link>{' '}
-            to get started.
+            {t(locale, 'to_get_started')}
           </div>
         ) : (
           <ul className="mt-3 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
@@ -169,7 +180,7 @@ export default async function Dashboard() {
                     className="flex items-baseline justify-between px-5 py-4 hover:bg-surface-sunken"
                   >
                     <span className="font-medium">{appName(slug as AppId) ?? slug}</span>
-                    <span className="text-sm text-ink-subtle">Open →</span>
+                    <span className="text-sm text-ink-subtle">{t(locale, 'open')} →</span>
                   </Link>
                 </li>
               ))}

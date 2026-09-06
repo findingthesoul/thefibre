@@ -3,6 +3,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
 import { TabNav } from '@/components/ui/tabs';
 import { APPS, APP_ORDER, isAppSlug } from '@/lib/apps';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { OrgActions, type EditableOrg } from './org-actions';
 
 // Tiny header avatar — renders the org logo if the URL is set, otherwise a
@@ -36,6 +38,7 @@ export default async function OrgLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await uiLocale();
 
   let org: EditableOrg & { legal_name: string | null };
   try {
@@ -58,8 +61,8 @@ export default async function OrgLayout({
   );
 
   const tabs = [
-    { href: `/organisations/${id}`, label: 'Overview' },
-    { href: `/organisations/${id}/profile`, label: 'Profile' },
+    { href: `/organisations/${id}`, label: t(locale, 'overview') },
+    { href: `/organisations/${id}/profile`, label: t(locale, 'profile_title') },
     ...orderedApps
       .filter((slug) => slug !== 'fibre-platform')
       .map((slug) => ({
@@ -70,11 +73,11 @@ export default async function OrgLayout({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/organisations" label="Organisations" />
+      <Breadcrumb href="/organisations" label={t(locale, 'nav_organisations')} />
       <PageHeader
         title={org.name}
         description={org.legal_name && org.legal_name !== org.name ? org.legal_name : undefined}
-        actions={<OrgActions org={org} />}
+        actions={<OrgActions org={org} locale={locale} />}
         leading={<OrgLogo logoUrl={org.logo_url} name={org.name} />}
       />
       <TabNav tabs={tabs} />

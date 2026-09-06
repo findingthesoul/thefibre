@@ -1,4 +1,6 @@
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { TeamsView } from './teams-view';
 
 export const metadata = { title: 'Teams · Pulse' };
@@ -22,6 +24,7 @@ export type InvolvedTeam = {
 };
 
 export default async function TeamsPage() {
+  const locale = await uiLocale();
   let teams: WorkspaceTeam[] = [];
   let involved: InvolvedTeam[] = [];
   try {
@@ -37,13 +40,9 @@ export default async function TeamsPage() {
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Teams</h1>
-      <p className="mt-1 text-sm text-ink-muted">
-        Teams are a Fibre platform primitive — one team, every app. Toggle which ones take part
-        in the planner (they act as hubs/incubators, get their own cashflow scope and hold
-        projects).
-      </p>
-      <TeamsView teams={teams} involved={involved} />
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">{t(locale, 'teams')}</h1>
+      <p className="mt-1 text-sm text-ink-muted">{t(locale, 'teams_page_blurb')}</p>
+      <TeamsView teams={teams} involved={involved} locale={locale} />
     </div>
   );
 }

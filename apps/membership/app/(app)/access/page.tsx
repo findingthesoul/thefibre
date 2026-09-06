@@ -1,4 +1,5 @@
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
 import { AccessClient } from './access-client';
 import type { Grant } from './types';
 import type { Tier } from '../tiers/types';
@@ -35,9 +36,11 @@ export default async function AccessPage() {
     /* treat as not set */
   }
 
+  const locale = await uiLocale();
+
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <AccessClient grants={grants} tiers={tiers} circleTokenSet={circleTokenSet} />
+      <AccessClient grants={grants} tiers={tiers} circleTokenSet={circleTokenSet} locale={locale} />
     </div>
   );
 }

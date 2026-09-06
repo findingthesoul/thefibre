@@ -4,9 +4,18 @@ import { useState } from 'react';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { ProjectDialog } from './project-dialog';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { teamName, type InvolvedTeam, type Project } from './types';
 
-export function ProjectsView({ teams, projects }: { teams: InvolvedTeam[]; projects: Project[] }) {
+export function ProjectsView({
+  teams,
+  projects,
+  locale,
+}: {
+  teams: InvolvedTeam[];
+  projects: Project[];
+  locale: Locale;
+}) {
   const [creating, setCreating] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
 
@@ -21,54 +30,62 @@ export function ProjectsView({ teams, projects }: { teams: InvolvedTeam[]; proje
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Projects</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Projects run under your involved teams (hubs/incubators) or free-standing. Teams live
-            under People → Teams.
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+            {t(locale, 'projects')}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">{t(locale, 'projects_page_blurb')}</p>
         </div>
         <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
-          New project
+          {t(locale, 'new_project')}
         </Button>
       </div>
 
       {teams.length === 0 && projects.length === 0 ? (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-          <p className="text-sm text-ink-muted">
-            No teams involved yet. Pick the teams that act as hubs or incubators in Settings —
-            projects and their pipelines roll up here.
-          </p>
+          <p className="text-sm text-ink-muted">{t(locale, 'no_teams_projects_empty')}</p>
         </div>
       ) : (
         <div className="mt-8 space-y-6">
-          {teams.map((t) => (
-            <div key={t.id} className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
+          {teams.map((team) => (
+            <div key={team.id} className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
               <div className="px-5 py-3 border-b border-line text-sm font-semibold tracking-tight">
-                {teamName(t.team)}
+                {teamName(team.team, t(locale, 'unnamed_team'))}
               </div>
-              <ProjectList items={byTeam.get(t.team_id) ?? []} onEdit={setEditing} />
+              <ProjectList items={byTeam.get(team.team_id) ?? []} locale={locale} onEdit={setEditing} />
             </div>
           ))}
           {(byTeam.get(null) ?? []).length > 0 && (
             <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
               <div className="px-5 py-3 border-b border-line text-sm font-semibold tracking-tight text-ink-subtle">
-                Free-standing projects
+                {t(locale, 'free_standing_projects')}
               </div>
-              <ProjectList items={byTeam.get(null) ?? []} onEdit={setEditing} />
+              <ProjectList items={byTeam.get(null) ?? []} locale={locale} onEdit={setEditing} />
             </div>
           )}
         </div>
       )}
 
-      {creating && <ProjectDialog project={null} teams={teams} onClose={() => setCreating(false)} />}
-      {editing && <ProjectDialog project={editing} teams={teams} onClose={() => setEditing(null)} />}
+      {creating && (
+        <ProjectDialog project={null} teams={teams} locale={locale} onClose={() => setCreating(false)} />
+      )}
+      {editing && (
+        <ProjectDialog project={editing} teams={teams} locale={locale} onClose={() => setEditing(null)} />
+      )}
     </>
   );
 }
 
-function ProjectList({ items, onEdit }: { items: Project[]; onEdit: (p: Project) => void }) {
+function ProjectList({
+  items,
+  locale,
+  onEdit,
+}: {
+  items: Project[];
+  locale: Locale;
+  onEdit: (p: Project) => void;
+}) {
   if (!items.length) {
-    return <div className="px-5 py-3 text-sm text-ink-muted">No projects yet.</div>;
+    return <div className="px-5 py-3 text-sm text-ink-muted">{t(locale, 'no_projects_yet')}</div>;
   }
   return (
     <div className="divide-y divide-line/60">

@@ -23,6 +23,7 @@ import {
   setCashflowGrant,
   type CashflowGrant,
 } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import type { CashflowScope, MemberOption, PulseAccount, Projection } from './types';
 import { appUrl } from '@thefibre/shared';
 
@@ -39,9 +40,11 @@ export function CashflowSettingsDialog({
   accounts,
   rules,
   members,
+  locale,
   onUpdateBalances,
   onClose,
 }: {
+  locale: Locale;
   tabName: string;
   scope: CashflowScope;
   scopeTeamId: string | null;
@@ -101,11 +104,11 @@ export function CashflowSettingsDialog({
     <Dialog
       open
       onClose={onClose}
-      title={`${tabName} · cashflow settings`}
+      title={t(locale, 'cashflow_settings_title', { tab: tabName })}
       size="lg"
       footer={
         <Button type="button" variant="secondary" onClick={onClose}>
-          Done
+          {t(locale, 'done')}
         </Button>
       }
     >
@@ -114,7 +117,7 @@ export function CashflowSettingsDialog({
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Banks &amp; reserves
+              {t(locale, 'banks_reserves')}
             </h3>
             <div className="flex items-center gap-1.5">
               <Button
@@ -123,7 +126,7 @@ export function CashflowSettingsDialog({
                 leading={<RefreshCw size={13} strokeWidth={2} />}
                 onClick={onUpdateBalances}
               >
-                Update balances
+                {t(locale, 'update_balances')}
               </Button>
               <Button
                 size="sm"
@@ -131,7 +134,7 @@ export function CashflowSettingsDialog({
                 leading={<Plus size={13} strokeWidth={2} />}
                 onClick={() => setCreatingBank('bank')}
               >
-                Bank
+                {t(locale, 'bank')}
               </Button>
               <Button
                 size="sm"
@@ -139,13 +142,13 @@ export function CashflowSettingsDialog({
                 leading={<Plus size={13} strokeWidth={2} />}
                 onClick={() => setCreatingBank('reserve')}
               >
-                Reserve
+                {t(locale, 'reserve')}
               </Button>
             </div>
           </div>
           {accounts.length === 0 ? (
             <p className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
-              No accounts in this cashflow yet — add a bank to anchor its projection.
+              {t(locale, 'no_accounts_tab')}
             </p>
           ) : (
             <div className="divide-y divide-line/60 rounded-lg ring-1 ring-line">
@@ -161,7 +164,7 @@ export function CashflowSettingsDialog({
                   <span className="min-w-0 flex-1 truncate text-sm text-ink">{a.name}</span>
                   {a.kind === 'reserve' && (
                     <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
-                      reserve
+                      {t(locale, 'reserve_lc')}
                     </span>
                   )}
                   <span className="shrink-0 text-sm font-medium tabular-nums text-ink">
@@ -177,7 +180,7 @@ export function CashflowSettingsDialog({
         <section>
           <div className="mb-2 flex items-center justify-between">
             <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Reservations
+              {t(locale, 'reservations')}
             </h3>
             <Button
               size="sm"
@@ -185,13 +188,12 @@ export function CashflowSettingsDialog({
               leading={<Plus size={13} strokeWidth={2} />}
               onClick={() => setAddingRule(true)}
             >
-              Rule
+              {t(locale, 'rule')}
             </Button>
           </div>
           {rules.length === 0 ? (
             <p className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
-              No reservation rules in this cashflow. A rule sets aside a % of income into a
-              reserve bucket.
+              {t(locale, 'no_rules_tab')}
             </p>
           ) : (
             <div className="divide-y divide-line/60 rounded-lg ring-1 ring-line">
@@ -206,7 +208,7 @@ export function CashflowSettingsDialog({
                     type="button"
                     onClick={() => removeRule(r.id)}
                     disabled={busyRule === r.id}
-                    title="Remove this reservation rule"
+                    title={t(locale, 'remove_rule_title')}
                     className="shrink-0 rounded p-1 text-ink-muted hover:bg-surface-sunken hover:text-ink disabled:opacity-50"
                   >
                     <X size={13} strokeWidth={2} />
@@ -222,15 +224,12 @@ export function CashflowSettingsDialog({
         {scope === 'workspace' && (
           <section>
             <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-              Sharing
+              {t(locale, 'sharing')}
             </h3>
-            <p className="mb-2 text-sm text-ink-muted">
-              Give a workspace member access to this company cashflow — read, or read &amp;
-              write — without making them an admin.
-            </p>
+            <p className="mb-2 text-sm text-ink-muted">{t(locale, 'sharing_desc')}</p>
             {!grantsLoaded ? (
               <p className="rounded-md bg-surface-sunken px-3 py-2 text-sm text-ink-muted">
-                Loading…
+                {t(locale, 'loading')}
               </p>
             ) : (
               <div className="divide-y divide-line/60 rounded-lg ring-1 ring-line">
@@ -249,15 +248,15 @@ export function CashflowSettingsDialog({
                         }
                         className="h-8 rounded-md border border-line bg-surface-raised px-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
                       >
-                        <option value="none">No access</option>
-                        <option value="read">Read</option>
-                        <option value="write">Read &amp; write</option>
+                        <option value="none">{t(locale, 'no_access')}</option>
+                        <option value="read">{t(locale, 'read')}</option>
+                        <option value="write">{t(locale, 'read_write')}</option>
                       </select>
                     </div>
                   ))}
                 {members.filter((m) => m.user_id !== currentUserId).length === 0 && (
                   <p className="px-3 py-2 text-sm text-ink-muted">
-                    No other members yet — invite people from {FIBRE_HOST} → Settings → Members.
+                    {t(locale, 'no_members_invite', { host: FIBRE_HOST })}
                   </p>
                 )}
               </div>
@@ -268,12 +267,12 @@ export function CashflowSettingsDialog({
         {/* Planner-wide */}
         <section>
           <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-muted">
-            More
+            {t(locale, 'more')}
           </h3>
           <p className="text-sm text-ink-muted">
-            VAT tariffs, time rhythm and invoicing are planner-wide —{' '}
+            {t(locale, 'planner_wide_before')}{' '}
             <Link href="/settings/planner" className="underline underline-offset-2 hover:text-ink">
-              Settings → Planner
+              {t(locale, 'settings_planner_link')}
             </Link>
             .
           </p>
@@ -287,6 +286,7 @@ export function CashflowSettingsDialog({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           initialKind={creatingBank}
+          locale={locale}
           onClose={() => setCreatingBank(null)}
         />
       )}
@@ -297,6 +297,7 @@ export function CashflowSettingsDialog({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           reserveAccounts={reserves}
+          locale={locale}
           onClose={() => setAddingRule(false)}
         />
       )}

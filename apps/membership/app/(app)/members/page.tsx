@@ -1,5 +1,6 @@
 import { Suspense } from 'react';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
 import { MembersClient } from './members-client';
 import type { Member, Tier } from './types';
 
@@ -11,6 +12,7 @@ export default async function MembersPage({
   searchParams: Promise<{ status?: string; tier?: string; q?: string }>;
 }) {
   const { status, tier, q } = await searchParams;
+  const locale = await uiLocale();
 
   const qs = new URLSearchParams({ limit: '100' });
   if (status) qs.set('status', status);
@@ -34,7 +36,7 @@ export default async function MembersPage({
     <div className="px-6 py-10 max-w-5xl">
       {/* useSearchParams in the client needs a Suspense boundary for prerender. */}
       <Suspense>
-        <MembersClient members={members} tiers={tiers} />
+        <MembersClient members={members} tiers={tiers} locale={locale} />
       </Suspense>
     </div>
   );

@@ -5,20 +5,30 @@ import { useRouter } from 'next/navigation';
 import { Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { money } from '@/lib/money';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { patchProduct } from './actions';
 import { ProductDialog } from './product-dialog';
-import { LINK_KIND_LABELS, type Product } from './types';
+import type { LinkKind, Product } from './types';
+
+const LINK_KIND_KEYS: Record<LinkKind, UiKey> = {
+  thread: 'link_kind_thread',
+  meet: 'link_kind_meet',
+  circle_space: 'link_kind_circle_space',
+  url: 'link_kind_url',
+};
 
 export function ProductsClient({
   products,
   currency,
   threadOptions,
   grants,
+  locale,
 }: {
   products: Product[];
   currency: import("@/lib/workspace-currency").WorkspaceCurrencies;
   threadOptions: { slug: string; title: string }[];
   grants: import('../access/types').Grant[];
+  locale: Locale;
 }) {
   const router = useRouter();
   const [creating, setCreating] = useState(false);
@@ -54,22 +64,21 @@ export function ProductsClient({
     <>
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Products</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            The things a membership is made of — a Circle space, a Thread, a call series. Bundle
-            them into tiers under Tiers.
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+            {t(locale, 'nav_products')}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">{t(locale, 'products_blurb')}</p>
         </div>
         <div className="flex items-center gap-2">
           <a
             href="/access"
             className="text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
           >
-            Sync overview
+            {t(locale, 'sync_overview')}
           </a>
           <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
-          New product
-        </Button>
+            {t(locale, 'new_product')}
+          </Button>
         </div>
       </div>
 
@@ -83,16 +92,15 @@ export function ProductsClient({
               : 'border-line text-ink-subtle hover:text-ink'
           }`}
         >
-          {showArchived ? 'Hide archived' : `Show archived (${archivedCount})`}
+          {showArchived
+            ? t(locale, 'hide_archived')
+            : t(locale, 'show_archived', { n: archivedCount })}
         </button>
       )}
 
       {visible.length === 0 ? (
         <div className="mt-10 rounded-2xl bg-surface-raised border border-line p-8 text-center">
-          <p className="text-sm text-ink-muted">
-            No products yet. Create the building blocks of your membership here, then include
-            them in tiers.
-          </p>
+          <p className="text-sm text-ink-muted">{t(locale, 'products_empty')}</p>
         </div>
       ) : (
         <div className="mt-6 space-y-4">
@@ -106,26 +114,26 @@ export function ProductsClient({
               onDragEnd={() => setDragIdx(null)}
               className={dragIdx === i ? 'opacity-50' : ''}
             >
-              <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} onEdit={setEditing} />
+              <ProductCard product={p} productGrants={grants.filter((g) => g.product_id === p.id)} locale={locale} onEdit={setEditing} />
             </div>
           ))}
         </div>
       )}
 
-      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} grants={[]} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
-      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} grants={grants.filter((g) => g.product_id === editing.id)} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
+      {creating && <ProductDialog product={null} currency={currency} threadOptions={threadOptions} grants={[]} locale={locale} nextSortOrder={items.length * 10} onClose={() => setCreating(false)} />}
+      {editing && <ProductDialog product={editing} currency={currency} threadOptions={threadOptions} grants={grants.filter((g) => g.product_id === editing.id)} locale={locale} nextSortOrder={items.length * 10} onClose={() => setEditing(null)} />}
     </>
   );
 }
 
-function accessLine(grants: import('../access/types').Grant[]): string {
+function accessLine(grants: import('../access/types').Grant[], locale: Locale): string {
   return grants
     .map((g) =>
       g.kind === 'circle'
-        ? `Circle space ${g.config?.space_id ?? ''}`
+        ? t(locale, 'circle_space_target', { ref: String(g.config?.space_id ?? '') })
         : g.kind === 'fibre_seat'
-          ? `Fibre seat (${g.config?.role ?? 'organiser'})`
-          : `Thread ${g.config?.thread_slug ?? ''}`,
+          ? t(locale, 'fibre_seat_target', { role: String(g.config?.role ?? 'organiser') })
+          : t(locale, 'thread_target', { ref: String(g.config?.thread_slug ?? '') }),
     )
     .join(' · ');
 }
@@ -133,10 +141,12 @@ function accessLine(grants: import('../access/types').Grant[]): string {
 function ProductCard({
   product,
   productGrants,
+  locale,
   onEdit,
 }: {
   product: Product;
   productGrants: import('../access/types').Grant[];
+  locale: Locale;
   onEdit: (p: Product) => void;
 }) {
   const characteristics = product.characteristics ?? [];
@@ -152,22 +162,22 @@ function ProductCard({
           <span className="text-base font-semibold tracking-tight text-ink">{product.name}</span>
           {product.purchasable && (
             <span className="rounded-full border border-emerald-300/60 bg-emerald-50 px-2 py-0.5 text-[11px] text-emerald-700 dark:border-emerald-500/30 dark:bg-emerald-500/10 dark:text-emerald-400">
-              Buyable
+              {t(locale, 'buyable')}
             </span>
           )}
           {product.archived_at && (
             <span className="rounded-full border border-line px-2 py-0.5 text-[11px] text-ink-muted">
-              Archived
+              {t(locale, 'archived')}
             </span>
           )}
         </div>
         <div className="text-sm shrink-0">
           {product.price_cents != null ? (
             <span className="font-semibold text-ink">
-              {money(product.price_cents, product.currency)}
+              {money(product.price_cents, product.currency, INTL_LOCALES[locale])}
             </span>
           ) : (
-            <span className="text-ink-muted">Included in tier</span>
+            <span className="text-ink-muted">{t(locale, 'included_in_tier')}</span>
           )}
         </div>
       </div>
@@ -188,12 +198,12 @@ function ProductCard({
       )}
       {productGrants.length > 0 && (
         <div className="mt-2 text-xs text-emerald-800 dark:text-emerald-300">
-          Unlocks: {accessLine(productGrants)}
+          {t(locale, 'unlocks_prefix', { list: accessLine(productGrants, locale) })}
         </div>
       )}
       {links.length > 0 && (
         <div className="mt-3 text-xs text-ink-muted">
-          {links.map((l) => l.label || `${LINK_KIND_LABELS[l.kind]} · ${l.ref}`).join(' · ')}
+          {links.map((l) => l.label || `${t(locale, LINK_KIND_KEYS[l.kind])} · ${l.ref}`).join(' · ')}
         </div>
       )}
     </button>

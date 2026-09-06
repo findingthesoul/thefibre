@@ -4,6 +4,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { ButtonLink } from '@/components/ui/button';
 import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 type Programme = {
   id: string;
@@ -15,22 +17,23 @@ type Programme = {
   app: { slug: string; name: string } | null;
 };
 
-const FORMAT_LABEL: Record<string, string> = {
-  meeting: 'Meeting',
-  event: 'Event',
-  journey: 'Journey',
-  self_paced: 'Self-paced',
-  blended: 'Blended',
+const FORMAT_LABEL: Record<string, UiKey> = {
+  meeting: 'format_meeting',
+  event: 'format_event',
+  journey: 'format_journey',
+  self_paced: 'format_self_paced',
+  blended: 'format_blended',
 };
 
-const STATUS_LABEL: Record<string, string> = {
-  draft: 'Draft',
-  active: 'Active',
-  completed: 'Completed',
-  archived: 'Archived',
+const STATUS_LABEL: Record<string, UiKey> = {
+  draft: 'status_draft',
+  active: 'consent_active',
+  completed: 'status_prog_completed',
+  archived: 'status_archived',
 };
 
 export default async function ProgrammesPage() {
+  const locale = await uiLocale();
   let items: Programme[] = [];
   let error: string | null = null;
   try {
@@ -43,39 +46,43 @@ export default async function ProgrammesPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Programmes"
-        description="Events, journeys, meetings, courses. Each programme belongs to the app that delivers it."
+        title={t(locale, 'nav_programmes')}
+        description={t(locale, 'help_programmes_blurb')}
         actions={
           <ButtonLink href="/programmes/new" leading={<Plus size={14} strokeWidth={2.25} />}>
-            New programme
+            {t(locale, 'new_programme')}
           </ButtonLink>
         }
       />
 
-      {error && <ErrorBanner>Couldn't load programmes: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'programmes_load_failed')} {error}</ErrorBanner>}
 
       {!error && items.length === 0 && (
         <EmptyState>
-          No programmes yet.{' '}
-          <Link href="/programmes/new" className="underline">Create the first one</Link>.
+          {t(locale, 'no_programmes_yet')}{' '}
+          <Link href="/programmes/new" className="underline">{t(locale, 'create_first_one')}</Link>.
         </EmptyState>
       )}
 
       {items.length > 0 && (
         <ListGroup>
           {items.map((p) => {
-            const dates = formatDateRange(p.starts_on, p.ends_on);
+            const dates = formatDateRange(p.starts_on, p.ends_on, locale);
             return (
               <ListRow
                 key={p.id}
                 href={`/programmes/${p.id}`}
                 primary={p.title}
                 secondary={
-                  [FORMAT_LABEL[p.format] ?? p.format, p.app?.name, dates]
+                  [
+                    FORMAT_LABEL[p.format] ? t(locale, FORMAT_LABEL[p.format]!) : p.format,
+                    p.app?.name,
+                    dates,
+                  ]
                     .filter(Boolean)
                     .join(' · ') || '—'
                 }
-                meta={STATUS_LABEL[p.status] ?? p.status}
+                meta={STATUS_LABEL[p.status] ? t(locale, STATUS_LABEL[p.status]!) : p.status}
               />
             );
           })}
@@ -85,12 +92,16 @@ export default async function ProgrammesPage() {
   );
 }
 
-function formatDateRange(start: string | null, end: string | null): string | null {
+function formatDateRange(start: string | null, end: string | null, locale: Locale): string | null {
   if (!start && !end) return null;
   const fmt = (s: string) =>
-    new Date(s).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+    new Date(s).toLocaleDateString(INTL_LOCALES[locale], {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    });
   if (start && end) return `${fmt(start)} – ${fmt(end)}`;
-  if (start) return `from ${fmt(start)}`;
-  if (end) return `until ${fmt(end!)}`;
+  if (start) return `${t(locale, 'from')} ${fmt(start)}`;
+  if (end) return `${t(locale, 'until')} ${fmt(end!)}`;
   return null;
 }

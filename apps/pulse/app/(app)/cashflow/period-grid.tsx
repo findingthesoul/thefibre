@@ -60,6 +60,7 @@ import {
 import { CreateBankDialog } from './bank-prompt';
 import { ReservationRuleDialog } from './reservation-rule-dialog';
 import { toastError } from './toast';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   AddButtons,
   FilteredNote,
@@ -163,8 +164,12 @@ function computePeriodBounds(s: PeriodSettings): { starts: string[]; horizon: st
   return { starts, horizon: cur < horizonEnd ? isoDate(cur) : isoDate(horizonEnd) };
 }
 
-function fmtStart(iso: string, granularity: PeriodSettings['granularity']): string {
-  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
+function fmtStart(
+  intlLocale: string,
+  iso: string,
+  granularity: PeriodSettings['granularity'],
+): string {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString(intlLocale, {
     day: granularity === 'month' || granularity === 'quarter' ? undefined : 'numeric',
     month: 'short',
     year: granularity === 'month' || granularity === 'quarter' ? 'numeric' : undefined,
@@ -207,14 +212,14 @@ function cadenceOccurrences(
   return out;
 }
 
-function counterpartyName(cm: Commitment): string {
+function counterpartyName(locale: Locale, cm: Commitment): string {
   if (cm.organisation?.name) return cm.organisation.name;
   if (cm.person) {
     const full = `${cm.person.first_name ?? ''} ${cm.person.last_name ?? ''}`.trim();
     if (full) return full;
     if (cm.person.email) return cm.person.email;
   }
-  return 'No counterparty yet';
+  return t(locale, 'no_counterparty_yet');
 }
 
 // Stage chips colour by KIND (same palette as the counterparty list).
@@ -335,6 +340,7 @@ export function PeriodGrid({
   scopeTeamId,
   currentUserId,
   tabName,
+  locale,
   view,
   onViewChange,
   invoiceFilter,
@@ -344,6 +350,7 @@ export function PeriodGrid({
   onOpenGroup,
   onUpdateBalances,
 }: {
+  locale: Locale;
   items: Commitment[];
   settings: PeriodSettings;
   stages: StageOption[];
@@ -420,6 +427,7 @@ export function PeriodGrid({
     setFocus((cur) => (active ? { section, rowId } : cur?.rowId === rowId ? null : cur));
 
   const stageByKey = new Map(stages.map((s) => [s.key, s]));
+  const intl = INTL_LOCALES[locale];
   // The cashflow's resolved currency (workspace default, or a scope
   // override) — formats every amount so the setting actually shows.
   const currency = projection?.currency ?? 'EUR';
@@ -445,14 +453,14 @@ export function PeriodGrid({
   const { starts, horizon } = computePeriodBounds(settings);
 
   const cols: Col[] = [
-    { key: 'overdue', idx: 0, label: 'Overdue', droppable: false },
+    { key: 'overdue', idx: 0, label: t(locale, 'overdue'), droppable: false },
     ...starts.map((s, i) => ({
       key: s,
       idx: i + 1,
-      label: fmtStart(s, settings.granularity),
+      label: fmtStart(intl, s, settings.granularity),
       droppable: true,
     })),
-    { key: 'later', idx: starts.length + 1, label: 'Later', droppable: false },
+    { key: 'later', idx: starts.length + 1, label: t(locale, 'later'), droppable: false },
   ];
   const nCols = cols.length;
   const laterIdx = nCols - 1;
@@ -489,7 +497,7 @@ export function PeriodGrid({
     if (!group) {
       group = {
         key: gKey,
-        name: counterpartyName(cm),
+        name: counterpartyName(locale, cm),
         opps: [],
         subtotals: zeros(),
         lineIds: Array.from({ length: nCols }, () => [] as string[]),
@@ -733,7 +741,7 @@ export function PeriodGrid({
     if (payload.startsWith(RECUR_DRAG_PREFIX)) {
       const cmId = payload.slice(RECUR_DRAG_PREFIX.length);
       const res = await patchCommitmentField(cmId, { repeat_starts_on: colKey });
-      if (res.error) toastError(`Could not reschedule the series: ${res.error}`);
+      if (res.error) toastError(t(locale, 'could_not_reschedule', { error: res.error }));
       else router.refresh();
       return;
     }
@@ -751,7 +759,7 @@ export function PeriodGrid({
       }
       if (copy) {
         const res = await duplicateLines(ids, colKey);
-        if (res.error) toastError(`Could not duplicate: ${res.error}`);
+        if (res.error) toastError(t(locale, 'could_not_duplicate', { error: res.error }));
         else router.refresh();
         return;
       }
@@ -765,7 +773,7 @@ export function PeriodGrid({
       });
       const res = await moveLines(ids, colKey);
       if (res.error) {
-        toastError(`Could not move the group's expected payments: ${res.error}`);
+        toastError(t(locale, 'could_not_move_group', { error: res.error }));
         setOverrides((o) => {
           const next = { ...o };
           for (const id of ids) delete next[id];
@@ -780,7 +788,7 @@ export function PeriodGrid({
     const lineId = payload;
     if (copy) {
       const res = await duplicateLines([lineId], colKey);
-      if (res.error) toastError(`Could not duplicate: ${res.error}`);
+      if (res.error) toastError(t(locale, 'could_not_duplicate', { error: res.error }));
       else router.refresh();
       return;
     }
@@ -790,7 +798,7 @@ export function PeriodGrid({
     const res = await moveLine(lineId, colKey);
     if (res.error) {
       // Surface loudly (toast), THEN fall back to the server truth.
-      toastError(`Could not move the expected payment: ${res.error}`);
+      toastError(t(locale, 'could_not_move', { error: res.error }));
       setOverrides((o) => {
         const next = { ...o };
         delete next[lineId];
@@ -837,7 +845,7 @@ export function PeriodGrid({
     });
     const res = await patchCommitmentSortOrders(updates);
     if (res.error) {
-      toastError(`Could not reorder: ${res.error}`);
+      toastError(t(locale, 'could_not_reorder', { error: res.error }));
       setSortOverrides(prev);
       return;
     }
@@ -1104,7 +1112,7 @@ export function PeriodGrid({
             <div className="flex w-full items-center gap-1.5">
               <span
                 {...gripProps({ kind: 'group', dir, groupKey: g.key })}
-                title="Drag to reorder — the whole group moves"
+                title={t(locale, 'drag_reorder_group')}
                 className="shrink-0 -ml-1.5 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
               >
                 <GripVertical size={12} strokeWidth={2} />
@@ -1115,7 +1123,11 @@ export function PeriodGrid({
                 type="button"
                 onClick={() => toggleGroup(foldKey)}
                 aria-expanded={groupOpen}
-                aria-label={`${groupOpen ? 'Fold' : 'Unfold'} ${g.name}`}
+                aria-label={
+                  groupOpen
+                    ? t(locale, 'fold_name', { name: g.name })
+                    : t(locale, 'unfold_name', { name: g.name })
+                }
                 className="shrink-0 -m-1 p-1"
               >
                 {groupOpen ? (
@@ -1135,7 +1147,7 @@ export function PeriodGrid({
                 <button
                   type="button"
                   onClick={() => onOpenGroup(g.key)}
-                  title={`${g.name} — opportunities & invoices`}
+                  title={t(locale, 'open_org_title')}
                   className={`min-w-0 truncate whitespace-nowrap text-left ${labelText} font-semibold text-ink hover:underline underline-offset-2`}
                 >
                   {g.name}
@@ -1162,9 +1174,11 @@ export function PeriodGrid({
                       );
                       e.dataTransfer.effectAllowed = 'copyMove';
                     }}
-                    title={`${g.name} — drag to retime all ${draggableIds.length} expected payment${
-                      draggableIds.length === 1 ? '' : 's'
-                    } of this period`}
+                    title={
+                      draggableIds.length === 1
+                        ? t(locale, 'group_drag_one', { name: g.name })
+                        : t(locale, 'group_drag_many', { name: g.name, n: draggableIds.length })
+                    }
                     className={`inline-flex cursor-grab active:cursor-grabbing items-center rounded-full ring-1 hover:shadow ${PILL_TONE[dir]} ${chipPad} py-0.5 ${cellText} font-semibold tabular-nums`}
                   >
                     {sign(dir)}
@@ -1211,7 +1225,7 @@ export function PeriodGrid({
                 <div className="ml-1 flex items-center gap-1 border-l border-line/60 pl-1.5">
                   <span
                     {...gripProps({ kind: 'item', dir, groupKey: g.key, id: o.cm.id })}
-                    title="Drag to reorder"
+                    title={t(locale, 'drag_to_reorder')}
                     className="shrink-0 cursor-grab text-ink-muted/50 hover:text-ink-subtle active:cursor-grabbing"
                   >
                     <GripVertical size={12} strokeWidth={2} />
@@ -1243,7 +1257,7 @@ export function PeriodGrid({
                     <td
                       key={col.key}
                       {...dropProps(col)}
-                      title="repeats — edit the item"
+                      title={t(locale, 'repeats_edit_item')}
                       className={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
                     >
                       {v === 0 ? (
@@ -1256,7 +1270,7 @@ export function PeriodGrid({
                             e.dataTransfer.effectAllowed = 'move';
                           }}
                           onClick={() => onEdit(o.cm)}
-                          title="Repeats — drag to another period to reschedule the whole series; click to edit."
+                          title={t(locale, 'repeats_drag_title')}
                           className={`cursor-grab active:cursor-grabbing ${cellText} font-medium tabular-nums ${AMT_TONE[dir]} hover:opacity-70`}
                         >
                           {sign(dir)}
@@ -1282,6 +1296,7 @@ export function PeriodGrid({
                     cellText={cellText}
                     chipPad={chipPad}
                     tdClass={`${chipPad} py-1.5 text-right align-top border-b border-line/40 whitespace-nowrap ${hoverBg(col)}`}
+                    locale={locale}
                     dropHandlers={dropProps(col)}
                     onOpen={() => onEdit(o.cm)}
                     onFocusChange={focusHandler(dir, o.cm.id)}
@@ -1305,7 +1320,7 @@ export function PeriodGrid({
         <tr className={`${ZEBRA} ${dimmed ? ROW_DIMMED : ''}`}>
           <td className={`${sticky} bg-white px-4 py-1.5 border-b border-line`}>
             <span className={`block truncate whitespace-nowrap ${labelText} font-semibold text-ink`}>
-              Recurring (budget)
+              {t(locale, 'recurring_budget')}
             </span>
           </td>
           {visibleCols.map((col) => (
@@ -1341,7 +1356,7 @@ export function PeriodGrid({
                 {/* The ↻ chip is income-only — on costs it's noise. */}
                 {dir === 'in' && (
                   <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-600">
-                    ↻ {r.bl.cadence}
+                    ↻ {t(locale, `cadence_${r.bl.cadence}` as 'cadence_weekly')}
                   </span>
                 )}
                 {r.bl.category && (
@@ -1352,7 +1367,7 @@ export function PeriodGrid({
               </div>
             </td>
             {visibleCols.map((col) => (
-              <td key={col.key} className={numCell} title="recurring — edit in Budget">
+              <td key={col.key} className={numCell} title={t(locale, 'recurring_edit_budget')}>
                 {renderAmt(r.amounts[col.idx], dir, cellText)}
               </td>
             ))}
@@ -1370,21 +1385,21 @@ export function PeriodGrid({
           consolidated row — the "Filter rows…" input is gone). */}
       <div className="mb-3 flex items-center justify-between gap-3">
         <div className="flex items-center gap-2 min-w-0">
-          <InvoiceFilterSelect value={invoiceFilter} onChange={onInvoiceFilterChange} />
-          {filtered && <FilteredNote />}
+          <InvoiceFilterSelect value={invoiceFilter} locale={locale} onChange={onInvoiceFilterChange} />
+          {filtered && <FilteredNote locale={locale} />}
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {/* Green + / red − quick adds (moved here from the tab bar). */}
-          <AddButtons onAdd={onAdd} />
+          <AddButtons locale={locale} onAdd={onAdd} />
           {/* By contact / By period. */}
-          <ViewSelect value={view} onChange={onViewChange} />
+          <ViewSelect value={view} locale={locale} onChange={onViewChange} />
           {/* Show per week / fortnight / month / quarter — server refetch via
               ?show= keeps the position rows aligned with the columns. */}
-          <ShowSwitcher current={settings.granularity} />
+          <ShowSwitcher current={settings.granularity} locale={locale} />
           <button
             type="button"
-            aria-label={fit ? 'Switch back to the scrollable layout' : 'Fit the table to the screen'}
-            title={fit ? 'Scrollable layout' : 'Fit to screen'}
+            aria-label={fit ? t(locale, 'fit_aria_on') : t(locale, 'fit_aria_off')}
+            title={fit ? t(locale, 'scrollable_layout') : t(locale, 'fit_to_screen')}
             onClick={() => {
               const next = !fit;
               setFit(next);
@@ -1404,7 +1419,7 @@ export function PeriodGrid({
             <>
               <button
                 type="button"
-                aria-label="Scroll to earlier periods"
+                aria-label={t(locale, 'scroll_earlier')}
                 onClick={() => scrollByCols(-1)}
                 className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
               >
@@ -1412,7 +1427,7 @@ export function PeriodGrid({
               </button>
               <button
                 type="button"
-                aria-label="Scroll to later periods"
+                aria-label={t(locale, 'scroll_later')}
                 onClick={() => scrollByCols(1)}
                 className="h-8 w-8 inline-flex items-center justify-center rounded-md bg-white ring-1 ring-line text-ink-subtle hover:text-ink"
               >
@@ -1446,7 +1461,7 @@ export function PeriodGrid({
                 <th
                   className={`${fit ? numPad : 'min-w-[112px] px-3'} py-3 text-right ${cellText} font-semibold tracking-tight whitespace-nowrap border-b border-line border-l-2 border-l-line bg-yellow-50 text-ink`}
                 >
-                  Total
+                  {t(locale, 'total')}
                 </th>
               </tr>
             </thead>
@@ -1457,7 +1472,7 @@ export function PeriodGrid({
                   the balance inline; reserve accounts project forward. */}
               {projection &&
                 sectionHeaderRow({
-                  label: 'Bank',
+                  label: t(locale, 'bank'),
                   valueFor: positionFor,
                   valueCls: (v) => (v != null && v < 0 ? 'text-red-600' : 'text-ink'),
                   total: null, // running balances don't sum
@@ -1472,8 +1487,8 @@ export function PeriodGrid({
                           <button
                             type="button"
                             onClick={onUpdateBalances}
-                            title="Update balances"
-                            aria-label="Update balances"
+                            title={t(locale, 'update_balances')}
+                            aria-label={t(locale, 'update_balances')}
                             className="shrink-0 -m-1 p-1 text-ink-muted hover:text-ink"
                           >
                             <Pencil size={12} strokeWidth={1.75} />
@@ -1499,7 +1514,7 @@ export function PeriodGrid({
                           </span>
                           {a.kind === 'reserve' && (
                             <span className="shrink-0 rounded-full bg-slate-100 px-1.5 py-px text-[10px] font-medium text-slate-500">
-                              reserve
+                              {t(locale, 'reserve_lc')}
                             </span>
                           )}
                         </div>
@@ -1511,7 +1526,9 @@ export function PeriodGrid({
                             // (the header pencil / the daily prompt).
                             current != null ? (
                               <span
-                                title={`as of ${a.latest_snapshot!.as_of_date} — update via the Bank popup`}
+                                title={t(locale, 'as_of_update_title', {
+                                  d: a.latest_snapshot!.as_of_date,
+                                })}
                                 className={`${cellText} font-medium tabular-nums text-ink`}
                               >
                                 {fmt(current)}
@@ -1520,10 +1537,10 @@ export function PeriodGrid({
                               <button
                                 type="button"
                                 onClick={onUpdateBalances}
-                                title="Set the balance — opens the Bank popup"
+                                title={t(locale, 'set_balance_title')}
                                 className={`${cellText} font-medium tabular-nums text-ink-subtle underline-offset-2 hover:underline`}
                               >
-                                Set balance
+                                {t(locale, 'set_balance')}
                               </button>
                             )
                           ) : projected?.has(col.key) ? (
@@ -1531,7 +1548,7 @@ export function PeriodGrid({
                             // reservations targeting this account (greyed —
                             // a projection, not an actual).
                             <span
-                              title="projected — actual + reservations to date"
+                              title={t(locale, 'projected_title')}
                               className={`${cellText} tabular-nums text-ink-muted`}
                             >
                               {fmt(projected.get(col.key)!)}
@@ -1554,7 +1571,7 @@ export function PeriodGrid({
               {projection && orderedAccounts.length === 0 && (
                 <tr>
                   <td className={`${sticky} bg-white px-4 py-2 border-b border-line/40`}>
-                    <span className="text-xs text-ink-muted">This cashflow has no bank yet</span>
+                    <span className="text-xs text-ink-muted">{t(locale, 'no_bank_yet')}</span>
                   </td>
                   <td
                     colSpan={visibleCols.length + 1}
@@ -1566,14 +1583,14 @@ export function PeriodGrid({
                         onClick={() => setCreatingAccount('bank')}
                         className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-ink-inverse hover:opacity-90"
                       >
-                        Create bank
+                        {t(locale, 'create_bank')}
                       </button>
                       <button
                         type="button"
                         onClick={() => setCreatingAccount('reserve')}
                         className="text-xs font-medium text-ink-subtle underline-offset-2 hover:text-ink hover:underline"
                       >
-                        + reserve
+                        {t(locale, 'plus_reserve')}
                       </button>
                     </div>
                   </td>
@@ -1593,21 +1610,21 @@ export function PeriodGrid({
                         onClick={onUpdateBalances}
                         className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
                       >
-                        Fill in your bank balances →
+                        {t(locale, 'fill_balances')}
                       </button>
                     </td>
                     <td
                       colSpan={visibleCols.length + 1}
                       className="border-b border-line/40 px-3 py-2 text-xs text-ink-muted"
                     >
-                      Update the balances — the Bank rows anchor on them.
+                      {t(locale, 'update_balances_anchor')}
                     </td>
                   </tr>
                 )}
 
               {/* 2 · INCOME */}
               {sectionHeaderRow({
-                label: 'Income',
+                label: t(locale, 'income'),
                 totals: incomeTotals,
                 accent: 'in',
                 count: incomeRowCount,
@@ -1623,14 +1640,14 @@ export function PeriodGrid({
                     onClick={() => onAdd('in')}
                     className="text-xs font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
                   >
-                    + Income
+                    {t(locale, 'plus_income')}
                   </button>
                 </AddRow>
               )}
 
               {/* 3 · COSTS */}
               {sectionHeaderRow({
-                label: 'Costs',
+                label: t(locale, 'costs'),
                 totals: costTotals,
                 accent: 'out',
                 count: costRowCount,
@@ -1646,7 +1663,7 @@ export function PeriodGrid({
                     onClick={() => onAdd('out')}
                     className="text-xs font-medium text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
                   >
-                    + Cost
+                    {t(locale, 'plus_cost')}
                   </button>
                 </AddRow>
               )}
@@ -1656,7 +1673,7 @@ export function PeriodGrid({
               {projection && (
                 <>
                   {sectionHeaderRow({
-                    label: 'Reservations',
+                    label: t(locale, 'reservations'),
                     valueFor: reservedFor,
                     total: visibleCols.reduce((a, c) => a + (reservedFor(c) ?? 0), 0),
                     count: projection.reservation_rules?.length ?? undefined,
@@ -1668,8 +1685,8 @@ export function PeriodGrid({
                       <button
                         type="button"
                         onClick={() => setCreatingRule(true)}
-                        title={`Add a reservation rule to the ${tabName} cashflow`}
-                        aria-label="Add a reservation rule"
+                        title={t(locale, 'add_rule_tab_title', { tab: tabName })}
+                        aria-label={t(locale, 'add_rule_aria')}
                         className="shrink-0 -m-1 p-1 text-ink-muted hover:text-ink"
                       >
                         <Plus size={12} strokeWidth={1.75} />
@@ -1723,7 +1740,7 @@ export function PeriodGrid({
                 <tr>
                   <td className={`${sticky} bg-yellow-100/70 px-4 py-2.5`}>
                     <span className="text-[11px] font-bold uppercase tracking-wider text-ink">
-                      End position
+                      {t(locale, 'th_end_position')}
                     </span>
                   </td>
                   {visibleCols.map((col) => {
@@ -1761,6 +1778,7 @@ export function PeriodGrid({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           initialKind={creatingAccount}
+          locale={locale}
           onClose={() => setCreatingAccount(null)}
         />
       )}
@@ -1774,6 +1792,7 @@ export function PeriodGrid({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           reserveAccounts={accounts.filter((a) => a.kind === 'reserve')}
+          locale={locale}
           onClose={() => setCreatingRule(false)}
         />
       )}
@@ -1828,6 +1847,7 @@ function AmountChip({
   fmt,
   cellText,
   chipPad,
+  locale,
   onOpen,
 }: {
   card: Card;
@@ -1835,6 +1855,7 @@ function AmountChip({
   fmt: (cents: number) => string;
   cellText: string;
   chipPad: string;
+  locale: Locale;
   onOpen: () => void;
 }) {
   // A completed drag must not open the dialog — dragstart arms this, and it
@@ -1859,11 +1880,14 @@ function AmountChip({
         if (draggedRef.current) return;
         onOpen();
       }}
-      title={`${card.cm.label} — expected ${card.date}.${
+      title={`${t(locale, 'chip_title', { label: card.cm.label, date: card.date })}${
         card.open
-          ? ` Weighted at ${card.cm.probability}% (full ${money(card.line.amount_cents)}).`
+          ? t(locale, 'chip_title_weighted', {
+              p: card.cm.probability,
+              full: money(card.line.amount_cents),
+            })
           : ''
-      }${card.line.invoiced_at ? ' Invoiced, awaiting payment.' : ''} Click to open; drag to another period to retime; ⌥-drag to copy.`}
+      }${card.line.invoiced_at ? t(locale, 'chip_title_invoiced') : ''}${t(locale, 'chip_title_actions')}`}
       className={`inline-flex items-center gap-1 cursor-pointer active:cursor-grabbing rounded-full ring-1 hover:shadow ${
         dir === 'in' && card.line.invoiced_at
           ? PILL_TONE_INVOICED
@@ -1893,6 +1917,7 @@ function OppLineCell({
   cellText,
   chipPad,
   tdClass,
+  locale,
   dropHandlers,
   onOpen,
   onFocusChange,
@@ -1906,6 +1931,7 @@ function OppLineCell({
   cellText: string;
   chipPad: string;
   tdClass: string;
+  locale: Locale;
   dropHandlers: DropHandlers;
   onOpen: () => void;
   onFocusChange?: (active: boolean) => void;
@@ -1922,7 +1948,7 @@ function OppLineCell({
     const res = await addLine(commitmentId, colKey, cents);
     setSaving(false);
     if (res.error) {
-      toastError(`Could not add the expected payment: ${res.error}`);
+      toastError(t(locale, 'could_not_add_payment', { error: res.error }));
       return;
     }
     router.refresh();
@@ -1943,7 +1969,7 @@ function OppLineCell({
             }
           : undefined
       }
-      title={droppable ? 'Click empty space to add a payment here' : undefined}
+      title={droppable ? t(locale, 'add_payment_here') : undefined}
       className={`group ${tdClass} ${canAdd ? 'cursor-pointer' : ''}`}
     >
       {cards.length === 0 && !adding && !saving ? (
@@ -1972,6 +1998,7 @@ function OppLineCell({
               fmt={fmt}
               cellText={cellText}
               chipPad={chipPad}
+              locale={locale}
               onOpen={onOpen}
             />
           ))}
@@ -1979,11 +2006,11 @@ function OppLineCell({
             <EuroCellInput
               initial=""
               cellText={cellText}
-              ariaLabel="New payment amount"
+              ariaLabel={t(locale, 'new_payment_aria')}
               onCommit={(cents) => void commitAdd(cents)}
             />
           )}
-          {saving && <span className={`${cellText} text-ink-muted`}>Saving…</span>}
+          {saving && <span className={`${cellText} text-ink-muted`}>{t(locale, 'saving')}</span>}
           {!adding && !saving && droppable && cards.length > 0 && (
             <span
               aria-hidden
@@ -2028,7 +2055,7 @@ function FragmentRows({ children }: { children: React.ReactNode }) {
 // the settings rhythm stays what it is; ?show= re-fetches the projection on
 // the requested grid so every row stays aligned. Other params (the
 // Me/Team/Workspace scope) are preserved.
-function ShowSwitcher({ current }: { current: string }) {
+function ShowSwitcher({ current, locale }: { current: string; locale: Locale }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   return (
@@ -2039,13 +2066,13 @@ function ShowSwitcher({ current }: { current: string }) {
         params.set('show', e.target.value);
         router.push(`/cashflow?${params.toString()}`);
       }}
-      aria-label="Show periods per"
+      aria-label={t(locale, 'show_periods_aria')}
       className="rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
     >
-      <option value="week">Per week</option>
-      <option value="fortnight">Per fortnight</option>
-      <option value="month">Per month</option>
-      <option value="quarter">Per quarter</option>
+      <option value="week">{t(locale, 'per_week')}</option>
+      <option value="fortnight">{t(locale, 'per_fortnight')}</option>
+      <option value="month">{t(locale, 'per_month')}</option>
+      <option value="quarter">{t(locale, 'per_quarter')}</option>
     </select>
   );
 }

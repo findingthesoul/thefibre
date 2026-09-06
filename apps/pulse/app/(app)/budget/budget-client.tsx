@@ -9,6 +9,7 @@ import { Switch, SwitchField } from '@/components/ui/switch';
 import { DateField } from '@/components/ui/date-field';
 import { money } from '@/lib/money';
 import { createBudgetLine, updateBudgetLine, type BudgetLineInput } from './actions';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type BudgetLine = {
   id: string;
@@ -40,6 +41,11 @@ const CADENCES: BudgetLine['cadence'][] = [
   'yearly',
 ];
 
+// Cadence values are enum-like — their labels live in the catalog.
+function cadenceLabel(locale: Locale, c: BudgetLine['cadence']): string {
+  return t(locale, `cadence_${c}` as UiKey);
+}
+
 // Euro string → integer cents; accepts comma decimals.
 function parseEuro(s: string): number | null {
   const t = s.trim().replace(',', '.');
@@ -52,14 +58,14 @@ function parseEuro(s: string): number | null {
 // ---------------------------------------------------------------------------
 // Header action — "New line".
 // ---------------------------------------------------------------------------
-export function BudgetActions({ members }: { members: Member[] }) {
+export function BudgetActions({ members, locale }: { members: Member[]; locale: Locale }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setOpen(true)}>
-        New line
+        {t(locale, 'new_line')}
       </Button>
-      {open && <LineDialog members={members} onClose={() => setOpen(false)} />}
+      {open && <LineDialog members={members} locale={locale} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -68,23 +74,28 @@ export function BudgetActions({ members }: { members: Member[] }) {
 // Grouped list — rows open the edit dialog; the switch toggles `included`
 // inline (the sheet's TRUE/FALSE column, but a toggle).
 // ---------------------------------------------------------------------------
-export function BudgetList({ lines, members }: { lines: BudgetLine[]; members: Member[] }) {
+export function BudgetList({
+  lines,
+  members,
+  locale,
+}: {
+  lines: BudgetLine[];
+  members: Member[];
+  locale: Locale;
+}) {
   const [editing, setEditing] = useState<BudgetLine | null>(null);
 
   if (lines.length === 0) {
     return (
       <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-        <p className="text-sm text-ink-muted">
-          No budget lines yet. Add your recurring income and costs — they expand into the
-          projection automatically.
-        </p>
+        <p className="text-sm text-ink-muted">{t(locale, 'budget_empty')}</p>
       </div>
     );
   }
 
   const byCategory = new Map<string, BudgetLine[]>();
   for (const l of lines) {
-    const key = l.category?.trim() || 'Uncategorised';
+    const key = l.category?.trim() || t(locale, 'uncategorised');
     const list = byCategory.get(key) ?? [];
     list.push(l);
     byCategory.set(key, list);
@@ -119,7 +130,7 @@ export function BudgetList({ lines, members }: { lines: BudgetLine[]; members: M
                     >
                       {l.label}
                     </div>
-                    <div className="text-xs text-ink-muted">{l.cadence}</div>
+                    <div className="text-xs text-ink-muted">{cadenceLabel(locale, l.cadence)}</div>
                   </div>
                   <span
                     className={`text-sm font-medium w-28 text-right ${l.direction === 'out' ? 'text-red-600' : 'text-emerald-700'}`}
@@ -135,7 +146,7 @@ export function BudgetList({ lines, members }: { lines: BudgetLine[]; members: M
         ))}
       </div>
       {editing && (
-        <LineDialog line={editing} members={members} onClose={() => setEditing(null)} />
+        <LineDialog line={editing} members={members} locale={locale} onClose={() => setEditing(null)} />
       )}
     </>
   );
@@ -176,11 +187,13 @@ export function LineDialog({
   line,
   members,
   initialDirection,
+  locale,
   onClose,
 }: {
   line?: BudgetLine;
   members: Member[];
   initialDirection?: 'in' | 'out';
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -202,12 +215,12 @@ export function LineDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      setError('Label is required.');
+      setError(t(locale, 'label_required'));
       return;
     }
     const cents = parseEuro(amount);
     if (cents === null) {
-      setError('Amount is required — euros, e.g. 1250 or 49,95.');
+      setError(t(locale, 'amount_required_error'));
       return;
     }
     setBusy(true);
@@ -252,7 +265,7 @@ export function LineDialog({
       <Dialog
         open
         onClose={onClose}
-        title={line ? 'Edit budget line' : 'New budget line'}
+        title={line ? t(locale, 'edit_budget_line') : t(locale, 'new_budget_line')}
         size="lg"
         footer={
           <>
@@ -264,54 +277,54 @@ export function LineDialog({
                 disabled={busy}
                 onClick={() => setConfirmDelete(true)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
             )}
             <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button type="submit" form="budget-line-form" disabled={busy}>
-              {busy ? 'Saving…' : line ? 'Save' : 'Create line'}
+              {busy ? t(locale, 'saving') : line ? t(locale, 'save') : t(locale, 'create_line')}
             </Button>
           </>
         }
       >
         <form id="budget-line-form" onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Label</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'label')}</label>
             <input
               autoFocus
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Office rent"
+              placeholder={t(locale, 'eg_office_rent')}
               className={INPUT_CLASS}
             />
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Category</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'category')}</label>
               <input
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
-                placeholder="e.g. Housing"
+                placeholder={t(locale, 'eg_housing')}
                 className={INPUT_CLASS}
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Direction</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'direction')}</label>
               <select
                 value={direction}
                 onChange={(e) => setDirection(e.target.value as 'in' | 'out')}
                 className={INPUT_CLASS}
               >
-                <option value="out">Out (cost)</option>
-                <option value="in">In (income)</option>
+                <option value="out">{t(locale, 'out_cost')}</option>
+                <option value="in">{t(locale, 'in_income')}</option>
               </select>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Amount</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'amount')}</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-muted">
                   €
@@ -326,7 +339,7 @@ export function LineDialog({
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Cadence</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'cadence')}</label>
               <select
                 value={cadence}
                 onChange={(e) => setCadence(e.target.value as BudgetLine['cadence'])}
@@ -334,7 +347,7 @@ export function LineDialog({
               >
                 {CADENCES.map((c) => (
                   <option key={c} value={c}>
-                    {c}
+                    {cadenceLabel(locale, c)}
                   </option>
                 ))}
               </select>
@@ -342,26 +355,26 @@ export function LineDialog({
           </div>
           <div className="grid grid-cols-2 gap-4">
             <DateField
-              label="Starts on"
+              label={t(locale, 'starts_on')}
               name="starts_on"
               defaultValue={startsOn}
               onValueChange={setStartsOn}
             />
             <DateField
-              label="Ends on"
+              label={t(locale, 'ends_on')}
               name="ends_on"
               defaultValue={endsOn}
               onValueChange={setEndsOn}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Owner</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'owner')}</label>
             <select
               value={ownerId}
               onChange={(e) => setOwnerId(e.target.value)}
               className={INPUT_CLASS}
             >
-              <option value="">— nobody —</option>
+              <option value="">{t(locale, 'nobody_dash')}</option>
               {members.map((m) => (
                 <option key={m.user_id} value={m.user_id}>
                   {m.full_name || m.email || m.user_id}
@@ -370,8 +383,8 @@ export function LineDialog({
             </select>
           </div>
           <SwitchField
-            label="Included in the projection"
-            hint="Toggled-off lines stay here, out of the numbers."
+            label={t(locale, 'included_in_projection')}
+            hint={t(locale, 'included_hint')}
             checked={included}
             onChange={setIncluded}
           />
@@ -386,9 +399,9 @@ export function LineDialog({
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doArchive}
-        title="Archive this budget line?"
-        message="It disappears from the budget and the projection. Nothing is hard-deleted."
-        confirmLabel="Archive"
+        title={t(locale, 'archive_budget_line_q')}
+        message={t(locale, 'archive_budget_line_msg')}
+        confirmLabel={t(locale, 'archive')}
         destructive
         pending={busy}
       />

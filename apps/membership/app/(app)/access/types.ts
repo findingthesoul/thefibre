@@ -3,12 +3,8 @@
 export const GRANT_KINDS = ['circle', 'thread', 'fibre_seat', 'google_user'] as const;
 export type GrantKind = (typeof GRANT_KINDS)[number];
 
-export const GRANT_KIND_LABELS: Record<GrantKind, string> = {
-  circle: 'Circle space',
-  thread: 'Thread',
-  fibre_seat: 'Fibre seat',
-  google_user: 'Google account',
-};
+// Grant-kind display labels moved into lib/i18n-ui.ts (grant_kind_* keys) —
+// UI renders them per locale, so no English map lives here any more.
 
 export type Grant = {
   id: string;
@@ -23,7 +19,8 @@ export type Grant = {
   product: { name: string } | { name: string }[] | null;
 };
 
-export function grantTierName(t: Grant['tier']): string {
+// `unknown` lets callers pass a translated fallback (i18n P3).
+export function grantTierName(t: Grant['tier'], unknown = 'Unknown tier'): string {
   const one = Array.isArray(t) ? t[0] : t;
-  return one?.name ?? 'Unknown tier';
+  return one?.name ?? unknown;
 }

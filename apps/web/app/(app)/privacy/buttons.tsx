@@ -5,21 +5,30 @@ import { Button } from '@/components/ui/button';
 import { ConfirmDialog, Dialog } from '@/components/ui/dialog';
 import { TextAreaField } from '@/components/ui/field';
 import { revokeConsent, requestErasure } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function RevokeButton({ purposeCode, label }: { purposeCode: string; label: string }) {
+export function RevokeButton({
+  purposeCode,
+  label,
+  locale,
+}: {
+  purposeCode: string;
+  label: string;
+  locale: Locale;
+}) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
 
   return (
     <>
       <Button variant="ghost" size="sm" onClick={() => setOpen(true)}>
-        Revoke
+        {t(locale, 'revoke')}
       </Button>
       <ConfirmDialog
         open={open}
-        title="Revoke consent"
-        message={`Stop allowing ${label}? You can grant it again later.`}
-        confirmLabel="Revoke"
+        title={t(locale, 'revoke_consent')}
+        message={t(locale, 'revoke_consent_msg', { label })}
+        confirmLabel={t(locale, 'revoke')}
         destructive
         pending={pending}
         onCancel={() => setOpen(false)}
@@ -34,7 +43,7 @@ export function RevokeButton({ purposeCode, label }: { purposeCode: string; labe
   );
 }
 
-export function ExportButton() {
+export function ExportButton({ locale }: { locale: Locale }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,7 +53,7 @@ export function ExportButton() {
     try {
       const res = await fetch('/privacy/export', { cache: 'no-store' });
       if (!res.ok) {
-        setError(`Export failed (${res.status}). Try again or contact support.`);
+        setError(t(locale, 'export_failed', { status: res.status }));
         return;
       }
       const blob = await res.blob();
@@ -69,7 +78,7 @@ export function ExportButton() {
   return (
     <div>
       <Button variant="primary" onClick={download} disabled={pending}>
-        {pending ? 'Preparing…' : 'Download my data'}
+        {pending ? t(locale, 'preparing') : t(locale, 'download_my_data')}
       </Button>
       {error && (
         <div className="mt-2 text-xs text-rose-700">{error}</div>
@@ -78,7 +87,7 @@ export function ExportButton() {
   );
 }
 
-export function ErasureButton() {
+export function ErasureButton({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
   const [pending, start] = useTransition();
   const [notes, setNotes] = useState('');
@@ -99,31 +108,31 @@ export function ErasureButton() {
   return (
     <>
       <Button variant="danger" onClick={() => setOpen(true)}>
-        Request erasure
+        {t(locale, 'request_erasure')}
       </Button>
       <Dialog
         open={open}
         onClose={() => !pending && setOpen(false)}
-        title="Request erasure"
-        description="GDPR Article 17. We'll respond within 30 days. Some structural records may be retained for referential integrity — content fields are zeroed."
+        title={t(locale, 'request_erasure')}
+        description={t(locale, 'erasure_dialog_desc')}
         size="md"
         footer={
           <>
             <Button variant="ghost" onClick={() => setOpen(false)} disabled={pending}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button variant="danger" onClick={submit} disabled={pending}>
-              {pending ? 'Filing…' : 'File request'}
+              {pending ? t(locale, 'filing') : t(locale, 'file_request')}
             </Button>
           </>
         }
       >
         <TextAreaField
-          label="Notes (optional)"
+          label={t(locale, 'notes_optional')}
           name="notes"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
-          placeholder="Anything you want us to know about this request."
+          placeholder={t(locale, 'erasure_notes_ph')}
         />
         {error && (
           <div className="mt-3 rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">

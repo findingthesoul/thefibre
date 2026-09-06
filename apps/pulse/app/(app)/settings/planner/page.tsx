@@ -1,5 +1,7 @@
 import { apiFetch } from '@/lib/api';
 import { appUrl } from '@thefibre/shared';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
 import { RhythmCard } from '../rhythm-card';
 import { ReservationsCard } from '../reservations-card';
@@ -28,6 +30,7 @@ import type {
 export const metadata = { title: 'Planner settings · Pulse' };
 
 export default async function PlannerSettingsPage() {
+  const locale = await uiLocale();
   let settings: PulseSettings = null;
   let rules: Rule[] = [];
   let teams: InvolvedTeam[] = [];
@@ -72,28 +75,27 @@ export default async function PlannerSettingsPage() {
 
   return (
     <PageContainer max="5xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Planner"
-        description="The assumptions layer. Nothing domain-specific is hardcoded — rhythm, currency, reservations, involved teams and offerings are all configuration."
+        title={t(locale, 'planner')}
+        description={t(locale, 'planner_blurb')}
       />
 
       {restricted && (
         <div className="mt-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-          These settings are visible to workspace admins only. If you expected to see them, ask an
-          admin to widen your role.
+          {t(locale, 'admin_only_notice')}
         </div>
       )}
 
       <div className="mt-8 space-y-6">
-        <RhythmCard settings={settings} />
-        <InvoicingCard settings={settings} />
-        <LedgerCard settings={settings} />
-        <HistoryCard settings={settings} snapshots={snapshots} />
-        <ReservationsCard rules={rules} accounts={accounts} />
-        <TeamsCard involved={teams} workspaceTeams={workspaceTeams} />
-        <StagesCard stages={stages} flowUrl={flowUrl} />
-        <OfferingsCard offerings={offerings} currency={settings?.currency ?? 'EUR'} />
+        <RhythmCard settings={settings} locale={locale} />
+        <InvoicingCard settings={settings} locale={locale} />
+        <LedgerCard settings={settings} locale={locale} />
+        <HistoryCard settings={settings} snapshots={snapshots} locale={locale} />
+        <ReservationsCard rules={rules} accounts={accounts} locale={locale} />
+        <TeamsCard involved={teams} workspaceTeams={workspaceTeams} locale={locale} />
+        <StagesCard stages={stages} flowUrl={flowUrl} locale={locale} />
+        <OfferingsCard offerings={offerings} currency={settings?.currency ?? 'EUR'} locale={locale} />
       </div>
     </PageContainer>
   );

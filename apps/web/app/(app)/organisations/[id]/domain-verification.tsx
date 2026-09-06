@@ -10,6 +10,7 @@ import {
   backfillDomainMembers,
   type DomainVerificationAction,
 } from './domain-actions';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 
 export type DomainVerificationState = {
   domain: string | null;
@@ -29,9 +30,11 @@ export type DomainVerificationState = {
 export function DomainVerification({
   orgId,
   initial,
+  locale,
 }: {
   orgId: string;
   initial: DomainVerificationState;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [busy, startBusy] = useTransition();
@@ -41,9 +44,7 @@ export function DomainVerification({
 
   if (!state.domain) {
     return (
-      <div className="text-sm text-ink-subtle">
-        Add a domain in the org edit dialog to enable DNS verification.
-      </div>
+      <div className="text-sm text-ink-subtle">{t(locale, 'add_domain_first')}</div>
     );
   }
 
@@ -80,10 +81,10 @@ export function DomainVerification({
         {verified ? (
           <>
             <ShieldCheck size={16} className="text-emerald-600" strokeWidth={1.75} />
-            <span className="font-medium">Verified</span>
+            <span className="font-medium">{t(locale, 'verified')}</span>
             <span className="text-ink-subtle">
-              on{' '}
-              {new Date(state.domain_verified_at!).toLocaleDateString(undefined, {
+              {t(locale, 'on_date')}{' '}
+              {new Date(state.domain_verified_at!).toLocaleDateString(INTL_LOCALES[locale], {
                 day: 'numeric',
                 month: 'short',
                 year: 'numeric',
@@ -93,7 +94,7 @@ export function DomainVerification({
         ) : (
           <>
             <ShieldAlert size={16} className="text-amber-600" strokeWidth={1.75} />
-            <span className="font-medium">Not verified</span>
+            <span className="font-medium">{t(locale, 'not_verified')}</span>
           </>
         )}
         <span className="text-ink-subtle">·</span>
@@ -103,12 +104,9 @@ export function DomainVerification({
       {!verified && !state.challenge && (
         <div>
           <Button onClick={runStart} disabled={busy} size="sm">
-            {busy ? 'Generating challenge…' : 'Start DNS verification'}
+            {busy ? t(locale, 'generating_challenge') : t(locale, 'start_dns_verification')}
           </Button>
-          <p className="mt-2 text-xs text-ink-subtle">
-            We&apos;ll generate a one-time challenge value. You publish it as a
-            TXT record on your DNS, then click Check.
-          </p>
+          <p className="mt-2 text-xs text-ink-subtle">{t(locale, 'dns_challenge_blurb')}</p>
         </div>
       )}
 
@@ -119,19 +117,20 @@ export function DomainVerification({
           onCheck={runCheck}
           onRotate={runStart}
           busy={busy}
+          locale={locale}
         />
       )}
 
       {verified && (
         <div className="space-y-3">
-          <BackfillRow orgId={orgId} />
+          <BackfillRow orgId={orgId} locale={locale} />
           <button
             type="button"
             onClick={runStart}
             disabled={busy}
             className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
           >
-            {busy ? 'Re-issuing…' : 'Re-verify (issues a new challenge)'}
+            {busy ? t(locale, 'reissuing') : t(locale, 'reverify')}
           </button>
         </div>
       )}
@@ -156,42 +155,41 @@ function ChallengePanel({
   onCheck,
   onRotate,
   busy,
+  locale,
 }: {
   recordName: string;
   recordValue: string;
   onCheck: () => void;
   onRotate: () => void;
   busy: boolean;
+  locale: Locale;
 }) {
   return (
     <div className="space-y-3 rounded-md border border-line bg-surface-raised p-4">
       <div>
         <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-          Step 1 — add this TXT record
+          {t(locale, 'step1_txt_record')}
         </div>
         <div className="mt-2 grid grid-cols-[80px_1fr] gap-x-3 gap-y-2 text-xs">
-          <div className="text-ink-subtle">Type</div>
+          <div className="text-ink-subtle">{t(locale, 'type')}</div>
           <div className="font-mono">TXT</div>
-          <div className="text-ink-subtle">Name / Host</div>
-          <CopyableMono value={recordName} />
-          <div className="text-ink-subtle">Value</div>
-          <CopyableMono value={recordValue} />
+          <div className="text-ink-subtle">{t(locale, 'name_host')}</div>
+          <CopyableMono value={recordName} locale={locale} />
+          <div className="text-ink-subtle">{t(locale, 'value')}</div>
+          <CopyableMono value={recordValue} locale={locale} />
           <div className="text-ink-subtle">TTL</div>
-          <div className="font-mono text-ink-subtle">300 (or your default)</div>
+          <div className="font-mono text-ink-subtle">{t(locale, 'ttl_default')}</div>
         </div>
       </div>
 
       <div>
         <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-          Step 2 — check
+          {t(locale, 'step2_check')}
         </div>
-        <p className="mt-1 text-xs text-ink-subtle">
-          DNS propagation usually takes a few minutes. If it fails, wait
-          and try again.
-        </p>
+        <p className="mt-1 text-xs text-ink-subtle">{t(locale, 'dns_propagation_note')}</p>
         <div className="mt-2 flex items-center gap-2">
           <Button onClick={onCheck} disabled={busy} size="sm">
-            {busy ? 'Checking…' : 'Check DNS'}
+            {busy ? t(locale, 'checking') : t(locale, 'check_dns')}
           </Button>
           <button
             type="button"
@@ -199,7 +197,7 @@ function ChallengePanel({
             disabled={busy}
             className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
           >
-            Generate a new challenge
+            {t(locale, 'generate_new_challenge')}
           </button>
         </div>
       </div>
@@ -210,7 +208,7 @@ function ChallengePanel({
 // One-shot "scan existing contacts and link them to this org" button.
 // Shown only after the org's domain is verified. Idempotent — clicking
 // again after a successful run will just report 0 new links.
-function BackfillRow({ orgId }: { orgId: string }) {
+function BackfillRow({ orgId, locale }: { orgId: string; locale: Locale }) {
   const router = useRouter();
   const [busy, startBusy] = useTransition();
   const [result, setResult] = useState<string | null>(null);
@@ -230,9 +228,11 @@ function BackfillRow({ orgId }: { orgId: string }) {
       setResult(
         linked === 0
           ? skipped === 0
-            ? 'No matching contacts to link.'
-            : `No new links — ${skipped} already linked.`
-          : `Linked ${linked} contact${linked === 1 ? '' : 's'}.`,
+            ? t(locale, 'no_matching_contacts')
+            : t(locale, 'no_new_links', { n: skipped })
+          : linked === 1
+            ? t(locale, 'linked_one_contact')
+            : t(locale, 'linked_n_contacts', { n: linked }),
       );
       if (linked > 0) router.refresh();
     });
@@ -246,7 +246,7 @@ function BackfillRow({ orgId }: { orgId: string }) {
         disabled={busy}
         className="rounded-md border border-line bg-surface-raised px-3 py-1.5 font-medium text-ink-subtle hover:text-ink disabled:opacity-50"
       >
-        {busy ? 'Scanning contacts…' : 'Link existing contacts on this domain'}
+        {busy ? t(locale, 'scanning_contacts') : t(locale, 'link_existing_contacts')}
       </button>
       {result && <span className="ml-3 text-ink-subtle">{result}</span>}
       {error && <span className="ml-3 text-red-700">{error}</span>}
@@ -254,7 +254,7 @@ function BackfillRow({ orgId }: { orgId: string }) {
   );
 }
 
-function CopyableMono({ value }: { value: string }) {
+function CopyableMono({ value, locale }: { value: string; locale: Locale }) {
   const [copied, setCopied] = useState(false);
   function copy() {
     void navigator.clipboard.writeText(value).then(() => {
@@ -268,8 +268,8 @@ function CopyableMono({ value }: { value: string }) {
       <button
         type="button"
         onClick={copy}
-        aria-label={copied ? 'Copied!' : 'Copy'}
-        title={copied ? 'Copied!' : 'Copy'}
+        aria-label={copied ? t(locale, 'copied') : t(locale, 'copy')}
+        title={copied ? t(locale, 'copied') : t(locale, 'copy')}
         className="shrink-0 text-ink-subtle hover:text-ink"
       >
         {copied ? <Check size={14} /> : <Copy size={14} />}

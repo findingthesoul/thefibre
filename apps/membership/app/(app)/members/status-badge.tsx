@@ -1,3 +1,4 @@
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import type { MemberStatus } from './types';
 
 const STYLES: Record<MemberStatus, string> = {
@@ -7,12 +8,19 @@ const STYLES: Record<MemberStatus, string> = {
   cancelled: 'bg-surface-sunken text-ink-muted',
 };
 
-export function StatusBadge({ status }: { status: MemberStatus }) {
+const KEYS: Record<MemberStatus, UiKey> = {
+  active: 'status_active',
+  grace: 'status_grace',
+  lapsed: 'status_lapsed',
+  cancelled: 'status_cancelled',
+};
+
+export function StatusBadge({ status, locale }: { status: MemberStatus; locale: Locale }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium capitalize ${STYLES[status]}`}
+      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${STYLES[status]}`}
     >
-      {status}
+      {t(locale, KEYS[status])}
     </span>
   );
 }

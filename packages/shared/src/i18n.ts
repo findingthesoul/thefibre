@@ -27,7 +27,10 @@ export const INTL_LOCALES: Record<Locale, string> = {
   en: 'en-GB',
   nl: 'nl-NL',
   es: 'es-ES',
-  pt: 'pt-PT',
+  // pt-BR: the catalogs' Portuguese is Brazilian-leaning (você, gerunds —
+  // the Thread precedent), so dates/amounts format to match. If the native
+  // review moves the prose to European Portuguese, flip this WITH it.
+  pt: 'pt-BR',
   de: 'de-DE',
   fr: 'fr-FR',
 };

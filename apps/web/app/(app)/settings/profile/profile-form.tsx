@@ -3,6 +3,7 @@
 import { ProfileForm as SharedProfileForm } from '@thefibre/shared/ui/profile-form';
 import { uploadAsset } from '@/lib/upload';
 import { saveProfile } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 /**
  * The Fibre's profile IS the shared form — same component The Thread renders,
@@ -25,7 +26,15 @@ export type PublicProfile = {
   locale?: string | null;
 };
 
-export function ProfileForm({ profile, email }: { profile: PublicProfile; email: string }) {
+export function ProfileForm({
+  profile,
+  email,
+  locale,
+}: {
+  profile: PublicProfile;
+  email: string;
+  locale: Locale;
+}) {
   return (
     <SharedProfileForm
       initial={{
@@ -35,8 +44,8 @@ export function ProfileForm({ profile, email }: { profile: PublicProfile; email:
         timezone: profile.timezone ?? '',
       }}
       upload={uploadAsset}
-      photoHint="Shown wherever the apps show you."
-      bioHint="Shown on your public pages in the apps that have them."
+      photoHint={t(locale, 'photo_hint')}
+      bioHint={t(locale, 'bio_hint')}
       onSave={async (v) => {
         const r = await saveProfile({
           display_name: v.display_name || null,
@@ -48,8 +57,7 @@ export function ProfileForm({ profile, email }: { profile: PublicProfile; email:
       }}
       footer={
         <p className="text-xs text-ink-muted">
-          Signed in as {email}. Every app inherits this profile — Thread and Meet can override
-          the name and photo on their own public pages.
+          {t(locale, 'signed_in_as', { email })} {t(locale, 'profile_inherit_note')}
         </p>
       }
     />

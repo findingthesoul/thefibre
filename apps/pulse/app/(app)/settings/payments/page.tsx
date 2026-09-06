@@ -5,6 +5,8 @@
 // import differs.
 
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { Breadcrumb, PageContainer, PageHeader } from '../page-chrome';
 import { PaymentsForm } from './form';
 
@@ -24,6 +26,7 @@ type WorkspaceBilling = {
 };
 
 export default async function PaymentsSettingsPage() {
+  const locale = await uiLocale();
   const [profile, workspace] = await Promise.all([
     apiFetch<Personal>('/api/v1/profile').catch(
       () => ({ stripe_account_id: null }) as Personal,
@@ -35,12 +38,13 @@ export default async function PaymentsSettingsPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Payments"
-        description="One set of payment settings for all Fibre apps — your personal account and the workspace's, plus your default payment options."
+        title={t(locale, 'payments')}
+        description={t(locale, 'payments_blurb')}
       />
       <PaymentsForm
+        locale={locale}
         personalAccount={profile.stripe_account_id}
         personalDetails={profile.invoice_details ?? null}
         personalMethods={profile.default_payment_methods ?? null}

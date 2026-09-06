@@ -7,9 +7,18 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Switch } from '@/components/ui/switch';
 import { createReservationRule, deleteReservationRule, updateReservationRule } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { ERROR_CLS, INPUT_CLS, type Account, type Rule } from './shared';
 
-export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts: Account[] }) {
+export function ReservationsCard({
+  rules,
+  accounts,
+  locale,
+}: {
+  rules: Rule[];
+  accounts: Account[];
+  locale: Locale;
+}) {
   const router = useRouter();
   const [editing, setEditing] = useState<Rule | 'new' | null>(null);
   const [rowError, setRowError] = useState<string | null>(null);
@@ -28,27 +37,21 @@ export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts:
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line flex items-center justify-between">
-        <span className="text-sm font-semibold tracking-tight">Reservations</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'reservations')}</span>
         <Button
           size="sm"
           variant="secondary"
           leading={<Plus size={14} strokeWidth={2} />}
           onClick={() => setEditing('new')}
         >
-          Add rule
+          {t(locale, 'add_rule')}
         </Button>
       </div>
       {/* This card manages the WORKSPACE cashflow's rules only — scoped
           rules live with their tab (like accounts). */}
-      <div className="px-5 pt-3 text-xs text-ink-muted">
-        Workspace rules only — team and personal cashflows manage their reservations from
-        their own tab (the + on the Reservations row).
-      </div>
+      <div className="px-5 pt-3 text-xs text-ink-muted">{t(locale, 'ws_rules_note')}</div>
       {rules.length === 0 ? (
-        <div className="px-5 py-4 text-sm text-ink-muted">
-          No reservation rules yet. Solidarity Fund, VAT reserve, buffer — all user-defined
-          percentage rules; none are built in.
-        </div>
+        <div className="px-5 py-4 text-sm text-ink-muted">{t(locale, 'no_rules_yet')}</div>
       ) : (
         <div className="divide-y divide-line/60">
           {rules.map((r) => (
@@ -62,7 +65,13 @@ export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts:
               >
                 {r.label}
               </button>
-              <span className="text-xs text-ink-muted">{String(r.basis).replace('_', ' ')}</span>
+              <span className="text-xs text-ink-muted">
+                {r.basis === 'net_revenue'
+                  ? t(locale, 'net_revenue')
+                  : r.basis === 'revenue'
+                    ? t(locale, 'revenue')
+                    : String(r.basis).replace('_', ' ')}
+              </span>
               <span className="text-sm font-medium w-14 text-right">{Number(r.percentage)}%</span>
               <Switch checked={r.included} onChange={(v) => toggleIncluded(r, v)} />
             </div>
@@ -78,6 +87,7 @@ export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts:
         <RuleDialog
           rule={editing === 'new' ? null : editing}
           reserveAccounts={reserveAccounts}
+          locale={locale}
           onClose={() => setEditing(null)}
         />
       )}
@@ -88,10 +98,12 @@ export function ReservationsCard({ rules, accounts }: { rules: Rule[]; accounts:
 function RuleDialog({
   rule,
   reserveAccounts,
+  locale,
   onClose,
 }: {
   rule: Rule | null;
   reserveAccounts: Account[];
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -112,12 +124,12 @@ function RuleDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      setError('Label is required.');
+      setError(t(locale, 'label_required'));
       return;
     }
     const pct = parseFloat(percentage.trim().replace(',', '.'));
     if (Number.isNaN(pct) || pct < 0 || pct > 100) {
-      setError('Percentage must be between 0 and 100.');
+      setError(t(locale, 'pct_range_error'));
       return;
     }
     setBusy(true);
@@ -158,74 +170,72 @@ function RuleDialog({
     <Dialog
       open
       onClose={onClose}
-      title={rule ? 'Edit reservation rule' : 'New reservation rule'}
+      title={rule ? t(locale, 'edit_rule') : t(locale, 'new_rule')}
       footer={
         <>
           {rule && (
             <Button type="button" variant="danger" className="mr-auto" onClick={remove} disabled={busy}>
-              Delete
+              {t(locale, 'delete')}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="rule-form" disabled={busy}>
-            {busy ? 'Saving…' : rule ? 'Save' : 'Add rule'}
+            {busy ? t(locale, 'saving') : rule ? t(locale, 'save') : t(locale, 'add_rule')}
           </Button>
         </>
       }
     >
       <form id="rule-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Label</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'label')}</label>
           <input
             autoFocus
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. VAT reserve"
+            placeholder={t(locale, 'eg_vat_reserve')}
             className={INPUT_CLS}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Percentage</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'percentage')}</label>
             <input
               inputMode="decimal"
               value={percentage}
               onChange={(e) => setPercentage(e.target.value)}
-              placeholder="e.g. 21"
+              placeholder={t(locale, 'eg_21')}
               className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Basis</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'basis')}</label>
             <select
               value={basis}
               onChange={(e) => setBasis(e.target.value as 'revenue' | 'net_revenue')}
               className={INPUT_CLS}
             >
-              <option value="revenue">Revenue</option>
-              <option value="net_revenue">Net revenue</option>
+              <option value="revenue">{t(locale, 'revenue')}</option>
+              <option value="net_revenue">{t(locale, 'net_revenue')}</option>
             </select>
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Target account</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'target_account')}</label>
           <select
             value={targetAccountId}
             onChange={(e) => setTargetAccountId(e.target.value)}
             className={INPUT_CLS}
           >
-            <option value="">None</option>
+            <option value="">{t(locale, 'none')}</option>
             {reserveAccounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-ink-muted">
-            Optional — a reserve account the reserved amount conceptually flows into.
-          </p>
+          <p className="mt-1 text-xs text-ink-muted">{t(locale, 'target_account_hint')}</p>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}
       </form>

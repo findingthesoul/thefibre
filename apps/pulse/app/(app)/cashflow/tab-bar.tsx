@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_SCOPE } from '@/lib/prefs-shared';
+import { t, type Locale } from '@/lib/i18n-ui';
 import type { CashflowScope } from './types';
 
 export type TabDef = { key: string; label: string; cookieVal: string; url: string };
@@ -25,6 +26,7 @@ export function CashflowTabs({
   canWorkspace,
   workspaceName,
   teams,
+  locale,
 }: {
   scope: CashflowScope;
   scopeTeamId: string | null;
@@ -33,6 +35,7 @@ export function CashflowTabs({
   workspaceName?: string | null;
   // Involved teams the caller can see (RLS-scoped) — one tab each.
   teams: { id: string; name: string }[];
+  locale: Locale;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -50,15 +53,22 @@ export function CashflowTabs({
   }
 
   const tabs: TabDef[] = [
-    { key: 'me', label: 'Me', cookieVal: 'me', url: urlFor({ scope: 'me' }) },
-    ...teams.map((t) => ({
-      key: `team:${t.id}`,
-      label: t.name,
-      cookieVal: `team:${t.id}`,
-      url: urlFor({ team: t.id }),
+    { key: 'me', label: t(locale, 'me'), cookieVal: 'me', url: urlFor({ scope: 'me' }) },
+    ...teams.map((team) => ({
+      key: `team:${team.id}`,
+      label: team.name,
+      cookieVal: `team:${team.id}`,
+      url: urlFor({ team: team.id }),
     })),
     ...(canWorkspace
-      ? [{ key: 'workspace', label: workspaceName || 'Workspace', cookieVal: 'workspace', url: urlFor({}) }]
+      ? [
+          {
+            key: 'workspace',
+            label: workspaceName || t(locale, 'workspace'),
+            cookieVal: 'workspace',
+            url: urlFor({}),
+          },
+        ]
       : []),
   ];
 
@@ -78,24 +88,28 @@ export function CashflowTabs({
 
   return (
     <div className="border-b border-line">
-      <div role="tablist" aria-label="Cashflows" className="flex items-end gap-1 overflow-x-auto">
-        {tabs.map((t) => {
-          const active = t.key === activeKey;
+      <div
+        role="tablist"
+        aria-label={t(locale, 'cashflows_aria')}
+        className="flex items-end gap-1 overflow-x-auto"
+      >
+        {tabs.map((tab) => {
+          const active = tab.key === activeKey;
           return (
             <button
-              key={t.key}
+              key={tab.key}
               type="button"
               role="tab"
               aria-selected={active}
               disabled={busy}
-              onClick={() => void go(t)}
+              onClick={() => void go(tab)}
               className={`-mb-px whitespace-nowrap rounded-t-lg border-b-2 px-3.5 py-2 text-sm transition-colors ${
                 active
                   ? 'border-ink font-semibold text-ink'
                   : 'border-transparent font-medium text-ink-subtle hover:border-line-strong hover:text-ink'
               }`}
             >
-              {t.label}
+              {tab.label}
             </button>
           );
         })}

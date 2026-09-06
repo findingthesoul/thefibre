@@ -10,6 +10,7 @@ import { Trash2, Plus } from 'lucide-react';
 import { COUNTRIES } from '@thefibre/shared/countries';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { savePricingRules } from './actions';
 
 export type PriceRule = {
@@ -25,7 +26,13 @@ const INPUT =
 
 const COUNTRY_OPTIONS = COUNTRIES.map((c) => ({ value: c.code, label: c.name, hint: c.code }));
 
-export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) {
+export function PricingRulesClient({
+  initial,
+  locale,
+}: {
+  initial: PriceLogic | null;
+  locale: Locale;
+}) {
   const router = useRouter();
   const [rules, setRules] = useState<PriceRule[]>(initial?.rules ?? []);
   const [defaultPct, setDefaultPct] = useState(String(initial?.default_pct ?? 100));
@@ -43,7 +50,7 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
   async function save() {
     const bad = rules.find((r) => r.when.values.length === 0);
     if (bad) {
-      setError('Every rule needs at least one value — pick countries (or remove the row).');
+      setError(t(locale, 'every_rule_needs_value'));
       return;
     }
     setBusy(true);
@@ -65,15 +72,15 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
     <div className="space-y-4">
       {rules.length === 0 && (
         <p className="rounded-lg border border-line bg-surface-raised px-4 py-3 text-sm text-ink-muted">
-          No rules yet. Example: <em>when country is one of South Africa → price 75%</em>. Members
-          declare their country on the join page; the matching rule sets their price.
+          {t(locale, 'pricing_empty_before')} <em>{t(locale, 'pricing_empty_example')}</em>.{' '}
+          {t(locale, 'pricing_empty_after')}
         </p>
       )}
 
       {rules.map((rule, i) => (
         <div key={i} className="rounded-lg border border-line bg-surface-raised p-4">
           <div className="flex flex-wrap items-center gap-2 text-sm">
-            <span className="text-ink-muted">when</span>
+            <span className="text-ink-muted">{t(locale, 'when_word')}</span>
             <select
               value={rule.when.attr}
               onChange={(e) =>
@@ -81,18 +88,18 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
               }
               className={INPUT}
             >
-              <option value="country">country</option>
-              <option value="interval">billing interval</option>
+              <option value="country">{t(locale, 'attr_country')}</option>
+              <option value="interval">{t(locale, 'attr_interval')}</option>
             </select>
             <select
               value={rule.when.op}
               onChange={(e) => patchWhen(i, { op: e.target.value as 'in' | 'not_in' })}
               className={INPUT}
             >
-              <option value="in">is one of</option>
-              <option value="not_in">is not one of</option>
+              <option value="in">{t(locale, 'op_in')}</option>
+              <option value="not_in">{t(locale, 'op_not_in')}</option>
             </select>
-            <span className="text-ink-muted">→ price</span>
+            <span className="text-ink-muted">{t(locale, 'arrow_price')}</span>
             <input
               value={String(rule.pct)}
               onChange={(e) => patchRule(i, { pct: parseInt(e.target.value, 10) || 0 })}
@@ -104,7 +111,7 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
               type="button"
               variant="ghost"
               size="icon"
-              aria-label="Remove rule"
+              aria-label={t(locale, 'remove_rule')}
               className="ml-auto"
               onClick={() => setRules((prev) => prev.filter((_, j) => j !== i))}
             >
@@ -140,7 +147,7 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
                     }
                   }}
                   options={COUNTRY_OPTIONS.filter((o) => !rule.when.values.includes(o.value))}
-                  placeholder="Add a country…"
+                  placeholder={t(locale, 'add_a_country_ph')}
                   className="w-56"
                 />
               </div>
@@ -160,7 +167,7 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
                         })
                       }
                     />
-                    {iv === 'year' ? 'Yearly' : 'Monthly'}
+                    {iv === 'year' ? t(locale, 'yearly') : t(locale, 'monthly')}
                   </label>
                 ))}
               </div>
@@ -181,11 +188,11 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
           ])
         }
       >
-        Add rule
+        {t(locale, 'add_rule')}
       </Button>
 
       <div className="flex items-center gap-2 text-sm pt-2 border-t border-line">
-        <span className="text-ink-muted">When no rule matches → price</span>
+        <span className="text-ink-muted">{t(locale, 'no_rule_matches')}</span>
         <input
           value={defaultPct}
           onChange={(e) => setDefaultPct(e.target.value)}
@@ -195,16 +202,12 @@ export function PricingRulesClient({ initial }: { initial: PriceLogic | null }) 
         <span className="text-ink-muted">%</span>
       </div>
 
-      <p className="text-xs text-ink-muted">
-        Country is self-declared on the join page — never guessed from an IP. A member&apos;s
-        country change reprices from their next renewal. A card issued in a different country
-        than declared sends the admins a heads-up, never blocks.
-      </p>
+      <p className="text-xs text-ink-muted">{t(locale, 'pricing_footnote')}</p>
 
       {error && <p className="text-sm text-red-600">{error}</p>}
-      {saved && <p className="text-sm text-ink-muted">Saved.</p>}
+      {saved && <p className="text-sm text-ink-muted">{t(locale, 'saved_dot')}</p>}
       <Button type="button" onClick={save} disabled={busy}>
-        {busy ? 'Saving…' : 'Save pricing rules'}
+        {busy ? t(locale, 'saving') : t(locale, 'save_pricing_rules')}
       </Button>
     </div>
   );

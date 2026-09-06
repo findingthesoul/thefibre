@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { CalendarClock, UserPlus, Users, Banknote } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { money } from '@/lib/money';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { StatusBadge } from '../members/status-badge';
 import { personName, type Member, type Tier } from '../members/types';
 
@@ -10,6 +12,7 @@ export const metadata = { title: 'Membership' };
 const DAY = 24 * 60 * 60 * 1000;
 
 export default async function MembershipDashboard() {
+  const locale = await uiLocale();
   let members: Member[] = [];
   let tiers: Tier[] = [];
   try {
@@ -51,61 +54,65 @@ export default async function MembershipDashboard() {
     .sort((a, b) => (b.started_at ?? '').localeCompare(a.started_at ?? ''))
     .slice(0, 5);
 
+  const intl = INTL_LOCALES[locale];
+
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Membership</h1>
-      <p className="mt-1 text-sm text-ink-muted">Your community&apos;s memberships at a glance.</p>
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+        {t(locale, 'nav_membership')}
+      </h1>
+      <p className="mt-1 text-sm text-ink-muted">{t(locale, 'dash_blurb')}</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Users} value={active.length} label="Active members" />
-        <StatCard icon={CalendarClock} value={grace.length} label="In grace" />
-        <StatCard icon={UserPlus} value={lapsed.length} label="Lapsed" />
+        <StatCard icon={Users} value={active.length} label={t(locale, 'active_members')} />
+        <StatCard icon={CalendarClock} value={grace.length} label={t(locale, 'in_grace')} />
+        <StatCard icon={UserPlus} value={lapsed.length} label={t(locale, 'lapsed_label')} />
         <StatCard
           icon={Banknote}
           value={money(annualCents, currency)}
-          label="Annual value"
-          sub="active members, yearly rate"
+          label={t(locale, 'annual_value')}
+          sub={t(locale, 'annual_value_sub')}
         />
       </div>
 
       {members.length === 0 ? (
         <div className="mt-10 rounded-2xl border border-line bg-surface-raised p-8 text-center">
           <p className="text-sm text-ink-muted leading-relaxed">
-            No members yet. Add one on the{' '}
+            {t(locale, 'dash_empty_before')}{' '}
             <Link href="/members" className="underline">
-              Members
+              {t(locale, 'nav_members')}
             </Link>{' '}
-            page, or share your join page once tiers are set up.
+            {t(locale, 'dash_empty_after')}
           </p>
         </div>
       ) : (
         <div className="mt-8 grid gap-6 lg:grid-cols-2">
-          <Panel title="Renewing soon" sub="next 30 days">
+          <Panel title={t(locale, 'renewing_soon')} sub={t(locale, 'next_30_days')}>
             {renewingSoon.length === 0 ? (
-              <div className="px-5 py-4 text-sm text-ink-muted">No renewals in the next 30 days.</div>
+              <div className="px-5 py-4 text-sm text-ink-muted">
+                {t(locale, 'no_renewals_30')}
+              </div>
             ) : (
               renewingSoon.map((m) => (
                 <MemberRow
                   key={m.id}
                   member={m}
-                  right={
-                    m.renews_at ? new Date(m.renews_at).toLocaleDateString('en-GB') : '—'
-                  }
+                  locale={locale}
+                  right={m.renews_at ? new Date(m.renews_at).toLocaleDateString(intl) : '—'}
                 />
               ))
             )}
           </Panel>
-          <Panel title="Recent joins" sub="latest 5">
+          <Panel title={t(locale, 'recent_joins')} sub={t(locale, 'latest_5')}>
             {recentJoins.length === 0 ? (
-              <div className="px-5 py-4 text-sm text-ink-muted">No joins recorded yet.</div>
+              <div className="px-5 py-4 text-sm text-ink-muted">{t(locale, 'no_joins_yet')}</div>
             ) : (
               recentJoins.map((m) => (
                 <MemberRow
                   key={m.id}
                   member={m}
-                  right={
-                    m.started_at ? new Date(m.started_at).toLocaleDateString('en-GB') : '—'
-                  }
+                  locale={locale}
+                  right={m.started_at ? new Date(m.started_at).toLocaleDateString(intl) : '—'}
                 />
               ))
             )}
@@ -152,18 +159,28 @@ function Panel({ title, sub, children }: { title: string; sub: string; children:
   );
 }
 
-function MemberRow({ member, right }: { member: Member; right: string }) {
+function MemberRow({
+  member,
+  right,
+  locale,
+}: {
+  member: Member;
+  right: string;
+  locale: Locale;
+}) {
   return (
     <Link
       href="/members"
       className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-surface-sunken"
     >
       <div className="min-w-0">
-        <div className="text-sm text-ink truncate">{personName(member.person)}</div>
+        <div className="text-sm text-ink truncate">
+          {personName(member.person, t(locale, 'unknown_person'))}
+        </div>
         <div className="text-xs text-ink-muted truncate">{member.tier?.name ?? '—'}</div>
       </div>
       <div className="flex items-center gap-2.5 shrink-0">
-        <StatusBadge status={member.status} />
+        <StatusBadge status={member.status} locale={locale} />
         <span className="text-xs text-ink-muted tabular-nums">{right}</span>
       </div>
     </Link>

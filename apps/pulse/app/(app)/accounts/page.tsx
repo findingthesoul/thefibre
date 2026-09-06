@@ -1,4 +1,6 @@
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import {
   AccountsActions,
   AccountsList,
@@ -39,6 +41,7 @@ async function currentUserId(): Promise<string | null> {
 }
 
 export default async function AccountsPage() {
+  const locale = await uiLocale();
   let items: Account[] = [];
   try {
     const r = await apiFetch<{ items: Account[] }>('/api/v1/pulse/accounts');
@@ -52,18 +55,17 @@ export default async function AccountsPage() {
     <div className="px-6 py-10 max-w-5xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Accounts</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            Balance snapshots anchor the projection. Reserves are earmarked money — in the bank,
-            not yours to spend.
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+            {t(locale, 'accounts')}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">{t(locale, 'accounts_blurb')}</p>
         </div>
         <div className="shrink-0 pt-1">
-          <AccountsActions accounts={items} teams={teams} myUserId={myUserId} />
+          <AccountsActions accounts={items} teams={teams} myUserId={myUserId} locale={locale} />
         </div>
       </div>
 
-      <AccountsList accounts={items} teams={teams} myUserId={myUserId} />
+      <AccountsList accounts={items} teams={teams} myUserId={myUserId} locale={locale} />
     </div>
   );
 }

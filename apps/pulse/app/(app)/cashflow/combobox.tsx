@@ -6,6 +6,7 @@
 // folder on purpose — it is not (yet) a shared component.
 
 import { useMemo, useState } from 'react';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type ComboOption = { id: string; label: string; sublabel?: string | null };
 
@@ -23,6 +24,7 @@ export function Combobox({
   options,
   placeholder,
   emptyLabel,
+  locale,
   onSelect,
   onCreate,
   createExtraField,
@@ -32,6 +34,7 @@ export function Combobox({
   small,
 }: {
   value: string;
+  locale: Locale;
   options: ComboOption[];
   placeholder?: string;
   /** First item when the query is empty — selecting it clears the value. */
@@ -102,7 +105,7 @@ export function Combobox({
       key: '__create',
       node: (
         <span className="font-medium">
-          {busy && !pendingCreate ? 'Creating…' : <>Create &lsquo;{rawQuery}&rsquo;</>}
+          {busy && !pendingCreate ? t(locale, 'creating') : t(locale, 'create_q', { q: rawQuery })}
         </span>
       ),
       onPick: startCreate,
@@ -112,11 +115,7 @@ export function Combobox({
   if (onFreeText && rawQuery && !options.some((o) => o.label === rawQuery)) {
     items.push({
       key: '__free',
-      node: (
-        <span>
-          Use &lsquo;<span className="font-medium">{rawQuery}</span>&rsquo;
-        </span>
-      ),
+      node: <span>{t(locale, 'use_q', { q: rawQuery })}</span>,
       onPick: () => {
         onFreeText(rawQuery);
         close();
@@ -155,7 +154,7 @@ export function Combobox({
     const res = await onCreate(creationQuery, extraValue);
     setBusy(false);
     if (res.error || !res.option) {
-      setError(res.error ?? 'Could not create.');
+      setError(res.error ?? t(locale, 'could_not_create'));
       return;
     }
     onSelect(res.option.id);
@@ -229,8 +228,10 @@ export function Combobox({
           {pendingCreate && createExtraField ? (
             <div className="p-3 space-y-2">
               <p className="text-xs text-ink-muted">
-                Creating <span className="font-medium text-ink">{pendingCreate}</span> —{' '}
-                {createExtraField.label.toLowerCase()} required.
+                {t(locale, 'creating_requires', {
+                  name: pendingCreate,
+                  field: createExtraField.label.toLowerCase(),
+                })}
               </p>
               <input
                 autoFocus
@@ -256,7 +257,7 @@ export function Combobox({
                   disabled={busy}
                   className="rounded-md px-2 py-1 text-xs text-ink-muted hover:text-ink"
                 >
-                  Cancel
+                  {t(locale, 'cancel')}
                 </button>
                 <button
                   type="button"
@@ -265,7 +266,7 @@ export function Combobox({
                   disabled={busy}
                   className="rounded-md bg-ink px-2 py-1 text-xs font-medium text-white disabled:opacity-60"
                 >
-                  {busy ? 'Creating…' : 'Create'}
+                  {busy ? t(locale, 'creating') : t(locale, 'create')}
                 </button>
               </div>
               {error && <p className="text-xs text-red-600">{error}</p>}
@@ -273,7 +274,9 @@ export function Combobox({
           ) : (
             <>
               <ul className="max-h-64 overflow-y-auto py-1 text-sm">
-                {items.length === 0 && <li className="px-3 py-2 text-ink-muted">No matches.</li>}
+                {items.length === 0 && (
+                  <li className="px-3 py-2 text-ink-muted">{t(locale, 'no_matches')}</li>
+                )}
                 {items.map((item, i) => (
                   <li key={item.key}>
                     <button

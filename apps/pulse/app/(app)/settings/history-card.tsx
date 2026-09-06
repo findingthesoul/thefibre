@@ -13,6 +13,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { money } from '@/lib/money';
 import { fetchSnapshot, updatePulseSettings } from './actions';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   ERROR_CLS,
   type PulseSettings,
@@ -20,15 +21,24 @@ import {
   type SnapshotMeta,
 } from './shared';
 
-const CADENCES = [
-  { days: 0, label: 'Off' },
-  { days: 7, label: 'Every 7 days' },
-  { days: 14, label: 'Every 14 days' },
-  { days: 30, label: 'Every 30 days' },
-] as const;
+const CADENCE_DAYS = [0, 7, 14, 30] as const;
 
-function fmtTakenAt(iso: string): string {
-  return new Date(iso).toLocaleDateString('en-GB', {
+function cadenceLabel(locale: Locale, days: number): string {
+  return days === 0 ? t(locale, 'cadence_off') : t(locale, 'every_n_days', { n: days });
+}
+
+// The stored granularity is a raw value ('week' | 'fortnight' | 'month' |
+// 'quarter') — map to the catalog, fall back to the raw string.
+function granLabel(locale: Locale, g: string): string {
+  if (g === 'week') return t(locale, 'gran_week_lc');
+  if (g === 'fortnight') return t(locale, 'gran_fortnight_lc');
+  if (g === 'month') return t(locale, 'gran_month_lc');
+  if (g === 'quarter') return t(locale, 'gran_quarter_lc');
+  return g;
+}
+
+function fmtTakenAt(locale: Locale, iso: string): string {
+  return new Date(iso).toLocaleDateString(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -37,8 +47,8 @@ function fmtTakenAt(iso: string): string {
 
 // Period starts carry no time — render date-only, with the year (overviews
 // live up to two years).
-function fmtPeriodStart(iso: string): string {
-  return new Date(iso + 'T00:00:00Z').toLocaleDateString('en-GB', {
+function fmtPeriodStart(locale: Locale, iso: string): string {
+  return new Date(iso + 'T00:00:00Z').toLocaleDateString(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -49,9 +59,11 @@ function fmtPeriodStart(iso: string): string {
 export function HistoryCard({
   settings,
   snapshots,
+  locale,
 }: {
   settings: PulseSettings;
   snapshots: SnapshotMeta[];
+  locale: Locale;
 }) {
   const router = useRouter();
   const [cadence, setCadence] = useState(settings?.snapshot_cadence_days ?? 0);
@@ -79,29 +91,26 @@ export function HistoryCard({
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line flex items-center justify-between gap-4">
-        <span className="text-sm font-semibold tracking-tight">History</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'history')}</span>
         <select
           value={cadence}
           onChange={(e) => saveCadence(parseInt(e.target.value, 10))}
           disabled={busy}
-          aria-label="How often to store an overview"
+          aria-label={t(locale, 'history_aria')}
           className="rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50"
         >
-          {CADENCES.map((c) => (
-            <option key={c.days} value={c.days}>
-              {c.label}
+          {CADENCE_DAYS.map((days) => (
+            <option key={days} value={days}>
+              {cadenceLabel(locale, days)}
             </option>
           ))}
-          {!CADENCES.some((c) => c.days === cadence) && (
-            <option value={cadence}>Every {cadence} days</option>
+          {!CADENCE_DAYS.some((days) => days === cadence) && (
+            <option value={cadence}>{t(locale, 'every_n_days', { n: cadence })}</option>
           )}
         </select>
       </div>
       <div className="px-5 py-4">
-        <p className="text-sm text-ink-muted">
-          Stores an overview of the cashflow at that moment, for comparison later. Overviews are
-          kept two years, then removed.
-        </p>
+        <p className="text-sm text-ink-muted">{t(locale, 'history_hint')}</p>
         {error && <div className={`mt-3 ${ERROR_CLS}`}>{error}</div>}
         {snapshots.length > 0 && (
           <div className="mt-4 divide-y divide-line/60 border-t border-line/60">
@@ -113,16 +122,18 @@ export function HistoryCard({
                 className="w-full px-1 py-2.5 flex items-center gap-4 text-left hover:bg-surface-sunken/60 transition-colors"
               >
                 <span className="flex-1 text-sm text-ink hover:underline">
-                  {fmtTakenAt(s.taken_at)}
+                  {fmtTakenAt(locale, s.taken_at)}
                 </span>
-                <span className="text-xs text-ink-muted">per {s.granularity}</span>
+                <span className="text-xs text-ink-muted">
+                  {t(locale, 'per_granularity', { g: granLabel(locale, s.granularity) })}
+                </span>
               </button>
             ))}
           </div>
         )}
       </div>
       {openId && (
-        <SnapshotDialog id={openId} currency={currency} onClose={() => setOpenId(null)} />
+        <SnapshotDialog id={openId} currency={currency} locale={locale} onClose={() => setOpenId(null)} />
       )}
     </section>
   );
@@ -134,10 +145,12 @@ export function HistoryCard({
 function SnapshotDialog({
   id,
   currency,
+  locale,
   onClose,
 }: {
   id: string;
   currency: string;
+  locale: Locale;
   onClose: () => void;
 }) {
   const [detail, setDetail] = useState<SnapshotDetail | null>(null);
@@ -148,7 +161,7 @@ function SnapshotDialog({
     let cancelled = false;
     void fetchSnapshot(id).then((res) => {
       if (cancelled) return;
-      if (res.error || !res.data) setError(res.error ?? 'Overview not found.');
+      if (res.error || !res.data) setError(res.error ?? t(locale, 'overview_not_found'));
       else setDetail(res.data);
     });
     return () => {
@@ -163,29 +176,37 @@ function SnapshotDialog({
       open
       onClose={onClose}
       size="lg"
-      title={detail ? `Overview · ${fmtTakenAt(detail.taken_at)}` : 'Overview'}
-      description={detail ? `Stored per ${detail.granularity}.` : undefined}
+      title={
+        detail
+          ? `${t(locale, 'overview')} · ${fmtTakenAt(locale, detail.taken_at)}`
+          : t(locale, 'overview')
+      }
+      description={
+        detail
+          ? t(locale, 'stored_per', { g: granLabel(locale, detail.granularity) })
+          : undefined
+      }
     >
       {error ? (
         <div className={ERROR_CLS}>{error}</div>
       ) : !detail ? (
-        <p className="text-sm text-ink-muted py-2">Loading…</p>
+        <p className="text-sm text-ink-muted py-2">{t(locale, 'loading')}</p>
       ) : periods.length === 0 ? (
-        <p className="text-sm text-ink-muted py-2">This overview holds no periods.</p>
+        <p className="text-sm text-ink-muted py-2">{t(locale, 'overview_no_periods')}</p>
       ) : (
         <table className="w-full text-sm">
           <thead>
             <tr className="text-xs text-ink-muted border-b border-line">
-              <th className="text-left font-medium py-2 pr-3">Period</th>
-              <th className="text-right font-medium py-2 px-3">Committed in</th>
-              <th className="text-right font-medium py-2 px-3">Out</th>
-              <th className="text-right font-medium py-2 pl-3">End position</th>
+              <th className="text-left font-medium py-2 pr-3">{t(locale, 'th_period')}</th>
+              <th className="text-right font-medium py-2 px-3">{t(locale, 'th_committed_in')}</th>
+              <th className="text-right font-medium py-2 px-3">{t(locale, 'tt_out')}</th>
+              <th className="text-right font-medium py-2 pl-3">{t(locale, 'th_end_position')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line/60">
             {periods.map((p) => (
               <tr key={p.start}>
-                <td className="py-2 pr-3 whitespace-nowrap">{fmtPeriodStart(p.start)}</td>
+                <td className="py-2 pr-3 whitespace-nowrap">{fmtPeriodStart(locale, p.start)}</td>
                 <td className="py-2 px-3 text-right tabular-nums">
                   {money(p.committed_in, currency)}
                 </td>

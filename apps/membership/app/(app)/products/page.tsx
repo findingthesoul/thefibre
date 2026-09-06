@@ -1,5 +1,6 @@
 import { apiFetch } from '@/lib/api';
 import { workspaceCurrencies } from '@/lib/workspace-currency';
+import { uiLocale } from '@/lib/locale';
 import { ProductsClient } from './products-client';
 import type { Product } from './types';
 import type { Grant } from '../access/types';
@@ -40,9 +41,11 @@ export default async function ProductsPage() {
     .then((r) => r.items)
     .catch(() => [] as Grant[]);
 
+  const locale = await uiLocale();
+
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <ProductsClient products={products} currency={currency} threadOptions={threads} grants={grants} />
+      <ProductsClient products={products} currency={currency} threadOptions={threads} grants={grants} locale={locale} />
     </div>
   );
 }

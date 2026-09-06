@@ -10,9 +10,10 @@ import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Switch } from '@/components/ui/switch';
 import { updatePulseSettings } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { ERROR_CLS, type PulseSettings } from './shared';
 
-export function LedgerCard({ settings }: { settings: PulseSettings }) {
+export function LedgerCard({ settings, locale }: { settings: PulseSettings; locale: Locale }) {
   const router = useRouter();
   const [include, setInclude] = useState(settings?.include_ledger ?? false);
   const [days, setDays] = useState(String(settings?.ledger_terms_days ?? 14));
@@ -46,7 +47,7 @@ export function LedgerCard({ settings }: { settings: PulseSettings }) {
     }
     const n = parseInt(days.trim(), 10);
     if (!Number.isFinite(n) || n < 0 || n > 120) {
-      setError('Expected settlement must be between 0 and 120 days.');
+      setError(t(locale, 'settlement_range_error'));
       return;
     }
     if (n === (settings?.ledger_terms_days ?? 14)) return;
@@ -56,15 +57,13 @@ export function LedgerCard({ settings }: { settings: PulseSettings }) {
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line">
-        <span className="text-sm font-semibold tracking-tight">Ledger invoices</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'ledger_invoices')}</span>
       </div>
       <div className="px-5 py-4 space-y-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-sm text-ink">Include in the cashflow</p>
-            <p className="mt-0.5 text-xs text-ink-muted">
-              Open Stripe/invoice purchases from Meet and Thread project as receivables.
-            </p>
+            <p className="text-sm text-ink">{t(locale, 'include_in_cashflow')}</p>
+            <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'ledger_hint')}</p>
           </div>
           <Switch
             checked={include}
@@ -74,7 +73,7 @@ export function LedgerCard({ settings }: { settings: PulseSettings }) {
         </div>
         <div className="flex items-center justify-between gap-4">
           <label htmlFor="ledger-terms-days" className="text-sm text-ink">
-            Expected settlement (days)
+            {t(locale, 'expected_settlement_days')}
           </label>
           <input
             id="ledger-terms-days"

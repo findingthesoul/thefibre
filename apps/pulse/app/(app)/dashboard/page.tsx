@@ -4,6 +4,8 @@ import { Landmark, PiggyBank, TrendingUp, ArrowUpRight } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { money, formatPeriod } from '@/lib/money';
 import { COOKIE_CASHFLOW_SCOPE } from '@/lib/prefs-shared';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { teamName, type CashflowScope, type InvolvedTeam } from '../cashflow/types';
 import CashflowChart, { type Projection } from './cashflow-chart';
 import { DashboardScopePicker } from './scope-picker';
@@ -41,6 +43,7 @@ async function fetchProjection(
 }
 
 export default async function PulseDashboard() {
+  const locale = await uiLocale();
   // The preferred cashflow to land on — the SAME cookie the cashflow tab bar
   // writes, so the home page and the grid agree (Sjoerd 2026-07-15).
   const cookieStore = await cookies();
@@ -84,6 +87,7 @@ export default async function PulseDashboard() {
         teams={teams}
         canWorkspace={canWorkspace}
         workspaceName={workspaceName}
+        locale={locale}
       />
     </div>
   );
@@ -94,11 +98,11 @@ export default async function PulseDashboard() {
         {header}
         <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8">
           <p className="text-sm text-ink-muted leading-relaxed">
-            This cashflow&apos;s projection isn&apos;t visible to you. Your own deals live in{' '}
+            {t(locale, 'dash_no_access_before')}{' '}
             <Link href="/cashflow" className="underline">
-              the pipeline
+              {t(locale, 'dash_no_access_link')}
             </Link>
-            {teams.length > 0 || canWorkspace ? ' — or switch cashflow above.' : '.'}
+            {teams.length > 0 || canWorkspace ? ` ${t(locale, 'dash_no_access_switch')}` : '.'}
           </p>
         </div>
       </div>
@@ -113,22 +117,22 @@ export default async function PulseDashboard() {
   return (
     <div className="px-6 py-10 max-w-5xl">
       {header}
-      <p className="mt-1 text-sm text-ink-muted">{runwaySentence(dips, hasData)}</p>
+      <p className="mt-1 text-sm text-ink-muted">{runwaySentence(locale, dips, hasData)}</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
         <StatCard
           href="/accounts"
           icon={Landmark}
           value={money(anchor.bank_cents, currency)}
-          label="In the bank"
-          sub="latest snapshots"
+          label={t(locale, 'in_the_bank')}
+          sub={t(locale, 'latest_snapshots')}
         />
         <StatCard
           href="/accounts"
           icon={PiggyBank}
           value={money(anchor.reserve_cents, currency)}
-          label="Reserved"
-          sub="earmarked buckets"
+          label={t(locale, 'reserved')}
+          sub={t(locale, 'earmarked_buckets')}
         />
         <StatCard
           href="/cashflow"
@@ -137,29 +141,29 @@ export default async function PulseDashboard() {
             periods.reduce((a, p) => a + p.expected_in, 0),
             currency,
           )}
-          label="Expected in"
-          sub={`next ${periods.length} periods, weighted`}
+          label={t(locale, 'expected_in')}
+          sub={t(locale, 'next_n_periods', { n: periods.length })}
         />
       </div>
 
       {hasData ? (
-        <CashflowChart projection={projection} />
+        <CashflowChart projection={projection} locale={locale} />
       ) : (
         <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
           <p className="text-sm text-ink-muted leading-relaxed">
-            Nothing to project yet. Add{' '}
+            {t(locale, 'proj_empty_1')}{' '}
             <Link href="/accounts" className="underline">
-              a bank balance
+              {t(locale, 'proj_empty_link_bank')}
             </Link>
-            , some{' '}
+            {t(locale, 'proj_empty_2')}{' '}
             <Link href="/cashflow" className="underline">
-              expected income
+              {t(locale, 'proj_empty_link_income')}
             </Link>{' '}
-            and{' '}
+            {t(locale, 'proj_empty_3')}{' '}
             <Link href="/budget" className="underline">
-              recurring costs
+              {t(locale, 'proj_empty_link_costs')}
             </Link>{' '}
-            — the chart draws itself.
+            {t(locale, 'proj_empty_4')}
           </p>
         </div>
       )}
@@ -168,20 +172,25 @@ export default async function PulseDashboard() {
 }
 
 function runwaySentence(
+  locale: Locale,
   dips: { committed: string | null; expected: string | null },
   hasData: boolean,
 ): string {
-  if (!hasData) return 'Your cashflow, projected forward.';
+  const intl = INTL_LOCALES[locale];
+  if (!hasData) return t(locale, 'runway_default');
   if (!dips.committed && !dips.expected) {
-    return 'You stay above zero for the whole horizon. Breathe.';
+    return t(locale, 'runway_above_zero');
   }
   if (dips.committed && dips.expected) {
-    return `On committed money you dip below zero around ${formatPeriod(dips.committed)}; with the weighted pipeline around ${formatPeriod(dips.expected)}.`;
+    return t(locale, 'runway_both', {
+      c: formatPeriod(dips.committed, intl),
+      e: formatPeriod(dips.expected, intl),
+    });
   }
   if (dips.committed) {
-    return `On committed money alone you dip below zero around ${formatPeriod(dips.committed)} — the weighted pipeline keeps you above.`;
+    return t(locale, 'runway_committed', { c: formatPeriod(dips.committed, intl) });
   }
-  return `The weighted projection dips below zero around ${formatPeriod(dips.expected!)}.`;
+  return t(locale, 'runway_expected', { e: formatPeriod(dips.expected!, intl) });
 }
 
 function StatCard({

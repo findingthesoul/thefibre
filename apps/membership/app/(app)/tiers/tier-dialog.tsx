@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { createTier, patchTier, setTierProducts } from './actions';
 import type { Tier } from './types';
 import type { Product } from '../products/types';
@@ -26,12 +27,14 @@ export function TierDialog({
   tier,
   products,
   currency: workspaceCurrency,
+  locale,
   nextSortOrder,
   onClose,
 }: {
   tier: Tier | null; // null = new
   products: Product[];
   currency: import('@/lib/workspace-currency').WorkspaceCurrencies;
+  locale: Locale;
   /** Where a NEW tier lands: the end of the list. Reordering is drag-and-drop on the list itself. */
   nextSortOrder: number;
   onClose: () => void;
@@ -78,7 +81,7 @@ export function TierDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     setBusy(true);
@@ -108,7 +111,7 @@ export function TierDialog({
     } else {
       const res = await createTier(input);
       if (res.error || !res.data) {
-        setError(res.error ?? 'unknown error');
+        setError(res.error ?? t(locale, 'unknown_error'));
         setBusy(false);
         return;
       }
@@ -118,7 +121,7 @@ export function TierDialog({
     // Included products save as a second call — the tier row must exist first.
     const linkRes = await setTierProducts(tierId, [...productIds], [...optionalIds]);
     if (linkRes.error) {
-      setError(`Tier saved, but products failed: ${linkRes.error}`);
+      setError(t(locale, 'tier_saved_products_failed', { error: linkRes.error }));
       setBusy(false);
       return;
     }
@@ -150,7 +153,7 @@ export function TierDialog({
     <Dialog
       open
       onClose={onClose}
-      title={tier ? 'Edit tier' : 'New tier'}
+      title={tier ? t(locale, 'edit_tier') : t(locale, 'new_tier')}
       size="lg"
       footer={
         <>
@@ -162,64 +165,72 @@ export function TierDialog({
               disabled={busy}
               onClick={handleArchive}
             >
-              {tier.archived_at ? 'Unarchive' : confirmArchive ? 'Really archive?' : 'Archive'}
+              {tier.archived_at
+                ? t(locale, 'unarchive')
+                : confirmArchive
+                  ? t(locale, 'really_archive_q')
+                  : t(locale, 'archive')}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="tier-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
     >
       <form id="tier-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Supporter"
+            placeholder={t(locale, 'tier_name_ph')}
             className={INPUT}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'description')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional_ph')}
             className={INPUT}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Yearly price ({currency})</label>
+            <label className="block text-sm font-medium mb-1">
+              {t(locale, 'yearly_price', { currency })}
+            </label>
             <input
               value={priceYear}
               onChange={(e) => setPriceYear(e.target.value)}
               inputMode="decimal"
-              placeholder="e.g. 120"
+              placeholder={t(locale, 'price_year_ph')}
               className={INPUT}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Monthly price ({currency})</label>
+            <label className="block text-sm font-medium mb-1">
+              {t(locale, 'monthly_price', { currency })}
+            </label>
             <input
               value={priceMonth}
               onChange={(e) => setPriceMonth(e.target.value)}
               inputMode="decimal"
-              placeholder="Optional"
+              placeholder={t(locale, 'optional_ph')}
               className={INPUT}
             />
           </div>
         </div>
         {currencyOptions.length > 1 && (
           <div>
-            <label className="block text-sm font-medium mb-1">Currency</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'currency')}</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -231,28 +242,24 @@ export function TierDialog({
                 </option>
               ))}
             </select>
-            <p className="mt-1.5 text-xs text-ink-muted">
-              The workspace&apos;s currencies — manage the list in Settings.
-            </p>
+            <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'currency_hint')}</p>
           </div>
         )}
         <div>
-          <label className="block text-sm font-medium mb-1">Characteristics</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'characteristics')}</label>
           <textarea
             value={characteristics}
             onChange={(e) => setCharacteristics(e.target.value)}
             rows={4}
-            placeholder={'One per line, e.g.\nMonthly community calls\nMember directory'}
+            placeholder={t(locale, 'tier_characteristics_ph')}
             className={INPUT}
           />
-          <p className="mt-1.5 text-xs text-ink-muted">
-            One per line — shown as bullet points on the join page.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'characteristics_hint')}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Included products</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'included_products')}</label>
           {selectable.length === 0 ? (
-            <p className="text-sm text-ink-muted">No products yet — create them under Products.</p>
+            <p className="text-sm text-ink-muted">{t(locale, 'no_products_create_first')}</p>
           ) : (
             <div className="rounded-md border border-line divide-y divide-line/60 max-h-52 overflow-y-auto">
               {selectable.map((p) => {
@@ -268,7 +275,11 @@ export function TierDialog({
                   >
                     <span className="text-ink">
                       {p.name}
-                      {p.archived_at && <span className="ml-1.5 text-xs text-ink-muted">(archived)</span>}
+                      {p.archived_at && (
+                        <span className="ml-1.5 text-xs text-ink-muted">
+                          {t(locale, 'archived_suffix')}
+                        </span>
+                      )}
                     </span>
                     <span className="flex rounded-md border border-line overflow-hidden text-xs">
                       {(['off', 'included', 'optional'] as const).map((v) => (
@@ -276,13 +287,17 @@ export function TierDialog({
                           key={v}
                           type="button"
                           onClick={() => setProductState(p.id, v)}
-                          className={`px-2.5 py-1 capitalize ${
+                          className={`px-2.5 py-1 ${
                             state === v
                               ? 'bg-ink text-surface'
                               : 'text-ink-subtle hover:text-ink'
                           }`}
                         >
-                          {v === 'off' ? 'Off' : v === 'included' ? 'Included' : 'Optional'}
+                          {v === 'off'
+                            ? t(locale, 'state_off')
+                            : v === 'included'
+                              ? t(locale, 'state_included')
+                              : t(locale, 'state_optional')}
                         </button>
                       ))}
                     </span>

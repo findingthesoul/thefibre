@@ -12,6 +12,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { createReservationRule } from '../settings/actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import type { CashflowScope, PulseAccount } from './types';
 
 const INPUT_CLS =
@@ -25,8 +26,10 @@ export function ReservationRuleDialog({
   scopeTeamId,
   currentUserId,
   reserveAccounts,
+  locale,
   onClose,
 }: {
+  locale: Locale;
   tabName: string;
   scope: CashflowScope;
   scopeTeamId: string | null;
@@ -50,12 +53,12 @@ export function ReservationRuleDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      setError('Label is required.');
+      setError(t(locale, 'label_required'));
       return;
     }
     const pct = parseFloat(percentage.trim().replace(',', '.'));
     if (Number.isNaN(pct) || pct < 0 || pct > 100) {
-      setError('Percentage must be between 0 and 100.');
+      setError(t(locale, 'pct_range_error'));
       return;
     }
     setBusy(true);
@@ -82,71 +85,68 @@ export function ReservationRuleDialog({
     <Dialog
       open
       onClose={onClose}
-      title="New reservation rule"
-      description={`A percentage of every period's income, set aside in the ${tabName} cashflow.`}
+      title={t(locale, 'new_rule')}
+      description={t(locale, 'rule_tab_desc', { tab: tabName })}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="cashflow-rule-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Add rule'}
+            {busy ? t(locale, 'saving') : t(locale, 'add_rule')}
           </Button>
         </>
       }
     >
       <form id="cashflow-rule-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="mb-1 block text-sm font-medium">Label</label>
+          <label className="mb-1 block text-sm font-medium">{t(locale, 'label')}</label>
           <input
             autoFocus
             value={label}
             onChange={(e) => setLabel(e.target.value)}
-            placeholder="e.g. VAT reserve"
+            placeholder={t(locale, 'eg_vat_reserve')}
             className={INPUT_CLS}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="mb-1 block text-sm font-medium">Percentage</label>
+            <label className="mb-1 block text-sm font-medium">{t(locale, 'percentage')}</label>
             <input
               inputMode="decimal"
               value={percentage}
               onChange={(e) => setPercentage(e.target.value)}
-              placeholder="e.g. 21"
+              placeholder={t(locale, 'eg_21')}
               className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium">Basis</label>
+            <label className="mb-1 block text-sm font-medium">{t(locale, 'basis')}</label>
             <select
               value={basis}
               onChange={(e) => setBasis(e.target.value as 'revenue' | 'net_revenue')}
               className={INPUT_CLS}
             >
-              <option value="revenue">Revenue</option>
-              <option value="net_revenue">Net revenue</option>
+              <option value="revenue">{t(locale, 'revenue')}</option>
+              <option value="net_revenue">{t(locale, 'net_revenue')}</option>
             </select>
           </div>
         </div>
         <div>
-          <label className="mb-1 block text-sm font-medium">Target account</label>
+          <label className="mb-1 block text-sm font-medium">{t(locale, 'target_account')}</label>
           <select
             value={targetAccountId}
             onChange={(e) => setTargetAccountId(e.target.value)}
             className={INPUT_CLS}
           >
-            <option value="">None</option>
+            <option value="">{t(locale, 'none')}</option>
             {reserveAccounts.map((a) => (
               <option key={a.id} value={a.id}>
                 {a.name}
               </option>
             ))}
           </select>
-          <p className="mt-1 text-xs text-ink-muted">
-            Optional — one of this cashflow&apos;s reserve accounts the reserved amount
-            conceptually flows into.
-          </p>
+          <p className="mt-1 text-xs text-ink-muted">{t(locale, 'target_account_tab_hint')}</p>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}
       </form>

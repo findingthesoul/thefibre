@@ -7,6 +7,8 @@ import {
   PageHeader,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { MembersClient, type Member } from './members-client';
 
 type Me = {
@@ -31,6 +33,7 @@ function appOf(w: WorkspaceApp): AppRef | null {
 }
 
 export default async function MembersPage() {
+  const locale = await uiLocale();
   let me: Me | null = null;
   let members: Member[] = [];
   let installed: WorkspaceApp[] = [];
@@ -79,15 +82,15 @@ export default async function MembersPage() {
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'nav_settings')} />
       <PageHeader
-        title="Members"
-        description="The single place to manage who's in the workspace and which apps they can use. The apps show this — they don't edit it."
+        title={t(locale, 'members_title')}
+        description={t(locale, 'members_blurb')}
       />
 
-      {error && <ErrorBanner>Couldn't load members: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'members_load_failed')} {error}</ErrorBanner>}
 
-      {!error && <MembersClient members={members} appSlugs={appSlugs} />}
+      {!error && <MembersClient members={members} appSlugs={appSlugs} locale={locale} />}
     </PageContainer>
   );
 }

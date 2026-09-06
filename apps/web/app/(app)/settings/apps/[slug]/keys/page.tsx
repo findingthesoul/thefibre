@@ -6,6 +6,8 @@ import {
   PageHeader,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { KeyManager, type KeyRow } from './manager';
 
 type Me = {
@@ -24,6 +26,7 @@ export default async function AppKeysPage({
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
+  const locale = await uiLocale();
 
   let me: Me | null = null;
   let error: string | null = null;
@@ -70,16 +73,16 @@ export default async function AppKeysPage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/settings/apps" label="Apps" />
+      <Breadcrumb href="/settings/apps" label={t(locale, 'nav_apps')} />
       <PageHeader
-        title={`${app?.name ?? slug} — API keys`}
-        description="Server-to-server credentials for this app in this workspace. An app key needs no signed-in browser, and can only do what its scopes allow."
+        title={`${app?.name ?? slug} — ${t(locale, 'api_keys')}`}
+        description={t(locale, 'api_keys_blurb')}
       />
 
-      {error && <ErrorBanner>Couldn't load keys: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'keys_load_failed')} {error}</ErrorBanner>}
 
       <div className="mt-10">
-        <KeyManager slug={slug} keys={keys} availableScopes={scopes} />
+        <KeyManager slug={slug} keys={keys} availableScopes={scopes} locale={locale} />
       </div>
     </PageContainer>
   );

@@ -8,8 +8,15 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { reactivateWorkspace } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function ReactivateBanner({ archivedOn }: { archivedOn: string }) {
+export function ReactivateBanner({
+  archivedOn,
+  locale,
+}: {
+  archivedOn: string;
+  locale: Locale;
+}) {
   const [pending, start] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
@@ -18,9 +25,10 @@ export function ReactivateBanner({ archivedOn }: { archivedOn: string }) {
     <div className="mt-6 rounded-lg border border-amber-600/40 bg-amber-500/10 px-5 py-4 text-sm leading-relaxed">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <span className="font-medium">This workspace was archived on {archivedOn}</span> after 13
-          months without sign-ins or activity. Nothing was deleted — everything is exactly where you
-          left it, waiting behind this one button.
+          <span className="font-medium">
+            {t(locale, 'archived_on', { date: archivedOn })}
+          </span>{' '}
+          {t(locale, 'archived_msg')}
         </div>
         <button
           type="button"
@@ -35,7 +43,7 @@ export function ReactivateBanner({ archivedOn }: { archivedOn: string }) {
           }}
           className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-50 dark:bg-neutral-100 dark:text-neutral-900 dark:hover:bg-neutral-300"
         >
-          {pending ? 'Reactivating…' : 'Reactivate workspace'}
+          {pending ? t(locale, 'reactivating') : t(locale, 'reactivate_workspace')}
         </button>
       </div>
       {error && <p className="mt-2 text-xs text-red-700">{error}</p>}

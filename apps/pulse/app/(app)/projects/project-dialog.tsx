@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { saveProject, archiveProject } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { teamName, type InvolvedTeam, type Project } from './types';
 
 const INPUT =
@@ -13,10 +14,12 @@ const INPUT =
 export function ProjectDialog({
   project,
   teams,
+  locale,
   onClose,
 }: {
   project: Project | null; // null = new
   teams: InvolvedTeam[];
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -30,7 +33,7 @@ export function ProjectDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     setBusy(true);
@@ -73,7 +76,7 @@ export function ProjectDialog({
     <Dialog
       open
       onClose={onClose}
-      title={project ? 'Edit project' : 'New project'}
+      title={project ? t(locale, 'edit_project') : t(locale, 'new_project')}
       footer={
         <>
           {project && (
@@ -84,50 +87,48 @@ export function ProjectDialog({
               disabled={busy}
               onClick={handleArchive}
             >
-              {confirmArchive ? 'Really archive?' : 'Archive'}
+              {confirmArchive ? t(locale, 'really_archive_q') : t(locale, 'archive')}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="project-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
     >
       <form id="project-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Incubator cohort 3"
+            placeholder={t(locale, 'eg_incubator_cohort')}
             className={INPUT}
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Team</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'team')}</label>
           <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={INPUT}>
-            <option value="">Free-standing</option>
-            {teams.map((t) => (
-              <option key={t.id} value={t.team_id}>
-                {teamName(t.team)}
+            <option value="">{t(locale, 'free_standing')}</option>
+            {teams.map((team) => (
+              <option key={team.id} value={team.team_id}>
+                {teamName(team.team, t(locale, 'unnamed_team'))}
               </option>
             ))}
           </select>
-          <p className="mt-1.5 text-xs text-ink-muted">
-            Hubs and incubators are Fibre teams; pick which take part in Settings.
-          </p>
+          <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'hubs_hint')}</p>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Notes</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'notes')}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional')}
             className={INPUT}
           />
         </div>

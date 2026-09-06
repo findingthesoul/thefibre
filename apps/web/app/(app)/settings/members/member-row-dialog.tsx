@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { APPS, type AppSlug } from '@/lib/apps';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { updateMember, type MemberPatch } from '../actions';
 import { removeMember } from './actions';
 import type { Member } from './members-client';
@@ -18,10 +19,12 @@ const SELECT_CLASS =
 export function MemberRowDialog({
   member,
   appSlugs,
+  locale,
   onClose,
 }: {
   member: Member;
   appSlugs: AppSlug[];
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -104,18 +107,18 @@ export function MemberRowDialog({
               disabled={pending}
               onClick={() => setConfirmingRemove(true)}
             >
-              Remove…
+              {t(locale, 'remove_ellipsis')}
             </Button>
           </div>
           <Button variant="secondary" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         </>
       }
     >
       <div className={`space-y-4 ${pending ? 'opacity-70' : ''}`}>
         <label className="block">
-          <span className="text-sm text-ink-subtle">Role</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'role')}</span>
           <select
             className={SELECT_CLASS}
             value={role}
@@ -124,26 +127,26 @@ export function MemberRowDialog({
           >
             <option value="super_admin">Super Admin</option>
             <option value="admin">Admin</option>
-            <option value="organiser">Organiser (default)</option>
+            <option value="organiser">{t(locale, 'organiser_default')}</option>
           </select>
         </label>
 
         <label className="block">
-          <span className="text-sm text-ink-subtle">Relationship</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'relationship')}</span>
           <select
             className={SELECT_CLASS}
             value={relationship}
             disabled={pending}
             onChange={(e) => onRelationship(e.target.value as 'internal' | 'external')}
           >
-            <option value="internal">Internal</option>
-            <option value="external">External</option>
+            <option value="internal">{t(locale, 'internal')}</option>
+            <option value="external">{t(locale, 'external')}</option>
           </select>
         </label>
 
         {appSlugs.length > 0 && (
           <div>
-            <span className="text-sm text-ink-subtle">Apps</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'nav_apps')}</span>
             <div className="mt-2 space-y-2">
               {appSlugs.map((slug) => (
                 <label key={slug} className="flex items-center justify-between gap-4 text-sm">
@@ -160,8 +163,8 @@ export function MemberRowDialog({
                     className="w-32 rounded-md border border-line bg-surface-raised px-2 py-1.5 text-sm focus:border-line-strong focus:outline-none"
                   >
                     <option value="">—</option>
-                    <option value="member">Member</option>
-                    <option value="admin">Admin</option>
+                    <option value="member">{t(locale, 'role_member')}</option>
+                    <option value="admin">{t(locale, 'role_admin')}</option>
                   </select>
                 </label>
               ))}
@@ -176,9 +179,12 @@ export function MemberRowDialog({
         )}
 
         <p className="text-xs text-ink-muted">
-          Joined{' '}
-          {new Date(member.joined_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })}
-          {' · '}Changes save immediately.
+          {t(locale, 'joined')}{' '}
+          {new Date(member.joined_at).toLocaleDateString(INTL_LOCALES[locale], {
+            dateStyle: 'medium',
+          })}
+          {' · '}
+          {t(locale, 'changes_save_immediately')}
         </p>
       </div>
 
@@ -186,16 +192,9 @@ export function MemberRowDialog({
         open={confirmingRemove}
         onCancel={() => setConfirmingRemove(false)}
         onConfirm={onRemove}
-        title="Remove member"
-        message={
-          <>
-            Remove {member.full_name ?? member.email} from this workspace? They lose access to
-            the workspace and its apps; they stay in your contacts. If this seat is billed, it
-            stops billing from the next period — the paid month runs out, with no mid-month
-            credit.
-          </>
-        }
-        confirmLabel="Remove member"
+        title={t(locale, 'remove_member')}
+        message={t(locale, 'remove_member_msg', { name: member.full_name ?? member.email })}
+        confirmLabel={t(locale, 'remove_member')}
         destructive
         pending={pending}
       />

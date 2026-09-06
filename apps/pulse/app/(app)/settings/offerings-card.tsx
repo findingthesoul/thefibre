@@ -7,6 +7,7 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { createOffering, updateOffering } from './actions';
 import { money } from '@/lib/money';
+import { t, type Locale } from '@/lib/i18n-ui';
 import {
   centsToEuroInput,
   ERROR_CLS,
@@ -18,30 +19,29 @@ import {
 export function OfferingsCard({
   offerings,
   currency,
+  locale,
 }: {
   offerings: Offering[];
   currency: string;
+  locale: Locale;
 }) {
   const [editing, setEditing] = useState<Offering | 'new' | null>(null);
 
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line flex items-center justify-between">
-        <span className="text-sm font-semibold tracking-tight">Offerings</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'offerings')}</span>
         <Button
           size="sm"
           variant="secondary"
           leading={<Plus size={14} strokeWidth={2} />}
           onClick={() => setEditing('new')}
         >
-          New offering
+          {t(locale, 'new_offering')}
         </Button>
       </div>
       {offerings.length === 0 ? (
-        <div className="px-5 py-4 text-sm text-ink-muted">
-          Nothing here yet. Offerings are what the workspace sells — programmes, retainers,
-          workshops. Commitments link to them so the pipeline stays legible.
-        </div>
+        <div className="px-5 py-4 text-sm text-ink-muted">{t(locale, 'offerings_empty')}</div>
       ) : (
         <div className="divide-y divide-line/60">
           {offerings.map((o) => (
@@ -63,6 +63,7 @@ export function OfferingsCard({
       {editing && (
         <OfferingDialog
           offering={editing === 'new' ? null : editing}
+          locale={locale}
           onClose={() => setEditing(null)}
         />
       )}
@@ -72,9 +73,11 @@ export function OfferingsCard({
 
 function OfferingDialog({
   offering,
+  locale,
   onClose,
 }: {
   offering: Offering | null;
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -88,12 +91,12 @@ function OfferingDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     const cents = parseEuroToCents(amount);
     if (cents !== null && Number.isNaN(cents)) {
-      setError('Default amount must be a number (e.g. 1250.50).');
+      setError(t(locale, 'amount_number_error'));
       return;
     }
     setBusy(true);
@@ -134,7 +137,7 @@ function OfferingDialog({
     <Dialog
       open
       onClose={onClose}
-      title={offering ? 'Edit offering' : 'New offering'}
+      title={offering ? t(locale, 'edit_offering') : t(locale, 'new_offering')}
       footer={
         <>
           {offering && (
@@ -145,57 +148,63 @@ function OfferingDialog({
               onClick={archive}
               disabled={busy}
             >
-              Delete
+              {t(locale, 'delete')}
             </Button>
           )}
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="offering-form" disabled={busy}>
-            {busy ? 'Saving…' : offering ? 'Save' : 'Create offering'}
+            {busy
+              ? t(locale, 'saving')
+              : offering
+                ? t(locale, 'save')
+                : t(locale, 'create_offering')}
           </Button>
         </>
       }
     >
       <form id="offering-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Leadership programme"
+            placeholder={t(locale, 'eg_leadership')}
             className={INPUT_CLS}
           />
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Category</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'category')}</label>
             <input
               value={category}
               onChange={(e) => setCategory(e.target.value)}
-              placeholder="e.g. Training"
+              placeholder={t(locale, 'eg_training')}
               className={INPUT_CLS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Default amount (&euro;)</label>
+            <label className="block text-sm font-medium mb-1">
+              {t(locale, 'default_amount_eur')}
+            </label>
             <input
               inputMode="decimal"
               value={amount}
               onChange={(e) => setAmount(e.target.value)}
-              placeholder="Optional, e.g. 1250.50"
+              placeholder={t(locale, 'amount_optional_ph')}
               className={INPUT_CLS}
             />
           </div>
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Notes</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'notes')}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={3}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional')}
             className={INPUT_CLS}
           />
         </div>

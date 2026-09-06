@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, TextAreaField } from '@/components/ui/field';
 import { updateMeetProfile, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type MeetProfileRow = {
   host_notes: string | null;
@@ -19,9 +20,11 @@ export type MeetProfileRow = {
 export function MeetProfileEdit({
   personId,
   initial,
+  locale,
 }: {
   personId: string;
   initial: MeetProfileRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const router = useRouter();
@@ -49,21 +52,21 @@ export function MeetProfileEdit({
         onClick={() => setOpen(true)}
         className="inline-flex items-center gap-1.5 text-sm text-ink-subtle hover:text-ink"
       >
-        <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} /> Edit
+        <Pencil className="h-3.5 w-3.5" strokeWidth={1.5} /> {t(locale, 'edit')}
       </button>
 
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title="Edit Meet profile — Meet"
+        title={t(locale, 'edit_meet_profile')}
         size="lg"
         footer={
           <>
             <Button variant="secondary" onClick={() => setOpen(false)} disabled={pending}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button form="meet-profile-form" type="submit" disabled={pending}>
-              {pending ? 'Saving…' : 'Save changes'}
+              {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
             </Button>
           </>
         }
@@ -80,8 +83,7 @@ export function MeetProfileEdit({
               <span>
                 <span className="font-medium">VIP</span>
                 <span className="block text-xs text-ink-muted mt-0.5">
-                  Flag so the host treats requests from this person with
-                  priority — e.g. auto-approve.
+                  {t(locale, 'vip_hint')}
                 </span>
               </span>
             </label>
@@ -93,27 +95,26 @@ export function MeetProfileEdit({
                 className="mt-1"
               />
               <span>
-                <span className="font-medium">Blocked</span>
+                <span className="font-medium">{t(locale, 'blocked')}</span>
                 <span className="block text-xs text-ink-muted mt-0.5">
-                  Don&apos;t auto-confirm bookings from this email; review
-                  manually first.
+                  {t(locale, 'blocked_hint')}
                 </span>
               </span>
             </label>
           </div>
           <TextField
-            label="Preferred timezone"
+            label={t(locale, 'preferred_timezone')}
             name="invitee_timezone"
             defaultValue={initial?.invitee_timezone ?? ''}
             placeholder="Europe/Amsterdam"
-            hint="IANA tz. Used when emailing them slot suggestions."
+            hint={t(locale, 'timezone_hint')}
           />
           <TextAreaField
-            label="Host notes"
+            label={t(locale, 'host_notes')}
             name="host_notes"
             defaultValue={initial?.host_notes ?? ''}
             rows={6}
-            hint="Private. Only workspace members with Meet access see this."
+            hint={t(locale, 'host_notes_hint')}
           />
           {state.error && (
             <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">

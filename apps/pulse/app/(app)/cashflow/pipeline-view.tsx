@@ -19,6 +19,7 @@ import {
 } from './view-controls';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_VIEW } from '@/lib/prefs-shared';
+import { t, type Locale } from '@/lib/i18n-ui';
 import {
   scopeKeyFor,
   teamName,
@@ -49,7 +50,9 @@ export function PipelineView({
   scope,
   scopeTeamId,
   canWorkspace,
+  locale,
 }: {
+  locale: Locale;
   items: Commitment[];
   pickers: Pickers;
   currentUserId: string | null;
@@ -94,31 +97,35 @@ export function PipelineView({
     (orgFirst?.person
       ? `${orgFirst.person.first_name ?? ''} ${orgFirst.person.last_name ?? ''}`.trim() ||
         orgFirst.person.email ||
-        'Unnamed'
+        t(locale, 'unnamed')
       : null) ??
     pickers.orgs.find((o) => o.id === orgKey)?.name ??
-    'Counterparty';
+    t(locale, 'counterparty');
   const orgIsOrganisation = orgFirst ? !!orgFirst.organisation : pickers.orgs.some((o) => o.id === orgKey);
 
   // The tab list: Me first, then every involved team the caller can see,
   // then Workspace (gated on canWorkspace). A team scope pointing outside
   // the involved list (deep link) still gets its tab so the bar shows where
   // you are — name resolved via the workspace team list.
-  const tabTeams = pickers.teams.map((t) => ({ value: t.team_id, label: teamName(t.team) }));
-  if (scope === 'team' && scopeTeamId && !tabTeams.some((t) => t.value === scopeTeamId)) {
+  const tabTeams = pickers.teams.map((row) => ({
+    value: row.team_id,
+    label: teamName(row.team, t(locale, 'unnamed_team')),
+  }));
+  if (scope === 'team' && scopeTeamId && !tabTeams.some((row) => row.value === scopeTeamId)) {
     tabTeams.push({
       value: scopeTeamId,
-      label: pickers.allTeams.find((t) => t.id === scopeTeamId)?.name ?? 'Current team',
+      label:
+        pickers.allTeams.find((row) => row.id === scopeTeamId)?.name ?? t(locale, 'current_team'),
     });
   }
   const scopeKey = scopeKeyFor(scope, scopeTeamId);
   // The active tab's display name — bank creation names the account after it.
   const tabName =
     scope === 'me'
-      ? 'Me'
+      ? t(locale, 'me')
       : scope === 'team'
-        ? (tabTeams.find((t) => t.value === scopeTeamId)?.label ?? 'Team')
-        : 'Workspace';
+        ? (tabTeams.find((row) => row.value === scopeTeamId)?.label ?? t(locale, 'team'))
+        : t(locale, 'workspace');
 
   // The view choice is a compact select in the controls row now — remembered
   // per user, same cookie as before.
@@ -134,10 +141,10 @@ export function PipelineView({
       {/* Title FIRST, full width (Sjoerd 2026-07-09: "CASHFLOW title above
           the tabs"); the tab bar sits on its own row below it. */}
       <div className="max-w-6xl">
-        <h1 className="text-[28px] font-semibold tracking-tight text-ink">Cashflow</h1>
-        <p className="mt-1 text-sm text-ink-muted">
-          Expected money in and out, per contact — every line weighted by where it stands in the pipeline (a Flow).
-        </p>
+        <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+          {t(locale, 'cashflow')}
+        </h1>
+        <p className="mt-1 text-sm text-ink-muted">{t(locale, 'cashflow_blurb')}</p>
       </div>
       {/* One cashflow per tab (Sjoerd 2026-07-09) — the tab bar IS the
           chooser AND the switcher. The quick adds live in the controls row. */}
@@ -147,12 +154,13 @@ export function PipelineView({
           scopeTeamId={scopeTeamId}
           workspaceName={workspaceName}
           canWorkspace={canWorkspace}
-          teams={tabTeams.map((t) => ({ id: t.value, name: t.label }))}
+          teams={tabTeams.map((row) => ({ id: row.value, name: row.label }))}
+          locale={locale}
         />
         <button
           type="button"
           onClick={() => setSettingsOpen(true)}
-          title={`${tabName} cashflow settings — banks, reserves, reservations`}
+          title={t(locale, 'tab_settings_title', { tab: tabName })}
           className="shrink-0 rounded-md p-2 text-ink-muted hover:bg-surface-raised hover:text-ink"
         >
           <Settings2 size={18} strokeWidth={1.75} />
@@ -165,6 +173,7 @@ export function PipelineView({
         accounts={accounts}
         scopeKey={scopeKey}
         open={bankOpen}
+        locale={locale}
         onClose={() => setBankOpen(false)}
       />
       {settingsOpen && (
@@ -176,6 +185,7 @@ export function PipelineView({
           accounts={accounts}
           rules={projection?.reservation_rules ?? []}
           members={pickers.members}
+          locale={locale}
           onUpdateBalances={() => {
             setSettingsOpen(false);
             setBankOpen(true);
@@ -197,6 +207,7 @@ export function PipelineView({
           scopeTeamId={scopeTeamId}
           currentUserId={currentUserId}
           tabName={tabName}
+          locale={locale}
           view={view}
           onViewChange={changeView}
           invoiceFilter={invoiceFilter}
@@ -213,20 +224,17 @@ export function PipelineView({
               chevrons don't apply here). */}
           <div className="mt-6 mb-3 flex max-w-6xl items-center justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2">
-              <InvoiceFilterSelect value={invoiceFilter} onChange={setInvoiceFilter} />
-              {invoiceFilter !== 'all' && <FilteredNote />}
+              <InvoiceFilterSelect value={invoiceFilter} locale={locale} onChange={setInvoiceFilter} />
+              {invoiceFilter !== 'all' && <FilteredNote locale={locale} />}
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <AddButtons onAdd={(direction) => setCreating({ direction })} />
-              <ViewSelect value={view} onChange={changeView} />
+              <AddButtons locale={locale} onAdd={(direction) => setCreating({ direction })} />
+              <ViewSelect value={view} locale={locale} onChange={changeView} />
             </div>
           </div>
           {items.length === 0 ? (
             <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-              <p className="text-sm text-ink-muted">
-                Nothing here yet. Add your first with the green + above — a contact and an
-                amount is enough.
-              </p>
+              <p className="text-sm text-ink-muted">{t(locale, 'empty_add_first')}</p>
             </div>
           ) : (
             // Inline-editable, line per line (Sjoerd 2026-07-08) — the pencil at
@@ -235,6 +243,7 @@ export function PipelineView({
               items={items}
               stages={pickers.stages}
               invoiceFilter={invoiceFilter}
+              locale={locale}
               onEdit={setEditing}
               onOpenGroup={setOrgKey}
             />
@@ -254,6 +263,7 @@ export function PipelineView({
           name={orgName}
           items={orgItems}
           stages={pickers.stages}
+          locale={locale}
           onOpenItem={setEditing}
           onAdd={() =>
             setCreating({
@@ -278,6 +288,7 @@ export function PipelineView({
           currentUserId={currentUserId}
           scope={scope}
           scopeTeamId={scopeTeamId}
+          locale={locale}
           onClose={() => setCreating(null)}
         />
       )}
@@ -288,6 +299,7 @@ export function PipelineView({
           currentUserId={currentUserId}
           scope={scope}
           scopeTeamId={scopeTeamId}
+          locale={locale}
           onClose={() => setEditing(null)}
         />
       )}

@@ -234,14 +234,16 @@ export type Pickers = {
   vatTariffs: VatTariff[];
 };
 
-export function teamName(t: InvolvedTeam['team']): string {
+// `fallback` = the localized "Unnamed team" / "Unnamed" (i18n P3) — callers
+// pass t(locale, …); the defaults keep untouched call sites working.
+export function teamName(t: InvolvedTeam['team'], fallback = 'Unnamed team'): string {
   const one = Array.isArray(t) ? t[0] : t;
-  return one?.name ?? 'Unnamed team';
+  return one?.name ?? fallback;
 }
 
-export function personName(p: PersonOption): string {
+export function personName(p: PersonOption, fallback = 'Unnamed'): string {
   const full = `${p.first_name ?? ''} ${p.last_name ?? ''}`.trim();
-  return full || p.email || 'Unnamed';
+  return full || p.email || fallback;
 }
 
 // ---------------------------------------------------------------------------

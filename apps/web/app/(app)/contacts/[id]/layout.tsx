@@ -3,6 +3,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
 import { TabNav } from '@/components/ui/tabs';
 import { APPS, APP_ORDER, isAppSlug } from '@/lib/apps';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { ContactActions, type EditablePerson } from './contact-actions';
 
 export default async function ContactLayout({
@@ -13,6 +15,7 @@ export default async function ContactLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await uiLocale();
 
   let person: EditablePerson & { preferred_name: string | null };
   try {
@@ -37,11 +40,11 @@ export default async function ContactLayout({
   const fullName =
     [person.first_name, person.last_name].filter(Boolean).join(' ') ||
     person.email ||
-    'Unnamed';
+    t(locale, 'unnamed');
 
   const tabs = [
-    { href: `/contacts/${id}`, label: 'Overview' },
-    { href: `/contacts/${id}/profile`, label: 'Profile' },
+    { href: `/contacts/${id}`, label: t(locale, 'overview') },
+    { href: `/contacts/${id}/profile`, label: t(locale, 'profile_title') },
     ...orderedApps
       .filter((slug) => slug !== 'fibre-platform')
       .map((slug) => ({
@@ -52,11 +55,15 @@ export default async function ContactLayout({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/contacts" label="Contacts" />
+      <Breadcrumb href="/contacts" label={t(locale, 'nav_contacts')} />
       <PageHeader
         title={fullName}
-        description={person.preferred_name ? `Goes by ${person.preferred_name}` : undefined}
-        actions={<ContactActions person={person} />}
+        description={
+          person.preferred_name
+            ? t(locale, 'goes_by', { name: person.preferred_name })
+            : undefined
+        }
+        actions={<ContactActions person={person} locale={locale} />}
       />
       <TabNav tabs={tabs} />
       <div className="mt-8">{children}</div>

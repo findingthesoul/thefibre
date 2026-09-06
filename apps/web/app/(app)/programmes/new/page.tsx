@@ -1,15 +1,18 @@
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { NewProgrammeForm } from './form';
 
-export default function NewProgrammePage() {
+export default async function NewProgrammePage() {
+  const locale = await uiLocale();
   return (
     <PageContainer max="md">
-      <Breadcrumb href="/programmes" label="Programmes" />
+      <Breadcrumb href="/programmes" label={t(locale, 'nav_programmes')} />
       <PageHeader
-        title="New programme"
-        description="A programme is an event, journey, meeting, or course. The format determines which app delivers it."
+        title={t(locale, 'new_programme')}
+        description={t(locale, 'new_programme_blurb')}
       />
-      <NewProgrammeForm />
+      <NewProgrammeForm locale={locale} />
     </PageContainer>
   );
 }

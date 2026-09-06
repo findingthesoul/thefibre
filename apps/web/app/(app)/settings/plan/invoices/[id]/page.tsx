@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { ENTITY } from '@thefibre/shared';
 import { apiFetch } from '@/lib/api';
 import { eur } from '@/lib/plans';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { AutoPrint } from './auto-print';
 
 // The invoice, IN the Fibre ("my invoices are still in Stripe" — Sjoerd,
@@ -49,6 +51,7 @@ export default async function FibreInvoicePage({
 }) {
   const { id } = await params;
   const { print } = await searchParams;
+  const locale = await uiLocale();
   let invoice: Purchase | undefined;
   try {
     const data = await apiFetch<{ items: Purchase[] }>(
@@ -75,10 +78,10 @@ export default async function FibreInvoicePage({
       {print && <AutoPrint />}
       <div className="mb-8 flex items-center justify-between print:hidden">
         <Link href="/settings/plan" className="text-sm text-ink-subtle hover:text-ink">
-          ← Plan
+          ← {t(locale, 'plan_title')}
         </Link>
         <div className="flex items-center gap-4 text-sm">
-          <span className="text-ink-muted">Use your browser&rsquo;s Print for a PDF</span>
+          <span className="text-ink-muted">{t(locale, 'print_for_pdf')}</span>
           {invoice.stripe_invoice_url && (
             <a
               href={invoice.stripe_invoice_url}

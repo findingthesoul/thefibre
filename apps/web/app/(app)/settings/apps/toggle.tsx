@@ -3,8 +3,17 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { activateApp, deactivateApp } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function AppToggle({ slug, active }: { slug: string; active: boolean }) {
+export function AppToggle({
+  slug,
+  active,
+  locale,
+}: {
+  slug: string;
+  active: boolean;
+  locale: Locale;
+}) {
   const [pending, start] = useTransition();
   const [optimistic, setOptimistic] = useState(active);
   const [error, setError] = useState<string | null>(null);
@@ -35,7 +44,7 @@ export function AppToggle({ slug, active }: { slug: string; active: boolean }) {
             on ? 'text-emerald-700' : 'text-ink-muted'
           }`}
         >
-          {on ? 'Active' : 'Not active'}
+          {on ? t(locale, 'app_status_active') : t(locale, 'not_active')}
         </span>
         <button
           type="button"

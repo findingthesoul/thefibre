@@ -5,8 +5,9 @@ import { useRouter } from 'next/navigation';
 import { TextField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
 import { updatePersonalRoom } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function PersonalRoomForm({ initial }: { initial: string }) {
+export function PersonalRoomForm({ initial, locale }: { initial: string; locale: Locale }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -32,16 +33,16 @@ export function PersonalRoomForm({ initial }: { initial: string }) {
       className="rounded-lg border border-line bg-surface-raised p-6 space-y-4"
     >
       <TextField
-        label="Personal meeting room URL"
+        label={t(locale, 'personal_room_url')}
         name="personal_room_url"
         defaultValue={initial}
         placeholder="https://zoom.us/j/…"
       />
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t(locale, 'saving') : t(locale, 'save')}
         </Button>
-        {saved && <span className="text-xs text-emerald-700">Saved.</span>}
+        {saved && <span className="text-xs text-emerald-700">{t(locale, 'saved_notice')}</span>}
         {error && <span className="text-xs text-red-700">{error}</span>}
       </div>
     </form>

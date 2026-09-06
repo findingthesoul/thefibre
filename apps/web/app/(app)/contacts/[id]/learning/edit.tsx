@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField, TextAreaField } from '@/components/ui/field';
 import { updateLearning, type ActionResult } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type LearningRow = {
   learning_interests: string[] | null;
@@ -19,28 +20,28 @@ export type LearningRow = {
   open_to_peer_exchange: boolean | null;
 };
 
-const LEARNING_STYLES = [
+const learningStyleOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'visual', label: 'Visual' },
-  { value: 'auditory', label: 'Auditory' },
-  { value: 'reading', label: 'Reading' },
-  { value: 'kinaesthetic', label: 'Kinaesthetic' },
-  { value: 'reflective', label: 'Reflective' },
+  { value: 'visual', label: t(locale, 'learning_visual') },
+  { value: 'auditory', label: t(locale, 'learning_auditory') },
+  { value: 'reading', label: t(locale, 'learning_reading') },
+  { value: 'kinaesthetic', label: t(locale, 'learning_kinaesthetic') },
+  { value: 'reflective', label: t(locale, 'learning_reflective') },
 ];
 
-const GROUP_ROLES = [
+const groupRoleOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'connector', label: 'Connector' },
-  { value: 'challenger', label: 'Challenger' },
-  { value: 'synthesiser', label: 'Synthesiser' },
-  { value: 'anchor', label: 'Anchor' },
-  { value: 'observer', label: 'Observer' },
+  { value: 'connector', label: t(locale, 'group_connector') },
+  { value: 'challenger', label: t(locale, 'group_challenger') },
+  { value: 'synthesiser', label: t(locale, 'group_synthesiser') },
+  { value: 'anchor', label: t(locale, 'group_anchor') },
+  { value: 'observer', label: t(locale, 'group_observer') },
 ];
 
-const YES_NO = [
+const yesNoOptions = (locale: Locale) => [
   { value: '', label: '—' },
-  { value: 'true', label: 'Yes' },
-  { value: 'false', label: 'No' },
+  { value: 'true', label: t(locale, 'yes') },
+  { value: 'false', label: t(locale, 'no') },
 ];
 
 function boolToSelect(v: boolean | null): string {
@@ -52,9 +53,11 @@ function boolToSelect(v: boolean | null): string {
 export function LearningEdit({
   personId,
   initial,
+  locale,
 }: {
   personId: string;
   initial: LearningRow | null;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -66,13 +69,14 @@ export function LearningEdit({
         leading={<Pencil size={14} strokeWidth={1.75} />}
         onClick={() => setOpen(true)}
       >
-        Edit
+        {t(locale, 'edit')}
       </Button>
       <EditDialog
         open={open}
         onClose={() => setOpen(false)}
         personId={personId}
         initial={initial}
+        locale={locale}
       />
     </>
   );
@@ -83,11 +87,13 @@ function EditDialog({
   onClose,
   personId,
   initial,
+  locale,
 }: {
   open: boolean;
   onClose: () => void;
   personId: string;
   initial: LearningRow | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startSave] = useTransition();
@@ -110,15 +116,15 @@ function EditDialog({
     <Dialog
       open={open}
       onClose={onClose}
-      title="Edit learning profile — Learn"
+      title={t(locale, 'edit_learning_profile')}
       size="lg"
       footer={
         <>
           <Button variant="secondary" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="learning-profile-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save changes'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
           </Button>
         </>
       }
@@ -129,50 +135,50 @@ function EditDialog({
         className="grid grid-cols-1 md:grid-cols-2 gap-4"
       >
         <SelectField
-          label="Learning style"
+          label={t(locale, 'learning_style')}
           name="learning_style"
           defaultValue={initial?.learning_style ?? ''}
-          options={LEARNING_STYLES}
+          options={learningStyleOptions(locale)}
           errors={state.fieldErrors?.learning_style}
         />
         <SelectField
-          label="Group role tendency"
+          label={t(locale, 'group_role_tendency')}
           name="group_role_tendency"
           defaultValue={initial?.group_role_tendency ?? ''}
-          options={GROUP_ROLES}
+          options={groupRoleOptions(locale)}
           errors={state.fieldErrors?.group_role_tendency}
         />
         <SelectField
-          label="Open to coaching"
+          label={t(locale, 'open_to_coaching')}
           name="open_to_coaching"
           defaultValue={boolToSelect(initial?.open_to_coaching ?? null)}
-          options={YES_NO}
+          options={yesNoOptions(locale)}
           errors={state.fieldErrors?.open_to_coaching}
         />
         <SelectField
-          label="Open to peer exchange"
+          label={t(locale, 'open_to_peer_exchange')}
           name="open_to_peer_exchange"
           defaultValue={boolToSelect(initial?.open_to_peer_exchange ?? null)}
-          options={YES_NO}
+          options={yesNoOptions(locale)}
           errors={state.fieldErrors?.open_to_peer_exchange}
         />
         <TextField
-          label="Learning interests"
+          label={t(locale, 'learning_interests')}
           name="learning_interests"
           defaultValue={(initial?.learning_interests ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.learning_interests}
         />
         <TextField
-          label="Prior programmes"
+          label={t(locale, 'prior_programmes')}
           name="prior_programmes"
           defaultValue={(initial?.prior_programmes ?? []).join(', ')}
-          hint="Comma-separated"
+          hint={t(locale, 'comma_separated')}
           errors={state.fieldErrors?.prior_programmes}
         />
         <div className="md:col-span-2">
           <TextAreaField
-            label="Development goals"
+            label={t(locale, 'development_goals')}
             name="development_goals"
             defaultValue={initial?.development_goals ?? ''}
             maxLength={2000}
@@ -183,16 +189,16 @@ function EditDialog({
           <TextAreaField
             label={
               <>
-                Post-programme reflection
+                {t(locale, 'post_programme_reflection')}
                 <span className="ml-2 inline-block rounded bg-surface-sunken px-1.5 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
-                  Participant-owned
+                  {t(locale, 'participant_owned')}
                 </span>
               </>
             }
             name="post_programme_reflection"
             defaultValue={initial?.post_programme_reflection ?? ''}
             maxLength={5000}
-            hint="Per brief §5.D2 the participant writes this themselves. Don't paste observations here."
+            hint={t(locale, 'reflection_hint')}
             errors={state.fieldErrors?.post_programme_reflection}
           />
         </div>

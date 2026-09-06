@@ -5,6 +5,8 @@ import { appName, type AppId } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { countryName } from '@/lib/countries';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 
 type Person = {
   email: string | null;
@@ -61,6 +63,7 @@ export default async function ContactOverview({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
+  const locale = await uiLocale();
 
   let person: Person;
   let activities: Activity[] = [];
@@ -96,22 +99,22 @@ export default async function ContactOverview({
   return (
     <>
       <section className="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
-        <Field label="Email" value={person.email} />
-        <Field label="Phone" value={person.phone} />
+        <Field label={t(locale, 'email_label')} value={person.email} />
+        <Field label={t(locale, 'phone')} value={person.phone} />
         <Field label="LinkedIn" value={person.linkedin_url} link />
-        <Field label="Address" value={addressLine || null} />
-        <Field label="Location" value={location || null} />
-        <Field label="Language" value={person.preferred_language} />
-        <Field label="Pronouns" value={person.pronouns} />
+        <Field label={t(locale, 'address_label')} value={addressLine || null} />
+        <Field label={t(locale, 'location')} value={location || null} />
+        <Field label={t(locale, 'language')} value={person.preferred_language} />
+        <Field label={t(locale, 'pronouns')} value={person.pronouns} />
       </section>
 
       {/* Organisation memberships — platform-owned contact-graph edges
           per brief §2. Shows current + historical positions. */}
       <section className="mt-14">
-        <SectionLabel>Organisations</SectionLabel>
+        <SectionLabel>{t(locale, 'nav_organisations')}</SectionLabel>
         {memberships.org_memberships.length === 0 ? (
           <div className="mt-4">
-            <EmptyState>No organisations linked yet.</EmptyState>
+            <EmptyState>{t(locale, 'no_orgs_linked')}</EmptyState>
           </div>
         ) : (
           <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
@@ -119,7 +122,7 @@ export default async function ContactOverview({
               const ended = !!m.ended_at;
               const dateRange = [
                 m.started_at && new Date(m.started_at).getFullYear(),
-                m.ended_at ? new Date(m.ended_at).getFullYear() : 'present',
+                m.ended_at ? new Date(m.ended_at).getFullYear() : t(locale, 'present'),
               ]
                 .filter(Boolean)
                 .join(' – ');
@@ -137,10 +140,10 @@ export default async function ContactOverview({
                             {m.organisation.name}
                           </Link>
                         ) : (
-                          <span className="font-medium">Unknown org</span>
+                          <span className="font-medium">{t(locale, 'unknown_org')}</span>
                         )}
-                        {m.is_primary && <Chip>Primary</Chip>}
-                        {ended && <Chip tone="muted">Ended</Chip>}
+                        {m.is_primary && <Chip>{t(locale, 'primary')}</Chip>}
+                        {ended && <Chip tone="muted">{t(locale, 'ended')}</Chip>}
                       </div>
                       <div className="mt-1 text-xs text-ink-muted">
                         {[m.title, m.department, m.seniority_level].filter(Boolean).join(' · ') || '—'}
@@ -155,13 +158,13 @@ export default async function ContactOverview({
                         <div className="mt-2 flex flex-wrap gap-1.5">
                           {m.is_decision_maker && (
                             <Chip>
-                              <Crown className="h-3 w-3" /> Decision maker
+                              <Crown className="h-3 w-3" /> {t(locale, 'decision_maker')}
                             </Chip>
                           )}
-                          {m.is_budget_holder && <Chip>Budget holder</Chip>}
+                          {m.is_budget_holder && <Chip>{t(locale, 'budget_holder')}</Chip>}
                           {m.is_champion && (
                             <Chip>
-                              <Star className="h-3 w-3" /> Champion
+                              <Star className="h-3 w-3" /> {t(locale, 'champion')}
                             </Chip>
                           )}
                         </div>
@@ -180,22 +183,27 @@ export default async function ContactOverview({
           memberships are platform-owned. */}
       {memberships.has_account && memberships.workspace_member && (
         <section className="mt-14">
-          <SectionLabel>Workspace access</SectionLabel>
+          <SectionLabel>{t(locale, 'workspace_access')}</SectionLabel>
           <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-5 text-sm">
             <Field
-              label="Workspace"
+              label={t(locale, 'nav_workspace')}
               value={memberships.workspace_member.workspace?.name ?? null}
             />
-            <Field label="Role" value={memberships.workspace_member.workspace_role} />
+            <Field label={t(locale, 'role')} value={memberships.workspace_member.workspace_role} />
             <Field
-              label="Relationship"
-              value={memberships.workspace_member.relationship_type}
+              label={t(locale, 'relationship')}
+              value={t(
+                locale,
+                memberships.workspace_member.relationship_type === 'internal'
+                  ? 'internal'
+                  : 'external',
+              )}
             />
           </div>
           {memberships.app_memberships.length > 0 && (
             <div className="mt-6">
               <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-                Apps they have access to
+                {t(locale, 'apps_access_to')}
               </div>
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {memberships.app_memberships.map((am) => (
@@ -216,16 +224,16 @@ export default async function ContactOverview({
       )}
 
       <section className="mt-14">
-        <SectionLabel>Timeline</SectionLabel>
+        <SectionLabel>{t(locale, 'timeline')}</SectionLabel>
         {activities.length === 0 ? (
-          <EmptyState>No activity yet. Events written by apps will appear here.</EmptyState>
+          <EmptyState>{t(locale, 'no_activity_yet')}</EmptyState>
         ) : (
           <ol className="mt-4 border-l border-line pl-6 space-y-6">
             {activities.map((a) => (
               <li key={a.id} className="relative">
                 <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink" />
                 <div className="text-xs uppercase tracking-wider text-ink-muted">
-                  {new Date(a.occurred_at).toLocaleString('en-GB', {
+                  {new Date(a.occurred_at).toLocaleString(INTL_LOCALES[locale], {
                     dateStyle: 'medium',
                     timeStyle: 'short',
                   })}

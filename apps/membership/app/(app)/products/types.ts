@@ -3,12 +3,8 @@
 export const LINK_KINDS = ['thread', 'meet', 'circle_space', 'url'] as const;
 export type LinkKind = (typeof LINK_KINDS)[number];
 
-export const LINK_KIND_LABELS: Record<LinkKind, string> = {
-  thread: 'Thread',
-  meet: 'Meet',
-  circle_space: 'Circle space',
-  url: 'URL',
-};
+// Link-kind display labels moved into lib/i18n-ui.ts (link_kind_* keys) —
+// UI renders them per locale, so no English map lives here any more.
 
 export type ProductLink = {
   kind: LinkKind;

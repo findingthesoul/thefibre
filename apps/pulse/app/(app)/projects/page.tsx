@@ -1,10 +1,12 @@
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
 import { ProjectsView } from './projects-view';
 import type { InvolvedTeam, Project } from './types';
 
 export const metadata = { title: 'Teams & projects · Pulse' };
 
 export default async function ProjectsPage() {
+  const locale = await uiLocale();
   let teams: InvolvedTeam[] = [];
   let projects: Project[] = [];
   try {
@@ -20,7 +22,7 @@ export default async function ProjectsPage() {
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <ProjectsView teams={teams} projects={projects} />
+      <ProjectsView teams={teams} projects={projects} locale={locale} />
     </div>
   );
 }

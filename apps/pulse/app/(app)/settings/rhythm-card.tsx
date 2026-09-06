@@ -6,35 +6,71 @@ import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { updatePulseSettings } from './actions';
 import { CURRENCY_OPTIONS } from '@/lib/currencies';
-import { ERROR_CLS, INPUT_CLS, MONTH_NAMES, type PulseSettings } from './shared';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
+import { ERROR_CLS, INPUT_CLS, type PulseSettings } from './shared';
 
-export function RhythmCard({ settings }: { settings: PulseSettings }) {
+// Localized month names (1–12) and ISO weekday names (1=Mon … 7=Sun) via
+// Intl — no 19 extra catalog keys for what the platform already knows.
+function monthNames(locale: Locale): string[] {
+  const fmt = new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: 'long', timeZone: 'UTC' });
+  return Array.from({ length: 12 }, (_, i) =>
+    fmt.format(new Date(Date.UTC(2026, i, 1))),
+  );
+}
+function weekdayNames(locale: Locale): string[] {
+  const fmt = new Intl.DateTimeFormat(INTL_LOCALES[locale], { weekday: 'long', timeZone: 'UTC' });
+  // 2026-06-01 is a Monday.
+  return Array.from({ length: 7 }, (_, i) =>
+    fmt.format(new Date(Date.UTC(2026, 5, 1 + i))),
+  );
+}
+
+function granLabel(locale: Locale, value: string | undefined): string {
+  if (value === 'week') return t(locale, 'gran_week_lc');
+  if (value === 'month') return t(locale, 'gran_month_lc');
+  if (value === 'fortnight') return t(locale, 'gran_fortnight_lc');
+  return value ?? '';
+}
+
+export function RhythmCard({ settings, locale }: { settings: PulseSettings; locale: Locale }) {
   const [open, setOpen] = useState(false);
+  const months = monthNames(locale);
+  const weekdays = weekdayNames(locale);
   return (
     <section className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card">
       <div className="px-5 py-3 border-b border-line flex items-center justify-between">
-        <span className="text-sm font-semibold tracking-tight">Time rhythm &amp; currency</span>
+        <span className="text-sm font-semibold tracking-tight">{t(locale, 'rhythm_title')}</span>
         <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>
-          Edit
+          {t(locale, 'edit')}
         </Button>
       </div>
       <dl className="px-5 py-4 grid gap-3 sm:grid-cols-2 text-sm">
-        <SettingRow label="Currency" value={settings?.currency ?? 'EUR (default)'} />
         <SettingRow
-          label="Granularity"
-          value={settings?.default_granularity ?? 'fortnight (default)'}
+          label={t(locale, 'currency')}
+          value={settings?.currency ?? t(locale, 'currency_default')}
         />
         <SettingRow
-          label="Fiscal year starts"
-          value={MONTH_NAMES[(settings?.fiscal_year_start_month ?? 1) - 1] ?? 'January'}
+          label={t(locale, 'granularity')}
+          value={
+            settings?.default_granularity
+              ? granLabel(locale, settings.default_granularity)
+              : t(locale, 'granularity_default')
+          }
         />
-        <SettingRow label="How far ahead" value={horizonLabel(settings?.horizon_months ?? 12)} />
         <SettingRow
-          label="First column on"
-          value={WEEKDAYS[(settings?.focus_weekday ?? 0) - 1] ?? 'Today'}
+          label={t(locale, 'fiscal_year_starts')}
+          value={months[(settings?.fiscal_year_start_month ?? 1) - 1] ?? months[0]}
+        />
+        <SettingRow
+          label={t(locale, 'how_far_ahead')}
+          value={horizonLabel(locale, settings?.horizon_months ?? 12)}
+        />
+        <SettingRow
+          label={t(locale, 'first_column_on')}
+          value={weekdays[(settings?.focus_weekday ?? 0) - 1] ?? t(locale, 'today_cap')}
         />
       </dl>
-      {open && <RhythmDialog settings={settings} onClose={() => setOpen(false)} />}
+      {open && <RhythmDialog settings={settings} locale={locale} onClose={() => setOpen(false)} />}
     </section>
   );
 }
@@ -42,29 +78,12 @@ export function RhythmCard({ settings }: { settings: PulseSettings }) {
 // Horizon presets — the projection looks this far ahead (Sjoerd 2026-07-08:
 // "how far — 2, 3, 6, 12 month, 2 year"). The grid anchor is internal now
 // (defaults to today; the workbook importer sets the payroll-aligned one).
-const HORIZONS = [
-  { months: 2, label: '2 months' },
-  { months: 3, label: '3 months' },
-  { months: 6, label: '6 months' },
-  { months: 12, label: '12 months' },
-  { months: 24, label: '2 years' },
-] as const;
+const HORIZON_MONTHS = [2, 3, 6, 12, 24] as const;
 
-function horizonLabel(months: number): string {
-  return HORIZONS.find((h) => h.months === months)?.label ?? `${months} months`;
+function horizonLabel(locale: Locale, months: number): string {
+  if (months === 24) return t(locale, 'two_years');
+  return t(locale, 'n_months', { n: months });
 }
-
-// Focus date (Sjoerd 2026-07-09): the cashflow's first column lands on the
-// next such weekday instead of today. ISO order — 1=Monday … 7=Sunday.
-const WEEKDAYS = [
-  'Monday',
-  'Tuesday',
-  'Wednesday',
-  'Thursday',
-  'Friday',
-  'Saturday',
-  'Sunday',
-];
 
 function SettingRow({ label, value }: { label: string; value: string }) {
   return (
@@ -75,7 +94,15 @@ function SettingRow({ label, value }: { label: string; value: string }) {
   );
 }
 
-function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose: () => void }) {
+function RhythmDialog({
+  settings,
+  locale,
+  onClose,
+}: {
+  settings: PulseSettings;
+  locale: Locale;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [currency, setCurrency] = useState(settings?.currency ?? 'EUR');
   const [granularity, setGranularity] = useState<'week' | 'fortnight' | 'month'>(
@@ -88,6 +115,8 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
   const [focusWeekday, setFocusWeekday] = useState(settings?.focus_weekday ?? 0);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const months = monthNames(locale);
+  const weekdays = weekdayNames(locale);
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
@@ -114,14 +143,14 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
     <Dialog
       open
       onClose={onClose}
-      title="Time rhythm & currency"
+      title={t(locale, 'rhythm_title')}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="rhythm-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
@@ -129,7 +158,7 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
       <form id="rhythm-form" onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Currency</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'currency')}</label>
             <select
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
@@ -146,27 +175,29 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Granularity</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'granularity')}</label>
             <select
               value={granularity}
               onChange={(e) => setGranularity(e.target.value as 'week' | 'fortnight' | 'month')}
               className={INPUT_CLS}
             >
-              <option value="week">Week</option>
-              <option value="fortnight">Fortnight</option>
-              <option value="month">Month</option>
+              <option value="week">{t(locale, 'gran_week')}</option>
+              <option value="fortnight">{t(locale, 'gran_fortnight')}</option>
+              <option value="month">{t(locale, 'gran_month')}</option>
             </select>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Fiscal year starts</label>
+            <label className="block text-sm font-medium mb-1">
+              {t(locale, 'fiscal_year_starts')}
+            </label>
             <select
               value={fiscalMonth}
               onChange={(e) => setFiscalMonth(parseInt(e.target.value, 10))}
               className={INPUT_CLS}
             >
-              {MONTH_NAMES.map((m, i) => (
+              {months.map((m, i) => (
                 <option key={m} value={i + 1}>
                   {m}
                 </option>
@@ -174,41 +205,39 @@ function RhythmDialog({ settings, onClose }: { settings: PulseSettings; onClose:
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">How far ahead</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'how_far_ahead')}</label>
             <select
               value={horizon}
               onChange={(e) => setHorizon(parseInt(e.target.value, 10))}
               className={INPUT_CLS}
             >
-              {HORIZONS.map((h) => (
-                <option key={h.months} value={h.months}>
-                  {h.label}
+              {HORIZON_MONTHS.map((m) => (
+                <option key={m} value={m}>
+                  {horizonLabel(locale, m)}
                 </option>
               ))}
-              {!HORIZONS.some((h) => h.months === horizon) && (
-                <option value={horizon}>{horizon} months</option>
+              {!HORIZON_MONTHS.some((m) => m === horizon) && (
+                <option value={horizon}>{t(locale, 'n_months', { n: horizon })}</option>
               )}
             </select>
           </div>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium mb-1">First column on</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'first_column_on')}</label>
             <select
               value={focusWeekday}
               onChange={(e) => setFocusWeekday(parseInt(e.target.value, 10))}
               className={INPUT_CLS}
             >
-              <option value={0}>Today</option>
-              {WEEKDAYS.map((d, i) => (
+              <option value={0}>{t(locale, 'today_cap')}</option>
+              {weekdays.map((d, i) => (
                 <option key={d} value={i + 1}>
                   {d}
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-ink-muted">
-              The cashflow starts on the next such weekday instead of today.
-            </p>
+            <p className="mt-1 text-xs text-ink-muted">{t(locale, 'first_column_hint')}</p>
           </div>
         </div>
         {error && <div className={ERROR_CLS}>{error}</div>}

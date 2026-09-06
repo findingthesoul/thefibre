@@ -49,6 +49,7 @@ import {
 } from './actions';
 import { Combobox, type ComboCreateResult } from './combobox';
 import { toastError } from './toast';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
   personName,
   teamName,
@@ -94,10 +95,10 @@ function CompactDateField({
 }
 
 // "Wed 8 Jul 2026" — the read-only Invoice date display (matches DateField).
-function fmtDateDisplay(iso: string): string {
+function fmtDateDisplay(intlLocale: string, iso: string): string {
   const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso);
   if (!m) return iso;
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(intlLocale, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -121,13 +122,10 @@ function todayIso(): string {
 }
 
 type RepeatCadence = 'weekly' | 'fortnightly' | 'monthly' | 'quarterly' | 'yearly';
-const CADENCES: { value: RepeatCadence; label: string }[] = [
-  { value: 'weekly', label: 'Weekly' },
-  { value: 'fortnightly', label: 'Fortnightly' },
-  { value: 'monthly', label: 'Monthly' },
-  { value: 'quarterly', label: 'Quarterly' },
-  { value: 'yearly', label: 'Yearly' },
-];
+const CADENCES: RepeatCadence[] = ['weekly', 'fortnightly', 'monthly', 'quarterly', 'yearly'];
+function cadenceLabel(locale: Locale, c: RepeatCadence): string {
+  return t(locale, `cadence_${c}_cap` as 'cadence_weekly_cap');
+}
 
 type Row = {
   key: number;
@@ -170,8 +168,10 @@ export function OpportunityDialog({
   currentUserId,
   scope,
   scopeTeamId,
+  locale,
   onClose,
 }: {
+  locale: Locale;
   commitment: Commitment | null; // null = new
   initialDirection?: 'in' | 'out';
   // Counterparty preselect for NEW items — the org popup's + Add passes the
@@ -384,7 +384,7 @@ export function OpportunityDialog({
   const effProb = direction === 'out' ? 100 : probabilityLocked ? 100 : probability;
 
   const orgOptions = orgs.map((o) => ({ id: o.id, label: o.name }));
-  const selectedOrgName = orgs.find((o) => o.id === orgId)?.name ?? 'this company';
+  const selectedOrgName = orgs.find((o) => o.id === orgId)?.name ?? t(locale, 'organisation');
   // With a company selected: ONLY its people (Sjoerd 2026-07-09) — plus the
   // already-selected person if they're not linked, so the input keeps their
   // name. "Add person…" (below) covers existing contacts + create-new.
@@ -393,16 +393,24 @@ export function OpportunityDialog({
     ? [
         ...orgMembers!.map((p) => ({
           id: p.id,
-          label: personName(p),
-          sublabel: `at ${selectedOrgName}`,
+          label: personName(p, t(locale, 'unnamed')),
+          sublabel: t(locale, 'at_org', { org: selectedOrgName }),
         })),
         ...(personId && !orgMembers!.some((m) => m.id === personId)
           ? persons
               .filter((p) => p.id === personId)
-              .map((p) => ({ id: p.id, label: personName(p), sublabel: 'not linked' }))
+              .map((p) => ({
+                id: p.id,
+                label: personName(p, t(locale, 'unnamed')),
+                sublabel: t(locale, 'not_linked_lc'),
+              }))
           : []),
       ]
-    : persons.map((p) => ({ id: p.id, label: personName(p), sublabel: p.email }));
+    : persons.map((p) => ({
+        id: p.id,
+        label: personName(p, t(locale, 'unnamed')),
+        sublabel: p.email,
+      }));
 
   const pendingPerson = linkPrompt
     ? [...(orgMembers ?? []), ...persons].find((p) => p.id === linkPrompt) ?? null
@@ -434,13 +442,13 @@ export function OpportunityDialog({
     setLinkBusy(false);
     if (res.error) {
       // Server failure → toast (validation stays inline).
-      toastError(`Could not link the person to ${selectedOrgName}: ${res.error}`);
+      toastError(t(locale, 'could_not_link', { org: selectedOrgName, error: res.error }));
       return;
     }
     memberIdsRef.current?.add(id);
     const p = persons.find((x) => x.id === id);
     if (p) setOrgMembers((ms) => (ms ? [...ms, p] : ms));
-    setLinkNote({ personId: id, text: `linked to ${selectedOrgName}` });
+    setLinkNote({ personId: id, text: t(locale, 'linked_to', { org: selectedOrgName }) });
     setLinkPrompt(null);
     setPersonId(id);
   }
@@ -453,7 +461,7 @@ export function OpportunityDialog({
 
   async function handleCreateOrg(query: string): Promise<ComboCreateResult> {
     const res = await createOrganisation(query.trim());
-    if (res.error || !res.data) return { error: res.error ?? 'unknown error' };
+    if (res.error || !res.data) return { error: res.error ?? t(locale, 'unknown_error') };
     const created = res.data;
     setOrgs((os) => [...os, { id: created.id, name: created.name }]);
     return { option: { id: created.id, label: created.name } };
@@ -462,10 +470,10 @@ export function OpportunityDialog({
   async function handleCreatePerson(query: string, email?: string): Promise<ComboCreateResult> {
     const mail = (email ?? '').trim();
     if (!/^\S+@\S+\.\S+$/.test(mail)) {
-      return { error: 'A valid email is required to create a person.' };
+      return { error: t(locale, 'valid_email_error') };
     }
     const res = await createPerson({ query, email: mail });
-    if (res.error || !res.data) return { error: res.error ?? 'unknown error' };
+    if (res.error || !res.data) return { error: res.error ?? t(locale, 'unknown_error') };
     const created = res.data;
     setPersons((ps) => [...ps, created]);
     // Creating a person WHILE a company is selected: the intent is explicit —
@@ -475,15 +483,21 @@ export function OpportunityDialog({
       if (linked.error) {
         setLinkNote({
           personId: created.id,
-          text: `Created, but could not link to ${selectedOrgName}: ${linked.error}`,
+          text: t(locale, 'created_not_linked', { org: selectedOrgName, error: linked.error }),
         });
       } else {
         memberIdsRef.current?.add(created.id);
         setOrgMembers((ms) => (ms ? [...ms, created] : ms));
-        setLinkNote({ personId: created.id, text: `linked to ${selectedOrgName}` });
+        setLinkNote({ personId: created.id, text: t(locale, 'linked_to', { org: selectedOrgName }) });
       }
     }
-    return { option: { id: created.id, label: personName(created), sublabel: created.email } };
+    return {
+      option: {
+        id: created.id,
+        label: personName(created, t(locale, 'unnamed')),
+        sublabel: created.email,
+      },
+    };
   }
 
   // ---- totals ---------------------------------------------------------------
@@ -511,42 +525,44 @@ export function OpportunityDialog({
 
   // Involved teams are preferred; when none are marked yet the select falls
   // back to ALL active workspace teams so it's never empty.
-  const involvedTeamOptions = pickers.teams.map((t) => ({
-    value: t.team_id,
-    label: teamName(t.team),
+  const involvedTeamOptions = pickers.teams.map((row) => ({
+    value: row.team_id,
+    label: teamName(row.team, t(locale, 'unnamed_team')),
   }));
   const showingAllTeams = involvedTeamOptions.length === 0;
   const teamOptions = showingAllTeams
-    ? pickers.allTeams.filter((t) => t.is_active).map((t) => ({ value: t.id, label: t.name }))
+    ? pickers.allTeams
+        .filter((row) => row.is_active)
+        .map((row) => ({ value: row.id, label: row.name }))
     : involvedTeamOptions;
   // Editing a commitment whose team isn't in the list (not involved / now
   // inactive): keep it selectable rather than silently blanking the select.
-  if (teamId && !teamOptions.some((t) => t.value === teamId)) {
+  if (teamId && !teamOptions.some((row) => row.value === teamId)) {
     teamOptions.push({
       value: teamId,
-      label: pickers.allTeams.find((t) => t.id === teamId)?.name ?? 'Current team',
+      label: pickers.allTeams.find((row) => row.id === teamId)?.name ?? t(locale, 'current_team'),
     });
   }
 
   // A team's display name — involved list first, then all workspace teams.
   function teamLabelFor(id: string): string {
-    const inv = pickers.teams.find((t) => t.team_id === id);
-    if (inv) return teamName(inv.team);
-    return pickers.allTeams.find((t) => t.id === id)?.name ?? 'Team';
+    const inv = pickers.teams.find((row) => row.team_id === id);
+    if (inv) return teamName(inv.team, t(locale, 'unnamed_team'));
+    return pickers.allTeams.find((row) => row.id === id)?.name ?? t(locale, 'team');
   }
 
   // The cashflow this item BELONGS to — the stored stamp on edit, the active
   // tab on create. Shown as a muted header chip when NOT workspace.
   const cashflowChip = commitment
     ? commitment.personal
-      ? 'Personal cashflow'
+      ? t(locale, 'personal_cashflow')
       : commitment.team_id
-        ? `${teamLabelFor(commitment.team_id)} cashflow`
+        ? t(locale, 'team_cashflow', { team: teamLabelFor(commitment.team_id) })
         : null
     : scope === 'me'
-      ? 'Personal cashflow'
+      ? t(locale, 'personal_cashflow')
       : scope === 'team' && scopeTeamId
-        ? `${teamLabelFor(scopeTeamId)} cashflow`
+        ? t(locale, 'team_cashflow', { team: teamLabelFor(scopeTeamId) })
         : null;
 
   const teamProjects = teamId ? pickers.projects.filter((p) => p.team_id === teamId) : [];
@@ -591,7 +607,7 @@ export function OpportunityDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!label.trim()) {
-      toastError('Name is required.');
+      toastError(t(locale, 'name_required'));
       return;
     }
 
@@ -606,7 +622,7 @@ export function OpportunityDialog({
         const q = parseFloat(r.quantity.trim().replace(',', '.'));
         const unit = toCents(r.unitAmount);
         if (!r.name.trim() || unit == null || !Number.isFinite(q) || q <= 0) {
-          toastError('Each offering row needs a name, a positive quantity and a price.');
+          toastError(t(locale, 'row_fields_error'));
           return;
         }
         // Persist the per-row date only while the date column is live (2+
@@ -651,7 +667,7 @@ export function OpportunityDialog({
     const dealCents =
       Number.isFinite(qNum) && qNum > 0 && unitCents != null ? Math.round(qNum * unitCents) : 0;
     if (repeating && dealCents <= 0) {
-      toastError('A repeating item needs a positive deal size (quantity × unit price).');
+      toastError(t(locale, 'repeating_deal_error'));
       return;
     }
 
@@ -782,7 +798,7 @@ export function OpportunityDialog({
     });
     if (res.error) {
       // Server/API failure → toast (inline stays for field validation).
-      toastError(`Could not save: ${res.error}`);
+      toastError(t(locale, 'could_not_save', { error: res.error }));
       setBusy(false);
       return;
     }
@@ -796,7 +812,7 @@ export function OpportunityDialog({
     setError(null);
     const res = await duplicateCommitment(commitment.id);
     if (res.error) {
-      toastError(`Could not duplicate: ${res.error}`);
+      toastError(t(locale, 'could_not_duplicate', { error: res.error }));
       setBusy(false);
       return;
     }
@@ -814,7 +830,7 @@ export function OpportunityDialog({
     setError(null);
     const res = await deleteCommitment(commitment.id);
     if (res.error) {
-      toastError(`Could not delete: ${res.error}`);
+      toastError(t(locale, 'could_not_delete', { error: res.error }));
       setBusy(false);
       setConfirmDelete(false);
       return;
@@ -854,11 +870,11 @@ export function OpportunityDialog({
         <span className="flex items-center gap-2">
           {direction === 'out'
             ? commitment
-              ? 'Edit cost'
-              : 'New cost'
+              ? t(locale, 'edit_cost')
+              : t(locale, 'new_cost')
             : commitment
-              ? 'Edit income'
-              : 'New income'}
+              ? t(locale, 'edit_income')
+              : t(locale, 'new_income')}
           {cashflowChip && (
             <span className="rounded-full bg-surface-sunken px-2 py-px text-xs font-medium text-ink-muted ring-1 ring-line">
               {cashflowChip}
@@ -877,7 +893,7 @@ export function OpportunityDialog({
                 disabled={busy}
                 onClick={handleDelete}
               >
-                {confirmDelete ? 'Really delete?' : 'Delete'}
+                {confirmDelete ? t(locale, 'really_delete_q') : t(locale, 'delete')}
               </Button>
               {/* Duplicate → a fresh independent copy of this offer (Sjoerd
                   2026-07-15). Fibre dialog contract: Delete·Duplicate left. */}
@@ -888,15 +904,15 @@ export function OpportunityDialog({
                 disabled={busy}
                 onClick={handleDuplicate}
               >
-                Duplicate
+                {t(locale, 'duplicate')}
               </Button>
             </>
           )}
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="opportunity-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save'}
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
@@ -913,46 +929,55 @@ export function OpportunityDialog({
           <div className="flex items-start gap-4">
             <div className="grid min-w-0 flex-1 grid-cols-2 gap-3">
               <div>
-                <label className={LABEL}>Organisation</label>
+                <label className={LABEL}>{t(locale, 'organisation')}</label>
                 <Combobox
                   value={orgId}
                   options={orgOptions}
-                  placeholder="No counterparty yet"
-                  emptyLabel="No counterparty yet"
+                  placeholder={t(locale, 'no_counterparty_yet')}
+                  emptyLabel={t(locale, 'no_counterparty_yet')}
+                  locale={locale}
                   onSelect={setOrgId}
                   onCreate={handleCreateOrg}
                 />
               </div>
               <div>
-                <label className={LABEL}>Person</label>
+                <label className={LABEL}>{t(locale, 'person')}</label>
                 <Combobox
                   value={personId}
                   options={personOptions}
-                  placeholder="No counterparty yet"
-                  emptyLabel="No counterparty yet"
+                  placeholder={t(locale, 'no_counterparty_yet')}
+                  emptyLabel={t(locale, 'no_counterparty_yet')}
+                  locale={locale}
                   onSelect={handleSelectPerson}
                   onCreate={strictMode ? undefined : handleCreatePerson}
                   createExtraField={
-                    strictMode ? undefined : { label: 'Email', placeholder: 'name@example.com' }
+                    strictMode
+                      ? undefined
+                      : { label: t(locale, 'email'), placeholder: 'name@example.com' }
                   }
                   actionItem={
                     strictMode
-                      ? { label: 'Add person…', onPick: () => setAddPersonOpen(true) }
+                      ? { label: t(locale, 'add_person_action'), onPick: () => setAddPersonOpen(true) }
                       : undefined
                   }
                 />
                 {membersLoading && (
-                  <p className="mt-1 text-xs text-ink-muted">Loading company people…</p>
+                  <p className="mt-1 text-xs text-ink-muted">
+                    {t(locale, 'loading_company_people')}
+                  </p>
                 )}
                 {linkNote && <p className="mt-1 text-xs text-ink-muted">{linkNote.text}</p>}
                 {linkPrompt && (
                   <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     <p>
                       <span className="font-medium">
-                        {pendingPerson ? personName(pendingPerson) : 'This person'}
+                        {pendingPerson
+                          ? personName(pendingPerson, t(locale, 'unnamed'))
+                          : t(locale, 'this_person')}
                       </span>{' '}
-                      isn&apos;t linked to <span className="font-medium">{selectedOrgName}</span>{' '}
-                      yet. Link them?
+                      {t(locale, 'link_q_1')}{' '}
+                      <span className="font-medium">{selectedOrgName}</span>{' '}
+                      {t(locale, 'link_q_2')}
                     </p>
                     <div className="mt-1.5 flex items-center gap-2">
                       <button
@@ -961,7 +986,7 @@ export function OpportunityDialog({
                         disabled={linkBusy}
                         className="rounded-md bg-ink px-2 py-1 text-xs font-medium text-ink-inverse disabled:opacity-60"
                       >
-                        {linkBusy ? 'Linking…' : 'Link & select'}
+                        {linkBusy ? t(locale, 'linking') : t(locale, 'link_select')}
                       </button>
                       <button
                         type="button"
@@ -969,7 +994,7 @@ export function OpportunityDialog({
                         disabled={linkBusy}
                         className="rounded-md px-2 py-1 text-xs text-amber-800 underline underline-offset-2 hover:text-amber-900"
                       >
-                        Select without linking
+                        {t(locale, 'select_without_linking')}
                       </button>
                     </div>
                   </div>
@@ -981,13 +1006,13 @@ export function OpportunityDialog({
                 line + mb-1); h-8 buttons in a p-0.5 ring = the h-9 rhythm. */}
             <div
               role="group"
-              aria-label="Income or cost"
+              aria-label={t(locale, 'income_or_cost_aria')}
               className="mt-5 flex shrink-0 items-center gap-0.5 rounded-md bg-surface-raised p-0.5 ring-1 ring-line"
             >
               <button
                 type="button"
-                title="Income"
-                aria-label="Income"
+                title={t(locale, 'income_one')}
+                aria-label={t(locale, 'income_one')}
                 aria-pressed={direction === 'in'}
                 onClick={() => setDirection('in')}
                 className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors ${
@@ -1000,8 +1025,8 @@ export function OpportunityDialog({
               </button>
               <button
                 type="button"
-                title="Cost"
-                aria-label="Cost"
+                title={t(locale, 'cost')}
+                aria-label={t(locale, 'cost')}
                 aria-pressed={direction === 'out'}
                 onClick={() => setDirection('out')}
                 className={`inline-flex h-8 w-8 items-center justify-center rounded transition-colors ${
@@ -1031,13 +1056,13 @@ export function OpportunityDialog({
             ) : (
               <ChevronRight size={13} strokeWidth={2} />
             )}
-            More
+            {t(locale, 'more')}
           </button>
           {detailsOpen && (
             <div className="mt-2 space-y-3">
               <div className="grid grid-cols-3 gap-3">
                 <div>
-                  <label className={LABEL}>Project</label>
+                  <label className={LABEL}>{t(locale, 'project')}</label>
                   <select
                     value={projectId}
                     onChange={(e) => {
@@ -1053,7 +1078,7 @@ export function OpportunityDialog({
                     <option value="">—</option>
                     {teamId ? (
                       <>
-                        <optgroup label="Team projects">
+                        <optgroup label={t(locale, 'team_projects')}>
                           {teamProjects.map((p) => (
                             <option key={p.id} value={p.id}>
                               {p.name}
@@ -1061,7 +1086,7 @@ export function OpportunityDialog({
                           ))}
                         </optgroup>
                         {otherProjects.length > 0 && (
-                          <optgroup label="Other projects">
+                          <optgroup label={t(locale, 'other_projects')}>
                             {otherProjects.map((p) => (
                               <option key={p.id} value={p.id}>
                                 {p.name}
@@ -1080,13 +1105,15 @@ export function OpportunityDialog({
                   </select>
                 </div>
                 <div>
-                  <label className={LABEL}>Owner</label>
+                  <label className={LABEL}>{t(locale, 'owner')}</label>
                   <select
                     value={ownerId}
                     onChange={(e) => setOwnerId(e.target.value)}
                     className={INPUT}
                   >
-                    <option value="">{commitment ? 'Unchanged' : 'Me'}</option>
+                    <option value="">
+                      {commitment ? t(locale, 'unchanged') : t(locale, 'me')}
+                    </option>
                     {pickers.members.map((m) => (
                       <option key={m.user_id} value={m.user_id}>
                         {m.full_name ?? m.email ?? m.user_id}
@@ -1095,7 +1122,7 @@ export function OpportunityDialog({
                   </select>
                 </div>
                 <div>
-                  <label className={LABEL}>Team</label>
+                  <label className={LABEL}>{t(locale, 'team')}</label>
                   {teamLocked ? (
                     /* Creating from a team tab: the item belongs to that
                        team's cashflow — no select, just the fact. */
@@ -1104,7 +1131,7 @@ export function OpportunityDialog({
                         {teamLabelFor(scopeTeamId!)}
                       </div>
                       <p className="mt-1 text-xs text-ink-muted">
-                        This item belongs to the {teamLabelFor(scopeTeamId!)} cashflow.
+                        {t(locale, 'belongs_team_cashflow', { team: teamLabelFor(scopeTeamId!) })}
                       </p>
                     </>
                   ) : (
@@ -1115,15 +1142,15 @@ export function OpportunityDialog({
                         className={INPUT}
                       >
                         <option value="">—</option>
-                        {teamOptions.map((t) => (
-                          <option key={t.value} value={t.value}>
-                            {t.label}
+                        {teamOptions.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
                           </option>
                         ))}
                       </select>
                       {showingAllTeams && teamOptions.length > 0 && (
                         <p className="mt-1 text-xs text-ink-muted">
-                          Showing all teams — pick the involved teams in Settings → Planner to scope this list.
+                          {t(locale, 'showing_all_teams')}
                         </p>
                       )}
                     </>
@@ -1133,14 +1160,14 @@ export function OpportunityDialog({
               <div>
                 <div className="mb-1 flex items-center gap-1.5">
                   <span className="text-xs font-medium uppercase tracking-wide text-ink-muted">
-                    Offer / quotation link
+                    {t(locale, 'offer_link')}
                   </span>
                   {/^https?:\/\//.test(quoteUrl.trim()) && (
                     <a
                       href={quoteUrl.trim()}
                       target="_blank"
                       rel="noreferrer"
-                      title="Open the offer"
+                      title={t(locale, 'open_offer_title')}
                       className="text-ink-subtle hover:text-ink"
                     >
                       <ExternalLink size={12} strokeWidth={2} />
@@ -1165,18 +1192,18 @@ export function OpportunityDialog({
             instead; while (legacy) repeating there is no single date. */}
         <div className="flex items-end gap-3">
           <div className="min-w-0 flex-1">
-            <label className={LABEL}>Name</label>
+            <label className={LABEL}>{t(locale, 'name')}</label>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Website rebuild — phase 2"
+              placeholder={t(locale, 'name_ph_opportunity')}
               className={INPUT}
             />
           </div>
           {!repeating && !invoicedNo && (
             <CompactDateField
               className="w-40 shrink-0"
-              label="Expected date"
+              label={t(locale, 'expected_date')}
               name="expected_date"
               defaultValue={expectedDate}
               onValueChange={onExpectedDate}
@@ -1184,7 +1211,7 @@ export function OpportunityDialog({
           )}
           {direction === 'in' && (
             <div className="w-52 shrink-0">
-              <label className={LABEL}>Stage</label>
+              <label className={LABEL}>{t(locale, 'stage')}</label>
               <div className="flex items-center gap-1.5">
                 <select
                   value={stage}
@@ -1219,8 +1246,12 @@ export function OpportunityDialog({
                   max={100}
                   value={probabilityLocked ? 100 : probability}
                   disabled={probabilityLocked}
-                  aria-label="Probability %"
-                  title={probabilityLocked ? 'Committed money counts in full' : 'Probability %'}
+                  aria-label={t(locale, 'probability_aria')}
+                  title={
+                    probabilityLocked
+                      ? t(locale, 'committed_full_title')
+                      : t(locale, 'probability_aria')
+                  }
                   onChange={(e) => {
                     const n = parseInt(e.target.value, 10);
                     setProbability(Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 0);
@@ -1239,16 +1270,16 @@ export function OpportunityDialog({
         {!itemsMode && (
           <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className={LABEL}>Repeats</label>
+              <label className={LABEL}>{t(locale, 'repeats')}</label>
               <select
                 value={repeatCadence}
                 onChange={(e) => setRepeatCadence(e.target.value as RepeatCadence | '')}
                 className={INPUT}
               >
-                <option value="">Doesn&apos;t repeat</option>
+                <option value="">{t(locale, 'doesnt_repeat')}</option>
                 {CADENCES.map((c) => (
-                  <option key={c.value} value={c.value}>
-                    {c.label}
+                  <option key={c} value={c}>
+                    {cadenceLabel(locale, c)}
                   </option>
                 ))}
               </select>
@@ -1256,13 +1287,13 @@ export function OpportunityDialog({
             {repeating && (
               <>
                 <CompactDateField
-                  label="First on"
+                  label={t(locale, 'first_on')}
                   name="repeat_starts_on"
                   defaultValue={repeatStartsOn}
                   onValueChange={setRepeatStartsOn}
                 />
                 <CompactDateField
-                  label="Until (optional)"
+                  label={t(locale, 'until_optional')}
                   name="repeat_until"
                   defaultValue={repeatUntil}
                   onValueChange={setRepeatUntil}
@@ -1273,8 +1304,8 @@ export function OpportunityDialog({
         )}
         {direction === 'out' && (
           <p className="text-[11px] text-ink-muted">
-            Costs count in full — no pipeline stage.
-            {!itemsMode && ' For a repeating cost, set Repeats above.'}
+            {t(locale, 'costs_full_note')}
+            {!itemsMode && t(locale, 'costs_repeat_note')}
           </p>
         )}
 
@@ -1289,12 +1320,12 @@ export function OpportunityDialog({
               <div
                 className={`${itemGrid} bg-surface-sunken/50 py-1.5 text-[11px] font-medium uppercase tracking-wide text-ink-muted`}
               >
-                <span>Offering</span>
-                <span className="text-right">Qty</span>
-                <span className="text-right">Price €</span>
-                <span>Repeats</span>
-                {showRowDates && <span>Expected</span>}
-                <span className="text-right">Amount</span>
+                <span>{t(locale, 'th_offering')}</span>
+                <span className="text-right">{t(locale, 'th_qty')}</span>
+                <span className="text-right">{t(locale, 'th_price_eur')}</span>
+                <span>{t(locale, 'repeats')}</span>
+                {showRowDates && <span>{t(locale, 'th_expected')}</span>}
+                <span className="text-right">{t(locale, 'th_amount')}</span>
                 <span />
               </div>
               {itemRows.map((r) => {
@@ -1305,8 +1336,9 @@ export function OpportunityDialog({
                     <Combobox
                       value={r.offeringId}
                       options={pickers.offerings.map((o) => ({ id: o.id, label: o.name }))}
-                      placeholder="Offering or description"
+                      placeholder={t(locale, 'offering_or_desc_ph')}
                       freeLabel={r.name}
+                      locale={locale}
                       small
                       onSelect={(id) => {
                         const off = pickers.offerings.find((o) => o.id === id);
@@ -1334,7 +1366,7 @@ export function OpportunityDialog({
                       value={r.quantity}
                       onChange={(e) => patchItem(r.key, { quantity: e.target.value })}
                       inputMode="decimal"
-                      aria-label="Quantity"
+                      aria-label={t(locale, 'quantity')}
                       className={`${INPUT_SM} text-right tabular-nums`}
                     />
                     <input
@@ -1342,7 +1374,7 @@ export function OpportunityDialog({
                       onChange={(e) => patchItem(r.key, { unitAmount: e.target.value })}
                       placeholder="0,00"
                       inputMode="decimal"
-                      aria-label="Unit price"
+                      aria-label={t(locale, 'unit_price_eur')}
                       className={`${INPUT_SM} text-right tabular-nums`}
                     />
                     <select
@@ -1350,13 +1382,13 @@ export function OpportunityDialog({
                       onChange={(e) =>
                         patchItem(r.key, { repeat: e.target.value as RepeatCadence | '' })
                       }
-                      aria-label="Repeat"
+                      aria-label={t(locale, 'repeats')}
                       className={INPUT_SM}
                     >
                       <option value="">—</option>
                       {CADENCES.map((c) => (
-                        <option key={c.value} value={c.value}>
-                          {c.label}
+                        <option key={c} value={c}>
+                          {cadenceLabel(locale, c)}
                         </option>
                       ))}
                     </select>
@@ -1368,7 +1400,7 @@ export function OpportunityDialog({
                       (r.repeat ? (
                         <span
                           className="text-center text-xs text-ink-muted"
-                          title="Repeats — timed by its cadence"
+                          title={t(locale, 'repeats_by_cadence')}
                         >
                           —
                         </span>
@@ -1377,8 +1409,8 @@ export function OpportunityDialog({
                           type="date"
                           value={r.expectedDate}
                           onChange={(e) => patchItem(r.key, { expectedDate: e.target.value })}
-                          aria-label="Expected payment date for this row"
-                          title="When this payment is expected (blank = the offer's Expected date)"
+                          aria-label={t(locale, 'row_date_aria')}
+                          title={t(locale, 'row_date_title')}
                           className={`${INPUT_SM} tabular-nums`}
                         />
                       ))}
@@ -1396,7 +1428,7 @@ export function OpportunityDialog({
                     </div>
                     <button
                       type="button"
-                      aria-label="Remove offering row"
+                      aria-label={t(locale, 'remove_offering_row')}
                       onClick={() => setItemRows((rs) => rs.filter((x) => x.key !== r.key))}
                       className="inline-flex h-6 w-6 items-center justify-center rounded-md text-ink-muted hover:bg-surface-sunken hover:text-ink"
                     >
@@ -1412,7 +1444,7 @@ export function OpportunityDialog({
                 className="flex w-full items-center gap-1.5 px-7 py-2 text-left text-xs font-medium text-ink-subtle hover:bg-surface-sunken hover:text-ink"
               >
                 <Plus size={13} strokeWidth={2} />
-                add offering
+                {t(locale, 'add_offering_lc')}
               </button>
             </div>
           </div>
@@ -1421,7 +1453,7 @@ export function OpportunityDialog({
           <div className={`${BLEED} border-y border-line px-7 py-3`}>
             <div className="grid grid-cols-3 items-end gap-3">
               <div>
-                <label className={LABEL}>Quantity</label>
+                <label className={LABEL}>{t(locale, 'quantity')}</label>
                 <input
                   value={quantity}
                   onChange={(e) => setQuantity(e.target.value)}
@@ -1430,7 +1462,7 @@ export function OpportunityDialog({
                 />
               </div>
               <div>
-                <label className={LABEL}>Unit price €</label>
+                <label className={LABEL}>{t(locale, 'unit_price_eur')}</label>
                 <input
                   value={unitAmount}
                   onChange={(e) => setUnitAmount(e.target.value)}
@@ -1445,7 +1477,7 @@ export function OpportunityDialog({
                     = {money(legacyFull)}
                   </span>
                 ) : (
-                  <span className="text-xs text-ink-muted">= deal size</span>
+                  <span className="text-xs text-ink-muted">{t(locale, 'eq_deal_size')}</span>
                 )}
               </div>
             </div>
@@ -1465,7 +1497,7 @@ export function OpportunityDialog({
               }
               className="mt-2 text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
             >
-              + add offering
+              {t(locale, 'plus_add_offering')}
             </button>
           </div>
         )}
@@ -1476,22 +1508,23 @@ export function OpportunityDialog({
           <div className="w-72 max-w-full space-y-1 text-sm">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-ink-muted">
-                Weighted{direction === 'in' && effProb < 100 ? ` (${effProb}%)` : ''}
+                {t(locale, 'weighted')}
+                {direction === 'in' && effProb < 100 ? ` (${effProb}%)` : ''}
               </span>
               <span className="font-medium tabular-nums text-ink">{money(weightedTotal)}</span>
             </div>
             <div className="flex items-baseline justify-between gap-3">
-              <span className="text-ink-muted">Full price</span>
+              <span className="text-ink-muted">{t(locale, 'full_price')}</span>
               <span className="tabular-nums text-ink">{money(fullTotal)}</span>
             </div>
             <div className="flex items-center justify-between gap-3">
               <select
                 value={vatPct}
                 onChange={(e) => setVatPct(e.target.value)}
-                aria-label="VAT tariff"
+                aria-label={t(locale, 'vat_aria')}
                 className="h-9 rounded-md border border-line bg-surface-raised px-2 text-xs focus:outline-none focus:ring-2 focus:ring-neutral-300"
               >
-                <option value="">No VAT</option>
+                <option value="">{t(locale, 'no_vat')}</option>
                 {pickers.vatTariffs.map((t) => (
                   <option key={`${t.label}-${t.pct}`} value={String(t.pct)}>
                     {t.label}
@@ -1505,7 +1538,7 @@ export function OpportunityDialog({
             </div>
             <div className="flex items-baseline justify-between gap-3 border-t border-line pt-1.5">
               <span className="text-xs font-semibold uppercase tracking-wide text-ink">
-                Total incl VAT
+                {t(locale, 'total_incl_vat')}
               </span>
               <span className="text-base font-semibold tabular-nums text-ink">
                 {money(totalInclVat)}
@@ -1530,14 +1563,14 @@ export function OpportunityDialog({
             ) : (
               <ChevronRight size={14} strokeWidth={2} />
             )}
-            More options
+            {t(locale, 'more_options')}
           </button>
           {moreOpen && (
             <div className="mt-3 space-y-4">
               {!itemsMode && (
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className={LABEL}>Offering</label>
+                    <label className={LABEL}>{t(locale, 'offering')}</label>
                     <select
                       value={offeringId}
                       onChange={(e) => {
@@ -1577,9 +1610,10 @@ export function OpportunityDialog({
             {invoicedNo ? (
               <div className="flex items-end gap-3">
                 <div className="w-40 shrink-0">
-                  <label className={LABEL}>Invoice date</label>
+                  <label className={LABEL}>{t(locale, 'invoice_date')}</label>
                   <div className="flex h-9 items-center truncate rounded-md border border-line bg-surface-sunken px-3 text-sm text-ink">
                     {fmtDateDisplay(
+                      INTL_LOCALES[locale],
                       // Freshly transferred in this session → issued today.
                       commitment?.invoice_issued_at?.slice(0, 10) ?? todayIso(),
                     )}
@@ -1588,14 +1622,14 @@ export function OpportunityDialog({
                 {!repeating && (
                   <CompactDateField
                     className="w-40 shrink-0"
-                    label="Expected"
+                    label={t(locale, 'th_expected')}
                     name="expected_date"
                     defaultValue={expectedDate}
                     onValueChange={onExpectedDate}
                   />
                 )}
                 <span className="mb-2 ml-auto shrink-0 rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
-                  Invoice {invoicedNo}
+                  {t(locale, 'invoice_no', { no: invoicedNo })}
                 </span>
               </div>
             ) : (
@@ -1605,14 +1639,14 @@ export function OpportunityDialog({
                   variant="secondary"
                   className="w-full"
                   disabled={busy || !commitment}
-                  title={commitment ? undefined : 'Save first, then invoice'}
+                  title={commitment ? undefined : t(locale, 'save_first_hint')}
                   onClick={() => setInvoiceOpen(true)}
                 >
-                  Turn offering into an invoice
+                  {t(locale, 'turn_into_invoice')}
                 </Button>
                 {!commitment && (
                   <p className="mt-1 text-center text-xs text-ink-muted">
-                    Save first, then invoice.
+                    {t(locale, 'save_first_note')}
                   </p>
                 )}
               </>
@@ -1622,12 +1656,12 @@ export function OpportunityDialog({
 
         {/* NOTES — last before the footer (spec item 11). */}
         <div className="border-t border-line pt-3">
-          <label className={LABEL}>Notes</label>
+          <label className={LABEL}>{t(locale, 'notes')}</label>
           <textarea
             value={notes}
             onChange={(e) => setNotes(e.target.value)}
             rows={2}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional')}
             className={TEXTAREA}
           />
         </div>
@@ -1644,13 +1678,14 @@ export function OpportunityDialog({
         orgName={selectedOrgName}
         persons={persons}
         memberIds={memberIdsRef.current ?? new Set()}
+        locale={locale}
         onPickExisting={(id) => {
           setAddPersonOpen(false);
           handleSelectPerson(id); // non-members hit the link-confirm as usual
         }}
         onCreateNew={async (name, email) => {
           const res = await handleCreatePerson(name, email);
-          if (res.error || !res.option) return res.error ?? 'unknown error';
+          if (res.error || !res.option) return res.error ?? t(locale, 'unknown_error');
           setAddPersonOpen(false);
           setPersonId(res.option.id);
           return null;
@@ -1664,6 +1699,7 @@ export function OpportunityDialog({
         totalInclVat={totalInclVat}
         vatPct={vatNumber}
         counterpartyEmail={counterpartyEmail}
+        locale={locale}
         onInvoiced={(no) => {
           setInvoicedNo(no);
           router.refresh();
@@ -1683,6 +1719,7 @@ function AddPersonDialog({
   orgName,
   persons,
   memberIds,
+  locale,
   onPickExisting,
   onCreateNew,
   onClose,
@@ -1690,6 +1727,7 @@ function AddPersonDialog({
   orgName: string;
   persons: PersonOption[];
   memberIds: Set<string>;
+  locale: Locale;
   onPickExisting: (id: string) => void;
   onCreateNew: (name: string, email: string) => Promise<string | null>; // error | null
   onClose: () => void;
@@ -1713,33 +1751,33 @@ function AddPersonDialog({
 
   async function create() {
     if (!newName.trim()) {
-      setError('A name is required.'); // validation — stays inline
+      setError(t(locale, 'a_name_required')); // validation — stays inline
       return;
     }
     setBusy(true);
     setError(null);
     const err = await onCreateNew(newName.trim(), newEmail.trim());
     setBusy(false);
-    if (err) toastError(`Could not create the person: ${err}`); // server → toast
+    if (err) toastError(t(locale, 'could_not_create_person', { error: err })); // server → toast
   }
 
   return (
     <Dialog
       open
       onClose={onClose}
-      title="Add person"
-      description={<>Pick an existing contact or create a new one for {orgName}.</>}
+      title={t(locale, 'add_person')}
+      description={t(locale, 'add_person_desc', { org: orgName })}
       size="sm"
       footer={
         <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-          Cancel
+          {t(locale, 'cancel')}
         </Button>
       }
     >
       {creating ? (
         <div className="space-y-3">
           <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
             <input
               autoFocus
               value={newName}
@@ -1748,7 +1786,7 @@ function AddPersonDialog({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'email')}</label>
             <input
               value={newEmail}
               onChange={(e) => setNewEmail(e.target.value)}
@@ -1762,10 +1800,10 @@ function AddPersonDialog({
               onClick={() => setCreating(false)}
               className="text-xs text-ink-subtle underline underline-offset-2 hover:text-ink"
             >
-              ← back to search
+              {t(locale, 'back_to_search')}
             </button>
             <Button type="button" size="sm" disabled={busy} onClick={() => void create()}>
-              {busy ? 'Creating…' : `Create & link to ${orgName}`}
+              {busy ? t(locale, 'creating') : t(locale, 'create_link_to', { org: orgName })}
             </Button>
           </div>
           {error && (
@@ -1780,12 +1818,14 @@ function AddPersonDialog({
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search contacts…"
+            placeholder={t(locale, 'search_contacts_ph')}
             className={INPUT}
           />
           <ul className="max-h-56 overflow-y-auto divide-y divide-line/60">
             {matches.length === 0 && (
-              <li className="px-1 py-2 text-sm text-ink-muted">No matching contacts.</li>
+              <li className="px-1 py-2 text-sm text-ink-muted">
+                {t(locale, 'no_matching_contacts')}
+              </li>
             )}
             {matches.map((p) => (
               <li key={p.id}>
@@ -1794,9 +1834,13 @@ function AddPersonDialog({
                   onClick={() => onPickExisting(p.id)}
                   className="flex w-full items-center gap-2 px-1 py-2 text-left text-sm hover:bg-surface-sunken rounded-md"
                 >
-                  <span className="min-w-0 flex-1 truncate text-ink">{personName(p)}</span>
+                  <span className="min-w-0 flex-1 truncate text-ink">
+                    {personName(p, t(locale, 'unnamed'))}
+                  </span>
                   {memberIds.has(p.id) ? (
-                    <span className="shrink-0 text-xs text-ink-muted">at {orgName}</span>
+                    <span className="shrink-0 text-xs text-ink-muted">
+                      {t(locale, 'at_org', { org: orgName })}
+                    </span>
                   ) : (
                     p.email && <span className="shrink-0 text-xs text-ink-muted">{p.email}</span>
                   )}
@@ -1813,7 +1857,9 @@ function AddPersonDialog({
             }}
             className="w-full rounded-md border border-dashed border-line px-3 py-2 text-left text-sm font-medium text-ink-subtle hover:text-ink hover:bg-surface-sunken"
           >
-            + Create new person{query.trim() ? ` ‘${query.trim()}’` : ''}
+            {query.trim()
+              ? t(locale, 'create_new_person_q', { q: query.trim() })
+              : t(locale, 'create_new_person')}
           </button>
         </div>
       )}
@@ -1831,6 +1877,7 @@ function InvoiceDialog({
   totalInclVat,
   vatPct,
   counterpartyEmail,
+  locale,
   onInvoiced,
   onClose,
 }: {
@@ -1838,6 +1885,7 @@ function InvoiceDialog({
   totalInclVat: number;
   vatPct: number | null;
   counterpartyEmail: string | null;
+  locale: Locale;
   onInvoiced: (invoiceNo: string) => void;
   onClose: () => void;
 }) {
@@ -1854,7 +1902,11 @@ function InvoiceDialog({
     setBusy(false);
     if (res.error || !res.data) {
       // Server failure → toast (pops above this nested dialog).
-      toastError(`Could not create the invoice: ${res.error ?? 'unknown error'}`);
+      toastError(
+        t(locale, 'could_not_create_invoice', {
+          error: res.error ?? t(locale, 'unknown_error'),
+        }),
+      );
       return;
     }
     setResult(res.data);
@@ -1865,17 +1917,17 @@ function InvoiceDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Create invoice"
+      title={t(locale, 'create_invoice')}
       size="sm"
       footer={
         result ? (
           <Button type="button" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         ) : (
           <>
             <Button type="button" variant="secondary" onClick={onClose} disabled={!!busy}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button
               type="button"
@@ -1883,14 +1935,14 @@ function InvoiceDialog({
               disabled={!!busy}
               onClick={() => void run(false)}
             >
-              {busy === 'create' ? 'Creating…' : 'Create invoice'}
+              {busy === 'create' ? t(locale, 'creating') : t(locale, 'create_invoice')}
             </Button>
             <Button
               type="button"
               disabled={!!busy || !counterpartyEmail}
               onClick={() => void run(true)}
             >
-              {busy === 'send' ? 'Sending…' : 'Create & send'}
+              {busy === 'send' ? t(locale, 'sending') : t(locale, 'create_and_send')}
             </Button>
           </>
         )
@@ -1899,38 +1951,33 @@ function InvoiceDialog({
       {result ? (
         <div className="space-y-2 text-sm">
           <p>
-            Invoice{' '}
+            {t(locale, 'invoice_created_prefix')}{' '}
             <span className="rounded-full bg-sky-50 px-2 py-px text-xs font-medium text-sky-700 ring-1 ring-sky-200">
               {result.invoice_no}
             </span>{' '}
-            created.
+            {t(locale, 'invoice_created_suffix')}
           </p>
           <p className="text-ink-muted">
             {result.sent
-              ? `Sent to ${counterpartyEmail ?? 'the counterparty'}.`
-              : result.note ?? 'Saved — not sent.'}
+              ? t(locale, 'sent_to', {
+                  email: counterpartyEmail ?? t(locale, 'the_counterparty'),
+                })
+              : result.note ?? t(locale, 'saved_not_sent')}
           </p>
         </div>
       ) : (
         <div className="space-y-3 text-sm">
-          <p className="text-ink-muted">
-            The number is assigned from Settings → Planner → Invoicing (next in the sequence). This
-            transfers the opportunity to the invoices ledger and can&apos;t be undone here.
-          </p>
+          <p className="text-ink-muted">{t(locale, 'invoice_number_hint')}</p>
           <div className="flex items-center justify-between rounded-md bg-surface-sunken px-3 py-2">
             <span className="text-ink-muted">
-              Total incl VAT{vatPct != null ? ` (${vatPct}%)` : ''}
+              {t(locale, 'total_incl_vat')}
+              {vatPct != null ? ` (${vatPct}%)` : ''}
             </span>
             <span className="font-semibold tabular-nums">{money(totalInclVat)}</span>
           </div>
-          <p className="text-xs text-ink-muted">
-            Uses the saved opportunity — save your changes first if you edited anything.
-          </p>
+          <p className="text-xs text-ink-muted">{t(locale, 'uses_saved_hint')}</p>
           {!counterpartyEmail && (
-            <p className="text-xs text-amber-700">
-              No email on the contact person — &ldquo;Create &amp; send&rdquo; needs one; you can
-              still create the invoice and send it later from the Invoices area.
-            </p>
+            <p className="text-xs text-amber-700">{t(locale, 'no_email_warning')}</p>
           )}
         </div>
       )}

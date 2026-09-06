@@ -1,15 +1,18 @@
 import { PageContainer, Breadcrumb, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { NewPersonForm } from './form';
 
-export default function NewPersonPage() {
+export default async function NewPersonPage() {
+  const locale = await uiLocale();
   return (
     <PageContainer max="md">
-      <Breadcrumb href="/contacts" label="Contacts" />
+      <Breadcrumb href="/contacts" label={t(locale, 'nav_contacts')} />
       <PageHeader
-        title="Add person"
-        description="Adds a contact to your workspace. Identity is platform-owned — every app sees the same record."
+        title={t(locale, 'add_person')}
+        description={t(locale, 'add_person_blurb')}
       />
-      <NewPersonForm />
+      <NewPersonForm locale={locale} />
     </PageContainer>
   );
 }

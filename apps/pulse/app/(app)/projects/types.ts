@@ -14,7 +14,9 @@ export type Project = {
   notes: string | null;
 };
 
-export function teamName(t: InvolvedTeam['team']): string {
+// `fallback` = the localized "Unnamed team" (i18n P3) — callers pass
+// t(locale, 'unnamed_team'); the default keeps old call sites working.
+export function teamName(t: InvolvedTeam['team'], fallback = 'Unnamed team'): string {
   const one = Array.isArray(t) ? t[0] : t;
-  return one?.name ?? 'Unnamed team';
+  return one?.name ?? fallback;
 }

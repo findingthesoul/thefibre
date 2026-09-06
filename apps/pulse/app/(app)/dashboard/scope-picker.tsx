@@ -11,17 +11,20 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_CASHFLOW_SCOPE } from '@/lib/prefs-shared';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export function DashboardScopePicker({
   currentKey,
   teams,
   canWorkspace,
   workspaceName,
+  locale,
 }: {
   currentKey: string; // 'me' | `team:${id}` | 'workspace'
   teams: { id: string; name: string }[];
   canWorkspace: boolean;
   workspaceName: string | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -41,21 +44,21 @@ export function DashboardScopePicker({
 
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="text-ink-muted">Cashflow</span>
+      <span className="text-ink-muted">{t(locale, 'cashflow')}</span>
       <select
         value={currentKey}
         onChange={onChange}
         disabled={busy}
-        aria-label="Which cashflow to show"
+        aria-label={t(locale, 'which_cashflow_aria')}
         className="h-9 rounded-md border border-line bg-white px-2.5 text-sm font-medium text-ink focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-60"
       >
-        <option value="me">Me</option>
-        {teams.map((t) => (
-          <option key={t.id} value={`team:${t.id}`}>
-            {t.name}
+        <option value="me">{t(locale, 'me')}</option>
+        {teams.map((team) => (
+          <option key={team.id} value={`team:${team.id}`}>
+            {team.name}
           </option>
         ))}
-        {canWorkspace && <option value="workspace">{workspaceName || 'Workspace'}</option>}
+        {canWorkspace && <option value="workspace">{workspaceName || t(locale, 'workspace')}</option>}
       </select>
     </label>
   );

@@ -25,34 +25,37 @@ import {
 } from 'lucide-react';
 import { createSidebarShell, type SidebarNavSection } from '@thefibre/shared/ui/sidebar-shell';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n-ui';
 import type { SidebarMode } from '@/lib/prefs-shared';
 import { APPS } from '@thefibre/shared';
 
 const BRAND = APPS['fibre-platform'];
 
-const NAV: SidebarNavSection[] = [
+// Labels come from the app catalog (i18n P3) — six languages, one nav.
+const baseNav = (locale: Parameters<typeof t>[0]): SidebarNavSection[] => [
   {
-    items: [{ href: '/dashboard', label: 'Home', icon: LayoutDashboard }],
+    items: [{ href: '/dashboard', label: t(locale, 'nav_home'), icon: LayoutDashboard }],
   },
   {
-    label: 'Contact graph',
+    label: t(locale, 'nav_contact_graph'),
     items: [
-      { href: '/contacts', label: 'Contacts', icon: Users },
-      { href: '/organisations', label: 'Organisations', icon: Building2 },
+      { href: '/contacts', label: t(locale, 'nav_contacts'), icon: Users },
+      { href: '/organisations', label: t(locale, 'nav_organisations'), icon: Building2 },
     ],
   },
   {
-    label: 'Programmes',
+    label: t(locale, 'nav_programmes'),
     items: [
-      { href: '/programmes', label: 'Programmes', icon: CalendarRange },
-      { href: '/activity', label: 'Activity', icon: Activity },
+      { href: '/programmes', label: t(locale, 'nav_programmes'), icon: CalendarRange },
+      { href: '/activity', label: t(locale, 'nav_activity'), icon: Activity },
     ],
   },
   {
-    label: 'Workspace',
+    label: t(locale, 'nav_workspace'),
     items: [
-      { href: '/privacy', label: 'Privacy', icon: Shield },
-      { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/privacy', label: t(locale, 'nav_privacy'), icon: Shield },
+      { href: '/settings', label: t(locale, 'nav_settings'), icon: Settings },
     ],
   },
 ];
@@ -61,26 +64,30 @@ const SidebarShell = createSidebarShell(Link, usePathname);
 const BottomNavShell = createBottomNav(Link, usePathname);
 
 // One nav for both chromes: the sidebar (≥md) and the bottom tab bar.
-function buildSections(isSuperAdmin: boolean, isWorkspaceAdmin: boolean): SidebarNavSection[] {
+function buildSections(
+  locale: Parameters<typeof t>[0],
+  isSuperAdmin: boolean,
+  isWorkspaceAdmin: boolean,
+): SidebarNavSection[] {
   return [
-    ...NAV,
+    ...baseNav(locale),
     ...(isSuperAdmin || isWorkspaceAdmin
       ? [
           {
-            label: 'Admin',
+            label: t(locale, 'nav_admin'),
             items: [
               ...(isWorkspaceAdmin
-                ? [{ href: '/settings/apps', label: 'Apps', icon: LayoutGrid }]
+                ? [{ href: '/settings/apps', label: t(locale, 'nav_apps'), icon: LayoutGrid }]
                 : []),
               ...(isSuperAdmin
                 ? [
-                    { href: '/admin/access-requests', label: 'Access requests', icon: UserCheck },
-                    { href: '/admin/workspaces', label: 'Workspaces', icon: Layers },
-                    { href: '/admin/plans', label: 'Plans', icon: Receipt },
-                    { href: '/admin/economics', label: 'Economics', icon: TrendingUp },
-                    { href: '/admin/invoices', label: 'Invoices', icon: ReceiptText },
-                    { href: '/admin/vat', label: 'VAT', icon: Percent },
-                    { href: '/admin/apps', label: 'App registry', icon: Boxes },
+                    { href: '/admin/access-requests', label: t(locale, 'nav_access_requests'), icon: UserCheck },
+                    { href: '/admin/workspaces', label: t(locale, 'nav_workspaces'), icon: Layers },
+                    { href: '/admin/plans', label: t(locale, 'nav_plans'), icon: Receipt },
+                    { href: '/admin/economics', label: t(locale, 'nav_economics'), icon: TrendingUp },
+                    { href: '/admin/invoices', label: t(locale, 'nav_invoices'), icon: ReceiptText },
+                    { href: '/admin/vat', label: t(locale, 'nav_vat'), icon: Percent },
+                    { href: '/admin/apps', label: t(locale, 'nav_app_registry'), icon: Boxes },
                   ]
                 : []),
             ],
@@ -101,9 +108,10 @@ export function Sidebar({
   isSuperAdmin?: boolean;
   isWorkspaceAdmin?: boolean;
 }) {
+  const locale = useLocale();
   return (
     <SidebarShell
-      nav={buildSections(isSuperAdmin, isWorkspaceAdmin)}
+      nav={buildSections(locale, isSuperAdmin, isWorkspaceAdmin)}
       brandLetters={BRAND.brandLetters}
       brandName={BRAND.name}
       brandContent={
@@ -134,5 +142,6 @@ export function MobileNav({
   isSuperAdmin?: boolean;
   isWorkspaceAdmin?: boolean;
 }) {
-  return <BottomNavShell nav={buildSections(isSuperAdmin, isWorkspaceAdmin)} version={version} />;
+  const locale = useLocale();
+  return <BottomNavShell nav={buildSections(locale, isSuperAdmin, isWorkspaceAdmin)} version={version} />;
 }

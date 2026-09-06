@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { money, formatPeriod } from '@/lib/money';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type Period = {
   start: string;
@@ -30,10 +31,10 @@ export type Projection = {
 
 type Layer = 'expected' | 'committed' | 'best';
 
-const LAYERS: { key: Layer; label: string }[] = [
-  { key: 'expected', label: 'Expected' },
-  { key: 'committed', label: 'Committed' },
-  { key: 'best', label: 'Best case' },
+const LAYERS: { key: Layer; labelKey: UiKey }[] = [
+  { key: 'expected', labelKey: 'layer_expected' },
+  { key: 'committed', labelKey: 'layer_committed' },
+  { key: 'best', labelKey: 'layer_best' },
 ];
 
 function flows(p: Period, layer: Layer): { in: number; out: number } {
@@ -51,8 +52,15 @@ const PAD_X = 8;
 const PLOT_H = H - PAD_TOP - PAD_BOTTOM;
 const PLOT_W = W - 2 * PAD_X;
 
-export default function CashflowChart({ projection }: { projection: Projection }) {
+export default function CashflowChart({
+  projection,
+  locale,
+}: {
+  projection: Projection;
+  locale: Locale;
+}) {
   const { periods, currency } = projection;
+  const intl = INTL_LOCALES[locale];
   const [layer, setLayer] = useState<Layer>('expected');
   const [hover, setHover] = useState<number | null>(null);
   const [showTable, setShowTable] = useState(false);
@@ -73,7 +81,7 @@ export default function CashflowChart({ projection }: { projection: Projection }
   if (periods.length === 0) {
     return (
       <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-        <p className="text-sm text-ink-muted">No periods to project yet.</p>
+        <p className="text-sm text-ink-muted">{t(locale, 'no_periods_yet')}</p>
       </div>
     );
   }
@@ -104,11 +112,11 @@ export default function CashflowChart({ projection }: { projection: Projection }
   return (
     <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-6">
       <div className="flex items-start justify-between gap-4 mb-4">
-        <h2 className="text-base font-semibold tracking-tight">Cashflow overview</h2>
+        <h2 className="text-base font-semibold tracking-tight">{t(locale, 'chart_overview')}</h2>
         <div
           className="flex rounded-lg ring-1 ring-black/10 overflow-hidden text-xs"
           role="tablist"
-          aria-label="Bar layer"
+          aria-label={t(locale, 'chart_bar_layer_aria')}
         >
           {LAYERS.map((l) => (
             <button
@@ -123,7 +131,7 @@ export default function CashflowChart({ projection }: { projection: Projection }
                   : 'bg-white text-ink-muted hover:text-ink'
               }`}
             >
-              {l.label}
+              {t(locale, l.labelKey)}
             </button>
           ))}
         </div>
@@ -134,7 +142,7 @@ export default function CashflowChart({ projection }: { projection: Projection }
           viewBox={`0 0 ${W} ${H}`}
           className="w-full h-auto"
           role="img"
-          aria-label="Cashflow chart: money in and out per period with running balance"
+          aria-label={t(locale, 'chart_aria')}
           onMouseLeave={() => setHover(null)}
         >
           {/* Below-zero region — faint red so a dipping balance is instantly visible */}
@@ -240,7 +248,7 @@ export default function CashflowChart({ projection }: { projection: Projection }
                 fontSize={11}
                 fill="#737373"
               >
-                {formatPeriod(p.start)}
+                {formatPeriod(p.start, intl)}
               </text>
             ) : null,
           )}
@@ -270,31 +278,34 @@ export default function CashflowChart({ projection }: { projection: Projection }
             }
           >
             <div className="font-medium text-ink mb-1.5">
-              {formatPeriod(hovered.start)} – {formatPeriod(hovered.end)}
+              {formatPeriod(hovered.start, intl)} – {formatPeriod(hovered.end, intl)}
             </div>
             <dl className="space-y-0.5">
               <TooltipRow
-                label="In"
-                value={`${money(hovered.committed_in, currency)} committed · ${money(hovered.expected_in, currency)} expected`}
+                label={t(locale, 'tt_in')}
+                value={t(locale, 'tt_in_value', {
+                  c: money(hovered.committed_in, currency),
+                  e: money(hovered.expected_in, currency),
+                })}
               />
               <TooltipRow
-                label="Out"
+                label={t(locale, 'tt_out')}
                 value={money(flows(hovered, layer).out, currency)}
               />
               <TooltipRow
-                label="Reserved"
+                label={t(locale, 'reserved')}
                 value={money(
                   layer === 'committed' ? hovered.reserved_committed : hovered.reserved_expected,
                   currency,
                 )}
               />
               <TooltipRow
-                label="Balance (committed)"
+                label={t(locale, 'balance_committed')}
                 value={money(hovered.balance_committed, currency)}
                 negative={hovered.balance_committed < 0}
               />
               <TooltipRow
-                label="Balance (expected)"
+                label={t(locale, 'balance_expected')}
                 value={money(hovered.balance_expected, currency)}
                 negative={hovered.balance_expected < 0}
               />
@@ -306,17 +317,20 @@ export default function CashflowChart({ projection }: { projection: Projection }
       {/* Legend */}
       <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-ink-muted">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-emerald-500" /> money in
+          <span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-emerald-500" />{' '}
+          {t(locale, 'legend_money_in')}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-rose-500" /> money out
+          <span className="inline-block w-2.5 h-2.5 rounded-[3px] bg-rose-500" />{' '}
+          {t(locale, 'legend_money_out')}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 h-0.5 bg-emerald-700" /> balance (committed)
+          <span className="inline-block w-4 h-0.5 bg-emerald-700" />{' '}
+          {t(locale, 'legend_balance_committed')}
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block w-4 border-t-2 border-dashed border-indigo-500" /> balance
-          (expected, probability-weighted)
+          <span className="inline-block w-4 border-t-2 border-dashed border-indigo-500" />{' '}
+          {t(locale, 'legend_balance_expected')}
         </span>
       </div>
 
@@ -327,23 +341,23 @@ export default function CashflowChart({ projection }: { projection: Projection }
           onClick={() => setShowTable((v) => !v)}
           className="text-xs font-medium text-ink-muted hover:text-ink underline underline-offset-2 transition"
         >
-          {showTable ? 'Hide table' : 'Show table'}
+          {showTable ? t(locale, 'hide_table') : t(locale, 'show_table')}
         </button>
         {showTable && (
           <table className="mt-3 w-full text-sm">
             <thead>
               <tr className="text-left text-xs text-ink-muted border-b border-line">
-                <th className="py-2 pr-4 font-medium">Period</th>
-                <th className="py-2 pr-4 font-medium text-right">In (committed)</th>
-                <th className="py-2 pr-4 font-medium text-right">Out</th>
-                <th className="py-2 pr-4 font-medium text-right">Balance</th>
-                <th className="py-2 font-medium text-right">Balance (expected)</th>
+                <th className="py-2 pr-4 font-medium">{t(locale, 'th_period')}</th>
+                <th className="py-2 pr-4 font-medium text-right">{t(locale, 'th_in_committed')}</th>
+                <th className="py-2 pr-4 font-medium text-right">{t(locale, 'tt_out')}</th>
+                <th className="py-2 pr-4 font-medium text-right">{t(locale, 'th_balance')}</th>
+                <th className="py-2 font-medium text-right">{t(locale, 'balance_expected')}</th>
               </tr>
             </thead>
             <tbody>
               {periods.map((p) => (
                 <tr key={p.start} className="border-b border-line/50 last:border-0">
-                  <td className="py-2 pr-4 text-ink-subtle">{formatPeriod(p.start)}</td>
+                  <td className="py-2 pr-4 text-ink-subtle">{formatPeriod(p.start, intl)}</td>
                   <td className="py-2 pr-4 text-right">{money(p.committed_in, currency)}</td>
                   <td className="py-2 pr-4 text-right">{money(p.committed_out, currency)}</td>
                   <td

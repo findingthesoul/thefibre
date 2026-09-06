@@ -2,6 +2,8 @@ import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel, EmptyState } from '@/components/ui/page';
 import { ENTITY } from '@thefibre/shared';
 import { FEATURE_GROUPS, eur, feePhrase, type CataloguePlan } from '@/lib/plans';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { UpgradePanel } from './upgrade';
 import { InvoicesList } from './invoices-list';
 import { ReactivateBanner } from './reactivate';
@@ -76,6 +78,7 @@ export default async function PlanPage({
   searchParams: Promise<{ welcome?: string; upgraded?: string }>;
 }) {
   const { welcome, upgraded } = await searchParams;
+  const locale = await uiLocale();
   let data: PlanPayload | null = null;
   let meters: MeterPayload | null = null;
   try {
@@ -92,9 +95,9 @@ export default async function PlanPage({
   if (!data) {
     return (
       <PageContainer max="4xl">
-        <Breadcrumb href="/settings" label="Settings" />
-        <PageHeader title="Plan" />
-        <EmptyState>Could not load your plan. Try again in a moment.</EmptyState>
+        <Breadcrumb href="/settings" label={t(locale, 'nav_settings')} />
+        <PageHeader title={t(locale, 'plan_title')} />
+        <EmptyState>{t(locale, 'plan_load_failed')}</EmptyState>
       </PageContainer>
     );
   }
@@ -116,55 +119,58 @@ export default async function PlanPage({
   }
   const renewLine =
     billing?.subscribed && billing.current_period_end
-      ? `${billing.cancel_at_period_end ? 'Ends' : 'Renews'} ${new Date(
+      ? `${t(locale, billing.cancel_at_period_end ? 'ends' : 'renews')} ${new Date(
           billing.current_period_end,
-        ).toLocaleDateString('en-GB', { dateStyle: 'medium' })}${
-          billing.interval ? ` · billed ${billing.interval}` : ''
+        ).toLocaleDateString(INTL_LOCALES[locale], { dateStyle: 'medium' })}${
+          billing.interval
+            ? ` · ${t(locale, billing.interval === 'annual' ? 'billed_yearly' : 'billed_monthly')}`
+            : ''
         }`
       : null;
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'nav_settings')} />
       <PageHeader
-        title="Plan"
-        description="What this workspace is on, what it is using, and what the other packages offer."
+        title={t(locale, 'plan_title')}
+        description={t(locale, 'plan_blurb')}
       />
 
       {welcome && (
         <div className="mt-6 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-5 py-4 text-sm leading-relaxed">
-          <span className="font-medium">Welcome — your workspace is ready.</span>{' '}
-          You picked{' '}
+          <span className="font-medium">{t(locale, 'welcome_ready')}</span>{' '}
+          {t(locale, 'welcome_picked_pre')}{' '}
           <span className="font-medium">
             {catalogue.find((p) => p.id === welcome)?.name ?? welcome}
           </span>{' '}
-          when signing up: activate it below whenever you&rsquo;re ready, or just start on Free —
-          nothing is charged until you do.
+          {t(locale, 'welcome_picked_post')}
         </div>
       )}
       {upgraded && (
         <div className="mt-6 rounded-lg border border-emerald-600/30 bg-emerald-500/10 px-5 py-4 text-sm">
-          <span className="font-medium">Payment received</span> — your plan updates here within a
-          few moments (refresh if it hasn&rsquo;t).
+          <span className="font-medium">{t(locale, 'payment_received')}</span>{' '}
+          {t(locale, 'payment_received_post')}
         </div>
       )}
       {meters?.archive.archived_at && (
         <ReactivateBanner
-          archivedOn={new Date(meters.archive.archived_at).toLocaleDateString('en-GB', {
-            dateStyle: 'long',
-          })}
+          locale={locale}
+          archivedOn={new Date(meters.archive.archived_at).toLocaleDateString(
+            INTL_LOCALES[locale],
+            { dateStyle: 'long' },
+          )}
         />
       )}
       {billing?.cancel_at_period_end && billing.current_period_end && (
         <div className="mt-6 rounded-lg border border-amber-600/40 bg-amber-500/10 px-5 py-4 text-sm leading-relaxed">
           <span className="font-medium">
-            Your subscription ends{' '}
-            {new Date(billing.current_period_end).toLocaleDateString('en-GB', {
+            {t(locale, 'subscription_ends')}{' '}
+            {new Date(billing.current_period_end).toLocaleDateString(INTL_LOCALES[locale], {
               dateStyle: 'long',
             })}
           </span>
-          {' '}— the workspace drops to Free then. Everything you built stays; picking a plan back
-          up is one click in &ldquo;Manage billing&rdquo;.
+          {' '}
+          {t(locale, 'subscription_ends_post')}
         </div>
       )}
 
@@ -176,23 +182,23 @@ export default async function PlanPage({
               <h2 className="text-xl font-medium">{plan.name}</h2>
               {plan.comped && (
                 <span className="rounded-full border border-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
-                  On the house
+                  {t(locale, 'on_the_house')}
                 </span>
               )}
               {plan.tailored && (
                 <span className="rounded-full border border-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-muted">
-                  Tailored price
+                  {t(locale, 'tailored_price')}
                 </span>
               )}
             </div>
             <p className="mt-1 text-sm text-ink-subtle">
               {plan.comped
-                ? 'This workspace pays nothing — the plan was granted by The Fibre.'
+                ? t(locale, 'comped_msg')
                 : plan.effective_price_cents_month === 0
-                  ? 'Free, for as long as it fits.'
-                  : `${eur(plan.effective_price_cents_month)} per month ex-VAT${
+                  ? t(locale, 'free_as_long_as_fits')
+                  : `${t(locale, 'per_month_ex_vat', { price: eur(plan.effective_price_cents_month) })}${
                       plan.effective_price_cents_year
-                        ? ` · ${eur(plan.effective_price_cents_year)} per year (two months free)`
+                        ? ` · ${t(locale, 'per_year_two_free', { price: eur(plan.effective_price_cents_year) })}`
                         : ''
                     }.`}
               {renewLine ? ` ${renewLine}.` : ''}
@@ -202,12 +208,13 @@ export default async function PlanPage({
             href={`mailto:${ENTITY.whitelistEmail}?subject=${encodeURIComponent('Changing our Fibre plan')}`}
             className="rounded-md border border-line px-4 py-2 text-sm hover:bg-surface-sunken"
           >
-            Talk to us
+            {t(locale, 'talk_to_us')}
           </a>
         </div>
 
         {billing?.available && (
           <UpgradePanel
+            locale={locale}
             currentPlanId={plan.id}
             currentInterval={billing.interval}
             comped={plan.comped}
@@ -227,34 +234,43 @@ export default async function PlanPage({
         {/* Usage ------------------------------------------------------ */}
         <dl className="mt-6 grid gap-x-8 gap-y-5 border-t border-line pt-5 text-sm sm:grid-cols-2 lg:grid-cols-4">
           <Usage
-            label="Seats"
+            locale={locale}
+            label={t(locale, 'seats')}
             used={usage.seats_used}
             included={plan.included_seats}
             note={
               usage.extra_seats && plan.extra_seat_cents_month
-                ? `${usage.extra_seats} extra × ${eur(plan.extra_seat_cents_month)} = ${eur(
-                    usage.extra_seats * plan.extra_seat_cents_month,
-                  )}/month${billing?.subscribed ? ', on your subscription' : ''}`
+                ? `${t(locale, 'extra_seats_line', {
+                    n: usage.extra_seats,
+                    each: eur(plan.extra_seat_cents_month),
+                    total: eur(usage.extra_seats * plan.extra_seat_cents_month),
+                  })}${billing?.subscribed ? t(locale, 'on_your_subscription') : ''}`
                 : plan.extra_seat_cents_month
-                  ? `Extra seats ${eur(plan.extra_seat_cents_month)}/month`
+                  ? t(locale, 'extra_seats_price', { price: eur(plan.extra_seat_cents_month) })
                   : undefined
             }
           />
           <Usage
-            label="Email this month"
+            locale={locale}
+            label={t(locale, 'email_this_month')}
             used={meters?.emails.used ?? usage.emails_this_month}
             included={meters?.emails.included ?? usage.emails_included}
             note={
               meters && meters.emails.projected_overage_cents > 0
-                ? `${eur(meters.emails.projected_overage_cents)} overage so far, on next month's invoice`
+                ? t(locale, 'overage_so_far', {
+                    price: eur(meters.emails.projected_overage_cents),
+                  })
                 : meters?.emails.overage_cents_per_1000 != null
-                  ? `Over the allowance: ${eur(meters.emails.overage_cents_per_1000)}/1,000 emails`
+                  ? t(locale, 'over_allowance_emails', {
+                      price: eur(meters.emails.overage_cents_per_1000),
+                    })
                   : undefined
             }
           />
           {meters && (
             <Usage
-              label="Storage"
+              locale={locale}
+              label={t(locale, 'storage')}
               used={meters.storage.bytes}
               included={
                 meters.storage.included_gb === null
@@ -268,17 +284,25 @@ export default async function PlanPage({
               }
               note={
                 meters.storage.projected_overage_cents > 0
-                  ? `${eur(meters.storage.projected_overage_cents)} overage, on next month's invoice`
+                  ? t(locale, 'overage_storage', {
+                      price: eur(meters.storage.projected_overage_cents),
+                    })
                   : meters.storage.overage_cents_per_gb != null
-                    ? `Over the allowance: ${eur(meters.storage.overage_cents_per_gb)}/GB`
+                    ? t(locale, 'over_allowance_gb', {
+                        price: eur(meters.storage.overage_cents_per_gb),
+                      })
                     : undefined
               }
             />
           )}
           <div>
-            <dt className="text-[10px] uppercase tracking-wider text-ink-muted">Data kept</dt>
+            <dt className="text-[10px] uppercase tracking-wider text-ink-muted">
+              {t(locale, 'data_kept')}
+            </dt>
             <dd className="mt-1 text-ink">
-              {plan.retention_months ? `${plan.retention_months} months` : 'For as long as you pay'}
+              {plan.retention_months
+                ? t(locale, 'n_months', { n: plan.retention_months })
+                : t(locale, 'as_long_as_you_pay')}
             </dd>
           </div>
         </dl>
@@ -287,14 +311,14 @@ export default async function PlanPage({
       {/* Your Fibre invoices ------------------------------------------- */}
       {invoices.length > 0 && (
         <section className="mt-12">
-          <SectionLabel>Your Fibre invoices</SectionLabel>
-          <InvoicesList invoices={invoices} />
+          <SectionLabel>{t(locale, 'your_fibre_invoices')}</SectionLabel>
+          <InvoicesList invoices={invoices} locale={locale} />
         </section>
       )}
 
       {/* The packages -------------------------------------------------- */}
       <section className="mt-12">
-        <SectionLabel>All packages</SectionLabel>
+        <SectionLabel>{t(locale, 'all_packages')}</SectionLabel>
         <div className="mt-4 overflow-x-auto rounded-lg border border-line bg-surface-raised">
           <table className="w-full min-w-[640px] text-sm">
             <thead>
@@ -306,26 +330,26 @@ export default async function PlanPage({
                       {p.name}
                       {p.id === plan.id && (
                         <span className="rounded-full bg-yellow-300 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-neutral-900">
-                          Yours
+                          {t(locale, 'yours')}
                         </span>
                       )}
                     </div>
                     <div className="mt-0.5 text-xs font-normal text-ink-muted">
                       {p.price_cents_month === 0 && p.id !== 'org'
-                        ? 'Free'
+                        ? t(locale, 'free')
                         : p.id === 'org'
-                          ? 'Talk to us'
-                          : `${eur(p.price_cents_month)}/mo`}
+                          ? t(locale, 'talk_to_us')
+                          : `${eur(p.price_cents_month)}${t(locale, 'per_mo')}`}
                     </div>
                   </th>
                 ))}
               </tr>
             </thead>
             <tbody>
-              <NumberRow label="Seats included" catalogue={catalogue} value={(p) => (p.included_seats === null ? 'Unlimited' : String(p.included_seats))} />
-              <NumberRow label="Email / month" catalogue={catalogue} value={(p) => (p.included_emails_month === null ? 'Negotiated' : p.included_emails_month.toLocaleString('en-GB'))} />
-              <NumberRow label="Storage" catalogue={catalogue} value={(p) => (p.included_storage_gb === null ? 'Negotiated' : `${p.included_storage_gb} GB`)} />
-              <NumberRow label="Fee on paid enrolments" catalogue={catalogue} value={(p) => feePhrase(p.meet_paid_pct, p.meet_paid_cap_cents)} />
+              <NumberRow label={t(locale, 'seats_included')} catalogue={catalogue} value={(p) => (p.included_seats === null ? t(locale, 'unlimited') : String(p.included_seats))} />
+              <NumberRow label={t(locale, 'email_per_month')} catalogue={catalogue} value={(p) => (p.included_emails_month === null ? t(locale, 'negotiated') : p.included_emails_month.toLocaleString(INTL_LOCALES[locale]))} />
+              <NumberRow label={t(locale, 'storage')} catalogue={catalogue} value={(p) => (p.included_storage_gb === null ? t(locale, 'negotiated') : `${p.included_storage_gb} GB`)} />
+              <NumberRow label={t(locale, 'fee_paid_enrolments')} catalogue={catalogue} value={(p) => feePhrase(p.meet_paid_pct, p.meet_paid_cap_cents)} />
               {FEATURE_GROUPS.filter((g) => g.rows.length > 0).flatMap((g) =>
                 g.rows.map((row) => (
                   <tr key={row.key} className="border-b border-line/60 last:border-0">
@@ -338,7 +362,7 @@ export default async function PlanPage({
                             ? v === null || v === undefined
                               ? p.features?.[g.rows[0]!.key] === false
                                 ? '—'
-                                : 'Unlimited'
+                                : t(locale, 'unlimited')
                               : String(v)
                             : v === true
                               ? '✓'
@@ -352,22 +376,21 @@ export default async function PlanPage({
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-xs text-ink-muted">
-          Prices ex-VAT, per workspace per month. Meet is in every package. Downgrading never
-          deletes anything — what a smaller plan lacks becomes read-only, not gone.
-        </p>
+        <p className="mt-3 text-xs text-ink-muted">{t(locale, 'packages_footnote')}</p>
       </section>
     </PageContainer>
   );
 }
 
 function Usage({
+  locale,
   label,
   used,
   included,
   note,
-  format = (v) => v.toLocaleString('en-GB'),
+  format,
 }: {
+  locale: Locale;
   label: string;
   used: number;
   included: number | null;
@@ -375,6 +398,7 @@ function Usage({
   /** How a raw value renders — bytes become "1.2 GB", counts stay counts. */
   format?: (v: number) => string;
 }) {
+  const fmt = format ?? ((v: number) => v.toLocaleString(INTL_LOCALES[locale]));
   const pct = included !== null && included > 0 ? (used / included) * 100 : null;
   const over = pct !== null && pct > 100;
   const warm = pct !== null && pct >= 80 && !over;
@@ -383,9 +407,9 @@ function Usage({
       <dt className="text-[10px] uppercase tracking-wider text-ink-muted">{label}</dt>
       <dd className="mt-1">
         <span className={`font-mono ${over ? 'text-amber-700 dark:text-amber-400' : 'text-ink'}`}>
-          {format(used)}
+          {fmt(used)}
         </span>
-        <span className="text-ink-muted"> / {included === null ? '∞' : format(included)}</span>
+        <span className="text-ink-muted"> / {included === null ? '∞' : fmt(included)}</span>
       </dd>
       {pct !== null && (
         <div
@@ -394,7 +418,7 @@ function Usage({
           aria-valuenow={Math.round(Math.min(pct, 100))}
           aria-valuemin={0}
           aria-valuemax={100}
-          aria-label={`${label}: ${Math.round(pct)}% of allowance used`}
+          aria-label={`${label}: ${t(locale, 'pct_of_allowance', { pct: Math.round(pct) })}`}
         >
           <div
             className={`h-full rounded-full ${

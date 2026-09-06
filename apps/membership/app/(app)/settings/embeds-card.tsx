@@ -3,11 +3,13 @@
 // Website embeds — the loader integration (the Thread-style generator,
 // trimmed to Membership's two embeds). One script per site + a data-div
 // where the embed should appear; /embed.js turns the div into an
-// auto-sizing iframe. Admin surface — its own copy stays English.
+// auto-sizing iframe. The card chrome follows the user's interface
+// language (i18n P3); the GENERATED SNIPPETS are code and stay verbatim.
 
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
-import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
+import { LOCALES, LOCALE_LABELS, type Locale as PublicLocale } from '@/lib/i18n';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { SectionLabel } from './page-chrome';
 
 type Kind = 'tiers' | 'button';
@@ -15,8 +17,18 @@ type Kind = 'tiers' | 'button';
 const SELECT =
   'w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
 
-export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlug: string }) {
+export function EmbedsCard({
+  host,
+  workspaceSlug,
+  locale,
+}: {
+  host: string;
+  workspaceSlug: string;
+  locale: Locale;
+}) {
   const [kind, setKind] = useState<Kind>('tiers');
+  // The default label travels INTO the public embed, whose language is the
+  // embed's own (data-lang / workspace) — deliberately not this UI's.
   const [label, setLabel] = useState('Become a member');
   const [lang, setLang] = useState<string>('auto');
   const [copied, setCopied] = useState<'script' | 'snippet' | 'all' | null>(null);
@@ -45,24 +57,22 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
 
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-5">
-      <SectionLabel>Website embeds</SectionLabel>
+      <SectionLabel>{t(locale, 'st_embeds_title')}</SectionLabel>
       <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
-        Show your tiers and take memberships on any website — auto-sizing, copy-paste. Every
-        element inside the embed carries a stable <code className="font-mono">me-*</code> class
-        (me-card, me-title, me-price, me-btn, …); to restyle it, put a{' '}
-        <code className="font-mono">&lt;style&gt;</code> block INSIDE the embed div — it is
-        lifted into the embed and never touches your page.
+        {t(locale, 'embeds_blurb_1')} <code className="font-mono">me-*</code>{' '}
+        {t(locale, 'embeds_blurb_2')} <code className="font-mono">&lt;style&gt;</code>{' '}
+        {t(locale, 'embeds_blurb_3')}
       </p>
 
       <div className="mt-4 space-y-4">
         {/* What */}
         <div>
-          <span className="text-xs text-ink-subtle">What do you want to embed?</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'what_to_embed')}</span>
           <div className="mt-1.5 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-md">
             {(
               [
-                ['tiers', 'Tier cards'],
-                ['button', 'Join button'],
+                ['tiers', t(locale, 'tier_cards')],
+                ['button', t(locale, 'join_button')],
               ] as [Kind, string][]
             ).map(([k, kindLabel]) => (
               <button
@@ -84,16 +94,16 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-md">
           {/* Language */}
           <label className="block">
-            <span className="text-xs text-ink-subtle">Language</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'language')}</span>
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value)}
               className={`${SELECT} mt-1`}
             >
-              <option value="auto">Automatic — the workspace&apos;s</option>
+              <option value="auto">{t(locale, 'lang_auto')}</option>
               {LOCALES.map((l) => (
                 <option key={l} value={l}>
-                  {LOCALE_LABELS[l as Locale]}
+                  {LOCALE_LABELS[l as PublicLocale]}
                 </option>
               ))}
             </select>
@@ -102,7 +112,7 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
           {/* Button label */}
           {kind === 'button' && (
             <label className="block">
-              <span className="text-xs text-ink-subtle">Button text</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'button_text')}</span>
               <input
                 value={label}
                 onChange={(e) => setLabel(e.target.value)}
@@ -116,11 +126,10 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
         <div className="space-y-3 pt-1">
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">
-                1 · Once per site, in the &lt;head&gt; (or before &lt;/body&gt;)
-              </span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'embed_step1')}</span>
               <CopyButton
                 copied={copied === 'script'}
+                locale={locale}
                 onClick={() => void copy('script', scriptTag)}
               />
             </div>
@@ -130,9 +139,10 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">2 · Where the embed should appear</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'embed_step2')}</span>
               <CopyButton
                 copied={copied === 'snippet'}
+                locale={locale}
                 onClick={() => void copy('snippet', snippet)}
               />
             </div>
@@ -142,10 +152,12 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
           </div>
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">
-                Or all-in-one — script and embed in a single paste
-              </span>
-              <CopyButton copied={copied === 'all'} onClick={() => void copy('all', allInOne)} />
+              <span className="text-xs text-ink-subtle">{t(locale, 'embed_all_in_one')}</span>
+              <CopyButton
+                copied={copied === 'all'}
+                locale={locale}
+                onClick={() => void copy('all', allInOne)}
+              />
             </div>
             <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
               {allInOne}
@@ -157,7 +169,15 @@ export function EmbedsCard({ host, workspaceSlug }: { host: string; workspaceSlu
   );
 }
 
-function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+function CopyButton({
+  copied,
+  locale,
+  onClick,
+}: {
+  copied: boolean;
+  locale: Locale;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -167,12 +187,12 @@ function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void 
       {copied ? (
         <>
           <Check size={12} strokeWidth={2} className="text-emerald-600" />
-          Copied
+          {t(locale, 'copied')}
         </>
       ) : (
         <>
           <Copy size={12} strokeWidth={1.75} />
-          Copy
+          {t(locale, 'copy')}
         </>
       )}
     </button>

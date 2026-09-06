@@ -8,8 +8,10 @@ export function money(cents: number, currency = 'EUR'): string {
   }).format(cents / 100);
 }
 
-export function formatPeriod(startIso: string): string {
-  return new Date(startIso + 'T00:00:00Z').toLocaleDateString('en-GB', {
+// `intlLocale` is a BCP-47 tag (INTL_LOCALES[locale], i18n P3) — defaults to
+// en-GB so untouched callers keep their output.
+export function formatPeriod(startIso: string, intlLocale = 'en-GB'): string {
+  return new Date(startIso + 'T00:00:00Z').toLocaleDateString(intlLocale, {
     day: 'numeric',
     month: 'short',
     timeZone: 'UTC',

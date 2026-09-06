@@ -3,6 +3,8 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { ButtonLink } from '@/components/ui/button';
 import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 type Organisation = {
   id: string;
@@ -20,6 +22,7 @@ export default async function OrganisationsPage({
   searchParams: Promise<{ q?: string }>;
 }) {
   const { q } = await searchParams;
+  const locale = await uiLocale();
 
   let items: Organisation[] = [];
   let error: string | null = null;
@@ -35,10 +38,10 @@ export default async function OrganisationsPage({
   return (
     <PageContainer>
       <PageHeader
-        title="Organisations"
+        title={t(locale, 'nav_organisations')}
         actions={
           <ButtonLink href="/organisations/new" leading={<Plus size={14} strokeWidth={2.25} />}>
-            Add organisation
+            {t(locale, 'add_organisation')}
           </ButtonLink>
         }
       />
@@ -48,17 +51,17 @@ export default async function OrganisationsPage({
         <input
           name="q"
           defaultValue={q ?? ''}
-          placeholder="Search name or domain…"
+          placeholder={t(locale, 'search_name_domain')}
           className="w-full rounded-md border border-line bg-surface-raised pl-9 pr-3 py-2 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
         />
       </form>
 
-      {error && <ErrorBanner>Couldn't load organisations: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'orgs_load_failed')} {error}</ErrorBanner>}
 
       {!error && items.length === 0 && (
         <EmptyState>
-          No organisations yet.{' '}
-          <a href="/organisations/new" className="underline">Add the first one</a>.
+          {t(locale, 'no_orgs_yet')}{' '}
+          <a href="/organisations/new" className="underline">{t(locale, 'add_first_one')}</a>.
         </EmptyState>
       )}
 

@@ -10,9 +10,16 @@ import {
   type InvoicePurchase,
 } from '@thefibre/shared/ui/invoice-dialog';
 import { eur } from '@/lib/plans';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { emailInvoice } from './actions';
 
-export function InvoicesList({ invoices }: { invoices: InvoicePurchase[] }) {
+export function InvoicesList({
+  invoices,
+  locale,
+}: {
+  invoices: InvoicePurchase[];
+  locale: Locale;
+}) {
   const [openId, setOpenId] = useState<string | null>(null);
   const open = invoices.find((i) => i.id === openId) ?? null;
 
@@ -30,13 +37,15 @@ export function InvoicesList({ invoices }: { invoices: InvoicePurchase[] }) {
                 <span className="truncate">{inv.item_label}</span>
                 <span className="ml-2 text-xs text-ink-muted">
                   {inv.paid_at
-                    ? new Date(inv.paid_at).toLocaleDateString('en-GB', { dateStyle: 'medium' })
+                    ? new Date(inv.paid_at).toLocaleDateString(INTL_LOCALES[locale], {
+                        dateStyle: 'medium',
+                      })
                     : inv.status}
                 </span>
               </span>
               <span className="flex shrink-0 items-baseline gap-3">
                 <span className="font-mono">{eur(inv.amount_cents)}</span>
-                <span className="text-xs text-ink-muted">View →</span>
+                <span className="text-xs text-ink-muted">{t(locale, 'view')} →</span>
               </span>
             </button>
           </li>

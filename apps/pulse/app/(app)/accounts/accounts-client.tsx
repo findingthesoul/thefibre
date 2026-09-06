@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { money } from '@/lib/money';
 import { archiveAccount, createAccount, recordSnapshots, updateAccount } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type Account = {
   id: string;
@@ -27,12 +28,15 @@ export type CashflowTeam = { team_id: string; name: string };
 
 // Which cashflow does this account belong to? Null = Workspace (no chip).
 function cashflowLabel(
+  locale: Locale,
   a: Pick<Account, 'team_id' | 'owner_user_id'>,
   teams: CashflowTeam[],
   myUserId: string | null,
 ): string | null {
-  if (a.owner_user_id) return a.owner_user_id === myUserId ? 'Me' : 'Personal';
-  if (a.team_id) return teams.find((t) => t.team_id === a.team_id)?.name ?? 'Team';
+  if (a.owner_user_id)
+    return a.owner_user_id === myUserId ? t(locale, 'me') : t(locale, 'personal');
+  if (a.team_id)
+    return teams.find((row) => row.team_id === a.team_id)?.name ?? t(locale, 'team');
   return null;
 }
 
@@ -65,10 +69,12 @@ export function AccountsActions({
   accounts,
   teams,
   myUserId,
+  locale,
 }: {
   accounts: Account[];
   teams: CashflowTeam[];
   myUserId: string | null;
+  locale: Locale;
 }) {
   const [dialog, setDialog] = useState<'new' | 'balances' | null>(null);
   return (
@@ -78,25 +84,26 @@ export function AccountsActions({
         leading={<Plus size={16} strokeWidth={2} />}
         onClick={() => setDialog('new')}
       >
-        New account
+        {t(locale, 'new_account')}
       </Button>
       <Button
         leading={<RefreshCw size={16} strokeWidth={2} />}
         onClick={() => setDialog('balances')}
         disabled={accounts.length === 0}
       >
-        Update balances
+        {t(locale, 'update_balances')}
       </Button>
       {dialog === 'new' && (
         <AccountDialog
           accounts={accounts}
           teams={teams}
           myUserId={myUserId}
+          locale={locale}
           onClose={() => setDialog(null)}
         />
       )}
       {dialog === 'balances' && (
-        <UpdateBalancesDialog accounts={accounts} onClose={() => setDialog(null)} />
+        <UpdateBalancesDialog accounts={accounts} locale={locale} onClose={() => setDialog(null)} />
       )}
     </div>
   );
@@ -109,10 +116,12 @@ export function AccountsList({
   accounts,
   teams,
   myUserId,
+  locale,
 }: {
   accounts: Account[];
   teams: CashflowTeam[];
   myUserId: string | null;
+  locale: Locale;
 }) {
   const [editing, setEditing] = useState<Account | null>(null);
   const banks = accounts.filter((a) => a.kind === 'bank');
@@ -121,9 +130,7 @@ export function AccountsList({
   if (accounts.length === 0) {
     return (
       <div className="mt-10 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
-        <p className="text-sm text-ink-muted">
-          No accounts yet. Add your bank accounts first, then reserves earmarked inside them.
-        </p>
+        <p className="text-sm text-ink-muted">{t(locale, 'accounts_empty')}</p>
       </div>
     );
   }
@@ -132,17 +139,19 @@ export function AccountsList({
     <>
       <div className="mt-8 grid gap-6 md:grid-cols-2">
         <AccountGroup
-          title="Bank accounts"
+          title={t(locale, 'bank_accounts')}
           items={banks}
           teams={teams}
           myUserId={myUserId}
+          locale={locale}
           onSelect={setEditing}
         />
         <AccountGroup
-          title="Reserves"
+          title={t(locale, 'reserves')}
           items={reserves}
           teams={teams}
           myUserId={myUserId}
+          locale={locale}
           onSelect={setEditing}
         />
       </div>
@@ -152,6 +161,7 @@ export function AccountsList({
           account={editing}
           teams={teams}
           myUserId={myUserId}
+          locale={locale}
           onClose={() => setEditing(null)}
         />
       )}
@@ -164,12 +174,14 @@ function AccountGroup({
   items,
   teams,
   myUserId,
+  locale,
   onSelect,
 }: {
   title: string;
   items: Account[];
   teams: CashflowTeam[];
   myUserId: string | null;
+  locale: Locale;
   onSelect: (a: Account) => void;
 }) {
   return (
@@ -178,11 +190,11 @@ function AccountGroup({
         {title}
       </div>
       {items.length === 0 ? (
-        <div className="px-5 py-3 text-sm text-ink-muted">None yet.</div>
+        <div className="px-5 py-3 text-sm text-ink-muted">{t(locale, 'none_yet')}</div>
       ) : (
         <div className="divide-y divide-line/60">
           {items.map((a) => {
-            const scope = cashflowLabel(a, teams, myUserId);
+            const scope = cashflowLabel(locale, a, teams, myUserId);
             return (
               <button
                 key={a.id}
@@ -200,7 +212,9 @@ function AccountGroup({
                     )}
                   </div>
                   <div className="text-xs text-ink-muted">
-                    {a.latest_snapshot ? `as of ${a.latest_snapshot.as_of_date}` : 'no balance yet'}
+                    {a.latest_snapshot
+                      ? t(locale, 'as_of_date', { d: a.latest_snapshot.as_of_date })
+                      : t(locale, 'no_balance_yet')}
                     {a.sync_mode === 'auto' ? ' · auto' : ''}
                   </div>
                 </div>
@@ -225,12 +239,14 @@ function AccountDialog({
   account,
   teams,
   myUserId,
+  locale,
   onClose,
 }: {
   accounts: Account[];
   account?: Account;
   teams: CashflowTeam[];
   myUserId: string | null;
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -255,14 +271,14 @@ function AccountDialog({
   // Make sure the account's current team still shows even if the caller is
   // no longer involved with it.
   const teamOptions =
-    account?.team_id && !teams.some((t) => t.team_id === account.team_id)
-      ? [...teams, { team_id: account.team_id, name: 'Team' }]
+    account?.team_id && !teams.some((row) => row.team_id === account.team_id)
+      ? [...teams, { team_id: account.team_id, name: t(locale, 'team') }]
       : teams;
 
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     setBusy(true);
@@ -313,7 +329,7 @@ function AccountDialog({
       <Dialog
         open
         onClose={onClose}
-        title={account ? 'Edit account' : 'New account'}
+        title={account ? t(locale, 'edit_account') : t(locale, 'new_account')}
         footer={
           <>
             {account && (
@@ -324,72 +340,74 @@ function AccountDialog({
                 disabled={busy}
                 onClick={() => setConfirmDelete(true)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
             )}
             <Button type="button" variant="secondary" onClick={onClose}>
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             <Button type="submit" form="account-form" disabled={busy}>
-              {busy ? 'Saving…' : account ? 'Save' : 'Create account'}
+              {busy
+                ? t(locale, 'saving')
+                : account
+                  ? t(locale, 'save')
+                  : t(locale, 'create_account')}
             </Button>
           </>
         }
       >
         <form id="account-form" onSubmit={submit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium mb-1">Name</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
             <input
               autoFocus
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="e.g. Rabobank current"
+              placeholder={t(locale, 'eg_rabobank')}
               className={INPUT_CLASS}
             />
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Kind</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'kind')}</label>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as 'bank' | 'reserve')}
               className={INPUT_CLASS}
             >
-              <option value="bank">Bank account</option>
-              <option value="reserve">Reserve</option>
+              <option value="bank">{t(locale, 'bank_account')}</option>
+              <option value="reserve">{t(locale, 'reserve')}</option>
             </select>
-            <p className="mt-1.5 text-xs text-ink-muted">
-              Reserves are earmarked money — in the bank, not yours to spend.
-            </p>
+            <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'reserves_hint')}</p>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1">Cashflow</label>
+            <label className="block text-sm font-medium mb-1">{t(locale, 'cashflow')}</label>
             <select
               value={scope}
               onChange={(e) => setScope(e.target.value)}
               className={INPUT_CLASS}
             >
-              <option value="workspace">Workspace</option>
-              {myUserId && <option value="me">Me (personal)</option>}
-              {teamOptions.map((t) => (
-                <option key={t.team_id} value={`team:${t.team_id}`}>
-                  {t.name}
+              <option value="workspace">{t(locale, 'workspace')}</option>
+              {myUserId && <option value="me">{t(locale, 'me_personal')}</option>}
+              {teamOptions.map((row) => (
+                <option key={row.team_id} value={`team:${row.team_id}`}>
+                  {row.name}
                 </option>
               ))}
-              {initialScope === 'other' && <option value="other">Personal (another user)</option>}
+              {initialScope === 'other' && (
+                <option value="other">{t(locale, 'personal_other_user')}</option>
+              )}
             </select>
-            <p className="mt-1.5 text-xs text-ink-muted">
-              Which cashflow tab this account belongs to — its balance anchors that projection.
-            </p>
+            <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'cashflow_scope_hint')}</p>
           </div>
           {kind === 'reserve' && (
             <div>
-              <label className="block text-sm font-medium mb-1">Held in bank account</label>
+              <label className="block text-sm font-medium mb-1">{t(locale, 'held_in_bank')}</label>
               <select
                 value={parentId}
                 onChange={(e) => setParentId(e.target.value)}
                 className={INPUT_CLASS}
               >
-                <option value="">— none —</option>
+                <option value="">{t(locale, 'none_dash')}</option>
                 {banks.map((b) => (
                   <option key={b.id} value={b.id}>
                     {b.name}
@@ -409,9 +427,9 @@ function AccountDialog({
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doArchive}
-        title="Archive this account?"
-        message="The account disappears from lists and the projection. Its balance history is kept."
-        confirmLabel="Archive"
+        title={t(locale, 'archive_account_q')}
+        message={t(locale, 'archive_account_msg')}
+        confirmLabel={t(locale, 'archive')}
         destructive
         pending={busy}
       />
@@ -425,9 +443,11 @@ function AccountDialog({
 // ---------------------------------------------------------------------------
 function UpdateBalancesDialog({
   accounts,
+  locale,
   onClose,
 }: {
   accounts: Account[];
+  locale: Locale;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -455,7 +475,7 @@ function UpdateBalancesDialog({
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!asOf) {
-      setError('Pick an as-of date.');
+      setError(t(locale, 'pick_asof_error'));
       return;
     }
     const entries: { account_id: string; name: string; balance_cents: number }[] = [];
@@ -465,13 +485,13 @@ function UpdateBalancesDialog({
       if (!raw.trim()) continue; // cleared/empty — skip
       const cents = parseEuro(raw);
       if (cents === null) {
-        setError(`${a.name}: "${raw}" is not a valid amount.`);
+        setError(t(locale, 'invalid_amount_error', { name: a.name, raw }));
         return;
       }
       entries.push({ account_id: a.id, name: a.name, balance_cents: cents });
     }
     if (entries.length === 0) {
-      setError('Nothing to save — change at least one balance first.');
+      setError(t(locale, 'nothing_to_save_error'));
       return;
     }
     setBusy(true);
@@ -490,28 +510,40 @@ function UpdateBalancesDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Update balances"
-      description="Type what the bank says. Only rows you touch are saved."
+      title={t(locale, 'update_balances')}
+      description={t(locale, 'update_balances_desc')}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="balances-form" disabled={busy}>
-            {busy ? 'Saving…' : 'Save balances'}
+            {busy ? t(locale, 'saving') : t(locale, 'save_balances')}
           </Button>
         </>
       }
     >
       <form id="balances-form" onSubmit={submit} className="space-y-4">
-        <DateField label="As of" name="as_of" defaultValue={asOf} onValueChange={setAsOf} />
-        {banks.length > 0 && <BalanceGroup title="Bank accounts" items={banks} values={values} onChange={setValue} />}
-        {reserves.length > 0 && (
-          <BalanceGroup title="Reserves" items={reserves} values={values} onChange={setValue} />
+        <DateField label={t(locale, 'as_of')} name="as_of" defaultValue={asOf} onValueChange={setAsOf} />
+        {banks.length > 0 && (
+          <BalanceGroup
+            title={t(locale, 'bank_accounts')}
+            items={banks}
+            values={values}
+            locale={locale}
+            onChange={setValue}
+          />
         )}
-        <p className="text-xs text-ink-muted">
-          Balances are recorded as snapshots; history is kept.
-        </p>
+        {reserves.length > 0 && (
+          <BalanceGroup
+            title={t(locale, 'reserves')}
+            items={reserves}
+            values={values}
+            locale={locale}
+            onChange={setValue}
+          />
+        )}
+        <p className="text-xs text-ink-muted">{t(locale, 'snapshots_kept')}</p>
         {error && (
           <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}
@@ -526,11 +558,13 @@ function BalanceGroup({
   title,
   items,
   values,
+  locale,
   onChange,
 }: {
   title: string;
   items: Account[];
   values: Record<string, string>;
+  locale: Locale;
   onChange: (id: string, s: string) => void;
 }) {
   return (
@@ -544,7 +578,9 @@ function BalanceGroup({
             <div className="flex-1 min-w-0">
               <div className="text-sm text-ink truncate">{a.name}</div>
               <div className="text-xs text-ink-muted">
-                {a.latest_snapshot ? `last: ${a.latest_snapshot.as_of_date}` : 'no balance yet'}
+                {a.latest_snapshot
+                  ? t(locale, 'last_date', { d: a.latest_snapshot.as_of_date })
+                  : t(locale, 'no_balance_yet')}
               </div>
             </div>
             <div className="relative w-36">

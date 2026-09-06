@@ -5,6 +5,7 @@ import { UserPlus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { APPS, type AppSlug } from '@/lib/apps';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { MemberRowDialog } from './member-row-dialog';
 import { InviteDialog } from './invite-dialog';
 
@@ -18,6 +19,7 @@ export type Member = {
   apps: { slug: string; role: string }[];
 };
 
+// Role names are product vocabulary — the same words in every locale.
 const ROLE_LABELS: Record<Member['workspace_role'], string> = {
   super_admin: 'Super Admin',
   admin: 'Admin',
@@ -38,9 +40,11 @@ function appsSummary(member: Member): string {
 export function MembersClient({
   members,
   appSlugs,
+  locale,
 }: {
   members: Member[];
   appSlugs: AppSlug[];
+  locale: Locale;
 }) {
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<Member | null>(null);
@@ -49,28 +53,28 @@ export function MembersClient({
     <>
       <section className="mt-10">
         <div className="flex items-center justify-between gap-4">
-          <SectionLabel>Workspace members</SectionLabel>
+          <SectionLabel>{t(locale, 'workspace_members')}</SectionLabel>
           <Button
             leading={<UserPlus size={16} strokeWidth={1.75} />}
             onClick={() => setAdding(true)}
           >
-            Add member
+            {t(locale, 'add_member')}
           </Button>
         </div>
 
         <div className="mt-4 rounded-lg border border-line bg-surface-raised overflow-hidden">
           {members.length === 0 ? (
-            <EmptyState>No members yet.</EmptyState>
+            <EmptyState>{t(locale, 'no_members_yet')}</EmptyState>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-line text-left text-xs text-ink-muted">
-                  <th className="px-5 py-2.5 font-medium">Name</th>
-                  <th className="px-5 py-2.5 font-medium">Email</th>
-                  <th className="px-5 py-2.5 font-medium">Role</th>
-                  <th className="px-5 py-2.5 font-medium">Relationship</th>
-                  <th className="px-5 py-2.5 font-medium">Apps</th>
-                  <th className="px-5 py-2.5 font-medium">Joined</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'name')}</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'email_label')}</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'role')}</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'relationship')}</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'nav_apps')}</th>
+                  <th className="px-5 py-2.5 font-medium">{t(locale, 'joined')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-line/60">
@@ -87,12 +91,12 @@ export function MembersClient({
                         {ROLE_LABELS[m.workspace_role]}
                       </span>
                     </td>
-                    <td className="px-5 py-3 capitalize text-ink-subtle">
-                      {m.relationship_type}
+                    <td className="px-5 py-3 text-ink-subtle">
+                      {t(locale, m.relationship_type === 'internal' ? 'internal' : 'external')}
                     </td>
                     <td className="px-5 py-3 text-ink-muted">{appsSummary(m)}</td>
                     <td className="px-5 py-3 text-ink-muted">
-                      {new Date(m.joined_at).toLocaleDateString('en-GB', {
+                      {new Date(m.joined_at).toLocaleDateString(INTL_LOCALES[locale], {
                         dateStyle: 'medium',
                       })}
                     </td>
@@ -104,11 +108,12 @@ export function MembersClient({
         </div>
       </section>
 
-      {adding && <InviteDialog appSlugs={appSlugs} onClose={() => setAdding(false)} />}
+      {adding && <InviteDialog appSlugs={appSlugs} locale={locale} onClose={() => setAdding(false)} />}
       {selected && (
         <MemberRowDialog
           member={selected}
           appSlugs={appSlugs}
+          locale={locale}
           onClose={() => setSelected(null)}
         />
       )}

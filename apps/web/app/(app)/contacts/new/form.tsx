@@ -5,16 +5,17 @@ import { useFormStatus } from 'react-dom';
 import { createPerson } from '../actions';
 import { Button } from '@/components/ui/button';
 import { TextField } from '@/components/ui/field';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function NewPersonForm() {
+export function NewPersonForm({ locale }: { locale: Locale }) {
   const [state, action] = useActionState(createPerson, {});
 
   return (
     <form action={action} className="mt-8 space-y-4">
-      <TextField label="First name" name="first_name" required errors={state.fieldErrors?.first_name} />
-      <TextField label="Last name" name="last_name" required errors={state.fieldErrors?.last_name} />
-      <TextField label="Email" name="email" type="email" required errors={state.fieldErrors?.email} />
-      <TextField label="Country (ISO 2-letter)" name="country" placeholder="NL" maxLength={2} errors={state.fieldErrors?.country} />
+      <TextField label={t(locale, 'first_name')} name="first_name" required errors={state.fieldErrors?.first_name} />
+      <TextField label={t(locale, 'last_name')} name="last_name" required errors={state.fieldErrors?.last_name} />
+      <TextField label={t(locale, 'email_label')} name="email" type="email" required errors={state.fieldErrors?.email} />
+      <TextField label={t(locale, 'country_iso')} name="country" placeholder="NL" maxLength={2} errors={state.fieldErrors?.country} />
 
       {state.error && (
         <div className="rounded-md border border-line bg-surface-sunken p-3 text-sm text-ink-subtle">
@@ -22,16 +23,16 @@ export function NewPersonForm() {
         </div>
       )}
 
-      <Submit />
+      <Submit locale={locale} />
     </form>
   );
 }
 
-function Submit() {
+function Submit({ locale }: { locale: Locale }) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" disabled={pending}>
-      {pending ? 'Saving…' : 'Add person'}
+      {pending ? t(locale, 'saving') : t(locale, 'add_person')}
     </Button>
   );
 }

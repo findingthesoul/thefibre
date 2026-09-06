@@ -1,5 +1,7 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, Breadcrumb, PageHeader, ErrorBanner } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { WorkspaceForm, type Workspace } from './workspace-form';
 
 // The workspace itself, in one place.
@@ -16,6 +18,7 @@ import { WorkspaceForm, type Workspace } from './workspace-form';
 export const metadata = { title: 'Workspace · The Fibre' };
 
 export default async function WorkspaceSettingsPage() {
+  const locale = await uiLocale();
   let ws: Workspace | null = null;
   let error: string | null = null;
   try {
@@ -26,13 +29,13 @@ export default async function WorkspaceSettingsPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'nav_settings')} />
       <PageHeader
-        title="Workspace"
-        description="Its name, its logo, the details on its invoices, and who its email comes from."
+        title={t(locale, 'nav_workspace')}
+        description={t(locale, 'workspace_page_blurb')}
       />
-      {error && <ErrorBanner>Couldn&apos;t load the workspace: {error}</ErrorBanner>}
-      {ws && <WorkspaceForm workspace={ws} />}
+      {error && <ErrorBanner>{t(locale, 'workspace_load_failed')} {error}</ErrorBanner>}
+      {ws && <WorkspaceForm workspace={ws} locale={locale} />}
     </PageContainer>
   );
 }

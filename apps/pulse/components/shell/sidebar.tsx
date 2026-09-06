@@ -20,45 +20,51 @@ import {
   type SidebarNavSection,
 } from '@thefibre/shared/ui/sidebar-shell';
 import { createBottomNav } from '@thefibre/shared/ui/bottom-nav';
+import { useLocale } from '@thefibre/shared/ui/i18n-ui';
+import { t } from '@/lib/i18n-ui';
 import type { SidebarMode } from '@/lib/prefs-shared';
 import { APPS } from '@thefibre/shared';
 
 const BRAND = APPS['fibre-pulse'];
 
-const NAV: SidebarNavSection[] = [
+// One nav, two chromes, six languages — labels come from the app catalog.
+function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
+  return [
   {
-    items: [{ href: '/dashboard', label: 'Pulse', icon: LayoutDashboard }],
+    items: [{ href: '/dashboard', label: t(locale, 'nav_pulse'), icon: LayoutDashboard }],
   },
   {
-    label: 'Plan',
+    label: t(locale, 'nav_plan'),
     items: [
-      { href: '/cashflow', label: 'Cashflow', icon: TrendingUp },
-      { href: '/projects', label: 'Projects', icon: FolderKanban },
-      { href: '/budget', label: 'Budget', icon: Table2 },
+      { href: '/cashflow', label: t(locale, 'nav_cashflow'), icon: TrendingUp },
+      { href: '/projects', label: t(locale, 'nav_projects'), icon: FolderKanban },
+      { href: '/budget', label: t(locale, 'nav_budget'), icon: Table2 },
     ],
   },
   {
     // Teams live under People, the Thread pattern (Sjoerd 2026-07-09).
-    label: 'People',
-    items: [{ href: '/teams', label: 'Teams', icon: UsersRound }],
+    label: t(locale, 'nav_people'),
+    items: [{ href: '/teams', label: t(locale, 'nav_teams'), icon: UsersRound }],
   },
   {
-    label: 'Money',
+    label: t(locale, 'nav_money'),
     items: [
-      { href: '/invoices', label: 'Invoices', icon: Receipt },
-      { href: '/accounts', label: 'Accounts', icon: Landmark },
-      { href: '/settings', label: 'Settings', icon: Settings },
+      { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
+      { href: '/accounts', label: t(locale, 'nav_accounts'), icon: Landmark },
+      { href: '/settings', label: t(locale, 'nav_settings'), icon: Settings },
     ],
   },
-];
+  ];
+}
 
 const SidebarShell = createSidebarShell(Link, usePathname);
 const BottomNavShell = createBottomNav(Link, usePathname);
 
 export function Sidebar({ mode, version }: { mode: SidebarMode; version: string }) {
+  const locale = useLocale();
   return (
     <SidebarShell
-      nav={NAV}
+      nav={buildNav(locale)}
       brandLetters={BRAND.brandLetters}
       brandName={BRAND.name}
       mode={mode}
@@ -69,5 +75,6 @@ export function Sidebar({ mode, version }: { mode: SidebarMode; version: string 
 
 // The same NAV as a bottom tab bar — rendered by the layout below `md`.
 export function MobileNav({ version }: { version: string }) {
-  return <BottomNavShell nav={NAV} version={version} />;
+  const locale = useLocale();
+  return <BottomNavShell nav={buildNav(locale)} version={version} />;
 }
