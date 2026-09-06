@@ -120,9 +120,18 @@ seeded into Pulse. What remains:
    emails ×6 (platform-i18n.ts, exports platformEmailLocale — THE
    resolver for platform-side emails); v0.44.0/0.44.1 — all 8
    auth-templates ×6, auth hook resolves via platformEmailLocale.
-   Remaining: admin UIs (P3) stay demand-driven; API errors (P4) never.
-   MT burn-down: `grep -rn '// MT'` lists every machine-drafted string
-   awaiting native review (NL: Sjoerd).
+   **P3 SHIPPED 2026-09-06** (Sjoerd overrode demand-driven: "P3 for all
+   6 languages") in v0.50.0 + v0.51.0: ALL six apps' signed-in
+   interfaces ×6 via per-app lib/i18n-ui.ts catalogs (~3,000 keys
+   total), shared chrome via useLocale()/chromeT + chrome-server-i18n
+   for the server-renderable hub/help, nav labels per-app, locale from
+   the thefibre.locale cookie via each layout's LocaleProvider.
+   Deliberately English: /admin/**, the about explainer, invoice legal
+   documents, raw API errors (P4 never — unchanged). Standing rule: NEW
+   user-facing strings always go through a catalog ×6 — never hardcode
+   EN. MT burn-down: `grep -rn '// MT'` is the native-review list
+   (NL: Sjoerd; known ES divergence Ajustes/Configuración; pt is BR —
+   INTL_LOCALES.pt flipped to pt-BR to match).
 7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
    v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
    7th app, slug `membership` (display name may become **Hyve** — one
