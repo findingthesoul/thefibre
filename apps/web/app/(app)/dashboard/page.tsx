@@ -1,16 +1,21 @@
 import Link from 'next/link';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APP_IDS, appName, appUrl, type AppId } from '@thefibre/shared';
+import { APP_IDS, appName, type AppId } from '@thefibre/shared';
+import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 
-// appUrl (env-aware), NEVER APPS[slug].url: the raw registry value is the
-// PRODUCTION default, so the staging dashboard linked people to production —
-// where their staging session doesn't exist ("going to Meet lands me on a
-// login page", Sjoerd 2026-09-05). Derived from APP_IDS so a new app can't
-// be forgotten (the old hardcoded map was missing Membership).
+// crossAppHref (env-aware), NEVER APPS[slug].url: the raw registry value is
+// the PRODUCTION default, so the staging dashboard linked people to
+// production — where their staging session doesn't exist ("going to Meet
+// lands me on a login page", Sjoerd 2026-09-05). Derived from APP_IDS so a
+// new app can't be forgotten (the old hardcoded map was missing Membership).
+// A target on the other apex becomes a /sso/hop link carrying the session.
 const APP_DOMAINS: Record<string, string> = Object.fromEntries(
-  APP_IDS.filter((s) => s !== 'fibre-platform').map((s) => [s, appUrl(s, process.env)]),
+  APP_IDS.filter((s) => s !== 'fibre-platform').map((s) => [
+    s,
+    crossAppHref('fibre-platform', s, process.env),
+  ]),
 );
 
 type Activity = {

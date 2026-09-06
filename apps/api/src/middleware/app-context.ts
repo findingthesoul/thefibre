@@ -98,6 +98,8 @@ const PUBLIC_PATHS = new Set([
   '/api/v1/auth/refresh',
   '/api/v1/sso/resolve', // gated by its own X-SSO-Secret header, not JWT
   '/api/v1/sso/access-check', // same — server-to-server, secret-gated
+  '/api/v1/sso/handoff', // verifies the user's Supabase JWT itself (JWKS)
+  '/api/v1/sso/redeem', // X-SSO-Secret, server-to-server (cross-apex hop)
   '/api/v1/signup-requests', // POST only — applicants have no account yet
   '/api/v1/auth-hook/email', // Supabase Send Email Hook; HMAC-verified
   '/api/v1/apps/register', // POST only — an app registering itself has no credential yet

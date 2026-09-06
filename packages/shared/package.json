@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.47.0",
+  "version": "0.48.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -149,6 +149,10 @@
     "./auth-callback": {
       "types": "./dist/auth-callback.d.ts",
       "default": "./dist/auth-callback.js"
+    },
+    "./sso-hop": {
+      "types": "./dist/sso-hop.d.ts",
+      "default": "./dist/sso-hop.js"
     }
   },
   "files": [

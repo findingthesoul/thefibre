@@ -1,5 +1,8 @@
 import { Hono } from 'hono';
+import { randomBytes } from 'node:crypto';
+import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { z } from 'zod';
+import { APPS } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { ensurePlanApps } from '../lib/plan-apps.js';
 
@@ -143,4 +146,129 @@ ssoRoutes.post('/access-check', async (c) => {
   if (req.status === 'pending') return c.json({ status: 'pending' });
   if (req.status === 'denied') return c.json({ status: 'denied' });
   return c.json({ status: 'unknown' });
+});
+
+// ---------------------------------------------------------------------------
+// Cross-apex SSO handoff (packages/shared/src/sso-hop.ts is the client side).
+//
+// POST /sso/handoff — the SOURCE app, holding the user's own Supabase JWT,
+//   asks for a single-use 60s code bound to (user, target app).
+// POST /sso/redeem  — the TARGET app (X-SSO-Secret, server-to-server) claims
+//   the code and gets back a Supabase magic-link token_hash minted via
+//   admin.generateLink (no email is sent), which it verifyOtp()s into a
+//   fresh, independent session on its own apex.
+//
+// The single-use claim follows the oauth_code pattern in oauth-provider.ts:
+// update … .is('used_at', null) makes the race safe — the second claimant
+// updates zero rows.
+// ---------------------------------------------------------------------------
+
+const HANDOFF_TTL_MS = 60 * 1000;
+
+const handoffJwks = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? createRemoteJWKSet(
+      new URL(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/.well-known/jwks.json`,
+      ),
+    )
+  : null;
+
+async function handoffUser(c: {
+  req: { header: (n: string) => string | undefined };
+}): Promise<{ id: string; email: string } | null> {
+  const auth = c.req.header('authorization');
+  if (!auth?.startsWith('Bearer ') || !handoffJwks) return null;
+  try {
+    const { payload } = await jwtVerify(auth.slice(7), handoffJwks, {
+      audience: process.env.API_JWT_AUDIENCE ?? 'authenticated',
+    });
+    const id = payload.sub;
+    const email = payload.email as string | undefined;
+    if (!id || !email) return null;
+    return { id, email };
+  } catch {
+    return null;
+  }
+}
+
+const Handoff = z.object({ target_app: z.string().min(1).max(50) });
+
+ssoRoutes.post('/handoff', async (c) => {
+  const user = await handoffUser(c);
+  if (!user) return c.json({ error: 'unauthenticated' }, 401);
+
+  const body = Handoff.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  // Destination allowlist IS the branding registry — never a domain list.
+  const meta = (APPS as Record<string, { available: boolean } | undefined>)[
+    body.data.target_app
+  ];
+  if (!meta?.available) return c.json({ error: 'unknown target app' }, 400);
+
+  const code = randomBytes(32).toString('base64url');
+  const { error } = await adminClient.from('sso_handoff').insert({
+    code,
+    user_id: user.id,
+    email: user.email,
+    target_app: body.data.target_app,
+    expires_at: new Date(Date.now() + HANDOFF_TTL_MS).toISOString(),
+  });
+  if (error) {
+    console.error('[sso/handoff] insert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: 'could not mint code' }, 500);
+  }
+  return c.json({ code, expires_in: HANDOFF_TTL_MS / 1000 });
+});
+
+const Redeem = z.object({
+  code: z.string().min(20).max(200),
+  app: z.string().min(1).max(50),
+});
+
+ssoRoutes.post('/redeem', async (c) => {
+  if (!requireSsoSecret(c)) return c.json({ error: 'forbidden' }, 403);
+
+  const body = Redeem.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: claimed, error } = await adminClient
+    .from('sso_handoff')
+    .update({ used_at: new Date().toISOString() })
+    .eq('code', body.data.code)
+    .eq('target_app', body.data.app)
+    .is('used_at', null)
+    .gt('expires_at', new Date().toISOString())
+    .select('email')
+    .maybeSingle();
+  if (error) {
+    console.error('[sso/redeem] claim failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: 'server_error' }, 500);
+  }
+  if (!claimed) return c.json({ error: 'invalid_code' }, 400);
+
+  // Mint a magic-link token WITHOUT sending an email; the target app's
+  // verifyOtp(token_hash) turns it into a session. Known trade-off: this
+  // invalidates any outstanding email OTP for the same user (e.g. an
+  // 8-digit code they are mid-typing in another tab).
+  const { data: link, error: linkErr } = await adminClient.auth.admin.generateLink({
+    type: 'magiclink',
+    email: claimed.email,
+  });
+  const tokenHash = link?.properties?.hashed_token;
+  if (linkErr || !tokenHash) {
+    console.error('[sso/redeem] generateLink failed', linkErr);
+    return c.json({ error: 'could not mint session' }, 500);
+  }
+  return c.json({ token_hash: tokenHash, email: claimed.email });
 });

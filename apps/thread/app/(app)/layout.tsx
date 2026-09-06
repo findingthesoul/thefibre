@@ -79,6 +79,7 @@ export default async function ThreadAppLayout({
   }
 
   const switcherApps = buildAppList({
+    currentApp: 'the-thread',
     memberships: me.memberships,
     workspaceApps: apps,
   });

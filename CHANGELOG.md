@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.48.0] — 2026-09-06 — Cross-apex SSO: the session learns to hop
+
+Phase 1 of the thethread.app domain migration (approved plan: fibre web
+stays on thefibre.app; Meet/Thread/Flow/Pulse/Membership move to
+app./meet./flow./pulse./membership.thethread.app). No shared cookie can
+span two apexes, so before any domain moves, the session learns to travel.
+
+### Added
+- **Cross-apex SSO handoff** (`@thefibre/shared/sso-hop`): cross-apex links
+  route through `/sso/hop?to=<slug>&next=<path>` on the current app → the
+  API mints a single-use 60-second code bound to (user, target app)
+  (`POST /api/v1/sso/handoff`, user's own JWT, JWKS-verified) → the target
+  app's `/sso/land` redeems it server-to-server (`POST /api/v1/sso/redeem`,
+  X-SSO-Secret) for a Supabase magic-link `token_hash` minted via
+  `admin.generateLink` (no email sent) → `verifyOtp` writes a fresh,
+  INDEPENDENT session on the target apex → the normal `/auth/callback`
+  finishes access-check + workspace claims. The Supabase credential never
+  appears in a URL; only the opaque code does. Theme/sidebar/locale prefs
+  ride along (validated allowlist) so appearance follows the user across
+  the apex boundary. Degradation: signed out / expired / replayed code →
+  the target's own sign-in page, one click recovers.
+- `sso_handoff` table (migration 20260906150000) — service-role only, the
+  `oauth_code` precedent: RLS enabled, no policies, 60s expiry, race-safe
+  single-use claim.
+- `crossAppHref(current, target, env, next?)` — THE way to build a link
+  from one app to another. Same apex → plain absolute URL (today: always,
+  so production behavior is byte-identical until the domains split). The
+  app switcher (`buildAppList` — now takes `currentApp`), the web
+  dashboard app cards, and the Membership/Pulse `profileHref` all route
+  through it.
+
+### Notes
+- Destination allowlist IS the branding registry (`APPS`/`available`) —
+  no hand-written domain list anywhere, per the standing rule.
+- Known trade-off: redeeming a hop invalidates the user's outstanding
+  email OTPs (e.g. an 8-digit code mid-typing in another tab).
+
 ## [0.47.0] — 2026-09-06 — Membership 0.11.0: Google Workspace joins the integrations
 
 ### Added

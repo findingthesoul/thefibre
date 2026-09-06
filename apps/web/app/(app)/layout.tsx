@@ -68,7 +68,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     // in the one you are already in.
   }
 
-  const apps = buildAppList({ memberships, workspaceApps });
+  const apps = buildAppList({ currentApp: 'fibre-platform', memberships, workspaceApps });
 
   return (
     <div className="h-dvh flex bg-surface">

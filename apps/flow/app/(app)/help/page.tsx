@@ -40,7 +40,7 @@ export default async function FlowHelpPage() {
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    apps = buildAppList({ memberships: me.memberships, workspaceApps: r.items });
+    apps = buildAppList({ currentApp: 'fibre-flow', memberships: me.memberships, workspaceApps: r.items });
   } catch {
     apps = [];
   }

@@ -80,6 +80,7 @@ export default async function MeetAppLayout({
   }
 
   const switcherApps = buildAppList({
+    currentApp: 'fibre-meet',
     memberships: me.memberships,
     workspaceApps: apps,
   });

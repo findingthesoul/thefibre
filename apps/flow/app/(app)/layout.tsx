@@ -80,6 +80,7 @@ export default async function FlowAppLayout({
   }
 
   const switcherApps = buildAppList({
+    currentApp: 'fibre-flow',
     memberships: me.memberships,
     workspaceApps: apps,
   });

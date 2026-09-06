@@ -56,7 +56,7 @@ export default async function MeetHelpPage() {
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     const r = await apiFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps');
-    apps = buildAppList({ memberships: me.memberships, workspaceApps: r.items });
+    apps = buildAppList({ currentApp: 'fibre-meet', memberships: me.memberships, workspaceApps: r.items });
   } catch {
     apps = [];
   }
