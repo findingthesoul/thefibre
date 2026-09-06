@@ -7,6 +7,7 @@ import {
   type WorkspaceMember,
   type TeamOption,
 } from '@/lib/thread-types';
+import { uiLocale } from '@/lib/locale';
 import { ThreadTimeline } from './timeline';
 
 type ThreadDetail = ThreadRow & {
@@ -19,6 +20,7 @@ export default async function ThreadDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const locale = await uiLocale();
   const { id } = await params;
 
   let thread: ThreadDetail;
@@ -56,7 +58,8 @@ export default async function ThreadDetailPage({
   return (
     <div className="mx-auto max-w-3xl px-6 py-10">
       <ThreadTimeline
-      categories={categories.items}
+        locale={locale}
+        categories={categories.items}
         thread={thread}
         engagements={thread.engagements}
         members={thread.co_organisers}

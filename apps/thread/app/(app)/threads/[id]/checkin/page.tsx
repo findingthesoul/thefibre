@@ -6,6 +6,8 @@ import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import { apiFetch, ApiError } from '@/lib/api';
 import { one } from '@/lib/thread-types';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { DoorList, type DoorRow } from './door-list';
 
 type EnrolmentListRow = {
@@ -20,6 +22,7 @@ type EnrolmentListRow = {
 };
 
 export default async function CheckinPage({ params }: { params: Promise<{ id: string }> }) {
+  const locale = await uiLocale();
   const { id } = await params;
 
   let title = '';
@@ -48,7 +51,10 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
       const e = one(r.enrolment);
       return {
         id: r.id,
-        name: [p?.first_name, p?.last_name].filter(Boolean).join(' ') || p?.email || 'Unknown',
+        name:
+          [p?.first_name, p?.last_name].filter(Boolean).join(' ') ||
+          p?.email ||
+          t(locale, 'unknown'),
         email: p?.email ?? null,
         status: e?.status ?? null,
         payment_status: r.payment_status,
@@ -63,11 +69,11 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
     <main className="mx-auto max-w-lg px-4 py-6">
       <nav className="text-sm">
         <Link href={`/threads/${id}`} className="text-ink-subtle hover:text-ink">
-          ← {title || 'Thread'}
+          ← {title || t(locale, 'thread')}
         </Link>
       </nav>
-      <h1 className="mt-3 text-xl font-medium tracking-tight">Check-in</h1>
-      <DoorList threadId={id} initialRows={rows} timezone={timezone} />
+      <h1 className="mt-3 text-xl font-medium tracking-tight">{t(locale, 'checkin')}</h1>
+      <DoorList locale={locale} threadId={id} initialRows={rows} timezone={timezone} />
     </main>
   );
 }

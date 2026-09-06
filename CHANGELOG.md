@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.50.0] — 2026-09-06 — i18n P3 Wave 1: Thread, Meet and Flow speak six languages (Thread 3.36.0 · Meet 2.7.0 · Flow 1.16.0)
+
+### Added
+- **The signed-in interfaces of the Thread (738 keys), Meet (399+) and
+  Flow (254) are fully translated** — en/nl/es/pt/de/fr, driven by the
+  Settings → Profile language setting. Every page, dialog, empty state,
+  toast, table header, the thread timeline editor, the 1,500-line
+  certificate builder, the flow canvas, the check-in scanner. Typed
+  per-app catalogs (`lib/i18n-ui.ts`) — a missing locale fails
+  typecheck; machine-drafted non-EN strings carry `// MT` for native
+  review (NL written to native quality).
+- **The shared chrome speaks too**: user menu, sidebar Help, bottom-nav,
+  dialogs (incl. the DELETE-to-confirm copy — the typed keyword stays
+  literal), the whole invoices area, invoice dialog, profile form,
+  date picker (Intl month/weekday names per locale), search select,
+  currency editor — via `useLocale()` context; and the server-renderable
+  settings hub + help page via an explicit `locale` param
+  (`chrome-server-i18n.ts`). Sidebar/bottom-nav labels translate through
+  each app's catalog; app names and "The Fibre" stay brand.
+- Product terms stay untranslated by design: thread, flow, run, gate.
+  User content (titles, names, notes) is never translated.
+
+### Notes
+- Web, Pulse and Membership admin follow in the next release (Wave 2 in
+  progress). ES "Settings" currently diverges between catalogs
+  (Ajustes vs Configuración) — flagged for the native review pass.
+
+
 ## [0.49.1] — 2026-09-06 — Wave 0 of i18n P3: the interface learns whose language to speak
 
 ### Added

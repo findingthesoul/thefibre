@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { addAssignee, removeAssignee } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type TeamMember = {
   id: string;
@@ -21,10 +22,12 @@ export function AssigneesEditor({
   mtId,
   members,
   assignees,
+  locale,
 }: {
   mtId: string;
   members: TeamMember[];
   assignees: Assignee[];
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -60,7 +63,7 @@ export function AssigneesEditor({
   if (members.length === 0) {
     return (
       <div className="text-sm text-ink-subtle">
-        Add members to the team first, then assign them here.
+        {t(locale, 'add_members_first')}
       </div>
     );
   }
@@ -98,7 +101,7 @@ export function AssigneesEditor({
                     disabled={pending}
                     onChange={() => setPrimary(m.id)}
                   />
-                  Primary
+                  {t(locale, 'primary')}
                 </label>
               )}
             </div>

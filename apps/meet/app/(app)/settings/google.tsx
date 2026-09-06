@@ -3,16 +3,19 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { startGoogleAuth, disconnectGoogle } from './actions';
 
 export function GoogleConnect({
   connected,
   statusParam,
   reasonParam,
+  locale,
 }: {
   connected: boolean;
   statusParam: string | null;
   reasonParam: string | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -23,7 +26,7 @@ export function GoogleConnect({
     start(async () => {
       const r = await startGoogleAuth();
       if (r.error || !r.url) {
-        setError(r.error ?? 'Could not start Google connect.');
+        setError(r.error ?? t(locale, 'google_start_failed'));
         return;
       }
       window.location.href = r.url;
@@ -45,20 +48,18 @@ export function GoogleConnect({
         <div className="min-w-0">
           <div className="font-medium">Google Calendar</div>
           <div className="text-sm text-ink-subtle mt-1">
-            Read your free/busy to hide booked times from your booking page,
-            and create the meeting on your calendar (with a Meet link) when
-            someone books.
+            {t(locale, 'google_desc')}
           </div>
           {statusParam === 'connected' && !error && (
             <div className="mt-3 text-sm text-emerald-700">
-              ✓ Connected. Calendars synced.
+              {t(locale, 'google_connected_msg')}
             </div>
           )}
           {statusParam === 'error' && (
             <div className="mt-3 text-sm text-red-700">
-              Couldn&apos;t connect{reasonParam ? ` (${reasonParam})` : ''}.
-              Try again or check that your Google account hasn&apos;t revoked
-              access.
+              {t(locale, 'google_error_msg', {
+                reason: reasonParam ? ` (${reasonParam})` : '',
+              })}
             </div>
           )}
           {error && (
@@ -73,11 +74,11 @@ export function GoogleConnect({
               onClick={disconnect}
               disabled={pending}
             >
-              {pending ? 'Working…' : 'Disconnect'}
+              {pending ? t(locale, 'working') : t(locale, 'disconnect')}
             </Button>
           ) : (
             <Button onClick={connect} disabled={pending}>
-              {pending ? 'Redirecting…' : 'Connect Google Calendar'}
+              {pending ? t(locale, 'redirecting') : t(locale, 'connect_google')}
             </Button>
           )}
         </div>

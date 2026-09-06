@@ -4,6 +4,7 @@ import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { updatePublicPage } from '../actions';
 import { MEET_HOST } from '@/lib/public-host';
 
@@ -19,6 +20,7 @@ import { MEET_HOST } from '@/lib/public-host';
 export function PublicPageForm({
   host,
   fibreProfileUrl,
+  locale,
 }: {
   host: {
     slug: string;
@@ -28,6 +30,7 @@ export function PublicPageForm({
     photo_url: string | null;
   };
   fibreProfileUrl: string;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [slug, setSlug] = useState(host.slug);
@@ -40,10 +43,10 @@ export function PublicPageForm({
     e.preventDefault();
     setError(null);
     setSaved(false);
-    if (!slug.trim()) return setError('Pick a public URL.');
+    if (!slug.trim()) return setError(t(locale, 'pp_pick_url'));
     start(async () => {
       const r = await updatePublicPage({ slug: slug.trim(), location: location.trim() || null });
-      if (!r.ok) return setError(r.error ?? 'could not save');
+      if (!r.ok) return setError(r.error ?? t(locale, 'could_not_save'));
       setSaved(true);
       router.refresh();
     });
@@ -53,7 +56,7 @@ export function PublicPageForm({
     <form onSubmit={onSubmit} className="mt-8 space-y-8 max-w-xl">
       <label className="block">
         <span className="text-sm text-ink-subtle">
-          Public URL<span className="text-red-600"> *</span>
+          {t(locale, 'public_url')}<span className="text-red-600"> *</span>
         </span>
         <div className="mt-1 flex">
           <span className="inline-flex items-center rounded-l-md border border-r-0 border-line bg-surface-sunken px-3 text-sm text-ink-muted">
@@ -69,12 +72,12 @@ export function PublicPageForm({
           />
         </div>
         <span className="mt-1 block text-xs text-ink-muted">
-          Your booking page lives under this address.
+          {t(locale, 'pp_url_hint')}
         </span>
       </label>
 
       <label className="block">
-        <span className="text-sm text-ink-subtle">Location</span>
+        <span className="text-sm text-ink-subtle">{t(locale, 'location')}</span>
         <input
           className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
           value={location}
@@ -85,12 +88,12 @@ export function PublicPageForm({
           placeholder="Amsterdam, NL"
         />
         <span className="mt-1 block text-xs text-ink-muted">
-          Shown on your booking page — the one field that is Meet&apos;s own.
+          {t(locale, 'pp_location_hint')}
         </span>
       </label>
 
       <section className="border-t border-line pt-8">
-        <div className="text-[10px] uppercase tracking-wider text-ink-muted">What it shows</div>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">{t(locale, 'pp_what_it_shows')}</div>
         <div className="mt-3 flex items-start gap-4 rounded-lg border border-line bg-surface-raised p-4">
           {host.photo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -105,7 +108,7 @@ export function PublicPageForm({
           <div className="min-w-0">
             <div className="text-sm font-medium">{host.display_name ?? '—'}</div>
             <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-              {host.bio || 'No bio yet.'}
+              {host.bio || t(locale, 'pp_no_bio')}
             </p>
           </div>
         </div>
@@ -113,11 +116,11 @@ export function PublicPageForm({
           href={fibreProfileUrl}
           className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
         >
-          Edit your profile in The Fibre
+          {t(locale, 'pp_edit_in_fibre')}
           <ExternalLink size={12} strokeWidth={1.75} />
         </a>
         <p className="mt-2 text-xs text-ink-muted">
-          One profile, used by every app — so it is edited in one place.
+          {t(locale, 'pp_one_profile')}
         </p>
       </section>
 
@@ -128,9 +131,9 @@ export function PublicPageForm({
       )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t(locale, 'saving') : t(locale, 'save')}
         </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved')}</span>}
       </div>
     </form>
   );

@@ -13,10 +13,10 @@ import {
   runSubjectName,
   runSubjectInitials,
   isPulseRun,
-  PULSE_BADGE_TITLE,
   type RunPerson as Person,
   type RunOrganisation,
 } from '@/lib/run-subject';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type Run = {
   id: string;
@@ -38,10 +38,10 @@ export type Step = {
   canvas_y?: number | null;
 };
 
-function PulseChip() {
+function PulseChip({ locale }: { locale: Locale }) {
   return (
     <span
-      title={PULSE_BADGE_TITLE}
+      title={t(locale, 'pulse_badge_title')}
       className="bg-yellow-100 text-ink text-[10px] rounded-full px-1.5 py-0.5 shrink-0"
     >
       Pulse
@@ -49,20 +49,26 @@ function PulseChip() {
   );
 }
 
-function timeAtStep(iso?: string | null): string {
+function timeAtStep(locale: Locale, iso?: string | null): string {
   if (!iso) return '';
   const days = Math.floor((Date.now() - new Date(iso).getTime()) / 86400000);
-  if (days <= 0) return 'today';
-  if (days === 1) return '1 day';
-  if (days < 30) return `${days} days`;
+  if (days <= 0) return t(locale, 'today');
+  if (days === 1) return t(locale, 'one_day');
+  if (days < 30) return t(locale, 'n_days', { n: days });
   const months = Math.floor(days / 30);
-  return months === 1 ? '1 mo' : `${months} mo`;
+  return months === 1 ? t(locale, 'one_month_short') : t(locale, 'n_months_short', { n: months });
 }
 
 const STATUS_STYLE: Record<string, string> = {
   active: 'bg-emerald-50 text-emerald-700',
   completed: 'bg-indigo-50 text-indigo-700',
   withdrawn: 'bg-slate-100 text-slate-500',
+};
+
+const STATUS_KEY: Record<string, UiKey> = {
+  active: 'status_active',
+  completed: 'status_completed',
+  withdrawn: 'status_withdrawn',
 };
 
 const KIND_DOT: Record<string, string> = {
@@ -78,11 +84,13 @@ export function RunsPanel({
   runs,
   steps,
   canAdd,
+  locale,
 }: {
   flowId: string;
   runs: Run[];
   steps: Step[];
   canAdd: boolean;
+  locale: Locale;
 }) {
   const [adding, setAdding] = useState(false);
   const [openRunId, setOpenRunId] = useState<string | null>(null);
@@ -106,7 +114,7 @@ export function RunsPanel({
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-medium">Contacts in this flow</h2>
+        <h2 className="text-sm font-medium">{t(locale, 'contacts_in_this_flow')}</h2>
         <div className="flex items-center gap-2">
           {runs.length > 0 && (
             <div className="inline-flex rounded-md border border-line overflow-hidden">
@@ -116,7 +124,7 @@ export function RunsPanel({
                   view === 'board' ? 'bg-surface-sunken text-ink' : 'text-ink-subtle hover:text-ink'
                 }`}
               >
-                <LayoutGrid size={14} /> Board
+                <LayoutGrid size={14} /> {t(locale, 'board')}
               </button>
               <button
                 onClick={() => setView('list')}
@@ -124,7 +132,7 @@ export function RunsPanel({
                   view === 'list' ? 'bg-surface-sunken text-ink' : 'text-ink-subtle hover:text-ink'
                 }`}
               >
-                <ListIcon size={14} /> List
+                <ListIcon size={14} /> {t(locale, 'list')}
               </button>
             </div>
           )}
@@ -134,7 +142,7 @@ export function RunsPanel({
               className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
             >
               <UserPlus size={15} strokeWidth={1.75} />
-              Add contact
+              {t(locale, 'add_contact')}
             </button>
           )}
         </div>
@@ -142,12 +150,10 @@ export function RunsPanel({
 
       {runs.length === 0 ? (
         <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center text-sm text-ink-subtle">
-          {canAdd
-            ? 'No contacts in this flow yet. Add one to start moving them through.'
-            : 'Publish the flow before adding contacts.'}
+          {canAdd ? t(locale, 'no_contacts_add_one') : t(locale, 'publish_before_adding')}
         </div>
       ) : view === 'board' ? (
-        <Board runs={runs} steps={steps} onOpen={setOpenRunId} onMove={onBoardMove} />
+        <Board runs={runs} steps={steps} onOpen={setOpenRunId} onMove={onBoardMove} locale={locale} />
       ) : (
         <div className="space-y-2">
           {runs.map((r) => {
@@ -165,7 +171,7 @@ export function RunsPanel({
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5 min-w-0">
                     <span className="font-medium truncate">{runSubjectName(r)}</span>
-                    {isPulseRun(r) && <PulseChip />}
+                    {isPulseRun(r) && <PulseChip locale={locale} />}
                   </div>
                   {person?.email && <div className="text-xs text-ink-muted truncate">{person.email}</div>}
                 </div>
@@ -175,7 +181,7 @@ export function RunsPanel({
                     STATUS_STYLE[r.status] ?? ''
                   }`}
                 >
-                  {r.status}
+                  {STATUS_KEY[r.status] ? t(locale, STATUS_KEY[r.status]) : r.status}
                 </span>
                 <ChevronRight size={16} className="text-ink-muted shrink-0" />
               </button>
@@ -184,9 +190,9 @@ export function RunsPanel({
         </div>
       )}
 
-      {adding && <AddContactDialog flowId={flowId} onClose={() => setAdding(false)} />}
+      {adding && <AddContactDialog flowId={flowId} locale={locale} onClose={() => setAdding(false)} />}
       {openRunId && (
-        <RunModal runId={openRunId} onClose={closeModal} initialTargetKey={pendingKey} />
+        <RunModal runId={openRunId} onClose={closeModal} initialTargetKey={pendingKey} locale={locale} />
       )}
     </div>
   );
@@ -197,11 +203,13 @@ function Board({
   steps,
   onOpen,
   onMove,
+  locale,
 }: {
   runs: Run[];
   steps: Step[];
   onOpen: (id: string) => void;
   onMove: (runId: string, stepKey: string) => void;
+  locale: Locale;
 }) {
   // Drag a card to another column → onMove opens the confirm popup (gated or
   // manual) via the run modal.
@@ -266,7 +274,7 @@ function Board({
             <div className="space-y-2 min-h-[72px]">
               {col.length === 0 && (
                 <div className="rounded-xl border border-dashed border-slate-300/70 px-3 py-4 text-center text-[11px] text-ink-muted">
-                  No one here
+                  {t(locale, 'no_one_here')}
                 </div>
               )}
               {col.map((r) => {
@@ -294,11 +302,13 @@ function Board({
                         {runSubjectInitials(r)}
                       </span>
                       <span className="text-sm font-medium truncate flex-1">{runSubjectName(r)}</span>
-                      {isPulseRun(r) && <PulseChip />}
+                      {isPulseRun(r) && <PulseChip locale={locale} />}
                     </div>
                     <div className="mt-1.5 flex items-center justify-between text-[11px] text-ink-muted">
-                      <span>{timeAtStep(r.current_step_entered_at)}</span>
-                      {withdrawn && <span className="uppercase tracking-wider">withdrawn</span>}
+                      <span>{timeAtStep(locale, r.current_step_entered_at)}</span>
+                      {withdrawn && (
+                        <span className="uppercase tracking-wider">{t(locale, 'status_withdrawn')}</span>
+                      )}
                     </div>
                   </button>
                 );
@@ -311,7 +321,7 @@ function Board({
             <div className="flex items-center justify-between px-2 pt-1 pb-2">
               <span className="flex items-center gap-2 text-xs font-medium truncate">
                 <span className="h-2 w-2 rounded-full shrink-0 bg-slate-300" />
-                Other
+                {t(locale, 'other_column')}
               </span>
               <span className="text-[11px] text-ink-subtle tabular-nums rounded-full bg-white ring-1 ring-black/5 px-2 py-0.5">
                 {orphans.length}
@@ -327,7 +337,7 @@ function Board({
                   >
                     <span className="inline-flex items-center gap-1.5 max-w-full">
                       <span className="text-sm font-medium truncate">{runSubjectName(r)}</span>
-                      {isPulseRun(r) && <PulseChip />}
+                      {isPulseRun(r) && <PulseChip locale={locale} />}
                     </span>
                   </button>
                 );
@@ -340,7 +350,15 @@ function Board({
   );
 }
 
-function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => void }) {
+function AddContactDialog({
+  flowId,
+  locale,
+  onClose,
+}: {
+  flowId: string;
+  locale: Locale;
+  onClose: () => void;
+}) {
   const router = useRouter();
   const [personId, setPersonId] = useState('');
   const [busy, setBusy] = useState(false);
@@ -377,17 +395,17 @@ function AddContactDialog({ flowId, onClose }: { flowId: string; onClose: () => 
   }
 
   return (
-    <Dialog open onClose={onClose} title="Add a contact to the flow">
+    <Dialog open onClose={onClose} title={t(locale, 'add_contact_title')}>
       <div>
         <SearchSelect
           value={personId}
           onChange={(id) => void pick(id)}
           loadOptions={loadPeople}
           disabled={busy}
-          placeholder="Pick a person…"
-          searchPlaceholder="Search people by name or email"
+          placeholder={t(locale, 'pick_person_ph')}
+          searchPlaceholder={t(locale, 'search_people_ph')}
         />
-        {busy && <div className="mt-3 text-sm text-ink-muted">Adding to the flow…</div>}
+        {busy && <div className="mt-3 text-sm text-ink-muted">{t(locale, 'adding_to_flow')}</div>}
         {error && (
           <div className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {error}

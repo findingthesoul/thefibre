@@ -2,11 +2,13 @@
 
 import { useState, useTransition } from 'react';
 import { CheckCircle2, Undo2 } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n-ui';
 import { checkinEnrolment } from '../../threads/actions';
 import type { ScannedTicket } from './page';
 
-export function CheckinCard({ ticket }: { ticket: ScannedTicket }) {
+export function CheckinCard({ locale, ticket }: { locale: Locale; ticket: ScannedTicket }) {
   const [checkedInAt, setCheckedInAt] = useState<string | null>(ticket.checked_in_at);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -28,19 +30,22 @@ export function CheckinCard({ ticket }: { ticket: ScannedTicket }) {
       {ticket.email && <p className="mt-1 text-sm text-ink-subtle">{ticket.email}</p>}
       <p className="mt-2 text-xs text-ink-muted">
         {ticket.status === 'invited'
-          ? 'Registration not yet approved'
+          ? t(locale, 'reg_not_approved')
           : ticket.payment_status === 'pending'
-            ? 'Payment still pending'
+            ? t(locale, 'payment_still_pending')
             : null}
       </p>
 
       {done ? (
         <div className="mt-6">
           <p className="inline-flex items-center gap-2 text-lg font-medium text-green-700">
-            <CheckCircle2 size={22} /> Checked in
+            <CheckCircle2 size={22} /> {t(locale, 'checked_in')}
           </p>
           <p className="mt-1 text-xs text-ink-muted">
-            {new Date(checkedInAt!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+            {new Date(checkedInAt!).toLocaleTimeString(INTL_LOCALES[locale], {
+              hour: '2-digit',
+              minute: '2-digit',
+            })}
           </p>
           <Button
             type="button"
@@ -51,7 +56,7 @@ export function CheckinCard({ ticket }: { ticket: ScannedTicket }) {
             onClick={() => act(true)}
             disabled={pending}
           >
-            Undo
+            {t(locale, 'undo')}
           </Button>
         </div>
       ) : (
@@ -61,7 +66,7 @@ export function CheckinCard({ ticket }: { ticket: ScannedTicket }) {
           onClick={() => act(false)}
           disabled={pending}
         >
-          {pending ? 'Checking in…' : 'Check in'}
+          {pending ? t(locale, 'checking_in') : t(locale, 'check_in')}
         </Button>
       )}
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}

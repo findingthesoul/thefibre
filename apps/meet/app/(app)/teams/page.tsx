@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { MEET_HOST } from '@/lib/public-host';
 
 type Team = {
@@ -20,6 +22,7 @@ type Team = {
 };
 
 export default async function TeamsPage() {
+  const locale = await uiLocale();
   let items: Team[] = [];
   let error: string | null = null;
 
@@ -33,34 +36,34 @@ export default async function TeamsPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Teams"
-        description="Shared groups that own their own booking links and meeting types."
-        actions={<ButtonLink href="/teams/new">New team</ButtonLink>}
+        title={t(locale, 'teams_title')}
+        description={t(locale, 'teams_desc')}
+        actions={<ButtonLink href="/teams/new">{t(locale, 'new_team')}</ButtonLink>}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <section className="mt-10">
-        <SectionLabel>Your teams</SectionLabel>
+        <SectionLabel>{t(locale, 'your_teams')}</SectionLabel>
         {items.length === 0 ? (
-          <EmptyState>No teams yet. Create one to share booking links.</EmptyState>
+          <EmptyState>{t(locale, 'teams_empty')}</EmptyState>
         ) : (
           <ListGroup>
-            {items.map((t) => (
+            {items.map((tm) => (
               <ListRow
-                key={t.id}
-                href={`/teams/${t.id}`}
-                primary={t.name}
-                secondary={`${MEET_HOST}/${t.slug}`}
+                key={tm.id}
+                href={`/teams/${tm.id}`}
+                primary={tm.name}
+                secondary={`${MEET_HOST}/${tm.slug}`}
                 meta={
                   <>
-                    {!t.is_active && (
+                    {!tm.is_active && (
                       <span className="uppercase tracking-wider text-ink-muted">
-                        Hidden
+                        {t(locale, 'hidden')}
                       </span>
                     )}
                     <span className="uppercase tracking-wider text-ink-muted">
-                      {t.my_role}
+                      {tm.my_role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
                     </span>
                   </>
                 }

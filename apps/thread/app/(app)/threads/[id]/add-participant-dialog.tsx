@@ -10,6 +10,8 @@
 
 import { useEffect, useState } from 'react';
 import { BillingChoice } from '@thefibre/shared/ui/billing-choice';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { Dialog } from '@/components/ui/dialog';
 import { TextField, SelectField } from '@/components/ui/field';
 import { SwitchField } from '@/components/ui/switch';
@@ -20,15 +22,19 @@ import {
   type ThreadPricing,
 } from './registrations-actions';
 
-function money(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
+function money(locale: Locale, cents: number, currency: string): string {
+  return new Intl.NumberFormat(INTL_LOCALES[locale], { style: 'currency', currency }).format(
+    cents / 100,
+  );
 }
 
 export function AddParticipantDialog({
+  locale,
   threadId,
   onClose,
   onAdded,
 }: {
+  locale: Locale;
   threadId: string;
   onClose: () => void;
   /** Called after a successful add; `info` is a note for the parent list. */
@@ -87,15 +93,15 @@ export function AddParticipantDialog({
       return;
     }
     if (r.already) {
-      setError('Already enrolled — no changes made.');
+      setError(t(locale, 'already_enrolled_no_changes'));
       setBusy(false);
       return;
     }
     onAdded(
       r.invoicePending
-        ? 'Added with a pending invoice — mark it paid once the money arrives.'
+        ? t(locale, 'added_invoice_pending')
         : r.reactivated
-          ? 'Re-activated an earlier registration — the person is enrolled again.'
+          ? t(locale, 'reactivated_msg')
           : null,
     );
     onClose();
@@ -105,27 +111,27 @@ export function AddParticipantDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Add participant"
+      title={t(locale, 'add_participant')}
       description={
         invoiceable
-          ? 'This thread is paid — manual adds are invoiced by email, or comped.'
-          : 'Adds the person directly as enrolled.'
+          ? t(locale, 'add_participant_paid_desc')
+          : t(locale, 'add_participant_free_desc')
       }
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose} disabled={busy}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="add-participant-form" disabled={busy || pricing === null}>
-            {busy ? 'Adding…' : 'Add participant'}
+            {busy ? t(locale, 'adding') : t(locale, 'add_participant')}
           </Button>
         </>
       }
     >
       <form id="add-participant-form" onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <TextField label="Name" name="name" required autoFocus />
-          <TextField label="Email" name="email" type="email" required />
+          <TextField label={t(locale, 'name')} name="name" required autoFocus />
+          <TextField label={t(locale, 'email')} name="email" type="email" required />
         </div>
 
         {pricing === null && (
@@ -134,14 +140,18 @@ export function AddParticipantDialog({
 
         {tickets.length > 0 && (
           <SelectField
-            label="Ticket"
+            label={t(locale, 'ticket')}
             value={ticketId}
             onChange={(e) => setTicketId(e.target.value)}
-            options={tickets.map((t) => ({
-              value: t.id,
-              label: `${t.name} — ${t.price_cents > 0 ? money(t.price_cents, t.price_currency) : 'Free'}`,
+            options={tickets.map((tk) => ({
+              value: tk.id,
+              label: `${tk.name} — ${
+                tk.price_cents > 0
+                  ? money(locale, tk.price_cents, tk.price_currency)
+                  : t(locale, 'free')
+              }`,
             }))}
-            hint="Sets the invoice amount."
+            hint={t(locale, 'ticket_hint')}
           />
         )}
 
@@ -149,16 +159,18 @@ export function AddParticipantDialog({
           <BillingChoice
             value={billing}
             onChange={setBilling}
-            invoiceLabel={`Invoice · ${money(amountCents, currency)}`}
-            invoiceDescription="Emails a pending invoice now — pay by transfer or the pay-online link. The confirmation email follows once it's paid."
-            compedLabel="Comped / free"
-            compedDescription="No invoice — the person is enrolled right away."
+            invoiceLabel={t(locale, 'invoice_amount_label', {
+              amount: money(locale, amountCents, currency),
+            })}
+            invoiceDescription={t(locale, 'invoice_manual_desc')}
+            compedLabel={t(locale, 'comped_label')}
+            compedDescription={t(locale, 'comped_desc')}
           />
         )}
 
         {!invoiced && (
           <SwitchField
-            label="Send the confirmation email and welcome messages"
+            label={t(locale, 'send_confirmation')}
             name="notify"
             checked={notify}
             onChange={setNotify}

@@ -6,6 +6,8 @@
 import { apiFetch } from '@/lib/api';
 import { one, type OrganiserRow, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { PageContainer, PageHeader, Breadcrumb, SectionLabel } from '@/components/ui/page';
 import {
   EmbedGenerator,
@@ -20,6 +22,7 @@ import { DEFAULT_EMBED_CSS } from './default-embed-css';
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
 export default async function EmbedsSettingsPage() {
+  const locale = await uiLocale();
   const [organiser, threadsRes, teamsRes, categoriesRes] = await Promise.all([
     apiFetch<OrganiserRow>('/api/v1/thread/me'),
     apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads').catch(() => ({
@@ -50,37 +53,36 @@ export default async function EmbedsSettingsPage() {
 
   const snippets: { title: string; desc: string; code: string }[] = [
     {
-      title: '1 · Load the script once',
-      desc: 'Paste in your site’s <head> (Webflow: Site settings → Custom code).',
+      title: t(locale, 'snippet_1_title'),
+      desc: t(locale, 'snippet_1_desc'),
       code: `<script src="${HOST}/embed.js" defer></script>`,
     },
     {
-      title: '2 · Overview of your threads',
-      desc: 'Lists your public threads. Swap data-organiser for data-team="<team-uuid>", data-org="<org-uuid>" or data-workspace="<workspace-uuid>" (everyone\u2019s public threads).',
+      title: t(locale, 'snippet_2_title'),
+      desc: t(locale, 'snippet_2_desc'),
       code: `<div data-thread-embed="list" data-organiser="${organiser.slug}"></div>`,
     },
     {
-      title: '3 · One thread, chosen elements',
-      desc: 'Pick the sections: cover, intention, agenda, price, enrol.',
+      title: t(locale, 'snippet_3_title'),
+      desc: t(locale, 'snippet_3_desc'),
       code: `<div data-thread-embed="thread" data-organiser="${organiser.slug}"\n     data-thread="your-thread-slug" data-elements="cover,intention,enrol"></div>`,
     },
     {
-      title: '4 · Enrolment popup from any button',
-      desc: 'Opens the subscription form in an overlay — Luma style.',
+      title: t(locale, 'snippet_4_title'),
+      desc: t(locale, 'snippet_4_desc'),
       code: `<a href="#" data-thread-embed="enrol" data-organiser="${organiser.slug}"\n   data-thread="your-thread-slug">Enrol now</a>`,
     },
   ];
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Website embeds"
-        description="Show your threads and take enrolments on any website — auto-sizing, no code beyond copy-paste."
+        title={t(locale, 'settings_embeds')}
+        description={t(locale, 'embeds_page_desc')}
       />
       <p className="mt-2 text-xs text-ink-subtle">
-        Building something custom instead? The read API behind these widgets is public and
-        documented at{' '}
+        {t(locale, 'embeds_dev_note_1')}{' '}
         <a href="/developers" className="underline underline-offset-2" target="_blank">
           /developers
         </a>
@@ -97,27 +99,23 @@ export default async function EmbedsSettingsPage() {
           </section>
         ))}
         <section>
-          <SectionLabel>Language (data-lang)</SectionLabel>
+          <SectionLabel>{t(locale, 'embeds_lang_label')}</SectionLabel>
           <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
-            Add <code className="font-mono">data-lang</code> to any embed to force the language
-            of the embedded UI (labels, buttons, enrol form). Supported:{' '}
+            {t(locale, 'embeds_lang_1')} <code className="font-mono">data-lang</code>{' '}
+            {t(locale, 'embeds_lang_2')}{' '}
             {LOCALES.map((l, i) => (
               <span key={l}>
                 {i > 0 && ', '}
                 <code className="font-mono">{l}</code> ({LOCALE_LABELS[l]})
               </span>
             ))}
-            . Without it, the thread embed and the enrol popup use the thread&apos;s own
-            language; the list falls back to English for its chrome while each item&apos;s
-            button and popup still follow that thread&apos;s language.
+            {t(locale, 'embeds_lang_3')}
           </p>
           <pre className="mt-2 rounded-lg border border-line bg-surface-raised p-4 text-xs overflow-x-auto font-mono leading-relaxed">
             {`<div data-thread-embed="thread" data-organiser="${organiser.slug}"\n     data-thread="your-thread-slug" data-lang="nl"></div>`}
           </pre>
           <p className="mt-2 text-xs text-ink-subtle leading-relaxed">
-            In the embedded list, threads whose public interaction is set to
-            &ldquo;popup&rdquo; open the enrolment overlay right on your site; threads set to
-            &ldquo;page&rdquo; link out to their public page.
+            {t(locale, 'embeds_popup_note')}
           </p>
         </section>
         <section>
@@ -160,6 +158,7 @@ ${DEFAULT_EMBED_CSS.split('\n').map((l) => (l ? '    ' + l : l)).join('\n')}  </
         </section>
 
         <EmbedGenerator
+          locale={locale}
           organiserSlug={organiser.slug}
           workspaceId={organiser.workspace_id}
           categories={categoriesRes.items}

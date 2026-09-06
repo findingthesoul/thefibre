@@ -11,6 +11,8 @@ import {
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { ButtonLink } from '@/components/ui/button';
 import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { TeamForm } from '../form';
 import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
 import { VisibilityCard } from './visibility';
@@ -45,6 +47,7 @@ export default async function TeamDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const locale = await uiLocale();
   const { id } = await params;
   let team: Team;
   try {
@@ -53,8 +56,8 @@ export default async function TeamDetailPage({
     if (e instanceof ApiError && e.status === 404) notFound();
     return (
       <PageContainer max="4xl">
-        <Breadcrumb href="/teams" label="Teams" />
-        <ErrorBanner>Couldn&apos;t load the team.</ErrorBanner>
+        <Breadcrumb href="/teams" label={t(locale, 'teams_title')} />
+        <ErrorBanner>{t(locale, 'couldnt_load_team')}</ErrorBanner>
       </PageContainer>
     );
   }
@@ -63,14 +66,15 @@ export default async function TeamDetailPage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/teams" label="Teams" />
+      <Breadcrumb href="/teams" label={t(locale, 'teams_title')} />
       <PageHeader title={team.name} description={team.description ?? undefined} />
 
       {isLead && (
         <section className="mt-10">
-          <SectionLabel>Edit</SectionLabel>
+          <SectionLabel>{t(locale, 'edit')}</SectionLabel>
           <div className="mt-4">
             <TeamForm
+              locale={locale}
               initial={{
                 id: team.id,
                 slug: team.slug,
@@ -84,22 +88,23 @@ export default async function TeamDetailPage({
       )}
 
       <section className="mt-14">
-        <SectionLabel>Visibility</SectionLabel>
+        <SectionLabel>{t(locale, 'visibility_section')}</SectionLabel>
         <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
-          Controls who can see this team and its bookings.
+          {t(locale, 'team_visibility_desc')}
         </p>
         <div className="mt-4 rounded-lg border border-line bg-surface-raised p-5">
           <VisibilityCard
             teamId={team.id}
             initial={team.visibility ?? 'members_only'}
             disabled={!isLead}
+            locale={locale}
           />
         </div>
       </section>
 
       <section className="mt-14">
         <div className="flex items-center justify-between">
-          <SectionLabel>Members</SectionLabel>
+          <SectionLabel>{t(locale, 'members')}</SectionLabel>
         </div>
         <ListGroup>
           {team.members
@@ -115,10 +120,10 @@ export default async function TeamDetailPage({
                   meta={
                     <>
                       <span className="uppercase tracking-wider text-ink-muted">
-                        {m.role}
+                        {m.role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
                       </span>
                       {isLead && (
-                        <RemoveMemberButton teamId={team.id} userId={u.id} />
+                        <RemoveMemberButton teamId={team.id} userId={u.id} locale={locale} />
                       )}
                     </>
                   }
@@ -128,7 +133,7 @@ export default async function TeamDetailPage({
         </ListGroup>
         {isLead && (
           <div className="mt-6">
-            <AddMemberForm teamId={team.id} />
+            <AddMemberForm teamId={team.id} locale={locale} />
           </div>
         )}
       </section>
@@ -136,11 +141,9 @@ export default async function TeamDetailPage({
       {isLead &&
         team.members.some((m) => m.status === 'invited') && (
           <section className="mt-14">
-            <SectionLabel>Pending invites</SectionLabel>
+            <SectionLabel>{t(locale, 'pending_invites')}</SectionLabel>
             <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
-              These invitees haven&apos;t accepted yet. They&apos;ll start receiving
-              bookings only after they accept. Copy the link if the email
-              didn&apos;t land.
+              {t(locale, 'pending_invites_desc')}
             </p>
             <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
               {team.members
@@ -158,6 +161,7 @@ export default async function TeamDetailPage({
                       role={m.role}
                       token={m.invite_token}
                       invitedAt={m.invited_at}
+                      locale={locale}
                     />
                   );
                 })}
@@ -167,16 +171,16 @@ export default async function TeamDetailPage({
 
       <section className="mt-14">
         <div className="flex items-center justify-between">
-          <SectionLabel>Meeting types</SectionLabel>
+          <SectionLabel>{t(locale, 'mt_title')}</SectionLabel>
           {isLead && (
             <ButtonLink href={`/meeting-types/new?team=${team.id}`}>
-              New meeting type
+              {t(locale, 'new_mt_title')}
             </ButtonLink>
           )}
         </div>
         {team.meeting_types.length === 0 ? (
           <EmptyState>
-            No meeting types for this team yet.
+            {t(locale, 'team_no_mts')}
           </EmptyState>
         ) : (
           <ListGroup>
@@ -192,7 +196,7 @@ export default async function TeamDetailPage({
                     <>
                       {!mt.is_active && (
                         <span className="uppercase tracking-wider text-ink-muted">
-                          Hidden
+                          {t(locale, 'hidden')}
                         </span>
                       )}
                       <span>{mt.duration_minutes} min</span>
@@ -203,9 +207,10 @@ export default async function TeamDetailPage({
                       <div className="flex items-center gap-1">
                         <CopyLinkButton
                           url={bookingPath}
-                          label="Copy booking link"
+                          label={t(locale, 'copy_booking_link')}
+                          copiedLabel={t(locale, 'copied')}
                         />
-                        <OpenBookingLink href={bookingPath} />
+                        <OpenBookingLink href={bookingPath} label={t(locale, 'open_booking_page')} />
                       </div>
                     )
                   }

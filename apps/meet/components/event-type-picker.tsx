@@ -11,12 +11,13 @@ import {
   ChevronDown,
   type LucideIcon,
 } from 'lucide-react';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type EventTypeOption = {
   value: string;
-  label: string;
-  sub: string;
-  desc: string;
+  labelKey: UiKey;
+  subKey: UiKey;
+  descKey: UiKey;
   Icon: LucideIcon;
   teamOnly: boolean;
   disabled?: boolean;
@@ -29,50 +30,50 @@ export type EventTypeOption = {
 export const EVENT_TYPES: EventTypeOption[] = [
   {
     value: 'one_on_one',
-    label: 'One-on-one',
-    sub: '1 host → 1 invitee',
-    desc: 'Coffee chats, intro calls, 1:1 reviews.',
+    labelKey: 'et_one_on_one',
+    subKey: 'et_one_on_one_sub',
+    descKey: 'et_one_on_one_desc',
     Icon: User,
     teamOnly: false,
   },
   {
     value: 'group',
-    label: 'Group',
-    sub: '1 host → multiple invitees',
-    desc: 'Webinars, office hours, classes.',
+    labelKey: 'et_group',
+    subKey: 'et_group_sub',
+    descKey: 'et_group_desc',
     Icon: Users,
     teamOnly: false,
   },
   {
     value: 'round_robin',
-    label: 'Round-robin',
-    sub: 'Rotating hosts → 1 invitee',
-    desc: 'Distribute bookings across a team.',
+    labelKey: 'et_round_robin',
+    subKey: 'et_round_robin_sub',
+    descKey: 'et_round_robin_desc',
     Icon: Repeat,
     teamOnly: true,
   },
   {
     value: 'collective',
-    label: 'Collective',
-    sub: 'Multiple hosts → 1 invitee',
-    desc: 'Panel interviews, group sales calls.',
+    labelKey: 'et_collective',
+    subKey: 'et_collective_sub',
+    descKey: 'et_collective_desc',
     Icon: UsersRound,
     teamOnly: true,
   },
   {
     value: 'one_off',
-    label: 'One-off meeting',
-    sub: 'A single time, outside your schedule',
-    desc: 'Offer a single time outside your normal schedule.',
+    labelKey: 'et_one_off',
+    subKey: 'et_one_off_sub',
+    descKey: 'et_one_off_desc',
     Icon: CalendarPlus,
     teamOnly: false,
     group: 'more',
   },
   {
     value: 'poll',
-    label: 'Meeting poll',
-    sub: 'Invitees vote on a time',
-    desc: 'Let invitees vote on a time to meet.',
+    labelKey: 'et_poll',
+    subKey: 'et_poll_sub',
+    descKey: 'et_poll_desc',
     Icon: ListChecks,
     teamOnly: false,
     group: 'more',
@@ -83,6 +84,7 @@ export function EventTypeMenuList({
   onSelect,
   hasTeams,
   variant = 'menu',
+  locale,
 }: {
   /** Called when an enabled option is picked. */
   onSelect: (value: string) => void;
@@ -90,6 +92,7 @@ export function EventTypeMenuList({
   hasTeams: boolean;
   /** 'menu' for the "+ New" dropdown; 'picker' for the in-editor selector. */
   variant?: 'menu' | 'picker';
+  locale: Locale;
 }) {
   return (
     <ul className="divide-y divide-line">
@@ -104,7 +107,7 @@ export function EventTypeMenuList({
             {isFirstOfMore && (
               <li className="bg-surface-sunken">
                 <div className="px-4 py-2 text-[10px] uppercase tracking-[0.18em] text-ink-muted">
-                  More ways to meet
+                  {t(locale, 'more_ways')}
                 </div>
               </li>
             )}
@@ -124,14 +127,14 @@ export function EventTypeMenuList({
                   strokeWidth={1.5}
                 />
                 <div className="min-w-0">
-                  <div className="text-sm font-medium">{opt.label}</div>
-                  <div className="text-xs text-ink-subtle">{opt.sub}</div>
+                  <div className="text-sm font-medium">{t(locale, opt.labelKey)}</div>
+                  <div className="text-xs text-ink-subtle">{t(locale, opt.subKey)}</div>
                   <div className="text-xs text-ink-muted mt-0.5">
                     {needsTeam
                       ? variant === 'picker'
-                        ? 'Switch to Team scope to use this.'
-                        : 'Lives inside a team — create one first.'
-                      : opt.desc}
+                        ? t(locale, 'needs_team_picker')
+                        : t(locale, 'needs_team_menu')
+                      : t(locale, opt.descKey)}
                   </div>
                 </div>
               </button>
@@ -154,10 +157,12 @@ export function EventTypePicker({
   value,
   onChange,
   hasTeams,
+  locale,
 }: {
   value: string;
   onChange: (next: string) => void;
   hasTeams: boolean;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement | null>(null);
@@ -177,7 +182,7 @@ export function EventTypePicker({
   return (
     <div className="space-y-1.5">
       <label className="block text-xs uppercase tracking-wider text-ink-muted">
-        Event type
+        {t(locale, 'event_type')}
       </label>
       <div className="relative" ref={ref}>
         <button
@@ -187,8 +192,8 @@ export function EventTypePicker({
         >
           <Icon className="h-4 w-4 text-ink-subtle shrink-0" strokeWidth={1.5} />
           <div className="min-w-0 flex-1">
-            <div className="text-sm font-medium">{current.label}</div>
-            <div className="text-xs text-ink-subtle">{current.sub}</div>
+            <div className="text-sm font-medium">{t(locale, current.labelKey)}</div>
+            <div className="text-xs text-ink-subtle">{t(locale, current.subKey)}</div>
           </div>
           <ChevronDown
             className={`h-4 w-4 text-ink-muted shrink-0 transition-transform ${
@@ -202,6 +207,7 @@ export function EventTypePicker({
             <EventTypeMenuList
               hasTeams={hasTeams}
               variant="picker"
+              locale={locale}
               onSelect={(v) => {
                 onChange(v);
                 setOpen(false);
@@ -210,7 +216,7 @@ export function EventTypePicker({
           </div>
         )}
       </div>
-      <p className="text-xs text-ink-muted">{current.desc}</p>
+      <p className="text-xs text-ink-muted">{t(locale, current.descKey)}</p>
     </div>
   );
 }

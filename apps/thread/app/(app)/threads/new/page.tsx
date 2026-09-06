@@ -1,9 +1,12 @@
 import { apiFetch } from '@/lib/api';
 import type { OrganiserRow, TeamOption } from '@/lib/thread-types';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { NewThreadForm } from './form';
 
 export default async function NewThreadPage() {
+  const locale = await uiLocale();
   // Auto-provisions the organiser row on first visit; the slug feeds the
   // public-URL prefix in the form.
   const [organiser, teams] = await Promise.all([
@@ -13,12 +16,9 @@ export default async function NewThreadPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/threads" label="Threads" />
-      <PageHeader
-        title="New thread"
-        description="An event with a schedule, or a journey that unfolds over time."
-      />
-      <NewThreadForm organiserSlug={organiser.slug} teams={teams.items} />
+      <Breadcrumb href="/threads" label={t(locale, 'threads')} />
+      <PageHeader title={t(locale, 'new_thread')} description={t(locale, 'new_thread_desc')} />
+      <NewThreadForm locale={locale} organiserSlug={organiser.slug} teams={teams.items} />
     </PageContainer>
   );
 }

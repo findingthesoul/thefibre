@@ -14,6 +14,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 export type SearchSelectOption = { value: string; label: string; hint?: string };
 
@@ -22,8 +23,8 @@ export function SearchSelect({
   onChange,
   options = [],
   loadOptions,
-  placeholder = 'Pick…',
-  searchPlaceholder = 'Search…',
+  placeholder,
+  searchPlaceholder,
   disabled,
   className = '',
   name,
@@ -49,6 +50,7 @@ export function SearchSelect({
    *  value to '' — for optional fields where empty is a legitimate answer. */
   clearLabel?: string;
 }) {
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState('');
   const [asyncOptions, setAsyncOptions] = useState<SearchSelectOption[] | null>(null);
@@ -139,7 +141,7 @@ export function SearchSelect({
         className="w-full flex items-center justify-between gap-2 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm text-left focus:outline-none focus:ring-2 focus:ring-neutral-300 disabled:opacity-50"
       >
         <span className={selected ? 'text-ink truncate' : 'text-ink-muted truncate'}>
-          {selected?.label ?? placeholder}
+          {selected?.label ?? placeholder ?? chromeT(locale, 'pick')}
         </span>
         <ChevronDown size={15} className="shrink-0 text-ink-muted" />
       </button>
@@ -151,7 +153,7 @@ export function SearchSelect({
               ref={inputRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder={searchPlaceholder}
+              placeholder={searchPlaceholder ?? chromeT(locale, 'search')}
               className="w-full bg-transparent pl-8 pr-3 py-2 text-sm focus:outline-none placeholder:text-ink-muted"
             />
           </div>
@@ -173,7 +175,7 @@ export function SearchSelect({
             )}
             {filtered.length === 0 && (
               <li className="px-3 py-2 text-sm text-ink-muted">
-                {loading ? 'Searching…' : 'No matches.'}
+                {loading ? chromeT(locale, 'searching') : chromeT(locale, 'no_matches')}
               </li>
             )}
             {filtered.map((o) => (
@@ -195,7 +197,7 @@ export function SearchSelect({
               </li>
             ))}
             {filtered.length > 0 && loading && (
-              <li className="px-3 py-1.5 text-xs text-ink-muted">Searching…</li>
+              <li className="px-3 py-1.5 text-xs text-ink-muted">{chromeT(locale, 'searching')}</li>
             )}
           </ul>
         </div>

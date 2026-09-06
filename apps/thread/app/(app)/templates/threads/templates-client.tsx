@@ -14,6 +14,8 @@ import { Button } from '@/components/ui/button';
 import { DateField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { EmptyState } from '@/components/ui/page';
+import type { Locale } from '@thefibre/shared';
+import { t, engagementTypeLabel } from '@/lib/i18n-ui';
 import { metaFor } from '@/lib/engagement-meta';
 import type { EngagementType, TeamOption } from '@/lib/thread-types';
 // A template is a full duplicate of the thread (texts, message bodies,
@@ -35,11 +37,13 @@ import {
 const INPUT =
   'mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
 
-const SCOPE_LABELS: Record<TemplateScope, string> = {
-  personal: 'Personal',
-  team: 'Team',
-  workspace: 'Workspace',
-};
+function scopeLabel(locale: Locale, scope: TemplateScope): string {
+  return scope === 'personal'
+    ? t(locale, 'personal')
+    : scope === 'team'
+      ? t(locale, 'team')
+      : t(locale, 'workspace');
+}
 
 function slugify(s: string): string {
   return s
@@ -52,10 +56,12 @@ function slugify(s: string): string {
 }
 
 export function TemplatesClient({
+  locale,
   templates,
   teams,
   initialUseId = null,
 }: {
+  locale: Locale;
   templates: ThreadTemplate[];
   teams: TeamOption[];
   /** Open this template's "Use" dialog on mount (from the New-thread menu). */
@@ -71,27 +77,26 @@ export function TemplatesClient({
 
   if (templates.length === 0) {
     return (
-      <EmptyState>
-        No thread templates yet. Open a thread → settings (gear) → “Save as template”.
-      </EmptyState>
+      <EmptyState>{t(locale, 'templates_none')}</EmptyState>
     );
   }
 
   return (
     <>
       <ul className="mt-8 divide-y divide-line border border-line rounded-lg bg-surface-raised">
-        {templates.map((t) => {
-          const n = t.structure.engagements?.length ?? 0;
+        {templates.map((tpl) => {
+          const n = tpl.structure.engagements?.length ?? 0;
           return (
-            <li key={t.id} className="flex items-center gap-3 px-4 py-3">
+            <li key={tpl.id} className="flex items-center gap-3 px-4 py-3">
               <span className="inline-flex h-9 w-9 items-center justify-center rounded-lg bg-surface-sunken ring-1 ring-line shrink-0">
                 <CalendarRange size={16} strokeWidth={1.75} className="text-ink-subtle" />
               </span>
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{t.title}</div>
+                <div className="text-sm font-medium truncate">{tpl.title}</div>
                 <div className="text-xs text-ink-subtle mt-0.5">
-                  {SCOPE_LABELS[t.scope]} · {n} engagement{n === 1 ? '' : 's'}
-                  {t.structure.duration_days != null && ` · ${t.structure.duration_days + 1} day${t.structure.duration_days === 0 ? '' : 's'}`}
+                  {scopeLabel(locale, tpl.scope)} · {t(locale, 'n_engagements', { n })}
+                  {tpl.structure.duration_days != null &&
+                    ` · ${t(locale, 'n_days', { n: tpl.structure.duration_days + 1 })}`}
                 </div>
               </div>
               <Button
@@ -99,26 +104,26 @@ export function TemplatesClient({
                 variant="ghost"
                 size="sm"
                 leading={<Pencil size={14} />}
-                onClick={() => setEditFor(t)}
+                onClick={() => setEditFor(tpl)}
               >
-                Edit
+                {t(locale, 'edit')}
               </Button>
               <Button
                 type="button"
                 variant="ghost"
                 size="sm"
                 leading={<Trash2 size={14} />}
-                onClick={() => setDeleteFor(t)}
+                onClick={() => setDeleteFor(tpl)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
               <Button
                 type="button"
                 size="sm"
                 leading={<Play size={14} />}
-                onClick={() => setUseFor(t)}
+                onClick={() => setUseFor(tpl)}
               >
-                Use template
+                {t(locale, 'use_template')}
               </Button>
             </li>
           );
@@ -126,18 +131,23 @@ export function TemplatesClient({
       </ul>
 
       {useFor && (
-        <UseTemplateDialog template={useFor} onClose={() => setUseFor(null)} />
+        <UseTemplateDialog locale={locale} template={useFor} onClose={() => setUseFor(null)} />
       )}
       {editFor && (
-        <EditTemplateDialog template={editFor} teams={teams} onClose={() => setEditFor(null)} />
+        <EditTemplateDialog
+          locale={locale}
+          template={editFor}
+          teams={teams}
+          onClose={() => setEditFor(null)}
+        />
       )}
       <DangerConfirmDialog
         open={!!deleteFor}
-        title="Delete template"
+        title={t(locale, 'delete_template')}
         message={
           <>
-            This deletes the template <strong>{deleteFor?.title}</strong>. Threads already created
-            from it are not affected. There is no undo.
+            {t(locale, 'delete_template_msg_1')} <strong>{deleteFor?.title}</strong>.{' '}
+            {t(locale, 'delete_template_msg_2')}
           </>
         }
         pending={pending}
@@ -156,9 +166,11 @@ export function TemplatesClient({
 }
 
 function UseTemplateDialog({
+  locale,
   template,
   onClose,
 }: {
+  locale: Locale;
   template: ThreadTemplate;
   onClose: () => void;
 }) {
@@ -172,8 +184,8 @@ function UseTemplateDialog({
 
   function submit() {
     setError(null);
-    if (!title.trim()) return setError('Give the new thread a name.');
-    if (!slug.trim()) return setError('Give the new thread a slug.');
+    if (!title.trim()) return setError(t(locale, 'err_new_thread_name'));
+    if (!slug.trim()) return setError(t(locale, 'err_new_thread_slug'));
     startTransition(async () => {
       const r = await instantiateTemplate(template.id, {
         title: title.trim(),
@@ -192,22 +204,22 @@ function UseTemplateDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Use template"
-      description={`New thread from “${template.title}” — every engagement rebases onto the start date.`}
+      title={t(locale, 'use_template')}
+      description={t(locale, 'use_template_desc', { title: template.title })}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="button" disabled={pending} onClick={submit}>
-            {pending ? 'Creating…' : 'Create thread'}
+            {pending ? t(locale, 'creating') : t(locale, 'create_thread')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <label className="block">
-          <span className="text-xs text-ink-subtle">Thread name</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'thread_name')}</span>
           <input
             value={title}
             onChange={(e) => {
@@ -219,7 +231,7 @@ function UseTemplateDialog({
           />
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">Slug</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'slug')}</span>
           <input
             value={slug}
             onChange={(e) => {
@@ -230,9 +242,9 @@ function UseTemplateDialog({
           />
         </label>
         <DateField
-          label="Start date"
+          label={t(locale, 'start_date')}
           name="starts_on"
-          hint="Leave empty to set dates later — engagements arrive undated."
+          hint={t(locale, 'start_date_hint')}
           onValueChange={setStartsOn}
         />
         {error && (
@@ -246,10 +258,12 @@ function UseTemplateDialog({
 }
 
 function EditTemplateDialog({
+  locale,
   template,
   teams,
   onClose,
 }: {
+  locale: Locale;
   template: ThreadTemplate;
   teams: TeamOption[];
   onClose: () => void;
@@ -269,8 +283,8 @@ function EditTemplateDialog({
 
   function submit() {
     setError(null);
-    if (!title.trim()) return setError('The template needs a name.');
-    if (scope === 'team' && !teamId) return setError('Pick the team that owns this template.');
+    if (!title.trim()) return setError(t(locale, 'err_template_name'));
+    if (scope === 'team' && !teamId) return setError(t(locale, 'err_template_team'));
     startTransition(async () => {
       const r = await updateThreadTemplate(template.id, {
         title: title.trim(),
@@ -291,46 +305,46 @@ function EditTemplateDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Edit template"
-      description="Name and sharing. To change the design, edit a thread and save it as a template again."
+      title={t(locale, 'edit_template')}
+      description={t(locale, 'edit_template_desc')}
       size="lg"
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="button" disabled={pending} onClick={submit}>
-            {pending ? 'Saving…' : 'Save'}
+            {pending ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
     >
       <div className="space-y-4">
         <label className="block">
-          <span className="text-xs text-ink-subtle">Template name</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'template_name')}</span>
           <input value={title} onChange={(e) => setTitle(e.target.value)} className={INPUT} />
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">Available to</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'available_to')}</span>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as TemplateScope)}
             className={INPUT}
           >
-            <option value="personal">Just me</option>
+            <option value="personal">{t(locale, 'just_me')}</option>
             <option value="team" disabled={teams.length === 0}>
-              A team
+              {t(locale, 'a_team')}
             </option>
-            <option value="workspace">Whole workspace</option>
+            <option value="workspace">{t(locale, 'whole_workspace')}</option>
           </select>
         </label>
         {scope === 'team' && (
           <label className="block">
-            <span className="text-xs text-ink-subtle">Team</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'team')}</span>
             <select value={teamId} onChange={(e) => setTeamId(e.target.value)} className={INPUT}>
-              {teams.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {t.name}
+              {teams.map((tm) => (
+                <option key={tm.id} value={tm.id}>
+                  {tm.name}
                 </option>
               ))}
             </select>
@@ -338,9 +352,9 @@ function EditTemplateDialog({
         )}
 
         <div>
-          <span className="text-xs text-ink-subtle">Contents — click to edit</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'contents_click')}</span>
           {engagements.length === 0 ? (
-            <p className="mt-1 text-xs text-ink-muted">No engagements captured.</p>
+            <p className="mt-1 text-xs text-ink-muted">{t(locale, 'no_engagements_captured')}</p>
           ) : (
             <ul className="mt-1.5 border border-line rounded-lg divide-y divide-line bg-surface">
               {engagements.map((e, i) => (
@@ -351,10 +365,12 @@ function EditTemplateDialog({
                     className="w-full flex items-center gap-2 px-3 py-2 text-sm text-left hover:bg-surface-sunken transition-colors"
                   >
                     <span className="text-xs text-ink-muted w-14 shrink-0 tabular-nums">
-                      {e.day_offset != null ? `Day ${e.day_offset + 1}` : '—'}
+                      {e.day_offset != null ? t(locale, 'day_n', { n: e.day_offset + 1 }) : '—'}
                     </span>
                     <span className="truncate flex-1">{e.title}</span>
-                    <span className="text-xs text-ink-muted capitalize shrink-0">{e.type}</span>
+                    <span className="text-xs text-ink-muted shrink-0">
+                      {engagementTypeLabel(locale, e.type)}
+                    </span>
                     <Pencil size={13} strokeWidth={1.75} className="text-ink-muted shrink-0" />
                   </button>
                 </li>
@@ -372,6 +388,7 @@ function EditTemplateDialog({
 
       {editIdx !== null && engagements[editIdx] && (
         <TemplateEngagementDialog
+          locale={locale}
           engagement={engagements[editIdx]}
           onClose={() => setEditIdx(null)}
           onSave={(updated) => {
@@ -391,10 +408,12 @@ function EditTemplateDialog({
 // fields the live engagement dialog has for its family. Changes stay local
 // until the template's own Save persists the structure.
 function TemplateEngagementDialog({
+  locale,
   engagement,
   onSave,
   onClose,
 }: {
+  locale: Locale;
   engagement: TemplateEngagement;
   onSave: (updated: TemplateEngagement) => void;
   onClose: () => void;
@@ -426,28 +445,29 @@ function TemplateEngagementDialog({
     <Dialog
       open
       onClose={onClose}
-      title={`Edit — ${engagement.title}`}
-      description="Part of the template — day numbers count from the thread's start date."
+      title={t(locale, 'edit_item', { title: engagement.title })}
+      description={t(locale, 'tpl_engagement_desc')}
       size="lg"
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="template-engagement-form">
-            Apply
+            {t(locale, 'apply_btn')}
           </Button>
         </>
       }
     >
       <form id="template-engagement-form" onSubmit={onSubmit} className="space-y-4">
         <label className="block">
-          <span className="text-xs text-ink-subtle">Title</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'title')}</span>
           <input name="title" defaultValue={engagement.title} required className={INPUT} />
         </label>
 
         <RichTextField
-          label="Description"
+          locale={locale}
+          label={t(locale, 'description')}
           name="description"
           defaultValue={engagement.description ?? ''}
           minHeight={72}
@@ -455,6 +475,7 @@ function TemplateEngagementDialog({
 
         {family === 'message' && (
           <MessageContentFields
+            locale={locale}
             type={type}
             content={(engagement.content ?? {}) as Record<string, unknown>}
           />
@@ -462,7 +483,7 @@ function TemplateEngagementDialog({
 
         <div className="grid grid-cols-3 gap-3">
           <label className="block">
-            <span className="text-xs text-ink-subtle">Day</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'day')}</span>
             <input
               name="day"
               type="number"
@@ -472,7 +493,7 @@ function TemplateEngagementDialog({
             />
           </label>
           <label className="block">
-            <span className="text-xs text-ink-subtle">Time</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'time')}</span>
             <input
               name="time_of_day"
               type="time"
@@ -482,7 +503,7 @@ function TemplateEngagementDialog({
           </label>
           {family === 'activity' && (
             <label className="block">
-              <span className="text-xs text-ink-subtle">Duration (min)</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'duration_min')}</span>
               <input
                 name="duration_minutes"
                 type="number"

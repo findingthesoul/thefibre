@@ -8,16 +8,20 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Building2, User } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { updateTeam } from './settings-actions';
 import { SectionLabel } from '@/components/ui/page';
 import { Button } from '@/components/ui/button';
 
 export function TeamSettings({
+  locale,
   teamId,
   description: initialDescription,
   payoutDestination: initialPayout,
   leadName,
 }: {
+  locale: Locale;
   teamId: string;
   description: string | null;
   payoutDestination: 'workspace' | 'lead';
@@ -47,21 +51,21 @@ export function TeamSettings({
 
   return (
     <section className="mt-10">
-      <SectionLabel>Team settings</SectionLabel>
+      <SectionLabel>{t(locale, 'team_settings')}</SectionLabel>
       <form onSubmit={onSubmit} className="mt-3 space-y-4 max-w-2xl">
         <label className="block">
-          <span className="text-xs text-ink-subtle">Description</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'description')}</span>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="What this team is for — shown on the team's public page."
+            placeholder={t(locale, 'team_public_desc_placeholder')}
             className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
           />
         </label>
 
         <div>
-          <span className="text-xs text-ink-subtle">Payments from this team&apos;s threads go to</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'payments_go_to')}</span>
           <div className="mt-1.5 grid grid-cols-1 sm:grid-cols-2 gap-3">
             <button
               type="button"
@@ -74,10 +78,10 @@ export function TeamSettings({
             >
               <div className="flex items-center gap-2">
                 <Building2 size={15} strokeWidth={1.75} className="text-ink-subtle" />
-                <span className="text-sm font-medium">Workspace account</span>
+                <span className="text-sm font-medium">{t(locale, 'workspace_account')}</span>
               </div>
               <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                The workspace&apos;s Stripe account and invoice identity (default).
+                {t(locale, 'workspace_account_note')}
               </p>
             </button>
             <button
@@ -92,11 +96,12 @@ export function TeamSettings({
               <div className="flex items-center gap-2">
                 <User size={15} strokeWidth={1.75} className="text-ink-subtle" />
                 <span className="text-sm font-medium">
-                  Team lead&apos;s account{leadName ? ` — ${leadName}` : ''}
+                  {t(locale, 'lead_account')}
+                  {leadName ? ` — ${leadName}` : ''}
                 </span>
               </div>
               <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                The lead&apos;s personal Stripe account (Settings → Payments → My account).
+                {t(locale, 'lead_account_note')}
               </p>
             </button>
           </div>
@@ -109,9 +114,9 @@ export function TeamSettings({
         )}
         <div className="flex items-center gap-3">
           <Button type="submit" size="sm" disabled={pending}>
-            {pending ? 'Saving…' : 'Save'}
+            {pending ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
-          {saved && <span className="text-xs text-ink-subtle">Saved.</span>}
+          {saved && <span className="text-xs text-ink-subtle">{t(locale, 'saved')}</span>}
         </div>
       </form>
     </section>

@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { SelectField } from '@/components/ui/field';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { SectionLabel } from '@/components/ui/page';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { addTeamMember, removeTeamMember } from '../actions';
 
 type Candidate = {
@@ -17,9 +19,11 @@ type Candidate = {
 };
 
 export function AddMemberRow({
+  locale,
   teamId,
   candidates,
 }: {
+  locale: Locale;
   teamId: string;
   candidates: Candidate[];
 }) {
@@ -31,16 +35,14 @@ export function AddMemberRow({
 
   if (candidates.length === 0) {
     return (
-      <p className="text-sm text-ink-muted">
-        Everyone in the workspace is already on this team.
-      </p>
+      <p className="text-sm text-ink-muted">{t(locale, 'everyone_on_team')}</p>
     );
   }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
-    if (!userId) return setError('Pick a workspace member.');
+    if (!userId) return setError(t(locale, 'err_pick_ws_member'));
     startTransition(async () => {
       const r = await addTeamMember(teamId, userId, role);
       if (!r.ok) return setError(r.error);
@@ -52,16 +54,16 @@ export function AddMemberRow({
 
   return (
     <div>
-      <SectionLabel>Add a member</SectionLabel>
+      <SectionLabel>{t(locale, 'add_a_member')}</SectionLabel>
       <form onSubmit={onSubmit} className="mt-2 flex flex-wrap items-end gap-3 max-w-3xl">
         <div className="flex-1 min-w-[16rem]">
           <SelectField
-            label="Workspace member"
+            label={t(locale, 'workspace_member')}
             name="user_id"
             value={userId}
             onChange={(e) => setUserId(e.target.value)}
             options={[
-              { value: '', label: 'Choose a member…' },
+              { value: '', label: t(locale, 'choose_member') },
               ...candidates.map((c) => ({
                 value: c.user_id,
                 label: c.full_name ? `${c.full_name} (${c.email})` : c.email,
@@ -71,18 +73,18 @@ export function AddMemberRow({
         </div>
         <div className="w-32">
           <SelectField
-            label="Role"
+            label={t(locale, 'role')}
             name="role"
             value={role}
             onChange={(e) => setRole(e.target.value === 'lead' ? 'lead' : 'member')}
             options={[
-              { value: 'member', label: 'Member' },
-              { value: 'lead', label: 'Lead' },
+              { value: 'member', label: t(locale, 'role_member') },
+              { value: 'lead', label: t(locale, 'role_lead') },
             ]}
           />
         </div>
         <Button type="submit" disabled={pending}>
-          {pending ? 'Adding…' : 'Add'}
+          {pending ? t(locale, 'adding') : t(locale, 'add')}
         </Button>
         {error && <div className="basis-full text-sm text-red-700">{error}</div>}
       </form>
@@ -91,10 +93,12 @@ export function AddMemberRow({
 }
 
 export function RemoveMemberButton({
+  locale,
   teamId,
   userId,
   name,
 }: {
+  locale: Locale;
   teamId: string;
   userId: string;
   name: string;
@@ -120,8 +124,8 @@ export function RemoveMemberButton({
         type="button"
         onClick={() => setOpen(true)}
         className="text-ink-muted hover:text-red-700 transition-colors"
-        aria-label={`Remove ${name} from the team`}
-        title="Remove from team"
+        aria-label={t(locale, 'remove_name_aria', { name })}
+        title={t(locale, 'remove_from_team')}
       >
         <Trash2 size={15} strokeWidth={1.75} />
       </button>
@@ -130,9 +134,9 @@ export function RemoveMemberButton({
         open={open}
         onCancel={() => setOpen(false)}
         onConfirm={onConfirm}
-        title="Remove member"
-        message={`Remove ${name} from this team? They keep their workspace access — only the team membership goes.`}
-        confirmLabel="Remove"
+        title={t(locale, 'remove_member')}
+        message={t(locale, 'remove_member_msg', { name })}
+        confirmLabel={t(locale, 'remove')}
         destructive
         pending={pending}
       />

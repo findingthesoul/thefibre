@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MoreHorizontal, Lock, Archive, Play, Trash2, Footprints, GitBranch } from 'lucide-react';
 import { patchFlow, deleteFlow } from '../actions';
 import { ConfirmDialog } from '@/components/ui/dialog';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 type Lifecycle = 'draft' | 'active' | 'closed' | 'archived';
 
@@ -23,11 +24,13 @@ export function FlowLifecycleMenu({
   lifecycle,
   progression,
   activeRunCount,
+  locale,
 }: {
   flowId: string;
   lifecycle: Lifecycle;
   progression: Progression;
   activeRunCount: number;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -66,7 +69,9 @@ export function FlowLifecycleMenu({
 
   const closeMsg =
     activeRunCount > 0
-      ? `${activeRunCount} contact${activeRunCount === 1 ? '' : 's'} still active in this flow. Closing stops new contacts entering; existing ones can still be moved to completion.`
+      ? activeRunCount === 1
+        ? t(locale, 'contacts_still_active_one')
+        : t(locale, 'contacts_still_active_many', { n: activeRunCount })
       : null;
 
   return (
@@ -77,7 +82,7 @@ export function FlowLifecycleMenu({
           onClick={() => setOpen((o) => !o)}
           disabled={busy}
           className="inline-flex items-center justify-center h-8 w-8 rounded-md border border-line bg-white hover:border-line-strong text-ink-subtle"
-          title="Flow actions"
+          title={t(locale, 'flow_actions')}
         >
           <MoreHorizontal size={16} />
         </button>
@@ -93,9 +98,9 @@ export function FlowLifecycleMenu({
                   setOpen(false);
                   if (closeMsg) {
                     setConfirm({
-                      title: 'Close to new contacts',
+                      title: t(locale, 'close_to_new_contacts'),
                       message: closeMsg,
-                      confirmLabel: 'Close flow',
+                      confirmLabel: t(locale, 'close_flow'),
                       run: () => setLifecycle('closed'),
                     });
                   } else {
@@ -103,12 +108,12 @@ export function FlowLifecycleMenu({
                   }
                 }}
               >
-                Close to new contacts
+                {t(locale, 'close_to_new_contacts')}
               </MenuItem>
             )}
             {lifecycle === 'closed' && (
               <MenuItem icon={Play} onClick={() => void setLifecycle('active')}>
-                Reopen
+                {t(locale, 'reopen')}
               </MenuItem>
             )}
             {lifecycle !== 'archived' && lifecycle !== 'draft' && (
@@ -117,19 +122,19 @@ export function FlowLifecycleMenu({
                 onClick={() => {
                   setOpen(false);
                   setConfirm({
-                    title: 'Archive flow',
-                    message: 'Archive this flow? It becomes read-only.',
-                    confirmLabel: 'Archive',
+                    title: t(locale, 'archive_flow'),
+                    message: t(locale, 'archive_flow_q'),
+                    confirmLabel: t(locale, 'archive'),
                     run: () => setLifecycle('archived'),
                   });
                 }}
               >
-                Archive
+                {t(locale, 'archive')}
               </MenuItem>
             )}
             {lifecycle === 'archived' && (
               <MenuItem icon={Play} onClick={() => void setLifecycle('active')}>
-                Restore to active
+                {t(locale, 'restore_to_active')}
               </MenuItem>
             )}
             <div className="my-1 border-t border-line" />
@@ -139,15 +144,14 @@ export function FlowLifecycleMenu({
                 onClick={() => {
                   setOpen(false);
                   setConfirm({
-                    title: 'Make this flow self-paced',
-                    message:
-                      'Every step opens from the start, each one gets its tasks when a run begins, and no due dates are set — so nothing here can ever be overdue. Gates stay visible but stop holding anyone back. Runs already under way keep the tasks they have.',
-                    confirmLabel: 'Make self-paced',
+                    title: t(locale, 'make_self_paced_title'),
+                    message: t(locale, 'make_self_paced_msg'),
+                    confirmLabel: t(locale, 'make_self_paced'),
                     run: () => setProgression('open'),
                   });
                 }}
               >
-                Make self-paced
+                {t(locale, 'make_self_paced')}
               </MenuItem>
             ) : (
               <MenuItem
@@ -155,15 +159,14 @@ export function FlowLifecycleMenu({
                 onClick={() => {
                   setOpen(false);
                   setConfirm({
-                    title: 'Make this flow gated',
-                    message:
-                      'Back to a state machine: a run sits on one step, moves along the transitions you drew, and gates hold it until their required tasks are done. New runs get only the entry step’s tasks.',
-                    confirmLabel: 'Make gated',
+                    title: t(locale, 'make_gated_title'),
+                    message: t(locale, 'make_gated_msg'),
+                    confirmLabel: t(locale, 'make_gated'),
                     run: () => setProgression('gated'),
                   });
                 }}
               >
-                Make gated
+                {t(locale, 'make_gated')}
               </MenuItem>
             )}
             <div className="my-1 border-t border-line" />
@@ -173,16 +176,15 @@ export function FlowLifecycleMenu({
               onClick={() => {
                 setOpen(false);
                 setConfirm({
-                  title: 'Delete flow',
-                  message:
-                    'Delete this flow? It will be hidden (soft delete). Active contacts keep their history.',
-                  confirmLabel: 'Delete',
+                  title: t(locale, 'delete_flow'),
+                  message: t(locale, 'delete_flow_q'),
+                  confirmLabel: t(locale, 'delete'),
                   destructive: true,
                   run: remove,
                 });
               }}
             >
-              Delete flow
+              {t(locale, 'delete_flow')}
             </MenuItem>
           </div>
         </>
@@ -198,7 +200,8 @@ export function FlowLifecycleMenu({
         }}
         title={confirm?.title ?? ''}
         message={confirm?.message ?? ''}
-        confirmLabel={confirm?.confirmLabel ?? 'Confirm'}
+        confirmLabel={confirm?.confirmLabel ?? t(locale, 'confirm_move')}
+        cancelLabel={t(locale, 'cancel')}
         destructive={confirm?.destructive}
         pending={busy}
       />

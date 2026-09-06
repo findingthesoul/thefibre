@@ -12,6 +12,8 @@
 // needed from inside the shared package.
 
 import { useEffect, useState, type ReactNode } from 'react';
+import { INTL_LOCALES } from '../i18n.js';
+import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
 
 export type InvoicePurchase = {
   id: string;
@@ -43,11 +45,18 @@ export type InvoicePurchase = {
 
 export type InvoiceSeller = { legal_name: string; address?: string; tax_no?: string };
 
-function money(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'EUR' }).format(
+function moneyIn(intl: string, cents: number, currency: string): string {
+  return new Intl.NumberFormat(intl, { style: 'currency', currency: currency || 'EUR' }).format(
     cents / 100,
   );
 }
+
+const STATUS_KEYS: Record<string, ChromeKey> = {
+  pending: 'status_pending',
+  paid: 'status_paid',
+  refunded: 'status_refunded',
+  failed: 'status_failed',
+};
 
 export function InvoiceDialog({
   purchase,
@@ -78,6 +87,9 @@ export function InvoiceDialog({
   /** Extra rows under the document (fee split, refund notes, notices). */
   children?: ReactNode;
 }) {
+  const locale = useLocale();
+  const intl = INTL_LOCALES[locale];
+  const money = (cents: number, currency: string) => moneyIn(intl, cents, currency);
   const [copied, setCopied] = useState(false);
   const [emailOpen, setEmailOpen] = useState(false);
   const [emailTo, setEmailTo] = useState('');
@@ -126,7 +138,7 @@ export function InvoiceDialog({
 
   async function sendTo() {
     if (!onEmail || !/.+@.+\..+/.test(emailTo)) {
-      setEmailError('Enter a valid email address.');
+      setEmailError(chromeT(locale, 'enter_valid_email'));
       return;
     }
     setEmailState('sending');
@@ -161,10 +173,16 @@ export function InvoiceDialog({
         {/* Header + actions ------------------------------------------- */}
         <header className="flex items-center justify-between gap-3 border-b border-line px-5 py-3">
           <div className="min-w-0">
-            <h2 className="text-base font-medium">{settled ? 'Receipt' : 'Invoice'}</h2>
+            <h2 className="text-base font-medium">
+              {settled ? chromeT(locale, 'receipt') : chromeT(locale, 'invoice')}
+            </h2>
             {b.number && <div className="font-mono text-xs text-ink-muted">{b.number}</div>}
           </div>
-          <button onClick={onClose} aria-label="Close" className="text-ink-muted hover:text-ink">
+          <button
+            onClick={onClose}
+            aria-label={chromeT(locale, 'close')}
+            className="text-ink-muted hover:text-ink"
+          >
             ✕
           </button>
         </header>
@@ -172,22 +190,22 @@ export function InvoiceDialog({
         <div className="flex flex-wrap items-center gap-2 border-b border-line px-5 py-3">
           {shareUrl && (
             <button type="button" onClick={copyLink} className={actionBtn}>
-              {copied ? 'Link copied ✓' : 'Share link'}
+              {copied ? chromeT(locale, 'link_copied') : chromeT(locale, 'share_link')}
             </button>
           )}
           {pdfUrl && (
             <a href={pdfUrl} target="_blank" rel="noreferrer" className={actionBtn}>
-              Download PDF
+              {chromeT(locale, 'download_pdf')}
             </a>
           )}
           {onEmail && (
             <button type="button" onClick={() => setEmailOpen((v) => !v)} className={actionBtn}>
-              Email to…
+              {chromeT(locale, 'email_to')}
             </button>
           )}
           {printHref && (
             <a href={`${printHref}?print=1`} target="_blank" rel="noreferrer" className={actionBtn}>
-              Print
+              {chromeT(locale, 'print')}
             </a>
           )}
           {actions}
@@ -209,7 +227,11 @@ export function InvoiceDialog({
                 disabled={emailState === 'sending'}
                 className="inline-flex h-8 shrink-0 items-center rounded-md bg-ink px-3 text-xs font-medium text-ink-inverse hover:opacity-90 disabled:opacity-50"
               >
-                {emailState === 'sending' ? 'Sending…' : emailState === 'sent' ? 'Sent ✓' : 'Send'}
+                {emailState === 'sending'
+                  ? chromeT(locale, 'sending')
+                  : emailState === 'sent'
+                    ? chromeT(locale, 'sent')
+                    : chromeT(locale, 'send')}
               </button>
             </div>
             {emailError && <p className="mt-1 text-xs text-red-700">{emailError}</p>}
@@ -220,16 +242,20 @@ export function InvoiceDialog({
         <div className="overflow-y-auto px-5 py-4 text-sm">
           <div className="flex items-start justify-between gap-4">
             {seller && (
-              <Block label="From">
+              <Block label={chromeT(locale, 'from')}>
                 <div className="font-medium">{seller.legal_name}</div>
                 {seller.address && <div className="text-ink-subtle">{seller.address}</div>}
-                {seller.tax_no && <div className="text-ink-subtle">VAT: {seller.tax_no}</div>}
+                {seller.tax_no && (
+                  <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {seller.tax_no}</div>
+                )}
               </Block>
             )}
-            <Block label="Billed to" right={Boolean(seller)}>
+            <Block label={chromeT(locale, 'billed_to')} right={Boolean(seller)}>
               <div>{b.company ?? purchase.payer_name}</div>
               {buyerAddress && <div className="text-ink-subtle">{buyerAddress}</div>}
-              {b.tax_no && <div className="text-ink-subtle">VAT: {b.tax_no}</div>}
+              {b.tax_no && (
+                <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {b.tax_no}</div>
+              )}
               {purchase.payer_email && <div className="text-ink-muted">{purchase.payer_email}</div>}
             </Block>
           </div>
@@ -243,12 +269,14 @@ export function InvoiceDialog({
             </div>
             {typeof b.tax_cents === 'number' && (b.tax_cents > 0 || b.tax_label) && (
               <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 text-ink-subtle">
-                <span>{b.tax_label ?? 'VAT'}</span>
+                <span>{b.tax_label ?? chromeT(locale, 'vat')}</span>
                 <span className="font-mono">{money(b.tax_cents, purchase.currency)}</span>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4 px-4 py-3">
-              <span className="font-medium">Total ({purchase.currency})</span>
+              <span className="font-medium">
+                {chromeT(locale, 'total_currency', { currency: purchase.currency })}
+              </span>
               <span className="font-mono text-base font-medium">
                 {money(purchase.amount_cents, purchase.currency)}
               </span>
@@ -256,15 +284,23 @@ export function InvoiceDialog({
           </div>
 
           <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted">
-            <span>{date.toLocaleDateString('en-GB', { dateStyle: 'long' })}</span>
+            <span>{date.toLocaleDateString(intl, { dateStyle: 'long' })}</span>
             <span>
-              {purchase.method === 'stripe' ? 'Card' : purchase.method === 'invoice' ? 'By invoice' : purchase.method}
+              {purchase.method === 'stripe'
+                ? chromeT(locale, 'method_card')
+                : purchase.method === 'invoice'
+                  ? chromeT(locale, 'by_invoice')
+                  : purchase.method}
               {' · '}
-              {purchase.status}
+              {STATUS_KEYS[purchase.status]
+                ? chromeT(locale, STATUS_KEYS[purchase.status]!)
+                : purchase.status}
             </span>
             {b.period_end && (
               <span>
-                service until {new Date(b.period_end).toLocaleDateString('en-GB', { dateStyle: 'medium' })}
+                {chromeT(locale, 'service_until', {
+                  date: new Date(b.period_end).toLocaleDateString(intl, { dateStyle: 'medium' }),
+                })}
               </span>
             )}
           </div>

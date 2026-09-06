@@ -7,6 +7,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
+import { t } from '@/lib/i18n-ui';
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { SectionLabel } from '@/components/ui/page';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
@@ -28,23 +29,25 @@ type Kind = 'list' | 'thread' | 'card' | 'card_form' | 'enrol';
 
 
 const ELEMENTS = [
-  { key: 'cover', label: 'Cover image' },
-  { key: 'intention', label: 'Intention' },
-  { key: 'agenda', label: 'Agenda' },
-  { key: 'price', label: 'Price' },
-  { key: 'enrol', label: 'Enrol form' },
+  { key: 'cover', labelKey: 'el_cover' },
+  { key: 'intention', labelKey: 'intention' },
+  { key: 'agenda', labelKey: 'agenda' },
+  { key: 'price', labelKey: 'price' },
+  { key: 'enrol', labelKey: 'enrol_form' },
 ] as const;
 
 const SELECT =
   'w-full rounded-md border border-line bg-surface-raised px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
 
 export function EmbedGenerator({
+  locale,
   organiserSlug,
   workspaceId,
   threads,
   teams,
   categories = [],
 }: {
+  locale: Locale;
   organiserSlug: string;
   workspaceId: string;
   threads: GeneratorThread[];
@@ -129,23 +132,23 @@ export function EmbedGenerator({
 
   return (
     <section>
-      <SectionLabel>Code generator</SectionLabel>
+      <SectionLabel>{t(locale, 'code_generator')}</SectionLabel>
       <p className="mt-1.5 text-xs text-ink-subtle leading-relaxed">
-        Pick what you want on your website — the code builds itself below.
+        {t(locale, 'code_generator_desc')}
       </p>
 
       <div className="mt-3 rounded-lg border border-line bg-surface-raised p-4 space-y-4">
         {/* What */}
         <div>
-          <span className="text-xs text-ink-subtle">What do you want to embed?</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'what_embed')}</span>
           <div className="mt-1.5 grid grid-cols-5 rounded-md border border-line overflow-hidden h-[34px] text-sm max-w-2xl">
             {(
               [
-                ['list', 'Thread list'],
-                ['thread', 'One thread'],
-                ['card', 'Card'],
-                ['card_form', 'Card + form'],
-                ['enrol', 'Enrol button'],
+                ['list', t(locale, 'gen_thread_list')],
+                ['thread', t(locale, 'gen_one_thread')],
+                ['card', t(locale, 'gen_card')],
+                ['card_form', t(locale, 'gen_card_form')],
+                ['enrol', t(locale, 'gen_enrol_button')],
               ] as [Kind, string][]
             ).map(([k, label]) => (
               <button
@@ -168,39 +171,41 @@ export function EmbedGenerator({
           {/* Which */}
           {kind === 'list' ? (
             <label className="block">
-              <span className="text-xs text-ink-subtle">Which threads</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'which_threads')}</span>
               <select
                 value={listOwner}
                 onChange={(e) => setListOwner(e.target.value)}
                 className={`${SELECT} mt-1`}
               >
-                <option value="mine">All my public threads</option>
-                <option value="workspace">Whole workspace — everyone&apos;s public threads</option>
-                {teams.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    Team · {t.name}
+                <option value="mine">{t(locale, 'all_my_public')}</option>
+                <option value="workspace">{t(locale, 'whole_ws_public')}</option>
+                {teams.map((tm) => (
+                  <option key={tm.id} value={tm.id}>
+                    {t(locale, 'team_option_prefix', { name: tm.name })}
                   </option>
                 ))}
               </select>
-              <span className="mt-2 block text-xs text-ink-subtle">Kind</span>
+              <span className="mt-2 block text-xs text-ink-subtle">{t(locale, 'kind')}</span>
               <select
                 value={listFormat}
                 onChange={(e) => setListFormat(e.target.value)}
                 className={`${SELECT} mt-1`}
               >
-                <option value="all">Events and journeys</option>
-                <option value="event">Events only</option>
-                <option value="journey">Journeys only</option>
+                <option value="all">{t(locale, 'events_and_journeys')}</option>
+                <option value="event">{t(locale, 'events_only')}</option>
+                <option value="journey">{t(locale, 'journeys_only')}</option>
               </select>
               {categories.length > 0 && (
                 <>
-                  <span className="mt-2 block text-xs text-ink-subtle">Category</span>
+                  <span className="mt-2 block text-xs text-ink-subtle">
+                    {t(locale, 'category')}
+                  </span>
                   <select
                     value={listCategory}
                     onChange={(e) => setListCategory(e.target.value)}
                     className={`${SELECT} mt-1`}
                   >
-                    <option value="">All categories</option>
+                    <option value="">{t(locale, 'all_categories')}</option>
                     {categories.map((cat) => (
                       <option key={cat.slug} value={cat.slug}>
                         {cat.name}
@@ -212,40 +217,40 @@ export function EmbedGenerator({
             </label>
           ) : (
             <div>
-              <span className="text-xs text-ink-subtle">Thread</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'thread')}</span>
               <SearchSelect
                 className="mt-1"
                 value={threadId}
                 onChange={setThreadId}
-                options={threads.map((t) => ({ value: t.id, label: t.title }))}
-                placeholder="Pick a thread…"
-                searchPlaceholder="Search threads…"
+                options={threads.map((th) => ({ value: th.id, label: th.title }))}
+                placeholder={t(locale, 'pick_thread')}
+                searchPlaceholder={t(locale, 'search_threads')}
               />
             </div>
           )}
 
           {/* Where it will be pasted — only changes the instructions */}
           <label className="block">
-            <span className="text-xs text-ink-subtle">Website</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'website')}</span>
             <select
               value={target}
               onChange={(e) => setTarget(e.target.value as 'any' | 'webflow')}
               className={`${SELECT} mt-1`}
             >
-              <option value="any">Any website</option>
+              <option value="any">{t(locale, 'any_website')}</option>
               <option value="webflow">Webflow</option>
             </select>
           </label>
 
           {/* Language */}
           <label className="block">
-            <span className="text-xs text-ink-subtle">Language</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'language')}</span>
             <select
               value={lang}
               onChange={(e) => setLang(e.target.value)}
               className={`${SELECT} mt-1`}
             >
-              <option value="auto">Automatic — the thread&apos;s own language</option>
+              <option value="auto">{t(locale, 'auto_thread_lang')}</option>
               {LOCALES.map((l) => (
                 <option key={l} value={l}>
                   {LOCALE_LABELS[l as Locale]}
@@ -257,7 +262,7 @@ export function EmbedGenerator({
           {/* Button text for the enrol popup */}
           {kind === 'enrol' && (
             <label className="block">
-              <span className="text-xs text-ink-subtle">Button text</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'button_text')}</span>
               <input
                 value={buttonText}
                 onChange={(e) => setButtonText(e.target.value)}
@@ -270,7 +275,7 @@ export function EmbedGenerator({
         {/* Elements for the single-thread embed */}
         {kind === 'thread' && (
           <div>
-            <span className="text-xs text-ink-subtle">Sections to show</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'sections_to_show')}</span>
             <div className="mt-1.5 flex flex-wrap gap-x-5 gap-y-1.5">
               {ELEMENTS.map((e) => (
                 <label
@@ -282,7 +287,7 @@ export function EmbedGenerator({
                     checked={elements.has(e.key)}
                     onChange={() => toggleElement(e.key)}
                   />
-                  {e.label}
+                  {t(locale, e.labelKey)}
                 </label>
               ))}
             </div>
@@ -296,16 +301,12 @@ export function EmbedGenerator({
             checked={includeCss}
             onChange={(e) => setIncludeCss(e.target.checked)}
           />
-          <span>
-            Include the starter stylesheet — every element listed with its default look, ready
-            to change. Only affects the embed, never your page.
-          </span>
+          <span>{t(locale, 'include_css')}</span>
         </label>
 
         {kind !== 'list' && thread && !thread.listed && (
           <p className="text-xs text-amber-800 border border-amber-200 bg-amber-50 rounded-md px-2.5 py-2 max-w-2xl">
-            This thread is unlisted — the embed still works (direct link), it just won&apos;t
-            appear in list embeds.
+            {t(locale, 'unlisted_note')}
           </p>
         )}
 
@@ -315,10 +316,11 @@ export function EmbedGenerator({
             <div className="flex items-center justify-between">
               <span className="text-xs text-ink-subtle">
                 {target === 'webflow'
-                  ? '1 · Webflow: Site settings → Custom code → Head code (once per site)'
-                  : '1 · Once per site, in the <head> (or before </body>)'}
+                  ? t(locale, 'head_label_webflow')
+                  : t(locale, 'head_label_any')}
               </span>
               <CopyButton
+                locale={locale}
                 copied={copied === 'script'}
                 onClick={() => void copy('script', scriptTag)}
               />
@@ -331,10 +333,11 @@ export function EmbedGenerator({
             <div className="flex items-center justify-between">
               <span className="text-xs text-ink-subtle">
                 {target === 'webflow'
-                  ? '2 · Add an Embed element where it should appear, paste this'
-                  : '2 · Where the embed should appear'}
+                  ? t(locale, 'body_label_webflow')
+                  : t(locale, 'body_label_any')}
               </span>
               <CopyButton
+                locale={locale}
                 copied={copied === 'snippet'}
                 onClick={() => void copy('snippet', snippet)}
               />
@@ -349,7 +352,15 @@ export function EmbedGenerator({
   );
 }
 
-function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+function CopyButton({
+  locale,
+  copied,
+  onClick,
+}: {
+  locale: Locale;
+  copied: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -359,12 +370,12 @@ function CopyButton({ copied, onClick }: { copied: boolean; onClick: () => void 
       {copied ? (
         <>
           <Check size={12} strokeWidth={2} className="text-emerald-600" />
-          Copied
+          {t(locale, 'copied_word')}
         </>
       ) : (
         <>
           <Copy size={12} strokeWidth={1.75} />
-          Copy
+          {t(locale, 'copy')}
         </>
       )}
     </button>

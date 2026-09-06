@@ -11,6 +11,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { Check, ChevronDown } from 'lucide-react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 export type AppEntry = {
   slug: string;
@@ -33,6 +34,7 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
     current: { slug: string; name: string };
     apps: AppEntry[];
   }) {
+    const locale = useLocale();
     const [open, setOpen] = useState(false);
     const ref = useRef<HTMLDivElement>(null);
 
@@ -60,7 +62,7 @@ export function createAppSwitcher(LinkComponent: LinkLike) {
         {open && (
           <div className="absolute left-0 mt-2 w-56 rounded-lg bg-surface-raised border border-line shadow-lg py-2 text-sm z-40">
             <div className="px-3 pt-1 pb-1.5 text-[10px] uppercase tracking-wider text-ink-muted">
-              Switch app
+              {chromeT(locale, 'switch_app')}
             </div>
             {apps.map((a) => {
               const isCurrent = a.current ?? a.slug === current.slug;

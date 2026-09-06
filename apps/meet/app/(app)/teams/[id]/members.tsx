@@ -4,9 +4,10 @@ import { useActionState, useTransition, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { addMember, removeMember, resendInvite, type SaveResult } from '../actions';
 
-export function AddMemberForm({ teamId }: { teamId: string }) {
+export function AddMemberForm({ teamId, locale }: { teamId: string; locale: Locale }) {
   const router = useRouter();
   const action = addMember.bind(null, teamId);
   const [state, formAction, pending] = useActionState<
@@ -30,7 +31,7 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
     >
       <div className="flex-1 min-w-[14rem]">
         <TextField
-          label="Add a member"
+          label={t(locale, 'add_a_member')}
           name="email"
           type="email"
           placeholder="colleague@example.com"
@@ -39,43 +40,43 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
       </div>
       <div className="w-40">
         <TextField
-          label="Name (optional)"
+          label={t(locale, 'name_optional')}
           name="name"
-          placeholder="If new to Fibre"
+          placeholder={t(locale, 'if_new_to_fibre')}
         />
       </div>
       <div className="w-32">
         <SelectField
-          label="Role"
+          label={t(locale, 'role')}
           name="role"
           defaultValue="member"
           options={[
-            { value: 'member', label: 'Member' },
-            { value: 'lead', label: 'Lead' },
+            { value: 'member', label: t(locale, 'role_member') },
+            { value: 'lead', label: t(locale, 'role_lead') },
           ]}
         />
       </div>
       <div className="w-40">
         <SelectField
-          label="Relationship"
+          label={t(locale, 'relationship')}
           name="relationship_type"
           defaultValue="internal"
           options={[
-            { value: 'internal', label: 'Internal' },
-            { value: 'external', label: 'External' },
+            { value: 'internal', label: t(locale, 'internal') },
+            { value: 'external', label: t(locale, 'external') },
           ]}
-          hint="Internals get org-wide widening; externals only see what they're added to."
+          hint={t(locale, 'relationship_hint')}
         />
       </div>
       <Button type="submit" disabled={pending}>
-        {pending ? 'Adding…' : 'Add'}
+        {pending ? t(locale, 'adding') : t(locale, 'add')}
       </Button>
       {state.error && (
         <div className="basis-full text-sm text-red-700">{state.error}</div>
       )}
       {state.ok && state.invited && (
         <div className="basis-full text-sm text-emerald-700">
-          Invite email sent. They're on the team — they'll start receiving bookings once they sign in to The Fibre.
+          {t(locale, 'invite_sent_team')}
         </div>
       )}
     </form>
@@ -85,9 +86,11 @@ export function AddMemberForm({ teamId }: { teamId: string }) {
 export function RemoveMemberButton({
   teamId,
   userId,
+  locale,
 }: {
   teamId: string;
   userId: string;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -107,7 +110,7 @@ export function RemoveMemberButton({
         }}
         className="text-xs text-ink-subtle hover:text-red-700 underline underline-offset-2 disabled:opacity-50"
       >
-        {pending ? '…' : 'Remove'}
+        {pending ? '…' : t(locale, 'remove')}
       </button>
       {error && <span className="text-xs text-red-700">{error}</span>}
     </span>
@@ -122,6 +125,7 @@ export function PendingInviteRow({
   role,
   token,
   invitedAt,
+  locale,
 }: {
   teamId: string;
   userId: string;
@@ -130,6 +134,7 @@ export function PendingInviteRow({
   role: 'lead' | 'member';
   token: string;
   invitedAt: string | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -174,13 +179,17 @@ export function PendingInviteRow({
         <div className="font-medium truncate">{name ?? email}</div>
         <div className="mt-0.5 text-xs text-ink-muted truncate">
           {email} ·{' '}
-          <span className="uppercase tracking-wider">{role}</span>
+          <span className="uppercase tracking-wider">
+            {role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
+          </span>
           {invitedAt && (
             <>
-              {' · invited '}
-              {new Date(invitedAt).toLocaleDateString(undefined, {
-                day: '2-digit',
-                month: '2-digit',
+              {' · '}
+              {t(locale, 'invited_on', {
+                date: new Date(invitedAt).toLocaleDateString(INTL_LOCALES[locale], {
+                  day: '2-digit',
+                  month: '2-digit',
+                }),
               })}
             </>
           )}
@@ -194,7 +203,7 @@ export function PendingInviteRow({
           className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
           title={url}
         >
-          {copied ? 'Copied' : 'Copy link'}
+          {copied ? t(locale, 'copied_short') : t(locale, 'copy_link')}
         </button>
         <button
           type="button"
@@ -202,7 +211,7 @@ export function PendingInviteRow({
           disabled={pending}
           className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-50"
         >
-          {pending ? '…' : 'Resend'}
+          {pending ? '…' : t(locale, 'resend')}
         </button>
         <button
           type="button"
@@ -210,7 +219,7 @@ export function PendingInviteRow({
           disabled={pending}
           className="text-xs text-ink-subtle hover:text-red-700 underline underline-offset-2 disabled:opacity-50"
         >
-          Revoke
+          {t(locale, 'revoke')}
         </button>
       </div>
     </li>

@@ -7,6 +7,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Copy, MapPin, Video } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
+import { t, engagementTypeLabel } from '@/lib/i18n-ui';
 import { createEngagement, updateEngagement, deleteEngagement } from '../actions';
 import type { EngagementRow, EngagementType, TriggerKind, DailyTime } from '@/lib/thread-types';
 import {
@@ -70,26 +72,29 @@ const TIME_OPTIONS: { value: string; label: string }[] = Array.from(
     return { value: v, label: v };
   },
 );
-function fmtDayLabel(date: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDayLabel(locale: Locale, date: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   }).format(new Date(`${date}T00:00:00`));
 }
 
-const PROVIDER_OPTIONS = [
-  { value: 'google_meet', label: 'Google Meet' },
-  { value: 'zoom', label: 'Zoom' },
-  { value: 'teams', label: 'Microsoft Teams' },
-  { value: 'personal_room', label: 'Personal meeting room' },
-  { value: 'custom', label: 'Custom link' },
-];
+function providerOptions(locale: Locale) {
+  return [
+    { value: 'google_meet', label: 'Google Meet' },
+    { value: 'zoom', label: 'Zoom' },
+    { value: 'teams', label: 'Microsoft Teams' },
+    { value: 'personal_room', label: t(locale, 'personal_room') },
+    { value: 'custom', label: t(locale, 'custom_link') },
+  ];
+}
 
 const TRIGGER_DAY_OPTIONS = ['1', '2', '3', '4', '5', '6', '7', '10', '14', '21', '30'];
 const TRIGGER_TIME_OPTIONS = Array.from({ length: 15 }, (_, i) => `${String(i + 6).padStart(2, '0')}:00`);
 
 export function EngagementDialog({
+  locale,
   threadId,
   engagement,
   initialType,
@@ -100,6 +105,7 @@ export function EngagementDialog({
   activities = [],
   onClose,
 }: {
+  locale: Locale;
   threadId: string;
   engagement: EngagementRow | null;
   initialType?: EngagementType;
@@ -218,7 +224,7 @@ export function EngagementDialog({
     setError(null);
     const fd = new FormData(e.currentTarget);
     const title = String(fd.get('title') ?? '').trim();
-    if (!title) return setError('Give it a title.');
+    if (!title) return setError(t(locale, 'err_give_title'));
 
     const common = {
       title,
@@ -313,7 +319,7 @@ export function EngagementDialog({
     if (!engagement) return;
     startTransition(async () => {
       const r = await createEngagement(threadId, {
-        title: `${engagement.title} (copy)`,
+        title: `${engagement.title} ${t(locale, 'copy_suffix')}`,
         type: engagement.type,
         status: engagement.status === 'published' ? 'published' : 'draft',
         description: engagement.description,
@@ -359,7 +365,13 @@ export function EngagementDialog({
     <Dialog
       open
       onClose={requestClose}
-      title={isNew ? `Add ${meta.label.toLowerCase()}` : `Edit — ${engagement.title}`}
+      title={
+        isNew
+          ? t(locale, 'add_item', {
+              type: engagementTypeLabel(locale, type).toLocaleLowerCase(INTL_LOCALES[locale]),
+            })
+          : t(locale, 'edit_item', { title: engagement.title })
+      }
       size="xl"
       footer={
         <>
@@ -372,7 +384,7 @@ export function EngagementDialog({
                 leading={<Trash2 size={14} />}
                 onClick={() => setConfirmDelete(true)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
               <Button
                 type="button"
@@ -382,16 +394,20 @@ export function EngagementDialog({
                 onClick={duplicate}
                 disabled={pending}
               >
-                Duplicate
+                {t(locale, 'duplicate')}
               </Button>
             </div>
           )}
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={requestClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="engagement-form" disabled={pending}>
-            {pending ? 'Saving…' : isNew ? 'Add to timeline' : 'Save'}
+            {pending
+              ? t(locale, 'saving')
+              : isNew
+                ? t(locale, 'add_to_timeline')
+                : t(locale, 'save')}
           </Button>
         </>
       }
@@ -399,7 +415,12 @@ export function EngagementDialog({
       <form id="engagement-form" onSubmit={onSubmit} onInput={() => setDirty(true)}>
         <div className="mb-6 flex items-end gap-5">
           <div className="flex-1 min-w-0">
-            <TextField label="Title" name="title" defaultValue={engagement?.title ?? ''} required />
+            <TextField
+              label={t(locale, 'title')}
+              name="title"
+              defaultValue={engagement?.title ?? ''}
+              required
+            />
           </div>
           {/* Publish toggle rides next to the title (Sjoerd 2026-07-07) —
               new engagements start published; off = draft. */}
@@ -410,7 +431,7 @@ export function EngagementDialog({
                 setStatus(v ? 'published' : 'draft');
                 setDirty(true);
               }}
-              label="Published"
+              label={t(locale, 'status_published')}
             />
           </div>
         </div>
@@ -418,44 +439,46 @@ export function EngagementDialog({
           {/* ── Left: what it is ─────────────────────────────────────── */}
           <div className="space-y-5">
             <RichTextField
-              label="Description"
+              locale={locale}
+              label={t(locale, 'description')}
               name="description"
               defaultValue={engagement?.description ?? ''}
             />
             {family === 'message' && (
-              <MessageContentFields type={type} content={engagement?.content ?? {}} />
+              <MessageContentFields locale={locale} type={type} content={engagement?.content ?? {}} />
             )}
             {family === 'activity' && (
               <>
             {/* Image — this event's own picture on the public agenda. */}
             <div>
-              <span className="text-sm text-ink-subtle">Image</span>
+              <span className="text-sm text-ink-subtle">{t(locale, 'image')}</span>
               <div className="mt-1">
                 <ImageUpload
+                  locale={locale}
                   value={imageUrl}
                   onChange={(url) => {
                     setImageUrl(url);
                     setDirty(true);
                   }}
-                  buttonLabel="Add an image"
-                  hint="Shown with this event on the public agenda."
+                  buttonLabel={t(locale, 'add_an_image')}
+                  hint={t(locale, 'engagement_image_hint')}
                 />
               </div>
             </div>
 
             {/* Where: in person / virtual */}
             <div>
-              <span className="text-sm text-ink-subtle">Where</span>
+              <span className="text-sm text-ink-subtle">{t(locale, 'where')}</span>
               <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
                 <ModeButton
                   Icon={MapPin}
-                  label="In person"
+                  label={t(locale, 'in_person')}
                   active={locationMode === 'in_person'}
                   onClick={() => setLocationMode('in_person')}
                 />
                 <ModeButton
                   Icon={Video}
-                  label="Virtual"
+                  label={t(locale, 'virtual')}
                   active={locationMode === 'virtual'}
                   onClick={() => setLocationMode('virtual')}
                 />
@@ -465,18 +488,18 @@ export function EngagementDialog({
             {locationMode === 'in_person' ? (
               <>
                 <TextField
-                  label="Location"
+                  label={t(locale, 'location')}
                   name="location"
-                  placeholder="Venue or address"
+                  placeholder={t(locale, 'venue_or_address')}
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                 />
                 <div>
                   <TextField
-                    label="Location link"
+                    label={t(locale, 'location_link')}
                     name="location_url"
                     type="url"
-                    placeholder="Maps or venue URL"
+                    placeholder={t(locale, 'maps_or_venue_url')}
                     value={locationUrl}
                     onChange={(e) => setLocationUrl(e.target.value)}
                   />
@@ -490,7 +513,7 @@ export function EngagementDialog({
                       className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink"
                     >
                       <MapPin size={12} strokeWidth={1.75} />
-                      Use a Google Maps link for “{location.trim()}”
+                      {t(locale, 'use_maps_link', { location: location.trim() })}
                     </button>
                   )}
                 </div>
@@ -498,18 +521,18 @@ export function EngagementDialog({
             ) : (
               <>
                 <div>
-                  <span className="text-sm text-ink-subtle">Provider</span>
+                  <span className="text-sm text-ink-subtle">{t(locale, 'provider')}</span>
                   <select
                     value={provider}
                     onChange={(e) => setProvider(e.target.value)}
                     className="mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none"
                   >
-                    {PROVIDER_OPTIONS.map((o) => {
+                    {providerOptions(locale).map((o) => {
                       const disabled = o.value === 'personal_room' && !personalRoomUrl;
                       return (
                         <option key={o.value} value={o.value} disabled={disabled}>
                           {o.label}
-                          {disabled ? ' — not set' : ''}
+                          {disabled ? t(locale, 'not_set_suffix') : ''}
                         </option>
                       );
                     })}
@@ -519,19 +542,16 @@ export function EngagementDialog({
                   <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
                     {personalRoomUrl ? (
                       <>
-                        Uses your personal room from Meet:{' '}
+                        {t(locale, 'uses_personal_room')}{' '}
                         <span className="text-ink break-all">{personalRoomUrl}</span>
                       </>
                     ) : (
-                      <>
-                        No personal room configured — set one in Settings →
-                        Connections.
-                      </>
+                      <>{t(locale, 'no_personal_room')}</>
                     )}
                   </p>
                 ) : (
                   <TextField
-                    label="Meeting link"
+                    label={t(locale, 'meeting_link')}
                     name="meeting_url"
                     type="url"
                     placeholder="https://…"
@@ -548,19 +568,22 @@ export function EngagementDialog({
           <div className="space-y-5">
             <div className="space-y-4">
               <SelectField
-                label="Type"
+                label={t(locale, 'type')}
                 name="type_display"
                 value={type}
                 onChange={(e) => setType(e.target.value as EngagementType)}
-                options={typeOptions.map((m) => ({ value: m.type, label: m.label }))}
+                options={typeOptions.map((m) => ({
+                  value: m.type,
+                  label: engagementTypeLabel(locale, m.type),
+                }))}
               />
             </div>
 
             {family === 'activity' ? (
               <>
                 <SwitchField
-                  label="Time per day"
-                  hint="Set a begin/end time for each day of a multi-day activity."
+                  label={t(locale, 'time_per_day')}
+                  hint={t(locale, 'time_per_day_hint')}
                   checked={timePerDay}
                   onChange={(v) => {
                     setTimePerDay(v);
@@ -570,7 +593,7 @@ export function EngagementDialog({
                 {!timePerDay ? (
                   <>
                     <DateTimeField
-                      label="Starts"
+                      label={t(locale, 'starts')}
                       name="starts_at"
                       value={startsAt}
                       min={threadStartsOn}
@@ -578,7 +601,7 @@ export function EngagementDialog({
                       onChange={onStartChange}
                     />
                     <DateTimeField
-                      label="Ends"
+                      label={t(locale, 'ends')}
                       name="ends_at"
                       value={endsAt}
                       min={startsAt || threadStartsOn}
@@ -590,7 +613,7 @@ export function EngagementDialog({
                   <div className="space-y-3">
                     <div className="grid grid-cols-2 gap-3">
                       <DateField
-                        label="First day"
+                        label={t(locale, 'first_day')}
                         name="_first_day"
                         defaultValue={firstDay}
                         min={threadStartsOn}
@@ -601,7 +624,7 @@ export function EngagementDialog({
                         }}
                       />
                       <DateField
-                        label="Last day"
+                        label={t(locale, 'last_day')}
                         name="_last_day"
                         defaultValue={lastDay}
                         min={firstDay || threadStartsOn}
@@ -614,7 +637,7 @@ export function EngagementDialog({
                     </div>
                     <div className="grid grid-cols-2 gap-3">
                       <SelectField
-                        label="Daily start"
+                        label={t(locale, 'daily_start')}
                         value={masterStart}
                         onChange={(e) => {
                           setMasterStart(e.target.value);
@@ -623,7 +646,7 @@ export function EngagementDialog({
                         options={TIME_OPTIONS}
                       />
                       <SelectField
-                        label="Daily end"
+                        label={t(locale, 'daily_end')}
                         value={masterEnd}
                         onChange={(e) => {
                           setMasterEnd(e.target.value);
@@ -635,7 +658,7 @@ export function EngagementDialog({
                     {daysBetween(firstDay, lastDay).length > 0 && (
                       <div className="rounded-lg border border-line divide-y divide-line">
                         <p className="px-3 py-1.5 text-xs text-ink-muted">
-                          Fills every day — edit a row to change one day.
+                          {t(locale, 'fills_every_day')}
                         </p>
                         {daysBetween(firstDay, lastDay).map((date) => {
                           const { start, end } = dayFor(date);
@@ -649,7 +672,7 @@ export function EngagementDialog({
                           return (
                             <div key={date} className="flex items-center gap-2 px-3 py-1.5">
                               <span className="w-24 shrink-0 text-sm text-ink-subtle">
-                                {fmtDayLabel(date)}
+                                {fmtDayLabel(locale, date)}
                               </span>
                               <select
                                 value={start}
@@ -684,6 +707,7 @@ export function EngagementDialog({
               </>
             ) : (
               <TriggerFields
+                locale={locale}
                 triggerKind={triggerKind}
                 onKindChange={setTriggerKind}
                 engagement={engagement}
@@ -696,7 +720,7 @@ export function EngagementDialog({
               {/* Activities belong on the public agenda; messages are the
                   participant journey — private by default (Sjoerd 2026-07-02). */}
               <SwitchField
-                label="Show on the public agenda"
+                label={t(locale, 'show_on_agenda')}
                 name="show_in_agenda"
                 defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
                 onChange={() => setDirty(true)}
@@ -713,9 +737,9 @@ export function EngagementDialog({
           setConfirmDiscard(false);
           onClose();
         }}
-        title="Discard changes?"
-        message="You have unsaved changes in this engagement."
-        confirmLabel="Discard"
+        title={t(locale, 'discard_changes')}
+        message={t(locale, 'discard_engagement_msg')}
+        confirmLabel={t(locale, 'discard')}
         destructive
       />
 
@@ -723,11 +747,11 @@ export function EngagementDialog({
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doDelete}
-        title="Delete engagement"
+        title={t(locale, 'delete_engagement')}
         message={
           <>
-            Delete <strong>{engagement?.title}</strong> from the timeline? This can&apos;t be
-            undone.
+            {t(locale, 'delete_engagement_msg_1')} <strong>{engagement?.title}</strong>{' '}
+            {t(locale, 'delete_engagement_msg_2')}
           </>
         }
         pending={pending}
@@ -768,12 +792,14 @@ function ModeButton({
 // ---------------------------------------------------------------------------
 
 function TriggerFields({
+  locale,
   triggerKind,
   onKindChange,
   engagement,
   requiresApproval,
   activities,
 }: {
+  locale: Locale;
   triggerKind: TriggerKind;
   onKindChange: (k: TriggerKind) => void;
   engagement: EngagementRow | null;
@@ -790,19 +816,19 @@ function TriggerFields({
   const defaultTime = engagement?.trigger_time ?? '09:00';
 
   const kindOptions = [
-    { value: 'fixed', label: 'On a fixed date' },
-    { value: 'relative', label: 'Relative to a date or event' },
-    { value: 'on_enrolment', label: 'When someone enrols' },
+    { value: 'fixed', label: t(locale, 'trig_fixed_date') },
+    { value: 'relative', label: t(locale, 'trig_relative') },
+    { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
     ...(requiresApproval
-      ? [{ value: 'on_approval', label: 'When their enrolment is approved' }]
+      ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
       : []),
-    { value: 'on_completion', label: 'When they complete the thread' },
+    { value: 'on_completion', label: t(locale, 'trig_when_completes') },
   ];
 
   return (
     <div className="space-y-4">
       <SelectField
-        label="When to send"
+        label={t(locale, 'when_to_send')}
         name="trigger_kind_display"
         value={triggerKind}
         onChange={(e) => onKindChange(e.target.value as TriggerKind)}
@@ -810,53 +836,53 @@ function TriggerFields({
       />
       {triggerKind === 'fixed' && (
         <DateTimeField
-          label="Send at"
+          label={t(locale, 'send_at')}
           name="scheduled_at"
           defaultValue={toLocalInput(engagement?.scheduled_at ?? null)}
-          hint="Leave empty to keep it unscheduled."
+          hint={t(locale, 'leave_unscheduled')}
         />
       )}
       {triggerKind === 'relative' && (
         <div className="grid grid-cols-2 gap-3">
           <SelectField
-            label="Days"
+            label={t(locale, 'days')}
             name="trigger_days"
             defaultValue={defaultDays}
             options={TRIGGER_DAY_OPTIONS.map((d) => ({
               value: d,
-              label: `${d} day${d === '1' ? '' : 's'}`,
+              label: t(locale, 'n_days', { n: d }),
             }))}
           />
           <SelectField
-            label="Direction"
+            label={t(locale, 'direction')}
             name="trigger_direction"
             defaultValue={defaultDirection}
             options={[
-              { value: 'before', label: 'before' },
-              { value: 'after', label: 'after' },
+              { value: 'before', label: t(locale, 'before') },
+              { value: 'after', label: t(locale, 'after') },
             ]}
           />
           <SelectField
-            label="Anchor"
+            label={t(locale, 'anchor')}
             name="trigger_anchor"
             defaultValue={defaultAnchor}
             options={[
-              { value: 'start', label: 'thread start' },
-              { value: 'end', label: 'thread end' },
+              { value: 'start', label: t(locale, 'thread_start') },
+              { value: 'end', label: t(locale, 'thread_end') },
               // A dateless anchor can never resolve to a send time — the
               // scheduler would skip the message forever without a word. Say
               // so in the option itself rather than letting it be found out.
               ...activities.map((a) => ({
                 value: `eng:${a.id}`,
-                label: a.hasDate ? a.title : `${a.title} — has no date yet`,
+                label: a.hasDate ? a.title : `${a.title}${t(locale, 'no_date_yet_suffix')}`,
               })),
             ]}
           />
           <SelectField
-            label="At"
+            label={t(locale, 'at_time')}
             name="trigger_time"
             defaultValue={defaultTime}
-            options={TRIGGER_TIME_OPTIONS.map((t) => ({ value: t, label: t }))}
+            options={TRIGGER_TIME_OPTIONS.map((v) => ({ value: v, label: v }))}
           />
         </div>
       )}
@@ -864,7 +890,7 @@ function TriggerFields({
         triggerKind === 'on_approval' ||
         triggerKind === 'on_completion') && (
         <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
-          Sent automatically to each participant the moment it happens — no date needed.
+          {t(locale, 'lifecycle_note')}
         </p>
       )}
     </div>
@@ -908,9 +934,11 @@ export function contentFromForm(type: EngagementType, fd: FormData): Record<stri
 }
 
 export function MessageContentFields({
+  locale,
   type,
   content,
 }: {
+  locale: Locale;
   type: EngagementType;
   content: Record<string, unknown>;
 }) {
@@ -922,42 +950,48 @@ export function MessageContentFields({
     case 'reflection':
       return (
         <TextAreaField
-          label="Questions"
+          label={t(locale, 'questions')}
           name="questions"
           rows={4}
           defaultValue={lines('questions')}
-          hint="One question per line."
+          hint={t(locale, 'one_question_per_line')}
         />
       );
     case 'practice':
       return (
         <TextAreaField
-          label="Assignments"
+          label={t(locale, 'assignments')}
           name="assignments"
           rows={4}
           defaultValue={lines('assignments')}
-          hint="One assignment per line."
+          hint={t(locale, 'one_assignment_per_line')}
         />
       );
     case 'document':
       return (
         <>
           <TextField
-            label="Link"
+            label={t(locale, 'link')}
             name="external_url"
             type="url"
             placeholder="https://…"
             defaultValue={str('external_url')}
           />
-          <RichTextField label="Note" name="body" defaultValue={str('body')} minHeight={64} />
+          <RichTextField
+            locale={locale}
+            label={t(locale, 'note')}
+            name="body"
+            defaultValue={str('body')}
+            minHeight={64}
+          />
         </>
       );
     case 'inspiration':
       return (
         <>
-          <RichTextField label="Text" name="body" defaultValue={str('body')} />
+          <RichTextField locale={locale} label={t(locale, 'text')} name="body" defaultValue={str('body')} />
           <TextField
-            label="Link (optional)"
+            label={t(locale, 'link_optional')}
             name="external_url"
             type="url"
             placeholder="https://…"
@@ -969,11 +1003,12 @@ export function MessageContentFields({
     default:
       return (
         <RichTextField
-          label="Body"
+          locale={locale}
+          label={t(locale, 'body')}
           name="body"
           defaultValue={str('body')}
           minHeight={140}
-          hint="Tokens: {name}, {thread}, {organiser}, {date} — replaced per participant when sent."
+          hint={t(locale, 'body_tokens_hint')}
         />
       );
   }

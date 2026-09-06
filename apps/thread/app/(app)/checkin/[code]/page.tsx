@@ -4,6 +4,8 @@
 // ticket hits the API's authority check and sees the polite refusal below.
 
 import { apiFetch, ApiError } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { CheckinCard } from './checkin-card';
 
 export type ScannedTicket = {
@@ -22,6 +24,7 @@ export default async function CheckinScanPage({
 }: {
   params: Promise<{ code: string }>;
 }) {
+  const locale = await uiLocale();
   const { code } = await params;
 
   let ticket: ScannedTicket | null = null;
@@ -30,10 +33,9 @@ export default async function CheckinScanPage({
     ticket = await apiFetch<ScannedTicket>(`/api/v1/thread/checkin/${code}`);
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) {
-      refusal = 'This ticket does not match any registration.';
+      refusal = t(locale, 'ticket_no_match');
     } else if (e instanceof ApiError && e.status === 403) {
-      refusal =
-        'This is a door ticket. Only the organiser of the event can check people in — if that is you, sign in with your organiser account.';
+      refusal = t(locale, 'door_ticket_refusal');
     } else {
       throw e;
     }
@@ -44,7 +46,7 @@ export default async function CheckinScanPage({
       {refusal ? (
         <p className="text-center text-sm text-ink-subtle leading-relaxed">{refusal}</p>
       ) : (
-        <CheckinCard ticket={ticket!} />
+        <CheckinCard locale={locale} ticket={ticket!} />
       )}
     </main>
   );

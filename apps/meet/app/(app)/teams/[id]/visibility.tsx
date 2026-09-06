@@ -2,16 +2,19 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { setTeamVisibility } from '../actions';
 
 export function VisibilityCard({
   teamId,
   initial,
   disabled,
+  locale,
 }: {
   teamId: string;
   initial: 'members_only' | 'org_wide';
   disabled?: boolean;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [value, setValue] = useState(initial);
@@ -44,9 +47,9 @@ export function VisibilityCard({
           className="mt-1"
         />
         <div className="min-w-0">
-          <div className="font-medium">Members only</div>
+          <div className="font-medium">{t(locale, 'members_only')}</div>
           <div className="text-xs text-ink-subtle mt-0.5">
-            Only members of this team can see the team and its bookings.
+            {t(locale, 'members_only_desc')}
           </div>
         </div>
       </label>
@@ -59,17 +62,16 @@ export function VisibilityCard({
           className="mt-1"
         />
         <div className="min-w-0">
-          <div className="font-medium">Org-wide</div>
+          <div className="font-medium">{t(locale, 'org_wide')}</div>
           <div className="text-xs text-ink-subtle mt-0.5">
-            Every internal member of the organisation can see this team and its
-            members. Externals still only see what they're directly added to.
+            {t(locale, 'org_wide_desc')}
           </div>
         </div>
       </label>
       {error && <div className="text-xs text-red-700">{error}</div>}
       {disabled && (
         <div className="text-xs text-ink-muted">
-          Only the team's leads (or an org admin) can change visibility.
+          {t(locale, 'visibility_leads_only')}
         </div>
       )}
     </div>

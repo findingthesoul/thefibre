@@ -3,6 +3,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2 } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { updateThread } from '../actions';
 import type { RegistrationField } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
@@ -26,6 +28,7 @@ function keyFromLabel(label: string, taken: Set<string>): string {
 }
 
 export function RegistrationPanel({
+  locale,
   threadId,
   fields: initial,
   sharePublic: initialSharePublic = false,
@@ -35,6 +38,7 @@ export function RegistrationPanel({
   workspaceNote = null,
   onSaved,
 }: {
+  locale: Locale;
   threadId: string;
   fields: RegistrationField[];
   sharePublic?: boolean;
@@ -86,7 +90,7 @@ export function RegistrationPanel({
     const cleaned: RegistrationField[] = [];
     for (const f of fields) {
       const label = f.label.trim();
-      if (!label) return setError('Every question needs a label.');
+      if (!label) return setError(t(locale, 'err_question_label'));
       const key = f.key || keyFromLabel(label, taken);
       taken.add(key);
       cleaned.push({
@@ -118,18 +122,15 @@ export function RegistrationPanel({
     // Saved from the shared dialog footer (submits by form id).
     <form id="thread-registration-form" onSubmit={onSave}>
       <div className="flex items-center justify-between">
-        <SectionLabel>Registration questions</SectionLabel>
+        <SectionLabel>{t(locale, 'registration_questions')}</SectionLabel>
         <Button type="button" size="sm" variant="secondary" leading={<Plus size={15} />} onClick={addField}>
-          Add question
+          {t(locale, 'add_question')}
         </Button>
       </div>
-      <p className="mt-2 text-xs text-ink-muted">
-        Asked on the public enrolment form, after name and email. Answers stay
-        in Thread — they never cross to the platform timeline.
-      </p>
+      <p className="mt-2 text-xs text-ink-muted">{t(locale, 'reg_questions_note')}</p>
 
       {fields.length === 0 && (
-        <EmptyState>No extra questions — enrolment asks only name and email.</EmptyState>
+        <EmptyState>{t(locale, 'reg_no_questions')}</EmptyState>
       )}
 
       {fields.length > 0 && (
@@ -140,7 +141,7 @@ export function RegistrationPanel({
                 <div className="flex-1 grid grid-cols-1 sm:grid-cols-[1fr_150px_auto] gap-3 items-center">
                   <input
                     className={INPUT}
-                    placeholder="Question label"
+                    placeholder={t(locale, 'question_label_placeholder')}
                     value={f.label}
                     onChange={(e) => patch(i, { label: e.target.value })}
                   />
@@ -151,10 +152,10 @@ export function RegistrationPanel({
                       patch(i, { type: e.target.value as RegistrationField['type'] })
                     }
                   >
-                    <option value="short">Short answer</option>
-                    <option value="long">Long answer</option>
-                    <option value="select">Choice</option>
-                    <option value="checkbox">Checkbox</option>
+                    <option value="short">{t(locale, 'q_short')}</option>
+                    <option value="long">{t(locale, 'q_long')}</option>
+                    <option value="select">{t(locale, 'q_choice')}</option>
+                    <option value="checkbox">{t(locale, 'q_checkbox')}</option>
                   </select>
                   <label className="flex items-center gap-1.5 text-xs text-ink-subtle whitespace-nowrap">
                     <input
@@ -162,12 +163,12 @@ export function RegistrationPanel({
                       checked={f.required}
                       onChange={(e) => patch(i, { required: e.target.checked })}
                     />
-                    Required
+                    {t(locale, 'required')}
                   </label>
                 </div>
                 <button
                   type="button"
-                  aria-label="Remove question"
+                  aria-label={t(locale, 'remove_question')}
                   onClick={() => removeField(i)}
                   className="inline-flex h-8 w-8 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken shrink-0"
                 >
@@ -177,7 +178,7 @@ export function RegistrationPanel({
               {f.type === 'select' && (
                 <input
                   className={`${INPUT} mt-2.5`}
-                  placeholder="Options, comma-separated"
+                  placeholder={t(locale, 'options_comma')}
                   value={(f.options ?? []).join(', ')}
                   onChange={(e) =>
                     patch(i, { options: e.target.value.split(',').map((s) => s.trimStart()) })
@@ -190,14 +191,13 @@ export function RegistrationPanel({
       )}
 
       <div className="mt-8">
-        <SectionLabel>Approval</SectionLabel>
+        <SectionLabel>{t(locale, 'approval')}</SectionLabel>
         <div className="mt-3">
           <SwitchField
             label={
               <>
-                <strong>Approval required</strong> — enrolments wait as requests until you
-                approve them (Registrations popup → Approve/Decline). Paid enrolments are
-                charged first, then approved.
+                <strong>{t(locale, 'approval_required_strong')}</strong>{' '}
+                {t(locale, 'approval_required_rest')}
               </>
             }
             checked={requiresApproval}
@@ -210,17 +210,15 @@ export function RegistrationPanel({
       </div>
 
       <div className="mt-8">
-        <SectionLabel>Participant visibility</SectionLabel>
-        <p className="mt-2 text-xs text-ink-muted">
-          Names show only for people who tick “show my name” when they enrol — opt-in, never
-          default.
-        </p>
+        <SectionLabel>{t(locale, 'participant_visibility')}</SectionLabel>
+        <p className="mt-2 text-xs text-ink-muted">{t(locale, 'visibility_note')}</p>
         <div className="mt-3 space-y-2.5">
           <SwitchField
             label={
               <>
-                Share participants <strong>publicly</strong> — a “Who&apos;s coming” list on
-                the public thread page (first name + initial).
+                {t(locale, 'share_participants_pre')}{' '}
+                <strong>{t(locale, 'share_publicly_strong')}</strong>{' '}
+                {t(locale, 'share_publicly_rest')}
               </>
             }
             checked={sharePublic}
@@ -232,8 +230,9 @@ export function RegistrationPanel({
           <SwitchField
             label={
               <>
-                Share participants <strong>with other participants</strong> — the cohort sees
-                each other on their personal page.
+                {t(locale, 'share_participants_pre')}{' '}
+                <strong>{t(locale, 'share_with_participants_strong')}</strong>{' '}
+                {t(locale, 'share_with_participants_rest')}
               </>
             }
             checked={shareParticipants}
@@ -246,15 +245,11 @@ export function RegistrationPanel({
       </div>
 
       <div className="mt-8">
-        <SectionLabel>Your words in the enrolment emails</SectionLabel>
-        <p className="mt-2 text-xs text-ink-muted">
-          Shown inside the two emails this thread sends by itself — the one confirming the
-          request arrived, and the one carrying the ticket. Written once, it saves sending a
-          welcome of its own.
-        </p>
+        <SectionLabel>{t(locale, 'your_words')}</SectionLabel>
+        <p className="mt-2 text-xs text-ink-muted">{t(locale, 'your_words_note')}</p>
         <div className="mt-3 space-y-3">
           <SwitchField
-            label={<>Write something just for this thread</>}
+            label={<>{t(locale, 'write_for_thread')}</>}
             checked={ownNote}
             onChange={(v) => {
               setOwnNote(v);
@@ -266,7 +261,7 @@ export function RegistrationPanel({
               className={INPUT}
               rows={6}
               value={note}
-              placeholder="Welcome — here is what to expect…"
+              placeholder={t(locale, 'welcome_placeholder')}
               onChange={(e) => {
                 setNote(e.target.value);
                 setSaved(false);
@@ -276,7 +271,7 @@ export function RegistrationPanel({
             <p className="rounded-md border border-line bg-surface-sunken px-3 py-2 text-sm whitespace-pre-wrap text-ink-subtle">
               {workspaceNote?.trim()
                 ? workspaceNote
-                : 'The workspace has no note yet — Settings → Emails & defaults sets one for every thread.'}
+                : t(locale, 'no_workspace_note')}
             </p>
           )}
         </div>
@@ -289,7 +284,9 @@ export function RegistrationPanel({
       )}
 
       {(pending || saved) && (
-        <p className="mt-4 text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</p>
+        <p className="mt-4 text-sm text-ink-subtle">
+          {pending ? t(locale, 'saving') : t(locale, 'saved')}
+        </p>
       )}
     </form>
   );

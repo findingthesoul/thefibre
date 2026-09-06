@@ -32,6 +32,7 @@ import {
   deleteThread,
   duplicateThread,
 } from '../actions';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import {
   one,
   type ThreadRow,
@@ -42,6 +43,7 @@ import {
   type TeamOption,
 } from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
+import { t, engagementTypeLabel, type UiKey } from '@/lib/i18n-ui';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { FormError } from '@/components/ui/form-error';
 import { DangerConfirmDialog } from '@/components/ui/danger-confirm';
@@ -59,17 +61,17 @@ import { ThreadEmbedPanel } from './embed-panel';
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
-const STATUS_META: Record<string, { label: string; cls: string }> = {
-  draft: { label: 'Draft', cls: 'bg-surface-sunken text-ink-subtle ring-line' },
-  active: { label: 'Published', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
-  completed: { label: 'Completed', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
-  archived: { label: 'Archived', cls: 'bg-surface-sunken text-ink-muted ring-line' },
+const STATUS_META: Record<string, { labelKey: UiKey; cls: string }> = {
+  draft: { labelKey: 'status_draft', cls: 'bg-surface-sunken text-ink-subtle ring-line' },
+  active: { labelKey: 'status_published', cls: 'bg-emerald-50 text-emerald-700 ring-emerald-200' },
+  completed: { labelKey: 'status_completed', cls: 'bg-sky-50 text-sky-700 ring-sky-200' },
+  archived: { labelKey: 'status_archived', cls: 'bg-surface-sunken text-ink-muted ring-line' },
 };
 
-const LIFECYCLE_LABELS: Record<string, string> = {
-  on_enrolment: 'On enrolment',
-  on_approval: 'On approval',
-  on_completion: 'On completion',
+const LIFECYCLE_LABEL_KEYS: Record<string, UiKey> = {
+  on_enrolment: 'trig_on_enrolment',
+  on_approval: 'trig_on_approval',
+  on_completion: 'trig_on_completion',
 };
 
 /**
@@ -102,22 +104,29 @@ function whenOf(
 }
 
 function isLifecycle(e: EngagementRow): boolean {
-  return e.trigger_kind in LIFECYCLE_LABELS;
+  return e.trigger_kind in LIFECYCLE_LABEL_KEYS;
 }
 
 /** Short human label for a message card's trigger. */
-function triggerLabel(e: EngagementRow, byId?: Map<string, EngagementRow>): string | null {
+function triggerLabel(
+  locale: Locale,
+  e: EngagementRow,
+  byId?: Map<string, EngagementRow>,
+): string | null {
   const kind = e.trigger_kind ?? 'fixed';
-  if (kind === 'fixed') return e.scheduled_at ? `Sends ${fmtTime(e.scheduled_at)}` : 'Unscheduled';
+  if (kind === 'fixed')
+    return e.scheduled_at
+      ? t(locale, 'sends_at', { time: fmtTime(locale, e.scheduled_at) })
+      : t(locale, 'unscheduled');
   if (kind === 'relative') {
     const n = Math.abs(e.trigger_offset_days ?? 0);
-    const dir = (e.trigger_offset_days ?? 0) < 0 ? 'before' : 'after';
+    const dir = (e.trigger_offset_days ?? 0) < 0 ? t(locale, 'before') : t(locale, 'after');
     const anchorLabel =
       e.trigger_anchor === 'engagement'
-        ? byId?.get(e.trigger_engagement_id ?? '')?.title ?? 'event'
+        ? byId?.get(e.trigger_engagement_id ?? '')?.title ?? t(locale, 'anchor_event')
         : e.trigger_anchor === 'end'
-          ? 'end'
-          : 'start';
+          ? t(locale, 'anchor_end')
+          : t(locale, 'anchor_start');
     // "1d after Festival of Trust · 11:00" is a lie when the anchor has no
     // date — the scheduler resolves the anchor to null and skips the message
     // forever. Say so on the card instead of letting it be discovered the day
@@ -125,11 +134,17 @@ function triggerLabel(e: EngagementRow, byId?: Map<string, EngagementRow>): stri
     const anchorless =
       e.trigger_anchor === 'engagement' &&
       !byId?.get(e.trigger_engagement_id ?? '')?.starts_at;
-    return `${n}d ${dir} ${anchorLabel} · ${e.trigger_time ?? '09:00'}${
-      anchorless ? ' — won\u2019t send: the anchor has no date' : ''
-    }`;
+    return (
+      t(locale, 'rel_trigger', {
+        n,
+        dir,
+        anchor: anchorLabel,
+        time: e.trigger_time ?? '09:00',
+      }) + (anchorless ? t(locale, 'wont_send_no_date') : '')
+    );
   }
-  return LIFECYCLE_LABELS[kind] ?? null;
+  const key = LIFECYCLE_LABEL_KEYS[kind];
+  return key ? t(locale, key) : null;
 }
 
 function dayKey(iso: string): string {
@@ -163,15 +178,16 @@ function coveredDays(e: EngagementRow): string[] {
   return out;
 }
 
-function fmtTime(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
-    new Date(iso),
-  );
+function fmtTime(locale: Locale, iso: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(iso));
 }
 
 /** 'YYYY-MM-DD' → 'Mon 2 Mar' (for per-day schedule rows). */
-function fmtDayShort(date: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDayShort(locale: Locale, date: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -179,6 +195,7 @@ function fmtDayShort(date: string): string {
 }
 
 export function ThreadTimeline({
+  locale,
   categories = [],
   thread,
   engagements,
@@ -189,6 +206,7 @@ export function ThreadTimeline({
   personalRoomUrl,
   workspaceNote = null,
 }: {
+  locale: Locale;
   categories?: { id: string; name: string; slug: string }[];
   thread: ThreadRow;
   engagements: EngagementRow[];
@@ -333,12 +351,12 @@ export function ThreadTimeline({
         <Link
           href="/threads"
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="All threads"
+          title={t(locale, 'all_threads')}
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
         </Link>
 
-        {program?.starts_on && <DateChip iso={program.starts_on} />}
+        {program?.starts_on && <DateChip locale={locale} iso={program.starts_on} />}
 
         <input
           key={program?.title}
@@ -348,7 +366,7 @@ export function ThreadTimeline({
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
           className="flex-1 min-w-0 bg-transparent text-2xl font-medium tracking-tight focus:outline-none rounded-md px-1 -mx-1 focus:bg-surface-raised focus:ring-1 focus:ring-line"
-          aria-label="Thread title"
+          aria-label={t(locale, 'thread_title_aria')}
         />
 
         {/* Status pill (select disguised) */}
@@ -357,12 +375,12 @@ export function ThreadTimeline({
             value={status}
             onChange={(e) => setStatus(e.target.value)}
             className={`appearance-none text-xs px-3 py-1.5 pr-7 rounded-full ring-1 cursor-pointer focus:outline-none ${statusMeta.cls}`}
-            aria-label="Thread status"
+            aria-label={t(locale, 'thread_status_aria')}
           >
-            <option value="draft">Draft</option>
-            <option value="active">Published</option>
-            <option value="completed">Completed</option>
-            <option value="archived">Archived</option>
+            <option value="draft">{t(locale, 'status_draft')}</option>
+            <option value="active">{t(locale, 'status_published')}</option>
+            <option value="completed">{t(locale, 'status_completed')}</option>
+            <option value="archived">{t(locale, 'status_archived')}</option>
           </select>
           <span className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 text-[9px] opacity-60">
             ▾
@@ -373,14 +391,14 @@ export function ThreadTimeline({
           type="button"
           onClick={() => setRegistrationsOpen(true)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="Registrations"
+          title={t(locale, 'registrations')}
         >
           <UserCheck size={17} strokeWidth={1.75} />
         </button>
         <Link
           href={`/threads/${thread.id}/checkin`}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="Check-in (door list)"
+          title={t(locale, 'checkin_door')}
         >
           <ScanLine size={17} strokeWidth={1.75} />
         </Link>
@@ -391,7 +409,7 @@ export function ThreadTimeline({
             setSettingsOpen(true);
           }}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="Thread settings"
+          title={t(locale, 'thread_settings')}
         >
           <Settings size={17} strokeWidth={1.75} />
         </button>
@@ -400,7 +418,7 @@ export function ThreadTimeline({
           target="_blank"
           rel="noreferrer"
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="Open public page"
+          title={t(locale, 'open_public_page')}
         >
           <ExternalLink size={16} strokeWidth={1.75} />
         </a>
@@ -413,7 +431,7 @@ export function ThreadTimeline({
       {team && (
         <div className="mt-2 ml-12 flex items-center gap-2 text-xs text-ink-muted">
           <span className="px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-raised">
-            Team · {team.name}
+            {t(locale, 'team')} · {team.name}
           </span>
         </div>
       )}
@@ -424,9 +442,7 @@ export function ThreadTimeline({
         <div className="absolute left-5 top-1 bottom-1 w-px bg-line" />
 
         {groups.length === 0 && undated.length === 0 && triggered.length === 0 && triggeredEnd.length === 0 && (
-          <p className="text-sm text-ink-subtle py-6">
-            Nothing on the timeline yet — add the first engagement below.
-          </p>
+          <p className="text-sm text-ink-subtle py-6">{t(locale, 'timeline_empty')}</p>
         )}
 
         <div className="space-y-4">
@@ -435,19 +451,20 @@ export function ThreadTimeline({
               <div className="absolute -left-[57px] top-1 w-10 text-center">
                 <div
                   className="rounded-md border border-line bg-surface-raised px-1 py-1.5 text-[9px] uppercase tracking-wide text-ink-muted leading-tight"
-                  title="Sent automatically when the trigger fires per participant"
+                  title={t(locale, 'auto_tooltip_trigger')}
                 >
-                  Auto
+                  {t(locale, 'auto')}
                 </div>
               </div>
               <div>
                 {triggered.map((e, i) => (
                   <EngagementCard
                     key={e.id}
+                    locale={locale}
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < triggered.length - 1}
-                    triggerText={triggerLabel(e, byId)}
+                    triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -460,16 +477,17 @@ export function ThreadTimeline({
             <div key={run[0]![0]} className="relative">
               {run.map(([key, items], di) => (
                 <div key={key} className="relative">
-                  <DateBadge iso={items[0] ? whenOf(items[0], window, byId)! : key} />
+                  <DateBadge locale={locale} iso={items[0] ? whenOf(items[0], window, byId)! : key} />
                   {items.map((e, i) => (
                     <EngagementCard
                       key={e.id}
+                      locale={locale}
                       engagement={e}
                       // Attach across the day boundary too: inside a run the
                       // days are one continuous block.
                       attachTop={di > 0 || i > 0}
                       attachBottom={di < run.length - 1 || i < items.length - 1}
-                      triggerText={triggerLabel(e, byId)}
+                      triggerText={triggerLabel(locale, e, byId)}
                       onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                       onQuickTime={() => setQuickTime(e)}
                     />
@@ -483,17 +501,18 @@ export function ThreadTimeline({
             <div className="relative">
               <div className="absolute -left-[57px] top-1 w-10 text-center">
                 <div className="rounded-md border border-dashed border-line bg-surface-raised px-1 py-1.5 text-[9px] uppercase tracking-wide text-ink-muted leading-tight">
-                  No date
+                  {t(locale, 'no_date')}
                 </div>
               </div>
               <div>
                 {undated.map((e, i) => (
                   <EngagementCard
                     key={e.id}
+                    locale={locale}
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < undated.length - 1}
-                    triggerText={triggerLabel(e, byId)}
+                    triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -508,19 +527,20 @@ export function ThreadTimeline({
               <div className="absolute -left-[57px] top-1 w-10 text-center">
                 <div
                   className="rounded-md border border-line bg-surface-raised px-1 py-1.5 text-[9px] uppercase tracking-wide text-ink-muted leading-tight"
-                  title="Sent automatically when the participant completes the thread"
+                  title={t(locale, 'auto_tooltip_completion')}
                 >
-                  Auto
+                  {t(locale, 'auto')}
                 </div>
               </div>
               <div>
                 {triggeredEnd.map((e, i) => (
                   <EngagementCard
                     key={e.id}
+                    locale={locale}
                     engagement={e}
                     attachTop={i > 0}
                     attachBottom={i < triggeredEnd.length - 1}
-                    triggerText={triggerLabel(e, byId)}
+                    triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
                   />
@@ -537,12 +557,13 @@ export function ThreadTimeline({
               className="w-full rounded-lg border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-3 text-sm inline-flex items-center justify-center gap-2 transition-colors"
             >
               <Plus size={16} strokeWidth={1.75} />
-              Add engagement
+              {t(locale, 'add_engagement')}
             </button>
             {addMenuOpen && (
               <div className="absolute z-40 mt-2 w-72 rounded-lg border border-line bg-surface-raised shadow-lg py-2">
                 <TypeMenuSection
-                  label="Activities"
+                  locale={locale}
+                  label={t(locale, 'activities')}
                   family="activity"
                   onPick={(t) => {
                     setAddMenuOpen(false);
@@ -551,7 +572,8 @@ export function ThreadTimeline({
                 />
                 <div className="my-1 border-t border-line" />
                 <TypeMenuSection
-                  label="Messages"
+                  locale={locale}
+                  label={t(locale, 'messages')}
                   family="message"
                   onPick={(t) => {
                     setAddMenuOpen(false);
@@ -567,6 +589,7 @@ export function ThreadTimeline({
       {/* ── Dialogs ──────────────────────────────────────────────────── */}
       {editorState.mode !== 'closed' && (
         <EngagementDialog
+          locale={locale}
           threadId={thread.id}
           engagement={editorState.mode === 'edit' ? editorState.engagement : null}
           initialType={editorState.mode === 'new' ? editorState.type : undefined}
@@ -585,8 +608,8 @@ export function ThreadTimeline({
         <Dialog
           open
           onClose={requestCloseSettings}
-          title="Thread settings"
-          description="Basics, dates and the public registration form."
+          title={t(locale, 'thread_settings')}
+          description={t(locale, 'thread_settings_desc')}
           size="xl"
           footer={
             <>
@@ -598,7 +621,7 @@ export function ThreadTimeline({
                   leading={<Trash2 size={14} />}
                   onClick={() => setConfirmThreadDelete(true)}
                 >
-                  Delete
+                  {t(locale, 'delete')}
                 </Button>
                 <Button
                   type="button"
@@ -613,7 +636,7 @@ export function ThreadTimeline({
                     })
                   }
                 >
-                  Duplicate
+                  {t(locale, 'duplicate')}
                 </Button>
                 <Button
                   type="button"
@@ -631,15 +654,15 @@ export function ThreadTimeline({
                     })
                   }
                 >
-                  Save as template
+                  {t(locale, 'save_as_template')}
                 </Button>
               </div>
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
-                Cancel
+                {t(locale, 'cancel')}
               </Button>
               {settingsTab !== 'embed' && (
                 <Button type="submit" form={`thread-${settingsTab}-form`}>
-                  Save
+                  {t(locale, 'save')}
                 </Button>
               )}
             </>
@@ -647,6 +670,7 @@ export function ThreadTimeline({
         >
           <div onInput={() => setSettingsDirty(true)}>
             <SettingsTabs
+              locale={locale}
               thread={thread}
               categories={categories}
               teams={teams}
@@ -667,19 +691,19 @@ export function ThreadTimeline({
         open={confirmDiscard}
         onCancel={() => setConfirmDiscard(false)}
         onConfirm={closeSettings}
-        title="Discard changes?"
-        message="You have unsaved changes in the thread settings."
-        confirmLabel="Discard"
+        title={t(locale, 'discard_changes')}
+        message={t(locale, 'discard_msg')}
+        confirmLabel={t(locale, 'discard')}
         destructive
       />
 
       <DangerConfirmDialog
         open={confirmThreadDelete}
-        title="Delete thread"
+        title={t(locale, 'delete_thread')}
         message={
           <>
-            This deletes <strong>{program?.title}</strong> with all its engagements, tickets,
-            codes and registrations. There is no undo.
+            {t(locale, 'delete_thread_msg_1')} <strong>{program?.title}</strong>{' '}
+            {t(locale, 'delete_thread_msg_2')}
           </>
         }
         pending={threadActionPending}
@@ -693,11 +717,16 @@ export function ThreadTimeline({
       />
 
       {registrationsOpen && (
-        <RegistrationsDialog threadId={thread.id} onClose={() => setRegistrationsOpen(false)} />
+        <RegistrationsDialog
+          locale={locale}
+          threadId={thread.id}
+          onClose={() => setRegistrationsOpen(false)}
+        />
       )}
 
       {quickTime && (
         <QuickTimeDialog
+          locale={locale}
           threadId={thread.id}
           engagement={quickTime}
           threadStartsOn={program?.starts_on ?? null}
@@ -712,28 +741,28 @@ export function ThreadTimeline({
 // ---------------------------------------------------------------------------
 
 // Date chips carry the Thread brand yellow on the month bar (v3's accent).
-function DateChip({ iso }: { iso: string }) {
+function DateChip({ locale, iso }: { locale: Locale; iso: string }) {
   const d = new Date(iso);
   return (
     <div className="w-10 shrink-0 rounded-md border border-line bg-surface-raised text-center leading-tight overflow-hidden">
       <div className="bg-yellow-300 text-ink text-[9px] uppercase tracking-wide py-0.5 font-medium">
-        {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
+        {new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: 'short' }).format(d)}
       </div>
       <div className="text-[15px] font-medium tabular-nums py-0.5">{d.getDate()}</div>
     </div>
   );
 }
 
-function DateBadge({ iso }: { iso: string }) {
+function DateBadge({ locale, iso }: { locale: Locale; iso: string }) {
   const d = new Date(iso);
-  const weekday = new Intl.DateTimeFormat('en-GB', { weekday: 'long' }).format(d);
+  const weekday = new Intl.DateTimeFormat(INTL_LOCALES[locale], { weekday: 'long' }).format(d);
   return (
     // z-10: the badge sits above the cards' rail dots — without it the dot
     // of the first card in a group renders on top of the date number.
     <div className="absolute -left-[57px] top-1 w-10 text-center z-10" title={weekday}>
       <div className="rounded-md border border-line bg-surface-raised leading-tight overflow-hidden shadow-[0_1px_2px_rgb(0_0_0/0.06)]">
         <div className="bg-yellow-300 text-ink text-[9px] uppercase tracking-wide py-0.5 font-medium">
-          {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
+          {new Intl.DateTimeFormat(INTL_LOCALES[locale], { month: 'short' }).format(d)}
         </div>
         <div className="text-[15px] font-medium tabular-nums py-0.5">{d.getDate()}</div>
       </div>
@@ -742,6 +771,7 @@ function DateBadge({ iso }: { iso: string }) {
 }
 
 function EngagementCard({
+  locale,
   engagement: e,
   attachTop,
   attachBottom,
@@ -749,6 +779,7 @@ function EngagementCard({
   onEdit,
   onQuickTime,
 }: {
+  locale: Locale;
   engagement: EngagementRow;
   attachTop: boolean;
   attachBottom: boolean;
@@ -786,10 +817,12 @@ function EngagementCard({
           </span>
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 text-[11px]">
-              <span className={`font-medium ${meta.text}`}>{meta.label}</span>
+              <span className={`font-medium ${meta.text}`}>
+                {engagementTypeLabel(locale, e.type)}
+              </span>
               {e.status !== 'published' && (
-                <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken capitalize text-ink-muted">
-                  {e.status}
+                <span className="px-1.5 py-px rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted">
+                  {e.status === 'draft' ? t(locale, 'status_draft') : e.status}
                 </span>
               )}
               {meta.family === 'message' && (
@@ -804,17 +837,19 @@ function EngagementCard({
                 {e.daily_schedule.slice(0, 4).map((d) => (
                   <span key={d.date} className="inline-flex items-center gap-1">
                     <Clock size={12} strokeWidth={1.75} />
-                    {fmtDayShort(d.date)} · {d.start}–{d.end}
+                    {fmtDayShort(locale, d.date)} · {d.start}–{d.end}
                   </span>
                 ))}
                 {e.daily_schedule.length > 4 && (
-                  <span className="text-ink-muted">+{e.daily_schedule.length - 4} more</span>
+                  <span className="text-ink-muted">
+                    {t(locale, 'more_n', { n: e.daily_schedule.length - 4 })}
+                  </span>
                 )}
               </div>
             ) : meta.family === 'activity' && when ? (
               <button
                 type="button"
-                title="Change time"
+                title={t(locale, 'change_time')}
                 onClick={(ev) => {
                   ev.stopPropagation();
                   onQuickTime();
@@ -822,8 +857,8 @@ function EngagementCard({
                 className="inline-flex items-center gap-1 tabular-nums rounded-md px-1.5 py-0.5 -mx-1.5 hover:bg-surface-sunken hover:text-ink transition-colors"
               >
                 <Clock size={12} strokeWidth={1.75} />
-                {fmtTime(when)}
-                {e.ends_at && ` – ${fmtTime(e.ends_at)}`}
+                {fmtTime(locale, when)}
+                {e.ends_at && ` – ${fmtTime(locale, e.ends_at)}`}
               </button>
             ) : null}
             {e.location && (
@@ -835,7 +870,7 @@ function EngagementCard({
             {e.meeting_url && (
               <span className="inline-flex items-center gap-1">
                 <Video size={12} strokeWidth={1.75} />
-                Online
+                {t(locale, 'online')}
               </span>
             )}
           </div>
@@ -853,6 +888,7 @@ function EngagementCard({
 type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate' | 'embed';
 
 function SettingsTabs({
+  locale,
   thread,
   categories = [],
   teams,
@@ -865,6 +901,7 @@ function SettingsTabs({
   onSaved,
   workspaceNote = null,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   categories?: { id: string; name: string; slug: string }[];
   teams: TeamOption[];
@@ -878,29 +915,29 @@ function SettingsTabs({
   workspaceNote?: string | null;
 }) {
   const tabs = [
-    { value: 'basics', label: 'Basics' },
-    { value: 'pricing', label: 'Pricing' },
-    { value: 'registration', label: 'Registration' },
-    { value: 'certificate', label: 'Certificate' },
-    { value: 'embed', label: 'Embed' },
+    { value: 'basics', label: t(locale, 'basics') },
+    { value: 'pricing', label: t(locale, 'tab_pricing') },
+    { value: 'registration', label: t(locale, 'tab_registration') },
+    { value: 'certificate', label: t(locale, 'certificate') },
+    { value: 'embed', label: t(locale, 'tab_embed') },
   ] as const;
 
   return (
     <div>
       <nav className="border-b border-line -mt-1">
         <ul className="flex gap-1 -mb-px">
-          {tabs.map((t) => (
-            <li key={t.value}>
+          {tabs.map((tb) => (
+            <li key={tb.value}>
               <button
                 type="button"
-                onClick={() => onTabChange(t.value)}
+                onClick={() => onTabChange(tb.value)}
                 className={`inline-block px-3 py-2 text-sm border-b-2 transition-colors ${
-                  tab === t.value
+                  tab === tb.value
                     ? 'border-ink text-ink'
                     : 'border-transparent text-ink-subtle hover:text-ink hover:border-line-strong'
                 }`}
               >
-                {t.label}
+                {tb.label}
               </button>
             </li>
           ))}
@@ -908,6 +945,7 @@ function SettingsTabs({
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
         <ThreadEditorForm
+          locale={locale}
           thread={thread}
           compact
           teams={teams}
@@ -915,6 +953,7 @@ function SettingsTabs({
           onSaved={onSaved}
         />
         <MembersPanel
+          locale={locale}
           thread={thread}
           organiserName={organiserName}
           members={members}
@@ -922,10 +961,11 @@ function SettingsTabs({
         />
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
-        <PricingPanel thread={thread} onSaved={onSaved} />
+        <PricingPanel locale={locale} thread={thread} onSaved={onSaved} />
       </div>
       <div className={`pt-5 ${tab === 'registration' ? '' : 'hidden'}`}>
         <RegistrationPanel
+          locale={locale}
           threadId={thread.id}
           fields={thread.registration_fields ?? []}
           sharePublic={thread.share_participants_public ?? false}
@@ -937,10 +977,16 @@ function SettingsTabs({
         />
       </div>
       <div className={`pt-5 ${tab === 'certificate' ? '' : 'hidden'}`}>
-        <CertificatePanel thread={thread} certTemplates={certTemplates} onSaved={onSaved} />
+        <CertificatePanel
+          locale={locale}
+          thread={thread}
+          certTemplates={certTemplates}
+          onSaved={onSaved}
+        />
       </div>
       <div className={`pt-5 ${tab === 'embed' ? '' : 'hidden'}`}>
         <ThreadEmbedPanel
+          locale={locale}
           ownerSlug={one(thread.team)?.slug ?? one(thread.organiser)?.slug ?? ''}
           threadSlug={thread.slug}
         />
@@ -954,12 +1000,14 @@ function SettingsTabs({
 // ---------------------------------------------------------------------------
 
 function QuickTimeDialog({
+  locale,
   threadId,
   engagement,
   threadStartsOn,
   threadEndsOn,
   onClose,
 }: {
+  locale: Locale;
   threadId: string;
   engagement: EngagementRow;
   threadStartsOn: string | null;
@@ -995,15 +1043,15 @@ function QuickTimeDialog({
       open
       onClose={onClose}
       title={engagement.title}
-      description={isActivity ? 'Change when it runs.' : 'Change when it sends.'}
+      description={isActivity ? t(locale, 'quick_runs') : t(locale, 'quick_sends')}
       footer={
         <>
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="quick-time-form" disabled={pending}>
-            {pending ? 'Saving…' : 'Save'}
+            {pending ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
         </>
       }
@@ -1012,14 +1060,14 @@ function QuickTimeDialog({
         {isActivity ? (
           <>
             <DateTimeField
-              label="Starts"
+              label={t(locale, 'starts')}
               name="starts_at"
               defaultValue={toLocalInput(engagement.starts_at)}
               min={threadStartsOn}
               max={threadEndsOn}
             />
             <DateTimeField
-              label="Ends"
+              label={t(locale, 'ends')}
               name="ends_at"
               defaultValue={toLocalInput(engagement.ends_at)}
               min={threadStartsOn}
@@ -1028,7 +1076,7 @@ function QuickTimeDialog({
           </>
         ) : (
           <DateTimeField
-            label="Send at"
+            label={t(locale, 'send_at')}
             name="scheduled_at"
             defaultValue={toLocalInput(engagement.scheduled_at)}
           />
@@ -1043,11 +1091,13 @@ function QuickTimeDialog({
 // ---------------------------------------------------------------------------
 
 function MembersPanel({
+  locale,
   thread,
   organiserName,
   members,
   workspaceMembers,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   organiserName: string;
   members: ThreadMember[];
@@ -1068,7 +1118,7 @@ function MembersPanel({
   );
 
   function add() {
-    if (!pickUser) return setError('Pick a member.');
+    if (!pickUser) return setError(t(locale, 'err_pick_member'));
     setError(null);
     startTransition(async () => {
       const r = await addThreadMember(thread.id, pickUser, pickRole);
@@ -1091,16 +1141,14 @@ function MembersPanel({
   return (
     <section className="mt-8 border-t border-line pt-6">
       <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-        Hosts & facilitators
+        {t(locale, 'hosts_facilitators')}
       </div>
-      <p className="mt-1.5 text-xs text-ink-subtle">
-        Hosts can edit the thread; facilitators run sessions.
-      </p>
+      <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'hosts_facilitators_desc')}</p>
       <ul className="mt-3 space-y-2">
         <li className="flex items-center gap-3 rounded-md border border-line bg-surface-sunken/50 px-3 py-2.5">
           <span className="text-sm font-medium flex-1 truncate">{organiserName}</span>
           <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink">
-            Organiser
+            {t(locale, 'organiser')}
           </span>
         </li>
         {members.map((m) => {
@@ -1112,12 +1160,16 @@ function MembersPanel({
               className="flex items-center gap-3 rounded-md border border-line px-3 py-2.5"
             >
               <span className="text-sm flex-1 truncate">{o.display_name ?? o.slug}</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken capitalize">
-                {m.role}
+              <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken">
+                {m.role === 'host'
+                  ? t(locale, 'role_host')
+                  : m.role === 'facilitator'
+                    ? t(locale, 'role_facilitator')
+                    : m.role}
               </span>
               <button
                 type="button"
-                aria-label="Remove"
+                aria-label={t(locale, 'remove')}
                 disabled={pending}
                 onClick={() => remove(o.id)}
                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-ink-muted hover:text-ink hover:bg-surface-sunken"
@@ -1130,10 +1182,12 @@ function MembersPanel({
       </ul>
 
       <div className="mt-5 border-t border-line pt-4">
-        <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">Invite</div>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">
+          {t(locale, 'invite')}
+        </div>
         <div className="grid grid-cols-[1fr_auto_auto] gap-2">
           <select value={pickUser} onChange={(e) => setPickUser(e.target.value)} className={select}>
-            <option value="">Choose a workspace member…</option>
+            <option value="">{t(locale, 'choose_member')}</option>
             {candidates.map((w) => (
               <option key={w.user_id} value={w.user_id}>
                 {w.full_name ?? w.email}
@@ -1145,11 +1199,11 @@ function MembersPanel({
             onChange={(e) => setPickRole(e.target.value as 'host' | 'facilitator')}
             className={select}
           >
-            <option value="host">Host</option>
-            <option value="facilitator">Facilitator</option>
+            <option value="host">{t(locale, 'role_host')}</option>
+            <option value="facilitator">{t(locale, 'role_facilitator')}</option>
           </select>
           <Button size="sm" onClick={add} disabled={pending} leading={<Plus size={14} />}>
-            Add
+            {t(locale, 'add')}
           </Button>
         </div>
         {error && <p className="mt-2 text-xs text-red-700">{error}</p>}
@@ -1159,10 +1213,12 @@ function MembersPanel({
 }
 
 function TypeMenuSection({
+  locale,
   label,
   family,
   onPick,
 }: {
+  locale: Locale;
   label: string;
   family: 'activity' | 'message';
   onPick: (t: EngagementType) => void;
@@ -1180,7 +1236,7 @@ function TypeMenuSection({
           className="w-full text-left px-3 py-1.5 flex items-center gap-2.5 hover:bg-surface-sunken text-sm"
         >
           <span className={`h-2 w-2 rounded-full ${m.dot}`} />
-          <span className="flex-1">{m.label}</span>
+          <span className="flex-1">{engagementTypeLabel(locale, m.type)}</span>
         </button>
       ))}
     </div>

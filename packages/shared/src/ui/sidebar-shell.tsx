@@ -13,6 +13,7 @@
 import { useState, type ComponentType, type ReactNode } from 'react';
 import { HelpCircle } from 'lucide-react';
 import type { SidebarMode } from '../prefs.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 type IconLike = ComponentType<{ size?: number; strokeWidth?: number; className?: string }>;
 export type SidebarNavItem = { href: string; label: string; icon: IconLike };
@@ -172,12 +173,13 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
     helpHref: string;
   }) {
     const pathname = usePathname();
+    const locale = useLocale();
     const helpActive = pathname === helpHref;
     return (
       <div className="px-2 py-3 border-t border-line">
         <LinkComponent
           href={helpHref}
-          title="Help"
+          title={chromeT(locale, 'help')}
           className={`flex items-center gap-3 h-9 rounded-md px-2.5 text-sm transition-colors ${
             helpActive
               ? 'bg-surface-raised text-ink ring-1 ring-line'
@@ -185,7 +187,7 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
           }`}
         >
           <HelpCircle size={18} strokeWidth={1.75} className="shrink-0" />
-          {expanded && <span>Help</span>}
+          {expanded && <span>{chromeT(locale, 'help')}</span>}
         </LinkComponent>
         {expanded && (
           <div className="px-2.5 pt-2 text-[10px] text-ink-muted tracking-wider">v{version}</div>

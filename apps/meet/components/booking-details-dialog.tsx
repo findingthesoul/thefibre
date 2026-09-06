@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { CalendarClock, User, Video, MapPin, ExternalLink, Check, X } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { approveBooking, rejectBooking } from './booking-actions';
 
 // Minimum shape every caller (Dashboard, Bookings list, Contact popup)
@@ -50,8 +51,8 @@ function getTeam(b: BookingForDialog) {
   return Array.isArray(mt.team) ? mt.team[0] : mt.team;
 }
 
-function fmt(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
+function fmt(d: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -60,8 +61,8 @@ function fmt(d: Date) {
     minute: '2-digit',
   }).format(d);
 }
-function fmtTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
+function fmtTime(d: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     hour: '2-digit',
     minute: '2-digit',
   }).format(d);
@@ -71,10 +72,12 @@ export function BookingDetailsDialog({
   booking,
   open,
   onClose,
+  locale,
 }: {
   booking: BookingForDialog | null;
   open: boolean;
   onClose: () => void;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -107,7 +110,7 @@ export function BookingDetailsDialog({
     });
   }
   function handleReject() {
-    if (!confirm('Reject this booking? The invitee will get a notification email.')) return;
+    if (!confirm(t(locale, 'reject_confirm'))) return;
     setErr(null);
     startTransition(async () => {
       const r = await rejectBooking(booking!.id);
@@ -119,7 +122,11 @@ export function BookingDetailsDialog({
     });
   }
 
-  const statusLabel = pendingApproval ? 'Pending approval' : cancelled ? 'Cancelled' : 'Confirmed';
+  const statusLabel = pendingApproval
+    ? t(locale, 'status_pending_approval')
+    : cancelled
+      ? t(locale, 'status_cancelled')
+      : t(locale, 'status_confirmed');
   const statusClass = pendingApproval
     ? 'bg-amber-50 text-amber-800 border border-amber-200'
     : cancelled
@@ -143,7 +150,7 @@ export function BookingDetailsDialog({
       footer={
         <>
           {err && <span className="text-xs text-red-700 mr-auto">{err}</span>}
-          <Button variant="ghost" onClick={onClose}>Close</Button>
+          <Button variant="ghost" onClick={onClose}>{t(locale, 'close')}</Button>
           {pendingApproval && (
             <>
               <button
@@ -152,7 +159,7 @@ export function BookingDetailsDialog({
                 disabled={pending}
                 className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50"
               >
-                <X className="h-3.5 w-3.5" /> Reject
+                <X className="h-3.5 w-3.5" /> {t(locale, 'reject')}
               </button>
               <button
                 type="button"
@@ -160,7 +167,7 @@ export function BookingDetailsDialog({
                 disabled={pending}
                 className="inline-flex items-center gap-1.5 rounded-md bg-emerald-700 text-white px-3 py-1.5 text-sm font-medium hover:bg-emerald-800 disabled:opacity-50"
               >
-                <Check className="h-3.5 w-3.5" /> {pending ? 'Approving…' : 'Approve'}
+                <Check className="h-3.5 w-3.5" /> {pending ? t(locale, 'approving') : t(locale, 'approve')}
               </button>
             </>
           )}
@@ -171,24 +178,24 @@ export function BookingDetailsDialog({
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md bg-ink-strong text-white px-3 py-1.5 text-sm font-medium hover:bg-ink"
             >
-              Join meeting <ExternalLink className="h-3.5 w-3.5" />
+              {t(locale, 'join_meeting')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           )}
         </>
       }
     >
       <div className="space-y-4 text-sm">
-        <Row Icon={CalendarClock} label="When">
-          {fmt(starts)} — {fmtTime(ends)} ({minutes} min)
+        <Row Icon={CalendarClock} label={t(locale, 'when')}>
+          {fmt(starts, locale)} — {fmtTime(ends, locale)} ({minutes} min)
         </Row>
-        <Row Icon={User} label="What">
+        <Row Icon={User} label={t(locale, 'what')}>
           {mt?.name ?? '—'}
           {team && (
-            <span className="text-ink-muted"> · Team {team.name}</span>
+            <span className="text-ink-muted"> · {t(locale, 'team_dot', { name: team.name })}</span>
           )}
         </Row>
         {booking.meet_url && (
-          <Row Icon={Video} label="Where">
+          <Row Icon={Video} label={t(locale, 'where')}>
             <a
               href={booking.meet_url}
               target="_blank"
@@ -200,7 +207,7 @@ export function BookingDetailsDialog({
           </Row>
         )}
         {booking.alternative_location && (
-          <Row Icon={MapPin} label="Location">
+          <Row Icon={MapPin} label={t(locale, 'location')}>
             {booking.alternative_location}
           </Row>
         )}
@@ -212,7 +219,7 @@ export function BookingDetailsDialog({
               className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
               target="_blank"
             >
-              Cancel this booking
+              {t(locale, 'cancel_booking')}
             </Link>
           </div>
         )}

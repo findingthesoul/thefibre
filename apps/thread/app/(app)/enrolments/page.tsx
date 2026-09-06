@@ -4,6 +4,8 @@ import { BulkIssueButton } from './certificate-actions';
 import { EnrolmentsList, type EnrolmentRowData } from './enrolments-list';
 import { apiFetch, ApiError } from '@/lib/api';
 import { one, type Billing } from '@/lib/thread-types';
+import { uiLocale } from '@/lib/locale';
+import { t, type UiKey } from '@/lib/i18n-ui';
 import {
   PageContainer,
   PageHeader,
@@ -51,12 +53,12 @@ type EnrolmentItem = {
     | null;
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
-  not_required: 'Free',
-  pending: 'Payment pending',
-  paid: 'Paid',
-  refunded: 'Refunded',
-  failed: 'Payment failed',
+const PAYMENT_KEYS: Record<string, UiKey> = {
+  not_required: 'free',
+  pending: 'pay_pending',
+  paid: 'pay_paid',
+  refunded: 'pay_refunded',
+  failed: 'pay_failed',
 };
 
 export default async function EnrolmentsPage({
@@ -64,6 +66,7 @@ export default async function EnrolmentsPage({
 }: {
   searchParams: Promise<{ thread?: string }>;
 }) {
+  const locale = await uiLocale();
   const { thread: threadFilter } = await searchParams;
   let items: EnrolmentItem[] = [];
   let error: string | null = null;
@@ -85,40 +88,35 @@ export default async function EnrolmentsPage({
 
   return (
     <PageContainer>
-      <PageHeader
-        title="Enrolments"
-        description="Everyone enrolled across your threads."
-      />
+      <PageHeader title={t(locale, 'enrolments')} description={t(locale, 'enrolments_desc')} />
 
-      {error && <ErrorBanner>Couldn&apos;t load enrolments: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       {threadFilter && filteredTitle && (
         <div className="mt-4 flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-subtle">
-            Filtered: {filteredTitle}
+            {t(locale, 'filtered')}: {filteredTitle}
             <Link
               href="/enrolments"
-              aria-label="Clear thread filter"
+              aria-label={t(locale, 'clear_thread_filter')}
               className="text-ink-muted hover:text-ink"
             >
               <X size={12} strokeWidth={1.75} />
             </Link>
           </span>
           {one(items[0]?.thread ?? null)?.certificate_enabled && (
-            <BulkIssueButton threadId={threadFilter} />
+            <BulkIssueButton locale={locale} threadId={threadFilter} />
           )}
         </div>
       )}
 
       {!error && items.length === 0 && (
-        <EmptyState>
-          No enrolments yet. Publish a thread and share its public page —
-          sign-ups land here.
-        </EmptyState>
+        <EmptyState>{t(locale, 'enrolments_empty')}</EmptyState>
       )}
 
       {items.length > 0 && (
         <EnrolmentsList
+          locale={locale}
           rows={items.map((it): EnrolmentRowData => {
             const person = one(it.person);
             const enr = one(it.enrolment);
@@ -129,7 +127,7 @@ export default async function EnrolmentsPage({
               name:
                 [person?.first_name, person?.last_name].filter(Boolean).join(' ') ||
                 person?.email ||
-                'Unknown',
+                t(locale, 'unknown'),
               email: person?.email ?? null,
               contact: {
                 phone: person?.phone ?? null,
@@ -141,7 +139,9 @@ export default async function EnrolmentsPage({
               threadTitle: program?.title ?? null,
               certEnabled: !!thread?.certificate_enabled,
               certNumber: one(it.certificate)?.certificate_number ?? null,
-              payment: PAYMENT_LABELS[it.payment_status] ?? it.payment_status,
+              payment: PAYMENT_KEYS[it.payment_status]
+                ? t(locale, PAYMENT_KEYS[it.payment_status])
+                : it.payment_status,
               status: enr?.status ?? 'enrolled',
               detail: {
                 answers: it.answers ?? null,

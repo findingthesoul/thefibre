@@ -3,8 +3,17 @@
 import { useState } from 'react';
 import { Star } from 'lucide-react';
 import { toggleFavorite } from './actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function FavoriteStar({ flowId, initial }: { flowId: string; initial: boolean }) {
+export function FavoriteStar({
+  flowId,
+  initial,
+  locale,
+}: {
+  flowId: string;
+  initial: boolean;
+  locale: Locale;
+}) {
   const [fav, setFav] = useState(initial);
   const [busy, setBusy] = useState(false);
 
@@ -23,7 +32,7 @@ export function FavoriteStar({ flowId, initial }: { flowId: string; initial: boo
   return (
     <button
       onClick={onClick}
-      title={fav ? 'Unfavourite' : 'Favourite'}
+      title={fav ? t(locale, 'unfavourite') : t(locale, 'favourite')}
       className="p-1 rounded hover:bg-surface-sunken shrink-0"
     >
       <Star

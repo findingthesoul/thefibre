@@ -38,10 +38,10 @@ import {
   runSubjectName,
   runSubjectInitials,
   isPulseRun,
-  PULSE_BADGE_TITLE,
   type RunPerson as Person,
   type RunOrganisation,
 } from '@/lib/run-subject';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 
 type Kind = 'entry' | 'normal' | 'end_positive' | 'end_negative' | 'loop';
 type Task = {
@@ -107,6 +107,7 @@ type RunNodeData = {
   onTokenDragEnd: () => void;
   onDropToken: (key: string) => void;
   stepKey: string;
+  locale: Locale;
 };
 
 function RunStepNode({ data }: NodeProps) {
@@ -145,7 +146,7 @@ function RunStepNode({ data }: NodeProps) {
             draggable
             onDragStart={d.onTokenDragStart}
             onDragEnd={d.onTokenDragEnd}
-            title="Click the card to pick up / drop, then click a highlighted step — or drag"
+            title={t(d.locale, 'token_hint')}
             className={`inline-flex items-center gap-1 rounded-full text-[11px] font-medium pl-1.5 pr-2 py-1 shrink-0 ${
               d.picking ? 'bg-amber-500 text-white ring-2 ring-amber-300 animate-pulse' : 'bg-neutral-900 text-white'
             }`}
@@ -216,6 +217,7 @@ function Graph({
   picking,
   setPicking,
   onDropToken,
+  locale,
 }: {
   detail: Detail;
   dragging: boolean;
@@ -223,6 +225,7 @@ function Graph({
   picking: boolean;
   setPicking: (v: boolean) => void;
   onDropToken: (key: string) => void;
+  locale: Locale;
 }) {
   const currentKey = detail.run.step?.key;
   const targetKeys = new Set(detail.transitions.map((t) => t.to_step?.key).filter(Boolean) as string[]);
@@ -248,6 +251,7 @@ function Graph({
       onTokenDragStart: () => setDragging(true),
       onTokenDragEnd: () => setDragging(false),
       onDropToken,
+      locale,
     } as RunNodeData,
   }));
 
@@ -304,12 +308,14 @@ function Graph({
 function JourneyList({
   detail,
   busy,
+  locale,
   onMoveTo,
   onToggleTask,
   onAddNote,
 }: {
   detail: Detail;
   busy: boolean;
+  locale: Locale;
   onMoveTo: (key: string) => void;
   onToggleTask: (t: Task) => void;
   onAddNote: (stepKey: string, body: string) => void;
@@ -365,14 +371,14 @@ function JourneyList({
                 </span>
                 {isCurrent ? (
                   <span className="rounded-full bg-slate-900 text-white text-[10px] px-2 py-0.5 shrink-0">
-                    Current
+                    {t(locale, 'current')}
                   </span>
                 ) : (
                   <button
                     onClick={() => onMoveTo(s.key)}
                     className="inline-flex items-center gap-1 text-[11px] text-ink-muted hover:text-ink shrink-0"
                   >
-                    Move here <MoveRight size={12} />
+                    {t(locale, 'move_here')} <MoveRight size={12} />
                   </button>
                 )}
               </div>
@@ -408,8 +414,8 @@ function JourneyList({
                       <div key={n.id} className="rounded-lg bg-amber-50/70 px-3 py-1.5 text-xs">
                         <p className="text-ink">{n.body}</p>
                         <p className="mt-0.5 text-[10px] text-ink-muted">
-                          {author?.full_name ?? author?.email ?? 'Someone'} ·{' '}
-                          {new Date(n.created_at).toLocaleDateString()}
+                          {author?.full_name ?? author?.email ?? t(locale, 'someone')} ·{' '}
+                          {new Date(n.created_at).toLocaleDateString(INTL_LOCALES[locale])}
                         </p>
                       </div>
                     );
@@ -417,7 +423,7 @@ function JourneyList({
                 </div>
               )}
 
-              <NoteComposer busy={busy} onSubmit={(body) => onAddNote(s.key, body)} />
+              <NoteComposer busy={busy} locale={locale} onSubmit={(body) => onAddNote(s.key, body)} />
             </div>
           </div>
         );
@@ -426,7 +432,15 @@ function JourneyList({
   );
 }
 
-function NoteComposer({ busy, onSubmit }: { busy: boolean; onSubmit: (body: string) => void }) {
+function NoteComposer({
+  busy,
+  locale,
+  onSubmit,
+}: {
+  busy: boolean;
+  locale: Locale;
+  onSubmit: (body: string) => void;
+}) {
   const [v, setV] = useState('');
   function submit() {
     const body = v.trim();
@@ -442,7 +456,7 @@ function NoteComposer({ busy, onSubmit }: { busy: boolean; onSubmit: (body: stri
         onKeyDown={(e) => {
           if (e.key === 'Enter') submit();
         }}
-        placeholder="Add a note…"
+        placeholder={t(locale, 'add_note_ph')}
         className="flex-1 rounded-lg bg-slate-50 ring-1 ring-black/5 px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-slate-300"
       />
       {v.trim() && (
@@ -458,12 +472,14 @@ export function RunModal({
   runId,
   onClose,
   initialTargetKey,
+  locale,
 }: {
   runId: string;
   onClose: () => void;
   /** When set (e.g. after a board drag-and-drop), immediately open the
    *  confirm-move popup for this step once the run detail has loaded. */
   initialTargetKey?: string | null;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [detail, setDetail] = useState<Detail | null>(null);
@@ -576,10 +592,10 @@ export function RunModal({
         <div className="flex items-center justify-between border-b border-line px-5 py-3.5">
           <div>
             <h2 className="flex items-center gap-2 text-base font-medium">
-              {detail ? runSubjectName(detail.run) : 'Loading…'}
+              {detail ? runSubjectName(detail.run) : t(locale, 'loading')}
               {detail && isPulseRun(detail.run) && (
                 <span
-                  title={PULSE_BADGE_TITLE}
+                  title={t(locale, 'pulse_badge_title')}
                   className="bg-yellow-100 text-ink text-[10px] font-normal rounded-full px-1.5 py-0.5 shrink-0"
                 >
                   Pulse
@@ -588,8 +604,16 @@ export function RunModal({
             </h2>
             {detail?.run.step && (
               <p className="text-xs text-ink-muted">
-                Currently at <span className="font-medium">{detail.run.step.name}</span> ·{' '}
-                <span className="capitalize">{detail.run.status}</span>
+                {t(locale, 'currently_at')} <span className="font-medium">{detail.run.step.name}</span> ·{' '}
+                <span>
+                  {detail.run.status === 'active'
+                    ? t(locale, 'status_active')
+                    : detail.run.status === 'completed'
+                      ? t(locale, 'status_completed')
+                      : detail.run.status === 'withdrawn'
+                        ? t(locale, 'status_withdrawn')
+                        : detail.run.status}
+                </span>
               </p>
             )}
           </div>
@@ -602,7 +626,7 @@ export function RunModal({
                     view === 'list' ? 'bg-slate-100 text-ink' : 'text-ink-subtle hover:text-ink'
                   }`}
                 >
-                  <ListIcon size={12} /> List
+                  <ListIcon size={12} /> {t(locale, 'list')}
                 </button>
                 <button
                   onClick={() => setView('flow')}
@@ -610,7 +634,7 @@ export function RunModal({
                     view === 'flow' ? 'bg-slate-100 text-ink' : 'text-ink-subtle hover:text-ink'
                   }`}
                 >
-                  <Workflow size={12} /> Flow
+                  <Workflow size={12} /> {t(locale, 'flow_view')}
                 </button>
               </div>
             )}
@@ -619,7 +643,7 @@ export function RunModal({
                 href={`/runs/${runId}`}
                 className="inline-flex items-center gap-1 text-xs text-ink-muted hover:text-ink"
               >
-                <ExternalLink size={13} /> Full view
+                <ExternalLink size={13} /> {t(locale, 'full_view')}
               </Link>
             )}
             <button onClick={onClose} className="text-ink-muted hover:text-ink">
@@ -636,6 +660,7 @@ export function RunModal({
           <JourneyList
             detail={detail}
             busy={busy}
+            locale={locale}
             onMoveTo={onDropToken}
             onToggleTask={onToggleTask}
             onAddNote={onAddNote}
@@ -647,13 +672,13 @@ export function RunModal({
             <div className="px-2 pt-2 text-[11px] text-ink-muted text-center">
               {picking ? (
                 <span className="text-amber-700 font-medium">
-                  Now click a step to move {runSubjectInitials(detail.run)} there — amber = forward (gated), grey
-                  = manual move / revert. Click the current step again to cancel.
+                  {t(locale, 'picking_hint', { initials: runSubjectInitials(detail.run) })}
                 </span>
               ) : (
                 <>
-                  Click the <span className="font-medium">{detail.run.step?.name}</span> card to pick up{' '}
-                  {runSubjectInitials(detail.run)}, then click any step — forward to advance, or back to revert.
+                  {t(locale, 'pickup_hint_before')}{' '}
+                  <span className="font-medium">{detail.run.step?.name}</span>{' '}
+                  {t(locale, 'pickup_hint_after', { initials: runSubjectInitials(detail.run) })}
                 </>
               )}
             </div>
@@ -665,13 +690,16 @@ export function RunModal({
                 picking={picking}
                 setPicking={setPicking}
                 onDropToken={onDropToken}
+                locale={locale}
               />
             </ReactFlowProvider>
           </>
         )}
 
         {!detail && !loadError && (
-          <div className="h-[380px] flex items-center justify-center text-sm text-ink-muted">Loading flow…</div>
+          <div className="h-[380px] flex items-center justify-center text-sm text-ink-muted">
+            {t(locale, 'loading_flow')}
+          </div>
         )}
       </div>
 
@@ -680,15 +708,15 @@ export function RunModal({
         <Dialog
           open
           onClose={() => setConfirmT(null)}
-          title={`Move to ${confirmT.to_step?.name}?`}
+          title={t(locale, 'move_to_q', { step: confirmT.to_step?.name ?? '' })}
           description={confirmT.label}
           footer={
             <>
               <Button type="button" variant="secondary" onClick={() => setConfirmT(null)}>
-                Cancel
+                {t(locale, 'cancel')}
               </Button>
               <Button type="button" onClick={onConfirmMove} disabled={busy}>
-                {currentConfirmSatisfied ? 'Confirm move' : 'Move anyway'}
+                {currentConfirmSatisfied ? t(locale, 'confirm_move') : t(locale, 'move_anyway')}
                 <ArrowRight size={14} />
               </Button>
             </>
@@ -697,12 +725,12 @@ export function RunModal({
           <div className="space-y-3">
               {currentConfirmSatisfied ? (
                 <div className="flex items-center gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-                  <CheckCircle2 size={16} /> Gate satisfied — ready to move.
+                  <CheckCircle2 size={16} /> {t(locale, 'gate_satisfied_msg')}
                 </div>
               ) : (
                 <div className="flex items-start gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
                   <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                  <span>Gate not satisfied. Complete the required tasks below, or move anyway with a reason.</span>
+                  <span>{t(locale, 'gate_not_satisfied_msg')}</span>
                 </div>
               )}
 
@@ -733,7 +761,7 @@ export function RunModal({
                 <input
                   value={override}
                   onChange={(e) => setOverride(e.target.value)}
-                  placeholder="Override reason (if moving anyway)"
+                  placeholder={t(locale, 'override_reason_ph')}
                   className="w-full rounded-md border border-line px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
                 />
               )}
@@ -758,21 +786,29 @@ export function RunModal({
         <Dialog
           open
           onClose={() => setManualTarget(null)}
-          title={`${isBackward ? 'Revert to' : 'Move to'} ${manualTarget.name}?`}
-          description={`${isBackward ? 'Revert' : 'Manual move'} from ${detail.run.step?.name ?? ''} — no transition gate.`}
+          title={
+            isBackward
+              ? t(locale, 'revert_to_q', { step: manualTarget.name })
+              : t(locale, 'move_to_q', { step: manualTarget.name })
+          }
+          description={
+            isBackward
+              ? t(locale, 'manual_desc_revert', { step: detail.run.step?.name ?? '' })
+              : t(locale, 'manual_desc_move', { step: detail.run.step?.name ?? '' })
+          }
           footer={
             <>
               <Button type="button" variant="secondary" onClick={() => setManualTarget(null)}>
-                Cancel
+                {t(locale, 'cancel')}
               </Button>
               <Button type="button" onClick={onConfirmManual} disabled={busy}>
                 {isBackward ? (
                   <>
-                    <ArrowLeft size={14} /> Revert
+                    <ArrowLeft size={14} /> {t(locale, 'revert')}
                   </>
                 ) : (
                   <>
-                    Move <ArrowRight size={14} />
+                    {t(locale, 'move')} <ArrowRight size={14} />
                   </>
                 )}
               </Button>
@@ -782,15 +818,12 @@ export function RunModal({
           <div className="space-y-3">
               <div className="flex items-start gap-2 rounded-md border border-neutral-200 bg-neutral-50 px-3 py-2 text-sm text-ink-subtle">
                 <AlertCircle size={16} className="mt-0.5 shrink-0" />
-                <span>
-                  This skips gate checks and re-creates the destination step&apos;s tasks. The move is logged on
-                  the activity timeline as manual.
-                </span>
+                <span>{t(locale, 'manual_move_warning')}</span>
               </div>
               <input
                 value={override}
                 onChange={(e) => setOverride(e.target.value)}
-                placeholder="Reason (optional)"
+                placeholder={t(locale, 'reason_optional_ph')}
                 className="w-full rounded-md border border-line px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
               />
               {moveError && (

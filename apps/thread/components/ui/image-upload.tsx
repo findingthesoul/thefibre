@@ -10,15 +10,19 @@
 
 import { useRef, useState } from 'react';
 import { ImagePlus } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
 import { uploadAsset } from '@/lib/upload';
+import { t } from '@/lib/i18n-ui';
 
 export function ImageUpload({
+  locale,
   value,
   onChange,
   buttonLabel,
   hint,
   inline = false,
 }: {
+  locale: Locale;
   value: string;
   onChange: (url: string) => void; // '' clears
   buttonLabel: string;
@@ -40,7 +44,7 @@ export function ImageUpload({
       const url = await uploadAsset(file);
       onChange(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed');
+      setError(err instanceof Error ? err.message : t(locale, 'upload_failed'));
     } finally {
       setUploading(false);
     }
@@ -77,7 +81,7 @@ export function ImageUpload({
           className="inline-flex h-8 items-center gap-1.5 rounded-md border border-dashed border-line px-2.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors disabled:opacity-60"
         >
           <ImagePlus size={13} strokeWidth={1.75} className="shrink-0" />
-          {uploading ? 'Uploading…' : buttonLabel}
+          {uploading ? t(locale, 'uploading') : buttonLabel}
         </button>
         {hasValue && !uploading && (
           <button
@@ -85,14 +89,14 @@ export function ImageUpload({
             onClick={() => onChange('')}
             className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
           >
-            Remove
+            {t(locale, 'remove')}
           </button>
         )}
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="or paste URL"
-          aria-label="Image URL"
+          placeholder={t(locale, 'or_paste_url')}
+          aria-label={t(locale, 'image_url')}
           className="h-8 w-40 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
         />
         {error && <span className="text-xs text-red-600">{error}</span>}
@@ -122,7 +126,7 @@ export function ImageUpload({
               disabled={uploading}
               className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-60"
             >
-              {uploading ? 'Uploading…' : 'Replace'}
+              {uploading ? t(locale, 'uploading') : t(locale, 'replace')}
             </button>
             <button
               type="button"
@@ -130,7 +134,7 @@ export function ImageUpload({
               disabled={uploading}
               className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 disabled:opacity-60"
             >
-              Remove
+              {t(locale, 'remove')}
             </button>
           </div>
         </div>
@@ -143,7 +147,7 @@ export function ImageUpload({
             className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-3 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors disabled:opacity-60"
           >
             <ImagePlus size={14} strokeWidth={1.75} className="shrink-0" />
-            {uploading ? 'Uploading…' : buttonLabel}
+            {uploading ? t(locale, 'uploading') : buttonLabel}
           </button>
           {!showUrl && (
             <button
@@ -151,7 +155,7 @@ export function ImageUpload({
               onClick={() => setShowUrl(true)}
               className="mt-1.5 text-xs text-ink-muted hover:text-ink underline underline-offset-2"
             >
-              or paste a URL
+              {t(locale, 'or_paste_a_url')}
             </button>
           )}
         </>
@@ -160,8 +164,8 @@ export function ImageUpload({
         <input
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          placeholder="https://… image URL"
-          aria-label="Image URL"
+          placeholder={t(locale, 'image_url_placeholder')}
+          aria-label={t(locale, 'image_url')}
           className="mt-1.5 w-full h-8 rounded-md border border-line bg-surface-raised px-2 text-xs focus:border-line-strong focus:outline-none"
         />
       )}

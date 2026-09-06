@@ -3,6 +3,9 @@ import { appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
+import type { Locale } from '@thefibre/shared';
 
 export const metadata = { title: 'Help — Thread' };
 
@@ -14,50 +17,26 @@ type WorkspaceApp = {
 
 // Mirrors NAV in components/shell/sidebar.tsx, with the blurbs the pages
 // themselves already use.
-const SECTIONS: HelpSection[] = [
-  { label: 'Home', href: '/dashboard', blurb: 'What is running, and what needs you.' },
-  {
-    label: 'Threads',
-    href: '/threads',
-    blurb:
-      'Events and journeys — each thread carries its own engagements, enrolments and certificate.',
-  },
-  { label: 'Enrolments', href: '/enrolments', blurb: 'Everyone enrolled across your threads.' },
-  {
-    label: 'Invoices',
-    href: '/invoices',
-    blurb: 'Every purchase across your Fibre apps — search, resend invoices, reimburse.',
-  },
-  {
-    label: 'Templates',
-    href: '/templates',
-    blurb: 'Reusable designs — for whole threads and for certificates.',
-  },
-  {
-    label: 'Contacts',
-    href: '/contacts',
-    blurb: 'The people Thread knows — everyone who has enrolled in one of your threads.',
-  },
-  {
-    label: 'Teams',
-    href: '/teams',
-    blurb:
-      "Shared groups that organise threads together — members see and share each other's work.",
-  },
-  {
-    label: 'Internal team',
-    href: '/internal-team',
-    blurb: 'Who in the workspace can use Thread — read-only here.',
-  },
-  {
-    label: 'Settings',
-    href: '/settings',
-    blurb:
-      'Your organiser profile and workspace defaults — emails, payments, website embeds.',
-  },
-];
+function sections(locale: Locale): HelpSection[] {
+  return [
+    { label: t(locale, 'help_home'), href: '/dashboard', blurb: t(locale, 'help_home_blurb') },
+    { label: t(locale, 'threads'), href: '/threads', blurb: t(locale, 'threads_desc') },
+    { label: t(locale, 'enrolments'), href: '/enrolments', blurb: t(locale, 'enrolments_desc') },
+    { label: t(locale, 'invoices'), href: '/invoices', blurb: t(locale, 'invoices_desc') },
+    { label: t(locale, 'templates'), href: '/templates', blurb: t(locale, 'templates_desc') },
+    { label: t(locale, 'contacts'), href: '/contacts', blurb: t(locale, 'contacts_desc') },
+    { label: t(locale, 'teams'), href: '/teams', blurb: t(locale, 'teams_desc') },
+    {
+      label: t(locale, 'internal_team'),
+      href: '/internal-team',
+      blurb: t(locale, 'internal_team_desc'),
+    },
+    { label: t(locale, 'settings'), href: '/settings', blurb: t(locale, 'help_settings_blurb') },
+  ];
+}
 
 export default async function ThreadHelpPage() {
+  const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
@@ -70,10 +49,11 @@ export default async function ThreadHelpPage() {
   return (
     <HelpPage
       appId="the-thread"
-      sections={SECTIONS}
+      sections={sections(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}
+      locale={locale}
     />
   );
 }

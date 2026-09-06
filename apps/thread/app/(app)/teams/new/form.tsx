@@ -2,15 +2,17 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@thefibre/shared';
 import { createTeam } from '../actions';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextAreaField } from '@/components/ui/field';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n-ui';
 
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
 
-export function NewTeamForm() {
+export function NewTeamForm({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -22,8 +24,8 @@ export function NewTeamForm() {
     const name = String(fd.get('name') ?? '').trim();
     const slug = String(fd.get('slug') ?? '').trim();
     const description = String(fd.get('description') ?? '').trim();
-    if (!name) return setError('Give the team a name.');
-    if (!slug) return setError('Pick a URL slug.');
+    if (!name) return setError(t(locale, 'err_team_name'));
+    if (!slug) return setError(t(locale, 'err_pick_slug'));
 
     startTransition(async () => {
       const r = await createTeam({
@@ -41,16 +43,17 @@ export function NewTeamForm() {
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-8">
       <NameAndSlugFields
-        nameLabel="Name"
+        locale={locale}
+        nameLabel={t(locale, 'name')}
         prefix={`${THREAD_HOST}/`}
-        slugHint="Lowercase letters, digits and hyphens. Teams share the root slug namespace with organisers."
+        slugHint={t(locale, 'team_slug_hint')}
       />
 
       <TextAreaField
-        label="Description"
+        label={t(locale, 'description')}
         name="description"
         rows={3}
-        hint="What this team is for — shown to members."
+        hint={t(locale, 'team_desc_hint')}
       />
 
       {error && (
@@ -61,7 +64,7 @@ export function NewTeamForm() {
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Creating…' : 'Create team'}
+          {pending ? t(locale, 'creating') : t(locale, 'create_team')}
         </Button>
       </div>
     </form>

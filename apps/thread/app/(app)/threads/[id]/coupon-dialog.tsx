@@ -6,6 +6,8 @@
 
 import { useState, useTransition } from 'react';
 import { Trash2, Percent, Coins, Gift } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import {
   createCoupon,
   updateCoupon,
@@ -42,12 +44,14 @@ function fromLocalInput(v: string): string | null {
 }
 
 export function CouponDialog({
+  locale,
   threadId,
   coupon,
   tickets,
   onClose,
   onSaved,
 }: {
+  locale: Locale;
   threadId: string;
   coupon: ScopedCouponRow | null;
   tickets: TicketRow[];
@@ -64,16 +68,16 @@ export function CouponDialog({
   // Splice a pre-existing limit into the curated list so editing doesn't lose it.
   const currentLimit = coupon?.usage_limit ? String(coupon.usage_limit) : '';
   const usageOptions = [
-    { value: '', label: 'Unlimited' },
+    { value: '', label: t(locale, 'unlimited') },
     ...(currentLimit && !USAGE_OPTIONS.includes(currentLimit)
       ? [...USAGE_OPTIONS, currentLimit].sort((a, b) => Number(a) - Number(b))
       : USAGE_OPTIONS
-    ).map((u) => ({ value: u, label: `${u} uses` })),
+    ).map((u) => ({ value: u, label: t(locale, 'n_uses', { n: u }) })),
   ];
 
   const ticketOptions = [
-    { value: '', label: 'All tickets' },
-    ...tickets.map((t) => ({ value: t.id, label: t.name })),
+    { value: '', label: t(locale, 'all_tickets') },
+    ...tickets.map((tk) => ({ value: tk.id, label: tk.name })),
   ];
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -81,17 +85,17 @@ export function CouponDialog({
     setError(null);
     const fd = new FormData(e.currentTarget);
     const code = String(fd.get('code') ?? '').trim().toUpperCase();
-    if (!code) return setError('Give the code a value.');
+    if (!code) return setError(t(locale, 'err_code_value'));
 
     let discount_percentage: number | null = null;
     let discount_amount_cents: number | null = null;
     if (type === 'percentage') {
       const pct = Number(fd.get('discount_percentage') ?? 0);
-      if (!pct || pct < 1 || pct > 100) return setError('Percentage must be between 1 and 100.');
+      if (!pct || pct < 1 || pct > 100) return setError(t(locale, 'err_percentage'));
       discount_percentage = pct;
     } else if (type === 'amount') {
       const amount = Number(String(fd.get('discount_amount') ?? '0').replace(',', '.'));
-      if (!amount || amount <= 0) return setError('Set a discount amount.');
+      if (!amount || amount <= 0) return setError(t(locale, 'err_discount_amount'));
       discount_amount_cents = Math.round(amount * 100);
     }
 
@@ -136,7 +140,9 @@ export function CouponDialog({
     <Dialog
       open
       onClose={onClose}
-      title={isNew ? 'Add discount code' : `Edit — ${coupon.code}`}
+      title={
+        isNew ? t(locale, 'add_discount_code') : t(locale, 'edit_item', { title: coupon.code })
+      }
       footer={
         <>
           {!isNew && (
@@ -148,16 +154,16 @@ export function CouponDialog({
                 leading={<Trash2 size={14} />}
                 onClick={() => setConfirmDelete(true)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
             </div>
           )}
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="coupon-form" disabled={pending}>
-            {pending ? 'Saving…' : isNew ? 'Add code' : 'Save'}
+            {pending ? t(locale, 'saving') : isNew ? t(locale, 'add_code') : t(locale, 'save')}
           </Button>
         </>
       }
@@ -165,42 +171,42 @@ export function CouponDialog({
       <form id="coupon-form" onSubmit={onSubmit} className="space-y-4">
         <div className="grid grid-cols-2 gap-4">
           <TextField
-            label="Code"
+            label={t(locale, 'code')}
             name="code"
             required
             placeholder="EARLYBIRD"
             defaultValue={coupon?.code ?? ''}
             autoCapitalize="characters"
             style={{ textTransform: 'uppercase' }}
-            hint="Uppercased automatically."
+            hint={t(locale, 'uppercased_hint')}
           />
           <TextField
-            label="Name"
+            label={t(locale, 'name')}
             name="name"
-            placeholder="Early bird"
+            placeholder={t(locale, 'early_bird')}
             defaultValue={coupon?.name ?? ''}
           />
         </div>
 
         {/* Type: 3-segment toggle with the consequential value field */}
         <div>
-          <span className="text-sm text-ink-subtle">Type</span>
+          <span className="text-sm text-ink-subtle">{t(locale, 'type')}</span>
           <div className="mt-1 grid grid-cols-3 rounded-md border border-line overflow-hidden h-[38px]">
             <ModeButton
               Icon={Percent}
-              label="Percentage"
+              label={t(locale, 'percentage')}
               active={type === 'percentage'}
               onClick={() => setType('percentage')}
             />
             <ModeButton
               Icon={Coins}
-              label="Amount"
+              label={t(locale, 'amount_label')}
               active={type === 'amount'}
               onClick={() => setType('amount')}
             />
             <ModeButton
               Icon={Gift}
-              label="Free"
+              label={t(locale, 'free')}
               active={type === 'free'}
               onClick={() => setType('free')}
             />
@@ -209,51 +215,51 @@ export function CouponDialog({
 
         {type === 'percentage' && (
           <TextField
-            label="Discount"
+            label={t(locale, 'discount')}
             name="discount_percentage"
             type="number"
             min={1}
             max={100}
             placeholder="20"
             defaultValue={coupon?.discount_percentage ?? ''}
-            hint="Percent off, 1–100."
+            hint={t(locale, 'percent_hint')}
           />
         )}
         {type === 'amount' && (
           <TextField
-            label="Discount amount"
+            label={t(locale, 'discount_amount')}
             name="discount_amount"
             inputMode="decimal"
             placeholder="10.00"
             defaultValue={
               coupon?.discount_amount_cents ? (coupon.discount_amount_cents / 100).toFixed(2) : ''
             }
-            hint="Fixed amount off, in the ticket's currency."
+            hint={t(locale, 'amount_hint')}
           />
         )}
         {type === 'free' && (
           <p className="text-xs text-ink-muted rounded-md border border-line bg-surface-sunken/50 px-3 py-2">
-            The code makes enrolment free — no charge at checkout.
+            {t(locale, 'free_code_note')}
           </p>
         )}
 
         <SelectField
-          label="Applies to"
+          label={t(locale, 'applies_to')}
           name="ticket_id"
           defaultValue={coupon?.ticket_id ?? ''}
           options={ticketOptions}
-          hint="Scope the code to one ticket, or leave it valid for all."
+          hint={t(locale, 'scope_hint')}
         />
 
         <div className="grid grid-cols-2 gap-4">
           <SelectField
-            label="Usage limit"
+            label={t(locale, 'usage_limit')}
             name="usage_limit"
             defaultValue={currentLimit}
             options={usageOptions}
           />
           <DateTimeField
-            label="Expires"
+            label={t(locale, 'expires')}
             name="expires_at"
             defaultValue={toLocalInput(coupon?.expires_at ?? null)}
           />
@@ -261,14 +267,14 @@ export function CouponDialog({
 
         <div className="pt-1">
           <SwitchField
-            label="Early bird — only valid until a deadline"
+            label={t(locale, 'early_bird_switch')}
             checked={earlyBird}
             onChange={setEarlyBird}
           />
         </div>
         {earlyBird && (
           <DateTimeField
-            label="Early-bird deadline"
+            label={t(locale, 'early_bird_deadline')}
             name="early_bird_deadline"
             defaultValue={toLocalInput(coupon?.early_bird_deadline ?? null)}
           />
@@ -276,7 +282,7 @@ export function CouponDialog({
 
         <div className="pt-1">
           <SwitchField
-            label="Active — redeemable at checkout"
+            label={t(locale, 'active_redeemable')}
             name="is_active"
             defaultChecked={coupon?.is_active ?? true}
           />
@@ -287,13 +293,14 @@ export function CouponDialog({
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doDelete}
-        title="Delete discount code"
+        title={t(locale, 'delete_discount_code')}
         message={
           <>
-            Delete <strong>{coupon?.code}</strong>? This can&apos;t be undone.
+            {t(locale, 'delete_q_1')} <strong>{coupon?.code}</strong>
+            {t(locale, 'delete_q_2')}
           </>
         }
-        confirmLabel="Delete"
+        confirmLabel={t(locale, 'delete')}
         destructive
         pending={pending}
       />

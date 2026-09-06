@@ -8,6 +8,7 @@
 import { useEffect, useRef, type ReactNode } from 'react';
 import { X } from 'lucide-react';
 import { Button } from './button.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 type Props = {
   open: boolean;
@@ -31,6 +32,7 @@ const SIZES: Record<NonNullable<Props['size']>, string> = {
 
 export function Dialog({ open, onClose, title, description, children, footer, size = 'md' }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const locale = useLocale();
 
   useEffect(() => {
     if (!open) return;
@@ -76,7 +78,7 @@ export function Dialog({ open, onClose, title, description, children, footer, si
           <button
             onClick={onClose}
             className="text-ink-muted hover:text-ink"
-            aria-label="Close"
+            aria-label={chromeT(locale, 'close')}
           >
             <X size={18} strokeWidth={1.75} />
           </button>
@@ -112,11 +114,12 @@ export function ConfirmDialog({
   onConfirm,
   title,
   message,
-  confirmLabel = 'Confirm',
-  cancelLabel = 'Cancel',
+  confirmLabel,
+  cancelLabel,
   destructive = false,
   pending = false,
 }: ConfirmProps) {
+  const locale = useLocale();
   return (
     <Dialog
       open={open}
@@ -126,14 +129,14 @@ export function ConfirmDialog({
       footer={
         <>
           <Button variant="ghost" onClick={onCancel} disabled={pending}>
-            {cancelLabel}
+            {cancelLabel ?? chromeT(locale, 'cancel')}
           </Button>
           <Button
             variant={destructive ? 'danger' : 'primary'}
             onClick={onConfirm}
             disabled={pending}
           >
-            {pending ? 'Working…' : confirmLabel}
+            {pending ? chromeT(locale, 'working') : (confirmLabel ?? chromeT(locale, 'confirm'))}
           </Button>
         </>
       }

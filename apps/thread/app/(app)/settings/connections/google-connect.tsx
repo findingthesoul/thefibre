@@ -2,14 +2,18 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@thefibre/shared';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n-ui';
 import { startGoogleAuth, disconnectGoogle } from '../actions';
 
 export function GoogleConnect({
+  locale,
   connected,
   statusParam,
   reasonParam,
 }: {
+  locale: Locale;
   connected: boolean;
   statusParam: string | null;
   reasonParam: string | null;
@@ -23,7 +27,7 @@ export function GoogleConnect({
     start(async () => {
       const r = await startGoogleAuth();
       if (r.error || !r.url) {
-        setError(r.error ?? 'Could not start Google connect.');
+        setError(r.error ?? t(locale, 'google_connect_start_failed'));
         return;
       }
       window.location.href = r.url;
@@ -43,20 +47,16 @@ export function GoogleConnect({
     <div className="rounded-lg border border-line bg-surface-raised p-5">
       <div className="flex items-baseline justify-between gap-6">
         <div className="min-w-0">
-          <div className="font-medium">Google Calendar</div>
-          <div className="text-sm text-ink-subtle mt-1">
-            One connection for all Fibre apps: Meet reads your free/busy and
-            creates calendar events (with a Meet link) when someone books.
-          </div>
+          <div className="font-medium">{t(locale, 'google_calendar')}</div>
+          <div className="text-sm text-ink-subtle mt-1">{t(locale, 'google_connect_desc')}</div>
           {statusParam === 'connected' && !error && (
-            <div className="mt-3 text-sm text-emerald-700">
-              ✓ Connected. Calendars synced.
-            </div>
+            <div className="mt-3 text-sm text-emerald-700">{t(locale, 'google_connected_msg')}</div>
           )}
           {statusParam === 'error' && (
             <div className="mt-3 text-sm text-red-700">
-              Couldn&apos;t connect{reasonParam ? ` (${reasonParam})` : ''}. Try
-              again.
+              {t(locale, 'google_connect_failed', {
+                reason: reasonParam ? ` (${reasonParam})` : '',
+              })}
             </div>
           )}
           {error && <div className="mt-3 text-sm text-red-700">{error}</div>}
@@ -69,11 +69,11 @@ export function GoogleConnect({
               onClick={disconnect}
               disabled={pending}
             >
-              {pending ? 'Working…' : 'Disconnect'}
+              {pending ? t(locale, 'working') : t(locale, 'disconnect')}
             </Button>
           ) : (
             <Button type="button" onClick={connect} disabled={pending}>
-              {pending ? 'Starting…' : 'Connect Google'}
+              {pending ? t(locale, 'starting') : t(locale, 'connect_google')}
             </Button>
           )}
         </div>

@@ -3,9 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { RefreshCw } from 'lucide-react';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { resyncCalendars } from './actions';
 
-export function ResyncButton() {
+export function ResyncButton({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [msg, setMsg] = useState<string | null>(null);
@@ -18,8 +19,12 @@ export function ResyncButton() {
       else {
         setMsg(
           r.added
-            ? `${r.added} new calendar${r.added === 1 ? '' : 's'} added.`
-            : `${r.found ?? 0} calendar${r.found === 1 ? '' : 's'} — all up to date.`,
+            ? r.added === 1
+              ? t(locale, 'cal_added_one')
+              : t(locale, 'cal_added_many', { n: r.added })
+            : (r.found ?? 0) === 1
+              ? t(locale, 'cal_up_to_date_one')
+              : t(locale, 'cal_up_to_date_many', { n: r.found ?? 0 }),
         );
         router.refresh();
       }
@@ -38,7 +43,7 @@ export function ResyncButton() {
           className={`h-3.5 w-3.5 ${pending ? 'animate-spin' : ''}`}
           strokeWidth={1.5}
         />
-        {pending ? 'Syncing…' : 'Re-sync from Google'}
+        {pending ? t(locale, 'syncing') : t(locale, 'resync')}
       </button>
       {msg && <span className="text-xs text-ink-subtle">{msg}</span>}
     </div>

@@ -5,6 +5,8 @@
 import { apiFetch } from '@/lib/api';
 import type { TeamOption } from '@/lib/thread-types';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { TemplatesClient } from './templates-client';
 import type { ThreadTemplate } from './actions';
 
@@ -17,6 +19,7 @@ export default async function ThreadTemplatesPage({
 }) {
   // ?use=<id> — arriving from the New-thread menu opens that template's
   // "Use template" dialog straight away.
+  const locale = await uiLocale();
   const sp = await searchParams;
   const useId = typeof sp.use === 'string' ? sp.use : null;
   const [{ items }, teams] = await Promise.all([
@@ -28,12 +31,12 @@ export default async function ThreadTemplatesPage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/templates" label="Templates" />
+      <Breadcrumb href="/templates" label={t(locale, 'templates')} />
       <PageHeader
-        title="Thread templates"
-        description="Start new threads from a saved design — engagements, messages and triggers included, dates rebased automatically."
+        title={t(locale, 'thread_templates')}
+        description={t(locale, 'thread_templates_desc')}
       />
-      <TemplatesClient templates={items} teams={teams} initialUseId={useId} />
+      <TemplatesClient locale={locale} templates={items} teams={teams} initialUseId={useId} />
     </PageContainer>
   );
 }

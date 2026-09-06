@@ -2,8 +2,10 @@
 
 import { useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@thefibre/shared';
 import { setThreadCategories, updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
+import { t } from '@/lib/i18n-ui';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
@@ -18,12 +20,14 @@ const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
 
 export function ThreadEditorForm({
+  locale,
   thread,
   compact = false,
   teams = [],
   categories = [],
   onSaved,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   compact?: boolean;
   teams?: { id: string; name: string }[];
@@ -67,7 +71,7 @@ export function ThreadEditorForm({
     try {
       setCoverUrl(await uploadAsset(file));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'upload failed');
+      setError(err instanceof Error ? err.message : t(locale, 'upload_failed'));
     } finally {
       setUploading(false);
       if (fileRef.current) fileRef.current.value = '';
@@ -97,8 +101,8 @@ export function ThreadEditorForm({
       cover_url: coverUrl,
       public_interaction: interaction,
     };
-    if (!patch.title) return setError('The thread needs a name.');
-    if (!patch.slug) return setError('The thread needs a URL slug.');
+    if (!patch.title) return setError(t(locale, 'err_thread_needs_name'));
+    if (!patch.slug) return setError(t(locale, 'err_thread_needs_slug'));
 
     startTransition(async () => {
       const r = await updateThread(thread.id, patch);
@@ -116,26 +120,27 @@ export function ThreadEditorForm({
     // dialog footer and submits this form by id.
     <form id="thread-basics-form" onSubmit={onSubmit} className="mt-8 space-y-8">
       <div>
-        <SectionLabel>Basics</SectionLabel>
+        <SectionLabel>{t(locale, 'basics')}</SectionLabel>
         <div className="mt-3 space-y-6">
           <NameAndSlugFields
-            nameLabel="Name"
+            locale={locale}
+            nameLabel={t(locale, 'name')}
             initialName={program?.title ?? ''}
             initialSlug={thread.slug}
             prefix={`${THREAD_HOST}/${urlOwner}/`}
           />
 
           <TextAreaField
-            label="Intention"
+            label={t(locale, 'intention')}
             name="intention"
             rows={3}
             defaultValue={thread.intention ?? ''}
-            hint="Why this thread exists — shown on the public page."
+            hint={t(locale, 'intention_hint')}
           />
 
           {/* Thread image — shown on the public page + embeds */}
           <div>
-            <span className="text-sm text-ink-subtle">Thread image</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'thread_image')}</span>
             <input
               ref={fileRef}
               type="file"
@@ -157,14 +162,14 @@ export function ThreadEditorForm({
                     onClick={() => fileRef.current?.click()}
                     className="text-xs text-ink-subtle hover:text-ink text-left"
                   >
-                    Replace
+                    {t(locale, 'replace')}
                   </button>
                   <button
                     type="button"
                     onClick={() => setCoverUrl(null)}
                     className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
                   >
-                    <X size={11} strokeWidth={1.75} /> Remove
+                    <X size={11} strokeWidth={1.75} /> {t(locale, 'remove')}
                   </button>
                 </div>
               </div>
@@ -176,23 +181,21 @@ export function ThreadEditorForm({
                 className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
               >
                 <ImagePlus size={16} strokeWidth={1.75} />
-                {uploading ? 'Uploading…' : 'Upload image'}
+                {uploading ? t(locale, 'uploading') : t(locale, 'upload_image')}
               </button>
             )}
-            <span className="mt-1 block text-xs text-ink-muted">
-              Cover on the public page and in embeds.
-            </span>
+            <span className="mt-1 block text-xs text-ink-muted">{t(locale, 'cover_hint')}</span>
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DateField
-              label="Starts on"
+              label={t(locale, 'starts_on')}
               name="starts_on"
               defaultValue={program?.starts_on ?? ''}
               onValueChange={setStartsOn}
             />
             <DateField
-              label="Ends on"
+              label={t(locale, 'ends_on')}
               name="ends_on"
               defaultValue={program?.ends_on ?? ''}
               min={startsOn || null}
@@ -201,42 +204,42 @@ export function ThreadEditorForm({
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <TextField
-              label="Timezone"
+              label={t(locale, 'timezone')}
               name="timezone"
               defaultValue={thread.timezone}
-              hint="IANA name, e.g. Europe/Amsterdam."
+              hint={t(locale, 'timezone_hint')}
             />
             <SelectField
-              label="Page language"
+              label={t(locale, 'page_language')}
               name="language"
               defaultValue={thread.language ?? 'en'}
               options={LOCALES.map((l) => ({ value: l, label: LOCALE_LABELS[l] }))}
-              hint="Buttons, system messages and emails — what the platform says around your content."
+              hint={t(locale, 'page_language_hint')}
             />
           </div>
 
           <TextField
-            label="Facilitation language"
+            label={t(locale, 'facilitation_language')}
             name="facilitation_language"
             defaultValue={thread.facilitation_language ?? ''}
-            placeholder="e.g. Greek — defaults to the page language"
-            hint="What the thread is run in — shown on the public page when it differs."
+            placeholder={t(locale, 'facilitation_placeholder')}
+            hint={t(locale, 'facilitation_hint')}
           />
 
           <SelectField
-              label="Team"
+              label={t(locale, 'team')}
               name="team_id"
               defaultValue={thread.team_id ?? ''}
               options={[
-                { value: '', label: 'Personal — no team' },
-                ...teams.map((t) => ({ value: t.id, label: t.name })),
+                { value: '', label: t(locale, 'personal_no_team') },
+                ...teams.map((tm) => ({ value: tm.id, label: tm.name })),
               ]}
-              hint="Team members share this thread."
+              hint={t(locale, 'team_hint')}
             />
 
           {/* How an overview opens this thread (Luma-style choice) */}
           <div>
-            <span className="text-sm text-ink-subtle">When clicked in an overview</span>
+            <span className="text-sm text-ink-subtle">{t(locale, 'when_clicked')}</span>
             <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
               <button
                 type="button"
@@ -249,10 +252,10 @@ export function ThreadEditorForm({
               >
                 <div className="flex items-center gap-2">
                   <PanelTop size={15} strokeWidth={1.75} className="text-ink-subtle" />
-                  <span className="text-sm font-medium">Thread page</span>
+                  <span className="text-sm font-medium">{t(locale, 'thread_page')}</span>
                 </div>
                 <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                  Opens the full public page with agenda and details.
+                  {t(locale, 'thread_page_desc')}
                 </p>
               </button>
               <button
@@ -266,32 +269,32 @@ export function ThreadEditorForm({
               >
                 <div className="flex items-center gap-2">
                   <MousePointerClick size={15} strokeWidth={1.75} className="text-ink-subtle" />
-                  <span className="text-sm font-medium">Enrol popup</span>
+                  <span className="text-sm font-medium">{t(locale, 'enrol_popup')}</span>
                 </div>
                 <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                  Opens a popup with thread info and direct enrolment.
+                  {t(locale, 'enrol_popup_desc')}
                 </p>
               </button>
             </div>
           </div>
 
           <SwitchField
-            label="List on the organiser's public page"
-            hint="Unlisted threads stay reachable by direct link."
+            label={t(locale, 'list_public')}
+            hint={t(locale, 'list_public_hint')}
             name="is_public_listed"
             defaultChecked={thread.is_public_listed}
           />
 
           <SwitchField
-            label="Public agenda"
-            hint="Show an agenda on the public page, made of the elements that have \u201cShow on the public agenda\u201d turned on."
+            label={t(locale, 'public_agenda')}
+            hint={t(locale, 'public_agenda_hint')}
             name="public_agenda"
             defaultChecked={thread.public_agenda ?? true}
           />
 
           {categories.length > 0 && (
             <div>
-              <span className="text-sm text-ink-subtle">Categories</span>
+              <span className="text-sm text-ink-subtle">{t(locale, 'categories')}</span>
               <div className="mt-1.5 flex flex-wrap gap-1.5">
                 {categories.map((cat) => {
                   const on = selectedCats.has(cat.id);
@@ -319,7 +322,7 @@ export function ThreadEditorForm({
                 })}
               </div>
               <p className="mt-1.5 text-xs text-ink-muted">
-                Manage the list in Settings → Categories.
+                {t(locale, 'manage_categories_note')}
               </p>
             </div>
           )}
@@ -335,9 +338,9 @@ export function ThreadEditorForm({
       {!compact && (
         <div className="flex items-center gap-3">
           <Button type="submit" disabled={pending}>
-            {pending ? 'Saving…' : 'Save'}
+            {pending ? t(locale, 'saving') : t(locale, 'save')}
           </Button>
-          {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+          {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved')}</span>}
         </div>
       )}
     </form>

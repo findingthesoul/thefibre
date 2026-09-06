@@ -17,6 +17,8 @@ import {
 } from './registrations-actions';
 import { AddParticipantDialog } from './add-participant-dialog';
 import { one } from '@/lib/thread-types';
+import type { Locale } from '@thefibre/shared';
+import { t, enrolStatusLabel, type UiKey } from '@/lib/i18n-ui';
 import { Dialog } from '@/components/ui/dialog';
 import {
   ParticipantDialog,
@@ -32,21 +34,25 @@ const STATUS_STYLES: Record<string, string> = {
   dropped: 'bg-surface-sunken text-ink-muted ring-line',
 };
 
-const PAYMENT_LABELS: Record<string, string> = {
-  not_required: 'Free',
-  pending: 'Payment pending',
-  paid: 'Paid',
-  refunded: 'Refunded',
-  failed: 'Payment failed',
+const PAYMENT_KEYS: Record<string, UiKey> = {
+  not_required: 'free',
+  pending: 'pay_pending',
+  paid: 'pay_paid',
+  refunded: 'pay_refunded',
+  failed: 'pay_failed',
 };
 
 export function RegistrationsDialog({
+  locale,
   threadId,
   onClose,
 }: {
+  locale: Locale;
   threadId: string;
   onClose: () => void;
 }) {
+  const paymentLabel = (status: string) =>
+    PAYMENT_KEYS[status] ? t(locale, PAYMENT_KEYS[status]) : status;
   const [items, setItems] = useState<ThreadEnrolmentItem[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -77,7 +83,7 @@ export function RegistrationsDialog({
     const res = await fn(id);
     // Surface failures — silently re-rendering an unchanged list reads as
     // "it worked" (review 2026-07-05).
-    if (!res.ok) setActionError(res.error ?? 'that action failed — try again');
+    if (!res.ok) setActionError(res.error ?? t(locale, 'action_failed'));
     const r = await listThreadEnrolments(threadId);
     if (r.ok) setItems(r.items);
     setBusy(null);
@@ -87,8 +93,8 @@ export function RegistrationsDialog({
     <Dialog
       open
       onClose={onClose}
-      title="Registrations"
-      description="Everyone enrolled for this thread."
+      title={t(locale, 'registrations')}
+      description={t(locale, 'registrations_desc')}
       size="lg"
       footer={
         <>
@@ -103,24 +109,24 @@ export function RegistrationsDialog({
                 setAddInfo(null);
               }}
             >
-              Add participant
+              {t(locale, 'add_participant')}
             </Button>
             <Link
               href={`/enrolments?thread=${threadId}`}
               className="text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
             >
-              Open full page →
+              {t(locale, 'open_full_page')}
             </Link>
           </div>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         </>
       }
     >
       {error && (
         <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
-          Couldn&apos;t load registrations: {error}
+          {t(locale, 'couldnt_load', { error })}
         </p>
       )}
 
@@ -138,6 +144,7 @@ export function RegistrationsDialog({
 
       {adding && (
         <AddParticipantDialog
+          locale={locale}
           threadId={threadId}
           onClose={() => setAdding(false)}
           onAdded={(info) => {
@@ -161,12 +168,10 @@ export function RegistrationsDialog({
       )}
 
       {items !== null && items.length === 0 && (
-        <p className="text-sm text-ink-subtle py-4">
-          No registrations yet — publish the thread and share its public page.
-        </p>
+        <p className="text-sm text-ink-subtle py-4">{t(locale, 'no_registrations')}</p>
       )}
 
-      {detail && <ParticipantDialog row={detail} onClose={() => setDetail(null)} />}
+      {detail && <ParticipantDialog locale={locale} row={detail} onClose={() => setDetail(null)} />}
 
       {items !== null && items.length > 0 && (
         <ul className="divide-y divide-line border border-line rounded-lg bg-surface-raised">
@@ -177,7 +182,7 @@ export function RegistrationsDialog({
             const name =
               [person?.first_name, person?.last_name].filter(Boolean).join(' ') ||
               person?.email ||
-              'Unknown';
+              t(locale, 'unknown');
             const status = enr?.status ?? 'enrolled';
             return (
               <li key={it.id} className="flex items-center gap-3 px-4 py-2.5">
@@ -197,7 +202,7 @@ export function RegistrationsDialog({
                       threadId: it.thread_id,
                       threadTitle: null,
                       certNumber: cert?.certificate_number ?? null,
-                      payment: PAYMENT_LABELS[it.payment_status] ?? it.payment_status,
+                      payment: paymentLabel(it.payment_status),
                       status,
                       detail: {
                         answers: it.answers ?? null,
@@ -225,10 +230,10 @@ export function RegistrationsDialog({
                 {cert && (
                   <span
                     className="inline-flex items-center gap-1 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-yellow-300 bg-yellow-50 text-ink shrink-0"
-                    title={`Certificate ${cert.certificate_number}`}
+                    title={`${t(locale, 'certificate')} ${cert.certificate_number}`}
                   >
                     <Award size={11} strokeWidth={1.75} />
-                    Certificate
+                    {t(locale, 'certificate')}
                   </span>
                 )}
                 {/* Lifecycle actions: approve/decline while invited, mark
@@ -236,14 +241,14 @@ export function RegistrationsDialog({
                 {status === 'invited' && it.payment_status !== 'pending' && (
                   <span className="inline-flex items-center gap-1 shrink-0">
                     <ActionChip
-                      label="Approve"
+                      label={t(locale, 'approve')}
                       Icon={Check}
                       tone="positive"
                       disabled={busy === it.id}
                       onClick={() => void run(it.id, approveEnrolment)}
                     />
                     <ActionChip
-                      label="Decline"
+                      label={t(locale, 'decline')}
                       Icon={X}
                       tone="negative"
                       disabled={busy === it.id}
@@ -253,7 +258,7 @@ export function RegistrationsDialog({
                 )}
                 {it.payment_status === 'pending' && (
                   <ActionChip
-                    label="Mark paid"
+                    label={t(locale, 'mark_paid')}
                     Icon={BadgeEuro}
                     tone="neutral"
                     disabled={busy === it.id}
@@ -263,7 +268,7 @@ export function RegistrationsDialog({
                 {(status === 'enrolled' || status === 'active') &&
                   it.payment_status !== 'pending' && (
                     <ActionChip
-                      label="Complete"
+                      label={t(locale, 'complete')}
                       Icon={Flag}
                       tone="neutral"
                       disabled={busy === it.id}
@@ -271,14 +276,14 @@ export function RegistrationsDialog({
                     />
                   )}
                 <span className="text-xs text-ink-muted shrink-0">
-                  {PAYMENT_LABELS[it.payment_status] ?? it.payment_status}
+                  {paymentLabel(it.payment_status)}
                 </span>
                 <span
-                  className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
+                  className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                     STATUS_STYLES[status] ?? STATUS_STYLES.enrolled
                   }`}
                 >
-                  {status}
+                  {enrolStatusLabel(locale, status)}
                 </span>
               </li>
             );

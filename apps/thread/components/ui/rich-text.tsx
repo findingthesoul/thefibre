@@ -19,6 +19,8 @@ import {
   ListOrdered,
   RemoveFormatting,
 } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t, type UiKey } from '@/lib/i18n-ui';
 
 type Command =
   | 'bold'
@@ -28,22 +30,24 @@ type Command =
   | 'createLink'
   | 'removeFormat';
 
-const TOOLS: { command: Command; icon: typeof Bold; label: string; stateful: boolean }[] = [
-  { command: 'bold', icon: Bold, label: 'Bold', stateful: true },
-  { command: 'italic', icon: Italic, label: 'Italic', stateful: true },
-  { command: 'insertUnorderedList', icon: List, label: 'Bullet list', stateful: true },
-  { command: 'insertOrderedList', icon: ListOrdered, label: 'Numbered list', stateful: true },
-  { command: 'createLink', icon: Link2, label: 'Link', stateful: false },
-  { command: 'removeFormat', icon: RemoveFormatting, label: 'Clear formatting', stateful: false },
+const TOOLS: { command: Command; icon: typeof Bold; labelKey: UiKey; stateful: boolean }[] = [
+  { command: 'bold', icon: Bold, labelKey: 'bold', stateful: true },
+  { command: 'italic', icon: Italic, labelKey: 'italic', stateful: true },
+  { command: 'insertUnorderedList', icon: List, labelKey: 'bullet_list', stateful: true },
+  { command: 'insertOrderedList', icon: ListOrdered, labelKey: 'numbered_list', stateful: true },
+  { command: 'createLink', icon: Link2, labelKey: 'link', stateful: false },
+  { command: 'removeFormat', icon: RemoveFormatting, labelKey: 'clear_formatting', stateful: false },
 ];
 
 export function RichTextField({
+  locale,
   label,
   name,
   defaultValue,
   hint,
   minHeight = 96,
 }: {
+  locale: Locale;
   label: React.ReactNode;
   name: string;
   defaultValue?: string | null;
@@ -100,7 +104,7 @@ export function RichTextField({
     editorRef.current?.focus();
     if (command === 'createLink') {
       // eslint-disable-next-line no-alert
-      const url = window.prompt('Link URL');
+      const url = window.prompt(t(locale, 'link_url'));
       if (!url) return;
       document.execCommand('createLink', false, url);
     } else {
@@ -116,12 +120,12 @@ export function RichTextField({
       <input type="hidden" name={name} value={html} />
       <div className="mt-1 rounded-md border border-line bg-surface-raised focus-within:border-line-strong">
         <div className="flex items-center gap-0.5 border-b border-line px-1.5 py-1">
-          {TOOLS.map(({ command, icon: Icon, label: toolLabel, stateful }) => (
+          {TOOLS.map(({ command, icon: Icon, labelKey, stateful }) => (
             <button
               key={command}
               type="button"
-              aria-label={toolLabel}
-              title={toolLabel}
+              aria-label={t(locale, labelKey)}
+              title={t(locale, labelKey)}
               // preventDefault keeps the editor selection alive through the click.
               onMouseDown={(e) => e.preventDefault()}
               onClick={() => exec(command)}

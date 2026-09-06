@@ -5,8 +5,10 @@
 
 import { useState } from 'react';
 import { ExternalLink } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { Dialog } from '@/components/ui/dialog';
 import { SectionLabel } from '@/components/ui/page';
+import { t, enrolStatusLabel } from '@/lib/i18n-ui';
 
 export type ContactItem = {
   person: {
@@ -19,26 +21,26 @@ export type ContactItem = {
   last_enrolled_at: string | null;
 };
 
-function formatDate(iso: string | null): string {
+function formatDate(locale: Locale, iso: string | null): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleDateString('en-GB', {
+  return d.toLocaleDateString(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   });
 }
 
-function contactName(it: ContactItem): string {
+function contactName(locale: Locale, it: ContactItem): string {
   return (
     [it.person.first_name, it.person.last_name].filter(Boolean).join(' ') ||
     it.person.email ||
-    'Unknown'
+    t(locale, 'unknown')
   );
 }
 
-export function ContactsList({ items }: { items: ContactItem[] }) {
+export function ContactsList({ locale, items }: { locale: Locale; items: ContactItem[] }) {
   const [selected, setSelected] = useState<ContactItem | null>(null);
 
   return (
@@ -52,7 +54,7 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
               className="w-full flex items-center gap-4 px-4 py-3 text-left hover:bg-surface-sunken transition-colors"
             >
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium truncate">{contactName(it)}</div>
+                <div className="text-sm font-medium truncate">{contactName(locale, it)}</div>
                 <div className="text-xs text-ink-subtle mt-0.5 truncate">{it.person.email}</div>
                 {it.threads.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -69,7 +71,7 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
               </div>
               {it.last_enrolled_at && (
                 <span className="text-xs text-ink-muted shrink-0">
-                  {formatDate(it.last_enrolled_at)}
+                  {formatDate(locale, it.last_enrolled_at)}
                 </span>
               )}
             </button>
@@ -78,19 +80,21 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
       </ul>
 
       {selected && (
-        <Dialog open onClose={() => setSelected(null)} title={contactName(selected)}>
+        <Dialog open onClose={() => setSelected(null)} title={contactName(locale, selected)}>
           <div className="space-y-5">
             <div>
-              <SectionLabel>Email</SectionLabel>
+              <SectionLabel>{t(locale, 'email')}</SectionLabel>
               <p className="mt-1 text-sm">
-                {selected.person.email ?? <span className="text-ink-muted">No email</span>}
+                {selected.person.email ?? (
+                  <span className="text-ink-muted">{t(locale, 'no_email')}</span>
+                )}
               </p>
             </div>
 
             <div>
-              <SectionLabel>Threads</SectionLabel>
+              <SectionLabel>{t(locale, 'threads')}</SectionLabel>
               {selected.threads.length === 0 ? (
-                <p className="mt-1 text-sm text-ink-muted">No thread enrolments.</p>
+                <p className="mt-1 text-sm text-ink-muted">{t(locale, 'no_thread_enrolments')}</p>
               ) : (
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {selected.threads.map((t) => (
@@ -99,7 +103,7 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
                       className="inline-flex items-center gap-1.5 text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-subtle"
                     >
                       {t.title}
-                      <span className="text-ink-muted capitalize">· {t.status}</span>
+                      <span className="text-ink-muted">· {enrolStatusLabel(locale, t.status)}</span>
                     </span>
                   ))}
                 </div>
@@ -108,8 +112,8 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
 
             {selected.last_enrolled_at && (
               <div>
-                <SectionLabel>Last enrolled</SectionLabel>
-                <p className="mt-1 text-sm">{formatDate(selected.last_enrolled_at)}</p>
+                <SectionLabel>{t(locale, 'last_enrolled')}</SectionLabel>
+                <p className="mt-1 text-sm">{formatDate(locale, selected.last_enrolled_at)}</p>
               </div>
             )}
 
@@ -119,7 +123,7 @@ export function ContactsList({ items }: { items: ContactItem[] }) {
               rel="noreferrer"
               className="inline-flex items-center justify-center gap-1.5 rounded-md font-medium transition-colors h-8 px-3 text-sm border border-line bg-surface-raised text-ink hover:bg-surface-sunken"
             >
-              Open in The Fibre
+              {t(locale, 'open_in_fibre')}
               <ExternalLink size={13} strokeWidth={1.75} />
             </a>
           </div>

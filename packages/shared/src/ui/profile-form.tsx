@@ -24,6 +24,7 @@ import { useMemo, useState, useTransition } from 'react';
 import { PhotoField } from './photo-field.js';
 import { TextField, TextAreaField, SelectField } from './fields.js';
 import { SearchSelect } from './search-select.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 export type ProfileValues = {
   display_name: string;
@@ -60,6 +61,7 @@ export function ProfileForm({
   bioHint?: string;
   footer?: React.ReactNode;
 }) {
+  const locale = useLocale();
   const [displayName, setDisplayName] = useState(initial.display_name);
   const [slugValue, setSlugValue] = useState(slug?.value ?? '');
   const [bio, setBio] = useState(initial.bio);
@@ -88,7 +90,7 @@ export function ProfileForm({
     e.preventDefault();
     setError(null);
     setSaved(false);
-    if (slug && !slugValue.trim()) return setError('Pick a public URL.');
+    if (slug && !slugValue.trim()) return setError(chromeT(locale, 'pick_public_url'));
     start(async () => {
       const r = await onSave({
         display_name: displayName.trim(),
@@ -97,7 +99,7 @@ export function ProfileForm({
         timezone: timezone.trim() || 'Europe/Amsterdam',
         ...(slug ? { slug: slugValue.trim() } : {}),
       });
-      if (!r.ok) return setError(r.error ?? 'could not save');
+      if (!r.ok) return setError(r.error ?? chromeT(locale, 'could_not_save'));
       setSaved(true);
     });
   }
@@ -105,7 +107,7 @@ export function ProfileForm({
   return (
     <form onSubmit={submit} className="mt-8 space-y-6">
       <TextField
-        label="Display name"
+        label={chromeT(locale, 'display_name')}
         required
         value={displayName}
         onChange={(e) => touched(setDisplayName)(e.target.value)}
@@ -114,7 +116,7 @@ export function ProfileForm({
       {slug && (
         <label className="block">
           <span className="text-sm text-ink-subtle">
-            {slug.label ?? 'Public URL'}
+            {slug.label ?? chromeT(locale, 'public_url')}
             <span className="text-red-600"> *</span>
           </span>
           <div className="mt-1 flex">
@@ -132,7 +134,7 @@ export function ProfileForm({
       )}
 
       <TextAreaField
-        label="Bio"
+        label={chromeT(locale, 'bio')}
         rows={3}
         value={bio}
         onChange={(e) => touched(setBio)(e.target.value)}
@@ -141,7 +143,7 @@ export function ProfileForm({
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <PhotoField
-          label="Photo"
+          label={chromeT(locale, 'photo')}
           value={photoUrl}
           onChange={touched(setPhotoUrl)}
           upload={upload}
@@ -152,22 +154,22 @@ export function ProfileForm({
           // div, not label: a label wrapping SearchSelect's internal button
           // misdirects clicks (sweep 2026-09-05).
           <div className="block">
-            <span className="text-sm text-ink-subtle">Timezone</span>
+            <span className="text-sm text-ink-subtle">{chromeT(locale, 'timezone')}</span>
             <SearchSelect
               className="mt-1"
               value={timezone}
               onChange={touched(setTimezone)}
               options={timezones.map((tz) => ({ value: tz, label: tz }))}
-              placeholder="Pick a timezone…"
-              searchPlaceholder="Search timezones…"
+              placeholder={chromeT(locale, 'pick_timezone')}
+              searchPlaceholder={chromeT(locale, 'search_timezones')}
             />
           </div>
         ) : (
           <TextField
-            label="Timezone"
+            label={chromeT(locale, 'timezone')}
             value={timezone}
             onChange={(e) => touched(setTimezone)(e.target.value)}
-            hint="IANA name, e.g. Europe/Amsterdam."
+            hint={chromeT(locale, 'timezone_hint')}
           />
         )}
       </div>
@@ -186,9 +188,9 @@ export function ProfileForm({
           disabled={pending}
           className="inline-flex items-center rounded-md bg-ink px-4 py-2 text-sm font-medium text-surface hover:opacity-90 disabled:opacity-50"
         >
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? chromeT(locale, 'saving') : chromeT(locale, 'save')}
         </button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {saved && <span className="text-sm text-ink-subtle">{chromeT(locale, 'saved')}</span>}
       </div>
     </form>
   );

@@ -8,10 +8,10 @@ import {
   runSubjectName,
   runSubjectInitials,
   isPulseRun,
-  PULSE_BADGE_TITLE,
   type RunPerson as Person,
   type RunOrganisation,
 } from '@/lib/run-subject';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type Run = {
   id: string;
@@ -24,7 +24,7 @@ export type Run = {
   step: { key: string; name: string; kind: string } | { key: string; name: string; kind: string }[] | null;
 };
 
-export function ContactsList({ runs }: { runs: Run[] }) {
+export function ContactsList({ runs, locale }: { runs: Run[]; locale: Locale }) {
   const [openRunId, setOpenRunId] = useState<string | null>(null);
   return (
     <div className="mt-8 space-y-2">
@@ -45,7 +45,7 @@ export function ContactsList({ runs }: { runs: Run[] }) {
                 <span className="font-medium truncate">{runSubjectName(r)}</span>
                 {isPulseRun(r) && (
                   <span
-                    title={PULSE_BADGE_TITLE}
+                    title={t(locale, 'pulse_badge_title')}
                     className="bg-yellow-100 text-ink text-[10px] rounded-full px-1.5 py-0.5 shrink-0"
                   >
                     Pulse
@@ -59,7 +59,7 @@ export function ContactsList({ runs }: { runs: Run[] }) {
           </button>
         );
       })}
-      {openRunId && <RunModal runId={openRunId} onClose={() => setOpenRunId(null)} />}
+      {openRunId && <RunModal runId={openRunId} onClose={() => setOpenRunId(null)} locale={locale} />}
     </div>
   );
 }

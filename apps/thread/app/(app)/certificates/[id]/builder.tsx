@@ -30,6 +30,8 @@ import {
   X,
   Type,
 } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
@@ -90,11 +92,13 @@ function toggleCls(active: boolean): string {
 type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
 
 export function CertificateBuilder({
+  locale,
   template,
   teams,
   members,
   initialShares,
 }: {
+  locale: Locale;
   template: CertTemplate;
   teams: TeamOption[];
   members: WorkspaceMember[];
@@ -304,7 +308,7 @@ export function CertificateBuilder({
       {
         id: generateElementId(),
         type: 'text',
-        content: 'Text',
+        content: t(locale, 'text'),
         x: 10,
         y: 20,
         width: 50,
@@ -478,8 +482,8 @@ export function CertificateBuilder({
     return (
       <button
         type="button"
-        title="Remove this element (or press Delete)"
-        aria-label="Remove this element"
+        title={t(locale, 'remove_element_tooltip')}
+        aria-label={t(locale, 'remove_element_aria')}
         onMouseDown={(ev) => ev.stopPropagation()}
         onClick={(ev) => {
           ev.stopPropagation();
@@ -578,11 +582,11 @@ export function CertificateBuilder({
 
   const saveStatusLabel =
     saveStatus === 'saving'
-      ? 'Saving…'
+      ? t(locale, 'saving')
       : saveStatus === 'saved'
-        ? 'Saved'
+        ? t(locale, 'saved_word')
         : saveStatus === 'error'
-          ? 'Save failed'
+          ? t(locale, 'save_failed')
           : null;
 
   return (
@@ -592,7 +596,7 @@ export function CertificateBuilder({
         <Link
           href="/certificates"
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken shrink-0"
-          title="All templates"
+          title={t(locale, 'all_templates')}
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
         </Link>
@@ -603,8 +607,8 @@ export function CertificateBuilder({
             setName(e.target.value);
             scheduleSave();
           }}
-          placeholder="Template name"
-          aria-label="Template name"
+          placeholder={t(locale, 'template_name')}
+          aria-label={t(locale, 'template_name')}
           className={`${CONTROL} w-52 font-medium placeholder:text-ink-muted`}
         />
 
@@ -614,7 +618,7 @@ export function CertificateBuilder({
             setPageSize(e.target.value as CertPageSize);
             scheduleSave();
           }}
-          aria-label="Page size"
+          aria-label={t(locale, 'page_size')}
           className={CONTROL}
         >
           <option value="a4">A4</option>
@@ -630,13 +634,15 @@ export function CertificateBuilder({
                 setOrientation(ori);
                 scheduleSave();
               }}
-              className={`px-3 text-sm capitalize transition-colors ${
+              className={`px-3 text-sm transition-colors ${
                 orientation === ori
                   ? 'bg-ink text-ink-inverse'
                   : 'text-ink-subtle hover:bg-surface-sunken'
               }`}
             >
-              {ori}
+              {ori === 'portrait'
+                ? t(locale, 'orientation_portrait')
+                : t(locale, 'orientation_landscape')}
             </button>
           ))}
         </div>
@@ -649,12 +655,12 @@ export function CertificateBuilder({
             if (next === 'team' && !ownerTeamId && teams[0]) setOwnerTeamId(teams[0].id);
             scheduleSave();
           }}
-          aria-label="Scope"
+          aria-label={t(locale, 'scope')}
           className={CONTROL}
         >
-          <option value="personal">Personal</option>
-          {teams.length > 0 && <option value="team">Team</option>}
-          <option value="workspace">Workspace</option>
+          <option value="personal">{t(locale, 'personal')}</option>
+          {teams.length > 0 && <option value="team">{t(locale, 'team')}</option>}
+          <option value="workspace">{t(locale, 'workspace')}</option>
         </select>
 
         {scope === 'team' && (
@@ -664,12 +670,12 @@ export function CertificateBuilder({
               setOwnerTeamId(e.target.value);
               scheduleSave();
             }}
-            aria-label="Owning team"
+            aria-label={t(locale, 'owning_team')}
             className={CONTROL}
           >
-            {teams.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
+            {teams.map((tm) => (
+              <option key={tm.id} value={tm.id}>
+                {tm.name}
               </option>
             ))}
           </select>
@@ -682,7 +688,7 @@ export function CertificateBuilder({
             leading={<Share2 size={14} strokeWidth={1.75} />}
             onClick={() => setShareOpen(true)}
           >
-            Share…
+            {t(locale, 'share_ellipsis')}
           </Button>
         )}
 
@@ -691,7 +697,7 @@ export function CertificateBuilder({
         {deleteError && <span className="text-xs text-red-600">{deleteError}</span>}
         {archived && !deleteError && (
           <span className="text-xs px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted">
-            Archived
+            {t(locale, 'status_archived')}
           </span>
         )}
         {saveStatusLabel && (
@@ -703,7 +709,7 @@ export function CertificateBuilder({
         )}
 
         <Button size="sm" onClick={() => void doSave()} disabled={saveStatus === 'saving'}>
-          Save
+          {t(locale, 'save')}
         </Button>
 
         <Button
@@ -717,22 +723,18 @@ export function CertificateBuilder({
               }
             })
           }
-          title={
-            archived
-              ? 'Restore — show it in template pickers again'
-              : 'Archive — keep issued certificates and thread references, hide from pickers'
-          }
+          title={archived ? t(locale, 'restore_tooltip') : t(locale, 'archive_tooltip')}
         >
           <Archive size={15} strokeWidth={1.75} />
-          {archived ? 'Restore' : 'Archive'}
+          {archived ? t(locale, 'restore') : t(locale, 'archive')}
         </Button>
 
         <Button
           variant="ghost"
           size="icon"
           onClick={() => setDeleteOpen(true)}
-          title="Delete template (templates in use can only be archived)"
-          aria-label="Delete template"
+          title={t(locale, 'delete_template_tooltip')}
+          aria-label={t(locale, 'delete_template')}
         >
           <Trash2 size={16} strokeWidth={1.75} />
         </Button>
@@ -753,7 +755,9 @@ export function CertificateBuilder({
           {selectedEl.type !== 'line' && selectedEl.type !== 'image' && (
             <>
               <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-subtle whitespace-nowrap">Font</span>
+                <span className="text-xs text-ink-subtle whitespace-nowrap">
+                  {t(locale, 'font')}
+                </span>
                 <select
                   value={selectedEl.fontFamily ?? 'inherit'}
                   onChange={(e) => updateEl({ fontFamily: e.target.value })}
@@ -771,7 +775,9 @@ export function CertificateBuilder({
                   (Sjoerd 2026-08-31). Stored as px, converted for display:
                   1pt = 96/72 px, so existing designs keep their size. */}
               <div className="flex items-center gap-2">
-                <span className="text-xs text-ink-subtle whitespace-nowrap">Size</span>
+                <span className="text-xs text-ink-subtle whitespace-nowrap">
+                  {t(locale, 'size')}
+                </span>
                 <input
                   type="range"
                   min={6}
@@ -805,10 +811,12 @@ export function CertificateBuilder({
               The element's own matching edge is measured; its height is taken
               from the DOM because text height is content-driven. */}
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-subtle whitespace-nowrap">Position</span>
+            <span className="text-xs text-ink-subtle whitespace-nowrap">
+              {t(locale, 'position')}
+            </span>
             <div
               className="grid grid-cols-3 gap-px rounded border border-line p-px"
-              title="Measure from this point of the page"
+              title={t(locale, 'measure_from')}
             >
               {ANCHOR_GRID.map((a) => (
                 <button
@@ -877,7 +885,7 @@ export function CertificateBuilder({
 
           <div className="flex items-center gap-2">
             <span className="text-xs text-ink-subtle whitespace-nowrap">
-              {selectedEl.type === 'image' ? 'Scale' : 'Width'}
+              {selectedEl.type === 'image' ? t(locale, 'scale') : t(locale, 'width')}
             </span>
             <input
               type="range"
@@ -907,7 +915,7 @@ export function CertificateBuilder({
             <div className="flex items-center gap-1">
               <button
                 type="button"
-                title="Bold"
+                title={t(locale, 'bold')}
                 onClick={() =>
                   updateEl({
                     fontWeight: selectedEl.fontWeight === 'bold' ? 'normal' : 'bold',
@@ -919,7 +927,7 @@ export function CertificateBuilder({
               </button>
               <button
                 type="button"
-                title="Italic"
+                title={t(locale, 'italic')}
                 onClick={() =>
                   updateEl({
                     fontStyle: selectedEl.fontStyle === 'italic' ? 'normal' : 'italic',
@@ -939,7 +947,13 @@ export function CertificateBuilder({
                 <button
                   key={align}
                   type="button"
-                  title={`Align ${align}`}
+                  title={
+                    align === 'left'
+                      ? t(locale, 'align_left')
+                      : align === 'center'
+                        ? t(locale, 'align_center')
+                        : t(locale, 'align_right')
+                  }
                   onClick={() => updateEl({ textAlign: align })}
                   className={toggleCls((selectedEl.textAlign ?? 'left') === align)}
                 >
@@ -951,7 +965,7 @@ export function CertificateBuilder({
 
           {selectedEl.type !== 'image' && (
             <div className="flex items-center gap-2">
-              <span className="text-xs text-ink-subtle">Colour</span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'colour')}</span>
               <input
                 type="color"
                 value={selectedEl.color ?? INK_DEFAULT}
@@ -962,7 +976,9 @@ export function CertificateBuilder({
           )}
 
           <div className="flex items-center gap-2">
-            <span className="text-xs text-ink-subtle whitespace-nowrap">Opacity</span>
+            <span className="text-xs text-ink-subtle whitespace-nowrap">
+              {t(locale, 'opacity')}
+            </span>
             <input
               type="range"
               min={0}
@@ -986,17 +1002,18 @@ export function CertificateBuilder({
 
           {selectedEl.type === 'image' && (
             <ImageUpload
+              locale={locale}
               inline
               value={selectedEl.src ?? ''}
               onChange={(url) => updateEl({ src: url })}
-              buttonLabel="Upload image"
+              buttonLabel={t(locale, 'upload_image')}
             />
           )}
 
           {selectedEl.type === 'text' && editingId !== selectedEl.id && (
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-ink-muted italic whitespace-nowrap">
-                Double-click to edit · insert
+                {t(locale, 'dbl_click_insert')}
               </span>
               {/* Every token, not just one example. They all worked already —
                   substituteFields has since the builder shipped — but the bar
@@ -1013,9 +1030,9 @@ export function CertificateBuilder({
                   ev.target.value = '';
                 }}
                 className="h-7 rounded-md border border-line bg-surface px-1.5 text-xs outline-none focus:border-ink"
-                title="Insert a token — it becomes the real value on the issued certificate"
+                title={t(locale, 'insert_token_tooltip')}
               >
-                <option value="">token…</option>
+                <option value="">{t(locale, 'token_placeholder')}</option>
                 {FIELD_OPTIONS.map((f) => (
                   <option key={f.field} value={f.field}>
                     {f.label}
@@ -1026,10 +1043,12 @@ export function CertificateBuilder({
           )}
 
           <div className="flex items-center gap-1">
-            <span className="text-xs text-ink-subtle whitespace-nowrap">Arrange</span>
+            <span className="text-xs text-ink-subtle whitespace-nowrap">
+              {t(locale, 'arrange')}
+            </span>
             <button
               type="button"
-              title="Send to back"
+              title={t(locale, 'send_to_back')}
               onClick={() => reorderSelected('to-back')}
               className={toggleCls(false)}
             >
@@ -1037,7 +1056,7 @@ export function CertificateBuilder({
             </button>
             <button
               type="button"
-              title="Move backward"
+              title={t(locale, 'move_backward')}
               onClick={() => reorderSelected('backward')}
               className={toggleCls(false)}
             >
@@ -1045,7 +1064,7 @@ export function CertificateBuilder({
             </button>
             <button
               type="button"
-              title="Move forward"
+              title={t(locale, 'move_forward')}
               onClick={() => reorderSelected('forward')}
               className={toggleCls(false)}
             >
@@ -1053,7 +1072,7 @@ export function CertificateBuilder({
             </button>
             <button
               type="button"
-              title="Bring to front"
+              title={t(locale, 'bring_to_front')}
               onClick={() => reorderSelected('to-front')}
               className={toggleCls(false)}
             >
@@ -1065,7 +1084,7 @@ export function CertificateBuilder({
         </div>
       ) : (
         <div className="mt-4 h-[54px] rounded-lg border border-dashed border-line px-4 flex items-center">
-          <span className="text-xs text-ink-muted">Select an element to edit its style</span>
+          <span className="text-xs text-ink-muted">{t(locale, 'select_element_hint')}</span>
         </div>
       )}
       </div>
@@ -1075,7 +1094,7 @@ export function CertificateBuilder({
         {/* Left panel */}
         <div className="w-[260px] shrink-0 space-y-6">
           <div>
-            <SectionLabel>Fields</SectionLabel>
+            <SectionLabel>{t(locale, 'fields_label')}</SectionLabel>
             <div className="mt-2 space-y-1">
               {FIELD_OPTIONS.map(({ field, label }) => (
                 <button
@@ -1097,10 +1116,9 @@ export function CertificateBuilder({
               2026-08-31). Shows the literal token, what it means, and what it
               becomes. Click to insert into the selected text element. */}
           <div>
-            <SectionLabel>Guides</SectionLabel>
+            <SectionLabel>{t(locale, 'guides')}</SectionLabel>
             <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
-              Drag off a ruler to lay one. Elements snap to guides and to the
-              page&apos;s edges and centre; hold Alt to place freely.
+              {t(locale, 'guides_note')}
             </p>
             <label className="mt-2 flex items-center gap-2 text-xs text-ink-subtle">
               <input
@@ -1109,7 +1127,7 @@ export function CertificateBuilder({
                 onChange={(e) => setSnapOn(e.target.checked)}
                 className="accent-ink"
               />
-              Snap to guides
+              {t(locale, 'snap_to_guides')}
             </label>
             {guides.length > 0 && (
               <button
@@ -1120,16 +1138,15 @@ export function CertificateBuilder({
                 }}
                 className="mt-1.5 text-[11px] text-ink-subtle underline underline-offset-2 hover:text-ink"
               >
-                Clear {guides.length} guide{guides.length === 1 ? '' : 's'}
+                {t(locale, 'clear_n_guides', { n: guides.length })}
               </button>
             )}
           </div>
 
           <div>
-            <SectionLabel>Tokens</SectionLabel>
+            <SectionLabel>{t(locale, 'tokens')}</SectionLabel>
             <p className="mt-1.5 text-[11px] leading-relaxed text-ink-muted">
-              Type these into any text element — they become the real value on
-              each issued certificate.
+              {t(locale, 'tokens_note')}
             </p>
             <ul className="mt-2 space-y-1">
               {FIELD_OPTIONS.map(({ field, label }) => {
@@ -1141,8 +1158,8 @@ export function CertificateBuilder({
                       disabled={!insertable}
                       title={
                         insertable
-                          ? `Insert {${field}} into the selected text`
-                          : 'Select a text element to insert this'
+                          ? t(locale, 'insert_token_sel', { token: `{${field}}` })
+                          : t(locale, 'select_text_first')
                       }
                       onClick={() => {
                         const cur = selectedEl?.content ?? '';
@@ -1162,7 +1179,7 @@ export function CertificateBuilder({
           </div>
 
           <div>
-            <SectionLabel>Elements</SectionLabel>
+            <SectionLabel>{t(locale, 'elements_label')}</SectionLabel>
             <div className="mt-2 space-y-1">
               <button
                 type="button"
@@ -1170,7 +1187,7 @@ export function CertificateBuilder({
                 className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-1.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors text-left"
               >
                 <Type size={12} strokeWidth={2} className="shrink-0" />
-                Text
+                {t(locale, 'text')}
               </button>
               <button
                 type="button"
@@ -1178,7 +1195,7 @@ export function CertificateBuilder({
                 className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-1.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors text-left"
               >
                 <Minus size={12} strokeWidth={2} className="shrink-0" />
-                Line
+                {t(locale, 'line')}
               </button>
               <button
                 type="button"
@@ -1186,31 +1203,32 @@ export function CertificateBuilder({
                 className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-1.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors text-left"
               >
                 <ImageIcon size={12} strokeWidth={2} className="shrink-0" />
-                Image
+                {t(locale, 'image')}
               </button>
               <button
                 type="button"
                 onClick={addQr}
-                title="A QR code linking to this certificate's own verification page"
+                title={t(locale, 'qr_tooltip')}
                 className="w-full flex items-center gap-2 rounded-md border border-dashed border-line px-2.5 py-1.5 text-xs text-ink-subtle hover:border-line-strong hover:text-ink transition-colors text-left"
               >
                 <QrCode size={12} strokeWidth={2} className="shrink-0" />
-                QR code
+                {t(locale, 'qr_code')}
               </button>
             </div>
           </div>
 
           <div>
-            <SectionLabel>Background</SectionLabel>
+            <SectionLabel>{t(locale, 'background')}</SectionLabel>
             <div className="mt-2">
               <ImageUpload
+                locale={locale}
                 value={backgroundUrl}
                 onChange={(url) => {
                   setBackgroundUrl(url);
                   scheduleSave();
                 }}
-                buttonLabel="Upload background"
-                hint="Fills the page as a cover background."
+                buttonLabel={t(locale, 'upload_background')}
+                hint={t(locale, 'bg_hint')}
               />
             </div>
           </div>
@@ -1227,7 +1245,7 @@ export function CertificateBuilder({
             <div className="relative w-full max-w-[716px] pl-4 pt-4">
               <div
                 onMouseDown={(e) => startGuideDrag('y', null, e)}
-                title="Drag down for a horizontal guide"
+                title={t(locale, 'drag_down_guide')}
                 className="absolute left-4 right-0 top-0 h-4 cursor-ns-resize border border-line bg-surface-raised"
                 style={{
                   backgroundImage:
@@ -1236,7 +1254,7 @@ export function CertificateBuilder({
               />
               <div
                 onMouseDown={(e) => startGuideDrag('x', null, e)}
-                title="Drag right for a vertical guide"
+                title={t(locale, 'drag_right_guide')}
                 className="absolute left-0 top-4 bottom-0 w-4 cursor-ew-resize border border-line bg-surface-raised"
                 style={{
                   backgroundImage:
@@ -1342,7 +1360,7 @@ export function CertificateBuilder({
                           />
                         ) : (
                           <div className="w-full h-12 bg-black/[0.03] border border-dashed border-black/20 flex items-center justify-center text-[10px] text-black/40 pointer-events-none">
-                            Select, then upload an image
+                            {t(locale, 'select_then_upload')}
                           </div>
                         )}
                       </div>
@@ -1379,7 +1397,7 @@ export function CertificateBuilder({
                           }}
                         />
                         <div className="mt-0.5 text-center text-[7px] leading-none text-black/50 pointer-events-none">
-                          QR · verification page
+                          {t(locale, 'qr_verification')}
                         </div>
                       </div>
                     );
@@ -1451,7 +1469,7 @@ export function CertificateBuilder({
                   <div
                     key={`${g.axis}-${i}`}
                     onMouseDown={(e) => startGuideDrag(g.axis, i, e)}
-                    title="Drag to move · drop on the ruler to remove"
+                    title={t(locale, 'guide_move_tooltip')}
                     className={
                       g.axis === 'x'
                         ? 'absolute top-0 bottom-0 z-20 -ml-1 w-2 cursor-ew-resize'
@@ -1478,6 +1496,7 @@ export function CertificateBuilder({
 
       {/* ── Dialogs ─────────────────────────────────────────────────── */}
       <ShareDialog
+        locale={locale}
         open={shareOpen}
         onClose={() => setShareOpen(false)}
         templateId={template.id}
@@ -1491,9 +1510,11 @@ export function CertificateBuilder({
         open={deleteOpen}
         onCancel={() => setDeleteOpen(false)}
         onConfirm={() => void confirmDelete()}
-        title="Delete template"
-        message={`Delete “${name || 'this template'}”? Threads that reference it will lose their certificate design.`}
-        confirmLabel="Delete"
+        title={t(locale, 'delete_template')}
+        message={t(locale, 'delete_cert_template_msg', {
+          name: name || t(locale, 'this_template'),
+        })}
+        confirmLabel={t(locale, 'delete')}
         destructive
         pending={deletePending}
       />

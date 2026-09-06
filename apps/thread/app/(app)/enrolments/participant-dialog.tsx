@@ -6,9 +6,11 @@
 import { useState, useTransition } from 'react';
 import Link from 'next/link';
 import { Mail } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { resendReceiptForEnrolment } from '../threads/actions';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { t, enrolStatusLabel } from '@/lib/i18n-ui';
 import type { Billing } from '@/lib/thread-types';
 
 export type EnrolmentDetail = {
@@ -48,17 +50,17 @@ export type ParticipantRow = {
 
 const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
-function fmtMoney(cents: number | null, currency: string | null): string {
+function fmtMoney(locale: Locale, cents: number | null, currency: string | null): string {
   if (cents == null) return '—';
-  return new Intl.NumberFormat('en-GB', {
+  return new Intl.NumberFormat(INTL_LOCALES[locale], {
     style: 'currency',
     currency: currency || 'EUR',
   }).format(cents / 100);
 }
 
-function fmtDate(iso: string | null): string {
+function fmtDate(locale: Locale, iso: string | null): string {
   if (!iso) return '—';
-  return new Intl.DateTimeFormat('en-GB', {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -74,9 +76,11 @@ function prettyKey(k: string): string {
 // Everything we know about one participant's enrolment — including the
 // registration answers, which are collected but were shown nowhere before.
 export function ParticipantDialog({
+  locale,
   row,
   onClose,
 }: {
+  locale: Locale;
   row: ParticipantRow;
   onClose: () => void;
 }) {
@@ -90,7 +94,9 @@ export function ParticipantDialog({
   const contactBits = [
     row.contact?.phone,
     [row.contact?.city, row.contact?.country].filter(Boolean).join(', ') || null,
-    row.contact?.preferredLanguage ? `Speaks ${row.contact.preferredLanguage}` : null,
+    row.contact?.preferredLanguage
+      ? t(locale, 'speaks', { language: row.contact.preferredLanguage })
+      : null,
   ].filter(Boolean) as string[];
   return (
     <Dialog
@@ -107,7 +113,7 @@ export function ParticipantDialog({
                 href={`/threads/${row.threadId}`}
                 className="text-sm text-ink-subtle hover:text-ink underline-offset-2 hover:underline"
               >
-                Open thread →
+                {t(locale, 'open_thread')}
               </Link>
             )}
             {hasPurchase && (
@@ -121,17 +127,17 @@ export function ParticipantDialog({
                   startTransition(async () => {
                     setNotice(null);
                     const r = await resendReceiptForEnrolment(row.id);
-                    setNotice(r.ok ? 'Receipt sent.' : r.error);
+                    setNotice(r.ok ? t(locale, 'receipt_sent') : r.error);
                   })
                 }
               >
-                {pending ? 'Sending…' : 'Send receipt'}
+                {pending ? t(locale, 'sending') : t(locale, 'send_receipt')}
               </Button>
             )}
             {notice && <span className="text-xs text-ink-muted">{notice}</span>}
           </div>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Close
+            {t(locale, 'close')}
           </Button>
         </>
       }
@@ -139,20 +145,28 @@ export function ParticipantDialog({
       <div className="space-y-5 text-sm">
         <section className="space-y-2">
           {(row.email || contactBits.length > 0) && (
-            <DetailRow label="Contact">
+            <DetailRow label={t(locale, 'contact')}>
               {[row.email, ...contactBits].filter(Boolean).join(' · ')}
             </DetailRow>
           )}
-          <DetailRow label="Thread">{row.threadTitle ?? '—'}</DetailRow>
-          <DetailRow label="Status">
-            <span className="capitalize">{row.status}</span>
-            {d.progressPct > 0 && ` · ${d.progressPct}% progress`}
+          <DetailRow label={t(locale, 'thread')}>{row.threadTitle ?? '—'}</DetailRow>
+          <DetailRow label={t(locale, 'status')}>
+            <span>{enrolStatusLabel(locale, row.status)}</span>
+            {d.progressPct > 0 && ` · ${t(locale, 'progress_suffix', { pct: d.progressPct })}`}
           </DetailRow>
-          <DetailRow label="Signed up">{fmtDate(d.createdAt)}</DetailRow>
-          {d.enrolledAt && <DetailRow label="Enrolled">{fmtDate(d.enrolledAt)}</DetailRow>}
-          {d.completedAt && <DetailRow label="Completed">{fmtDate(d.completedAt)}</DetailRow>}
+          <DetailRow label={t(locale, 'signed_up')}>{fmtDate(locale, d.createdAt)}</DetailRow>
+          {d.enrolledAt && (
+            <DetailRow label={t(locale, 'status_enrolled')}>
+              {fmtDate(locale, d.enrolledAt)}
+            </DetailRow>
+          )}
+          {d.completedAt && (
+            <DetailRow label={t(locale, 'status_completed')}>
+              {fmtDate(locale, d.completedAt)}
+            </DetailRow>
+          )}
           {row.certNumber && (
-            <DetailRow label="Certificate">
+            <DetailRow label={t(locale, 'certificate')}>
               <a
                 href={`${THREAD_HOST}/certificate/${row.certNumber}`}
                 target="_blank"
@@ -167,23 +181,29 @@ export function ParticipantDialog({
 
         {(d.amountCents != null || d.ticketName || d.couponCode) && (
           <section>
-            <h3 className="text-[11px] uppercase tracking-wider text-ink-muted mb-2">Payment</h3>
+            <h3 className="text-[11px] uppercase tracking-wider text-ink-muted mb-2">
+              {t(locale, 'payment')}
+            </h3>
             <div className="space-y-2">
-              <DetailRow label="Amount">
-                {fmtMoney(d.amountCents, d.currency)}
-                {d.method ? ` · ${d.method === 'invoice' ? 'by invoice' : 'card'}` : ''}
+              <DetailRow label={t(locale, 'amount')}>
+                {fmtMoney(locale, d.amountCents, d.currency)}
+                {d.method
+                  ? ` · ${d.method === 'invoice' ? t(locale, 'by_invoice') : t(locale, 'by_card')}`
+                  : ''}
                 {` · ${row.payment}`}
               </DetailRow>
-              {d.ticketName && <DetailRow label="Ticket">{d.ticketName}</DetailRow>}
-              {d.couponCode && <DetailRow label="Discount code">{d.couponCode}</DetailRow>}
+              {d.ticketName && <DetailRow label={t(locale, 'ticket')}>{d.ticketName}</DetailRow>}
+              {d.couponCode && (
+                <DetailRow label={t(locale, 'discount_code')}>{d.couponCode}</DetailRow>
+              )}
               {d.billing && Object.values(d.billing).some(Boolean) && (
-                <DetailRow label="Billing">
+                <DetailRow label={t(locale, 'billing')}>
                   {[
                     d.billing.company,
                     d.billing.address,
                     [d.billing.postal_code, d.billing.city].filter(Boolean).join(' '),
                     d.billing.country,
-                    d.billing.tax_no ? `Tax/VAT ${d.billing.tax_no}` : null,
+                    d.billing.tax_no ? `${t(locale, 'tax_vat')} ${d.billing.tax_no}` : null,
                   ]
                     .filter(Boolean)
                     .join(' · ')}
@@ -196,12 +216,12 @@ export function ParticipantDialog({
         {answers.length > 0 && (
           <section>
             <h3 className="text-[11px] uppercase tracking-wider text-ink-muted mb-2">
-              Registration answers
+              {t(locale, 'registration_answers')}
             </h3>
             <div className="space-y-2">
               {answers.map(([k, v]) => (
                 <DetailRow key={k} label={prettyKey(k)}>
-                  {typeof v === 'boolean' ? (v ? 'Yes' : 'No') : String(v)}
+                  {typeof v === 'boolean' ? (v ? t(locale, 'yes') : t(locale, 'no')) : String(v)}
                 </DetailRow>
               ))}
             </div>

@@ -7,19 +7,20 @@
 import { Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { t, type Locale, type UiKey } from "@/lib/i18n-ui";
 
 export type Day = "mon" | "tue" | "wed" | "thu" | "fri" | "sat" | "sun";
 export type Range = { start: string; end: string };
 export type Schedule = Record<Day, Range[]>;
 
-const DAYS: { key: Day; label: string }[] = [
-  { key: "mon", label: "Monday" },
-  { key: "tue", label: "Tuesday" },
-  { key: "wed", label: "Wednesday" },
-  { key: "thu", label: "Thursday" },
-  { key: "fri", label: "Friday" },
-  { key: "sat", label: "Saturday" },
-  { key: "sun", label: "Sunday" },
+const DAYS: { key: Day; labelKey: UiKey }[] = [
+  { key: "mon", labelKey: "day_full_mon" },
+  { key: "tue", labelKey: "day_full_tue" },
+  { key: "wed", labelKey: "day_full_wed" },
+  { key: "thu", labelKey: "day_full_thu" },
+  { key: "fri", labelKey: "day_full_fri" },
+  { key: "sat", labelKey: "day_full_sat" },
+  { key: "sun", labelKey: "day_full_sun" },
 ];
 
 const DEFAULT_RANGE: Range = { start: "09:00", end: "17:00" };
@@ -65,9 +66,11 @@ export function coerceSchedule(input: unknown): Schedule {
 export function WorkingHoursEditor({
   value,
   onChange,
+  locale,
 }: {
   value: Schedule;
   onChange: (next: Schedule) => void;
+  locale: Locale;
 }) {
   function setRangeField(day: Day, idx: number, field: keyof Range, v: string) {
     onChange({
@@ -94,7 +97,7 @@ export function WorkingHoursEditor({
 
   return (
     <div className="rounded-md border border-line divide-y divide-border">
-      {DAYS.map(({ key, label }) => {
+      {DAYS.map(({ key, labelKey }) => {
         const ranges = value[key];
         const enabled = ranges.length > 0;
         return (
@@ -106,7 +109,7 @@ export function WorkingHoursEditor({
                 onChange={() => toggleDay(key)}
                 className="h-4 w-4 rounded border-line accent-ink"
               />
-              {label}
+              {t(locale, labelKey)}
             </label>
             <div className="flex flex-1 items-start">
               {enabled ? (
@@ -131,7 +134,7 @@ export function WorkingHoursEditor({
                           variant="ghost"
                           size="icon"
                           type="button"
-                          aria-label="Remove time block"
+                          aria-label={t(locale, 'remove_block')}
                           onClick={() => removeRange(key, idx)}
                         >
                           <Trash2 className="h-3.5 w-3.5" />
@@ -146,11 +149,11 @@ export function WorkingHoursEditor({
                     onClick={() => addRange(key)}
                     className="self-start text-xs text-muted-foreground hover:text-ink"
                   >
-                    <Plus className="h-3 w-3" /> Add block
+                    <Plus className="h-3 w-3" /> {t(locale, 'add_block')}
                   </Button>
                 </div>
               ) : (
-                <span className="text-sm text-ink-muted pt-1.5">Unavailable</span>
+                <span className="text-sm text-ink-muted pt-1.5">{t(locale, 'unavailable')}</span>
               )}
             </div>
           </div>

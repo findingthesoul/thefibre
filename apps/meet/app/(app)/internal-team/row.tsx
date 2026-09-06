@@ -3,6 +3,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { patchMember } from './actions';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 // super_admin | admin | organiser — the values the API accepts. This screen
 // offered 'member' until v0.18.8, which the database has rejected since the
@@ -21,12 +22,20 @@ export type Member = {
   member_status: string | null;
 };
 
+const ROLE_KEY: Record<WorkspaceRole, UiKey> = {
+  organiser: 'role_organiser',
+  admin: 'role_admin',
+  super_admin: 'role_super_admin',
+};
+
 export function MemberRow({
   member,
   editable,
+  locale,
 }: {
   member: Member;
   editable: boolean;
+  locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -56,12 +65,12 @@ export function MemberRow({
       <div className="flex shrink-0 items-center gap-2 text-[10px] uppercase tracking-wider">
         {!member.email_verified && (
           <span className="text-ink-muted border border-line rounded px-1.5 py-0.5">
-            Pending
+            {t(locale, 'status_pending')}
           </span>
         )}
         {!member.has_meet && (
           <span className="text-ink-muted border border-line rounded px-1.5 py-0.5">
-            No Meet
+            {t(locale, 'badge_no_meet')}
           </span>
         )}
         {editable ? (
@@ -73,9 +82,9 @@ export function MemberRow({
             }
             className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[10px] uppercase tracking-wider"
           >
-            <option value="organiser">Organiser</option>
-            <option value="admin">Admin</option>
-            <option value="super_admin">Super admin</option>
+            <option value="organiser">{t(locale, 'role_organiser')}</option>
+            <option value="admin">{t(locale, 'role_admin')}</option>
+            <option value="super_admin">{t(locale, 'role_super_admin')}</option>
           </select>
         ) : (
           <span
@@ -85,7 +94,7 @@ export function MemberRow({
                 : 'text-ink-muted'
             }`}
           >
-            {member.workspace_role}
+            {t(locale, ROLE_KEY[member.workspace_role])}
           </span>
         )}
         {editable ? (
@@ -99,8 +108,8 @@ export function MemberRow({
             }
             className="rounded-md border border-line bg-surface-raised px-2 py-1 text-[10px] uppercase tracking-wider"
           >
-            <option value="internal">Internal</option>
-            <option value="external">External</option>
+            <option value="internal">{t(locale, 'internal')}</option>
+            <option value="external">{t(locale, 'external')}</option>
           </select>
         ) : (
           <span
@@ -110,7 +119,7 @@ export function MemberRow({
                 : 'border-line text-ink-muted'
             }`}
           >
-            {member.relationship_type}
+            {member.relationship_type === 'external' ? t(locale, 'external') : t(locale, 'internal')}
           </span>
         )}
       </div>

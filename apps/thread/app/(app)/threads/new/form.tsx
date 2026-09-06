@@ -3,8 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarRange, Route, User, Users, type LucideIcon } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
 import { createThread } from '../actions';
 import type { TeamOption } from '@/lib/thread-types';
+import { t } from '@/lib/i18n-ui';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
@@ -15,9 +17,11 @@ const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
 
 export function NewThreadForm({
+  locale,
   organiserSlug,
   teams,
 }: {
+  locale: Locale;
   organiserSlug: string;
   teams: TeamOption[];
 }) {
@@ -41,11 +45,11 @@ export function NewThreadForm({
     const intention = String(fd.get('intention') ?? '').trim();
     const startsOn = String(fd.get('starts_on') ?? '');
     const endsOn = String(fd.get('ends_on') ?? '');
-    if (!title) return setError('Give the thread a name.');
-    if (!slug) return setError('Pick a URL slug.');
+    if (!title) return setError(t(locale, 'err_thread_name'));
+    if (!slug) return setError(t(locale, 'err_pick_slug'));
 
     const teamId = scope === 'team' ? String(fd.get('team_id') ?? '') : '';
-    if (scope === 'team' && !teamId) return setError('Pick a team.');
+    if (scope === 'team' && !teamId) return setError(t(locale, 'err_pick_team'));
 
     startTransition(async () => {
       const r = await createThread({
@@ -72,40 +76,38 @@ export function NewThreadForm({
           big-card real estate. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
         <div>
-          <SectionLabel>Kind</SectionLabel>
+          <SectionLabel>{t(locale, 'kind')}</SectionLabel>
           <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
             <ToggleButton
               Icon={CalendarRange}
-              label="Event"
+              label={t(locale, 'event')}
               active={format === 'event'}
               onClick={() => setFormat('event')}
             />
             <ToggleButton
               Icon={Route}
-              label="Journey"
+              label={t(locale, 'journey')}
               active={format === 'journey'}
               onClick={() => setFormat('journey')}
             />
           </div>
           <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
-            {format === 'event'
-              ? 'A gathering with a schedule — sessions, workshops, conversations at set times.'
-              : "A personal arc over time — reflections, practices and messages, at each participant's own pace."}
+            {format === 'event' ? t(locale, 'kind_event_desc') : t(locale, 'kind_journey_desc')}
           </p>
         </div>
 
         <div>
-          <SectionLabel>Scope</SectionLabel>
+          <SectionLabel>{t(locale, 'scope')}</SectionLabel>
           <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
             <ToggleButton
               Icon={User}
-              label="Personal"
+              label={t(locale, 'personal')}
               active={scope === 'personal'}
               onClick={() => setScope('personal')}
             />
             <ToggleButton
               Icon={Users}
-              label="Team"
+              label={t(locale, 'team')}
               active={scope === 'team'}
               disabled={!teams.length}
               onClick={() => teams.length && setScope('team')}
@@ -113,13 +115,13 @@ export function NewThreadForm({
           </div>
           <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
             {scope === 'personal'
-              ? 'You organise this thread; invite hosts and facilitators later.'
-              : 'Owned by one of your teams — members see and share it.'}
+              ? t(locale, 'scope_personal_desc')
+              : t(locale, 'scope_team_desc')}
           </p>
           {scope === 'team' && (
             <div className="mt-3">
               <SelectField
-                label="Team"
+                label={t(locale, 'team')}
                 name="team_id"
                 value={teamId}
                 onChange={(e) => setTeamId(e.target.value)}
@@ -131,25 +133,26 @@ export function NewThreadForm({
       </div>
 
       <NameAndSlugFields
-        nameLabel="Name"
+        locale={locale}
+        nameLabel={t(locale, 'name')}
         prefix={`${THREAD_HOST}/${
           scope === 'team'
-            ? teams.find((t) => t.id === teamId)?.slug ?? organiserSlug
+            ? teams.find((tm) => tm.id === teamId)?.slug ?? organiserSlug
             : organiserSlug
         }/`}
-        slugHint="Lowercase letters, digits and hyphens."
+        slugHint={t(locale, 'slug_hint_simple')}
       />
 
       <TextAreaField
-        label="Intention"
+        label={t(locale, 'intention')}
         name="intention"
         rows={3}
-        hint="Why this thread exists — shown on the public page."
+        hint={t(locale, 'intention_hint')}
       />
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <DateField label="Starts on" name="starts_on" onValueChange={setStartsOn} />
-        <DateField label="Ends on" name="ends_on" min={startsOn || null} />
+        <DateField label={t(locale, 'starts_on')} name="starts_on" onValueChange={setStartsOn} />
+        <DateField label={t(locale, 'ends_on')} name="ends_on" min={startsOn || null} />
       </div>
 
       {error && (
@@ -160,7 +163,7 @@ export function NewThreadForm({
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Creating…' : 'Create thread'}
+          {pending ? t(locale, 'creating') : t(locale, 'create_thread')}
         </Button>
       </div>
     </form>

@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { Camera, CameraOff, CheckCircle2, Search, Undo2 } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { checkinEnrolment, scanTicket, type ScanVerdict } from '../../actions';
 
 export type DoorRow = {
@@ -19,10 +21,12 @@ const FLASH_MS = 2200;
 const REPEAT_MS = 4000;
 
 export function DoorList({
+  locale,
   threadId,
   initialRows,
   timezone,
 }: {
+  locale: Locale;
   threadId: string;
   initialRows: DoorRow[];
   timezone: string;
@@ -54,7 +58,7 @@ export function DoorList({
   }
 
   const fmtTime = (iso: string) =>
-    new Intl.DateTimeFormat('en-GB', {
+    new Intl.DateTimeFormat(INTL_LOCALES[locale], {
       hour: '2-digit',
       minute: '2-digit',
       timeZone: timezone,
@@ -97,7 +101,7 @@ export function DoorList({
     const onCode = (raw: string) => {
       const code = THREAD_CODE.exec(raw)?.[1];
       if (!code) {
-        showFlash({ kind: 'refused', reason: 'Not a ticket for this event' });
+        showFlash({ kind: 'refused', reason: t(locale, 'not_a_ticket') });
         return;
       }
       // One ticket held in front of the lens reads many times a second; without
@@ -181,7 +185,7 @@ export function DoorList({
         };
         void tick();
       } catch {
-        setError("The camera could not be opened — check the browser's permission.");
+        setError(t(locale, 'camera_error'));
         setScanning(false);
       }
     })();
@@ -218,18 +222,22 @@ export function DoorList({
             {flash.kind === 'admitted'
               ? flash.name
               : flash.kind === 'already'
-                ? `${flash.name} was already checked in at ${fmtTime(flash.at)}`
+                ? t(locale, 'already_checked_in_at', {
+                    name: flash.name,
+                    time: fmtTime(flash.at),
+                  })
                 : flash.reason}
           </p>
           <p className="mt-3 text-sm opacity-80">
-            {admitted ? 'Checked in' : 'Not admitted'}
+            {admitted ? t(locale, 'checked_in') : t(locale, 'not_admitted')}
           </p>
         </div>
       )}
 
       <div className="flex items-center justify-between gap-3 text-sm text-ink-subtle">
         <span>
-          <strong className="font-medium text-ink">{checkedIn}</strong> / {rows.length} checked in
+          <strong className="font-medium text-ink">{checkedIn}</strong> / {rows.length}{' '}
+          {t(locale, 'checked_in_lower')}
         </span>
         <button
           type="button"
@@ -241,7 +249,7 @@ export function DoorList({
           }`}
         >
           {scanning ? <CameraOff size={15} strokeWidth={1.75} /> : <Camera size={15} strokeWidth={1.75} />}
-          {scanning ? 'Stop scanning' : 'Scan tickets'}
+          {scanning ? t(locale, 'stop_scanning') : t(locale, 'scan_tickets')}
         </button>
       </div>
 
@@ -261,7 +269,7 @@ export function DoorList({
           type="search"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search name or email"
+          placeholder={t(locale, 'search_name_email')}
           autoComplete="off"
           className="h-12 w-full rounded-xl border border-line bg-surface pl-10 pr-4 text-base outline-none focus:border-ink"
         />
@@ -269,24 +277,22 @@ export function DoorList({
 
       {error && <p className="mt-3 text-sm text-red-700">{error}</p>}
       {scanning && (
-        <p className="mt-3 text-xs text-ink-muted">
-          The camera is the door while it is on — tap Stop scanning to check someone in by hand.
-        </p>
+        <p className="mt-3 text-xs text-ink-muted">{t(locale, 'camera_is_door')}</p>
       )}
 
       <ul className="mt-3 divide-y divide-line rounded-xl border border-line bg-surface">
         {visible.length === 0 && (
           <li className="px-4 py-6 text-center text-sm text-ink-subtle">
-            {rows.length === 0 ? 'Nobody is registered yet.' : 'No match.'}
+            {rows.length === 0 ? t(locale, 'nobody_registered') : t(locale, 'no_match')}
           </li>
         )}
         {visible.map((r) => {
           const done = !!r.checked_in_at;
           const note =
             r.status === 'invited'
-              ? 'not approved yet'
+              ? t(locale, 'not_approved_yet')
               : r.payment_status === 'pending'
-                ? 'payment pending'
+                ? t(locale, 'payment_pending_lower')
                 : null;
           return (
             <li key={r.id}>
@@ -311,7 +317,7 @@ export function DoorList({
                   </span>
                 ) : (
                   <span className="shrink-0 rounded-lg border border-line px-3 py-1.5 text-sm font-medium">
-                    Check in
+                    {t(locale, 'check_in')}
                   </span>
                 )}
               </button>

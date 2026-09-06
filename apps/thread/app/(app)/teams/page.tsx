@@ -8,6 +8,8 @@ import {
   ErrorBanner,
 } from '@/components/ui/page';
 import { ButtonLink } from '@/components/ui/button';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
@@ -15,6 +17,7 @@ const THREAD_HOST =
 type TeamListItem = { id: string; name: string; slug: string };
 
 export default async function TeamsPage() {
+  const locale = await uiLocale();
   let teams: TeamListItem[] = [];
   let error: string | null = null;
   try {
@@ -27,18 +30,14 @@ export default async function TeamsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Teams"
-        description="Shared groups that organise threads together — members see and share each other's work."
-        actions={<ButtonLink href="/teams/new">New team</ButtonLink>}
+        title={t(locale, 'teams')}
+        description={t(locale, 'teams_desc')}
+        actions={<ButtonLink href="/teams/new">{t(locale, 'new_team')}</ButtonLink>}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load teams: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
-      {!error && teams.length === 0 && (
-        <EmptyState>
-          No teams yet. Create one so a group can own threads together.
-        </EmptyState>
-      )}
+      {!error && teams.length === 0 && <EmptyState>{t(locale, 'teams_empty')}</EmptyState>}
 
       {teams.length > 0 && (
         <ul className="mt-6 divide-y divide-line border border-line rounded-lg bg-surface-raised">

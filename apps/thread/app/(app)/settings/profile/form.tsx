@@ -3,8 +3,10 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ExternalLink } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
 import type { OrganiserRow } from '@/lib/thread-types';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n-ui';
 import { updateOrganiser } from '../actions';
 
 const THREAD_HOST =
@@ -19,9 +21,11 @@ const THREAD_HOST =
  * is how the two drifted.
  */
 export function PublicPageForm({
+  locale,
   organiser,
   fibreProfileUrl,
 }: {
+  locale: Locale;
   organiser: OrganiserRow;
   fibreProfileUrl: string;
 }) {
@@ -35,7 +39,7 @@ export function PublicPageForm({
     e.preventDefault();
     setError(null);
     setSaved(false);
-    if (!slug.trim()) return setError('Pick a public URL.');
+    if (!slug.trim()) return setError(t(locale, 'pick_public_url'));
     start(async () => {
       const r = await updateOrganiser({ slug: slug.trim() });
       if (!r.ok) return setError(r.error);
@@ -48,7 +52,8 @@ export function PublicPageForm({
     <form onSubmit={onSubmit} className="mt-8 space-y-8 max-w-xl">
       <label className="block">
         <span className="text-sm text-ink-subtle">
-          Public URL<span className="text-red-600"> *</span>
+          {t(locale, 'public_url')}
+          <span className="text-red-600"> *</span>
         </span>
         <div className="mt-1 flex">
           <span className="inline-flex items-center rounded-l-md border border-r-0 border-line bg-surface-sunken px-3 text-sm text-ink-muted">
@@ -63,13 +68,13 @@ export function PublicPageForm({
             }}
           />
         </div>
-        <span className="mt-1 block text-xs text-ink-muted">
-          Every thread you publish lives under this address.
-        </span>
+        <span className="mt-1 block text-xs text-ink-muted">{t(locale, 'public_url_hint')}</span>
       </label>
 
       <section className="border-t border-line pt-8">
-        <div className="text-[10px] uppercase tracking-wider text-ink-muted">What it shows</div>
+        <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+          {t(locale, 'what_it_shows')}
+        </div>
         <div className="mt-3 flex items-start gap-4 rounded-lg border border-line bg-surface-raised p-4">
           {organiser.photo_url ? (
             /* eslint-disable-next-line @next/next/no-img-element */
@@ -84,7 +89,7 @@ export function PublicPageForm({
           <div className="min-w-0">
             <div className="text-sm font-medium">{organiser.display_name ?? '—'}</div>
             <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-              {organiser.bio || 'No bio yet.'}
+              {organiser.bio || t(locale, 'no_bio_yet')}
             </p>
           </div>
         </div>
@@ -92,12 +97,10 @@ export function PublicPageForm({
           href={fibreProfileUrl}
           className="mt-3 inline-flex items-center gap-1.5 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
         >
-          Edit your profile in The Fibre
+          {t(locale, 'edit_profile_in_fibre')}
           <ExternalLink size={12} strokeWidth={1.75} />
         </a>
-        <p className="mt-2 text-xs text-ink-muted">
-          One profile, used by every app — so it is edited in one place.
-        </p>
+        <p className="mt-2 text-xs text-ink-muted">{t(locale, 'one_profile_note')}</p>
       </section>
 
       {error && (
@@ -107,9 +110,9 @@ export function PublicPageForm({
       )}
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
-          {pending ? 'Saving…' : 'Save'}
+          {pending ? t(locale, 'saving') : t(locale, 'save')}
         </Button>
-        {saved && <span className="text-sm text-ink-subtle">Saved.</span>}
+        {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved')}</span>}
       </div>
     </form>
   );

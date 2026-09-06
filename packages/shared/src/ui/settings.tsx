@@ -23,9 +23,13 @@
 //
 // Server-renderable — no hooks, no 'use client'. `link` is next/link, injected
 // so this package keeps no Next.js dependency (same arrangement as HelpPage).
+// The locale is an explicit parameter (i18n P3) — useLocale() cannot reach a
+// server-renderable module; strings live in chrome-server-i18n.ts.
 
 import type { ReactNode } from 'react';
 import { ChevronRight, ExternalLink , Coins } from 'lucide-react';
+import { DEFAULT_LOCALE, type Locale } from '../i18n.js';
+import { serverChromeT, type ServerChromeKey } from './chrome-server-i18n.js';
 
 /** next/link, structurally. See HelpLink in help.tsx for why it is loose. */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -50,7 +54,7 @@ export type SettingsSection = {
   entries: SettingsEntry[];
 };
 
-/** The four headings, in the order they always appear. */
+/** The four headings, in the order they always appear. "The Fibre" is brand. */
 export const SETTINGS_SECTIONS = {
   you: 'You',
   workspace: 'Workspace',
@@ -60,9 +64,11 @@ export const SETTINGS_SECTIONS = {
 export function SettingsCards({
   sections,
   link: Link,
+  locale = DEFAULT_LOCALE,
 }: {
   sections: SettingsSection[];
   link: SettingsLink;
+  locale?: Locale;
 }) {
   return (
     <>
@@ -75,7 +81,7 @@ export function SettingsCards({
             </div>
             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {section.entries.map((entry) => (
-                <SettingsCard key={entry.title} entry={entry} link={Link} />
+                <SettingsCard key={entry.title} entry={entry} link={Link} locale={locale} />
               ))}
             </div>
           </section>
@@ -84,7 +90,15 @@ export function SettingsCards({
   );
 }
 
-function SettingsCard({ entry, link: Link }: { entry: SettingsEntry; link: SettingsLink }) {
+function SettingsCard({
+  entry,
+  link: Link,
+  locale,
+}: {
+  entry: SettingsEntry;
+  link: SettingsLink;
+  locale: Locale;
+}) {
   const unavailable = entry.disabled || !entry.href;
   const body = (
     <div
@@ -100,7 +114,7 @@ function SettingsCard({ entry, link: Link }: { entry: SettingsEntry; link: Setti
           {entry.title}
           {entry.external && (
             <span className="ml-2 text-[10px] uppercase tracking-wider text-ink-muted">
-              in The Fibre
+              {serverChromeT(locale, 'in_the_fibre')}
             </span>
           )}
         </div>
@@ -250,12 +264,15 @@ export function platformSettings({
   hosted = [],
   omit = [],
   appSection,
+  locale = DEFAULT_LOCALE,
 }: {
   fibreUrl: string;
   hosted?: PlatformSettingKey[];
   omit?: PlatformSettingKey[];
   /** This app's own settings, shown between Workspace and The Fibre. */
   appSection?: SettingsSection;
+  /** The signed-in interface language (i18n P3) — pass `await uiLocale()`. */
+  locale?: Locale;
 }): SettingsSection[] {
   const pick = (section: 'you' | 'workspace' | 'platform') =>
     (Object.keys(CANON) as PlatformSettingKey[])
@@ -266,16 +283,17 @@ export function platformSettings({
         return {
           href: isLocal ? c.path : `${fibreUrl}${c.path}`,
           icon: c.icon,
-          title: c.title,
-          desc: c.desc,
+          title: serverChromeT(locale, `st_${k}_title` as ServerChromeKey),
+          desc: serverChromeT(locale, `st_${k}_desc` as ServerChromeKey),
           ...(isLocal ? {} : { external: true }),
         } satisfies SettingsEntry;
       });
 
   return [
-    { label: SETTINGS_SECTIONS.you, entries: pick('you') },
-    { label: SETTINGS_SECTIONS.workspace, entries: pick('workspace') },
+    { label: serverChromeT(locale, 'section_you'), entries: pick('you') },
+    { label: serverChromeT(locale, 'section_workspace'), entries: pick('workspace') },
     ...(appSection ? [appSection] : []),
+    // "The Fibre" heading is the brand name — the same in every language.
     { label: SETTINGS_SECTIONS.platform, entries: pick('platform') },
   ];
 }

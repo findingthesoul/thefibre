@@ -19,6 +19,7 @@
 
 import { useEffect, useId, useRef, useState } from 'react';
 import { TextField } from './field';
+import { t, DEFAULT_LOCALE, type Locale } from '@/lib/i18n-ui';
 
 function slugify(s: string): string {
   return s
@@ -41,6 +42,7 @@ export function NameAndSlugFields({
   prefix = '',
   slugHint,
   slugLabel = 'Public URL',
+  locale = DEFAULT_LOCALE,
 }: {
   initialName?: string;
   initialSlug?: string;
@@ -49,6 +51,7 @@ export function NameAndSlugFields({
   prefix?: string;
   slugHint?: React.ReactNode;
   slugLabel?: string;
+  locale?: Locale;
 }) {
   const isCreate = !initialSlug;
   const [name, setName] = useState(initialName);
@@ -102,14 +105,14 @@ export function NameAndSlugFields({
             onChange={(e) => onSlugChange(e.target.value)}
             required
             pattern="[a-z0-9-]+"
-            placeholder="auto-generated"
+            placeholder={t(locale, 'slug_auto_placeholder')}
             className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none placeholder:text-ink-muted min-w-0"
           />
           <button
             type="button"
             onClick={regenerate}
             className="px-3 flex items-center text-xs uppercase tracking-wider text-ink-subtle hover:text-ink hover:bg-surface-sunken border-l border-line"
-            title="Suggest an alternative slug"
+            title={t(locale, 'slug_alt_title')}
           >
             Alt
           </button>

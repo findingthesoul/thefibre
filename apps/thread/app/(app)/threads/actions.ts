@@ -2,6 +2,8 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, errorMessage } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
 
@@ -456,11 +458,11 @@ export async function scanTicket(threadId: string, code: string): Promise<ScanVe
     const msg = errorMessage(e);
     return {
       kind: 'refused',
-      reason: /not found/i.test(msg) ? 'Not a ticket for this event' : msg,
+      reason: /not found/i.test(msg) ? t(await uiLocale(), 'not_a_ticket') : msg,
     };
   }
   if (found.thread_id !== threadId) {
-    return { kind: 'refused', reason: 'Ticket for another event' };
+    return { kind: 'refused', reason: t(await uiLocale(), 'ticket_other_event') };
   }
   if (found.checked_in_at) {
     return { kind: 'already', name: found.person_name, at: found.checked_in_at };

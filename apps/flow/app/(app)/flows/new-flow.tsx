@@ -6,22 +6,29 @@ import { Plus } from 'lucide-react';
 import { createFlow } from './actions';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 type Scope = 'personal' | 'team' | 'workspace';
 
-export function NewFlowButton() {
+const SCOPE_KEY: Record<Scope, UiKey> = {
+  personal: 'scope_personal',
+  team: 'scope_team',
+  workspace: 'scope_workspace',
+};
+
+export function NewFlowButton({ locale }: { locale: Locale }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setOpen(true)}>
-        New flow
+        {t(locale, 'new_flow')}
       </Button>
-      {open && <NewFlowDialog onClose={() => setOpen(false)} />}
+      {open && <NewFlowDialog locale={locale} onClose={() => setOpen(false)} />}
     </>
   );
 }
 
-function NewFlowDialog({ onClose }: { onClose: () => void }) {
+function NewFlowDialog({ locale, onClose }: { locale: Locale; onClose: () => void }) {
   const router = useRouter();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -32,11 +39,11 @@ function NewFlowDialog({ onClose }: { onClose: () => void }) {
   async function submit(e?: React.FormEvent<HTMLFormElement>) {
     e?.preventDefault();
     if (!name.trim()) {
-      setError('Name is required.');
+      setError(t(locale, 'name_required'));
       return;
     }
     if (scope === 'team') {
-      setError('Team-scoped flows need a team picker — not in this build yet. Use Personal or Workspace for now.');
+      setError(t(locale, 'team_scope_unavailable'));
       return;
     }
     setBusy(true);
@@ -63,61 +70,61 @@ function NewFlowDialog({ onClose }: { onClose: () => void }) {
     <Dialog
       open
       onClose={onClose}
-      title="New flow"
+      title={t(locale, 'new_flow')}
       footer={
         <>
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="new-flow-form" disabled={busy}>
-            {busy ? 'Creating…' : 'Create flow'}
+            {busy ? t(locale, 'creating') : t(locale, 'create_flow')}
           </Button>
         </>
       }
     >
       <form id="new-flow-form" onSubmit={submit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Name</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'name')}</label>
           <input
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="e.g. Sales pipeline"
+            placeholder={t(locale, 'name_example_ph')}
             className="w-full rounded-md border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-1">Description</label>
+          <label className="block text-sm font-medium mb-1">{t(locale, 'description')}</label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
-            placeholder="Optional"
+            placeholder={t(locale, 'optional')}
             className="w-full rounded-md border border-line px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-300"
           />
         </div>
         <div>
-          <label className="block text-sm font-medium mb-2">Scope</label>
+          <label className="block text-sm font-medium mb-2">{t(locale, 'scope')}</label>
           <div className="grid grid-cols-3 gap-2">
             {(['personal', 'workspace', 'team'] as Scope[]).map((s) => (
               <button
                 key={s}
                 type="button"
                 onClick={() => setScope(s)}
-                className={`rounded-md border px-3 py-2 text-sm capitalize ${
+                className={`rounded-md border px-3 py-2 text-sm ${
                   scope === s
                     ? 'border-ink bg-ink text-ink-inverse'
                     : 'border-line text-ink-subtle hover:border-line-strong'
                 }`}
               >
-                {s}
+                {t(locale, SCOPE_KEY[s])}
               </button>
             ))}
           </div>
           <p className="mt-1.5 text-xs text-ink-muted">
-            {scope === 'personal' && 'Only you can see and run this flow.'}
-            {scope === 'workspace' && 'Everyone in the workspace can see and run it.'}
-            {scope === 'team' && 'Team picker coming in a later build.'}
+            {scope === 'personal' && t(locale, 'scope_personal_hint')}
+            {scope === 'workspace' && t(locale, 'scope_workspace_hint')}
+            {scope === 'team' && t(locale, 'scope_team_hint')}
           </p>
         </div>
         {error && (

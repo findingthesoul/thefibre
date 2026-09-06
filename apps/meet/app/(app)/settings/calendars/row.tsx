@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { setCalendarRole } from './actions';
 
 export type Cal = {
@@ -11,14 +12,14 @@ export type Cal = {
   role: 'primary' | 'conflict_check' | 'write_target' | 'ignore';
 };
 
-const ROLE_LABEL: Record<Cal['role'], string> = {
-  primary: 'Primary',
-  conflict_check: 'Conflict source',
-  write_target: 'Write target',
-  ignore: 'Ignore',
+const ROLE_KEY: Record<Cal['role'], UiKey> = {
+  primary: 'role_primary',
+  conflict_check: 'role_conflict_source',
+  write_target: 'role_write_target',
+  ignore: 'role_ignore',
 };
 
-export function CalendarRow({ cal }: { cal: Cal }) {
+export function CalendarRow({ cal, locale }: { cal: Cal; locale: Locale }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function CalendarRow({ cal }: { cal: Cal }) {
       >
         {(['primary', 'conflict_check', 'write_target', 'ignore'] as const).map((r) => (
           <option key={r} value={r}>
-            {ROLE_LABEL[r]}
+            {t(locale, ROLE_KEY[r])}
           </option>
         ))}
       </select>

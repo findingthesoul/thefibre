@@ -18,7 +18,9 @@
 //     suffix). Useful when a base slug is taken.
 
 import { useEffect, useId, useRef, useState } from 'react';
+import type { Locale } from '@thefibre/shared';
 import { TextField } from './field';
+import { t } from '@/lib/i18n-ui';
 
 function slugify(s: string): string {
   return s
@@ -35,13 +37,15 @@ function randomSuffix(len = 4): string {
 }
 
 export function NameAndSlugFields({
+  locale,
   initialName = '',
   initialSlug = '',
-  nameLabel = 'Name',
+  nameLabel,
   prefix = '',
   slugHint,
-  slugLabel = 'Public URL',
+  slugLabel,
 }: {
+  locale: Locale;
   initialName?: string;
   initialSlug?: string;
   nameLabel?: string;
@@ -50,6 +54,8 @@ export function NameAndSlugFields({
   slugHint?: React.ReactNode;
   slugLabel?: string;
 }) {
+  const nameLabelText = nameLabel ?? t(locale, 'name');
+  const slugLabelText = slugLabel ?? t(locale, 'public_url');
   const isCreate = !initialSlug;
   const [name, setName] = useState(initialName);
   const [slug, setSlug] = useState(initialSlug || slugify(initialName));
@@ -78,7 +84,7 @@ export function NameAndSlugFields({
   return (
     <div className="space-y-5">
       <TextField
-        label={nameLabel}
+        label={nameLabelText}
         name="name"
         value={name}
         onChange={(e) => setName(e.target.value)}
@@ -86,7 +92,7 @@ export function NameAndSlugFields({
       />
       <div>
         <label htmlFor={slugId} className="block text-sm text-ink-subtle">
-          {slugLabel} <span className="text-red-600">*</span>
+          {slugLabelText} <span className="text-red-600">*</span>
         </label>
         <div className="mt-1 flex items-stretch rounded-md border border-line bg-surface-raised overflow-hidden focus-within:border-line-strong">
           {prefix && (
@@ -102,14 +108,14 @@ export function NameAndSlugFields({
             onChange={(e) => onSlugChange(e.target.value)}
             required
             pattern="[a-z0-9-]+"
-            placeholder="auto-generated"
+            placeholder={t(locale, 'auto_generated')}
             className="flex-1 px-3 py-2 text-sm bg-transparent focus:outline-none placeholder:text-ink-muted min-w-0"
           />
           <button
             type="button"
             onClick={regenerate}
             className="px-3 flex items-center text-xs uppercase tracking-wider text-ink-subtle hover:text-ink hover:bg-surface-sunken border-l border-line"
-            title="Suggest an alternative slug"
+            title={t(locale, 'alt_slug_tooltip')}
           >
             Alt
           </button>

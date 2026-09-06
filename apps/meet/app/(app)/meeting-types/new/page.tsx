@@ -4,6 +4,8 @@ import {
   PageHeader,
 } from '@/components/ui/page';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { MeetingTypeForm, type TeamOption, type CalendarOption } from '../form';
 
 type Team = { id: string; slug: string; name: string; my_role: 'lead' | 'member' };
@@ -14,6 +16,7 @@ export default async function NewMeetingTypePage({
 }: {
   searchParams: Promise<{ team?: string; event_type?: string }>;
 }) {
+  const locale = await uiLocale();
   const { team: teamParam, event_type: eventTypeParam } = await searchParams;
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
@@ -41,10 +44,10 @@ export default async function NewMeetingTypePage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/meeting-types" label="Meeting types" />
+      <Breadcrumb href="/meeting-types" label={t(locale, 'mt_title')} />
       <PageHeader
-        title="New meeting type"
-        description="What can people book you for?"
+        title={t(locale, 'new_mt_title')}
+        description={t(locale, 'new_mt_desc')}
       />
       <div className="mt-10">
         <MeetingTypeForm
@@ -52,6 +55,7 @@ export default async function NewMeetingTypePage({
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
+          locale={locale}
         />
       </div>
     </PageContainer>

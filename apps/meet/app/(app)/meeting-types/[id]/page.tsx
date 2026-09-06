@@ -12,6 +12,8 @@ import {
   type TeamOption,
   type CalendarOption,
 } from '../form';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { AssigneesEditor, type TeamMember, type Assignee } from './assignees';
 import { PollVotesMatrix } from './votes';
 
@@ -41,6 +43,7 @@ export default async function EditMeetingTypePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const locale = await uiLocale();
   const { id } = await params;
   let mt: MT | null = null;
   let teams: TeamOption[] = [];
@@ -117,7 +120,7 @@ export default async function EditMeetingTypePage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/meeting-types" label="Meeting types" />
+      <Breadcrumb href="/meeting-types" label={t(locale, 'mt_title')} />
       <PageHeader title={mt.name!} description={`slug: ${mt.slug}`} />
       <div className="mt-10">
         <MeetingTypeForm
@@ -125,34 +128,34 @@ export default async function EditMeetingTypePage({
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
+          locale={locale}
         />
       </div>
       {mt.event_type === 'poll' && (
         <section className="mt-14">
-          <SectionLabel>Votes</SectionLabel>
+          <SectionLabel>{t(locale, 'votes_label')}</SectionLabel>
           <p className="mt-2 text-sm text-ink-subtle max-w-2xl">
-            One row per invitee, one column per candidate slot. Tap "Confirm"
-            on the winning column to convert this poll into a fixed time —
-            the meeting type flips to one-off so the slot becomes bookable.
+            {t(locale, 'votes_desc')}
           </p>
           <div className="mt-4">
-            <PollVotesMatrix mtId={mt.id} slots={pollSlots} votes={pollVotes} />
+            <PollVotesMatrix mtId={mt.id} slots={pollSlots} votes={pollVotes} locale={locale} />
           </div>
         </section>
       )}
       {showAssignees && isLead && (
         <section className="mt-14">
-          <SectionLabel>Assignees</SectionLabel>
+          <SectionLabel>{t(locale, 'assignees_label')}</SectionLabel>
           <p className="mt-2 text-sm text-ink-subtle max-w-2xl">
             {mt.event_type === 'round_robin'
-              ? 'Bookings rotate to the least-loaded assignee free at the requested slot. Mark one assignee as primary — they own the canonical calendar event.'
-              : 'All assignees attend every booking. Slots are computed by intersecting availability. The primary holds the canonical calendar event.'}
+              ? t(locale, 'assignees_rr_desc')
+              : t(locale, 'assignees_col_desc')}
           </p>
           <div className="mt-4">
             <AssigneesEditor
               mtId={mt.id}
               members={members}
               assignees={assignees}
+              locale={locale}
             />
           </div>
         </section>

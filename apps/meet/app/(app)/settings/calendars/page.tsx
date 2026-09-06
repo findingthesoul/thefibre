@@ -6,10 +6,13 @@ import {
   ErrorBanner,
   EmptyState,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { CalendarRow, type Cal } from './row';
 import { ResyncButton } from './resync';
 
 export default async function CalendarsPage() {
+  const locale = await uiLocale();
   let items: Cal[] = [];
   let connected = false;
   let error: string | null = null;
@@ -26,55 +29,50 @@ export default async function CalendarsPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Calendars"
-        description="Pick which Google calendars block availability and where new bookings get created."
+        title={t(locale, 'st_calendars')}
+        description={t(locale, 'cal_page_desc')}
       />
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       {!connected ? (
         <div className="mt-10 rounded-lg border border-line bg-surface-raised p-6">
           <div className="text-sm">
-            Google Calendar isn&apos;t connected yet.{' '}
+            {t(locale, 'cal_not_connected')}{' '}
             <a href="/settings/integrations" className="underline">
-              Connect it
-            </a>{' '}
-            first.
+              {t(locale, 'cal_connect_first')}
+            </a>
           </div>
         </div>
       ) : (
         <section className="mt-10">
           <div className="rounded-lg border border-line bg-surface-raised p-6">
-            <div className="text-base font-medium">Connected calendars</div>
+            <div className="text-base font-medium">{t(locale, 'cal_connected_title')}</div>
             <p className="mt-1 text-sm text-ink-subtle">
-              Conflict sources block availability; the write target receives new bookings.
+              {t(locale, 'cal_connected_desc')}
             </p>
             {items.length === 0 ? (
               <>
-                <EmptyState>
-                  No calendars synced yet. Click Re-sync to pull them in from Google.
-                </EmptyState>
-                <ResyncButton />
+                <EmptyState>{t(locale, 'cal_empty')}</EmptyState>
+                <ResyncButton locale={locale} />
               </>
             ) : (
               <>
                 <ul className="mt-5 space-y-2">
                   {items.map((c) => (
-                    <CalendarRow key={c.id} cal={c} />
+                    <CalendarRow key={c.id} cal={c} locale={locale} />
                   ))}
                 </ul>
-                <ResyncButton />
+                <ResyncButton locale={locale} />
               </>
             )}
           </div>
 
           <div className="mt-6 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle leading-relaxed">
-            <div className="font-medium text-ink">Don&apos;t see a calendar you expected?</div>
+            <div className="font-medium text-ink">{t(locale, 'cal_missing_title')}</div>
             <p className="mt-2">
-              Meet shows every Google calendar you own or have write access
-              to. Add the calendar inside Google Calendar and disconnect /
-              reconnect the integration to refresh the list.
+              {t(locale, 'cal_missing_body')}
             </p>
           </div>
         </section>

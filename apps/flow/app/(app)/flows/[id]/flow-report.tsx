@@ -1,4 +1,5 @@
 import type { Run, Step } from './runs-panel';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 function one<T>(v: T | T[] | null): T | null {
   return Array.isArray(v) ? v[0] ?? null : v;
@@ -8,7 +9,7 @@ function one<T>(v: T | T[] | null): T | null {
 // Honest scope: this is the *current distribution* of contacts across steps
 // plus outcome totals — not a historical cohort funnel (we don't replay step
 // history yet). Good enough to spot where people sit and pile up.
-export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
+export function FlowReport({ runs, steps, locale }: { runs: Run[]; steps: Step[]; locale: Locale }) {
   const total = runs.length;
   const active = runs.filter((r) => r.status === 'active').length;
   const completed = runs.filter((r) => r.status === 'completed').length;
@@ -32,7 +33,7 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
   if (total === 0) {
     return (
       <div className="mt-4 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center text-sm text-ink-subtle">
-        No contacts in this flow yet — nothing to report.
+        {t(locale, 'report_empty')}
       </div>
     );
   }
@@ -40,14 +41,14 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
   return (
     <div className="mt-4 space-y-6">
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <Stat label="Total" value={total} />
-        <Stat label="Active" value={active} accent="text-emerald-700" />
-        <Stat label="Completed" value={completed} accent="text-indigo-600" />
-        <Stat label="Withdrawn" value={withdrawn} accent="text-slate-400" />
+        <Stat label={t(locale, 'total')} value={total} />
+        <Stat label={t(locale, 'stat_active')} value={active} accent="text-emerald-700" />
+        <Stat label={t(locale, 'stat_completed')} value={completed} accent="text-indigo-600" />
+        <Stat label={t(locale, 'stat_withdrawn')} value={withdrawn} accent="text-slate-400" />
       </div>
 
       <div>
-        <h3 className="text-sm font-medium mb-3">Current distribution across steps</h3>
+        <h3 className="text-sm font-medium mb-3">{t(locale, 'distribution_heading')}</h3>
         <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-5 space-y-2.5">
           {steps.map((s) => {
             const n = byStep.get(s.key) ?? 0;
@@ -66,10 +67,7 @@ export function FlowReport({ runs, steps }: { runs: Run[]; steps: Step[] }) {
             );
           })}
         </div>
-        <p className="mt-2 text-xs text-ink-muted">
-          Shows where contacts sit right now. A historical cohort funnel (how many ever reached each step)
-          comes with step-history tracking.
-        </p>
+        <p className="mt-2 text-xs text-ink-muted">{t(locale, 'report_footnote')}</p>
       </div>
     </div>
   );

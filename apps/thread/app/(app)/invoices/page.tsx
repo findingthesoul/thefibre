@@ -5,21 +5,21 @@
 import { apiFetch } from '@/lib/api';
 import type { TeamOption } from '@/lib/thread-types';
 import { PageContainer, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { InvoicesClient } from './invoices-client';
 
 export const dynamic = 'force-dynamic';
 
 export default async function InvoicesPage() {
+  const locale = await uiLocale();
   const teams = await apiFetch<{ items: TeamOption[] }>('/api/v1/thread/teams?mine=1')
     .then((r) => r.items)
     .catch(() => [] as TeamOption[]);
 
   return (
     <PageContainer max="4xl">
-      <PageHeader
-        title="Invoices"
-        description="Every purchase across your Fibre apps — search, resend invoices, reimburse."
-      />
+      <PageHeader title={t(locale, 'invoices')} description={t(locale, 'invoices_desc')} />
       <InvoicesClient teams={teams.map((t) => ({ id: t.id, name: t.name }))} defaultApp="the-thread" />
     </PageContainer>
   );

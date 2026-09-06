@@ -12,6 +12,8 @@ import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 import type { TeamOption, WorkspaceMember } from '@/lib/thread-types';
 import type { CertShares } from '@/lib/certificate-types';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { saveCertificateShares } from '../actions';
 
 type Audience = 'everyone' | 'selected';
@@ -88,6 +90,7 @@ function AudienceRow({
 }
 
 export function ShareDialog({
+  locale,
   open,
   onClose,
   templateId,
@@ -96,6 +99,7 @@ export function ShareDialog({
   shares,
   onSaved,
 }: {
+  locale: Locale;
   open: boolean;
   onClose: () => void;
   templateId: string;
@@ -156,15 +160,15 @@ export function ShareDialog({
       onClose={() => {
         if (!pending) onClose();
       }}
-      title="Share template"
-      description="Who in the workspace can use this template on their threads."
+      title={t(locale, 'share_template')}
+      description={t(locale, 'share_template_desc')}
       footer={
         <>
           <Button variant="ghost" onClick={onClose} disabled={pending}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button onClick={save} disabled={pending}>
-            {pending ? 'Saving…' : 'Save shares'}
+            {pending ? t(locale, 'saving') : t(locale, 'save_shares')}
           </Button>
         </>
       }
@@ -173,15 +177,15 @@ export function ShareDialog({
         <div className="space-y-2">
           <AudienceRow
             icon={<Building2 size={16} strokeWidth={1.75} />}
-            label="Everyone in the workspace"
-            sub="Any workspace member can use this template."
+            label={t(locale, 'everyone_in_workspace')}
+            sub={t(locale, 'anyone_can_use')}
             selected={everyone}
             onSelect={() => setAudience('everyone')}
           />
           <AudienceRow
             icon={<UsersRound size={16} strokeWidth={1.75} />}
-            label="Only selected people and teams"
-            sub="Pick who gets access below."
+            label={t(locale, 'only_selected')}
+            sub={t(locale, 'pick_below')}
             selected={!everyone}
             onSelect={() => setAudience('selected')}
           />
@@ -189,15 +193,15 @@ export function ShareDialog({
 
         {teams.length > 0 && (
           <div>
-            <SectionLabel>Teams</SectionLabel>
+            <SectionLabel>{t(locale, 'teams')}</SectionLabel>
             <div className="mt-2 space-y-0.5">
-              {teams.map((t) => (
+              {teams.map((tm) => (
                 <CheckRow
-                  key={t.id}
-                  label={t.name}
-                  checked={teamIds.has(t.id)}
+                  key={tm.id}
+                  label={tm.name}
+                  checked={teamIds.has(tm.id)}
                   disabled={everyone}
-                  onToggle={() => setTeamIds((prev) => toggle(prev, t.id))}
+                  onToggle={() => setTeamIds((prev) => toggle(prev, tm.id))}
                 />
               ))}
             </div>
@@ -205,9 +209,9 @@ export function ShareDialog({
         )}
 
         <div>
-          <SectionLabel>People</SectionLabel>
+          <SectionLabel>{t(locale, 'people')}</SectionLabel>
           {members.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-subtle">No other workspace members.</p>
+            <p className="mt-2 text-sm text-ink-subtle">{t(locale, 'no_other_members')}</p>
           ) : (
             <div className="mt-2 space-y-0.5">
               {members.map((m) => (

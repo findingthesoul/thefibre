@@ -1,10 +1,13 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import type { ThreadRow, TeamOption } from '@/lib/thread-types';
 import { PageContainer, PageHeader, ErrorBanner } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { ThreadsList } from './threads-list';
 import { NewThreadButton } from './new-thread-button';
 
 export default async function ThreadsPage() {
+  const locale = await uiLocale();
   let threads: ThreadRow[] = [];
   let teams: TeamOption[] = [];
   let templates: { id: string; title: string }[] = [];
@@ -29,14 +32,14 @@ export default async function ThreadsPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Threads"
-        description="Events and journeys — each thread carries its own engagements, enrolments and certificate."
-        actions={<NewThreadButton templates={templates} />}
+        title={t(locale, 'threads')}
+        description={t(locale, 'threads_desc')}
+        actions={<NewThreadButton locale={locale} templates={templates} />}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load threads: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
-      {!error && <ThreadsList threads={threads} teams={teams} />}
+      {!error && <ThreadsList locale={locale} threads={threads} teams={teams} />}
     </PageContainer>
   );
 }

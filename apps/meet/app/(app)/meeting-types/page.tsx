@@ -8,6 +8,8 @@ import {
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
 import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { NewMeetingTypeMenu } from './new-menu';
 import { MEET_HOST } from '@/lib/public-host';
 
@@ -31,20 +33,21 @@ type MeetingType = {
 type Host = { slug: string };
 
 export default async function MeetingTypesPage() {
+  const locale = await uiLocale();
   let items: MeetingType[] = [];
   let host: Host | null = null;
   let teams: Team[] = [];
   let error: string | null = null;
 
   try {
-    const [data, h, t] = await Promise.all([
+    const [data, h, tm] = await Promise.all([
       apiFetch<{ items: MeetingType[] }>('/api/v1/meet/meeting-types'),
       apiFetch<Host>('/api/v1/meet/me'),
       apiFetch<{ items: Team[] }>('/api/v1/meet/teams').catch(() => ({ items: [] })),
     ]);
     items = data.items;
     host = h;
-    teams = t.items;
+    teams = tm.items;
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -53,14 +56,14 @@ export default async function MeetingTypesPage() {
   const byTeam = new Map<string, { name: string; slug: string; items: MeetingType[] }>();
   for (const mt of items) {
     if (!mt.team_id) continue;
-    const t = Array.isArray(mt.team) ? mt.team[0] : mt.team;
-    if (!t) continue;
-    const bucket = byTeam.get(t.id) ?? { name: t.name, slug: t.slug, items: [] };
+    const tm = Array.isArray(mt.team) ? mt.team[0] : mt.team;
+    if (!tm) continue;
+    const bucket = byTeam.get(tm.id) ?? { name: tm.name, slug: tm.slug, items: [] };
     bucket.items.push(mt);
-    byTeam.set(t.id, bucket);
+    byTeam.set(tm.id, bucket);
   }
 
-  function renderList(prefix: string, list: MeetingType[]) {
+  function renderList(prefix: string, list: MeetingType[], locale: Locale) {
     return (
       <ListGroup>
         {list.map((mt) => {
@@ -77,7 +80,7 @@ export default async function MeetingTypesPage() {
                 <>
                   {!mt.is_active && (
                     <span className="uppercase tracking-wider text-ink-muted">
-                      Hidden
+                      {t(locale, 'hidden')}
                     </span>
                   )}
                   <span>{mt.duration_minutes} min</span>
@@ -86,8 +89,12 @@ export default async function MeetingTypesPage() {
               trailing={
                 mt.is_active && (
                   <div className="flex items-center gap-1">
-                    <CopyLinkButton url={bookingPath} label="Copy booking link" />
-                    <OpenBookingLink href={bookingPath} />
+                    <CopyLinkButton
+                      url={bookingPath}
+                      label={t(locale, 'copy_booking_link')}
+                      copiedLabel={t(locale, 'copied')}
+                    />
+                    <OpenBookingLink href={bookingPath} label={t(locale, 'open_booking_page')} />
                   </div>
                 )
               }
@@ -101,26 +108,26 @@ export default async function MeetingTypesPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Meeting types"
-        description="What you offer to be booked for."
-        actions={<NewMeetingTypeMenu teams={teams} />}
+        title={t(locale, 'mt_title')}
+        description={t(locale, 'mt_desc')}
+        actions={<NewMeetingTypeMenu teams={teams} locale={locale} />}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <section className="mt-10">
-        <SectionLabel>Personal</SectionLabel>
+        <SectionLabel>{t(locale, 'personal')}</SectionLabel>
         {personal.length === 0 ? (
-          <EmptyState>No personal meeting types yet.</EmptyState>
+          <EmptyState>{t(locale, 'no_personal_mts')}</EmptyState>
         ) : (
-          host && renderList(host.slug, personal)
+          host && renderList(host.slug, personal, locale)
         )}
       </section>
 
       {Array.from(byTeam.entries()).map(([id, bucket]) => (
         <section key={id} className="mt-14">
           <SectionLabel>{bucket.name}</SectionLabel>
-          {renderList(bucket.slug, bucket.items)}
+          {renderList(bucket.slug, bucket.items, locale)}
         </section>
       ))}
     </PageContainer>

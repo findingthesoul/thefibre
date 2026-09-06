@@ -5,7 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select } from "@/components/ui/select";
-import { type IntakeField, type FieldType, FIELD_TYPES, FIELD_TYPE_LABELS } from "@/lib/intake";
+import { type IntakeField, type FieldType, FIELD_TYPES } from "@/lib/intake";
+import { t, type Locale, type UiKey } from "@/lib/i18n-ui";
+
+// Translated twin of lib/intake's FIELD_TYPE_LABELS (which stays English
+// for non-localised callers).
+const FIELD_TYPE_KEYS: Record<FieldType, UiKey> = {
+  short: "type_short",
+  long: "type_long",
+  email: "email",
+  select: "type_select",
+  checkbox: "type_checkbox",
+};
 
 function autoKey(label: string): string {
   return label
@@ -20,9 +31,11 @@ function autoKey(label: string): string {
 export function IntakeFieldsEditor({
   fields,
   onChange,
+  locale,
 }: {
   fields: IntakeField[];
   onChange: (fields: IntakeField[]) => void;
+  locale: Locale;
 }) {
   function update(idx: number, patch: Partial<IntakeField>) {
     const next = [...fields];
@@ -61,10 +74,10 @@ export function IntakeFieldsEditor({
     return (
       <div className="space-y-3">
         <p className="text-sm text-muted-foreground">
-          No questions yet. Bookings will only collect name + email.
+          {t(locale, "intake_no_questions")}
         </p>
         <Button variant="secondary" size="sm" onClick={addField} type="button">
-          <Plus className="h-3.5 w-3.5" /> Add a question
+          <Plus className="h-3.5 w-3.5" /> {t(locale, "add_question")}
         </Button>
       </div>
     );
@@ -77,10 +90,10 @@ export function IntakeFieldsEditor({
           <li key={idx} className="rounded-md border border-line bg-surface p-4 space-y-3">
             <div className="flex items-start justify-between gap-2">
               <span className="text-xs uppercase tracking-wide text-ink-muted pt-1">
-                Question {idx + 1}
+                {t(locale, "question_n", { n: idx + 1 })}
               </span>
               <div className="flex items-center gap-1">
-                <Button variant="ghost" size="icon" onClick={() => move(idx, -1)} disabled={idx === 0} type="button" aria-label="Move up">
+                <Button variant="ghost" size="icon" onClick={() => move(idx, -1)} disabled={idx === 0} type="button" aria-label={t(locale, "move_up")}>
                   <ChevronUp className="h-4 w-4" />
                 </Button>
                 <Button
@@ -89,11 +102,11 @@ export function IntakeFieldsEditor({
                   onClick={() => move(idx, 1)}
                   disabled={idx === fields.length - 1}
                   type="button"
-                  aria-label="Move down"
+                  aria-label={t(locale, "move_down")}
                 >
                   <ChevronDown className="h-4 w-4" />
                 </Button>
-                <Button variant="ghost" size="icon" onClick={() => remove(idx)} type="button" aria-label="Remove">
+                <Button variant="ghost" size="icon" onClick={() => remove(idx)} type="button" aria-label={t(locale, "remove")}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
@@ -101,7 +114,7 @@ export function IntakeFieldsEditor({
 
             <div className="grid gap-3 sm:grid-cols-2">
               <div className="space-y-1.5">
-                <Label htmlFor={`label-${idx}`}>Question</Label>
+                <Label htmlFor={`label-${idx}`}>{t(locale, "question")}</Label>
                 <Input
                   id={`label-${idx}`}
                   value={field.label}
@@ -111,11 +124,11 @@ export function IntakeFieldsEditor({
                     const derivedKey = autoKey(label) || `question-${idx + 1}`;
                     update(idx, { label, key: field.key === `question-${idx + 1}` || !field.key ? derivedKey : field.key });
                   }}
-                  placeholder="What would you like to discuss?"
+                  placeholder={t(locale, "question_placeholder")}
                 />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor={`type-${idx}`}>Type</Label>
+                <Label htmlFor={`type-${idx}`}>{t(locale, "type")}</Label>
                 <Select
                   id={`type-${idx}`}
                   value={field.type}
@@ -129,9 +142,9 @@ export function IntakeFieldsEditor({
                     update(idx, patch);
                   }}
                 >
-                  {FIELD_TYPES.map((t) => (
-                    <option key={t} value={t}>
-                      {FIELD_TYPE_LABELS[t]}
+                  {FIELD_TYPES.map((x) => (
+                    <option key={x} value={x}>
+                      {t(locale, FIELD_TYPE_KEYS[x])}
                     </option>
                   ))}
                 </Select>
@@ -140,7 +153,7 @@ export function IntakeFieldsEditor({
 
             {field.type === "select" && (
               <div className="space-y-1.5">
-                <Label>Options</Label>
+                <Label>{t(locale, "options")}</Label>
                 <div className="space-y-2">
                   {(field.options ?? []).map((opt, i) => (
                     <div key={i} className="flex items-center gap-2">
@@ -151,13 +164,13 @@ export function IntakeFieldsEditor({
                           next[i] = e.target.value;
                           update(idx, { options: next });
                         }}
-                        placeholder={`Option ${i + 1}`}
+                        placeholder={t(locale, "option_n", { n: i + 1 })}
                       />
                       <Button
                         variant="ghost"
                         size="icon"
                         type="button"
-                        aria-label="Remove option"
+                        aria-label={t(locale, "remove_option")}
                         onClick={() => {
                           const next = (field.options ?? []).filter((_, j) => j !== i);
                           update(idx, { options: next });
@@ -173,7 +186,7 @@ export function IntakeFieldsEditor({
                     type="button"
                     onClick={() => update(idx, { options: [...(field.options ?? []), ""] })}
                   >
-                    <Plus className="h-3.5 w-3.5" /> Add option
+                    <Plus className="h-3.5 w-3.5" /> {t(locale, "add_option")}
                   </Button>
                 </div>
               </div>
@@ -187,16 +200,16 @@ export function IntakeFieldsEditor({
                   onChange={(e) => update(idx, { required: e.target.checked })}
                   className="h-4 w-4 rounded border-line accent-ink"
                 />
-                Required
+                {t(locale, "required")}
               </label>
             </div>
 
-            <ConditionalEditor allFields={fields} idx={idx} update={update} />
+            <ConditionalEditor allFields={fields} idx={idx} update={update} locale={locale} />
           </li>
         ))}
       </ul>
       <Button variant="secondary" size="sm" onClick={addField} type="button">
-        <Plus className="h-3.5 w-3.5" /> Add a question
+        <Plus className="h-3.5 w-3.5" /> {t(locale, "add_question")}
       </Button>
     </div>
   );
@@ -206,10 +219,12 @@ function ConditionalEditor({
   allFields,
   idx,
   update,
+  locale,
 }: {
   allFields: IntakeField[];
   idx: number;
   update: (idx: number, patch: Partial<IntakeField>) => void;
+  locale: Locale;
 }) {
   const field = allFields[idx];
   // Conditionals can only depend on earlier fields, and only on fields with discrete answers.
@@ -238,7 +253,7 @@ function ConditionalEditor({
           }}
           className="h-4 w-4 rounded border-line accent-ink"
         />
-        Only show this question if…
+        {t(locale, "only_show_if")}
       </label>
 
       {enabled && field.conditionalOn && (
@@ -258,7 +273,7 @@ function ConditionalEditor({
               </option>
             ))}
           </Select>
-          <span className="text-xs text-muted-foreground sm:px-1">equals</span>
+          <span className="text-xs text-muted-foreground sm:px-1">{t(locale, "equals")}</span>
           {refField?.type === "checkbox" ? (
             <Select
               value={field.conditionalOn.equals}
@@ -266,8 +281,8 @@ function ConditionalEditor({
                 update(idx, { conditionalOn: { ...field.conditionalOn!, equals: e.target.value } })
               }
             >
-              <option value="true">checked</option>
-              <option value="false">not checked</option>
+              <option value="true">{t(locale, "checked")}</option>
+              <option value="false">{t(locale, "not_checked")}</option>
             </Select>
           ) : (
             <Select

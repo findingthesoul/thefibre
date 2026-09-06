@@ -24,6 +24,8 @@ import {
   Building2,
 } from 'lucide-react';
 import { InvoiceDialog } from './invoice-dialog.js';
+import { INTL_LOCALES, type Locale } from '../i18n.js';
+import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
 
 // ---------------------------------------------------------------------------
 // The ledger row shapes — single source of truth; app actions import these.
@@ -112,19 +114,26 @@ const STATUS_STYLES: Record<string, string> = {
   failed: 'bg-red-50 text-red-700 ring-red-200',
 };
 
-function fmt(cents: number, currency: string): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: currency || 'EUR' }).format(
+function fmtIn(intl: string, cents: number, currency: string): string {
+  return new Intl.NumberFormat(intl, { style: 'currency', currency: currency || 'EUR' }).format(
     cents / 100,
   );
 }
 
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDateIn(intl: string, iso: string): string {
+  return new Intl.DateTimeFormat(intl, {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
   }).format(new Date(iso));
 }
+
+const STATUS_KEYS: Record<PurchaseRow['status'], ChromeKey> = {
+  pending: 'status_pending',
+  paid: 'status_paid',
+  refunded: 'status_refunded',
+  failed: 'status_failed',
+};
 
 type Scope = 'me' | 'team' | 'workspace';
 
@@ -181,6 +190,10 @@ export function InvoicesArea({
    *  personal seller, so 'me' is empty there (Sjoerd, 2026-09-06). */
   defaultScope?: Scope;
 }) {
+  const locale: Locale = useLocale();
+  const intl = INTL_LOCALES[locale];
+  const fmt = (cents: number, currency: string) => fmtIn(intl, cents, currency);
+  const fmtDate = (iso: string) => fmtDateIn(intl, iso);
   const [scope, setScope] = useState<Scope>(defaultScope);
   const [app, setApp] = useState<string>(defaultApp);
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
@@ -262,7 +275,7 @@ export function InvoicesArea({
     const r = await action(row.id);
     setBusy(false);
     if (!r.ok) {
-      setNotice(r.error ?? 'That did not work — try again.');
+      setNotice(r.error ?? chromeT(locale, 'generic_error'));
       return;
     }
     setNotice(okMsg);
@@ -276,9 +289,14 @@ export function InvoicesArea({
   }
 
   const scopes: { key: Scope; label: string; Icon: typeof User; disabled?: boolean }[] = [
-    { key: 'me', label: 'Me', Icon: User },
-    { key: 'team', label: 'Team', Icon: Users, disabled: teams.length === 0 },
-    { key: 'workspace', label: 'Workspace', Icon: Building2, disabled: data ? !isAdmin : false },
+    { key: 'me', label: chromeT(locale, 'scope_me'), Icon: User },
+    { key: 'team', label: chromeT(locale, 'scope_team'), Icon: Users, disabled: teams.length === 0 },
+    {
+      key: 'workspace',
+      label: chromeT(locale, 'workspace'),
+      Icon: Building2,
+      disabled: data ? !isAdmin : false,
+    },
   ];
 
   return (
@@ -293,7 +311,7 @@ export function InvoicesArea({
               disabled={disabled}
               title={
                 key === 'workspace' && disabled
-                  ? 'Workspace-wide invoices need an Admin role'
+                  ? chromeT(locale, 'workspace_scope_needs_admin')
                   : undefined
               }
               onClick={() => setScope(key)}
@@ -337,7 +355,8 @@ export function InvoicesArea({
                   : 'ring-line bg-surface-raised text-ink-subtle hover:text-ink'
               }`}
             >
-              {o.label}
+              {/* The "all" chip is chrome; app names are proper names. */}
+              {o.key === 'all' ? chromeT(locale, 'all_apps') : o.label}
             </button>
           ))}
         </div>
@@ -347,7 +366,7 @@ export function InvoicesArea({
           <input
             defaultValue=""
             onChange={(e) => onSearchInput(e.target.value)}
-            placeholder="Search payer, email or item…"
+            placeholder={chromeT(locale, 'search_invoices')}
             className="w-full h-9 rounded-md border border-line bg-surface-raised pl-9 pr-3 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
           />
         </div>
@@ -362,28 +381,32 @@ export function InvoicesArea({
                 <span className="text-xs font-medium text-ink-muted w-8">{t.currency}</span>
               )}
               <span>
-                <span className="text-ink-muted">Paid</span>{' '}
+                <span className="text-ink-muted">{chromeT(locale, 'status_paid')}</span>{' '}
                 <span className="font-medium tabular-nums">{fmt(t.paid_cents, t.currency)}</span>
               </span>
               <span>
-                <span className="text-ink-muted">Pending</span>{' '}
+                <span className="text-ink-muted">{chromeT(locale, 'status_pending')}</span>{' '}
                 <span className="font-medium tabular-nums">{fmt(t.pending_cents, t.currency)}</span>
               </span>
               <span>
-                <span className="text-ink-muted">Refunded</span>{' '}
+                <span className="text-ink-muted">{chromeT(locale, 'status_refunded')}</span>{' '}
                 <span className="font-medium tabular-nums">
                   {fmt(t.refunded_cents, t.currency)}
                 </span>
               </span>
               <span>
-                <span className="text-ink-muted">Platform fees</span>{' '}
+                <span className="text-ink-muted">{chromeT(locale, 'platform_fees')}</span>{' '}
                 <span className="font-medium tabular-nums">{fmt(t.fees_cents, t.currency)}</span>
               </span>
             </div>
           ))}
           <div className="text-xs text-ink-muted">
-            {data.totals.count} purchase{data.totals.count === 1 ? '' : 's'}
-            {data.totals.count >= 2000 ? ' (first 2000)' : ''}
+            {chromeT(
+              locale,
+              data.totals.count === 1 ? 'purchase_count_one' : 'purchase_count_other',
+              { n: data.totals.count },
+            )}
+            {data.totals.count >= 2000 ? chromeT(locale, 'first_2000') : ''}
           </div>
         </div>
       )}
@@ -406,7 +429,9 @@ export function InvoicesArea({
           ))}
         </div>
       ) : items.length === 0 ? (
-        <p className="mt-8 text-sm text-ink-muted text-center">No purchases in this view yet.</p>
+        <p className="mt-8 text-sm text-ink-muted text-center">
+          {chromeT(locale, 'no_purchases')}
+        </p>
       ) : (
         <ul className="mt-4 divide-y divide-line border border-line rounded-lg bg-surface-raised">
           {items.map((row) => {
@@ -433,17 +458,17 @@ export function InvoicesArea({
                   </span>
                   <span className="text-[11px] text-ink-muted shrink-0 w-14">
                     {row.method === 'invoice'
-                      ? 'Invoice'
+                      ? chromeT(locale, 'invoice')
                       : row.method === 'free'
-                        ? 'Free (code)'
-                        : 'Card'}
+                        ? chromeT(locale, 'method_free')
+                        : chromeT(locale, 'method_card')}
                   </span>
                   <span
-                    className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
+                    className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                       STATUS_STYLES[row.status] ?? STATUS_STYLES.pending
                     }`}
                   >
-                    {row.status}
+                    {chromeT(locale, STATUS_KEYS[row.status] ?? 'status_pending')}
                   </span>
                 </button>
               </li>
@@ -460,7 +485,7 @@ export function InvoicesArea({
             onClick={() => void loadMore()}
             className="rounded-md border border-line bg-surface-raised px-3 py-1.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken disabled:opacity-50"
           >
-            {loadingMore ? 'Loading…' : 'Load more'}
+            {loadingMore ? chromeT(locale, 'loading') : chromeT(locale, 'load_more')}
           </button>
         </div>
       )}
@@ -485,7 +510,7 @@ export function InvoicesArea({
                   disabled={busy}
                   onClick={() => setConfirmRefund(detail)}
                 >
-                  Reimburse
+                  {chromeT(locale, 'reimburse')}
                 </GhostBtn>
               )}
               {detail.method === 'invoice' && detail.status === 'pending' && (
@@ -493,18 +518,24 @@ export function InvoicesArea({
                   <GhostBtn
                     leading={<BadgeEuro size={14} />}
                     disabled={busy}
-                    onClick={() => void run(actions.markPurchasePaid, detail, 'Marked as paid.')}
+                    onClick={() =>
+                      void run(actions.markPurchasePaid, detail, chromeT(locale, 'marked_paid_ok'))
+                    }
                   >
-                    Mark paid
+                    {chromeT(locale, 'mark_paid')}
                   </GhostBtn>
                   <GhostBtn
                     leading={<Link2 size={14} />}
                     disabled={busy}
                     onClick={() =>
-                      void run(actions.sendPaymentLink, detail, 'Payment link sent to the payer.')
+                      void run(
+                        actions.sendPaymentLink,
+                        detail,
+                        chromeT(locale, 'payment_link_sent_ok'),
+                      )
                     }
                   >
-                    Send payment link
+                    {chromeT(locale, 'send_payment_link')}
                   </GhostBtn>
                 </>
               )}
@@ -512,9 +543,11 @@ export function InvoicesArea({
                 <GhostBtn
                   leading={<Mail size={14} />}
                   disabled={busy}
-                  onClick={() => void run(actions.resendInvoice, detail, 'Invoice sent to the payer.')}
+                  onClick={() =>
+                    void run(actions.resendInvoice, detail, chromeT(locale, 'invoice_sent_ok'))
+                  }
                 >
-                  Resend invoice
+                  {chromeT(locale, 'resend_invoice')}
                 </GhostBtn>
               )}
             </>
@@ -524,13 +557,17 @@ export function InvoicesArea({
             detail.vendor_share_cents > 0 ||
             detail.org_share_cents > 0) && (
             <div className="text-ink-subtle">
-              Split: fee {fmt(detail.platform_fee_cents, detail.currency)} · organiser{' '}
-              {fmt(detail.vendor_share_cents, detail.currency)} · workspace{' '}
-              {fmt(detail.org_share_cents, detail.currency)}
+              {chromeT(locale, 'split_line', {
+                fee: fmt(detail.platform_fee_cents, detail.currency),
+                organiser: fmt(detail.vendor_share_cents, detail.currency),
+                workspace: fmt(detail.org_share_cents, detail.currency),
+              })}
             </div>
           )}
           {detail.refunded_at && (
-            <div className="mt-1 text-ink-subtle">Refunded {fmtDate(detail.refunded_at)}</div>
+            <div className="mt-1 text-ink-subtle">
+              {chromeT(locale, 'refunded_on', { date: fmtDate(detail.refunded_at) })}
+            </div>
           )}
           {notice && <p className="mt-1 text-ink-subtle">{notice}</p>}
         </InvoiceDialog>
@@ -544,16 +581,16 @@ export function InvoicesArea({
             onClick={() => !busy && setConfirmRefund(null)}
           />
           <div className="relative w-full max-w-sm rounded-xl bg-surface-raised border border-line shadow-xl p-5">
-            <h2 className="text-base font-semibold text-ink">Reimburse this purchase?</h2>
+            <h2 className="text-base font-semibold text-ink">{chromeT(locale, 'refund_title')}</h2>
             <p className="mt-2 text-sm text-ink-subtle">
-              {`${confirmRefund.payer_name || confirmRefund.payer_email} gets ${fmt(
-                confirmRefund.amount_cents,
-                confirmRefund.currency,
-              )} back in full${
-                confirmRefund.method === 'stripe'
-                  ? ' via Stripe (the platform fee is returned too)'
-                  : ' — recorded here; the money moves outside Stripe'
-              }. There is no partial refund.`}
+              {chromeT(
+                locale,
+                confirmRefund.method === 'stripe' ? 'refund_body_stripe' : 'refund_body_offline',
+                {
+                  name: confirmRefund.payer_name || confirmRefund.payer_email || '',
+                  amount: fmt(confirmRefund.amount_cents, confirmRefund.currency),
+                },
+              )}
             </p>
             <div className="mt-4 flex justify-end gap-2">
               <button
@@ -562,7 +599,7 @@ export function InvoicesArea({
                 onClick={() => setConfirmRefund(null)}
                 className="rounded-md px-3 py-1.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken disabled:opacity-50"
               >
-                Cancel
+                {chromeT(locale, 'cancel')}
               </button>
               <button
                 type="button"
@@ -570,11 +607,11 @@ export function InvoicesArea({
                 onClick={() => {
                   const row = confirmRefund;
                   setConfirmRefund(null);
-                  if (row) void run(actions.refundPurchase, row, 'Reimbursed in full.');
+                  if (row) void run(actions.refundPurchase, row, chromeT(locale, 'reimbursed_ok'));
                 }}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
               >
-                {busy ? 'Working…' : 'Reimburse'}
+                {busy ? chromeT(locale, 'working') : chromeT(locale, 'reimburse')}
               </button>
             </div>
           </div>

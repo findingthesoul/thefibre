@@ -9,6 +9,8 @@ import {
   ErrorBanner,
 } from '@/components/ui/page';
 import { ListGroup, ListRow } from '@/components/ui/list';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { AddMemberRow, RemoveMemberButton } from './members';
 import { TeamSettings } from './team-settings';
 
@@ -50,6 +52,7 @@ export default async function TeamDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const locale = await uiLocale();
   const { id } = await params;
 
   let team: TeamDetail;
@@ -59,8 +62,8 @@ export default async function TeamDetailPage({
     if (e instanceof ApiError && e.status === 404) notFound();
     return (
       <PageContainer max="4xl">
-        <Breadcrumb href="/teams" label="Teams" />
-        <ErrorBanner>Couldn&apos;t load the team.</ErrorBanner>
+        <Breadcrumb href="/teams" label={t(locale, 'teams')} />
+        <ErrorBanner>{t(locale, 'couldnt_load_team')}</ErrorBanner>
       </PageContainer>
     );
   }
@@ -74,7 +77,7 @@ export default async function TeamDetailPage({
 
   return (
     <PageContainer max="4xl">
-      <Breadcrumb href="/teams" label="Teams" />
+      <Breadcrumb href="/teams" label={t(locale, 'teams')} />
       <PageHeader
         title={team.name}
         description={
@@ -86,9 +89,9 @@ export default async function TeamDetailPage({
       />
 
       <section className="mt-10">
-        <SectionLabel>Members</SectionLabel>
+        <SectionLabel>{t(locale, 'members')}</SectionLabel>
         {team.members.length === 0 ? (
-          <EmptyState>No members yet. Add workspace members below.</EmptyState>
+          <EmptyState>{t(locale, 'no_members_yet')}</EmptyState>
         ) : (
           <ListGroup>
             {team.members.map((m) => (
@@ -104,16 +107,17 @@ export default async function TeamDetailPage({
                       </span>
                     )}
                     <span
-                      className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize ${
+                      className={`text-[11px] px-2 py-0.5 rounded-full ring-1 ${
                         ROLE_STYLES[m.role] ?? ROLE_STYLES.member
                       }`}
                     >
-                      {m.role}
+                      {m.role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
                     </span>
                   </>
                 }
                 trailing={
                   <RemoveMemberButton
+                    locale={locale}
                     teamId={team.id}
                     userId={m.user_id}
                     name={m.full_name ?? m.email}
@@ -125,11 +129,12 @@ export default async function TeamDetailPage({
         )}
 
         <div className="mt-6">
-          <AddMemberRow teamId={team.id} candidates={candidates} />
+          <AddMemberRow locale={locale} teamId={team.id} candidates={candidates} />
         </div>
       </section>
 
       <TeamSettings
+        locale={locale}
         teamId={team.id}
         description={team.description}
         payoutDestination={team.payout_destination ?? 'workspace'}

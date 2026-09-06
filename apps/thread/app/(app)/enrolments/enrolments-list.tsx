@@ -8,6 +8,8 @@
 import { useMemo, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Award, Flag, Mail, Printer, Search } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t, enrolStatusLabel } from '@/lib/i18n-ui';
 import { ParticipantDialog, type EnrolmentDetail } from './participant-dialog';
 import { issueEnrolmentCertificate, sendCertificateEmail } from '../threads/actions';
 import { completeEnrolment } from '../threads/[id]/registrations-actions';
@@ -43,7 +45,7 @@ export type EnrolmentRowData = {
   detail: EnrolmentDetail;
 };
 
-export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
+export function EnrolmentsList({ locale, rows }: { locale: Locale; rows: EnrolmentRowData[] }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [q, setQ] = useState('');
   const [detailRow, setDetailRow] = useState<EnrolmentRowData | null>(null);
@@ -91,7 +93,12 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
         if (res.ok) ok += 1;
         else failed += 1;
       }
-      setMessage(`Issued ${ok} certificate${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`);
+      setMessage(
+        t(locale, 'msg_issued', {
+          n: ok,
+          failed: failed ? t(locale, 'failed_suffix', { n: failed }) : '',
+        }),
+      );
       router.refresh();
     });
   }
@@ -107,7 +114,10 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
         else failed += 1;
       }
       setMessage(
-        `Marked ${ok} completed${failed ? `, ${failed} failed` : ''} — certificates auto-issued where enabled.`,
+        t(locale, 'msg_completed', {
+          n: ok,
+          failed: failed ? t(locale, 'failed_suffix', { n: failed }) : '',
+        }),
       );
       router.refresh();
     });
@@ -129,7 +139,12 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
         if (res.ok) ok += 1;
         else failed += 1;
       }
-      setMessage(`Emailed ${ok} certificate${ok === 1 ? '' : 's'}${failed ? `, ${failed} failed` : ''}.`);
+      setMessage(
+        t(locale, 'msg_emailed', {
+          n: ok,
+          failed: failed ? t(locale, 'failed_suffix', { n: failed }) : '',
+        }),
+      );
     });
   }
 
@@ -142,13 +157,15 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search name, email or thread…"
+            placeholder={t(locale, 'search_enrolments_placeholder')}
             className="w-full h-8 rounded-md border border-line bg-surface-raised pl-8 pr-2.5 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
           />
         </div>
         <label className="inline-flex items-center gap-2 text-xs text-ink-subtle cursor-pointer select-none">
           <input type="checkbox" checked={allSelected} onChange={toggleAll} />
-          {selected.size > 0 ? `${selected.size} selected` : 'Select all'}
+          {selected.size > 0
+            ? t(locale, 'n_selected', { n: selected.size })
+            : t(locale, 'select_all')}
         </label>
         {selected.size > 0 && (
           <>
@@ -158,9 +175,11 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               leading={<Award size={14} />}
               disabled={pending || issuable.length === 0}
               onClick={issueSelected}
-              title={issuable.length === 0 ? 'Selection has no enrolments awaiting a certificate' : undefined}
+              title={issuable.length === 0 ? t(locale, 'tooltip_no_awaiting') : undefined}
             >
-              {pending ? 'Working…' : `Issue certificates (${issuable.length})`}
+              {pending
+                ? t(locale, 'working')
+                : t(locale, 'issue_certificates_n', { n: issuable.length })}
             </Button>
             <Button
               variant="secondary"
@@ -168,9 +187,9 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               leading={<Flag size={14} />}
               disabled={pending || completable.length === 0}
               onClick={completeSelected}
-              title={completable.length === 0 ? 'Selection has no enrolled participants' : undefined}
+              title={completable.length === 0 ? t(locale, 'tooltip_no_enrolled') : undefined}
             >
-              Mark completed ({completable.length})
+              {t(locale, 'mark_completed_n', { n: completable.length })}
             </Button>
             <Button
               variant="secondary"
@@ -178,9 +197,9 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               leading={<Printer size={14} />}
               disabled={withCert.length === 0}
               onClick={downloadSelected}
-              title={withCert.length === 0 ? 'Selection has no issued certificates yet' : undefined}
+              title={withCert.length === 0 ? t(locale, 'tooltip_no_certs') : undefined}
             >
-              Download for print ({withCert.length})
+              {t(locale, 'download_print_n', { n: withCert.length })}
             </Button>
             <Button
               variant="secondary"
@@ -188,9 +207,9 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               leading={<Mail size={14} />}
               disabled={pending || withCert.length === 0}
               onClick={emailSelected}
-              title={withCert.length === 0 ? 'Selection has no issued certificates yet' : undefined}
+              title={withCert.length === 0 ? t(locale, 'tooltip_no_certs') : undefined}
             >
-              Send by email ({withCert.length})
+              {t(locale, 'send_by_email_n', { n: withCert.length })}
             </Button>
           </>
         )}
@@ -204,7 +223,7 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               type="checkbox"
               checked={selected.has(r.id)}
               onChange={() => toggle(r.id)}
-              aria-label={`Select ${r.name}`}
+              aria-label={t(locale, 'select_name', { name: r.name })}
             />
             <button
               type="button"
@@ -218,22 +237,26 @@ export function EnrolmentsList({ rows }: { rows: EnrolmentRowData[] }) {
               </div>
             </button>
             {r.certEnabled && (
-              <IssueCertButton enrolmentId={r.id} certificateNumber={r.certNumber} />
+              <IssueCertButton
+                locale={locale}
+                enrolmentId={r.id}
+                certificateNumber={r.certNumber}
+              />
             )}
             <span className="text-xs text-ink-muted shrink-0">{r.payment}</span>
             <span
-              className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
+              className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                 STATUS_STYLES[r.status] ?? STATUS_STYLES.enrolled
               }`}
             >
-              {r.status}
+              {enrolStatusLabel(locale, r.status)}
             </span>
           </li>
         ))}
       </ul>
 
       {detailRow && (
-        <ParticipantDialog row={detailRow} onClose={() => setDetailRow(null)} />
+        <ParticipantDialog locale={locale} row={detailRow} onClose={() => setDetailRow(null)} />
       )}
     </div>
   );

@@ -9,6 +9,7 @@ import {
   coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { updateHost, type SaveResult } from '../actions';
 
 type Initial = {
@@ -16,7 +17,13 @@ type Initial = {
   working_hours: Record<string, { start: string; end: string }[]> | null;
 };
 
-export function AvailabilityForm({ initial }: { initial: Initial }) {
+export function AvailabilityForm({
+  initial,
+  locale,
+}: {
+  initial: Initial;
+  locale: Locale;
+}) {
   const [state, formAction, pending] = useActionState<SaveResult, FormData>(
     updateHost,
     {},
@@ -38,28 +45,28 @@ export function AvailabilityForm({ initial }: { initial: Initial }) {
   return (
     <form action={formAction} className="space-y-6">
       <div className="rounded-lg border border-line bg-surface-raised p-6">
-        <div className="text-base font-medium">Timezone &amp; weekly hours</div>
+        <div className="text-base font-medium">{t(locale, 'av_card_title')}</div>
         <p className="mt-1 text-sm text-ink-subtle">
-          Your bookable windows in your local timezone.
+          {t(locale, 'av_card_desc')}
         </p>
 
         <div className="mt-5">
           {timezones.length > 0 ? (
             <div>
-              <span className="text-sm text-ink-subtle">Timezone</span>
+              <span className="text-sm text-ink-subtle">{t(locale, 'timezone')}</span>
               <SearchSelect
                 className="mt-1"
                 value={timezone}
                 onChange={setTimezone}
                 options={timezones.map((tz) => ({ value: tz, label: tz }))}
                 placeholder="Europe/Amsterdam"
-                searchPlaceholder="Search timezones…"
+                searchPlaceholder={t(locale, 'search_timezones')}
               />
               <input type="hidden" name="timezone" value={timezone} />
             </div>
           ) : (
             <TextField
-              label="Timezone"
+              label={t(locale, 'timezone')}
               name="timezone"
               defaultValue={initial.timezone}
               placeholder="Europe/Amsterdam"
@@ -68,7 +75,7 @@ export function AvailabilityForm({ initial }: { initial: Initial }) {
         </div>
 
         <div className="mt-6">
-          <WorkingHoursEditor value={hours} onChange={setHours} />
+          <WorkingHoursEditor value={hours} onChange={setHours} locale={locale} />
         </div>
         <input
           type="hidden"
@@ -84,11 +91,11 @@ export function AvailabilityForm({ initial }: { initial: Initial }) {
       )}
       {state.ok && (
         <div className="rounded-md border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          Saved.
+          {t(locale, 'saved')}
         </div>
       )}
       <Button type="submit" disabled={pending}>
-        {pending ? 'Saving…' : 'Save changes'}
+        {pending ? t(locale, 'saving') : t(locale, 'save_changes')}
       </Button>
     </form>
   );

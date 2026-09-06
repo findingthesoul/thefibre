@@ -3,7 +3,9 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Plus, Trash2 } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
 import { Button } from '@/components/ui/button';
+import { t } from '@/lib/i18n-ui';
 import { createCategory, renameCategory, deleteCategory } from '../actions';
 
 export type CategoryRow = {
@@ -17,9 +19,11 @@ const INPUT =
   'h-[34px] rounded-md border border-line bg-surface px-2.5 text-sm outline-none focus:border-ink';
 
 export function CategoriesManager({
+  locale,
   initial,
   myOrganiserId,
 }: {
+  locale: Locale;
   initial: CategoryRow[];
   myOrganiserId: string;
 }) {
@@ -64,24 +68,24 @@ export function CategoriesManager({
     <div className="mt-8 max-w-xl">
       <div className="flex items-end gap-2">
         <label className="block flex-1">
-          <span className="text-xs text-ink-subtle">New category</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'new_category')}</span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && add()}
-            placeholder="e.g. Festivals"
+            placeholder={t(locale, 'category_placeholder')}
             className={`${INPUT} mt-1 w-full`}
           />
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">Visible to</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'visible_to')}</span>
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as 'workspace' | 'mine')}
             className={`${INPUT} mt-1`}
           >
-            <option value="workspace">Whole workspace</option>
-            <option value="mine">Only me</option>
+            <option value="workspace">{t(locale, 'whole_workspace')}</option>
+            <option value="mine">{t(locale, 'only_me')}</option>
           </select>
         </label>
         <Button
@@ -90,7 +94,7 @@ export function CategoriesManager({
           disabled={pending || !name.trim()}
           leading={<Plus size={14} />}
         >
-          Add
+          {t(locale, 'add')}
         </Button>
       </div>
       {error && <p className="mt-2 text-sm text-red-700">{error}</p>}
@@ -98,7 +102,7 @@ export function CategoriesManager({
       <ul className="mt-6 divide-y divide-line rounded-xl border border-line bg-surface">
         {initial.length === 0 && (
           <li className="px-4 py-6 text-center text-sm text-ink-subtle">
-            No categories yet — add the first above.
+            {t(locale, 'no_categories_yet')}
           </li>
         )}
         {initial.map((row) => (
@@ -112,15 +116,15 @@ export function CategoriesManager({
             <span className="rounded-full bg-surface-sunken px-2 py-0.5 text-[11px] text-ink-muted ring-1 ring-line">
               {row.organiser_id
                 ? row.organiser_id === myOrganiserId
-                  ? 'Only me'
-                  : 'Personal'
-                : 'Workspace'}
+                  ? t(locale, 'only_me')
+                  : t(locale, 'personal')
+                : t(locale, 'workspace')}
             </span>
             <button
               type="button"
               onClick={() => remove(row)}
               disabled={pending}
-              title="Delete — threads using it simply lose the label"
+              title={t(locale, 'category_delete_tooltip')}
               className="text-ink-muted hover:text-red-700"
             >
               <Trash2 size={15} strokeWidth={1.75} />
@@ -128,10 +132,7 @@ export function CategoriesManager({
           </li>
         ))}
       </ul>
-      <p className="mt-3 text-xs text-ink-muted">
-        The code next to each name is what website embeds filter by — it stays the same when you
-        rename, so embedded listings keep working.
-      </p>
+      <p className="mt-3 text-xs text-ink-muted">{t(locale, 'category_code_note')}</p>
     </div>
   );
 }

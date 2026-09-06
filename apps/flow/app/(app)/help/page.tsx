@@ -3,6 +3,8 @@ import { appName, appUrl } from '@thefibre/shared';
 import { HelpPage, type HelpSection } from '@thefibre/shared/ui/help';
 import { apiFetch } from '@/lib/api';
 import { buildAppList } from '@/lib/available-apps';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export const metadata = { title: `Help — ${appName('fibre-flow')}` };
 
@@ -14,28 +16,17 @@ type WorkspaceApp = {
 
 // Mirrors NAV in components/shell/sidebar.tsx, with the blurbs the pages
 // themselves already use.
-const SECTIONS: HelpSection[] = [
-  { label: 'Home', href: '/dashboard', blurb: "What's moving today, and your favourite flows." },
-  {
-    label: 'Flows',
-    href: '/flows',
-    blurb:
-      'State machines your contacts move through. Each step is held by gate tasks; the builder is visual.',
-  },
-  {
-    label: 'Tasks',
-    href: '/tasks',
-    blurb:
-      'Open tasks assigned to you across all flows. Completing the gate tasks of a step moves the run on.',
-  },
-  {
-    label: 'Contacts',
-    href: '/contacts',
-    blurb: 'People currently moving through a flow. Identity comes from The Fibre.',
-  },
-];
+function sections(locale: Locale): HelpSection[] {
+  return [
+    { label: t(locale, 'nav_home'), href: '/dashboard', blurb: t(locale, 'help_home_blurb') },
+    { label: t(locale, 'flows'), href: '/flows', blurb: t(locale, 'help_flows_blurb') },
+    { label: t(locale, 'nav_tasks'), href: '/tasks', blurb: t(locale, 'help_tasks_blurb') },
+    { label: t(locale, 'nav_contacts'), href: '/contacts', blurb: t(locale, 'help_contacts_blurb') },
+  ];
+}
 
 export default async function FlowHelpPage() {
+  const locale = await uiLocale();
   let apps: { slug: string; name: string; url: string }[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
@@ -48,10 +39,11 @@ export default async function FlowHelpPage() {
   return (
     <HelpPage
       appId="fibre-flow"
-      sections={SECTIONS}
+      sections={sections(locale)}
       otherApps={apps}
       aboutHref={`${appUrl('fibre-platform', process.env)}/settings/about`}
       link={Link}
+      locale={locale}
     />
   );
 }

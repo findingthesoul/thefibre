@@ -5,9 +5,12 @@
 
 import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, Breadcrumb } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { CategoriesManager, type CategoryRow } from './categories-manager';
 
 export default async function CategoriesSettingsPage() {
+  const locale = await uiLocale();
   const [{ items }, me] = await Promise.all([
     apiFetch<{ items: CategoryRow[] }>('/api/v1/thread/categories').catch(() => ({
       items: [] as CategoryRow[],
@@ -17,12 +20,9 @@ export default async function CategoriesSettingsPage() {
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
-      <PageHeader
-        title="Categories"
-        description="The list threads choose from — on public listings and website embeds, visitors can filter by these."
-      />
-      <CategoriesManager initial={items} myOrganiserId={me.id} />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
+      <PageHeader title={t(locale, 'categories')} description={t(locale, 'categories_desc')} />
+      <CategoriesManager locale={locale} initial={items} myOrganiserId={me.id} />
     </PageContainer>
   );
 }

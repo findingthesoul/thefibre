@@ -7,10 +7,14 @@
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { CalendarRange, LayoutTemplate, Plus } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 
 export function NewThreadButton({
+  locale,
   templates,
 }: {
+  locale: Locale;
   templates: { id: string; title: string }[];
 }) {
   const [open, setOpen] = useState(false);
@@ -33,7 +37,7 @@ export function NewThreadButton({
         className="inline-flex items-center gap-1.5 h-9 px-3.5 rounded-md bg-ink text-ink-inverse text-sm font-medium hover:opacity-90"
       >
         <Plus size={15} strokeWidth={2} />
-        New thread
+        {t(locale, 'new_thread')}
       </button>
 
       {open && templates.length > 0 && (
@@ -48,11 +52,11 @@ export function NewThreadButton({
             className="w-full text-left px-3 py-2 flex items-center gap-2.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken"
           >
             <CalendarRange size={15} strokeWidth={1.75} />
-            Start from scratch
+            {t(locale, 'start_from_scratch')}
           </button>
           <div className="my-1.5 border-t border-line" />
           <div className="px-3 pb-1 text-[10px] uppercase tracking-wider text-ink-muted">
-            From a template
+            {t(locale, 'from_a_template')}
           </div>
           {templates.map((t) => (
             <button

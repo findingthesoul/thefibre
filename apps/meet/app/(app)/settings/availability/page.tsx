@@ -5,6 +5,8 @@ import {
   Breadcrumb,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { AvailabilityForm } from './form';
 
 type Host = {
@@ -13,6 +15,7 @@ type Host = {
 };
 
 export default async function AvailabilityPage() {
+  const locale = await uiLocale();
   let host: Host | null = null;
   let error: string | null = null;
   try {
@@ -22,12 +25,15 @@ export default async function AvailabilityPage() {
   }
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
-      <PageHeader title="Availability" description="Timezone and weekly working hours." />
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
+      <PageHeader
+        title={t(locale, 'st_availability')}
+        description={t(locale, 'st_availability_desc')}
+      />
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
       {host && (
         <div className="mt-10">
-          <AvailabilityForm initial={host} />
+          <AvailabilityForm initial={host} locale={locale} />
         </div>
       )}
     </PageContainer>

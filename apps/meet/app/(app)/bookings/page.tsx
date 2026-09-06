@@ -4,6 +4,8 @@ import {
   PageHeader,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { BookingsClient, type BookingRow, type ScopeOption } from './client';
 
 type Team = { id: string; name: string; my_role: 'lead' | 'member' };
@@ -18,6 +20,7 @@ export default async function BookingsPage({
     team_id?: string;
   }>;
 }) {
+  const locale = await uiLocale();
   const sp = await searchParams;
   const scope = sp.scope ?? 'upcoming';
   const view = sp.view ?? 'list';
@@ -43,16 +46,16 @@ export default async function BookingsPage({
   }
 
   const scopeOptions: ScopeOption[] = [
-    { value: '', label: 'All scopes' },
-    { value: 'personal', label: 'Personal' },
-    ...teams.map((t) => ({ value: t.id, label: t.name })),
+    { value: '', label: t(locale, 'all_scopes') },
+    { value: 'personal', label: t(locale, 'personal') },
+    ...teams.map((tm) => ({ value: tm.id, label: tm.name })),
   ];
 
   return (
     <PageContainer max="5xl">
-      <PageHeader title="Bookings" description="Everything booked with you." />
+      <PageHeader title={t(locale, 'bookings_title')} description={t(locale, 'bookings_desc')} />
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <div className="mt-8">
         <BookingsClient
@@ -62,6 +65,7 @@ export default async function BookingsPage({
           includeCancelled={includeCancelled}
           teamFilter={teamFilter}
           scopeOptions={scopeOptions}
+          locale={locale}
         />
       </div>
     </PageContainer>

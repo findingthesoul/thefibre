@@ -1,4 +1,5 @@
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes, ReactNode } from 'react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 const INPUT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
@@ -53,12 +54,16 @@ type SelectFieldProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className
 };
 
 export function SelectField({ label, required, errors, hint, options, ...rest }: SelectFieldProps) {
+  // Every SelectField consumer is a 'use client' file (checked 2026-09-06:
+  // 24/24), so the hook is safe here even though this module has no
+  // directive of its own.
+  const locale = useLocale();
   return (
     <FieldShell label={label} required={required} errors={errors} hint={hint}>
       <select className={INPUT_CLASS} required={required} {...rest}>
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={o.disabled}>
-            {o.label}{o.disabled ? ' — coming soon' : ''}
+            {o.label}{o.disabled ? chromeT(locale, 'coming_soon_suffix') : ''}
           </option>
         ))}
       </select>

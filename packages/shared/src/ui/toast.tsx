@@ -9,6 +9,7 @@
 // cashflow lane (phase 2); one store per app bundle.
 
 import { useEffect, useState } from 'react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 type Toast = { id: number; message: string };
 
@@ -34,6 +35,7 @@ function dismissToast(id: number) {
 }
 
 export function ToastStack() {
+  const locale = useLocale();
   const [list, setList] = useState<Toast[]>([]);
   useEffect(() => {
     listeners.add(setList);
@@ -53,7 +55,7 @@ export function ToastStack() {
           key={t.id}
           type="button"
           onClick={() => dismissToast(t.id)}
-          title="Dismiss"
+          title={chromeT(locale, 'dismiss')}
           className="rounded-lg bg-red-600 px-4 py-2.5 text-left text-sm text-white shadow-lg"
         >
           {t.message}

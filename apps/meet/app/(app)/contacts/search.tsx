@@ -2,8 +2,9 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function ContactsSearch({ initial }: { initial: string }) {
+export function ContactsSearch({ initial, locale }: { initial: string; locale: Locale }) {
   const router = useRouter();
   const path = usePathname();
   const [q, setQ] = useState(initial);
@@ -23,11 +24,11 @@ export function ContactsSearch({ initial }: { initial: string }) {
         type="search"
         value={q}
         onChange={(e) => setQ(e.target.value)}
-        placeholder="Search by name, email, or company"
+        placeholder={t(locale, 'search_contacts_placeholder')}
         className="w-full rounded-md border border-line bg-surface-raised px-4 py-3 text-sm focus:outline-none focus:border-line-strong"
       />
       {pending && (
-        <div className="mt-1 text-xs text-ink-muted">Searching…</div>
+        <div className="mt-1 text-xs text-ink-muted">{t(locale, 'searching')}</div>
       )}
     </form>
   );

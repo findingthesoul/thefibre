@@ -4,6 +4,8 @@
 
 import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { InvoicesClient } from './invoices-client';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +15,7 @@ type MeetTeamItem = {
 };
 
 export default async function InvoicesPage() {
+  const locale = await uiLocale();
   const teams = await apiFetch<{ items: MeetTeamItem[] }>('/api/v1/meet/teams')
     .then((r) =>
       r.items
@@ -25,8 +28,8 @@ export default async function InvoicesPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Invoices"
-        description="Every purchase across your Fibre apps — search, resend invoices, reimburse."
+        title={t(locale, 'invoices_title')}
+        description={t(locale, 'invoices_desc')}
       />
       <InvoicesClient teams={teams} defaultApp="fibre-meet" />
     </PageContainer>

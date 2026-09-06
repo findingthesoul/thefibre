@@ -5,6 +5,7 @@ import {
   BookingDetailsDialog,
   type BookingForDialog,
 } from './booking-details-dialog';
+import type { Locale } from '@/lib/i18n-ui';
 
 /**
  * Wraps a server-rendered booking row in a click handler that opens the
@@ -17,11 +18,13 @@ export function ClickableBookingRow({
   as = 'li',
   className,
   children,
+  locale,
 }: {
   booking: BookingForDialog;
   as?: 'li' | 'div';
   className?: string;
   children: ReactNode;
+  locale: Locale;
 }) {
   const [open, setOpen] = useState(false);
   const Tag = as;
@@ -33,7 +36,7 @@ export function ClickableBookingRow({
       >
         {children}
       </Tag>
-      <BookingDetailsDialog booking={booking} open={open} onClose={() => setOpen(false)} />
+      <BookingDetailsDialog booking={booking} open={open} onClose={() => setOpen(false)} locale={locale} />
     </>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 export type QuickLink = {
   id: string;
@@ -11,7 +12,7 @@ export type QuickLink = {
   url: string;
 };
 
-export function QuickLinkRow({ link }: { link: QuickLink }) {
+export function QuickLinkRow({ link, locale }: { link: QuickLink; locale: Locale }) {
   const [copied, setCopied] = useState(false);
   async function copy() {
     if (!link.url) return;
@@ -43,8 +44,8 @@ export function QuickLinkRow({ link }: { link: QuickLink }) {
           type="button"
           onClick={copy}
           className="text-ink-subtle hover:text-ink p-1"
-          aria-label="Copy link"
-          title={copied ? 'Copied!' : 'Copy link'}
+          aria-label={t(locale, 'copy_link')}
+          title={copied ? t(locale, 'copied') : t(locale, 'copy_link')}
         >
           {copied ? (
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
@@ -58,7 +59,7 @@ export function QuickLinkRow({ link }: { link: QuickLink }) {
           rel="noopener noreferrer"
           className="inline-flex items-center gap-1 text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
         >
-          Open <span aria-hidden="true">↗</span>
+          {t(locale, 'open')} <span aria-hidden="true">↗</span>
         </a>
       </div>
     </div>

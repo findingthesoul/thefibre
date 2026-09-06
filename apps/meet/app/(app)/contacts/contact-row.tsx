@@ -10,6 +10,7 @@ import {
   type BookingForDialog,
 } from '@/components/booking-details-dialog';
 import { listContactBookings } from './actions';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 
 export type Contact = {
   id: string;
@@ -25,16 +26,16 @@ export type Contact = {
 
 const FIBRE_BASE = appUrl('fibre-platform', process.env as Record<string, string | undefined>);
 
-function fmtDate(s: string | null) {
+function fmtDate(s: string | null, locale: Locale) {
   if (!s) return '—';
-  return new Date(s).toLocaleDateString(undefined, {
+  return new Date(s).toLocaleDateString(INTL_LOCALES[locale], {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   });
 }
 
-export function ContactRow({ contact }: { contact: Contact }) {
+export function ContactRow({ contact, locale }: { contact: Contact; locale: Locale }) {
   const [open, setOpen] = useState(false);
   const [bookings, setBookings] = useState<BookingForDialog[] | null>(null);
   const [bookingsErr, setBookingsErr] = useState<string | null>(null);
@@ -60,12 +61,12 @@ export function ContactRow({ contact }: { contact: Contact }) {
           {contact.name ?? '—'}
           {contact.is_team_member && (
             <span className="text-[9px] uppercase tracking-wider text-ink-muted border border-line rounded px-1 py-0.5">
-              Team
+              {t(locale, 'team')}
             </span>
           )}
           {contact.source.includes('booking') && (
             <span className="text-[9px] uppercase tracking-wider text-ink-muted border border-line rounded px-1 py-0.5">
-              Booked
+              {t(locale, 'badge_booked')}
             </span>
           )}
         </div>
@@ -73,71 +74,73 @@ export function ContactRow({ contact }: { contact: Contact }) {
         <div className="text-xs text-ink-muted truncate">{contact.domain ?? '—'}</div>
         <div className="text-xs text-ink-muted whitespace-nowrap">
           {contact.meet_bookings > 0
-            ? `${contact.meet_bookings} booking${contact.meet_bookings === 1 ? '' : 's'}`
+            ? contact.meet_bookings === 1
+              ? t(locale, 'one_booking')
+              : t(locale, 'n_bookings', { n: contact.meet_bookings })
             : '—'}
         </div>
         <div className="text-xs text-ink-muted whitespace-nowrap">
-          {fmtDate(contact.meet_last_booked_at)}
+          {fmtDate(contact.meet_last_booked_at, locale)}
         </div>
       </li>
 
       <Dialog
         open={open}
         onClose={() => setOpen(false)}
-        title={contact.name ?? contact.email ?? 'Contact'}
+        title={contact.name ?? contact.email ?? t(locale, 'contact')}
         description={contact.email ?? undefined}
         size="md"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setOpen(false)}>Close</Button>
+            <Button variant="ghost" onClick={() => setOpen(false)}>{t(locale, 'close')}</Button>
             <a
               href={profileUrl}
               target="_blank"
               rel="noreferrer"
               className="inline-flex items-center gap-1.5 rounded-md bg-ink-strong text-white px-3 py-1.5 text-sm font-medium hover:bg-ink"
             >
-              Open in The Fibre <ExternalLink className="h-3.5 w-3.5" />
+              {t(locale, 'open_in_fibre')} <ExternalLink className="h-3.5 w-3.5" />
             </a>
           </>
         }
       >
         <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3 text-sm">
-          <Label>Email</Label>
+          <Label>{t(locale, 'email')}</Label>
           <Value>{contact.email ?? '—'}</Value>
 
-          <Label>Domain</Label>
+          <Label>{t(locale, 'domain')}</Label>
           <Value>{contact.domain ?? '—'}</Value>
 
-          <Label>In Meet because</Label>
+          <Label>{t(locale, 'in_meet_because')}</Label>
           <Value>
             <div className="flex flex-wrap gap-1.5">
-              {contact.source.includes('booking') && <Chip>Booked a meeting</Chip>}
-              {contact.is_team_member && <Chip>Member of a Meet team</Chip>}
+              {contact.source.includes('booking') && <Chip>{t(locale, 'chip_booked_meeting')}</Chip>}
+              {contact.is_team_member && <Chip>{t(locale, 'chip_team_member')}</Chip>}
               {contact.source.length === 0 && !contact.is_team_member && <span>—</span>}
             </div>
           </Value>
 
-          <Label>Bookings</Label>
+          <Label>{t(locale, 'bookings_title')}</Label>
           <Value>{contact.meet_bookings}</Value>
 
-          <Label>Last booked</Label>
-          <Value>{fmtDate(contact.meet_last_booked_at)}</Value>
+          <Label>{t(locale, 'last_booked')}</Label>
+          <Value>{fmtDate(contact.meet_last_booked_at, locale)}</Value>
 
-          <Label>Has account</Label>
-          <Value>{contact.is_user ? 'Yes' : 'No'}</Value>
+          <Label>{t(locale, 'has_account')}</Label>
+          <Value>{contact.is_user ? t(locale, 'yes') : t(locale, 'no')}</Value>
         </div>
 
         {/* Appointments list — lazy-loaded once the popup opens. */}
         <div className="mt-6">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted mb-2">
-            Appointments
+            {t(locale, 'appointments')}
           </div>
           {bookingsErr ? (
-            <div className="text-xs text-red-700">Couldn&apos;t load: {bookingsErr}</div>
+            <div className="text-xs text-red-700">{t(locale, 'couldnt_load', { error: bookingsErr })}</div>
           ) : bookings === null ? (
-            <div className="text-xs text-ink-muted">Loading…</div>
+            <div className="text-xs text-ink-muted">{t(locale, 'loading')}</div>
           ) : bookings.length === 0 ? (
-            <div className="text-xs text-ink-muted">No appointments yet.</div>
+            <div className="text-xs text-ink-muted">{t(locale, 'no_appointments')}</div>
           ) : (
             <ul className="rounded-md border border-line divide-y divide-line overflow-hidden">
               {bookings.map((b) => (
@@ -149,16 +152,16 @@ export function ContactRow({ contact }: { contact: Contact }) {
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="truncate">
-                        {fmtBookingDate(b.starts_at)}
+                        {fmtBookingDate(b.starts_at, locale)}
                       </span>
                       {b.status === 'cancelled' && (
                         <span className="text-[10px] uppercase tracking-wider rounded px-1.5 py-0.5 bg-red-50 text-red-700 border border-red-200 shrink-0">
-                          Cancelled
+                          {t(locale, 'status_cancelled')}
                         </span>
                       )}
                     </div>
                     <div className="text-xs text-ink-muted truncate mt-0.5">
-                      {bookingMtName(b) ?? 'Meeting'}
+                      {bookingMtName(b) ?? t(locale, 'meeting')}
                     </div>
                   </button>
                 </li>
@@ -168,8 +171,7 @@ export function ContactRow({ contact }: { contact: Contact }) {
         </div>
 
         <p className="mt-6 text-xs text-ink-muted leading-relaxed">
-          Identity (name, email, address) and change-context fields are managed
-          in The Fibre platform. Open the full profile to edit.
+          {t(locale, 'contacts_footer')}
         </p>
       </Dialog>
 
@@ -177,13 +179,14 @@ export function ContactRow({ contact }: { contact: Contact }) {
         booking={selectedBooking}
         open={!!selectedBooking}
         onClose={() => setSelectedBooking(null)}
+        locale={locale}
       />
     </>
   );
 }
 
-function fmtBookingDate(iso: string) {
-  return new Intl.DateTimeFormat(undefined, {
+function fmtBookingDate(iso: string, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',

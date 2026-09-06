@@ -6,6 +6,8 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Award, ExternalLink, RefreshCw } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import {
   issueEnrolmentCertificate,
   bulkIssueCertificates,
@@ -17,9 +19,11 @@ import { Button } from '@/components/ui/button';
 const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
 export function IssueCertButton({
+  locale,
   enrolmentId,
   certificateNumber,
 }: {
+  locale: Locale;
   enrolmentId: string;
   certificateNumber: string | null;
 }) {
@@ -39,15 +43,15 @@ export function IssueCertButton({
           title={certificateNumber}
         >
           <Award size={11} strokeWidth={1.75} />
-          Certificate
+          {t(locale, 'certificate')}
           <ExternalLink size={10} strokeWidth={1.75} />
         </a>
         <button
           type="button"
           disabled={pending}
           onClick={() => setConfirmReissue(true)}
-          title="Reissue — regenerate from the current template (number and issue date stay)"
-          aria-label="Reissue certificate"
+          title={t(locale, 'reissue_tooltip')}
+          aria-label={t(locale, 'reissue_certificate')}
           className="inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink hover:bg-surface-sunken disabled:opacity-50"
         >
           <RefreshCw size={11} strokeWidth={1.75} className={pending ? 'animate-spin' : ''} />
@@ -65,9 +69,9 @@ export function IssueCertButton({
               router.refresh();
             });
           }}
-          title="Reissue certificate"
-          message={`This regenerates ${certificateNumber} from the CURRENT template design. The number, recipient and issue date stay the same — shared links keep working — but the look changes to the template as it is now.`}
-          confirmLabel="Reissue"
+          title={t(locale, 'reissue_certificate')}
+          message={t(locale, 'reissue_message', { number: certificateNumber })}
+          confirmLabel={t(locale, 'reissue')}
         />
       </span>
     );
@@ -78,7 +82,7 @@ export function IssueCertButton({
       <button
         type="button"
         disabled={pending}
-        title={error ?? 'Issue certificate'}
+        title={error ?? t(locale, 'issue_certificate')}
         onClick={() => {
           setError(null);
           startTransition(async () => {
@@ -94,13 +98,17 @@ export function IssueCertButton({
         } disabled:opacity-50`}
       >
         <Award size={11} strokeWidth={1.75} />
-        {pending ? 'Issuing…' : error ? 'Failed — retry' : 'Issue certificate'}
+        {pending
+          ? t(locale, 'issuing')
+          : error
+            ? t(locale, 'failed_retry')
+            : t(locale, 'issue_certificate')}
       </button>
     </span>
   );
 }
 
-export function BulkIssueButton({ threadId }: { threadId: string }) {
+export function BulkIssueButton({ locale, threadId }: { locale: Locale; threadId: string }) {
   const router = useRouter();
   const [result, setResult] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -116,13 +124,15 @@ export function BulkIssueButton({ threadId }: { threadId: string }) {
           startTransition(async () => {
             const r = await bulkIssueCertificates(threadId);
             setResult(
-              r.ok ? `Issued ${r.issued}, skipped ${r.skipped} (only completed enrolments).` : r.error,
+              r.ok
+                ? t(locale, 'bulk_issue_result', { issued: r.issued, skipped: r.skipped })
+                : r.error,
             );
             router.refresh();
           })
         }
       >
-        {pending ? 'Issuing…' : 'Issue to completed'}
+        {pending ? t(locale, 'issuing') : t(locale, 'issue_to_completed')}
       </Button>
       {result && <span className="text-xs text-ink-muted">{result}</span>}
     </span>

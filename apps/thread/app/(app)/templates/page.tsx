@@ -1,29 +1,29 @@
 import Link from 'next/link';
 import { Award, CalendarRange, ChevronRight, type LucideIcon } from 'lucide-react';
 import { PageContainer, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 // Templates hub (Sjoerd 2026-07-02): one place for both template kinds.
 // Certificate templates live under /certificates (the builder);
 // thread templates arrive with save-as / create-from.
-export default function TemplatesPage() {
+export default async function TemplatesPage() {
+  const locale = await uiLocale();
   return (
     <PageContainer max="4xl">
-      <PageHeader
-        title="Templates"
-        description="Reusable designs — for whole threads and for certificates."
-      />
+      <PageHeader title={t(locale, 'templates')} description={t(locale, 'templates_desc')} />
       <div className="mt-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Card
           href="/certificates"
           Icon={Award}
-          title="Certificate templates"
-          desc="Design certificates in the visual builder — threads pick one and issue it on completion."
+          title={t(locale, 'cert_templates')}
+          desc={t(locale, 'cert_templates_card_desc')}
         />
         <Card
           href="/templates/threads"
           Icon={CalendarRange}
-          title="Thread templates"
-          desc="Save a thread as a template and start new ones from it — dates rebase automatically."
+          title={t(locale, 'thread_templates')}
+          desc={t(locale, 'thread_templates_card_desc')}
         />
       </div>
     </PageContainer>

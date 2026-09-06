@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { Workflow } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { NewFlowButton } from './new-flow';
 import { FavoriteStar } from './favorite-star';
 
@@ -24,32 +26,38 @@ const LIFECYCLE_STYLE: Record<string, string> = {
   archived: 'bg-slate-50 text-slate-400',
 };
 
-const SCOPE_LABEL: Record<string, string> = {
-  personal: 'Personal',
-  team: 'Team',
-  workspace: 'Workspace',
+const SCOPE_KEY: Record<string, UiKey> = {
+  personal: 'scope_personal',
+  team: 'scope_team',
+  workspace: 'scope_workspace',
+};
+
+const LIFECYCLE_KEY: Record<string, UiKey> = {
+  draft: 'lifecycle_draft',
+  active: 'lifecycle_active',
+  closed: 'lifecycle_closed',
+  archived: 'lifecycle_archived',
 };
 
 export default async function FlowsPage() {
+  const locale = await uiLocale();
   let items: FlowRow[] = [];
   let loadError: string | null = null;
   try {
     const r = await apiFetch<{ items: FlowRow[] }>('/api/v1/flow/flows');
     items = r.items;
   } catch {
-    loadError = 'Could not load flows.';
+    loadError = t(locale, 'load_flows_failed');
   }
 
   return (
     <div className="px-6 py-10 max-w-5xl">
       <div className="flex items-start justify-between">
         <div>
-          <h1 className="text-[28px] font-semibold tracking-tight text-ink">Flows</h1>
-          <p className="mt-1 text-sm text-ink-muted">
-            State machines your contacts move through. Each step is held by gate tasks.
-          </p>
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">{t(locale, 'flows')}</h1>
+          <p className="mt-1 text-sm text-ink-muted">{t(locale, 'flows_blurb')}</p>
         </div>
-        <NewFlowButton />
+        <NewFlowButton locale={locale} />
       </div>
 
       {loadError && (
@@ -58,7 +66,7 @@ export default async function FlowsPage() {
         </div>
       )}
 
-      {!loadError && items.length === 0 && <EmptyState />}
+      {!loadError && items.length === 0 && <EmptyState locale={locale} />}
 
       {items.length > 0 && (
         <div className="mt-8 space-y-2">
@@ -79,7 +87,7 @@ export default async function FlowsPage() {
                         LIFECYCLE_STYLE[f.lifecycle] ?? ''
                       }`}
                     >
-                      {f.lifecycle}
+                      {t(locale, LIFECYCLE_KEY[f.lifecycle] ?? 'lifecycle_draft')}
                     </span>
                   </div>
                   {f.description && (
@@ -87,11 +95,11 @@ export default async function FlowsPage() {
                   )}
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="text-xs text-ink-muted">{SCOPE_LABEL[f.scope]}</div>
-                  <div className="text-xs text-ink-subtle mt-0.5">{f.active_run_count} active</div>
+                  <div className="text-xs text-ink-muted">{t(locale, SCOPE_KEY[f.scope] ?? 'scope_personal')}</div>
+                  <div className="text-xs text-ink-subtle mt-0.5">{t(locale, 'n_active', { n: f.active_run_count })}</div>
                 </div>
               </Link>
-              <FavoriteStar flowId={f.id} initial={f.is_favorite} />
+              <FavoriteStar flowId={f.id} initial={f.is_favorite} locale={locale} />
             </div>
           ))}
         </div>
@@ -100,19 +108,18 @@ export default async function FlowsPage() {
   );
 }
 
-function EmptyState() {
+function EmptyState({ locale }: { locale: Locale }) {
   return (
     <div className="mt-8 rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-12 text-center">
       <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-violet-50 flex items-center justify-center">
         <Workflow size={22} strokeWidth={1.5} className="text-violet-600" />
       </div>
-      <h2 className="text-lg font-semibold tracking-tight">No flows yet</h2>
+      <h2 className="text-lg font-semibold tracking-tight">{t(locale, 'no_flows_yet')}</h2>
       <p className="mt-1 text-sm text-ink-subtle max-w-md mx-auto leading-relaxed">
-        A flow is a sequence of steps with gate tasks. Create one, define its
-        graph, and start moving contacts through it.
+        {t(locale, 'no_flows_blurb')}
       </p>
       <div className="mt-5 flex justify-center">
-        <NewFlowButton />
+        <NewFlowButton locale={locale} />
       </div>
     </div>
   );

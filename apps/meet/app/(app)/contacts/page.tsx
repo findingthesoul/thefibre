@@ -5,6 +5,8 @@ import {
   ErrorBanner,
   EmptyState,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { ContactsSearch } from './search';
 import { ContactRow, type Contact } from './contact-row';
 
@@ -13,6 +15,7 @@ export default async function ContactsPage({
 }: {
   searchParams: Promise<{ q?: string }>;
 }) {
+  const locale = await uiLocale();
   const { q } = await searchParams;
   let items: Contact[] = [];
   let error: string | null = null;
@@ -27,23 +30,23 @@ export default async function ContactsPage({
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Contacts"
-        description="People Meet has a reason to know about — invitees on bookings, and members of your Meet teams. Identity is managed in The Fibre platform; Meet only surfaces the slice it justifies."
+        title={t(locale, 'contacts_title')}
+        description={t(locale, 'contacts_desc')}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <div className="mt-8">
-        <ContactsSearch initial={q ?? ''} />
+        <ContactsSearch initial={q ?? ''} locale={locale} />
       </div>
 
       <section className="mt-6">
         {items.length === 0 ? (
-          <EmptyState>No-one has booked yet, and your teams have no members — so Meet has no contacts to show.</EmptyState>
+          <EmptyState>{t(locale, 'contacts_empty')}</EmptyState>
         ) : (
           <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {items.map((c) => (
-              <ContactRow key={c.id} contact={c} />
+              <ContactRow key={c.id} contact={c} locale={locale} />
             ))}
           </ul>
         )}

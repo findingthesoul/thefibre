@@ -21,12 +21,20 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '../i18n.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
-const WEEKDAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
-const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
-];
+// Month + weekday names follow the interface language via Intl (i18n P3) —
+// no hand-kept English arrays. 2024-01-01 is a Monday; the grid stays
+// Monday-first in every locale (house style), whatever the region's default.
+function monthNames(intl: string): string[] {
+  const f = new Intl.DateTimeFormat(intl, { month: 'long' });
+  return Array.from({ length: 12 }, (_, m) => f.format(new Date(2024, m, 1)));
+}
+function weekdayNames(intl: string): string[] {
+  const f = new Intl.DateTimeFormat(intl, { weekday: 'short' });
+  return Array.from({ length: 7 }, (_, i) => f.format(new Date(2024, 0, 1 + i)));
+}
 
 function pad(n: number): string {
   return String(n).padStart(2, '0');
@@ -40,8 +48,8 @@ function parseDate(s: string | null | undefined): Date | null {
   if (!m) return null;
   return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
 }
-function fmtDisplay(d: Date): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDisplay(d: Date, intl: string): string {
+  return new Intl.DateTimeFormat(intl, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
@@ -123,6 +131,10 @@ function MonthGrid({
   max: Date | null;
   onPick: (d: Date) => void;
 }) {
+  const locale: Locale = useLocale();
+  const intl = INTL_LOCALES[locale];
+  const months = useMemo(() => monthNames(intl), [intl]);
+  const weekdays = useMemo(() => weekdayNames(intl), [intl]);
   const today = useMemo(() => new Date(), []);
   const [view, setView] = useState<{ year: number; month: number }>(() => {
     const base = selected ?? min ?? today;
@@ -160,18 +172,18 @@ function MonthGrid({
       <div className="flex items-center justify-between">
         <button
           type="button"
-          aria-label="Previous month"
+          aria-label={chromeT(locale, 'prev_month')}
           onClick={() => nav(-1)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken"
         >
           <ChevronLeft size={18} strokeWidth={1.75} />
         </button>
         <div className="text-[15px] font-medium">
-          {MONTHS[view.month]} {view.year}
+          {months[view.month]} {view.year}
         </div>
         <button
           type="button"
-          aria-label="Next month"
+          aria-label={chromeT(locale, 'next_month')}
           onClick={() => nav(1)}
           className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:text-ink hover:bg-surface-sunken"
         >
@@ -180,8 +192,8 @@ function MonthGrid({
       </div>
 
       <div className="mt-2 grid grid-cols-7">
-        {WEEKDAYS.map((w) => (
-          <div key={w} className="h-8 flex items-center justify-center text-xs text-ink-muted">
+        {weekdays.map((w, i) => (
+          <div key={i} className="h-8 flex items-center justify-center text-xs text-ink-muted">
             {w}
           </div>
         ))}
@@ -238,6 +250,7 @@ function CalendarPopover({
   onClose: () => void;
   clearable: boolean;
 }) {
+  const locale = useLocale();
   const today = new Date();
   // Today must obey the same min/max the grid enforces — otherwise it's a
   // one-click bypass of the end-after-start constraint.
@@ -254,7 +267,7 @@ function CalendarPopover({
           onClick={() => onPick(today)}
           className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
-          Today
+          {chromeT(locale, 'today')}
         </button>
         {clearable && selected && (
           <button
@@ -262,7 +275,7 @@ function CalendarPopover({
             onClick={onClear}
             className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
           >
-            Clear
+            {chromeT(locale, 'clear')}
           </button>
         )}
       </div>
@@ -312,6 +325,7 @@ function DateTimePopover({
   onClose: () => void;
   clearable: boolean;
 }) {
+  const locale = useLocale();
   const today = new Date();
   const todayDisabled =
     !!(min && today < min && !sameDay(today, min)) ||
@@ -366,7 +380,7 @@ function DateTimePopover({
           onClick={() => onPickDate(today)}
           className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
         >
-          Today
+          {chromeT(locale, 'today')}
         </button>
         {clearable && hasValue && (
           <button
@@ -374,7 +388,7 @@ function DateTimePopover({
             onClick={onClear}
             className="text-sm text-ink-subtle hover:text-ink px-2 py-1 rounded-md hover:bg-surface-sunken"
           >
-            Clear
+            {chromeT(locale, 'clear')}
           </button>
         )}
       </div>
@@ -394,7 +408,7 @@ export function DateField({
   hint,
   min,
   max,
-  placeholder = 'Pick a date',
+  placeholder,
   onValueChange,
 }: {
   label: React.ReactNode;
@@ -407,6 +421,7 @@ export function DateField({
   placeholder?: string;
   onValueChange?: (v: string) => void;
 }) {
+  const locale: Locale = useLocale();
   const [value, setValue] = useState<string>(defaultValue?.slice(0, 10) ?? '');
   const [open, setOpen] = useState(false);
   const [anchor, setAnchor] = useState<DOMRect | null>(null);
@@ -444,7 +459,9 @@ export function DateField({
         className="mt-1 w-full h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
       >
         <span className={selected ? 'text-ink' : 'text-ink-muted'}>
-          {selected ? fmtDisplay(selected) : placeholder}
+          {selected
+            ? fmtDisplay(selected, INTL_LOCALES[locale])
+            : placeholder ?? chromeT(locale, 'pick_date')}
         </span>
         <span className="flex items-center gap-1.5 text-ink-muted">
           {value && (
@@ -509,6 +526,7 @@ export function DateTimeField({
   min?: string | null;
   max?: string | null;
 }) {
+  const locale: Locale = useLocale();
   const isControlled = controlledValue !== undefined;
   const [internal, setInternal] = useState<string>(defaultValue ?? '');
   const value = isControlled ? (controlledValue ?? '') : internal;
@@ -572,12 +590,12 @@ export function DateTimeField({
         <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>
           {selected ? (
             <>
-              {fmtDisplay(selected)}
+              {fmtDisplay(selected, INTL_LOCALES[locale])}
               <span className="text-ink-muted"> · </span>
               <span className="tabular-nums">{time}</span>
             </>
           ) : (
-            'Pick date & time'
+            chromeT(locale, 'pick_datetime')
           )}
         </span>
         <span className="flex items-center gap-1.5 text-ink-muted shrink-0">

@@ -6,8 +6,10 @@
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 import { CalendarRange, Route } from 'lucide-react';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { one, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { EmptyState } from '@/components/ui/page';
+import { t, type UiKey } from '@/lib/i18n-ui';
 
 const STATUS_STYLES: Record<string, string> = {
   draft: 'bg-surface-sunken text-ink-subtle ring-line',
@@ -16,20 +18,24 @@ const STATUS_STYLES: Record<string, string> = {
   archived: 'bg-surface-sunken text-ink-muted ring-line',
 };
 
-function formatDates(startsOn: string | null, endsOn: string | null): string {
-  if (!startsOn && !endsOn) return 'No dates yet';
+function formatDates(locale: Locale, startsOn: string | null, endsOn: string | null): string {
+  if (!startsOn && !endsOn) return t(locale, 'no_dates_yet');
   const fmt = (d: string) =>
-    new Intl.DateTimeFormat('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }).format(
-      new Date(d),
-    );
+    new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+      day: 'numeric',
+      month: 'short',
+      year: 'numeric',
+    }).format(new Date(d));
   if (startsOn && endsOn && startsOn !== endsOn) return `${fmt(startsOn)} → ${fmt(endsOn)}`;
   return fmt((startsOn ?? endsOn)!);
 }
 
 export function ThreadsList({
+  locale,
   threads,
   teams,
 }: {
+  locale: Locale;
   threads: ThreadRow[];
   teams: TeamOption[];
 }) {
@@ -85,15 +91,15 @@ export function ThreadsList({
   return (
     <div>
       <div className="mt-6 flex flex-wrap items-center gap-2">
-        {statusChip('all', 'All')}
-        {statusChip('active', 'Active')}
-        {statusChip('draft', 'Drafts')}
-        {statusChip('past', 'Past')}
+        {statusChip('all', t(locale, 'filter_all'))}
+        {statusChip('active', t(locale, 'filter_active'))}
+        {statusChip('draft', t(locale, 'filter_drafts'))}
+        {statusChip('past', t(locale, 'filter_past'))}
         {(teams.length > 0 || threads.some((t) => t.team_id)) && (
           <>
             <span className="mx-1 h-4 w-px bg-line" />
-            {chip('all', 'Everyone')}
-            {chip('personal', 'Personal')}
+            {chip('all', t(locale, 'filter_everyone'))}
+            {chip('personal', t(locale, 'personal'))}
             {teams.map((t) => chip(t.id, t.name))}
           </>
         )}
@@ -101,23 +107,21 @@ export function ThreadsList({
 
       {filtered.length === 0 && (
         <EmptyState>
-          {threads.length === 0
-            ? 'No threads yet. Create your first — an event with a schedule, or a journey that unfolds over time.'
-            : 'Nothing here for this filter.'}
+          {threads.length === 0 ? t(locale, 'threads_empty') : t(locale, 'nothing_for_filter')}
         </EmptyState>
       )}
 
       {filtered.length > 0 && (
         <ul className="mt-4 divide-y divide-line border border-line rounded-lg bg-surface-raised">
-          {filtered.map((t) => {
-            const program = one(t.program);
-            const team = one(t.team);
+          {filtered.map((row) => {
+            const program = one(row.program);
+            const team = one(row.team);
             const Icon = program?.format === 'journey' ? Route : CalendarRange;
             const status = program?.status ?? 'draft';
             return (
-              <li key={t.id}>
+              <li key={row.id}>
                 <Link
-                  href={`/threads/${t.id}`}
+                  href={`/threads/${row.id}`}
                   className="flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 transition-colors"
                 >
                   <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
@@ -125,20 +129,22 @@ export function ThreadsList({
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="text-sm font-medium text-ink truncate">
-                      {program?.title ?? t.slug}
+                      {program?.title ?? row.slug}
                     </div>
                     <div className="text-xs text-ink-subtle mt-0.5">
-                      {program?.format === 'journey' ? 'Journey' : 'Event'} ·{' '}
-                      {formatDates(program?.starts_on ?? null, program?.ends_on ?? null)}
+                      {program?.format === 'journey' ? t(locale, 'journey') : t(locale, 'event')} ·{' '}
+                      {formatDates(locale, program?.starts_on ?? null, program?.ends_on ?? null)}
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>
                   <span
-                    className={`text-[11px] px-2 py-0.5 rounded-full ring-1 capitalize shrink-0 ${
+                    className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                       STATUS_STYLES[status] ?? STATUS_STYLES.draft
                     }`}
                   >
-                    {status}
+                    {['draft', 'active', 'completed', 'archived'].includes(status)
+                      ? t(locale, `status_${status}` as UiKey)
+                      : status}
                   </span>
                 </Link>
               </li>

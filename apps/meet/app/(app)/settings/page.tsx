@@ -3,11 +3,15 @@ import { Globe, Clock, CalendarDays, Plug } from 'lucide-react';
 import { appName, appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 
 const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
-export default function SettingsIndex() {
+export default async function SettingsIndex() {
+  const locale = await uiLocale();
   const sections = platformSettings({
+    locale,
     fibreUrl: appUrl('fibre-platform', process.env),
     hosted: ['payments'],
     appSection: {
@@ -16,26 +20,26 @@ export default function SettingsIndex() {
         {
           href: '/settings/profile',
           icon: <Globe {...ICON} />,
-          title: 'Booking page',
-          desc: 'The address people book you at, your location and your personal room.',
+          title: t(locale, 'st_booking_page'),
+          desc: t(locale, 'st_booking_page_desc'),
         },
         {
           href: '/settings/availability',
           icon: <Clock {...ICON} />,
-          title: 'Availability',
-          desc: 'Timezone and weekly working hours.',
+          title: t(locale, 'st_availability'),
+          desc: t(locale, 'st_availability_desc'),
         },
         {
           href: '/settings/calendars',
           icon: <CalendarDays {...ICON} />,
-          title: 'Calendars',
-          desc: 'Which calendars are checked for conflicts, and where bookings land.',
+          title: t(locale, 'st_calendars'),
+          desc: t(locale, 'st_calendars_desc'),
         },
         {
           href: '/settings/integrations',
           icon: <Plug {...ICON} />,
-          title: 'Integrations',
-          desc: 'Video, and the rest of what Meet can talk to.',
+          title: t(locale, 'st_integrations'),
+          desc: t(locale, 'st_integrations_desc'),
         },
       ],
     },
@@ -43,11 +47,8 @@ export default function SettingsIndex() {
 
   return (
     <PageContainer max="4xl">
-      <PageHeader
-        title="Settings"
-        description="You, the workspace, and Meet. The same four sections in every Fibre app."
-      />
-      <SettingsCards sections={sections} link={Link} />
+      <PageHeader title={t(locale, 'settings')} description={t(locale, 'settings_desc')} />
+      <SettingsCards sections={sections} link={Link} locale={locale} />
     </PageContainer>
   );
 }

@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ChevronLeft } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { RunView } from './run-view';
 
 type Person = { id: string; first_name: string | null; last_name: string | null; email: string | null };
@@ -44,6 +46,7 @@ type RunDetail = {
 
 export default async function RunDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  const locale = await uiLocale();
   let detail: RunDetail;
   try {
     detail = await apiFetch<RunDetail>(`/api/v1/flow/runs/${id}`);
@@ -57,9 +60,9 @@ export default async function RunDetailPage({ params }: { params: Promise<{ id: 
         href={`/flows/${detail.run.flow_id}`}
         className="inline-flex items-center gap-1 text-sm text-ink-muted hover:text-ink"
       >
-        <ChevronLeft size={16} /> Back to flow
+        <ChevronLeft size={16} /> {t(locale, 'back_to_flow')}
       </Link>
-      <RunView detail={detail} />
+      <RunView detail={detail} locale={locale} />
     </div>
   );
 }

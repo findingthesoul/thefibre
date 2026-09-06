@@ -6,6 +6,8 @@ import {
   ErrorBanner,
   SectionLabel,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from '../google';
 import { PersonalRoomForm } from './personal-room';
 
@@ -19,6 +21,7 @@ export default async function IntegrationsPage({
 }: {
   searchParams: Promise<{ google?: string; reason?: string }>;
 }) {
+  const locale = await uiLocale();
   const { google: googleStatus, reason } = await searchParams;
   let host: Host | null = null;
   let error: string | null = null;
@@ -30,34 +33,33 @@ export default async function IntegrationsPage({
 
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Connections"
-        description="Connect external services so Meet can read your calendar and create video links."
+        title={t(locale, 'int_title')}
+        description={t(locale, 'int_desc')}
       />
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
       {host && (
         <>
           <section className="mt-10">
-            <SectionLabel>Calendars</SectionLabel>
+            <SectionLabel>{t(locale, 'st_calendars')}</SectionLabel>
             <div className="mt-4">
               <GoogleConnect
                 connected={!!host.google_connected}
                 statusParam={googleStatus ?? null}
                 reasonParam={reason ?? null}
+                locale={locale}
               />
             </div>
           </section>
 
           <section className="mt-12">
-            <SectionLabel>Personal meeting room</SectionLabel>
+            <SectionLabel>{t(locale, 'personal_room')}</SectionLabel>
             <p className="mt-1 text-sm text-ink-subtle max-w-2xl">
-              Used by meeting types set to <strong>Personal room</strong>. A
-              static Zoom Personal Meeting Room URL, your Whereby link, anything
-              that lives at a fixed URL.
+              {t(locale, 'int_room_desc')}
             </p>
             <div className="mt-4">
-              <PersonalRoomForm initial={host.personal_room_url ?? ''} />
+              <PersonalRoomForm initial={host.personal_room_url ?? ''} locale={locale} />
             </div>
           </section>
         </>

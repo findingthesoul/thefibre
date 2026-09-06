@@ -9,12 +9,13 @@ import { useState } from 'react';
 import { TriangleAlert } from 'lucide-react';
 import { Dialog } from './dialog.js';
 import { Button } from './button.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 export function DangerConfirmDialog({
   open,
   title,
   message,
-  confirmLabel = 'Delete',
+  confirmLabel,
   pending = false,
   onCancel,
   onConfirm,
@@ -27,8 +28,13 @@ export function DangerConfirmDialog({
   onCancel: () => void;
   onConfirm: () => void;
 }) {
+  const locale = useLocale();
   const [typed, setTyped] = useState('');
+  // The armed keyword stays the literal DELETE in every locale — the copy
+  // around it translates; the word you type does not.
   const armed = typed.trim().toUpperCase() === 'DELETE';
+  // "Type {word} to confirm" — {word} is styled, so split around it.
+  const [typeBefore, typeAfter] = chromeT(locale, 'danger_type_to_confirm').split('{word}');
 
   function close() {
     setTyped('');
@@ -50,7 +56,7 @@ export function DangerConfirmDialog({
       footer={
         <>
           <Button type="button" variant="secondary" onClick={close}>
-            Cancel
+            {chromeT(locale, 'cancel')}
           </Button>
           <Button
             type="button"
@@ -61,7 +67,7 @@ export function DangerConfirmDialog({
               setTyped('');
             }}
           >
-            {pending ? 'Deleting…' : confirmLabel}
+            {pending ? chromeT(locale, 'deleting') : (confirmLabel ?? chromeT(locale, 'delete'))}
           </Button>
         </>
       }
@@ -70,7 +76,9 @@ export function DangerConfirmDialog({
         <p className="text-sm text-ink-subtle leading-relaxed">{message}</p>
         <label className="block">
           <span className="text-xs text-ink-subtle">
-            Type <span className="font-mono font-medium text-ink">DELETE</span> to confirm
+            {typeBefore}
+            <span className="font-mono font-medium text-ink">DELETE</span>
+            {typeAfter}
           </span>
           <input
             autoFocus

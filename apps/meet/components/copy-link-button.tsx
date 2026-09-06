@@ -10,10 +10,12 @@ import { Button } from "@/components/ui/button";
 export function CopyLinkButton({
   url,
   label = "Copy booking link",
+  copiedLabel = "Copied!",
   className,
 }: {
   url: string;
   label?: string;
+  copiedLabel?: string;
   className?: string;
 }) {
   const [copied, setCopied] = React.useState(false);
@@ -50,8 +52,8 @@ export function CopyLinkButton({
       size="icon"
       type="button"
       onClick={handleClick}
-      aria-label={copied ? "Copied!" : label}
-      title={copied ? "Copied!" : label}
+      aria-label={copied ? copiedLabel : label}
+      title={copied ? copiedLabel : label}
       className={className}
     >
       {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}

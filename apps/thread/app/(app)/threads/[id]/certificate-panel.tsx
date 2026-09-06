@@ -5,16 +5,20 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { updateThread } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TextField, SelectField } from '@/components/ui/field';
 import { SwitchField } from '@/components/ui/switch';
 
 export function CertificatePanel({
+  locale,
   thread,
   certTemplates,
   onSaved,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   certTemplates: { id: string; name: string }[];
   onSaved?: () => void;
@@ -47,7 +51,7 @@ export function CertificatePanel({
     // Saved from the shared dialog footer (submits by form id).
     <form id="thread-certificate-form" onSubmit={onSubmit} className="space-y-5">
       <SwitchField
-        label="Award a certificate on completion"
+        label={t(locale, 'award_certificate')}
         checked={enabled}
         onChange={setEnabled}
       />
@@ -55,31 +59,33 @@ export function CertificatePanel({
       {enabled && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <SelectField
-            label="Template"
+            label={t(locale, 'template')}
             name="certificate_template_id"
             defaultValue={thread.certificate_template_id ?? ''}
             options={[
               {
                 value: '',
-                label: certTemplates.length ? 'Choose a template…' : 'No templates yet',
+                label: certTemplates.length
+                  ? t(locale, 'choose_template')
+                  : t(locale, 'no_templates_yet'),
               },
               ...certTemplates.map((t) => ({ value: t.id, label: t.name })),
             ]}
             hint={
               <>
-                Designed under{' '}
+                {t(locale, 'designed_under')}{' '}
                 <a href="/certificates" className="underline underline-offset-2 hover:text-ink">
-                  Certificates
+                  {t(locale, 'certificates')}
                 </a>
                 .
               </>
             }
           />
           <TextField
-            label="Criteria / awarded for"
+            label={t(locale, 'criteria_label')}
             name="certificate_criteria"
             defaultValue={thread.certificate_criteria ?? ''}
-            placeholder="Completed all sessions"
+            placeholder={t(locale, 'criteria_placeholder')}
           />
         </div>
       )}
@@ -90,7 +96,9 @@ export function CertificatePanel({
         </p>
       )}
       {(pending || saved) && (
-        <p className="text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</p>
+        <p className="text-sm text-ink-subtle">
+          {pending ? t(locale, 'saving') : t(locale, 'saved')}
+        </p>
       )}
     </form>
   );

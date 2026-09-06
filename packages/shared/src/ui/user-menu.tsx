@@ -23,6 +23,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { COOKIE_THEME, COOKIE_SIDEBAR, type SidebarMode, type Theme } from '../prefs.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 export type WorkspaceChoice = { id: string; name: string | null; is_active: boolean };
 
@@ -69,6 +70,7 @@ export function UserMenu({
   onSwitchWorkspace?: (id: string) => Promise<{ error?: string } | void>;
   onSignOut: () => Promise<void>;
 }) {
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const [sidebar, setSidebar] = useState<SidebarMode>(initialSidebar);
@@ -134,28 +136,44 @@ export function UserMenu({
       {open && (
         <div className="absolute right-0 z-50 mt-2 w-72 rounded-lg bg-surface-raised border border-line shadow-lg py-2 text-sm">
           <div className="px-3 py-2">
-            <div className="text-[10px] uppercase tracking-wider text-ink-muted">Signed in</div>
+            <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+              {chromeT(locale, 'signed_in')}
+            </div>
             <div className="font-medium mt-1">{fullName}</div>
             <div className="text-ink-subtle">{email}</div>
           </div>
 
           <Divider />
           {profileHref && (
-            <Item icon={UserIcon} label="Profile" href={profileHref} onClick={() => setOpen(false)} />
+            <Item
+              icon={UserIcon}
+              label={chromeT(locale, 'profile')}
+              href={profileHref}
+              onClick={() => setOpen(false)}
+            />
           )}
-          <Item icon={Settings} label="Settings" href={settingsHref} onClick={() => setOpen(false)} />
+          <Item
+            icon={Settings}
+            label={chromeT(locale, 'settings')}
+            href={settingsHref}
+            onClick={() => setOpen(false)}
+          />
           {/* "Take a tour" stays as a dead placeholder until the tour exists. */}
-          <Item icon={Compass} label="Take a tour" disabled />
+          <Item icon={Compass} label={chromeT(locale, 'take_tour')} disabled />
 
           {onSwitchWorkspace && workspaces.length > 1 && (
             <>
               <Divider />
-              <SectionLabel>Workspace</SectionLabel>
+              <SectionLabel>{chromeT(locale, 'workspace')}</SectionLabel>
               {workspaces.map((w) => (
                 <Option
                   key={w.id}
                   icon={Building2}
-                  label={switching === w.id ? 'Switching…' : w.name ?? 'Untitled workspace'}
+                  label={
+                    switching === w.id
+                      ? chromeT(locale, 'switching')
+                      : w.name ?? chromeT(locale, 'untitled_workspace')
+                  }
                   active={w.is_active}
                   onClick={() => pickWorkspace(w.id)}
                 />
@@ -164,16 +182,16 @@ export function UserMenu({
           )}
 
           <Divider />
-          <SectionLabel>Sidebar</SectionLabel>
-          <Option icon={PanelLeftOpen} label="Expanded" active={sidebar === 'expanded'} onClick={() => pickSidebar('expanded')} />
-          <Option icon={PanelLeftClose} label="Collapsed" active={sidebar === 'collapsed'} onClick={() => pickSidebar('collapsed')} />
-          <Option icon={Sparkles} label="Expand on hover" active={sidebar === 'hover'} onClick={() => pickSidebar('hover')} />
+          <SectionLabel>{chromeT(locale, 'sidebar')}</SectionLabel>
+          <Option icon={PanelLeftOpen} label={chromeT(locale, 'sidebar_expanded')} active={sidebar === 'expanded'} onClick={() => pickSidebar('expanded')} />
+          <Option icon={PanelLeftClose} label={chromeT(locale, 'sidebar_collapsed')} active={sidebar === 'collapsed'} onClick={() => pickSidebar('collapsed')} />
+          <Option icon={Sparkles} label={chromeT(locale, 'sidebar_hover')} active={sidebar === 'hover'} onClick={() => pickSidebar('hover')} />
 
           <Divider />
-          <SectionLabel>Theme</SectionLabel>
-          <Option icon={Sun} label="Light" active={theme === 'light'} onClick={() => pickTheme('light')} />
-          <Option icon={Moon} label="Dark" active={theme === 'dark'} onClick={() => pickTheme('dark')} />
-          <Option icon={MonitorCog} label="System" active={theme === 'system'} onClick={() => pickTheme('system')} />
+          <SectionLabel>{chromeT(locale, 'theme')}</SectionLabel>
+          <Option icon={Sun} label={chromeT(locale, 'theme_light')} active={theme === 'light'} onClick={() => pickTheme('light')} />
+          <Option icon={Moon} label={chromeT(locale, 'theme_dark')} active={theme === 'dark'} onClick={() => pickTheme('dark')} />
+          <Option icon={MonitorCog} label={chromeT(locale, 'theme_system')} active={theme === 'system'} onClick={() => pickTheme('system')} />
 
           <Divider />
           <button
@@ -181,7 +199,7 @@ export function UserMenu({
             className="w-full text-left px-3 py-2 flex items-center gap-2.5 hover:bg-surface-sunken text-ink-subtle hover:text-ink"
           >
             <LogOut size={16} strokeWidth={1.75} />
-            Sign out
+            {chromeT(locale, 'sign_out')}
           </button>
         </div>
       )}

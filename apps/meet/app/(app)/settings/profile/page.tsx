@@ -6,6 +6,8 @@ import {
   Breadcrumb,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { PublicPageForm } from './form';
 
 // Your public page — its ADDRESS and location, which are the only parts of
@@ -21,6 +23,7 @@ type Host = {
 };
 
 export default async function ProfilePage() {
+  const locale = await uiLocale();
   let host: Host | null = null;
   let error: string | null = null;
   try {
@@ -30,15 +33,16 @@ export default async function ProfilePage() {
   }
   return (
     <PageContainer max="3xl">
-      <Breadcrumb href="/settings" label="Settings" />
+      <Breadcrumb href="/settings" label={t(locale, 'settings')} />
       <PageHeader
-        title="Public page"
-        description="Where your booking page lives, and what it shows."
+        title={t(locale, 'pp_title')}
+        description={t(locale, 'pp_desc')}
       />
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
       {host && (
         <PublicPageForm
           host={host}
+          locale={locale}
           fibreProfileUrl={`${appUrl('fibre-platform', process.env)}/settings/profile`}
         />
       )}

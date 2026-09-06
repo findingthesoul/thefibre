@@ -23,8 +23,17 @@ import {
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { previewImport, importDesign, exportDesign, type ImportPlan } from '../actions';
+import { t, type Locale } from '@/lib/i18n-ui';
 
-export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: string }) {
+export function ImportDesign({
+  flowId,
+  flowName,
+  locale,
+}: {
+  flowId: string;
+  flowName: string;
+  locale: Locale;
+}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState('');
@@ -85,7 +94,7 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
     const res = await exportDesign(flowId);
     setBusy(false);
     if (res.error || !res.data) {
-      setError(res.error ?? 'export failed');
+      setError(res.error ?? t(locale, 'export_failed'));
       return;
     }
     const slug = flowName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'flow';
@@ -101,10 +110,10 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
     <>
       <button
         onClick={() => setOpen(true)}
-        title="Import or export this flow as a JSON design file"
+        title={t(locale, 'design_file_title')}
         className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
       >
-        <FileJson size={15} strokeWidth={1.75} /> Design file
+        <FileJson size={15} strokeWidth={1.75} /> {t(locale, 'design_file')}
       </button>
 
       <Dialog
@@ -114,8 +123,8 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
           reset();
         }}
         size="xl"
-        title="Import design"
-        description="Paste or choose a JSON design file. Nothing changes until you have seen what it will do."
+        title={t(locale, 'import_design')}
+        description={t(locale, 'import_design_desc')}
         footer={
           <>
             <Button
@@ -125,15 +134,15 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
                 reset();
               }}
             >
-              Cancel
+              {t(locale, 'cancel')}
             </Button>
             {plan ? (
               <Button onClick={onApply} disabled={busy} leading={<Upload size={15} />}>
-                {busy ? 'Importing…' : 'Import'}
+                {busy ? t(locale, 'importing') : t(locale, 'import')}
               </Button>
             ) : (
               <Button onClick={onCheck} disabled={busy || !text.trim()}>
-                {busy ? 'Checking…' : 'Check'}
+                {busy ? t(locale, 'checking') : t(locale, 'check')}
               </Button>
             )}
           </>
@@ -149,7 +158,7 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
               onChange={(e) => onFile(e.target.files?.[0] ?? null)}
             />
             <Button variant="secondary" size="sm" onClick={() => fileRef.current?.click()}>
-              Choose file…
+              {t(locale, 'choose_file')}
             </Button>
             <Button
               variant="ghost"
@@ -158,7 +167,7 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
               disabled={busy}
               leading={<ArrowDownToLine size={15} />}
             >
-              Export this flow
+              {t(locale, 'export_this_flow')}
             </Button>
           </div>
 
@@ -178,14 +187,14 @@ export function ImportDesign({ flowId, flowName }: { flowId: string; flowName: s
             </div>
           )}
 
-          {plan && <Plan plan={plan} />}
+          {plan && <Plan plan={plan} locale={locale} />}
         </div>
       </Dialog>
     </>
   );
 }
 
-function Plan({ plan }: { plan: ImportPlan }) {
+function Plan({ plan, locale }: { plan: ImportPlan; locale: Locale }) {
   const { steps, transitions, step_default_tasks: defaults, target_version: target } = plan;
 
   // Warnings, loudest first. Everything here is a reason to look twice, not a
@@ -193,52 +202,74 @@ function Plan({ plan }: { plan: ImportPlan }) {
   const warnings: string[] = [];
   if (target.creates_new_version) {
     warnings.push(
-      `This flow's latest version is published, so importing creates version ${target.version_number}. ` +
+      t(locale, 'warn_creates_version', { v: target.version_number }) +
+        ' ' +
         (plan.run_count > 0
-          ? `The ${plan.run_count} existing run${plan.run_count === 1 ? '' : 's'} stay on the version they started on until you publish.`
-          : 'Nothing is running on it yet.'),
+          ? plan.run_count === 1
+            ? t(locale, 'warn_runs_stay_one')
+            : t(locale, 'warn_runs_stay_many', { n: plan.run_count })
+          : t(locale, 'warn_nothing_running')),
     );
   } else if (plan.run_count > 0) {
     warnings.push(
-      `Replacing the draft in place. ${plan.run_count} run${plan.run_count === 1 ? '' : 's'} exist on this flow — they are pinned to their own version and are not touched.`,
+      plan.run_count === 1
+        ? t(locale, 'warn_replace_draft_one')
+        : t(locale, 'warn_replace_draft_many', { n: plan.run_count }),
     );
   }
   if (plan.removed_step_keys.length) {
     warnings.push(
-      `${plan.removed_step_keys.length} step${plan.removed_step_keys.length === 1 ? '' : 's'} in the draft are not in this file and will disappear: ${plan.removed_step_keys.join(', ')}.`,
+      plan.removed_step_keys.length === 1
+        ? t(locale, 'warn_removed_one', { keys: plan.removed_step_keys.join(', ') })
+        : t(locale, 'warn_removed_many', {
+            n: plan.removed_step_keys.length,
+            keys: plan.removed_step_keys.join(', '),
+          }),
     );
   }
   if (plan.flow.system_key_taken_by) {
-    warnings.push(
-      `Another flow ("${plan.flow.system_key_taken_by}") already holds that system key. The import will be refused.`,
-    );
+    warnings.push(t(locale, 'warn_system_key_taken', { name: plan.flow.system_key_taken_by }));
   }
 
   return (
     <div className="rounded-md border border-line bg-surface-sunken px-3 py-3 text-sm space-y-3">
       <div className="flex items-center gap-1.5 font-medium text-ink">
-        <CheckCircle2 size={15} className="text-emerald-600" /> Valid. Here is what Import will do:
+        <CheckCircle2 size={15} className="text-emerald-600" /> {t(locale, 'plan_valid_heading')}
       </div>
 
       <ul className="space-y-1 text-ink-subtle">
-        <Row label="Steps" incoming={steps.incoming} replacing={steps.replacing} />
-        <Row label="Transitions" incoming={transitions.incoming} replacing={transitions.replacing} />
-        <Row label="Default tasks" incoming={defaults.incoming} replacing={defaults.replacing} />
+        <Row label={t(locale, 'row_steps')} incoming={steps.incoming} replacing={steps.replacing} locale={locale} />
+        <Row
+          label={t(locale, 'row_transitions')}
+          incoming={transitions.incoming}
+          replacing={transitions.replacing}
+          locale={locale}
+        />
+        <Row
+          label={t(locale, 'row_default_tasks')}
+          incoming={defaults.incoming}
+          replacing={defaults.replacing}
+          locale={locale}
+        />
         <li>
-          Lands on <strong className="text-ink">version {target.version_number}</strong>
-          {target.creates_new_version ? ' (new draft)' : ' (existing draft)'}.
+          {t(locale, 'lands_on_version')}{' '}
+          <strong className="text-ink">{t(locale, 'version_n', { n: target.version_number })}</strong>{' '}
+          {target.creates_new_version
+            ? t(locale, 'new_draft_suffix')
+            : t(locale, 'existing_draft_suffix')}
         </li>
         {plan.flow.progression && (
           <li>
-            Progression <strong className="text-ink">{plan.flow.progression.from}</strong> →{' '}
+            {t(locale, 'progression_label')}{' '}
+            <strong className="text-ink">{plan.flow.progression.from}</strong> →{' '}
             <strong className="text-ink">{plan.flow.progression.to}</strong>.
           </li>
         )}
         {plan.flow.system_key && (
           <li>
-            System key{' '}
-            <strong className="text-ink">{plan.flow.system_key.from ?? '(none)'}</strong> →{' '}
-            <strong className="text-ink">{plan.flow.system_key.to ?? '(none)'}</strong>.
+            {t(locale, 'system_key_label')}{' '}
+            <strong className="text-ink">{plan.flow.system_key.from ?? t(locale, 'none_paren')}</strong> →{' '}
+            <strong className="text-ink">{plan.flow.system_key.to ?? t(locale, 'none_paren')}</strong>.
           </li>
         )}
       </ul>
@@ -253,13 +284,23 @@ function Plan({ plan }: { plan: ImportPlan }) {
   );
 }
 
-function Row({ label, incoming, replacing }: { label: string; incoming: number; replacing: number }) {
+function Row({
+  label,
+  incoming,
+  replacing,
+  locale,
+}: {
+  label: string;
+  incoming: number;
+  replacing: number;
+  locale: Locale;
+}) {
   return (
     <li>
       <strong className="text-ink">
-        {incoming} {label.toLowerCase()}
+        {incoming} {label}
       </strong>{' '}
-      replacing {replacing}.
+      {t(locale, 'row_replacing', { m: replacing })}
     </li>
   );
 }

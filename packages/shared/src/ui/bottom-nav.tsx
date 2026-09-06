@@ -18,6 +18,7 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { HelpCircle, Menu, X } from 'lucide-react';
 import type { SidebarNavItem, SidebarNavSection } from './sidebar-shell.js';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 type LinkLike = (props: {
   href: string;
@@ -74,6 +75,7 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
     maxPrimary?: number;
   }) {
     const pathname = usePathname();
+    const locale = useLocale();
     const [moreOpen, setMoreOpen] = useState(false);
 
     // Route changed (a link in the sheet was tapped) — close the sheet.
@@ -102,12 +104,12 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
           >
             <div className="w-full max-h-[80dvh] overflow-y-auto rounded-t-xl bg-surface-raised border-t border-line pb-[env(safe-area-inset-bottom)]">
               <div className="flex items-center justify-between px-4 pt-3 pb-1">
-                <span className="text-sm font-medium">Menu</span>
+                <span className="text-sm font-medium">{chromeT(locale, 'menu')}</span>
                 <button
                   type="button"
                   onClick={() => setMoreOpen(false)}
                   className="text-ink-muted hover:text-ink p-1"
-                  aria-label="Close"
+                  aria-label={chromeT(locale, 'close')}
                 >
                   <X size={18} strokeWidth={1.75} />
                 </button>
@@ -150,7 +152,7 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
                     }`}
                   >
                     <HelpCircle size={18} strokeWidth={1.75} className="shrink-0" />
-                    <span>Help</span>
+                    <span>{chromeT(locale, 'help')}</span>
                   </LinkComponent>
                   <div className="px-2.5 pt-2 text-[10px] text-ink-muted tracking-wider">
                     v{version}
@@ -180,7 +182,7 @@ export function createBottomNav(LinkComponent: LinkLike, usePathname: UsePathnam
               }`}
             >
               <Menu size={20} strokeWidth={1.75} className="shrink-0" />
-              <span className="text-[10px] leading-tight">More</span>
+              <span className="text-[10px] leading-tight">{chromeT(locale, 'more')}</span>
             </button>
           )}
         </nav>

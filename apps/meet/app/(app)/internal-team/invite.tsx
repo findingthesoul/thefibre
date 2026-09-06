@@ -4,9 +4,10 @@ import { useActionState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { TextField, SelectField } from '@/components/ui/field';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { inviteInternal, type InviteResult } from './actions';
 
-export function InviteForm() {
+export function InviteForm({ locale }: { locale: Locale }) {
   const router = useRouter();
   const [state, formAction, pending] = useActionState<InviteResult, FormData>(
     inviteInternal,
@@ -23,7 +24,7 @@ export function InviteForm() {
     >
       <div className="flex-1 min-w-[16rem]">
         <TextField
-          label="Email"
+          label={t(locale, 'email')}
           name="email"
           type="email"
           placeholder="colleague@example.com"
@@ -31,33 +32,33 @@ export function InviteForm() {
         />
       </div>
       <div className="w-48">
-        <TextField label="Name (optional)" name="name" placeholder="Full name" />
+        <TextField label={t(locale, 'name_optional')} name="name" placeholder={t(locale, 'full_name')} />
       </div>
       <div className="w-40">
         <SelectField
-          label="Relationship"
+          label={t(locale, 'relationship')}
           name="relationship_type"
           defaultValue="internal"
           options={[
-            { value: 'internal', label: 'Internal' },
-            { value: 'external', label: 'External' },
+            { value: 'internal', label: t(locale, 'internal') },
+            { value: 'external', label: t(locale, 'external') },
           ]}
         />
       </div>
       <Button type="submit" disabled={pending}>
-        {pending ? 'Inviting…' : 'Send invite'}
+        {pending ? t(locale, 'inviting') : t(locale, 'send_invite')}
       </Button>
       {state.error && (
         <div className="basis-full text-sm text-red-700">{state.error}</div>
       )}
       {state.ok && state.invited && (
         <div className="basis-full text-sm text-emerald-700">
-          Invite sent. They&apos;ll appear above once they sign in.
+          {t(locale, 'invite_sent_internal')}
         </div>
       )}
       {state.ok && !state.invited && (
         <div className="basis-full text-sm text-emerald-700">
-          Granted Meet access to the existing user.
+          {t(locale, 'granted_access')}
         </div>
       )}
     </form>

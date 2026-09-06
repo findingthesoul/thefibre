@@ -5,6 +5,8 @@
 
 import { useState, useTransition } from 'react';
 import { Trash2 } from 'lucide-react';
+import type { Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { createTicket, updateTicket, deleteTicket, type TicketRow } from '../actions';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { FormError } from '@/components/ui/form-error';
@@ -36,11 +38,13 @@ function fromLocalInput(v: string): string | null {
 }
 
 export function TicketDialog({
+  locale,
   threadId,
   ticket,
   onClose,
   onSaved,
 }: {
+  locale: Locale;
   threadId: string;
   ticket: TicketRow | null;
   onClose: () => void;
@@ -60,9 +64,9 @@ export function TicketDialog({
     setError(null);
     const fd = new FormData(e.currentTarget);
     const name = String(fd.get('name') ?? '').trim();
-    if (!name) return setError('Give the ticket a name.');
+    if (!name) return setError(t(locale, 'err_ticket_name'));
     const price = Number(String(fd.get('price') ?? '0').replace(',', '.'));
-    if (Number.isNaN(price) || price < 0) return setError('Price must be 0 or more.');
+    if (Number.isNaN(price) || price < 0) return setError(t(locale, 'err_price'));
     const limit = String(fd.get('quantity_limit') ?? '');
 
     const payload = {
@@ -81,7 +85,7 @@ export function TicketDialog({
         : null,
     };
     if (pmCustom && payload.payment_methods && payload.payment_methods.length === 0) {
-      return setError('Keep at least one payment option on, or switch back to inherit.');
+      return setError(t(locale, 'err_keep_one_or_inherit'));
     }
 
     startTransition(async () => {
@@ -107,7 +111,7 @@ export function TicketDialog({
     <Dialog
       open
       onClose={onClose}
-      title={isNew ? 'Add ticket' : `Edit — ${ticket.name}`}
+      title={isNew ? t(locale, 'add_ticket') : t(locale, 'edit_item', { title: ticket.name })}
       footer={
         <>
           {!isNew && (
@@ -119,79 +123,79 @@ export function TicketDialog({
                 leading={<Trash2 size={14} />}
                 onClick={() => setConfirmDelete(true)}
               >
-                Delete
+                {t(locale, 'delete')}
               </Button>
             </div>
           )}
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={onClose}>
-            Cancel
+            {t(locale, 'cancel')}
           </Button>
           <Button type="submit" form="ticket-form" disabled={pending}>
-            {pending ? 'Saving…' : isNew ? 'Add ticket' : 'Save'}
+            {pending ? t(locale, 'saving') : isNew ? t(locale, 'add_ticket') : t(locale, 'save')}
           </Button>
         </>
       }
     >
       <form id="ticket-form" onSubmit={onSubmit} className="space-y-4">
-        <TextField label="Name" name="name" defaultValue={ticket?.name ?? ''} required />
+        <TextField label={t(locale, 'name')} name="name" defaultValue={ticket?.name ?? ''} required />
         <TextAreaField
-          label="Description"
+          label={t(locale, 'description')}
           name="description"
           rows={2}
           defaultValue={ticket?.description ?? ''}
         />
         <div className="grid grid-cols-2 gap-4">
           <TextField
-            label="Price"
+            label={t(locale, 'price')}
             name="price"
             inputMode="decimal"
             placeholder="0.00"
             defaultValue={ticket ? (ticket.price_cents / 100).toFixed(2) : ''}
-            hint="0 = free ticket."
+            hint={t(locale, 'price_hint')}
           />
           <SelectField
-            label="Currency"
+            label={t(locale, 'currency')}
             name="price_currency"
             defaultValue={ticket?.price_currency ?? 'EUR'}
             options={CURRENCIES}
           />
         </div>
         <TextField
-            label="Quantity limit"
+            label={t(locale, 'quantity_limit')}
             name="quantity_limit"
             type="number"
             min={1}
-            placeholder="No limit"
+            placeholder={t(locale, 'no_limit')}
             defaultValue={ticket?.quantity_limit ?? ''}
-            hint="Leave empty for unlimited."
+            hint={t(locale, 'unlimited_hint')}
           />
         <DateTimeField
-          label="Available until"
+          label={t(locale, 'available_until')}
           name="available_until"
           defaultValue={toLocalInput(ticket?.available_until ?? null)}
-          hint="Leave empty to keep it available."
+          hint={t(locale, 'keep_available_hint')}
         />
         <div>
-          <span className="text-xs text-ink-subtle">Payment options</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'payment_options')}</span>
           <div className="mt-1.5 flex flex-wrap items-center gap-4">
             <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
               <input type="radio" name="pm-mode-ticket" checked={!pmCustom} onChange={() => setPmCustom(false)} />
-              Inherit
+              {t(locale, 'inherit')}
             </label>
             <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
               <input type="radio" name="pm-mode-ticket" checked={pmCustom} onChange={() => setPmCustom(true)} />
-              Custom for this ticket
+              {t(locale, 'custom_ticket')}
             </label>
             {pmCustom && (
               <span className="inline-flex items-center gap-4">
                 <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
                   <input type="checkbox" checked={pmStripe} onChange={(e) => setPmStripe(e.target.checked)} />
-                  Pay online
+                  {t(locale, 'pay_online')}
                 </label>
                 <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
                   <input type="checkbox" checked={pmInvoice} onChange={(e) => setPmInvoice(e.target.checked)} />
-                  Pay per invoice
+                  {t(locale, 'pay_per_invoice')}
                 </label>
               </span>
             )}
@@ -200,7 +204,7 @@ export function TicketDialog({
 
         <div className="pt-1">
           <SwitchField
-            label="Active — shown at enrolment"
+            label={t(locale, 'active_shown')}
             name="is_active"
             defaultChecked={ticket?.is_active ?? true}
           />
@@ -211,13 +215,14 @@ export function TicketDialog({
         open={confirmDelete}
         onCancel={() => setConfirmDelete(false)}
         onConfirm={doDelete}
-        title="Delete ticket"
+        title={t(locale, 'delete_ticket')}
         message={
           <>
-            Delete <strong>{ticket?.name}</strong>? This can&apos;t be undone.
+            {t(locale, 'delete_q_1')} <strong>{ticket?.name}</strong>
+            {t(locale, 'delete_q_2')}
           </>
         }
-        confirmLabel="Delete"
+        confirmLabel={t(locale, 'delete')}
         destructive
         pending={pending}
       />

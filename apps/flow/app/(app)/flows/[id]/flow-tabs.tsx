@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { Workflow, Users, BarChart3 } from 'lucide-react';
+import { t, type Locale } from '@/lib/i18n-ui';
 
 type Tab = 'builder' | 'flows' | 'reports';
 
@@ -10,11 +11,13 @@ export function FlowTabs({
   flows,
   reports,
   flowCount,
+  locale,
 }: {
   builder: ReactNode;
   flows: ReactNode;
   reports: ReactNode;
   flowCount: number;
+  locale: Locale;
 }) {
   const [tab, setTab] = useState<Tab>('flows');
 
@@ -22,13 +25,13 @@ export function FlowTabs({
     <div className="mt-6">
       <div className="flex items-center gap-1 border-b border-line">
         <TabButton active={tab === 'flows'} onClick={() => setTab('flows')} icon={Users} count={flowCount}>
-          Flows
+          {t(locale, 'flows')}
         </TabButton>
         <TabButton active={tab === 'builder'} onClick={() => setTab('builder')} icon={Workflow}>
-          Builder
+          {t(locale, 'tab_builder')}
         </TabButton>
         <TabButton active={tab === 'reports'} onClick={() => setTab('reports')} icon={BarChart3}>
-          Reports
+          {t(locale, 'tab_reports')}
         </TabButton>
       </div>
 

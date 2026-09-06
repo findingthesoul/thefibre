@@ -18,6 +18,8 @@ import {
   type CouponRow,
 } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
+import { t } from '@/lib/i18n-ui';
 import { TicketDialog } from './ticket-dialog';
 import { CouponDialog, type ScopedCouponRow } from './coupon-dialog';
 import { Button } from '@/components/ui/button';
@@ -25,14 +27,14 @@ import { SectionLabel } from '@/components/ui/page';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£' };
 
-function fmtPrice(cents: number, currency: string): string {
-  if (!cents) return 'Free';
+function fmtPrice(locale: Locale, cents: number, currency: string): string {
+  if (!cents) return t(locale, 'free');
   const symbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
   return `${symbol}${(cents / 100).toFixed(2)}`;
 }
 
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDate(locale: Locale, iso: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -59,9 +61,11 @@ type DialogState =
   | null;
 
 export function PricingPanel({
+  locale,
   thread,
   onSaved: onPanelSaved,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   /** Called after the footer Save completes — the dialog closes on it. */
   onSaved?: () => void;
@@ -100,12 +104,12 @@ export function PricingPanel({
   }
 
   const reload = useCallback(async () => {
-    const [t, c] = await Promise.all([listTickets(thread.id), listCoupons(thread.id)]);
-    if (t.ok) setTickets(t.items);
-    if (c.ok) setCoupons(c.items);
-    setLoadError(!t.ok ? t.error : !c.ok ? c.error : null);
+    const [tr, cr] = await Promise.all([listTickets(thread.id), listCoupons(thread.id)]);
+    if (tr.ok) setTickets(tr.items);
+    if (cr.ok) setCoupons(cr.items);
+    setLoadError(!tr.ok ? tr.error : !cr.ok ? cr.error : null);
     setLoading(false);
-    setMode((m) => m ?? ((t.ok && t.items.length > 0) ? 'paid' : 'free'));
+    setMode((m) => m ?? ((tr.ok && tr.items.length > 0) ? 'paid' : 'free'));
   }, [thread.id]);
 
   useEffect(() => {
@@ -145,10 +149,10 @@ export function PricingPanel({
         >
           <div className="flex items-center gap-2">
             <Gift size={15} strokeWidth={1.75} className="text-ink-subtle" />
-            <span className="text-sm font-medium">Free</span>
+            <span className="text-sm font-medium">{t(locale, 'free')}</span>
           </div>
           <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-            Anyone can enrol without paying.
+            {t(locale, 'free_mode_desc')}
           </p>
         </button>
         <button
@@ -162,10 +166,10 @@ export function PricingPanel({
         >
           <div className="flex items-center gap-2">
             <CreditCard size={15} strokeWidth={1.75} className="text-ink-subtle" />
-            <span className="text-sm font-medium">Paid</span>
+            <span className="text-sm font-medium">{t(locale, 'paid')}</span>
           </div>
           <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-            Tickets and discount codes; Stripe or invoice at checkout.
+            {t(locale, 'paid_mode_desc')}
           </p>
         </button>
       </div>
@@ -175,42 +179,44 @@ export function PricingPanel({
       {/* ── Tickets ───────────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between">
-          <SectionLabel>Tickets</SectionLabel>
+          <SectionLabel>{t(locale, 'tickets')}</SectionLabel>
           <Button
             variant="secondary"
             size="sm"
             leading={<Plus size={14} />}
             onClick={() => setDialog({ kind: 'ticket', ticket: null })}
           >
-            Add ticket
+            {t(locale, 'add_ticket')}
           </Button>
         </div>
         {loading ? (
           <LoadingRows />
         ) : tickets.length === 0 ? (
-          <p className="mt-3 text-sm text-ink-subtle">
-            No tickets yet — free enrolment. Add one to charge.
-          </p>
+          <p className="mt-3 text-sm text-ink-subtle">{t(locale, 'no_tickets')}</p>
         ) : (
           <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface-raised">
-            {tickets.map((t) => (
-              <li key={t.id}>
+            {tickets.map((tk) => (
+              <li key={tk.id}>
                 <button
                   type="button"
-                  onClick={() => setDialog({ kind: 'ticket', ticket: t })}
+                  onClick={() => setDialog({ kind: 'ticket', ticket: tk })}
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-surface-sunken transition-colors"
                 >
                   <Ticket size={16} strokeWidth={1.75} className="text-ink-muted shrink-0" />
-                  <span className={`text-sm font-medium ${t.is_active ? '' : 'text-ink-muted'}`}>
-                    {t.name}
+                  <span className={`text-sm font-medium ${tk.is_active ? '' : 'text-ink-muted'}`}>
+                    {tk.name}
                   </span>
                   <span className="text-sm text-ink-subtle tabular-nums">
-                    {fmtPrice(t.price_cents, t.price_currency)}
+                    {fmtPrice(locale, tk.price_cents, tk.price_currency)}
                   </span>
                   <span className="ml-auto flex items-center gap-1.5">
-                    {t.quantity_limit != null && <Chip>{t.quantity_limit} max</Chip>}
-                    {t.available_until && <Chip>until {fmtDate(t.available_until)}</Chip>}
-                    {!t.is_active && <Chip muted>Inactive</Chip>}
+                    {tk.quantity_limit != null && (
+                      <Chip>{t(locale, 'n_max', { n: tk.quantity_limit })}</Chip>
+                    )}
+                    {tk.available_until && (
+                      <Chip>{t(locale, 'until_date', { date: fmtDate(locale, tk.available_until) })}</Chip>
+                    )}
+                    {!tk.is_active && <Chip muted>{t(locale, 'inactive')}</Chip>}
                   </span>
                 </button>
               </li>
@@ -222,29 +228,27 @@ export function PricingPanel({
       {/* ── Discount codes ────────────────────────────────────────── */}
       <section>
         <div className="flex items-center justify-between">
-          <SectionLabel>Discount codes</SectionLabel>
+          <SectionLabel>{t(locale, 'discount_codes')}</SectionLabel>
           <Button
             variant="secondary"
             size="sm"
             leading={<Plus size={14} />}
             onClick={() => setDialog({ kind: 'coupon', coupon: null })}
           >
-            Add code
+            {t(locale, 'add_code')}
           </Button>
         </div>
         {loading ? (
           <LoadingRows />
         ) : coupons.length === 0 ? (
-          <p className="mt-3 text-sm text-ink-subtle">
-            No codes yet. Add one for early birds, scholarships or partners.
-          </p>
+          <p className="mt-3 text-sm text-ink-subtle">{t(locale, 'no_codes')}</p>
         ) : (
           <ul className="mt-3 divide-y divide-line rounded-lg border border-line bg-surface-raised">
             {coupons.map((c) => {
               const expired = c.expires_at ? new Date(c.expires_at) < new Date() : false;
               const dim = !c.is_active || expired;
               const scopedTicket = tickets.find(
-                (t) => t.id === (c as ScopedCouponRow).ticket_id,
+                (tk) => tk.id === (c as ScopedCouponRow).ticket_id,
               );
               return (
                 <li key={c.id}>
@@ -272,7 +276,7 @@ export function PricingPanel({
                     />
                     <button
                       type="button"
-                      title="Copy this code"
+                      title={t(locale, 'copy_this_code')}
                       onClick={(ev) => {
                         ev.stopPropagation();
                         void navigator.clipboard
@@ -289,11 +293,13 @@ export function PricingPanel({
                         dim ? 'text-ink-muted' : ''
                       }`}
                     >
-                      {copiedCode === c.id ? 'Copied' : c.code}
+                      {copiedCode === c.id ? t(locale, 'copied_word') : c.code}
                     </button>
-                    <span className="text-sm text-ink-subtle">{couponSummary(c)}</span>
+                    <span className="text-sm text-ink-subtle">{couponSummary(locale, c)}</span>
                     <span className="ml-auto flex items-center gap-1.5">
-                      {scopedTicket && <Chip muted>{scopedTicket.name} only</Chip>}
+                      {scopedTicket && (
+                        <Chip muted>{t(locale, 'ticket_only', { name: scopedTicket.name })}</Chip>
+                      )}
                       {c.usage_limit != null && (
                         <Chip>
                           {c.used_count}/{c.usage_limit}
@@ -301,12 +307,14 @@ export function PricingPanel({
                       )}
                       {c.is_early_bird && (
                         <Chip>
-                          Early bird
-                          {c.early_bird_deadline ? ` · ${fmtDate(c.early_bird_deadline)}` : ''}
+                          {t(locale, 'early_bird')}
+                          {c.early_bird_deadline
+                            ? ` · ${fmtDate(locale, c.early_bird_deadline)}`
+                            : ''}
                         </Chip>
                       )}
-                      {expired && <Chip muted>Expired</Chip>}
-                      {!c.is_active && <Chip muted>Inactive</Chip>}
+                      {expired && <Chip muted>{t(locale, 'expired')}</Chip>}
+                      {!c.is_active && <Chip muted>{t(locale, 'inactive')}</Chip>}
                     </span>
                   </div>
                 </li>
@@ -327,12 +335,13 @@ export function PricingPanel({
 
       {/* ── Payment options (inheritance: account → thread → ticket) ── */}
       {mode === 'paid' && (
-        <PaymentMethodsSection thread={thread} />
+        <PaymentMethodsSection locale={locale} thread={thread} />
       )}
 
       {/* ── Payout ────────────────────────────────────────────────── */}
       {mode === 'paid' && (
         <PayoutSection
+          locale={locale}
           thread={thread}
           onSaved={onPanelSaved}
           registerSubmit={(fn) => {
@@ -343,6 +352,7 @@ export function PricingPanel({
 
       {dialog?.kind === 'ticket' && (
         <TicketDialog
+          locale={locale}
           threadId={thread.id}
           ticket={dialog.ticket}
           onClose={() => setDialog(null)}
@@ -351,6 +361,7 @@ export function PricingPanel({
       )}
       {dialog?.kind === 'coupon' && (
         <CouponDialog
+          locale={locale}
           threadId={thread.id}
           coupon={dialog.coupon}
           tickets={tickets}
@@ -362,10 +373,13 @@ export function PricingPanel({
   );
 }
 
-function couponSummary(c: CouponRow): string {
+function couponSummary(locale: Locale, c: CouponRow): string {
   if (c.type === 'percentage') return `${c.discount_percentage ?? 0}%`;
-  if (c.type === 'amount') return `€${((c.discount_amount_cents ?? 0) / 100).toFixed(2)} off`;
-  return 'Free';
+  if (c.type === 'amount')
+    return t(locale, 'amount_off', {
+      amount: `€${((c.discount_amount_cents ?? 0) / 100).toFixed(2)}`,
+    });
+  return t(locale, 'free');
 }
 
 function LoadingRows() {
@@ -383,10 +397,12 @@ function LoadingRows() {
 // ---------------------------------------------------------------------------
 
 function PayoutSection({
+  locale,
   thread,
   onSaved,
   registerSubmit,
 }: {
+  locale: Locale;
   thread: ThreadRow;
   onSaved?: () => void;
   /** Hands the save function up so the panel's form submit can call it. */
@@ -447,7 +463,7 @@ function PayoutSection({
       type="button"
       disabled={!isConnected}
       onClick={() => setDest(value)}
-      title={isConnected ? undefined : 'No Stripe account connected yet'}
+      title={isConnected ? undefined : t(locale, 'no_stripe_tooltip')}
       className={`flex-1 text-left rounded-lg border p-3.5 transition-colors ${
         !isConnected
           ? 'border-line bg-surface opacity-40 cursor-not-allowed'
@@ -458,17 +474,17 @@ function PayoutSection({
     >
       <div className="text-sm font-medium">{label}</div>
       <div className="mt-0.5 text-xs text-ink-subtle">
-        {isConnected ? 'Stripe connected' : 'Not connected — Settings → Payments'}
+        {isConnected ? t(locale, 'stripe_connected') : t(locale, 'not_connected_payments')}
       </div>
     </button>
   );
 
   return (
     <section>
-      <SectionLabel>Payout</SectionLabel>
+      <SectionLabel>{t(locale, 'payout')}</SectionLabel>
       <div className="mt-3 flex gap-3">
-        {opt('workspace', 'Workspace account', connected?.workspace ?? false)}
-        {opt('personal', 'My personal account', connected?.personal ?? false)}
+        {opt('workspace', t(locale, 'workspace_account'), connected?.workspace ?? false)}
+        {opt('personal', t(locale, 'my_personal_account'), connected?.personal ?? false)}
       </div>
       {error && (
         <p className="mt-3 text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
@@ -477,12 +493,12 @@ function PayoutSection({
       )}
       <div className="mt-3 flex items-center gap-3">
         {(pending || saved) && (
-          <span className="text-sm text-ink-subtle">{pending ? 'Saving…' : 'Saved.'}</span>
+          <span className="text-sm text-ink-subtle">
+            {pending ? t(locale, 'saving') : t(locale, 'saved')}
+          </span>
         )}
         {connected && !connected.workspace && !connected.personal && (
-          <span className="text-xs text-ink-muted">
-            Connect a Stripe account in Settings → Payments first.
-          </span>
+          <span className="text-xs text-ink-muted">{t(locale, 'connect_stripe_first')}</span>
         )}
       </div>
     </section>
@@ -491,7 +507,7 @@ function PayoutSection({
 
 // Thread-level payment options. Null = inherit the account default set in
 // Settings → Payments; custom overrides here; tickets can override again.
-function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
+function PaymentMethodsSection({ locale, thread }: { locale: Locale; thread: ThreadRow }) {
   const router = useRouter();
   const [custom, setCustom] = useState<boolean>(!!thread.payment_methods?.length);
   const [stripeOn, setStripeOn] = useState(thread.payment_methods?.includes('stripe') ?? true);
@@ -503,14 +519,14 @@ function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
     setNote(null);
     startTransition(async () => {
       const r = await updateThread(thread.id, { payment_methods: next });
-      setNote(r.ok ? 'Saved.' : r.error);
+      setNote(r.ok ? t(locale, 'saved') : r.error);
       router.refresh();
     });
   }
 
   return (
     <section>
-      <SectionLabel>Payment options</SectionLabel>
+      <SectionLabel>{t(locale, 'payment_options')}</SectionLabel>
       <div className="mt-2 flex flex-wrap items-center gap-4">
         <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
           <input
@@ -522,7 +538,7 @@ function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
               persist(null);
             }}
           />
-          Inherit from my account settings
+          {t(locale, 'inherit_account')}
         </label>
         <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
           <input
@@ -537,7 +553,7 @@ function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
               ]);
             }}
           />
-          Custom for this thread
+          {t(locale, 'custom_thread')}
         </label>
         {custom && (
           <span className="inline-flex items-center gap-4">
@@ -555,7 +571,7 @@ function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
                   if (next.length) persist(next);
                 }}
               />
-              Pay online
+              {t(locale, 'pay_online')}
             </label>
             <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
               <input
@@ -571,15 +587,13 @@ function PaymentMethodsSection({ thread }: { thread: ThreadRow }) {
                   if (next.length) persist(next);
                 }}
               />
-              Pay per invoice
+              {t(locale, 'pay_per_invoice')}
             </label>
           </span>
         )}
         {note && <span className="text-xs text-ink-muted">{note}</span>}
       </div>
-      <p className="mt-1.5 text-xs text-ink-muted">
-        Tickets can override these again in their own popup.
-      </p>
+      <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'tickets_override')}</p>
     </section>
   );
 }

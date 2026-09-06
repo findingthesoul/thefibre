@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { apiFetch, ApiError } from '@/lib/api';
 import type { TeamOption, WorkspaceMember } from '@/lib/thread-types';
 import type { CertShares, CertTemplate } from '@/lib/certificate-types';
+import { uiLocale } from '@/lib/locale';
 import { CertificateBuilder } from './builder';
 
 export default async function CertificateTemplatePage({
@@ -9,6 +10,7 @@ export default async function CertificateTemplatePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  const locale = await uiLocale();
   const { id } = await params;
 
   let template: CertTemplate;
@@ -36,6 +38,7 @@ export default async function CertificateTemplatePage({
   return (
     <div className="mx-auto max-w-6xl px-8 py-8">
       <CertificateBuilder
+        locale={locale}
         template={template}
         teams={teams.items}
         members={members.items}

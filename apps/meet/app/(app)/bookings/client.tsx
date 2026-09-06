@@ -4,6 +4,7 @@ import { useMemo, useTransition } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { List, LayoutGrid, CalendarDays, MapPin } from 'lucide-react';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
+import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 export type BookingRow = {
   id: string;
@@ -47,6 +48,13 @@ type Props = {
   includeCancelled: boolean;
   teamFilter: string;
   scopeOptions: ScopeOption[];
+  locale: Locale;
+};
+
+const SCOPE_KEY: Record<'upcoming' | 'past' | 'all', UiKey> = {
+  upcoming: 'scope_upcoming',
+  past: 'scope_past',
+  all: 'scope_all',
 };
 
 export function BookingsClient({
@@ -56,6 +64,7 @@ export function BookingsClient({
   includeCancelled,
   teamFilter,
   scopeOptions,
+  locale,
 }: Props) {
   const router = useRouter();
   const path = usePathname();
@@ -82,22 +91,22 @@ export function BookingsClient({
               key={s}
               type="button"
               onClick={() => setParam('scope', s === 'upcoming' ? null : s)}
-              className={`px-3 py-1.5 text-sm rounded-[5px] capitalize ${
+              className={`px-3 py-1.5 text-sm rounded-[5px] ${
                 scope === s
                   ? 'bg-ink text-surface-raised'
                   : 'text-ink-subtle hover:text-ink'
               }`}
             >
-              {s}
+              {t(locale, SCOPE_KEY[s])}
             </button>
           ))}
         </div>
         <div className="inline-flex rounded-md border border-line bg-surface-raised p-0.5">
           {(
             [
-              { v: 'list', label: 'List view', Icon: List },
-              { v: 'week', label: 'Week view', Icon: LayoutGrid },
-              { v: 'month', label: 'Month view', Icon: CalendarDays },
+              { v: 'list', label: t(locale, 'view_list'), Icon: List },
+              { v: 'week', label: t(locale, 'view_week'), Icon: LayoutGrid },
+              { v: 'month', label: t(locale, 'view_month'), Icon: CalendarDays },
             ] as const
           ).map((opt) => (
             <button
@@ -121,7 +130,7 @@ export function BookingsClient({
       {/* Filter row: team scope + include cancelled */}
       <div className="flex flex-wrap items-center gap-4 text-sm">
         <label className="inline-flex items-center gap-2">
-          <span className="text-ink-subtle">Scope</span>
+          <span className="text-ink-subtle">{t(locale, 'scope')}</span>
           <select
             value={teamFilter}
             onChange={(e) => setParam('team_id', e.target.value || null)}
@@ -142,22 +151,22 @@ export function BookingsClient({
               setParam('include_cancelled', e.target.checked ? '1' : null)
             }
           />
-          <span>Include cancelled</span>
+          <span>{t(locale, 'include_cancelled')}</span>
         </label>
-        {pending && <span className="text-xs text-ink-muted">Loading…</span>}
+        {pending && <span className="text-xs text-ink-muted">{t(locale, 'loading')}</span>}
       </div>
 
       {/* The list itself — view changes the grouping. */}
       {items.length === 0 ? (
         <div className="rounded-lg border border-line bg-surface-raised p-8 text-center text-sm text-ink-subtle">
-          Nothing in this view.
+          {t(locale, 'nothing_in_view')}
         </div>
       ) : view === 'month' ? (
-        <MonthGrid items={items} />
+        <MonthGrid items={items} locale={locale} />
       ) : view === 'week' ? (
-        <WeekList items={items} />
+        <WeekList items={items} locale={locale} />
       ) : (
-        <SimpleList items={items} />
+        <SimpleList items={items} locale={locale} />
       )}
     </div>
   );
@@ -173,27 +182,27 @@ function getTeam(b: BookingRow) {
   return Array.isArray(mt.team) ? mt.team[0] : mt.team;
 }
 
-function fmtDate(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
+function fmtDate(d: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   }).format(d);
 }
-function fmtTime(d: Date) {
-  return new Intl.DateTimeFormat(undefined, {
+function fmtTime(d: Date, locale: Locale) {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     hour: '2-digit',
     minute: '2-digit',
   }).format(d);
 }
 
-function BookingItem({ b }: { b: BookingRow }) {
+function BookingItem({ b, locale }: { b: BookingRow; locale: Locale }) {
   const mt = getMt(b);
   const team = getTeam(b);
   const starts = new Date(b.starts_at);
   const ends = new Date(b.ends_at);
   return (
-    <ClickableBookingRow booking={b} as="li" className="px-5 py-4 text-sm">
+    <ClickableBookingRow booking={b} as="li" className="px-5 py-4 text-sm" locale={locale}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="font-medium">
@@ -206,7 +215,7 @@ function BookingItem({ b }: { b: BookingRow }) {
             )}
           </div>
           <div className="mt-1 text-xs text-ink-muted">
-            {fmtDate(starts)} · {fmtTime(starts)}–{fmtTime(ends)}
+            {fmtDate(starts, locale)} · {fmtTime(starts, locale)}–{fmtTime(ends, locale)}
             {team && (
               <>
                 {' · '}
@@ -226,14 +235,14 @@ function BookingItem({ b }: { b: BookingRow }) {
             }`}
           >
             {b.status === 'cancelled'
-              ? 'Cancelled'
+              ? t(locale, 'status_cancelled')
               : b.status === 'pending_approval'
-                ? 'Pending'
-                : 'Confirmed'}
+                ? t(locale, 'status_pending')
+                : t(locale, 'status_confirmed')}
           </span>
           {b.alternative_location && (
             <span className="text-[10px] uppercase tracking-wider text-ink-muted border border-line rounded px-1.5 py-0.5 inline-flex items-center gap-1">
-              <MapPin className="h-3 w-3" strokeWidth={1.5} /> Location
+              <MapPin className="h-3 w-3" strokeWidth={1.5} /> {t(locale, 'location')}
             </span>
           )}
         </div>
@@ -242,17 +251,17 @@ function BookingItem({ b }: { b: BookingRow }) {
   );
 }
 
-function SimpleList({ items }: { items: BookingRow[] }) {
+function SimpleList({ items, locale }: { items: BookingRow[]; locale: Locale }) {
   return (
     <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
       {items.map((b) => (
-        <BookingItem key={b.id} b={b} />
+        <BookingItem key={b.id} b={b} locale={locale} />
       ))}
     </ul>
   );
 }
 
-function WeekList({ items }: { items: BookingRow[] }) {
+function WeekList({ items, locale }: { items: BookingRow[]; locale: Locale }) {
   // Group by week (Mon-Sun) then by day.
   const byWeek = useMemo(() => {
     const map = new Map<string, BookingRow[]>();
@@ -275,15 +284,15 @@ function WeekList({ items }: { items: BookingRow[] }) {
         const monday = new Date(weekKey);
         const sunday = new Date(monday);
         sunday.setDate(monday.getDate() + 6);
-        const range = `${new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(monday)} – ${new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short' }).format(sunday)}`;
+        const range = `${new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: 'numeric', month: 'short' }).format(monday)} – ${new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: 'numeric', month: 'short' }).format(sunday)}`;
         return (
           <div key={weekKey}>
             <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted mb-2">
-              Week of {range}
+              {t(locale, 'week_of', { range })}
             </div>
             <ul className="rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
               {arr.map((b) => (
-                <BookingItem key={b.id} b={b} />
+                <BookingItem key={b.id} b={b} locale={locale} />
               ))}
             </ul>
           </div>
@@ -293,7 +302,7 @@ function WeekList({ items }: { items: BookingRow[] }) {
   );
 }
 
-function MonthGrid({ items }: { items: BookingRow[] }) {
+function MonthGrid({ items, locale }: { items: BookingRow[]; locale: Locale }) {
   // Group bookings by YYYY-MM, then within each month by day-of-month.
   // Render each month as a 6×7 calendar grid (Mon-first) with booking
   // chips in each day cell. Days outside the month are dimmed.
@@ -326,7 +335,7 @@ function MonthGrid({ items }: { items: BookingRow[] }) {
         const [y, m] = key.split('-').map(Number);
         const year = y!;
         const month = (m ?? 1) - 1;
-        const monthLabel = new Intl.DateTimeFormat(undefined, {
+        const monthLabel = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
           month: 'long',
           year: 'numeric',
         }).format(new Date(year, month, 1));
@@ -350,8 +359,8 @@ function MonthGrid({ items }: { items: BookingRow[] }) {
             </div>
             <div className="rounded-lg border border-line bg-surface-raised overflow-hidden">
               <div className="grid grid-cols-7 text-[10px] uppercase tracking-wider text-ink-muted bg-surface-sunken">
-                {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
-                  <div key={d} className="px-2 py-1.5 text-center">{d}</div>
+                {(['day_mon', 'day_tue', 'day_wed', 'day_thu', 'day_fri', 'day_sat', 'day_sun'] as const).map((d) => (
+                  <div key={d} className="px-2 py-1.5 text-center">{t(locale, d)}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7">
@@ -379,11 +388,11 @@ function MonthGrid({ items }: { items: BookingRow[] }) {
                       </div>
                       <div className="mt-1 space-y-0.5">
                         {dayBookings.slice(0, 3).map((b) => (
-                          <MonthChip key={b.id} b={b} />
+                          <MonthChip key={b.id} b={b} locale={locale} />
                         ))}
                         {dayBookings.length > 3 && (
                           <div className="text-[10px] text-ink-muted px-1">
-                            +{dayBookings.length - 3} more
+                            {t(locale, 'n_more', { n: dayBookings.length - 3 })}
                           </div>
                         )}
                       </div>
@@ -399,7 +408,7 @@ function MonthGrid({ items }: { items: BookingRow[] }) {
   );
 }
 
-function MonthChip({ b }: { b: BookingRow }) {
+function MonthChip({ b, locale }: { b: BookingRow; locale: Locale }) {
   const starts = new Date(b.starts_at);
   const mt = getMt(b);
   const cancelled = b.status === 'cancelled';
@@ -407,13 +416,14 @@ function MonthChip({ b }: { b: BookingRow }) {
     <ClickableBookingRow
       booking={b}
       as="div"
+      locale={locale}
       className={`rounded px-1.5 py-0.5 text-[10px] leading-tight truncate ${
         cancelled
           ? 'bg-red-50 text-red-700 line-through'
           : 'bg-ink text-surface-raised'
       }`}
     >
-      <span className="font-medium">{fmtTime(starts)}</span>
+      <span className="font-medium">{fmtTime(starts, locale)}</span>
       {mt && <span className="ml-1 opacity-90">{mt.name}</span>}
     </ClickableBookingRow>
   );

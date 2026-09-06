@@ -3,6 +3,7 @@
 import { useTransition } from 'react';
 import { Check, CalendarCheck } from 'lucide-react';
 import { confirmPollSlot } from '../actions';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 
 type Slot = { starts_at: string; ends_at: string };
 type Vote = {
@@ -16,10 +17,12 @@ export function PollVotesMatrix({
   mtId,
   slots,
   votes,
+  locale,
 }: {
   mtId: string;
   slots: Slot[];
   votes: Vote[];
+  locale: Locale;
 }) {
   const [pending, start] = useTransition();
 
@@ -47,16 +50,12 @@ export function PollVotesMatrix({
   }
 
   function confirm(slotIso: string) {
-    if (
-      !window.confirm(
-        'Convert this poll into a confirmed slot? Voters will need to book the resulting one-off meeting type to be added.',
-      )
-    ) {
+    if (!window.confirm(t(locale, 'confirm_poll_prompt'))) {
       return;
     }
     start(async () => {
       const r = await confirmPollSlot(mtId, slotIso);
-      if (r.error) window.alert(`Couldn't confirm: ${r.error}`);
+      if (r.error) window.alert(t(locale, 'couldnt_confirm', { error: r.error }));
       else window.location.reload();
     });
   }
@@ -64,7 +63,7 @@ export function PollVotesMatrix({
   if (slots.length === 0) {
     return (
       <p className="text-sm text-ink-subtle">
-        Add candidate slots on the Candidate slots tab to start collecting votes.
+        {t(locale, 'add_slots_first')}
       </p>
     );
   }
@@ -74,27 +73,27 @@ export function PollVotesMatrix({
       <table className="w-full text-sm">
         <thead className="bg-surface-sunken text-left">
           <tr>
-            <th className="px-4 py-3 font-medium text-ink-subtle">Voter</th>
+            <th className="px-4 py-3 font-medium text-ink-subtle">{t(locale, 'voter')}</th>
             {slots.map((s) => {
               const iso = new Date(s.starts_at).toISOString();
               const count = tally(iso);
               return (
                 <th key={iso} className="px-4 py-3 font-medium align-bottom">
                   <div className="text-ink-subtle text-xs">
-                    {new Intl.DateTimeFormat(undefined, {
+                    {new Intl.DateTimeFormat(INTL_LOCALES[locale], {
                       weekday: 'short',
                       day: 'numeric',
                       month: 'short',
                     }).format(new Date(s.starts_at))}
                   </div>
                   <div className="text-ink text-sm">
-                    {new Intl.DateTimeFormat(undefined, {
+                    {new Intl.DateTimeFormat(INTL_LOCALES[locale], {
                       hour: '2-digit',
                       minute: '2-digit',
                     }).format(new Date(s.starts_at))}
                   </div>
                   <div className="mt-1 text-[11px] text-ink-muted">
-                    {count} vote{count === 1 ? '' : 's'}
+                    {count === 1 ? t(locale, 'one_vote') : t(locale, 'n_votes', { n: count })}
                   </div>
                   <button
                     type="button"
@@ -103,7 +102,7 @@ export function PollVotesMatrix({
                     className="mt-2 inline-flex items-center gap-1 rounded-md bg-ink text-surface-raised px-2 py-1 text-[11px] font-medium hover:bg-ink/90 disabled:opacity-40"
                   >
                     <CalendarCheck className="h-3 w-3" strokeWidth={1.5} />
-                    Confirm
+                    {t(locale, 'confirm')}
                   </button>
                 </th>
               );
@@ -117,7 +116,7 @@ export function PollVotesMatrix({
                 colSpan={slots.length + 1}
                 className="px-4 py-6 text-center text-ink-subtle"
               >
-                No votes yet. Share the poll link to start collecting responses.
+                {t(locale, 'no_votes_yet')}
               </td>
             </tr>
           ) : (

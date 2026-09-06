@@ -1,4 +1,7 @@
 import { apiFetch, ApiError } from '@/lib/api';
+import { INTL_LOCALES } from '@thefibre/shared';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import {
   PageContainer,
   PageHeader,
@@ -13,6 +16,7 @@ type Me = {
 };
 
 export default async function ThreadDashboard() {
+  const locale = await uiLocale();
   let me: Me | null = null;
   let error: string | null = null;
   try {
@@ -23,7 +27,7 @@ export default async function ThreadDashboard() {
 
   const firstName =
     me?.user.full_name?.split(/\s+/)[0] ?? me?.user.email?.split('@')[0] ?? '';
-  const today = new Intl.DateTimeFormat('en-GB', {
+  const today = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -32,39 +36,30 @@ export default async function ThreadDashboard() {
 
   return (
     <PageContainer>
-      <PageHeader
-        title={`Welcome to Thread, ${firstName}`}
-        description={today}
-      />
+      <PageHeader title={t(locale, 'dash_welcome', { name: firstName })} description={today} />
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <section className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-10">
         <div>
-          <SectionLabel>What lives here</SectionLabel>
+          <SectionLabel>{t(locale, 'dash_what_lives_here')}</SectionLabel>
           <ul className="mt-3 space-y-3 text-sm text-ink-subtle leading-relaxed">
-            <li>· Conferences and multi-session programmes</li>
-            <li>· Post-event journeys — the arc that follows a gathering</li>
-            <li>· Enrolment state per participant</li>
-            <li>· Session-level attendance + milestones</li>
+            <li>· {t(locale, 'dash_lives_1')}</li>
+            <li>· {t(locale, 'dash_lives_2')}</li>
+            <li>· {t(locale, 'dash_lives_3')}</li>
+            <li>· {t(locale, 'dash_lives_4')}</li>
           </ul>
         </div>
         <div>
-          <SectionLabel>What stays on The Fibre</SectionLabel>
+          <SectionLabel>{t(locale, 'dash_what_stays')}</SectionLabel>
           <p className="mt-3 text-sm text-ink-subtle leading-relaxed">
-            Identity (the person, the organisation), the platform activity
-            log, and shared programme/enrolment state. Curator data tagged for
-            Thread also lives on The Fibre but is only visible to Thread
-            members.
+            {t(locale, 'dash_stays_body')}
           </p>
         </div>
       </section>
 
       <section className="mt-14">
-        <EmptyState>
-          Skeleton. Programme creation, session attendance tracking, and the
-          public arc view come next.
-        </EmptyState>
+        <EmptyState>{t(locale, 'dash_skeleton')}</EmptyState>
       </section>
     </PageContainer>
   );

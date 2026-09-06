@@ -12,6 +12,7 @@
 
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 const INPUT =
   'rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm focus:border-line-strong focus:outline-none';
@@ -31,6 +32,7 @@ export function CurrencyEditor({
   /** ECB daily reference rates for indicative display; omit to hide. */
   rates?: EcbRates | null;
 }) {
+  const locale = useLocale();
   const [list, setList] = useState<string[]>(currencies);
   const [def, setDef] = useState(defaultCurrency);
   const [adding, setAdding] = useState('');
@@ -41,7 +43,7 @@ export function CurrencyEditor({
   function add() {
     const code = adding.trim().toUpperCase();
     if (!/^[A-Z]{3}$/.test(code)) {
-      setError('A currency is a 3-letter code, e.g. USD.');
+      setError(chromeT(locale, 'currency_code_error'));
       return;
     }
     setError(null);
@@ -61,11 +63,7 @@ export function CurrencyEditor({
 
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-5">
-      <p className="text-sm text-ink-muted">
-        The currencies this workspace sells in — one list for the whole workspace, used by every
-        app that prices things. Each priced item picks one of them; existing prices keep their
-        currency when the list changes.
-      </p>
+      <p className="text-sm text-ink-muted">{chromeT(locale, 'currencies_intro')}</p>
       <div className="mt-4 flex flex-wrap items-center gap-2">
         {list.map((c) => (
           <span
@@ -78,7 +76,7 @@ export function CurrencyEditor({
                 type="button"
                 onClick={() => setList(list.filter((x) => x !== c))}
                 className="text-ink-muted hover:text-ink"
-                aria-label={`Remove ${c}`}
+                aria-label={chromeT(locale, 'remove_item', { name: c })}
               >
                 <X size={13} />
               </button>
@@ -94,7 +92,7 @@ export function CurrencyEditor({
               add();
             }
           }}
-          placeholder="Add (e.g. USD)"
+          placeholder={chromeT(locale, 'add_currency_placeholder')}
           maxLength={3}
           className={`${INPUT} w-28 uppercase`}
         />
@@ -103,11 +101,13 @@ export function CurrencyEditor({
           onClick={add}
           className="rounded-md border border-line bg-surface-raised px-3 py-1.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken"
         >
-          Add
+          {chromeT(locale, 'add')}
         </button>
       </div>
       <div className="mt-4">
-        <label className="block text-sm font-medium mb-1">Default currency</label>
+        <label className="block text-sm font-medium mb-1">
+          {chromeT(locale, 'default_currency')}
+        </label>
         <select value={def} onChange={(e) => setDef(e.target.value)} className={`${INPUT} w-32`}>
           {list.map((c) => (
             <option key={c} value={c}>
@@ -119,20 +119,20 @@ export function CurrencyEditor({
 
       {rates && list.length > 1 && (
         <div className="mt-4 rounded-md border border-line bg-surface-sunken px-3 py-2 text-xs text-ink-subtle">
-          <span className="font-medium text-ink">ECB reference rates</span> ({rates.date}): 1{' '}
+          <span className="font-medium text-ink">{chromeT(locale, 'ecb_rates')}</span> ({rates.date}): 1{' '}
           {rates.base} ={' '}
           {list
             .filter((c) => c !== rates.base && rates.rates[c])
             .map((c) => `${rates.rates[c]} ${c}`)
             .join(' · ') || '—'}
           <span className="block mt-0.5 text-ink-muted">
-            Indicative only — nothing is ever charged in a converted currency.
+            {chromeT(locale, 'indicative_only')}
           </span>
         </div>
       )}
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-      {saved && <p className="mt-3 text-sm text-ink-muted">Saved.</p>}
+      {saved && <p className="mt-3 text-sm text-ink-muted">{chromeT(locale, 'saved')}</p>}
       <div className="mt-4">
         <button
           type="button"
@@ -140,7 +140,7 @@ export function CurrencyEditor({
           disabled={busy}
           className="rounded-md bg-ink text-ink-inverse px-3.5 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
         >
-          {busy ? 'Saving…' : 'Save currencies'}
+          {busy ? chromeT(locale, 'saving') : chromeT(locale, 'save_currencies')}
         </button>
       </div>
     </section>

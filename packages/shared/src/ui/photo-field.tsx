@@ -2,6 +2,7 @@
 
 import { useRef, useState } from 'react';
 import { ImagePlus, X } from 'lucide-react';
+import { chromeT, useLocale } from './i18n-ui.js';
 
 /**
  * Pick a picture — a profile photo, a workspace logo.
@@ -40,6 +41,7 @@ export function PhotoField({
   shape?: 'circle' | 'square' | undefined;
   onError?: ((message: string) => void) | undefined;
 }) {
+  const locale = useLocale();
   const fileRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
 
@@ -50,7 +52,7 @@ export function PhotoField({
     try {
       onChange(await upload(file));
     } catch (err) {
-      onError?.(err instanceof Error ? err.message : 'upload failed');
+      onError?.(err instanceof Error ? err.message : chromeT(locale, 'upload_failed'));
     } finally {
       setUploading(false);
       // Cleared so choosing the same file twice still fires a change.
@@ -86,14 +88,14 @@ export function PhotoField({
               onClick={() => fileRef.current?.click()}
               className="text-xs text-ink-subtle hover:text-ink text-left"
             >
-              {uploading ? 'Uploading…' : 'Replace'}
+              {uploading ? chromeT(locale, 'uploading') : chromeT(locale, 'replace')}
             </button>
             <button
               type="button"
               onClick={() => onChange(null)}
               className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
             >
-              <X size={11} strokeWidth={1.75} /> Remove
+              <X size={11} strokeWidth={1.75} /> {chromeT(locale, 'remove')}
             </button>
           </div>
         </div>
@@ -105,7 +107,13 @@ export function PhotoField({
           className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
         >
           <ImagePlus size={16} strokeWidth={1.75} />
-          {uploading ? 'Uploading…' : `Upload ${label.toLowerCase()}`}
+          {uploading
+            ? chromeT(locale, 'uploading')
+            : // German capitalises nouns; the other locales keep the English
+              // convention of lowercasing the label mid-sentence.
+              chromeT(locale, 'upload_label', {
+                label: locale === 'de' ? label : label.toLowerCase(),
+              })}
         </button>
       )}
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}

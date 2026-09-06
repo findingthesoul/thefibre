@@ -9,6 +9,7 @@
 import { useMemo, useState } from 'react';
 import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
+import { t } from '@/lib/i18n-ui';
 
 const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
 
@@ -16,9 +17,11 @@ const SELECT =
   'h-[34px] w-full rounded-md border border-line bg-surface px-2.5 text-sm outline-none focus:border-ink';
 
 export function ThreadEmbedPanel({
+  locale,
   ownerSlug,
   threadSlug,
 }: {
+  locale: Locale;
   ownerSlug: string;
   threadSlug: string;
 }) {
@@ -49,48 +52,44 @@ export function ThreadEmbedPanel({
   }
 
   const headLabel =
-    target === 'webflow'
-      ? '1 · Webflow: Site settings → Custom code → Head code (once per site)'
-      : '1 · Once per site, in the <head> (or before </body>)';
+    target === 'webflow' ? t(locale, 'head_label_webflow') : t(locale, 'head_label_any');
   const bodyLabel =
-    target === 'webflow'
-      ? '2 · Add an Embed element where it should appear, paste this'
-      : '2 · Where the embed should appear';
+    target === 'webflow' ? t(locale, 'body_label_webflow') : t(locale, 'body_label_any');
 
   return (
     <div className="space-y-4">
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl">
         <label className="block">
-          <span className="text-xs text-ink-subtle">What</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'what')}</span>
           <select
             value={kind}
             onChange={(e) => setKind(e.target.value as 'card' | 'card_form' | 'enrol')}
             className={`${SELECT} mt-1`}
           >
-            <option value="card">Card — image, title, date, price</option>
-            <option value="card_form">Card with the registration form in it</option>
-            <option value="enrol">Registration button only</option>
+            <option value="card">{t(locale, 'embed_card_option')}</option>
+            <option value="card_form">{t(locale, 'embed_card_form_option')}</option>
+            <option value="enrol">{t(locale, 'embed_enrol_option')}</option>
           </select>
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">Website</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'website')}</span>
           <select
             value={target}
             onChange={(e) => setTarget(e.target.value as 'any' | 'webflow')}
             className={`${SELECT} mt-1`}
           >
-            <option value="any">Any website</option>
+            <option value="any">{t(locale, 'any_website')}</option>
             <option value="webflow">Webflow</option>
           </select>
         </label>
         <label className="block">
-          <span className="text-xs text-ink-subtle">Language</span>
+          <span className="text-xs text-ink-subtle">{t(locale, 'language')}</span>
           <select
             value={lang}
             onChange={(e) => setLang(e.target.value)}
             className={`${SELECT} mt-1`}
           >
-            <option value="auto">Automatic — the thread&apos;s own</option>
+            <option value="auto">{t(locale, 'auto_thread_lang')}</option>
             {LOCALES.map((l) => (
               <option key={l} value={l}>
                 {LOCALE_LABELS[l as Locale]}
@@ -100,7 +99,7 @@ export function ThreadEmbedPanel({
         </label>
         {kind === 'enrol' && (
           <label className="block sm:col-span-3 max-w-xs">
-            <span className="text-xs text-ink-subtle">Button text</span>
+            <span className="text-xs text-ink-subtle">{t(locale, 'button_text')}</span>
             <input
               value={buttonText}
               onChange={(e) => setButtonText(e.target.value)}
@@ -114,7 +113,7 @@ export function ThreadEmbedPanel({
         <div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-subtle">{headLabel}</span>
-            <CopyBtn copied={copied === 'script'} onClick={() => void copy('script', scriptTag)} />
+            <CopyBtn locale={locale} copied={copied === 'script'} onClick={() => void copy('script', scriptTag)} />
           </div>
           <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
             {scriptTag}
@@ -123,7 +122,7 @@ export function ThreadEmbedPanel({
         <div>
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-subtle">{bodyLabel}</span>
-            <CopyBtn copied={copied === 'snippet'} onClick={() => void copy('snippet', snippet)} />
+            <CopyBtn locale={locale} copied={copied === 'snippet'} onClick={() => void copy('snippet', snippet)} />
           </div>
           <pre className="mt-1 rounded-lg border border-line bg-surface p-3 text-xs overflow-x-auto font-mono leading-relaxed">
             {snippet}
@@ -132,10 +131,9 @@ export function ThreadEmbedPanel({
         {target === 'any' && (
           <div>
             <div className="flex items-center justify-between">
-              <span className="text-xs text-ink-subtle">
-                Or all-in-one, if you can only paste a single block
-              </span>
+              <span className="text-xs text-ink-subtle">{t(locale, 'all_in_one')}</span>
               <CopyBtn
+                locale={locale}
                 copied={copied === 'both'}
                 onClick={() => void copy('both', `${scriptTag}\n${snippet}`)}
               />
@@ -146,15 +144,20 @@ export function ThreadEmbedPanel({
           </div>
         )}
       </div>
-      <p className="text-xs text-ink-muted">
-        Whole agendas, team or workspace listings and custom CSS live in Settings → Website
-        embeds.
-      </p>
+      <p className="text-xs text-ink-muted">{t(locale, 'embed_more_note')}</p>
     </div>
   );
 }
 
-function CopyBtn({ copied, onClick }: { copied: boolean; onClick: () => void }) {
+function CopyBtn({
+  locale,
+  copied,
+  onClick,
+}: {
+  locale: Locale;
+  copied: boolean;
+  onClick: () => void;
+}) {
   return (
     <button
       type="button"
@@ -162,7 +165,7 @@ function CopyBtn({ copied, onClick }: { copied: boolean; onClick: () => void }) 
       className="inline-flex items-center gap-1 text-xs text-ink-subtle hover:text-ink"
     >
       {copied ? <Check size={12} strokeWidth={2} /> : <Copy size={12} strokeWidth={1.75} />}
-      {copied ? 'Copied' : 'Copy'}
+      {copied ? t(locale, 'copied_word') : t(locale, 'copy')}
     </button>
   );
 }

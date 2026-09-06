@@ -5,6 +5,8 @@ import {
   PageHeader,
   ErrorBanner,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { QuickLinkRow, type QuickLink } from './quick-link';
 import { ClickableBookingRow } from '@/components/clickable-booking-row';
 
@@ -56,6 +58,7 @@ function isToday(iso: string): boolean {
 }
 
 export default async function MeetDashboard() {
+  const locale = await uiLocale();
   let me: Me | null = null;
   let host: Host | null = null;
   let mts: MT[] = [];
@@ -79,7 +82,7 @@ export default async function MeetDashboard() {
 
   const firstName =
     me?.user.full_name?.split(/\s+/)[0] ?? me?.user.email?.split('@')[0] ?? '';
-  const today = new Intl.DateTimeFormat(undefined, {
+  const today = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'long',
     day: 'numeric',
     month: 'long',
@@ -113,30 +116,30 @@ export default async function MeetDashboard() {
 
   return (
     <PageContainer max="4xl">
-      <PageHeader title={`Welcome, ${firstName}`} description={today} />
+      <PageHeader title={t(locale, 'welcome', { name: firstName })} description={today} />
 
-      {error && <ErrorBanner>Couldn&apos;t load some data: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load_some', { error })}</ErrorBanner>}
 
       <section className="mt-10">
         <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
-          Quick links
+          {t(locale, 'quick_links')}
         </div>
         <p className="mt-1 text-sm text-ink-subtle">
-          Your active meeting types — copy and share.
+          {t(locale, 'quick_links_desc')}
         </p>
 
         {quickLinks.length === 0 ? (
           <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
-            No active meeting types yet.{' '}
+            {t(locale, 'no_active_mts')}{' '}
             <Link href="/meeting-types/new" className="underline">
-              Create one
+              {t(locale, 'create_one')}
             </Link>
             .
           </div>
         ) : (
           <div className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
             {quickLinks.map((q) => (
-              <QuickLinkRow key={q.id} link={q} />
+              <QuickLinkRow key={q.id} link={q} locale={locale} />
             ))}
           </div>
         )}
@@ -146,25 +149,25 @@ export default async function MeetDashboard() {
         <section>
           <div className="flex items-baseline justify-between">
             <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
-              Today
+              {t(locale, 'today_label')}
             </div>
             {bookings.length > 0 && (
               <Link
                 href="/bookings"
                 className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
               >
-                View all
+                {t(locale, 'view_all')}
               </Link>
             )}
           </div>
           {todayBookings.length === 0 ? (
             <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
-              Nothing on the calendar today.
+              {t(locale, 'nothing_today')}
             </div>
           ) : (
             <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
               {todayBookings.map((b) => (
-                <BookingRow key={b.id} booking={b} />
+                <BookingRow key={b.id} booking={b} locale={locale} />
               ))}
             </ul>
           )}
@@ -173,7 +176,7 @@ export default async function MeetDashboard() {
         <section>
           <div className="flex items-baseline justify-between">
             <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
-              Next up{' '}
+              {t(locale, 'next_up')}{' '}
               <span className="text-ink-muted lowercase">({nextUp.length})</span>
             </div>
             {bookings.length > 0 && (
@@ -181,18 +184,18 @@ export default async function MeetDashboard() {
                 href="/bookings"
                 className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
               >
-                View all
+                {t(locale, 'view_all')}
               </Link>
             )}
           </div>
           {nextUp.length === 0 ? (
             <div className="mt-4 rounded-lg border border-line bg-surface-raised p-6 text-sm text-ink-subtle">
-              No upcoming bookings.
+              {t(locale, 'no_upcoming')}
             </div>
           ) : (
             <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
               {nextUp.map((b) => (
-                <BookingRow key={b.id} booking={b} />
+                <BookingRow key={b.id} booking={b} locale={locale} />
               ))}
             </ul>
           )}
@@ -202,23 +205,24 @@ export default async function MeetDashboard() {
   );
 }
 
-function BookingRow({ booking }: { booking: Booking }) {
+function BookingRow({ booking, locale }: { booking: Booking; locale: Locale }) {
   const starts = new Date(booking.starts_at);
   const ends = new Date(booking.ends_at);
-  const dateStr = new Intl.DateTimeFormat(undefined, {
+  const intl = INTL_LOCALES[locale];
+  const dateStr = new Intl.DateTimeFormat(intl, {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
   }).format(starts);
-  const timeStr = `${new Intl.DateTimeFormat(undefined, {
+  const timeStr = `${new Intl.DateTimeFormat(intl, {
     hour: '2-digit',
     minute: '2-digit',
-  }).format(starts)}–${new Intl.DateTimeFormat(undefined, {
+  }).format(starts)}–${new Intl.DateTimeFormat(intl, {
     hour: '2-digit',
     minute: '2-digit',
   }).format(ends)}`;
   return (
-    <ClickableBookingRow booking={booking} as="li" className="px-5 py-4 text-sm">
+    <ClickableBookingRow booking={booking} as="li" className="px-5 py-4 text-sm" locale={locale}>
       <div className="font-medium">
         {booking.invitee_name}
         <span className="text-ink-subtle font-normal">

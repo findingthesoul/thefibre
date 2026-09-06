@@ -44,6 +44,7 @@ import {
 } from 'lucide-react';
 import { saveGraph, publishFlow } from '../actions';
 import { ImportDesign } from './import-design';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 // ---------------------------------------------------------------------------
 // Types mirroring the graph JSON the API round-trips.
@@ -87,6 +88,9 @@ type StepData = {
   meta_text?: string | null;
   default_tasks: DefaultTask[];
   onRename: (id: string, name: string) => void;
+  // UI language for the node card's chrome (chip label, placeholder). Node
+  // components only see their data object, so the locale rides along in it.
+  locale: Locale;
 };
 /**
  * The step `meta` textarea → what the API stores.
@@ -157,13 +161,13 @@ type InGraph = {
 // kind shows as a tinted pill chip with an icon (not by colouring the card).
 const KIND_STYLE: Record<
   Kind,
-  { chip: string; chipBg: string; chipText: string; icon: typeof Play }
+  { chip: UiKey; chipBg: string; chipText: string; icon: typeof Play }
 > = {
-  entry: { chip: 'Start', chipBg: 'bg-indigo-50', chipText: 'text-indigo-600', icon: Play },
-  normal: { chip: 'Step', chipBg: 'bg-slate-100', chipText: 'text-slate-500', icon: Circle },
-  end_positive: { chip: 'End', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600', icon: CircleCheck },
-  end_negative: { chip: 'End', chipBg: 'bg-rose-50', chipText: 'text-rose-600', icon: CircleX },
-  loop: { chip: 'Loop', chipBg: 'bg-amber-50', chipText: 'text-amber-600', icon: Repeat },
+  entry: { chip: 'chip_start', chipBg: 'bg-indigo-50', chipText: 'text-indigo-600', icon: Play },
+  normal: { chip: 'chip_step', chipBg: 'bg-slate-100', chipText: 'text-slate-500', icon: Circle },
+  end_positive: { chip: 'chip_end', chipBg: 'bg-emerald-50', chipText: 'text-emerald-600', icon: CircleCheck },
+  end_negative: { chip: 'chip_end', chipBg: 'bg-rose-50', chipText: 'text-rose-600', icon: CircleX },
+  loop: { chip: 'chip_loop', chipBg: 'bg-amber-50', chipText: 'text-amber-600', icon: Repeat },
 };
 
 // ---------------------------------------------------------------------------
@@ -188,7 +192,7 @@ function StepCardNode({ id, data, selected }: NodeProps) {
           className={`inline-flex items-center gap-1 text-[9px] uppercase tracking-wider px-2 py-0.5 rounded-full mb-1.5 ${style.chipBg} ${style.chipText}`}
         >
           <KindIcon size={10} strokeWidth={2.25} />
-          {style.chip}
+          {t(d.locale, style.chip)}
         </span>
         <input
           value={d.name}
@@ -196,7 +200,7 @@ function StepCardNode({ id, data, selected }: NodeProps) {
           onClick={(e) => e.stopPropagation()}
           onMouseDown={(e) => e.stopPropagation()}
           className="nodrag w-full bg-transparent text-[13px] font-medium leading-tight focus:outline-none"
-          placeholder="Step name"
+          placeholder={t(d.locale, 'step_name_ph')}
         />
         <div className="text-[10px] text-ink-muted font-mono truncate">{d.key}</div>
       </div>
@@ -246,11 +250,13 @@ function CanvasInner({
   flowName,
   lifecycle,
   initialGraph,
+  locale,
 }: {
   flowId: string;
   flowName: string;
   lifecycle: string;
   initialGraph: InGraph;
+  locale: Locale;
 }) {
   const router = useRouter();
   const rf = useReactFlow();
@@ -321,9 +327,10 @@ function CanvasInner({
           meta_text: s.meta ? JSON.stringify(s.meta, null, 2) : '',
           default_tasks: defaultsByStep.get(s.key) ?? [],
           onRename: (id: string, name: string) => renameRef.current(id, name),
+          locale,
         } as StepData,
       })),
-    [initialGraph, positions, defaultsByStep],
+    [initialGraph, positions, defaultsByStep, locale],
   );
 
   const initialEdges: Edge[] = useMemo(
@@ -356,14 +363,14 @@ function CanvasInner({
           {
             ...c,
             id: `e${Date.now()}`,
-            label: 'Transition',
-            data: { label: 'Transition', gate_logic: 'all', gate_tasks: [] },
+            label: t(locale, 'transition_default_label'),
+            data: { label: t(locale, 'transition_default_label'), gate_logic: 'all', gate_tasks: [] },
           },
           es,
         ),
       );
     },
-    [setEdges],
+    [setEdges, locale],
   );
 
   function addStep() {
@@ -378,7 +385,7 @@ function CanvasInner({
         position: { x: 80 + (ns.length % 4) * 60, y: 80 + ns.length * 30 },
         data: {
           key,
-          name: 'New step',
+          name: t(locale, 'new_step'),
           kind,
           description: null,
           expected_duration_days: null,
@@ -388,6 +395,7 @@ function CanvasInner({
           meta_text: '',
           default_tasks: [],
           onRename: (id: string, name: string) => renameRef.current(id, name),
+          locale,
         } as StepData,
       },
     ]);
@@ -478,7 +486,7 @@ function CanvasInner({
       return {
         from: e.source,
         to: e.target,
-        label: d.label || 'Transition',
+        label: d.label || t(locale, 'transition_default_label'),
         gate_logic: d.gate_logic,
         gate_tasks: d.gate_tasks,
       };
@@ -504,7 +512,12 @@ function CanvasInner({
     const bad = nodes.find((n) => metaError((n.data as StepData).meta_text));
     if (bad) {
       setNotice(null);
-      setError(`Step "${(bad.data as StepData).name}": extra fields ${metaError((bad.data as StepData).meta_text)}`);
+      setError(
+        t(locale, 'step_meta_error', {
+          name: (bad.data as StepData).name,
+          reason: t(locale, 'meta_reason'),
+        }),
+      );
       return;
     }
     setBusy(true);
@@ -523,10 +536,10 @@ function CanvasInner({
         setError(pub.error);
         return;
       }
-      setNotice('Published. The flow is now active.');
+      setNotice(t(locale, 'published_notice'));
     } else {
       setBusy(false);
-      setNotice('Saved.');
+      setNotice(t(locale, 'saved_notice'));
     }
     router.refresh();
   }
@@ -544,9 +557,9 @@ function CanvasInner({
     return k === 'end_positive' || k === 'end_negative';
   });
   const readinessHints: string[] = [];
-  if (nodes.length > 0 && entryCount === 0) readinessHints.push('Set one step’s Kind to "Entry".');
-  if (nodes.length > 0 && entryCount > 1) readinessHints.push('Only one step can be the Entry — change the extras.');
-  if (nodes.length > 0 && !hasEnd) readinessHints.push('Mark a step as an End (positive ✓ or negative ✗).');
+  if (nodes.length > 0 && entryCount === 0) readinessHints.push(t(locale, 'hint_set_entry'));
+  if (nodes.length > 0 && entryCount > 1) readinessHints.push(t(locale, 'hint_one_entry'));
+  if (nodes.length > 0 && !hasEnd) readinessHints.push(t(locale, 'hint_mark_end'));
 
   return (
     <div
@@ -563,20 +576,20 @@ function CanvasInner({
             onClick={addStep}
             className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
           >
-            <Plus size={15} strokeWidth={2} /> Add step
+            <Plus size={15} strokeWidth={2} /> {t(locale, 'add_step')}
           </button>
           <button
             onClick={autoArrange}
-            title="Tidy cards into clean columns"
+            title={t(locale, 'auto_arrange_title')}
             className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong"
           >
-            <Wand2 size={15} strokeWidth={1.75} /> Auto-arrange
+            <Wand2 size={15} strokeWidth={1.75} /> {t(locale, 'auto_arrange')}
           </button>
-          <ImportDesign flowId={flowId} flowName={flowName} />
+          <ImportDesign flowId={flowId} flowName={flowName} locale={locale} />
           <div className="relative">
             <button
               onClick={() => setSettingsOpen((o) => !o)}
-              title="Canvas settings"
+              title={t(locale, 'canvas_settings')}
               className="inline-flex items-center justify-center h-[34px] w-[34px] rounded-md border border-line bg-white hover:border-line-strong text-ink-subtle"
             >
               <Settings2 size={15} strokeWidth={1.75} />
@@ -585,10 +598,15 @@ function CanvasInner({
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setSettingsOpen(false)} />
                 <div className="absolute left-0 mt-1 w-52 rounded-lg border border-line bg-white shadow-lg py-1 z-20 text-sm">
-                  <ToggleRow icon={Grid3x3} label="Grid" on={showGrid} onClick={() => setShowGrid((v) => !v)} />
+                  <ToggleRow
+                    icon={Grid3x3}
+                    label={t(locale, 'grid')}
+                    on={showGrid}
+                    onClick={() => setShowGrid((v) => !v)}
+                  />
                   <ToggleRow
                     icon={Magnet}
-                    label="Magnetic (snap)"
+                    label={t(locale, 'magnetic_snap')}
                     on={snap}
                     onClick={() => setSnap((v) => !v)}
                   />
@@ -598,7 +616,7 @@ function CanvasInner({
           </div>
           <button
             onClick={() => setFullscreen((v) => !v)}
-            title={fullscreen ? 'Exit full screen (Esc)' : 'Full screen'}
+            title={fullscreen ? t(locale, 'exit_full_screen') : t(locale, 'full_screen')}
             className="inline-flex items-center justify-center h-[34px] w-[34px] rounded-md border border-line bg-white hover:border-line-strong text-ink-subtle"
           >
             {fullscreen ? <Minimize2 size={15} strokeWidth={1.75} /> : <Maximize2 size={15} strokeWidth={1.75} />}
@@ -615,14 +633,15 @@ function CanvasInner({
             disabled={busy}
             className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm hover:border-line-strong disabled:opacity-60"
           >
-            <Save size={15} strokeWidth={1.75} /> Save
+            <Save size={15} strokeWidth={1.75} /> {t(locale, 'save')}
           </button>
           <button
             onClick={() => onSave(true)}
             disabled={busy}
             className="inline-flex items-center gap-1.5 rounded-md bg-neutral-900 text-white px-3 py-1.5 text-sm font-medium hover:bg-neutral-800 disabled:opacity-60"
           >
-            <Rocket size={15} strokeWidth={1.75} /> {lifecycle === 'active' ? 'Save & republish' : 'Publish'}
+            <Rocket size={15} strokeWidth={1.75} />{' '}
+            {lifecycle === 'active' ? t(locale, 'save_republish') : t(locale, 'publish')}
           </button>
         </div>
       </div>
@@ -638,8 +657,8 @@ function CanvasInner({
         <div className="flex items-start gap-2 border-b border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
           <AlertCircle size={16} className="mt-0.5 shrink-0" />
           <span>
-            To publish: {readinessHints.join(' ')}{' '}
-            <span className="text-amber-700">Click a step card to open its panel and change its Kind.</span>
+            {t(locale, 'to_publish')} {readinessHints.join(' ')}{' '}
+            <span className="text-amber-700">{t(locale, 'hint_open_panel')}</span>
           </span>
         </div>
       )}
@@ -674,6 +693,7 @@ function CanvasInner({
         {selectedNode && (
           <StepPanel
             node={selectedNode}
+            locale={locale}
             onClose={() => setSelected(null)}
             onPatch={(patch) => patchNode(selectedNode.id, patch)}
             onDelete={() => deleteNode(selectedNode.id)}
@@ -682,6 +702,7 @@ function CanvasInner({
         {selectedEdge && (
           <EdgePanel
             edge={selectedEdge}
+            locale={locale}
             onClose={() => setSelected(null)}
             onPatch={(patch) => patchEdge(selectedEdge.id, patch)}
             onDelete={() => deleteEdge(selectedEdge.id)}
@@ -690,9 +711,7 @@ function CanvasInner({
       </div>
 
       <div className="border-t border-line px-3 py-2 text-xs text-ink-muted">
-        Drag cards to arrange · drag from a card&apos;s right edge to another&apos;s left to connect ·
-        click a card or arrow to edit · one <span className="font-medium">Entry</span> + at least one
-        End step required to publish.
+        {t(locale, 'canvas_footer')}
       </div>
     </div>
   );
@@ -737,17 +756,17 @@ function ToggleRow({
   );
 }
 
-const KIND_OPTIONS: { value: Kind; label: string }[] = [
-  { value: 'entry', label: 'Entry' },
-  { value: 'normal', label: 'Normal' },
-  { value: 'end_positive', label: 'End — positive ✓' },
-  { value: 'end_negative', label: 'End — negative ✗' },
-  { value: 'loop', label: 'Loop — back to start' },
+const KIND_OPTIONS: { value: Kind; label: UiKey }[] = [
+  { value: 'entry', label: 'kind_entry' },
+  { value: 'normal', label: 'kind_normal' },
+  { value: 'end_positive', label: 'kind_end_positive' },
+  { value: 'end_negative', label: 'kind_end_negative' },
+  { value: 'loop', label: 'kind_loop' },
 ];
-const ACTOR_OPTIONS: { value: ActorType; label: string }[] = [
-  { value: 'personal', label: 'You (personal)' },
-  { value: 'team', label: 'Team' },
-  { value: 'contact', label: 'Contact' },
+const ACTOR_OPTIONS: { value: ActorType; label: UiKey }[] = [
+  { value: 'personal', label: 'actor_personal' },
+  { value: 'team', label: 'actor_team' },
+  { value: 'contact', label: 'actor_contact' },
 ];
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
@@ -763,31 +782,33 @@ const inputCls =
 
 function StepPanel({
   node,
+  locale,
   onClose,
   onPatch,
   onDelete,
 }: {
   node: Node;
+  locale: Locale;
   onClose: () => void;
   onPatch: (patch: Partial<StepData>) => void;
   onDelete: () => void;
 }) {
   const d = node.data as StepData;
   return (
-    <Drawer title="Step" onClose={onClose}>
-      <Field label="Name">
+    <Drawer title={t(locale, 'step')} onClose={onClose}>
+      <Field label={t(locale, 'name')}>
         <input className={inputCls} value={d.name} onChange={(e) => onPatch({ name: e.target.value })} />
       </Field>
-      <Field label="Kind">
+      <Field label={t(locale, 'kind')}>
         <select className={inputCls} value={d.kind} onChange={(e) => onPatch({ kind: e.target.value as Kind })}>
           {KIND_OPTIONS.map((o) => (
             <option key={o.value} value={o.value}>
-              {o.label}
+              {t(locale, o.label)}
             </option>
           ))}
         </select>
       </Field>
-      <Field label="Description">
+      <Field label={t(locale, 'description')}>
         <textarea
           className={inputCls}
           rows={3}
@@ -795,7 +816,7 @@ function StepPanel({
           onChange={(e) => onPatch({ description: e.target.value || null })}
         />
       </Field>
-      <Field label="Expected duration (days)">
+      <Field label={t(locale, 'expected_duration_days')}>
         <input
           type="number"
           min={1}
@@ -805,7 +826,7 @@ function StepPanel({
         />
       </Field>
 
-      <Field label="Section">
+      <Field label={t(locale, 'section')}>
         <input
           className={inputCls}
           placeholder="Orientation"
@@ -818,14 +839,10 @@ function StepPanel({
           value={d.group_key ?? ''}
           onChange={(e) => onPatch({ group_key: e.target.value.toLowerCase() || null })}
         />
-        <p className="mt-1 text-[11px] text-ink-muted">
-          Groups long flows into sections. Steps sharing the lower value belong together —
-          it's the stable one, so rename the label freely but change the key only
-          deliberately. Lowercase letters, digits, <code>_</code> and <code>-</code>.
-        </p>
+        <p className="mt-1 text-[11px] text-ink-muted">{t(locale, 'section_help')}</p>
       </Field>
 
-      <Field label="Extra fields">
+      <Field label={t(locale, 'extra_fields')}>
         <textarea
           className={`${inputCls} font-mono text-xs`}
           rows={5}
@@ -834,51 +851,53 @@ function StepPanel({
           onChange={(e) => onPatch({ meta_text: e.target.value })}
         />
         {metaError(d.meta_text) ? (
-          <p className="mt-1 text-[11px] text-red-700">Extra fields {metaError(d.meta_text)}</p>
-        ) : (
-          <p className="mt-1 text-[11px] text-ink-muted">
-            A JSON object for whatever an app needs on this step that the platform
-            doesn't model — the Festival planner keeps its purpose, trap and
-            reflection here. Fibre never reads these; apps see them verbatim.
+          <p className="mt-1 text-[11px] text-red-700">
+            {t(locale, 'extra_fields_error', { reason: t(locale, 'meta_reason') })}
           </p>
+        ) : (
+          <p className="mt-1 text-[11px] text-ink-muted">{t(locale, 'extra_fields_help')}</p>
         )}
       </Field>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-medium text-ink-subtle">Auto-created tasks on entry</label>
+          <label className="text-xs font-medium text-ink-subtle">{t(locale, 'auto_tasks_on_entry')}</label>
           <button
             className="text-xs text-ink-subtle hover:text-ink"
-            onClick={() => onPatch({ default_tasks: [...d.default_tasks, { title: 'New task', actor_type: 'personal' }] })}
+            onClick={() =>
+              onPatch({
+                default_tasks: [...d.default_tasks, { title: t(locale, 'new_task'), actor_type: 'personal' }],
+              })
+            }
           >
-            + add
+            {t(locale, 'add_short')}
           </button>
         </div>
         <div className="space-y-2">
-          {d.default_tasks.map((t, i) => (
+          {d.default_tasks.map((dt, i) => (
             <div key={i} className="rounded-md border border-line p-2 space-y-1.5">
               <input
                 className={inputCls}
-                value={t.title}
+                value={dt.title}
                 onChange={(e) => {
                   const next = [...d.default_tasks];
-                  next[i] = { ...t, title: e.target.value };
+                  next[i] = { ...dt, title: e.target.value };
                   onPatch({ default_tasks: next });
                 }}
               />
               <div className="flex items-center gap-2">
                 <select
                   className={inputCls}
-                  value={t.actor_type}
+                  value={dt.actor_type}
                   onChange={(e) => {
                     const next = [...d.default_tasks];
-                    next[i] = { ...t, actor_type: e.target.value as ActorType };
+                    next[i] = { ...dt, actor_type: e.target.value as ActorType };
                     onPatch({ default_tasks: next });
                   }}
                 >
                   {ACTOR_OPTIONS.map((o) => (
                     <option key={o.value} value={o.value}>
-                      {o.label}
+                      {t(locale, o.label)}
                     </option>
                   ))}
                 </select>
@@ -898,7 +917,7 @@ function StepPanel({
         onClick={onDelete}
         className="inline-flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700"
       >
-        <Trash2 size={15} /> Delete step
+        <Trash2 size={15} /> {t(locale, 'delete_step')}
       </button>
     </Drawer>
   );
@@ -906,101 +925,107 @@ function StepPanel({
 
 function EdgePanel({
   edge,
+  locale,
   onClose,
   onPatch,
   onDelete,
 }: {
   edge: Edge;
+  locale: Locale;
   onClose: () => void;
   onPatch: (patch: Partial<EdgeData>) => void;
   onDelete: () => void;
 }) {
   const d = edge.data as EdgeData;
   return (
-    <Drawer title="Transition" onClose={onClose}>
+    <Drawer title={t(locale, 'transition')} onClose={onClose}>
       <datalist id="flow-contact-action-types">
-        <option value="meeting_booked">Booked a Meet</option>
-        <option value="meeting_requested">Requested a Meet (needs approval)</option>
-        <option value="meeting_attended">Attended a Meet</option>
-        <option value="thread.enrolment.attended">Attended a Thread session</option>
-        <option value="signed_contract">Signed a contract</option>
-        <option value="confirmed_attendance">Confirmed attendance</option>
-        <option value="submitted_form">Submitted a form</option>
+        <option value="meeting_booked">{t(locale, 'action_booked_meet')}</option>
+        <option value="meeting_requested">{t(locale, 'action_requested_meet')}</option>
+        <option value="meeting_attended">{t(locale, 'action_attended_meet')}</option>
+        <option value="thread.enrolment.attended">{t(locale, 'action_attended_thread')}</option>
+        <option value="signed_contract">{t(locale, 'action_signed_contract')}</option>
+        <option value="confirmed_attendance">{t(locale, 'action_confirmed_attendance')}</option>
+        <option value="submitted_form">{t(locale, 'action_submitted_form')}</option>
       </datalist>
-      <Field label="Label">
+      <Field label={t(locale, 'label')}>
         <input className={inputCls} value={d.label} onChange={(e) => onPatch({ label: e.target.value })} />
       </Field>
-      <Field label="Gate logic">
+      <Field label={t(locale, 'gate_logic')}>
         <select
           className={inputCls}
           value={d.gate_logic}
           onChange={(e) => onPatch({ gate_logic: e.target.value as 'all' | 'any' })}
         >
-          <option value="all">All required tasks must be done</option>
-          <option value="any">Any one required task is enough</option>
+          <option value="all">{t(locale, 'gate_all_desc')}</option>
+          <option value="any">{t(locale, 'gate_any_desc')}</option>
         </select>
       </Field>
 
       <div>
         <div className="flex items-center justify-between mb-1">
-          <label className="text-xs font-medium text-ink-subtle">Gate tasks (must be done to move)</label>
+          <label className="text-xs font-medium text-ink-subtle">{t(locale, 'gate_tasks_label')}</label>
           <button
             className="text-xs text-ink-subtle hover:text-ink"
             onClick={() =>
-              onPatch({ gate_tasks: [...d.gate_tasks, { title: 'New task', actor_type: 'personal', required: true }] })
+              onPatch({
+                gate_tasks: [
+                  ...d.gate_tasks,
+                  { title: t(locale, 'new_task'), actor_type: 'personal', required: true },
+                ],
+              })
             }
           >
-            + add
+            {t(locale, 'add_short')}
           </button>
         </div>
         <div className="space-y-2">
-          {d.gate_tasks.map((t, i) => (
+          {d.gate_tasks.map((gt, i) => (
             <div key={i} className="rounded-md border border-line p-2 space-y-1.5">
               <input
                 className={inputCls}
-                value={t.title}
+                value={gt.title}
                 onChange={(e) => {
                   const next = [...d.gate_tasks];
-                  next[i] = { ...t, title: e.target.value };
+                  next[i] = { ...gt, title: e.target.value };
                   onPatch({ gate_tasks: next });
                 }}
               />
               <select
                 className={inputCls}
-                value={t.actor_type}
+                value={gt.actor_type}
                 onChange={(e) => {
                   const next = [...d.gate_tasks];
                   const actor = e.target.value as ActorType;
                   next[i] = {
-                    ...t,
+                    ...gt,
                     actor_type: actor,
-                    contact_action_type: actor === 'contact' ? t.contact_action_type ?? 'meeting_booked' : null,
+                    contact_action_type: actor === 'contact' ? gt.contact_action_type ?? 'meeting_booked' : null,
                   };
                   onPatch({ gate_tasks: next });
                 }}
               >
                 {ACTOR_OPTIONS.map((o) => (
                   <option key={o.value} value={o.value}>
-                    {o.label}
+                    {t(locale, o.label)}
                   </option>
                 ))}
               </select>
-              {t.actor_type === 'contact' && (
+              {gt.actor_type === 'contact' && (
                 <>
                   <input
                     className={inputCls}
                     list="flow-contact-action-types"
-                    placeholder="action type — auto-completes from activity"
-                    value={t.contact_action_type ?? ''}
+                    placeholder={t(locale, 'action_type_ph')}
+                    value={gt.contact_action_type ?? ''}
                     onChange={(e) => {
                       const next = [...d.gate_tasks];
-                      next[i] = { ...t, contact_action_type: e.target.value || null };
+                      next[i] = { ...gt, contact_action_type: e.target.value || null };
                       onPatch({ gate_tasks: next });
                     }}
                   />
                   <p className="text-[11px] text-ink-muted leading-snug">
-                    When an activity of this type is logged for the contact (e.g. they book a Meet), this
-                    task auto-completes. Pick a known type or type your own (logged manually).
+                    {t(locale, 'contact_action_help')}
                   </p>
                 </>
               )}
@@ -1008,14 +1033,14 @@ function EdgePanel({
                 <label className="inline-flex items-center gap-1.5 text-xs text-ink-subtle">
                   <input
                     type="checkbox"
-                    checked={t.required ?? true}
+                    checked={gt.required ?? true}
                     onChange={(e) => {
                       const next = [...d.gate_tasks];
-                      next[i] = { ...t, required: e.target.checked };
+                      next[i] = { ...gt, required: e.target.checked };
                       onPatch({ gate_tasks: next });
                     }}
                   />
-                  Required
+                  {t(locale, 'required')}
                 </label>
                 <button
                   className="text-ink-muted hover:text-red-600"
@@ -1030,7 +1055,7 @@ function EdgePanel({
       </div>
 
       <button onClick={onDelete} className="inline-flex items-center gap-1.5 text-sm text-red-600 hover:text-red-700">
-        <Trash2 size={15} /> Delete transition
+        <Trash2 size={15} /> {t(locale, 'delete_transition')}
       </button>
     </Drawer>
   );
@@ -1041,6 +1066,7 @@ export function FlowCanvas(props: {
   flowName: string;
   lifecycle: string;
   initialGraph: InGraph;
+  locale: Locale;
 }) {
   return (
     <ReactFlowProvider>

@@ -13,6 +13,8 @@
 import type { ReactNode } from 'react';
 import { APPS, type AppBrand } from '../branding.js';
 import type { AppId } from '../index.js';
+import { DEFAULT_LOCALE, type Locale } from '../i18n.js';
+import { serverChromeT } from './chrome-server-i18n.js';
 
 /** next/link, structurally. Injected by the caller.
  *
@@ -41,6 +43,7 @@ export function HelpPage({
   otherApps,
   aboutHref,
   link: Link,
+  locale = DEFAULT_LOCALE,
 }: {
   /** Which app this Help page belongs to. Supplies the name + tagline. */
   appId: AppId;
@@ -50,6 +53,8 @@ export function HelpPage({
   /** Where "How The Fibre works" lives — relative on the platform, absolute elsewhere. */
   aboutHref: string;
   link: HelpLink;
+  /** The signed-in interface language (i18n P3) — pass `await uiLocale()`. */
+  locale?: Locale;
 }) {
   const me: AppBrand = APPS[appId];
   const others = otherApps.filter((a) => a.slug !== appId);
@@ -57,7 +62,7 @@ export function HelpPage({
   return (
     <div className="mx-auto max-w-4xl px-8 py-10">
       <header>
-        <h1 className="text-2xl font-medium tracking-tight text-ink">Help</h1>
+        <h1 className="text-2xl font-medium tracking-tight text-ink">{serverChromeT(locale, 'help_title')}</h1>
         <p className="mt-1 text-sm text-ink-subtle">
           {me.name} &middot; {me.tagline}
         </p>
@@ -65,7 +70,7 @@ export function HelpPage({
 
       {/* ---------------------------------------------------------- */}
       <section className="mt-10">
-        <SectionLabel>Getting around {me.shortName}</SectionLabel>
+        <SectionLabel>{serverChromeT(locale, 'help_getting_around', { app: me.shortName })}</SectionLabel>
         <ul className="mt-3 grid gap-2 sm:grid-cols-2">
           {sections.map((s) => (
             <li key={s.href}>
@@ -83,10 +88,10 @@ export function HelpPage({
 
       {/* ---------------------------------------------------------- */}
       <section className="mt-12">
-        <SectionLabel>The rest of your Fibre</SectionLabel>
+        <SectionLabel>{serverChromeT(locale, 'help_rest')}</SectionLabel>
         {others.length === 0 ? (
           <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
-            Nothing else is switched on for you in this workspace.
+            {serverChromeT(locale, 'help_nothing_else')}
           </div>
         ) : (
           <>
@@ -108,26 +113,21 @@ export function HelpPage({
                 );
               })}
             </ul>
-            <p className="mt-3 text-xs text-ink-muted">
-              Each one has its own Help page, in the same place in its sidebar. You see this list
-              because these apps are switched on for the workspace <em>and</em> you are a member of
-              them.
-            </p>
+            <p className="mt-3 text-xs text-ink-muted">{serverChromeT(locale, 'help_each_one')}</p>
           </>
         )}
       </section>
 
       {/* ---------------------------------------------------------- */}
       <section className="mt-12 border-t border-line pt-6">
-        <SectionLabel>Read more</SectionLabel>
+        <SectionLabel>{serverChromeT(locale, 'help_read_more')}</SectionLabel>
         <Link
           href={aboutHref}
           className="mt-3 block rounded-lg border border-line bg-surface-raised p-4 transition-colors hover:border-line-strong"
         >
-          <span className="text-sm font-medium text-ink">How The Fibre works &rarr;</span>
+          <span className="text-sm font-medium text-ink">{serverChromeT(locale, 'help_how_works')} &rarr;</span>
           <span className="mt-1 block text-sm leading-relaxed text-ink-subtle">
-            What the platform holds and what each app holds, why so little is written down, what an
-            outside app can and cannot reach, and a glossary of the words these pages use.
+            {serverChromeT(locale, 'help_about_blurb')}
           </span>
         </Link>
         <p className="mt-4 text-sm leading-relaxed text-ink-subtle">

@@ -15,6 +15,7 @@ import {
   coerceSchedule,
   type Schedule,
 } from '@/components/working-hours-editor';
+import { t, type Locale } from '@/lib/i18n-ui';
 import { createMeetingType, savePollSlots, saveIntakeFields, updateMeetingType, type SaveResult } from './actions';
 import { MEET_HOST } from '@/lib/public-host';
 
@@ -54,74 +55,6 @@ export type CalendarOption = {
   role: 'primary' | 'conflict_check' | 'write_target' | 'ignore';
 };
 
-const CAPACITY_OPTIONS = [
-  { value: '2', label: '2 invitees' },
-  { value: '4', label: '4 invitees' },
-  { value: '6', label: '6 invitees' },
-  { value: '8', label: '8 invitees' },
-  { value: '10', label: '10 invitees' },
-  { value: '12', label: '12 invitees' },
-  { value: '15', label: '15 invitees' },
-  { value: '20', label: '20 invitees' },
-  { value: '30', label: '30 invitees' },
-  { value: '50', label: '50 invitees' },
-];
-
-const PROVIDERS = [
-  { value: 'google_meet', label: 'Google Meet' },
-  // Zoom + Teams need OAuth integrations not yet built; show them disabled
-  // so the user sees they're planned without being able to pick a broken
-  // option (which previously saved fine but generated no meeting URL).
-  { value: 'zoom', label: 'Zoom', disabled: true },
-  { value: 'teams', label: 'Microsoft Teams', disabled: true },
-  { value: 'in_person', label: 'In person' },
-  { value: 'personal_room', label: 'Personal room' },
-  { value: 'none', label: 'No conferencing' },
-];
-
-const DURATION_OPTIONS = [
-  { value: '15', label: '15 minutes' },
-  { value: '20', label: '20 minutes' },
-  { value: '30', label: '30 minutes' },
-  { value: '45', label: '45 minutes' },
-  { value: '60', label: '60 minutes' },
-  { value: '90', label: '90 minutes' },
-  { value: '120', label: '2 hours' },
-];
-
-const BUFFER_OPTIONS = [
-  { value: '0', label: 'None' },
-  { value: '5', label: '5 min' },
-  { value: '10', label: '10 min' },
-  { value: '15', label: '15 min' },
-  { value: '30', label: '30 min' },
-  { value: '60', label: '60 min' },
-];
-
-const NOTICE_OPTIONS = [
-  { value: '0', label: 'None' },
-  { value: '15', label: '15 min' },
-  { value: '30', label: '30 min' },
-  { value: '60', label: '1 hour' },
-  { value: '120', label: '2 hours' },
-  { value: '240', label: '4 hours' },
-  { value: '1440', label: '1 day' },
-  { value: '2880', label: '2 days' },
-  { value: '10080', label: '1 week' },
-];
-
-const ADVANCE_OPTIONS = [
-  { value: '1', label: '1 day' },
-  { value: '3', label: '3 days' },
-  { value: '7', label: '7 days' },
-  { value: '14', label: '14 days' },
-  { value: '30', label: '30 days' },
-  { value: '60', label: '60 days' },
-  { value: '90', label: '90 days' },
-  { value: '180', label: '180 days' },
-  { value: '365', label: '1 year' },
-];
-
 type Tab = 'basics' | 'availability' | 'conferencing' | 'pricing' | 'intake';
 
 export function MeetingTypeForm({
@@ -129,12 +62,14 @@ export function MeetingTypeForm({
   hostSlug,
   teams = [],
   calendars = [],
+  locale,
 }: {
   initial: MeetingTypeFormValues;
   /** The current user's own host slug — used to render the personal URL prefix. */
   hostSlug?: string | null;
   teams?: TeamOption[];
   calendars?: CalendarOption[];
+  locale: Locale;
 }) {
   const isEdit = !!initial.id;
   const action = isEdit
@@ -144,6 +79,60 @@ export function MeetingTypeForm({
     action as (prev: SaveResult, fd: FormData) => Promise<SaveResult>,
     {},
   );
+
+  const CAPACITY_OPTIONS = [2, 4, 6, 8, 10, 12, 15, 20, 30, 50].map((n) => ({
+    value: String(n),
+    label: t(locale, 'opt_n_invitees', { n }),
+  }));
+
+  const PROVIDERS = [
+    { value: 'google_meet', label: 'Google Meet' },
+    // Zoom + Teams need OAuth integrations not yet built; show them disabled
+    // so the user sees they're planned without being able to pick a broken
+    // option (which previously saved fine but generated no meeting URL).
+    { value: 'zoom', label: 'Zoom', disabled: true },
+    { value: 'teams', label: 'Microsoft Teams', disabled: true },
+    { value: 'in_person', label: t(locale, 'provider_in_person') },
+    { value: 'personal_room', label: t(locale, 'provider_personal_room') },
+    { value: 'none', label: t(locale, 'provider_none') },
+  ];
+
+  const DURATION_OPTIONS = [
+    ...[15, 20, 30, 45, 60, 90].map((n) => ({
+      value: String(n),
+      label: t(locale, 'opt_n_minutes', { n }),
+    })),
+    { value: '120', label: t(locale, 'opt_n_hours', { n: 2 }) },
+  ];
+
+  const BUFFER_OPTIONS = [
+    { value: '0', label: t(locale, 'opt_none') },
+    ...[5, 10, 15, 30, 60].map((n) => ({
+      value: String(n),
+      label: t(locale, 'opt_n_min', { n }),
+    })),
+  ];
+
+  const NOTICE_OPTIONS = [
+    { value: '0', label: t(locale, 'opt_none') },
+    { value: '15', label: t(locale, 'opt_n_min', { n: 15 }) },
+    { value: '30', label: t(locale, 'opt_n_min', { n: 30 }) },
+    { value: '60', label: t(locale, 'opt_1_hour') },
+    { value: '120', label: t(locale, 'opt_n_hours', { n: 2 }) },
+    { value: '240', label: t(locale, 'opt_n_hours', { n: 4 }) },
+    { value: '1440', label: t(locale, 'opt_1_day') },
+    { value: '2880', label: t(locale, 'opt_n_days', { n: 2 }) },
+    { value: '10080', label: t(locale, 'opt_1_week') },
+  ];
+
+  const ADVANCE_OPTIONS = [
+    { value: '1', label: t(locale, 'opt_1_day') },
+    ...[3, 7, 14, 30, 60, 90, 180].map((n) => ({
+      value: String(n),
+      label: t(locale, 'opt_n_days', { n }),
+    })),
+    { value: '365', label: t(locale, 'opt_1_year') },
+  ];
 
   const [tab, setTab] = useState<Tab>('basics');
   const [scope, setScope] = useState<'personal' | 'team'>(
@@ -177,9 +166,9 @@ export function MeetingTypeForm({
   const eventTypeOptions = (
     scope === 'team'
       ? EVENT_TYPES
-      : EVENT_TYPES.filter((t) => PERSONAL_EVENT_TYPES.has(t.value))
+      : EVENT_TYPES.filter((x) => PERSONAL_EVENT_TYPES.has(x.value))
   );
-  const validEventType = eventTypeOptions.some((t) => t.value === eventType)
+  const validEventType = eventTypeOptions.some((x) => x.value === eventType)
     ? eventType
     : 'one_on_one';
   const effectiveEventType = validEventType;
@@ -194,7 +183,7 @@ export function MeetingTypeForm({
   // If the team scope is selected but no team is picked yet, fall back to
   // the first team in the list (which is the visible default).
   const fallbackTeamId = effectiveTeamId || teams[0]?.id;
-  const teamSlugForPrefix = teams.find((t) => t.id === fallbackTeamId)?.slug;
+  const teamSlugForPrefix = teams.find((x) => x.id === fallbackTeamId)?.slug;
   const prefix =
     scope === 'team' && teamSlugForPrefix
       ? `${MEET_HOST}/${teamSlugForPrefix}/`
@@ -207,46 +196,46 @@ export function MeetingTypeForm({
   const isOneOff = effectiveEventType === 'one_off';
   const isPoll = effectiveEventType === 'poll';
   const tabs: { value: Tab; label: string }[] = [
-    { value: 'basics', label: 'Basics' },
+    { value: 'basics', label: t(locale, 'tab_basics') },
     ...(isOneOff
       ? []
       : [
           {
             value: 'availability' as Tab,
-            label: isPoll ? 'Candidate slots' : 'Availability',
+            label: isPoll ? t(locale, 'candidate_slots') : t(locale, 'st_availability'),
           },
         ]),
-    { value: 'conferencing', label: 'Conferencing' },
-    { value: 'pricing', label: 'Pricing' },
-    { value: 'intake', label: 'Intake' },
+    { value: 'conferencing', label: t(locale, 'tab_conferencing') },
+    { value: 'pricing', label: t(locale, 'tab_pricing') },
+    { value: 'intake', label: t(locale, 'tab_intake') },
   ];
-  const visibleTab: Tab = tabs.some((t) => t.value === tab) ? tab : 'basics';
+  const visibleTab: Tab = tabs.some((x) => x.value === tab) ? tab : 'basics';
 
   return (
     <form action={formAction} className="space-y-6">
       <div className="sticky top-0 z-10 -mx-10 px-10 bg-surface/80 backdrop-blur border-b border-line">
         <div className="flex items-center justify-between gap-3 py-3">
           <nav className="flex items-center gap-1 text-sm">
-            {tabs.map((t) => (
+            {tabs.map((x) => (
               <button
-                key={t.value}
+                key={x.value}
                 type="button"
-                onClick={() => setTab(t.value)}
+                onClick={() => setTab(x.value)}
                 className={`px-3 py-1.5 rounded-md ${
-                  visibleTab === t.value
+                  visibleTab === x.value
                     ? 'bg-ink text-surface-raised'
                     : 'text-ink-subtle hover:text-ink hover:bg-surface-sunken'
                 }`}
               >
-                {t.label}
+                {x.label}
               </button>
             ))}
           </nav>
           <div className="flex items-center gap-3">
-            {state.ok && <span className="text-xs text-emerald-700">Saved.</span>}
+            {state.ok && <span className="text-xs text-emerald-700">{t(locale, 'saved')}</span>}
             {state.error && <span className="text-xs text-red-700">{state.error}</span>}
             <Button type="submit" disabled={pending}>
-              {pending ? 'Saving…' : isEdit ? 'Save changes' : 'Create'}
+              {pending ? t(locale, 'saving') : isEdit ? t(locale, 'save_changes') : t(locale, 'create')}
             </Button>
           </div>
         </div>
@@ -276,19 +265,19 @@ export function MeetingTypeForm({
       */}
       <div className={visibleTab === 'basics' ? '' : 'hidden'}>
         <>
-          <Section title="Scope" desc="Personal types live under your handle. Team types live under a team's URL — bookings show up in the team's shared view.">
+          <Section title={t(locale, 'scope')} desc={t(locale, 'scope_section_desc')}>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <ScopeCard
                 Icon={User}
-                title="Personal"
-                desc="Just for you."
+                title={t(locale, 'personal')}
+                desc={t(locale, 'scope_personal_desc')}
                 active={scope === 'personal'}
                 onClick={() => setScope('personal')}
               />
               <ScopeCard
                 Icon={TeamIcon}
-                title="Team"
-                desc={teams.length === 0 ? 'You aren’t a lead of any team yet.' : 'Owned by a team you lead.'}
+                title={t(locale, 'team')}
+                desc={teams.length === 0 ? t(locale, 'scope_team_none') : t(locale, 'scope_team_desc')}
                 active={scope === 'team'}
                 disabled={teams.length === 0}
                 onClick={() => setScope('team')}
@@ -296,11 +285,11 @@ export function MeetingTypeForm({
             </div>
             {scope === 'team' && teams.length > 0 && (
               <SelectField
-                label="Team"
+                label={t(locale, 'team')}
                 name="team_id_visible"
                 value={teamId || teams[0]!.id}
                 onChange={(e) => setTeamId(e.target.value)}
-                options={teams.map((t) => ({ value: t.id, label: t.name }))}
+                options={teams.map((x) => ({ value: x.id, label: x.name }))}
               />
             )}
             {showEventType && (
@@ -308,25 +297,28 @@ export function MeetingTypeForm({
                 value={effectiveEventType}
                 onChange={setEventType}
                 hasTeams={scope === 'team' && teams.length > 0}
+                locale={locale}
               />
             )}
           </Section>
 
-          <Section title="Details" desc="Name, slug, and duration are the essentials.">
+          <Section title={t(locale, 'details_section')} desc={t(locale, 'details_desc')}>
             <NameAndSlugFields
-              nameLabel="Name"
+              nameLabel={t(locale, 'name')}
+              slugLabel={t(locale, 'public_url')}
               initialName={initial.name ?? ''}
               initialSlug={initial.slug ?? ''}
               prefix={prefix}
+              locale={locale}
             />
             <TextAreaField
-              label="Description (optional)"
+              label={t(locale, 'description_optional')}
               name="description"
               defaultValue={initial.description ?? ''}
               rows={3}
             />
             <SelectField
-              label="Duration"
+              label={t(locale, 'duration')}
               name="duration_minutes"
               defaultValue={String(initial.duration_minutes ?? 30)}
               options={DURATION_OPTIONS}
@@ -334,29 +326,29 @@ export function MeetingTypeForm({
             />
             {effectiveEventType === 'group' && (
               <SelectField
-                label="Capacity"
+                label={t(locale, 'capacity')}
                 name="capacity"
                 defaultValue={String(initial.capacity ?? 12)}
                 options={CAPACITY_OPTIONS}
-                hint="Max invitees who can share each slot. Once full, the slot disappears from the booking page."
+                hint={t(locale, 'capacity_hint')}
                 required
               />
             )}
             {isOneOff && (
               <>
                 <DateTimeField
-                  label="Date & time"
+                  label={t(locale, 'datetime_label')}
                   name="fixed_starts_at_local"
                   defaultValue={toLocalDatetimeInput(initial.fixed_starts_at)}
-                  hint="The single, fixed time this meeting will run. Invitees confirm attendance instead of picking a slot."
+                  hint={t(locale, 'datetime_hint')}
                   required
                 />
                 <SelectField
-                  label="Capacity"
+                  label={t(locale, 'capacity')}
                   name="capacity"
                   defaultValue={String(initial.capacity ?? 1)}
-                  options={[{ value: '1', label: '1 invitee (interview)' }, ...CAPACITY_OPTIONS]}
-                  hint="1 = traditional one-on-one. Higher = a small group event capped at N attendees."
+                  options={[{ value: '1', label: t(locale, 'opt_1_invitee_interview') }, ...CAPACITY_OPTIONS]}
+                  hint={t(locale, 'capacity_one_hint')}
                 />
               </>
             )}
@@ -366,7 +358,7 @@ export function MeetingTypeForm({
                 name="is_active"
                 defaultChecked={initial.is_active ?? true}
               />
-              <span>Active — accept new bookings</span>
+              <span>{t(locale, 'active_accept')}</span>
             </label>
           </Section>
         </>
@@ -377,20 +369,21 @@ export function MeetingTypeForm({
           mtId={initial.id}
           duration={initial.duration_minutes ?? 30}
           initial={initial.poll_slots ?? []}
+          locale={locale}
         />
       </div>
 
       <div className={visibleTab === 'availability' && !isPoll ? '' : 'hidden'}>
         <>
           <Section
-            title="Availability"
+            title={t(locale, 'st_availability')}
             desc={
               <>
-                Defaults to your overall{' '}
+                {t(locale, 'av_defaults_prefix')}{' '}
                 <Link href="/settings/availability" className="underline underline-offset-2">
-                  working hours
+                  {t(locale, 'working_hours_link')}
                 </Link>
-                . Override here when this meeting type only happens at specific times.
+                {t(locale, 'av_defaults_suffix')}
               </>
             }
           >
@@ -401,7 +394,7 @@ export function MeetingTypeForm({
                   checked={availabilityMode === 'default'}
                   onChange={() => setAvailabilityMode('default')}
                 />
-                <span>Use my default working hours</span>
+                <span>{t(locale, 'use_default_hours')}</span>
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -409,57 +402,57 @@ export function MeetingTypeForm({
                   checked={availabilityMode === 'custom'}
                   onChange={() => setAvailabilityMode('custom')}
                 />
-                <span>Custom for this meeting type</span>
+                <span>{t(locale, 'custom_for_mt')}</span>
               </label>
             </div>
             {availabilityMode === 'custom' && (
               <div className="pt-2">
-                <WorkingHoursEditor value={hours} onChange={setHours} />
+                <WorkingHoursEditor value={hours} onChange={setHours} locale={locale} />
               </div>
             )}
           </Section>
 
           <Section
-            title="Scheduling rules"
-            desc="Buffers, how soon people can book, and how far ahead."
+            title={t(locale, 'scheduling_rules')}
+            desc={t(locale, 'scheduling_desc')}
           >
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SelectField
-                label="Buffer before"
+                label={t(locale, 'buffer_before')}
                 name="buffer_before_minutes"
                 defaultValue={String(initial.buffer_before_minutes ?? 0)}
                 options={BUFFER_OPTIONS}
-                hint="Quiet time reserved before the meeting starts."
+                hint={t(locale, 'buffer_before_hint')}
               />
               <SelectField
-                label="Buffer after"
+                label={t(locale, 'buffer_after')}
                 name="buffer_after_minutes"
                 defaultValue={String(initial.buffer_after_minutes ?? 0)}
                 options={BUFFER_OPTIONS}
-                hint="Quiet time reserved after the meeting ends."
+                hint={t(locale, 'buffer_after_hint')}
               />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <SelectField
-                label="Minimum notice"
+                label={t(locale, 'min_notice')}
                 name="min_notice_minutes"
                 defaultValue={String(initial.min_notice_minutes ?? 60)}
                 options={NOTICE_OPTIONS}
-                hint="How late someone can still book."
+                hint={t(locale, 'min_notice_hint')}
               />
               <SelectField
-                label="Bookable up to"
+                label={t(locale, 'bookable_up_to')}
                 name="max_advance_days"
                 defaultValue={String(initial.max_advance_days ?? 60)}
                 options={ADVANCE_OPTIONS}
-                hint="How far in the future the calendar opens."
+                hint={t(locale, 'bookable_hint')}
               />
             </div>
           </Section>
 
           <Section
-            title="Visibility"
-            desc="Controls whether this meeting type shows up in your public booking page list. Either way the direct link keeps working."
+            title={t(locale, 'visibility_section')}
+            desc={t(locale, 'mt_visibility_desc')}
           >
             <label className="flex items-start gap-2 text-sm">
               <input
@@ -469,17 +462,19 @@ export function MeetingTypeForm({
                 className="mt-1"
               />
               <span>
-                <span className="font-medium">Available on personal overview page</span>
+                <span className="font-medium">{t(locale, 'public_listed')}</span>
                 <span className="block text-xs text-ink-muted mt-0.5">
-                  When checked, this meeting type appears in the list at {MEET_HOST}/{prefix.replace(`${MEET_HOST}/`, '').replace(/\/$/, '') || 'your-slug'}. Uncheck to keep it bookable only via the direct link.
+                  {t(locale, 'public_listed_hint', {
+                    url: `${MEET_HOST}/${prefix.replace(`${MEET_HOST}/`, '').replace(/\/$/, '') || 'your-slug'}`,
+                  })}
                 </span>
               </span>
             </label>
           </Section>
 
           <Section
-            title="Approval"
-            desc="When approval is required, the booking sits as 'pending' and the invitee gets a request-received email. You approve or reject from the Bookings page."
+            title={t(locale, 'approval_section')}
+            desc={t(locale, 'approval_desc')}
           >
             {/* Radio group with 3 modes encoded as a string: default/always/never.
                 bodyFromForm maps to: null / true / false respectively. */}
@@ -488,18 +483,18 @@ export function MeetingTypeForm({
                 [
                   {
                     value: 'default',
-                    label: 'Use my default',
-                    hint: 'Follow the Approval setting on your Profile page.',
+                    label: t(locale, 'approval_default'),
+                    hint: t(locale, 'approval_default_hint'),
                   },
                   {
                     value: 'always',
-                    label: 'Always require approval',
-                    hint: 'Every booking starts as pending until you approve it.',
+                    label: t(locale, 'approval_always'),
+                    hint: t(locale, 'approval_always_hint'),
                   },
                   {
                     value: 'never',
-                    label: 'Never require approval',
-                    hint: 'Bookings auto-confirm even if your default is set.',
+                    label: t(locale, 'approval_never'),
+                    hint: t(locale, 'approval_never_hint'),
                   },
                 ] as const
               ).map((opt) => {
@@ -534,28 +529,27 @@ export function MeetingTypeForm({
 
       <div className={visibleTab === 'conferencing' ? '' : 'hidden'}>
         <>
-          <Section title="Conferencing" desc="Where the meeting happens. Zoom requires you to connect it in Settings.">
+          <Section title={t(locale, 'tab_conferencing')} desc={t(locale, 'conferencing_section_desc')}>
             <SelectField
-              label="Provider"
+              label={t(locale, 'provider')}
               name="conferencing_provider"
               defaultValue={initial.conferencing_provider ?? 'google_meet'}
               options={PROVIDERS}
             />
             <TextField
-              label="Default location (optional)"
+              label={t(locale, 'default_location_optional')}
               name="default_location"
               defaultValue={initial.default_location ?? ''}
-              placeholder="Address, room, link…"
+              placeholder={t(locale, 'location_placeholder')}
             />
           </Section>
           <Section
-            title="Conflict calendars"
+            title={t(locale, 'conflict_cals_section')}
             desc={
               <>
-                Which of your calendars block this meeting type. Default uses every
-                conflict source you set in{' '}
+                {t(locale, 'conflict_cals_prefix')}{' '}
                 <Link href="/settings/calendars" className="underline underline-offset-2">
-                  Settings → Calendars
+                  {t(locale, 'settings_calendars_link')}
                 </Link>
                 .
               </>
@@ -568,7 +562,7 @@ export function MeetingTypeForm({
                   checked={calMode === 'default'}
                   onChange={() => setCalMode('default')}
                 />
-                <span>Use host default (every conflict-source calendar)</span>
+                <span>{t(locale, 'use_host_default_cals')}</span>
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input
@@ -576,16 +570,16 @@ export function MeetingTypeForm({
                   checked={calMode === 'custom'}
                   onChange={() => setCalMode('custom')}
                 />
-                <span>Custom for this meeting type</span>
+                <span>{t(locale, 'custom_for_mt')}</span>
               </label>
             </div>
             {calMode === 'custom' && (
               <div className="space-y-1.5 pt-2">
                 {calendars.length === 0 ? (
                   <p className="text-sm text-ink-subtle">
-                    No calendars synced yet. Connect Google in{' '}
+                    {t(locale, 'no_cals_prefix')}{' '}
                     <Link href="/settings/integrations" className="underline underline-offset-2">
-                      Integrations
+                      {t(locale, 'integrations_link')}
                     </Link>
                     .
                   </p>
@@ -625,8 +619,8 @@ export function MeetingTypeForm({
 
       <div className={visibleTab === 'pricing' ? '' : 'hidden'}>
         <Section
-          title="Pricing"
-          desc="Charge invitees through Stripe Checkout before the booking is confirmed. Free meetings skip payment entirely."
+          title={t(locale, 'tab_pricing')}
+          desc={t(locale, 'pricing_section_desc')}
         >
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm">
@@ -637,7 +631,7 @@ export function MeetingTypeForm({
                 checked={pricing === 'free'}
                 onChange={() => setPricing('free')}
               />
-              <span>Free</span>
+              <span>{t(locale, 'free')}</span>
             </label>
             <label className="flex items-center gap-2 text-sm">
               <input
@@ -647,14 +641,14 @@ export function MeetingTypeForm({
                 checked={pricing === 'paid'}
                 onChange={() => setPricing('paid')}
               />
-              <span>Paid (via Stripe Checkout)</span>
+              <span>{t(locale, 'paid_via_stripe')}</span>
             </label>
           </div>
 
           {pricing === 'paid' && (
             <div className="mt-4 grid grid-cols-[1fr_140px] gap-3">
               <TextField
-                label="Price"
+                label={t(locale, 'price')}
                 name="price_major"
                 type="number"
                 inputMode="decimal"
@@ -666,10 +660,10 @@ export function MeetingTypeForm({
                     : ''
                 }
                 placeholder="49.00"
-                hint="Excluding tax. Stripe minimum is roughly 0.50 in most currencies."
+                hint={t(locale, 'price_hint')}
               />
               <SelectField
-                label="Currency"
+                label={t(locale, 'currency')}
                 name="price_currency"
                 defaultValue={initial.price_currency ?? 'eur'}
                 options={[
@@ -681,30 +675,29 @@ export function MeetingTypeForm({
             </div>
           )}
           <p className="mt-3 text-xs text-ink-muted">
-            Connect Stripe at{' '}
+            {t(locale, 'pricing_note_prefix')}{' '}
             <Link href="/settings/payments" className="underline underline-offset-2">
-              Settings → Payments
+              {t(locale, 'settings_payments_link')}
             </Link>{' '}
-            before saving a paid price. Stripe Checkout on the booking flow is
-            queued for Phase 3 — saving a price today reserves the field but
-            won't yet trigger payment.
+            {t(locale, 'pricing_note_suffix')}
           </p>
         </Section>
       </div>
 
       <div className={visibleTab === 'intake' ? '' : 'hidden'}>
         <Section
-          title="Intake form"
-          desc="Ask invitees structured questions when they book. Save the meeting type first, then add fields here."
+          title={t(locale, 'intake_section')}
+          desc={t(locale, 'intake_desc')}
         >
           {initial.id ? (
             <IntakeEditorSection
               mtId={initial.id}
               initialFields={initial.intake_form?.fields ?? []}
+              locale={locale}
             />
           ) : (
             <p className="text-sm text-ink-subtle">
-              Create the meeting type first — the intake editor unlocks once it exists.
+              {t(locale, 'intake_create_first')}
             </p>
           )}
         </Section>
@@ -788,10 +781,12 @@ function PollSlotsEditor({
   mtId,
   duration,
   initial,
+  locale,
 }: {
   mtId: string | undefined;
   duration: number;
   initial: { starts_at: string; ends_at: string }[];
+  locale: Locale;
 }) {
   const [slots, setSlots] = useState<string[]>(() =>
     initial.length > 0
@@ -805,7 +800,7 @@ function PollSlotsEditor({
     return (
       <section className="rounded-lg border border-line bg-surface-raised p-6">
         <p className="text-sm text-ink-subtle">
-          Save the meeting type first, then add candidate slots here.
+          {t(locale, 'poll_save_first')}
         </p>
       </section>
     );
@@ -841,22 +836,21 @@ function PollSlotsEditor({
       })
       .filter((x): x is { starts_at: string; ends_at: string } => x !== null);
     if (valid.length < 2 || valid.length > 5) {
-      setMsg('Pick between 2 and 5 valid candidate slots.');
+      setMsg(t(locale, 'poll_pick_valid'));
       return;
     }
     setBusy(true);
     const r = await savePollSlots(mtId!, valid);
     setBusy(false);
-    setMsg(r.error ?? 'Saved.');
+    setMsg(r.error ?? t(locale, 'saved'));
   }
 
   return (
     <section className="rounded-lg border border-line bg-surface-raised p-6 space-y-4">
       <div>
-        <div className="text-base font-medium">Candidate slots</div>
+        <div className="text-base font-medium">{t(locale, 'candidate_slots')}</div>
         <p className="mt-1 text-sm text-ink-subtle">
-          Add 2–5 specific date/times. Invitees will tick the ones they can
-          attend; you confirm the winner from the votes view below.
+          {t(locale, 'poll_editor_desc')}
         </p>
       </div>
       <ul className="space-y-2">
@@ -870,7 +864,7 @@ function PollSlotsEditor({
               onClick={() => remove(i)}
               disabled={slots.length <= 2}
               className="inline-flex h-9 w-9 items-center justify-center rounded-md text-ink-subtle hover:bg-surface-sunken disabled:opacity-30"
-              aria-label="Remove slot"
+              aria-label={t(locale, 'remove_slot')}
             >
               <X className="h-4 w-4" strokeWidth={1.5} />
             </button>
@@ -884,7 +878,7 @@ function PollSlotsEditor({
           disabled={slots.length >= 5}
           className="inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-3 py-1.5 text-sm hover:bg-surface-sunken disabled:opacity-40"
         >
-          <Plus className="h-4 w-4" strokeWidth={1.5} /> Add slot
+          <Plus className="h-4 w-4" strokeWidth={1.5} /> {t(locale, 'add_slot')}
         </button>
         <button
           type="button"
@@ -892,7 +886,7 @@ function PollSlotsEditor({
           disabled={busy}
           className="rounded-md bg-ink text-surface-raised px-4 py-1.5 text-sm font-medium hover:bg-ink/90 disabled:opacity-40"
         >
-          {busy ? 'Saving…' : 'Save slots'}
+          {busy ? t(locale, 'saving') : t(locale, 'save_slots')}
         </button>
         {msg && <span className="text-xs text-ink-subtle">{msg}</span>}
       </div>
@@ -907,9 +901,11 @@ function PollSlotsEditor({
 function IntakeEditorSection({
   mtId,
   initialFields,
+  locale,
 }: {
   mtId: string;
   initialFields: IntakeField[];
+  locale: Locale;
 }) {
   const [fields, setFields] = useState<IntakeField[]>(initialFields);
   const [pending, setPending] = useState(false);
@@ -920,24 +916,24 @@ function IntakeEditorSection({
     setMsg(null);
     const r = await saveIntakeFields(mtId, fields);
     setPending(false);
-    setMsg(r.error ? r.error : 'Saved.');
+    setMsg(r.error ? r.error : t(locale, 'saved'));
   }
 
   return (
     <div className="space-y-4">
-      <IntakeFieldsEditor fields={fields} onChange={setFields} />
+      <IntakeFieldsEditor fields={fields} onChange={setFields} locale={locale} />
       <div className="flex items-center gap-3">
         <Button type="button" onClick={save} disabled={pending}>
-          {pending ? 'Saving…' : 'Save intake fields'}
+          {pending ? t(locale, 'saving') : t(locale, 'save_intake')}
         </Button>
         {msg && (
-          <span className={`text-xs ${msg === 'Saved.' ? 'text-emerald-700' : 'text-red-700'}`}>
+          <span className={`text-xs ${msg === t(locale, 'saved') ? 'text-emerald-700' : 'text-red-700'}`}>
             {msg}
           </span>
         )}
         {fields.length === 0 && (
           <span className="text-xs text-ink-muted">
-            No questions yet — invitees just enter name + email.
+            {t(locale, 'intake_none_note')}
           </span>
         )}
       </div>

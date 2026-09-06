@@ -1,6 +1,8 @@
 import { Workflow, CheckSquare, Users, Star, ArrowUpRight } from 'lucide-react';
 import Link from 'next/link';
 import { apiFetch } from '@/lib/api';
+import { uiLocale } from '@/lib/locale';
+import { t, type UiKey } from '@/lib/i18n-ui';
 
 export const metadata = { title: 'Flow' };
 
@@ -20,7 +22,15 @@ const LIFECYCLE_STYLE: Record<string, string> = {
   archived: 'bg-slate-50 text-slate-400',
 };
 
+const LIFECYCLE_KEY: Record<string, UiKey> = {
+  draft: 'lifecycle_draft',
+  active: 'lifecycle_active',
+  closed: 'lifecycle_closed',
+  archived: 'lifecycle_archived',
+};
+
 export default async function FlowDashboard() {
+  const locale = await uiLocale();
   let favorites: FlowRow[] = [];
   let taskCount = 0;
   let motionCount = 0;
@@ -39,8 +49,8 @@ export default async function FlowDashboard() {
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">Welcome back</h1>
-      <p className="mt-1 text-sm text-ink-muted">Here&apos;s what&apos;s moving today.</p>
+      <h1 className="text-[28px] font-semibold tracking-tight text-ink">{t(locale, 'welcome_back')}</h1>
+      <p className="mt-1 text-sm text-ink-muted">{t(locale, 'moving_today')}</p>
 
       {/* stat cards */}
       <div className="mt-8 grid gap-4 sm:grid-cols-3">
@@ -49,24 +59,24 @@ export default async function FlowDashboard() {
           icon={CheckSquare}
           tint="indigo"
           value={taskCount}
-          label="Open tasks"
-          sub="assigned to you"
+          label={t(locale, 'open_tasks')}
+          sub={t(locale, 'assigned_to_you')}
         />
         <StatCard
           href="/contacts"
           icon={Users}
           tint="emerald"
           value={motionCount}
-          label="In motion"
-          sub="contacts across flows"
+          label={t(locale, 'in_motion')}
+          sub={t(locale, 'contacts_across_flows')}
         />
         <StatCard
           href="/flows"
           icon={Workflow}
           tint="violet"
           value={favorites.length}
-          label="Favourite flows"
-          sub="pinned here"
+          label={t(locale, 'favourite_flows')}
+          sub={t(locale, 'pinned_here')}
         />
       </div>
 
@@ -74,7 +84,7 @@ export default async function FlowDashboard() {
       <div className="mt-10">
         <div className="flex items-center gap-2 mb-4">
           <Star size={16} strokeWidth={1.75} className="fill-amber-400 text-amber-500" />
-          <h2 className="text-base font-semibold tracking-tight">Favourite flows</h2>
+          <h2 className="text-base font-semibold tracking-tight">{t(locale, 'favourite_flows')}</h2>
         </div>
         {favorites.length === 0 ? (
           <div className="rounded-2xl bg-white ring-1 ring-black/5 shadow-card p-8 text-center">
@@ -82,11 +92,11 @@ export default async function FlowDashboard() {
               <Star size={20} className="text-amber-500" />
             </div>
             <p className="text-sm text-ink-subtle max-w-sm mx-auto">
-              No favourites yet. Open{' '}
+              {t(locale, 'no_favourites_before')}{' '}
               <Link href="/flows" className="text-ink font-medium underline underline-offset-2">
-                Flows
+                {t(locale, 'flows')}
               </Link>{' '}
-              and tap the ☆ on the ones you use most — they&apos;ll pin here.
+              {t(locale, 'no_favourites_after')}
             </p>
           </div>
         ) : (
@@ -113,10 +123,12 @@ export default async function FlowDashboard() {
                       LIFECYCLE_STYLE[f.lifecycle] ?? ''
                     }`}
                   >
-                    {f.lifecycle}
+                    {t(locale, LIFECYCLE_KEY[f.lifecycle] ?? 'lifecycle_draft')}
                   </span>
                 </div>
-                <p className="mt-1 text-xs text-ink-muted">{f.active_run_count} contacts in motion</p>
+                <p className="mt-1 text-xs text-ink-muted">
+                  {t(locale, 'n_contacts_in_motion', { n: f.active_run_count })}
+                </p>
               </Link>
             ))}
           </div>
@@ -147,15 +159,15 @@ function StatCard({
   label: string;
   sub: string;
 }) {
-  const t = TINT[tint];
+  const tone = TINT[tint];
   return (
     <Link
       href={href}
       className="group rounded-2xl bg-white ring-1 ring-black/5 shadow-card hover:shadow-card-hover transition-shadow p-5"
     >
       <div className="flex items-center justify-between">
-        <div className={`h-10 w-10 rounded-xl ${t.bg} flex items-center justify-center`}>
-          <Icon size={18} strokeWidth={1.75} className={t.fg} />
+        <div className={`h-10 w-10 rounded-xl ${tone.bg} flex items-center justify-center`}>
+          <Icon size={18} strokeWidth={1.75} className={tone.fg} />
         </div>
         <ArrowUpRight
           size={18}

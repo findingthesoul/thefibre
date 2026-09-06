@@ -13,6 +13,9 @@ import {
   EmptyState,
   ErrorBanner,
 } from '@/components/ui/page';
+import { INTL_LOCALES, type Locale } from '@thefibre/shared';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { NewTemplateDialog } from './new-template-dialog';
 
 const SCOPE_STYLES: Record<CertScope, string> = {
@@ -21,14 +24,16 @@ const SCOPE_STYLES: Record<CertScope, string> = {
   workspace: 'bg-emerald-50 text-emerald-700 ring-emerald-200',
 };
 
-const SCOPE_LABELS: Record<CertScope, string> = {
-  personal: 'Personal',
-  team: 'Team',
-  workspace: 'Workspace',
-};
+function scopeLabel(locale: Locale, scope: CertScope): string {
+  return scope === 'personal'
+    ? t(locale, 'personal')
+    : scope === 'team'
+      ? t(locale, 'team')
+      : t(locale, 'workspace');
+}
 
-function fmtDate(iso: string): string {
-  return new Intl.DateTimeFormat('en-GB', {
+function fmtDate(locale: Locale, iso: string): string {
+  return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     day: 'numeric',
     month: 'short',
     year: 'numeric',
@@ -36,6 +41,7 @@ function fmtDate(iso: string): string {
 }
 
 export default async function CertificatesPage() {
+  const locale = await uiLocale();
   let templates: CertTemplate[] = [];
   let error: string | null = null;
   let teams: TeamOption[] = [];
@@ -55,31 +61,25 @@ export default async function CertificatesPage() {
   return (
     <PageContainer>
       <PageHeader
-        title="Certificates"
-        description="Design certificate templates — threads pick one and issue it on completion."
-        actions={<NewTemplateDialog teams={teams} />}
+        title={t(locale, 'certificates')}
+        description={t(locale, 'certificates_desc')}
+        actions={<NewTemplateDialog locale={locale} teams={teams} />}
       />
 
-      {error && <ErrorBanner>Couldn&apos;t load templates: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
-      {!error && templates.length === 0 && (
-        <EmptyState>
-          No templates yet. Create your first — pick a page size, drop in the
-          recipient&apos;s name and the thread title, and threads can start
-          issuing it.
-        </EmptyState>
-      )}
+      {!error && templates.length === 0 && <EmptyState>{t(locale, 'cert_empty')}</EmptyState>}
 
       {templates.length > 0 && (
         <ul className="mt-6 divide-y divide-line border border-line rounded-lg bg-surface-raised">
           {[...templates]
             .sort((a, b) => Number(!!a.archived_at) - Number(!!b.archived_at))
-            .map((t) => (
-            <li key={t.id}>
+            .map((tpl) => (
+            <li key={tpl.id}>
               <Link
-                href={`/certificates/${t.id}`}
+                href={`/certificates/${tpl.id}`}
                 className={`flex items-center gap-4 px-4 py-3.5 hover:bg-surface-sunken/60 transition-colors ${
-                  t.archived_at ? 'opacity-55' : ''
+                  tpl.archived_at ? 'opacity-55' : ''
                 }`}
               >
                 <span className="inline-flex h-9 w-9 items-center justify-center rounded-md bg-surface-sunken ring-1 ring-line shrink-0">
@@ -87,25 +87,31 @@ export default async function CertificatesPage() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-ink truncate">{t.name}</span>
-                    {t.archived_at && (
+                    <span className="text-sm font-medium text-ink truncate">{tpl.name}</span>
+                    {tpl.archived_at && (
                       <span className="text-[11px] px-2 py-0.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-muted shrink-0">
-                        Archived
+                        {t(locale, 'status_archived')}
                       </span>
                     )}
                   </div>
                   <div className="text-xs text-ink-subtle mt-0.5">
-                    {PAGE_SIZE_LABELS[t.page_size] ?? t.page_size} ·{' '}
-                    <span className="capitalize">{t.orientation}</span> · Updated{' '}
-                    {fmtDate(t.updated_at)}
+                    {PAGE_SIZE_LABELS[tpl.page_size] ?? tpl.page_size} ·{' '}
+                    <span>
+                      {tpl.orientation === 'landscape'
+                        ? t(locale, 'orientation_landscape')
+                        : tpl.orientation === 'portrait'
+                          ? t(locale, 'orientation_portrait')
+                          : tpl.orientation}
+                    </span>{' '}
+                    · {t(locale, 'updated_on', { date: fmtDate(locale, tpl.updated_at) })}
                   </div>
                 </div>
                 <span
                   className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
-                    SCOPE_STYLES[t.scope] ?? SCOPE_STYLES.personal
+                    SCOPE_STYLES[tpl.scope] ?? SCOPE_STYLES.personal
                   }`}
                 >
-                  {SCOPE_LABELS[t.scope] ?? t.scope}
+                  {scopeLabel(locale, tpl.scope)}
                 </span>
               </Link>
             </li>

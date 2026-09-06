@@ -5,10 +5,13 @@ import {
   ErrorBanner,
   SectionLabel,
 } from '@/components/ui/page';
+import { uiLocale } from '@/lib/locale';
+import { t } from '@/lib/i18n-ui';
 import { InviteForm } from './invite';
 import { MemberRow, type Member } from './row';
 
 export default async function InternalTeamPage() {
+  const locale = await uiLocale();
   let items: Member[] = [];
   let me: { user: { id: string } } | null = null;
   let error: string | null = null;
@@ -28,8 +31,8 @@ export default async function InternalTeamPage() {
   return (
     <PageContainer max="4xl">
       <PageHeader
-        title="Internal team"
-        description="Workspace members who can sign in to Meet. External collaborators don't live here — add them per team."
+        title={t(locale, 'it_title')}
+        description={t(locale, 'it_desc')}
       />
 
       {/* Transition notice: membership management is moving to the platform
@@ -40,32 +43,30 @@ export default async function InternalTeamPage() {
         rel="noreferrer"
         className="mt-4 flex items-center gap-2 rounded-lg border border-yellow-300 bg-yellow-50 px-4 py-3 text-sm text-ink hover:border-yellow-400 transition-colors"
       >
-        Members are now managed centrally in <span className="font-medium">The Fibre</span> →
-        Settings → Members. This page still works, but moves there next release.
+        {t(locale, 'it_notice')}
       </a>
 
-      {error && <ErrorBanner>Couldn&apos;t load: {error}</ErrorBanner>}
+      {error && <ErrorBanner>{t(locale, 'couldnt_load', { error })}</ErrorBanner>}
 
       <section className="mt-10">
-        <SectionLabel>Internal team ({items.length})</SectionLabel>
+        <SectionLabel>{t(locale, 'it_section', { n: items.length })}</SectionLabel>
         <p className="mt-1 text-sm text-ink-subtle">
-          Everyone who can sign in to Meet. Admins can change roles and
-          relationship types.
+          {t(locale, 'it_section_desc')}
         </p>
         <ul className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
           {items.map((m) => (
-            <MemberRow key={m.id} member={m} editable={iAmAdmin && m.id !== meId} />
+            <MemberRow key={m.id} member={m} editable={iAmAdmin && m.id !== meId} locale={locale} />
           ))}
         </ul>
       </section>
 
       <section className="mt-12">
-        <SectionLabel>Invite a member</SectionLabel>
+        <SectionLabel>{t(locale, 'invite_member')}</SectionLabel>
         <p className="mt-1 text-sm text-ink-subtle">
-          They&apos;ll get an email with a link to sign in with Google.
+          {t(locale, 'invite_member_desc')}
         </p>
         <div className="mt-4">
-          <InviteForm />
+          <InviteForm locale={locale} />
         </div>
       </section>
     </PageContainer>
