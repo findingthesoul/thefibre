@@ -1,9 +1,12 @@
 'use server';
 
+import { cookies } from 'next/headers';
+
 import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
 import { savePref } from '@/lib/prefs-actions';
 import { COOKIE_LOCALE } from '@/lib/prefs-shared';
+import { isLocale } from '@thefibre/shared';
 
 export type ActionResult = {
   ok?: boolean;
@@ -67,16 +70,43 @@ export async function saveProfile(patch: {
  * so every app can read it without an API round-trip). '' = no preference.
  */
 export async function saveLocale(locale: string | null): Promise<ActionResult> {
+  // Two stores, one setting: the cookie (what the chrome reads) and
+  // identity_profile.locale (what emails + the picker read). They MUST move
+  // together — a cookie write that fails AFTER the PATCH once left them
+  // disagreeing for days (chrome Dutch, picker English; 2026-09-06).
+  // Cookie first, PATCH second, revert the cookie if the PATCH fails, and
+  // every step inside the try so the picker reverts on ANY failure.
+  const store = await cookies();
+  const previous = store.get(COOKIE_LOCALE)?.value ?? '';
   try {
+    await savePref(COOKIE_LOCALE, locale ?? '');
     await apiFetch('/api/v1/profile', {
       method: 'PATCH',
       body: JSON.stringify({ locale: locale || null }),
     });
   } catch (e) {
+    try {
+      await savePref(COOKIE_LOCALE, previous);
+    } catch {
+      /* revert is best-effort — the next sync on the profile page heals it */
+    }
     return unwrap(e);
   }
-  await savePref(COOKIE_LOCALE, locale ?? '');
   revalidatePath('/settings/profile');
+  return { ok: true };
+}
+
+/**
+ * Heal a cookie↔profile disagreement: the PROFILE ROW is the durable copy,
+ * so the cookie follows it. Called by the LanguagePicker when the page
+ * detects the two stores differ (never in the happy path).
+ */
+export async function syncLocaleCookie(dbLocale: string | null): Promise<ActionResult> {
+  try {
+    await savePref(COOKIE_LOCALE, dbLocale && isLocale(dbLocale) ? dbLocale : '');
+  } catch (e) {
+    return unwrap(e);
+  }
   return { ok: true };
 }
 

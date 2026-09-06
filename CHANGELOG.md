@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.51.1] — 2026-09-06 — the two language stores can no longer disagree
+
+### Fixed
+- **Chrome in Dutch, picker in English** (Sjoerd, live on prod): the
+  language save wrote the profile row and the cookie non-atomically — a
+  cookie-write failure after a successful PATCH desynced them silently
+  and the picker never reverted. saveLocale is now cookie-first with
+  revert-on-failure, all inside the error path; and the profile page
+  SELF-HEALS: when cookie and profile row disagree, the cookie follows
+  the durable row and the page repaints — opening Settings → Profile
+  fixes any stale state.
+
+
 ## [0.51.0] — 2026-09-06 — i18n P3 complete: all six apps in six languages (Pulse 0.29.0 · Membership 0.13.0)
 
 ### Added

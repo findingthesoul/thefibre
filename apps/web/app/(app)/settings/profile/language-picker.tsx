@@ -1,9 +1,9 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { LOCALES, LOCALE_LABELS, isLocale } from '@thefibre/shared';
-import { saveLocale } from '../actions';
+import { LOCALES, LOCALE_LABELS, isLocale, toLocale } from '@thefibre/shared';
+import { saveLocale, syncLocaleCookie } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 // The Language setting (i18n P2, D1: ONE user-level language, app-wide).
@@ -28,6 +28,19 @@ export function LanguagePicker({ initial, locale }: { initial: string | null; lo
   const [value, setValue] = useState(isLocale(initial) ? initial : '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  // Self-heal (2026-09-06): if the cookie (what painted this page — `locale`)
+  // disagrees with the profile row (`initial`, the durable copy), the cookie
+  // follows the row. Runs once; never in the happy path.
+  const healed = useRef(false);
+  useEffect(() => {
+    if (healed.current) return;
+    if (toLocale(initial) === locale) return;
+    healed.current = true;
+    void syncLocaleCookie(initial).then((r) => {
+      if (r.ok) router.refresh();
+    });
+  }, [initial, locale, router]);
 
   function onChange(next: string) {
     const prev = value;
