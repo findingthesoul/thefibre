@@ -367,6 +367,20 @@ Learned along the way (Stripe housekeeping):
   Flushed out + fixed: membership.thefibre.tech missing from staging
   CORS (secret updated; allowlist derived from the registry, v0.45.6).
 
+### Google Workspace integration — SHIPPED v0.47.0 (2026-09-06)
+
+'google_user' grant kind (suspend member's Google account on lapse,
+unsuspend on rejoin — never create/delete) + Settings → Integrations
+credential card. WAITING ON SJOERD: the Google Cloud walkthrough
+(service account + domain-wide delegation + admin email — ~10 min,
+guided). Until the credential is saved, google_user journal rows stay
+pending, silently.
+
+Queued next in the membership lane: OPTIONAL ADD-ON PRODUCTS on the
+join page (Sjoerd 2026-09-06: tick-able product options — priced ones
+raise the total, EUR-0 ones included if chosen; reuse the a-la-carte
+purchase machinery so grants ride the existing journal).
+
 ## Outstanding for Sjoerd
 
 - **Decide Meet ↔ Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
