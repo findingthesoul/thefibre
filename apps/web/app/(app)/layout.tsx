@@ -3,6 +3,8 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { readPrefs } from '@/lib/prefs';
 import { apiFetch } from '@/lib/api';
 import { Sidebar, MobileNav } from '@/components/shell/sidebar';
+import { uiLocale } from '@/lib/locale';
+import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
@@ -70,7 +72,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const apps = buildAppList({ currentApp: 'fibre-platform', memberships, workspaceApps });
 
+  const locale = await uiLocale();
+
   return (
+    <LocaleProvider locale={locale}>
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
@@ -98,5 +103,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         />
       </div>
     </div>
+    </LocaleProvider>
   );
 }

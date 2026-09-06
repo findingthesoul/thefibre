@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.49.1] — 2026-09-06 — Wave 0 of i18n P3: the interface learns whose language to speak
+
+### Added
+- **The UI-locale mechanism** (P3 Wave 0, Sjoerd: "P3 for all 6
+  languages"): each app's layout reads the `thefibre.locale` cookie
+  (`lib/locale.ts` → `uiLocale()`) and wraps the shell in
+  `LocaleProvider` from `@thefibre/shared/ui/i18n-ui`; shared components
+  learn the language via `useLocale()` (English outside a provider —
+  public pages unaffected). The Settings → Profile language picker now
+  `router.refresh()`es after a save so the chrome repaints immediately.
+  Translations themselves land in the following releases (per-app
+  catalogs are being written).
+
+### Fixed
+- **v0.49.0 could not build the Membership app**: the shared-tree race
+  swept the layout's LocaleProvider edit into that release without the
+  `@thefibre/shared/ui/i18n-ui` module and `lib/locale.ts` it imports —
+  membership's Vercel build failed and the add-on-products join page
+  never went live. This release completes the picture; both features
+  now deploy together.
+
+
 ## [0.49.0] — 2026-09-06 — Membership 0.12.0: choose your extras at the door
 
 ### Added

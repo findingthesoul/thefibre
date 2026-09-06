@@ -3,6 +3,8 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
 import { Sidebar, MobileNav } from '@/components/shell/sidebar';
+import { uiLocale } from '@/lib/locale';
+import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
@@ -86,7 +88,10 @@ export default async function PulseAppLayout({
     workspaceApps: apps,
   });
 
+  const locale = await uiLocale();
+
   return (
+    <LocaleProvider locale={locale}>
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
@@ -110,5 +115,6 @@ export default async function PulseAppLayout({
         <MobileNav version={VERSION} />
       </div>
     </div>
+    </LocaleProvider>
   );
 }

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { LOCALES, LOCALE_LABELS, isLocale } from '@thefibre/shared';
 import { saveLocale } from '../actions';
 
@@ -12,13 +13,17 @@ import { saveLocale } from '../actions';
 // other apps link here). Save-on-change with optimistic revert, the same
 // pattern as the member-row selects.
 //
-// Honest scope: today this drives the emails The Fibre sends you; the app
-// screens themselves stay English until P3 translates them.
+// Scope: drives the emails The Fibre sends you AND (since P3) the signed-in
+// interface language — the layouts read the cookie, so a save must
+// router.refresh() for the chrome to repaint in the new language
+// (revalidatePath alone doesn't refresh the client route — the v0.3.11
+// gotcha).
 
 const SELECT_CLASS =
   'mt-1 w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-sm focus:border-line-strong focus:outline-none';
 
 export function LanguagePicker({ initial }: { initial: string | null }) {
+  const router = useRouter();
   const [value, setValue] = useState(isLocale(initial) ? initial : '');
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -32,7 +37,10 @@ export function LanguagePicker({ initial }: { initial: string | null }) {
       if (!r.ok) {
         setValue(prev);
         setError(r.error ?? 'Could not save');
+        return;
       }
+      // The whole chrome speaks this language now — repaint it.
+      router.refresh();
     });
   }
 
