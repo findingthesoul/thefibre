@@ -15,7 +15,7 @@ import { AddMemberRow, RemoveMemberButton } from './members';
 import { TeamSettings } from './team-settings';
 
 const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
+  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
 
 type TeamMember = {
   user_id: string;

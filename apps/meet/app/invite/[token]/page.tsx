@@ -2,7 +2,7 @@
 // Accepting requires the signed-in user's email to match the invitee email.
 
 import Link from 'next/link';
-import { APPS, legalFooterLine } from '@thefibre/shared';
+import { APPS, appUrl, legalFooterLine } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { apiFetch, ApiError } from '@/lib/api';
 import { serverSupabase } from '@/lib/supabase/server';
@@ -67,7 +67,7 @@ export default async function AcceptInvitePage({
           think that&apos;s wrong, ask whoever invited you to send a new one.
         </p>
         <Link
-          href="https://meet.thefibre.app"
+          href={appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: process.env.NEXT_PUBLIC_MEET_URL })}
           className="mt-6 inline-block text-sm text-neutral-700 underline"
         >
           Go to {APPS['fibre-meet'].name} →

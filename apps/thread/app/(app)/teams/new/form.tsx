@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n-ui';
 
 const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
+  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
 
 export function NewTeamForm({ locale }: { locale: Locale }) {
   const router = useRouter();

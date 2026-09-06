@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.52.0] — 2026-09-06 — the apps move to thethread.app
+
+The branding pivot lands in DNS: **fibre web stays at thefibre.app; the five
+delivery apps now live at app./meet./flow./pulse./membership.thethread.app**
+(Thread is the flagship, so it takes `app.`). The thethread.app apex is
+untouched — the old Thread V3 landing keeps serving it. This deliberately
+REVERSES the v0.23.1 domain decision ("operator apps stay on
+*.thefibre.app") — decided by Sjoerd 2026-09-06, with the cross-apex SSO
+hop (v0.48.0) shipped first so click-through survives the split.
+
+### Changed
+- `packages/shared/src/branding.ts` — the five registry `url:` defaults flip
+  to thethread.app. CORS, app switcher, dashboard cards, email CTAs and the
+  embed snippet generators all follow (they derive from the registry).
+- **Fallback sweep**: every `?? 'https://….thefibre.app'` default now routes
+  through `appUrl()` (API: thread-payment-link, membership-payment-link,
+  purchases, membership, membership-portal, oauth-provider, meet; Meet's
+  public-page footers + dashboard; Thread's HOST/slug-prefix constants moved
+  to the new literal). The env-override names (`THREAD_APP_URL`,
+  `MEMBERSHIP_APP_URL`) keep working and now fall back to the registry.
+- `routes/thread.ts` `apiPublicUrl()` reads `PUBLIC_API_URL` (canonical name;
+  it read the never-set `API_PUBLIC_URL`, so the override was dead).
+- `scripts/verify-vercel-env.mjs` — prod cookie-domain expectation is now
+  per-project (web `.thefibre.app`, the five apps `.thethread.app`); matrix
+  values may be functions of the project name.
+- `app.base_url` data-fix migration (admin-catalogue truthfulness only).
+- Vercel: five new domains attached (each to its own project — the
+  2026-09-03 staging-misroute lesson); `NEXT_PUBLIC_COOKIE_DOMAIN` set to
+  `.thethread.app` on the five moved projects. TransIP: five A records to
+  76.76.21.21. Supabase redirect allowlist + Google OAuth origins widened.
+
+### Migration notes
+- **Everyone signs in once more** on the new domains (cookies don't
+  re-scope). Prefs (theme/sidebar/locale) ride the SSO hop across.
+- Old `*.thefibre.app` app subdomains keep serving through a short grace
+  window, then get a HARD CUT (decision: accepted that already-sent email
+  links — payment links, certificates, /my — die with them).
+- Stripe webhooks unaffected (they point at the Fly API host).
+
 ## [0.51.2] — 2026-09-06 — the archive flag gets its gate
 
 ### Fixed

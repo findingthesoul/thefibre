@@ -7,6 +7,7 @@
 // from the Invoices page. Null when payments aren't configured — the
 // invoice email simply goes out without a Pay button.
 
+import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { chargeAccountForItem } from './payment-accounts.js';
@@ -51,7 +52,7 @@ export async function createThreadPaymentLink(p: {
   const organiser =
     thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
-  const threadUrl = process.env.THREAD_APP_URL ?? 'https://thread.thefibre.app';
+  const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
   const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
 
   // Same plan-aware fee rule as checkout and the Invoices-page link (lib/fees).

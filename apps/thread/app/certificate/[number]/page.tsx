@@ -7,7 +7,7 @@ import { Linkedin, Printer } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { CertView, type CertSnapshot } from './cert-view';
 
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 type CertPayload = {
   certificate_number: string;

@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { createRemoteJWKSet, jwtVerify, SignJWT } from 'jose';
+import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 
 // ===========================================================================
@@ -39,7 +40,7 @@ import { adminClient } from '../db.js';
 export const oauthProviderRoutes = new Hono();
 
 const MEMBERSHIP_APP_URL =
-  process.env.MEMBERSHIP_APP_URL ?? 'https://membership.thefibre.app';
+  process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
 
 const CODE_TTL_MS = 60 * 1000; // single-use codes live 60 seconds
 const TOKEN_TTL_S = 900; // access tokens live 15 minutes

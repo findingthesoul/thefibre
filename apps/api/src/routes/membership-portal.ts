@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
-import { isLocale, toLocale } from '@thefibre/shared';
+import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
@@ -42,7 +42,8 @@ async function participantEmailFromAuth(c: {
   }
 }
 
-const MEMBERSHIP_APP_URL = process.env.MEMBERSHIP_APP_URL ?? 'https://membership.thefibre.app';
+const MEMBERSHIP_APP_URL =
+  process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
 
 type MemberRow = {
   id: string;

@@ -59,7 +59,7 @@ import { CertificatePanel } from './certificate-panel';
 import { ThreadEmbedPanel } from './embed-panel';
 
 const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+  process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 const STATUS_META: Record<string, { labelKey: UiKey; cls: string }> = {
   draft: { labelKey: 'status_draft', cls: 'bg-surface-sunken text-ink-subtle ring-line' },

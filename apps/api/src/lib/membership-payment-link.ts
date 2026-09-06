@@ -1,8 +1,10 @@
+import { appUrl } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { stripeOrNull } from './stripe/client.js';
 import { workspaceStripeAccount } from './payment-accounts.js';
 
-const MEMBERSHIP_APP_URL = process.env.MEMBERSHIP_APP_URL ?? 'https://membership.thefibre.app';
+const MEMBERSHIP_APP_URL =
+  process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
 
 // The workspace's plan fee as a percent — the subscription-mode rule from
 // routes/membership.ts, reused for one-off invoice payment links so both

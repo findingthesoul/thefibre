@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
 
 const THREAD_HOST =
-  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'thread.thefibre.app';
+  process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
 
 export function NewThreadForm({
   locale,

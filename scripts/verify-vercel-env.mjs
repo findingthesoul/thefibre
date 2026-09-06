@@ -37,7 +37,11 @@ const MATRIX = {
     NEXT_PUBLIC_SUPABASE_URL: 'https://zfsyyokepyycefbxiblc.supabase.co',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: PROD_ANON,
     NEXT_PUBLIC_API_BASE_URL: 'https://thefibre-api.fly.dev',
-    NEXT_PUBLIC_COOKIE_DOMAIN: '.thefibre.app',
+    // Two apexes since the thethread.app move (v0.52.0): fibre web keeps the
+    // .thefibre.app cookie; the five delivery apps share .thethread.app.
+    // A cookie cannot span both — the /sso/hop handoff carries the session.
+    NEXT_PUBLIC_COOKIE_DOMAIN: (project) =>
+      project === 'thefibre' ? '.thefibre.app' : '.thethread.app',
     SSO_INTERNAL_SECRET: null,
   },
   staging: {
@@ -90,7 +94,10 @@ for (const name of NAMES) {
 
   const lines = [];
   for (const [scope, vars] of Object.entries(MATRIX)) {
-    for (const [key, expected] of Object.entries(vars)) {
+    for (const [key, expectedRaw] of Object.entries(vars)) {
+      // Per-project expectations (e.g. the two-apex cookie domain) are
+      // functions of the project name; everything else is a literal.
+      const expected = typeof expectedRaw === 'function' ? expectedRaw(name) : expectedRaw;
       const row = pick(key, scope);
       const target = scope === 'prod' ? ['production'] : ['preview'];
       const gitBranch = scope === 'prod' ? undefined : 'staging';

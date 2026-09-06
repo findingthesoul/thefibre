@@ -11,7 +11,7 @@ import { Check, Copy } from 'lucide-react';
 import { LOCALES, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { t } from '@/lib/i18n-ui';
 
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 const SELECT =
   'h-[34px] w-full rounded-md border border-line bg-surface px-2.5 text-sm outline-none focus:border-ink';

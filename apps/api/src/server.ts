@@ -143,7 +143,7 @@ const publicReadCors = cors({
 // Rate limiting, applied only to the traffic this opening invites.
 //
 // Our own public pages render server-side from Vercel, so every visitor to
-// thread.thefibre.app arrives at the API from a handful of Vercel egress IPs.
+// app.thethread.app arrives at the API from a handful of Vercel egress IPs.
 // A naive per-IP limit would throttle the whole site to a trickle while
 // leaving a scraper on a home connection untouched — exactly backwards. So
 // enforcement keys on what is actually new: a browser request from an origin

@@ -1206,7 +1206,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
   const url = new URL(c.req.url);
   const code = url.searchParams.get('code');
   const state = url.searchParams.get('state');
-  const meetUrl = process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+  const meetUrl = appUrl('fibre-meet', process.env);
   if (!code || !state) {
     return c.redirect(`${meetUrl}/settings/integrations?google=error&reason=missing`);
   }
@@ -1219,7 +1219,7 @@ meetRoutes.get('/google/auth-callback', async (c) => {
     userId = payload.user_id as string;
     workspaceId = payload.workspace_id as string;
     if (payload.return_to === 'thread') {
-      const threadUrl = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+      const threadUrl = appUrl('the-thread', process.env);
       settingsUrl = `${threadUrl}/settings/connections`;
     }
     if (payload.return_to === 'fibre') {
@@ -1605,7 +1605,7 @@ meetRoutes.post('/internal-team', async (c) => {
         .eq('id', ctx.userId)
         .single();
       const inviterName = inviter?.full_name ?? inviter?.email ?? 'a teammate';
-      const signInUrl = process.env.NEXT_PUBLIC_WEB_URL ?? 'https://thefibre.app';
+      const signInUrl = appUrl('fibre-platform', process.env);
       await sendEmail({
         to: u.email,
         subject: `${inviterName} invited you to ${MEET.name}`,

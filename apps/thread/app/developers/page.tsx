@@ -16,7 +16,7 @@ export const metadata: Metadata = {
 };
 
 const API = process.env.NEXT_PUBLIC_API_BASE_URL ?? 'https://thefibre-api.fly.dev';
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 type Field = { name: string; type: string; note?: string };
 

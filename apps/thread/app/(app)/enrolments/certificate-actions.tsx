@@ -16,7 +16,7 @@ import {
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 export function IssueCertButton({
   locale,

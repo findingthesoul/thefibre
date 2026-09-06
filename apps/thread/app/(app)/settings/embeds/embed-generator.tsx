@@ -12,7 +12,7 @@ import { DEFAULT_EMBED_CSS } from './default-embed-css';
 import { SectionLabel } from '@/components/ui/page';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
 
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 export type GeneratorThread = {
   id: string;

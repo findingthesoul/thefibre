@@ -9,7 +9,7 @@ import { buildEmbedLoader } from '@thefibre/shared/embed-loader';
 const HEADER = `/* The Thread — embeddable widgets (list, thread, enrol popup).
  *
  * Usage on any website (Webflow etc.):
- *   <script src="https://thread.thefibre.app/embed.js" defer></script>
+ *   <script src="https://app.thethread.app/embed.js" defer></script>
  *   <div data-thread-embed="list" data-organiser="sjoerd"></div>
  *   <div data-thread-embed="thread" data-organiser="sjoerd" data-thread="my-event"
  *        data-elements="cover,intention,enrol"></div>

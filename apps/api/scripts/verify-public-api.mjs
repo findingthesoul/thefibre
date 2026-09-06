@@ -46,7 +46,7 @@ const API = process.env.FIBRE_API ?? 'http://localhost:8080';
 
 // A stranger's website. Nothing here is ours.
 const THIRD_PARTY = 'https://festivaloftrust.example';
-const OUR_ORIGIN = 'https://thread.thefibre.app';
+const OUR_ORIGIN = 'https://app.thethread.app';
 
 if (!SUPABASE_URL || !SERVICE_KEY) {
   console.error('Missing Supabase keys in apps/api/.env');

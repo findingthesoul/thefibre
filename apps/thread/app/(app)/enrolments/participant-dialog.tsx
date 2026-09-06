@@ -48,7 +48,7 @@ export type ParticipantRow = {
   detail: EnrolmentDetail;
 };
 
-const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const THREAD_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 function fmtMoney(locale: Locale, cents: number | null, currency: string | null): string {
   if (cents == null) return '—';

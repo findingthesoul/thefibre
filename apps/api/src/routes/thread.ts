@@ -38,9 +38,12 @@ function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
 }
 
-/** Where the QR/pass images live — the API's own public base. */
+/** Where the QR/pass images live — the API's own public base.
+ *  PUBLIC_API_URL is the canonical var (.env.example, google/client.ts) —
+ *  this read API_PUBLIC_URL until the v0.52.0 sweep, so the env override
+ *  was dead and the fallback always won. */
 function apiPublicUrl(): string {
-  return process.env.API_PUBLIC_URL ?? 'https://thefibre-api.fly.dev';
+  return process.env.PUBLIC_API_URL ?? 'https://thefibre-api.fly.dev';
 }
 
 /**
@@ -115,7 +118,7 @@ async function participantEmailFromAuth(c: {
 export const threadRoutes = new Hono();
 
 // Thread's own route names, on top of the shared reserved set. Organiser
-// slugs route at thread.thefibre.app/{organiserSlug}, so anything matching
+// slugs route at app.thethread.app/{organiserSlug}, so anything matching
 // an app route would make the organiser unreachable (same bug class as
 // Meet's v0.13.19 fix).
 const THREAD_RESERVED = new Set<string>([

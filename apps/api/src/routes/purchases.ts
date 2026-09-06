@@ -6,7 +6,7 @@
 // backstop for every read.
 
 import { Hono } from 'hono';
-import { ENTITY } from '@thefibre/shared';
+import { appUrl, ENTITY } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { userClient, adminClient } from '../db.js';
@@ -559,7 +559,7 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
   const thread = Array.isArray(te.thread) ? te.thread[0] : te.thread;
   const organiser = thread && (Array.isArray(thread.organiser) ? thread.organiser[0] : thread.organiser);
   const team = thread && (Array.isArray(thread.team) ? thread.team[0] : thread.team);
-  const threadUrl = process.env.THREAD_APP_URL ?? 'https://thread.thefibre.app';
+  const threadUrl = process.env.THREAD_APP_URL ?? appUrl('the-thread', process.env);
   const publicBase = `${threadUrl}/${team?.slug ?? organiser?.slug ?? ''}/${thread?.slug ?? ''}`;
 
   // A resend must kill the previous session — the old link would stay

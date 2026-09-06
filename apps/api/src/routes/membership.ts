@@ -16,7 +16,7 @@ import {
   membershipPaymentFailed,
   membershipLapsed,
 } from '../lib/email/membership-templates.js';
-import { LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
+import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
 import {
@@ -1432,7 +1432,8 @@ membershipRoutes.put('/settings', async (c) => {
 // workspace scoping throughout, the /thread/public pattern).
 // ===========================================================================
 
-const MEMBERSHIP_APP_URL = process.env.MEMBERSHIP_APP_URL ?? 'https://membership.thefibre.app';
+const MEMBERSHIP_APP_URL =
+  process.env.MEMBERSHIP_APP_URL ?? appUrl('membership', process.env);
 
 // The workspace must have the app activated for its join page to exist.
 async function publicWorkspace(slug: string): Promise<{ id: string; slug: string; name: string } | null> {

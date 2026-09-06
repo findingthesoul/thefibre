@@ -20,7 +20,28 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-01 (v0.21.0). Done items get removed, not ticked._
+_Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
+
+**0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE).**
+   The five delivery apps live on *.thethread.app (Thread = app.); fibre web
+   stays on thefibre.app; sessions cross via /sso/hop. Remaining:
+   - **Hard cut** the five old *.thefibre.app subdomains after a short grace
+     window (~2026-09-08): detach from the Vercel projects, drop the
+     transitional old-origin entries from the prod API's CORS_ORIGINS
+     secret. Before detaching: list open unpaid payment links (they carry
+     old success/cancel URLs) and resend any that matter.
+   - **Decommission old Thread V3** (separate repo ~/Projects/thethread-v3,
+     Vercel project thethread-v3): remove its 5-min cron + its Stripe
+     webhook (https://thethread.app/api/webhooks/stripe); the APEX LANDING
+     PAGE MUST KEEP SERVING until the thethread.app website rework.
+   - **thethread.app website rework** (Sjoerd owns content/design; the old
+     landing stays until then).
+   - **Email sending domain**: platform mail still sends from
+     @thefibre.app. The OLD Resend account has thethread.app verified
+     (hello@/certificates@) — reconcile, don't duplicate, if/when app mail
+     should come from @thethread.app.
+   - Real cross-apex E2E of the hop is now live-testable (thefibre.app ↔
+     app.thethread.app); exercise the full v0.48.0 test matrix.
 
 **Productisation — Sjoerd's two Stripe steps, then the metered phases.**
 The plans are decided (docs/pricing-proposal.md), gated (0.19.24), surfaced

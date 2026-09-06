@@ -19,7 +19,7 @@ import {
 // .split on the proxy was exactly the production 500 this page had.
 import { DEFAULT_EMBED_CSS } from './default-embed-css';
 
-const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://thread.thefibre.app';
+const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 export default async function EmbedsSettingsPage() {
   const locale = await uiLocale();

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { appUrl } from '@thefibre/shared';
 import { apiFetch, ApiError } from '@/lib/api';
 import {
   PageContainer,
@@ -90,7 +91,7 @@ export default async function MeetDashboard() {
   }).format(new Date());
 
   const baseUrl =
-    process.env.NEXT_PUBLIC_MEET_URL ?? 'https://meet.thefibre.app';
+    appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: process.env.NEXT_PUBLIC_MEET_URL });
   const quickLinks: QuickLink[] = mts
     .filter((m) => m.is_active)
     .slice(0, 3)
