@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.51.2] — 2026-09-06 — the archive flag gets its gate
+
+### Fixed
+- **Archived workspaces are now actually read-locked** (the 13-month
+  Free archive shipped as a flag in v0.46.0; compiling the full backlog
+  surfaced that nothing enforced it): the API refuses all routes for an
+  archived workspace except auth, billing (incl. reactivation),
+  profile, privacy and SSO — for user sessions AND app keys — and The
+  Fibre steers archived workspaces to Settings → Plan, where the
+  reactivation banner lives. Zero per-request cost (60s cached set).
+- Legacy tier-level grant on staging de-duplicated (its included
+  product carries the identical grant; journal twins verified before
+  deletion; production had none). Tier-level grants remain honored in
+  code — creation was already removed.
+
 ## [0.51.1] — 2026-09-06 — the two language stores can no longer disagree
 
 ### Fixed

@@ -1,4 +1,5 @@
 import type { Context, MiddlewareHandler } from 'hono';
+import { isWorkspaceArchived } from '../lib/archived-workspaces.js';
 import { jwtVerify, createRemoteJWKSet } from 'jose';
 import { adminClient } from '../db.js';
 import {
@@ -235,6 +236,30 @@ export function scopeDenied(c: Context, scope: AppScope) {
   );
 }
 
+// Archived workspaces (the 13-month Free archive) are read-locked: every
+// route is refused EXCEPT what reactivation and data rights need. The flag
+// ships from the P4 sweep; this gate is what makes it real (2026-09-06 —
+// found unwired while compiling the backlog).
+const ARCHIVE_ALLOWED_PREFIXES = [
+  '/api/v1/auth',      // who am I / workspace list — the layouts need these
+  '/api/v1/billing',   // Settings → Plan incl. POST /billing/reactivate
+  '/api/v1/profile',   // the person's own profile is theirs, not the workspace's
+  '/api/v1/privacy',   // data rights don't archive
+  '/api/v1/sso',       // sign-in plumbing
+];
+
+async function archivedGate(c: Context, workspaceId: string): Promise<Response | null> {
+  const path = c.req.path;
+  if (ARCHIVE_ALLOWED_PREFIXES.some((p) => path.startsWith(p))) return null;
+  if (!(await isWorkspaceArchived(workspaceId))) return null;
+  return problem(
+    c,
+    403,
+    'workspace-archived',
+    'This workspace is archived after long inactivity. An admin can reactivate it from Settings → Plan in The Fibre.',
+  );
+}
+
 export const appContext: MiddlewareHandler = async (c, next) => {
   if (PUBLIC_PATHS.has(c.req.path)) {
     const allowedMethods = PUBLIC_PATH_METHODS.get(c.req.path);
@@ -309,6 +334,8 @@ export const appContext: MiddlewareHandler = async (c, next) => {
     }
 
     touchAppKey(key.keyId);
+    const keyGate = await archivedGate(c, key.workspaceId);
+    if (keyGate) return keyGate;
     c.set('ctx', {
       userId: '',
       authUserId: '',
@@ -351,6 +378,8 @@ export const appContext: MiddlewareHandler = async (c, next) => {
     if (!payload.sub || !workspaceId || !appUserId) {
       return problem(c, 401, 'invalid-claims', 'sub, workspace_id, and app_user_id required (sign out and sign back in to refresh)');
     }
+    const userGate = await archivedGate(c, workspaceId);
+    if (userGate) return userGate;
     c.set('ctx', {
       userId: appUserId,
       authUserId: payload.sub,

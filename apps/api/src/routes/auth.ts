@@ -196,11 +196,19 @@ authRoutes.get('/me', async (c) => {
 
   const { data: workspace } = await db
     .from('workspace')
-    .select('id, slug, name, plan, created_at')
+    .select('id, slug, name, plan, created_at, archived_at')
     .eq('id', user.workspace_id)
     .single();
 
-  return c.json({ user, workspace, memberships, app_id: ctx.appId });
+  return c.json({
+    user,
+    workspace,
+    memberships,
+    app_id: ctx.appId,
+    // Additive (rule 8): the 13-month Free archive — layouts steer archived
+    // workspaces to Settings → Plan, where the reactivation banner lives.
+    workspace_archived: Boolean(workspace?.archived_at),
+  });
 });
 
 const MeUpdate = z.object({

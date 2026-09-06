@@ -6,12 +6,14 @@ import { Sidebar, MobileNav } from '@/components/shell/sidebar';
 import { uiLocale } from '@/lib/locale';
 import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
+import { ArchivedGate } from '@/components/archived-gate';
 import { buildAppList } from '@/lib/available-apps';
 import { APPS } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
 type Me = {
   user: { is_super_admin?: boolean };
+  workspace_archived?: boolean;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
 };
 
@@ -37,12 +39,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   // Cheap admin check for nav-rendering + app-switcher data. Best-effort.
   let isSuperAdmin = false;
   let isWorkspaceAdmin = false;
+  let workspaceArchived = false;
   let memberships: Me['memberships'] = [];
   let workspaceApps: WorkspaceApp[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     memberships = me.memberships;
     isSuperAdmin = !!me.user.is_super_admin;
+    workspaceArchived = !!me.workspace_archived;
     const explicitWorkspaceAdmin = me.memberships.some((m) => {
       const app = Array.isArray(m.app) ? m.app[0] : m.app;
       return app?.slug === 'fibre-platform' && m.role === 'admin';
@@ -95,6 +99,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           apps={apps}
           workspaces={workspaces}
         />
+        <ArchivedGate archived={workspaceArchived} />
         <main className="flex-1 overflow-y-auto">{children}</main>
         <MobileNav
           version={VERSION}
