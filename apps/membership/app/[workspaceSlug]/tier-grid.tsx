@@ -68,6 +68,7 @@ export function TierGrid({
     () => new Map(products.map((p) => [p.id, p.name])),
     [products],
   );
+  const productById = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
 
   const cols =
     tiers.length === 1
@@ -101,6 +102,9 @@ export function TierGrid({
             includedProducts={tier.product_ids
               .map((id) => productNames.get(id))
               .filter((n): n is string => Boolean(n))}
+            optionalProducts={(tier.optional_product_ids ?? [])
+              .map((id) => productById.get(id))
+              .filter((p): p is PublicProduct => Boolean(p))}
             open={openTierId === tier.id}
             onOpen={() => setOpenTierId(tier.id)}
             onClose={() => setOpenTierId(null)}
@@ -118,6 +122,7 @@ function TierCard({
   workspaceSlug,
   tier,
   includedProducts,
+  optionalProducts,
   open,
   onOpen,
   onClose,
@@ -128,6 +133,8 @@ function TierCard({
   workspaceSlug: string;
   tier: PublicTier;
   includedProducts: string[];
+  /** Tick-box add-ons: a priced one raises the first payment, €0 = free. */
+  optionalProducts: PublicProduct[];
   open: boolean;
   onOpen: () => void;
   onClose: () => void;
@@ -149,6 +156,18 @@ function TierCard({
   const [interval, setBillingInterval] = useState<'year' | 'month'>(hasYear ? 'year' : 'month');
   const [state, setState] = useState<JoinState>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [chosenOptions, setChosenOptions] = useState<Set<string>>(new Set());
+  function toggleOption(id: string) {
+    setChosenOptions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+  const optionsExtraCents = optionalProducts
+    .filter((p) => chosenOptions.has(p.id))
+    .reduce((sum, p) => sum + (p.price_cents ?? 0), 0);
 
   // One idempotency key per page visit — double-submits collapse server-side.
   const requestId = useMemo(
@@ -178,6 +197,7 @@ function TierCard({
             name,
             ...(country ? { country } : {}),
             locale,
+            ...(chosenOptions.size ? { option_product_ids: [...chosenOptions] } : {}),
             request_id: requestId,
           }),
         },
@@ -313,6 +333,36 @@ function TierCard({
               required
               className={INPUT}
             />
+            {optionalProducts.length > 0 && (
+              <div className="rounded-md border border-line bg-surface px-3 py-2.5">
+                <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+                  {t(locale, 'optional_extras')}
+                </div>
+                <div className="mt-1.5 space-y-1.5">
+                  {optionalProducts.map((p) => (
+                    <label key={p.id} className="flex items-start gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={chosenOptions.has(p.id)}
+                        onChange={() => toggleOption(p.id)}
+                        className="mt-0.5 accent-current"
+                      />
+                      <span className="min-w-0 flex-1 text-ink">{p.name}</span>
+                      <span className="shrink-0 text-ink-subtle tabular-nums">
+                        {(p.price_cents ?? 0) > 0
+                          ? `+ ${money(p.price_cents!, p.currency ?? currency)} ${t(locale, 'option_once')}`
+                          : t(locale, 'option_included')}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {optionsExtraCents > 0 && (
+                  <div className="mt-2 border-t border-line pt-1.5 text-xs text-ink-subtle text-right tabular-nums">
+                    + {money(optionsExtraCents, currency)}
+                  </div>
+                )}
+              </div>
+            )}
             {error && <p className="text-sm text-red-700 dark:text-red-400">{error}</p>}
             <Button
               type="submit"

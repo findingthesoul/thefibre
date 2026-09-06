@@ -11,4 +11,5 @@ export type Tier = {
   sort_order: number | null;
   archived_at: string | null;
   product_ids: string[];
+  optional_product_ids?: string[];
 };

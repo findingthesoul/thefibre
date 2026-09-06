@@ -47,19 +47,30 @@ export function TierDialog({
   const [priceMonth, setPriceMonth] = useState(centsToEuro(tier?.price_cents_month ?? null));
   const [characteristics, setCharacteristics] = useState((tier?.characteristics ?? []).join('\n'));
   const [productIds, setProductIds] = useState<Set<string>>(new Set(tier?.product_ids ?? []));
+  // Optional add-ons (2026-09-06): offered as tick-boxes on the join page —
+  // a product is Off, Included, or Optional, never two at once.
+  const [optionalIds, setOptionalIds] = useState<Set<string>>(new Set(tier?.optional_product_ids ?? []));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmArchive, setConfirmArchive] = useState(false);
 
   // Dialog lists live products, plus any archived ones this tier still links
   // (so an old link stays visible and un-checkable).
-  const selectable = products.filter((p) => !p.archived_at || productIds.has(p.id));
+  const selectable = products.filter(
+    (p) => !p.archived_at || productIds.has(p.id) || optionalIds.has(p.id),
+  );
 
-  function toggleProduct(id: string) {
+  function setProductState(id: string, state: 'off' | 'included' | 'optional') {
     setProductIds((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (state === 'included') next.add(id);
+      else next.delete(id);
+      return next;
+    });
+    setOptionalIds((prev) => {
+      const next = new Set(prev);
+      if (state === 'optional') next.add(id);
+      else next.delete(id);
       return next;
     });
   }
@@ -105,7 +116,7 @@ export function TierDialog({
     }
 
     // Included products save as a second call — the tier row must exist first.
-    const linkRes = await setTierProducts(tierId, [...productIds]);
+    const linkRes = await setTierProducts(tierId, [...productIds], [...optionalIds]);
     if (linkRes.error) {
       setError(`Tier saved, but products failed: ${linkRes.error}`);
       setBusy(false);
@@ -244,21 +255,40 @@ export function TierDialog({
             <p className="text-sm text-ink-muted">No products yet — create them under Products.</p>
           ) : (
             <div className="rounded-md border border-line divide-y divide-line/60 max-h-52 overflow-y-auto">
-              {selectable.map((p) => (
-                <label
-                  key={p.id}
-                  className="flex items-center gap-2.5 px-3 py-2 text-sm cursor-pointer hover:bg-surface-sunken"
-                >
-                  <input
-                    type="checkbox"
-                    checked={productIds.has(p.id)}
-                    onChange={() => toggleProduct(p.id)}
-                    className="accent-current"
-                  />
-                  <span className="text-ink">{p.name}</span>
-                  {p.archived_at && <span className="text-xs text-ink-muted">(archived)</span>}
-                </label>
-              ))}
+              {selectable.map((p) => {
+                const state = productIds.has(p.id)
+                  ? 'included'
+                  : optionalIds.has(p.id)
+                    ? 'optional'
+                    : 'off';
+                return (
+                  <div
+                    key={p.id}
+                    className="flex items-center justify-between gap-2.5 px-3 py-2 text-sm hover:bg-surface-sunken"
+                  >
+                    <span className="text-ink">
+                      {p.name}
+                      {p.archived_at && <span className="ml-1.5 text-xs text-ink-muted">(archived)</span>}
+                    </span>
+                    <span className="flex rounded-md border border-line overflow-hidden text-xs">
+                      {(['off', 'included', 'optional'] as const).map((v) => (
+                        <button
+                          key={v}
+                          type="button"
+                          onClick={() => setProductState(p.id, v)}
+                          className={`px-2.5 py-1 capitalize ${
+                            state === v
+                              ? 'bg-ink text-surface'
+                              : 'text-ink-subtle hover:text-ink'
+                          }`}
+                        >
+                          {v === 'off' ? 'Off' : v === 'included' ? 'Included' : 'Optional'}
+                        </button>
+                      ))}
+                    </span>
+                  </div>
+                );
+              })}
             </div>
           )}
         </div>

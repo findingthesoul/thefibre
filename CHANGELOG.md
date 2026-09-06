@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.49.0] — 2026-09-06 — Membership 0.12.0: choose your extras at the door
+
+### Added
+- **Optional add-on products on the join page** (Sjoerd: "maybe the
+  member can also choose a product that is offered as an option… which
+  may increase the price or is included if 0"): a tier's product link
+  is now Included or OPTIONAL (three-state picker in the tier dialog).
+  Optional products appear as tick-boxes under the join form — a priced
+  one adds a one-time line to the first payment (live subtotal shown),
+  a €0 one is included when chosen. Chosen options are recorded as
+  product purchases, so their access grants flow through the existing
+  bought-product path — including surviving a later lapse (they were
+  paid for outright). Join-page strings in all six locales.
+
+### Notes
+- Migration 20260906160000 (link `optional` flag; product-purchase
+  idempotency key widened to session×product) applied to BOTH DBs.
+- packages/shared version bump skipped this release (a peer session's
+  uncommitted work sits in that file; my round didn't touch shared).
+
 ## [0.48.0] — 2026-09-06 — Cross-apex SSO: the session learns to hop
 
 Phase 1 of the thethread.app domain migration (approved plan: fibre web

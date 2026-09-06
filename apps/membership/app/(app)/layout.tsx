@@ -3,6 +3,8 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { readPrefs } from '@/lib/prefs';
 import { Sidebar, MobileNav } from '@/components/shell/sidebar';
+import { uiLocale } from '@/lib/locale';
+import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
@@ -12,7 +14,7 @@ import { crossAppHref } from '@thefibre/shared/sso-hop';
 // Membership has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
 // rebuild of an existing one). See CLAUDE.md "Version bumps".
-const VERSION = '0.11.0';
+const VERSION = '0.12.0';
 
 type Me = {
   user: { id: string; email: string; full_name: string | null };
@@ -87,7 +89,10 @@ export default async function MembershipAppLayout({
     workspaceApps: apps,
   });
 
+  const locale = await uiLocale();
+
   return (
+    <LocaleProvider locale={locale}>
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
@@ -111,5 +116,6 @@ export default async function MembershipAppLayout({
         <MobileNav version={VERSION} />
       </div>
     </div>
+    </LocaleProvider>
   );
 }

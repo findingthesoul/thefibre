@@ -47,6 +47,8 @@ export type PublicTier = {
   currency: string | null;
   sort_order: number | null;
   product_ids: string[];
+  /** Tick-box add-ons at join time (2026-09-06) — optional until API ships. */
+  optional_product_ids?: string[];
 };
 
 export type PublicProduct = {

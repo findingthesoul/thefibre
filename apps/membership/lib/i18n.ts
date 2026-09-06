@@ -64,6 +64,30 @@ const CATALOG = {
   },
 
   // ── tier cards + join form ───────────────────────────────────────────
+  optional_extras: {
+    en: 'Optional extras',
+    nl: 'Optionele extra’s',
+    es: 'Extras opcionales', // MT
+    pt: 'Extras opcionais', // MT
+    de: 'Optionale Extras', // MT
+    fr: 'Options supplémentaires', // MT
+  },
+  option_included: {
+    en: 'Included',
+    nl: 'Inbegrepen',
+    es: 'Incluido', // MT
+    pt: 'Incluído', // MT
+    de: 'Inklusive', // MT
+    fr: 'Inclus', // MT
+  },
+  option_once: {
+    en: 'one-time',
+    nl: 'eenmalig',
+    es: 'pago único', // MT
+    pt: 'pagamento único', // MT
+    de: 'einmalig', // MT
+    fr: 'paiement unique', // MT
+  },
   country_question: {
     en: 'Where are you based? Prices adjust to your country.',
     nl: 'Waar woon je? De prijzen passen zich aan je land aan.',

@@ -62,11 +62,11 @@ export async function patchTier(
 }
 
 // Replaces the tier's included products whole (the dialog saves the full set).
-export async function setTierProducts(id: string, productIds: string[]): Promise<ActionResult> {
+export async function setTierProducts(id: string, productIds: string[], optionalProductIds: string[] = []): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/membership/tiers/${id}/products`, {
       method: 'PUT',
-      body: JSON.stringify({ product_ids: productIds }),
+      body: JSON.stringify({ product_ids: productIds, optional_product_ids: optionalProductIds }),
     });
     revalidatePath('/tiers');
     return { ok: true };

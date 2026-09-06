@@ -273,7 +273,7 @@ export async function reconcileMemberAccess(memberId: string): Promise<void> {
   // rows but survive tier changes AND lapse.
   const [{ data: tierGrants }, { data: tierProducts }, { data: bought }] = await Promise.all([
     adminClient.from('membership_access_grant').select('id').eq('tier_id', member.tier_id),
-    adminClient.from('membership_tier_product').select('product_id').eq('tier_id', member.tier_id),
+    adminClient.from('membership_tier_product').select('product_id').eq('tier_id', member.tier_id).eq('optional', false),
     adminClient
       .from('membership_product_purchase')
       .select('product_id')
@@ -452,7 +452,7 @@ membershipRoutes.get('/tiers', async (c) => {
   const { data, error } = await db
     .from('membership_tier')
     .select(
-      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id )',
+      'id, name, description, characteristics, price_cents_year, price_cents_month, currency, stripe_price_id_year, stripe_price_id_month, sort_order, archived_at, created_at, membership_tier_product ( product_id, optional )',
     )
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
@@ -462,7 +462,12 @@ membershipRoutes.get('/tiers', async (c) => {
     .filter((t) => includeArchived || !t.archived_at)
     .map((t) => ({
       ...t,
-      product_ids: (t.membership_tier_product ?? []).map((l: { product_id: string }) => l.product_id),
+      product_ids: (t.membership_tier_product ?? [])
+        .filter((l: { optional?: boolean }) => !l.optional)
+        .map((l: { product_id: string }) => l.product_id),
+      optional_product_ids: (t.membership_tier_product ?? [])
+        .filter((l: { optional?: boolean }) => l.optional)
+        .map((l: { product_id: string }) => l.product_id),
       membership_tier_product: undefined,
     }));
   return c.json({ items });
@@ -498,7 +503,11 @@ membershipRoutes.patch('/tiers/:id', async (c) => {
 // Replace a tier's included products in one call (the dialog saves whole).
 membershipRoutes.put('/tiers/:id/products', async (c) => {
   const body = z
-    .object({ product_ids: z.array(z.string().uuid()).max(100) })
+    .object({
+      product_ids: z.array(z.string().uuid()).max(100),
+      // Offered as tick-boxes on the join page rather than always included.
+      optional_product_ids: z.array(z.string().uuid()).max(100).default([]),
+    })
     .safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
@@ -507,16 +516,21 @@ membershipRoutes.put('/tiers/:id/products', async (c) => {
 
   const { data: existing, error: readErr } = await db
     .from('membership_tier_product')
-    .select('id, product_id')
+    .select('id, product_id, optional')
     .eq('tier_id', tierId);
   if (readErr) return fail(c, 'read tier products', readErr);
 
-  const want = new Set(body.data.product_ids);
-  const have = new Set((existing ?? []).map((r) => r.product_id));
-  const toDelete = (existing ?? []).filter((r) => !want.has(r.product_id)).map((r) => r.id);
-  const toInsert = body.data.product_ids
-    .filter((p) => !have.has(p))
-    .map((product_id) => ({ tier_id: tierId, product_id }));
+  // One product = one link, included OR optional (included wins a dupe).
+  const want = new Map<string, boolean>();
+  for (const id of body.data.optional_product_ids) want.set(id, true);
+  for (const id of body.data.product_ids) want.set(id, false);
+  const toDelete = (existing ?? [])
+    .filter((r) => !want.has(r.product_id) || want.get(r.product_id) !== Boolean(r.optional))
+    .map((r) => r.id);
+  const have = new Map((existing ?? []).map((r) => [r.product_id, Boolean(r.optional)]));
+  const toInsert = [...want.entries()]
+    .filter(([id, opt]) => !have.has(id) || have.get(id) !== opt)
+    .map(([product_id, optional]) => ({ tier_id: tierId, product_id, optional }));
 
   if (toDelete.length) {
     const { error } = await db.from('membership_tier_product').delete().in('id', toDelete);
@@ -1497,6 +1511,10 @@ const PublicJoin = z.object({
   // UI hint: the language the visitor joined in. Invalid values are ignored
   // (never a 400) — the workspace default applies instead.
   locale: z.string().max(10).optional(),
+  // Optional add-on products ticked on the join page. Validated server-side
+  // against the tier's OPTIONAL links; capped so the ids fit Stripe's
+  // 500-char metadata value (10 × 36 + commas = 369).
+  option_product_ids: z.array(z.string().uuid()).max(10).default([]),
   request_id: z.string().min(8).max(100),
 });
 
@@ -1617,6 +1635,34 @@ membershipRoutes.post('/public/join', async (c) => {
     return c.json({ already_member: true });
   }
 
+  // Optional add-ons: only products the TIER offers as optional count; a
+  // priced one becomes a one-time line item on the first invoice, a €0 one
+  // rides along free. Amounts are the product's flat price — server-side,
+  // like everything priced (the pricing logic stays a tier concept).
+  const optionIds = [...new Set(d.option_product_ids)];
+  let options: { id: string; name: string; price_cents: number | null }[] = [];
+  if (optionIds.length) {
+    const { data: links } = await adminClient
+      .from('membership_tier_product')
+      .select('product_id, product:product_id (id, name, price_cents, archived_at)')
+      .eq('tier_id', tier.id)
+      .eq('optional', true)
+      .in('product_id', optionIds);
+    const byId = new Map(
+      (links ?? [])
+        .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product))
+        .filter((p): p is { id: string; name: string; price_cents: number | null; archived_at: string | null } =>
+          Boolean(p && !p.archived_at),
+        )
+        .map((p) => [p.id, p]),
+    );
+    const unknown = optionIds.filter((id) => !byId.has(id));
+    if (unknown.length) {
+      return c.json({ error: 'One of the chosen options is not available for this tier.' }, 400);
+    }
+    options = optionIds.map((id) => byId.get(id)!);
+  }
+
   const feePercent = await platformFeePercent(ws.id);
   const base = `${MEMBERSHIP_APP_URL}/${encodeURIComponent(ws.slug)}`;
   let session: Stripe.Checkout.Session;
@@ -1634,6 +1680,17 @@ membershipRoutes.post('/public/join', async (c) => {
             },
             quantity: 1,
           },
+          // One-time add-on lines bill on the FIRST invoice only.
+          ...options
+            .filter((o) => (o.price_cents ?? 0) > 0)
+            .map((o) => ({
+              price_data: {
+                currency: (tier.currency ?? 'EUR').toLowerCase(),
+                product_data: { name: o.name },
+                unit_amount: o.price_cents!,
+              },
+              quantity: 1,
+            })),
         ],
         subscription_data: {
           ...(feePercent > 0 ? { application_fee_percent: feePercent } : {}),
@@ -1649,7 +1706,13 @@ membershipRoutes.post('/public/join', async (c) => {
         customer_email: email,
         billing_address_collection: 'required',
         allow_promotion_codes: true,
-        metadata: { workspace_id: ws.id, person_id: personId, tier_id: tier.id, request_id: d.request_id },
+        metadata: {
+          workspace_id: ws.id,
+          person_id: personId,
+          tier_id: tier.id,
+          request_id: d.request_id,
+          ...(options.length ? { option_product_ids: options.map((o) => o.id).join(',') } : {}),
+        },
         success_url: `${base}/joined?session_id={CHECKOUT_SESSION_ID}&lang=${resolvedLocale}`,
         cancel_url: `${base}?cancelled=1&lang=${resolvedLocale}`,
       },
@@ -2409,6 +2472,36 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
         // Only sessions the join flow created (Thread's checkouts share
         // these accounts — metadata is the discriminator).
         if (!session.metadata?.tier_id || !session.metadata?.person_id) break;
+        // Ticked add-ons FIRST: purchase rows keyed (session, product) —
+        // 23505 = webhook retry, done. The subscription's own invoice.paid
+        // ledger row already carries the money (the add-ons billed on the
+        // first invoice), so no separate recordPurchase — a second row
+        // would double-count. Recording before member convergence lets the
+        // reconcile inside ensureMemberFromSubscription fold the grants in.
+        if (session.metadata.option_product_ids && session.metadata.workspace_id) {
+          const wsId = session.metadata.workspace_id;
+          const pId = session.metadata.person_id;
+          const ids = session.metadata.option_product_ids.split(',').filter(Boolean);
+          const { data: prods } = await adminClient
+            .from('membership_product')
+            .select('id, price_cents, currency')
+            .eq('workspace_id', wsId)
+            .in('id', ids);
+          for (const prod of prods ?? []) {
+            const { error: optErr } = await adminClient.from('membership_product_purchase').insert({
+              workspace_id: wsId,
+              person_id: pId,
+              product_id: prod.id,
+              stripe_session_id: session.id,
+              amount_cents: prod.price_cents ?? 0,
+              currency: (prod.currency ?? 'EUR').toUpperCase(),
+              status: 'paid',
+            });
+            if (optErr && optErr.code !== '23505') {
+              console.error('[membership/webhook] option purchase insert failed', optErr);
+            }
+          }
+        }
         const subId =
           typeof session.subscription === 'string' ? session.subscription : session.subscription?.id;
         if (subId) await ensureMemberFromSubscription(account, subId);
