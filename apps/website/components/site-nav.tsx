@@ -60,7 +60,7 @@ export function SiteNav() {
         ))}
         <a
           href={startHref()}
-          className="inline-block rounded-full bg-accent px-5 py-2 text-[13px] font-bold text-ink transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,221,0,0.35)]"
+          className="inline-block rounded-lg bg-accent px-5 py-2 text-[13px] font-bold text-ink transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,221,0,0.35)]"
         >
           Start a Thread
         </a>

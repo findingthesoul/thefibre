@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.5] — 2026-09-07 — website: the yellow button squares up
+
+Sjoerd's live review of the unfolding Home ("looks great"): the nav's
+Start-a-Thread CTA goes from pill to squared with light radius.
+
+
 ## [0.59.4] — 2026-09-07 — Home unfolds
 
 The Home page rebuilt to Sjoerd's direction (reference: counder.com): an
