@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.3] — 2026-09-08 — release.sh learns to share the tree
+
+- The clean-tree check refuses only STAGED-but-uncommitted changes now.
+  Two sessions share this working directory as a matter of course; a full
+  clean-tree bar blocked one session's sealed release on the other's
+  in-flight files — and pushed people around the script, which is worse
+  (peer's refinement, adopted verbatim in spirit).
+
 ## [0.68.2] — 2026-09-08 — the legal pages live on both apexes; the Why page
 
 - Clicking Privacy/Terms/Support on thethread.app no longer lands you on

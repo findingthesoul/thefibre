@@ -36,8 +36,13 @@ grep -q "^## \[$V\]" CHANGELOG.md || {
   echo "REFUSED: CHANGELOG.md has no [$V] heading" >&2
   exit 1
 }
-if [ -n "$(git status --porcelain)" ]; then
-  echo "REFUSED: working tree not clean — commit the release first" >&2
+# Two Claude sessions share this working tree as a matter of course, so a
+# fully clean tree is the wrong bar — the OTHER session's in-flight files
+# would block a sealed release (and push people around this script, which
+# is worse). Refuse only what actually endangers THIS release: staged
+# changes that never made it into the commit.
+if ! git diff --cached --quiet; then
+  echo "REFUSED: staged but uncommitted changes — commit or unstage them first" >&2
   exit 1
 fi
 
