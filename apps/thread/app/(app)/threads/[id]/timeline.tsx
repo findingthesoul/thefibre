@@ -206,6 +206,7 @@ export function ThreadTimeline({
   personalRoomUrl,
   workspaceNote = null,
   workspaceSlug = null,
+  canEditStructure = true,
 }: {
   locale: Locale;
   categories?: { id: string; name: string; slug: string }[];
@@ -220,6 +221,10 @@ export function ThreadTimeline({
   workspaceNote?: string | null;
   /** The workspace's public slug — URL prefix for workspace-scoped threads. */
   workspaceSlug?: string | null;
+  /** Plan gate (thread_custom_templates): whether timeline elements may be
+   *  added/removed. When false the add/delete affordances hide — settings of
+   *  existing elements stay fully editable, which is the whole design. */
+  canEditStructure?: boolean;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -560,7 +565,9 @@ export function ThreadTimeline({
             </div>
           )}
 
-          {/* ── Add engagement ─────────────────────────────────────── */}
+          {/* ── Add engagement (hidden when the plan can't edit structure —
+                 Free configures what the template gave) ─────────────── */}
+          {canEditStructure && (
           <div ref={addRef} className="relative">
             <button
               type="button"
@@ -594,6 +601,7 @@ export function ThreadTimeline({
               </div>
             )}
           </div>
+          )}
         </div>
       </div>
 
@@ -608,6 +616,7 @@ export function ThreadTimeline({
           threadEndsOn={program?.ends_on ?? null}
           requiresApproval={thread.requires_approval}
           personalRoomUrl={personalRoomUrl}
+          canEditStructure={canEditStructure}
           activities={engagements
             .filter((e) => metaFor(e.type).family === 'activity')
             .map((e) => ({ id: e.id, title: e.title, hasDate: !!e.starts_at }))}
@@ -649,24 +658,28 @@ export function ThreadTimeline({
                 >
                   {t(locale, 'duplicate')}
                 </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  leading={<LayoutTemplate size={14} />}
-                  disabled={threadActionPending}
-                  onClick={() =>
-                    startThreadAction(async () => {
-                      const r = await saveThreadAsTemplate(
-                        thread.id,
-                        program?.title ?? thread.slug,
-                      );
-                      if (r.ok) router.push('/templates/threads');
-                    })
-                  }
-                >
-                  {t(locale, 'save_as_template')}
-                </Button>
+                {/* Designing templates is the same feature key as editing
+                    structure (thread_custom_templates) — the API would 402. */}
+                {canEditStructure && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    leading={<LayoutTemplate size={14} />}
+                    disabled={threadActionPending}
+                    onClick={() =>
+                      startThreadAction(async () => {
+                        const r = await saveThreadAsTemplate(
+                          thread.id,
+                          program?.title ?? thread.slug,
+                        );
+                        if (r.ok) router.push('/templates/threads');
+                      })
+                    }
+                  >
+                    {t(locale, 'save_as_template')}
+                  </Button>
+                )}
               </div>
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
                 {t(locale, 'cancel')}

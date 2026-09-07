@@ -1,11 +1,26 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { apiFetch, errorMessage } from '@/lib/api';
+import { apiFetch, errorMessage, ApiError } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
+
+/** Structure edits (add/remove timeline elements) are plan-gated server-side
+ *  (403 `plan_gate_structure`). The UI hides those affordances when the plan
+ *  lacks them, but if one slips through, say it in the user's language rather
+ *  than echoing the raw API sentence. */
+async function structureAwareError(e: unknown): Promise<string> {
+  if (
+    e instanceof ApiError &&
+    e.status === 403 &&
+    (e.body as { code?: string } | undefined)?.code === 'plan_gate_structure'
+  ) {
+    return t(await uiLocale(), 'plan_gate_structure');
+  }
+  return errorMessage(e);
+}
 
 export async function createThread(input: {
   title: string;
@@ -16,6 +31,8 @@ export async function createThread(input: {
   ends_on?: string | null;
   team_id?: string | null;
   public_scope?: 'personal' | 'team' | 'workspace' | null;
+  /** Standard-library template id — the API seeds its elements. */
+  library_template?: string | null;
 }): Promise<ActionResult> {
   try {
     const created = await apiFetch<{ id: string }>('/api/v1/thread/threads', {
@@ -25,6 +42,12 @@ export async function createThread(input: {
     revalidatePath('/threads');
     return { ok: true, id: created.id };
   } catch (e) {
+    // 402: the plan doesn't cover the template. The thread itself WAS created
+    // (without elements) — be honest about that instead of a silent skip.
+    if (e instanceof ApiError && e.status === 402 && input.library_template) {
+      revalidatePath('/threads');
+      return { ok: false, error: t(await uiLocale(), 'tpl_not_allowed') };
+    }
     return { ok: false, error: errorMessage(e) };
   }
 }
@@ -84,7 +107,7 @@ export async function createEngagement(
     revalidatePath(`/threads/${threadId}`);
     return { ok: true, id: created.id };
   } catch (e) {
-    return { ok: false, error: errorMessage(e) };
+    return { ok: false, error: await structureAwareError(e) };
   }
 }
 
@@ -114,7 +137,7 @@ export async function deleteEngagement(
     revalidatePath(`/threads/${threadId}`);
     return { ok: true };
   } catch (e) {
-    return { ok: false, error: errorMessage(e) };
+    return { ok: false, error: await structureAwareError(e) };
   }
 }
 

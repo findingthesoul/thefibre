@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.1] — 2026-09-08 — five shapes for a gathering (Thread 3.38.0)
+
+### Added
+- **The standard event templates** (Sjoerd: "just 5 variations of
+  events"; build-plan 1e's content, live): Single event · Two-day event
+  (ONE element whose settings stretch it — never separate items) ·
+  Guided event · Workshop series · Conversation circle. Platform-owned,
+  code-defined blueprints; chosen at New thread, elements arrive as
+  ready-to-configure draft engagements with triggers wired; enrolment
+  confirmation stays the seeded system messages.
+- **The plan gates mean it now**: thread_template_limit slices which
+  templates a plan may pick (Free 1 / Starter 5 / Pro all); adding or
+  removing timeline elements requires thread_custom_templates — Free
+  configures every element's settings, never the structure (server
+  enforced, editor affordances follow; seeded system messages stay
+  tidy-able).
+- **Onboarding steers to the first event**: a Thread dashboard with zero
+  threads leads with "Organise your first event" — the five template
+  cards inline, one click into a pre-selected New thread. Derived from
+  data, no wizard state. All new chrome ×6 locales.
+
+
 ## [0.67.0] — 2026-09-08 — website: every tool gets its recognisable problem
 
 - /workshop: each tool now opens with "Sound familiar?" — the itch a

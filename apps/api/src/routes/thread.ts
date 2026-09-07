@@ -33,6 +33,7 @@ import {
 } from '../lib/email/thread-templates.js';
 import { appUrl, LOCALES, INTL_LOCALES, toLocale } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
+import { TEMPLATE_LIBRARY, templatesForLimit } from '../lib/thread-template-library.js';
 
 function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
@@ -401,6 +402,9 @@ const ThreadCreate = z.object({
   timezone: z.string().max(100).optional(),
   team_id: z.string().uuid().nullable().optional(),
   public_scope: z.enum(['personal', 'team', 'workspace']).nullable().optional(),
+  /** A standard-library template id — the plan's thread_template_limit
+   *  slices which are allowed (lib/thread-template-library.ts). */
+  library_template: z.string().max(64).optional(),
 });
 
 threadRoutes.post('/threads', async (c) => {
@@ -476,7 +480,80 @@ threadRoutes.post('/threads', async (c) => {
   // somebody enrols.
   await ensureSystemEngagements(thread.id);
 
+  // Standard-library template: seed its elements (Sjoerd 2026-09-08 —
+  // build-plan 1e). The plan's limit gates WHICH templates; the elements
+  // themselves are ordinary engagements the organiser configures.
+  if (body.data.library_template) {
+    const plan = await planFor(ctx.workspaceId);
+    const allowed = templatesForLimit(plan.threadTemplateLimit);
+    const tpl = allowed.find((t) => t.id === body.data.library_template);
+    if (!tpl) {
+      // Thread stands; the template didn't. Honest error beats a silent skip.
+      return c.json(
+        { error: 'template not available on this plan', id: thread.id },
+        402,
+      );
+    }
+    const keyToId = new Map<string, string>();
+    let position = 10;
+    for (const el of tpl.elements) {
+      const insert: Record<string, unknown> = {
+        workspace_id: ctx.workspaceId,
+        thread_id: thread.id,
+        title: el.title,
+        description: el.description ?? null,
+        type: el.type,
+        status: 'draft',
+        position,
+      };
+      position += 10;
+      if (el.days && el.days > 1) {
+        insert.daily_schedule = Array.from({ length: el.days }, () => ({
+          start: '10:00',
+          end: '17:00',
+        }));
+      }
+      if (el.trigger) {
+        if (el.trigger.kind === 'relative') {
+          insert.trigger_kind = 'relative';
+          insert.trigger_engagement_id = keyToId.get(el.trigger.anchor) ?? null;
+          insert.trigger_offset_days = el.trigger.offsetDays;
+          insert.trigger_time = el.trigger.time ?? '10:00';
+        } else {
+          insert.trigger_kind = el.trigger.kind;
+        }
+      }
+      const { data: made, error: eErr } = await adminClient
+        .from('thread_engagement')
+        .insert(insert)
+        .select('id')
+        .single();
+      if (eErr || !made) {
+        console.error('[thread/templates] library seed failed', el.key, eErr);
+        continue;
+      }
+      keyToId.set(el.key, made.id);
+    }
+  }
+
   return c.json(thread, 201);
+});
+
+// GET /api/v1/thread/template-library — the standard templates this plan
+// may use, plus whether the timeline's STRUCTURE is editable (Free
+// configures elements; adding/removing them is thread_custom_templates).
+threadRoutes.get('/template-library', async (c) => {
+  const ctx = c.get('ctx');
+  const plan = await planFor(ctx.workspaceId);
+  const allowed = new Set(templatesForLimit(plan.threadTemplateLimit).map((t) => t.id));
+  return c.json({
+    templates: TEMPLATE_LIBRARY.map((t) => ({
+      id: t.id,
+      available: allowed.has(t.id),
+      elements: t.elements.map((el) => ({ type: el.type, title: el.title, days: el.days ?? 1 })),
+    })),
+    can_edit_structure: await can(ctx.workspaceId, 'thread_custom_templates'),
+  });
 });
 
 // GET /api/v1/thread/threads/:id — thread detail + engagements + co-organisers
@@ -1038,6 +1115,13 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   const body = EngagementCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+
+  // Free configures the template's elements; adding items is Pro+
+  // (thread_custom_templates — Sjoerd 2026-09-08: "edit the settings of
+  // these elements… but not separate items").
+  if (!(await can(ctx.workspaceId, 'thread_custom_templates'))) {
+    return c.json({ error: 'adding timeline elements needs a higher plan', code: 'plan_gate_structure' }, 403);
+  }
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
 
@@ -1151,6 +1235,19 @@ threadRoutes.patch('/engagements/:id', async (c) => {
 
 threadRoutes.delete('/engagements/:id', async (c) => {
   const ctx = c.get('ctx');
+
+  if (!(await can(ctx.workspaceId, 'thread_custom_templates'))) {
+    // Tidying the seeded system messages stays allowed (they fall back to
+    // the compiled emails); removing real elements is structure.
+    const { data: row } = await adminClient
+      .from('thread_engagement')
+      .select('system_role')
+      .eq('id', c.req.param('id'))
+      .maybeSingle();
+    if (!row?.system_role) {
+      return c.json({ error: 'removing timeline elements needs a higher plan', code: 'plan_gate_structure' }, 403);
+    }
+  }
   const db = userClient(ctx.jwt);
   const { error } = await db.from('thread_engagement').delete().eq('id', c.req.param('id'));
   if (error) {

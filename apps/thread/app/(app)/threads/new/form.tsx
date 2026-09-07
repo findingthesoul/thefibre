@@ -7,6 +7,11 @@ import type { Locale } from '@thefibre/shared';
 import { createThread } from '../actions';
 import type { TeamOption } from '@/lib/thread-types';
 import { t } from '@/lib/i18n-ui';
+import {
+  TemplateCard,
+  BlankTemplateCard,
+  type TemplateLibrary,
+} from '@/components/template-cards';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
@@ -20,12 +25,24 @@ export function NewThreadForm({
   locale,
   organiserSlug,
   teams,
+  library,
+  initialTemplate = null,
 }: {
   locale: Locale;
   organiserSlug: string;
   teams: TeamOption[];
+  library: TemplateLibrary;
+  /** Pre-selection from ?template=<id> (the dashboard's first-event hero). */
+  initialTemplate?: string | null;
 }) {
   const router = useRouter();
+  // 'blank' = no seeded elements — only offered when the plan can edit the
+  // timeline's structure (a Free blank thread could never grow elements).
+  const [template, setTemplate] = useState<string>(() => {
+    const wanted = library.templates.find((tp) => tp.id === initialTemplate);
+    if (wanted?.available) return wanted.id;
+    return library.templates.find((tp) => tp.available)?.id ?? 'blank';
+  });
   const [format, setFormat] = useState<'event' | 'journey'>('event');
   const [scope, setScope] = useState<'personal' | 'team' | 'workspace'>('personal');
   // Controlled so the URL preview follows: team threads live under the
@@ -61,6 +78,7 @@ export function NewThreadForm({
         ends_on: endsOn || null,
         team_id: teamId || null,
         public_scope: scope === 'workspace' ? 'workspace' : null,
+        library_template: template && template !== 'blank' ? template : null,
       });
       if (!r.ok) return setError(r.error);
       // push alone fetches the new route fresh; a synchronous router.refresh()
@@ -72,6 +90,33 @@ export function NewThreadForm({
 
   return (
     <form onSubmit={onSubmit} className="mt-8 space-y-8">
+      {/* Standard template picker (Sjoerd 2026-09-08) — five event shapes;
+          the plan slices which are available, and the seeded elements are
+          then configured rather than built. */}
+      {library.templates.length > 0 && (
+        <div>
+          <SectionLabel>{t(locale, 'tpl_pick')}</SectionLabel>
+          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {library.templates.map((tp) => (
+              <TemplateCard
+                key={tp.id}
+                locale={locale}
+                template={tp}
+                selected={template === tp.id}
+                onSelect={() => setTemplate(tp.id)}
+              />
+            ))}
+            {library.can_edit_structure && (
+              <BlankTemplateCard
+                locale={locale}
+                selected={template === 'blank'}
+                onSelect={() => setTemplate('blank')}
+              />
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Compact toggles (Sjoerd 2026-07-02) — the explanation of the active
           choice sits underneath, so the form keeps its context without the
           big-card real estate. */}

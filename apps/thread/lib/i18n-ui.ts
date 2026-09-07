@@ -6075,6 +6075,151 @@ const CATALOG = {
     de: 'Einstellungen', // MT
     fr: 'Paramètres', // MT
   },
+  // ── standard template library (new-thread picker + first-event hero) ──
+  tpl_pick: {
+    en: 'Start from',
+    nl: 'Begin met',
+    es: 'Empieza con', // MT
+    pt: 'Comece com', // MT
+    de: 'Starte mit', // MT
+    fr: 'Commencer avec', // MT
+  },
+  tpl_single_event: {
+    en: 'Single event',
+    nl: 'Los evenement',
+    es: 'Evento único', // MT
+    pt: 'Evento único', // MT
+    de: 'Einzelnes Event', // MT
+    fr: 'Événement unique', // MT
+  },
+  tpl_single_event_desc: {
+    en: 'One gathering, with a warm thank-you the day after.',
+    nl: 'Eén bijeenkomst, met een warm bedankje de dag erna.',
+    es: 'Un encuentro, con un cálido agradecimiento al día siguiente.', // MT
+    pt: 'Um encontro, com um agradecimento caloroso no dia seguinte.', // MT
+    de: 'Ein Treffen, mit einem herzlichen Dankeschön am Tag danach.', // MT
+    fr: 'Une rencontre, avec un chaleureux merci le lendemain.', // MT
+  },
+  tpl_two_day_event: {
+    en: 'Two-day event',
+    nl: 'Tweedaags evenement',
+    es: 'Evento de dos días', // MT
+    pt: 'Evento de dois dias', // MT
+    de: 'Zweitägiges Event', // MT
+    fr: 'Événement de deux jours', // MT
+  },
+  tpl_two_day_event_desc: {
+    en: 'One gathering spanning two days — its settings stretch it longer or shrink it to one.',
+    nl: 'Eén bijeenkomst verspreid over twee dagen — via de instellingen wordt het er meer of minder.',
+    es: 'Un encuentro de dos días: sus ajustes lo alargan o lo reducen a uno.', // MT
+    pt: 'Um encontro de dois dias — as configurações o alongam ou reduzem a um.', // MT
+    de: 'Ein Treffen über zwei Tage — die Einstellungen machen daraus mehr oder weniger.', // MT
+    fr: 'Une rencontre sur deux jours — ses réglages l’allongent ou la ramènent à un.', // MT
+  },
+  tpl_guided_event: {
+    en: 'Guided event',
+    nl: 'Begeleid evenement',
+    es: 'Evento guiado', // MT
+    pt: 'Evento guiado', // MT
+    de: 'Begleitetes Event', // MT
+    fr: 'Événement accompagné', // MT
+  },
+  tpl_guided_event_desc: {
+    en: 'Participants are welcomed in, prepared the day before, and invited to look back after.',
+    nl: 'Deelnemers worden verwelkomd, de dag ervoor voorbereid en achteraf uitgenodigd om terug te blikken.',
+    es: 'Los participantes son bienvenidos, preparados la víspera e invitados a mirar atrás después.', // MT
+    pt: 'Os participantes são acolhidos, preparados na véspera e convidados a olhar para trás depois.', // MT
+    de: 'Teilnehmende werden begrüßt, am Vortag vorbereitet und danach zum Rückblick eingeladen.', // MT
+    fr: 'Les participants sont accueillis, préparés la veille et invités à un retour après coup.', // MT
+  },
+  tpl_workshop_series: {
+    en: 'Workshop series',
+    nl: 'Workshopreeks',
+    es: 'Serie de talleres', // MT
+    pt: 'Série de oficinas', // MT
+    de: 'Workshop-Reihe', // MT
+    fr: 'Série d’ateliers', // MT
+  },
+  tpl_workshop_series_desc: {
+    en: 'Three sessions with practice in between, closed with a well-earned “you made it”.',
+    nl: 'Drie sessies met oefening ertussen, afgesloten met een welverdiend “gelukt!”.',
+    es: 'Tres sesiones con práctica entre medias, cerradas con un merecido «lo lograste».', // MT
+    pt: 'Três sessões com prática entre elas, fechadas com um merecido “você conseguiu”.', // MT
+    de: 'Drei Sessions mit Übung dazwischen, abgeschlossen mit einem verdienten „geschafft!“.', // MT
+    fr: 'Trois séances avec de la pratique entre elles, closes par un « bravo » bien mérité.', // MT
+  },
+  tpl_conversation_circle: {
+    en: 'Conversation circle',
+    nl: 'Gesprekskring',
+    es: 'Círculo de conversación', // MT
+    pt: 'Círculo de conversa', // MT
+    de: 'Gesprächskreis', // MT
+    fr: 'Cercle de conversation', // MT
+  },
+  tpl_conversation_circle_desc: {
+    en: 'A light online circle — a reminder the day before, food for thought the day after.',
+    nl: 'Een luchtige online kring — een herinnering de dag ervoor, stof tot nadenken de dag erna.',
+    es: 'Un círculo en línea ligero: un recordatorio la víspera, algo en que pensar al día siguiente.', // MT
+    pt: 'Um círculo on-line leve — um lembrete na véspera, algo para refletir no dia seguinte.', // MT
+    de: 'Ein leichter Online-Kreis — eine Erinnerung am Vortag, Denkanstöße am Tag danach.', // MT
+    fr: 'Un cercle en ligne léger — un rappel la veille, matière à réflexion le lendemain.', // MT
+  },
+  tpl_blank: {
+    en: 'Start blank',
+    nl: 'Begin leeg',
+    es: 'Empezar en blanco', // MT
+    pt: 'Começar em branco', // MT
+    de: 'Leer beginnen', // MT
+    fr: 'Partir de zéro', // MT
+  },
+  tpl_blank_desc: {
+    en: 'An empty timeline — you build the structure yourself.',
+    nl: 'Een lege tijdlijn — je bouwt de structuur zelf.',
+    es: 'Una línea de tiempo vacía: tú construyes la estructura.', // MT
+    pt: 'Uma linha do tempo vazia — você mesmo monta a estrutura.', // MT
+    de: 'Eine leere Timeline — du baust die Struktur selbst.', // MT
+    fr: 'Une chronologie vide — tu construis la structure toi-même.', // MT
+  },
+  tpl_locked: {
+    en: 'Available on a higher plan',
+    nl: 'Beschikbaar met een hoger abonnement',
+    es: 'Disponible con un plan superior', // MT
+    pt: 'Disponível em um plano superior', // MT
+    de: 'Mit einem höheren Plan verfügbar', // MT
+    fr: 'Disponible avec une offre supérieure', // MT
+  },
+  tpl_not_allowed: {
+    en: 'That template isn’t part of your plan. The thread itself was created, without the template’s elements — you’ll find it under Threads.',
+    nl: 'Dat sjabloon hoort niet bij je abonnement. De thread zelf is wel aangemaakt, zonder de onderdelen van het sjabloon — je vindt hem onder Threads.',
+    es: 'Esa plantilla no forma parte de tu plan. El thread sí se creó, sin los elementos de la plantilla; lo encontrarás en Threads.', // MT
+    pt: 'Esse modelo não faz parte do seu plano. O thread foi criado, sem os elementos do modelo — você o encontra em Threads.', // MT
+    de: 'Diese Vorlage gehört nicht zu deinem Plan. Der Thread selbst wurde angelegt, ohne die Elemente der Vorlage — du findest ihn unter Threads.', // MT
+    fr: 'Ce modèle ne fait pas partie de ton offre. Le thread a bien été créé, sans les éléments du modèle — tu le trouveras dans Threads.', // MT
+  },
+  plan_gate_structure: {
+    en: 'Adding or removing timeline elements needs a higher plan — you can still change every element’s settings.',
+    nl: 'Onderdelen aan de tijdlijn toevoegen of verwijderen vraagt een hoger abonnement — de instellingen van elk onderdeel kun je gewoon aanpassen.',
+    es: 'Añadir o quitar elementos de la línea de tiempo requiere un plan superior; los ajustes de cada elemento siguen siendo editables.', // MT
+    pt: 'Adicionar ou remover elementos da linha do tempo exige um plano superior — as configurações de cada elemento continuam editáveis.', // MT
+    de: 'Elemente der Timeline hinzuzufügen oder zu entfernen erfordert einen höheren Plan — die Einstellungen jedes Elements kannst du weiterhin ändern.', // MT
+    fr: 'Ajouter ou retirer des éléments de la chronologie demande une offre supérieure — les réglages de chaque élément restent modifiables.', // MT
+  },
+  dash_first_title: {
+    en: 'Organise your first event',
+    nl: 'Organiseer je eerste evenement',
+    es: 'Organiza tu primer evento', // MT
+    pt: 'Organize seu primeiro evento', // MT
+    de: 'Organisiere dein erstes Event', // MT
+    fr: 'Organise ton premier événement', // MT
+  },
+  dash_first_desc: {
+    en: 'Pick a shape to start from — every element arrives ready to configure, and you publish when it feels right.',
+    nl: 'Kies een vorm om mee te beginnen — elk onderdeel staat klaar om in te stellen, en je publiceert wanneer het goed voelt.',
+    es: 'Elige una forma para empezar: cada elemento llega listo para configurar, y publicas cuando lo sientas.', // MT
+    pt: 'Escolha uma forma para começar — cada elemento chega pronto para configurar, e você publica quando fizer sentido.', // MT
+    de: 'Wähle eine Form zum Starten — jedes Element kommt fertig zum Konfigurieren, und du veröffentlichst, wenn es passt.', // MT
+    fr: 'Choisis une forme pour commencer — chaque élément arrive prêt à configurer, et tu publies quand tu le sens.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

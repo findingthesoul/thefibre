@@ -102,6 +102,7 @@ export function EngagementDialog({
   threadEndsOn,
   requiresApproval,
   personalRoomUrl,
+  canEditStructure = true,
   activities = [],
   onClose,
 }: {
@@ -114,6 +115,9 @@ export function EngagementDialog({
   requiresApproval?: boolean;
   /** Meet's personal room, shared across the Fibre apps. */
   personalRoomUrl?: string | null;
+  /** Plan gate: false hides Delete (except on system messages, which stay
+   *  deletable — they fall back to compiled emails) and Duplicate. */
+  canEditStructure?: boolean;
   /** The thread's activities — anchor options for relative message triggers. */
   activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
@@ -377,25 +381,33 @@ export function EngagementDialog({
         <>
           {!isNew && (
             <div className="mr-auto flex items-center gap-1.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                leading={<Trash2 size={14} />}
-                onClick={() => setConfirmDelete(true)}
-              >
-                {t(locale, 'delete')}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                leading={<Copy size={14} />}
-                onClick={duplicate}
-                disabled={pending}
-              >
-                {t(locale, 'duplicate')}
-              </Button>
+              {/* Structure gate: removing real elements needs a higher plan,
+                  but the seeded system messages stay deletable everywhere
+                  (they fall back to the compiled emails). Duplicate CREATES
+                  an element, so it gates the same way. */}
+              {(canEditStructure || engagement.system_role) && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<Trash2 size={14} />}
+                  onClick={() => setConfirmDelete(true)}
+                >
+                  {t(locale, 'delete')}
+                </Button>
+              )}
+              {canEditStructure && (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  leading={<Copy size={14} />}
+                  onClick={duplicate}
+                  disabled={pending}
+                >
+                  {t(locale, 'duplicate')}
+                </Button>
+              )}
             </div>
           )}
           {error && <FormError message={error} />}

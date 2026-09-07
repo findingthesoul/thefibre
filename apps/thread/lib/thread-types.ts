@@ -149,6 +149,10 @@ export type EngagementRow = {
   content: Record<string, unknown>;
   position: number;
   show_in_agenda: boolean;
+  /** Set on the seeded transactional messages (enrolment_received /
+   *  enrolment_confirmed). System messages stay deletable on every plan —
+   *  they fall back to the compiled emails. */
+  system_role?: string | null;
   created_at: string;
   updated_at: string;
 };

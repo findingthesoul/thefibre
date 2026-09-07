@@ -31,7 +31,7 @@ export default async function ThreadDetailPage({
     throw e;
   }
 
-  const [members, teams, certTemplates, me, categories, brand] = await Promise.all([
+  const [members, teams, certTemplates, me, categories, brand, library] = await Promise.all([
     apiFetch<{ items: WorkspaceMember[] }>('/api/v1/thread/workspace-members').catch(() => ({
       items: [],
     })),
@@ -55,6 +55,11 @@ export default async function ThreadDetailPage({
       enrolment_note: null,
       slug: null,
     })),
+    // Structure gating: whether this plan may add/remove timeline elements
+    // (thread_custom_templates). Fail open — the API still enforces it.
+    apiFetch<{ can_edit_structure: boolean }>('/api/v1/thread/template-library').catch(() => ({
+      can_edit_structure: true,
+    })),
   ]);
 
   // v3 layout: a single centred column, the thread as the main item, the
@@ -75,6 +80,7 @@ export default async function ThreadDetailPage({
         personalRoomUrl={me.personal_room_url}
         workspaceNote={brand.enrolment_note}
         workspaceSlug={brand.slug}
+        canEditStructure={library.can_edit_structure}
       />
     </div>
   );
