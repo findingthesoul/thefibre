@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.4] — 2026-09-08 — both brands in the legal pages; mobile snap released
+
+- Terms of use §1 now names both doors: The Thread (thethread.app and
+  subdomains) and The Fibre (thefibre.app) as one service operated by
+  Solidarity Lab B.V. — "these terms apply whichever of the two doors you
+  came in through". Platform definition refreshed post-domain-flip (apps
+  live on thethread.app subdomains); TERMS_UPDATED bumped. Privacy
+  statement title + standfirst likewise cover both brands. (Both documents
+  remain lawyer-unreviewed.)
+- Website mobile: scroll-snap drops to proximity under 768px — mandatory
+  snapping trapped the scroll on anything taller than one viewport (the
+  footer, tall cards), hiding content. Desktop keeps the full magnet.
+
 ## [0.67.3] — 2026-09-08 — website: the ready-made shapes reach /pricing
 
 - /pricing notes gain "Ready-made shapes." — one on Free, five on Starter,

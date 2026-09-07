@@ -12,7 +12,7 @@ import { DocHeader, H2, P, List, Item, Rows, Row } from '../prose';
 const POLICY_UPDATED = '2026-08-24';
 
 export const metadata = {
-  title: 'Privacy statement — The Fibre',
+  title: 'Privacy statement — The Thread & The Fibre',
   description: 'What The Fibre holds about you, why, where, and what you can do about it.',
 };
 
@@ -21,7 +21,7 @@ export default function PrivacyPolicyPage() {
     <>
       <DocHeader
         title="Privacy statement"
-        standfirst="What we hold about you, why we hold it, where it lives, and what you can do about it."
+        standfirst="What we hold about you, why we hold it, where it lives, and what you can do about it. This statement covers The Thread (thethread.app) and The Fibre (thefibre.app) alike — one service, one controller."
         updated={POLICY_UPDATED}
       />
 

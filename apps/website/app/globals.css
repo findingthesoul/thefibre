@@ -46,6 +46,16 @@ body {
   transform: translateY(0) rotate(0deg);
 }
 
+/* On small screens sections routinely exceed one viewport (the footer, the
+   tall cards); mandatory snapping then traps the scroll and hides content.
+   Proximity keeps the magnet feel near a card edge but lets the reader
+   pass through anything taller than the screen. */
+@media (max-width: 767px) {
+  html {
+    scroll-snap-type: y proximity;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;

@@ -8,11 +8,11 @@ import { DocHeader, H2, P, List, Item } from '../prose';
 // claims — it invents no warranty, no liability cap and no arbitration clause.
 // Have a Dutch lawyer read it before relying on it commercially, and bump
 // TERMS_UPDATED when the text changes materially.
-const TERMS_UPDATED = '2026-08-24';
+const TERMS_UPDATED = '2026-09-08';
 
 export const metadata = {
-  title: 'Terms of use — The Fibre',
-  description: 'The rules for using The Fibre.',
+  title: 'Terms of use — The Thread & The Fibre',
+  description: 'The rules for using The Thread and The Fibre.',
 };
 
 export default function TermsPage() {
@@ -20,16 +20,19 @@ export default function TermsPage() {
     <>
       <DocHeader
         title="Terms of use"
-        standfirst="The agreement between you and Solidarity Lab B.V. for the use of The Fibre and the apps that run on it."
+        standfirst="The agreement between you and Solidarity Lab B.V. for the use of The Thread — the tools at thethread.app — and The Fibre, the platform they run on."
         updated={TERMS_UPDATED}
       />
 
       <H2 id="who">1. Who you are agreeing with</H2>
       <P>
-        The Fibre is operated by {ENTITY.name}, a private limited company established in{' '}
-        {ENTITY.address}. In these terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean{' '}
-        {ENTITY.name}; &ldquo;the platform&rdquo; means thefibre.app together with the apps served
-        from its subdomains; and &ldquo;you&rdquo; means the person using it.
+        The Thread — the tools served from thethread.app and its subdomains — and The Fibre —
+        the platform at thefibre.app that carries them — are two names for one service, operated
+        by {ENTITY.name}, a private limited company established in {ENTITY.address}. In these
+        terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean {ENTITY.name}; &ldquo;the
+        platform&rdquo; means thefibre.app and thethread.app together with the apps served from
+        their subdomains; and &ldquo;you&rdquo; means the person using it. These terms apply
+        whichever of the two doors you came in through.
       </P>
       <P>
         Where you use The Fibre as part of an organisation, that organisation&rsquo;s workspace
