@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.63.0] — 2026-09-07 — website: the one-sentence cards come out
+
+- Removed the six litany scenes ("A gathering is a cut in time." through
+  "Most event platforms stop at the event.") — the Home now runs hero →
+  fabric → workshop → Fibre → "The Thread starts there." → arc → proof →
+  invitation (~8 viewports, was ~14). The thread re-chained across the cut
+  (Fibre exits left at 220, the starts-there segment sweeps 220→560 into
+  the arc). Constellation/star wiring dropped from Home along with the
+  unused thread keys.
+
 ## [0.62.1] — 2026-09-07 — website: the thread is simply there
 
 - No white interruptions (Sjoerd): the draw-on-scroll scrub is removed from

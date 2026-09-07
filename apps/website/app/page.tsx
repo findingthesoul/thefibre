@@ -8,7 +8,6 @@
 import Link from 'next/link';
 import { Scene, Line, Ink } from '@/components/scene';
 import { ScrollCollage, type ScrubPiece } from '@/components/scroll-collage';
-import { Constellation, type Star } from '@/components/constellation';
 import { DrawnThread } from '@/components/drawn-thread';
 import { Settle } from '@/components/settle';
 import { Figure, Leaf, Vessel } from '@/components/shapes';
@@ -27,45 +26,13 @@ const THREAD = {
   workshop:
     'M700 0 C705 110 640 190 585 255 C530 320 470 330 490 385 C510 440 610 420 590 355 C575 305 470 400 420 460 C370 520 300 560 280 640',
   fibre: 'M280 0 C270 130 310 260 285 380 C265 480 228 540 220 640',
-  cut: 'M220 0 C215 120 260 220 320 300 C390 400 470 500 480 640',
-  you: 'M480 0 C485 100 520 170 560 230 C610 300 530 330 555 380 C580 430 660 400 630 345 C620 430 640 540 640 640',
-  shape: 'M640 0 C645 130 600 250 620 370 C635 460 588 540 580 640',
-  enter: 'M580 0 C570 120 500 200 450 290 C400 380 350 450 305 530 C302 570 300 600 300 640',
-  together: 'M300 0 C295 130 340 240 320 360 C305 460 345 540 350 640',
-  turn: 'M350 0 C355 120 400 220 430 320 C465 430 495 520 500 640',
-  starts: 'M500 0 C505 130 470 250 495 370 C515 465 555 540 560 640',
+  starts: 'M220 0 C215 130 290 250 380 340 C460 425 545 530 560 640',
   arc: 'M560 0 C565 110 620 200 650 300 C685 410 715 520 720 640',
   proof: 'M720 0 C725 130 690 260 705 380 C715 470 685 550 680 640',
   invite:
     'M680 0 C685 110 650 200 640 290 C630 370 560 400 580 450 C600 495 660 470 645 425 C635 395 600 430 610 470',
 };
 
-const CONSTELLATIONS: Record<string, Star[]> = {
-  cut: [{ shape: 'burst', x: 62, y: 18, w: 'w-16 md:w-24', color: 'text-accent', rotate: 12, drift: 0.06 }],
-  you: [
-    { shape: 'vessel', x: 18, y: 22, w: 'w-14 md:w-20', color: 'text-accent', rotate: -8, drift: 0.05 },
-    { shape: 'leaf', x: 74, y: 62, w: 'w-10 md:w-14', color: 'text-surface-paper', rotate: 20, drift: 0.09, desktopOnly: true },
-  ],
-  shape: [
-    { shape: 'vessel', x: 70, y: 16, w: 'w-16 md:w-24', color: 'text-ink', rotate: 6, drift: 0.05 },
-    { shape: 'leaf', x: 12, y: 30, w: 'w-12 md:w-16', color: 'text-accent', rotate: -18, drift: 0.08 },
-    { shape: 'wave', x: 24, y: 74, w: 'w-24 md:w-36', color: 'text-surface-paper', rotate: -4, drift: 0.04, desktopOnly: true },
-  ],
-  enter: [
-    { shape: 'figure', x: 12, y: 18, w: 'w-12 md:w-16', color: 'text-ink', rotate: -10, drift: 0.07 },
-    { shape: 'figure', x: 78, y: 24, w: 'w-10 md:w-14', color: 'text-accent', rotate: 14, drift: 0.05 },
-    { shape: 'figure', x: 22, y: 68, w: 'w-10 md:w-14', color: 'text-accent', rotate: 8, drift: 0.1, desktopOnly: true },
-    { shape: 'figure', x: 68, y: 66, w: 'w-12 md:w-16', color: 'text-surface-paper', rotate: -16, drift: 0.06, desktopOnly: true },
-  ],
-  together: [
-    { shape: 'burst', x: 14, y: 16, w: 'w-12 md:w-16', color: 'text-accent', rotate: 0, drift: 0.06 },
-    { shape: 'figure', x: 76, y: 14, w: 'w-10 md:w-14', color: 'text-ink', rotate: 12, drift: 0.08 },
-    { shape: 'leaf', x: 8, y: 58, w: 'w-10 md:w-14', color: 'text-surface-paper', rotate: -22, drift: 0.05, desktopOnly: true },
-    { shape: 'vessel', x: 84, y: 52, w: 'w-12 md:w-20', color: 'text-accent', rotate: -6, drift: 0.04, desktopOnly: true },
-    { shape: 'figure', x: 30, y: 78, w: 'w-9 md:w-12', color: 'text-accent', rotate: 18, drift: 0.09, desktopOnly: true },
-    { shape: 'wave', x: 56, y: 82, w: 'w-20 md:w-32', color: 'text-surface-paper', rotate: 3, drift: 0.07, desktopOnly: true },
-  ],
-};
 
 // The three fabric cards' compositions. Entry vectors are vw/vh — pieces
 // really come in from beyond the screen edges (sides + bottom, per Sjoerd).
@@ -114,11 +81,9 @@ const FIBRE: ScrubPiece[] = [
 ];
 
 function StoryScene({
-  stars,
   seg,
   children,
 }: {
-  stars?: Star[];
   seg?: string;
   children: React.ReactNode;
 }) {
@@ -134,7 +99,6 @@ function StoryScene({
           strokeWidth={2}
         />
       )}
-      {stars && <Constellation stars={stars} />}
       <Scene>{children}</Scene>
     </div>
   );
@@ -283,42 +247,6 @@ export default async function Home() {
           </div>
         </div>
       </section>
-
-      {/* ── The litany, unfolding — one line per breath. ── */}
-      <StoryScene seg={THREAD.cut} stars={CONSTELLATIONS.cut}>
-        <Line>
-          A gathering is a <Ink>cut</Ink> in time.
-        </Line>
-      </StoryScene>
-
-      <StoryScene seg={THREAD.you} stars={CONSTELLATIONS.you}>
-        <Line>
-          <Ink>You</Ink> decide it matters.
-        </Line>
-      </StoryScene>
-
-      <StoryScene seg={THREAD.shape} stars={CONSTELLATIONS.shape}>
-        <Line>
-          You give it a <Ink>shape</Ink>.
-        </Line>
-      </StoryScene>
-
-      <StoryScene seg={THREAD.enter} stars={CONSTELLATIONS.enter}>
-        <Line>
-          People <Ink>enter</Ink>.
-        </Line>
-      </StoryScene>
-
-      <StoryScene seg={THREAD.together} stars={CONSTELLATIONS.together}>
-        <Line>
-          The meaning is made <Ink>together</Ink>.
-        </Line>
-      </StoryScene>
-
-      {/* ── The turn. ── */}
-      <StoryScene seg={THREAD.turn}>
-        <Line>Most event platforms stop at the event.</Line>
-      </StoryScene>
 
       <StoryScene seg={THREAD.starts}>
         <Line>
