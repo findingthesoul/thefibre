@@ -22,8 +22,8 @@ import { startHref } from '@/lib/site';
 // segment ends exactly where the next begins — one line from the hero to
 // the final hook on the invitation card. Not a decorative swirl; a thread.
 const THREAD = {
-  hero: 'M560 0 C555 140 585 260 570 380 C558 470 612 540 620 640',
-  fabric: 'M620 0 C628 120 585 230 615 330 C645 430 692 520 700 640',
+  hero: 'M150 0 C145 130 168 250 152 370 C142 460 172 550 180 640',
+  fabric: 'M180 0 C175 110 240 210 350 300 C480 410 630 500 700 640',
   workshop:
     'M700 0 C705 110 640 190 585 255 C530 320 470 330 490 385 C510 440 610 420 590 355 C575 305 470 400 420 460 C370 520 300 560 280 640',
   fibre: 'M280 0 C270 130 310 260 285 380 C265 480 228 540 220 640',

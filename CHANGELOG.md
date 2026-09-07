@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.62.1] — 2026-09-07 — website: the thread is simply there
+
+- No white interruptions (Sjoerd): the draw-on-scroll scrub is removed from
+  DrawnThread — the line is fully laid end to end at every scroll position,
+  like a thread that has already fallen on the paper. begin/end props stay
+  in the signature but are inert.
+- Hero segment moved into the whitespace between the left edge and the
+  wordmark; card 2's segment re-chained to pick it up there and sweep
+  across the fabric to the workshop handoff.
+
 ## [0.62.0] — 2026-09-07 — website: one fallen thread, text to the right
 
 - The thread is redesigned as ONE line fallen on a long white paper: it now
