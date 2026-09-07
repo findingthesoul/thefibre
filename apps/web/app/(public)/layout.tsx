@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import Image from 'next/image';
 import { APPS, ENTITY, BRAND_ASSETS } from '@thefibre/shared';
+import { MarketingFooter } from '@thefibre/shared/ui/marketing-footer';
 
 // Signed-OUT public pages: /about, /support, /terms, /privacy-policy.
 //
@@ -29,44 +30,9 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         </Link>
 
         {children}
-
-        <footer className="mt-24 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          <nav className="flex flex-wrap gap-x-5 gap-y-1">
-            <Link className="hover:text-neutral-900" href="/pricing">
-              Pricing
-            </Link>
-            <Link className="hover:text-neutral-900" href="/about">
-              About
-            </Link>
-            <Link className="hover:text-neutral-900" href="/support">
-              Support
-            </Link>
-            <Link className="hover:text-neutral-900" href="/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-neutral-900" href="/privacy-policy">
-              Privacy
-            </Link>
-          </nav>
-          <div className="mt-3">
-            {new URL(FIBRE.url).host} · {ENTITY.publicName} · {ENTITY.hostedLine}
-          </div>
-          <div className="mt-1">
-            The platform beneath{' '}
-            <a className="hover:text-neutral-900 underline" href="https://thethread.app">
-              The Thread
-            </a>{' '}
-            · support:{' '}
-            <a className="hover:text-neutral-900 underline" href={`mailto:${ENTITY.supportEmail}`}>
-              {ENTITY.supportEmail}
-            </a>
-          </div>
-          <div className="mt-1">
-            Your data belongs to you: minimum justified storage, EU hosting, erasure on request.
-            No advertising. No profiling. No data sold.
-          </div>
-        </footer>
       </div>
+
+      <MarketingFooter />
     </main>
   );
 }

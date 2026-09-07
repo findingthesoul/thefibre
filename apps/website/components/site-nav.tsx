@@ -9,6 +9,7 @@ import Link from 'next/link';
 import { StartButton } from '@/components/start-dialog';
 
 const LINKS = [
+  { href: '/why', label: 'Why' },
   { href: '/workshop', label: 'The workshop' },
   { href: '/pricing', label: 'Pricing' },
   { href: '/about', label: 'About' },

@@ -5,7 +5,12 @@ import type { Config } from 'tailwindcss';
 // content glob either: this app imports only constants from
 // @thefibre/shared, never components.
 const config: Config = {
-  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  content: [
+    './app/**/*.{ts,tsx}',
+    './components/**/*.{ts,tsx}',
+    // The shared marketing footer carries Tailwind classes.
+    '../../packages/shared/src/ui/**/*.{ts,tsx}',
+  ],
   theme: {
     extend: {
       colors: {

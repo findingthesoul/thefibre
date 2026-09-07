@@ -141,7 +141,7 @@ export default async function Home() {
 
       {/* ── What this is, plainly — Sjoerd's collage compiles with the scroll. ── */}
       <div id="story" />
-      <section className="relative flex h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-6 pt-28 md:px-20">
+      <section className="relative flex h-[100svh] snap-start flex-col items-center justify-start overflow-hidden px-6 pb-6 pt-40 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.fabric}

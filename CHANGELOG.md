@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.2] — 2026-09-08 — the legal pages live on both apexes; the Why page
+
+- Clicking Privacy/Terms/Support on thethread.app no longer lands you on
+  thefibre.app: the three documents moved to @thefibre/shared/ui/legal-docs
+  (one implementation, incl. the prose kit) and are served on BOTH hosts
+  under identical paths; FOOTER_LINKS point at the thethread.app copies.
+  The fibre pages remain as thin wrappers.
+- The default (yellow) footer is now shared too — @thefibre/shared
+  ui/marketing-footer, brand-fixed colours — rendered by the website AND
+  the fibre public pages, so it truly is on every page.
+- NEW /why — "For people who bring people together": simple interface,
+  quick editing, duplicate anything, fully serviced, one place, a fair
+  price. In the nav and the footer.
+- Home card 2: heading a full pt-40 from the top (justify-start).
+
 ## [0.68.1] — 2026-09-08 — the template cards find their colours
 
 ### Changed

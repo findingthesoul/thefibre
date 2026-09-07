@@ -52,10 +52,12 @@ export const ENTITY = {
  *  /privacy-policy, not /privacy: the latter is the signed-in dashboard where
  *  you manage your own consents. */
 export const FOOTER_LINKS = {
-  help: 'https://thefibre.app/support',
-  about: 'https://thefibre.app/about',
-  legal: 'https://thefibre.app/terms',
-  privacy: 'https://thefibre.app/privacy-policy',
+  // The Thread is the public door (Sjoerd, 2026-09-08); the same documents
+  // also serve on thefibre.app under identical paths (shared/ui/legal-docs).
+  help: 'https://thethread.app/support',
+  about: 'https://thethread.app/about',
+  legal: 'https://thethread.app/terms',
+  privacy: 'https://thethread.app/privacy-policy',
 };
 
 /** Hosted brand assets. Served from apps/web/public/brand/. */
