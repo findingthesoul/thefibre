@@ -28,20 +28,6 @@ Setup steps for the app itself (redirect URL, secrets on Fly) live in
 
 ---
 
-## One thing still to build before submitting
-
-Zoom rejects submissions whose user documentation is thin ("common rejection
-issue: user documentation insufficient"), so the **Documentation URL must be
-a page about the Zoom integration specifically** — not the general support
-page. Suite built exactly that at `/docs/zoom`
-(`src/app/docs/zoom/page.tsx`, sections: Adding the app / Usage / Removing
-the app). Port it into the Meet app as a public route at
-`meet.thethread.app/docs/zoom`, re-worded for The Thread, then fill the URL
-into the table below. Half an hour of work; nothing else here is blocked by
-it.
-
----
-
 ## URLs
 
 | Field | Value |
@@ -51,7 +37,7 @@ it.
 | Terms of Use | `https://thethread.app/terms` |
 | Support URL | `https://thethread.app/support` |
 | Support email | `support@thefibre.app` |
-| Documentation URL | `https://meet.thethread.app/docs/zoom` **(to build — see above)** |
+| Documentation URL | `https://meet.thethread.app/docs/zoom` |
 
 > The three legal/support pages are live (v0.18.2, moved to the thethread.app
 > apex in v0.68.2). The support address is `ENTITY.supportEmail` in
@@ -178,7 +164,7 @@ Also state plainly:
 
 ## Submission checklist
 
-- [ ] `/docs/zoom` page built and live at `meet.thethread.app/docs/zoom`
+- [x] `/docs/zoom` page built and live at `meet.thethread.app/docs/zoom` ✓ (v0.68.5)
 - [ ] Privacy Policy live at `https://thethread.app/privacy-policy` ✓ (v0.68.2)
 - [ ] Terms of Use live at `https://thethread.app/terms` ✓ (v0.68.2)
 - [ ] Support page live at `https://thethread.app/support` ✓ (v0.68.2)

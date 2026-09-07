@@ -13,7 +13,7 @@ import { APPS, tileArtUrl } from '@thefibre/shared';
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
 // cross-package releases like 0.13.x). See CLAUDE.md "Version bumps".
-const VERSION = '2.8.0';
+const VERSION = '2.8.1';
 
 type Me = {
   /** Additive: the signed-in interface language (identity_profile.locale). */

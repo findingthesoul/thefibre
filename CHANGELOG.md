@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.5] — 2026-09-08 — the Zoom page a reviewer can read signed out
+
+### Added
+- **`meet.thethread.app/docs/zoom`** — public documentation for the Zoom
+  integration: adding it, what it creates on your account, the four
+  permissions and the one call each is for, what we store and where, how to
+  remove it, and troubleshooting. Zoom's most common Marketplace rejection is
+  "user documentation insufficient", and their Documentation URL has to point
+  at a page about the integration itself, not a general support page — so
+  this is the last piece the submission packet was waiting on. It sits
+  outside the `(app)` group deliberately: a reviewer must be able to read it
+  with no session.
+  Ported from Soul Suite's `/docs/zoom` and corrected to what Meet actually
+  does — Suite deleted and recreated the Zoom meeting on reschedule, we
+  `PATCH` it, so the join link survives a move.
+
+### Changed
+- `docs/zoom-marketplace-submission.md`: Documentation URL filled in, its
+  checklist item ticked.
+
 ## [0.68.4] — 2026-09-08 — the scroll escapes the footer; real shapes on About
 
 - The Home page tail (invitation card + footer) opts out of the snap
