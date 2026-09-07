@@ -23,6 +23,7 @@ import { startHref } from '@/lib/site';
 const THREAD = {
   hero: 'M150 0 C145 130 168 250 152 370 C142 460 172 550 180 640',
   fabric: 'M180 0 C175 110 240 210 350 300 C480 410 630 500 700 640',
+  moment: 'M700 0 C695 110 638 200 658 300 C678 400 706 520 700 640',
   workshop:
     'M700 0 C705 110 640 190 585 255 C530 320 470 330 490 385 C510 440 610 420 590 355 C575 305 470 400 420 460 C370 520 300 560 280 640',
   fibre: 'M280 0 C270 130 310 260 285 380 C265 480 228 540 220 640',
@@ -185,6 +186,18 @@ export default async function Home() {
           style={{ width: 'min(100%, 130svh, 110rem)' }}
         />
       </section>
+
+      {/* ── The turn: a moment vs a journey. ── */}
+      <StoryScene seg={THREAD.moment}>
+        <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
+          <Line>
+            An event is a <Ink>moment</Ink>. It starts, and it stops.
+          </Line>
+          <p className="text-2xl font-semibold leading-tight tracking-tight text-ink-muted md:mt-2 md:text-4xl">
+            A thread is there to weave moments together — into a <Ink>journey</Ink>.
+          </p>
+        </div>
+      </StoryScene>
 
       {/* ── The workshop: text left, Sjoerd's portrait composition right. ── */}
       <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-20">

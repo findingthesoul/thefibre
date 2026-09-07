@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.64.1] — 2026-09-08 — website: the moment-vs-journey card
+
+- New card between the fabric and the workshop: "An event is a moment. It
+  starts, and it stops." / "A thread is there to weave moments together —
+  into a journey." Thread segment spliced into the chain (700 → 700, a
+  wander off-centre and back), workshop handoff untouched.
+
 ## [0.64.0] — 2026-09-08 — website: the serious footer
 
 - Footer rebuilt as a dark four-column band on every page: brand + entity,
