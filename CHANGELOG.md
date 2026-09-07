@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.56.0] — 2026-09-07 — the golden paths: a real browser walks the product
+
+Phase 4 of the testing roadmap starts. 6 Playwright scenarios green
+against staging (83 checks across all layers now).
+
+### Added
+- **`pnpm test:e2e`** — Playwright (chromium) against the staging stack
+  (`e2e/`): the Fibre landing, public /pricing (Free first), the sign-in
+  page, the Thread embed loader served as parseable JS, and — the one
+  that matters — **a signed-in Meet dashboard**.
+- **The hop machinery is the E2E session fixture**: `e2e/helpers.ts`
+  mints a single-use `sso_handoff` code straight into the staging DB for
+  an existing staging user and points the browser at `/sso/land?code=…` —
+  the app redeems it server-side and sets its own session cookies exactly
+  as a real hop does. No OTP inbox, no Google automation, no cookie
+  forgery — and every signed-in E2E run re-exercises the v0.48.0 handoff
+  end to end. The bogus-code degradation path (→ sign-in page, no error
+  surface) is a scenario of its own.
+- Guards as in the integration pack: non-staging Supabase URLs refused;
+  fixture codes are e2e-prefixed, single-use, 60s TTL.
+
+### Next
+Remaining golden paths (Stripe test-checkout enrolment, /my, cross-app
+switch) need a public staging thread fixture; the two-user RLS matrix
+needs an auth-fixture harness — both queued in build-plan 0a.
+
 ## [0.55.0] — 2026-09-07 — the integration pack: real Postgres, real RLS
 
 Phase 3 of the testing roadmap. 29 more tests (77 total): 22 integration

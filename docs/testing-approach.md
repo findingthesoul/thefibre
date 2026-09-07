@@ -163,9 +163,13 @@ Phased so each step pays for itself; groomed like everything else via
 - **Phase 3 — integration pack on staging. STARTED v0.55.0** (RLS anon-floor ×14 tables, recordPurchase idempotency, sso_handoff race; remaining: the two-user cross-workspace RLS matrix via an auth-fixture harness, scheduler transitions). The RLS matrix, webhook
   idempotency, handoff race. Runs post-staging-deploy, before promoting
   the same commit's confidence to prod.
-- **Phase 4 — Playwright golden paths on staging.** The ten scenarios of
-  §3.5. Gate: staging deploy green before the prod push becomes routine
-  for risky releases.
+- **Phase 4 — Playwright golden paths on staging. STARTED v0.56.0** —
+  6 scenarios green (landing, pricing, sign-in page, embed-loader JS, a
+  SIGNED-IN Meet dashboard via a minted /sso/land handoff code — the hop
+  machinery doubles as the E2E session fixture, no OTP inbox needed — and
+  the bogus-code degradation path). Remaining scenarios (enrol via Stripe
+  test checkout, /my, cross-app switch) need a public staging thread
+  fixture. Run: `pnpm test:e2e`.
 - **Ongoing — external programme.** Keep dogfooding on production; grow
   the comped beta circle deliberately (every beta workspace = named
   contact + feedback loop into build-plan); treat integrator-facing

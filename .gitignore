@@ -44,3 +44,5 @@ Thumbs.db
 coverage/
 .claude/
 apps/*/.env.staging
+test-results/
+playwright-report/
