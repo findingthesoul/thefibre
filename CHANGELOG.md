@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.7] — 2026-09-08 — the standard shapes show where people look
+
+### Fixed
+- **"I see no default templates"** (Sjoerd, on the Templates page — the
+  natural place; the shapes only lived in New-thread and the first-event
+  hero): the Templates hub now carries a "Standard shapes" section with
+  the five cards, each linking into a pre-selected New thread. The
+  New-thread picker also fails loudly (translated note) instead of
+  silently hiding when the library cannot load.
+
+
 ## [0.67.6] — 2026-09-08 — The Thread is the name; Zierikzee is the place
 
 - ENTITY gains publicName 'The Thread' (registered business name of

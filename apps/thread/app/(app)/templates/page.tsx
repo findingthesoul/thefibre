@@ -3,12 +3,20 @@ import { Award, CalendarRange, ChevronRight, type LucideIcon } from 'lucide-reac
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
+import { apiFetch } from '@/lib/api';
+import { EMPTY_LIBRARY, TemplateCard, type TemplateLibrary } from '@/components/template-cards';
 
 // Templates hub (Sjoerd 2026-07-02): one place for both template kinds.
 // Certificate templates live under /certificates (the builder);
 // thread templates arrive with save-as / create-from.
 export default async function TemplatesPage() {
   const locale = await uiLocale();
+  // The standard shapes live here too (Sjoerd 2026-09-08: "I see no default
+  // templates" — he looked HERE, the natural place; New-thread's picker was
+  // the only surface).
+  const library = await apiFetch<TemplateLibrary>('/api/v1/thread/template-library').catch(
+    () => EMPTY_LIBRARY,
+  );
   return (
     <PageContainer max="4xl">
       <PageHeader title={t(locale, 'templates')} description={t(locale, 'templates_desc')} />
@@ -26,6 +34,25 @@ export default async function TemplatesPage() {
           desc={t(locale, 'thread_templates_card_desc')}
         />
       </div>
+
+      {library.templates.length > 0 && (
+        <section className="mt-12">
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'tpl_standard_shapes')}
+          </div>
+          <p className="mt-1 text-sm text-ink-subtle">{t(locale, 'tpl_standard_shapes_desc')}</p>
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {library.templates.map((tpl) => (
+              <TemplateCard
+                key={tpl.id}
+                locale={locale}
+                template={tpl}
+                href={tpl.available ? `/threads/new?template=${tpl.id}` : undefined}
+              />
+            ))}
+          </div>
+        </section>
+      )}
     </PageContainer>
   );
 }

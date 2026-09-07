@@ -93,7 +93,7 @@ export function NewThreadForm({
       {/* Standard template picker (Sjoerd 2026-09-08) — five event shapes;
           the plan slices which are available, and the seeded elements are
           then configured rather than built. */}
-      {library.templates.length > 0 && (
+      {library.templates.length > 0 ? (
         <div>
           <SectionLabel>{t(locale, 'tpl_pick')}</SectionLabel>
           <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -115,6 +115,8 @@ export function NewThreadForm({
             )}
           </div>
         </div>
+      ) : (
+        <p className="text-sm text-amber-700 dark:text-amber-400">{t(locale, 'tpl_load_failed')}</p>
       )}
 
       {/* Compact toggles (Sjoerd 2026-07-02) — the explanation of the active

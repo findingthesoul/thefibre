@@ -6220,6 +6220,32 @@ const CATALOG = {
     de: 'Wähle eine Form zum Starten — jedes Element kommt fertig zum Konfigurieren, und du veröffentlichst, wenn es passt.', // MT
     fr: 'Choisis une forme pour commencer — chaque élément arrive prêt à configurer, et tu publies quand tu le sens.', // MT
   },
+
+  // ── standard shapes on the templates hub ─────────────────────────────
+  tpl_standard_shapes: {
+    en: 'Standard shapes',
+    nl: 'Standaardvormen',
+    es: 'Formas estándar', // MT
+    pt: 'Formas padrão', // MT
+    de: 'Standardformen', // MT
+    fr: 'Formes standard', // MT
+  },
+  tpl_standard_shapes_desc: {
+    en: 'Ready-made event shapes from The Thread — pick one to start a new thread from it.',
+    nl: 'Kant-en-klare evenementvormen van The Thread — kies er een om een nieuwe thread mee te starten.',
+    es: 'Formas de evento listas para usar de The Thread — elige una para empezar un nuevo thread.', // MT
+    pt: 'Formas de evento prontas do The Thread — escolha uma para começar um novo thread.', // MT
+    de: 'Fertige Veranstaltungsformen von The Thread — wähle eine, um einen neuen Thread zu starten.', // MT
+    fr: 'Des formes d’événement prêtes à l’emploi de The Thread — choisis-en une pour démarrer un nouveau thread.', // MT
+  },
+  tpl_load_failed: {
+    en: 'The standard shapes could not be loaded — you can still create the thread and add elements later, or reload the page.',
+    nl: 'De standaardvormen konden niet worden geladen — je kunt de thread gewoon aanmaken en later elementen toevoegen, of de pagina herladen.',
+    es: 'No se pudieron cargar las formas estándar — puedes crear el thread igualmente y añadir elementos luego, o recargar la página.', // MT
+    pt: 'Não foi possível carregar as formas padrão — você ainda pode criar o thread e adicionar elementos depois, ou recarregar a página.', // MT
+    de: 'Die Standardformen konnten nicht geladen werden — du kannst den Thread trotzdem anlegen und Elemente später hinzufügen, oder die Seite neu laden.', // MT
+    fr: 'Impossible de charger les formes standard — tu peux quand même créer le thread et ajouter des éléments plus tard, ou recharger la page.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;
