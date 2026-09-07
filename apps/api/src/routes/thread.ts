@@ -5527,7 +5527,8 @@ threadRoutes.post('/public/enrol', async (c) => {
       const session = await stripe.checkout.sessions.create(
         {
           mode: 'payment',
-          payment_method_types: ['card'],
+          // No pinned methods (2026-09-07): the dashboard's payment-method
+          // configuration governs — enabling iDEAL/SEPA there just works.
           line_items: [
             {
               price_data: {

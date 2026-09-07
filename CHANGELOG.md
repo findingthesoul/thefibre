@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.56.2] — 2026-09-07 — payment methods follow the dashboard
+
+### Changed
+- All five payment-link/checkout flows that pinned card-only now use
+  Stripe's dynamic payment methods — enabling iDEAL, SEPA Direct Debit,
+  Bancontact etc. in the dashboard's payment-method configuration takes
+  effect everywhere (the membership join + à-la-carte buy flows already
+  did). Cheapest rails for Dutch members: iDEAL flat ~€0.29 vs ~1.5%+
+  for cards.
+
 ## [0.56.1] — 2026-09-07 — the join page's optional extras actually appear
 
 ### Fixed
