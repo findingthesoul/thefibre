@@ -18,6 +18,11 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
+  /* The magnet (Sjoerd): each full-page card pulls the scroll onto
+     itself. Elements without snap-align are unaffected, so text-heavy
+     subpages scroll freely. Sections taller than the viewport remain
+     scrollable within, per the spec. */
+  scroll-snap-type: y mandatory;
 }
 
 body {

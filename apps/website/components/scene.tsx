@@ -42,7 +42,7 @@ export function Scene({
   return (
     <section
       ref={ref}
-      className={`relative flex ${tall ? 'min-h-[92svh]' : 'min-h-[55svh]'} items-center justify-center px-6 md:px-10 ${className}`}
+      className={`relative flex ${tall ? 'min-h-[100svh]' : 'min-h-[55svh]'} items-center justify-center px-6 md:px-10 ${className}`}
     >
       <div
         className="mx-auto max-w-4xl text-center transition-all duration-700 ease-out"

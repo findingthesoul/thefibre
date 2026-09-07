@@ -58,7 +58,7 @@ function StoryScene({
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative">
+    <div className="relative snap-start overflow-hidden">
       {seg && (
         <DrawnThread
           viewBox="0 0 1000 640"
@@ -79,26 +79,32 @@ export default async function Home() {
   const { mode } = await loadPlans();
 
   return (
-    <main className="overflow-hidden">
+    <main>
       {/* ── The opening: wordmark alone on the white, an invitation down. ── */}
-      <section className="relative flex min-h-[92svh] flex-col items-center justify-center px-6">
+      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center px-6">
         <div id="hero-wordmark-sentinel" className="flex flex-col items-center gap-5 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-the-thread.svg" alt="The Thread" className="h-16 w-auto md:h-24" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/payoff.svg" alt="For weaving the social fabric." className="h-4 w-auto md:h-5" />
+          <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-ink md:text-lg">
+            Tools to facilitate change.
+          </p>
         </div>
-        <div className="absolute bottom-8 flex flex-col items-center gap-2">
+        <a
+          href="#story"
+          className="absolute bottom-8 flex flex-col items-center gap-2 transition-opacity hover:opacity-60"
+          aria-label="Begin the story"
+        >
           <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-ink-muted">
             Scroll
           </span>
           <svg width="2" height="56" aria-hidden="true" className="text-ink/70">
             <line x1="1" y1="0" x2="1" y2="56" stroke="currentColor" strokeWidth="2" />
           </svg>
-        </div>
+        </a>
       </section>
 
       {/* ── The litany, unfolding — one line per breath. ── */}
+      <div id="story" />
       <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.cut}>
         <Line>
           A gathering is a <Ink>cut</Ink> in time.
@@ -146,7 +152,7 @@ export default async function Home() {
       </StoryScene>
 
       {/* ── The arc, grounded. ── */}
-      <section className="relative bg-surface-warm px-6 py-24 md:px-10 md:py-32">
+      <section className="relative snap-start bg-surface-warm px-6 py-24 md:px-10 md:py-32">
         <div className="mx-auto max-w-5xl">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
             Before · During · After
@@ -200,7 +206,7 @@ export default async function Home() {
       </section>
 
       {/* ── Proof, quiet. ── */}
-      <section className="border-y border-line px-6 py-16 md:px-10">
+      <section className="snap-start border-y border-line px-6 py-16 md:px-10">
         <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
           {[
             ['Six languages', 'Public pages, messages and certificates — reading beautifully in all of them.'],

@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.6] — 2026-09-07 — website: the cards become magnetic (Sjoerd's live review)
+
+- Full-page cards with scroll-snap — a scroll pulls the next card in
+  "like a magnet"; SCROLL is now a click that opens the story. (Gotcha
+  earned: overflow-hidden on <main> silently made IT the snap container —
+  clipping moved onto each card.)
+- Nav links get a light-grey shape on hover.
+- Under the wordmark: "Tools to facilitate change."
+
+
 ## [0.59.5] — 2026-09-07 — website: the yellow button squares up
 
 Sjoerd's live review of the unfolding Home ("looks great"): the nav's

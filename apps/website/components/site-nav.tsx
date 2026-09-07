@@ -53,7 +53,7 @@ export function SiteNav() {
           <Link
             key={l.href}
             href={l.href}
-            className="hidden text-[13px] font-medium text-ink-subtle transition-colors hover:text-ink sm:inline-block"
+            className="hidden rounded-lg px-3 py-2 text-[13px] font-medium text-ink-subtle transition-colors hover:bg-surface-paper hover:text-ink sm:inline-block"
           >
             {l.label}
           </Link>
