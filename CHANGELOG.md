@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.57.2] — 2026-09-07 — the hook survives a mixed-case email
+
+The v0.57.0 finding, fixed and locked. Migration 20260907190000 wraps the
+access-token hook's email join in lower() on both sides — a mixed-case
+email in `public."user"` used to mint a token with NO custom claims (a
+silent, claim-less sign-in; auth varchar vs citext defeated the case
+folding). Regression `hook-case.int.test.ts` reproduces the exact trigger
+(lowercase auth email, mixed-case platform row) and was run RED before
+the migration, GREEN after, on staging — then the migration went to prod.
+31 integration tests. `docs/build-plan.md` 0a finding closed.
+
 ## [0.57.1] — 2026-09-07 — the language follows you; dropdowns stop hiding (Meet 2.7.1)
 
 ### Fixed
