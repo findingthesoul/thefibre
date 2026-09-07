@@ -20,10 +20,21 @@ export type LauncherApp = {
   name: string;
   tagline: string;
   letters: string;
+  /** Matisse tile crop (/brand/apps/<slug>.png) — null falls back to letters. */
+  art: string | null;
   href: string;
 };
 
-export function LauncherOverlay({ apps, locale }: { apps: LauncherApp[]; locale: Locale }) {
+export function LauncherOverlay({
+  apps,
+  fillers = [],
+  locale,
+}: {
+  apps: LauncherApp[];
+  /** Decorative crops completing the 4×2 poster around the app tiles. */
+  fillers?: string[];
+  locale: Locale;
+}) {
   const [open, setOpen] = useState(false);
   const [optOut, setOptOut] = useState(false);
 
@@ -72,23 +83,32 @@ export function LauncherOverlay({ apps, locale }: { apps: LauncherApp[]; locale:
             <X size={18} strokeWidth={1.75} />
           </button>
         </div>
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {apps.map((app) => (
-            <a
-              key={app.slug}
-              href={app.href}
-              className="flex items-center gap-4 rounded-xl border border-line bg-surface p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken"
-            >
-              <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-lg tracking-tight shrink-0">
-                {app.letters}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-lg font-medium leading-tight">{app.name}</span>
-                <span className="mt-0.5 block text-sm text-ink-subtle truncate">
-                  {app.tagline}
+            <a key={app.slug} href={app.href} className="group block min-w-0">
+              {app.art ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={app.art}
+                  alt=""
+                  className="aspect-square w-full rounded-lg object-cover transition-transform group-hover:scale-[1.02]"
+                />
+              ) : (
+                <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-2xl tracking-tight transition-transform group-hover:scale-[1.02]">
+                  {app.letters}
                 </span>
+              )}
+              <span className="mt-1.5 block text-center text-sm font-medium truncate">
+                {app.name}
               </span>
             </a>
+          ))}
+          {fillers.map((src) => (
+            <span key={src} className="block min-w-0" aria-hidden="true">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={src} alt="" className="aspect-square w-full rounded-lg object-cover" />
+              <span className="mt-1.5 block text-sm">&nbsp;</span>
+            </span>
           ))}
         </div>
         <label className="mt-6 flex items-center gap-2.5 text-sm text-ink-subtle cursor-pointer select-none">

@@ -1,4 +1,6 @@
 import Link from 'next/link';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
@@ -28,7 +30,7 @@ const APP_DOMAINS: Record<string, string> = Object.fromEntries(
 
 // The launcher's order: Thread first (the flagship — naming brief), then
 // the tools in its service.
-const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'fibre-flow', 'fibre-pulse', 'membership'];
+const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow'];
 
 type Activity = {
   id: string;
@@ -114,14 +116,28 @@ export default async function Dashboard() {
     name: APPS[slug].name,
     tagline: APPS[slug].tagline,
     letters: APPS[slug].brandLetters,
+    // Matisse tile art by convention: public/brand/apps/<slug>.png exists →
+    // it renders; missing → the yellow brand-letters tile. Swap art by
+    // swapping files, no code change (Sjoerd 2026-09-07).
+    art: existsSync(join(process.cwd(), 'public', 'brand', 'apps', `${slug}.png`))
+      ? `/brand/apps/${slug}.png`
+      : null,
     href: APP_DOMAINS[slug] ?? '#',
   }));
+  // Decorative tapestry fillers: the launcher popup is ONE poster — 4 tiles
+  // × 2 rows (Sjoerd: "the icons together make up one poster… a tapestry").
+  // Apps fill the first cells in LAUNCH_ORDER; filler-1.png…filler-3.png
+  // complete the weave. Missing files simply leave the grid shorter.
+  const fillerArt = [1, 2, 3]
+    .map((n) => `filler-${n}.png`)
+    .filter((f) => existsSync(join(process.cwd(), 'public', 'brand', 'apps', f)))
+    .map((f) => `/brand/apps/${f}`);
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
       {/* On entry the launcher pops above the page, dimmed backdrop —
           once per browser session; the same tiles stay inline below. */}
-      {!launcherOff && <LauncherOverlay apps={launcherApps} locale={locale} />}
+      {!launcherOff && <LauncherOverlay apps={launcherApps} fillers={fillerArt} locale={locale} />}
       <h1 className="text-3xl font-medium tracking-tight">
         {t(locale, 'welcome_name', { name: firstName })}
       </h1>

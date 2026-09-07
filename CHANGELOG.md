@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.6] — 2026-09-07 — the launcher becomes a tapestry
+
+### Changed
+- **The launcher popup is one poster** (Sjoerd: "the icons together make
+  up one poster — 4 on a row, 2 rows… a tapestry"): square Matisse-crop
+  tiles in a 4×2 weave — the five apps in order (The Thread, Meet,
+  Members, Pulse, Flow), decorative crops completing the grid. Art is
+  picked up by convention from `public/brand/apps/` (`<slug>.png`,
+  `filler-N.png`) the moment the files exist; until then the yellow
+  letter tiles stand in. The inline "Your apps" section keeps the card
+  style and also shows per-app art when present.
+
+
 ## [0.58.5] — 2026-09-07 — fixtures learn what append-only means; the charge is rehearsed
 
 ### The rehearsal (not code — for the record)

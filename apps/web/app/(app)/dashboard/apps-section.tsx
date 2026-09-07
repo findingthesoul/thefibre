@@ -63,9 +63,18 @@ export function AppsSection({
               href={app.href}
               className="flex items-center gap-4 rounded-xl border border-line bg-surface-raised p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken"
             >
-              <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-lg tracking-tight shrink-0">
-                {app.letters}
-              </span>
+              {app.art ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={app.art}
+                  alt=""
+                  className="h-14 w-14 rounded-lg object-cover shrink-0"
+                />
+              ) : (
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-lg tracking-tight shrink-0">
+                  {app.letters}
+                </span>
+              )}
               <span className="min-w-0">
                 <span className="block text-lg font-medium leading-tight">{app.name}</span>
                 <span className="mt-0.5 block text-sm text-ink-subtle truncate">
