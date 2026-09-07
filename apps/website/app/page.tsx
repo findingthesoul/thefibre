@@ -55,19 +55,21 @@ const CONSTELLATIONS: Record<string, Star[]> = {
 // black leaf 3→4. A traveller exits DOWN on one card (its scatter vector
 // points below) and enters FROM THE TOP on the next, so it reads as one
 // shape moving down the page.
+// Spread to fill the whole canvas (Sjoerd: "second card almost full with
+// illustration") — same arrangement, scaled up and opened out vertically.
 const FABRIC: ScrubPiece[] = [
-  { src: 'start-figure.png', x: 7, y: 26, w: 15, dx: -8, dy: 45, r: -22, e: 0.85 },
-  { src: 'yellow-shape.png', x: 20, y: 36, w: 6.2, dx: -52, dy: 6, r: 18, e: 1.1 },
-  { src: 'bordeaux-shape.png', x: 24.5, y: 44, w: 6.5, dx: -40, dy: 14, r: -30, e: 1.3 },
-  { src: 'blue-shape-cup.png', x: 29.5, y: 47, w: 15.3, dx: -10, dy: 55, r: 10, e: 1 },
-  { src: 'orange-vase.png', x: 43.2, y: 40, w: 13.2, dx: 0, dy: 60, r: -8, e: 0.9 },
-  { src: 'yellow-egg.png', x: 51.5, y: 38.5, w: 6.3, dx: 6, dy: 45, r: 35, e: 1.4 },
-  { src: 'rise-bowl.png', x: 54.5, y: 61.5, w: 11, dx: 6, dy: 50, r: -14, e: 1.15 },
-  { src: 'blue-bowl.png', x: 64.5, y: 53.5, w: 8.2, dx: 38, dy: 10, r: 20, e: 1.25 },
-  { src: 'blue-square.png', x: 70.5, y: 52, w: 13.2, dx: 50, dy: 4, r: 8, e: 1 },
-  { src: 'double-vase.png', x: 80.5, y: 28.5, w: 7.6, dx: 45, dy: -8, r: -16, e: 0.9 },
-  { src: 'turqois-stool.png', x: 77.5, y: 62.5, w: 10, dx: 18, dy: 48, r: 12, e: 1.2 },
-  { src: 'ligth-turqiose-leaf.png', x: 88, y: 13, w: 8.6, dx: 40, dy: -14, r: 28, e: 1.35 },
+  { src: 'start-figure.png', x: 6.4, y: 22.7, w: 17.3, dx: -8, dy: 45, r: -22, e: 0.85 },
+  { src: 'yellow-shape.png', x: 19.8, y: 36.2, w: 7.1, dx: -52, dy: 6, r: 18, e: 1.1 },
+  { src: 'bordeaux-shape.png', x: 24.3, y: 47, w: 7.5, dx: -40, dy: 14, r: -30, e: 1.3 },
+  { src: 'blue-shape-cup.png', x: 28.9, y: 51.1, w: 17.6, dx: -10, dy: 55, r: 10, e: 1 },
+  { src: 'orange-vase.png', x: 42.7, y: 41.6, w: 15.2, dx: 0, dy: 60, r: -8, e: 0.9 },
+  { src: 'yellow-egg.png', x: 51.3, y: 39.6, w: 7.3, dx: 6, dy: 45, r: 35, e: 1.4 },
+  { src: 'rise-bowl.png', x: 54.1, y: 70.6, w: 12.7, dx: 6, dy: 50, r: -14, e: 1.15 },
+  { src: 'blue-bowl.png', x: 64.2, y: 59.8, w: 9.4, dx: 38, dy: 10, r: 20, e: 1.25 },
+  { src: 'blue-square.png', x: 70, y: 57.8, w: 15.2, dx: 50, dy: 4, r: 8, e: 1 },
+  { src: 'double-vase.png', x: 80.2, y: 26.1, w: 8.7, dx: 45, dy: -8, r: -16, e: 0.9 },
+  { src: 'turqois-stool.png', x: 77.1, y: 72, w: 11.5, dx: 18, dy: 48, r: 12, e: 1.2 },
+  { src: 'ligth-turqiose-leaf.png', x: 87.7, y: 5.2, w: 9.9, dx: 40, dy: -14, r: 28, e: 1.35 },
 ];
 
 // Sjoerd's second reference (portrait): leaf on top, green stalk + turquoise
@@ -159,14 +161,12 @@ export default async function Home() {
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
-        <div className="relative mx-auto max-w-3xl text-center">
-          <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
-            Weaving the social fabric.
+        <div className="relative mx-auto max-w-4xl text-center">
+          <h2 className="text-2xl font-semibold tracking-tight md:text-4xl">
+            Weaving the social fabric.{' '}
+            <span className="text-ink-muted">In companies. In society.</span>
           </h2>
-          <p className="mt-1 text-3xl font-semibold tracking-tight text-ink-muted md:text-5xl">
-            In companies. In society.
-          </p>
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle md:text-lg">
+          <p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-ink-subtle md:text-base">
             The Thread is a set of online tools for people who bring people together. You set up a
             gathering — a workshop, a training, a conference — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
@@ -177,9 +177,9 @@ export default async function Home() {
         <ScrollCollage
           pieces={FABRIC}
           aspect="17 / 10"
-          caption={{ text: "Inspired by Matisse's paper cuts", x: 13.5, y: 62, rotate: -32 }}
-          className="mt-6 md:mt-3"
-          style={{ width: 'min(100%, 88svh, 80rem)' }}
+          caption={{ text: "Inspired by Matisse's paper cuts", x: 13, y: 71, rotate: -32 }}
+          className="mt-4 md:mt-2"
+          style={{ width: 'min(100%, 130svh, 110rem)' }}
         />
       </section>
 

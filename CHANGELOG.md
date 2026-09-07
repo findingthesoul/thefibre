@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.61.1] — 2026-09-07 — website: card 2 almost full with illustration
+
+- The fabric collage now dominates card 2: heading collapsed to one line,
+  smaller paragraph, collage cap raised to 130svh and the arrangement itself
+  opened out to use the whole canvas (same composition, scaled up and spread
+  vertically).
+
 ## [0.61.0] — 2026-09-07 — website: the cards learn to move with the scroll
 
 - Home cards 2–4 are now a connected sequence: the collage COMPILES as a card
