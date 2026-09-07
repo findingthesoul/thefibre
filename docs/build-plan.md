@@ -22,14 +22,16 @@ the queue.
 
 _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
 
-**0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE).**
+**0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
+   hard cut EXECUTED 2026-09-07).**
    The five delivery apps live on *.thethread.app (Thread = app.); fibre web
-   stays on thefibre.app; sessions cross via /sso/hop. Remaining:
-   - **Hard cut** the five old *.thefibre.app subdomains after a short grace
-     window (~2026-09-08): detach from the Vercel projects, drop the
-     transitional old-origin entries from the prod API's CORS_ORIGINS
-     secret. Before detaching: list open unpaid payment links (they carry
-     old success/cancel URLs) and resend any that matter.
+   stays on thefibre.app; sessions cross via /sso/hop. The old
+   *.thefibre.app app subdomains are detached (404) and the transitional
+   CORS_ORIGINS secret is removed — Sjoerd confirmed all affected data was
+   test data, so no payment-link resends were needed. Remaining:
+   - **TransIP cosmetic cleanup** (Sjoerd, no rush): the five stale
+     meet/thread/flow/pulse/membership records in the thefibre.app DNS
+     zone now point at a 404 — delete them whenever convenient.
    - **Decommission old Thread V3** (separate repo ~/Projects/thethread-v3,
      Vercel project thethread-v3): remove its 5-min cron + its Stripe
      webhook (https://thethread.app/api/webhooks/stripe); the APEX LANDING
