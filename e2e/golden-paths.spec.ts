@@ -2,7 +2,7 @@
 // must simply work, exercised in a real browser against staging.
 
 import { expect, test } from '@playwright/test';
-import { HOSTS, signedInLandUrl } from './helpers.js';
+import { HOSTS, authUserByEmail, createPublicThread, signedInLandUrl, signedInLandUrlFor } from './helpers.js';
 
 test.describe('public surfaces', () => {
   test('the Fibre landing renders with a way in', async ({ page }) => {
@@ -52,5 +52,53 @@ test.describe('signed-in golden path (session via the SSO landing route)', () =>
     await page.goto(`${HOSTS.meet}/sso/land?code=e2e-bogus-code&next=/dashboard`);
     await page.waitForURL(/\/\?next=/, { timeout: 30_000 });
     await expect(page.getByRole('button', { name: /continue with google/i })).toBeVisible();
+  });
+});
+
+test.describe('enrolment golden path (free ticket, throwaway fixture)', () => {
+  // The Stripe-card variant is deliberately NOT automated: it needs the
+  // rehearsal workspace's wired test account, which is Sjoerd's supervised
+  // rig (see docs/testing-approach.md). Free path covers page → enrol →
+  // /my; the card adds only Stripe's own hosted form on top.
+  test('a published thread renders publicly and /my shows a fresh enrolment', async ({
+    page,
+    request,
+  }) => {
+    const fixture = await createPublicThread('golden');
+    const participantEmail = `e2e-enrolee-${Date.now()}@example.com`;
+    try {
+      // 1 · The public page renders with the thread's substance.
+      await page.goto(`${HOSTS.thread}/${fixture.organiserSlug}/${fixture.threadSlug}`);
+      await expect(page.getByText(fixture.title).first()).toBeVisible({ timeout: 30_000 });
+      await expect(page.getByText(fixture.intention).first()).toBeVisible();
+
+      // 2 · Enrol through the public API (the browser form posts the same
+      // payload; the UI-driven variant can join later without changing this).
+      const r = await request.post(
+        'https://thefibre-api-staging.fly.dev/api/v1/thread/public/enrol',
+        {
+          data: {
+            organiser_slug: fixture.organiserSlug,
+            thread_slug: fixture.threadSlug,
+            name: 'E2E Enrolee',
+            email: participantEmail,
+            request_id: `e2e-${Date.now()}`,
+            policy_accepted: true,
+          },
+        },
+      );
+      expect(r.status()).toBe(201);
+      expect((await r.json()).has_account).toBe(true);
+
+      // 3 · The auto-created participant signs in via a minted handoff and
+      // sees the enrolment on /my.
+      const participant = await authUserByEmail(participantEmail);
+      const url = await signedInLandUrlFor(HOSTS.thread, 'the-thread', participant, '/my');
+      await page.goto(url);
+      await page.waitForURL(/\/my/, { timeout: 30_000 });
+      await expect(page.getByText(fixture.title).first()).toBeVisible({ timeout: 30_000 });
+    } finally {
+      await fixture.cleanup([participantEmail]);
+    }
   });
 });

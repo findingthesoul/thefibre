@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.0] — 2026-09-07 — the enrolment golden path, walked by a browser
+
+The last automatable golden path: a stranger enrols in a published thread
+and finds it on /my — proven both server-side and in a real browser.
+
+### Added
+- **Public-thread fixture** (integration harness + E2E twin): the minimum
+  viable PUBLISHED thread — throwaway workspace, organiser, ACTIVE
+  program, public-listed thread, NO tickets — so the enrol route takes the
+  free path without ever touching the rehearsal workspace's Stripe rig.
+  Full teardown includes everything the enrol flow auto-creates (person,
+  platform user, auth account).
+- **`enrol-free.int.test.ts`** (34 integration tests total): POST
+  /thread/public/enrol → 201 with `has_account: true`; the oracle confirms
+  thread_enrolment (payment_status `not_required`) + person + platform
+  enrolment; same request_id replays idempotently (still one row); missing
+  policy agreement refused.
+- **E2E golden path #7**: the fixture thread renders publicly (title +
+  intention), the API enrolment lands, and the auto-created participant
+  signs in via a minted handoff to see the enrolment on /my. The
+  Stripe-card variant stays a supervised rehearsal on the rig, on purpose.
+- e2e helpers: `createPublicThread`, `signedInLandUrlFor` (handoff mint
+  for a specific participant), `authUserByEmail`.
+
+### Note on the version line
+- v0.56.1/v0.56.2 were released AFTER v0.57.2 with backwards numbers
+  (another session bumped from a stale base while cross-session messaging
+  was down). This release re-anchors the line at 0.58.0; nothing else
+  about those releases needs correcting.
+
 ## [0.58.0] — 2026-09-07 — the front door: a launcher and a welcome
 
 ### Added

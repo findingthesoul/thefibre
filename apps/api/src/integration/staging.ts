@@ -137,3 +137,120 @@ export function jwtClaims(u: FixtureUser): Record<string, unknown> {
   const payload = u.accessToken.split('.')[1] ?? '';
   return JSON.parse(Buffer.from(payload, 'base64url').toString() || '{}');
 }
+
+// ---------------------------------------------------------------------------
+// Public-thread fixture (v0.58.0): the minimum viable PUBLISHED thread — a
+// throwaway workspace, an organiser (user row only; no session needed), an
+// ACTIVE program and a public-listed thread with NO tickets, so the public
+// enrol route takes the free path. Unlocks the enrolment golden paths
+// without touching the rehearsal workspace's Stripe rig.
+// ---------------------------------------------------------------------------
+
+export type PublicThreadFixture = {
+  workspaceId: string;
+  userRowId: string;
+  organiserId: string;
+  organiserSlug: string;
+  programId: string;
+  threadId: string;
+  threadSlug: string;
+  title: string;
+};
+
+export async function createPublicThreadFixture(tag: string): Promise<PublicThreadFixture> {
+  const t = tag.toLowerCase();
+  const rand = randomUUID().slice(0, 8);
+  const workspaceId = await createThrowawayWorkspace(t);
+
+  const { data: urow, error: uErr } = await service
+    .from('user')
+    .insert({ workspace_id: workspaceId, email: `int-${t}-org-${rand}@example.com` })
+    .select('id')
+    .single();
+  if (uErr) throw new Error(`fixture user: ${uErr.message}`);
+
+  const { data: app } = await service.from('app').select('id').eq('slug', 'the-thread').single();
+
+  const { data: program, error: pErr } = await service
+    .from('program')
+    .insert({
+      workspace_id: workspaceId,
+      app_id: app!.id,
+      title: `Integration journey ${rand}`,
+      format: 'journey',
+      status: 'active',
+    })
+    .select('id, title')
+    .single();
+  if (pErr) throw new Error(`fixture program: ${pErr.message}`);
+
+  const organiserSlug = `int-org-${rand}`;
+  const { data: org, error: oErr } = await service
+    .from('thread_organiser')
+    .insert({
+      user_id: urow.id,
+      workspace_id: workspaceId,
+      slug: organiserSlug,
+      display_name: 'Integration Organiser',
+    })
+    .select('id')
+    .single();
+  if (oErr) throw new Error(`fixture organiser: ${oErr.message}`);
+
+  const threadSlug = `int-thread-${rand}`;
+  const { data: thread, error: tErr } = await service
+    .from('thread_thread')
+    .insert({
+      workspace_id: workspaceId,
+      program_id: program.id,
+      organiser_id: org.id,
+      slug: threadSlug,
+      intention: 'Prove the free enrolment path end to end.',
+      is_public_listed: true,
+    })
+    .select('id')
+    .single();
+  if (tErr) throw new Error(`fixture thread: ${tErr.message}`);
+
+  return {
+    workspaceId,
+    userRowId: urow.id as string,
+    organiserId: org.id as string,
+    organiserSlug,
+    programId: program.id as string,
+    threadId: thread.id as string,
+    threadSlug,
+    title: program.title as string,
+  };
+}
+
+/** Tear the fixture down, including whatever the enrol flow auto-created
+ *  (thread enrolments, platform enrolments, persons, users, auth accounts
+ *  for the given participant emails). */
+export async function cleanupPublicThreadFixture(
+  f: PublicThreadFixture,
+  participantEmails: string[] = [],
+): Promise<void> {
+  await service.from('thread_enrolment').delete().eq('thread_id', f.threadId);
+  await service.from('enrolment').delete().eq('program_id', f.programId);
+  for (const email of participantEmails) {
+    const { data: persons } = await service
+      .from('person')
+      .select('id')
+      .eq('workspace_id', f.workspaceId)
+      .eq('email', email);
+    for (const p of persons ?? []) {
+      await service.from('activity').delete().eq('person_id', p.id);
+      await service.from('person').delete().eq('id', p.id);
+    }
+    await service.from('user').delete().eq('workspace_id', f.workspaceId).eq('email', email);
+    const { data: listed } = await service.auth.admin.listUsers({ perPage: 100 });
+    const au = listed?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
+    if (au) await service.auth.admin.deleteUser(au.id).catch(() => undefined);
+  }
+  await service.from('thread_thread').delete().eq('id', f.threadId);
+  await service.from('thread_organiser').delete().eq('id', f.organiserId);
+  await service.from('program').delete().eq('id', f.programId);
+  await service.from('user').delete().eq('id', f.userRowId);
+  await deleteThrowawayWorkspace(f.workspaceId);
+}
