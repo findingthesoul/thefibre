@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/flow",
-  "version": "0.57.2",
+  "version": "0.56.1",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3003",

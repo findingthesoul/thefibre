@@ -1463,7 +1463,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     adminClient
       .from('membership_tier')
       .select(
-        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, membership_tier_product ( product_id )',
+        'id, name, description, characteristics, price_cents_year, price_cents_month, currency, sort_order, membership_tier_product ( product_id, optional )',
       )
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
@@ -1492,7 +1492,15 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
     price_logic: priceLogic,
     tiers: (tiers ?? []).map((t) => ({
       ...t,
-      product_ids: (t.membership_tier_product ?? []).map((l: { product_id: string }) => l.product_id),
+      // Included vs optional split (the tick-box add-ons) — the admin GET got
+      // this in v0.47.0; the public catalog was missed until the browser
+      // tour caught optional products listed under "Includes" (2026-09-07).
+      product_ids: (t.membership_tier_product ?? [])
+        .filter((l: { optional?: boolean }) => !l.optional)
+        .map((l: { product_id: string }) => l.product_id),
+      optional_product_ids: (t.membership_tier_product ?? [])
+        .filter((l: { optional?: boolean }) => l.optional)
+        .map((l: { product_id: string }) => l.product_id),
       membership_tier_product: undefined,
     })),
     products: products ?? [],

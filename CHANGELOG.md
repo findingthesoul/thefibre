@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.56.1] — 2026-09-07 — the join page's optional extras actually appear
+
+### Fixed
+- The public catalog route never split optional tier products from
+  included ones (the v0.47.0 round was interrupted before the public
+  half): optional add-ons listed under "Includes" and the tick-box
+  extras section never rendered. Caught live during the staging
+  browser tour; the admin API and the join-form wiring were already
+  correct.
+
 ## [0.57.2] — 2026-09-07 — the hook survives a mixed-case email
 
 The v0.57.0 finding, fixed and locked. Migration 20260907190000 wraps the
