@@ -511,6 +511,11 @@ erasure, cutovers) on staging or a Solidarity-Lab-owned prod fixture.
 
 ### 11.4 Release gates (run per release)
 
+0. `./scripts/release-guard.sh <intended-version>` — refuses a release
+   number that does not beat origin/main's newest CHANGELOG heading
+   (or a stale local). Born 2026-09-07 after three same-number
+   collisions between concurrent sessions: **history is the
+   serialization truth; announcements are courtesy.**
 1. `pnpm -r typecheck` — always.
 2. The verify script for any touched contract area (`/api/v1/apps/*` →
    verify-external-app; Thread public/CORS → verify-public-api;
