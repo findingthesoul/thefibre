@@ -30,7 +30,9 @@ const APP_DOMAINS: Record<string, string> = Object.fromEntries(
 
 // The launcher's order: Thread first (the flagship — naming brief), then
 // the tools in its service.
-const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow'];
+// The Fibre closes the weave (backstage position — naming brief); its
+// tile links home. Six apps + two fillers = the full 4×2 poster.
+const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow', 'fibre-platform'];
 
 type Activity = {
   id: string;
@@ -109,7 +111,12 @@ export default async function Dashboard() {
 
   // The seat's apps: activated for the workspace AND on this user's seat.
   const seatApps = LAUNCH_ORDER.filter(
-    (slug) => activeAppSlugs.has(slug) && memberships.includes(slug),
+    // fibre-platform is the app you are standing in — always on the seat
+    // (workspace_app has no row for it; you cannot deactivate the platform
+    // from itself — same rule as /auth/me's membership filter).
+    (slug) =>
+      slug === 'fibre-platform' ||
+      (activeAppSlugs.has(slug) && memberships.includes(slug)),
   );
   const launcherApps: LauncherApp[] = seatApps.map((slug) => ({
     slug,
@@ -122,7 +129,7 @@ export default async function Dashboard() {
     art: existsSync(join(process.cwd(), 'public', 'brand', 'apps', `${slug}.png`))
       ? `/brand/apps/${slug}.png`
       : null,
-    href: APP_DOMAINS[slug] ?? '#',
+    href: slug === 'fibre-platform' ? '/dashboard' : (APP_DOMAINS[slug] ?? '#'),
   }));
   // Decorative tapestry fillers: the launcher popup is ONE poster — 4 tiles
   // × 2 rows (Sjoerd: "the icons together make up one poster… a tapestry").
@@ -131,7 +138,8 @@ export default async function Dashboard() {
   const fillerArt = [1, 2, 3]
     .map((n) => `filler-${n}.png`)
     .filter((f) => existsSync(join(process.cwd(), 'public', 'brand', 'apps', f)))
-    .map((f) => `/brand/apps/${f}`);
+    .map((f) => `/brand/apps/${f}`)
+    .slice(0, Math.max(0, 8 - seatApps.length));
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">

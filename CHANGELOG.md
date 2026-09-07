@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.7] — 2026-09-07 — The Fibre joins its own tapestry
+
+### Changed
+- **The Fibre is the sixth tile** in the launcher poster ("and where is
+  fiber?") — closing the weave in the backstage position, linking home.
+  Six apps + two fillers complete the 4×2 grid; the filler count now
+  adapts so the poster always fills to eight cells. Art filename:
+  `fibre-platform.png`.
+
+
 ## [0.58.6] — 2026-09-07 — the launcher becomes a tapestry
 
 ### Changed
