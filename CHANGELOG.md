@@ -6,7 +6,11 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [0.58.1] — 2026-09-07 — the launcher pops; Thread is The Thread
+## [0.58.2] — 2026-09-07 — the launcher pops; Thread is The Thread
+
+_Renumbered from a second 0.58.1: the sessions' messaging channel was
+one-directional for part of the day and two releases took the same number
+twice in a row. Content below is unchanged (shipped as dd30250)._
 
 ### Changed
 - **The launcher is a popup** (Sjoerd's preference): on entering the
