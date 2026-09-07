@@ -1,112 +1,142 @@
-// The workshop — the product tour organised by the arc, replacing V3's
-// engineer-voiced /features. Verbs, not nouns; the tools appear as what the
-// workshop can do, never as named products (naming brief B).
+// The workshop — the product page, redone to Sjoerd's spec (2026-09-07):
+// "By facilitators, for facilitators." above; the workshop concept; then
+// the apps NAMED, each with its feature list and its Matisse tile (the
+// same crops the in-app launcher poster uses — served from the fibre web
+// brand SPoT via tileArtUrl, never copied).
 
 import type { Metadata } from 'next';
+import { APPS, tileArtUrl, type AppId } from '@thefibre/shared';
 import { Settle } from '@/components/settle';
-import { Burst, Figure, Leaf, Vessel } from '@/components/shapes';
 import { startHref } from '@/lib/site';
 
 export const metadata: Metadata = {
   title: 'The workshop',
   description:
-    'The product tour, organised by the arc: give it a shape, run it beautifully, let it keep going.',
+    'By facilitators, for facilitators — The Thread and the tools in its service: Meet, Members, Pulse, Flow.',
 };
 
-const MOVEMENTS = [
-  {
-    phase: 'Before',
-    title: 'Give it a shape',
-    shape: <Vessel className="w-16 text-accent" rotate={-6} />,
-    lines: [
-      'A timeline you compose — sessions, one-to-ones, messages, moments of practice — eight kinds of engagement, arranged like a score.',
-      'An enrolment page that needs no login. Your guests open it, read it in their own language, and join.',
-      'Tickets when you want them, discounts when you offer them, approval when a journey needs a doorkeeper.',
-      'Payment by card or by invoice — both first-class, both landing in one honest ledger.',
-      'Templates, so the second edition starts where the first one ended.',
-    ],
-  },
-  {
-    phase: 'During',
-    title: 'Run it beautifully',
-    shape: <Figure className="w-14 text-ink" rotate={6} />,
-    lines: [
-      'Your guests don’t download anything. A page on their phone that feels like care, not admin — the programme, the messages, the room.',
-      'Check-in with a QR code. The guest list that is simply correct.',
-      'The meetings get scheduled — booking pages and invitations that keep one calendar telling the truth.',
-      'Materials in one place, messages in one voice — the journey’s voice, not a noreply.',
-    ],
-  },
-  {
-    phase: 'After',
-    title: 'Let it keep going',
-    shape: <Leaf className="w-12 text-ink" rotate={14} />,
-    lines: [
-      'Messages that trigger themselves — on enrolment, on approval, on completion, or simply at the right moment on the right day.',
-      'Reflection and practice between gatherings, so the learning doesn’t end at the door.',
-      'A certificate is not a PDF. It’s a moment made durable — designed, issued, verified, shared to LinkedIn if they’re proud of it. They usually are.',
-      'Every participant keeps their own page: the whole trail of where they’ve been with you, and what comes next.',
-    ],
-  },
-  {
-    phase: 'Underneath',
-    title: 'Quietly',
-    shape: <Burst className="w-12 text-accent" />,
-    lines: [
-      'Hosted in the EU. Private by construction — your guests’ data is theirs, and export and erasure actually work. We built the whole thing that way, because we’d want it built that way for us.',
-      'Embeds for your own website: one script, your styling, your domain stays yours.',
-      'An API for your developers — documented, versioned, boring in the best way.',
-    ],
-    link: { href: 'https://thefibre.app', label: 'For the technical reader →' },
-  },
-];
+const TOOL_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow'];
+
+const FEATURES: Record<string, string[]> = {
+  'the-thread': [
+    'A timeline editor for the whole journey — sessions, one-to-ones, messages, reflection, practice: eight kinds of engagement, arranged like a score',
+    'Public enrolment pages that need no login, in six languages',
+    'Tickets, discount codes, approval flows — payment by card or by invoice',
+    'Messages that send themselves: on enrolment, on approval, on completion, or at exactly the right moment',
+    'Certificates — designed, issued, verified, shared to LinkedIn',
+    'A personal portal for every participant: their whole trail, their materials, what comes next',
+    'Embeds for your own website; thread templates so the next edition starts warm',
+  ],
+  'fibre-meet': [
+    'Booking pages for you and your team — meeting types, availability, one link',
+    'Fair rotation across facilitators, so the load spreads honestly',
+    'Google Calendar connected; Zoom or your own room on every booking',
+    'Group polls when the time has to suit everyone',
+    'Paid sessions when your time is the offer — card checkout built in',
+    'Invitations and an internal-team view that tells the truth',
+  ],
+  membership: [
+    'Tiers, renewals, grace and lapse — the whole membership lifecycle, tended automatically',
+    'Prices that adjust to a member’s country, by rules you write',
+    'Optional add-on products on the join page',
+    'Access that follows membership: community spaces and accounts open when someone joins, close when they lapse',
+    'A member portal for invoices, payment details and renewal',
+    'Reminders in the community’s own voice, not a noreply',
+  ],
+  'fibre-pulse': [
+    'Cashflow as a plan, not a surprise — money in, money out, visible before it happens',
+    'Budgets and commitments per project, per team',
+    'Offerings and a pipeline that feed the projection',
+    'Snapshots over time, so you see the trend and not just the balance',
+    'Operating costs where they belong — next to the income they serve',
+  ],
+  'fibre-flow': [
+    'Pipelines you draw — stages, transitions, the whole shape of how people move',
+    'Gate tasks that must be done before someone advances; nothing falls through',
+    'A kanban board for the daily work, a visual builder for the design',
+    'Steps that complete themselves when the platform sees the activity happen',
+    'Reports and lifecycle views across every run',
+  ],
+};
 
 export default function WorkshopPage() {
   return (
     <main className="px-6 py-16 md:px-10 md:py-24">
-      <div className="mx-auto max-w-2xl">
-        <h1 className="text-3xl font-semibold tracking-tight md:text-4xl">The workshop</h1>
-        <p className="mt-4 text-lg leading-relaxed text-ink-subtle">
-          Everything here serves the arc — before, during, after. The tools have names, but you
-          won&apos;t need them; you&apos;ll ask for what you want in plain words, and the workshop
-          will do it.
+      {/* The banner line — Sjoerd's header for this page. */}
+      <div className="mx-auto max-w-3xl text-center">
+        <p className="text-[12px] font-bold uppercase tracking-[0.22em] text-ink-muted">
+          The workshop
+        </p>
+        <h1 className="mt-3 text-3xl font-semibold tracking-tight md:text-5xl">
+          By facilitators, for facilitators.
+        </h1>
+        <p className="mx-auto mt-6 max-w-2xl text-lg leading-relaxed text-ink-subtle">
+          We host gatherings ourselves — festivals, fellowships, courses. The workshop is the set
+          of tools we built because we needed them: one for the journey itself, and four in its
+          service. They share one foundation, one contact book, one honest ledger — so the work
+          flows between them without you carrying it.
         </p>
       </div>
 
-      <div className="mx-auto mt-16 max-w-2xl space-y-20">
-        {MOVEMENTS.map((m, i) => (
-          <Settle key={m.phase} from={{ y: 24, rotate: i % 2 ? 1 : -1 }}>
-            <section>
-              <div className="flex items-end justify-between gap-6">
+      {/* The apps, named — each with its Matisse tile and its features. */}
+      <div className="mx-auto mt-20 max-w-3xl space-y-16">
+        {TOOL_ORDER.map((slug, i) => {
+          const meta = APPS[slug];
+          const art = tileArtUrl(slug, process.env);
+          return (
+            <Settle key={slug} from={{ y: 24, rotate: i % 2 ? 1 : -1 }}>
+              <section className="grid grid-cols-1 gap-8 md:grid-cols-[180px_1fr]">
                 <div>
-                  <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
-                    {m.phase}
-                  </p>
-                  <h2 className="mt-1 text-2xl font-semibold tracking-tight">{m.title}</h2>
+                  {art ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={art}
+                      alt=""
+                      loading="lazy"
+                      className={`w-40 rounded-2xl shadow-[0_10px_30px_rgba(26,26,46,0.12)] md:w-full ${
+                        i % 2 ? '-rotate-2' : 'rotate-2'
+                      }`}
+                    />
+                  ) : (
+                    <div className="flex aspect-square w-40 items-center justify-center rounded-2xl bg-accent text-2xl font-semibold md:w-full">
+                      {meta.brandLetters}
+                    </div>
+                  )}
                 </div>
-                {m.shape}
-              </div>
-              <ul className="mt-6 space-y-4 border-l-2 border-accent pl-6">
-                {m.lines.map((line) => (
-                  <li key={line} className="text-base leading-relaxed text-ink-subtle">
-                    {line}
-                  </li>
-                ))}
-              </ul>
-              {m.link && (
-                <p className="mt-4 pl-6 text-sm">
-                  <a href={m.link.href} className="text-ink-subtle underline underline-offset-4 hover:text-ink">
-                    {m.link.label}
-                  </a>
-                </p>
-              )}
-            </section>
-          </Settle>
-        ))}
+                <div>
+                  <h2 className="text-2xl font-semibold tracking-tight">{meta.name}</h2>
+                  <p className="mt-1 text-base text-ink-subtle">{meta.tagline}</p>
+                  <ul className="mt-5 space-y-2.5">
+                    {(FEATURES[slug] ?? []).map((f) => (
+                      <li key={f} className="flex items-start gap-3 text-[15px] leading-relaxed text-ink-subtle">
+                        <span className="mt-[9px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent ring-1 ring-ink/20" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            </Settle>
+          );
+        })}
       </div>
 
-      <div className="mx-auto mt-24 max-w-2xl border-t border-line pt-10 text-center">
-        <p className="text-lg font-medium">You bring the intention. The Thread holds the rest.</p>
+      {/* Underneath, quietly — the foundation. */}
+      <div className="mx-auto mt-24 max-w-3xl rounded-2xl bg-surface-paper p-8 md:p-10">
+        <h2 className="text-lg font-semibold">Underneath, quietly</h2>
+        <p className="mt-3 text-[15px] leading-relaxed text-ink-subtle">
+          One foundation carries all of it: the same people, the same organisations, one activity
+          trail, one ledger. Hosted in the EU, private by construction — your guests&apos; data is
+          theirs, and export and erasure actually work. Embeds for your own website, an API for
+          your developers.{' '}
+          <a href="https://thefibre.app" className="underline underline-offset-4 hover:text-ink">
+            For the technical reader →
+          </a>
+        </p>
+      </div>
+
+      <div className="mx-auto mt-20 max-w-2xl text-center">
+        <p className="text-lg font-medium">You bring the intention. The workshop holds the rest.</p>
         <a
           href={startHref()}
           className="mt-6 inline-block rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"

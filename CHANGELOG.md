@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.3] — 2026-09-07 — the workshop page, Sjoerd's way
+
+The website's product page redone to Sjoerd's spec after his review:
+**"By facilitators, for facilitators."** as the banner, the workshop
+concept intro, then the apps NAMED — The Thread, Meet, Members, Pulse,
+Flow — each with its real Matisse tile (the launcher-poster crops, served
+from the fibre brand SPoT via `tileArtUrl`, never copied) and a plain
+feature list. The overall site design remains awaiting Sjoerd's own
+design (build-plan verdict stands: no cut).
+
+## [0.59.2] — 2026-09-07
+
 ## [0.59.2] — 2026-09-07 — the workspace becomes the public face (Thread 3.37.0)
 
 ### Added
