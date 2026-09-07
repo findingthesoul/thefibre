@@ -6,7 +6,7 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [0.58.0] — 2026-09-07 — the enrolment golden path, walked by a browser
+## [0.58.1] — 2026-09-07 — the enrolment golden path, walked by a browser
 
 The last automatable golden path: a stranger enrols in a published thread
 and finds it on /my — proven both server-side and in a real browser.
@@ -31,10 +31,11 @@ and finds it on /my — proven both server-side and in a real browser.
   for a specific participant), `authUserByEmail`.
 
 ### Note on the version line
-- v0.56.1/v0.56.2 were released AFTER v0.57.2 with backwards numbers
-  (another session bumped from a stale base while cross-session messaging
-  was down). This release re-anchors the line at 0.58.0; nothing else
-  about those releases needs correcting.
+- v0.56.1/v0.56.2 were released AFTER v0.57.2 with backwards numbers, and
+  two sessions then both picked v0.58.0 within seconds (cross-session
+  messaging is down — coordination is git-only right now). The launcher
+  release keeps 0.58.0 (it landed first); this one is 0.58.1. Line
+  re-anchored; nothing else about those releases needs correcting.
 
 ## [0.58.0] — 2026-09-07 — the front door: a launcher and a welcome
 
