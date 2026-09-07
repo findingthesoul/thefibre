@@ -1333,6 +1333,14 @@ const CATALOG = {
     de: 'Die Bausteine einer Mitgliedschaft — ein Circle-Space, ein Thread, eine Call-Reihe. Bündle sie unter Stufen.', // MT
     fr: "Ce qui compose une adhésion — un espace Circle, un Thread, une série d'appels. Regroupe-les en formules sous Formules.", // MT
   },
+  access_status: {
+    en: 'Access status',
+    nl: 'Toegangsstatus',
+    es: 'Estado de acceso', // MT
+    pt: 'Status de acesso', // MT
+    de: 'Zugriffsstatus', // MT
+    fr: 'État des accès', // MT
+  },
   sync_overview: {
     en: 'Sync overview',
     nl: 'Sync-overzicht',
@@ -2680,12 +2688,12 @@ const CATALOG = {
     fr: 'Accès (sur les produits)', // MT
   },
   help_access_blurb: {
-    en: 'Each product carries what it unlocks (a Circle space, a Fibre seat, a thread) — synced automatically as members come and go. Sync overview under Products.',
-    nl: 'Elk product draagt wat het ontgrendelt (een Circle-space, een Fibre-plek, een thread) — automatisch gesynchroniseerd als leden komen en gaan. Sync-overzicht onder Producten.',
-    es: 'Cada producto lleva lo que desbloquea (un espacio de Circle, una plaza de Fibre, un thread) — sincronizado automáticamente cuando los miembros van y vienen. Vista de sincronización en Productos.', // MT
-    pt: 'Cada produto carrega o que desbloqueia (um espaço do Circle, um assento Fibre, um thread) — sincronizado automaticamente conforme membros vêm e vão. Visão de sincronização em Produtos.', // MT
-    de: 'Jedes Produkt trägt, was es freischaltet (ein Circle-Space, ein Fibre-Platz, ein Thread) — automatisch synchronisiert, wenn Mitglieder kommen und gehen. Sync-Übersicht unter Produkte.', // MT
-    fr: "Chaque produit porte ce qu'il débloque (un espace Circle, une place Fibre, un thread) — synchronisé automatiquement au gré des allées et venues des membres. Vue de synchronisation sous Produits.", // MT
+    en: 'Each product carries what it unlocks (a Circle space, a Fibre seat, a thread) — synced automatically as members come and go. Access status lives under Members.',
+    nl: 'Elk product draagt wat het ontgrendelt (een Circle-space, een Fibre-plek, een thread) — automatisch gesynchroniseerd als leden komen en gaan. Toegangsstatus vind je onder Leden.',
+    es: 'Cada producto lleva lo que desbloquea (un espacio de Circle, una plaza de Fibre, un thread) — sincronizado automáticamente cuando los miembros van y vienen. El estado de acceso está en Miembros.', // MT
+    pt: 'Cada produto carrega o que desbloqueia (um espaço do Circle, um assento Fibre, um thread) — sincronizado automaticamente conforme membros vêm e vão. O status de acesso fica em Membros.', // MT
+    de: 'Jedes Produkt trägt, was es freischaltet (ein Circle-Space, ein Fibre-Platz, ein Thread) — automatisch synchronisiert, wenn Mitglieder kommen und gehen. Den Zugriffsstatus findest du unter Mitglieder.', // MT
+    fr: "Chaque produit porte ce qu'il débloque (un espace Circle, une place Fibre, un thread) — synchronisé automatiquement au gré des allées et venues des membres. L'état des accès se trouve sous Membres.", // MT
   },
   help_settings_blurb: {
     en: 'The join page, the Circle connection, and your Fibre profile.',

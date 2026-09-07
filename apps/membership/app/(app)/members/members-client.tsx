@@ -62,9 +62,21 @@ export function MembersClient({
           </h1>
           <p className="mt-1 text-sm text-ink-muted">{t(locale, 'members_blurb')}</p>
         </div>
-        <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setAdding(true)}>
-          {t(locale, 'add_member')}
-        </Button>
+        <div className="flex items-center gap-3">
+          {/* The access-sync ledger answers a MEMBERS question — "has
+              everyone who paid actually been let in?" — so its door is
+              here, not on the Products catalog (Sjoerd 2026-09-08:
+              "why is that button there? it is products"). */}
+          <a
+            href="/access"
+            className="text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
+          >
+            {t(locale, 'access_status')}
+          </a>
+          <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setAdding(true)}>
+            {t(locale, 'add_member')}
+          </Button>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

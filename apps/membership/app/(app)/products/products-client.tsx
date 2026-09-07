@@ -70,12 +70,6 @@ export function ProductsClient({
           <p className="mt-1 text-sm text-ink-muted">{t(locale, 'products_blurb')}</p>
         </div>
         <div className="flex items-center gap-2">
-          <a
-            href="/access"
-            className="text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
-          >
-            {t(locale, 'sync_overview')}
-          </a>
           <Button leading={<Plus size={16} strokeWidth={2} />} onClick={() => setCreating(true)}>
             {t(locale, 'new_product')}
           </Button>

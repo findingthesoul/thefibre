@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.8] — 2026-09-08 — the access door moves to where the question lives (Members 0.13.2)
+
+### Changed
+- **"Sync overview" is now "Access status", and it lives on the Members
+  page** (Sjoerd: "why is that button there? it is products") — the
+  ledger answers a members question ("has everyone who paid actually
+  been let in everywhere?"), so its door belongs with Members; Products
+  returns to being purely the catalog. Help copy follows, ×6.
+
+
 ## [0.67.7] — 2026-09-08 — the standard shapes show where people look
 
 ### Fixed
