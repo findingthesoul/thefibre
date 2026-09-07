@@ -84,7 +84,14 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
      Stripe dashboard — Sjoerd.
    - **thethread.app website rework** — BUILT v0.59.1 (apps/website, the
      rewrite-plan executed; Vercel project thefibre-website, git-connected).
-     AWAITING: Sjoerd reviews the live preview → then THE CUT (move apex
+     REVIEW VERDICT (Sjoerd, 2026-09-07): NOT approved — the workshop
+     page and the overall design aren't good enough; Sjoerd is making a
+     better design himself. DO NOT CUT the apex. The v1 build stays on
+     thefibre-website.vercel.app as scaffolding: the plumbing (five
+     routes, live pricing feed, redirects, shape/thread/settle
+     components, favicon/OG) is reusable under whatever design he
+     delivers — treat his design as the spec, reskin/rebuild to match.
+     THEN: THE CUT (move apex
      + www from thethread-v3 project, TransIP repoint, smoke/E2E gain
      new-apex assertions) → then archive thethread-v3. Act 2 queued:
      scissors hero, photography pass (consent), thread-as-nav-progress.
