@@ -8,7 +8,6 @@
 import type { Metadata } from 'next';
 import { ENTITY } from '@thefibre/shared';
 import { StartButton } from '@/components/start-dialog';
-import { Leaf, Vessel } from '@/components/shapes';
 
 export const metadata: Metadata = {
   title: 'About',
@@ -34,7 +33,12 @@ export default function AboutPage() {
             facilitates humans meeting in this form: with spontaneity, with confidence, with love.
           </p>
         </div>
-        <Vessel className="pointer-events-none absolute -right-8 top-16 hidden w-32 text-surface-paper md:block" rotate={10} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/shapes/start-figure.png"
+          alt=""
+          className="pointer-events-none absolute -right-8 top-16 hidden w-36 -rotate-6 select-none md:block"
+        />
       </section>
 
       {/* Intro */}
@@ -168,7 +172,12 @@ export default function AboutPage() {
 
       {/* Who makes this + invitation */}
       <section className="relative mx-auto max-w-2xl px-6 py-20 md:px-10">
-        <Leaf className="pointer-events-none absolute -left-4 top-8 hidden w-16 text-accent md:block" rotate={-20} />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/shapes/happy-pink.png"
+          alt=""
+          className="pointer-events-none absolute -left-6 top-4 hidden w-24 rotate-6 select-none md:block"
+        />
         <h2 className="text-xl font-bold tracking-tight">Who makes this</h2>
         <p className="mt-4 text-base leading-relaxed text-ink-subtle">
           The Thread is made by a small team in the Netherlands that hosts its own

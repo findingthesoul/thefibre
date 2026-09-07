@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.4] — 2026-09-08 — the scroll escapes the footer; real shapes on About
+
+- The Home page tail (invitation card + footer) opts out of the snap
+  system entirely: snap-end on the footer trapped the scroll at the
+  bottom (couldn't scroll back up). Free tail = reachable down AND
+  escapable up; the magnet still runs hero→proof.
+- Website /about swaps the hand-drawn placeholder shapes for two real cut-
+  outs, chosen not random: the teal beginning-figure up top (the site's
+  traveller) and the joyful pink figure at the closing block.
+
 ## [0.68.3] — 2026-09-08 — release.sh learns to share the tree
 
 - The clean-tree check refuses only STAGED-but-uncommitted changes now.

@@ -87,16 +87,18 @@ function StoryScene({
   cue,
   cueColor,
   bottomSlot,
+  snap = true,
   children,
 }: {
   seg?: string;
   cue?: number;
   cueColor?: string;
   bottomSlot?: React.ReactNode;
+  snap?: boolean;
   children: React.ReactNode;
 }) {
   return (
-    <div className="relative snap-start overflow-hidden">
+    <div className={`relative overflow-hidden ${snap ? 'snap-start' : ''}`}>
       {seg && (
         <DrawnThread
           viewBox="0 0 1000 640"
@@ -373,6 +375,7 @@ export default async function Home() {
       {/* ── The invitation. ── */}
       <StoryScene
         seg={THREAD.invite}
+        snap={false}
         bottomSlot={
           <a
             href={startHref('free')}
