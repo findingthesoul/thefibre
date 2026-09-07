@@ -1,18 +1,19 @@
 'use client';
 
-// Scroll-scrubbed paper-cut collage (Sjoerd's direction, 2026-09-07 v2):
-// the pieces COMPILE as the card scrolls toward the viewport centre and
-// FALL APART as it leaves — tied to scroll position, not a one-shot
-// trigger. Each piece has its own entry vector (in vw/vh units, so
-// "from the left edge" means the actual screen edge) and its own pace,
-// which is how a shape "travels" between cards: give it an exit toward
-// the bottom here and an entry from the top on the next card, and the
-// eye reads one shape moving down the page.
+// Scroll-scrubbed paper-cut collage, v3 (Sjoerd, 2026-09-08: "make the
+// coming together more natural"). The scroll position only sets each
+// piece's TARGET; the piece chases it with its own exponential lag —
+// a true ease-in/ease-out with no fixed duration. Consequences he asked
+// for, by construction: parts are still settling after the card has
+// arrived (slow chasers), and scrolling on before it completes simply
+// reverses the chase mid-flight — the picture falls apart from wherever
+// it got to, never snapping to done first.
 //
-// Server renders ASSEMBLED (t=1); scrubbing is client-only, and
-// reduced-motion readers keep the finished picture.
+// Server renders ASSEMBLED; motion is client-only and imperative (styles
+// written in one rAF loop, no per-frame React renders). Reduced-motion
+// readers keep the finished picture.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 export type ScrubPiece = {
   src: string;
@@ -24,6 +25,8 @@ export type ScrubPiece = {
   r: number; // scattered rotation, deg
   e?: number; // pace exponent: <1 arrives early, >1 arrives late
 };
+
+const smoothstep = (v: number) => v * v * (3 - 2 * v);
 
 export function ScrollCollage({
   pieces,
@@ -39,61 +42,80 @@ export function ScrollCollage({
   style?: React.CSSProperties;
 }) {
   const ref = useRef<HTMLDivElement | null>(null);
-  const [t, setT] = useState(1);
+  const imgRefs = useRef<(HTMLImageElement | null)[]>([]);
+  const captionRef = useRef<HTMLParagraphElement | null>(null);
 
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
     const anchor = el.closest('section') ?? el;
-    let raf = 0;
-    const update = () => {
-      raf = 0;
+
+    const target = () => {
       const r = anchor.getBoundingClientRect();
       const vh = window.innerHeight || 1;
       const d = Math.abs(r.top + r.height / 2 - vh / 2) / vh;
-      const raw = 1 - Math.min(1, d);
-      setT(raw * raw * (3 - 2 * raw)); // smoothstep
+      return smoothstep(1 - Math.min(1, d));
     };
-    const onScroll = () => {
-      if (!raf) raf = requestAnimationFrame(update);
+
+    // Each piece's chase speed (1/s): varied so some pieces are still
+    // drifting into place after the fast ones have settled.
+    const speeds = pieces.map((_, i) => 1.7 + ((i * 7) % 5) * 0.55);
+    const t0 = target();
+    const cur = pieces.map((p) => Math.pow(t0, p.e ?? 1));
+    let curCap = t0;
+
+    const apply = () => {
+      pieces.forEach((p, i) => {
+        const img = imgRefs.current[i];
+        if (!img) return;
+        const c = cur[i]!;
+        const u = 1 - c;
+        img.style.opacity = `${Math.min(1, Math.pow(c, 0.6) * 1.2)}`;
+        img.style.transform = `translate(${p.dx * u}vw, ${p.dy * u}vh) rotate(${p.r * u}deg)`;
+      });
+      if (captionRef.current) captionRef.current.style.opacity = `${curCap}`;
     };
-    update();
-    window.addEventListener('scroll', onScroll, { passive: true });
-    window.addEventListener('resize', onScroll);
-    return () => {
-      cancelAnimationFrame(raf);
-      window.removeEventListener('scroll', onScroll);
-      window.removeEventListener('resize', onScroll);
+    apply();
+
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      const tgt = target();
+      pieces.forEach((p, i) => {
+        const goal = Math.pow(tgt, p.e ?? 1);
+        cur[i]! += (goal - cur[i]!) * (1 - Math.exp(-dt * speeds[i]!));
+      });
+      curCap += (tgt - curCap) * (1 - Math.exp(-dt * 2));
+      apply();
+      raf = requestAnimationFrame(tick);
     };
-  }, []);
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [pieces]);
 
   return (
     <div ref={ref} aria-hidden="true" className={`relative select-none ${className}`} style={style}>
       <div className="relative w-full" style={{ aspectRatio: aspect }}>
-        {pieces.map((p) => {
-          const tp = Math.pow(t, p.e ?? 1);
-          const u = 1 - tp;
-          return (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              key={p.src}
-              src={`/shapes/${p.src}`}
-              alt=""
-              draggable={false}
-              className="absolute will-change-transform"
-              style={{
-                left: `${p.x}%`,
-                top: `${p.y}%`,
-                width: `${p.w}%`,
-                opacity: Math.min(1, Math.pow(tp, 0.6) * 1.2),
-                transform: `translate(${p.dx * u}vw, ${p.dy * u}vh) rotate(${p.r * u}deg)`,
-              }}
-            />
-          );
-        })}
+        {pieces.map((p, i) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={p.src}
+            ref={(n) => {
+              imgRefs.current[i] = n;
+            }}
+            src={`/shapes/${p.src}`}
+            alt=""
+            draggable={false}
+            className="absolute will-change-transform"
+            style={{ left: `${p.x}%`, top: `${p.y}%`, width: `${p.w}%` }}
+          />
+        ))}
         {caption && (
           <p
+            ref={captionRef}
             className="absolute font-serif italic text-accent"
             style={{
               left: `${caption.x}%`,
@@ -101,7 +123,6 @@ export function ScrollCollage({
               fontSize: 'clamp(6px, 0.8vw, 10px)',
               transform: `rotate(${caption.rotate}deg)`,
               transformOrigin: 'left center',
-              opacity: t,
             }}
           >
             {caption.text}

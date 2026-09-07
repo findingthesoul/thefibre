@@ -131,12 +131,12 @@ export default async function Home() {
           className="absolute bottom-10 left-[21%] flex items-center gap-3 transition-opacity hover:opacity-60"
           aria-label="Begin the story"
         >
-          <span className="text-[13px] font-bold uppercase tracking-[0.22em] text-ink md:text-lg">
+          <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-ink">
             Scroll
           </span>
           <svg
-            width="14"
-            height="18"
+            width="11"
+            height="14"
             viewBox="0 0 14 18"
             aria-hidden="true"
             className="animate-bounce text-ink"

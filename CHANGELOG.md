@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.63.2] — 2026-09-08 — website: the coming-together turns physical
+
+- ScrollCollage v3: scroll position now only sets each piece's TARGET; the
+  piece chases it with its own exponential lag (per-piece speeds). Ease-in
+  and ease-out fall out of the physics; pieces are still settling after the
+  card arrives, and scrolling on before completion reverses the chase
+  mid-flight — the picture falls apart from wherever it got to. Styles are
+  written imperatively in one rAF loop (no per-frame React renders).
+- Hero scroll cue smaller (11px, smaller arrow).
+
 ## [0.63.1] — 2026-09-07 — website: left-aligned two-column story
 
 - Text left-aligned again (the right-align was Sjoerd's mistake, reverted)
