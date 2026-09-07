@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.7] — 2026-09-08 — higher contrast everywhere; the scope control stops wrapping (Thread 3.38.1)
+
+Sjoerd, live-testing the new-thread form on a fresh Free workspace: "Interface
+does not work (general: color system is too light.. contrast needs to be
+higher)" — and the Kind/Scope segmented control rendered broken (Workspace
+wrapped below the border, overlapping).
+
+- **Light theme darkened one step in all six apps** (thread, meet, members,
+  web in the gray family; flow, pulse in slate): secondary text gray-600→700,
+  tertiary text/placeholders gray-400→500 (was 2.5:1 on white — below WCAG;
+  now 4.6:1), borders gray-200→300, strong borders gray-300→400. Labels,
+  hints, section headers and placeholders all read at arm's length now.
+  Dark theme untouched.
+- **New-thread segmented controls fixed**: the two grids had swapped column
+  counts — Kind (2 buttons) sat in `grid-cols-3` with an empty cell, Scope
+  (3 buttons) in `grid-cols-2` so Workspace wrapped into the clipped
+  overflow. Both corrected, plus hairline dividers between segments and
+  truncation guards so long locale labels can't wrap.
+- Verified with a signed-in local render (light theme, via the SSO-land
+  session mint the e2e suite uses). Free-plan template copy needed no change
+  for the 1→2 limit bump — no count was ever hardcoded.
+
 ## [0.68.6] — 2026-09-08 — the Thread door works end to end (Sjoerd's live signup test)
 
 Sjoerd signed up through the popup as a stranger and walked into every gap.

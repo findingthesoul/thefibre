@@ -7,11 +7,11 @@
   --surface-sunken: 247 247 244;   /* sidebar / inset */
   --surface-raised: 255 255 255;   /* cards, menus */
   --ink: 17 20 24;                 /* primary text */
-  --ink-subtle: 75 85 99;          /* secondary text */
-  --ink-muted: 156 163 175;        /* tertiary text */
+  --ink-subtle: 55 65 81;          /* secondary text */
+  --ink-muted: 107 114 128;        /* tertiary text */
   --ink-inverse: 250 250 247;
-  --line: 229 231 235;
-  --line-strong: 209 213 219;
+  --line: 209 213 219;
+  --line-strong: 156 163 175;
   --accent: 17 20 24;
 }
 

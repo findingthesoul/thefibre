@@ -9,11 +9,11 @@
   --surface-sunken: 238 241 246; /* cool light grey board background */
   --surface-raised: 255 255 255;
   --ink: 15 23 42; /* slate-900 */
-  --ink-subtle: 71 85 105; /* slate-600 */
-  --ink-muted: 148 163 184; /* slate-400 */
+  --ink-subtle: 51 65 85; /* slate-700 */
+  --ink-muted: 100 116 139; /* slate-500 */
   --ink-inverse: 248 250 252;
-  --line: 226 232 240; /* slate-200 */
-  --line-strong: 203 213 225; /* slate-300 */
+  --line: 203 213 225; /* slate-300 */
+  --line-strong: 148 163 184; /* slate-400 */
   --accent: 15 23 42;
 }
 

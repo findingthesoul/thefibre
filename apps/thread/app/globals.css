@@ -7,11 +7,11 @@
   --surface-sunken: 247 247 244;
   --surface-raised: 255 255 255;
   --ink: 17 20 24;
-  --ink-subtle: 75 85 99;
-  --ink-muted: 156 163 175;
+  --ink-subtle: 55 65 81;
+  --ink-muted: 107 114 128;
   --ink-inverse: 250 250 247;
-  --line: 229 231 235;
-  --line-strong: 209 213 219;
+  --line: 209 213 219;
+  --line-strong: 156 163 175;
   --accent: 17 20 24;
 }
 

@@ -125,7 +125,7 @@ export function NewThreadForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
         <div>
           <SectionLabel>{t(locale, 'kind')}</SectionLabel>
-          <div className="mt-2 grid grid-cols-3 rounded-md border border-line overflow-hidden h-[38px]">
+          <div className="mt-2 grid grid-cols-2 divide-x divide-line rounded-md border border-line overflow-hidden h-[38px]">
             <ToggleButton
               Icon={CalendarRange}
               label={t(locale, 'event')}
@@ -146,7 +146,7 @@ export function NewThreadForm({
 
         <div>
           <SectionLabel>{t(locale, 'scope')}</SectionLabel>
-          <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+          <div className="mt-2 grid grid-cols-3 divide-x divide-line rounded-md border border-line overflow-hidden h-[38px]">
             <ToggleButton
               Icon={User}
               label={t(locale, 'personal')}
@@ -244,7 +244,7 @@ function ToggleButton({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={`inline-flex items-center justify-center gap-1.5 text-sm transition-colors ${
+      className={`inline-flex min-w-0 items-center justify-center gap-1.5 px-1.5 text-sm transition-colors ${
         disabled
           ? 'text-ink-muted cursor-not-allowed opacity-50'
           : active
@@ -252,8 +252,8 @@ function ToggleButton({
             : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
       }`}
     >
-      <Icon size={15} strokeWidth={1.75} />
-      {label}
+      <Icon size={15} strokeWidth={1.75} className="shrink-0" />
+      <span className="truncate">{label}</span>
     </button>
   );
 }
