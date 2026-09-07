@@ -49,9 +49,22 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             </Link>
           </nav>
           <div className="mt-3">
-            {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.hostedLine}
+            {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.address} · {ENTITY.hostedLine}
           </div>
-          <div className="mt-1">No advertising. No profiling. No data sold.</div>
+          <div className="mt-1">
+            The platform beneath{' '}
+            <a className="hover:text-neutral-900 underline" href="https://thethread.app">
+              The Thread
+            </a>{' '}
+            · support:{' '}
+            <a className="hover:text-neutral-900 underline" href={`mailto:${ENTITY.supportEmail}`}>
+              {ENTITY.supportEmail}
+            </a>
+          </div>
+          <div className="mt-1">
+            Your data belongs to you: minimum justified storage, EU hosting, erasure on request.
+            No advertising. No profiling. No data sold.
+          </div>
         </footer>
       </div>
     </main>

@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# The atomic tail of the release ritual: guard → consistency check → verify
+# → push, in ONE script with set -e, so a refusal anywhere stops the push.
+# Born 2026-09-08 after commit 928898c: release-guard refused a version but
+# a broken && chain pushed the mislabeled commit anyway. If pushes only
+# ever happen through this script, that cannot recur.
+#
+# Usage: ./scripts/release.sh <version>
+# Expects the release commit to already exist locally (ten package.jsons,
+# apps/web/lib/version.ts and the CHANGELOG heading all at <version>).
+set -euo pipefail
+
+V="${1:?usage: release.sh <version>}"
+cd "$(dirname "$0")/.."
+
+git fetch origin
+./scripts/release-guard.sh "$V"
+
+# Every version surface must already agree with $V — refuse a half-prepared
+# release rather than pushing one.
+for f in package.json apps/web/package.json apps/api/package.json \
+  apps/meet/package.json apps/thread/package.json apps/flow/package.json \
+  apps/pulse/package.json apps/membership/package.json \
+  apps/website/package.json packages/shared/package.json; do
+  got=$(node -p "require('./$f').version")
+  if [ "$got" != "$V" ]; then
+    echo "REFUSED: $f is at $got, not $V" >&2
+    exit 1
+  fi
+done
+grep -q "VERSION = '$V'" apps/web/lib/version.ts || {
+  echo "REFUSED: apps/web/lib/version.ts is not at $V" >&2
+  exit 1
+}
+grep -q "^## \[$V\]" CHANGELOG.md || {
+  echo "REFUSED: CHANGELOG.md has no [$V] heading" >&2
+  exit 1
+}
+if [ -n "$(git status --porcelain)" ]; then
+  echo "REFUSED: working tree not clean — commit the release first" >&2
+  exit 1
+fi
+
+pnpm verify
+
+git push origin main main:staging
+echo "Released $V."

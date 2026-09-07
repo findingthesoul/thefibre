@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.5] — 2026-09-08 — yellow footer, both doors on support, atomic release
+
+- Website footer turns brand yellow with black type (was dark ink/white) —
+  Sjoerd's call.
+- thefibre.app/support gains "Coming from The Thread?" (hello@thethread.app
+  — one service, either address) and the public pages' footer grows up:
+  entity + address, link to The Thread, support address, and the safe-data
+  line.
+- scripts/release.sh — the atomic tail of the ritual (guard → ten-file
+  version consistency → clean-tree check → pnpm verify → push, one set -e
+  script), born from the 928898c incident where a broken && chain pushed
+  past a guard refusal. Pushes should go through it from now on.
+
 ## [0.67.4] — 2026-09-08 — both brands in the legal pages; mobile snap released
 
 - Terms of use §1 now names both doors: The Thread (thethread.app and

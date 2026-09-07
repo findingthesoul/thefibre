@@ -32,6 +32,14 @@ export default function SupportPage() {
           Access, correction and erasure requests. Put &ldquo;privacy&rdquo; in the subject line and
           we will treat it as a formal request under the GDPR.
         </Row>
+        <Row term="Coming from The Thread?">
+          <a className="underline hover:text-neutral-900" href="mailto:hello@thethread.app">
+            hello@thethread.app
+          </a>
+          <br />
+          The Thread and The Fibre are one service — either address reaches the same small team,
+          so write to whichever door you came in through.
+        </Row>
         <Row term="Not receiving our email?">
           Add{' '}
           <a className="underline hover:text-neutral-900" href={`mailto:${ENTITY.whitelistEmail}`}>
