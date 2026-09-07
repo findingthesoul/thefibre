@@ -12,6 +12,8 @@ import { APPS } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
 type Me = {
+  /** Additive: the signed-in interface language (identity_profile.locale). */
+  locale?: string | null;
   user: { is_super_admin?: boolean };
   workspace_archived?: boolean;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
@@ -41,10 +43,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   let isWorkspaceAdmin = false;
   let workspaceArchived = false;
   let memberships: Me['memberships'] = [];
+  let profileLocale: string | null = null;
   let workspaceApps: WorkspaceApp[] = [];
   try {
     const me = await apiFetch<Me>('/api/v1/auth/me');
     memberships = me.memberships;
+    profileLocale = me.locale ?? null;
     isSuperAdmin = !!me.user.is_super_admin;
     workspaceArchived = !!me.workspace_archived;
     const explicitWorkspaceAdmin = me.memberships.some((m) => {
@@ -76,7 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const apps = buildAppList({ currentApp: 'fibre-platform', memberships, workspaceApps });
 
-  const locale = await uiLocale();
+  const locale = await uiLocale(profileLocale);
 
   return (
     <LocaleProvider locale={locale}>

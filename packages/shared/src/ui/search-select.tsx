@@ -12,11 +12,37 @@
 // With `loadOptions`, `options` becomes the seed shown before the first
 // response lands, so the field is never blank.
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ChevronDown, Search } from 'lucide-react';
 import { chromeT, useLocale } from './i18n-ui.js';
 
 export type SearchSelectOption = { value: string; label: string; hint?: string };
+
+// Search row + max-h-56 list + borders — what an open panel needs below the
+// trigger before we flip it upward instead.
+const PANEL_ESTIMATE_PX = 268;
+
+/**
+ * How far the panel may extend downward before something cuts it off. The
+ * viewport is not enough: a trigger near the bottom edge of a card with
+ * `overflow-hidden` (Meet's public booking card, 2026-09-07 — the timezone
+ * list rendered invisibly outside it) is clipped long before the viewport
+ * is. So the nearest overflow-clipping ancestor constrains too.
+ */
+function constraintBounds(el: HTMLElement): { top: number; bottom: number } {
+  let top = 0;
+  let bottom = window.innerHeight;
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    const o = getComputedStyle(p);
+    if (/(hidden|auto|scroll|clip)/.test(o.overflow + o.overflowY)) {
+      const r = p.getBoundingClientRect();
+      top = Math.max(top, r.top);
+      bottom = Math.min(bottom, r.bottom);
+      break; // the nearest clipper is the binding one
+    }
+  }
+  return { top, bottom };
+}
 
 export function SearchSelect({
   value,
@@ -52,6 +78,7 @@ export function SearchSelect({
 }) {
   const locale = useLocale();
   const [open, setOpen] = useState(false);
+  const [dropUp, setDropUp] = useState(false);
   const [q, setQ] = useState('');
   const [asyncOptions, setAsyncOptions] = useState<SearchSelectOption[] | null>(null);
   const [loading, setLoading] = useState(false);
@@ -65,6 +92,18 @@ export function SearchSelect({
   const loadRef = useRef(loadOptions);
   loadRef.current = loadOptions;
   const hasLoader = Boolean(loadOptions);
+
+  // Decide the panel's direction BEFORE paint, once per open: flip upward
+  // when the space below can't fit it and the space above is larger
+  // (3a3 drop-up collision handling).
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
+    const trigger = rootRef.current.getBoundingClientRect();
+    const bounds = constraintBounds(rootRef.current);
+    const below = bounds.bottom - trigger.bottom;
+    const above = trigger.top - bounds.top;
+    setDropUp(below < PANEL_ESTIMATE_PX && above > below);
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -146,7 +185,11 @@ export function SearchSelect({
         <ChevronDown size={15} className="shrink-0 text-ink-muted" />
       </button>
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-md border border-line bg-surface-raised shadow-lg">
+        <div
+          className={`absolute z-50 w-full rounded-md border border-line bg-surface-raised shadow-lg ${
+            dropUp ? 'bottom-full mb-1' : 'mt-1'
+          }`}
+        >
           <div className="relative border-b border-line">
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted" />
             <input

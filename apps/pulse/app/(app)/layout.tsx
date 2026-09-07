@@ -17,6 +17,8 @@ import { crossAppHref } from '@thefibre/shared/sso-hop';
 const VERSION = '0.29.0';
 
 type Me = {
+  /** Additive: the signed-in interface language (identity_profile.locale). */
+  locale?: string | null;
   user: { id: string; email: string; full_name: string | null };
   workspace: { id: string; name: string } | null;
   memberships: { app: { slug: string } | { slug: string }[] | null; role: string }[];
@@ -88,7 +90,7 @@ export default async function PulseAppLayout({
     workspaceApps: apps,
   });
 
-  const locale = await uiLocale();
+  const locale = await uiLocale(me.locale);
 
   return (
     <LocaleProvider locale={locale}>

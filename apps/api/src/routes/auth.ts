@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
+import { profileFor } from '../lib/identity-profile.js';
 
 export const authRoutes = new Hono();
 
@@ -200,10 +201,24 @@ authRoutes.get('/me', async (c) => {
     .eq('id', user.workspace_id)
     .single();
 
+  // The interface language's durable copy (identity_profile.locale). The
+  // thefibre.locale cookie is per-browser — Sjoerd picked NL on his desktop
+  // and his phone stayed English (2026-09-07) — so layouts resolve
+  // cookie-first, THIS as the fallback. Non-fatal: /me must never fail
+  // over a nicety.
+  let locale: string | null = null;
+  try {
+    locale = (await profileFor(ctx.userId)).locale ?? null;
+  } catch {
+    /* stays null → English */
+  }
+
   return c.json({
     user,
     workspace,
     memberships,
+    // Additive (rule 8): the signed-in interface language.
+    locale,
     app_id: ctx.appId,
     // Additive (rule 8): the 13-month Free archive — layouts steer archived
     // workspaces to Settings → Plan, where the reactivation banner lives.

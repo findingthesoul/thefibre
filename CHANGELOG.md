@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.57.1] — 2026-09-07 — the language follows you; dropdowns stop hiding (Meet 2.7.1)
+
+### Fixed
+- **The interface language now follows the user to every device** (Sjoerd:
+  NL on desktop, English on his phone): the thefibre.locale cookie is
+  per-browser, and layouts never fell back to the durable copy. /auth/me
+  additively carries `locale` (identity_profile) and all six layouts
+  resolve cookie-first, profile-fallback. The distinction stands as
+  designed: interface language = the user's one setting, everywhere;
+  public/front-end pages = the workspace's/content's language.
+- **SearchSelect grows drop-up collision handling** (the queued 3a3 item):
+  the panel flips upward when the space below — measured against the
+  nearest overflow-clipping ancestor, not just the viewport — cannot fit
+  it. Fixes the timezone dropdown rendering invisibly outside Meet's
+  public booking card (Sjoerd's screenshot); verified rendering locally.
+- **thethread.app's dead Sign in / Sign up** (old V3 landing): /login and
+  /signup now redirect to app.thethread.app — shipped from the
+  thethread-v3 repo (e4fbe77), live.
+
+
 ## [0.57.0] — 2026-09-07 — the tenancy matrix: two real users, one wall
 
 The strongest test the platform now has: two throwaway workspaces, two
