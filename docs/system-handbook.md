@@ -118,7 +118,7 @@ packages/
   shared/         @thefibre/shared — THE shared package (§5)
 supabase/
   migrations/     146+ SQL migrations — the schema's single source of truth
-docs/             briefs, proposals, runbooks (§12 doc map)
+docs/             briefs, proposals, runbooks (§13 doc map)
 scripts/          repo-level ops: verify-vercel-env.mjs, vercel-ignore.mjs,
                   smoke-staging.mjs, db-push-{prod,staging}.sh
 CLAUDE.md         working notes for LLM sessions (gotchas, where-we-left-off)
@@ -397,8 +397,9 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 - **Smoke**: `scripts/smoke-staging.mjs` asserts every subdomain serves its
   own app by `<title>`, deriving subdomains from the web apex env — reuse
   the pattern for any domain work.
-- Old `*.thefibre.app` app subdomains still serve during a grace window;
-  the **hard cut** (detach + drop transitional `CORS_ORIGINS`) is queued in
+- The old `*.thefibre.app` app subdomains are GONE (hard cut executed
+  2026-09-07: detached from Vercel, transitional `CORS_ORIGINS` removed).
+  Old Thread V3 decommission + TransIP record cleanup remain in
   `docs/build-plan.md` item 0.
 
 ---
@@ -435,15 +436,108 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     verify every import the commit introduces resolves within the commit.
   - Fence lanes by directory; coordinate shared files (layouts,
     `packages/shared/package.json`) explicitly.
-- **Verification is part of the release**: `pnpm -r typecheck` always;
-  the relevant `verify-*` script for the area touched; a **signed-in
-  browser render check for any shell/chrome/layout change** (typecheck-
-  clean ≠ render-correct); never destructive tests against production
-  data (reads fine; writes need a fixture or a check-in first).
+- **Verification is part of the release** — the full testing approach is
+  §11; the per-release gate checklist is §11.4.
 
 ---
 
-## 11. Working on this codebase
+## 11. Testing
+
+Full rationale and roadmap: `docs/testing-approach.md`. This section is the
+operational summary.
+
+**Honest baseline:** no unit-test files, no test runner (deliberate
+early-stage trade). Today's safety net = the type system + executable
+contract checks + a full staging twin + disciplined manual loops. The
+guiding rule: **test the promises, not the plumbing** — contracts
+(published APIs, money, sign-in, RLS tenancy) get tests; UI plumbing gets
+types and render checks.
+
+### 11.1 Internal vs external testing
+
+Two senses, both used:
+
+- **Who tests**: *internal* = the developer/LLM loop (local + staging) and
+  **dogfooding** (Solidarity Lab runs its own events, memberships and
+  cashflow on production — that is the alpha programme). *External* = the
+  comped closed-beta workspaces (created at /admin/workspaces with a
+  reason, each with a named contact; feedback lands in build-plan's Open
+  queue) and then open self-serve use. Beta users are real users: full
+  GDPR posture, never destructive tests on their data.
+- **What's tested**: *external (black-box)* tests exercise published
+  surfaces as an outsider — our verify scripts are exactly this and are
+  the most valuable tests we own. *Internal (white-box)* unit/integration
+  tests guard intricate algorithms (money, tenancy). Bias: contracts get
+  external-style tests (they survive refactors); algorithms get internal
+  ones.
+
+### 11.2 The layer stack (cheap/always-on → expensive/occasional)
+
+1. **Types** — `pnpm -r typecheck`; typed i18n catalogs and API shapes are
+   free regression coverage. Prefer making an invariant a type over a test.
+2. **Contract checks** — `apps/api/scripts/verify-external-app.mjs`
+   (the whole external-app contract, throwaway app, self-cleaning),
+   `apps/api/scripts/verify-public-api.mjs` (Thread public reads: shapes,
+   CORS, rate limiting), `scripts/smoke-staging.mjs` (each domain serves
+   its own app by `<title>`), `scripts/verify-vercel-env.mjs` (the env
+   matrix as executable truth).
+3. **Unit tests** (planned — Vitest): pure money/tenancy logic only —
+   `lib/fees.ts`, VAT, `lib/plan.ts` gating, `sso-hop.ts` sanitisation.
+4. **Integration tests** (planned): API routes against the staging DB with
+   a fixture workspace — the RLS matrix (workspace A must never read B;
+   app-key default deny), webhook idempotency, the handoff single-use race.
+   Real Postgres always — mocking the DB tests nothing, RLS is the point.
+5. **E2E smoke** (planned — Playwright on staging): ~10 golden paths (OTP
+   sign-in, dashboard, app switch incl. cross-apex hop, public thread page,
+   test-ticket enrolment through Stripe test checkout, /my, embed resize).
+   Kept ruthlessly small so it stays green and trusted.
+6. **Manual/visual** — signed-in browser render check for every
+   shell/chrome/layout change (typecheck-clean ≠ render-correct); the
+   staging live-test loop is a first-class technique.
+7. **Production monitoring as testing** — API stderr (verbose on purpose),
+   Stripe webhook delivery status, Vercel deploy status, prod smoke.
+   Silence is not success: read the log after shipping money/auth changes.
+
+Deliberately not done: UI snapshots, mocked-DB tests, coverage targets,
+load testing (revisit at the first >5k-person workspace).
+
+### 11.3 Test data rules
+
+Real database, fake money (Stripe test keys), fake people (seed fixtures —
+`apps/api/scripts/seed-ebbf.mjs` is idempotent). **Never destructive writes
+against production data** — reads on prod are fine; writes need a fixture
+workspace or an explicit check-in first. Rehearse risky flows (payments,
+erasure, cutovers) on staging or a Solidarity-Lab-owned prod fixture.
+
+### 11.4 Release gates (run per release)
+
+1. `pnpm -r typecheck` — always.
+2. The verify script for any touched contract area (`/api/v1/apps/*` →
+   verify-external-app; Thread public/CORS → verify-public-api;
+   env/domains → verify-vercel-env + smoke).
+3. Shell/layout change → signed-in render check.
+4. Money/auth change → staging rehearsal with test keys, then watch the
+   API log during the first prod exercise.
+5. Migrations → applied to **both** DBs in the same ship.
+6. After deploy: prod smoke + read the Fly log.
+
+The multi-session serialization protocol (§10) is part of testing: one
+release at a time and explicit-path staging keep other sessions'
+half-finished work out of the tested artifact.
+
+### 11.5 Adoption state
+
+Phase 0 (formalise `pnpm verify` + prod smoke) and Phase 1 (install
+`docs/ci-template/ci.yml` into `.github/workflows/` — **blocked on a
+GitHub token with `workflow` scope, Sjoerd**) are next; then Vitest on
+money/tenancy, the staging integration pack, and the Playwright golden
+paths — sequenced in `docs/testing-approach.md` §4 and tracked in
+build-plan. Cost profile: tooling €0, CI ≈ free tier, the real cost is
+session time (front-loaded) plus ~2–5 min of gates per release.
+
+---
+
+## 12. Working on this codebase
 
 ### Local dev
 
@@ -499,7 +593,7 @@ canvas, timeline editor) are deliberately desktop-first.
 
 ---
 
-## 12. Document map
+## 13. Document map
 
 | Document | Role |
 |---|---|
@@ -517,7 +611,7 @@ canvas, timeline editor) are deliberately desktop-first.
 | `docs/testing-approach.md` | How we test: internal/external testing, the layer stack, release gates, adoption roadmap |
 | `CLAUDE.md` | LLM session working notes: hard rules, gotcha index, current state |
 
-## 13. The hard rules (memorise these)
+## 14. The hard rules (memorise these)
 
 1. **No personal data in Vercel** — every PII operation goes through the EU API.
 2. **`X-App-ID` on every API request** (user sessions).
