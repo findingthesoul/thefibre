@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.65.0] — 2026-09-08 — website: cues on every card, richer story copy
+
+- The turquoise SCROLL cue now sits next to the thread line on EVERY card
+  (components/scroll-cue.tsx — each thread segment exits at a known
+  x-fraction; the cue sits just right of it; click scrolls one viewport
+  and the snap magnet lands the next card). The last card carries a yellow
+  "Start a Thread" button at the bottom instead, next to the thread's end
+  hook.
+- Moment card grows Sjoerd's facilitator line: "Every encounter matters —
+  the facilitator knows this. When every moment of contact is curated, the
+  experience becomes a learning journey."
+- The forms of gathering vary across the story (his list): workshop /
+  hackathon / festival on card 2; meeting / party / learning process on
+  the workshop card; dinner / forum / large-scale intervention on the
+  starts-there card.
+
 ## [0.64.1] — 2026-09-08 — website: the moment-vs-journey card
 
 - New card between the fabric and the workshop: "An event is a moment. It

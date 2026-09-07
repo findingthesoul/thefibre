@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { Scene, Line, Ink } from '@/components/scene';
+import { ScrollCue } from '@/components/scroll-cue';
 import { ScrollCollage, type ScrubPiece } from '@/components/scroll-collage';
 import { DrawnThread } from '@/components/drawn-thread';
 import { Settle } from '@/components/settle';
@@ -83,9 +84,13 @@ const FIBRE: ScrubPiece[] = [
 
 function StoryScene({
   seg,
+  cue,
+  bottomSlot,
   children,
 }: {
   seg?: string;
+  cue?: number;
+  bottomSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
@@ -101,6 +106,8 @@ function StoryScene({
         />
       )}
       <Scene>{children}</Scene>
+      {cue !== undefined && <ScrollCue x={cue} />}
+      {bottomSlot}
     </div>
   );
 }
@@ -127,31 +134,7 @@ export default async function Home() {
             Tools to facilitate change.
           </p>
         </div>
-        <a
-          href="#story"
-          className="absolute bottom-10 left-[21%] flex items-center gap-3 transition-opacity hover:opacity-60"
-          aria-label="Begin the story"
-        >
-          <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#2fb3ab]">
-            Scroll
-          </span>
-          <svg
-            width="11"
-            height="14"
-            viewBox="0 0 14 18"
-            aria-hidden="true"
-            className="animate-bounce text-[#2fb3ab]"
-          >
-            <path
-              d="M7 1 V15 M2 10.5 L7 16 L12 10.5"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </a>
+        <ScrollCue x={18} />
       </section>
 
       {/* ── What this is, plainly — Sjoerd's collage compiles with the scroll. ── */}
@@ -172,7 +155,7 @@ export default async function Home() {
           </h2>
           <p className="text-sm leading-relaxed text-ink-subtle md:text-base">
             The Thread is a set of online tools for people who bring people together. You set up a
-            gathering — a workshop, a training, a conference — publish an enrolment page, take
+            gathering — a workshop, a hackathon, a festival — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
             certificates live in one place, so nothing depends on spreadsheets. Built and hosted in
             the EU.
@@ -185,17 +168,24 @@ export default async function Home() {
           className="mt-4 md:mt-2"
           style={{ width: 'min(100%, 130svh, 110rem)' }}
         />
+        <ScrollCue x={70} />
       </section>
 
       {/* ── The turn: a moment vs a journey. ── */}
-      <StoryScene seg={THREAD.moment}>
+      <StoryScene seg={THREAD.moment} cue={70}>
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
           <Line>
             An event is a <Ink>moment</Ink>. It starts, and it stops.
           </Line>
-          <p className="text-2xl font-semibold leading-tight tracking-tight text-ink-muted md:mt-2 md:text-4xl">
-            A thread is there to weave moments together — into a <Ink>journey</Ink>.
-          </p>
+          <div className="md:mt-2">
+            <p className="text-2xl font-semibold leading-tight tracking-tight text-ink-muted md:text-4xl">
+              A thread is there to weave moments together — into a <Ink>journey</Ink>.
+            </p>
+            <p className="mt-6 max-w-lg text-base leading-relaxed text-ink-subtle md:text-lg">
+              Every encounter matters — the facilitator knows this. When every moment of contact
+              is curated, the experience becomes a learning journey.
+            </p>
+          </div>
         </div>
       </StoryScene>
 
@@ -214,7 +204,8 @@ export default async function Home() {
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The workshop.</h2>
             <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
               In the workshop we place tools that support weaving. Weaving is the activity of
-              bringing people together — building connection and collaboration.
+              bringing people together — building connection and collaboration: in a meeting, at a
+              party, across a learning process that runs for months.
             </p>
             <p className="mt-4 text-base leading-relaxed text-ink-subtle md:text-lg">
               <span className="font-semibold text-ink">Meet</span> is the planning tool: schedule
@@ -238,6 +229,7 @@ export default async function Home() {
             style={{ width: 'min(100%, 46svh, 26rem)' }}
           />
         </div>
+        <ScrollCue x={28} />
       </section>
 
       {/* ── The foundation: art left, text right. ── */}
@@ -272,15 +264,16 @@ export default async function Home() {
             </p>
           </div>
         </div>
+        <ScrollCue x={22} />
       </section>
 
-      <StoryScene seg={THREAD.starts}>
+      <StoryScene seg={THREAD.starts} cue={56}>
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
           <Line>
             The Thread <Ink>starts there</Ink>.
           </Line>
           <p className="text-base leading-relaxed text-ink-subtle md:mt-2 md:text-lg">
-            A dinner, a workshop, a conference — the moment people enter a room together, something
+            A dinner, a forum, a large-scale intervention — the moment people enter a room together, something
             becomes possible that wasn&apos;t possible before. The Thread is built to honour that
             moment, and to carry it forward.
           </p>
@@ -347,6 +340,7 @@ export default async function Home() {
             </Link>
           </p>
         </div>
+        <ScrollCue x={72} />
       </section>
 
       {/* ── Proof, quiet. ── */}
@@ -371,10 +365,22 @@ export default async function Home() {
             </div>
           ))}
         </div>
+        <ScrollCue x={68} />
       </section>
 
       {/* ── The invitation. ── */}
-      <StoryScene seg={THREAD.invite}>
+      <StoryScene
+        seg={THREAD.invite}
+        bottomSlot={
+          <a
+            href={startHref('free')}
+            className="absolute bottom-10 z-10 rounded-lg bg-accent px-6 py-2.5 text-[13px] font-bold text-ink transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,221,0,0.35)]"
+            style={{ left: 'calc(61% + 16px)' }}
+          >
+            Start a Thread
+          </a>
+        }
+      >
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
           <Line>
             Start with <Ink>one gathering</Ink>.
