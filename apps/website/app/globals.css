@@ -1,0 +1,54 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* The Thread palette — lifted from the V3 site, expressed in the monorepo's
+   rgb(var(--x) / <alpha>) convention. Light-only by design. */
+:root {
+  --surface: 255 255 255; /* the white ground — the brand */
+  --surface-warm: 250 249 247; /* #faf9f7 */
+  --surface-paper: 240 237 232; /* #f0ede8 */
+  --ink: 26 26 46; /* #1a1a2e */
+  --ink-subtle: 85 85 85;
+  --ink-muted: 153 153 153;
+  --accent: 255 221 0; /* #ffdd00 */
+  --line: 232 232 236;
+}
+
+html {
+  color-scheme: light;
+  scroll-behavior: smooth;
+}
+
+body {
+  @apply bg-surface text-ink antialiased;
+}
+
+/* Shapes that drift and settle (components/settle.tsx). The server renders
+   everything SETTLED; the "from" state is applied client-side only. One
+   decisive ease-out — a confident cut, no wobble. */
+.settle {
+  transition:
+    transform 700ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 700ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.settle[data-unsettled='true'] {
+  opacity: 0;
+  transform: translateY(var(--settle-y, 28px)) rotate(var(--settle-r, -4deg));
+}
+.settle[data-unsettled='false'] {
+  opacity: 1;
+  transform: translateY(0) rotate(0deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  .settle,
+  .settle[data-unsettled='true'] {
+    transition: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+  }
+}

@@ -1,26 +1,21 @@
 {
-  "name": "@thefibre/flow",
+  "name": "@thefibre/website",
   "version": "0.59.1",
   "private": true,
   "scripts": {
-    "dev": "next dev -p 3003",
+    "dev": "next dev -p 3006",
     "build": "next build",
-    "start": "next start -p 3002",
+    "start": "next start -p 3006",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "next": "^15.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "@supabase/ssr": "^0.5.2",
-    "@supabase/supabase-js": "^2.45.0",
-    "@thefibre/shared": "workspace:*",
-    "@xyflow/react": "^12.3.5",
-    "tailwind-merge": "^3.5.0",
-    "lucide-react": "^0.460.0"
+    "@thefibre/shared": "workspace:*"
   },
   "devDependencies": {
-    "@types/node": "^22.7.0",
+    "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "autoprefixer": "^10.4.20",

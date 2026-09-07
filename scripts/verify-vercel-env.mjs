@@ -30,7 +30,11 @@ async function v(path, init = {}) {
   return body;
 }
 
-const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership'];
+const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership', 'thefibre-website'];
+// The marketing site is not a product app: no Supabase, no cookies, no
+// staging twin. Only this key applies to it (production scope only).
+const WEBSITE = 'thefibre-website';
+const WEBSITE_KEYS = new Set(['NEXT_PUBLIC_API_BASE_URL']);
 const T = (h) => `https://${h}`;
 const MATRIX = {
   prod: {
@@ -94,7 +98,9 @@ for (const name of NAMES) {
 
   const lines = [];
   for (const [scope, vars] of Object.entries(MATRIX)) {
+    if (name === WEBSITE && scope !== 'prod') continue;
     for (const [key, expectedRaw] of Object.entries(vars)) {
+      if (name === WEBSITE && !WEBSITE_KEYS.has(key)) continue;
       // Per-project expectations (e.g. the two-apex cookie domain) are
       // functions of the project name; everything else is a literal.
       const expected = typeof expectedRaw === 'function' ? expectedRaw(name) : expectedRaw;

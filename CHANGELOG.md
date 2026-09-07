@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.1] — 2026-09-07 — the new thethread.app website (awaiting Sjoerd's cut)
+
+Executes `docs/thethread-website-rewrite-plan.md`: the seventh app,
+`apps/website` — The Thread's marketing site, replacing the old V3 landing
+once Sjoerd approves the preview and the apex moves.
+
+### Added
+- **`apps/website`** (dev :3006, Vercel project `thefibre-website`,
+  git-connected with rootDirectory set — deploys per push like the others).
+  Light-only, static-first, 102 kB first-load, zero runtime deps beyond
+  Next/React + shared constants. Five pages in the brief's voice:
+  - **Home** — the six beats: the litany hero, "Most event platforms stop
+    at the event. The Thread starts there.", the arc as three settling
+    cards, the workshop as four verb-sentences (tools by function, never
+    named as products), unnamed-truths proof, "Start with one gathering."
+  - **/workshop** — the product tour organised by the arc (replaces V3's
+    engineer-voiced /features; /features 301s here).
+  - **/pricing** — live catalogue (same endpoint the product gates on;
+    the fee is a fraction in the payload — rendered ×100; Enterprise =
+    `org`, no public price, "Talk to us"). Designed empty state.
+  - **/about** — the V3 Matisse essay ported nearly untouched + a
+    two-sentence "who makes this".
+  - **/contact** — hello@thethread.app; Enterprise is a conversation.
+- **The visual identity**: cut-out shape library (5 shapes, ONE path each),
+  `ShapeMask` (photos clipped in shapes; degrades to solid until consented
+  photography exists), the **drawn thread** (scroll-drawn line, vanilla
+  ~60 lines, per-section segments, fully drawn without JS/motion), and
+  `Settle` (paper placed by hand; server renders settled — no-JS and
+  reduced-motion never hide content, zero CLS).
+- Favicon + OG image for this surface (the P5 gap): `app/icon.svg` +
+  generated `opengraph-image`.
+- `/login` + `/signup` redirect to app.thethread.app (V3's obligation
+  inherited); footer legal links reuse the Fibre's public pages.
+- Ops: version ritual is now TEN package.jsons (CLAUDE.md + handbook);
+  verify-vercel-env audits `thefibre-website` (prod
+  NEXT_PUBLIC_API_BASE_URL only); `.claude/launch.json` for :3006.
+
+### Still ahead (Act 2 + the cut)
+Sjoerd reviews the live preview → the apex + www move from the
+`thethread-v3` project (then smoke/E2E gain the new-apex assertions, and
+V3 can be archived). Scissors hero animation + photography pass follow.
+
+## [0.59.0] — 2026-09-07 — Meet catches up with Suite: Zoom, moving a booking, fair rotation
+
 ## [0.59.0] — 2026-09-07 — Meet catches up with Suite: Zoom, moving a booking, fair rotation
 
 The Soul Suite comparison written this morning
