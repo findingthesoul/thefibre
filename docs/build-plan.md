@@ -38,6 +38,11 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
    test-checkout enrol, /my) needing a public staging thread fixture;
    OPTIONAL (Sjoerd): repo Actions secrets to let nightly run
    verify-public-api too.
+   NEW FINDING (2026-09-07, RLS-matrix work): the access-token hook's
+   `au.email = u.email` join resolves case-SENSITIVELY (auth varchar vs
+   citext) — a mixed-case email in public."user" yields a token with NO
+   custom claims, i.e. silent claim-less sign-in. Real flows write
+   lowercase, but HARDEN: migration wrapping both sides in lower().
 
 **0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
    hard cut EXECUTED 2026-09-07).**

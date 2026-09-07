@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.57.0] — 2026-09-07 — the tenancy matrix: two real users, one wall
+
+The strongest test the platform now has: two throwaway workspaces, two
+REAL staging auth users with hook-stamped sessions, and eight assertions
+that the data wall holds in both directions.
+
+### Added
+- **Auth-fixture harness** (`src/integration/staging.ts`):
+  `createThrowawayWorkspace` / `createFixtureUser` — a real GoTrue user +
+  `public."user"` row, session minted via `generateLink` → `verifyOtp`
+  (no email), then an RLS client built the `userClient` way (anon apikey +
+  pinned Bearer — `persistSession:false` silently DROPS the session
+  otherwise and every query runs anonymous, which fails open-looking).
+- **`rls-matrix.int.test.ts`** — claims name the right tenant; reads stay
+  inside it (own program visible, B's program/workspace/person/user rows
+  invisible); writes stay inside it (cross-tenant update touches 0 rows,
+  insert into the other workspace refused, delete refused) — each denial
+  double-checked against the service-role oracle. 30 integration tests
+  total, all green.
+
+### Found while testing (queued in build-plan 0a)
+- The access-token hook's `au.email = u.email` join resolves
+  case-SENSITIVELY (auth varchar vs citext): a mixed-case email in
+  `public."user"` yields a token with NO custom claims — a silent,
+  claim-less sign-in. Real flows write lowercase; hardening migration
+  (lower() both sides) queued.
+
+### Changed
+- `apps/api/tsconfig.json` excludes `src/integration/**` — test plumbing
+  never compiles into the deployed dist.
+
 ## [0.56.0] — 2026-09-07 — the golden paths: a real browser walks the product
 
 Phase 4 of the testing roadmap starts. 6 Playwright scenarios green
