@@ -130,7 +130,7 @@ export default async function PricingPage() {
         </p>
         <p>
           <strong className="text-ink">Ready-made shapes.</strong> Start from ready-made event
-          shapes — one on Free, five on Starter, and on Pro your own designs join them: Single
+          shapes — two on Free, five on Starter, and on Pro your own designs join them: Single
           event, Two-day event, Guided event, Workshop series, Conversation circle.
         </p>
         <p>

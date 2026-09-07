@@ -20,10 +20,11 @@ async function signupMode(): Promise<'open' | 'invited'> {
   }
 }
 
-// The public landing, positioned per docs/naming-brief.md (2026-09-01):
-// Thread is the flagship people meet and say out loud; Meet / Sales / Flow
-// are functions in its service, never siblings with equal billing; Fibre
-// appears once, backstage, as the foundation — never the pitch.
+// The public landing — a FIBRE page again (Sjoerd, 2026-09-08): with
+// thethread.app carrying the product marketing, thefibre.app returns to
+// being the platform's own face — what The Fibre is, the tools running on
+// it, and the invitation to build yours on it (the app platform is open
+// since v0.14.0).
 
 export default async function LandingPage() {
   // If already signed in, jump straight to the dashboard — mirrors meet/flow.
@@ -61,33 +62,31 @@ export default async function LandingPage() {
               : 'In an invited trial — access is by request'}
           </div>
           <h1 className="mt-5 text-5xl font-medium tracking-tight leading-tight">
-            Thread
+            The Fibre
           </h1>
           <p className="mt-3 text-2xl text-neutral-600 tracking-tight">
-            The learning journey a person walks.
+            The data platform beneath The Thread.
           </p>
           <p className="mt-6 text-lg text-neutral-600 leading-relaxed max-w-2xl">
-            A festival, a course, a programme — for the person in it, these are
-            not events on a calendar. They are one journey: the first hello,
-            the enrolment, the sessions, the certificate, the invitation to
-            what comes next. Thread holds that whole arc, so the people who
-            organise it can walk alongside instead of chasing spreadsheets.
+            One contact base carries every tool: people, organisations, enrolments, consent. Each
+            tool sees only the data it can justify — nothing is copied around, nothing leaks.
+            Hosted in the EU, GDPR by construction, holding nothing it cannot explain.
           </p>
 
           <div className="mt-10 flex items-center gap-5">
-            <Link
-              href="/request-access"
-              className="rounded-md bg-neutral-900 text-white px-5 py-2.5 text-sm font-medium hover:bg-neutral-800"
+            <SignInLink />
+            <a
+              href="https://thethread.app"
+              className="rounded-md border border-neutral-300 px-5 py-2.5 text-sm font-medium hover:bg-neutral-50"
             >
-              {mode === 'open' ? 'Start free' : 'Request access'}
-            </Link>
+              Meet the tools →
+            </a>
             <Link
               href="/pricing"
-              className="rounded-md border border-neutral-300 px-5 py-2.5 text-sm font-medium hover:bg-neutral-50"
+              className="text-sm text-neutral-500 underline underline-offset-4 hover:text-neutral-900"
             >
               Pricing
             </Link>
-            <SignInLink />
           </div>
         </header>
 
@@ -95,47 +94,54 @@ export default async function LandingPage() {
             sibling products. */}
         <section className="mt-24">
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-            What a Thread carries
+            Tools running on The Fibre
           </div>
           <div className="mt-5 space-y-6">
             <Function
-              title="Enrolment that feels like a welcome"
-              body="Public pages in five languages, tickets and gentle payment, approval when a journey needs a doorkeeper — and every email a message in the journey's own voice, sent at the right moment."
+              title="The Thread — events become journeys"
+              body="Enrolment, tickets and payment, messages that send themselves, certificates — the whole arc of a gathering, from first hello to follow-up."
             />
             <Function
-              title="Meetings, inside the journey"
-              body="Sessions and one-to-ones are scheduled and recorded as part of the Thread — how meetings happen here, not a separate tool to learn."
+              title="Meet — the planning tool"
+              body="Appointments with people and groups, booked against real availability; the calendar entry and the room link follow by themselves."
             />
             <Function
-              title="The arc, visible"
-              body="Who has begun, who is mid-way, who crossed the finish — with certificates issued when they do. The people flow underneath is an engine, not a dashboard anyone must study."
+              title="Members — membership management"
+              body="Groups and subgroups, joining and renewal, subscriptions collected — one living register of who belongs where."
             />
             <Function
-              title="Relationships that persist"
-              body="The same person recognised across journeys and years — so next year's edition starts from a relationship, not a fresh import."
+              title="Pulse & Flow — on the workbench"
+              body="Business planning and people-flow, growing quietly alongside the rest. And beyond our own house: external tools already run here too, on scoped keys."
             />
           </div>
         </section>
 
         <section className="mt-20">
           <div className="text-[10px] uppercase tracking-[0.18em] text-neutral-500">
-            Under the hood
+            Build yours on it
           </div>
           <p className="mt-4 text-sm text-neutral-600 leading-relaxed max-w-2xl">
-            Thread runs on The Fibre — a shared foundation for identity and
-            relationships, hosted in the EU, GDPR-native, holding nothing it
-            cannot justify. A learner never needs to know it is there; the
-            organisations trusting us with their people&rsquo;s data sometimes
-            do, and{' '}
+            The Fibre is an open platform: any tool can register, receive scoped keys for exactly
+            the data it justifies, and stand on the same contact base, consent model and EU
+            hosting — GDPR handled underneath, so you build the tool, not the plumbing. If
+            you&rsquo;re building for people who bring people together,{' '}
+            <a className="underline" href={`mailto:${ENTITY.supportEmail}`}>
+              write to us
+            </a>{' '}
+            — we&rsquo;ll walk you through the app contract, and{' '}
             <Link className="underline" href="/about">
-              we are glad to explain it
+              the thinking behind the platform
             </Link>
-            . No advertising, no profiling, no data sold.
+            . No advertising, no profiling, no data sold — yours or your users&rsquo;.
           </p>
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          {ENTITY.publicName} · {ENTITY.hostedLine}
+          The Fibre · the platform beneath{' '}
+          <a className="underline" href="https://thethread.app">
+            The Thread
+          </a>{' '}
+          · {ENTITY.hostedLine}
           <br />
           <Link className="underline" href="/pricing">
             Pricing

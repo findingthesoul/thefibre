@@ -47,8 +47,8 @@ describe('the production topology (v0.52.0 domain migration)', () => {
 });
 
 describe('defaultEmailFrom', () => {
-  it('EMAIL_FROM env wins; otherwise the platform-branded default', () => {
+  it('EMAIL_FROM env wins; otherwise the public-brand default (The Thread — branding pivot 2026-09-08)', () => {
     expect(defaultEmailFrom({ EMAIL_FROM: 'X <x@example.org>' })).toBe('X <x@example.org>');
-    expect(defaultEmailFrom({})).toBe('The Fibre <noreply@thefibre.app>');
+    expect(defaultEmailFrom({})).toBe('The Thread <noreply@thefibre.app>');
   });
 });

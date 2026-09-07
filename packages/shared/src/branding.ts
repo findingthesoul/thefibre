@@ -175,8 +175,7 @@ export function appUrl(slug: AppId, env?: Record<string, string | undefined>): s
 /** The "from" line we want emails to use. Mirrors `EMAIL_FROM` env or builds
  *  a default from ENTITY. Use everywhere instead of hard-coding. */
 export function defaultEmailFrom(env?: Record<string, string | undefined>): string {
-  const platform = APPS[PLATFORM_APP_ID];
-  return env?.EMAIL_FROM || `${platform.name} <${ENTITY.emailFromAddress}>`;
+  return env?.EMAIL_FROM || `${ENTITY.publicName} <${ENTITY.emailFromAddress}>`;
 }
 
 /** Single-line legal footer used at the bottom of public emails + landing
@@ -184,9 +183,22 @@ export function defaultEmailFrom(env?: Record<string, string | undefined>): stri
  *  Excludes the legal entity name (ENTITY.name) by design — it stays in
  *  branding.ts for internal billing / invoicing but isn't on public brand
  *  surfaces. */
+/** The brand PLATFORM emails (and the shared legal footer line) present
+ *  to end users. Branding pivot (Sjoerd, 2026-09-08): the public face is
+ *  The Thread; The Fibre is backstage. Assets are hosted on the fibre web
+ *  brand SPoT like every other brand file. */
+export const EMAIL_BRAND = {
+  name: ENTITY.publicName,
+  /** Where "Sign in" goes — the Thread door. */
+  url: APPS['the-thread'].url,
+  logoUrl: 'https://thefibre.app/brand/the-thread.png',
+  logoAlt: 'The Thread',
+  logoNativeWidth: 1120,
+  logoNativeHeight: 273,
+};
+
 export function legalFooterLine(): string {
-  const platform = APPS[PLATFORM_APP_ID];
-  return `${platform.name} · ${ENTITY.address} · ${ENTITY.hostedLine}`;
+  return `${ENTITY.publicName} · ${ENTITY.address} · ${ENTITY.hostedLine}`;
 }
 
 /** The "— The Fibre" email sign-off. */

@@ -32,3 +32,5 @@ export const COOKIE_APPS_SECTION = 'thefibre.apps';
 // opens the launcher popup when it is present (and clears it) — "at
 // login" means at LOGIN, not once per browser session (2026-09-07).
 export const COOKIE_LAUNCHER_PENDING = 'thefibre.launcher.pending';
+/** The digital facilitator: '' = not answered yet, 'done' = answered. */
+export const COOKIE_GUIDE = 'thefibre.guide';

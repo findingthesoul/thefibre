@@ -8,6 +8,7 @@
 import Link from 'next/link';
 import { Scene, Line, Ink } from '@/components/scene';
 import { ScrollCue } from '@/components/scroll-cue';
+import { SnapController } from '@/components/snap-controller';
 import { ScrollCollage, type ScrubPiece } from '@/components/scroll-collage';
 import { DrawnThread } from '@/components/drawn-thread';
 import { Settle } from '@/components/settle';
@@ -39,23 +40,24 @@ const THREAD = {
 // The three fabric cards' compositions. Entry vectors are vw/vh — pieces
 // really come in from beyond the screen edges (sides + bottom, per Sjoerd).
 // Travellers: the yellow egg runs 2→3→4; the teal figure hands off 2→3; the
-// black leaf 3→4. A traveller exits DOWN on one card (its scatter vector
-// points below) and enters FROM THE TOP on the next, so it reads as one
-// shape moving down the page.
+// black leaf 3→4. ONLY travellers exit through a card's bottom (their twin
+// arrives from the next card's top — one shape moving down the page);
+// every other piece leaves SIDEWAYS, off the page, never sinking into the
+// card's bottom edge (Sjoerd, 2026-09-08).
 // Spread to fill the whole canvas (Sjoerd: "second card almost full with
 // illustration") — same arrangement, scaled up and opened out vertically.
 const FABRIC: ScrubPiece[] = [
   { src: 'start-figure.png', x: 6.4, y: 22.7, w: 17.3, dx: -8, dy: 45, r: -22, e: 0.85 },
   { src: 'yellow-shape.png', x: 19.8, y: 36.2, w: 7.1, dx: -52, dy: 6, r: 18, e: 1.1 },
   { src: 'bordeaux-shape.png', x: 24.3, y: 47, w: 7.5, dx: -40, dy: 14, r: -30, e: 1.3 },
-  { src: 'blue-shape-cup.png', x: 28.9, y: 51.1, w: 17.6, dx: -10, dy: 55, r: 10, e: 1 },
-  { src: 'orange-vase.png', x: 42.7, y: 41.6, w: 15.2, dx: 0, dy: 60, r: -8, e: 0.9 },
+  { src: 'blue-shape-cup.png', x: 28.9, y: 51.1, w: 17.6, dx: -58, dy: 14, r: 10, e: 1 },
+  { src: 'orange-vase.png', x: 42.7, y: 41.6, w: 15.2, dx: -62, dy: 8, r: -8, e: 0.9 },
   { src: 'yellow-egg.png', x: 51.3, y: 39.6, w: 7.3, dx: 6, dy: 45, r: 35, e: 1.4 },
-  { src: 'rise-bowl.png', x: 54.1, y: 70.6, w: 12.7, dx: 6, dy: 50, r: -14, e: 1.15 },
+  { src: 'rise-bowl.png', x: 54.1, y: 70.6, w: 12.7, dx: 52, dy: 16, r: -14, e: 1.15 },
   { src: 'blue-bowl.png', x: 64.2, y: 59.8, w: 9.4, dx: 38, dy: 10, r: 20, e: 1.25 },
   { src: 'blue-square.png', x: 70, y: 57.8, w: 15.2, dx: 50, dy: 4, r: 8, e: 1 },
   { src: 'double-vase.png', x: 80.2, y: 26.1, w: 8.7, dx: 45, dy: -8, r: -16, e: 0.9 },
-  { src: 'turqois-stool.png', x: 77.1, y: 72, w: 11.5, dx: 18, dy: 48, r: 12, e: 1.2 },
+  { src: 'turqois-stool.png', x: 77.1, y: 72, w: 11.5, dx: 55, dy: 12, r: 12, e: 1.2 },
   { src: 'ligth-turqiose-leaf.png', x: 87.7, y: 5.2, w: 9.9, dx: 40, dy: -14, r: 28, e: 1.35 },
 ];
 
@@ -68,7 +70,7 @@ const WORKSHOP: ScrubPiece[] = [
   { src: 'black-leaf.png', x: 48, y: 20, w: 26, dx: 35, dy: -12, r: 25, e: 1 },
   { src: 'green-iron.png', x: 22, y: 37, w: 40, dx: -45, dy: 4, r: -12, e: 1.1 },
   { src: 'dark-blue-chair.png', x: 6, y: 55, w: 34, dx: -48, dy: 15, r: -20, e: 0.95 },
-  { src: 'orange-thing.png', x: 30, y: 76, w: 42, dx: 4, dy: 50, r: 8, e: 1.2 },
+  { src: 'orange-thing.png', x: 30, y: 76, w: 42, dx: -55, dy: 12, r: 8, e: 1.2 },
   { src: 'yellow-bas.png', x: 60, y: 52, w: 33, dx: 42, dy: 12, r: 18, e: 1.05 },
 ];
 
@@ -77,7 +79,7 @@ const WORKSHOP: ScrubPiece[] = [
 const FIBRE: ScrubPiece[] = [
   { src: 'blue-music.png', x: 8, y: 8, w: 40, dx: -45, dy: -10, r: -20, e: 0.9 },
   { src: 'black-leaf.png', x: 62, y: 4, w: 22, dx: 2, dy: -50, r: 18, e: 0.8 },
-  { src: 'happy-pink.png', x: 26, y: 26, w: 48, dx: 6, dy: 55, r: 10, e: 1.1 },
+  { src: 'happy-pink.png', x: 26, y: 26, w: 48, dx: 55, dy: 14, r: 10, e: 1.1 },
   { src: 'yellow-egg.png', x: 8, y: 62, w: 16, dx: -4, dy: -45, r: -25, e: 1.3 },
   { src: 'bordeaux-shape.png', x: 66, y: 66, w: 26, dx: 40, dy: 20, r: 22, e: 1.15 },
 ];
@@ -121,6 +123,7 @@ export default async function Home() {
 
   return (
     <main>
+      <SnapController deckEndId="deck-end" />
       {/* ── The opening: wordmark alone on the white, an invitation down. ── */}
       <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6">
         <DrawnThread
@@ -371,6 +374,8 @@ export default async function Home() {
         </div>
         <ScrollCue x={68} color="#1d3057" />
       </section>
+
+      <div id="deck-end" />
 
       {/* ── The invitation. ── */}
       <StoryScene

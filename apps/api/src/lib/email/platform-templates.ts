@@ -18,12 +18,14 @@ import {
   PLATFORM_APP_ID,
   legalFooterLine,
   toLocale,
+  EMAIL_BRAND,
 } from '@thefibre/shared';
 import { escapeHtml } from './templates.js';
 import type { RenderedEmail } from './auth-templates.js';
 import { platformT as t } from './platform-i18n.js';
 
 const PLATFORM = APPS[PLATFORM_APP_ID];
+void PLATFORM;
 
 /**
  * HTML-fill: escape the raw catalog entry FIRST, then substitute vars whose
@@ -45,16 +47,16 @@ export function renderWorkspaceReadyEmail(args: {
   locale?: string | null;
 }): RenderedEmail {
   const L = toLocale(args.locale);
-  const signInUrl = `${PLATFORM.url}/sign-in`;
+  const signInUrl = EMAIL_BRAND.url;
   const firstName = args.fullName.trim().split(/\s+/)[0] || '';
-  const subject = t(L, 'ws_subject', { platform: PLATFORM.name });
+  const subject = t(L, 'ws_subject', { platform: EMAIL_BRAND.name });
   const introKey = firstName ? 'ws_intro' : 'ws_intro_no_name';
   const planLine = args.desiredPlanName
     ? t(L, 'ws_plan_line', { plan: args.desiredPlanName })
     : null;
 
   const text = [
-    PLATFORM.name,
+    EMAIL_BRAND.name,
     '',
     t(L, 'ws_headline'),
     '',
@@ -64,7 +66,7 @@ export function renderWorkspaceReadyEmail(args: {
     signInUrl,
     ...(planLine ? ['', planLine] : []),
     '',
-    t(L, 'ws_ignore', { platform: PLATFORM.name }),
+    t(L, 'ws_ignore', { platform: EMAIL_BRAND.name }),
     '',
     '---',
     `${t(L, 'footer_help')}: ${FOOTER_LINKS.help}   ${t(L, 'footer_about')}: ${FOOTER_LINKS.about}   ${t(L, 'footer_legal')}: ${FOOTER_LINKS.legal}   ${t(L, 'footer_privacy')}: ${FOOTER_LINKS.privacy}`,
@@ -92,7 +94,7 @@ export function renderWorkspaceReadyEmail(args: {
     <tr><td align="center">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width: 560px; padding: 48px 32px;">
         <tr><td align="center">
-          <img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
+          <img src="${EMAIL_BRAND.logoUrl}" alt="${escapeHtml(EMAIL_BRAND.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />
 
           <h1 style="margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">
             ${escapeHtml(t(L, 'ws_headline'))}
@@ -120,7 +122,7 @@ export function renderWorkspaceReadyEmail(args: {
           }
 
           <p style="margin: 32px 0 0; color: #737373; font-size: 13px; line-height: 1.6; max-width: 440px;">
-            ${htmlFill(t(L, 'ws_ignore'), { platform: escapeHtml(PLATFORM.name) })}${supportHtml}
+            ${htmlFill(t(L, 'ws_ignore'), { platform: escapeHtml(EMAIL_BRAND.name) })}${supportHtml}
           </p>
 
           <hr style="margin: 48px 0 24px; border: 0; border-top: 1px solid #e5e5e5;" />

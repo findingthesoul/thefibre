@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.6] — 2026-09-08 — the Thread door works end to end (Sjoerd's live signup test)
+
+Sjoerd signed up through the popup as a stranger and walked into every gap.
+All fixed:
+
+- **Platform emails present The Thread**: EMAIL_BRAND in the registry (name
+  = ENTITY.publicName, sign-in = app.thethread.app, wordmark PNG rendered
+  from the SVG onto the brand SPoT). Auth + platform templates fall back to
+  it (per-community brands still win); defaultEmailFrom and
+  legalFooterLine say The Thread now.
+- **The launcher tells the truth on first sign-in**: the JWT's
+  app_memberships claim is minted before first-login app activation, so
+  the fresh workspace showed no Thread tile. The dashboard now reads live
+  memberships from /auth/me (claim = fallback).
+- **Sales/Learn tiles are gone** — not even "coming soon".
+- **The digital facilitator, v1** (guided onboarding, existing interface
+  as the stage): a fresh workspace's launcher asks "Shall I guide you to
+  your first journey?" — Yes dims the other tiles, rings The Thread in
+  yellow with a bouncing arrow ("Click The Thread"), and the Thread's own
+  shape picker guides from there. No stores a cookie and stays quiet.
+  Six locales.
+- **Free gets 2 templates** (billing_plan features on prod + staging;
+  Sjoerd: "otherwise people don't experience the thread") — pricing bullet
+  follows.
+- **thefibre.app is a Fibre page again**: platform-voiced landing — what
+  The Fibre is, the tools running on it (Thread, Meet, Members, Pulse &
+  Flow, external apps), and "Build yours on it" inviting outside builders.
+- **Home stickiness restored, zoned**: SnapController arms MANDATORY
+  snapping inside the card deck (desktop) and relaxes to proximity in the
+  page tail — full magnet AND a scrollable footer, with hysteresis.
+
 ## [0.68.5] — 2026-09-08 — the Zoom page a reviewer can read signed out
 
 ### Added

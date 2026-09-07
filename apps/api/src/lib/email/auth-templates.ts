@@ -25,6 +25,7 @@ import {
   legalFooterLine,
   toLocale,
   type Locale,
+  EMAIL_BRAND,
 } from '@thefibre/shared';
 import { escapeHtml } from './templates.js';
 
@@ -66,7 +67,7 @@ export function renderAuthEmail(
   const loc = toLocale(locale);
   const copy = (COPY[action] ?? COPY.magiclink)[loc];
   const chrome = CHROME[loc];
-  const name = brand?.name || PLATFORM.name;
+  const name = brand?.name || EMAIL_BRAND.name;
   const subject = copy.subject.replaceAll('{platform}', name);
   const text = buildText({ args, copy, chrome, senderName: brand?.name ?? undefined });
   const html = buildHtml({ args, copy, chrome, loc, brand: brand ?? undefined });
@@ -568,7 +569,7 @@ function buildText({
   senderName?: string | undefined;
 }): string {
   const lines: string[] = [];
-  lines.push(senderName || PLATFORM.name);
+  lines.push(senderName || EMAIL_BRAND.name);
   lines.push('');
   lines.push(copy.headline);
   lines.push('');
@@ -663,7 +664,7 @@ function buildHtml({
               ? `<img src="${escapeHtml(brand.logoUrl)}" alt="${escapeHtml(brand.name ?? '')}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />`
               : brand?.name
                 ? `<div style="margin: 0 auto 48px; font-size: 20px; font-weight: 600; letter-spacing: -0.01em; color: #171717;">${escapeHtml(brand.name)}</div>`
-                : `<img src="${BRAND_ASSETS.logoUrl}" alt="${escapeHtml(BRAND_ASSETS.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />`
+                : `<img src="${EMAIL_BRAND.logoUrl}" alt="${escapeHtml(EMAIL_BRAND.logoAlt)}" width="140" style="display: block; margin: 0 auto 48px; border: 0; outline: none; text-decoration: none; height: auto;" />`
           }
 
           <h1 style="margin: 0; font-size: 28px; font-weight: 500; letter-spacing: -0.01em; color: #171717;">

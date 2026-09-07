@@ -27,6 +27,15 @@ html {
   scroll-snap-type: y proximity;
 }
 
+/* The zoned magnet (components/snap-controller.tsx): full mandatory pull
+   inside the Home card deck on desktop; proximity in the page tail and on
+   mobile, where sections routinely exceed one viewport. */
+@media (min-width: 768px) {
+  html[data-snap='hard'] {
+    scroll-snap-type: y mandatory;
+  }
+}
+
 body {
   @apply bg-surface text-ink antialiased;
 }

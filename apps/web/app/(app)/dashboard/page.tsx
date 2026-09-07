@@ -10,7 +10,7 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
-import { COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION, COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
+import { COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION, COOKIE_LAUNCHER_PENDING, COOKIE_GUIDE } from '@/lib/prefs-shared';
 import type { PublicProfile } from '../settings/profile/profile-form';
 import { LauncherOverlay, type LauncherApp } from './launcher-overlay';
 import { AppsSection } from './apps-section';
@@ -76,7 +76,7 @@ export default async function Dashboard() {
   const claims = session?.access_token
     ? JSON.parse(Buffer.from(session.access_token.split('.')[1] ?? '', 'base64').toString())
     : {};
-  const memberships: string[] = claims.app_memberships ?? [];
+  const claimMemberships: string[] = claims.app_memberships ?? [];
 
   const fullName =
     (user?.user_metadata?.full_name as string | undefined) ??
@@ -93,13 +93,16 @@ export default async function Dashboard() {
   }).format(new Date());
 
   // Fire all snapshot fetches in parallel. Each is non-fatal.
-  const [activity, programmes, persons, orgs, workspaceApps, profile] = await Promise.all([
+  const [activity, programmes, persons, orgs, workspaceApps, profile, me] = await Promise.all([
     safeFetch<{ items: Activity[] }>('/api/v1/activities?limit=6'),
     safeFetch<{ items: Programme[] }>('/api/v1/programs'),
     safeFetch<{ items: Person[] }>('/api/v1/persons?limit=4'),
     safeFetch<{ items: Org[] }>('/api/v1/organisations?limit=4'),
     safeFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps'),
     safeFetch<PublicProfile>('/api/v1/profile'),
+    safeFetch<{ memberships?: { app?: { slug?: string } | { slug?: string }[] }[] }>(
+      '/api/v1/auth/me',
+    ),
   ]);
 
   // First login, derived (onboarding rule: no wizard state): an empty
@@ -110,9 +113,22 @@ export default async function Dashboard() {
   const launcherOff = cookieStore.get(COOKIE_LAUNCHER)?.value === 'off';
   const appsCollapsed = cookieStore.get(COOKIE_APPS_SECTION)?.value === 'collapsed';
   const launcherPending = cookieStore.get(COOKIE_LAUNCHER_PENDING)?.value === '1';
+  // The digital facilitator: a fresh workspace (no activity yet) that has
+  // not answered the guide question gets the guided launcher.
+  const guideActive =
+    cookieStore.get(COOKIE_GUIDE)?.value !== 'done' && (activity?.items ?? []).length === 0;
   const profileEmpty =
     profile != null && !profile.display_name && !profile.timezone && !profile.photo_url;
   if (profileEmpty && !welcomeDone) redirect('/welcome');
+
+  // The JWT's app_memberships claim is minted BEFORE first-sign-in app
+  // activation runs (ensurePlanApps), so on the very first session it lacks
+  // the plan's apps — Sjoerd's fresh Free workspace showed no Thread tile
+  // (2026-09-08). /auth/me reads the live rows; the claim is the fallback.
+  const liveMemberships = (me?.memberships ?? [])
+    .map((m) => (Array.isArray(m.app) ? m.app[0]?.slug : m.app?.slug))
+    .filter((x): x is string => !!x);
+  const memberships = liveMemberships.length ? liveMemberships : claimMemberships;
 
   const activeAppSlugs = new Set(
     (workspaceApps?.items ?? [])
@@ -143,10 +159,9 @@ export default async function Dashboard() {
     art: tileArt(slug),
     href: slug === 'fibre-platform' ? '/dashboard' : (APP_DOMAINS[slug] ?? '#'),
   }));
-  // The unbuilt apps close the weave: art + muted name, no link.
-  const soonApps = LAUNCH_ORDER.filter((slug) => !APPS[slug].available)
-    .map((slug) => ({ name: APPS[slug].name, art: tileArt(slug) }))
-    .filter((a): a is { name: string; art: string } => !!a.art);
+  // Unbuilt apps (Sales, Learn) are NOT shown — not even as "coming soon"
+  // (Sjoerd, 2026-09-08).
+  const soonApps: { name: string; art: string }[] = [];
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
@@ -157,6 +172,7 @@ export default async function Dashboard() {
           apps={launcherApps}
           soon={soonApps}
           locale={locale}
+          guide={guideActive}
           initialOpen={launcherPending}
         />
       )}

@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { savePref } from '@/lib/prefs-actions';
-import { COOKIE_LAUNCHER, COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
+import { COOKIE_GUIDE, COOKIE_LAUNCHER, COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
 
 const SESSION_KEY = 'fibre.launcher.shown';
 
@@ -30,6 +30,7 @@ export function LauncherOverlay({
   soon = [],
   locale,
   initialOpen = false,
+  guide = false,
 }: {
   apps: LauncherApp[];
   /** Unbuilt apps closing the poster: art + muted name, unclickable. */
@@ -37,9 +38,14 @@ export function LauncherOverlay({
   locale: Locale;
   /** True right after sign-in (the callback's one-shot cookie). */
   initialOpen?: boolean;
+  /** The digital facilitator (Sjoerd, 2026-09-08): ask, then point the way
+   *  to The Thread with an arrow on the REAL tile — the existing interface
+   *  is the guide's stage. */
+  guide?: boolean;
 }) {
-  const [open, setOpen] = useState(initialOpen && apps.length > 0);
+  const [open, setOpen] = useState((initialOpen || guide) && apps.length > 0);
   const [optOut, setOptOut] = useState(false);
+  const [guideStep, setGuideStep] = useState<'ask' | 'point' | null>(guide ? 'ask' : null);
 
   // Consume the one-shot sign-in cookie so a plain refresh doesn't re-pop.
   useEffect(() => {
@@ -80,15 +86,63 @@ export function LauncherOverlay({
             <X size={18} strokeWidth={1.75} />
           </button>
         </div>
+        {guideStep === 'ask' && (
+          <div className="mt-4 rounded-lg border border-line bg-surface p-4">
+            <p className="text-sm font-medium">{t(locale, 'guide_question')}</p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideStep('point');
+                  void savePref(COOKIE_GUIDE, 'done');
+                }}
+                className="rounded-lg bg-ink px-4 py-1.5 text-sm font-semibold text-surface hover:opacity-90"
+              >
+                {t(locale, 'guide_yes')}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGuideStep(null);
+                  void savePref(COOKIE_GUIDE, 'done');
+                }}
+                className="rounded-lg border border-line px-4 py-1.5 text-sm text-ink-subtle hover:text-ink"
+              >
+                {t(locale, 'guide_no')}
+              </button>
+            </div>
+          </div>
+        )}
+        {guideStep === 'point' && (
+          <p className="mt-4 text-sm font-medium text-ink">{t(locale, 'guide_point')}</p>
+        )}
         <div className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-2">
           {apps.map((app) => (
-            <a key={app.slug} href={app.href} className="group block min-w-0">
+            <a
+              key={app.slug}
+              href={app.href}
+              className={`group relative block min-w-0 ${
+                guideStep === 'point' && app.slug !== 'the-thread' ? 'opacity-40' : ''
+              }`}
+            >
+              {guideStep === 'point' && app.slug === 'the-thread' && (
+                <span
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -top-9 left-1/2 z-10 -translate-x-1/2 animate-bounce text-2xl"
+                >
+                  ↓
+                </span>
+              )}
               {app.art ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
                   src={app.art}
                   alt=""
-                  className="aspect-square w-full rounded-lg object-cover transition-transform group-hover:scale-[1.02]"
+                  className={`aspect-square w-full rounded-lg object-cover transition-transform group-hover:scale-[1.02] ${
+                    guideStep === 'point' && app.slug === 'the-thread'
+                      ? 'ring-4 ring-yellow-300'
+                      : ''
+                  }`}
                 />
               ) : (
                 <span className="flex aspect-square w-full items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-2xl tracking-tight transition-transform group-hover:scale-[1.02]">

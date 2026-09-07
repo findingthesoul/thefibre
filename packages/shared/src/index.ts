@@ -15,6 +15,7 @@ export {
   defaultEmailFrom,
   emailSignoff,
   legalFooterLine,
+  EMAIL_BRAND,
   type AppBrand,
 } from './branding.js';
 

@@ -2451,6 +2451,38 @@ const CATALOG = {
     de: 'startet', // MT
     fr: 'commence', // MT
   },
+  guide_question: {
+    en: 'Shall I guide you to your first journey — an event, a workshop, a gathering?',
+    nl: 'Zal ik je naar je eerste journey leiden — een event, workshop of bijeenkomst?',
+    es: '¿Te guío hacia tu primer journey: un evento, un taller, un encuentro?', // MT
+    pt: 'Posso te guiar ao seu primeiro journey — um evento, um workshop, um encontro?', // MT
+    de: 'Soll ich dich zu deiner ersten Journey führen — ein Event, ein Workshop, ein Treffen?', // MT
+    fr: 'Je te guide vers ton premier journey — un événement, un atelier, une rencontre ?', // MT
+  },
+  guide_yes: {
+    en: 'Yes, guide me',
+    nl: 'Ja, leid me rond',
+    es: 'Sí, guíame', // MT
+    pt: 'Sim, me guie', // MT
+    de: 'Ja, führe mich', // MT
+    fr: 'Oui, guide-moi', // MT
+  },
+  guide_no: {
+    en: 'I’ll look around myself',
+    nl: 'Ik kijk zelf even rond',
+    es: 'Prefiero explorar solo', // MT
+    pt: 'Prefiro explorar sozinho', // MT
+    de: 'Ich schaue mich selbst um', // MT
+    fr: 'Je préfère explorer seul', // MT
+  },
+  guide_point: {
+    en: 'Click The Thread — it opens your event workshop, with your first shapes ready.',
+    nl: 'Klik op The Thread — daar staat je event-werkplaats klaar, met je eerste vormen.',
+    es: 'Haz clic en The Thread: ahí te espera tu taller de eventos, con tus primeras formas.', // MT
+    pt: 'Clique em The Thread — sua oficina de eventos abre lá, com as primeiras formas prontas.', // MT
+    de: 'Klick auf The Thread — dort öffnet sich deine Event-Werkstatt mit den ersten Formen.', // MT
+    fr: 'Clique sur The Thread — ton atelier d’événements t’attend, premières formes comprises.', // MT
+  },
   your_apps: {
     en: 'Your apps',
     nl: 'Je apps',
