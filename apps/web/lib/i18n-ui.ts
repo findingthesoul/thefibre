@@ -5400,6 +5400,88 @@ const CATALOG = {
     de: 'Ältere laden', // MT
     fr: 'Charger les plus anciens', // MT
   },
+
+  // ── first-login welcome sequence + launcher ──────────────────────────
+  welcome_headline: {
+    en: 'Welcome to The Fibre',
+    nl: 'Welkom bij The Fibre',
+    es: 'Bienvenido a The Fibre', // MT
+    pt: 'Bem-vindo ao The Fibre', // MT
+    de: 'Willkommen bei The Fibre', // MT
+    fr: 'Bienvenue sur The Fibre', // MT
+  },
+  welcome_intro: {
+    en: 'A couple of settings and you are in — everything here can be changed later under Settings.',
+    nl: 'Een paar instellingen en je bent binnen — alles hier kun je later wijzigen onder Instellingen.',
+    es: 'Un par de ajustes y ya estás dentro — todo esto puede cambiarse luego en Ajustes.', // MT
+    pt: 'Algumas configurações e você está dentro — tudo aqui pode ser alterado depois em Configurações.', // MT
+    de: 'Ein paar Einstellungen und du bist drin — alles hier lässt sich später unter Einstellungen ändern.', // MT
+    fr: 'Quelques réglages et tu es prêt·e — tout ici peut être modifié plus tard dans Paramètres.', // MT
+  },
+  welcome_step_profile: {
+    en: 'Your profile',
+    nl: 'Je profiel',
+    es: 'Tu perfil', // MT
+    pt: 'Seu perfil', // MT
+    de: 'Dein Profil', // MT
+    fr: 'Ton profil', // MT
+  },
+  welcome_step_profile_desc: {
+    en: 'Your name, photo and timezone — every app shows this one profile.',
+    nl: 'Je naam, foto en tijdzone — elke app toont dit ene profiel.',
+    es: 'Tu nombre, foto y zona horaria — todas las apps muestran este único perfil.', // MT
+    pt: 'Seu nome, foto e fuso horário — todos os apps mostram este único perfil.', // MT
+    de: 'Dein Name, Foto und deine Zeitzone — jede App zeigt genau dieses Profil.', // MT
+    fr: 'Ton nom, ta photo et ton fuseau horaire — chaque app affiche ce même profil.', // MT
+  },
+  welcome_step_language: {
+    en: 'Your language',
+    nl: 'Je taal',
+    es: 'Tu idioma', // MT
+    pt: 'Seu idioma', // MT
+    de: 'Deine Sprache', // MT
+    fr: 'Ta langue', // MT
+  },
+  welcome_step_language_desc: {
+    en: 'The language of your screens and of the emails the platform sends you.',
+    nl: 'De taal van je schermen en van de e-mails die het platform je stuurt.',
+    es: 'El idioma de tus pantallas y de los correos que te envía la plataforma.', // MT
+    pt: 'O idioma das suas telas e dos e-mails que a plataforma envia para você.', // MT
+    de: 'Die Sprache deiner Oberfläche und der E-Mails, die dir die Plattform schickt.', // MT
+    fr: 'La langue de tes écrans et des e-mails que la plateforme t’envoie.', // MT
+  },
+  step_of: {
+    en: 'Step {n} of {total}',
+    nl: 'Stap {n} van {total}',
+    es: 'Paso {n} de {total}', // MT
+    pt: 'Passo {n} de {total}', // MT
+    de: 'Schritt {n} von {total}', // MT
+    fr: 'Étape {n} sur {total}', // MT
+  },
+  continue_label: {
+    en: 'Continue',
+    nl: 'Doorgaan',
+    es: 'Continuar', // MT
+    pt: 'Continuar', // MT
+    de: 'Weiter', // MT
+    fr: 'Continuer', // MT
+  },
+  skip_for_now: {
+    en: 'Skip for now',
+    nl: 'Nu overslaan',
+    es: 'Omitir por ahora', // MT
+    pt: 'Pular por enquanto', // MT
+    de: 'Vorerst überspringen', // MT
+    fr: 'Passer pour l’instant', // MT
+  },
+  to_my_apps: {
+    en: 'Take me to my apps',
+    nl: 'Naar mijn apps',
+    es: 'Ir a mis apps', // MT
+    pt: 'Ir para meus apps', // MT
+    de: 'Zu meinen Apps', // MT
+    fr: 'Vers mes apps', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

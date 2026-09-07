@@ -15,3 +15,8 @@ export {
 // the cookie exists so every app can read it before any API round-trip.
 // Value is one of the shared LOCALES; '' / absent = no preference.
 export const COOKIE_LOCALE = 'thefibre.locale';
+
+// First-login welcome sequence (2026-09-07): the ONLY stored bit of the
+// flow, per the onboarding proposal's rule — everything else is derived
+// from identity_profile emptiness. 'done' = finished or skipped.
+export const COOKIE_WELCOME = 'thefibre.welcome';

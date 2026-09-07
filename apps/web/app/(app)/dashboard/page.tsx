@@ -1,11 +1,15 @@
 import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APP_IDS, appName, type AppId } from '@thefibre/shared';
+import { APPS, APP_IDS, appName, type AppId } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
+import { COOKIE_WELCOME } from '@/lib/prefs-shared';
+import type { PublicProfile } from '../settings/profile/profile-form';
 
 // crossAppHref (env-aware), NEVER APPS[slug].url: the raw registry value is
 // the PRODUCTION default, so the staging dashboard linked people to
@@ -19,6 +23,10 @@ const APP_DOMAINS: Record<string, string> = Object.fromEntries(
     crossAppHref('fibre-platform', s, process.env),
   ]),
 );
+
+// The launcher's order: Thread first (the flagship — naming brief), then
+// the tools in its service.
+const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'fibre-flow', 'fibre-pulse', 'membership'];
 
 type Activity = {
   id: string;
@@ -67,13 +75,22 @@ export default async function Dashboard() {
   }).format(new Date());
 
   // Fire all snapshot fetches in parallel. Each is non-fatal.
-  const [activity, programmes, persons, orgs, workspaceApps] = await Promise.all([
+  const [activity, programmes, persons, orgs, workspaceApps, profile] = await Promise.all([
     safeFetch<{ items: Activity[] }>('/api/v1/activities?limit=6'),
     safeFetch<{ items: Programme[] }>('/api/v1/programs'),
     safeFetch<{ items: Person[] }>('/api/v1/persons?limit=4'),
     safeFetch<{ items: Org[] }>('/api/v1/organisations?limit=4'),
     safeFetch<{ items: WorkspaceApp[] }>('/api/v1/workspace-apps'),
+    safeFetch<PublicProfile>('/api/v1/profile'),
   ]);
+
+  // First login, derived (onboarding rule: no wizard state): an empty
+  // identity_profile means nobody set themselves up yet — walk them through
+  // the welcome sequence once. The dismiss cookie is the only stored bit.
+  const welcomeDone = (await cookies()).get(COOKIE_WELCOME)?.value === 'done';
+  const profileEmpty =
+    profile != null && !profile.display_name && !profile.timezone && !profile.photo_url;
+  if (profileEmpty && !welcomeDone) redirect('/welcome');
 
   const activeAppSlugs = new Set(
     (workspaceApps?.items ?? [])
@@ -83,12 +100,65 @@ export default async function Dashboard() {
 
   const activeProgrammes = (programmes?.items ?? []).filter((p) => p.status === 'active' || p.status === 'draft');
 
+  // The seat's apps: activated for the workspace AND on this user's seat.
+  const seatApps = LAUNCH_ORDER.filter(
+    (slug) => activeAppSlugs.has(slug) && memberships.includes(slug),
+  );
+
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
       <h1 className="text-3xl font-medium tracking-tight">
         {t(locale, 'welcome_name', { name: firstName })}
       </h1>
       <p className="mt-1 text-sm text-ink-subtle">{today}</p>
+
+      {/* The launcher — the seat's apps as big buttons (Sjoerd 2026-09-07:
+          "when entering the app, big buttons with the apps that are part
+          of your seat"). Hero position; everything else reads below it. */}
+      <section className="mt-10">
+        <div className="flex items-baseline justify-between">
+          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
+            {t(locale, 'your_apps')}
+          </div>
+          <Link
+            href="/settings/apps"
+            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
+          >
+            {t(locale, 'manage')} →
+          </Link>
+        </div>
+        {seatApps.length === 0 ? (
+          <div className="mt-4 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
+            {t(locale, 'no_apps_activated')}{' '}
+            <Link href="/settings/apps" className="underline">
+              {t(locale, 'turn_on_an_app')}
+            </Link>{' '}
+            {t(locale, 'to_get_started')}
+          </div>
+        ) : (
+          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {seatApps.map((slug) => (
+              <Link
+                key={slug}
+                href={APP_DOMAINS[slug] ?? '#'}
+                className="flex items-center gap-4 rounded-xl border border-line bg-surface-raised p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken"
+              >
+                <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-lg tracking-tight shrink-0">
+                  {APPS[slug].brandLetters}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-lg font-medium leading-tight">
+                    {APPS[slug].name}
+                  </span>
+                  <span className="mt-0.5 block text-sm text-ink-subtle truncate">
+                    {APPS[slug].tagline}
+                  </span>
+                </span>
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       <section className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
         <Stat label={t(locale, 'nav_contacts')} value={persons?.items.length} icon={<Users size={16} strokeWidth={1.75} />} href="/contacts" />
@@ -149,44 +219,6 @@ export default async function Dashboard() {
         </section>
       </div>
 
-      <section className="mt-14">
-        <div className="flex items-baseline justify-between">
-          <div className="text-[10px] uppercase tracking-wider text-ink-muted">
-            {t(locale, 'your_apps')}
-          </div>
-          <Link
-            href="/settings/apps"
-            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-          >
-            {t(locale, 'manage')} →
-          </Link>
-        </div>
-        {activeAppSlugs.size === 0 ? (
-          <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
-            {t(locale, 'no_apps_activated')}{' '}
-            <Link href="/settings/apps" className="underline">
-              {t(locale, 'turn_on_an_app')}
-            </Link>{' '}
-            {t(locale, 'to_get_started')}
-          </div>
-        ) : (
-          <ul className="mt-3 divide-y divide-line border border-line rounded-lg bg-surface-raised overflow-hidden">
-            {Array.from(activeAppSlugs)
-              .filter((slug) => memberships.includes(slug))
-              .map((slug) => (
-                <li key={slug}>
-                  <Link
-                    href={APP_DOMAINS[slug] ?? '#'}
-                    className="flex items-baseline justify-between px-5 py-4 hover:bg-surface-sunken"
-                  >
-                    <span className="font-medium">{appName(slug as AppId) ?? slug}</span>
-                    <span className="text-sm text-ink-subtle">{t(locale, 'open')} →</span>
-                  </Link>
-                </li>
-              ))}
-          </ul>
-        )}
-      </section>
     </div>
   );
 }

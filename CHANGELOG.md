@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.0] — 2026-09-07 — the front door: a launcher and a welcome
+
+### Added
+- **The dashboard leads with your apps** (Sjoerd: "big buttons, with the
+  apps that are part of your seat"): a hero grid of large tiles — brand
+  tile, name, tagline — for exactly the apps activated for the workspace
+  AND on your seat, Thread first. Stats and activity read below; the old
+  bottom-of-page list is gone.
+- **First login walks you through your settings**: an empty
+  identity_profile (derived — no wizard state, per the onboarding
+  proposal's rule) routes to /welcome, a two-step sequence wrapping the
+  EXISTING profile form and language picker. Skippable at every point;
+  the dismiss cookie (thefibre.welcome) is the only stored bit; finishing
+  lands on the launcher. The per-app "Set up" checklists from
+  docs/onboarding-proposal.md remain open (D1–D3).
+
+
 ## [0.56.2] — 2026-09-07 — payment methods follow the dashboard
 
 ### Changed
