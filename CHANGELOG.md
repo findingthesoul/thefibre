@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.1] — 2026-09-08 — the template cards find their colours
+
+### Changed
+- **The template cards drop the \'80s look** (Sjoerd): each of the five
+  shapes wears a soft paper-cut wash in its own brand colour, and the
+  element chips become round moments strung on a coloured THREAD drawn
+  behind them — activities large, messages small, multi-day badges on
+  the dot. Cards lift on hover; the selected one raises on the yellow
+  ring. Same component everywhere (picker, hero, Templates hub).
+
+
 ## [0.68.0] — 2026-09-08 — products learn a rhythm (Members 0.14.0)
 
 ### Added

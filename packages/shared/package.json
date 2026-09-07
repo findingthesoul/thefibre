@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.0",
+  "version": "0.68.1",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -161,6 +161,14 @@
     "./sso-hop": {
       "types": "./dist/sso-hop.d.ts",
       "default": "./dist/sso-hop.js"
+    },
+    "./ui/marketing-footer": {
+      "types": "./dist/ui/marketing-footer.d.ts",
+      "default": "./dist/ui/marketing-footer.js"
+    },
+    "./ui/legal-docs": {
+      "types": "./dist/ui/legal-docs.d.ts",
+      "default": "./dist/ui/legal-docs.js"
     }
   },
   "files": [

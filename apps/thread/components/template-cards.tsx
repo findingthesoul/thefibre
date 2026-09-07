@@ -54,29 +54,54 @@ export function templateDesc(locale: Locale, id: string): string {
 }
 
 /** The blueprint's element sequence as ordered type-chips (✉ → ● → ✉). */
+// Each template wears one of the brand's paper-cut colours — a soft wash
+// and the thread that strings its moments together (Sjoerd 2026-09-08:
+// "this looks like a program of the '80s" — the Matisse language belongs
+// here too). Washes are translucent so both themes carry them.
+const ACCENTS: Record<string, { wash: string; thread: string }> = {
+  'single-event': { wash: 'bg-yellow-300/15', thread: 'bg-yellow-400/70' },
+  'two-day-event': { wash: 'bg-sky-400/10', thread: 'bg-sky-400/60' },
+  'guided-event': { wash: 'bg-rose-400/10', thread: 'bg-rose-400/60' },
+  'workshop-series': { wash: 'bg-emerald-400/10', thread: 'bg-emerald-500/60' },
+  'conversation-circle': { wash: 'bg-orange-400/10', thread: 'bg-orange-400/60' },
+};
+const DEFAULT_ACCENT = { wash: 'bg-surface-sunken/60', thread: 'bg-ink/20' };
+
 function ElementSequence({
   locale,
   elements,
+  thread,
 }: {
   locale: Locale;
   elements: LibraryTemplate['elements'];
+  thread: string;
 }) {
   return (
-    <div className="mt-2.5 flex flex-wrap items-center gap-y-1.5">
+    <div className="relative mt-4 flex flex-wrap items-center gap-y-2 py-1">
+      {/* The thread itself, strung behind the moments. */}
+      <span
+        aria-hidden="true"
+        className={`absolute left-1 right-1 top-1/2 -translate-y-1/2 h-[3px] rounded-full ${thread}`}
+      />
       {elements.map((el, i) => {
         const meta = metaFor(el.type as EngagementType);
         const Icon = meta.icon;
+        const activity =
+          el.type === 'event' || el.type === 'conversation' || el.type === 'workshop';
         return (
-          <span key={i} className="inline-flex items-center">
-            {i > 0 && <span className="mx-1 text-[10px] text-ink-muted">→</span>}
+          <span key={i} className="relative inline-flex items-center">
             <span
               title={engagementTypeLabel(locale, el.type)}
-              className={`inline-flex h-6 w-6 items-center justify-center rounded-md ring-1 ${meta.chip}`}
+              className={`inline-flex items-center justify-center rounded-full ring-2 ring-surface-raised shadow-sm ${meta.chip} ${
+                activity ? 'h-10 w-10' : 'h-7 w-7 mx-1'
+              }`}
             >
-              <Icon size={12} strokeWidth={1.75} className={meta.text} />
+              <Icon size={activity ? 17 : 12} strokeWidth={1.75} className={meta.text} />
             </span>
             {el.days > 1 && (
-              <span className="ml-0.5 text-[10px] tabular-nums text-ink-muted">×{el.days}</span>
+              <span className="absolute -top-1.5 -right-1 rounded-full bg-ink text-surface text-[9px] font-semibold px-1 leading-4 tabular-nums">
+                ×{el.days}
+              </span>
             )}
           </span>
         );
@@ -103,19 +128,22 @@ export function TemplateCard({
   onSelect?: () => void;
   href?: string;
 }) {
+  const accent = ACCENTS[template.id] ?? DEFAULT_ACCENT;
   const body = (
     <>
-      <div className="text-sm font-medium">{templateName(locale, template.id)}</div>
+      <div className="text-[15px] font-semibold tracking-tight">
+        {templateName(locale, template.id)}
+      </div>
       <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
         {templateDesc(locale, template.id)}
       </p>
-      <ElementSequence locale={locale} elements={template.elements} />
+      <ElementSequence locale={locale} elements={template.elements} thread={accent.thread} />
     </>
   );
 
   if (!template.available) {
     return (
-      <div className="rounded-lg border border-line bg-surface-sunken/50 p-4 opacity-70">
+      <div className={`rounded-xl border border-line p-5 opacity-60 ${accent.wash}`}>
         {body}
         <div className="mt-2.5 inline-flex items-center gap-1.5 text-[11px] text-ink-muted">
           <Lock size={11} strokeWidth={1.75} />
@@ -125,10 +153,10 @@ export function TemplateCard({
     );
   }
 
-  const cls = `block w-full rounded-lg border p-4 text-left transition-all cursor-pointer ${
+  const cls = `block w-full rounded-xl border p-5 text-left transition-all cursor-pointer ${accent.wash} ${
     selected
-      ? 'border-yellow-400 bg-yellow-50/50 ring-1 ring-yellow-300'
-      : 'border-line bg-surface-raised hover:border-line-strong hover:shadow-[0_4px_12px_-4px_rgb(0_0_0/0.1)]'
+      ? 'border-yellow-400 ring-2 ring-yellow-300 shadow-[0_8px_24px_-8px_rgb(0_0_0/0.18)] -translate-y-0.5'
+      : 'border-line hover:border-line-strong hover:-translate-y-0.5 hover:shadow-[0_8px_24px_-8px_rgb(0_0_0/0.16)]'
   }`;
 
   if (href) {
