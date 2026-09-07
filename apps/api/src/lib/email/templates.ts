@@ -60,6 +60,24 @@ function cancelUrl(c: Common): string {
   )}/cancel/${encodeURIComponent(c.bookingId)}`;
 }
 
+function bookingBaseUrl(c: Common): string {
+  return `${c.meetAppUrl}/${encodeURIComponent(c.hostSlug)}/${encodeURIComponent(
+    c.meetingTypeSlug,
+  )}/confirmed/${encodeURIComponent(c.bookingId)}`;
+}
+
+/** "Add to calendar" — the .ics the API renders for this booking, proxied by
+ *  the Meet app so the link stays on the app's own domain. */
+function icsUrl(c: Common): string {
+  return `${bookingBaseUrl(c)}/calendar.ics`;
+}
+
+function rescheduleUrl(c: Common): string {
+  return `${c.meetAppUrl}/${encodeURIComponent(c.hostSlug)}/${encodeURIComponent(
+    c.meetingTypeSlug,
+  )}?reschedule=${encodeURIComponent(c.bookingId)}`;
+}
+
 // Booking emails reuse the same visual shell as auth emails (v0.10.0):
 // centred wordmark, white canvas, Help / About / Legal footer, whitelist
 // hint, legal address line. Single source of truth so they look like one
@@ -157,6 +175,8 @@ You're booked.
 
 ${detailsText(c)}
 
+Add to your calendar: ${icsUrl(c)}
+Need a different time? ${rescheduleUrl(c)}
 Need to cancel? ${cancel}
 
 ${emailSignoff()}`;
@@ -164,7 +184,7 @@ ${emailSignoff()}`;
     'Booking confirmed',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">You're booked, ${escapeHtml(c.inviteeName.split(' ')[0] ?? '')}.</h1>
 ${detailsHtml(c)}
-<div style="margin-top:28px;font-size:13px;color:#525252;">Need to cancel or reschedule? <a href="${cancel}" style="color:#171717;">Cancel this booking</a>.</div>`,
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
   );
   return { subject, text, html };
 }
@@ -209,6 +229,44 @@ export function bookingCancellation(
     'Booking cancelled',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
 ${detailsHtml(c)}`,
+  );
+  return { subject, text, html };
+}
+
+/** Sent to both sides when a booking moves. The invitee's own reschedule and
+ *  the host's both land here — the copy only differs in who is told. */
+export function bookingRescheduled(
+  c: Common,
+  audience: 'invitee' | 'host',
+  previousStartsAt: Date,
+): { subject: string; text: string; html: string } {
+  const was = fmt(previousStartsAt, c.hostTimezone);
+  const subject =
+    audience === 'invitee'
+      ? `Moved: ${c.meetingName} with ${c.hostName}`
+      : `Moved: ${c.meetingName} — ${c.inviteeName}`;
+  const headline =
+    audience === 'invitee'
+      ? `Your booking with ${escapeHtml(c.hostName)} moved.`
+      : `${escapeHtml(c.inviteeName)} moved ${escapeHtml(c.meetingName)}.`;
+  const text = `${
+    audience === 'invitee' ? 'Your booking has moved.' : `${c.inviteeName} moved their booking.`
+  }
+
+Was:   ${was}
+
+${detailsText(c)}
+
+Add to your calendar: ${icsUrl(c)}
+Need to cancel? ${cancelUrl(c)}
+
+${emailSignoff()}`;
+  const html = shell(
+    'Booking moved',
+    `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">${headline}</h1>
+<div style="margin-top:6px;font-size:14px;color:#525252;">Was: <s>${escapeHtml(was)}</s></div>
+${detailsHtml(c)}
+<div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${cancelUrl(c)}" style="color:#171717;">Cancel</a></div>`,
   );
   return { subject, text, html };
 }

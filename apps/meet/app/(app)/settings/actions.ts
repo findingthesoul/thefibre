@@ -105,6 +105,26 @@ export async function disconnectGoogle(): Promise<SaveResult> {
   return { ok: true };
 }
 
+export async function startZoomAuth(): Promise<{ url?: string; error?: string }> {
+  try {
+    const r = await apiFetch<{ url: string }>('/api/v1/meet/zoom/auth-start');
+    return { url: r.url };
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+}
+
+export async function disconnectZoom(): Promise<SaveResult> {
+  try {
+    await apiFetch('/api/v1/meet/zoom/disconnect', { method: 'POST' });
+  } catch (e) {
+    return { error: formatApiError(e) };
+  }
+  revalidatePath('/settings/integrations');
+  revalidatePath('/meeting-types');
+  return { ok: true };
+}
+
 // Plain-patch twin of updateHost for the converged Public page form
 // (2026-09-05): slug + location only — the profile itself is edited in
 // The Fibre ("one profile, and it is the platform's").

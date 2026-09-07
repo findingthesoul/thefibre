@@ -9,20 +9,24 @@ import {
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { GoogleConnect } from '../google';
+import { ZoomConnect } from './zoom';
 import { PersonalRoomForm } from './personal-room';
 
 type Host = {
   google_connected?: boolean;
+  zoom_connected?: boolean;
+  zoom_account_email?: string | null;
+  zoom_configured?: boolean;
   personal_room_url: string | null;
 };
 
 export default async function IntegrationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ google?: string; reason?: string }>;
+  searchParams: Promise<{ google?: string; zoom?: string; reason?: string }>;
 }) {
   const locale = await uiLocale();
-  const { google: googleStatus, reason } = await searchParams;
+  const { google: googleStatus, zoom: zoomStatus, reason } = await searchParams;
   let host: Host | null = null;
   let error: string | null = null;
   try {
@@ -47,6 +51,20 @@ export default async function IntegrationsPage({
               <GoogleConnect
                 connected={!!host.google_connected}
                 statusParam={googleStatus ?? null}
+                reasonParam={reason ?? null}
+                locale={locale}
+              />
+            </div>
+          </section>
+
+          <section className="mt-12">
+            <SectionLabel>{t(locale, 'tab_conferencing')}</SectionLabel>
+            <div className="mt-4">
+              <ZoomConnect
+                connected={!!host.zoom_connected}
+                accountEmail={host.zoom_account_email ?? null}
+                configured={host.zoom_configured !== false}
+                statusParam={zoomStatus ?? null}
                 reasonParam={reason ?? null}
                 locale={locale}
               />

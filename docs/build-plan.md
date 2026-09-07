@@ -41,6 +41,24 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
    ~~Hook email-case finding~~ FIXED v0.57.2 (migration 20260907190000,
    lower() both sides; red-then-green regression hook-case.int.test.ts).
 
+**0b. Meet ↔ Suite parity (docs/meet-vs-suite-parity.md).** Five of the ten
+   Suite-only features SHIPPED v0.59.0: Zoom, reschedule, round-robin
+   fairness, per-team availability, .ics — plus reimburse-from-a-booking via
+   the shared refund dialog. Remaining, in the order they'd be missed:
+   - **Zoom Marketplace app** (Sjoerd, gating): create it and
+     `fly secrets set ZOOM_CLIENT_ID ZOOM_CLIENT_SECRET` — steps in
+     docs/deploy.md § Zoom. Until then Zoom stays unselectable everywhere.
+   - **Branding on public booking pages** — `workspace_brand` exists; Meet's
+     public pages don't read it.
+   - **Retry-finalize** for a paid booking whose calendar/email step failed
+     (Suite had it in admin; refund is already covered).
+   - **PWA** (manifest, service worker, installable) — Meet is responsive
+     but not installable.
+   - **Dirty-nav guard / sticky SaveBar** — Suite warned before leaving a
+     dirty form.
+   Onboarding + tour is NOT tracked here: it's docs/onboarding-proposal.md
+   (per-app emergent checklist), being built alongside the landing pages.
+
 **0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
    hard cut EXECUTED 2026-09-07).**
    The five delivery apps live on *.thethread.app (Thread = app.); fibre web
@@ -458,6 +476,9 @@ purchase machinery so grants ride the existing journal).
 
 ## Outstanding for Sjoerd
 
+- **Create the Zoom Marketplace app** and set `ZOOM_CLIENT_ID` /
+  `ZOOM_CLIENT_SECRET` on Fly (docs/deploy.md § Zoom). Meet's Zoom support
+  shipped in v0.59.0 and is inert until those exist.
 - **Decide Meet â Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
 - **Add yourself as an org_membership** on Solidarity Lab B.V. via the UI so your own profile's Organisations section populates.
 

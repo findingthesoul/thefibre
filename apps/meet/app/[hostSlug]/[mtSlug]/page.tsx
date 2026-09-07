@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { Clock, Video, MapPin, Users, CreditCard } from 'lucide-react';
 import { APPS, appUrl } from '@thefibre/shared';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
-import { BookingFlow } from './flow';
+import { BookingFlow, type Reschedule } from './flow';
 import type { IntakeField } from '@/lib/intake';
 
 type Host = {
@@ -53,10 +53,32 @@ type TeamMtResp = MeetingType & {
 
 export default async function MeetingTypePage({
   params,
+  searchParams,
 }: {
   params: Promise<{ hostSlug: string; mtSlug: string }>;
+  searchParams: Promise<{ reschedule?: string }>;
 }) {
   const { hostSlug, mtSlug } = await params;
+  // ?reschedule=<booking id> turns this page into "pick a new time" for an
+  // existing booking (the link in the confirmation page + email). A booking
+  // that's gone or already cancelled just falls through to a normal booking.
+  const { reschedule: rescheduleId } = await searchParams;
+  let reschedule: Reschedule | null = null;
+  if (rescheduleId) {
+    try {
+      const b = await publicFetch<{
+        id: string;
+        starts_at: string;
+        invitee_name: string;
+        status: string;
+      }>(`/api/v1/meet/public/bookings/${encodeURIComponent(rescheduleId)}`);
+      if (b.status !== 'cancelled') {
+        reschedule = { bookingId: b.id, startsAt: b.starts_at, inviteeName: b.invitee_name };
+      }
+    } catch {
+      reschedule = null;
+    }
+  }
 
   // Try host-owned.
   let asHost: HostMtResp | null = null;
@@ -78,6 +100,7 @@ export default async function MeetingTypePage({
         backHref={`/${asHost.host.slug}`}
         hostTimezone={asHost.host.timezone}
         meetingType={asHost.meeting_type}
+        reschedule={reschedule}
       />
     );
   }
@@ -104,6 +127,7 @@ export default async function MeetingTypePage({
       backHref={`/${asTeam.team.slug}`}
       hostTimezone={'UTC'}
       meetingType={asTeam}
+      reschedule={reschedule}
     />
   );
 }
@@ -117,6 +141,7 @@ function Card({
   backHref,
   hostTimezone,
   meetingType,
+  reschedule,
 }: {
   ownerSlug: string;
   ownerKind: 'host' | 'team';
@@ -126,6 +151,7 @@ function Card({
   backHref: string;
   hostTimezone: string;
   meetingType: MeetingType;
+  reschedule: Reschedule | null;
 }) {
   return (
     <main className="min-h-screen bg-neutral-50 text-neutral-900">
@@ -211,6 +237,7 @@ function Card({
                 ownerKind={ownerKind}
                 hostTimezone={hostTimezone}
                 meetingType={meetingType}
+                reschedule={reschedule}
               />
             </section>
           </div>

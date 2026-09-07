@@ -29,6 +29,7 @@ import {
   freeBusy,
   createEvent,
   deleteEvent,
+  patchEvent,
 } from '../lib/google/client.js';
 import {
   userGoogleToken,
@@ -36,7 +37,23 @@ import {
   userPersonalRoom,
   saveGoogleToken,
   savePersonalRoom,
+  userZoomToken,
+  userZoomAccount,
+  saveZoomConnection,
 } from '../lib/connections.js';
+import {
+  isZoomConfigured,
+  zoomAuthorizeUrl,
+  exchangeCodeForTokens,
+  fetchZoomUser,
+  createZoomMeeting,
+  updateZoomMeeting,
+  deleteZoomMeeting,
+  ZoomAlternativeHostsError,
+} from '../lib/zoom/client.js';
+import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
+import { buildBookingIcal } from '../lib/ical.js';
+import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -45,6 +62,7 @@ import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
   bookingCancellation,
+  bookingRescheduled,
   escapeHtml,
   type EmailCommon,
 } from '../lib/email/templates.js';
@@ -176,6 +194,105 @@ function stateSecret(): Uint8Array {
   return new TextEncoder().encode(s);
 }
 
+// ---------------------------------------------------------------------------
+// Zoom — the one place a booking turns into a Zoom meeting. Every path
+// (instant confirm, approval, paid) goes through these three functions, so
+// Zoom never drifts between flows the way conferencing did in Suite.
+//
+// All three are best-effort: a Zoom outage must not lose a booking. They log
+// and return null/void, and the booking keeps whatever URL it already had.
+// ---------------------------------------------------------------------------
+
+/** The platform user behind a meet_host row (Zoom tokens are user-level). */
+async function hostUserId(hostId: string | null | undefined): Promise<string | null> {
+  if (!hostId) return null;
+  const { data } = await adminClient
+    .from('meet_host')
+    .select('user_id')
+    .eq('id', hostId)
+    .maybeSingle();
+  return data?.user_id ?? null;
+}
+
+async function createZoomForBooking(args: {
+  hostId: string;
+  topic: string;
+  agenda?: string | null;
+  startsAt: Date;
+  durationMinutes: number;
+  timezone: string;
+  /** Co-hosts in the same Zoom org (collective bookings). */
+  coHostEmails?: string[];
+}): Promise<{ meetingId: string; joinUrl: string } | null> {
+  if (!isZoomConfigured()) return null;
+  const uid = await hostUserId(args.hostId);
+  const token = await zoomAccessTokenForUser(uid);
+  if (!token) return null;
+  const base = {
+    topic: args.topic,
+    startsAtIso: args.startsAt.toISOString(),
+    durationMinutes: args.durationMinutes,
+    timezone: args.timezone,
+    agenda: args.agenda ?? null,
+  };
+  try {
+    const m = await createZoomMeeting(
+      token,
+      args.coHostEmails && args.coHostEmails.length > 0
+        ? { ...base, alternativeHosts: args.coHostEmails }
+        : base,
+    );
+    return { meetingId: m.meetingId, joinUrl: m.joinUrl };
+  } catch (e) {
+    // A co-host outside the host's Zoom org makes Zoom reject the whole
+    // call. Retry without them rather than losing the meeting — they still
+    // get the join link in the email (Suite's behaviour).
+    if (e instanceof ZoomAlternativeHostsError) {
+      try {
+        const m = await createZoomMeeting(token, base);
+        return { meetingId: m.meetingId, joinUrl: m.joinUrl };
+      } catch (e2) {
+        console.error('[meet zoom] create retry without co-hosts failed', e2);
+        return null;
+      }
+    }
+    console.error('[meet zoom] create failed (non-fatal)', e);
+    return null;
+  }
+}
+
+async function moveZoomForBooking(
+  hostId: string,
+  meetingId: string,
+  startsAt: Date,
+  durationMinutes: number,
+  timezone: string,
+): Promise<void> {
+  if (!isZoomConfigured()) return;
+  const token = await zoomAccessTokenForUser(await hostUserId(hostId));
+  if (!token) return;
+  try {
+    await updateZoomMeeting(token, meetingId, {
+      startsAtIso: startsAt.toISOString(),
+      durationMinutes,
+      timezone,
+    });
+  } catch (e) {
+    console.error('[meet zoom] update failed (non-fatal)', e);
+  }
+}
+
+async function cancelZoomForBooking(hostId: string, meetingId: string): Promise<void> {
+  if (!isZoomConfigured()) return;
+  const token = await zoomAccessTokenForUser(await hostUserId(hostId));
+  if (!token) return;
+  try {
+    await deleteZoomMeeting(token, meetingId);
+  } catch (e) {
+    console.error('[meet zoom] delete failed (non-fatal)', e);
+  }
+}
+
 // ===========================================================================
 // PUBLIC endpoints — used by the booking-page (no auth, invitees have no Fibre
 // account). Routes here MUST be in PUBLIC_PATHS so the JWT middleware lets
@@ -305,7 +422,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -416,7 +533,33 @@ meetRoutes.post('/public/bookings', async (c) => {
       if (ranked.length === 0) {
         return c.json({ error: 'no host available for this slot' }, 409);
       }
-      chosenHostId = ranked[0] ?? mt.host_id;
+      // Which of the free hosts gets it is the team's choice (v0.59.0).
+      // "Last assigned" is READ BACK off the bookings — there is no counter
+      // column to drift out of step with reality.
+      const { data: recent } = await adminClient
+        .from('meet_booking')
+        .select('host_id, created_at')
+        .eq('meeting_type_id', mt.id)
+        .eq('status', 'confirmed')
+        .order('created_at', { ascending: false })
+        .limit(200);
+      const lastAssignedAt: Record<string, number> = {};
+      for (const r of recent ?? []) {
+        if (r.host_id in lastAssignedAt) continue;
+        lastAssignedAt[r.host_id] = new Date(r.created_at).getTime();
+      }
+      const fairness: Fairness = isFairness(mt.round_robin_fairness)
+        ? mt.round_robin_fairness
+        : 'least_loaded';
+      chosenHostId =
+        pickRoundRobinHost({
+          fairness,
+          candidates: ranked,
+          loadByHost: loadByKey,
+          lastAssignedAt,
+          rotationOrder: hostIds,
+          lastBookedHost: recent?.[0]?.host_id ?? null,
+        }) ?? mt.host_id;
     }
     if (mt.event_type === 'collective') {
       // The other assignees' user ids — used to add them as event attendees.
@@ -734,6 +877,36 @@ meetRoutes.post('/public/bookings', async (c) => {
     return c.json({ booking });
   }
 
+  // Zoom (conferencing_provider='zoom'): create the meeting BEFORE the
+  // calendar event so the join URL rides along into the event and the mails.
+  let zoomMeeting: { meetingId: string; joinUrl: string } | null = null;
+  if (booking && mt.conferencing_provider === 'zoom') {
+    let coHostEmails: string[] = [];
+    if (collectiveExtras.length > 0) {
+      const { data: coHosts } = await adminClient
+        .from('user')
+        .select('email')
+        .in('id', collectiveExtras.map((e) => e.user_id));
+      coHostEmails = (coHosts ?? []).map((u) => u.email).filter(Boolean);
+    }
+    zoomMeeting = await createZoomForBooking({
+      hostId: chosenHostId,
+      topic: mt.name,
+      agenda: mt.description,
+      startsAt: starts,
+      durationMinutes: mt.duration_minutes,
+      timezone: hostRow?.timezone ?? 'UTC',
+      coHostEmails,
+    });
+    if (zoomMeeting) {
+      resolvedMeetUrl = zoomMeeting.joinUrl;
+      await adminClient
+        .from('meet_booking')
+        .update({ zoom_meeting_id: zoomMeeting.meetingId, meet_url: zoomMeeting.joinUrl })
+        .eq('id', booking.id);
+    }
+  }
+
   // If the host has Google Calendar connected, create the event there now.
   // Failure is non-fatal — the booking is already recorded; the host can
   // re-sync later. We do update the booking row with the resulting ids.
@@ -772,14 +945,15 @@ meetRoutes.post('/public/bookings', async (c) => {
         attendeeName: data.invitee_name,
         extraAttendees: extras,
         withMeet,
-        location: mt.default_location ?? null,
+        location: zoomMeeting?.joinUrl ?? mt.default_location ?? null,
       });
-      resolvedMeetUrl = meetUrl;
+      if (meetUrl) resolvedMeetUrl = meetUrl;
       await adminClient
         .from('meet_booking')
         .update({
           google_event_id: eventId,
-          meet_url: meetUrl,
+          // A Zoom booking has no hangoutLink — keep the URL we already have.
+          meet_url: meetUrl ?? resolvedMeetUrl,
           conferencing_provider: mt.conferencing_provider,
         })
         .eq('id', booking.id);
@@ -1053,7 +1227,7 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   const { data: booking, error } = await adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (name, slug, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -1103,6 +1277,11 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
     }
   }
 
+  // Same for the Zoom meeting, if this booking owned one.
+  if (booking.zoom_meeting_id) {
+    await cancelZoomForBooking(booking.host_id, booking.zoom_meeting_id);
+  }
+
   // Cancellation emails.
   if (mt && hostRow) {
     const common: EmailCommon = {
@@ -1149,6 +1328,258 @@ meetRoutes.post('/public/bookings/:id/cancel', async (c) => {
   }
 
   return c.json({ ok: true });
+});
+
+// POST /api/v1/meet/public/bookings/:id/reschedule — invitee-initiated move.
+// Same trust model as cancel: the booking uuid is the invitee's handle.
+//
+// The booking KEEPS ITS ID. That matters beyond tidiness — the purchase
+// ledger points at a booking by item_ref, so cancel-and-rebook would orphan
+// the payment. A move is an update: same row, same money, new time.
+const RescheduleBody = z.object({ starts_at: z.string().datetime() });
+
+meetRoutes.post('/public/bookings/:id/reschedule', async (c) => {
+  const id = c.req.param('id');
+  const body = RescheduleBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data: booking, error } = await adminClient
+    .from('meet_booking')
+    .select(
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location',
+    )
+    .eq('id', id)
+    .single();
+  if (error || !booking) return c.json({ error: 'booking not found' }, 404);
+  if (booking.status === 'cancelled') {
+    return c.json({ error: 'this booking was cancelled', code: 'cancelled' }, 409);
+  }
+
+  const { data: mt } = await adminClient
+    .from('meet_meeting_type')
+    .select(
+      'id, slug, host_id, team_id, event_type, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, conferencing_provider, default_location, working_hours_override, conflict_calendar_ids',
+    )
+    .eq('id', booking.meeting_type_id)
+    .single();
+  if (!mt || !mt.is_active) return c.json({ error: 'meeting type not available' }, 404);
+  // A one-off IS its time, and a poll has no booked time to move.
+  if (mt.event_type === 'one_off' || mt.event_type === 'poll') {
+    return c.json(
+      { error: 'this meeting type cannot be rescheduled', code: 'not_reschedulable' },
+      409,
+    );
+  }
+
+  const starts = new Date(body.data.starts_at);
+  if (Number.isNaN(starts.getTime())) return c.json({ error: 'invalid starts_at' }, 400);
+  const ends = new Date(starts.getTime() + mt.duration_minutes * 60 * 1000);
+  if (starts.toISOString() === new Date(booking.starts_at).toISOString()) {
+    return c.json({ ok: true, unchanged: true, booking });
+  }
+
+  // The new time must be a slot the SAME host actually offers. We exclude
+  // this booking from its own busy set — otherwise a nudge of 15 minutes
+  // collides with the very meeting being moved.
+  const now = new Date();
+  const dayStart = new Date(starts.getTime() - 24 * 60 * 60 * 1000);
+  const dayEnd = new Date(starts.getTime() + 24 * 60 * 60 * 1000);
+  const args = await buildPerHostArgs([booking.host_id], mt, dayStart, dayEnd, now, {
+    excludeBookingId: booking.id,
+  });
+  const hostArgs = args[0];
+  if (!hostArgs) return c.json({ error: 'host unavailable' }, 409);
+  const offered = new Set(generateSlots(hostArgs).map((d) => d.getTime()));
+  if (!offered.has(starts.getTime())) {
+    return c.json({ error: 'that time is not available', code: 'slot_unavailable' }, 409);
+  }
+  // Group capacity still applies at the destination slot.
+  if (mt.event_type === 'group' && mt.capacity && mt.capacity > 0) {
+    const { count } = await adminClient
+      .from('meet_booking')
+      .select('id', { count: 'exact', head: true })
+      .eq('meeting_type_id', mt.id)
+      .eq('starts_at', starts.toISOString())
+      .eq('status', 'confirmed')
+      .neq('id', booking.id);
+    if ((count ?? 0) >= mt.capacity) {
+      return c.json({ error: 'fully booked', code: 'slot_full' }, 409);
+    }
+  }
+
+  const previousStartsAt = new Date(booking.starts_at);
+  const { error: uErr } = await adminClient
+    .from('meet_booking')
+    .update({ starts_at: starts.toISOString(), ends_at: ends.toISOString() })
+    .eq('id', booking.id);
+  if (uErr) {
+    console.error('[meet bookings/reschedule] update failed', uErr);
+    return c.json({ error: uErr.message }, 500);
+  }
+
+  const { data: hostRow } = await adminClient
+    .from('meet_host')
+    .select('id, timezone, slug, user:user_id (full_name, email)')
+    .eq('id', booking.host_id)
+    .single();
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+
+  // Move the calendar event in place — the invitee keeps the same join link.
+  if (booking.google_event_id) {
+    const gToken = await hostGoogleToken(booking.host_id);
+    if (gToken) {
+      try {
+        const { data: cal } = await adminClient
+          .from('meet_calendar')
+          .select('google_calendar_id')
+          .eq('host_id', booking.host_id)
+          .in('role', ['primary', 'write_target'])
+          .limit(1)
+          .maybeSingle();
+        await patchEvent(
+          gToken,
+          cal?.google_calendar_id ?? 'primary',
+          booking.google_event_id,
+          { startsAt: starts, endsAt: ends },
+        );
+      } catch (e) {
+        console.error('[meet bookings/reschedule] google patch failed (non-fatal)', e);
+      }
+    }
+  }
+  if (booking.zoom_meeting_id) {
+    await moveZoomForBooking(
+      booking.host_id,
+      booking.zoom_meeting_id,
+      starts,
+      mt.duration_minutes,
+      hostRow?.timezone ?? 'UTC',
+    );
+  }
+
+  // Tell both sides, with the old time struck through.
+  if (hostRow) {
+    const common: EmailCommon = {
+      inviteeName: booking.invitee_name,
+      inviteeEmail: booking.invitee_email,
+      hostName: hostUser?.full_name ?? hostRow.slug ?? 'your host',
+      hostEmail: hostUser?.email ?? null,
+      meetingName: mt.name,
+      startsAt: starts,
+      endsAt: ends,
+      hostTimezone: hostRow.timezone ?? 'UTC',
+      meetUrl: booking.meet_url,
+      location: booking.alternative_location ?? mt.default_location ?? null,
+      bookingId: booking.id,
+      meetAppUrl: meetAppUrl(),
+      hostSlug: hostRow.slug ?? '',
+      meetingTypeSlug: mt.slug ?? '',
+    };
+    try {
+      const m = bookingRescheduled(common, 'invitee', previousStartsAt);
+      await sendEmail({
+        to: booking.invitee_email,
+        subject: m.subject,
+        text: m.text,
+        html: m.html,
+        replyTo: common.hostEmail ?? undefined,
+      });
+    } catch (e) {
+      console.error('[meet bookings/reschedule] invitee email failed (non-fatal)', e);
+    }
+    if (common.hostEmail) {
+      try {
+        const m = bookingRescheduled(common, 'host', previousStartsAt);
+        await sendEmail({
+          to: common.hostEmail,
+          subject: m.subject,
+          text: m.text,
+          html: m.html,
+          replyTo: booking.invitee_email,
+        });
+      } catch (e) {
+        console.error('[meet bookings/reschedule] host email failed (non-fatal)', e);
+      }
+    }
+  }
+
+  // Activity is append-only: a move is a NEW row, never an edit of the
+  // meeting_booked one (hard rule 5).
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'fibre-meet')
+    .single();
+  if (app && booking.invitee_person_id) {
+    await adminClient.from('activity').insert({
+      workspace_id: booking.workspace_id,
+      person_id: booking.invitee_person_id,
+      app_id: app.id,
+      type: 'meeting_rescheduled',
+      subject: `Meeting moved: ${booking.invitee_name}`,
+      occurred_at: new Date().toISOString(),
+    });
+  }
+
+  return c.json({
+    ok: true,
+    booking: {
+      id: booking.id,
+      starts_at: starts.toISOString(),
+      ends_at: ends.toISOString(),
+    },
+  });
+});
+
+// GET /api/v1/meet/public/bookings/:id/calendar.ics
+// "Add to calendar" for the invitee. Google already sends its own invite
+// when the host has a calendar connected — this covers everyone else, and
+// every host without Google.
+meetRoutes.get('/public/bookings/:id/calendar.ics', async (c) => {
+  const id = c.req.param('id');
+  const { data: b, error } = await adminClient
+    .from('meet_booking')
+    .select(
+      'id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, alternative_location, meeting_type:meeting_type_id (name, description, default_location), host:host_id (timezone, slug, user:user_id (full_name, email))',
+    )
+    .eq('id', id)
+    .single();
+  if (error || !b) return c.json({ error: 'booking not found' }, 404);
+  const mt = Array.isArray(b.meeting_type) ? b.meeting_type[0] : b.meeting_type;
+  const hostRow = Array.isArray(b.host) ? b.host[0] : b.host;
+  const hostUser = hostRow?.user
+    ? Array.isArray(hostRow.user)
+      ? hostRow.user[0]
+      : hostRow.user
+    : null;
+
+  const ics = buildBookingIcal({
+    uid: `meet-${b.id}@thefibre.app`,
+    startsAt: new Date(b.starts_at),
+    endsAt: new Date(b.ends_at),
+    summary: mt?.name ?? 'Meeting',
+    description: [mt?.description ?? null, b.meet_url ? `Join: ${b.meet_url}` : null]
+      .filter(Boolean)
+      .join('\n\n'),
+    location: b.meet_url ?? b.alternative_location ?? mt?.default_location ?? null,
+    organizerName: hostUser?.full_name ?? hostRow?.slug ?? 'Host',
+    organizerEmail: hostUser?.email ?? 'noreply@thefibre.app',
+    attendeeName: b.invitee_name,
+    attendeeEmail: b.invitee_email,
+    status: b.status === 'cancelled' ? 'CANCELLED' : 'CONFIRMED',
+  });
+
+  return new Response(ics, {
+    headers: {
+      'Content-Type': 'text/calendar; charset=utf-8',
+      'Content-Disposition': `attachment; filename="meeting-${b.id.slice(0, 8)}.ics"`,
+      'Cache-Control': 'no-store',
+    },
+  });
 });
 
 // GET /api/v1/meet/public/bookings/:id  → minimal confirmation payload
@@ -1300,6 +1731,88 @@ meetRoutes.post('/google/disconnect', async (c) => {
   return c.json({ ok: true });
 });
 
+// ===========================================================================
+// Zoom OAuth — connect, callback, disconnect. Mirrors the Google flow above:
+// auth-start is authenticated and returns the consent URL; the callback is
+// public but its `state` is a signed JWT carrying the user.
+//
+// The credential lands in the connections SPoT (user_connection), so a Zoom
+// connection made here also serves any other app that grows a need for it.
+// ===========================================================================
+
+// GET /api/v1/meet/zoom/auth-start
+meetRoutes.get('/zoom/auth-start', async (c) => {
+  const ctx = c.get('ctx');
+  if (!isZoomConfigured()) {
+    return c.json({ error: 'Zoom is not configured on this server', code: 'zoom_not_configured' }, 503);
+  }
+  const state = await new SignJWT({ user_id: ctx.userId, workspace_id: ctx.workspaceId })
+    .setProtectedHeader({ alg: 'HS256' })
+    .setIssuedAt()
+    .setExpirationTime('10m')
+    .sign(stateSecret());
+  try {
+    return c.json({ url: zoomAuthorizeUrl(state) });
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : 'oauth not configured';
+    return c.json({ error: msg }, 500);
+  }
+});
+
+// GET /api/v1/meet/zoom/auth-callback — public (state is signed).
+meetRoutes.get('/zoom/auth-callback', async (c) => {
+  const url = new URL(c.req.url);
+  const code = url.searchParams.get('code');
+  const state = url.searchParams.get('state');
+  const settingsUrl = `${appUrl('fibre-meet', process.env)}/settings/integrations`;
+  if (!code || !state) return c.redirect(`${settingsUrl}?zoom=error&reason=missing`);
+
+  let userId: string;
+  try {
+    const { payload } = await jwtVerify(state, stateSecret());
+    userId = payload.user_id as string;
+    if (!userId) throw new Error('bad state');
+  } catch {
+    return c.redirect(`${settingsUrl}?zoom=error&reason=state`);
+  }
+
+  let tokens;
+  try {
+    tokens = await exchangeCodeForTokens(code);
+  } catch (e) {
+    console.error('[zoom/auth-callback] exchange', e);
+    return c.redirect(`${settingsUrl}?zoom=error&reason=exchange`);
+  }
+
+  // Which Zoom account this is — shown on the settings card so a user with
+  // both a personal and a work Zoom can tell which one is wired up.
+  let accountEmail: string | null = null;
+  try {
+    accountEmail = (await fetchZoomUser(tokens.accessToken)).email;
+  } catch (e) {
+    console.error('[zoom/auth-callback] user fetch failed (non-fatal)', e);
+  }
+
+  const { error } = await saveZoomConnection(userId, tokens.refreshToken, accountEmail);
+  if (error) {
+    console.error('[zoom/auth-callback] save token', error);
+    return c.redirect(`${settingsUrl}?zoom=error&reason=db`);
+  }
+  clearZoomTokenCache(userId);
+  return c.redirect(`${settingsUrl}?zoom=connected`);
+});
+
+// POST /api/v1/meet/zoom/disconnect
+meetRoutes.post('/zoom/disconnect', async (c) => {
+  const ctx = c.get('ctx');
+  const { error } = await saveZoomConnection(ctx.userId, null);
+  if (error) return c.json({ error }, 500);
+  clearZoomTokenCache(ctx.userId);
+  // Meeting types still set to Zoom keep the setting; new bookings fall back
+  // to no conferencing until Zoom is reconnected, and the MT form warns.
+  return c.json({ ok: true });
+});
+
 // ---------------------------------------------------------------------------
 // Uploads — profile photos etc. Public `fibre-assets` bucket; 5MB cap, same
 // contract as the Thread uploads route (multipart "file" → { url }).
@@ -1382,9 +1895,13 @@ meetRoutes.get('/connections', async (c) => {
   // Host row still provisioned here — meet_calendar rows hang off it.
   const host = await ensureHostRow(ctx.userId, ctx.workspaceId);
   if (!host) return c.json({ error: 'failed to provision host' }, 500);
+  const zoom = await userZoomAccount(ctx.userId);
   return c.json({
     google_connected: !!(await userGoogleToken(ctx.userId)),
     personal_room_url: await userPersonalRoom(ctx.userId),
+    zoom_connected: zoom.connected,
+    zoom_account_email: zoom.email,
+    zoom_configured: isZoomConfigured(),
   });
 });
 
@@ -1901,6 +2418,9 @@ meetRoutes.get('/me', async (c) => {
     // Payments SPoT — user_profile first, the old column only as fallback.
     stripe_account_id: await personalStripeAccount(ctx.userId),
     google_connected: !!(await userGoogleToken(ctx.userId)),
+    zoom_connected: (await userZoomAccount(ctx.userId)).connected,
+    zoom_account_email: (await userZoomAccount(ctx.userId)).email,
+    zoom_configured: isZoomConfigured(),
   });
 });
 
@@ -2066,6 +2586,11 @@ const MeetingTypeUpsert = z.object({
   // Capacity for event_type='group' — max invitees per slot. NULL or absent
   // means uncapped (only meaningful when event_type='group').
   capacity: z.number().int().min(1).max(1000).nullable().optional(),
+  // How round_robin picks among the assignees free at a slot. Ignored by
+  // every other event type. See lib/meet/round-robin.ts.
+  round_robin_fairness: z
+    .enum(['least_loaded', 'least_recently_assigned', 'strict_rotation', 'random'])
+    .optional(),
 });
 
 meetRoutes.post('/meeting-types', async (c) => {
@@ -2478,6 +3003,25 @@ async function runConfirmationSideEffects(
   if (!mt || !hostRow) return { ok: false };
 
   let meetUrl: string | null = null;
+  if (mt.conferencing_provider === 'zoom') {
+    const z = await createZoomForBooking({
+      hostId: booking.host_id,
+      topic: mt.name,
+      agenda: mt.description,
+      startsAt: new Date(booking.starts_at),
+      durationMinutes: Math.round(
+        (new Date(booking.ends_at).getTime() - new Date(booking.starts_at).getTime()) / 60000,
+      ),
+      timezone: hostRow.timezone ?? 'UTC',
+    });
+    if (z) {
+      meetUrl = z.joinUrl;
+      await adminClient
+        .from('meet_booking')
+        .update({ zoom_meeting_id: z.meetingId, meet_url: z.joinUrl })
+        .eq('id', bookingId);
+    }
+  }
   const confirmGToken = await hostGoogleToken(booking.host_id);
   if (confirmGToken) {
     try {
@@ -2499,9 +3043,9 @@ async function runConfirmationSideEffects(
         attendeeEmail: booking.invitee_email,
         attendeeName: booking.invitee_name,
         withMeet,
-        location: booking.alternative_location ?? mt.default_location ?? null,
+        location: meetUrl ?? booking.alternative_location ?? mt.default_location ?? null,
       });
-      meetUrl = m ?? null;
+      if (m) meetUrl = m;
       await adminClient
         .from('meet_booking')
         .update({ google_event_id: eventId, meet_url: meetUrl })
@@ -2774,7 +3318,7 @@ async function loadBookingWithJoins(id: string) {
   return adminClient
     .from('meet_booking')
     .select(
-      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user:user_id (full_name, email))',
+      'id, workspace_id, host_id, meeting_type_id, invitee_person_id, invitee_email, invitee_name, starts_at, ends_at, status, meet_url, google_event_id, zoom_meeting_id, alternative_location, meeting_type:meeting_type_id (id, name, slug, description, conferencing_provider, default_location), host:host_id (id, timezone, slug, user:user_id (full_name, email))',
     )
     .eq('id', id)
     .single();
@@ -3608,7 +4152,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug/slots', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, host_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, fixed_starts_at, fixed_ends_at',
+      'id, host_id, team_id, event_type, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, max_advance_days, is_active, capacity, fixed_starts_at, fixed_ends_at, working_hours_override',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
@@ -3774,15 +4318,25 @@ type MeetingTypeForArgs = MeetingTypeForResolve & {
   buffer_before_minutes: number;
   buffer_after_minutes: number;
   min_notice_minutes: number;
+  team_id?: string | null;
+  working_hours_override?: unknown;
 };
 
-/** Load each host's working_hours + busy and shape into PerHostArgs. */
+/** Load each host's working_hours + busy and shape into PerHostArgs.
+ *
+ *  Availability resolves in three layers, narrowest first (v0.59.0):
+ *    meeting_type.working_hours_override
+ *      → meet_team_member_hours (this host, for THIS team)
+ *      → meet_host.working_hours
+ *  The middle layer is the Suite-parity piece: "when I schedule for this
+ *  team I'm only free Tue–Thu" without touching my personal hours. */
 async function buildPerHostArgs(
   hostIds: string[],
   mt: MeetingTypeForArgs,
   from: Date,
   to: Date,
   now: Date,
+  opts?: { excludeBookingId?: string },
 ): Promise<PerHostArgs[]> {
   const { data: hosts } = await adminClient
     .from('meet_host')
@@ -3795,7 +4349,7 @@ async function buildPerHostArgs(
   // (and shareable) until capacity is reached.
   const { data: bookings } = await adminClient
     .from('meet_booking')
-    .select('host_id, starts_at, ends_at, meeting_type_id')
+    .select('id, host_id, starts_at, ends_at, meeting_type_id')
     .in('host_id', hostIds)
     .eq('status', 'confirmed')
     .gte('ends_at', from.toISOString())
@@ -3804,6 +4358,8 @@ async function buildPerHostArgs(
   const busyByHost = new Map<string, BusyInterval[]>();
   for (const b of bookings ?? []) {
     if (isGroup && b.meeting_type_id === mt.id) continue;
+    // A booking being rescheduled must not block its own new time.
+    if (opts?.excludeBookingId && b.id === opts.excludeBookingId) continue;
     const list = busyByHost.get(b.host_id) ?? [];
     list.push({ start: new Date(b.starts_at), end: new Date(b.ends_at) });
     busyByHost.set(b.host_id, list);
@@ -3823,6 +4379,25 @@ async function buildPerHostArgs(
     list.push(c.google_calendar_id);
     calsByHost.set(c.host_id, list);
   }
+
+  // Per-team availability overrides for these hosts (team MTs only).
+  const teamHours = new Map<string, WorkingSchedule>();
+  if (mt.team_id) {
+    const userIds = hosts.map((h) => h.user_id).filter(Boolean);
+    if (userIds.length > 0) {
+      const { data: rows } = await adminClient
+        .from('meet_team_member_hours')
+        .select('user_id, working_hours')
+        .eq('team_id', mt.team_id)
+        .in('user_id', userIds);
+      for (const r of rows ?? []) {
+        if (r.working_hours) teamHours.set(r.user_id, r.working_hours as WorkingSchedule);
+      }
+    }
+  }
+  const mtOverride = (mt.working_hours_override as WorkingSchedule | null) ?? null;
+  const hasWindows = (sch: WorkingSchedule | null): boolean =>
+    !!sch && Object.values(sch).some((v) => Array.isArray(v) && v.length > 0);
 
   const out: PerHostArgs[] = [];
   // Run freebusy in parallel.
@@ -3844,10 +4419,15 @@ async function buildPerHostArgs(
           console.error('[multi-host slots] freebusy failed', e);
         }
       }
+      const teamOverride = teamHours.get(h.user_id) ?? null;
       out.push({
         hostKey: h.id,
         hostTimezone: h.timezone ?? 'UTC',
-        workingHours: (h.working_hours as WorkingSchedule | null) ?? {},
+        workingHours: hasWindows(mtOverride)
+          ? mtOverride!
+          : hasWindows(teamOverride)
+            ? teamOverride!
+            : ((h.working_hours as WorkingSchedule | null) ?? {}),
         durationMinutes: mt.duration_minutes,
         bufferBeforeMinutes: mt.buffer_before_minutes,
         bufferAfterMinutes: mt.buffer_after_minutes,
@@ -3866,6 +4446,80 @@ async function buildPerHostArgs(
   );
   return out;
 }
+
+// ===========================================================================
+// Per-team availability (Suite parity item 4). A host's weekly hours are
+// personal; scheduling for a team is often narrower. These rows are the
+// middle layer of the resolution in buildPerHostArgs.
+//
+// RLS does the gatekeeping (lead sets anyone's, a member sets their own), so
+// these handlers run on the caller's own client.
+// ===========================================================================
+
+// GET /api/v1/meet/teams/:id/member-hours
+meetRoutes.get('/teams/:id/member-hours', async (c) => {
+  const teamId = c.req.param('id');
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('meet_team_member_hours')
+    .select('user_id, working_hours, updated_at')
+    .eq('team_id', teamId);
+  if (error) return c.json({ error: error.message }, 500);
+  return c.json({ items: data ?? [] });
+});
+
+const TeamHoursBody = z.object({
+  working_hours: z
+    .record(z.array(z.object({ start: z.string(), end: z.string() })))
+    .nullable(),
+});
+
+// PUT /api/v1/meet/teams/:id/member-hours/:userId
+// null working_hours = "use my personal hours" → the row is deleted rather
+// than stored empty, so "no override" has exactly one representation.
+meetRoutes.put('/teams/:id/member-hours/:userId', async (c) => {
+  const teamId = c.req.param('id');
+  const targetUserId = c.req.param('userId');
+  const body = TeamHoursBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  const schedule = body.data.working_hours;
+  const hasWindows =
+    !!schedule && Object.values(schedule).some((v) => Array.isArray(v) && v.length > 0);
+
+  if (!hasWindows) {
+    const { error } = await db
+      .from('meet_team_member_hours')
+      .delete()
+      .eq('team_id', teamId)
+      .eq('user_id', targetUserId);
+    if (error) return c.json({ error: error.message }, 403);
+    return c.json({ ok: true, cleared: true });
+  }
+
+  const { error } = await db.from('meet_team_member_hours').upsert(
+    {
+      team_id: teamId,
+      user_id: targetUserId,
+      working_hours: schedule,
+      updated_at: new Date().toISOString(),
+    },
+    { onConflict: 'team_id,user_id' },
+  );
+  if (error) {
+    console.error('[meet team member-hours] upsert failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message, code: error.code }, 403);
+  }
+  return c.json({ ok: true });
+});
 
 // ===========================================================================
 // Assignees — team meeting types only. Leads of the meeting-type's team can

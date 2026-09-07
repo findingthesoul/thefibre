@@ -677,6 +677,202 @@ const CATALOG = {
     de: 'Verbindung fehlgeschlagen{reason}. Versuch es erneut oder prüfe, ob dein Google-Konto den Zugriff entzogen hat.', // MT
     fr: 'Connexion impossible{reason}. Réessaie ou vérifie que ton compte Google n’a pas révoqué l’accès.', // MT
   },
+  // ── Zoom (v0.59.0) ────────────────────────────────────────────────────
+  zoom_desc: {
+    en: 'Create a Zoom meeting automatically for every booking on a meeting type set to Zoom. The join link goes into the calendar event and the confirmation email.',
+    nl: 'Maakt automatisch een Zoom-meeting voor elke boeking op een afspraaktype dat op Zoom staat. De deelnamelink komt in de agenda-afspraak en de bevestigingsmail.',
+    es: 'Crea automáticamente una reunión de Zoom para cada reserva de un tipo de reunión configurado con Zoom. El enlace va en el evento del calendario y en el correo de confirmación.', // MT
+    pt: 'Cria automaticamente uma reunião Zoom para cada marcação de um tipo de reunião definido como Zoom. A ligação entra no evento do calendário e no e-mail de confirmação.', // MT
+    de: 'Legt für jede Buchung eines Meeting-Typs mit Zoom automatisch ein Zoom-Meeting an. Der Link steht im Kalendereintrag und in der Bestätigungsmail.', // MT
+    fr: 'Crée automatiquement une réunion Zoom pour chaque réservation d’un type de réunion réglé sur Zoom. Le lien figure dans l’événement du calendrier et dans l’e-mail de confirmation.', // MT
+  },
+  zoom_connected_msg: {
+    en: '✓ Connected.',
+    nl: '✓ Gekoppeld.',
+    es: '✓ Conectado.', // MT
+    pt: '✓ Ligado.', // MT
+    de: '✓ Verbunden.', // MT
+    fr: '✓ Connecté.', // MT
+  },
+  zoom_error_msg: {
+    en: 'Couldn’t connect{reason}. Try again, or check that your Zoom account still allows this app.',
+    nl: 'Koppelen mislukt{reason}. Probeer opnieuw of check of je Zoom-account deze app nog toestaat.',
+    es: 'No se pudo conectar{reason}. Inténtalo de nuevo o comprueba que tu cuenta de Zoom siga permitiendo esta app.', // MT
+    pt: 'Não foi possível ligar{reason}. Tente novamente ou verifique se a sua conta Zoom ainda permite esta app.', // MT
+    de: 'Verbindung fehlgeschlagen{reason}. Versuch es erneut oder prüfe, ob dein Zoom-Konto diese App noch zulässt.', // MT
+    fr: 'Connexion impossible{reason}. Réessaie ou vérifie que ton compte Zoom autorise toujours cette application.', // MT
+  },
+  zoom_start_failed: {
+    en: 'Could not start Zoom connect.',
+    nl: 'Kon de Zoom-koppeling niet starten.',
+    es: 'No se pudo iniciar la conexión con Zoom.', // MT
+    pt: 'Não foi possível iniciar a ligação ao Zoom.', // MT
+    de: 'Zoom-Verbindung konnte nicht gestartet werden.', // MT
+    fr: 'Impossible de démarrer la connexion Zoom.', // MT
+  },
+  connect_zoom: {
+    en: 'Connect Zoom',
+    nl: 'Zoom koppelen',
+    es: 'Conectar Zoom', // MT
+    pt: 'Ligar o Zoom', // MT
+    de: 'Zoom verbinden', // MT
+    fr: 'Connecter Zoom', // MT
+  },
+  zoom_not_configured: {
+    en: 'Zoom isn’t set up on this server yet. Ask your workspace admin.',
+    nl: 'Zoom is nog niet ingesteld op deze server. Vraag je workspace-beheerder.',
+    es: 'Zoom aún no está configurado en este servidor. Pregunta a la administración de tu espacio.', // MT
+    pt: 'O Zoom ainda não está configurado neste servidor. Fale com a administração do seu espaço.', // MT
+    de: 'Zoom ist auf diesem Server noch nicht eingerichtet. Frag deine Workspace-Admin.', // MT
+    fr: 'Zoom n’est pas encore configuré sur ce serveur. Demande à l’administration de ton espace.', // MT
+  },
+  zoom_account: {
+    en: 'Zoom account: {email}',
+    nl: 'Zoom-account: {email}',
+    es: 'Cuenta de Zoom: {email}', // MT
+    pt: 'Conta Zoom: {email}', // MT
+    de: 'Zoom-Konto: {email}', // MT
+    fr: 'Compte Zoom : {email}', // MT
+  },
+  zoom_not_connected_hint: {
+    en: 'Zoom becomes selectable once you connect your account in',
+    nl: 'Zoom wordt kiesbaar zodra je je account koppelt in',
+    es: 'Zoom estará disponible cuando conectes tu cuenta en', // MT
+    pt: 'O Zoom fica disponível assim que ligar a sua conta em', // MT
+    de: 'Zoom wird wählbar, sobald du dein Konto verbindest unter', // MT
+    fr: 'Zoom devient sélectionnable dès que tu connectes ton compte dans', // MT
+  },
+  // ── Round-robin fairness (v0.59.0) ────────────────────────────────────
+  rr_fairness: {
+    en: 'Who gets the booking',
+    nl: 'Wie de boeking krijgt',
+    es: 'Quién recibe la reserva', // MT
+    pt: 'Quem fica com a marcação', // MT
+    de: 'Wer die Buchung bekommt', // MT
+    fr: 'Qui reçoit la réservation', // MT
+  },
+  rr_fairness_desc: {
+    en: 'When more than one assignee is free at the chosen time.',
+    nl: 'Wanneer meerdere toegewezen mensen vrij zijn op het gekozen moment.',
+    es: 'Cuando hay más de una persona asignada libre a esa hora.', // MT
+    pt: 'Quando há mais do que uma pessoa atribuída livre a essa hora.', // MT
+    de: 'Wenn mehrere zugewiesene Personen zur gewählten Zeit frei sind.', // MT
+    fr: 'Quand plusieurs personnes assignées sont libres à ce créneau.', // MT
+  },
+  rr_least_loaded: {
+    en: 'Fewest upcoming meetings',
+    nl: 'Minste komende meetings',
+    es: 'Menos reuniones próximas', // MT
+    pt: 'Menos reuniões futuras', // MT
+    de: 'Wenigste anstehende Meetings', // MT
+    fr: 'Le moins de réunions à venir', // MT
+  },
+  rr_least_recent: {
+    en: 'Whoever waited longest',
+    nl: 'Wie het langst wachtte',
+    es: 'Quien lleva más tiempo esperando', // MT
+    pt: 'Quem esperou mais tempo', // MT
+    de: 'Wer am längsten gewartet hat', // MT
+    fr: 'Celui ou celle qui attend depuis le plus longtemps', // MT
+  },
+  rr_strict_rotation: {
+    en: 'Strict rotation, in order',
+    nl: 'Strikte rotatie, op volgorde',
+    es: 'Rotación estricta, por orden', // MT
+    pt: 'Rotação estrita, por ordem', // MT
+    de: 'Strikte Rotation, der Reihe nach', // MT
+    fr: 'Rotation stricte, dans l’ordre', // MT
+  },
+  rr_random: {
+    en: 'At random',
+    nl: 'Willekeurig',
+    es: 'Al azar', // MT
+    pt: 'Ao acaso', // MT
+    de: 'Zufällig', // MT
+    fr: 'Au hasard', // MT
+  },
+  // ── Per-team availability (v0.59.0) ───────────────────────────────────
+  team_hours_title: {
+    en: 'Availability for this team',
+    nl: 'Beschikbaarheid voor dit team',
+    es: 'Disponibilidad para este equipo', // MT
+    pt: 'Disponibilidade para esta equipa', // MT
+    de: 'Verfügbarkeit für dieses Team', // MT
+    fr: 'Disponibilité pour cette équipe', // MT
+  },
+  team_hours_desc: {
+    en: 'Narrower hours that apply only to this team’s meeting types. Leave off to use your own weekly hours.',
+    nl: 'Beperktere uren die alleen gelden voor de afspraaktypes van dit team. Laat uit om je eigen weekuren te gebruiken.',
+    es: 'Horas más restringidas que solo se aplican a los tipos de reunión de este equipo. Déjalo desactivado para usar tus horas semanales.', // MT
+    pt: 'Horas mais restritas que só se aplicam aos tipos de reunião desta equipa. Deixe desligado para usar as suas horas semanais.', // MT
+    de: 'Engere Zeiten, die nur für die Meeting-Typen dieses Teams gelten. Aus lassen, um deine eigenen Wochenzeiten zu nutzen.', // MT
+    fr: 'Des horaires plus restreints qui ne valent que pour les types de réunion de cette équipe. Laisse désactivé pour utiliser tes horaires hebdomadaires.', // MT
+  },
+  team_hours_use_own: {
+    en: 'Use my own weekly hours',
+    nl: 'Mijn eigen weekuren gebruiken',
+    es: 'Usar mis horas semanales', // MT
+    pt: 'Usar as minhas horas semanais', // MT
+    de: 'Meine eigenen Wochenzeiten verwenden', // MT
+    fr: 'Utiliser mes horaires hebdomadaires', // MT
+  },
+  team_hours_custom: {
+    en: 'Different hours for this team',
+    nl: 'Andere uren voor dit team',
+    es: 'Horas distintas para este equipo', // MT
+    pt: 'Horas diferentes para esta equipa', // MT
+    de: 'Andere Zeiten für dieses Team', // MT
+    fr: 'Des horaires différents pour cette équipe', // MT
+  },
+  team_hours_edit: {
+    en: 'Team availability',
+    nl: 'Teambeschikbaarheid',
+    es: 'Disponibilidad del equipo', // MT
+    pt: 'Disponibilidade da equipa', // MT
+    de: 'Teamverfügbarkeit', // MT
+    fr: 'Disponibilité de l’équipe', // MT
+  },
+  team_hours_set: {
+    en: 'Custom hours set',
+    nl: 'Aangepaste uren ingesteld',
+    es: 'Horas personalizadas definidas', // MT
+    pt: 'Horas personalizadas definidas', // MT
+    de: 'Eigene Zeiten gesetzt', // MT
+    fr: 'Horaires personnalisés définis', // MT
+  },
+  booking_amount: {
+    en: 'Payment',
+    nl: 'Betaling',
+    es: 'Pago', // MT
+    pt: 'Pagamento', // MT
+    de: 'Zahlung', // MT
+    fr: 'Paiement', // MT
+  },
+  booking_paid: {
+    en: 'Paid',
+    nl: 'Betaald',
+    es: 'Pagado', // MT
+    pt: 'Pago', // MT
+    de: 'Bezahlt', // MT
+    fr: 'Payé', // MT
+  },
+  // ── Reimbursement from a booking (v0.59.0) ────────────────────────────
+  booking_reimburse: {
+    en: 'Reimburse',
+    nl: 'Terugbetalen',
+    es: 'Reembolsar', // MT
+    pt: 'Reembolsar', // MT
+    de: 'Erstatten', // MT
+    fr: 'Rembourser', // MT
+  },
+  booking_refunded: {
+    en: 'Reimbursed',
+    nl: 'Terugbetaald',
+    es: 'Reembolsado', // MT
+    pt: 'Reembolsado', // MT
+    de: 'Erstattet', // MT
+    fr: 'Remboursé', // MT
+  },
   google_start_failed: {
     en: 'Could not start Google connect.',
     nl: 'Kon de Google-koppeling niet starten.',

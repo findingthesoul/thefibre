@@ -37,6 +37,7 @@ export type MeetingTypeFormValues = {
   team_id?: string | null;
   event_type?: string;
   capacity?: number | null;
+  round_robin_fairness?: string | null;
   fixed_starts_at?: string | null;
   fixed_ends_at?: string | null;
   poll_slots?: { starts_at: string; ends_at: string }[];
@@ -62,6 +63,7 @@ export function MeetingTypeForm({
   hostSlug,
   teams = [],
   calendars = [],
+  zoomConnected = false,
   locale,
 }: {
   initial: MeetingTypeFormValues;
@@ -69,6 +71,8 @@ export function MeetingTypeForm({
   hostSlug?: string | null;
   teams?: TeamOption[];
   calendars?: CalendarOption[];
+  /** Zoom is only offerable once this user has connected their account. */
+  zoomConnected?: boolean;
   locale: Locale;
 }) {
   const isEdit = !!initial.id;
@@ -87,10 +91,12 @@ export function MeetingTypeForm({
 
   const PROVIDERS = [
     { value: 'google_meet', label: 'Google Meet' },
-    // Zoom + Teams need OAuth integrations not yet built; show them disabled
-    // so the user sees they're planned without being able to pick a broken
-    // option (which previously saved fine but generated no meeting URL).
-    { value: 'zoom', label: 'Zoom', disabled: true },
+    // Zoom is live (v0.59.0) but only for a host who has connected it —
+    // otherwise the booking would confirm with no meeting URL. Teams still
+    // needs its Azure app registration.
+    // Not connected → not selectable, or the booking confirms with no
+    // meeting URL. The hint under the field says where to fix that.
+    { value: 'zoom', label: 'Zoom', disabled: !zoomConnected },
     { value: 'teams', label: 'Microsoft Teams', disabled: true },
     { value: 'in_person', label: t(locale, 'provider_in_person') },
     { value: 'personal_room', label: t(locale, 'provider_personal_room') },
@@ -298,6 +304,20 @@ export function MeetingTypeForm({
                 onChange={setEventType}
                 hasTeams={scope === 'team' && teams.length > 0}
                 locale={locale}
+              />
+            )}
+            {effectiveEventType === 'round_robin' && (
+              <SelectField
+                label={t(locale, 'rr_fairness')}
+                hint={t(locale, 'rr_fairness_desc')}
+                name="round_robin_fairness"
+                defaultValue={initial.round_robin_fairness ?? 'least_loaded'}
+                options={[
+                  { value: 'least_loaded', label: t(locale, 'rr_least_loaded') },
+                  { value: 'least_recently_assigned', label: t(locale, 'rr_least_recent') },
+                  { value: 'strict_rotation', label: t(locale, 'rr_strict_rotation') },
+                  { value: 'random', label: t(locale, 'rr_random') },
+                ]}
               />
             )}
           </Section>
@@ -535,6 +555,17 @@ export function MeetingTypeForm({
               name="conferencing_provider"
               defaultValue={initial.conferencing_provider ?? 'google_meet'}
               options={PROVIDERS}
+              hint={
+                zoomConnected ? undefined : (
+                  <>
+                    {t(locale, 'zoom_not_connected_hint')}{' '}
+                    <Link href="/settings/integrations" className="underline underline-offset-2">
+                      {t(locale, 'int_title')}
+                    </Link>
+                    .
+                  </>
+                )
+              }
             />
             <TextField
               label={t(locale, 'default_location_optional')}

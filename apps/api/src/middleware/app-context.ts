@@ -119,6 +119,9 @@ const PUBLIC_PATH_METHODS = new Map<string, ReadonlySet<string>>([
 const PUBLIC_PREFIXES = [
   '/api/v1/meet/public/',
   '/api/v1/meet/google/auth-callback',
+  // Zoom OAuth lands here with code+state; the state is a signed JWT that
+  // carries the user, so the callback authenticates itself.
+  '/api/v1/meet/zoom/auth-callback',
   // Stripe webhook — signature-verified inside the handler.
   '/api/v1/meet/stripe-webhook',
   // The Thread public pages (organiser page, thread page, enrolment flow)

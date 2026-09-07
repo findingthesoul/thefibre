@@ -204,3 +204,23 @@ export async function deleteEvent(
   // email pair; Google would otherwise email the invitee a second time.
   await cal.events.delete({ calendarId, eventId, sendUpdates: 'none' });
 }
+
+/** Move an existing event (reschedule). Only the fields we pass change;
+ *  attendees, conference data and the Meet link stay as they are — which is
+ *  the point: the invitee keeps the same join URL across a reschedule.
+ *  sendUpdates:'none' for the same reason as createEvent — Meet sends its
+ *  own branded mail. */
+export async function patchEvent(
+  refreshToken: string,
+  calendarId: string,
+  eventId: string,
+  patch: { startsAt?: Date; endsAt?: Date; location?: string | null; summary?: string },
+): Promise<void> {
+  const cal = calendarFor(refreshToken);
+  const requestBody: calendar_v3.Schema$Event = {};
+  if (patch.startsAt) requestBody.start = { dateTime: patch.startsAt.toISOString() };
+  if (patch.endsAt) requestBody.end = { dateTime: patch.endsAt.toISOString() };
+  if (patch.location !== undefined && patch.location !== null) requestBody.location = patch.location;
+  if (patch.summary) requestBody.summary = patch.summary;
+  await cal.events.patch({ calendarId, eventId, sendUpdates: 'none', requestBody });
+}

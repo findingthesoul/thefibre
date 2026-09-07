@@ -9,7 +9,7 @@ import { t } from '@/lib/i18n-ui';
 import { MeetingTypeForm, type TeamOption, type CalendarOption } from '../form';
 
 type Team = { id: string; slug: string; name: string; my_role: 'lead' | 'member' };
-type Host = { slug: string };
+type Host = { slug: string; zoom_connected?: boolean };
 
 export default async function NewMeetingTypePage({
   searchParams,
@@ -21,6 +21,7 @@ export default async function NewMeetingTypePage({
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
+  let zoomConnected = false;
   try {
     const [t, c, h] = await Promise.all([
       apiFetch<{ items: Team[] }>('/api/v1/meet/teams'),
@@ -32,6 +33,7 @@ export default async function NewMeetingTypePage({
       .map((t) => ({ id: t.id, name: t.name, slug: t.slug }));
     calendars = c.items;
     hostSlug = h?.slug ?? null;
+    zoomConnected = !!h?.zoom_connected;
   } catch {
     // Non-fatal — falls back to personal-only.
   }
@@ -55,6 +57,7 @@ export default async function NewMeetingTypePage({
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
+          zoomConnected={zoomConnected}
           locale={locale}
         />
       </div>

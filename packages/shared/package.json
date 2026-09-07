@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.58.10",
+  "version": "0.59.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -65,6 +65,10 @@
     "./ui/invoices": {
       "types": "./dist/ui/invoices.d.ts",
       "default": "./dist/ui/invoices.js"
+    },
+    "./ui/refund-confirm": {
+      "types": "./dist/ui/refund-confirm.d.ts",
+      "default": "./dist/ui/refund-confirm.js"
     },
     "./ui/currency-editor": {
       "types": "./dist/ui/currency-editor.d.ts",

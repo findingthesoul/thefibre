@@ -28,7 +28,7 @@ type Team = {
   name: string;
   my_role: 'lead' | 'member';
 };
-type Host = { slug: string };
+type Host = { slug: string; zoom_connected?: boolean };
 type TeamDetail = {
   id: string;
   members: {
@@ -49,6 +49,7 @@ export default async function EditMeetingTypePage({
   let teams: TeamOption[] = [];
   let calendars: CalendarOption[] = [];
   let hostSlug: string | null = null;
+  let zoomConnected = false;
   try {
     const [data, t, c, h] = await Promise.all([
       apiFetch<{ items: MT[] }>('/api/v1/meet/meeting-types'),
@@ -62,6 +63,7 @@ export default async function EditMeetingTypePage({
       .map((x) => ({ id: x.id, name: x.name, slug: x.slug }));
     calendars = c.items;
     hostSlug = h?.slug ?? null;
+    zoomConnected = !!h?.zoom_connected;
   } catch (e) {
     if (e instanceof ApiError && e.status === 404) notFound();
     throw e;
@@ -128,6 +130,7 @@ export default async function EditMeetingTypePage({
           teams={teams}
           calendars={calendars}
           hostSlug={hostSlug}
+          zoomConnected={zoomConnected}
           locale={locale}
         />
       </div>

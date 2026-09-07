@@ -142,6 +142,30 @@ account, Solidarity Lab). Also run `node apps/api/scripts/sync-stripe-plans.mjs`
 once after prices change — it creates the Products/Prices and writes their ids
 onto `billing_plan`; checkout 503s until it has run.
 
+## Zoom (conferencing)
+
+Meet creates a real Zoom meeting for any meeting type set to Zoom. It needs a
+**Zoom Marketplace app** (User-managed OAuth), created once by Sjoerd:
+
+1. marketplace.zoom.us → Develop → Build App → **General App**, user-managed.
+2. Redirect URL for OAuth (and OAuth allow list):
+   `https://thefibre-api.fly.dev/api/v1/meet/zoom/auth-callback`
+   (staging: the same path on the staging API host).
+3. Scopes (granular): `meeting:write:meeting`, `meeting:update:meeting`,
+   `meeting:delete:meeting`, `user:read:user`.
+4. Copy the Client ID + Secret, then:
+
+```bash
+fly secrets set ZOOM_CLIENT_ID="…" ZOOM_CLIENT_SECRET="…"
+```
+
+Until those secrets exist, Settings → Integrations shows Zoom as "not set up
+on this server" and the Zoom option in the meeting-type form stays
+unselectable — nothing breaks, the feature is simply off. Each host then
+connects their own Zoom account once, at Settings → Integrations.
+
+---
+
 `STRIPE_SECRET_KEY` is the platform key. Connected accounts are pasted per
 person/workspace in Settings → Payments (the platform SPoT:
 `user_profile.stripe_account_id` + `workspace.stripe_account_id`).

@@ -420,6 +420,33 @@ purchasesRoutes.post('/resend-by-ref', async (c) => {
   return c.json({ ok: true });
 });
 
+// GET /api/v1/purchases/by-ref?app=&item_ref= — the ledger row behind one
+// app object (a Meet booking, a Thread enrolment). Apps use it to show the
+// payment on their own detail screens and to reach the ONE refund path
+// (POST /:id/refund) instead of growing a second one. RLS-scoped: the read
+// runs on the caller's client, so they see it only if they may.
+purchasesRoutes.get('/by-ref', async (c) => {
+  const ctx = c.get('ctx');
+  const appSlug = c.req.query('app');
+  const itemRef = c.req.query('item_ref');
+  if (!appSlug || !itemRef) return c.json({ error: 'app and item_ref required' }, 400);
+  const db = userClient(ctx.jwt);
+  const { data, error } = await db
+    .from('purchase')
+    .select(PURCHASE_SELECT)
+    .eq('item_ref', itemRef)
+    .eq('workspace_id', ctx.workspaceId)
+    .limit(50);
+  if (error) return c.json({ error: error.message }, 500);
+  const match = (data ?? []).find((row) => {
+    const app = (row as { app?: { slug?: string } | { slug?: string }[] }).app;
+    const a = Array.isArray(app) ? app[0] : app;
+    return a?.slug === appSlug;
+  });
+  if (!match) return c.json({ purchase: null });
+  return c.json({ purchase: match });
+});
+
 // POST /api/v1/purchases/:id/refund — full refund, platform fee returned.
 purchasesRoutes.post('/:id/refund', async (c) => {
   const ctx = c.get('ctx');

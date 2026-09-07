@@ -19,10 +19,20 @@ import type { IntakeField } from '@/lib/intake';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
 
+/** Set when the page was opened as ?reschedule=<booking id>: the flow then
+ *  moves an existing booking instead of creating one. Same picker, no
+ *  details step — we already know who this is. */
+export type Reschedule = {
+  bookingId: string;
+  startsAt: string;
+  inviteeName: string;
+};
+
 type Props = {
   ownerSlug: string;
   ownerKind: 'host' | 'team';
   hostTimezone: string;
+  reschedule?: Reschedule | null;
   meetingType: {
     id: string;
     slug: string;
@@ -123,6 +133,7 @@ export function BookingFlow({
   ownerKind,
   hostTimezone,
   meetingType,
+  reschedule,
 }: Props) {
   if (meetingType.event_type === 'one_off') {
     return (
@@ -147,6 +158,7 @@ export function BookingFlow({
       ownerKind={ownerKind}
       hostTimezone={hostTimezone}
       meetingType={meetingType}
+      reschedule={reschedule ?? null}
     />
   );
 }
@@ -156,6 +168,7 @@ function SlotPickerFlow({
   ownerKind,
   hostTimezone,
   meetingType,
+  reschedule,
 }: Props) {
   const router = useRouter();
   const [pending, start] = useTransition();
@@ -260,6 +273,43 @@ function SlotPickerFlow({
     setStep('details');
   }
 
+  // Moving an existing booking: same picker, different verb. The booking
+  // keeps its id (and its payment) — this is an update, not a rebook.
+  function submitReschedule() {
+    setError(null);
+    if (!selectedSlot || !reschedule) return;
+    start(async () => {
+      try {
+        await publicFetch(
+          `/api/v1/meet/public/bookings/${encodeURIComponent(reschedule.bookingId)}/reschedule`,
+          {
+            method: 'POST',
+            body: JSON.stringify({ starts_at: selectedSlot.toISOString() }),
+          },
+        );
+        router.push(
+          `/${ownerSlug}/${meetingType.slug}/confirmed/${reschedule.bookingId}`,
+        );
+        router.refresh();
+      } catch (e) {
+        if (e instanceof PublicApiError) {
+          const code = (e.body as { code?: string } | undefined)?.code;
+          if (code === 'slot_unavailable' || code === 'slot_full') {
+            setError('That time just went. Please pick another.');
+          } else if (code === 'not_reschedulable') {
+            setError('This meeting type can\'t be moved. Cancel and book again instead.');
+          } else if (code === 'cancelled') {
+            setError('This booking was cancelled — book a new time instead.');
+          } else {
+            setError(`Couldn't move it (${e.status}). Please try again.`);
+          }
+        } else {
+          setError('Network error. Please try again.');
+        }
+      }
+    });
+  }
+
   function submit() {
     setError(null);
     if (!selectedSlot || !name.trim() || !email.trim()) {
@@ -315,8 +365,25 @@ function SlotPickerFlow({
     return (
       <div className="space-y-6">
         <h2 className="text-base font-semibold tracking-tight text-neutral-900">
-          Select a date &amp; time
+          {reschedule ? 'Pick a new time' : 'Select a date & time'}
         </h2>
+        {reschedule && (
+          <p className="-mt-3 text-sm text-neutral-600">
+            Currently{' '}
+            <span className="line-through">
+              {new Intl.DateTimeFormat(undefined, {
+                timeZone: tz,
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                hour: '2-digit',
+                minute: '2-digit',
+                hour12: clock === 'ampm',
+              }).format(new Date(reschedule.startsAt))}
+            </span>
+            . Everything else stays as it is.
+          </p>
+        )}
 
         {loadingSlots ? (
           <p className="text-sm text-neutral-500">Loading availability…</p>
@@ -460,6 +527,12 @@ function SlotPickerFlow({
         </button>
       </div>
 
+      {reschedule ? (
+        <p className="mt-6 text-sm text-neutral-600 leading-relaxed">
+          We&apos;ll move this booking to the new time and email everyone the
+          updated details. Your answers — and any payment — carry over.
+        </p>
+      ) : (
       <div className="mt-6 space-y-4">
         <div>
           <Label htmlFor="b-name">Your name</Label>
@@ -490,6 +563,7 @@ function SlotPickerFlow({
           </div>
         )}
       </div>
+      )}
 
       {error && (
         <div className="mt-4 rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -498,8 +572,14 @@ function SlotPickerFlow({
       )}
 
       <div className="mt-6 flex justify-end">
-        <Button onClick={submit} disabled={pending}>
-          {pending ? 'Booking…' : 'Confirm booking'}
+        <Button onClick={reschedule ? submitReschedule : submit} disabled={pending}>
+          {reschedule
+            ? pending
+              ? 'Moving…'
+              : 'Confirm new time'
+            : pending
+              ? 'Booking…'
+              : 'Confirm booking'}
         </Button>
       </div>
     </div>

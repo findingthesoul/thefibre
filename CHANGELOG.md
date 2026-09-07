@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.0] — 2026-09-07 — Meet catches up with Suite: Zoom, moving a booking, fair rotation
+
+The Soul Suite comparison written this morning
+(`docs/meet-vs-suite-parity.md`) listed ten things Suite v1 had that Meet
+didn't. The five that would bite a Suite user on cutover day are done.
+
+### Added
+- **Zoom conferencing** — per-user OAuth at Settings → Integrations, then a
+  real Zoom meeting created for every booking on a Zoom meeting type: link
+  in the calendar event, the confirmation email, the booking. Moved on
+  reschedule, deleted on cancel; a cross-org co-host on a collective booking
+  falls back to creating it without them rather than failing.
+  The credential lives in the connections SPoT (`user_connection`, never
+  `meet_host`), and `lib/zoom/host.ts` is the ONE caller that may refresh it
+  — Zoom rotates the refresh token on every use, so it caches, coalesces
+  concurrent refreshes, and persists each rotation.
+  **Off until `ZOOM_CLIENT_ID` / `ZOOM_CLIENT_SECRET` exist on Fly** — see
+  docs/deploy.md § Zoom for the Marketplace app steps (Sjoerd).
+- **Reschedule** — the link that has sat on the confirmation page since v0.12
+  now goes somewhere: `?reschedule=<booking id>` turns the booking page into
+  "pick a new time", and `POST /meet/public/bookings/:id/reschedule` moves
+  it. **The booking keeps its id** — the purchase ledger points at it by
+  `item_ref`, so cancel-and-rebook would orphan the payment. The Google event
+  is patched in place, so the join link survives; both sides get a "moved"
+  email with the old time struck through; activity gets a new
+  `meeting_rescheduled` row (append-only, never an edit).
+- **Round-robin fairness, per meeting type** — least-loaded (still the
+  default), whoever waited longest, strict rotation, or random.
+  `lib/meet/round-robin.ts` is pure and unit-tested; "last assigned" is read
+  back off the bookings, so there is no counter to drift.
+- **Per-team availability** — `meet_team_member_hours`: narrower hours that
+  apply only to a team's meeting types, set from the team page by a lead (or
+  by yourself). Resolution: meeting-type override → team override → personal
+  hours.
+- **"Add to calendar"** — one `.ics` builder in the API, on the confirmation
+  page and in the confirmation email.
+- **Reimburse a paid booking from its detail dialog** — through the ONE
+  refund path (`POST /purchases/:id/refund`), with the confirm dialog now
+  extracted to `@thefibre/shared/ui/refund-confirm` and shared with the
+  Invoices page. `GET /purchases/by-ref` is the new lookup.
+
+### Fixed
+- A meeting-type working-hours override was silently ignored for
+  round-robin / collective types — `buildPerHostArgs` only ever read the
+  host's own hours. It now layers properly.
+- A Zoom (or any non-Google) join URL is no longer wiped when the calendar
+  event is created without a Meet link.
+
+### Docs
+- `docs/meet-vs-suite-parity.md` — the full two-way comparison and what is
+  deliberately still open (PWA, branding on public pages, retry-finalize,
+  dirty-nav guard; onboarding belongs to `onboarding-proposal.md`).
+
+
 ## [0.58.10] — 2026-09-07 — the poster is whole; the art reaches home
 
 ### Changed

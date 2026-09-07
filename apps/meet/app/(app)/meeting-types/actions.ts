@@ -124,6 +124,9 @@ function bodyFromForm(formData: FormData) {
     })(),
     team_id: teamId && teamId !== 'personal' ? teamId : null,
     event_type: eventType,
+    // Only meaningful for round_robin; the API ignores it elsewhere.
+    round_robin_fairness:
+      strOrNull(formData.get('round_robin_fairness')) ?? 'least_loaded',
     capacity,
     fixed_starts_at,
     fixed_ends_at,

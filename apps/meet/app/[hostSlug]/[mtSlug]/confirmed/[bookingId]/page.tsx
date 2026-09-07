@@ -118,6 +118,14 @@ export default async function ConfirmedPage({
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">
+              {booking.status !== 'cancelled' && (
+                <a
+                  href={`/${hostSlug}/${mtSlug}/confirmed/${bookingId}/calendar.ics`}
+                  className="inline-flex items-center justify-center rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-800"
+                >
+                  Add to calendar
+                </a>
+              )}
               <Link
                 href={`/${hostSlug}/${mtSlug}?reschedule=${bookingId}`}
                 className="inline-flex items-center justify-center rounded-md border border-neutral-300 bg-white px-4 py-2 text-sm font-medium text-neutral-900 hover:bg-neutral-50"

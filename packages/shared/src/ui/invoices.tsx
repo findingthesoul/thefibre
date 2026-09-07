@@ -24,6 +24,7 @@ import {
   Building2,
 } from 'lucide-react';
 import { InvoiceDialog } from './invoice-dialog.js';
+import { RefundConfirm } from './refund-confirm.js';
 import { INTL_LOCALES, type Locale } from '../i18n.js';
 import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
 
@@ -573,49 +574,20 @@ export function InvoicesArea({
         </InvoiceDialog>
       )}
 
-      {/* Refund confirm — self-contained (the dialog contract's small form). */}
+      {/* Refund confirm — the shared component; Meet's booking detail
+          renders the same one. */}
       {confirmRefund && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div
-            className="absolute inset-0 bg-black/30"
-            onClick={() => !busy && setConfirmRefund(null)}
-          />
-          <div className="relative w-full max-w-sm rounded-xl bg-surface-raised border border-line shadow-xl p-5">
-            <h2 className="text-base font-semibold text-ink">{chromeT(locale, 'refund_title')}</h2>
-            <p className="mt-2 text-sm text-ink-subtle">
-              {chromeT(
-                locale,
-                confirmRefund.method === 'stripe' ? 'refund_body_stripe' : 'refund_body_offline',
-                {
-                  name: confirmRefund.payer_name || confirmRefund.payer_email || '',
-                  amount: fmt(confirmRefund.amount_cents, confirmRefund.currency),
-                },
-              )}
-            </p>
-            <div className="mt-4 flex justify-end gap-2">
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => setConfirmRefund(null)}
-                className="rounded-md px-3 py-1.5 text-sm text-ink-subtle hover:text-ink hover:bg-surface-sunken disabled:opacity-50"
-              >
-                {chromeT(locale, 'cancel')}
-              </button>
-              <button
-                type="button"
-                disabled={busy}
-                onClick={() => {
-                  const row = confirmRefund;
-                  setConfirmRefund(null);
-                  if (row) void run(actions.refundPurchase, row, chromeT(locale, 'reimbursed_ok'));
-                }}
-                className="rounded-md bg-red-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
-              >
-                {busy ? chromeT(locale, 'working') : chromeT(locale, 'reimburse')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <RefundConfirm
+          target={confirmRefund}
+          busy={busy}
+          locale={locale}
+          onCancel={() => setConfirmRefund(null)}
+          onConfirm={() => {
+            const row = confirmRefund;
+            setConfirmRefund(null);
+            if (row) void run(actions.refundPurchase, row, chromeT(locale, 'reimbursed_ok'));
+          }}
+        />
       )}
     </div>
   );

@@ -16,6 +16,7 @@ import { t } from '@/lib/i18n-ui';
 import { TeamForm } from '../form';
 import { AddMemberForm, RemoveMemberButton, PendingInviteRow } from './members';
 import { VisibilityCard } from './visibility';
+import { TeamHoursButton } from './hours';
 import { MEET_HOST } from '@/lib/public-host';
 
 type Team = {
@@ -63,6 +64,19 @@ export default async function TeamDetailPage({
   }
 
   const isLead = team.my_role === 'lead';
+
+  // Per-team availability overrides, keyed by user. Non-fatal: an older
+  // workspace (or a member who can't read them) just sees no override.
+  type HoursRow = { user_id: string; working_hours: Record<string, { start: string; end: string }[]> };
+  let hoursByUser = new Map<string, HoursRow['working_hours']>();
+  try {
+    const r = await apiFetch<{ items: HoursRow[] }>(
+      `/api/v1/meet/teams/${id}/member-hours`,
+    );
+    hoursByUser = new Map(r.items.map((row) => [row.user_id, row.working_hours]));
+  } catch {
+    hoursByUser = new Map();
+  }
 
   return (
     <PageContainer max="4xl">
@@ -122,6 +136,13 @@ export default async function TeamDetailPage({
                       <span className="uppercase tracking-wider text-ink-muted">
                         {m.role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
                       </span>
+                      <TeamHoursButton
+                        teamId={team.id}
+                        userId={u.id}
+                        memberName={u.full_name ?? u.email}
+                        initial={hoursByUser.get(u.id) ?? null}
+                        locale={locale}
+                      />
                       {isLead && (
                         <RemoveMemberButton teamId={team.id} userId={u.id} locale={locale} />
                       )}

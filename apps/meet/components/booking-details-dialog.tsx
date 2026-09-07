@@ -1,13 +1,20 @@
 'use client';
 
 import Link from 'next/link';
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarClock, User, Video, MapPin, ExternalLink, Check, X } from 'lucide-react';
+import { CalendarClock, User, Video, MapPin, ExternalLink, Check, X, BadgeEuro } from 'lucide-react';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
-import { approveBooking, rejectBooking } from './booking-actions';
+import { RefundConfirm } from '@thefibre/shared/ui/refund-confirm';
+import {
+  approveBooking,
+  rejectBooking,
+  loadBookingPurchase,
+  refundBookingPurchase,
+  type BookingPurchase,
+} from './booking-actions';
 
 // Minimum shape every caller (Dashboard, Bookings list, Contact popup)
 // can satisfy. Each surface fetches a slightly different projection,
@@ -82,6 +89,23 @@ export function BookingDetailsDialog({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [err, setErr] = useState<string | null>(null);
+  // The ledger row behind this booking, if it was paid for. Loaded lazily —
+  // most bookings are free and we don't want a request per row in the list.
+  const [purchase, setPurchase] = useState<BookingPurchase | null>(null);
+  const [confirmRefund, setConfirmRefund] = useState(false);
+  const bookingId = booking?.id ?? null;
+
+  useEffect(() => {
+    if (!open || !bookingId) return;
+    let cancelled = false;
+    setPurchase(null);
+    void loadBookingPurchase(bookingId).then((r) => {
+      if (!cancelled && r.purchase) setPurchase(r.purchase);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, bookingId]);
 
   if (!booking) return null;
   const mt = getMt(booking);
@@ -122,6 +146,26 @@ export function BookingDetailsDialog({
     });
   }
 
+  function handleRefund() {
+    if (!purchase) return;
+    setErr(null);
+    setConfirmRefund(false);
+    startTransition(async () => {
+      const r = await refundBookingPurchase(purchase.id);
+      if (r.error) setErr(r.error);
+      else {
+        setPurchase({ ...purchase, status: 'refunded', refunded_at: new Date().toISOString() });
+        router.refresh();
+      }
+    });
+  }
+
+  const money = (cents: number, currency: string) =>
+    new Intl.NumberFormat(INTL_LOCALES[locale], {
+      style: 'currency',
+      currency: (currency || 'eur').toUpperCase(),
+    }).format(cents / 100);
+
   const statusLabel = pendingApproval
     ? t(locale, 'status_pending_approval')
     : cancelled
@@ -151,6 +195,16 @@ export function BookingDetailsDialog({
         <>
           {err && <span className="text-xs text-red-700 mr-auto">{err}</span>}
           <Button variant="ghost" onClick={onClose}>{t(locale, 'close')}</Button>
+          {purchase && purchase.status === 'paid' && (
+            <button
+              type="button"
+              onClick={() => setConfirmRefund(true)}
+              disabled={pending}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line bg-white px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-sunken disabled:opacity-50"
+            >
+              {t(locale, 'booking_reimburse')}
+            </button>
+          )}
           {pendingApproval && (
             <>
               <button
@@ -212,6 +266,20 @@ export function BookingDetailsDialog({
           </Row>
         )}
 
+        {purchase && (
+          <Row Icon={BadgeEuro} label={t(locale, 'booking_amount')}>
+            {money(purchase.amount_cents, purchase.currency)}
+            <span className="text-ink-muted">
+              {' · '}
+              {purchase.status === 'refunded'
+                ? t(locale, 'booking_refunded')
+                : purchase.status === 'paid'
+                  ? t(locale, 'booking_paid')
+                  : t(locale, 'status_pending')}
+            </span>
+          </Row>
+        )}
+
         {hostSlugForCancel && !cancelled && mt && (
           <div className="pt-2 border-t border-line">
             <Link
@@ -224,6 +292,18 @@ export function BookingDetailsDialog({
           </div>
         )}
       </div>
+
+      {/* One reimbursement dialog for the whole family (@thefibre/shared) —
+          the same one the Invoices page opens. */}
+      {confirmRefund && purchase && (
+        <RefundConfirm
+          target={purchase}
+          busy={pending}
+          locale={locale}
+          onCancel={() => setConfirmRefund(false)}
+          onConfirm={handleRefund}
+        />
+      )}
     </Dialog>
   );
 }

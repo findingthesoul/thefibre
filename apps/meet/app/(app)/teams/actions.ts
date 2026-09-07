@@ -134,3 +134,27 @@ export async function resendInvite(
     return { error: e instanceof ApiError ? `API ${e.status}` : 'unknown error' };
   }
 }
+
+/** Per-team availability override. `hours: null` = "use my own weekly
+ *  hours" — the API deletes the row rather than storing an empty one, so
+ *  "no override" has exactly one representation. */
+export async function saveTeamMemberHours(
+  teamId: string,
+  userId: string,
+  hours: Record<string, { start: string; end: string }[]> | null,
+): Promise<SaveResult> {
+  try {
+    await apiFetch(`/api/v1/meet/teams/${teamId}/member-hours/${userId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ working_hours: hours }),
+    });
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const body = e.body as { error?: string } | undefined;
+      return { error: body?.error ? `API ${e.status}: ${body.error}` : `API ${e.status}` };
+    }
+    return { error: 'unknown error' };
+  }
+  revalidatePath(`/teams/${teamId}`);
+  return { ok: true };
+}
