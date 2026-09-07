@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.64.0] — 2026-09-08 — website: the serious footer
+
+- Footer rebuilt as a dark four-column band on every page: brand + entity,
+  Explore, Legal & help (privacy / terms / support, reusing the Fibre's
+  public documents), and "Built on The Fibre" — the platform reference plus
+  the real stack (PostgreSQL with row-level security on Supabase EU-West,
+  API on Fly.io Frankfurt, payments by Stripe, hosted in the EU end to
+  end). Beneath it, "Our commitment to safe data" in the accent: minimum
+  justified storage, EU hosting, erasure on request, nothing sold or
+  profiled — GDPR by construction, not by checkbox.
+- Nav is 20% transparent once scrolled (bg-surface/20, soft blur) so the
+  thread runs visibly behind it.
+
 ## [0.63.4] — 2026-09-08 — website: air around the story
 
 - Card 2's text sits further off the top (pt-28) and every story section

@@ -35,7 +35,7 @@ export function SiteNav() {
   return (
     <nav
       className={`sticky top-0 z-50 flex h-16 items-center justify-between px-6 transition-all duration-300 md:px-10 ${
-        showLogo ? 'border-b border-line bg-surface/90 backdrop-blur' : 'border-b border-transparent'
+        showLogo ? 'border-b border-line/60 bg-surface/20 backdrop-blur-sm' : 'border-b border-transparent'
       }`}
     >
       <Link href="/" className="flex items-center" aria-label="The Thread — home">
