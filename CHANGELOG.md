@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.61.0] — 2026-09-07 — website: the cards learn to move with the scroll
+
+- Home cards 2–4 are now a connected sequence: the collage COMPILES as a card
+  scrolls toward centre and FALLS APART as it leaves (scroll-scrubbed, not a
+  one-shot trigger — components/scroll-collage.tsx). Pieces enter from beyond
+  the real screen edges (sides + bottom, vectors in vw/vh); traveller shapes
+  exit down one card and arrive from the top of the next (yellow egg 2→3→4,
+  teal figure 2→3, black leaf 3→4). The drawn thread now runs behind all
+  three cards, connecting them to the litany below (segments re-alternated).
+- NEW card 3 "The workshop." — text left / Sjoerd's portrait composition
+  right: weaving explained, Meet and Members introduced by name, other tools
+  "still on the workbench".
+- NEW card 4 "Underneath it all: The Fibre." — art left / text right:
+  contacts and personal information held with the highest integrity.
+- Card 2 collage bigger (88svh cap).
+- Pricing: why-these-prices note (low and affordable, but fair to
+  development), Stripe's own processing cost stated plainly, fair-use
+  paragraph (emails, storage) — all qualitative, no hardcoded numbers.
+
 ## [0.60.0] — 2026-09-07 — website: the social-fabric slide, made of Sjoerd's real paper cuts
 
 - Home slide 2 — "Weaving the social fabric. In companies. In society." with

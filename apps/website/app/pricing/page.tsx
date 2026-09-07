@@ -43,6 +43,11 @@ export default async function PricingPage() {
         <p className="mt-4 text-lg text-ink-subtle">
           Per workspace, not per person. Start free, stay free — pay when the work grows.
         </p>
+        <p className="mx-auto mt-4 max-w-xl text-sm leading-relaxed text-ink-muted">
+          We keep prices as low as we can — this should be affordable for the people doing the
+          weaving. And they&apos;re not zero, because the work isn&apos;t: a fair price is what
+          keeps the tools developed, hosted and cared for.
+        </p>
       </div>
 
       {plans.length === 0 ? (
@@ -99,6 +104,18 @@ export default async function PricingPage() {
           <strong className="text-ink">The enrolment fee, plainly.</strong> When guests pay for a
           ticket, the platform keeps a small share: 2% on Free, 1% on Starter, nothing on Pro and
           above. Your price is your price — the fee comes out of it, never on top of it.
+        </p>
+        <p>
+          <strong className="text-ink">Card payments carry Stripe&apos;s own cost.</strong>{' '}
+          Payments run through Stripe, and Stripe charges its standard processing fee on each card
+          transaction. That fee is theirs, not ours — we add nothing to it, and invoice-based
+          payment avoids it entirely.
+        </p>
+        <p>
+          <strong className="text-ink">Fair use.</strong> Every plan includes a fair-use allowance
+          for the things that cost us real money — emails sent and gigabytes stored. Ordinary use
+          never touches the ceiling; if a workspace consistently runs far beyond it, we&apos;ll
+          talk with you before anything changes.
         </p>
         <p>
           <strong className="text-ink">No surprises.</strong> Annual billing is simply two months

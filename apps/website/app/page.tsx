@@ -7,7 +7,7 @@
 
 import Link from 'next/link';
 import { Scene, Line, Ink } from '@/components/scene';
-import { FabricCollage } from '@/components/fabric-collage';
+import { ScrollCollage, type ScrubPiece } from '@/components/scroll-collage';
 import { Constellation, type Star } from '@/components/constellation';
 import { DrawnThread } from '@/components/drawn-thread';
 import { Settle } from '@/components/settle';
@@ -48,6 +48,50 @@ const CONSTELLATIONS: Record<string, Star[]> = {
     { shape: 'wave', x: 56, y: 82, w: 'w-20 md:w-32', color: 'text-surface-paper', rotate: 3, drift: 0.07, desktopOnly: true },
   ],
 };
+
+// The three fabric cards' compositions. Entry vectors are vw/vh — pieces
+// really come in from beyond the screen edges (sides + bottom, per Sjoerd).
+// Travellers: the yellow egg runs 2→3→4; the teal figure hands off 2→3; the
+// black leaf 3→4. A traveller exits DOWN on one card (its scatter vector
+// points below) and enters FROM THE TOP on the next, so it reads as one
+// shape moving down the page.
+const FABRIC: ScrubPiece[] = [
+  { src: 'start-figure.png', x: 7, y: 26, w: 15, dx: -8, dy: 45, r: -22, e: 0.85 },
+  { src: 'yellow-shape.png', x: 20, y: 36, w: 6.2, dx: -52, dy: 6, r: 18, e: 1.1 },
+  { src: 'bordeaux-shape.png', x: 24.5, y: 44, w: 6.5, dx: -40, dy: 14, r: -30, e: 1.3 },
+  { src: 'blue-shape-cup.png', x: 29.5, y: 47, w: 15.3, dx: -10, dy: 55, r: 10, e: 1 },
+  { src: 'orange-vase.png', x: 43.2, y: 40, w: 13.2, dx: 0, dy: 60, r: -8, e: 0.9 },
+  { src: 'yellow-egg.png', x: 51.5, y: 38.5, w: 6.3, dx: 6, dy: 45, r: 35, e: 1.4 },
+  { src: 'rise-bowl.png', x: 54.5, y: 61.5, w: 11, dx: 6, dy: 50, r: -14, e: 1.15 },
+  { src: 'blue-bowl.png', x: 64.5, y: 53.5, w: 8.2, dx: 38, dy: 10, r: 20, e: 1.25 },
+  { src: 'blue-square.png', x: 70.5, y: 52, w: 13.2, dx: 50, dy: 4, r: 8, e: 1 },
+  { src: 'double-vase.png', x: 80.5, y: 28.5, w: 7.6, dx: 45, dy: -8, r: -16, e: 0.9 },
+  { src: 'turqois-stool.png', x: 77.5, y: 62.5, w: 10, dx: 18, dy: 48, r: 12, e: 1.2 },
+  { src: 'ligth-turqiose-leaf.png', x: 88, y: 13, w: 8.6, dx: 40, dy: -14, r: 28, e: 1.35 },
+];
+
+// Sjoerd's second reference (portrait): leaf on top, green stalk + turquoise
+// dome, the chair, orange dome at the foot, yellow figure at the right —
+// plus the two travellers arriving from the card above.
+const WORKSHOP: ScrubPiece[] = [
+  { src: 'start-figure.png', x: 4, y: 6, w: 22, dx: -3, dy: -55, r: -15, e: 0.8 },
+  { src: 'yellow-egg.png', x: 70, y: 36, w: 14, dx: 5, dy: -48, r: 30, e: 1.3 },
+  { src: 'black-leaf.png', x: 48, y: 20, w: 26, dx: 35, dy: -12, r: 25, e: 1 },
+  { src: 'green-iron.png', x: 22, y: 37, w: 40, dx: -45, dy: 4, r: -12, e: 1.1 },
+  { src: 'dark-blue-chair.png', x: 6, y: 55, w: 34, dx: -48, dy: 15, r: -20, e: 0.95 },
+  { src: 'orange-thing.png', x: 30, y: 76, w: 42, dx: 4, dy: 50, r: 8, e: 1.2 },
+  { src: 'yellow-bas.png', x: 60, y: 52, w: 33, dx: 42, dy: 12, r: 18, e: 1.05 },
+];
+
+// The foundation card: the leaf and the egg continue down, the joyful
+// figure and the trumpet come in, the bordeaux cut returns.
+const FIBRE: ScrubPiece[] = [
+  { src: 'blue-music.png', x: 8, y: 8, w: 40, dx: -45, dy: -10, r: -20, e: 0.9 },
+  { src: 'black-leaf.png', x: 62, y: 4, w: 22, dx: 2, dy: -50, r: 18, e: 0.8 },
+  { src: 'happy-pink.png', x: 26, y: 26, w: 48, dx: 6, dy: 55, r: 10, e: 1.1 },
+  { src: 'yellow-egg.png', x: 8, y: 62, w: 16, dx: -4, dy: -45, r: -25, e: 1.3 },
+  { src: 'bordeaux-shape.png', x: 66, y: 66, w: 26, dx: 40, dy: 20, r: 22, e: 1.15 },
+];
 
 function StoryScene({
   stars,
@@ -104,17 +148,25 @@ export default async function Home() {
         </a>
       </section>
 
-      {/* ── What this is, plainly — then Sjoerd's collage assembles. ── */}
+      {/* ── What this is, plainly — Sjoerd's collage compiles with the scroll. ── */}
       <div id="story" />
-      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-8 pt-20 md:px-10">
-        <div className="mx-auto max-w-3xl text-center">
+      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-6 pt-16 md:px-10">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={SEG.sway}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
+        <div className="relative mx-auto max-w-3xl text-center">
           <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
             Weaving the social fabric.
           </h2>
           <p className="mt-1 text-3xl font-semibold tracking-tight text-ink-muted md:text-5xl">
             In companies. In society.
           </p>
-          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-ink-subtle md:text-lg">
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-ink-subtle md:text-lg">
             The Thread is a set of online tools for people who bring people together. You set up a
             gathering — a workshop, a training, a conference — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
@@ -122,48 +174,127 @@ export default async function Home() {
             the EU.
           </p>
         </div>
-        <div className="mt-10 w-full md:mt-6">
-          <FabricCollage />
+        <ScrollCollage
+          pieces={FABRIC}
+          aspect="17 / 10"
+          caption={{ text: "Inspired by Matisse's paper cuts", x: 13.5, y: 62, rotate: -32 }}
+          className="mt-6 md:mt-3"
+          style={{ width: 'min(100%, 88svh, 80rem)' }}
+        />
+      </section>
+
+      {/* ── The workshop: text left, Sjoerd's portrait composition right. ── */}
+      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={SEG.swayBack}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
+        <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-16">
+          <div>
+            <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The workshop.</h2>
+            <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
+              In the workshop we place tools that support weaving. Weaving is the activity of
+              bringing people together — building connection and collaboration.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-ink-subtle md:text-lg">
+              <span className="font-semibold text-ink">Meet</span> is the planning tool: schedule
+              appointments with people and groups, easily.{' '}
+              <span className="font-semibold text-ink">Members</span> organises people into
+              memberships — groups and subgroups, engagement, the whole administration.
+            </p>
+            <p className="mt-4 text-sm leading-relaxed text-ink-muted">
+              More tools are still on the workbench.
+            </p>
+            <p className="mt-6 text-sm text-ink-subtle">
+              <Link href="/workshop" className="underline underline-offset-4 hover:text-ink">
+                Step into the workshop →
+              </Link>
+            </p>
+          </div>
+          <ScrollCollage
+            pieces={WORKSHOP}
+            aspect="45 / 78"
+            className="mx-auto w-full"
+            style={{ width: 'min(100%, 46svh, 26rem)' }}
+          />
+        </div>
+      </section>
+
+      {/* ── The foundation: art left, text right. ── */}
+      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={SEG.sway}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
+        <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-16">
+          <ScrollCollage
+            pieces={FIBRE}
+            aspect="1 / 1"
+            className="order-last mx-auto w-full md:order-first"
+            style={{ width: 'min(100%, 56svh, 30rem)' }}
+          />
+          <div>
+            <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
+              Underneath it all: The Fibre.
+            </h2>
+            <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
+              Every tool in the workshop stands on the same foundation. The Fibre holds your
+              contacts and their personal information — with the highest integrity. One contact
+              base, hosted in the EU, GDPR by construction.
+            </p>
+            <p className="mt-4 text-base leading-relaxed text-ink-subtle md:text-lg">
+              Each tool sees only the data it can justify, and what a tool doesn&apos;t need, it
+              never sees. Nothing is copied around; nothing leaks.
+            </p>
+          </div>
         </div>
       </section>
 
       {/* ── The litany, unfolding — one line per breath. ── */}
-      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.cut}>
+      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.cut}>
         <Line>
           A gathering is a <Ink>cut</Ink> in time.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.you}>
+      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.you}>
         <Line>
           <Ink>You</Ink> decide it matters.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.shape}>
+      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.shape}>
         <Line>
           You give it a <Ink>shape</Ink>.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.enter}>
+      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.enter}>
         <Line>
           People <Ink>enter</Ink>.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.together}>
+      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.together}>
         <Line>
           The meaning is made <Ink>together</Ink>.
         </Line>
       </StoryScene>
 
       {/* ── The turn. ── */}
-      <StoryScene seg={SEG.swayBack}>
+      <StoryScene seg={SEG.sway}>
         <Line>Most event platforms stop at the event.</Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.sway}>
+      <StoryScene seg={SEG.swayBack}>
         <Line>
           The Thread <Ink>starts there</Ink>.
         </Line>
