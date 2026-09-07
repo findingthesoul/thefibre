@@ -375,7 +375,6 @@ export default async function Home() {
       {/* ── The invitation. ── */}
       <StoryScene
         seg={THREAD.invite}
-        snap={false}
         bottomSlot={
           <a
             href={startHref('free')}

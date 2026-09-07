@@ -19,10 +19,12 @@ html {
   color-scheme: light;
   scroll-behavior: smooth;
   /* The magnet (Sjoerd): each full-page card pulls the scroll onto
-     itself. Elements without snap-align are unaffected, so text-heavy
-     subpages scroll freely. Sections taller than the viewport remain
-     scrollable within, per the spec. */
-  scroll-snap-type: y mandatory;
+     itself. PROXIMITY, not mandatory: mandatory + anything without a
+     snap point (the footer, tall cards) traps the scroll — the browser
+     re-snaps erratically and you "can't scroll up from the footer".
+     Proximity keeps the pull near card edges and stays out of the way
+     everywhere else. */
+  scroll-snap-type: y proximity;
 }
 
 body {
@@ -44,16 +46,6 @@ body {
 .settle[data-unsettled='false'] {
   opacity: 1;
   transform: translateY(0) rotate(0deg);
-}
-
-/* On small screens sections routinely exceed one viewport (the footer, the
-   tall cards); mandatory snapping then traps the scroll and hides content.
-   Proximity keeps the magnet feel near a card edge but lets the reader
-   pass through anything taller than the screen. */
-@media (max-width: 767px) {
-  html {
-    scroll-snap-type: y proximity;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {

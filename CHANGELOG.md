@@ -26,6 +26,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 - `docs/zoom-marketplace-submission.md`: Documentation URL filled in, its
   checklist item ticked.
 
+## [0.68.5] — 2026-09-08 — the magnet learns manners
+
+- scroll-snap goes PROXIMITY everywhere (was mandatory on desktop):
+  mandatory + a snapless footer re-snaps erratically and traps the scroll
+  at the bottom ("footer constantly in screen, can't scroll up"). The pull
+  near card edges stays; nothing holds the page hostage. The invitation
+  card rejoins the snap flow.
+- The scroll cue GLIDES instead of jumping: a ~700ms eased rAF animation
+  with the root's snap AND smooth-behavior released during the ride
+  (both fought the animation), aimed at the next card's real top (the
+  sticky nav shifts every card down; a blind viewport hop landed short).
+  Verified: three consecutive glides land exactly on card tops.
+
 ## [0.68.4] — 2026-09-08 — the scroll escapes the footer; real shapes on About
 
 - The Home page tail (invitation card + footer) opts out of the snap
