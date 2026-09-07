@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.1] — 2026-09-07 — the launcher pops; Thread is The Thread
+
+### Changed
+- **The launcher is a popup** (Sjoerd's preference): on entering the
+  dashboard it opens above the page on a dimmed backdrop — once per
+  browser session, dismissed by Esc, the backdrop, or ×. The same tiles
+  stay inline below the stats so apps remain one click away afterwards.
+- **"Thread" displays as "The Thread"** everywhere — one branding.ts
+  line (the registry is the SPoT); shortName stays "Thread" for tight
+  chrome. The live-title smoke check derives its expectation from the
+  registry, so it goes green with this deploy.
+- /admin/plans column headers say "N on this plan" — the adoption count
+  read as if it were an allowance ("why does starter have no
+  workspaces?" — nobody has bought Starter yet; that's all it meant).
+
+
 ## [0.58.1] — 2026-09-07 — the enrolment golden path, walked by a browser
 
 The last automatable golden path: a stranger enrols in a published thread

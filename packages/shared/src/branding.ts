@@ -92,7 +92,10 @@ export const APPS: Record<AppId, AppBrand> = {
     available: true,
   },
   'the-thread': {
-    name: 'Thread',
+    // "Thread is The Thread" (Sjoerd, 2026-09-07) — the article is part of
+    // the name, as on the marketing site. shortName stays the bare word for
+    // tight chrome ("Getting around Thread", tab labels).
+    name: 'The Thread',
     shortName: 'Thread',
     brandLetters: 'tt',
     tagline: 'The learning journey a person walks.',

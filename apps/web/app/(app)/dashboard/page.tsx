@@ -10,6 +10,7 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { COOKIE_WELCOME } from '@/lib/prefs-shared';
 import type { PublicProfile } from '../settings/profile/profile-form';
+import { LauncherOverlay, type LauncherApp } from './launcher-overlay';
 
 // crossAppHref (env-aware), NEVER APPS[slug].url: the raw registry value is
 // the PRODUCTION default, so the staging dashboard linked people to
@@ -104,18 +105,35 @@ export default async function Dashboard() {
   const seatApps = LAUNCH_ORDER.filter(
     (slug) => activeAppSlugs.has(slug) && memberships.includes(slug),
   );
+  const launcherApps: LauncherApp[] = seatApps.map((slug) => ({
+    slug,
+    name: APPS[slug].name,
+    tagline: APPS[slug].tagline,
+    letters: APPS[slug].brandLetters,
+    href: APP_DOMAINS[slug] ?? '#',
+  }));
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
+      {/* On entry the launcher pops above the page, dimmed backdrop —
+          once per browser session; the same tiles stay inline below. */}
+      <LauncherOverlay apps={launcherApps} locale={locale} />
       <h1 className="text-3xl font-medium tracking-tight">
         {t(locale, 'welcome_name', { name: firstName })}
       </h1>
       <p className="mt-1 text-sm text-ink-subtle">{today}</p>
 
-      {/* The launcher — the seat's apps as big buttons (Sjoerd 2026-09-07:
-          "when entering the app, big buttons with the apps that are part
-          of your seat"). Hero position; everything else reads below it. */}
-      <section className="mt-10">
+      <section className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
+        <Stat label={t(locale, 'nav_contacts')} value={persons?.items.length} icon={<Users size={16} strokeWidth={1.75} />} href="/contacts" />
+        <Stat label={t(locale, 'nav_organisations')} value={orgs?.items.length} icon={<Building2 size={16} strokeWidth={1.75} />} href="/organisations" />
+        <Stat label={t(locale, 'nav_programmes')} value={programmes?.items.length} icon={<CalendarRange size={16} strokeWidth={1.75} />} href="/programmes" />
+        <Stat label={t(locale, 'nav_activity')} value={activity?.items.length} icon={<Activity size={16} strokeWidth={1.75} />} href="/activity" />
+      </section>
+
+      {/* The seat's apps, big buttons — also shown as the entry popup
+          (LauncherOverlay); this inline copy keeps them reachable after
+          the popup is dismissed. */}
+      <section className="mt-12">
         <div className="flex items-baseline justify-between">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted">
             {t(locale, 'your_apps')}
@@ -160,12 +178,6 @@ export default async function Dashboard() {
         )}
       </section>
 
-      <section className="mt-12 grid grid-cols-2 md:grid-cols-4 gap-4">
-        <Stat label={t(locale, 'nav_contacts')} value={persons?.items.length} icon={<Users size={16} strokeWidth={1.75} />} href="/contacts" />
-        <Stat label={t(locale, 'nav_organisations')} value={orgs?.items.length} icon={<Building2 size={16} strokeWidth={1.75} />} href="/organisations" />
-        <Stat label={t(locale, 'nav_programmes')} value={programmes?.items.length} icon={<CalendarRange size={16} strokeWidth={1.75} />} href="/programmes" />
-        <Stat label={t(locale, 'nav_activity')} value={activity?.items.length} icon={<Activity size={16} strokeWidth={1.75} />} href="/activity" />
-      </section>
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">
         <section>

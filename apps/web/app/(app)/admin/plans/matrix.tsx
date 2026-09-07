@@ -123,8 +123,11 @@ export function PlanMatrix({ plans }: { plans: AdminPlan[] }) {
                   <div className="mt-0.5 font-mono text-[10px] uppercase tracking-wider text-ink-muted">
                     {p.id}
                   </div>
+                  {/* Adoption, not an allowance — "0 workspaces" read as a
+                      plan property (Sjoerd 2026-09-07: "why does starter
+                      have no workspaces?"). Say what it counts. */}
                   <div className="mt-1 text-xs font-normal text-ink-muted">
-                    {p.workspaces.total} workspace{p.workspaces.total === 1 ? '' : 's'}
+                    {p.workspaces.total} on this plan
                     {p.workspaces.comped > 0 && ` · ${p.workspaces.comped} comped`}
                   </div>
                 </th>
