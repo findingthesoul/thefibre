@@ -23,6 +23,11 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      # A fresh checkout has no packages/shared/dist, and every app
+      # typechecks against it — build shared first (the CLAUDE.md gotcha
+      # the original template missed; first CI run failed exactly here).
+      - run: pnpm --filter @thefibre/shared build
+
       - run: pnpm -r typecheck
 
       # Unit tests (testing approach §3.3 — shared + api; fast, no DB).
@@ -48,9 +53,11 @@ jobs:
       # Web build needs the public env vars (anon key + Supabase URL) at build
       # time for Next to inline them. Use harmless placeholders — the actual
       # build doesn't call Supabase, it just needs the strings to exist.
-      - run: pnpm --filter @thefibre/web build
+      # Topological filters (trailing ...) — "and its workspace deps", so
+      # @thefibre/shared builds first. Never hand-chain builds (CLAUDE.md).
+      - run: pnpm --filter @thefibre/web... build
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: placeholder
 
-      - run: pnpm --filter @thefibre/api build
+      - run: pnpm --filter @thefibre/api... build

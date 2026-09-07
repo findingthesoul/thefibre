@@ -150,11 +150,13 @@ Phased so each step pays for itself; groomed like everything else via
   verify-external-app (staging API) → smoke-staging. Add a
   `smoke-prod.mjs` twin (apex-derived, read-only). Make "run `pnpm
   verify`" the standing pre-release gate in CLAUDE.md.
-- **Phase 1 — CI.** Install `docs/ci-template/ci.yml` into
-  `.github/workflows/` (blocked on a GitHub token with `workflow` scope —
-  Sjoerd). Extends to run `pnpm verify`'s cheap layers on every push;
-  contract checks against staging on a schedule (nightly), so a broken
-  promise pages us before an integrator finds it.
+- **Phase 1 — CI. DONE 2026-09-07.** The "token blocker" was a phantom —
+  this repo pushes over SSH, which carries no workflow-scope restriction.
+  `.github/workflows/ci.yml` runs typecheck + the unit tests + web/api
+  builds on every push and PR; `nightly-contracts.yml` smokes prod and
+  staging daily (public surfaces only — verify-public-api needs the
+  service-role key, so it stays in the local `pnpm verify` gate, pinned
+  at the prod API, until Sjoerd decides on repo Actions secrets).
 - **Phase 2 — Vitest on the money/tenancy logic. STARTED v0.53.0** (sso-hop, branding, i18n, pricing; next: fee/proration extraction, scheduler transitions, vercel-ignore). Fees, VAT, plan
   gating, sso-hop, pricing rules. Small, fast, no DB. Wire into `pnpm -r
   test` and CI.

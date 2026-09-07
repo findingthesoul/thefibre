@@ -24,12 +24,14 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
 
 **0a. Testing roadmap (docs/testing-approach.md + handbook §11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
-   smoke-prod). NEXT BLOCKER (Sjoerd): a GitHub token with `workflow`
-   scope to install docs/ci-template/ci.yml as .github/workflows — then
-   CI runs typecheck+tests on every push. After that: money-logic
-   extraction tests (platformFeeCents, seat proration, scheduler
-   transitions, vercel-ignore base pick), staging integration pack,
-   Playwright golden paths.
+   smoke-prod). Phase 1 DONE (CI installed — SSH
+   pushes need no workflow scope; ci.yml per push + nightly-contracts.yml
+   daily smoke). Money extractions DONE v0.54.0 (computeFeeCents,
+   seatItemAction, archived-cache, embed-loader). Remaining: scheduler
+   transitions + recordPurchase idempotency (staging integration pack),
+   vercel-ignore base pick (now CI-able), Playwright golden paths;
+   OPTIONAL (Sjoerd): repo Actions secrets to let nightly run
+   verify-public-api too.
 
 **0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
    hard cut EXECUTED 2026-09-07).**

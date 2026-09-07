@@ -17,7 +17,7 @@
     "db:migrate": "supabase db push",
     "db:diff": "supabase db diff -f",
     "test": "pnpm -r test",
-    "verify": "pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && node apps/api/scripts/verify-public-api.mjs"
+    "verify": "pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && FIBRE_API=https://thefibre-api.fly.dev node apps/api/scripts/verify-public-api.mjs"
   },
   "devDependencies": {
     "typescript": "^5.6.0"

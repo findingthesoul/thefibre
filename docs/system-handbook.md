@@ -530,11 +530,12 @@ half-finished work out of the tested artifact.
 Phase 0 is DONE (v0.53.0: `pnpm verify` = typecheck → `pnpm -r test` →
 scripts/smoke-prod.mjs → verify-public-api) and Phase 2 has STARTED
 (vitest in shared+api; 30 unit tests on sso-hop, branding, i18n,
-pricing). Phase 1 (install `docs/ci-template/ci.yml` into
-`.github/workflows/`) remains **blocked on a GitHub token with `workflow`
-scope (Sjoerd)**. Then: more money-logic tests, the staging integration
-pack, Playwright golden paths — sequenced in `docs/testing-approach.md`
-§4 and tracked in build-plan. Cost profile: tooling €0, CI ≈ free tier, the real cost is
+pricing). Phase 1 is DONE (CI installed 2026-09-07 —
+the token blocker was a phantom, SSH pushes carry no workflow-scope
+restriction; ci.yml = typecheck + tests + builds per push,
+nightly-contracts.yml = daily prod+staging smoke). Then: more money-logic
+tests, the staging integration pack, Playwright golden paths — sequenced
+in `docs/testing-approach.md` §4 and tracked in build-plan. Cost profile: tooling €0, CI ≈ free tier, the real cost is
 session time (front-loaded) plus ~2–5 min of gates per release.
 
 ---

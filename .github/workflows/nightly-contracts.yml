@@ -1,0 +1,48 @@
+# Nightly contract check (testing approach §4 Phase 1): the published
+# promises get exercised on a schedule so a broken contract pages us
+# before an integrator finds it. Public surfaces only — no secrets.
+#
+# - smoke-prod: every registry domain serves its own app, API health,
+#   plans, CORS allow/block, the thethread.app apex landing.
+# - smoke-staging: the staging twin by title.
+# - verify-public-api: the three Thread public read routes — shapes, CORS
+#   scoping, third-party rate limiting.
+
+name: nightly-contracts
+
+on:
+  schedule:
+    - cron: '17 4 * * *' # 04:17 UTC daily — quiet hour, odd minute
+  workflow_dispatch: {}
+
+jobs:
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      # smoke-prod reads the branding registry from the built shared package.
+      - run: pnpm --filter @thefibre/shared build
+
+      - name: Production smoke
+        run: node scripts/smoke-prod.mjs
+
+      - name: Staging smoke
+        run: node scripts/smoke-staging.mjs
+
+      # NOT here (yet): verify-public-api.mjs — it reads the service-role
+      # key from apps/api/.env to find a real published thread, so running
+      # it in CI needs repo Actions secrets (SUPABASE_URL + service key), a
+      # credential decision for Sjoerd. It stays in the local `pnpm verify`
+      # gate, pinned at the prod API.
