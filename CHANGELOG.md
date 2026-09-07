@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.8] — 2026-09-07 — the tapestry hangs
+
+### Added
+- **Sjoerd's Matisse crops ship**: eight 600×600 tiles in
+  `public/brand/apps/` — six apps + two fillers — and the launcher
+  poster renders them. Filenames normalized to the slug convention;
+  swapping art stays a file swap.
+
+
 ## [0.58.7] — 2026-09-07 — The Fibre joins its own tapestry
 
 ### Changed
