@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.53.0] — 2026-09-07 — the first tests: Phase 0 + the start of Phase 2
+
+The testing roadmap (docs/testing-approach.md, handbook §11) starts
+executing. First test runner in the repo's history.
+
+### Added
+- **Vitest** in `packages/shared` and `apps/api` (`pnpm -r test`; test
+  files excluded from build tsconfigs — their type safety rides vitest's
+  execution until the suite earns a dedicated test tsconfig).
+- **30 unit tests** on pure, high-blast-radius logic:
+  - `sso-hop.test.ts` — apex comparison + crossAppHref topology (locks the
+    two-apex decision: same-apex plain links, cross-apex hop links,
+    staging's single-apex override behavior).
+  - `branding.test.ts` — appUrl resolution order (env override → registry,
+    empty-string fallback) + the v0.52.0 production topology as executable
+    fact + every registry URL a clean https origin.
+  - `i18n.test.ts` — makeT placeholder substitution (incl. repeats) and
+    toLocale fallback (mechanism only; catalogs stay guarded by types).
+  - `pricing.test.ts` — evaluatePriceLogic first-match-wins, in/not_in,
+    case-insensitivity, unknown-context-never-matches (no accidental
+    discounts), pct clamping, malformed-rule skipping; applyPct rounding.
+- **`scripts/smoke-prod.mjs`** — read-only production smoke driven by the
+  branding registry (each available app serves its own app by title, the
+  thethread.app apex landing still up, API health + plans + CORS
+  allow/block).
+- **`pnpm verify`** — THE pre-release gate: `pnpm -r typecheck` →
+  `pnpm -r test` → prod smoke → verify-public-api. Green across the board
+  at ship time.
+- `apps/api/vitest.config.ts` — placeholder Supabase env so importing lib
+  modules (which pull in db.ts) is safe; unit tests never touch a database.
+
+### Fixed
+- Handbook locale list corrected: the six locales are en/nl/es/pt/de/fr
+  (pt, not el — caught while writing the i18n tests).
+
+### Next (testing-approach §4)
+- Phase 1 CI install remains blocked on a GitHub token with `workflow`
+  scope (Sjoerd). Then: money-logic extraction for platformFeeCents-style
+  functions, seat-billing proration, scheduler transitions,
+  vercel-ignore base selection (peer-suggested targets), the staging
+  integration pack, Playwright golden paths.
+
 ## [0.52.0] — 2026-09-06 — the apps move to thethread.app
 
 The branding pivot lands in DNS: **fibre web stays at thefibre.app; the five

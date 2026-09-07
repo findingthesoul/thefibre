@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.52.0",
+  "version": "0.53.0",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -164,7 +164,8 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
   },
   "peerDependencies": {
     "lucide-react": ">=0.400.0",
@@ -174,6 +175,7 @@
     "@types/react": "^19.0.0",
     "lucide-react": "^0.460.0",
     "react": "^19.0.0",
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.0"
   }
 }

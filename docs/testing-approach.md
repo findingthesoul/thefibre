@@ -145,7 +145,7 @@ at the first workspace with >5k persons).
 Phased so each step pays for itself; groomed like everything else via
 `docs/build-plan.md`.
 
-- **Phase 0 — formalise what exists (zero new tech).**
+- **Phase 0 — formalise what exists (zero new tech). DONE v0.53.0.**
   A `pnpm verify` root script that runs: typecheck → verify-public-api →
   verify-external-app (staging API) → smoke-staging. Add a
   `smoke-prod.mjs` twin (apex-derived, read-only). Make "run `pnpm
@@ -155,7 +155,7 @@ Phased so each step pays for itself; groomed like everything else via
   Sjoerd). Extends to run `pnpm verify`'s cheap layers on every push;
   contract checks against staging on a schedule (nightly), so a broken
   promise pages us before an integrator finds it.
-- **Phase 2 — Vitest on the money/tenancy logic.** Fees, VAT, plan
+- **Phase 2 — Vitest on the money/tenancy logic. STARTED v0.53.0** (sso-hop, branding, i18n, pricing; next: fee/proration extraction, scheduler transitions, vercel-ignore). Fees, VAT, plan
   gating, sso-hop, pricing rules. Small, fast, no DB. Wire into `pnpm -r
   test` and CI.
 - **Phase 3 — integration pack on staging.** The RLS matrix, webhook

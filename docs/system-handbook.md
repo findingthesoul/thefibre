@@ -189,7 +189,7 @@ The load-bearing modules:
 | `auth-callback.ts` | `createAuthCallback()` — the shared OAuth/OTP callback flow (five apps wire it; **web still has its own richer copy** with signup-status branches — fold before touching callbacks). |
 | `embed-loader.ts` | `buildEmbedLoader()` — origin-relative website-embed loader; Thread + Membership serve it at `/embed.js`. Iframe origin derives from the pasted `<script src>`; postMessage is origin-checked. Embeds are deliberately iframes (`docs/…` decision, don't propose web components again). |
 | `prefs.ts` | Cross-app preference cookie names/types. |
-| `i18n.ts`, `ui/i18n-ui.tsx`, `chrome-server-i18n.ts` | Six locales (en, nl, de, fr, es, el), **typed catalogs** — a missing translation is a type error. `// MT` marks machine drafts. |
+| `i18n.ts`, `ui/i18n-ui.tsx`, `chrome-server-i18n.ts` | Six locales (en, nl, es, pt, de, fr), **typed catalogs** — a missing translation is a type error. `// MT` marks machine drafts. |
 | `ui/*` | The shared component library: app-switcher, topbar, sidebar-shell, user-menu, bottom-nav (mobile tab bar), dialog, button, fields, DateField/DateTimeField, settings, invoices, profile-form, toast, … |
 
 **Components-first rule (binding):** before building ANY UI surface, check
@@ -527,12 +527,14 @@ half-finished work out of the tested artifact.
 
 ### 11.5 Adoption state
 
-Phase 0 (formalise `pnpm verify` + prod smoke) and Phase 1 (install
-`docs/ci-template/ci.yml` into `.github/workflows/` — **blocked on a
-GitHub token with `workflow` scope, Sjoerd**) are next; then Vitest on
-money/tenancy, the staging integration pack, and the Playwright golden
-paths — sequenced in `docs/testing-approach.md` §4 and tracked in
-build-plan. Cost profile: tooling €0, CI ≈ free tier, the real cost is
+Phase 0 is DONE (v0.53.0: `pnpm verify` = typecheck → `pnpm -r test` →
+scripts/smoke-prod.mjs → verify-public-api) and Phase 2 has STARTED
+(vitest in shared+api; 30 unit tests on sso-hop, branding, i18n,
+pricing). Phase 1 (install `docs/ci-template/ci.yml` into
+`.github/workflows/`) remains **blocked on a GitHub token with `workflow`
+scope (Sjoerd)**. Then: more money-logic tests, the staging integration
+pack, Playwright golden paths — sequenced in `docs/testing-approach.md`
+§4 and tracked in build-plan. Cost profile: tooling €0, CI ≈ free tier, the real cost is
 session time (front-loaded) plus ~2–5 min of gates per release.
 
 ---
