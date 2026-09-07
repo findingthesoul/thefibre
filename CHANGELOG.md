@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.10] — 2026-09-07 — the poster is whole; the art reaches home
+
+### Changed
+- **The launcher popup fires at LOGIN, not once per browser session**:
+  the auth callback stamps a one-shot cookie the dashboard consumes —
+  "I logged in — no popup" can't happen again (and if you ticked
+  "Don't show at login" earlier, the switch lives in Settings →
+  Profile → App launcher).
+- **All eight apps are the tapestry**, in Sjoerd's order: The Fibre,
+  The Thread, Meet, Members / Pulse, Flow, Sales, Learn — the unbuilt
+  two close the weave as muted coming-soon tiles (their crops were the
+  fillers all along).
+- **The art reaches each app's home**: the sidebar's top-left brand tile
+  shows the app's Matisse crop in all six apps (served from fibre web,
+  env-aware; letters fall back if a tile 404s).
+- **The app-switcher dropdown follows the canonical order** (The Fibre
+  first) via shared APP_DISPLAY_ORDER — one order, three surfaces.
+
+
 ## [0.58.9] — 2026-09-07 — the tiles carry Sjoerd's names
 
 ### Changed

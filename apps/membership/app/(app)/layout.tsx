@@ -8,7 +8,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS } from '@thefibre/shared';
+import { APPS, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 
 // Membership has its own user-facing version, independent of the monorepo
@@ -98,7 +98,11 @@ export default async function MembershipAppLayout({
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
-        <Sidebar mode={prefs.sidebar} version={VERSION} />
+        <Sidebar
+          mode={prefs.sidebar}
+          version={VERSION}
+          brandTileSrc={tileArtUrl('membership', process.env)}
+        />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar

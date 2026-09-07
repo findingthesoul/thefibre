@@ -27,3 +27,8 @@ export const COOKIE_WELCOME = 'thefibre.welcome';
 // Per-browser prefs like theme/sidebar — no durable copy, accepted.
 export const COOKIE_LAUNCHER = 'thefibre.launcher';
 export const COOKIE_APPS_SECTION = 'thefibre.apps';
+
+// Set by the auth callback on every successful sign-in; the dashboard
+// opens the launcher popup when it is present (and clears it) — "at
+// login" means at LOGIN, not once per browser session (2026-09-07).
+export const COOKIE_LAUNCHER_PENDING = 'thefibre.launcher.pending';

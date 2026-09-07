@@ -52,12 +52,21 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
 const SidebarShell = createSidebarShell(Link, usePathname);
 const BottomNavShell = createBottomNav(Link, usePathname);
 
-export function Sidebar({ mode, version }: { mode: SidebarMode; version: string }) {
+export function Sidebar({
+  mode,
+  version,
+  brandTileSrc,
+}: {
+  mode: SidebarMode;
+  version: string;
+  brandTileSrc?: string | null;
+}) {
   const locale = useLocale();
   return (
     <SidebarShell
       nav={buildNav(locale)}
       brandLetters={BRAND.brandLetters}
+      brandTileSrc={brandTileSrc}
       brandName={BRAND.name}
       mode={mode}
       version={version}

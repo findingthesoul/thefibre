@@ -34,6 +34,7 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
   function SidebarShell({
     nav,
     brandLetters,
+    brandTileSrc,
     brandName,
     brandContent,
     mode,
@@ -43,6 +44,8 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
   }: {
     nav: SidebarNavSection[];
     brandLetters: string;
+    /** Matisse tile art for the brand block; letters fall back on 404. */
+    brandTileSrc?: string | null | undefined;
     brandName: string;
     /** Replaces the plain-text brand name when the panel is open — web's
      *  handwritten wordmark image. The yellow tile always renders. */
@@ -53,6 +56,7 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
     helpHref?: string;
   }) {
     const [hovered, setHovered] = useState(false);
+    const [tileFailed, setTileFailed] = useState(false);
 
     // Expanded means the wide panel is visible.
     // In hover mode, the rail stays at RAIL_W and the panel overlays content.
@@ -81,9 +85,19 @@ export function createSidebarShell(LinkComponent: LinkLike, usePathname: UsePath
         >
           <div className="h-14 flex items-center px-3 shrink-0">
             <LinkComponent href={homeHref} className="flex items-center gap-2.5">
-              <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-yellow-300 text-ink font-semibold text-[11px] tracking-tight shrink-0">
-                {brandLetters}
-              </span>
+              {brandTileSrc && !tileFailed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={brandTileSrc}
+                  alt=""
+                  onError={() => setTileFailed(true)}
+                  className="h-8 w-8 rounded-md object-cover shrink-0"
+                />
+              ) : (
+                <span className="inline-flex h-8 w-8 items-center justify-center rounded-md bg-yellow-300 text-ink font-semibold text-[11px] tracking-tight shrink-0">
+                  {brandLetters}
+                </span>
+              )}
               {showPanel &&
                 (brandContent ?? (
                   <span className="text-sm font-medium tracking-tight whitespace-nowrap">

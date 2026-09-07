@@ -9,7 +9,7 @@
 // the slug of the app THIS copy runs in — passed by the layout, so the six
 // copies of this file stay byte-identical.
 
-import { APPS, type AppId, APP_IDS } from '@thefibre/shared';
+import { APPS, type AppId, APP_IDS, APP_DISPLAY_ORDER } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import type { AppEntry } from '@/components/shell/app-switcher';
 
@@ -61,5 +61,12 @@ export function buildAppList({
     }
     out.push({ slug, name: meta.name, url: crossAppHref(currentApp, slug, process.env) });
   }
+  // Canonical display order (Sjoerd 2026-09-07): the platform first, then
+  // the family as the launcher poster reads.
+  out.sort(
+    (x, y) =>
+      APP_DISPLAY_ORDER.indexOf(x.slug as (typeof APP_DISPLAY_ORDER)[number]) -
+      APP_DISPLAY_ORDER.indexOf(y.slug as (typeof APP_DISPLAY_ORDER)[number]),
+  );
   return out;
 }

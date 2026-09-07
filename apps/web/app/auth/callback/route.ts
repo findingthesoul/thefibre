@@ -6,6 +6,14 @@
 // is delegated to the API on Fly.io / Railway EU.
 
 import { NextResponse, type NextRequest } from 'next/server';
+import { COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
+
+// A fresh sign-in should greet with the launcher popup — stamp a one-shot
+// cookie the dashboard consumes ("at login" semantics, 2026-09-07).
+function withLauncherPending(res: NextResponse): NextResponse {
+  res.cookies.set(COOKIE_LAUNCHER_PENDING, '1', { path: '/', sameSite: 'lax' });
+  return res;
+}
 import { serverSupabase } from '@/lib/supabase/server';
 
 type AccessCheck =
@@ -57,7 +65,7 @@ export async function GET(req: NextRequest) {
   // If our internal secret isn't configured we can't check access status —
   // fall back to the legacy default-workspace behaviour so dev doesn't break.
   if (!ssoSecret || !email) {
-    return NextResponse.redirect(new URL(next, url.origin));
+    return withLauncherPending(NextResponse.redirect(new URL(next, url.origin)));
   }
 
   // Step 1 — what's this email's status?
@@ -135,5 +143,5 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL(destination, url.origin));
+  return withLauncherPending(NextResponse.redirect(new URL(destination, url.origin)));
 }

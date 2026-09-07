@@ -4,13 +4,13 @@ import { join } from 'node:path';
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { CalendarRange, Users, Building2, Activity } from 'lucide-react';
-import { APPS, APP_IDS, appName, type AppId } from '@thefibre/shared';
+import { APPS, APP_IDS, APP_DISPLAY_ORDER, TILE_FILES, appName, type AppId } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
-import { COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION } from '@/lib/prefs-shared';
+import { COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION, COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
 import type { PublicProfile } from '../settings/profile/profile-form';
 import { LauncherOverlay, type LauncherApp } from './launcher-overlay';
 import { AppsSection } from './apps-section';
@@ -32,16 +32,8 @@ const APP_DOMAINS: Record<string, string> = Object.fromEntries(
 // the tools in its service.
 // Sjoerd's tile filenames (2026-09-07: "fibre meet = meet, membership =
 // members…") — his names first, slug as fallback.
-const TILE_NAMES: Partial<Record<AppId, string>> = {
-  'the-thread': 'thethread',
-  'fibre-meet': 'meet',
-  'membership': 'members',
-  'fibre-pulse': 'pulse',
-  'fibre-flow': 'flow',
-  'fibre-platform': 'fibre',
-};
 function tileArt(slug: AppId): string | null {
-  for (const base of [TILE_NAMES[slug], slug]) {
+  for (const base of [TILE_FILES[slug], slug]) {
     if (base && existsSync(join(process.cwd(), 'public', 'brand', 'apps', `${base}.png`))) {
       return `/brand/apps/${base}.png`;
     }
@@ -49,9 +41,10 @@ function tileArt(slug: AppId): string | null {
   return null;
 }
 
-// The Fibre closes the weave (backstage position — naming brief); its
-// tile links home. Six apps + two fillers = the full 4×2 poster.
-const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow', 'fibre-platform'];
+// The poster order (Sjoerd 2026-09-07): "fibre, the thread, meet, members /
+// pulse, flow, sales, learn" — all eight apps ARE the tapestry; the two
+// unbuilt ones close it as quiet coming-soon tiles.
+const LAUNCH_ORDER: AppId[] = [...APP_DISPLAY_ORDER];
 
 type Activity = {
   id: string;
@@ -116,6 +109,7 @@ export default async function Dashboard() {
   const welcomeDone = cookieStore.get(COOKIE_WELCOME)?.value === 'done';
   const launcherOff = cookieStore.get(COOKIE_LAUNCHER)?.value === 'off';
   const appsCollapsed = cookieStore.get(COOKIE_APPS_SECTION)?.value === 'collapsed';
+  const launcherPending = cookieStore.get(COOKIE_LAUNCHER_PENDING)?.value === '1';
   const profileEmpty =
     profile != null && !profile.display_name && !profile.timezone && !profile.photo_url;
   if (profileEmpty && !welcomeDone) redirect('/welcome');
@@ -134,8 +128,9 @@ export default async function Dashboard() {
     // (workspace_app has no row for it; you cannot deactivate the platform
     // from itself — same rule as /auth/me's membership filter).
     (slug) =>
-      slug === 'fibre-platform' ||
-      (activeAppSlugs.has(slug) && memberships.includes(slug)),
+      APPS[slug].available &&
+      (slug === 'fibre-platform' ||
+        (activeAppSlugs.has(slug) && memberships.includes(slug))),
   );
   const launcherApps: LauncherApp[] = seatApps.map((slug) => ({
     slug,
@@ -148,21 +143,23 @@ export default async function Dashboard() {
     art: tileArt(slug),
     href: slug === 'fibre-platform' ? '/dashboard' : (APP_DOMAINS[slug] ?? '#'),
   }));
-  // Decorative tapestry fillers: the launcher popup is ONE poster — 4 tiles
-  // × 2 rows (Sjoerd: "the icons together make up one poster… a tapestry").
-  // Apps fill the first cells in LAUNCH_ORDER; filler-1.png…filler-3.png
-  // complete the weave. Missing files simply leave the grid shorter.
-  const fillerArt = [1, 2, 3]
-    .map((n) => `filler-${n}.png`)
-    .filter((f) => existsSync(join(process.cwd(), 'public', 'brand', 'apps', f)))
-    .map((f) => `/brand/apps/${f}`)
-    .slice(0, Math.max(0, 8 - seatApps.length));
+  // The unbuilt apps close the weave: art + muted name, no link.
+  const soonApps = LAUNCH_ORDER.filter((slug) => !APPS[slug].available)
+    .map((slug) => ({ name: APPS[slug].name, art: tileArt(slug) }))
+    .filter((a): a is { name: string; art: string } => !!a.art);
 
   return (
     <div className="mx-auto max-w-5xl px-8 py-12">
       {/* On entry the launcher pops above the page, dimmed backdrop —
           once per browser session; the same tiles stay inline below. */}
-      {!launcherOff && <LauncherOverlay apps={launcherApps} fillers={fillerArt} locale={locale} />}
+      {!launcherOff && (
+        <LauncherOverlay
+          apps={launcherApps}
+          soon={soonApps}
+          locale={locale}
+          initialOpen={launcherPending}
+        />
+      )}
       <h1 className="text-3xl font-medium tracking-tight">
         {t(locale, 'welcome_name', { name: firstName })}
       </h1>

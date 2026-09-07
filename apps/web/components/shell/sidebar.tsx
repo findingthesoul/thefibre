@@ -100,11 +100,13 @@ function buildSections(
 export function Sidebar({
   mode,
   version,
+  brandTileSrc,
   isSuperAdmin = false,
   isWorkspaceAdmin = false,
 }: {
   mode: SidebarMode;
   version: string;
+  brandTileSrc?: string | null;
   isSuperAdmin?: boolean;
   isWorkspaceAdmin?: boolean;
 }) {
@@ -113,6 +115,7 @@ export function Sidebar({
     <SidebarShell
       nav={buildSections(locale, isSuperAdmin, isWorkspaceAdmin)}
       brandLetters={BRAND.brandLetters}
+      brandTileSrc={brandTileSrc}
       brandName={BRAND.name}
       brandContent={
         // Handwritten wordmark instead of plain text when the sidebar is

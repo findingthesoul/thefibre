@@ -8,7 +8,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS } from '@thefibre/shared';
+import { APPS, tileArtUrl } from '@thefibre/shared';
 
 // The Thread is the rebuild of thethread-v3, so its user-facing version
 // starts at 3.0.0 — independent of the monorepo cadence in package.json,
@@ -95,7 +95,11 @@ export default async function ThreadAppLayout({
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
-        <Sidebar mode={prefs.sidebar} version={VERSION} />
+        <Sidebar
+          mode={prefs.sidebar}
+          version={VERSION}
+          brandTileSrc={tileArtUrl('the-thread', process.env)}
+        />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar

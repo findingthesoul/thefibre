@@ -8,7 +8,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS } from '@thefibre/shared';
+import { APPS, tileArtUrl } from '@thefibre/shared';
 
 // Meet is the rebuild of Suite v1, so its user-facing version starts at 2.0.0.
 // This is independent of the monorepo cadence in package.json (which tracks
@@ -96,7 +96,11 @@ export default async function MeetAppLayout({
     <div className="h-dvh flex bg-surface">
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
-        <Sidebar mode={prefs.sidebar} version={VERSION} />
+        <Sidebar
+          mode={prefs.sidebar}
+          version={VERSION}
+          brandTileSrc={tileArtUrl('fibre-meet', process.env)}
+        />
       </div>
       <div className="flex-1 flex flex-col min-w-0">
         <Topbar

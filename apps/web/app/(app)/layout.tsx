@@ -8,7 +8,7 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import { ArchivedGate } from '@/components/archived-gate';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS } from '@thefibre/shared';
+import { APPS, tileArtUrl } from '@thefibre/shared';
 import { VERSION } from '@/lib/version';
 
 type Me = {
@@ -88,6 +88,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       {/* Sidebar is desktop chrome; below md the bottom tab bar takes over. */}
       <div className="hidden md:block shrink-0">
         <Sidebar
+          brandTileSrc={tileArtUrl('fibre-platform', process.env)}
           mode={prefs.sidebar}
           version={VERSION}
           isSuperAdmin={isSuperAdmin}

@@ -191,3 +191,39 @@ export function emailSignoff(): string {
 export function appName(slug: AppId): string {
   return APPS[slug]?.name ?? slug;
 }
+
+/** THE display order (Sjoerd 2026-09-07): the platform first, then the
+ *  family as the launcher poster reads. App switchers sort by this; the
+ *  launcher moves fibre-platform to the end (it closes the poster). */
+export const APP_DISPLAY_ORDER: AppId[] = [
+  'fibre-platform',
+  'the-thread',
+  'fibre-meet',
+  'membership',
+  'fibre-pulse',
+  'fibre-flow',
+  'fibre-sales',
+  'fibre-learn',
+];
+
+/** Sjoerd's tile-art filenames under the web app's /brand/apps/. */
+export const TILE_FILES: Partial<Record<AppId, string>> = {
+  'the-thread': 'thethread',
+  'fibre-meet': 'meet',
+  'membership': 'members',
+  'fibre-pulse': 'pulse',
+  'fibre-flow': 'flow',
+  'fibre-platform': 'fibre',
+  'fibre-sales': 'sales',
+  'fibre-learn': 'learn',
+};
+
+/** Absolute URL of an app's Matisse tile (served by fibre web — the brand
+ *  asset SPoT, like BRAND_ASSETS.logoUrl), env-aware. Null when unmapped. */
+export function tileArtUrl(
+  slug: AppId,
+  env?: Record<string, string | undefined>,
+): string | null {
+  const file = TILE_FILES[slug];
+  return file ? `${appUrl('fibre-platform', env)}/brand/apps/${file}.png` : null;
+}

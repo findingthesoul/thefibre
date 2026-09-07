@@ -11,7 +11,7 @@ import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { savePref } from '@/lib/prefs-actions';
-import { COOKIE_LAUNCHER } from '@/lib/prefs-shared';
+import { COOKIE_LAUNCHER, COOKIE_LAUNCHER_PENDING } from '@/lib/prefs-shared';
 
 const SESSION_KEY = 'fibre.launcher.shown';
 
@@ -27,27 +27,24 @@ export type LauncherApp = {
 
 export function LauncherOverlay({
   apps,
-  fillers = [],
+  soon = [],
   locale,
+  initialOpen = false,
 }: {
   apps: LauncherApp[];
-  /** Decorative crops completing the 4×2 poster around the app tiles. */
-  fillers?: string[];
+  /** Unbuilt apps closing the poster: art + muted name, unclickable. */
+  soon?: { name: string; art: string }[];
   locale: Locale;
+  /** True right after sign-in (the callback's one-shot cookie). */
+  initialOpen?: boolean;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(initialOpen && apps.length > 0);
   const [optOut, setOptOut] = useState(false);
 
+  // Consume the one-shot sign-in cookie so a plain refresh doesn't re-pop.
   useEffect(() => {
-    if (apps.length === 0) return;
-    try {
-      if (sessionStorage.getItem(SESSION_KEY)) return;
-      sessionStorage.setItem(SESSION_KEY, '1');
-      setOpen(true);
-    } catch {
-      /* storage unavailable — show nothing rather than nag every nav */
-    }
-  }, [apps.length]);
+    if (initialOpen) void savePref(COOKIE_LAUNCHER_PENDING, '');
+  }, [initialOpen]);
 
   useEffect(() => {
     if (!open) return;
@@ -103,11 +100,13 @@ export function LauncherOverlay({
               </span>
             </a>
           ))}
-          {fillers.map((src) => (
-            <span key={src} className="block min-w-0" aria-hidden="true">
+          {soon.map((app) => (
+            <span key={app.name} className="block min-w-0 opacity-90">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={src} alt="" className="aspect-square w-full rounded-lg object-cover" />
-              <span className="mt-1.5 block text-sm">&nbsp;</span>
+              <img src={app.art} alt="" className="aspect-square w-full rounded-lg object-cover" />
+              <span className="mt-1.5 block text-center text-sm text-ink-muted truncate">
+                {app.name}
+              </span>
             </span>
           ))}
         </div>
