@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.4] — 2026-09-07 — fixtures learn what append-only means; the charge is rehearsed
+
+### The rehearsal (not code — for the record)
+The **first end-to-end card charge is rehearsed**: staging join page →
+country-aware pricing → Community member + the €50 optional product →
+real Stripe sandbox Checkout (test card) → webhook → **ACTIVE member**,
+€350 ledger row labeled with the until-date, product purchase recorded —
+all verified server-side. The optional-products code and the
+dashboard-governed payment methods were both exercised live. The first
+LIVE charge is now just a customer.
+
+### Changed
+- **Enrolment fixtures reuse permanent workspaces**
+  (`int-enrol-fixtures` / `e2e-enrol-fixtures`): the activity append-only
+  trigger blocks even service-role deletes, so a workspace that ever
+  hosted an enrolment can never be hard-deleted — throwaway-and-delete
+  was structurally impossible (seven silently-leaked shells on staging
+  are now labeled `retired-*`; fixture persons soft-deleted). Teardowns
+  now surface every error instead of swallowing them — a silent teardown
+  failure is exactly how the shells leaked.
+- Old Thread V3: down to ONE dashboard click (delete the test-mode Stripe
+  webhook endpoint; the API deletion attempt was permission-blocked —
+  endpoint id in build-plan).
+
 ## [0.58.4] — 2026-09-07 — Membership displays as "Members" (Members 0.13.1)
 
 ### Changed

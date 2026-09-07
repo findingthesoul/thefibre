@@ -138,12 +138,28 @@ export async function createPublicThread(tag: string): Promise<E2eThreadFixture>
   const rand = randomBytes(4).toString('hex');
   const t = tag.toLowerCase();
 
-  const { data: ws, error: wErr } = await service
+  // ONE permanent workspace, reused per run: the enrol flow writes activity,
+  // activity is append-only (DB trigger, service role included), so a
+  // workspace that hosted an enrolment can never be hard-deleted. Content
+  // is cleaned per run; persons are soft-deleted.
+  let wsId: string;
+  const { data: existingWs } = await service
     .from('workspace')
-    .insert({ slug: `e2e-${t}-${rand}`, name: `E2E ${t}` })
     .select('id')
-    .single();
-  if (wErr) throw new Error(`e2e workspace: ${wErr.message}`);
+    .eq('slug', 'e2e-enrol-fixtures')
+    .maybeSingle();
+  if (existingWs) {
+    wsId = existingWs.id as string;
+  } else {
+    const { data: created, error: wErr } = await service
+      .from('workspace')
+      .insert({ slug: 'e2e-enrol-fixtures', name: 'Permanent E2E fixtures (activity is append-only)' })
+      .select('id')
+      .single();
+    if (wErr) throw new Error(`e2e workspace: ${wErr.message}`);
+    wsId = created.id as string;
+  }
+  const ws = { id: wsId };
 
   const { data: urow, error: uErr } = await service
     .from('user')
@@ -187,28 +203,30 @@ export async function createPublicThread(tag: string): Promise<E2eThreadFixture>
   if (tErr) throw new Error(`e2e thread: ${tErr.message}`);
 
   const cleanup = async (participantEmails: string[] = []) => {
-    await service.from('thread_enrolment').delete().eq('thread_id', thread.id);
-    await service.from('enrolment').delete().eq('program_id', program.id);
+    const must = (label: string) => (r: { error: { message: string } | null }) => {
+      if (r.error) console.error(`[e2e cleanup] ${label}: ${r.error.message}`);
+    };
+    must('thread_enrolment')(await service.from('thread_enrolment').delete().eq('thread_id', thread.id));
+    must('enrolment')(await service.from('enrolment').delete().eq('program_id', program.id));
     for (const email of participantEmails) {
-      const { data: persons } = await service
-        .from('person')
-        .select('id')
-        .eq('workspace_id', ws.id)
-        .eq('email', email);
-      for (const p of persons ?? []) {
-        await service.from('activity').delete().eq('person_id', p.id);
-        await service.from('person').delete().eq('id', p.id);
-      }
-      await service.from('user').delete().eq('workspace_id', ws.id).eq('email', email);
+      // Soft-delete: their activity rows are append-only and pin them.
+      must('person soft-delete')(
+        await service
+          .from('person')
+          .update({ deleted_at: new Date().toISOString() })
+          .eq('workspace_id', ws.id)
+          .eq('email', email),
+      );
+      must('user')(await service.from('user').delete().eq('workspace_id', ws.id).eq('email', email));
       const { data: listed } = await service.auth.admin.listUsers({ perPage: 100 });
       const au = listed?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
       if (au) await service.auth.admin.deleteUser(au.id).catch(() => undefined);
     }
-    await service.from('thread_thread').delete().eq('id', thread.id);
-    await service.from('thread_organiser').delete().eq('id', org.id);
-    await service.from('program').delete().eq('id', program.id);
-    await service.from('user').delete().eq('id', urow.id);
-    await service.from('workspace').delete().eq('id', ws.id);
+    must('thread_thread')(await service.from('thread_thread').delete().eq('id', thread.id));
+    must('thread_organiser')(await service.from('thread_organiser').delete().eq('id', org.id));
+    must('program')(await service.from('program').delete().eq('id', program.id));
+    must('user')(await service.from('user').delete().eq('id', urow.id));
+    // The workspace stays — permanent by design (append-only activity).
   };
 
   return {

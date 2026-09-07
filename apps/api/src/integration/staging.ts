@@ -157,10 +157,36 @@ export type PublicThreadFixture = {
   title: string;
 };
 
+/**
+ * Enrolment fixtures live in ONE permanent workspace, reused per run.
+ * The enrol flow writes `activity` rows, and activity is append-only —
+ * enforced by a DB trigger even against the service role — so a workspace
+ * that ever hosted an enrolment can NEVER be hard-deleted (learned
+ * 2026-09-07: seven throwaway shells had to be retired in place). Content
+ * is cleaned per run; persons are soft-deleted (their activity pins them).
+ */
+const ENROL_FIXTURE_WS_SLUG = 'int-enrol-fixtures';
+
+export async function getPermanentFixtureWorkspace(slug: string): Promise<string> {
+  const { data: existing } = await service
+    .from('workspace')
+    .select('id')
+    .eq('slug', slug)
+    .maybeSingle();
+  if (existing) return existing.id as string;
+  const { data, error } = await service
+    .from('workspace')
+    .insert({ slug, name: 'Permanent test fixtures (activity is append-only)' })
+    .select('id')
+    .single();
+  if (error) throw new Error(`permanent fixture workspace: ${error.message}`);
+  return data.id as string;
+}
+
 export async function createPublicThreadFixture(tag: string): Promise<PublicThreadFixture> {
   const t = tag.toLowerCase();
   const rand = randomUUID().slice(0, 8);
-  const workspaceId = await createThrowawayWorkspace(t);
+  const workspaceId = await getPermanentFixtureWorkspace(ENROL_FIXTURE_WS_SLUG);
 
   const { data: urow, error: uErr } = await service
     .from('user')
@@ -224,33 +250,35 @@ export async function createPublicThreadFixture(tag: string): Promise<PublicThre
   };
 }
 
-/** Tear the fixture down, including whatever the enrol flow auto-created
- *  (thread enrolments, platform enrolments, persons, users, auth accounts
- *  for the given participant emails). */
+/** Clean the fixture's CONTENT out of the permanent workspace. Persons are
+ *  soft-deleted (activity is append-only and pins them — hard delete is
+ *  impossible by design); everything else goes. Errors are surfaced, not
+ *  swallowed — a silent teardown failure is how seven shells leaked. */
 export async function cleanupPublicThreadFixture(
   f: PublicThreadFixture,
   participantEmails: string[] = [],
 ): Promise<void> {
-  await service.from('thread_enrolment').delete().eq('thread_id', f.threadId);
-  await service.from('enrolment').delete().eq('program_id', f.programId);
+  const must = (label: string) => (r: { error: { message: string } | null }) => {
+    if (r.error) console.error(`[fixture cleanup] ${label}: ${r.error.message}`);
+  };
+  must('thread_enrolment')(await service.from('thread_enrolment').delete().eq('thread_id', f.threadId));
+  must('enrolment')(await service.from('enrolment').delete().eq('program_id', f.programId));
   for (const email of participantEmails) {
-    const { data: persons } = await service
-      .from('person')
-      .select('id')
-      .eq('workspace_id', f.workspaceId)
-      .eq('email', email);
-    for (const p of persons ?? []) {
-      await service.from('activity').delete().eq('person_id', p.id);
-      await service.from('person').delete().eq('id', p.id);
-    }
-    await service.from('user').delete().eq('workspace_id', f.workspaceId).eq('email', email);
+    must('person soft-delete')(
+      await service
+        .from('person')
+        .update({ deleted_at: new Date().toISOString() })
+        .eq('workspace_id', f.workspaceId)
+        .eq('email', email),
+    );
+    must('user')(await service.from('user').delete().eq('workspace_id', f.workspaceId).eq('email', email));
     const { data: listed } = await service.auth.admin.listUsers({ perPage: 100 });
     const au = listed?.users.find((a) => a.email?.toLowerCase() === email.toLowerCase());
     if (au) await service.auth.admin.deleteUser(au.id).catch(() => undefined);
   }
-  await service.from('thread_thread').delete().eq('id', f.threadId);
-  await service.from('thread_organiser').delete().eq('id', f.organiserId);
-  await service.from('program').delete().eq('id', f.programId);
-  await service.from('user').delete().eq('id', f.userRowId);
-  await deleteThrowawayWorkspace(f.workspaceId);
+  must('thread_thread')(await service.from('thread_thread').delete().eq('id', f.threadId));
+  must('thread_organiser')(await service.from('thread_organiser').delete().eq('id', f.organiserId));
+  must('program')(await service.from('program').delete().eq('id', f.programId));
+  must('organiser user')(await service.from('user').delete().eq('id', f.userRowId));
+  // The workspace stays — permanent by design (append-only activity).
 }

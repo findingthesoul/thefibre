@@ -55,7 +55,7 @@ test.describe('signed-in golden path (session via the SSO landing route)', () =>
   });
 });
 
-test.describe('enrolment golden path (free ticket, throwaway fixture)', () => {
+test.describe('enrolment golden path (free ticket, permanent fixture workspace)', () => {
   // The Stripe-card variant is deliberately NOT automated: it needs the
   // rehearsal workspace's wired test account, which is Sjoerd's supervised
   // rig (see docs/testing-approach.md). Free path covers page → enrol →
