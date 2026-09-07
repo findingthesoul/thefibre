@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.0] — 2026-09-08 — website: every tool gets its recognisable problem
+
+- /workshop: each tool now opens with "Sound familiar?" — the itch a
+  facilitator knows by name (the five-places spreadsheet truth, the
+  seventeen-email hour, the register nobody trusts, the December surprise,
+  the people falling between steps) — followed by "So we built it away."
+- Home card 2 pinned to exactly one viewport (h-[100svh]): the collage
+  keeps falling off the page, but the SCROLL cue is always on screen.
+- The footer is a snap stop (snap-end) — the mandatory snap magnet was
+  bouncing back off the last card, making the footer unreachable on Home.
+
 ## [0.66.1] — 2026-09-08 — website: each card's scroll cue takes a shape colour
 
 - The SCROLL cue changes colour per card, drawn from the cut-outs:

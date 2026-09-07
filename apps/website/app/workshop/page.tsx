@@ -17,6 +17,42 @@ export const metadata: Metadata = {
 
 const TOOL_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow'];
 
+
+// The recognisable problem each tool answers (Sjoerd, 2026-09-08): the
+// itch a facilitator knows by name, then how we built it away.
+const PROBLEMS: Record<string, { problem: string; solved: string }> = {
+  'the-thread': {
+    problem:
+      'The event is three weeks out and the truth lives in five places — enrolments in a spreadsheet, payments in your banking app, the programme in a doc, reminder emails you keep meaning to send. Every gathering means rebuilding the same machinery, and the follow-up quietly dies with the applause.',
+    solved:
+      'One thread per gathering. The enrolment page, tickets and payment, a message timeline that fires itself at the right moments, certificates at the end — designed once, then it runs. The event ends; the thread doesn’t.',
+  },
+  'fibre-meet': {
+    problem:
+      'Seventeen emails to find one hour. With a group it becomes a project of its own — and the polling tool doesn’t know your calendar, your rooms or your team.',
+    solved:
+      'Booking pages that know your real availability: people pick what’s open, the calendar entry and the room link follow automatically, group polls settle the rest. Scheduling stops being work.',
+  },
+  membership: {
+    problem:
+      'Who is a member? Who has paid? Who belongs to which circle? The answer lives in a spreadsheet nobody fully trusts, and it changes faster than anyone maintains it.',
+    solved:
+      'A living register: tiers, groups and subgroups, renewals and reminders handled, payment collected, access opening and closing with the membership itself. One answer, always current.',
+  },
+  'fibre-pulse': {
+    problem:
+      'Facilitation income is lumpy — a full autumn, an empty January. Whether the year works out financially is something you discover in December, when it’s too late to steer.',
+    solved:
+      'The money side as a live plan: expected income, real costs, the months ahead visible today. Small numbers honestly kept, so you steer in March instead of mourning in December.',
+  },
+  'fibre-flow': {
+    problem:
+      'People fall through the cracks between steps — enrolled but never onboarded, invited but never answered. You notice weeks later, by accident.',
+    solved:
+      'You draw the path people travel, and every person is visibly on it. Gate tasks stop the silent skipping; who’s stuck shows up today, not next month.',
+  },
+};
+
 const FEATURES: Record<string, string[]> = {
   'the-thread': [
     'A timeline editor for the whole journey — sessions, one-to-ones, messages, reflection, practice: eight kinds of engagement, arranged like a score',
@@ -106,6 +142,18 @@ export default function WorkshopPage() {
                 <div>
                   <h2 className="text-2xl font-semibold tracking-tight">{meta.name}</h2>
                   <p className="mt-1 text-base text-ink-subtle">{meta.tagline}</p>
+                  {PROBLEMS[slug] && (
+                    <div className="mt-5 rounded-xl bg-surface-warm p-5">
+                      <p className="text-[15px] leading-relaxed text-ink-subtle">
+                        <strong className="font-semibold text-ink">Sound familiar? </strong>
+                        {PROBLEMS[slug].problem}
+                      </p>
+                      <p className="mt-3 text-[15px] leading-relaxed text-ink-subtle">
+                        <strong className="font-semibold text-ink">So we built it away. </strong>
+                        {PROBLEMS[slug].solved}
+                      </p>
+                    </div>
+                  )}
                   <ul className="mt-5 space-y-2.5">
                     {(FEATURES[slug] ?? []).map((f) => (
                       <li key={f} className="flex items-start gap-3 text-[15px] leading-relaxed text-ink-subtle">

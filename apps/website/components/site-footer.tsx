@@ -14,7 +14,7 @@ const COL_LINK = 'text-[13px] leading-6 text-white/70 transition-colors hover:te
 
 export function SiteFooter() {
   return (
-    <footer className="bg-ink text-white">
+    <footer className="snap-end bg-ink text-white">
       <div className="mx-auto max-w-6xl px-6 py-14 md:px-20">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
