@@ -85,11 +85,13 @@ const FIBRE: ScrubPiece[] = [
 function StoryScene({
   seg,
   cue,
+  cueColor,
   bottomSlot,
   children,
 }: {
   seg?: string;
   cue?: number;
+  cueColor?: string;
   bottomSlot?: React.ReactNode;
   children: React.ReactNode;
 }) {
@@ -106,7 +108,7 @@ function StoryScene({
         />
       )}
       <Scene>{children}</Scene>
-      {cue !== undefined && <ScrollCue x={cue} />}
+      {cue !== undefined && <ScrollCue x={cue} color={cueColor} />}
       {bottomSlot}
     </div>
   );
@@ -168,11 +170,11 @@ export default async function Home() {
           className="mt-4 md:mt-2"
           style={{ width: 'min(100%, 130svh, 110rem)' }}
         />
-        <ScrollCue x={70} />
+        <ScrollCue x={70} color="#ee7d1a" />
       </section>
 
       {/* ── The turn: a moment vs a journey. ── */}
-      <StoryScene seg={THREAD.moment} cue={70}>
+      <StoryScene seg={THREAD.moment} cue={70} cueColor="#8e2f55">
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
           <Line>
             An event is a <Ink>moment</Ink>. It starts, and it stops.
@@ -229,7 +231,7 @@ export default async function Home() {
             style={{ width: 'min(100%, 46svh, 26rem)' }}
           />
         </div>
-        <ScrollCue x={28} />
+        <ScrollCue x={28} color="#2153c6" />
       </section>
 
       {/* ── The foundation: art left, text right. ── */}
@@ -264,10 +266,10 @@ export default async function Home() {
             </p>
           </div>
         </div>
-        <ScrollCue x={22} />
+        <ScrollCue x={22} color="#d62d94" />
       </section>
 
-      <StoryScene seg={THREAD.starts} cue={56}>
+      <StoryScene seg={THREAD.starts} cue={56} cueColor="#2f5d49">
         <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
           <Line>
             The Thread <Ink>starts there</Ink>.
@@ -340,7 +342,7 @@ export default async function Home() {
             </Link>
           </p>
         </div>
-        <ScrollCue x={72} />
+        <ScrollCue x={72} color="#d99c1e" />
       </section>
 
       {/* ── Proof, quiet. ── */}
@@ -365,7 +367,7 @@ export default async function Home() {
             </div>
           ))}
         </div>
-        <ScrollCue x={68} />
+        <ScrollCue x={68} color="#1d3057" />
       </section>
 
       {/* ── The invitation. ── */}

@@ -6,7 +6,7 @@
 // just right of the line. Clicking scrolls one viewport; the snap magnet
 // lands it on the next card.
 
-export function ScrollCue({ x }: { x: number }) {
+export function ScrollCue({ x, color = '#2fb3ab' }: { x: number; color?: string }) {
   return (
     <button
       type="button"
@@ -15,7 +15,7 @@ export function ScrollCue({ x }: { x: number }) {
       className="absolute bottom-10 z-10 flex items-center gap-3 transition-opacity hover:opacity-60"
       style={{ left: `calc(${x}% + 16px)` }}
     >
-      <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-[#2fb3ab]">
+      <span className="text-[11px] font-bold uppercase tracking-[0.22em]" style={{ color }}>
         Scroll
       </span>
       <svg
@@ -23,7 +23,8 @@ export function ScrollCue({ x }: { x: number }) {
         height="14"
         viewBox="0 0 14 18"
         aria-hidden="true"
-        className="animate-bounce text-[#2fb3ab]"
+        className="animate-bounce"
+        style={{ color }}
       >
         <path
           d="M7 1 V15 M2 10.5 L7 16 L12 10.5"

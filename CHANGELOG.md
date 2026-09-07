@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.66.1] — 2026-09-08 — website: each card's scroll cue takes a shape colour
+
+- The SCROLL cue changes colour per card, drawn from the cut-outs:
+  turquoise (hero), orange (fabric), bordeaux (moment), royal blue
+  (workshop), magenta (Fibre), green (starts-there), ochre (arc), navy
+  (proof).
+
 ## [0.66.0] — 2026-09-08 — website: Start a Thread is a popup on our own apex
 
 - Every "Start a Thread" CTA (nav, Home invitation + bottom button, pricing
