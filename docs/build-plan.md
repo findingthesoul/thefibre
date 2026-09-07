@@ -213,8 +213,9 @@ seeded into Pulse. What remains:
      in Settings -> Payments; Circle token + access grants on the two
      products. Also queued from today: VAT incl/excl pricing setting
      (workspace-level toggle + per-org override; ties into org
-     memberships and reverse-charge B2B); enable iDEAL + SEPA DD in
-     Stripe (cheapest payment rails, dashboard toggles, no code).
+     memberships and reverse-charge B2B); ~~enable iDEAL + SEPA DD in
+     Stripe~~ DONE 2026-09-07 (live, connected-accounts config; Klarna
+     off; v0.56.2 made all flows follow the dashboard config).
    SHIPPED 2026-09-05 pm (the parallel-agents round): pricing rules
    §3.9 as the generalised LOGIC BUILDER (Settings → Pricing rules;
    country self-declared on join; card-mismatch admin email; country
