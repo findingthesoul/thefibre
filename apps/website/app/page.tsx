@@ -17,9 +17,27 @@ import { startHref } from '@/lib/site';
 
 // The thread runs down the page's centre: every segment enters top-centre
 // and leaves bottom-centre, so the per-scene segments read as ONE line.
-const SEG = {
-  sway: 'M500 0 C560 130 420 260 500 400 C560 520 460 560 500 640',
-  swayBack: 'M500 0 C440 130 580 260 500 400 C440 520 540 560 500 640',
+// One thread, fallen on a long white paper (Sjoerd, 2026-09-07): it lies
+// left, right or centre of the page, curls here and there, and each
+// segment ends exactly where the next begins — one line from the hero to
+// the final hook on the invitation card. Not a decorative swirl; a thread.
+const THREAD = {
+  hero: 'M560 0 C555 140 585 260 570 380 C558 470 612 540 620 640',
+  fabric: 'M620 0 C628 120 585 230 615 330 C645 430 692 520 700 640',
+  workshop:
+    'M700 0 C705 110 640 190 585 255 C530 320 470 330 490 385 C510 440 610 420 590 355 C575 305 470 400 420 460 C370 520 300 560 280 640',
+  fibre: 'M280 0 C270 130 310 260 285 380 C265 480 228 540 220 640',
+  cut: 'M220 0 C215 120 260 220 320 300 C390 400 470 500 480 640',
+  you: 'M480 0 C485 100 520 170 560 230 C610 300 530 330 555 380 C580 430 660 400 630 345 C620 430 640 540 640 640',
+  shape: 'M640 0 C645 130 600 250 620 370 C635 460 588 540 580 640',
+  enter: 'M580 0 C570 120 500 200 450 290 C400 380 350 450 305 530 C302 570 300 600 300 640',
+  together: 'M300 0 C295 130 340 240 320 360 C305 460 345 540 350 640',
+  turn: 'M350 0 C355 120 400 220 430 320 C465 430 495 520 500 640',
+  starts: 'M500 0 C505 130 470 250 495 370 C515 465 555 540 560 640',
+  arc: 'M560 0 C565 110 620 200 650 300 C685 410 715 520 720 640',
+  proof: 'M720 0 C725 130 690 260 705 380 C715 470 685 550 680 640',
+  invite:
+    'M680 0 C685 110 650 200 640 290 C630 370 560 400 580 450 C600 495 660 470 645 425 C635 395 600 430 610 470',
 };
 
 const CONSTELLATIONS: Record<string, Star[]> = {
@@ -128,7 +146,15 @@ export default async function Home() {
   return (
     <main>
       {/* ── The opening: wordmark alone on the white, an invitation down. ── */}
-      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center px-6">
+      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={THREAD.hero}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
         <div id="hero-wordmark-sentinel" className="flex flex-col items-center gap-5 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-the-thread.svg" alt="The Thread" className="h-16 w-auto md:h-24" />
@@ -155,18 +181,18 @@ export default async function Home() {
       <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-6 pt-16 md:px-10">
         <DrawnThread
           viewBox="0 0 1000 640"
-          d={SEG.sway}
+          d={THREAD.fabric}
           begin={1.05}
           end={0.45}
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
-        <div className="relative mx-auto max-w-4xl text-center">
+        <div className="relative ml-auto max-w-4xl text-right">
           <h2 className="text-2xl font-semibold tracking-tight md:text-4xl">
             Weaving the social fabric.{' '}
             <span className="text-ink-muted">In companies. In society.</span>
           </h2>
-          <p className="mx-auto mt-3 max-w-3xl text-sm leading-relaxed text-ink-subtle md:text-base">
+          <p className="ml-auto mt-3 max-w-3xl text-sm leading-relaxed text-ink-subtle md:text-base">
             The Thread is a set of online tools for people who bring people together. You set up a
             gathering — a workshop, a training, a conference — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
@@ -187,14 +213,14 @@ export default async function Home() {
       <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
         <DrawnThread
           viewBox="0 0 1000 640"
-          d={SEG.swayBack}
+          d={THREAD.workshop}
           begin={1.05}
           end={0.45}
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
         <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-16">
-          <div>
+          <div className="text-right">
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The workshop.</h2>
             <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
               In the workshop we place tools that support weaving. Weaving is the activity of
@@ -228,7 +254,7 @@ export default async function Home() {
       <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
         <DrawnThread
           viewBox="0 0 1000 640"
-          d={SEG.sway}
+          d={THREAD.fibre}
           begin={1.05}
           end={0.45}
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
@@ -241,7 +267,7 @@ export default async function Home() {
             className="order-last mx-auto w-full md:order-first"
             style={{ width: 'min(100%, 56svh, 30rem)' }}
           />
-          <div>
+          <div className="text-right">
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
               Underneath it all: The Fibre.
             </h2>
@@ -259,46 +285,46 @@ export default async function Home() {
       </section>
 
       {/* ── The litany, unfolding — one line per breath. ── */}
-      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.cut}>
+      <StoryScene seg={THREAD.cut} stars={CONSTELLATIONS.cut}>
         <Line>
           A gathering is a <Ink>cut</Ink> in time.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.you}>
+      <StoryScene seg={THREAD.you} stars={CONSTELLATIONS.you}>
         <Line>
           <Ink>You</Ink> decide it matters.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.shape}>
+      <StoryScene seg={THREAD.shape} stars={CONSTELLATIONS.shape}>
         <Line>
           You give it a <Ink>shape</Ink>.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.enter}>
+      <StoryScene seg={THREAD.enter} stars={CONSTELLATIONS.enter}>
         <Line>
           People <Ink>enter</Ink>.
         </Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.swayBack} stars={CONSTELLATIONS.together}>
+      <StoryScene seg={THREAD.together} stars={CONSTELLATIONS.together}>
         <Line>
           The meaning is made <Ink>together</Ink>.
         </Line>
       </StoryScene>
 
       {/* ── The turn. ── */}
-      <StoryScene seg={SEG.sway}>
+      <StoryScene seg={THREAD.turn}>
         <Line>Most event platforms stop at the event.</Line>
       </StoryScene>
 
-      <StoryScene seg={SEG.swayBack}>
+      <StoryScene seg={THREAD.starts}>
         <Line>
           The Thread <Ink>starts there</Ink>.
         </Line>
-        <p className="mx-auto mt-8 max-w-xl text-base leading-relaxed text-ink-subtle md:text-lg">
+        <p className="ml-auto mt-8 max-w-xl text-base leading-relaxed text-ink-subtle md:text-lg">
           A dinner, a workshop, a conference — the moment people enter a room together, something
           becomes possible that wasn&apos;t possible before. The Thread is built to honour that
           moment, and to carry it forward.
@@ -306,8 +332,16 @@ export default async function Home() {
       </StoryScene>
 
       {/* ── The arc, grounded. ── */}
-      <section className="relative snap-start bg-surface-warm px-6 py-24 md:px-10 md:py-32">
-        <div className="mx-auto max-w-5xl">
+      <section className="relative snap-start overflow-hidden bg-surface-warm px-6 py-24 md:px-10 md:py-32">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={THREAD.arc}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
+        <div className="relative mx-auto max-w-5xl">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
             Before · During · After
           </p>
@@ -360,8 +394,16 @@ export default async function Home() {
       </section>
 
       {/* ── Proof, quiet. ── */}
-      <section className="snap-start border-y border-line px-6 py-16 md:px-10">
-        <div className="mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
+      <section className="relative snap-start overflow-hidden border-y border-line px-6 py-16 md:px-10">
+        <DrawnThread
+          viewBox="0 0 1000 640"
+          d={THREAD.proof}
+          begin={1.05}
+          end={0.45}
+          className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
+          strokeWidth={2}
+        />
+        <div className="relative mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
           {[
             ['Six languages', 'Public pages, messages and certificates — reading beautifully in all of them.'],
             ['Enrolment to certificate', 'The whole trail without a single spreadsheet.'],
@@ -376,18 +418,18 @@ export default async function Home() {
       </section>
 
       {/* ── The invitation. ── */}
-      <StoryScene>
+      <StoryScene seg={THREAD.invite}>
         <Line>
           Start with <Ink>one gathering</Ink>.
         </Line>
-        <p className="mx-auto mt-6 max-w-xl text-lg text-ink-subtle">
+        <p className="ml-auto mt-6 max-w-xl text-lg text-ink-subtle">
           Free means free — one live event, forever. When you&apos;re ready for more,
           we&apos;re here.
         </p>
         {mode === 'invited' && (
           <p className="mt-2 text-sm text-ink-muted">Access is by request while we onboard.</p>
         )}
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-4">
+        <div className="mt-9 flex flex-wrap items-center justify-end gap-4">
           <a
             href={startHref('free')}
             className="rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"

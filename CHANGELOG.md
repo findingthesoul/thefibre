@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.62.0] — 2026-09-07 — website: one fallen thread, text to the right
+
+- The thread is redesigned as ONE line fallen on a long white paper: it now
+  starts at the top of the hero, wanders left/right/centre with exact
+  x-handoffs between every card (hero → fabric → workshop → fibre → the
+  seven litany scenes → arc → proof → invitation), curls twice on the way
+  (a pigtail on the workshop card, a snag in the litany) and ends in an
+  open hook beside the final CTAs — no more repeating centre swirl. The
+  arc, proof and hero sections now carry the thread too, so nothing breaks
+  the line.
+- Story text is right-aligned throughout (Sjoerd's rule: never centred) —
+  card 2's block, the workshop/Fibre columns, every litany sentence, and
+  the invitation incl. its buttons.
+
 ## [0.61.1] — 2026-09-07 — website: card 2 almost full with illustration
 
 - The fabric collage now dominates card 2: heading collapsed to one line,
