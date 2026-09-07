@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.2] — 2026-09-08 — THE CUT: thethread.app serves the new website
+
+- Sjoerd moved apex + www onto the thefibre-website Vercel project (his
+  dashboard click; DNS untouched — same account). Verified live: new Home
+  at the apex, /pricing 200 (V3's redirect to thefibre.app is gone),
+  /workshop with the problem pairs, /login → app.thethread.app, www →
+  apex, TLS valid.
+- smoke-prod.mjs asserts the new apex (title + fabric line, /pricing 200,
+  /login forwards to the app); build-plan item 0 groomed (remaining:
+  archive thethread-v3 after the V3 Stripe-webhook delete; optional
+  TransIP A → 216.150.1.1).
+- Housekeeping: commit 928898c carried these files but was mislabeled
+  "v0.67.1" with no bump — a collision with the Thread-templates release
+  landed in the same minute; this release restores serialization.
+
 ## [0.67.1] — 2026-09-08 — five shapes for a gathering (Thread 3.38.0)
 
 ### Added
