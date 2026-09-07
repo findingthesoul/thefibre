@@ -59,6 +59,36 @@ async function seatContext(workspaceId: string): Promise<SeatContext | null> {
 }
 
 /**
+ * The pure decision at the heart of the reconciler: what to do to the seat
+ * item given what the subscription carries (`currentQty`, null = no item)
+ * and what it SHOULD carry (`overage`). Encodes the deliberately
+ * ASYMMETRIC proration (Sjoerd, 2026-09-04): every GROW prorates from
+ * today; every SHRINK (including removal) carries no credit — the paid
+ * month runs out and the next invoice counts fewer.
+ */
+export function seatItemAction(
+  currentQty: number | null,
+  overage: number,
+):
+  | { op: 'none' }
+  | { op: 'create'; quantity: number; proration: 'create_prorations' }
+  | { op: 'delete'; proration: 'none' }
+  | { op: 'update'; quantity: number; proration: 'create_prorations' | 'none' } {
+  if (currentQty === null) {
+    return overage > 0
+      ? { op: 'create', quantity: overage, proration: 'create_prorations' }
+      : { op: 'none' };
+  }
+  if (overage === 0) return { op: 'delete', proration: 'none' };
+  if (currentQty === overage) return { op: 'none' };
+  return {
+    op: 'update',
+    quantity: overage,
+    proration: overage > currentQty ? 'create_prorations' : 'none',
+  };
+}
+
+/**
  * Whether an invite past the allowance may proceed because the seat will be
  * BILLED rather than refused. False = the 402 stands (no Stripe subscription,
  * comped, unpaid, or seat prices not synced).
@@ -89,29 +119,25 @@ export async function reconcileSeatBilling(workspaceId: string): Promise<void> {
     const sub = await stripe.subscriptions.retrieve(ctx.subscriptionId);
     const seatItem = sub.items.data.find((i) => i.price?.id === ctx.seatPriceId);
 
-    if (!seatItem && overage > 0) {
-      // Grow from nothing — prorated from today, the seat is in use now.
+    const action = seatItemAction(seatItem ? (seatItem.quantity ?? 0) : null, overage);
+    if (action.op === 'create') {
       await stripe.subscriptionItems.create({
         subscription: ctx.subscriptionId,
         price: ctx.seatPriceId,
-        quantity: overage,
-        proration_behavior: 'create_prorations',
+        quantity: action.quantity,
+        proration_behavior: action.proration,
       });
-      console.log(`[seats] ${workspaceId}: +seat item ×${overage}`);
-    } else if (seatItem && overage === 0) {
-      // Shrink to nothing — no credit; the next invoice carries no seat line.
-      await stripe.subscriptionItems.del(seatItem.id, { proration_behavior: 'none' });
+      console.log(`[seats] ${workspaceId}: +seat item ×${action.quantity}`);
+    } else if (action.op === 'delete' && seatItem) {
+      await stripe.subscriptionItems.del(seatItem.id, { proration_behavior: action.proration });
       console.log(`[seats] ${workspaceId}: seat item removed (no credit — next period)`);
-    } else if (seatItem && seatItem.quantity !== overage) {
-      const grow = overage > (seatItem.quantity ?? 0);
+    } else if (action.op === 'update' && seatItem) {
       await stripe.subscriptionItems.update(seatItem.id, {
-        quantity: overage,
-        // Grow: prorated from the day the seat lands. Shrink: the paid month
-        // runs out, the NEXT invoice counts fewer — never a mid-month credit.
-        proration_behavior: grow ? 'create_prorations' : 'none',
+        quantity: action.quantity,
+        proration_behavior: action.proration,
       });
       console.log(
-        `[seats] ${workspaceId}: seat item ${seatItem.quantity} → ${overage}${grow ? '' : ' (no credit — next period)'}`,
+        `[seats] ${workspaceId}: seat item ${seatItem.quantity} → ${action.quantity}${action.proration === 'none' ? ' (no credit — next period)' : ''}`,
       );
     }
   } catch (e) {

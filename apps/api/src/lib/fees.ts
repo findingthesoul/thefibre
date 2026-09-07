@@ -27,6 +27,15 @@ export async function platformFeeCents(
   } catch (e) {
     console.warn('[fees] workspace_meet_fee lookup failed, defaulting to Free rate', e);
   }
-  const computed = Math.floor(grossCents * feePct);
-  return feeCapCents !== null ? Math.min(computed, feeCapCents) : computed;
+  return computeFeeCents(grossCents, feePct, feeCapCents);
+}
+
+/** The fee math, pure: floor(gross × pct), capped when a cap is set. */
+export function computeFeeCents(
+  grossCents: number,
+  pct: number,
+  capCents: number | null,
+): number {
+  const computed = Math.floor(grossCents * pct);
+  return capCents !== null ? Math.min(computed, capCents) : computed;
 }

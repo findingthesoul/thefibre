@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.54.0] — 2026-09-07 — test batch 2: the money decisions become law
+
+18 more tests (48 total). Two behavior-identical extractions pull the pure
+decision out of its side-effect shell so the decided semantics are locked
+by tests instead of folklore:
+
+### Changed
+- `lib/fees.ts` — `computeFeeCents(gross, pct, cap)` extracted;
+  `platformFeeCents` unchanged in behavior. Tests pin: floor-never-round-up,
+  cap applies after the pct, and **cap 0 ≠ cap null** (a 0 cap normalized
+  to "no cap" would uncap real fees).
+- `lib/seat-billing.ts` — `seatItemAction(currentQty, overage)` extracted;
+  `reconcileSeatBilling` routes through it. Tests pin the ASYMMETRIC
+  proration (decided 2026-09-04): grow → `create_prorations`, shrink →
+  `none`, overage-to-zero → DELETE the item (never update-to-0), equal →
+  no-op (idempotent against the webhook echo).
+
+### Added
+- `archived-workspaces.test.ts` — mocked db + fake timers lock the v0.51.2
+  design: stale-on-error (an errored refresh must never empty the set —
+  that would UNLOCK archived workspaces) and full-TTL backoff (no
+  hot-looping the database).
+- `embed-loader.test.ts` (shared) — the served /embed.js string must parse
+  as JavaScript (a syntax error is a silent site-wide embed outage),
+  start with its usage header, carry ns/flag/title, and keep the
+  origin-from-own-script-src contract.
+
+Deferred to batch 3: membership scheduler transitions (DB-heavy — wants
+the staging integration pack), vercel-ignore base selection (wants CI as
+its home). `pnpm verify` green at ship.
+
 ## [0.53.0] — 2026-09-07 — the first tests: Phase 0 + the start of Phase 2
 
 The testing roadmap (docs/testing-approach.md, handbook §11) starts
