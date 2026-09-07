@@ -422,10 +422,13 @@ Learned along the way (Stripe housekeeping):
 
 'google_user' grant kind (suspend member's Google account on lapse,
 unsuspend on rejoin — never create/delete) + Settings → Integrations
-credential card. WAITING ON SJOERD: the Google Cloud walkthrough
-(service account + domain-wide delegation + admin email — ~10 min,
-guided). Until the credential is saved, google_user journal rows stay
-pending, silently.
+credential card. Credential walkthrough DONE 2026-09-07: service account
+(project fibre-membership) + domain-wide delegation + Admin SDK API
+enabled; verified end-to-end in BOTH envs (token mint + directory read
+200). Staging credential on the 'default' workspace; PROD credential
+parked on the default workspace — RE-ENTER it on the soul.com workspace
+once that exists. Live suspend drill optional (needs a throwaway
+Workspace user).
 
 Queued next in the membership lane: OPTIONAL ADD-ON PRODUCTS on the
 join page (Sjoerd 2026-09-06: tick-able product options — priced ones
