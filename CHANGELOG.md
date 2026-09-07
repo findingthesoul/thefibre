@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.4] — 2026-09-07 — Home unfolds
+
+The Home page rebuilt to Sjoerd's direction (reference: counder.com): an
+UNFOLDING STORY — one sentence per viewport, the key word inked while the
+rest stays muted; the litany is the story. A single thread draws itself
+down the page's centre (per-scene segments, centre handoffs, stitch-like
+joins); Matisse cut-outs gather like a constellation as the story fills
+with people — one cut, then a few, then a gathering, then the fabric.
+Opens with the wordmark alone on white and a SCROLL line; closes through
+the turn, the arc cards, quiet proof, and "Start with one gathering."
+New components: scene.tsx (Scene/Line/Ink), constellation.tsx (parallax
+star-field of shapes). Reduced-motion/no-JS: every sentence simply there.
+
+
 ## [0.59.3] — 2026-09-07 — the workshop page, Sjoerd's way
 
 The website's product page redone to Sjoerd's spec after his review:
