@@ -60,7 +60,7 @@ teamsRoutes.post('/', async (c) => {
     .slice(0, 64);
   if (!slug) return c.json({ error: 'name must contain letters or digits' }, 400);
 
-  const [{ data: slugClash }, { data: teamClash }] = await Promise.all([
+  const [{ data: slugClash }, { data: teamClash }, { data: wsClash }] = await Promise.all([
     adminClient
       .from('meet_root_slug')
       .select('slug')
@@ -73,8 +73,10 @@ teamsRoutes.post('/', async (c) => {
       .eq('workspace_id', ctx.workspaceId)
       .eq('slug', slug)
       .maybeSingle(),
+    // Workspace slugs own the public URL namespace (brief-workspace-urls D3).
+    adminClient.from('workspace').select('id').eq('slug', slug).maybeSingle(),
   ]);
-  if (slugClash || teamClash) return c.json({ error: `slug '${slug}' is taken` }, 409);
+  if (slugClash || teamClash || wsClash) return c.json({ error: `slug '${slug}' is taken` }, 409);
 
   const { data: team, error } = await adminClient
     .from('team')

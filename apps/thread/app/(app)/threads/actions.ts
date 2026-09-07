@@ -15,6 +15,7 @@ export async function createThread(input: {
   starts_on?: string | null;
   ends_on?: string | null;
   team_id?: string | null;
+  public_scope?: 'personal' | 'team' | 'workspace' | null;
 }): Promise<ActionResult> {
   try {
     const created = await apiFetch<{ id: string }>('/api/v1/thread/threads', {

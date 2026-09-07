@@ -205,6 +205,7 @@ export function ThreadTimeline({
   certTemplates,
   personalRoomUrl,
   workspaceNote = null,
+  workspaceSlug = null,
 }: {
   locale: Locale;
   categories?: { id: string; name: string; slug: string }[];
@@ -217,6 +218,8 @@ export function ThreadTimeline({
   personalRoomUrl: string | null;
   /** The workspace's enrolment note, so a thread can see what it inherits. */
   workspaceNote?: string | null;
+  /** The workspace's public slug — URL prefix for workspace-scoped threads. */
+  workspaceSlug?: string | null;
 }) {
   const router = useRouter();
   const program = one(thread.program);
@@ -323,9 +326,17 @@ export function ThreadTimeline({
 
   const status = program?.status ?? 'draft';
   const statusMeta = STATUS_META[status] ?? STATUS_META.draft;
-  // Team threads live under the TEAM's public slug (organiser-slug URLs
-  // 404 for them since the team-leak fix); personal threads under the organiser's.
-  const publicUrl = `${THREAD_HOST}/${team?.slug ?? organiser?.slug}/${thread.slug}`;
+  // The canonical public owner slug (docs/brief-workspace-urls.md):
+  // workspace-scoped threads publish under the WORKSPACE slug; team threads
+  // under the TEAM's (organiser-slug URLs 404 for them since the team-leak
+  // fix); personal threads under the organiser's. If the workspace slug
+  // failed to load, fall back to the organiser address — old addresses stay
+  // forgiving for workspace-scoped threads (dual addressing).
+  const publicOwnerSlug =
+    thread.public_scope === 'workspace'
+      ? workspaceSlug ?? team?.slug ?? organiser?.slug
+      : team?.slug ?? organiser?.slug;
+  const publicUrl = `${THREAD_HOST}/${publicOwnerSlug}/${thread.slug}`;
 
   function setStatus(next: string) {
     startTransition(async () => {
@@ -682,6 +693,7 @@ export function ThreadTimeline({
               onTabChange={setSettingsTab}
               onSaved={closeSettings}
               workspaceNote={workspaceNote}
+              workspaceSlug={workspaceSlug}
             />
           </div>
         </Dialog>
@@ -900,6 +912,7 @@ function SettingsTabs({
   onTabChange,
   onSaved,
   workspaceNote = null,
+  workspaceSlug = null,
 }: {
   locale: Locale;
   thread: ThreadRow;
@@ -913,6 +926,7 @@ function SettingsTabs({
   onTabChange: (t: SettingsTab) => void;
   onSaved?: () => void;
   workspaceNote?: string | null;
+  workspaceSlug?: string | null;
 }) {
   const tabs = [
     { value: 'basics', label: t(locale, 'basics') },
@@ -950,6 +964,7 @@ function SettingsTabs({
           compact
           teams={teams}
           categories={categories}
+          workspaceSlug={workspaceSlug}
           onSaved={onSaved}
         />
         <MembersPanel
@@ -987,7 +1002,14 @@ function SettingsTabs({
       <div className={`pt-5 ${tab === 'embed' ? '' : 'hidden'}`}>
         <ThreadEmbedPanel
           locale={locale}
-          ownerSlug={one(thread.team)?.slug ?? one(thread.organiser)?.slug ?? ''}
+          // Canonical owner slug: workspace-scoped threads embed under the
+          // workspace slug (the loader's resolver is owner-agnostic).
+          ownerSlug={
+            (thread.public_scope === 'workspace' ? workspaceSlug : null) ??
+            one(thread.team)?.slug ??
+            one(thread.organiser)?.slug ??
+            ''
+          }
           threadSlug={thread.slug}
         />
       </div>

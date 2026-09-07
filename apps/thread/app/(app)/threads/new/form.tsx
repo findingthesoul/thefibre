@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange, Route, User, Users, type LucideIcon } from 'lucide-react';
+import { CalendarRange, Route, User, Users, type LucideIcon, Building2 } from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { createThread } from '../actions';
 import type { TeamOption } from '@/lib/thread-types';
@@ -27,7 +27,7 @@ export function NewThreadForm({
 }) {
   const router = useRouter();
   const [format, setFormat] = useState<'event' | 'journey'>('event');
-  const [scope, setScope] = useState<'personal' | 'team'>('personal');
+  const [scope, setScope] = useState<'personal' | 'team' | 'workspace'>('personal');
   // Controlled so the URL preview follows: team threads live under the
   // team's public slug, not the organiser's.
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
@@ -60,6 +60,7 @@ export function NewThreadForm({
         starts_on: startsOn || null,
         ends_on: endsOn || null,
         team_id: teamId || null,
+        public_scope: scope === 'workspace' ? 'workspace' : null,
       });
       if (!r.ok) return setError(r.error);
       // push alone fetches the new route fresh; a synchronous router.refresh()
@@ -77,7 +78,7 @@ export function NewThreadForm({
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-6">
         <div>
           <SectionLabel>{t(locale, 'kind')}</SectionLabel>
-          <div className="mt-2 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[38px]">
+          <div className="mt-2 grid grid-cols-3 rounded-md border border-line overflow-hidden h-[38px]">
             <ToggleButton
               Icon={CalendarRange}
               label={t(locale, 'event')}
@@ -112,11 +113,19 @@ export function NewThreadForm({
               disabled={!teams.length}
               onClick={() => teams.length && setScope('team')}
             />
+            <ToggleButton
+              Icon={Building2}
+              label={t(locale, 'workspace')}
+              active={scope === 'workspace'}
+              onClick={() => setScope('workspace')}
+            />
           </div>
           <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
             {scope === 'personal'
               ? t(locale, 'scope_personal_desc')
-              : t(locale, 'scope_team_desc')}
+              : scope === 'team'
+                ? t(locale, 'scope_team_desc')
+                : t(locale, 'scope_workspace_desc')}
           </p>
           {scope === 'team' && (
             <div className="mt-3">

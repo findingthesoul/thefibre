@@ -136,6 +136,17 @@ const THREAD_RESERVED = new Set<string>([
   'register',
 ]);
 
+/** D3 (docs/brief-workspace-urls.md): workspace slugs own the first URL
+ *  segment — an organiser or team may not take one. */
+async function takenByWorkspace(slug: string): Promise<boolean> {
+  const { data } = await adminClient
+    .from('workspace')
+    .select('id')
+    .eq('slug', slug.trim().toLowerCase())
+    .maybeSingle();
+  return !!data;
+}
+
 function isReserved(slug: string): boolean {
   return THREAD_RESERVED.has(slug.trim().toLowerCase());
 }
@@ -254,6 +265,10 @@ threadRoutes.patch('/me', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
+  if (body.data.slug && (await takenByWorkspace(body.data.slug))) {
+    return c.json({ error: `slug '${body.data.slug}' is taken` }, 409);
+  }
+
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
 
   const { data, error } = await db
@@ -348,7 +363,7 @@ threadRoutes.patch('/settings', async (c) => {
 const THREAD_SELECT = `
   id, workspace_id, program_id, organiser_id, team_id, organisation_id, slug,
   intention, timezone, cover_url, is_public_listed, requires_approval,
-  price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
+  price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
   created_at, updated_at,
@@ -385,6 +400,7 @@ const ThreadCreate = z.object({
   ends_on: z.string().date().nullable().optional(),
   timezone: z.string().max(100).optional(),
   team_id: z.string().uuid().nullable().optional(),
+  public_scope: z.enum(['personal', 'team', 'workspace']).nullable().optional(),
 });
 
 threadRoutes.post('/threads', async (c) => {
@@ -440,6 +456,7 @@ threadRoutes.post('/threads', async (c) => {
       intention: body.data.intention ?? null,
       timezone: body.data.timezone ?? 'Europe/Amsterdam',
       team_id: body.data.team_id ?? null,
+      public_scope: body.data.public_scope ?? null,
       created_by: ctx.userId,
     })
     .select(THREAD_SELECT)
@@ -522,6 +539,9 @@ const ThreadUpdate = z.object({
   // Facilitation language — informational, the organiser's. Free text on
   // purpose (a thread can be facilitated in Greek); null = same as `language`.
   facilitation_language: z.string().max(100).nullable().optional(),
+  // Where the thread publishes (docs/brief-workspace-urls.md): null keeps
+  // the legacy derivation (team when team_id, else personal).
+  public_scope: z.enum(['personal', 'team', 'workspace']).nullable().optional(),
   public_interaction: z.enum(['page', 'popup']).optional(),
   public_agenda: z.boolean().optional(),
   // The organiser's own words inside the platform's enrolment emails. Null
@@ -760,6 +780,7 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       timezone: src.timezone,
       language: src.language,
       facilitation_language: src.facilitation_language,
+      public_scope: src.public_scope,
       cover_url: src.cover_url,
       is_public_listed: false,
       requires_approval: src.requires_approval,
@@ -1643,6 +1664,7 @@ threadRoutes.post('/threads/:id/save-as-template', async (c) => {
     timezone: thread.timezone,
     language: thread.language,
     facilitation_language: thread.facilitation_language,
+    public_scope: thread.public_scope,
     cover_url: thread.cover_url,
     requires_approval: thread.requires_approval,
     public_interaction: thread.public_interaction,
@@ -4309,7 +4331,8 @@ const PUBLIC_ORGANISER_SELECT = 'id, workspace_id, slug, display_name, bio, phot
 // namespace, resolved organiser-first (Meet's pattern).
 type PublicOwner =
   | { kind: 'organiser'; organiser: { id: string; workspace_id: string; slug: string; display_name: string | null; bio: string | null; photo_url: string | null; timezone: string } }
-  | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } };
+  | { kind: 'team'; team: { id: string; workspace_id: string; slug: string; name: string; description: string | null } }
+  | { kind: 'workspace'; workspace: { id: string; slug: string; name: string } };
 
 // --- The published shapes -------------------------------------------------
 // workspace_id is selected (enrolment needs it to place the person) but never
@@ -4326,6 +4349,16 @@ type PublicOrganiserOut = {
 };
 
 function publicOrganiser(owner: PublicOwner): PublicOrganiserOut {
+  if (owner.kind === 'workspace') {
+    return {
+      id: owner.workspace.id,
+      slug: owner.workspace.slug,
+      display_name: owner.workspace.name,
+      bio: null,
+      photo_url: null,
+      timezone: 'Europe/Amsterdam',
+    };
+  }
   if (owner.kind === 'team') {
     return {
       id: owner.team.id,
@@ -4375,7 +4408,29 @@ function publicThreadListItem(t: Record<string, unknown>): Record<string, unknow
   };
 }
 
+
+/** Scope a thread query to a public owner. The organiser/team addresses
+ *  stay forgiving for workspace-scoped threads (dual addressing — the
+ *  payload's canonical_path names the real one). */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function ownerThreadFilter<Q extends { eq: any; is: any }>(q: Q, owner: PublicOwner): Q {
+  if (owner.kind === 'workspace') {
+    return q.eq('workspace_id', owner.workspace.id).eq('public_scope', 'workspace');
+  }
+  return owner.kind === 'organiser'
+    ? q.eq('organiser_id', owner.organiser.id).is('team_id', null)
+    : q.eq('team_id', owner.team.id);
+}
+
 async function resolvePublicOwner(slug: string): Promise<PublicOwner | null> {
+  // D3 (docs/brief-workspace-urls.md): one slug namespace, workspaces win.
+  const { data: ws } = await adminClient
+    .from('workspace')
+    .select('id, slug, name, archived_at')
+    .eq('slug', slug)
+    .is('archived_at', null)
+    .maybeSingle();
+  if (ws) return { kind: 'workspace', workspace: { id: ws.id, slug: ws.slug, name: ws.name } };
   const { data: organiser } = await adminClient
     .from('thread_organiser')
     .select(PUBLIC_ORGANISER_SELECT)
@@ -4448,10 +4503,7 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('is_public_listed', true);
-  q =
-    owner.kind === 'organiser'
-      ? q.eq('organiser_id', owner.organiser.id).is('team_id', null)
-      : q.eq('team_id', owner.team.id);
+  q = ownerThreadFilter(q, owner);
   const { data: threads } = await q;
 
   let listed = (threads ?? []).filter((t) => {
@@ -4468,6 +4520,47 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
   });
 });
 
+// GET /api/v1/thread/public/workspace/:wsSlug/organiser/:orgSlug — the
+// organiser INSIDE the workspace (docs/brief-workspace-urls.md D2): their
+// workspace-scoped public threads. Additive; the 2-segment shapes are
+// untouched.
+threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
+  const owner = await resolvePublicOwner(c.req.param('wsSlug'));
+  if (!owner || owner.kind !== 'workspace') return c.json({ error: 'not found' }, 404);
+  const { data: organiser } = await adminClient
+    .from('thread_organiser')
+    .select(PUBLIC_ORGANISER_SELECT)
+    .eq('slug', c.req.param('orgSlug'))
+    .eq('workspace_id', owner.workspace.id)
+    .maybeSingle();
+  if (!organiser) return c.json({ error: 'not found' }, 404);
+
+  let q = adminClient
+    .from('thread_thread')
+    .select(
+      `id, slug, intention, cover_url, price_cents, price_currency, capacity,
+       public_interaction,
+       program:program_id (title, format, status, starts_on, ends_on)`,
+    )
+    .eq('is_public_listed', true)
+    .eq('workspace_id', owner.workspace.id)
+    .eq('public_scope', 'workspace')
+    .eq('organiser_id', organiser.id);
+  const { data: threads } = await q;
+  let listed = (threads ?? []).filter((t) => {
+    const p = Array.isArray(t.program) ? t.program[0] : t.program;
+    return p && (p.status === 'active' || p.status === 'completed');
+  });
+  const prices = await ticketPrices(listed.map((t) => t.id));
+  listed = listed.map((t) => ({ ...t, ...effectivePrice(t, prices) }));
+
+  return c.json({
+    workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
+    organiser: publicOrganiser({ kind: 'organiser', organiser }),
+    threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+  });
+});
+
 // GET /api/v1/thread/public/organiser/:slug/thread/:threadSlug — thread page
 threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   const owner = await resolvePublicOwner(c.req.param('slug'));
@@ -4476,18 +4569,15 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   let tq = adminClient
     .from('thread_thread')
     .select(
-      `id, slug, intention, timezone, language, facilitation_language, cover_url, capacity, requires_approval,
-       workspace_id, team_id, payment_destination,
+      `id, slug, intention, timezone, language, facilitation_language, public_scope, cover_url, capacity, requires_approval,
+       workspace_id, team_id, payment_destination, workspace:workspace_id (slug), thread_org:organiser_id (slug),
        price_cents, price_currency, payment_methods, registration_fields, certificate_enabled, organiser_id,
        share_participants_public, public_agenda,
        categories:thread_thread_category (category:category_id (name, slug)),
        program:program_id (title, format, status, starts_on, ends_on)`,
     )
     .eq('slug', c.req.param('threadSlug'));
-  tq =
-    owner.kind === 'organiser'
-      ? tq.eq('organiser_id', owner.organiser.id).is('team_id', null)
-      : tq.eq('team_id', owner.team.id);
+  tq = ownerThreadFilter(tq, owner);
   const { data: thread } = await tq.maybeSingle();
   if (!thread) return c.json({ error: 'not found' }, 404);
 
@@ -4656,6 +4746,19 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
       // Additive (rule 8): the language the thread is RUN in — informational,
       // the organiser's; null = same as `language` (the page/chrome language).
       facilitation_language: thread.facilitation_language ?? null,
+      // Additive (rule 8): where this thread's canonical public URL lives
+      // (docs/brief-workspace-urls.md — workspace-scoped threads publish
+      // under the workspace slug; old addresses stay resolvable).
+      // Additive: where this thread publishes (null = legacy derivation).
+      public_scope: thread.public_scope ?? null,
+      // Additive: the creating organiser's slug — the deeper address
+      // /{workspace}/{organiser}/{thread} validates against it.
+      organiser_slug:
+        ((Array.isArray(thread.thread_org) ? thread.thread_org[0] : thread.thread_org) as { slug?: string } | null)?.slug ?? null,
+      canonical_owner_slug:
+        thread.public_scope === 'workspace'
+          ? ((Array.isArray(thread.workspace) ? thread.workspace[0] : thread.workspace) as { slug?: string } | null)?.slug ?? publicOrganiser(owner).slug
+          : publicOrganiser(owner).slug,
       cover_url: thread.cover_url,
       capacity: thread.capacity,
       // Honest before enrolling: a place here is requested, not taken.
@@ -5000,10 +5103,7 @@ threadRoutes.post('/public/validate-coupon', async (c) => {
     .from('thread_thread')
     .select('id, price_cents, price_currency')
     .eq('slug', d.thread_slug);
-  tq =
-    owner.kind === 'organiser'
-      ? tq.eq('organiser_id', owner.organiser.id).is('team_id', null)
-      : tq.eq('team_id', owner.team.id);
+  tq = ownerThreadFilter(tq, owner);
   const { data: thread } = await tq.maybeSingle();
   if (!thread) return c.json({ valid: false, reason: 'thread not found' });
 
@@ -5093,10 +5193,7 @@ threadRoutes.post('/public/enrol', async (c) => {
       'id, workspace_id, program_id, organiser_id, slug, intention, language, capacity, price_cents, price_currency, requires_approval, payment_destination, payment_methods, team_id, program:program_id (title, status, starts_on)',
     )
     .eq('slug', d.thread_slug);
-  eq =
-    owner.kind === 'organiser'
-      ? eq.eq('organiser_id', owner.organiser.id).is('team_id', null)
-      : eq.eq('team_id', owner.team.id);
+  eq = ownerThreadFilter(eq, owner);
   const { data: thread } = await eq.maybeSingle();
   if (!thread) return c.json({ error: 'thread not found' }, 404);
 

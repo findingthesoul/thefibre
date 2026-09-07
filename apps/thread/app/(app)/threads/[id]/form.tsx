@@ -19,20 +19,26 @@ import { SectionLabel } from '@/components/ui/page';
 const THREAD_HOST =
   process.env.NEXT_PUBLIC_THREAD_URL?.replace(/^https?:\/\//, '') ?? 'app.thethread.app';
 
+type PublishScope = 'personal' | 'team' | 'workspace';
+
 export function ThreadEditorForm({
   locale,
   thread,
   compact = false,
   teams = [],
   categories = [],
+  workspaceSlug = null,
   onSaved,
 }: {
   locale: Locale;
   thread: ThreadRow;
   compact?: boolean;
-  teams?: { id: string; name: string }[];
+  teams?: { id: string; name: string; slug?: string }[];
   /** The workspace's curated category list (Settings → Categories). */
   categories?: { id: string; name: string; slug: string }[];
+  /** The workspace's public slug — the URL prefix for workspace-scoped
+   *  threads (docs/brief-workspace-urls.md D1). */
+  workspaceSlug?: string | null;
   /** Popups close after save (Sjoerd 2026-07-02). */
   onSaved?: () => void;
 }) {
@@ -40,8 +46,21 @@ export function ThreadEditorForm({
   const program = one(thread.program);
   const organiser = one(thread.organiser);
   const team = one(thread.team);
-  // Team threads live under the TEAM's public slug; personal under the organiser's.
-  const urlOwner = team?.slug ?? organiser?.slug ?? '';
+  // Publish scope (docs/brief-workspace-urls.md D1): Personal / Team /
+  // Workspace. Workspace-scoped threads keep team_id null and publish
+  // under the WORKSPACE slug; team threads under the team's; else personal.
+  const [scope, setScope] = useState<PublishScope>(
+    thread.public_scope === 'workspace' ? 'workspace' : thread.team_id ? 'team' : 'personal',
+  );
+  const [teamId, setTeamId] = useState(thread.team_id ?? '');
+  const selectedTeam = teams.find((tm) => tm.id === teamId) ?? null;
+  // Live public-URL prefix — switches with the scope choice.
+  const urlOwner =
+    scope === 'workspace'
+      ? workspaceSlug ?? '…'
+      : scope === 'team'
+        ? selectedTeam?.slug ?? team?.slug ?? '…'
+        : organiser?.slug ?? '';
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   // End date can only follow the start date.
@@ -95,7 +114,10 @@ export function ThreadEditorForm({
       timezone: String(fd.get('timezone') ?? '').trim() || 'Europe/Amsterdam',
       is_public_listed: fd.get('is_public_listed') === 'on',
       public_agenda: fd.get('public_agenda') === 'on',
-      team_id: String(fd.get('team_id') ?? '') || null,
+      // Scope → storage: Personal = no team, no scope; Team = team_id;
+      // Workspace = public_scope 'workspace' with team_id null (D1).
+      team_id: scope === 'team' ? teamId || null : null,
+      public_scope: scope === 'workspace' ? ('workspace' as const) : null,
       language: String(fd.get('language') ?? 'en'),
       facilitation_language: String(fd.get('facilitation_language') ?? '').trim() || null,
       cover_url: coverUrl,
@@ -103,6 +125,7 @@ export function ThreadEditorForm({
     };
     if (!patch.title) return setError(t(locale, 'err_thread_needs_name'));
     if (!patch.slug) return setError(t(locale, 'err_thread_needs_slug'));
+    if (scope === 'team' && !teamId) return setError(t(locale, 'err_pick_team'));
 
     startTransition(async () => {
       const r = await updateThread(thread.id, patch);
@@ -226,16 +249,57 @@ export function ThreadEditorForm({
             hint={t(locale, 'facilitation_hint')}
           />
 
-          <SelectField
-              label={t(locale, 'team')}
-              name="team_id"
-              defaultValue={thread.team_id ?? ''}
-              options={[
-                { value: '', label: t(locale, 'personal_no_team') },
-                ...teams.map((tm) => ({ value: tm.id, label: tm.name })),
-              ]}
-              hint={t(locale, 'team_hint')}
-            />
+          {/* Publish scope (docs/brief-workspace-urls.md D1): Personal /
+              Team / Workspace. The public URL prefix above follows it. */}
+          <div>
+            <span className="text-sm text-ink-subtle">{t(locale, 'scope')}</span>
+            <div className="mt-1 inline-flex rounded-md ring-1 ring-line overflow-hidden">
+              {(
+                [
+                  ['personal', t(locale, 'personal')],
+                  ['team', t(locale, 'team')],
+                  ['workspace', t(locale, 'workspace')],
+                ] as [PublishScope, string][]
+              ).map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  disabled={value === 'team' && teams.length === 0}
+                  onClick={() => setScope(value)}
+                  className={`px-3.5 py-1.5 text-sm transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+                    scope === value
+                      ? 'bg-ink text-ink-inverse'
+                      : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="mt-1 block text-xs text-ink-muted">
+              {scope === 'workspace'
+                ? t(locale, 'scope_workspace_desc')
+                : scope === 'team'
+                  ? t(locale, 'team_hint')
+                  : t(locale, 'scope_personal_desc')}
+              {' '}
+              <span className="font-mono">{`${THREAD_HOST}/${urlOwner}/`}</span>
+            </span>
+            {scope === 'team' && (
+              <div className="mt-3">
+                <SelectField
+                  label={t(locale, 'team')}
+                  name="team_id"
+                  value={teamId}
+                  onChange={(e) => setTeamId(e.target.value)}
+                  options={[
+                    { value: '', label: '—' },
+                    ...teams.map((tm) => ({ value: tm.id, label: tm.name })),
+                  ]}
+                />
+              </div>
+            )}
+          </div>
 
           {/* How an overview opens this thread (Luma-style choice) */}
           <div>

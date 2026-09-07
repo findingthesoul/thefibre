@@ -46,10 +46,14 @@ export default async function ThreadDetailPage({
     apiFetch<{ items: { id: string; name: string; slug: string }[] }>(
       '/api/v1/thread/categories',
     ).catch(() => ({ items: [] as { id: string; name: string; slug: string }[] })),
-    // Only so the registration tab can show what this thread inherits when it
-    // has no note of its own.
-    apiFetch<{ enrolment_note: string | null }>('/api/v1/workspace-brand').catch(() => ({
+    // Registration tab: the inherited enrolment note. Basics tab: the
+    // workspace's public slug — the URL prefix for workspace-scoped threads
+    // (docs/brief-workspace-urls.md D1).
+    apiFetch<{ enrolment_note: string | null; slug: string | null }>(
+      '/api/v1/workspace-brand',
+    ).catch(() => ({
       enrolment_note: null,
+      slug: null,
     })),
   ]);
 
@@ -70,6 +74,7 @@ export default async function ThreadDetailPage({
         certTemplates={certTemplates.items.filter((t) => !t.archived_at)}
         personalRoomUrl={me.personal_room_url}
         workspaceNote={brand.enrolment_note}
+        workspaceSlug={brand.slug}
       />
     </div>
   );

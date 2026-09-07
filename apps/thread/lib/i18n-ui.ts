@@ -2087,6 +2087,17 @@ const CATALOG = {
     de: 'Teammitglieder teilen diesen Thread.', // MT
     fr: 'Les membres de l’équipe partagent ce thread.', // MT
   },
+  // ── publish scope (docs/brief-workspace-urls.md D1) ───────────────────
+  // Companions scope / scope_personal_desc / scope_team_desc / err_pick_team
+  // already exist (new-thread form) — reused by the editor's picker.
+  scope_workspace_desc: {
+    en: "The organisation's thread — published under the workspace page.",
+    nl: 'De thread van de organisatie — gepubliceerd onder de werkruimtepagina.',
+    es: 'El thread de la organización — publicado bajo la página del espacio de trabajo.', // MT
+    pt: 'O thread da organização — publicado sob a página do espaço de trabalho.', // MT
+    de: 'Der Thread der Organisation — veröffentlicht unter der Workspace-Seite.', // MT
+    fr: "Le thread de l'organisation — publié sous la page de l'espace de travail.", // MT
+  },
   when_clicked: {
     en: 'When clicked in an overview',
     nl: 'Bij klikken in een overzicht',

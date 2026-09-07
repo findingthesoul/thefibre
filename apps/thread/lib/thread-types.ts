@@ -43,6 +43,9 @@ export type ThreadRow = {
   /** Free text — the language the thread is RUN in (informational; null = same as `language`). */
   facilitation_language: string | null;
   public_interaction: 'page' | 'popup';
+  /** Workspace-scoped threads publish under the WORKSPACE slug
+   *  (docs/brief-workspace-urls.md D1). Null = personal/team (team_id decides). */
+  public_scope: 'personal' | 'team' | 'workspace' | null;
   share_participants_public: boolean | null;
   share_participants_participants: boolean | null;
   capacity: number | null;

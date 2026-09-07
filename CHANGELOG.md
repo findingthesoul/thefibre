@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.59.2] — 2026-09-07 — the workspace becomes the public face (Thread 3.37.0)
+
+### Added
+- **Workspace public URLs** (docs/brief-workspace-urls.md — "It is the
+  organisation"): a thread can publish under the WORKSPACE's slug —
+  `app.thethread.app/{workspace}/{thread}` — with the deeper addresses
+  `/{workspace}/{organiser}/{thread}` and `/{workspace}/{organiser}`
+  also resolving. New-thread and the editor offer Personal / Team /
+  Workspace with a live URL preview; embeds and "Open public page"
+  follow the canonical owner. Old organiser/team addresses stay
+  resolvable (canonical link tag names the real one). One slug
+  namespace: workspace slugs win — organiser/team slugs matching a
+  workspace are refused. All public API changes additive (rule 8);
+  `public_scope` migration applied to both DBs.
+
+
 ## [0.59.1] — 2026-09-07 — the new thethread.app website (awaiting Sjoerd's cut)
 
 Executes `docs/thethread-website-rewrite-plan.md`: the seventh app,

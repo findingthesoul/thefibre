@@ -23,7 +23,7 @@ const HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
 export default async function EmbedsSettingsPage() {
   const locale = await uiLocale();
-  const [organiser, threadsRes, teamsRes, categoriesRes] = await Promise.all([
+  const [organiser, threadsRes, teamsRes, categoriesRes, brand] = await Promise.all([
     apiFetch<OrganiserRow>('/api/v1/thread/me'),
     apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads').catch(() => ({
       items: [] as ThreadRow[],
@@ -34,10 +34,16 @@ export default async function EmbedsSettingsPage() {
     apiFetch<{ items: { name: string; slug: string }[] }>('/api/v1/thread/categories').catch(
       () => ({ items: [] as { name: string; slug: string }[] }),
     ),
+    // The workspace's public slug — workspace-scoped threads embed under it
+    // (docs/brief-workspace-urls.md).
+    apiFetch<{ slug: string | null }>('/api/v1/workspace-brand').catch(() => ({
+      slug: null as string | null,
+    })),
   ]);
 
   // Feed the generator real threads: title from the program, public owner
-  // slug = the team's for team threads (organiser URLs 404 for those).
+  // slug = the workspace's for workspace-scoped threads, the team's for team
+  // threads (organiser URLs 404 for those), else the organiser's.
   const generatorThreads: GeneratorThread[] = threadsRes.items.map((t) => {
     const program = one(t.program);
     const team = one(t.team);
@@ -45,7 +51,8 @@ export default async function EmbedsSettingsPage() {
       id: t.id,
       slug: t.slug,
       title: program?.title ?? t.slug,
-      ownerSlug: team?.slug ?? organiser.slug,
+      ownerSlug:
+        (t.public_scope === 'workspace' ? brand.slug : null) ?? team?.slug ?? organiser.slug,
       listed: t.is_public_listed,
     };
   });
