@@ -6,7 +6,7 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
-## [0.58.4] — 2026-09-07 — fixtures learn what append-only means; the charge is rehearsed
+## [0.58.5] — 2026-09-07 — fixtures learn what append-only means; the charge is rehearsed
 
 ### The rehearsal (not code — for the record)
 The **first end-to-end card charge is rehearsed**: staging join page →
