@@ -52,9 +52,15 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
      meet/thread/flow/pulse/membership records in the thefibre.app DNS
      zone now point at a 404 — delete them whenever convenient.
    - **Decommission old Thread V3** (separate repo ~/Projects/thethread-v3,
-     Vercel project thethread-v3): remove its 5-min cron + its Stripe
-     webhook (https://thethread.app/api/webhooks/stripe); the APEX LANDING
-     PAGE MUST KEEP SERVING until the thethread.app website rework.
+     Vercel project thethread-v3) — largely DONE 2026-09-07 (29e9d49):
+     5-min cron REMOVED; middleware neutered (it session-refreshed against
+     the dead V3 backend and 504'd every uncached request the moment a
+     redeploy emptied the edge cache — the landing "worked" for 22 days on
+     cache alone); /login + /signup redirect to app.thethread.app,
+     /pricing to thefibre.app/pricing. The APEX LANDING (all-static now)
+     KEEPS SERVING until the website rework. Remaining: delete the V3
+     Stripe webhook (https://thethread.app/api/webhooks/stripe) in the
+     Stripe dashboard — Sjoerd.
    - **thethread.app website rework** (Sjoerd owns content/design; the old
      landing stays until then).
    - **Email sending domain**: platform mail still sends from
