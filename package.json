@@ -1,6 +1,6 @@
 {
   "name": "thefibre",
-  "version": "0.54.0",
+  "version": "0.55.0",
   "private": true,
   "description": "The Fibre \u2014 relationship intelligence for purpose-driven work",
   "packageManager": "pnpm@9.12.0",
@@ -16,10 +16,13 @@
     "db:reset": "supabase db reset",
     "db:migrate": "supabase db push",
     "db:diff": "supabase db diff -f",
-    "test": "pnpm -r test",
-    "verify": "pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && FIBRE_API=https://thefibre-api.fly.dev node apps/api/scripts/verify-public-api.mjs"
+    "test": "pnpm -r test && vitest run",
+    "verify": "pnpm -r typecheck && pnpm -r test && node scripts/smoke-prod.mjs && FIBRE_API=https://thefibre-api.fly.dev node apps/api/scripts/verify-public-api.mjs",
+    "test:integration": "pnpm --filter @thefibre/api test:integration",
+    "verify:full": "pnpm run verify && pnpm run test:integration"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "typescript": "^5.6.0",
+    "vitest": "^5.0.0"
   }
 }

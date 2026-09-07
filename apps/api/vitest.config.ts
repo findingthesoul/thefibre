@@ -7,6 +7,9 @@ import { defineConfig } from 'vitest/config';
 // approach §3.4).
 export default defineConfig({
   test: {
+    // Integration tests live in src/integration (staging DB, their own
+    // config + credentials) — the unit run must not touch them.
+    exclude: ['**/node_modules/**', 'src/integration/**'],
     env: {
       NEXT_PUBLIC_SUPABASE_URL: 'http://localhost:54321',
       NEXT_PUBLIC_SUPABASE_ANON_KEY: 'test-anon-key',

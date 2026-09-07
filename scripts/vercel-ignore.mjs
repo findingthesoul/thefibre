@@ -24,8 +24,63 @@
 
 import { execSync } from 'node:child_process';
 
+// ---------------------------------------------------------------------------
+// Pure decision functions — exported for tests (scripts/vercel-ignore.test.mjs
+// locks the safety posture: any doubt → build). The CLI below wires them to
+// git/env; behavior is identical to the pre-extraction script.
+// ---------------------------------------------------------------------------
+
+/** Is the arg a plausible app folder name? Anything else → build to be safe. */
+export function validApp(app) {
+  return typeof app === 'string' && /^[a-z-]+$/.test(app);
+}
+
+/**
+ * Pick the diff base. `prevSha` is VERCEL_GIT_PREVIOUS_SHA (the branch's
+ * last DEPLOYED sha — the correct base for a multi-commit push); `probe`
+ * answers whether a candidate exists in this (possibly shallow) clone:
+ * { commitExists(sha), hasParent() }. Returns the base or null (= no usable
+ * base → build).
+ */
+export function pickBase(prevSha, probe) {
+  if (prevSha && /^[0-9a-f]{7,40}$/i.test(prevSha) && probe.commitExists(prevSha)) {
+    return prevSha;
+  }
+  return probe.hasParent() ? 'HEAD^' : null;
+}
+
+/**
+ * The pathspecs whose diff forces a build for `app`: the app's folder and
+ * packages/shared (each EXCLUDING its package.json — the release ritual
+ * bumps every version field every time; real dependency changes also touch
+ * pnpm-lock.yaml, which IS included) plus the lockfile/workspace files.
+ */
+export function changePaths(app) {
+  return [
+    `apps/${app}`,
+    `:(exclude)apps/${app}/package.json`,
+    'packages/shared',
+    ':(exclude)packages/shared/package.json',
+    'pnpm-lock.yaml',
+    'pnpm-workspace.yaml',
+  ];
+}
+
+// ---------------------------------------------------------------------------
+// CLI (imported-as-module runs nothing — the import.meta guard below).
+// ---------------------------------------------------------------------------
+
+const invokedDirectly =
+  process.argv[1] && import.meta.url.endsWith(process.argv[1].split('/').pop() ?? '');
+if (!invokedDirectly) {
+  // Imported for its pure functions (tests) — do nothing.
+} else {
+  main();
+}
+
+function main() {
 const app = process.argv[2];
-if (!app || !/^[a-z-]+$/.test(app)) {
+if (!validApp(app)) {
   console.log(`[vercel-ignore] no/invalid app arg (${app}) — building to be safe`);
   process.exit(1);
 }
@@ -40,34 +95,30 @@ try {
   process.exit(1);
 }
 
-let base = null;
-const prev = process.env.VERCEL_GIT_PREVIOUS_SHA;
-if (prev && /^[0-9a-f]{7,40}$/i.test(prev)) {
-  try {
-    run(`git -C ${JSON.stringify(root)} cat-file -e ${prev}^{commit}`);
-    base = prev;
-  } catch {
-    // Previous deploy's sha isn't in this (shallow) clone — fall back.
-  }
-}
+const base = pickBase(process.env.VERCEL_GIT_PREVIOUS_SHA, {
+  commitExists: (sha) => {
+    try {
+      run(`git -C ${JSON.stringify(root)} cat-file -e ${sha}^{commit}`);
+      return true;
+    } catch {
+      return false; // previous deploy's sha isn't in this (shallow) clone
+    }
+  },
+  hasParent: () => {
+    try {
+      run(`git -C ${JSON.stringify(root)} rev-parse HEAD^`);
+      return true;
+    } catch {
+      return false;
+    }
+  },
+});
 if (!base) {
-  try {
-    run(`git -C ${JSON.stringify(root)} rev-parse HEAD^`);
-    base = 'HEAD^';
-  } catch {
-    console.log('[vercel-ignore] no usable diff base — building');
-    process.exit(1);
-  }
+  console.log('[vercel-ignore] no usable diff base — building');
+  process.exit(1);
 }
 
-const paths = [
-  `apps/${app}`,
-  `:(exclude)apps/${app}/package.json`,
-  'packages/shared',
-  ':(exclude)packages/shared/package.json',
-  'pnpm-lock.yaml',
-  'pnpm-workspace.yaml',
-];
+const paths = changePaths(app);
 
 try {
   execSync(
@@ -79,4 +130,5 @@ try {
 } catch {
   console.log(`[vercel-ignore] changes detected for ${app} — building`);
   process.exit(1);
+}
 }

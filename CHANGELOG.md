@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.55.0] — 2026-09-07 — the integration pack: real Postgres, real RLS
+
+Phase 3 of the testing roadmap. 29 more tests (77 total): 22 integration
+tests against the STAGING database + 7 on the Vercel build-skip guard.
+
+### Added
+- **`pnpm test:integration`** (apps/api `src/integration/`, own vitest
+  config): loads `apps/api/.env.staging`, refuses to run against any
+  non-staging Supabase URL, serializes files (one shared DB), and honors
+  the staging rules of engagement — the rehearsal workspace is refused by
+  the helper, fixtures are throwaway rows cleaned by their own refs/codes,
+  addresses are @example.com (the live 5-minute scheduler sweeps this DB).
+  - `rls-floor.int.test.ts` — an anonymous client reads ZERO rows from 14
+    PII/tenant tables (with a service-role sanity check proving 0 means
+    denied, not empty). The full two-user cross-workspace matrix still
+    needs an auth-fixture harness (queued).
+  - `purchase-idempotency.int.test.ts` — recordPurchase's
+    update-first-insert-second: webhook-retry writes converge to one row,
+    later partial writes MERGE (paid stamps paid_at without erasing what
+    the first write knew), concurrent first writes don't duplicate.
+  - `sso-race.int.test.ts` — the handoff claim: 8 concurrent redeemers,
+    exactly one wins; replay, expiry and wrong-target-app all refuse.
+- **`scripts/vercel-ignore.test.mjs`** (+ root vitest for scripts/):
+  `validApp`/`pickBase`/`changePaths` extracted pure from the build-skip
+  guard (CLI behavior identical); tests lock the safety posture — any
+  doubt (bad arg, missing sha, shallow clone without parent) → build.
+- Root scripts: `pnpm test` now also runs the scripts tests (CI updated);
+  `pnpm verify:full` = the verify gate + the integration pack.
+
 ## [0.54.0] — 2026-09-07 — test batch 2: the money decisions become law
 
 18 more tests (48 total). Two behavior-identical extractions pull the pure

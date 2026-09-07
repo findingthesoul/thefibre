@@ -30,8 +30,10 @@ jobs:
 
       - run: pnpm -r typecheck
 
-      # Unit tests (testing approach §3.3 — shared + api; fast, no DB).
-      - run: pnpm -r test
+      # Unit tests (testing approach §3.3 — shared + api + repo scripts;
+      # fast, no DB). Integration tests need staging creds and stay local
+      # (`pnpm test:integration`).
+      - run: pnpm test
 
   build:
     name: build (web + api)

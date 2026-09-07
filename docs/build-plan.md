@@ -29,7 +29,7 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
    daily smoke). Money extractions DONE v0.54.0 (computeFeeCents,
    seatItemAction, archived-cache, embed-loader). Remaining: scheduler
    transitions + recordPurchase idempotency (staging integration pack),
-   vercel-ignore base pick (now CI-able), Playwright golden paths;
+   Playwright golden paths (vercel-ignore DONE v0.55.0);
    OPTIONAL (Sjoerd): repo Actions secrets to let nightly run
    verify-public-api too.
 

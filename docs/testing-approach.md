@@ -160,7 +160,7 @@ Phased so each step pays for itself; groomed like everything else via
 - **Phase 2 — Vitest on the money/tenancy logic. STARTED v0.53.0** (sso-hop, branding, i18n, pricing; next: fee/proration extraction, scheduler transitions, vercel-ignore). Fees, VAT, plan
   gating, sso-hop, pricing rules. Small, fast, no DB. Wire into `pnpm -r
   test` and CI.
-- **Phase 3 — integration pack on staging.** The RLS matrix, webhook
+- **Phase 3 — integration pack on staging. STARTED v0.55.0** (RLS anon-floor ×14 tables, recordPurchase idempotency, sso_handoff race; remaining: the two-user cross-workspace RLS matrix via an auth-fixture harness, scheduler transitions). The RLS matrix, webhook
   idempotency, handoff race. Runs post-staging-deploy, before promoting
   the same commit's confidence to prod.
 - **Phase 4 — Playwright golden paths on staging.** The ten scenarios of
