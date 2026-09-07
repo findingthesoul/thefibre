@@ -58,6 +58,7 @@ export type PublicProduct = {
   characteristics: string[] | null;
   /** À-la-carte (2026-09-06) — optional until the API ships them. */
   price_cents?: number | null;
+  price_interval?: string | null;
   currency?: string | null;
   purchasable?: boolean;
   links: { kind: string; ref: string; label?: string }[] | null;

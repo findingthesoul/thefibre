@@ -70,6 +70,9 @@ const CreateProduct = z.object({
   description: z.string().max(4000).optional().nullable(),
   characteristics: Characteristics.optional(),
   price_cents: z.number().int().min(0).optional().nullable(),
+  // 'once' bills on the first invoice; 'month'/'year' ride the member's
+  // subscription when the interval matches the tier's ('week' reserved).
+  price_interval: z.enum(['once', 'week', 'month', 'year']).optional(),
   currency: z.string().length(3).default('EUR'),
   links: z
     .array(z.object({ kind: LinkKind, ref: z.string().min(1).max(500), label: z.string().max(200).optional() }))
@@ -553,7 +556,7 @@ membershipRoutes.get('/products', async (c) => {
   const db = userClient(ctx.jwt);
   const { data, error } = await db
     .from('membership_product')
-    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at')
+    .select('id, name, description, characteristics, price_cents, currency, links, purchasable, sort_order, archived_at, created_at, price_interval')
     .order('sort_order', { ascending: true })
     .order('created_at', { ascending: true });
   if (error) return fail(c, 'list products', error);
@@ -1472,7 +1475,7 @@ membershipRoutes.get('/public/catalog/:workspaceSlug', async (c) => {
       .from('membership_product')
       // price/purchasable are additive (à-la-carte, 2026-09-06): the page
       // shows a Buy button only for purchasable products with a price.
-      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order')
+      .select('id, name, description, characteristics, price_cents, currency, purchasable, links, sort_order, price_interval')
       .eq('workspace_id', ws.id)
       .is('archived_at', null)
       .order('sort_order', { ascending: true }),
@@ -1649,18 +1652,18 @@ membershipRoutes.post('/public/join', async (c) => {
   // rides along free. Amounts are the product's flat price — server-side,
   // like everything priced (the pricing logic stays a tier concept).
   const optionIds = [...new Set(d.option_product_ids)];
-  let options: { id: string; name: string; price_cents: number | null }[] = [];
+  let options: { id: string; name: string; price_cents: number | null; price_interval?: string | null }[] = [];
   if (optionIds.length) {
     const { data: links } = await adminClient
       .from('membership_tier_product')
-      .select('product_id, product:product_id (id, name, price_cents, archived_at)')
+      .select('product_id, product:product_id (id, name, price_cents, price_interval, archived_at)')
       .eq('tier_id', tier.id)
       .eq('optional', true)
       .in('product_id', optionIds);
     const byId = new Map(
       (links ?? [])
         .map((l) => (Array.isArray(l.product) ? l.product[0] : l.product))
-        .filter((p): p is { id: string; name: string; price_cents: number | null; archived_at: string | null } =>
+        .filter((p): p is { id: string; name: string; price_cents: number | null; price_interval: string | null; archived_at: string | null } =>
           Boolean(p && !p.archived_at),
         )
         .map((p) => [p.id, p]),
@@ -1670,6 +1673,18 @@ membershipRoutes.post('/public/join', async (c) => {
       return c.json({ error: 'One of the chosen options is not available for this tier.' }, 400);
     }
     options = optionIds.map((id) => byId.get(id)!);
+  }
+
+  // A recurring product can only ride a subscription whose interval matches
+  // (Stripe: one interval per subscription). 'once' always fits.
+  const incompatible = options.find(
+    (o) => (o.price_cents ?? 0) > 0 && (o.price_interval ?? 'once') !== 'once' && o.price_interval !== d.interval,
+  );
+  if (incompatible) {
+    return c.json(
+      { error: `'${incompatible.name}' is billed per ${incompatible.price_interval} and can only join a ${incompatible.price_interval}ly membership` },
+      400,
+    );
   }
 
   const feePercent = await platformFeePercent(ws.id);
@@ -1689,7 +1704,10 @@ membershipRoutes.post('/public/join', async (c) => {
             },
             quantity: 1,
           },
-          // One-time add-on lines bill on the FIRST invoice only.
+          // Add-on lines: 'once' bills on the FIRST invoice only; a
+          // recurring product joins the subscription — Stripe forbids
+          // mixed intervals, so only interval-matching products get here
+          // (incompatible choices were refused above).
           ...options
             .filter((o) => (o.price_cents ?? 0) > 0)
             .map((o) => ({
@@ -1697,6 +1715,9 @@ membershipRoutes.post('/public/join', async (c) => {
                 currency: (tier.currency ?? 'EUR').toLowerCase(),
                 product_data: { name: o.name },
                 unit_amount: o.price_cents!,
+                ...((o.price_interval ?? 'once') === d.interval
+                  ? { recurring: { interval: d.interval } }
+                  : {}),
               },
               quantity: 1,
             })),
@@ -1775,7 +1796,7 @@ membershipRoutes.post('/public/buy', async (c) => {
   // is the product's own setting — a priced tier-only product stays unbuyable.
   const { data: product } = await adminClient
     .from('membership_product')
-    .select('id, name, price_cents, currency, purchasable')
+    .select('id, name, price_cents, price_interval, currency, purchasable')
     .eq('id', d.product_id)
     .eq('workspace_id', ws.id)
     .is('archived_at', null)

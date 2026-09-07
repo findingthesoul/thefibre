@@ -76,6 +76,9 @@ export function ProductDialog({
   const currencyOptions = [...new Set([...workspaceCurrency.currencies, currency])];
   const [description, setDescription] = useState(product?.description ?? '');
   const [price, setPrice] = useState(centsToEuro(product?.price_cents ?? null));
+  const [priceInterval, setPriceInterval] = useState<'once' | 'month' | 'year'>(
+    (product?.price_interval as 'once' | 'month' | 'year' | undefined) ?? 'once',
+  );
   const [purchasable, setPurchasable] = useState(product?.purchasable ?? false);
   const [characteristics, setCharacteristics] = useState(
     (product?.characteristics ?? []).join('\n'),
@@ -196,6 +199,7 @@ export function ProductDialog({
         .map((l) => l.trim())
         .filter(Boolean),
       price_cents: euroToCents(price),
+      price_interval: priceInterval,
       purchasable,
       links: links
         .filter((l) => l.ref.trim())
@@ -295,13 +299,33 @@ export function ProductDialog({
             <label className="block text-sm font-medium mb-1">
               {t(locale, 'price_with_currency', { currency })}
             </label>
-            <input
-              value={price}
-              onChange={(e) => setPrice(e.target.value)}
-              inputMode="decimal"
-              placeholder={t(locale, 'price_included_ph')}
-              className={`${INPUT} max-w-[14rem]`}
-            />
+            <div className="flex items-center gap-2">
+              <input
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+                inputMode="decimal"
+                placeholder={t(locale, 'price_included_ph')}
+                className={`${INPUT} max-w-[14rem]`}
+              />
+              {/* 'once' bills on the first invoice; month/year ride the
+                  member's subscription when it matches the tier interval.
+                  Weekly waits for weekly tiers (Stripe: one interval per
+                  subscription). */}
+              <select
+                value={priceInterval}
+                onChange={(e) => setPriceInterval(e.target.value as 'once' | 'month' | 'year')}
+                className={`${INPUT} max-w-[10rem]`}
+              >
+                <option value="once">{t(locale, 'interval_once')}</option>
+                <option value="month">{t(locale, 'interval_month')}</option>
+                <option value="year">{t(locale, 'interval_year')}</option>
+              </select>
+            </div>
+            {priceInterval !== 'once' && (
+              <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+                {t(locale, 'interval_note')}
+              </p>
+            )}
           </div>
           {currencyOptions.length > 1 && (
             <select

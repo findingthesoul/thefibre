@@ -2703,6 +2703,40 @@ const CATALOG = {
     de: 'Die Beitrittsseite, die Circle-Verbindung und dein Fibre-Profil.', // MT
     fr: "La page d'adhésion, la connexion Circle et ton profil Fibre.", // MT
   },
+
+  // ── product pricing intervals ────────────────────────────────────────
+  interval_once: {
+    en: 'One-time',
+    nl: 'Eenmalig',
+    es: 'Pago único', // MT
+    pt: 'Uma vez', // MT
+    de: 'Einmalig', // MT
+    fr: 'Une fois', // MT
+  },
+  interval_month: {
+    en: 'Per month',
+    nl: 'Per maand',
+    es: 'Al mes', // MT
+    pt: 'Por mês', // MT
+    de: 'Pro Monat', // MT
+    fr: 'Par mois', // MT
+  },
+  interval_year: {
+    en: 'Per year',
+    nl: 'Per jaar',
+    es: 'Al año', // MT
+    pt: 'Por ano', // MT
+    de: 'Pro Jahr', // MT
+    fr: 'Par an', // MT
+  },
+  interval_note: {
+    en: 'A recurring product joins the member’s subscription — it is only offered when the membership is billed on the same rhythm (a monthly add-on with a monthly membership).',
+    nl: 'Een terugkerend product loopt mee in het abonnement van het lid — het wordt alleen aangeboden als het lidmaatschap hetzelfde ritme heeft (een maandelijkse add-on bij een maandelijks lidmaatschap).',
+    es: 'Un producto recurrente se suma a la suscripción del miembro — solo se ofrece cuando la membresía se cobra al mismo ritmo (un extra mensual con una membresía mensual).', // MT
+    pt: 'Um produto recorrente entra na assinatura do membro — só é oferecido quando a associação é cobrada no mesmo ritmo (um extra mensal com uma associação mensal).', // MT
+    de: 'Ein wiederkehrendes Produkt läuft im Abo des Mitglieds mit — es wird nur angeboten, wenn die Mitgliedschaft im selben Rhythmus abgerechnet wird (ein monatliches Extra zur monatlichen Mitgliedschaft).', // MT
+    fr: 'Un produit récurrent rejoint l’abonnement du membre — il n’est proposé que si l’adhésion est facturée au même rythme (un extra mensuel avec une adhésion mensuelle).', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.0] — 2026-09-08 — products learn a rhythm (Members 0.14.0)
+
+### Added
+- **Product pricing intervals** (Sjoerd: "a dropdown: per week, month,
+  year, once-off"): a product's price is now One-time / Per month / Per
+  year. One-time bills on the first invoice as before; a recurring
+  product joins the member's subscription as an extra line — and is only
+  offered on the join page when the membership shares its rhythm (Stripe
+  allows one interval per subscription; the checkout refuses mismatches
+  server-side with an honest message). Weekly is reserved in the schema
+  for the day weekly tiers exist. Join page shows "+ €X / month" on
+  recurring extras; migration applied to both DBs; all copy ×6.
+
+
 ## [0.67.8] — 2026-09-08 — the access door moves to where the question lives (Members 0.13.2)
 
 ### Changed

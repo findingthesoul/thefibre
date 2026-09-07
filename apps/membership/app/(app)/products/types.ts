@@ -18,6 +18,7 @@ export type Product = {
   description: string | null;
   characteristics: string[] | null;
   price_cents: number | null;
+  price_interval?: 'once' | 'week' | 'month' | 'year' | null;
   currency: string;
   /** À-la-carte (2026-09-06): can be bought standalone on the public page. */
   purchasable: boolean;

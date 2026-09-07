@@ -339,7 +339,13 @@ function TierCard({
                   {t(locale, 'optional_extras')}
                 </div>
                 <div className="mt-1.5 space-y-1.5">
-                  {optionalProducts.map((p) => (
+                  {optionalProducts
+                    .filter(
+                      // A recurring add-on only rides a matching subscription
+                      // (Stripe: one interval); 'once' always fits.
+                      (p) => (p.price_interval ?? 'once') === 'once' || p.price_interval === interval,
+                    )
+                    .map((p) => (
                     <label key={p.id} className="flex items-start gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
@@ -350,7 +356,13 @@ function TierCard({
                       <span className="min-w-0 flex-1 text-ink">{p.name}</span>
                       <span className="shrink-0 text-ink-subtle tabular-nums">
                         {(p.price_cents ?? 0) > 0
-                          ? `+ ${money(p.price_cents!, p.currency ?? currency)} ${t(locale, 'option_once')}`
+                          ? `+ ${money(p.price_cents!, p.currency ?? currency)} ${
+                              (p.price_interval ?? 'once') === 'month'
+                                ? t(locale, 'per_month')
+                                : (p.price_interval ?? 'once') === 'year'
+                                  ? t(locale, 'per_year')
+                                  : t(locale, 'option_once')
+                            }`
                           : t(locale, 'option_included')}
                       </span>
                     </label>
