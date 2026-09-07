@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.6] — 2026-09-08 — The Thread is the name; Zierikzee is the place
+
+- ENTITY gains publicName 'The Thread' (registered business name of
+  Solidarity Lab B.V.); address corrected Rotterdam → Zierikzee (fixes
+  every email footer via legalFooterLine and all invoice seller blocks in
+  one move).
+- Public surfaces now say The Thread, never the legal name: website footer
+  (entity block removed, © line simplified), website about ("a small team
+  in the Netherlands"), fibre public-pages footer, fibre landing footer,
+  fibre about. The legal name survives only in brackets where the law
+  wants it: terms §1 "The Thread (Solidarity Lab B.V., … Zierikzee …)",
+  privacy controller lines, invoice seller blocks. Terms venue "court in
+  Rotterdam" → "the competent court in the Netherlands".
+
 ## [0.67.5] — 2026-09-08 — yellow footer, both doors on support, atomic release
 
 - Website footer turns brand yellow with black type (was dark ink/white) —

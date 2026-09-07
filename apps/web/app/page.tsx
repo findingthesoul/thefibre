@@ -135,7 +135,7 @@ export default async function LandingPage() {
         </section>
 
         <footer className="mt-28 border-t border-neutral-200 pt-6 text-xs text-neutral-500 leading-relaxed">
-          {ENTITY.name} · {ENTITY.hostedLine}
+          {ENTITY.publicName} · {ENTITY.hostedLine}
           <br />
           <Link className="underline" href="/pricing">
             Pricing

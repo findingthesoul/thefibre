@@ -54,7 +54,7 @@ export default function AboutPage() {
 
       <H2>Who builds it</H2>
       <P>
-        The Fibre is built and operated by {ENTITY.name}, based in {ENTITY.address}. It is
+        The Fibre is built and operated by The Thread, from the Netherlands. It is
         independently owned and funded by the people who use it. There is no advertising business
         attached to it, no profiling, no third-party trackers, and nothing about the people in your
         workspace is sold or shared for anyone else&rsquo;s purposes.

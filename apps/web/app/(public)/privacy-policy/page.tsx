@@ -33,7 +33,7 @@ export default function PrivacyPolicyPage() {
         <Item>
           <strong className="font-medium text-neutral-900">Your account.</strong> For the data that
           exists because you have an account with us — your identity, sign-in, and the record of
-          your consents — {ENTITY.name}, {ENTITY.address}, is the controller.
+          your consents — The Thread ({ENTITY.name}), {ENTITY.address}, is the controller.
         </Item>
         <Item>
           <strong className="font-medium text-neutral-900">
@@ -193,7 +193,7 @@ export default function PrivacyPolicyPage() {
 
       <H2 id="contact">11. Contact</H2>
       <P>
-        {ENTITY.name}, {ENTITY.address}.{' '}
+        The Thread ({ENTITY.name}), {ENTITY.address}.{' '}
         <a className="underline hover:text-neutral-900" href={`mailto:${ENTITY.supportEmail}`}>
           {ENTITY.supportEmail}
         </a>

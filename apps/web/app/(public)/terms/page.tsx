@@ -20,7 +20,7 @@ export default function TermsPage() {
     <>
       <DocHeader
         title="Terms of use"
-        standfirst="The agreement between you and Solidarity Lab B.V. for the use of The Thread — the tools at thethread.app — and The Fibre, the platform they run on."
+        standfirst="The agreement between you and The Thread (Solidarity Lab B.V.) for the use of The Thread — the tools at thethread.app — and The Fibre, the platform they run on."
         updated={TERMS_UPDATED}
       />
 
@@ -28,8 +28,8 @@ export default function TermsPage() {
       <P>
         The Thread — the tools served from thethread.app and its subdomains — and The Fibre —
         the platform at thefibre.app that carries them — are two names for one service, operated
-        by {ENTITY.name}, a private limited company established in {ENTITY.address}. In these
-        terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean {ENTITY.name}; &ldquo;the
+        by The Thread ({ENTITY.name}, a private limited company established in {ENTITY.address}).
+        In these terms, &ldquo;we&rdquo; and &ldquo;us&rdquo; mean The Thread; &ldquo;the
         platform&rdquo; means thefibre.app and thethread.app together with the apps served from
         their subdomains; and &ldquo;you&rdquo; means the person using it. These terms apply
         whichever of the two doors you came in through.
@@ -170,7 +170,7 @@ export default function TermsPage() {
       <H2 id="law">11. Law and disputes</H2>
       <P>
         Dutch law applies. If we cannot resolve a dispute between us, it goes to the competent
-        court in Rotterdam, the Netherlands — without prejudice to any right you have as a consumer
+        competent court in the Netherlands — without prejudice to any right you have as a consumer
         to bring proceedings where you live.
       </P>
 

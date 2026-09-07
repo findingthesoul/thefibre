@@ -25,10 +25,16 @@ export type AppBrand = {
 };
 
 export const ENTITY = {
-  /** Legal entity that owns and operates the platform. */
+  /** Legal entity that owns and operates the platform. Public surfaces say
+   *  publicName; this legal name appears only where the law wants it —
+   *  the terms (in brackets), privacy controller lines, invoice seller
+   *  blocks (Sjoerd, 2026-09-08). */
   name: 'Solidarity Lab B.V.',
+  /** Registered business name (handelsnaam) of the entity — the name the
+   *  public sees. */
+  publicName: 'The Thread',
   /** Postal address for the footer line of public emails. */
-  address: 'Rotterdam, The Netherlands',
+  address: 'Zierikzee, The Netherlands',
   /** Footer line for public surfaces. */
   hostedLine: 'Hosted in the EU',
   /** Default transactional "from" address. Override via EMAIL_FROM env. */
@@ -172,7 +178,7 @@ export function defaultEmailFrom(env?: Record<string, string | undefined>): stri
 }
 
 /** Single-line legal footer used at the bottom of public emails + landing
- *  pages. e.g. "The Fibre · Rotterdam, The Netherlands · Hosted in the EU".
+ *  pages. e.g. "The Fibre · Zierikzee, The Netherlands · Hosted in the EU".
  *  Excludes the legal entity name (ENTITY.name) by design — it stays in
  *  branding.ts for internal billing / invoicing but isn't on public brand
  *  surfaces. */

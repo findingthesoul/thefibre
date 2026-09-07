@@ -49,7 +49,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
             </Link>
           </nav>
           <div className="mt-3">
-            {new URL(FIBRE.url).host} · {ENTITY.name} · {ENTITY.address} · {ENTITY.hostedLine}
+            {new URL(FIBRE.url).host} · {ENTITY.publicName} · {ENTITY.hostedLine}
           </div>
           <div className="mt-1">
             The platform beneath{' '}

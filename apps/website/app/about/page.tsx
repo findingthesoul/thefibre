@@ -171,7 +171,7 @@ export default function AboutPage() {
         <Leaf className="pointer-events-none absolute -left-4 top-8 hidden w-16 text-accent md:block" rotate={-20} />
         <h2 className="text-xl font-bold tracking-tight">Who makes this</h2>
         <p className="mt-4 text-base leading-relaxed text-ink-subtle">
-          The Thread is made by {ENTITY.name} in Rotterdam — a small team that hosts its own
+          The Thread is made by a small team in the Netherlands that hosts its own
           gatherings and builds the tool it wished existed. Everything is {ENTITY.hostedLine.toLowerCase()},
           because how you treat people&apos;s data is part of how you treat people.
         </p>

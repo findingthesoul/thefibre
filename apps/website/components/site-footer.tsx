@@ -6,7 +6,7 @@
 // legalFooterLine(), which names The Fibre.
 
 import Link from 'next/link';
-import { ENTITY, FOOTER_LINKS } from '@thefibre/shared';
+import { FOOTER_LINKS } from '@thefibre/shared';
 import { APP_URL, CONTACT_EMAIL } from '@/lib/site';
 
 const COL_TITLE = 'text-[11px] font-bold uppercase tracking-[0.18em] text-ink/50';
@@ -21,11 +21,6 @@ export function SiteFooter() {
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo-the-thread.svg" alt="The Thread" className="h-7 w-auto" />
             <p className="mt-4 text-[13px] leading-6 text-ink/75">Tools to facilitate change.</p>
-            <p className="mt-3 text-[13px] leading-6 text-ink/50">
-              {ENTITY.name}
-              <br />
-              {ENTITY.address}
-            </p>
           </div>
 
           <div>
@@ -82,8 +77,7 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-ink/10 py-4 text-center text-xs text-ink/50">
-        © {new Date().getFullYear()} The Thread · {ENTITY.name} · No advertising. No profiling. No
-        data sold.
+        © {new Date().getFullYear()} The Thread · No advertising. No profiling. No data sold.
       </div>
     </footer>
   );
