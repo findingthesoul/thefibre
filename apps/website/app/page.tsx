@@ -7,6 +7,7 @@
 
 import Link from 'next/link';
 import { Scene, Line, Ink } from '@/components/scene';
+import { FabricCollage } from '@/components/fabric-collage';
 import { Constellation, type Star } from '@/components/constellation';
 import { DrawnThread } from '@/components/drawn-thread';
 import { Settle } from '@/components/settle';
@@ -85,7 +86,7 @@ export default async function Home() {
         <div id="hero-wordmark-sentinel" className="flex flex-col items-center gap-5 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo-the-thread.svg" alt="The Thread" className="h-16 w-auto md:h-24" />
-          <p className="text-[13px] font-bold uppercase tracking-[0.22em] text-ink md:text-lg">
+          <p className="relative left-[30px] text-[13px] font-bold uppercase tracking-[0.22em] text-ink md:text-lg">
             Tools to facilitate change.
           </p>
         </div>
@@ -103,8 +104,30 @@ export default async function Home() {
         </a>
       </section>
 
-      {/* ── The litany, unfolding — one line per breath. ── */}
+      {/* ── What this is, plainly — then Sjoerd's collage assembles. ── */}
       <div id="story" />
+      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-8 pt-20 md:px-10">
+        <div className="mx-auto max-w-3xl text-center">
+          <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
+            Weaving the social fabric.
+          </h2>
+          <p className="mt-1 text-3xl font-semibold tracking-tight text-ink-muted md:text-5xl">
+            In companies. In society.
+          </p>
+          <p className="mx-auto mt-7 max-w-2xl text-base leading-relaxed text-ink-subtle md:text-lg">
+            The Thread is a set of online tools for people who bring people together. You set up a
+            gathering — a workshop, a training, a conference — publish an enrolment page, take
+            payment, and stay in touch before, during and after. Enrolments, tickets, messages and
+            certificates live in one place, so nothing depends on spreadsheets. Built and hosted in
+            the EU.
+          </p>
+        </div>
+        <div className="mt-10 w-full md:mt-6">
+          <FabricCollage />
+        </div>
+      </section>
+
+      {/* ── The litany, unfolding — one line per breath. ── */}
       <StoryScene seg={SEG.sway} stars={CONSTELLATIONS.cut}>
         <Line>
           A gathering is a <Ink>cut</Ink> in time.

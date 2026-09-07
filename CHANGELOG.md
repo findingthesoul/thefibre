@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.60.0] — 2026-09-07 — website: the social-fabric slide, made of Sjoerd's real paper cuts
+
+- Home slide 2 — "Weaving the social fabric. In companies. In society." with
+  a practical paragraph on what The Thread is, above a collage of Sjoerd's 19
+  Matisse-style cut-out PNGs (apps/website/public/shapes/). The collage
+  assembles itself as the card scrolls in: each piece drifts from its own
+  direction and settles into his reference arrangement
+  (components/fabric-collage.tsx — server renders ASSEMBLED; the scatter
+  applies client-side only, so no-JS and reduced-motion readers see the
+  finished picture). Transparent borders trimmed off the PNGs (headless-
+  Chromium canvas — no ImageMagick on this machine) so sizing is predictable.
+- Hero — the payoff line "Tools to facilitate change." starts 30px right of
+  the wordmark's left edge (Sjoerd's call, verified live).
+
 ## [0.59.6] — 2026-09-07 — website: the cards become magnetic (Sjoerd's live review)
 
 - Full-page cards with scroll-snap — a scroll pulls the next card in
