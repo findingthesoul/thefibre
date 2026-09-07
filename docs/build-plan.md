@@ -204,9 +204,17 @@ seeded into Pulse. What remains:
      `fly secrets set STRIPE_MEMBERSHIP_WEBHOOK_SECRET`. Was mid-redo
      2026-09-05. Staging twin (test mode → thefibre-api-staging)
      recommended for the test-card rehearsal.
-   - Create the soul.com workspace, activate Membership there, connect
-     its Stripe account, add the Circle API token, create the first
-     tier, rehearse a test join on membership.thefibre.tech.
+   - ~~Create the soul.com workspace~~ **LIVE 2026-09-07**: workspace
+     986d1631 (slug `soul`, org plan comped), Membership active, tiers
+     Community member EUR 300/yr + Soul Fellowship EUR 2000/yr, pricing
+     rules ZA 75 / AO 50 / default 100, Google credential in place,
+     Sjoerd super_admin. Join page serves at
+     membership.thethread.app/soul. REMAINING (Sjoerd): Stripe account
+     in Settings -> Payments; Circle token + access grants on the two
+     products. Also queued from today: VAT incl/excl pricing setting
+     (workspace-level toggle + per-org override; ties into org
+     memberships and reverse-charge B2B); enable iDEAL + SEPA DD in
+     Stripe (cheapest payment rails, dashboard toggles, no code).
    SHIPPED 2026-09-05 pm (the parallel-agents round): pricing rules
    §3.9 as the generalised LOGIC BUILDER (Settings → Pricing rules;
    country self-declared on join; card-mismatch admin email; country
