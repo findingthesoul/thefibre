@@ -128,14 +128,27 @@ export default async function Home() {
         </div>
         <a
           href="#story"
-          className="absolute bottom-8 flex flex-col items-center gap-2 transition-opacity hover:opacity-60"
+          className="absolute bottom-10 left-[21%] flex items-center gap-3 transition-opacity hover:opacity-60"
           aria-label="Begin the story"
         >
-          <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-ink-muted">
+          <span className="text-[13px] font-bold uppercase tracking-[0.22em] text-ink md:text-lg">
             Scroll
           </span>
-          <svg width="2" height="56" aria-hidden="true" className="text-ink/70">
-            <line x1="1" y1="0" x2="1" y2="56" stroke="currentColor" strokeWidth="2" />
+          <svg
+            width="14"
+            height="18"
+            viewBox="0 0 14 18"
+            aria-hidden="true"
+            className="animate-bounce text-ink"
+          >
+            <path
+              d="M7 1 V15 M2 10.5 L7 16 L12 10.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
           </svg>
         </a>
       </section>
@@ -151,12 +164,12 @@ export default async function Home() {
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
-        <div className="relative ml-auto max-w-4xl text-right">
+        <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 gap-4 md:grid-cols-2 md:gap-16">
           <h2 className="text-2xl font-semibold tracking-tight md:text-4xl">
             Weaving the social fabric.{' '}
             <span className="text-ink-muted">In companies. In society.</span>
           </h2>
-          <p className="ml-auto mt-3 max-w-3xl text-sm leading-relaxed text-ink-subtle md:text-base">
+          <p className="text-sm leading-relaxed text-ink-subtle md:text-base">
             The Thread is a set of online tools for people who bring people together. You set up a
             gathering — a workshop, a training, a conference — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
@@ -184,7 +197,7 @@ export default async function Home() {
           strokeWidth={2}
         />
         <div className="relative mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-10 md:grid-cols-2 md:gap-16">
-          <div className="text-right">
+          <div>
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">The workshop.</h2>
             <p className="mt-6 text-base leading-relaxed text-ink-subtle md:text-lg">
               In the workshop we place tools that support weaving. Weaving is the activity of
@@ -231,7 +244,7 @@ export default async function Home() {
             className="order-last mx-auto w-full md:order-first"
             style={{ width: 'min(100%, 56svh, 30rem)' }}
           />
-          <div className="text-right">
+          <div>
             <h2 className="text-3xl font-semibold tracking-tight md:text-5xl">
               Underneath it all: The Fibre.
             </h2>
@@ -249,14 +262,16 @@ export default async function Home() {
       </section>
 
       <StoryScene seg={THREAD.starts}>
-        <Line>
-          The Thread <Ink>starts there</Ink>.
-        </Line>
-        <p className="ml-auto mt-8 max-w-xl text-base leading-relaxed text-ink-subtle md:text-lg">
-          A dinner, a workshop, a conference — the moment people enter a room together, something
-          becomes possible that wasn&apos;t possible before. The Thread is built to honour that
-          moment, and to carry it forward.
-        </p>
+        <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
+          <Line>
+            The Thread <Ink>starts there</Ink>.
+          </Line>
+          <p className="text-base leading-relaxed text-ink-subtle md:mt-2 md:text-lg">
+            A dinner, a workshop, a conference — the moment people enter a room together, something
+            becomes possible that wasn&apos;t possible before. The Thread is built to honour that
+            moment, and to carry it forward.
+          </p>
+        </div>
       </StoryScene>
 
       {/* ── The arc, grounded. ── */}
@@ -269,7 +284,7 @@ export default async function Home() {
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
-        <div className="relative mx-auto max-w-5xl">
+        <div className="relative mx-auto max-w-6xl">
           <p className="text-[11px] font-bold uppercase tracking-[0.15em] text-ink-muted">
             Before · During · After
           </p>
@@ -331,7 +346,7 @@ export default async function Home() {
           className="pointer-events-none absolute inset-0 h-full w-full text-ink/80"
           strokeWidth={2}
         />
-        <div className="relative mx-auto grid max-w-5xl grid-cols-1 gap-8 md:grid-cols-3">
+        <div className="relative mx-auto grid max-w-6xl grid-cols-1 gap-8 md:grid-cols-3">
           {[
             ['Six languages', 'Public pages, messages and certificates — reading beautifully in all of them.'],
             ['Enrolment to certificate', 'The whole trail without a single spreadsheet.'],
@@ -347,29 +362,33 @@ export default async function Home() {
 
       {/* ── The invitation. ── */}
       <StoryScene seg={THREAD.invite}>
-        <Line>
-          Start with <Ink>one gathering</Ink>.
-        </Line>
-        <p className="ml-auto mt-6 max-w-xl text-lg text-ink-subtle">
-          Free means free — one live event, forever. When you&apos;re ready for more,
-          we&apos;re here.
-        </p>
-        {mode === 'invited' && (
-          <p className="mt-2 text-sm text-ink-muted">Access is by request while we onboard.</p>
-        )}
-        <div className="mt-9 flex flex-wrap items-center justify-end gap-4">
+        <div className="grid grid-cols-1 items-start gap-8 md:grid-cols-2 md:gap-16">
+          <Line>
+            Start with <Ink>one gathering</Ink>.
+          </Line>
+          <div className="md:mt-2">
+            <p className="text-lg text-ink-subtle">
+              Free means free — one live event, forever. When you&apos;re ready for more,
+              we&apos;re here.
+            </p>
+            {mode === 'invited' && (
+              <p className="mt-2 text-sm text-ink-muted">Access is by request while we onboard.</p>
+            )}
+            <div className="mt-9 flex flex-wrap items-center gap-4">
           <a
             href={startHref('free')}
             className="rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
           >
             Start a Thread
           </a>
-          <Link
-            href="/contact"
-            className="rounded-full border border-line px-7 py-3 text-sm font-medium text-ink-subtle transition-colors hover:border-ink hover:text-ink"
-          >
-            Talk to us
-          </Link>
+              <Link
+                href="/contact"
+                className="rounded-full border border-line px-7 py-3 text-sm font-medium text-ink-subtle transition-colors hover:border-ink hover:text-ink"
+              >
+                Talk to us
+              </Link>
+            </div>
+          </div>
         </div>
       </StoryScene>
     </main>

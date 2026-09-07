@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.63.1] — 2026-09-07 — website: left-aligned two-column story
+
+- Text left-aligned again (the right-align was Sjoerd's mistake, reverted)
+  and every story text block restructured as two columns — heading left,
+  body right — inside one consistent centred container (max-w-6xl):
+  card 2, "The Thread starts there.", and the invitation (CTAs left-set);
+  arc + proof widened to the same container.
+- Hero scroll cue moved next to the thread line with a little bouncing
+  down-arrow, set in the payoff's type (13px/lg bold uppercase, 0.22em).
+
 ## [0.63.0] — 2026-09-07 — website: the one-sentence cards come out
 
 - Removed the six litany scenes ("A gathering is a cut in time." through
