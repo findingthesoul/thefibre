@@ -129,6 +129,11 @@ export default async function PricingPage() {
           talk with you before anything changes.
         </p>
         <p>
+          <strong className="text-ink">Ready-made shapes.</strong> Start from ready-made event
+          shapes — one on Free, five on Starter, and on Pro your own designs join them: Single
+          event, Two-day event, Guided event, Workshop series, Conversation circle.
+        </p>
+        <p>
           <strong className="text-ink">No surprises.</strong> Annual billing is simply two months
           free. Extra seats are added when you invite someone past your allowance — you approve the
           cost before it happens.

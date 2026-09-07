@@ -124,13 +124,16 @@ seeded into Pulse. What remains:
    Stripe sandbox checkout â webhook â ACTIVE member + correct ledger
    rows verified server-side. The flow is proven; first LIVE charge is
    just a customer now.
-1e. **Event template library (Thread)** — the plan dimension shipped 0.24.3
-   (`thread_template_limit`: 1 / 5 / Ã¢ÂÂ / Ã¢ÂÂ, editable on /admin/plans, shown
-   on /pricing). What remains needs CONTENT + enforcement: Sjoerd designs
-   the standard event templates; the platform grows a shared template
-   library (today's thread templates are workspace-scoped duplicates); the
-   new-thread flow offers library templates filtered by the plan's limit;
-   the designer stays behind thread_custom_templates (Pro+).
+1e. **Event template library (Thread)** — CONTENT-DONE 2026-09-08
+   (v0.67.1): lib/thread-template-library.ts ships 5 blueprints (Single
+   event, Two-day event, Guided event, Workshop series, Conversation
+   circle); GET /thread/template-library is plan-sliced by
+   thread_template_limit (1 / 5 / ∞); POST /threads seeds a chosen
+   blueprint; engagement add/remove 403s without thread_custom_templates
+   (Free configures but never restructures); new-thread picker +
+   zero-threads first-event hero live in Thread. Website /pricing carries
+   the ready-made-shapes bullet (v0.67.3). Remaining tail: shared-template
+   DESIGNER polish only, already behind Pro+.
 1f3. **Members page redo (Sjoerd spec, 2026-09-05)**: list rows; click a
    name Ã¢ÂÂ settings popup; Add button Ã¢ÂÂ invite popup (house pattern, like
    Membership's members page). Same session: **profile convergence** —

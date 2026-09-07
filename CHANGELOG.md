@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.67.3] — 2026-09-08 — website: the ready-made shapes reach /pricing
+
+- /pricing notes gain "Ready-made shapes." — one on Free, five on Starter,
+  own designs on Pro; the five named (wording from the Thread-templates
+  session). build-plan 1e groomed to CONTENT-DONE.
+
 ## [0.67.2] — 2026-09-08 — THE CUT: thethread.app serves the new website
 
 - Sjoerd moved apex + www onto the thefibre-website Vercel project (his
