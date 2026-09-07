@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.9] — 2026-09-07 — the tiles carry Sjoerd's names
+
+### Changed
+- Tile filenames follow Sjoerd's naming ("I took away the name fibre —
+  the apps are not fibre anymore, they are thethread"): thethread /
+  meet / members / pulse / flow / fibre .png, slug names as fallback.
+  The v0.58.8 commit had raced his Finder renames; disk and code agree
+  now. Known: meet.png is currently a byte-copy of members.png — swap in
+  the real Meet crop whenever.
+
+
 ## [0.58.8] — 2026-09-07 — the tapestry hangs
 
 ### Added

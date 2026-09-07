@@ -1,13 +1,10 @@
 # The launcher tapestry (Matisse cut-out crops)
 
-The launcher popup is ONE poster: 4 tiles x 2 rows. Apps fill the cells in
-order — The Thread, Meet, Members, Pulse, Flow, The Fibre — and decorative
-crops complete the weave to 8. Drop files here, named:
+One poster: 4 tiles x 2 rows. Sjoerd's filenames are the convention:
 
-  the-thread.png  fibre-meet.png  membership.png
-  fibre-pulse.png  fibre-flow.png  fibre-platform.png
+  thethread.png  meet.png  members.png  pulse.png  flow.png  fibre.png
   filler-1.png  filler-2.png
 
-Square crops, ~600x600. Picked up automatically by existence — a missing
-app file falls back to the yellow letters tile; fillers only render as
-many as the poster needs. Swap art by swapping files.
+(Slug-named files also work as fallback.) Square, ~600x600. Picked up by
+existence — missing app file falls back to the yellow letters tile.
+Swap art by swapping files; the composition is Sjoerd's.

@@ -30,6 +30,25 @@ const APP_DOMAINS: Record<string, string> = Object.fromEntries(
 
 // The launcher's order: Thread first (the flagship — naming brief), then
 // the tools in its service.
+// Sjoerd's tile filenames (2026-09-07: "fibre meet = meet, membership =
+// members…") — his names first, slug as fallback.
+const TILE_NAMES: Partial<Record<AppId, string>> = {
+  'the-thread': 'thethread',
+  'fibre-meet': 'meet',
+  'membership': 'members',
+  'fibre-pulse': 'pulse',
+  'fibre-flow': 'flow',
+  'fibre-platform': 'fibre',
+};
+function tileArt(slug: AppId): string | null {
+  for (const base of [TILE_NAMES[slug], slug]) {
+    if (base && existsSync(join(process.cwd(), 'public', 'brand', 'apps', `${base}.png`))) {
+      return `/brand/apps/${base}.png`;
+    }
+  }
+  return null;
+}
+
 // The Fibre closes the weave (backstage position — naming brief); its
 // tile links home. Six apps + two fillers = the full 4×2 poster.
 const LAUNCH_ORDER: AppId[] = ['the-thread', 'fibre-meet', 'membership', 'fibre-pulse', 'fibre-flow', 'fibre-platform'];
@@ -123,12 +142,10 @@ export default async function Dashboard() {
     name: APPS[slug].name,
     tagline: APPS[slug].tagline,
     letters: APPS[slug].brandLetters,
-    // Matisse tile art by convention: public/brand/apps/<slug>.png exists →
-    // it renders; missing → the yellow brand-letters tile. Swap art by
-    // swapping files, no code change (Sjoerd 2026-09-07).
-    art: existsSync(join(process.cwd(), 'public', 'brand', 'apps', `${slug}.png`))
-      ? `/brand/apps/${slug}.png`
-      : null,
+    // Matisse tile art — Sjoerd's filenames (he named the files, the code
+    // follows): thethread/meet/members/pulse/flow/fibre.png, slug names
+    // accepted as fallback. Missing file → the yellow brand-letters tile.
+    art: tileArt(slug),
     href: slug === 'fibre-platform' ? '/dashboard' : (APP_DOMAINS[slug] ?? '#'),
   }));
   // Decorative tapestry fillers: the launcher popup is ONE poster — 4 tiles
