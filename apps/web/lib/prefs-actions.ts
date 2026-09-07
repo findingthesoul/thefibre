@@ -18,10 +18,10 @@
 // document.cookie before first paint, so it must be JS-readable.
 
 import { cookies } from 'next/headers';
-import { COOKIE_THEME, COOKIE_SIDEBAR, COOKIE_LOCALE, COOKIE_WELCOME } from './prefs-shared';
+import { COOKIE_THEME, COOKIE_SIDEBAR, COOKIE_LOCALE, COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION } from './prefs-shared';
 
 const ONE_YEAR = 60 * 60 * 24 * 365;
-const ALLOWED = new Set<string>([COOKIE_THEME, COOKIE_SIDEBAR, COOKIE_LOCALE, COOKIE_WELCOME]);
+const ALLOWED = new Set<string>([COOKIE_THEME, COOKIE_SIDEBAR, COOKIE_LOCALE, COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION]);
 
 export async function savePref(name: string, value: string) {
   if (!ALLOWED.has(name)) return; // ignore anything unexpected

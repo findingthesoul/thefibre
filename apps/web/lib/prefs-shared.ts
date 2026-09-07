@@ -20,3 +20,10 @@ export const COOKIE_LOCALE = 'thefibre.locale';
 // flow, per the onboarding proposal's rule — everything else is derived
 // from identity_profile emptiness. 'done' = finished or skipped.
 export const COOKIE_WELCOME = 'thefibre.welcome';
+
+// The entry launcher (2026-09-07): 'off' = don't show the popup at login
+// (the checkbox on the popup itself); reset from Settings → Profile. And
+// the dashboard's inline "Your apps" section: 'collapsed' folds it.
+// Per-browser prefs like theme/sidebar — no durable copy, accepted.
+export const COOKIE_LAUNCHER = 'thefibre.launcher';
+export const COOKIE_APPS_SECTION = 'thefibre.apps';

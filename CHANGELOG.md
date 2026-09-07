@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.3] — 2026-09-07 — the launcher learns manners
+
+### Added
+- **"Don't show at login"** checkbox on the launcher popup — persistent
+  (per-browser pref, like theme/sidebar), with its reset switch under
+  Settings → Profile → App launcher.
+- The dashboard's inline **"Your apps" section folds** via a chevron on
+  its heading; the fold is remembered.
+
+
 ## [0.58.2] — 2026-09-07 — the launcher pops; Thread is The Thread
 
 _Renumbered from a second 0.58.1: the sessions' messaging channel was

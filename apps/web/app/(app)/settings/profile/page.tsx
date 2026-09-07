@@ -4,6 +4,9 @@ import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
 import { ProfileForm, type PublicProfile } from './profile-form';
 import { LanguagePicker } from './language-picker';
+import { LauncherPref } from './launcher-pref';
+import { cookies } from 'next/headers';
+import { COOKIE_LAUNCHER } from '@/lib/prefs-shared';
 
 // One profile.
 //
@@ -45,6 +48,7 @@ function Row({ label, value }: { label: string; value: string }) {
 
 export default async function ProfileSettingsPage() {
   const locale = await uiLocale();
+  const launcherShow = (await cookies()).get(COOKIE_LAUNCHER)?.value !== 'off';
   let me: Me | null = null;
   let profile: PublicProfile | null = null;
   let error: string | null = null;
@@ -85,6 +89,7 @@ export default async function ProfileSettingsPage() {
             locale={locale}
           />
           <LanguagePicker initial={profile?.locale ?? null} locale={locale} />
+          <LauncherPref initialShow={launcherShow} locale={locale} />
           <section className="mt-12 border-t border-line pt-8">
             <div className="text-[10px] uppercase tracking-wider text-ink-muted">
               {t(locale, 'signing_in')}

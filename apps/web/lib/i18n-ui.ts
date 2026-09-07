@@ -5482,6 +5482,32 @@ const CATALOG = {
     de: 'Zu meinen Apps', // MT
     fr: 'Vers mes apps', // MT
   },
+
+  // ── launcher preferences ─────────────────────────────────────────────
+  dont_show_at_login: {
+    en: 'Don\'t show at login',
+    nl: 'Niet tonen bij inloggen',
+    es: 'No mostrar al iniciar sesión', // MT
+    pt: 'Não mostrar ao entrar', // MT
+    de: 'Beim Anmelden nicht anzeigen', // MT
+    fr: 'Ne pas afficher à la connexion', // MT
+  },
+  show_launcher_at_login: {
+    en: 'Show the app launcher when I sign in',
+    nl: 'Toon de app-launcher wanneer ik inlog',
+    es: 'Mostrar el lanzador de apps al iniciar sesión', // MT
+    pt: 'Mostrar o lançador de apps quando eu entrar', // MT
+    de: 'App-Launcher beim Anmelden anzeigen', // MT
+    fr: 'Afficher le lanceur d\'apps à la connexion', // MT
+  },
+  launcher_heading: {
+    en: 'App launcher',
+    nl: 'App-launcher',
+    es: 'Lanzador de apps', // MT
+    pt: 'Lançador de apps', // MT
+    de: 'App-Launcher', // MT
+    fr: 'Lanceur d\'apps', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

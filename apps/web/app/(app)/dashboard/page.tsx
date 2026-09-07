@@ -8,9 +8,10 @@ import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
-import { COOKIE_WELCOME } from '@/lib/prefs-shared';
+import { COOKIE_WELCOME, COOKIE_LAUNCHER, COOKIE_APPS_SECTION } from '@/lib/prefs-shared';
 import type { PublicProfile } from '../settings/profile/profile-form';
 import { LauncherOverlay, type LauncherApp } from './launcher-overlay';
+import { AppsSection } from './apps-section';
 
 // crossAppHref (env-aware), NEVER APPS[slug].url: the raw registry value is
 // the PRODUCTION default, so the staging dashboard linked people to
@@ -88,7 +89,10 @@ export default async function Dashboard() {
   // First login, derived (onboarding rule: no wizard state): an empty
   // identity_profile means nobody set themselves up yet — walk them through
   // the welcome sequence once. The dismiss cookie is the only stored bit.
-  const welcomeDone = (await cookies()).get(COOKIE_WELCOME)?.value === 'done';
+  const cookieStore = await cookies();
+  const welcomeDone = cookieStore.get(COOKIE_WELCOME)?.value === 'done';
+  const launcherOff = cookieStore.get(COOKIE_LAUNCHER)?.value === 'off';
+  const appsCollapsed = cookieStore.get(COOKIE_APPS_SECTION)?.value === 'collapsed';
   const profileEmpty =
     profile != null && !profile.display_name && !profile.timezone && !profile.photo_url;
   if (profileEmpty && !welcomeDone) redirect('/welcome');
@@ -117,7 +121,7 @@ export default async function Dashboard() {
     <div className="mx-auto max-w-5xl px-8 py-12">
       {/* On entry the launcher pops above the page, dimmed backdrop —
           once per browser session; the same tiles stay inline below. */}
-      <LauncherOverlay apps={launcherApps} locale={locale} />
+      {!launcherOff && <LauncherOverlay apps={launcherApps} locale={locale} />}
       <h1 className="text-3xl font-medium tracking-tight">
         {t(locale, 'welcome_name', { name: firstName })}
       </h1>
@@ -130,22 +134,12 @@ export default async function Dashboard() {
         <Stat label={t(locale, 'nav_activity')} value={activity?.items.length} icon={<Activity size={16} strokeWidth={1.75} />} href="/activity" />
       </section>
 
-      {/* The seat's apps, big buttons — also shown as the entry popup
-          (LauncherOverlay); this inline copy keeps them reachable after
-          the popup is dismissed. */}
-      <section className="mt-12">
-        <div className="flex items-baseline justify-between">
+      {/* The seat's apps inline — foldable; the popup serves entry. */}
+      {seatApps.length === 0 ? (
+        <section className="mt-12">
           <div className="text-[10px] uppercase tracking-wider text-ink-muted">
             {t(locale, 'your_apps')}
           </div>
-          <Link
-            href="/settings/apps"
-            className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2"
-          >
-            {t(locale, 'manage')} →
-          </Link>
-        </div>
-        {seatApps.length === 0 ? (
           <div className="mt-4 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
             {t(locale, 'no_apps_activated')}{' '}
             <Link href="/settings/apps" className="underline">
@@ -153,30 +147,10 @@ export default async function Dashboard() {
             </Link>{' '}
             {t(locale, 'to_get_started')}
           </div>
-        ) : (
-          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {seatApps.map((slug) => (
-              <Link
-                key={slug}
-                href={APP_DOMAINS[slug] ?? '#'}
-                className="flex items-center gap-4 rounded-xl border border-line bg-surface-raised p-5 transition-colors hover:border-line-strong hover:bg-surface-sunken"
-              >
-                <span className="inline-flex h-14 w-14 items-center justify-center rounded-lg bg-yellow-300 text-ink font-semibold text-lg tracking-tight shrink-0">
-                  {APPS[slug].brandLetters}
-                </span>
-                <span className="min-w-0">
-                  <span className="block text-lg font-medium leading-tight">
-                    {APPS[slug].name}
-                  </span>
-                  <span className="mt-0.5 block text-sm text-ink-subtle truncate">
-                    {APPS[slug].tagline}
-                  </span>
-                </span>
-              </Link>
-            ))}
-          </div>
-        )}
-      </section>
+        </section>
+      ) : (
+        <AppsSection apps={launcherApps} locale={locale} initialCollapsed={appsCollapsed} />
+      )}
 
 
       <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-8">

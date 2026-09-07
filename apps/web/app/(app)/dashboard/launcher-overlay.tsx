@@ -10,6 +10,8 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
+import { savePref } from '@/lib/prefs-actions';
+import { COOKIE_LAUNCHER } from '@/lib/prefs-shared';
 
 const SESSION_KEY = 'fibre.launcher.shown';
 
@@ -23,6 +25,7 @@ export type LauncherApp = {
 
 export function LauncherOverlay({ apps, locale }: { apps: LauncherApp[]; locale: Locale }) {
   const [open, setOpen] = useState(false);
+  const [optOut, setOptOut] = useState(false);
 
   useEffect(() => {
     if (apps.length === 0) return;
@@ -88,6 +91,20 @@ export function LauncherOverlay({ apps, locale }: { apps: LauncherApp[]; locale:
             </a>
           ))}
         </div>
+        <label className="mt-6 flex items-center gap-2.5 text-sm text-ink-subtle cursor-pointer select-none">
+          <input
+            type="checkbox"
+            checked={optOut}
+            onChange={(e) => {
+              const off = e.target.checked;
+              setOptOut(off);
+              // Persist immediately — the popup may be dismissed any way.
+              void savePref(COOKIE_LAUNCHER, off ? 'off' : '');
+            }}
+            className="h-4 w-4 rounded border-line accent-ink"
+          />
+          {t(locale, 'dont_show_at_login')}
+        </label>
       </div>
     </div>
   );
