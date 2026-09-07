@@ -5,7 +5,7 @@
 
 import type { Metadata } from 'next';
 import { eur, feePhrase, isPoa, loadPlans, type CataloguePlan } from '@/lib/plans';
-import { startHref } from '@/lib/site';
+import { StartButton } from '@/components/start-dialog';
 import Link from 'next/link';
 
 export const metadata: Metadata = {
@@ -85,14 +85,25 @@ export default async function PricingPage() {
                   {' · '}
                   {feePhrase(p.meet_paid_pct, p.meet_paid_cap_cents)}
                 </p>
-                <a
-                  href={isPoa(p) ? '/contact' : startHref(p.id)}
-                  className={`mt-6 rounded-full px-5 py-2.5 text-center text-sm font-bold transition-all hover:-translate-y-px ${
-                    pro ? 'bg-ink text-white hover:shadow-lg' : 'border border-ink text-ink hover:bg-ink hover:text-white'
-                  }`}
-                >
-                  {isPoa(p) ? 'Talk to us' : 'Start a Thread'}
-                </a>
+                {isPoa(p) ? (
+                  <a
+                    href="/contact"
+                    className={`mt-6 rounded-full px-5 py-2.5 text-center text-sm font-bold transition-all hover:-translate-y-px ${
+                      pro ? 'bg-ink text-white hover:shadow-lg' : 'border border-ink text-ink hover:bg-ink hover:text-white'
+                    }`}
+                  >
+                    Talk to us
+                  </a>
+                ) : (
+                  <StartButton
+                    plan={p.id}
+                    className={`mt-6 w-full rounded-full px-5 py-2.5 text-center text-sm font-bold transition-all hover:-translate-y-px ${
+                      pro ? 'bg-ink text-white hover:shadow-lg' : 'border border-ink text-ink hover:bg-ink hover:text-white'
+                    }`}
+                  >
+                    Start a Thread
+                  </StartButton>
+                )}
               </div>
             );
           })}

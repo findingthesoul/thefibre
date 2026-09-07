@@ -6,7 +6,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { startHref } from '@/lib/site';
+import { StartButton } from '@/components/start-dialog';
 
 const LINKS = [
   { href: '/workshop', label: 'The workshop' },
@@ -58,12 +58,9 @@ export function SiteNav() {
             {l.label}
           </Link>
         ))}
-        <a
-          href={startHref()}
-          className="inline-block rounded-lg bg-accent px-5 py-2 text-[13px] font-bold text-ink transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,221,0,0.35)]"
-        >
+        <StartButton className="inline-block rounded-lg bg-accent px-5 py-2 text-[13px] font-bold text-ink transition-all hover:-translate-y-px hover:shadow-[0_4px_12px_rgba(255,221,0,0.35)]">
           Start a Thread
-        </a>
+        </StartButton>
       </div>
     </nav>
   );

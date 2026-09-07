@@ -7,7 +7,7 @@
 import type { Metadata } from 'next';
 import { APPS, tileArtUrl, type AppId } from '@thefibre/shared';
 import { Settle } from '@/components/settle';
-import { startHref } from '@/lib/site';
+import { StartButton } from '@/components/start-dialog';
 
 export const metadata: Metadata = {
   title: 'The workshop',
@@ -137,12 +137,7 @@ export default function WorkshopPage() {
 
       <div className="mx-auto mt-20 max-w-2xl text-center">
         <p className="text-lg font-medium">You bring the intention. The workshop holds the rest.</p>
-        <a
-          href={startHref()}
-          className="mt-6 inline-block rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
-        >
-          Start a Thread
-        </a>
+        <StartButton className="mt-6 inline-block rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg">Start a Thread</StartButton>
       </div>
     </main>
   );

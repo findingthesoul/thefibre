@@ -7,7 +7,7 @@
 
 import type { Metadata } from 'next';
 import { ENTITY } from '@thefibre/shared';
-import { startHref } from '@/lib/site';
+import { StartButton } from '@/components/start-dialog';
 import { Leaf, Vessel } from '@/components/shapes';
 
 export const metadata: Metadata = {
@@ -176,12 +176,7 @@ export default function AboutPage() {
           because how you treat people&apos;s data is part of how you treat people.
         </p>
         <div className="mt-10">
-          <a
-            href={startHref()}
-            className="inline-block rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg"
-          >
-            Start a Thread
-          </a>
+          <StartButton className="inline-block rounded-full bg-ink px-7 py-3 text-sm font-bold text-white transition-all hover:-translate-y-px hover:shadow-lg">Start a Thread</StartButton>
         </div>
       </section>
     </main>

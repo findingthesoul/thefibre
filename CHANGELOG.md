@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.66.0] — 2026-09-08 — website: Start a Thread is a popup on our own apex
+
+- Every "Start a Thread" CTA (nav, Home invitation + bottom button, pricing
+  cards, workshop, about) now opens a dialog on thethread.app itself
+  instead of hopping to thefibre.app/request-access: name, email,
+  organisation, "What are you weaving?", hidden desired_plan. Submits
+  server-to-server to the same public POST /api/v1/signup-requests the
+  Fibre form uses (apps/website/app/actions.ts mirrors the proven action);
+  success states cover auto-approved ("You're in" + sign-in), pending, and
+  already-requested. Enterprise keeps "Talk to us" → /contact.
+- The apex cut is approved by Sjoerd ("it's already better than what we
+  have now"); the Vercel domain move needs his dashboard click — the API
+  route is blocked for the agent by the permission classifier.
+
 ## [0.65.0] — 2026-09-08 — website: cues on every card, richer story copy
 
 - The turquoise SCROLL cue now sits next to the thread line on EVERY card
