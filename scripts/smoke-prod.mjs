@@ -61,11 +61,26 @@ for (const [slug, meta] of Object.entries(APPS)) {
   });
 }
 
-// The thethread.app apex (old landing) must keep serving until the website
-// rework — build-plan item 0.
-await check('thethread.app apex still serves the landing', async () => {
+// The thethread.app apex serves the marketing site (cut executed
+// 2026-09-08, apps/website via the thefibre-website Vercel project).
+await check('thethread.app apex serves the website', async () => {
   const r = await get('https://thethread.app/');
   if (!r.ok) throw new Error(`status ${r.status}`);
+  const html = await r.text();
+  const title = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
+  if (!title.includes('The Thread')) throw new Error(`title "${title}" lacks "The Thread"`);
+  if (!html.includes('social fabric')) throw new Error('home body lacks the fabric line');
+});
+await check('thethread.app/pricing is a real page', async () => {
+  const r = await get('https://thethread.app/pricing');
+  if (!r.ok) throw new Error(`status ${r.status}`);
+});
+await check('thethread.app/login still forwards to the app', async () => {
+  const r = await fetch('https://thethread.app/login', { redirect: 'manual' });
+  const loc = r.headers.get('location') ?? '';
+  if (!loc.startsWith('https://app.thethread.app')) {
+    throw new Error(`redirects to "${loc}"`);
+  }
 });
 
 // CORS: a registry origin is reflected; a foreign origin is not.

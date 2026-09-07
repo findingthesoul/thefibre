@@ -82,19 +82,23 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
      KEEPS SERVING until the website rework. Remaining: delete the V3
      Stripe webhook (https://thethread.app/api/webhooks/stripe) in the
      Stripe dashboard — Sjoerd.
-   - **thethread.app website rework** — BUILT v0.59.1 (apps/website, the
-     rewrite-plan executed; Vercel project thefibre-website, git-connected).
-     REVIEW VERDICT (Sjoerd, 2026-09-07): NOT approved — the workshop
-     page and the overall design aren't good enough; Sjoerd is making a
-     better design himself. DO NOT CUT the apex. The v1 build stays on
-     thefibre-website.vercel.app as scaffolding: the plumbing (five
-     routes, live pricing feed, redirects, shape/thread/settle
-     components, favicon/OG) is reusable under whatever design he
-     delivers — treat his design as the spec, reskin/rebuild to match.
-     THEN: THE CUT (move apex
-     + www from thethread-v3 project, TransIP repoint, smoke/E2E gain
-     new-apex assertions) → then archive thethread-v3. Act 2 queued:
-     scissors hero, photography pass (consent), thread-as-nav-progress.
+   - **thethread.app website rework** — LIVE ON THE APEX (cut executed
+     2026-09-08, v0.67.x). The design round happened live with Sjoerd
+     (v0.60.0–v0.67.0): his real paper-cut PNGs (public/shapes/),
+     scroll-scrubbed collages with physical easing, one fallen-thread
+     line hero→footer, per-card coloured scroll cues, moment-vs-journey
+     card, problem/solution pairs on /workshop, serious dark footer
+     (legal + stack + Fibre + safe-data commitment), Start-a-Thread
+     POPUP posting to /api/v1/signup-requests (no more thefibre.app
+     hop). Sjoerd approved ("already better than what we have now") and
+     moved apex + www to the thefibre-website project himself (Vercel
+     dashboard; DNS untouched — same account). smoke-prod now asserts
+     the new apex (title + fabric line, /pricing 200, /login →
+     app.thethread.app). Remaining: archive the thethread-v3 Vercel
+     project (after Sjoerd's V3 Stripe-webhook delete); OPTIONAL TransIP
+     apex A 76.76.21.21 → 216.150.1.1 (Vercel's new IP; legacy keeps
+     working). Act 2 queued: scissors hero, photography pass (consent),
+     thread-as-nav-progress, e2e/website.spec.ts five-route walk.
    - **Email sending domain**: platform mail still sends from
      @thefibre.app. The OLD Resend account has thethread.app verified
      (hello@/certificates@) — reconcile, don't duplicate, if/when app mail
