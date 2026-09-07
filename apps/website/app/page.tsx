@@ -155,7 +155,7 @@ export default async function Home() {
 
       {/* ── What this is, plainly — Sjoerd's collage compiles with the scroll. ── */}
       <div id="story" />
-      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-6 pt-16 md:px-10">
+      <section className="relative flex min-h-[100svh] snap-start flex-col items-center justify-center overflow-hidden px-6 pb-6 pt-28 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.fabric}
@@ -187,7 +187,7 @@ export default async function Home() {
       </section>
 
       {/* ── The workshop: text left, Sjoerd's portrait composition right. ── */}
-      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
+      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.workshop}
@@ -228,7 +228,7 @@ export default async function Home() {
       </section>
 
       {/* ── The foundation: art left, text right. ── */}
-      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-10">
+      <section className="relative flex min-h-[100svh] snap-start items-center overflow-hidden px-6 py-16 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.fibre}
@@ -275,7 +275,7 @@ export default async function Home() {
       </StoryScene>
 
       {/* ── The arc, grounded. ── */}
-      <section className="relative snap-start overflow-hidden bg-surface-warm px-6 py-24 md:px-10 md:py-32">
+      <section className="relative snap-start overflow-hidden bg-surface-warm px-6 py-24 md:px-20 md:py-32">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.arc}
@@ -337,7 +337,7 @@ export default async function Home() {
       </section>
 
       {/* ── Proof, quiet. ── */}
-      <section className="relative snap-start overflow-hidden border-y border-line px-6 py-16 md:px-10">
+      <section className="relative snap-start overflow-hidden border-y border-line px-6 py-16 md:px-20">
         <DrawnThread
           viewBox="0 0 1000 640"
           d={THREAD.proof}

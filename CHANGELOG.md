@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.63.4] — 2026-09-08 — website: air around the story
+
+- Card 2's text sits further off the top (pt-28) and every story section
+  gains 40px extra margin on each side of the centre container
+  (md:px-10 → md:px-20), Scene included.
+
 ## [0.63.3] — 2026-09-08 — website: turquoise scroll cue
 
 - The hero SCROLL cue (text + bouncing arrow) is turquoise (#2fb3ab),
