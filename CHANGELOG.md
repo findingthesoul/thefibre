@@ -6,6 +6,11 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.63.3] — 2026-09-08 — website: turquoise scroll cue
+
+- The hero SCROLL cue (text + bouncing arrow) is turquoise (#2fb3ab),
+  matching the teal of the paper cuts.
+
 ## [0.63.2] — 2026-09-08 — website: the coming-together turns physical
 
 - ScrollCollage v3: scroll position now only sets each piece's TARGET; the
