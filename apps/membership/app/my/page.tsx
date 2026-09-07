@@ -2,6 +2,7 @@
 // every membership held under your email, across communities. No workspace
 // membership required — outside the (app) group on purpose.
 
+import { appName } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { money } from '@/lib/money';
@@ -265,7 +266,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre
+        {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · The Fibre
       </footer>
     </Shell>
   );

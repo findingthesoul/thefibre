@@ -122,8 +122,11 @@ export const APPS: Record<AppId, AppBrand> = {
     available: true,
   },
   'membership': {
-    name: 'Membership',
-    shortName: 'Membership',
+    // "Let's call membership Members" (Sjoerd, 2026-09-07). Slug + domain
+    // never change; the display name is this line (the earlier Hyve idea
+    // would land the same way).
+    name: 'Members',
+    shortName: 'Members',
     brandLetters: 'mb',
     tagline: 'Your community, subscribed — tiers, renewals, access.',
     url: 'https://membership.thethread.app',

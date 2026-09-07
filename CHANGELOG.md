@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.58.4] — 2026-09-07 — Membership displays as "Members" (Members 0.13.1)
+
+### Changed
+- **The Membership app is called "Members"** (Sjoerd) — one branding.ts
+  line; slug `membership` and the domain never change. Launcher, sidebar,
+  app switcher, help, settings hub follow the registry.
+- The stray hardcoded display-name literals now DERIVE from the registry
+  (Powered-by footers, embed iframe title, dashboard tab title, contact
+  profile tab label, nav home key) — the next rename is truly one line.
+
+
 ## [0.58.3] — 2026-09-07 — the launcher learns manners
 
 ### Added

@@ -342,12 +342,12 @@ const CATALOG = {
     fr: 'Accueil', // MT
   },
   nav_membership: {
-    en: 'Membership',
-    nl: 'Lidmaatschap',
+    en: 'Members',
+    nl: 'Members',
     es: 'Membresía', // MT
-    pt: 'Associação', // MT
-    de: 'Mitgliedschaft', // MT
-    fr: 'Adhésion', // MT
+    pt: 'Members', // MT
+    de: 'Members', // MT
+    fr: 'Members', // MT
   },
   nav_community: {
     en: 'Community',

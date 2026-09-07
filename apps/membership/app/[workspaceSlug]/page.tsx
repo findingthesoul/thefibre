@@ -1,3 +1,4 @@
+import { appName } from '@thefibre/shared';
 import { notFound } from 'next/navigation';
 import { fetchCatalog, PublicApiError, type PublicCatalog } from '@/lib/public-api';
 import { isLocale, t, toLocale, type Locale } from '@/lib/i18n';
@@ -76,7 +77,7 @@ export default async function PublicJoinPage({
         <ProductGrid workspaceSlug={workspace.slug} products={products} locale={locale} />
 
         <footer className="mt-16 text-xs text-ink-muted text-center">
-          {t(locale, 'powered_by')} <span className="font-medium">Membership</span> · The Fibre
+          {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · The Fibre
         </footer>
       </main>
     </div>

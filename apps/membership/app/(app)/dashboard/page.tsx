@@ -1,3 +1,4 @@
+import { appName } from '@thefibre/shared';
 import Link from 'next/link';
 import { CalendarClock, UserPlus, Users, Banknote } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
@@ -7,7 +8,7 @@ import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { StatusBadge } from '../members/status-badge';
 import { personName, type Member, type Tier } from '../members/types';
 
-export const metadata = { title: 'Membership' };
+export const metadata = { title: appName('membership') };
 
 const DAY = 24 * 60 * 60 * 1000;
 

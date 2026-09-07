@@ -4,6 +4,7 @@
 // Replaces the raw-iframe-plus-inline-script snippets the embeds card
 // used to emit (those keep working — the height message is unchanged).
 
+import { APPS } from '@thefibre/shared';
 import { buildEmbedLoader } from '@thefibre/shared/embed-loader';
 
 const HEADER = `/* Membership — embeddable widgets (tier cards, join button).
@@ -28,7 +29,7 @@ const HEADER = `/* Membership — embeddable widgets (tier cards, join button).
 const JS = buildEmbedLoader({
   ns: 'membership-embed',
   flag: '__membershipEmbedLoaded',
-  title: 'Membership',
+  title: APPS.membership.name,
   header: HEADER,
   kinds: {
     tiers: {

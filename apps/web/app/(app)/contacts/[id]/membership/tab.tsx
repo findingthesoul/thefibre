@@ -1,6 +1,6 @@
 import { apiFetch } from '@/lib/api';
 import { SectionLabel, EmptyState } from '@/components/ui/page';
-import { appUrl } from '@thefibre/shared';
+import { appUrl, appName } from '@thefibre/shared';
 import { t, INTL_LOCALES, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 type Tier = {
@@ -97,7 +97,7 @@ function MemberCard({ member, locale }: { member: Member; locale: Locale }) {
   return (
     <section className="mt-8">
       <div className="flex items-center justify-between">
-        <SectionLabel>Membership</SectionLabel>
+        <SectionLabel>{appName('membership')}</SectionLabel>
         <a
           href={appUrl('membership', process.env)}
           className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
