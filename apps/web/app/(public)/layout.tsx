@@ -32,7 +32,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         {children}
       </div>
 
-      <MarketingFooter />
+      <MarketingFooter variant="fibre" />
     </main>
   );
 }

@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.9] — 2026-09-08 — the fibre pages wear a Fibre footer
+
+- MarketingFooter grows a 'fibre' variant — same structure and safe-data
+  commitment, but the Fibre wordmark on quiet neutral instead of the
+  Thread's yellow band. The fibre public pages (terms, privacy, support,
+  about, pricing, landing) use it, so thefibre.app is a Fibre page down to
+  its last pixel; thethread.app keeps the yellow.
+
 ## [0.68.8] — 2026-09-08 — website: the Before card in Sjoerd's words
 
 - Home arc "Intention" card: "…an enrolment page, tickets if you want them

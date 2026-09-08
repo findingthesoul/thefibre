@@ -17,16 +17,32 @@ const COL_TITLE = 'text-[11px] font-bold uppercase tracking-[0.18em] text-[#1a1a
 const COL_LINK =
   'text-[13px] leading-6 text-[#1a1a2e]/75 transition-colors hover:text-[#1a1a2e]';
 
-export function MarketingFooter({ className = '' }: { className?: string }) {
+export function MarketingFooter({
+  className = '',
+  variant = 'thread',
+}: {
+  className?: string;
+  /** 'thread' = the yellow brand band (thethread.app); 'fibre' = the same
+   *  structure in the Fibre's quiet neutral, so thefibre.app stays a
+   *  FIBRE page (Sjoerd, 2026-09-08). */
+  variant?: 'thread' | 'fibre';
+}) {
+  const fibre = variant === 'fibre';
   return (
-    <footer className={`bg-[#ffdd00] ${INK} ${className}`}>
+    <footer
+      className={`${fibre ? 'border-t border-neutral-200 bg-neutral-50' : 'bg-[#ffdd00]'} ${INK} ${className}`}
+    >
       <div className="mx-auto max-w-6xl px-6 py-14 md:px-20">
         <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={`${WEBSITE}/logo-the-thread.svg`} alt="The Thread" className="h-7 w-auto" />
+            <img
+              src={fibre ? 'https://thefibre.app/brand/the-fibre.png' : `${WEBSITE}/logo-the-thread.svg`}
+              alt={fibre ? 'The Fibre' : 'The Thread'}
+              className="h-7 w-auto"
+            />
             <p className="mt-4 text-[13px] leading-6 text-[#1a1a2e]/75">
-              Tools to facilitate change.
+              {fibre ? 'The data platform beneath The Thread.' : 'Tools to facilitate change.'}
             </p>
           </div>
 
@@ -85,8 +101,8 @@ export function MarketingFooter({ className = '' }: { className?: string }) {
       </div>
 
       <div className="border-t border-[#1a1a2e]/10 py-4 text-center text-xs text-[#1a1a2e]/50">
-        © {new Date().getFullYear()} {ENTITY.publicName} · No advertising. No profiling. No data
-        sold.
+        © {new Date().getFullYear()} {fibre ? 'The Fibre' : ENTITY.publicName} · No advertising.
+        No profiling. No data sold.
       </div>
     </footer>
   );
