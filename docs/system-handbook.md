@@ -419,7 +419,10 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   narrative style — say *why*, record decisions and reversals explicitly).
   Groom `docs/build-plan.md`'s Open queue in the same ship.
 - **After every ship** (standing authorization): push ONLY via
-  `./scripts/release.sh <version>` (guard → ten-file version consistency →
+  `./scripts/release.sh <version>` (guard → version consistency across every
+  workspace package — DERIVED from `apps/*/package.json` + root +
+  `packages/shared` since v0.68.20, never hand-listed, so an eighth app is
+  covered the moment it exists →
   no staged leftovers → `pnpm verify` → push main + main:staging — one
   `set -e` script, born 2026-09-08 after a broken `&&` chain pushed past a
   guard refusal). Then `bash scripts/db-push-prod.sh` + `db-push-staging.sh`
