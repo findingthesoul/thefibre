@@ -6,6 +6,17 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.19] — 2026-09-08 — website: a hamburger next to Start a Thread
+
+Below the sm breakpoint the nav's link row is hidden, so a phone visitor
+could reach nothing but the Start button — Why, The workshop, Pricing,
+About, Contact and Sign in were simply unreachable. A hamburger now sits
+right of the Start button (mobile only; desktop keeps its inline links):
+inline-drawn icon (no new deps) flipping to an ×, dropping a white card
+with the five links and Sign in behind a divider. Closes on link tap,
+outside tap, and Escape. Verified at 375px (open/close, all six entries)
+and 1280px (hamburger absent, seven inline links) on a local render.
+
 ## [0.68.18] — 2026-09-08 — snap-controller comment tells the truth about mobile
 
 Comment-only: snap-controller.tsx's header claimed "mobile stays proximity
