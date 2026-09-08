@@ -122,15 +122,28 @@ export function UserMenu({
     });
   }
 
+  // The workspace you are standing in, named in front of the avatar
+  // (Sjoerd, 2026-09-08: "e.g. soul.com  SL"). Derived from the switcher
+  // list — the active entry is always present, even for single-workspace
+  // people whose choice section stays hidden.
+  const activeWorkspaceName = workspaces.find((w) => w.is_active)?.name ?? null;
+
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-sunken text-ink-subtle text-xs font-medium hover:text-ink ring-1 ring-line"
+        className="group flex items-center gap-2"
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {initials}
+        {activeWorkspaceName && (
+          <span className="hidden max-w-[11rem] truncate text-sm text-ink-subtle group-hover:text-ink sm:block">
+            {activeWorkspaceName}
+          </span>
+        )}
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-surface-sunken text-ink-subtle text-xs font-medium ring-1 ring-line group-hover:text-ink">
+          {initials}
+        </span>
       </button>
 
       {open && (

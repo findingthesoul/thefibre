@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.10] — 2026-09-08 — the workspace, named beside the avatar
+
+- The shared avatar menu shows the active workspace's name in front of the
+  icon ("soul.com  SL") in all six apps — derived from the switcher list,
+  no per-app wiring; hidden on the smallest screens, truncated past 11rem.
+
 ## [0.68.9] — 2026-09-08 — the fibre pages wear a Fibre footer
 
 - MarketingFooter grows a 'fibre' variant — same structure and safe-data
