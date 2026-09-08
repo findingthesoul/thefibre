@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.20] — 2026-09-08 — my.thethread.app: the visitor's own place
+
+The eighth app, `apps/my` (dev port 3007) — the surface for the API that
+shipped in 0.68.15. Sign in with email + a code, then everything you are
+part of, grouped by the organiser you know.
+
+- **The ticket is the point.** Today a thread's QR exists only inside the
+  enrolment email; delete the email and you are on the door volunteer's
+  name-search fallback. The portal shows it, and tapping opens it
+  full-screen on white — a phone at a door is held at arm's length, often
+  half-turned toward someone else, sometimes in the sun.
+- **Email + a code, and nothing else.** No Google button: a visitor arriving
+  from a ticket email has already proved they hold that mailbox, and
+  offering four ways in is how a simple door stops feeling simple.
+- Per organiser: tickets, threads with their agenda and links, meetings,
+  membership. One API call; no Supabase read beyond the session itself.
+- Registered as a SURFACE, not an app — no AppId, no activation, no
+  membership. `thefibre-my` joins scripts/verify-vercel-env.mjs (NAMES +
+  NEXT_PUBLIC_MY_URL for staging).
+
+**release.sh no longer hand-keeps its version list.** It derives from
+`apps/*/package.json` + root + packages/shared, so the eighth app was
+covered the moment it existed. The hardcoded ten would have skipped
+apps/my silently — the same shape as the CORS list that forgot
+membership.thefibre.tech. Portable to macOS bash 3.2 (no `mapfile`).
+
+Not yet: the Vercel project and DNS (docs/my-portal-setup.md has the steps,
+and nothing can point at the app until it exists — which it now does), the
+PWA, and the per-thread door capability.
+
 ## [0.68.19] — 2026-09-08 — website: a hamburger next to Start a Thread
 
 Below the sm breakpoint the nav's link row is hidden, so a phone visitor

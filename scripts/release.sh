@@ -6,8 +6,9 @@
 # ever happen through this script, that cannot recur.
 #
 # Usage: ./scripts/release.sh <version>
-# Expects the release commit to already exist locally (ten package.jsons,
-# apps/web/lib/version.ts and the CHANGELOG heading all at <version>).
+# Expects the release commit to already exist locally (every workspace
+# package.json, apps/web/lib/version.ts and the CHANGELOG heading all at
+# <version>).
 set -euo pipefail
 
 V="${1:?usage: release.sh <version>}"
@@ -18,10 +19,16 @@ git fetch origin
 
 # Every version surface must already agree with $V — refuse a half-prepared
 # release rather than pushing one.
-for f in package.json apps/web/package.json apps/api/package.json \
-  apps/meet/package.json apps/thread/package.json apps/flow/package.json \
-  apps/pulse/package.json apps/membership/package.json \
-  apps/website/package.json packages/shared/package.json; do
+# The list is DERIVED, not written out: apps/my (2026-09-08) was the eighth
+# app, and a hand-kept list is how membership.thefibre.tech went missing from
+# CORS and how three other "new thing forgotten in a list" bugs happened. A
+# new app under apps/* is now covered the moment it exists.
+# (Portable to macOS's bash 3.2 — no mapfile, no arrays needed.)
+VERSION_FILES="package.json packages/shared/package.json"
+for d in apps/*/; do
+  [ -f "$d/package.json" ] && VERSION_FILES="$VERSION_FILES ${d}package.json"
+done
+for f in $VERSION_FILES; do
   got=$(node -p "require('./$f').version")
   if [ "$got" != "$V" ]; then
     echo "REFUSED: $f is at $got, not $V" >&2

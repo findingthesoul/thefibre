@@ -30,7 +30,7 @@ async function v(path, init = {}) {
   return body;
 }
 
-const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership', 'thefibre-website'];
+const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership', 'thefibre-website', 'thefibre-my'];
 // The marketing site is not a product app: no Supabase, no cookies, no
 // staging twin. Only this key applies to it (production scope only).
 const WEBSITE = 'thefibre-website';
@@ -60,6 +60,7 @@ const MATRIX = {
     NEXT_PUBLIC_FLOW_URL: T('flow.thefibre.tech'),
     NEXT_PUBLIC_PULSE_URL: T('pulse.thefibre.tech'),
     NEXT_PUBLIC_MEMBERSHIP_URL: T('membership.thefibre.tech'),
+    NEXT_PUBLIC_MY_URL: T('my.thefibre.tech'),
   },
 };
 
