@@ -14,6 +14,7 @@
 // NL is unmarked: Sjoerd reviews it pre-ship.
 
 import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
+import { PARTICIPANT_AUTH } from '@thefibre/shared/participant-auth-i18n';
 
 // Re-export the shared locale primitives so pages import ONE module.
 export {
@@ -27,6 +28,11 @@ export {
 export type { Locale } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // Shared participant sign-in strings (email code + Google) — one copy
+  // for every participant portal, in @thefibre/shared/participant-auth-i18n.
+  // Includes the generic something_wrong.
+  ...PARTICIPANT_AUTH,
+
   // ── shared ────────────────────────────────────────────────────────────
   powered_by: {
     en: 'Powered by',
@@ -183,14 +189,6 @@ const CATALOG = {
     pt: 'Preencha seu nome e e-mail.', // MT
     de: 'Bitte gib deinen Namen und deine E-Mail-Adresse an.', // MT
     fr: 'Renseigne ton nom et ton adresse e-mail.', // MT
-  },
-  something_wrong: {
-    en: 'Something went wrong — please try again.',
-    nl: 'Er ging iets mis — probeer het opnieuw.',
-    es: 'Algo salió mal — inténtalo de nuevo.', // MT
-    pt: 'Algo deu errado — tente novamente.', // MT
-    de: 'Etwas ist schiefgelaufen — bitte versuche es erneut.', // MT
-    fr: 'Une erreur s’est produite — réessaie.', // MT
   },
   continue_to_payment: {
     en: 'Continue to payment',

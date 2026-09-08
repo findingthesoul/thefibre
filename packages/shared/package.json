@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.20",
+  "version": "0.68.21",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -101,6 +101,10 @@
     "./i18n": {
       "types": "./dist/i18n.d.ts",
       "default": "./dist/i18n.js"
+    },
+    "./participant-auth-i18n": {
+      "types": "./dist/participant-auth-i18n.d.ts",
+      "default": "./dist/participant-auth-i18n.js"
     },
     "./embed-loader": {
       "types": "./dist/embed-loader.d.ts",

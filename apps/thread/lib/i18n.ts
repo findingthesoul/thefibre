@@ -12,6 +12,7 @@
 // Internal/admin UI stays English; this is for the outside world.
 
 import { makeT, type I18nEntry } from '@thefibre/shared/i18n';
+import { PARTICIPANT_AUTH } from '@thefibre/shared/participant-auth-i18n';
 
 export {
   LOCALES,
@@ -22,6 +23,10 @@ export {
 } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // Shared participant sign-in strings (email code + Google) — one copy
+  // for every participant portal, in @thefibre/shared/participant-auth-i18n.
+  ...PARTICIPANT_AUTH,
+
   // ── shared ────────────────────────────────────────────────────────────
   free: {
     en: 'Free',
@@ -405,14 +410,6 @@ const CATALOG = {
     de: 'Bitte fülle „{field}“ aus.',
     fr: 'Merci de remplir « {field} ».', // MT
   },
-  something_wrong: {
-    en: 'Something went wrong — please try again.',
-    nl: 'Er ging iets mis — probeer het opnieuw.',
-    es: 'Algo salió mal — inténtalo de nuevo.',
-    pt: 'Algo deu errado — tente novamente.',
-    de: 'Etwas ist schiefgelaufen — bitte versuche es erneut.',
-    fr: 'Un problème est survenu — réessaie.', // MT
-  },
   email_consent_note: {
     en: "We'll email you about this thread (that's required to take part). Nothing else without your say-so.",
     nl: 'We mailen je over deze thread (nodig om mee te doen). Verder niets zonder jouw toestemming.',
@@ -490,95 +487,8 @@ const CATALOG = {
     fr: 'Aussi dans ce thread', // MT
   },
 
-  // ── sign-in (email code + Google) ────────────────────────────────────
-  sign_in_google: {
-    en: 'Continue with Google',
-    nl: 'Doorgaan met Google',
-    es: 'Continuar con Google',
-    pt: 'Continuar com o Google',
-    de: 'Weiter mit Google',
-    fr: 'Continuer avec Google', // MT
-  },
-  email_me_code: {
-    en: 'Email me a code',
-    nl: 'Mail mij een code',
-    es: 'Envíame un código',
-    pt: 'Envie-me um código',
-    de: 'Code per E-Mail senden',
-    fr: 'Recevoir un code par e-mail', // MT
-  },
-  code_sent: {
-    en: 'We sent an 8-digit code to {email}.',
-    nl: 'We hebben een 8-cijferige code gestuurd naar {email}.',
-    es: 'Hemos enviado un código de 8 dígitos a {email}.',
-    pt: 'Enviamos um código de 8 dígitos para {email}.',
-    de: 'Wir haben einen 8-stelligen Code an {email} gesendet.',
-    fr: 'Nous avons envoyé un code à 8 chiffres à {email}.', // MT
-  },
-  enter_code: {
-    en: 'Enter the 8-digit code',
-    nl: 'Voer de 8-cijferige code in',
-    es: 'Introduce el código de 8 dígitos',
-    pt: 'Digite o código de 8 dígitos',
-    de: 'Gib den 8-stelligen Code ein',
-    fr: 'Saisis le code à 8 chiffres', // MT
-  },
-  verify_code: {
-    en: 'Verify code',
-    nl: 'Code bevestigen',
-    es: 'Verificar código',
-    pt: 'Verificar código',
-    de: 'Code bestätigen',
-    fr: 'Vérifier le code', // MT
-  },
-  sending: {
-    en: 'Sending…',
-    nl: 'Versturen…',
-    es: 'Enviando…',
-    pt: 'Enviando…',
-    de: 'Wird gesendet…',
-    fr: 'Envoi en cours…', // MT
-  },
-  verifying: {
-    en: 'Verifying…',
-    nl: 'Verifiëren…',
-    es: 'Verificando…',
-    pt: 'Verificando…',
-    de: 'Wird geprüft…',
-    fr: 'Vérification…', // MT
-  },
-  redirecting: {
-    en: 'Redirecting…',
-    nl: 'Doorsturen…',
-    es: 'Redirigiendo…',
-    pt: 'Redirecionando…',
-    de: 'Weiterleitung…',
-    fr: 'Redirection…', // MT
-  },
-  use_different_email: {
-    en: 'Use a different email',
-    nl: 'Gebruik een ander e-mailadres',
-    es: 'Usar otro correo',
-    pt: 'Usar outro e-mail',
-    de: 'Andere E-Mail-Adresse verwenden',
-    fr: 'Utiliser une autre adresse e-mail', // MT
-  },
-  code_send_failed: {
-    en: "We couldn't send the code — check the address and try again.",
-    nl: 'We konden de code niet versturen — controleer het adres en probeer het opnieuw.',
-    es: 'No pudimos enviar el código — revisa la dirección e inténtalo de nuevo.',
-    pt: 'Não foi possível enviar o código — verifique o endereço e tente novamente.',
-    de: 'Der Code konnte nicht gesendet werden — prüfe die Adresse und versuche es erneut.',
-    fr: "Impossible d'envoyer le code — vérifie l'adresse et réessaie.", // MT
-  },
-  code_invalid: {
-    en: "That code didn't work — check it and try again.",
-    nl: 'Die code werkte niet — controleer de code en probeer het opnieuw.',
-    es: 'Ese código no funcionó — revísalo e inténtalo de nuevo.',
-    pt: 'Esse código não funcionou — verifique e tente novamente.',
-    de: 'Dieser Code hat nicht funktioniert — prüfe ihn und versuche es erneut.',
-    fr: "Ce code n'a pas fonctionné — vérifie-le et réessaie.", // MT
-  },
+  // ── sign-in (email code + Google): shared keys spread above; only the
+  // Thread-specific portal_expired stays here ─────────────────────────
   portal_expired: {
     en: 'This link has expired — enrol again or use a newer email.',
     nl: 'Deze link is verlopen — schrijf je opnieuw in of gebruik een nieuwere e-mail.',

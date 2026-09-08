@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.21] — 2026-09-08 — one copy of the participant sign-in strings (Members 0.14.1)
+
+The passwordless email-code + Google sign-in copy lived twice — six
+locales in the Thread's catalog, hardcoded English in Membership's two
+sign-in components — with apps/my poised to become a third copy.
+
+- **New shared catalog** `@thefibre/shared/participant-auth-i18n` (also
+  exported from the root index): the 12 participant-auth keys
+  (`sign_in_google`, `email_me_code`, `code_sent`, `enter_code`,
+  `verify_code`, `sending`, `verifying`, `redirecting`,
+  `use_different_email`, `code_send_failed`, `code_invalid`, and the
+  genuinely-duplicated `something_wrong`), Thread's copy verbatim
+  (design-leading), `// MT` marks preserved. Plain TS, hook-free,
+  server-renderable — the chrome-server-i18n pattern.
+- **Thread + Membership** spread `...PARTICIPANT_AUTH` into their typed
+  catalogs; the duplicate entries are deleted. Thread's keys and copy are
+  unchanged for users.
+- **Membership speaks six languages at sign-in** (0.14.1): the /my portal
+  and oauth-continue sign-in components read the catalog instead of
+  hardcoded English, converged on the Thread's copy ("Verify code" instead
+  of "Sign in" on the code submit; the terser "We sent an 8-digit code to
+  {email}."), and Supabase's raw `error.message` is replaced by the
+  localized `code_send_failed` / `code_invalid` / `something_wrong`.
+  `SignInButton` grew an optional `locale` prop.
+- **apps/my is the noted pending consumer** — when the visitor portal
+  grows i18n it adopts this catalog rather than a fourth copy.
+
+
 ## [0.68.20] — 2026-09-08 — my.thethread.app: the visitor's own place
 
 The eighth app, `apps/my` (dev port 3007) — the surface for the API that

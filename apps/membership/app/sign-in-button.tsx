@@ -1,11 +1,21 @@
 'use client';
 
+// Sign-in for Membership's surfaces: Google OAuth plus the platform's
+// passwordless 8-digit email code (Supabase OTP — same flow as
+// apps/thread/app/sign-in-button.tsx). Copy comes from the shared
+// participant-auth catalog via lib/i18n, so the /my portal renders it in
+// the member's locale.
+
 import { useState } from 'react';
 import { browserSupabase } from '@/lib/supabase/client';
+import { t, type Locale } from '@/lib/i18n';
 
 type Stage = 'idle' | 'enter-email' | 'enter-code';
 
-export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
+export function SignInButton({
+  next = '/dashboard',
+  locale = 'en',
+}: { next?: string; locale?: Locale } = {}) {
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState<Stage>('idle');
   const [email, setEmail] = useState('');
@@ -25,7 +35,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
     });
     if (error) {
       console.error(error);
-      setError(error.message);
+      setError(t(locale, 'something_wrong'));
       setBusy(false);
     }
   }
@@ -45,7 +55,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
     setBusy(false);
     if (error) {
       console.error(error);
-      setError(error.message);
+      setError(t(locale, 'code_send_failed'));
       return;
     }
     setStage('enter-code');
@@ -63,7 +73,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
     });
     if (error) {
       console.error(error);
-      setError(error.message);
+      setError(t(locale, 'code_invalid'));
       setBusy(false);
       return;
     }
@@ -78,7 +88,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
         disabled={busy}
         className="w-full rounded-md bg-ink text-ink-inverse px-5 py-2.5 text-sm font-medium hover:opacity-90 disabled:opacity-50"
       >
-        {busy && stage === 'idle' ? 'Redirecting…' : 'Continue with Google'}
+        {busy && stage === 'idle' ? t(locale, 'redirecting') : t(locale, 'sign_in_google')}
       </button>
 
       {stage === 'idle' && (
@@ -87,7 +97,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
           onClick={() => setStage('enter-email')}
           className="w-full text-sm text-ink-subtle hover:text-ink underline underline-offset-4"
         >
-          or sign in with an email code
+          {t(locale, 'email_me_code')}
         </button>
       )}
 
@@ -113,7 +123,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
             disabled={busy || !email.trim()}
             className="w-full rounded-md border border-line bg-surface-raised text-ink px-4 py-2 text-sm font-medium hover:bg-surface-sunken disabled:opacity-50"
           >
-            {busy ? 'Sending…' : 'Email me a sign-in code'}
+            {busy ? t(locale, 'sending') : t(locale, 'email_me_code')}
           </button>
         </form>
       )}
@@ -127,8 +137,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
           className="space-y-2"
         >
           <div className="text-xs text-ink-subtle">
-            Check <strong>{email}</strong>. Enter the 8-digit code below, or
-            click the link in the email.
+            {t(locale, 'code_sent', { email })}
           </div>
           <input
             type="text"
@@ -138,6 +147,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ''))}
             placeholder="12345678"
+            aria-label={t(locale, 'enter_code')}
             required
             autoFocus
             className="w-full rounded-md border border-line bg-surface-raised px-3 py-2 text-base tracking-[0.3em] text-center font-mono focus:border-line-strong focus:outline-none"
@@ -147,7 +157,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
             disabled={busy || code.length < 8}
             className="w-full rounded-md bg-ink text-ink-inverse px-4 py-2 text-sm font-medium hover:opacity-90 disabled:opacity-50"
           >
-            {busy ? 'Verifying…' : 'Sign in'}
+            {busy ? t(locale, 'verifying') : t(locale, 'verify_code')}
           </button>
           <button
             type="button"
@@ -158,7 +168,7 @@ export function SignInButton({ next = '/dashboard' }: { next?: string } = {}) {
             }}
             className="block w-full text-center text-xs text-ink-muted hover:text-ink-subtle underline underline-offset-2"
           >
-            Use a different email
+            {t(locale, 'use_different_email')}
           </button>
         </form>
       )}

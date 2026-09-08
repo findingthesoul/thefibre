@@ -71,6 +71,14 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 // can keep importing from the root.
 export * from './i18n.js';
 
+// Participant sign-in catalog (email code + Google) — shared by every
+// participant-facing portal; also the subpath './participant-auth-i18n'.
+export {
+  PARTICIPANT_AUTH,
+  participantAuthT,
+  type ParticipantAuthKey,
+} from './participant-auth-i18n.js';
+
 // Touching this file rebuilds all five Vercel apps (they all depend on
 // @thefibre/shared) — used 2026-09-04 to force staging env-var pickup.
 // rebuild marker 2 (meet env fix, 2026-09-04)
