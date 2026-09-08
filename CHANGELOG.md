@@ -13,6 +13,12 @@ via the media query" — since 0.68.17 mobile has no snap at all. The comment
 now says so (asked for by the website session; comments and CSS must agree
 or the next reader "fixes" the wrong one).
 
+## [0.68.18] — 2026-09-08 — website: snap-controller comment tells the truth
+
+- After 0.68.17 removed mobile snapping entirely, the controller's header
+  still claimed "mobile stays proximity" — reworded to match the CSS.
+  Comment-only; behaviour unchanged.
+
 ## [0.68.17] — 2026-09-08 — the landing-page magnet is desktop-only
 
 Sjoerd on mobile: "the magnetic is not working - showing weird behaviour."
