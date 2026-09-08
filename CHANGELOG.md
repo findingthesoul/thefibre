@@ -6,6 +6,19 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.17] — 2026-09-08 — the landing-page magnet is desktop-only
+
+Sjoerd on mobile: "the magnetic is not working - showing weird behaviour."
+The base `scroll-snap-type: y proximity` applied at every width — only the
+mandatory upgrade was desktop-gated — while every landing section is
+min-h-[100svh], i.e. taller than a phone viewport. Snap points on sections
+taller than the screen fight iOS momentum scrolling: flicks ending near a
+card edge get yanked, mid-card stops rubber-band. The proximity base now
+lives inside the same `min-width: 768px` block as the zoned mandatory
+upgrade, so phones scroll fully native and the desktop deck keeps its
+magnetic feel (verified at 375px → snap none, and 1280px → y mandatory in
+the deck, on a local render).
+
 ## [0.68.16] — 2026-09-08 — the thread editor stops crashing on template-made threads (Thread 3.38.2)
 
 Sjoerd opened a thread made from the "two-day event" template and got

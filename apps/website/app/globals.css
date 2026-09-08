@@ -18,19 +18,22 @@
 html {
   color-scheme: light;
   scroll-behavior: smooth;
-  /* The magnet (Sjoerd): each full-page card pulls the scroll onto
-     itself. PROXIMITY, not mandatory: mandatory + anything without a
-     snap point (the footer, tall cards) traps the scroll — the browser
-     re-snaps erratically and you "can't scroll up from the footer".
-     Proximity keeps the pull near card edges and stays out of the way
-     everywhere else. */
-  scroll-snap-type: y proximity;
 }
 
-/* The zoned magnet (components/snap-controller.tsx): full mandatory pull
-   inside the Home card deck on desktop; proximity in the page tail and on
-   mobile, where sections routinely exceed one viewport. */
+/* The magnet (Sjoerd): each full-page card pulls the scroll onto itself —
+   DESKTOP ONLY. On mobile every landing section exceeds one viewport, and
+   any snap there (even proximity) fights momentum scrolling: flicks ending
+   near a card edge get yanked, mid-card stops rubber-band (Sjoerd
+   2026-09-08: "showing weird behaviour on mobile"). Mobile scrolls native.
+
+   On desktop: PROXIMITY as the base, not mandatory — mandatory + anything
+   without a snap point (the footer, tall cards) traps the scroll. The zoned
+   magnet (components/snap-controller.tsx) upgrades to mandatory inside the
+   Home card deck only. */
 @media (min-width: 768px) {
+  html {
+    scroll-snap-type: y proximity;
+  }
   html[data-snap='hard'] {
     scroll-snap-type: y mandatory;
   }
