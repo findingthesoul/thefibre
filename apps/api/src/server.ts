@@ -22,6 +22,7 @@ import { membershipRoutes, runMembershipScheduler } from './routes/membership.js
 import { runBillingMeterTick } from './routes/billing.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
+import { portalRoutes } from './routes/portal.js';
 import { oauthProviderRoutes } from './routes/oauth-provider.js';
 import { teamsRoutes } from './routes/teams.js';
 import { threadRoutes, runThreadMessageScheduler } from './routes/thread.js';
@@ -223,6 +224,8 @@ v1.route('/pulse', pulseRoutes);
 v1.route('/membership', membershipRoutes);
 v1.route('/currencies', currenciesRoutes);
 v1.route('/membership/portal', membershipPortalRoutes);
+// The visitor's own place, across every app (docs/visitor-portal-proposal.md).
+v1.route('/me', portalRoutes);
 v1.route('/oauth', oauthProviderRoutes);
 v1.route('/teams', teamsRoutes);
 v1.route('/thread', threadRoutes);

@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.15] — 2026-09-08 — the visitor portal's API
+
+The participant's own place, across every app: `GET /api/v1/me/portal`
+returns tickets, threads (with agenda + links), meets and memberships for
+one person, grouped by the organiser they know — which is the workspace
+(Sjoerd, 2026-09-08: "organiser in the eyes of the visitor can be
+workspace"). docs/visitor-portal-proposal.md holds the decisions.
+
+- **The third sanctioned data-wall crossing.** Reading three apps' schemas
+  in one response is forbidden everywhere else. It is allowed here because
+  the wall stops APPS reading each OTHER; this is the PLATFORM composing,
+  for the data subject, a view of their own data (GDPR Art. 15). No app
+  gains a read it did not have. Stated in the route's own header so a
+  future session doesn't "fix" it.
+- `lib/participant-auth.ts` — participantEmailFromAuth promoted out of the
+  two copies in thread.ts and membership-portal.ts. Those still hold their
+  own; the comment calling the duplication deliberate stops being true only
+  now that a third caller exists, and swapping them is its own change.
+- `/api/v1/me/` joins PUBLIC_PREFIXES: the participant JWT is verified in
+  the handler, and the caller has no workspace claims and no X-App-ID.
+- **The email filter IS the security model.** Every query runs on
+  adminClient, so RLS protects nothing here; each one is scoped explicitly
+  to person rows matching the verified email. Said in the file, at length,
+  because the doc won't be open when someone edits the handler.
+- **Dual keys.** meet_booking.invitee_person_id is nullable and
+  invitee_email is not; neither column alone finds all of a visitor's rows.
+  Two typed queries merged by id — never a PostgREST .or() string with the
+  email interpolated into filter syntax, where `,` `(` `)` `.` are
+  meaningful. A verified email proves someone receives mail there, not that
+  it is inert inside a query language. Same trap waits on `purchase`.
+- Tickets carry a QR only when the door would honour it (paid /
+  not_required / invoice_sent, never dropped) — an unpaid enrolment still
+  shows as a thread. A refused ticket at the front of a queue is worse than
+  no ticket. Locked by 8 unit tests in lib/portal.test.ts.
+- Two column errors caught by probing real data, invisible to typecheck
+  because the Supabase client is untyped: `thread_thread.location` doesn't
+  exist (threads have no location — the place is on the engagement, which
+  is why the ticket email leaves it null; the portal now takes the first
+  agenda item that names one), and `meet_host.display_name` doesn't exist
+  (the host's name is on the user row, slug as fallback).
+
+Not yet: the my.thethread.app surface itself, the PWA, and the per-thread
+door capability that would let a volunteer scan without workspace
+membership. No client calls this route yet.
+
 ## [0.68.14] — 2026-09-08 — website: Sign in reaches the nav
 
 - thethread.app's nav gains a quiet "Sign in" link (→ app.thethread.app)

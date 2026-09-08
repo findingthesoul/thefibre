@@ -139,6 +139,11 @@ const PUBLIC_PREFIXES = [
   // + the OAuth provider endpoints (their own auth story by definition).
   '/api/v1/membership/portal/',
   '/api/v1/oauth/',
+  // The visitor's own place — tickets, threads, meets and memberships for
+  // one person, grouped by organiser. Same /my pattern: the participant JWT
+  // is verified inside the handler and the verified email is the only scope.
+  // No workspace claims, no X-App-ID; the caller has neither.
+  '/api/v1/me/',
 ];
 
 // ---------------------------------------------------------------------------
