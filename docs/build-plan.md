@@ -20,7 +20,7 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
+_Last groomed 2026-09-08 (v0.68.15). Done items get removed, not ticked._
 
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
@@ -58,6 +58,36 @@ _Last groomed 2026-09-06 (v0.52.0). Done items get removed, not ticked._
      dirty form.
    Onboarding + tour is NOT tracked here: it's docs/onboarding-proposal.md
    (per-app emergent checklist), being built alongside the landing pages.
+
+**0c. Visitor portal (docs/visitor-portal-proposal.md).** The participant's
+   own place: tickets, threads (agenda + links), meets and memberships for
+   one person, grouped by organiser workspace. Decisions D1-D3 taken
+   2026-09-08 (third sanctioned data-wall crossing / own surface / group by
+   workspace). **API SHIPPED v0.68.15** — GET /api/v1/me/portal, live on Fly
+   prod + staging, 8 unit tests, no client calling it yet. branding.ts
+   SURFACES registry + CORS derivation landed v0.68.13. Remaining:
+   - **Sjoerd:** TransIP A record for my.thethread.app + an eighth Vercel
+     project (nothing is broken while these wait — no client calls the
+     route).
+   - **The surface itself** (apps/my, dev port 3007) — read-only portal
+     first, then the visitor's own ticket QR, which today exists only in
+     the enrolment email.
+   - **D4 — PWA.** Recommended thin (manifest, icons, service worker
+     caching the shell + the visitor's own tickets) and only AFTER the
+     wallet passes; NOT an offline-first rewrite. iOS installs manually, so
+     budget a visible hint; iOS push only works post-install. Offline
+     check-in deferred: two volunteers, two phones, one guest needs real
+     conflict handling.
+   - **D5 — the door capability.** The scanner shipped in v0.68.6 and is
+     good, but it sits under `(app)` and needs workspace membership, so a
+     volunteer on the door for one evening would need permanent authority
+     over the whole workspace. Proposal: a per-thread expiring door link,
+     same capability pattern as checkin_code.
+   - **Wallet passes** (coded, inert): blocked on an Apple Pass Type ID
+     certificate and a Google Wallet issuer account — Sjoerd only.
+   - Not read by the portal: the purchase ledger (invoices weren't among
+     the four asks). The dual-key rule is documented in the route header
+     for whoever adds them.
 
 **0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
    hard cut EXECUTED 2026-09-07).**
