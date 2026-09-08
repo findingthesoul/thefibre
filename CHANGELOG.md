@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.11] — 2026-09-08 — website: the After card in Sjoerd's words
+
+- Home arc "Journey" card: "…The first event was just the beginning. A
+  second day or a follow-up session. Maybe reflections. … An event ends.
+  The thread doesn't. One moment becomes a learning journey."
+
 ## [0.68.10] — 2026-09-08 — the workspace, named beside the avatar
 
 - The shared avatar menu shows the active workspace's name in front of the

@@ -334,9 +334,10 @@ export default async function Home() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink/50">After</p>
                 <h3 className="mt-1 text-xl font-bold">Journey</h3>
                 <p className="mt-3 flex-1 text-sm leading-relaxed text-ink/70">
-                  Let it keep going. The message that arrives exactly when it should. A
-                  certificate that makes the moment durable. The event ends. The thread
-                  doesn&apos;t.
+                  Let it keep going. The first event was just the beginning. A second day or a
+                  follow-up session. Maybe reflections. A message that arrives exactly when it
+                  should. A certificate that makes the moment durable. An event ends. The thread
+                  doesn&apos;t. One moment becomes a learning journey.
                 </p>
                 <Leaf className="mt-6 w-10 self-end text-ink/70" rotate={16} />
               </div>
