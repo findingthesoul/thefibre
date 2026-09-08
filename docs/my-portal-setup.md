@@ -6,23 +6,23 @@
 
 ---
 
-## Read this first: the order matters
+## Status: step 1 is done — `my` is in the picker now
 
-There is nothing to point a domain at yet. `apps/my` does not exist in the
-repo — `apps/` holds api, flow, meet, membership, pulse, thread, web, website.
+`apps/my` shipped in **v0.68.20** and is on `main`. The Vercel Root Directory
+list reads from the repo, so `my` now appears between `meet`/`membership` and
+`pulse`. If you had the import dialog open before that, close and reopen it —
+the list is fetched once.
 
-So the sequence is:
+Remaining order, which still matters:
 
-1. **I build `apps/my`** (with its `vercel.json`, in the shape every sibling
-   app uses) and push it.
-2. **You create the Vercel project** — it needs the folder to exist.
-3. **You add the DNS records** — Vercel tells you the exact values, and it can
-   only verify a domain once a project claims it.
+1. ~~Build `apps/my`~~ **done (v0.68.20)**.
+2. **Create the Vercel project** — below.
+3. **Add the DNS records** — after step 2, because Vercel shows you the exact
+   values and can only verify a domain once a project claims it.
 
-Doing 2 and 3 first means creating a project that builds nothing and a record
-that resolves to a 404. If you'd rather have the accounts ready in advance,
-step 2 can be done as soon as the folder is pushed; step 3 genuinely needs
-step 2 first.
+> **In the Root Directory dialog, do not pick `api`.** It's first in the list
+> and the radio may default to it. The API runs on Fly, not Vercel, and hard
+> rule §1 is that no personal data goes to Vercel. Pick `my`.
 
 What is **already done**, so you don't redo it: the `my-portal` entry in the
 `SURFACES` registry, the API's CORS accepting `https://my.thethread.app` on
@@ -45,7 +45,7 @@ live on both Fly APIs).
    deploys matching `thefibre-my-<hash>.vercel.app` through CORS. A different
    name means preview deploys can't call the API.
 4. **Root Directory:** `apps/my` — click *Edit* beside Root Directory and pick
-   the folder. Leave "Include files outside the root directory" **enabled**
+   **`my`** (not `api`). Leave "Include files outside the root directory" **enabled**
    (it's a monorepo; the build reaches `packages/shared`).
 5. **Framework Preset:** Next.js. Leave Build/Install commands alone — they
    come from `apps/my/vercel.json`, which I'll commit alongside the app:
@@ -103,8 +103,8 @@ There's a checker for this once the project exists:
 node scripts/verify-vercel-env.mjs <token-file> <prod-anon-key> <staging-anon-key>
 ```
 
-It currently checks seven projects; I'll add `thefibre-my` to its list when I
-build the app, so it guards this one too.
+`thefibre-my` is already in its list (added in v0.68.20), along with
+`NEXT_PUBLIC_MY_URL` for staging — so it guards this project too.
 
 ### Domains
 
