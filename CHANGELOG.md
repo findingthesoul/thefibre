@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.18] — 2026-09-08 — snap-controller comment tells the truth about mobile
+
+Comment-only: snap-controller.tsx's header claimed "mobile stays proximity
+via the media query" — since 0.68.17 mobile has no snap at all. The comment
+now says so (asked for by the website session; comments and CSS must agree
+or the next reader "fixes" the wrong one).
+
 ## [0.68.17] — 2026-09-08 — the landing-page magnet is desktop-only
 
 Sjoerd on mobile: "the magnetic is not working - showing weird behaviour."

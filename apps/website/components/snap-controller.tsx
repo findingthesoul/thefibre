@@ -6,7 +6,10 @@
 // nears the page tail (invitation + footer) it relaxes to proximity so
 // the footer scrolls freely. Hysteresis between the two thresholds keeps
 // it from flapping at the boundary. SSR default is proximity (safe
-// without JS); mobile stays proximity via the media query in globals.css.
+// without JS). The whole magnet lives behind min-width:768px in
+// globals.css — on mobile there is NO snap at all (v0.68.17: sections
+// exceed a phone viewport, so any snap fights momentum scrolling), and
+// this controller's data-snap flag simply has no CSS to bite on there.
 
 import { useEffect } from 'react';
 
