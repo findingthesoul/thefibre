@@ -310,9 +310,10 @@ export default async function Home() {
                 <p className="text-[11px] font-bold uppercase tracking-[0.12em] text-ink/50">Before</p>
                 <h3 className="mt-1 text-xl font-bold">Intention</h3>
                 <p className="mt-3 flex-1 text-sm leading-relaxed text-ink/70">
-                  Give it a shape. A timeline, an enrolment page that needs no login, tickets if
-                  you want them — payment by card or invoice. Set the conditions for something
-                  real to happen.
+                  Give it a shape. A timeline, an enrolment page, tickets if you want them —
+                  payment by card or invoice. Maybe you need messages sent before, an online
+                  preparation meeting, a series of conversations… Set the conditions for
+                  something real to happen.
                 </p>
                 <Vessel className="mt-6 w-14 self-end text-ink/80" rotate={-6} />
               </div>

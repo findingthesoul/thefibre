@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.8] — 2026-09-08 — website: the Before card in Sjoerd's words
+
+- Home arc "Intention" card: "…an enrolment page, tickets if you want them
+  — payment by card or invoice. Maybe you need messages sent before, an
+  online preparation meeting, a series of conversations… Set the
+  conditions for something real to happen."
+
 ## [0.68.7] — 2026-09-08 — higher contrast everywhere; the scope control stops wrapping (Thread 3.38.1)
 
 Sjoerd, live-testing the new-thread form on a fresh Free workspace: "Interface
