@@ -6,6 +6,11 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.12] — 2026-09-08 — website: card 2 names its audience
+
+- "…online tools for organisers and facilitators who bring people
+  together" (was "for people").
+
 ## [0.68.11] — 2026-09-08 — website: the After card in Sjoerd's words
 
 - Home arc "Journey" card: "…The first event was just the beginning. A

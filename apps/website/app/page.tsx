@@ -161,7 +161,8 @@ export default async function Home() {
             <span className="text-ink-muted">In companies. In society.</span>
           </h2>
           <p className="text-sm leading-relaxed text-ink-subtle md:text-base">
-            The Thread is a set of online tools for people who bring people together. You set up a
+            The Thread is a set of online tools for organisers and facilitators who bring people
+            together. You set up a
             gathering — a workshop, a hackathon, a festival — publish an enrolment page, take
             payment, and stay in touch before, during and after. Enrolments, tickets, messages and
             certificates live in one place, so nothing depends on spreadsheets. Built and hosted in
