@@ -6,6 +6,12 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.14] — 2026-09-08 — website: Sign in reaches the nav
+
+- thethread.app's nav gains a quiet "Sign in" link (→ app.thethread.app)
+  before the Start-a-Thread button — it previously lived only in the
+  footer and the /login redirect.
+
 ## [0.68.13] — 2026-09-08 — SURFACES: the portal registered as a platform surface
 
 - branding.ts grows SURFACES — public web properties that are NOT
