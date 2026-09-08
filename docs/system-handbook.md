@@ -418,11 +418,20 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
   narrative style — say *why*, record decisions and reversals explicitly).
   Groom `docs/build-plan.md`'s Open queue in the same ship.
-- **After every ship** (standing authorization): `git push origin main` +
-  `git push origin main:staging`, `bash scripts/db-push-prod.sh` +
-  `db-push-staging.sh` if migrations, `fly deploy` (both APIs if
-  `apps/api` or `packages/shared` changed). Vercel deploys itself from the
-  push. When debugging, first verify deployed == committed.
+- **After every ship** (standing authorization): push ONLY via
+  `./scripts/release.sh <version>` (guard → ten-file version consistency →
+  no staged leftovers → `pnpm verify` → push main + main:staging — one
+  `set -e` script, born 2026-09-08 after a broken `&&` chain pushed past a
+  guard refusal). Then `bash scripts/db-push-prod.sh` + `db-push-staging.sh`
+  if migrations, `fly deploy` (both APIs if `apps/api` or `packages/shared`
+  changed). Vercel deploys itself from the push. When debugging, first
+  verify deployed == committed.
+  **Docs-only exception** (agreed between sessions, 2026-09-08): a commit
+  touching ONLY `docs/**` / `*.md` — no code, no version surfaces — may
+  push directly (`git push origin main main:staging`) with a `docs:`
+  message prefix; there is no version to mislabel, which is the failure
+  the script prevents. Anything touching code or version surfaces goes
+  through the script, no exceptions.
 - **Multiple concurrent LLM sessions are normal** in this repo. The
   serialization protocol (see `CLAUDE.md` and the memory notes):
   - The version files + CHANGELOG are the serialization point — **never
