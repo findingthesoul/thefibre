@@ -20,7 +20,7 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-08 (v0.68.15). Done items get removed, not ticked._
+_Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
 
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
@@ -181,6 +181,18 @@ seeded into Pulse. What remains:
    NEVER add another copy. Companion UI rules standing: ordering is
    drag-and-drop, never a numeric sort field; dates use the shared
    DateField; selected states are the dark-pill treatment (v0.33.2).
+1b. **App-API timezone validation** (found 2026-09-08 while chasing the
+   editor crash, v0.68.16). The Festival of Trust planner PATCHes
+   `timezone: "Athenes/Greece"` into thread 58a6a229 through
+   `/api/v1/apps/fot-planner/thread/threads/:id`; PatchThread/CreateThread
+   in app-thread.ts accept any string. Anything that formats that thread's
+   times with Intl (door list, public page, emails) will throw exactly the
+   way the editor did. NOT fixed yet on purpose: a 400 would stop the
+   planner's sync landing its other fields. Do it as a pair — validate
+   against `Intl.supportedValuesOf('timeZone')` in the API AND fix the
+   planner's value (Sjoerd's other repo) in the same hour; repair the row
+   to Europe/Athens.
+
 2. **P4 — meters that bill** (proposal ÃÂ§4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
