@@ -1,5 +1,5 @@
 import { Hono } from 'hono';
-import { APP_IDS, appUrl } from '@thefibre/shared';
+import { APP_IDS, appUrl, SURFACES, surfaceUrl} from '@thefibre/shared';
 import { serve } from '@hono/node-server';
 import { logger } from 'hono/logger';
 import { cors } from 'hono/cors';
@@ -64,7 +64,11 @@ app.use('*', logger());
 // CORS-blocked the join page during the 2026-09-05 payment rehearsal — the
 // third "new app forgotten in a list" bug. appUrl with no env = the
 // production origins; staging's extra .tech origins ride CORS_ORIGINS.
-const PROD_ORIGINS = new Set<string>(APP_IDS.map((slug) => appUrl(slug)));
+const PROD_ORIGINS = new Set<string>([
+  ...APP_IDS.map((slug) => appUrl(slug)),
+  // Platform surfaces (branding.ts SURFACES) — same derived-never-listed rule.
+  ...(Object.keys(SURFACES) as (keyof typeof SURFACES)[]).map((k) => surfaceUrl(k)),
+]);
 const DEV_ORIGINS = new Set<string>([
   'http://localhost:3000', // apps/web dev
   'http://localhost:3001', // apps/meet dev
@@ -72,6 +76,7 @@ const DEV_ORIGINS = new Set<string>([
   'http://localhost:3003', // apps/flow dev
   'http://localhost:3004', // apps/pulse dev
   'http://localhost:3005', // apps/membership dev
+  'http://localhost:3007', // apps/my dev (3006 = apps/website, no API calls from the browser)
 ]);
 const EXTRA_ORIGINS = new Set<string>(
   (process.env.CORS_ORIGINS ?? '')
@@ -85,7 +90,7 @@ const EXTRA_ORIGINS = new Set<string>(
 // stable enough that we allowlist the entire *.vercel.app suffix only
 // for the projects we know we own.
 const VERCEL_PREVIEW_RE =
-  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership)-[a-z0-9-]+\.vercel\.app$/;
+  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my)-[a-z0-9-]+\.vercel\.app$/;
 
 function isAllowedOrigin(origin: string): boolean {
   if (PROD_ORIGINS.has(origin)) return true;

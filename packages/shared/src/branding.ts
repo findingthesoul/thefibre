@@ -183,6 +183,36 @@ export function defaultEmailFrom(env?: Record<string, string | undefined>): stri
  *  Excludes the legal entity name (ENTITY.name) by design — it stays in
  *  branding.ts for internal billing / invoicing but isn't on public brand
  *  surfaces. */
+/** Platform SURFACES — public web properties that are NOT catalogue apps:
+ *  no AppId, no workspace_app activation, no app_membership; they send
+ *  X-App-ID: fibre-platform like the rest of the platform. Registered here
+ *  so URLs and CORS derive from ONE place (the domain-flip lesson) without
+ *  teaching the app catalogue about something that isn't an app (the
+ *  visitor-portal session's analysis, 2026-09-08, adopted). */
+export const SURFACES = {
+  /** The participant portal: everything a visitor is part of, grouped by
+   *  organiser workspace. Dev port 3007 (3006 is apps/website). */
+  'my-portal': {
+    name: ENTITY.publicName,
+    shortLabel: 'My Thread',
+    tagline: 'Everything you’re part of, in one place.',
+    url: 'https://my.thethread.app',
+    urlEnv: 'NEXT_PUBLIC_MY_URL',
+    devPort: 3007,
+  },
+} as const;
+
+export type SurfaceKey = keyof typeof SURFACES;
+
+/** Like appUrl, for surfaces: the env override wins, else production. */
+export function surfaceUrl(
+  key: SurfaceKey,
+  env?: Record<string, string | undefined>,
+): string {
+  const s = SURFACES[key];
+  return env?.[s.urlEnv] || s.url;
+}
+
 /** The brand PLATFORM emails (and the shared legal footer line) present
  *  to end users. Branding pivot (Sjoerd, 2026-09-08): the public face is
  *  The Thread; The Fibre is backstage. Assets are hosted on the fibre web

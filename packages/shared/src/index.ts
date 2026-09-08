@@ -16,8 +16,11 @@ export {
   emailSignoff,
   legalFooterLine,
   EMAIL_BRAND,
+  SURFACES,
+  surfaceUrl,
   type AppBrand,
 } from './branding.js';
+export type { SurfaceKey } from './branding.js';
 
 export const PROGRAM_FORMATS = ['meeting', 'event', 'journey', 'self_paced', 'blended'] as const;
 export type ProgramFormat = (typeof PROGRAM_FORMATS)[number];

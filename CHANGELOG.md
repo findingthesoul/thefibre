@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.13] — 2026-09-08 — SURFACES: the portal registered as a platform surface
+
+- branding.ts grows SURFACES — public web properties that are NOT
+  catalogue apps (no AppId, no activation, no membership; X-App-ID:
+  fibre-platform). First entry: my-portal → https://my.thethread.app
+  ("My Thread", dev port 3007; 3006 is the website). surfaceUrl() mirrors
+  appUrl's env-override pattern. Adopted from the visitor-portal session's
+  analysis: teaching APP_IDS about a non-app would ripple into launchers,
+  display order and tile maps.
+- API CORS derives surface origins from the registry (same
+  derived-never-listed rule), localhost:3007 joins dev origins, thefibre-my
+  joins the Vercel preview regex. Sjoerd's checklist when the portal app
+  exists: TransIP A record for my.thethread.app + eighth Vercel project.
+
 ## [0.68.12] — 2026-09-08 — website: card 2 names its audience
 
 - "…online tools for organisers and facilitators who bring people
