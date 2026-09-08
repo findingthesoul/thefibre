@@ -33,7 +33,7 @@ import {
 } from '../lib/email/thread-templates.js';
 import { appUrl, LOCALES, INTL_LOCALES, toLocale } from '@thefibre/shared';
 import { certT } from '../lib/email/certificate-i18n.js';
-import { TEMPLATE_LIBRARY, templatesForLimit } from '../lib/thread-template-library.js';
+import { TEMPLATE_LIBRARY, templatesForLimit, seedRowsFor } from '../lib/thread-template-library.js';
 
 function threadAppUrl(): string {
   return appUrl('the-thread', process.env as Record<string, string>);
@@ -494,45 +494,32 @@ threadRoutes.post('/threads', async (c) => {
         402,
       );
     }
+    // Two passes: rows first, anchors second. A relative message may hang on
+    // an element that comes AFTER it in the blueprint (the circle's
+    // reminder), so ids only resolve once everything is in.
+    const rows = seedRowsFor(tpl, { workspace_id: ctx.workspaceId, thread_id: thread.id });
     const keyToId = new Map<string, string>();
-    let position = 10;
-    for (const el of tpl.elements) {
-      const insert: Record<string, unknown> = {
-        workspace_id: ctx.workspaceId,
-        thread_id: thread.id,
-        title: el.title,
-        description: el.description ?? null,
-        type: el.type,
-        status: 'draft',
-        position,
-      };
-      position += 10;
-      if (el.days && el.days > 1) {
-        insert.daily_schedule = Array.from({ length: el.days }, () => ({
-          start: '10:00',
-          end: '17:00',
-        }));
-      }
-      if (el.trigger) {
-        if (el.trigger.kind === 'relative') {
-          insert.trigger_kind = 'relative';
-          insert.trigger_engagement_id = keyToId.get(el.trigger.anchor) ?? null;
-          insert.trigger_offset_days = el.trigger.offsetDays;
-          insert.trigger_time = el.trigger.time ?? '10:00';
-        } else {
-          insert.trigger_kind = el.trigger.kind;
-        }
-      }
+    for (const row of rows) {
       const { data: made, error: eErr } = await adminClient
         .from('thread_engagement')
-        .insert(insert)
+        .insert(row.insert)
         .select('id')
         .single();
       if (eErr || !made) {
-        console.error('[thread/templates] library seed failed', el.key, eErr);
+        console.error('[thread/templates] library seed failed', row.key, eErr);
         continue;
       }
-      keyToId.set(el.key, made.id);
+      keyToId.set(row.key, made.id);
+    }
+    for (const row of rows) {
+      const id = keyToId.get(row.key);
+      const anchorId = row.anchorKey ? keyToId.get(row.anchorKey) : undefined;
+      if (!id || !anchorId) continue;
+      const { error: aErr } = await adminClient
+        .from('thread_engagement')
+        .update({ trigger_engagement_id: anchorId })
+        .eq('id', id);
+      if (aErr) console.error('[thread/templates] anchor link failed', row.key, aErr);
     }
   }
 

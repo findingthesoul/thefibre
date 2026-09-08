@@ -41,6 +41,7 @@ import {
   type ThreadMember,
   type WorkspaceMember,
   type TeamOption,
+  type DailyTime,
 } from '@/lib/thread-types';
 import { ENGAGEMENT_META, metaFor } from '@/lib/engagement-meta';
 import { t, engagementTypeLabel, type UiKey } from '@/lib/i18n-ui';
@@ -159,8 +160,8 @@ function dayKey(iso: string): string {
  * looking at a two-day event with a conversation on its second day).
  */
 function coveredDays(e: EngagementRow): string[] {
-  const sched = e.daily_schedule ?? null;
-  if (sched?.length) return [...new Set(sched.map((d) => d.date))];
+  const sched = datedSchedule(e);
+  if (sched.length) return [...new Set(sched.map((d) => d.date))];
   if (!e.starts_at) return [];
   const first = dayKey(e.starts_at);
   if (!e.ends_at) return [first];
@@ -187,11 +188,21 @@ function fmtTime(locale: Locale, iso: string): string {
 
 /** 'YYYY-MM-DD' → 'Mon 2 Mar' (for per-day schedule rows). */
 function fmtDayShort(locale: Locale, date: string): string {
+  const d = new Date(`${date}T00:00:00`);
+  // Intl throws on an invalid date, and a throw here takes the whole editor
+  // down (2026-09-08: a seeded schedule row without a date did exactly that).
+  if (Number.isNaN(d.getTime())) return date || '';
   return new Intl.DateTimeFormat(INTL_LOCALES[locale], {
     weekday: 'short',
     day: 'numeric',
     month: 'short',
-  }).format(new Date(`${date}T00:00:00`));
+  }).format(d);
+}
+
+/** The schedule rows that can be shown: a row without a date is data the
+ *  editor cannot place, so it is ignored rather than rendered as garbage. */
+function datedSchedule(e: EngagementRow): DailyTime[] {
+  return (e.daily_schedule ?? []).filter((d) => !!d?.date);
 }
 
 export function ThreadTimeline({
@@ -813,6 +824,7 @@ function EngagementCard({
   onQuickTime: () => void;
 }) {
   const meta = metaFor(e.type);
+  const schedule = datedSchedule(e);
   const Icon = meta.icon;
   const when = metaFor(e.type).family === 'activity' ? e.starts_at : null;
   const rounded = `${attachTop ? 'rounded-t-none border-t-0' : 'rounded-t-lg'} ${
@@ -857,17 +869,17 @@ function EngagementCard({
             <div className="mt-0.5 text-[15px] font-medium truncate">{e.title}</div>
           </div>
           <div className="flex items-center gap-3 text-xs text-ink-subtle shrink-0">
-            {meta.family === 'activity' && e.daily_schedule?.length ? (
+            {meta.family === 'activity' && schedule.length ? (
               <div className="flex flex-col items-end gap-0.5 tabular-nums">
-                {e.daily_schedule.slice(0, 4).map((d) => (
+                {schedule.slice(0, 4).map((d) => (
                   <span key={d.date} className="inline-flex items-center gap-1">
                     <Clock size={12} strokeWidth={1.75} />
                     {fmtDayShort(locale, d.date)} · {d.start}–{d.end}
                   </span>
                 ))}
-                {e.daily_schedule.length > 4 && (
+                {schedule.length > 4 && (
                   <span className="text-ink-muted">
-                    {t(locale, 'more_n', { n: e.daily_schedule.length - 4 })}
+                    {t(locale, 'more_n', { n: schedule.length - 4 })}
                   </span>
                 )}
               </div>

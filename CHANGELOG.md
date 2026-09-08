@@ -6,6 +6,34 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.16] — 2026-09-08 — the thread editor stops crashing on template-made threads (Thread 3.38.2)
+
+Sjoerd opened a thread made from the "two-day event" template and got
+Next's "Application error: a client-side exception" page. The v0.67.1
+seeder wrote a `daily_schedule` of two rows WITHOUT dates (a template has
+none to give); the editor formats each row's date with Intl, which throws
+on undefined, and one throw takes the whole page down.
+
+- **Seeder** — `seedRowsFor()` in lib/thread-template-library.ts is now a
+  pure function (unit-tested): no daily_schedule at all — `days` stays a
+  hint on the template card and the organiser picks the dates in the
+  dialog. Relative messages carry `trigger_anchor = 'engagement'`, the value
+  the editor AND the scheduler branch on; seeded without it they silently
+  resolved to the programme start. Anchors resolve in a second pass, so the
+  conversation circle's reminder (blueprint order: message before circle)
+  finally links to its circle.
+- **Editor** — `fmtDayShort` returns the raw string instead of throwing on
+  an invalid date, and the card + `coveredDays` only read schedule rows that
+  carry one. A bad row degrades to nothing, never to a white page.
+- **Repair migration** `20260908130000_repair_seeded_engagements.sql` —
+  nulls date-less schedules (1 row) and sets the missing anchor (3 rows).
+- Found by reading the Fly log around the crash (two editor loads, all
+  200s) and the rows themselves — the client console was out of reach.
+  Noted while there: the Festival of Trust planner writes `timezone:
+  "Athenes/Greece"` through the app API, which is not an IANA zone; the
+  PATCH schema accepts any string. Left as is (rejecting it would break
+  the planner's sync) — build-plan item.
+
 ## [0.68.15] — 2026-09-08 — the visitor portal's API
 
 The participant's own place, across every app: `GET /api/v1/me/portal`

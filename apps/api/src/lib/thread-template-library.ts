@@ -20,7 +20,10 @@ export type LibraryElement = {
   type: 'event' | 'conversation' | 'workshop' | 'reflection' | 'practice' | 'message' | 'document' | 'inspiration';
   title: string;
   description?: string;
-  /** Multi-day activities: how many daily_schedule rows to seed. */
+  /** Multi-day activities: shown on the template card ("2 days"). NOT
+   *  materialised as daily_schedule at seeding — a schedule row needs a
+   *  date, and a template has none (the date-less rows seeded until v0.68.15
+   *  crashed the editor). The organiser picks the days in the dialog. */
   days?: number;
   /** Message trigger; omitted = draft, organiser schedules it. */
   trigger?:
@@ -145,6 +148,51 @@ export const TEMPLATE_LIBRARY: LibraryTemplate[] = [
     ],
   },
 ];
+
+/** One seeded engagement row, before ids exist. `anchorKey` names the
+ *  element a relative message hangs on; the caller resolves it to a row id
+ *  AFTER every element is inserted, because an anchor may come later in the
+ *  blueprint (the conversation circle's reminder precedes the circle). */
+export type SeedRow = {
+  key: string;
+  anchorKey: string | null;
+  insert: Record<string, unknown>;
+};
+
+/** The rows a blueprint seeds, in timeline order. Pure so it can be tested
+ *  without a database: no daily_schedule (a schedule row needs a date), and
+ *  every relative trigger carries trigger_anchor 'engagement' — the value the
+ *  editor and the scheduler both branch on. */
+export function seedRowsFor(
+  tpl: LibraryTemplate,
+  base: { workspace_id: string; thread_id: string },
+): SeedRow[] {
+  let position = 10;
+  return tpl.elements.map((el) => {
+    const insert: Record<string, unknown> = {
+      ...base,
+      title: el.title,
+      description: el.description ?? null,
+      type: el.type,
+      status: 'draft',
+      position,
+    };
+    position += 10;
+    let anchorKey: string | null = null;
+    if (el.trigger) {
+      if (el.trigger.kind === 'relative') {
+        insert.trigger_kind = 'relative';
+        insert.trigger_anchor = 'engagement';
+        insert.trigger_offset_days = el.trigger.offsetDays;
+        insert.trigger_time = el.trigger.time ?? '10:00';
+        anchorKey = el.trigger.anchor;
+      } else {
+        insert.trigger_kind = el.trigger.kind;
+      }
+    }
+    return { key: el.key, anchorKey, insert };
+  });
+}
 
 /** The templates a plan may use: the first N of the library (null = all). */
 export function templatesForLimit(limit: number | null): LibraryTemplate[] {
