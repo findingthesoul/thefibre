@@ -541,6 +541,29 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     level up, so: **if a commit adds a call to an API path, grep the API for
     that path in the same commit.** Framing from the membership session,
     which found it in its own swept work and volunteered it unasked.
+  - **A PostgREST select is a STRING, and the type-checker never reads it.**
+    Same species as the seam above: a gate-shaped hole where the compiler
+    looks like it is helping and is not. Two instances in one session
+    (2026-09-10, the member-portal build):
+    `organisation:organisation_id (slug)` on `thread_thread` — there is no
+    such column, it is `organiser_id`, and the working query eight lines
+    above already had it right; and ordering `person` by `updated_at`, a
+    column that does not exist either. Both typechecked clean. The first was
+    **latent** — its branch only runs for a product carrying a thread link
+    and no product has one yet — so no test could have failed and no render
+    check could have reached it. The second would have 400'd for every member
+    on first load of a new page.
+    **Why no gate sees it:** the select is a string literal, so tsc has
+    nothing to check; `.select()` returns `any`-shaped rows, so the fields
+    you then read type fine whether or not they exist; and PostgREST answers
+    a bad column with a runtime `400`, never a build failure.
+    **The defence, and it costs a minute:** before shipping, run every NEW
+    select against real rows — `curl` the PostgREST endpoint with the
+    service-role key, or a five-line node script. It answers `200` or it
+    names the column you invented, with a hint. Do it for reads on
+    production (reads are safe there; see the no-destructive-tests rule) or
+    on staging where the table has rows. Both of these were caught that way
+    and neither by any gate we own.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
