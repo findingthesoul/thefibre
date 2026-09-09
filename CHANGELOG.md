@@ -25,6 +25,15 @@ forms, and the other three 404 under both because they are drafts. The cost
 was canonicality — the portal handed a visitor a link that is not the one the
 page's own canonical tag points at.
 
+**NOT VERIFIED, and it is the case this fix is FOR.** A fourth staging round
+confirmed the fix does not disturb what it was not aimed at — an
+organiser-scoped thread's URL is byte-identical before and after. That is a
+negative worth having. But the staging fixture exercises exactly ONE owner
+kind, so nothing has yet exercised a workspace-scoped thread through the
+portal. The green means "organiser-scoped threads are unaffected", not "the
+fix works". A workspace-scoped and a team-scoped fixture want seeding before
+the next URL change; it is in `docs/build-plan.md` in those terms.
+
 **The same shape is still live in `routes/thread.ts:4657`** (`ownerSlugOf`,
 `team ?? organiser`, feeding public payloads). Deliberately not changed
 tonight: it alters the value of a published field, which is Sjoerd's call and
