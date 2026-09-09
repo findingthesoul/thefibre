@@ -112,9 +112,13 @@ export const MESSAGE_TYPES = [
   'document',
   'inspiration',
 ] as const;
+/** Its own family, not a ninth message — see the API's CERTIFICATE_TYPES. */
+export const CERTIFICATE_TYPES = ['certificate'] as const;
+
 export type EngagementType =
   | (typeof ACTIVITY_TYPES)[number]
-  | (typeof MESSAGE_TYPES)[number];
+  | (typeof MESSAGE_TYPES)[number]
+  | (typeof CERTIFICATE_TYPES)[number];
 
 export type TriggerKind =
   | 'fixed'

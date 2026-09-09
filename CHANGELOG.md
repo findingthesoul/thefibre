@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.45] — 2026-09-09 — a certificate you can put on the calendar, and one you can copy
+
+Two of Sjoerd's: "one extra engagement: send certificate", and "certificate
+template builder: duplicate a certificate".
+
+**Sending certificates was never a plan you could write down.** One reached
+somebody automatically the moment they were marked complete, or because an
+organiser remembered to press the bulk button. A course ending on the 14th
+that hands out certificates on the 21st had nowhere to say so.
+
+Now it is an element on the timeline with a trigger, like everything else
+there. A fixed date, or relative to the thread's start, its end, or another
+item — the same machinery the scheduled messages use, because a certificate
+going out on a date IS a scheduled send. It just sends a document instead of
+a paragraph.
+
+**A third family, not a ninth message type.** Several queries filter
+`type IN (message types)` to mean "things emailed as a body", and a ninth
+member would have been swept into every one of them silently, each then
+needing an exclusion nobody would remember. `CERTIFICATE_TYPES` sits beside
+`MESSAGE_TYPES`, `engagementFamily` returns three values, and the scheduler's
+candidate query widens deliberately. It then forks in exactly one place:
+family is certificate, so issue instead of email.
+
+**Nothing about eligibility is new.** Who has earned one is the rule the bulk
+button already uses — completed enrolments — because two definitions of
+"finished the course" would drift and the one that drifted would be the
+automatic one nobody watches. Both idempotency layers already existed:
+issuance refuses a second certificate per enrolment, and the send log dedupes
+per element and person, which is also what stops the scheduler re-walking
+every completed enrolment every five minutes for the rest of the thread's
+life.
+
+**Dates only for this family, and that is a judgement call.** The lifecycle
+triggers are not offered. A message can greet one person the moment something
+happens to them; a certificate already does — the completion flow has issued
+one at that exact moment since certificates existed. "When they complete"
+would be a control duplicating something automatic, and whoever picked it
+would reasonably believe it was the thing making it happen.
+
+**Duplicate in the certificate builder.** A certificate is a design somebody
+spent an afternoon positioning, and the second one for the same organisation
+differs by a paragraph. The button flushes the pending autosave first, because
+the copy is taken from the server's row and anything still in the two-second
+debounce would not be in it. The copy is personal-scoped whatever you copied
+from, and shares are deliberately not carried across: inheriting an access
+list silently is how somebody ends up holding a design they were never
+granted.
+
 ## [0.68.44] — 2026-09-09 — you can leave the certificate editor
 
 Sjoerd: "once I am in the certificate editor, I can't leave. Clicking on any

@@ -30,6 +30,21 @@ export async function createCertificateTemplate(input: {
   }
 }
 
+/** A working copy of a template: same design, "(copy)" name, personal scope,
+ *  no shares. Returns the new id so the caller can open it. */
+export async function duplicateCertificateTemplate(id: string): Promise<ActionResult> {
+  try {
+    const created = await apiFetch<{ id: string }>(
+      `/api/v1/thread/certificate-templates/${id}/duplicate`,
+      { method: 'POST' },
+    );
+    revalidatePath('/certificates');
+    return { ok: true, id: created.id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function deleteCertificateTemplate(id: string): Promise<ActionResult> {
   try {
     await apiFetch(`/api/v1/thread/certificate-templates/${id}`, { method: 'DELETE' });

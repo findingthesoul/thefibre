@@ -322,11 +322,19 @@ export function EngagementDialog({
             ...where,
             image_url: imageUrl.trim() || null,
           }
-        : {
-            ...common,
-            ...trigger,
-            content: contentFromForm(type, fd),
-          };
+        : family === 'certificate'
+          ? {
+              // No body: what goes out is the thread's certificate design.
+              ...common,
+              ...trigger,
+              content: {},
+              show_in_agenda: false,
+            }
+          : {
+              ...common,
+              ...trigger,
+              content: contentFromForm(type, fd),
+            };
 
     startTransition(async () => {
       const r = isNew
@@ -747,6 +755,7 @@ export function EngagementDialog({
                 engagement={engagement}
                 requiresApproval={requiresApproval ?? false}
                 activities={activities}
+                family={family}
               />
             )}
 
@@ -858,6 +867,7 @@ function TriggerFields({
   engagement,
   requiresApproval,
   activities,
+  family,
 }: {
   locale: Locale;
   triggerKind: TriggerKind;
@@ -865,6 +875,8 @@ function TriggerFields({
   engagement: EngagementRow | null;
   requiresApproval: boolean;
   activities: { id: string; title: string; hasDate: boolean }[];
+  /** Certificates get dates only — see the note on kindOptions below. */
+  family: EngagementFamily;
 }) {
   const off = engagement?.trigger_offset_days ?? -3;
   const defaultDays = String(Math.min(30, Math.max(1, Math.abs(off || 3))));
@@ -875,15 +887,28 @@ function TriggerFields({
       : engagement?.trigger_anchor ?? 'start';
   const defaultTime = engagement?.trigger_time ?? '09:00';
 
-  const kindOptions = [
-    { value: 'fixed', label: t(locale, 'trig_fixed_date') },
-    { value: 'relative', label: t(locale, 'trig_relative') },
-    { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
-    ...(requiresApproval
-      ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
-      : []),
-    { value: 'on_completion', label: t(locale, 'trig_when_completes') },
-  ];
+  // A certificate goes out on a DATE. The lifecycle triggers are offered to
+  // messages because a message can greet one person the moment something
+  // happens to them; a certificate already does that — the completion flow
+  // issues one the moment somebody is marked complete, and has since
+  // certificates existed. Offering "when they complete" here would be a
+  // control that duplicates something automatic, and the person choosing it
+  // would reasonably expect it to be the thing that makes it happen.
+  const kindOptions =
+    family === 'certificate'
+      ? [
+          { value: 'fixed', label: t(locale, 'trig_fixed_date') },
+          { value: 'relative', label: t(locale, 'trig_relative') },
+        ]
+      : [
+          { value: 'fixed', label: t(locale, 'trig_fixed_date') },
+          { value: 'relative', label: t(locale, 'trig_relative') },
+          { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
+          ...(requiresApproval
+            ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
+            : []),
+          { value: 'on_completion', label: t(locale, 'trig_when_completes') },
+        ];
 
   return (
     <div className="space-y-4">

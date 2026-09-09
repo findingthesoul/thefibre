@@ -198,10 +198,21 @@ const slugField = z
 // creation (thethread-v3 rule; see docs/thread-rebuild-plan.md).
 const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
 export const MESSAGE_TYPES = ['reflection', 'practice', 'message', 'document', 'inspiration'] as const;
-export const ENGAGEMENT_TYPES = [...ACTIVITY_TYPES, ...MESSAGE_TYPES] as const;
+/** Certificates are their own family, not a ninth message (2026-09-09). The
+ *  several `.in('type', MESSAGE_TYPES)` filters mean "things emailed as a
+ *  body"; a certificate is a scheduled send that carries a document instead,
+ *  and a ninth member would have been swept into all of them silently. */
+export const CERTIFICATE_TYPES = ['certificate'] as const;
+export const ENGAGEMENT_TYPES = [
+  ...ACTIVITY_TYPES,
+  ...MESSAGE_TYPES,
+  ...CERTIFICATE_TYPES,
+] as const;
 
-export function engagementFamily(type: string): 'activity' | 'message' {
-  return (ACTIVITY_TYPES as readonly string[]).includes(type) ? 'activity' : 'message';
+export function engagementFamily(type: string): 'activity' | 'message' | 'certificate' {
+  if ((ACTIVITY_TYPES as readonly string[]).includes(type)) return 'activity';
+  if ((CERTIFICATE_TYPES as readonly string[]).includes(type)) return 'certificate';
+  return 'message';
 }
 
 // ---------------------------------------------------------------------------
@@ -2920,6 +2931,64 @@ threadRoutes.get('/certificate-templates/:id', async (c) => {
   const [visible] = await filterVisibleTemplates([data], 'certificate', ctx.userId);
   if (!visible) return c.json({ error: 'not found' }, 404);
   return c.json(data);
+});
+
+// POST /certificate-templates/:id/duplicate — a working copy.
+//
+// Sjoerd, 2026-09-09. A certificate is a design somebody spent an afternoon
+// positioning, and the second one for the same organisation differs by a
+// paragraph. Rebuilding it from a blank canvas to change a sentence is the
+// kind of work nobody should do twice.
+//
+// The copy is a NEW design, not a variant of the original: fresh id, "(copy)"
+// on the name, and it starts unarchived and unshared. Shares are deliberately
+// not carried over — who may use a template is a decision about that
+// template, and inheriting an access list silently is how somebody ends up
+// with a design they were never granted.
+//
+// Scope follows the caller, not the source. Duplicating a workspace template
+// gives you a PERSONAL draft to work on; widening it again is one control in
+// the builder and an explicit act.
+threadRoutes.post('/certificate-templates/:id/duplicate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Read through RLS, then through the same visibility filter the detail
+  // route uses — a template you cannot open is not one you can copy.
+  const { data: src } = await db
+    .from('thread_certificate_template')
+    .select(CERT_TEMPLATE_SELECT)
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!src) return c.json({ error: 'not found' }, 404);
+  const [visible] = await filterVisibleTemplates([src], 'certificate', ctx.userId);
+  if (!visible) return c.json({ error: 'not found' }, 404);
+
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      name: `${src.name} (copy)`,
+      // The design itself, carried whole. If you add a column an author
+      // sets in the builder, add it here — the duplicate-loses-your-work
+      // bug has already happened once on threads (v0.68.x, pricing).
+      page_size: src.page_size,
+      orientation: src.orientation,
+      background_url: src.background_url,
+      elements: src.elements,
+      guides: src.guides,
+      scope: 'personal',
+      owner_user_id: ctx.userId,
+      owner_team_id: null,
+      created_by: ctx.userId,
+    })
+    .select(CERT_TEMPLATE_SELECT)
+    .single();
+  if (error) {
+    console.error('[thread/cert-templates] duplicate failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data, 201);
 });
 
 const CertTemplateUpdate = z.object({
@@ -6262,6 +6331,63 @@ function wallTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date
 // stays unsent (visible on the timeline, never emailed late).
 const SCHEDULER_LOOKBACK_MS = 72 * 60 * 60 * 1000;
 
+/**
+ * A "send certificate" element has come due: issue to everyone who has
+ * earned one and has not got one yet. Returns how many went out.
+ *
+ * WHO EARNED ONE is deliberately not a new rule. It is the same set the bulk
+ * button issues to — completed enrolments — because two definitions of "you
+ * finished the course" would drift, and the one that drifted would be the
+ * automatic one nobody watches. `issueCertificate` refuses a second issue per
+ * enrolment on its own, so a re-run, a retry, or two elements pointing at the
+ * same moment cannot produce two certificates for one person.
+ *
+ * The `thread_message_send` row is kept even though issuance is already
+ * idempotent: it is what stops the scheduler re-walking every completed
+ * enrolment on this thread every five minutes for the rest of the thread's
+ * life, and it is the same dedup the message path uses, so one table answers
+ * "did this element already act on this person?" for both families.
+ */
+async function issueDueCertificates(engagementId: string, threadId: string): Promise<number> {
+  const { data: enrolments } = await adminClient
+    .from('thread_enrolment')
+    .select('id, person:person_id (id, email), enrolment:enrolment_id (status)')
+    .eq('thread_id', threadId);
+
+  let issued = 0;
+  for (const te of enrolments ?? []) {
+    const person = Array.isArray(te.person) ? te.person[0] : te.person;
+    const enr = Array.isArray(te.enrolment) ? te.enrolment[0] : te.enrolment;
+    if (!person?.id) continue;
+    if ((enr?.status ?? null) !== 'completed') continue;
+
+    // Insert-first dedup, same mechanism as the message sends.
+    const { error: logErr } = await adminClient.from('thread_message_send').insert({
+      engagement_id: engagementId,
+      person_id: person.id,
+      email: person.email ?? '',
+    });
+    if (logErr) {
+      if (logErr.code !== '23505') {
+        console.warn('[thread/scheduler] certificate log failed', logErr);
+      }
+      continue;
+    }
+
+    // issuedBy is null: nobody pressed anything. The timeline did.
+    const r = await issueCertificate(te.id as string, null);
+    if (r.ok) issued += 1;
+    else if (!r.skipped) {
+      console.warn('[thread/scheduler] certificate issue failed', {
+        engagementId,
+        threadEnrolmentId: te.id,
+        error: r.error,
+      });
+    }
+  }
+  return issued;
+}
+
 export async function runThreadMessageScheduler(): Promise<{ due: number; sent: number }> {
   const now = Date.now();
 
@@ -6276,7 +6402,9 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
          program:program_id (title, status, starts_on, ends_on))`,
     )
     .eq('status', 'published')
-    .in('type', MESSAGE_TYPES as unknown as string[])
+    // Certificates are due on a date the same way a message is; what differs
+    // is what happens when they are (issueDueCertificates below).
+    .in('type', [...MESSAGE_TYPES, ...CERTIFICATE_TYPES] as unknown as string[])
     .in('trigger_kind', ['fixed', 'relative']);
   if (error) {
     console.error('[thread/scheduler] candidate query failed', error);
@@ -6357,6 +6485,12 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
 
   let sent = 0;
   for (const d of due) {
+    // A certificate element issues rather than emails. Same trigger, same
+    // dedup, different verb — so it forks here and nowhere else.
+    if (engagementFamily(d.engagement.type as string) === 'certificate') {
+      sent += await issueDueCertificates(d.engagement.id as string, d.threadId);
+      continue;
+    }
     // Everyone enrolled (not dropped) in the thread gets the message once.
     const { data: enrolments } = await adminClient
       .from('thread_enrolment')

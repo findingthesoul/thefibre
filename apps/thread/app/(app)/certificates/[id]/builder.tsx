@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronsDown,
   ChevronsUp,
+  Copy,
   Image as ImageIcon,
   ImagePlus,
   Italic,
@@ -63,6 +64,7 @@ import {
 import {
   archiveCertificateTemplate,
   deleteCertificateTemplate,
+  duplicateCertificateTemplate,
   refreshCertificateList,
 } from '../actions';
 import { saveCertificateTemplate } from '@/lib/certificate-save';
@@ -121,6 +123,7 @@ export function CertificateBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [duplicating, setDuplicating] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
@@ -752,6 +755,27 @@ export function CertificateBuilder({
 
         <Button size="sm" onClick={() => void doSave()} disabled={saveStatus === 'saving'}>
           {t(locale, 'save')}
+        </Button>
+
+        {/* Duplicate flushes first: the copy is taken from the SERVER's row,
+            so anything still sitting in the debounce would not be in it. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={duplicating}
+          onClick={() =>
+            void (async () => {
+              setDuplicating(true);
+              if (pendingRef.current) await doSave();
+              const r = await duplicateCertificateTemplate(template.id);
+              setDuplicating(false);
+              if (r.ok && r.id) router.push(`/certificates/${r.id}`);
+            })()
+          }
+          title={t(locale, 'duplicate_template_tooltip')}
+        >
+          <Copy size={15} strokeWidth={1.75} />
+          {t(locale, 'duplicate')}
         </Button>
 
         <Button

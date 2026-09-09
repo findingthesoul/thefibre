@@ -644,6 +644,16 @@ export function ThreadTimeline({
                     setEditorState({ mode: 'new', type: t });
                   }}
                 />
+                <div className="my-1 border-t border-line" />
+                <TypeMenuSection
+                  locale={locale}
+                  label={t(locale, 'certificates')}
+                  family="certificate"
+                  onPick={(t) => {
+                    setAddMenuOpen(false);
+                    setEditorState({ mode: 'new', type: t });
+                  }}
+                />
               </div>
             )}
           </div>
@@ -1374,7 +1384,7 @@ function TypeMenuSection({
 }: {
   locale: Locale;
   label: string;
-  family: 'activity' | 'message';
+  family: 'activity' | 'message' | 'certificate';
   onPick: (t: EngagementType) => void;
 }) {
   return (

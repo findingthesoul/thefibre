@@ -6181,6 +6181,14 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  duplicate_template_tooltip: {
+    en: 'Make a copy to work on — same design, yours to change',
+    nl: 'Maak een kopie om aan te werken — zelfde ontwerp, van jou om te wijzigen',
+    es: 'Haz una copia para trabajar — mismo diseño, tuyo para cambiar', // MT
+    pt: 'Faça uma cópia para trabalhar — mesmo design, seu para alterar', // MT
+    de: 'Eine Kopie zum Weiterarbeiten — gleiches Design, deins zum Ändern', // MT
+    fr: 'Fais une copie pour travailler — même design, à toi de le modifier', // MT
+  },
   what_is_this: {
     en: 'What is this?',
     nl: 'Wat is dit?',
