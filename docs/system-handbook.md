@@ -435,8 +435,13 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   message prefix; there is no version to mislabel, which is the failure
   the script prevents. Anything touching code or version surfaces goes
   through the script, no exceptions.
-- **Multiple concurrent LLM sessions are normal** in this repo. The
-  serialization protocol (see `CLAUDE.md` and the memory notes):
+- **Multiple concurrent LLM sessions are normal** in this repo — and
+  increasingly the default way Sjoerd works. The operative checklist lives
+  in `CLAUDE.md` under **"Parallel SESSIONS — the serialization protocol"**,
+  because that file loads into every session automatically and this one does
+  not. (Until 2026-09-09 this bullet pointed at CLAUDE.md for a protocol
+  CLAUDE.md did not contain — it documented parallel *subagents* only, and a
+  session duly reinvented the protocol from scratch.) The rules, in short:
   - The version files + CHANGELOG are the serialization point — **never
     two sessions in a release at once**.
   - Announce "RELEASING NOW" to the other sessions before a bump and

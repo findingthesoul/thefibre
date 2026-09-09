@@ -53,7 +53,7 @@ pnpm dev          # all seven dev servers: api :8080, web :3000, meet :3001, thr
 ```
 
 ### Version bumps
-Every shipped change updates the **ten** `package.json` files (root, web, api, meet, thread, flow, pulse, membership, website, shared) plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit.
+Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + root + `packages/shared` (since v0.68.20), so a new app is covered the moment it exists. The hand-written count in this file said "ten" and was already wrong once.
 
 **Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work. **Pulse likewise** has its own `VERSION` in `apps/pulse/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-07-07). **Membership likewise** — its own `VERSION` in `apps/membership/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-09-04; display name may become "Hyve" — the slug `membership` never changes, only branding.ts does).
 
@@ -77,7 +77,7 @@ design-leading. Two companions: ordering UIs are drag-and-drop, never a
 numeric sort field; dates always use the shared `DateField`, never a
 native `<input type="date">`.
 
-### Parallel agents — when to use them
+### Parallel agents (subagents inside one session) — when to use them
 
 Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + org refactor). Rules:
 1. Each agent owns a disjoint folder. No shared files.
@@ -86,6 +86,54 @@ Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + or
 4. Sequential is faster for ≤2 tasks. Parallel pays off at 3+.
 
 Worktree isolation isn't available in this repo — agents share the working directory. Strict file lanes prevent corruption. **The Next.js dev server gets confused when many files arrive at once** — kill and restart `pnpm dev` after a parallel batch.
+
+### Parallel SESSIONS — the serialization protocol (binding)
+
+Different thing from the section above. That one is subagents you spawn.
+This one is **other chats, driven by Sjoerd, editing the same checkout at
+the same time.** He runs several by design and is running more of them over
+time, so assume a peer exists rather than checking whether one does.
+
+The rationale, the incident history and the release gates live in
+`docs/system-handbook.md` §10 and §11.4. This is the operative checklist,
+here because CLAUDE.md is the file every session loads automatically.
+
+**The shared working tree is the hazard.** There are no per-session
+worktrees. `git status` shows a union of everybody's work, and anything
+staged rides the next commit whoever makes it.
+
+1. **Find your peers first.** `ListAgents`, or `list_sessions` filtered on
+   this `cwd`. Message them with `send_message`. Do this at the START of a
+   working session, not at push time.
+2. **Fence a lane by directory** and say out loud which one you took.
+   Whoever is holding uncommitted code in a directory owns it until they
+   ship. Cross a lane only after asking.
+3. **Stage explicit paths. Never `git add -A`.** Check `git status`
+   column 1 for someone else's pre-staged entries before you commit.
+   Before adding a shared-ownership file whole, `git diff HEAD -- <file>`
+   and read what you'd be sweeping in.
+4. **One release at a time.** The version files + `CHANGELOG.md` are the
+   serialization point. Announce **`RELEASING NOW`** before a bump,
+   **`released <sha>`** after, and `git pull` immediately before bumping.
+   Never two sessions in a release at once.
+5. **History is the truth; announcements are courtesy.** Messages land
+   after the peer's current turn ends, so they can lose a race with a push.
+   `scripts/release-guard.sh` is what actually stops a duplicate version
+   number. If you still land one, you renumber.
+6. **After committing**, verify every import the commit introduces resolves
+   *within* the commit (`git diff base..HEAD`) — the classic sweep bug is a
+   half-written import from someone else's in-flight edit.
+7. **Rebasing over a peer costs you a stash.** `git stash -u` → rebase →
+   `git stash pop` picks up and puts back THEIR uncommitted files too. It
+   usually pops clean; it is still a clobber risk with no warning. Tell them
+   you did it and ask them to re-diff.
+8. **Docs-only commits skip the release script** — a commit touching only
+   `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
+   goes through `./scripts/release.sh <version>`, no exceptions.
+
+Read §10 before proposing new coordination rules to a peer. The protocol is
+written down; re-deriving it from scratch wastes a round trip and produces a
+second, drifting copy.
 
 ### Debugging API failures
 
