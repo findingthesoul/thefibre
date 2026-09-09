@@ -80,6 +80,56 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
      Protection (`all_except_custom_domains`), so `my.thefibre.tech` — bound
      to the `staging` branch, hence a Preview — redirects to Vercel's SSO
      instead of serving. Production is unaffected. Security setting, his call.
+   - **NEXT SLICE, specified by Sjoerd 2026-09-09 (not started).** The portal
+     is a LIST; tapping an item opens a detail popup carrying: the agenda,
+     the ticket QR, **Add to wallet**, **Email it to me**, **Add to
+     calendar**, and **RSVP** where applicable. What already exists, so none
+     of it is built from scratch: the portal API already returns
+     `agenda[]` per thread (title, description, type, times, location,
+     meeting_url, external_url) and tickets with `checkin_code`; the QR and
+     BOTH wallet passes are already served by Thread at
+     `/api/v1/thread/public/checkin/:code/{qr.png,apple.pkpass,google}`, so
+     the portal can link them directly with NO API change (wallet stays inert
+     until the Apple/Google credentials exist). Genuinely missing: an `.ics`
+     for a thread or agenda item — `lib/ical.ts` (`buildBookingIcal`) exists
+     but is Meet-only, with the one endpoint at
+     `meet/public/bookings/:id/calendar.ics`; a thread variant is an
+     extension of that, not new work. And RSVP, which has NO model anywhere
+     (`grep -i rsvp` finds only an `RSVP=FALSE` string in ical.ts).
+   - **RSVP — design conversation held 2026-09-09, decision NOT taken.**
+     Sjoerd asked whether RSVP defaults to on per event, or is a thread-level
+     setting. Recommendation given: those are two different questions and
+     they compose. (a) Organiser side — put the switch on the AGENDA ITEM,
+     defaulted from a thread-level default, because a thread mixes assumed
+     attendance with genuinely optional items. (b) Participant side — the
+     default should follow the item rather than be a preference: an item
+     INCLUDED in what you enrolled in defaults to "coming" and the control is
+     really "I can't make this one" (opt-out); an OPTIONAL item defaults to
+     no/unknown and the control is opt-in. So the organiser never picks a
+     default, they mark the item included or optional, which they already
+     know. Store THREE states (coming / not coming / no answer), because
+     forty declines and forty non-replies are different facts and a caterer
+     needs to tell them apart. Capacity arrives with RSVP whether or not it
+     is built — shape the record so adding it later is not a migration. An
+     RSVP fits the activity log naturally: append-only, corrections as new
+     rows.
+   - **Organiser path: enrolment → user → invoice does NOT exist** (Sjoerd's
+     model, 2026-09-09: member/visitor → `my`; organiser/workspace → the app,
+     then via Invoices *or* via enrolments). Nothing links an enrolment to
+     its ledger row — "invoice" appears in none of Thread's enrolment
+     surfaces (registration.tsx, registrations-dialog.tsx, threads/[id]).
+     The join already exists (`purchase.item_ref` + upsert on
+     `app_id, item_ref`), so this is surfacing, not modelling.
+   - **The Invoices page never says it is workspace-scoped**, which reads as
+     data loss. `public."user"` is per workspace (`unique (workspace_id,
+     email)`), so one human is several user rows; `scope=me` filters
+     `organiser_user_id = ctx.userId`, the workspace-resolved one. Sjoerd has
+     three rows and hit this on 2026-09-09 ("I don't see my invoices
+     anymore"). Nothing is lost and the filter is correct — the screen is
+     just silent about it. Contrast worth keeping: the organiser side keys on
+     the workspace-scoped user ("what I sold, here"), the visitor side on the
+     verified email across all workspaces ("what I bought, anywhere"). That
+     difference is the clearest justification for `my` existing at all.
    - **D4 — PWA.** Recommended thin (manifest, icons, service worker
      caching the shell + the visitor's own tickets) and only AFTER the
      wallet passes; NOT an offline-first rewrite. iOS installs manually, so
