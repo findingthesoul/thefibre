@@ -489,6 +489,25 @@ export function ProductDialog({
                     <option value="organiser">{t(locale, 'organiser_seat')}</option>
                     <option value="admin">{t(locale, 'admin_seat')}</option>
                   </select>
+                ) : accessKind === 'thread' && threadOptions.length > 0 ? (
+                  /* Pick a thread, never type its slug. The Links row above has
+                     done this since 2026-09-05; Access kept a free-text field,
+                     and a typo there fails LATE and quietly — the grant saves,
+                     the member joins, and the worker stamps "no thread <slug>
+                     in this workspace" into a journal nobody is watching
+                     (Sjoerd, 2026-09-09: "and slug select"). */
+                  <SearchSelect
+                    value={accessRef}
+                    onChange={setAccessRef}
+                    options={[
+                      ...threadOptions.map((x) => ({ value: x.slug, label: x.title, hint: x.slug })),
+                      ...(accessRef && !threadOptions.some((x) => x.slug === accessRef)
+                        ? [{ value: accessRef, label: accessRef }]
+                        : []),
+                    ]}
+                    placeholder={t(locale, 'pick_thread_ph')}
+                    className="w-full"
+                  />
                 ) : (
                   <input
                     value={accessRef}

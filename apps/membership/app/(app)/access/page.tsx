@@ -36,11 +36,32 @@ export default async function AccessPage() {
     /* treat as not set */
   }
 
+  // Internal slugs get PICKED, not typed — the same read the products page
+  // makes, for the same reason. A typo in a thread slug fails LATE: the grant
+  // saves, the member joins, and the worker stamps "no thread <slug> in this
+  // workspace" into a journal nobody watches. Failure falls back to the text
+  // field, so a cross-app read that 403s costs nothing.
+  type ThreadRow = { slug: string; program: { title?: string } | { title?: string }[] | null };
+  const threadOptions = await apiFetch<{ items: ThreadRow[] }>('/api/v1/thread/threads')
+    .then((r) =>
+      r.items.map((t) => {
+        const program = Array.isArray(t.program) ? t.program[0] : t.program;
+        return { slug: t.slug, title: program?.title ?? t.slug };
+      }),
+    )
+    .catch(() => [] as { slug: string; title: string }[]);
+
   const locale = await uiLocale();
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <AccessClient grants={grants} tiers={tiers} circleTokenSet={circleTokenSet} locale={locale} />
+      <AccessClient
+        grants={grants}
+        tiers={tiers}
+        circleTokenSet={circleTokenSet}
+        threadOptions={threadOptions}
+        locale={locale}
+      />
     </div>
   );
 }

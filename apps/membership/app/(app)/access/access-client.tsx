@@ -17,11 +17,14 @@ export function AccessClient({
   grants,
   tiers,
   circleTokenSet,
+  threadOptions,
   locale,
 }: {
   grants: Grant[];
   tiers: Tier[];
   circleTokenSet: boolean;
+  /** The workspace's threads — a thread grant PICKS a slug, never types one. */
+  threadOptions: { slug: string; title: string }[];
   locale: Locale;
 }) {
   const [creating, setCreating] = useState(false);
@@ -99,6 +102,7 @@ export function AccessClient({
           grant={null}
           tiers={tiers}
           circleTokenSet={circleTokenSet}
+          threadOptions={threadOptions}
           locale={locale}
           onClose={() => setCreating(false)}
         />
@@ -108,6 +112,7 @@ export function AccessClient({
           grant={editing}
           tiers={tiers}
           circleTokenSet={circleTokenSet}
+          threadOptions={threadOptions}
           locale={locale}
           onClose={() => setEditing(null)}
         />

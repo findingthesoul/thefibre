@@ -6,6 +6,29 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.49] — 2026-09-09 — a thread grant picks its thread (Members 0.14.5)
+
+Sjoerd, looking at a product's Access row: "how do I set that someone will
+enrol in a thread? And slug select". The answer to the first is that this IS
+the control — a `thread` grant is what enrols a member and withdraws them on
+lapse (v0.68.31). The second was a free-text field.
+
+- **The Access row picks a thread**, in both places that offer one: the
+  product dialog and the standalone grant dialog. Same `SearchSelect` and
+  the same option shape the LINKS row has used since 2026-09-05 — that row
+  got a picker then and Access was left typing.
+- **Why it matters more here than for a link.** A mistyped link is a dead
+  link, visible immediately. A mistyped grant saves fine, the member joins
+  fine, and the worker stamps `no thread "<slug>" in this workspace` into a
+  journal nobody is watching. The failure is late, silent, and lands on the
+  member rather than the organiser.
+- An existing value that is not in the list is kept as its own option, so
+  grants holding a full public URL (soul.com has one) still show and still
+  work — the worker's parser already takes the last path segment.
+- The access page now makes the same cross-app thread read the products page
+  makes, on the user's own RLS identity, falling back to the text field if it
+  fails. A 403 costs nothing.
+
 ## [0.68.48] — 2026-09-09 — a drag that never ended, and a status that lied
 
 Sjoerd, twice: "once I am in the certificate editor, I can't leave", and
