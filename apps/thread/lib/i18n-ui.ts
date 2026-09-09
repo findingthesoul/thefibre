@@ -6197,9 +6197,25 @@ const CATALOG = {
     de: 'Automatisch gespeichert', // MT
     fr: 'Enregistré automatiquement', // MT
   },
+  choose_recipients: {
+    en: 'Choose who gets one →',
+    nl: 'Kies wie er een krijgt →',
+    es: 'Elige quién recibe uno →', // MT
+    pt: 'Escolha quem recebe um →', // MT
+    de: 'Wähle, wer eines bekommt →', // MT
+    fr: 'Choisis qui en reçoit un →', // MT
+  },
+  choose_recipients_hint: {
+    en: "This thread's participants, with a search. Tick everyone, untick the ones who should not get a certificate, and issue. Completing someone does not issue one by itself.",
+    nl: 'De deelnemers van deze thread, met een zoekveld. Vink iedereen aan, vink af wie geen certificaat hoort te krijgen, en reik uit. Iemand afronden reikt op zichzelf niets uit.',
+    es: 'Los participantes de este thread, con un buscador. Marca a todos, desmarca a quienes no deban recibir certificado, y emite. Marcar a alguien como completado no emite nada por sí solo.', // MT
+    pt: 'Os participantes deste thread, com uma busca. Marque todos, desmarque quem não deve receber certificado, e emita. Concluir alguém não emite nada por si só.', // MT
+    de: 'Die Teilnehmenden dieses Threads, mit Suche. Alle anhaken, die abwählen, die kein Zertifikat bekommen sollen, und ausstellen. Jemanden abzuschließen stellt für sich genommen nichts aus.', // MT
+    fr: 'Les participants de ce thread, avec une recherche. Coche tout le monde, décoche celles et ceux qui ne doivent pas recevoir de certificat, puis émets. Marquer quelqu’un comme terminé n’émet rien en soi.', // MT
+  },
   certificate_engagement_hint: {
-    en: 'Issues to everyone who has completed and does not have a certificate yet. Completing someone already issues theirs, so on a thread that has been running normally this will correctly issue to nobody. It is here for the ones that slipped through: people who completed before certificates were switched on, before a design was chosen, or whose certificate failed to send.',
-    nl: 'Reikt uit aan iedereen die afgerond heeft en nog geen certificaat heeft. Iemand afronden reikt het certificaat al uit, dus bij een thread die normaal loopt reikt dit terecht aan niemand uit. Het is er voor wie ertussendoor is geglipt: mensen die afrondden voordat certificaten aanstonden, voordat er een ontwerp gekozen was, of van wie het certificaat niet verstuurd kon worden.',
+    en: 'Issues to everyone who has completed and does not have a certificate yet. Completing someone no longer issues theirs, so this is one of the two ways a certificate goes out — the other is choosing people by hand on the Enrolments page. Note that it does not know who you left unchecked there.',
+    nl: 'Reikt uit aan iedereen die afgerond heeft en nog geen certificaat heeft. Iemand afronden reikt het certificaat niet meer uit, dus dit is een van de twee manieren waarop een certificaat verstuurd wordt — de andere is mensen met de hand kiezen op de pagina Inschrijvingen. Let op: dit weet niet wie je daar hebt uitgevinkt.',
     es: 'Emite a todos los que han completado y aún no tienen certificado. Marcar a alguien como completado ya emite el suyo, así que en un thread que funciona con normalidad esto no emitirá a nadie, y eso es correcto. Está aquí para los que se escaparon: quienes completaron antes de activar los certificados, antes de elegir un diseño, o cuyo certificado falló al enviarse.', // MT
     pt: 'Emite para todos que concluíram e ainda não têm certificado. Marcar alguém como concluído já emite o dele, então num thread que roda normalmente isto corretamente não emitirá para ninguém. Está aqui para quem escapou: quem concluiu antes de os certificados serem ativados, antes de um design ser escolhido, ou cujo certificado falhou no envio.', // MT
     de: 'Stellt allen aus, die abgeschlossen haben und noch kein Zertifikat besitzen. Wer abgeschlossen wird, bekommt seines bereits — in einem normal laufenden Thread stellt das hier also zu Recht niemandem etwas aus. Es ist für die Durchgerutschten da: alle, die vor der Aktivierung der Zertifikate abgeschlossen haben, vor der Wahl einer Vorlage, oder deren Zertifikat beim Versand fehlschlug.', // MT

@@ -3887,14 +3887,21 @@ threadRoutes.post('/enrolments/:id/complete', async (c) => {
     `Completed: ${program.title}`,
   );
 
-  let certificateNumber: string | null = null;
-  if (thread.certificate_enabled) {
-    const issued = await issueCertificate(te.id, ctx.userId);
-    if (issued.ok) certificateNumber = issued.certificate_number;
-    else if (!('skipped' in issued && issued.skipped)) {
-      console.warn('[thread/complete] auto-issue failed', issued.error);
-    }
-  }
+  // COMPLETING SOMEBODY NO LONGER ISSUES THEIR CERTIFICATE (Sjoerd,
+  // 2026-09-10). Until now it did, which meant "who gets a certificate" was
+  // decided by "who did you mark complete" and there was no way to complete
+  // someone and withhold the certificate — a facilitator who wanted to do
+  // that had no move at all.
+  //
+  // Issuing is now an explicit act with two doors, and neither is this one:
+  // the participant list on Enrolments (select who, press issue) and the
+  // certificate element on the timeline (issues on a date). Completion means
+  // completion.
+  //
+  // The failure this also removes: the old auto-issue wrote one warning line
+  // to stderr when it failed and nothing ever retried, so a person could be
+  // completed and silently never receive anything.
+  const certificateNumber: string | null = null;
 
   if (person.email) {
     try {
@@ -6335,22 +6342,24 @@ const SCHEDULER_LOOKBACK_MS = 72 * 60 * 60 * 1000;
  * A "send certificate" element has come due: issue to everyone who has
  * earned one and has not got one yet. Returns how many went out.
  *
- * ON A HEALTHY THREAD THIS ISSUES TO NOBODY, and that is correct. Completing
- * somebody already issues their certificate (the complete handler, when
- * `certificate_enabled`), so by the time a dated element fires, most people
- * have theirs and `issueCertificate` refuses the second. This element is a
- * BACKSTOP, not the main path. What it catches is real: completions recorded
- * before certificates were switched on, before a template was chosen, or —
- * the strongest case, and it is in this same file — an auto-issue that failed
- * and only wrote a warning to stderr, after which nothing ever retried. The
- * editor says this on screen, because an organiser watching it run correctly
- * and do nothing will otherwise report it as broken.
+ * THIS IS NOW A MAIN PATH, not a backstop. It was written on 2026-09-09
+ * when completing somebody auto-issued their certificate, so a dated element
+ * fired and correctly issued to almost nobody. A day later Sjoerd took the
+ * automatic issue out — "the list becomes the decision" — and this became
+ * one of the two ways a certificate ever reaches anyone. The other is the
+ * participant list on Enrolments. If you are reading an old comment or
+ * changelog entry calling this a backstop, it is describing the world before
+ * that.
  *
  * WHO EARNED ONE is deliberately not a new rule. It is the same set the bulk
  * button issues to — completed enrolments — because two definitions of "you
  * finished the course" would drift, and the one that drifted would be the
- * automatic one nobody watches. It is also exactly the definition of a
- * straggler, which is what makes it the right rule for a backstop. `issueCertificate` refuses a second issue per
+ * automatic one nobody watches.
+ *
+ * NOT YET HONOURED: unchecking somebody in the participant list means "not
+ * in this batch", not "never". Nothing persists that decision, so a dated
+ * element firing later will issue to them anyway. Recorded in the build
+ * plan; it wants a per-enrolment exclusion before the two doors agree. `issueCertificate` refuses a second issue per
  * enrolment on its own, so a re-run, a retry, or two elements pointing at the
  * same moment cannot produce two certificates for one person.
  *

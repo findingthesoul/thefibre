@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.58] — 2026-09-10 — completing somebody stops issuing their certificate
+
+Sjoerd asked for the participant list inside a thread's Certificate tab —
+search at the top, everyone ticked, untick the ones who should not get one —
+"this way the facilitators can select who gets the certificate and who
+doesn't."
+
+**That list already existed**, on Enrolments, filtered per thread, with a
+search, select-all and Issue certificates. It was simply unreachable from the
+screen where you set certificates up. So the Certificate tab links to it
+rather than growing a second copy. Two lists doing one job is the fork the
+components-first rule exists to stop, and this one would have been ours.
+
+**The real change is behind it.** Completing somebody used to issue their
+certificate automatically, which meant "who gets one" was decided entirely by
+"who did you mark complete" — and a facilitator who wanted to complete
+someone and withhold the certificate had no move at all. Sjoerd's call:
+the list becomes the decision. Completion now means completion. Issuing is an
+explicit act with two doors, the participant list and the dated timeline
+element.
+
+It also removes a silent failure: the old auto-issue wrote one warning line
+to stderr when it failed and nothing retried, so a completed person could
+receive nothing and nobody would know.
+
+**One consequence is recorded rather than fixed, and it is a real gap.**
+Unticking somebody means "not in this batch" — nothing persists it — so a
+dated certificate element firing later issues to them anyway. The element's
+own hint says so on screen, the comment on `issueDueCertificates` says so,
+and build-plan 0c has the shape of the fix. It needs a per-enrolment
+exclusion, and the hard part is the interaction rather than the column: a
+tick list is transient, and making one of its states permanent has to look
+permanent.
+
+**The v0.68.46 entry is now wrong about its own feature.** It called the
+timeline element a backstop that "correctly issues to nobody" on a healthy
+thread. That was true for a day. With auto-issue gone it is a main path, and
+the code comment says which world an old note is describing.
+
+Measured before changing: 2 certificates ever issued, 4 completed enrolments,
+1 certificate element in existence.
+
 ## [0.68.57] — 2026-09-10 — the portal has four places, not one long page (Portal 0.2.0)
 
 Sjoerd: "why are there two my. environments. As a user, I want 1 environment

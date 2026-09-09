@@ -135,6 +135,29 @@ _Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
    certificates — and "the day it ends" is the obvious setting for a
    certificate, which is how it was noticed.
 
+**0c. The two certificate doors do not agree about who is excluded.**
+   Sjoerd, 2026-09-10, chose "the list becomes the decision": completing
+   somebody no longer issues their certificate, and issuing is an explicit
+   act. Two doors do it — the participant list on Enrolments (tick, untick,
+   issue) and the `certificate` timeline element (issues on a date).
+
+   Unticking somebody in the list means "not in this batch". Nothing persists
+   it. So a dated element firing next week issues to them anyway, because its
+   rule is "completed and no certificate yet" and the exclusion left no trace.
+   A facilitator who deliberately withheld one would not find out.
+
+   What it wants is a per-enrolment exclusion — `thread_enrolment
+   .certificate_excluded`, or a nullable decision column if "not yet decided"
+   should read differently from "no" — set when you untick and issue, honoured
+   by both doors and by the bulk button. The open question is the
+   interaction, not the column: a checkbox list is a transient selection UI,
+   and making one of its states permanent needs to look permanent, or people
+   will exclude somebody by accident and never see it again.
+
+   Until then the honest reading is: the list decides THIS batch, the element
+   decides everyone completed. Both the element's on-screen hint and the
+   comment on `issueDueCertificates` say so.
+
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
    smoke-prod). Phase 1 DONE (CI installed — SSH
