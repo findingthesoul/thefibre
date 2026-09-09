@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.52] — 2026-09-09 — Escape closes the layer you are looking at
+
+Round five on the staging fixture, signed in at 375×812. One real bug, and
+the tap-to-enlarge overlay added in v0.68.51 is where it lives.
+
+Open the popup, tap the QR to enlarge, press Escape once: it closed the
+**dialog underneath** and left the full-screen QR floating over the thread
+list with its parent gone. Not a trap — the overlay's own caption says to tap
+it — but the topmost layer was failing to consume the key while the layer
+beneath it consumed it happily, and every other dialog in the family closes
+on Escape, so the muscle memory pointed exactly the wrong way.
+
+**Why it happened, since it will happen again to the next person who stacks
+two layers:** the shared `Dialog` listens on `document` in the bubble phase,
+and it registered first because it opened first. A second bubble listener
+cannot get in front of it. The overlay now listens in the **capture** phase
+on the same node — which runs before every bubble listener there — and calls
+`stopImmediatePropagation`, so the key never reaches the Dialog. Only while
+zoomed; the Dialog keeps its own Escape the rest of the time.
+
+**The ticket-block gamble is vindicated by the measurement that justified
+it.** v0.68.51 laid the QR sideways on the argument that the agenda started
+below the fold on a phone. Measured after: first agenda row top at 576px in
+an 812px viewport — above the fold with 236px to spare, where before it was
+below it from the first item. The agreement was that the measurement decides
+and the block goes back if it fails; it passed, so it stays.
+
+**Everything else passed**, and it is on the record rather than assumed: all
+three RSVP states including withdraw, with `aria-pressed` tracking; tap
+targets (Coming 136×44, Can't 135×44, calendar 44×44, QR 112×112, full page
+145×44 — only the shared Dialog's 18×18 close remains, known and owned
+elsewhere); the QR overlay opening 112→320; the `.ics` and the full-page link
+both absolute and resolving; **no cross-participant leak**, tested with two
+real sessions on the same agenda item rather than one and an assumption; and
+the caption agreeing with the API in both directions.
+
+**Two false alarms the verifying session caught in itself first**, worth
+recording as the sixth instance of tonight's recurring failure: a 1.6s wait
+for the round trip was too short, and a straight apostrophe was matched
+against a curly one. Both briefly read as "withdraw is broken". Both were the
+measurement, not the code.
+
+**The fixture grew two capabilities** and they are permanent: the agenda
+item's `rsvp_enabled` was null (which since v0.68.43 means off, so the
+control did not render at all on first load) and is now true, and
+`portal-silent@thefibre.tech` has a real auth user, so the fixture exercises
+RSVP-on and two participants rather than one participant and an assumption.
+
 ## [0.68.51] — 2026-09-09 — the portal's popup stops shouting all at once
 
 Sjoerd, on his own membership: *"improve the interface drastically... more

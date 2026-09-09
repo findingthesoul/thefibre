@@ -10,7 +10,7 @@
 // Everything here is a link. There is no state to save and no call that
 // changes anything, which is why it can be a plain dialog rather than a form.
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X } from 'lucide-react';
@@ -288,6 +288,26 @@ export function ThreadDetail({
   const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(false);
   const when = fmtDate(thread.starts_on);
+
+  // Escape must close the TOPMOST layer. The shared Dialog listens for it on
+  // `document` in the bubble phase, and it registered first because it opened
+  // first — so without this, one press closed the dialog UNDERNEATH and left
+  // the full-screen QR floating over the thread list with its parent gone
+  // (found on staging, round five). A CAPTURE-phase listener on the same node
+  // runs before every bubble listener there, and stopImmediatePropagation
+  // keeps the key from reaching the Dialog at all. Only while zoomed, so the
+  // Dialog keeps its own Escape the rest of the time.
+  useEffect(() => {
+    if (!zoom) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'Escape') return;
+      e.stopImmediatePropagation();
+      e.preventDefault();
+      setZoom(false);
+    }
+    document.addEventListener('keydown', onKey, true);
+    return () => document.removeEventListener('keydown', onKey, true);
+  }, [zoom]);
   const code = ticket?.checkin_code ?? null;
 
   return (
