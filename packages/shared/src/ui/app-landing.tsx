@@ -23,6 +23,7 @@ export function AppLanding({
   intro,
   features,
   signIn,
+  belowSignIn,
   fibreUrl,
 }: {
   appSlug: AppId;
@@ -30,6 +31,10 @@ export function AppLanding({
   intro: ReactNode;
   features: AppLandingFeature[];
   signIn: ReactNode;
+  /** Optional line under the sign-in block. Membership uses it to point a
+   *  community member at their own page — they have no workspace seat, so
+   *  signing in here lands them nowhere useful without it. */
+  belowSignIn?: ReactNode;
   /** appUrl('fibre-platform', process.env), computed in the app's page. */
   fibreUrl: string;
 }) {
@@ -50,6 +55,7 @@ export function AppLanding({
         </p>
 
         <div className="mt-10">{signIn}</div>
+        {belowSignIn}
 
         <section className="mt-24 grid gap-8 md:grid-cols-2">
           {features.map((f) => (

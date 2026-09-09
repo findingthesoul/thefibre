@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.23] — 2026-09-09 — the landing page has a door for members (Members 0.14.3)
+
+Signing in at membership.thethread.app takes you to the admin side, which
+a community member has no seat for. That wall was fixed for people who
+arrive already signed in (0.68.22 sends them to /my); a signed-out member
+still had nowhere to click.
+
+- **`belowSignIn`** — an optional slot on the shared `AppLanding`, under
+  the sign-in block. Membership fills it with a link to `/my`; the other
+  apps are untouched.
+- Also carries `apps/api/scripts/verify-stripe-webhooks.mjs`, pushed
+  outside the release script in 72ca494 and recorded here instead of
+  quietly. Read-only auditor for the four Stripe endpoints: existence,
+  status, Connect-versus-account mode, and the events each route needs.
+  Written because a webhook in the wrong mode looks healthy in the Stripe
+  dashboard and delivers nothing — which is why soul.com's first live
+  payment never reached the membership.
+
 ## [0.68.22] — 2026-09-09 — a paid membership stays paid (Members 0.14.2)
 
 soul.com's first live member joined on an invoice, paid, and the app
