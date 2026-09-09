@@ -6335,10 +6335,22 @@ const SCHEDULER_LOOKBACK_MS = 72 * 60 * 60 * 1000;
  * A "send certificate" element has come due: issue to everyone who has
  * earned one and has not got one yet. Returns how many went out.
  *
+ * ON A HEALTHY THREAD THIS ISSUES TO NOBODY, and that is correct. Completing
+ * somebody already issues their certificate (the complete handler, when
+ * `certificate_enabled`), so by the time a dated element fires, most people
+ * have theirs and `issueCertificate` refuses the second. This element is a
+ * BACKSTOP, not the main path. What it catches is real: completions recorded
+ * before certificates were switched on, before a template was chosen, or —
+ * the strongest case, and it is in this same file — an auto-issue that failed
+ * and only wrote a warning to stderr, after which nothing ever retried. The
+ * editor says this on screen, because an organiser watching it run correctly
+ * and do nothing will otherwise report it as broken.
+ *
  * WHO EARNED ONE is deliberately not a new rule. It is the same set the bulk
  * button issues to — completed enrolments — because two definitions of "you
  * finished the course" would drift, and the one that drifted would be the
- * automatic one nobody watches. `issueCertificate` refuses a second issue per
+ * automatic one nobody watches. It is also exactly the definition of a
+ * straggler, which is what makes it the right rule for a backstop. `issueCertificate` refuses a second issue per
  * enrolment on its own, so a re-run, a retry, or two elements pointing at the
  * same moment cannot produce two certificates for one person.
  *

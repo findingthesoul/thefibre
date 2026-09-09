@@ -759,6 +759,16 @@ export function EngagementDialog({
               />
             )}
 
+            {/* What this element is FOR. On a healthy thread it issues to
+                nobody, because completing somebody already issued theirs —
+                and an organiser watching it run correctly and do nothing
+                will report it as broken unless the screen says otherwise. */}
+            {family === 'certificate' && (
+              <p className="mt-3 rounded-lg border border-line bg-surface-sunken px-3.5 py-3 text-xs leading-relaxed text-ink-subtle">
+                {t(locale, 'certificate_engagement_hint')}
+              </p>
+            )}
+
             <div className="pt-1">
               {/* Activities belong on the public agenda; messages are the
                   participant journey — private by default (Sjoerd 2026-07-02). */}

@@ -6181,6 +6181,14 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  certificate_engagement_hint: {
+    en: 'Issues to everyone who has completed and does not have a certificate yet. Completing someone already issues theirs, so on a thread that has been running normally this will correctly issue to nobody. It is here for the ones that slipped through: people who completed before certificates were switched on, before a design was chosen, or whose certificate failed to send.',
+    nl: 'Reikt uit aan iedereen die afgerond heeft en nog geen certificaat heeft. Iemand afronden reikt het certificaat al uit, dus bij een thread die normaal loopt reikt dit terecht aan niemand uit. Het is er voor wie ertussendoor is geglipt: mensen die afrondden voordat certificaten aanstonden, voordat er een ontwerp gekozen was, of van wie het certificaat niet verstuurd kon worden.',
+    es: 'Emite a todos los que han completado y aún no tienen certificado. Marcar a alguien como completado ya emite el suyo, así que en un thread que funciona con normalidad esto no emitirá a nadie, y eso es correcto. Está aquí para los que se escaparon: quienes completaron antes de activar los certificados, antes de elegir un diseño, o cuyo certificado falló al enviarse.', // MT
+    pt: 'Emite para todos que concluíram e ainda não têm certificado. Marcar alguém como concluído já emite o dele, então num thread que roda normalmente isto corretamente não emitirá para ninguém. Está aqui para quem escapou: quem concluiu antes de os certificados serem ativados, antes de um design ser escolhido, ou cujo certificado falhou no envio.', // MT
+    de: 'Stellt allen aus, die abgeschlossen haben und noch kein Zertifikat besitzen. Wer abgeschlossen wird, bekommt seines bereits — in einem normal laufenden Thread stellt das hier also zu Recht niemandem etwas aus. Es ist für die Durchgerutschten da: alle, die vor der Aktivierung der Zertifikate abgeschlossen haben, vor der Wahl einer Vorlage, oder deren Zertifikat beim Versand fehlschlug.', // MT
+    fr: 'Émet pour toutes les personnes ayant terminé et n’ayant pas encore de certificat. Marquer quelqu’un comme terminé émet déjà le sien, donc sur un thread qui tourne normalement ceci n’émettra pour personne, et c’est correct. C’est là pour celles et ceux passés entre les mailles : terminé avant l’activation des certificats, avant le choix d’un modèle, ou dont le certificat n’a pas pu être envoyé.', // MT
+  },
   duplicate_template_tooltip: {
     en: 'Make a copy to work on — same design, yours to change',
     nl: 'Maak een kopie om aan te werken — zelfde ontwerp, van jou om te wijzigen',

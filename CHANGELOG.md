@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.46] — 2026-09-09 — the certificate element says what it is for
+
+Review catch from the membership session on v0.68.45, an hour old, and it is
+the difference between a feature and a support ticket.
+
+**On a thread that has been running normally, "send certificate" issues to
+nobody.** Completing somebody already issues their certificate, so by the
+time a dated element fires, almost everyone has theirs and issuance correctly
+refuses the second. The element runs, does nothing, and reports success. The
+first organiser to use it reports it as broken while looking at something
+that worked perfectly.
+
+So the editor now says so, in the dialog, next to the trigger. It is a
+BACKSTOP, and what it catches is real: people who completed before
+certificates were switched on, before a design was chosen, or whose
+certificate failed to send. That last case is the strongest and it is in the
+same file — a failed auto-issue writes a warning to stderr and nothing ever
+retries it, so today those people simply never get one. A dated element is
+the retry that did not exist.
+
+The eligibility rule needed no change, which is the part worth noticing:
+completed enrolments with no certificate yet was already exactly the
+definition of a straggler. Reusing the bulk button's rule rather than writing
+a second one turned out to be right for a reason nobody had stated yet.
+
 ## [0.68.45] — 2026-09-09 — a certificate you can put on the calendar, and one you can copy
 
 Two of Sjoerd's: "one extra engagement: send certificate", and "certificate
