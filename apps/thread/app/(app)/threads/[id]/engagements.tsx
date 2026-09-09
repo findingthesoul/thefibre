@@ -103,6 +103,7 @@ export function EngagementDialog({
   requiresApproval,
   personalRoomUrl,
   canEditStructure = true,
+  locked = false,
   activities = [],
   onClose,
 }: {
@@ -118,6 +119,11 @@ export function EngagementDialog({
   /** Plan gate: false hides Delete (except on system messages, which stay
    *  deletable — they fall back to compiled emails) and Duplicate. */
   canEditStructure?: boolean;
+  /** The thread is locked: this dialog stays open as a READER. Every write
+   *  it offers — save, delete, duplicate — goes away, and the fields go
+   *  inert, so a locked timeline can still be inspected element by element.
+   *  The API refuses the same writes (423 `thread_locked`) regardless. */
+  locked?: boolean;
   /** The thread's activities — anchor options for relative message triggers. */
   activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
@@ -379,7 +385,7 @@ export function EngagementDialog({
       size="xl"
       footer={
         <>
-          {!isNew && (
+          {!isNew && !locked && (
             <div className="mr-auto flex items-center gap-1.5">
               {/* Structure gate: removing real elements needs a higher plan,
                   but the seeded system messages stay deletable everywhere
@@ -412,19 +418,22 @@ export function EngagementDialog({
           )}
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={requestClose}>
-            {t(locale, 'cancel')}
+            {t(locale, locked ? 'close' : 'cancel')}
           </Button>
-          <Button type="submit" form="engagement-form" disabled={pending}>
-            {pending
-              ? t(locale, 'saving')
-              : isNew
-                ? t(locale, 'add_to_timeline')
-                : t(locale, 'save')}
-          </Button>
+          {!locked && (
+            <Button type="submit" form="engagement-form" disabled={pending}>
+              {pending
+                ? t(locale, 'saving')
+                : isNew
+                  ? t(locale, 'add_to_timeline')
+                  : t(locale, 'save')}
+            </Button>
+          )}
         </>
       }
     >
       <form id="engagement-form" onSubmit={onSubmit} onInput={() => setDirty(true)}>
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
         <div className="mb-6 flex items-end gap-5">
           <div className="flex-1 min-w-0">
             <TextField
@@ -740,6 +749,7 @@ export function EngagementDialog({
             </div>
           </div>
         </div>
+        </fieldset>
       </form>
 
       <ConfirmDialog

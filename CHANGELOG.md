@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.34] — 2026-09-09 — a thread you can freeze
+
+Sjoerd, this afternoon: in a thread's settings you should be able to lock it,
+so it cannot be edited or deleted.
+
+**What the lock freezes is the thread AS A DESIGN**, and that boundary is the
+whole decision. Settings, timeline, tickets, discount codes, categories and
+co-organisers all stop moving; the thread cannot be deleted. Enrolment,
+payment, check-in, certificates and the message scheduler never consult it.
+A lock that took a live event off the air while people were enrolling would
+be a worse accident than the one it exists to prevent.
+
+Status is the other deliberate exception. Marking a finished thread completed
+or archived is lifecycle, not design, and it lives on its own control in the
+header — locking a thread should not strand it as `active` forever.
+
+**Unlocking is one click, locking asks first.** Unlocking removes a guard;
+ceremony there teaches people to leave threads unlocked, which is the outcome
+the feature is against. The lock is not a permission level either — whoever
+may edit the thread may unlock it. It is a guard against an accident by the
+person who already has the authority, which is what almost every real "don't
+touch this one" actually is.
+
+Both halves exist. The UI hides what it will not let you do: Save and Delete
+leave the settings dialog, every panel that writes goes inert behind a
+disabled fieldset (the embed tab keeps its copy buttons, they write nothing),
+the timeline's add button and the inline time shortcut go away, the
+engagement dialog stays open as a reader, the title stops being editable, and
+a chip beside the status pill says why. The API refuses the same writes with
+`423 thread_locked` on fourteen routes — the settings PATCH, the delete, all
+three engagement routes, tickets and coupons in all three, categories and
+both co-organiser routes — because the same endpoints are reachable by
+anything holding the JWT.
+
+Duplicating a locked thread still works and the copy starts unlocked; so does
+saving it as a template. Both build a NEW thread, which is exactly the escape
+hatch you want when the locked one is the one you must not touch.
+
+`thread_thread.locked_at` + `locked_by`, applied to prod and staging.
+Thread's own version goes to 3.39.0.
+
 ## [0.68.33] — 2026-09-09 — the one fact those two predicates share, written once
 
 Review catch from the membership session on v0.68.32, and the seventh

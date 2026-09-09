@@ -53,6 +53,11 @@ export type ThreadRow = {
   certificate_enabled: boolean;
   certificate_criteria: string | null;
   certificate_template_id: string | null;
+  /** Set while the thread is locked — frozen as a design. Its settings,
+   *  timeline, tickets, coupons, categories and co-organisers stop being
+   *  editable and it can't be deleted; participants carry on enrolling. */
+  locked_at: string | null;
+  locked_by: string | null;
   created_at: string;
   updated_at: string;
   team_id: string | null;

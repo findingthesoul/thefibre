@@ -74,6 +74,22 @@ export async function duplicateThread(id: string): Promise<ActionResult> {
   }
 }
 
+/** Freeze or release the thread's design. Its own endpoint, not a field on
+ *  updateThread — that call is exactly what the lock refuses. */
+export async function setThreadLocked(id: string, locked: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${id}/lock`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locked }),
+    });
+    revalidatePath('/threads');
+    revalidatePath(`/threads/${id}`);
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updateThread(
   id: string,
   patch: Record<string, unknown>,

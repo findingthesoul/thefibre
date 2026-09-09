@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { CalendarRange, Route } from 'lucide-react';
+import { CalendarRange, Lock, Route } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { one, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { EmptyState } from '@/components/ui/page';
@@ -137,6 +137,14 @@ export function ThreadsList({
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>
+                  {row.locked_at && (
+                    <Lock
+                      size={13}
+                      strokeWidth={1.75}
+                      className="text-ink-muted shrink-0"
+                      aria-label={t(locale, 'locked')}
+                    />
+                  )}
                   <span
                     className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                       STATUS_STYLES[status] ?? STATUS_STYLES.draft

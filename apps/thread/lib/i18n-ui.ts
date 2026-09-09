@@ -2467,6 +2467,55 @@ const CATALOG = {
     de: 'mit allen Engagements, Tickets, Codes und Registrierungen. Es gibt kein Zurück.', // MT
     fr: 'avec tous ses engagements, billets, codes et inscriptions. Il n’y a pas d’annulation.', // MT
   },
+  // ── the lock ──────────────────────────────────────────────────────────
+  lock_thread: {
+    en: 'Lock',
+    nl: 'Vergrendelen',
+    es: 'Bloquear', // MT
+    pt: 'Bloquear', // MT
+    de: 'Sperren', // MT
+    fr: 'Verrouiller', // MT
+  },
+  unlock_thread: {
+    en: 'Unlock',
+    nl: 'Ontgrendelen',
+    es: 'Desbloquear', // MT
+    pt: 'Desbloquear', // MT
+    de: 'Entsperren', // MT
+    fr: 'Déverrouiller', // MT
+  },
+  locked: {
+    en: 'Locked',
+    nl: 'Vergrendeld',
+    es: 'Bloqueado', // MT
+    pt: 'Bloqueado', // MT
+    de: 'Gesperrt', // MT
+    fr: 'Verrouillé', // MT
+  },
+  locked_banner: {
+    en: 'This thread is locked. Nothing about it can be changed or deleted until you unlock it. People can still enrol, pay and check in.',
+    nl: 'Deze thread is vergrendeld. Er kan niets aan worden gewijzigd of verwijderd tot je hem ontgrendelt. Mensen kunnen zich nog wel inschrijven, betalen en inchecken.',
+    es: 'Este thread está bloqueado. No se puede cambiar ni eliminar nada hasta que lo desbloquees. La gente puede seguir inscribiéndose, pagando y registrando su llegada.', // MT
+    pt: 'Este thread está bloqueado. Nada pode ser alterado ou excluído até você desbloqueá-lo. As pessoas ainda podem se inscrever, pagar e fazer check-in.', // MT
+    de: 'Dieser Thread ist gesperrt. Bis du ihn entsperrst, kann nichts geändert oder gelöscht werden. Anmeldung, Zahlung und Check-in laufen weiter.', // MT
+    fr: 'Ce thread est verrouillé. Rien ne peut être modifié ni supprimé tant que tu ne l’as pas déverrouillé. Les gens peuvent toujours s’inscrire, payer et pointer.', // MT
+  },
+  lock_thread_confirm_title: {
+    en: 'Lock this thread?',
+    nl: 'Deze thread vergrendelen?',
+    es: '¿Bloquear este thread?', // MT
+    pt: 'Bloquear este thread?', // MT
+    de: 'Diesen Thread sperren?', // MT
+    fr: 'Verrouiller ce thread ?', // MT
+  },
+  lock_thread_confirm_msg: {
+    en: 'Its settings, timeline, tickets, codes and co-organisers all freeze, and it cannot be deleted. Enrolments, payments and check-in carry on as normal. You can unlock it again here at any time.',
+    nl: 'De instellingen, tijdlijn, tickets, codes en mede-organisatoren liggen dan vast, en verwijderen kan niet meer. Inschrijvingen, betalingen en check-in lopen gewoon door. Je kunt hem hier altijd weer ontgrendelen.',
+    es: 'Su configuración, cronología, entradas, códigos y coorganizadores quedan congelados, y no se puede eliminar. Las inscripciones, los pagos y el registro de llegada siguen como siempre. Puedes desbloquearlo aquí cuando quieras.', // MT
+    pt: 'Suas configurações, linha do tempo, ingressos, códigos e coorganizadores ficam congelados, e ele não pode ser excluído. Inscrições, pagamentos e check-in seguem normalmente. Você pode desbloqueá-lo aqui quando quiser.', // MT
+    de: 'Einstellungen, Zeitleiste, Tickets, Codes und Mitorganisator:innen sind dann eingefroren, und Löschen ist nicht mehr möglich. Anmeldungen, Zahlungen und Check-in laufen normal weiter. Du kannst ihn hier jederzeit wieder entsperren.', // MT
+    fr: 'Ses réglages, sa chronologie, ses billets, ses codes et ses co-organisateurs sont figés, et il ne peut plus être supprimé. Les inscriptions, les paiements et le pointage continuent normalement. Tu peux le déverrouiller ici à tout moment.', // MT
+  },
   more_n: {
     en: '+{n} more',
     nl: '+{n} meer',

@@ -4,6 +4,7 @@ import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -370,6 +371,7 @@ const THREAD_SELECT = `
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
+  locked_at, locked_by,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -377,6 +379,52 @@ const THREAD_SELECT = `
   team:team_id (id, name, slug),
   organisation:organisation_id (id, name)
 `;
+
+// ── The lock ────────────────────────────────────────────────────────────
+//
+// A locked thread is frozen AS A DESIGN (Sjoerd, 2026-09-09): its settings,
+// timeline, tickets, coupons, categories and co-organisers can't change, and
+// it can't be deleted. What PARTICIPANTS do keeps flowing — enrolment,
+// payment, check-in, certificates and the scheduler never consult the lock,
+// because a lock that took a live event off the air would be a worse bug
+// than the accident it prevents. Status stays editable too: marking a
+// finished thread completed or archived is lifecycle, not design.
+//
+// The lock is a guard against an accident, not a permission level — whoever
+// may edit the thread may unlock it. The UI is the polite half of this; these
+// checks are the half that actually holds, since the same routes are reachable
+// from anywhere holding the JWT.
+const LOCKED = {
+  error: 'this thread is locked. Unlock it in Settings to make changes.',
+  code: 'thread_locked',
+} as const;
+
+/** True when the thread carries a lock. Read with the admin client on
+ *  purpose: the handler's own query still runs under the caller's RLS, so
+ *  this only ever adds a refusal, never grants a read. */
+async function threadLocked(threadId: string | null | undefined): Promise<boolean> {
+  if (!threadId) return false;
+  const { data } = await adminClient
+    .from('thread_thread')
+    .select('locked_at')
+    .eq('id', threadId)
+    .maybeSingle();
+  return !!data?.locked_at;
+}
+
+/** Same question asked of a child row — an engagement, ticket or coupon —
+ *  which carries the thread it belongs to. */
+async function ownerThreadLocked(
+  table: 'thread_engagement' | 'thread_ticket' | 'thread_coupon',
+  childId: string,
+): Promise<boolean> {
+  const { data } = await adminClient
+    .from(table)
+    .select('thread_id')
+    .eq('id', childId)
+    .maybeSingle();
+  return threadLocked(data?.thread_id as string | undefined);
+}
 
 // GET /api/v1/thread/threads — all threads in the workspace
 threadRoutes.get('/threads', async (c) => {
@@ -655,6 +703,10 @@ threadRoutes.patch('/threads/:id', async (c) => {
     .single();
   if (eErr || !existing) return c.json({ error: 'not found' }, 404);
 
+  // A locked thread only accepts a status change — see the lock notes above.
+  const touchesDesign = Object.keys(body.data).some((k) => k !== 'status');
+  if (touchesDesign && (await threadLocked(id))) return c.json(LOCKED, 423);
+
   // How many events may be live at once. Free is one — a community group
   // running one gathering a year should be able to stay there forever, and a
   // second one at the same time is the moment this became an operation.
@@ -802,11 +854,50 @@ threadRoutes.delete('/threads/:id', async (c) => {
     .eq('id', c.req.param('id'))
     .maybeSingle();
   if (!existing) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(existing.id)) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_thread').delete().eq('id', existing.id);
   if (error) return c.json({ error: error.message }, 500);
   // Program second: deleting it cascades platform enrolments.
   await adminClient.from('program').delete().eq('id', existing.program_id);
   return c.body(null, 204);
+});
+
+// PATCH /api/v1/thread/threads/:id/lock — set or clear the lock. Its own
+// route rather than a field on the thread PATCH, because that PATCH is the
+// thing the lock refuses: a flag that had to travel through the guard it
+// controls is a puzzle nobody should have to solve twice.
+threadRoutes.patch('/threads/:id/lock', async (c) => {
+  const body = z
+    .object({ locked: z.boolean() })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+
+  // The read goes through RLS — someone who can't see the thread can't lock
+  // it, and an app key (which carries no user) has no business here.
+  const { data: existing } = await db
+    .from('thread_thread')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!existing) return c.json({ error: 'not found' }, 404);
+
+  const patch = body.data.locked
+    ? { locked_at: new Date().toISOString(), locked_by: actorUserId(ctx) }
+    : { locked_at: null, locked_by: null };
+  const { error } = await db.from('thread_thread').update(patch).eq('id', id);
+  if (error) {
+    console.error('[thread/threads] lock failed', { id, patch, error });
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
+  }
+  const { data: updated } = await db
+    .from('thread_thread')
+    .select(THREAD_SELECT)
+    .eq('id', id)
+    .single();
+  return c.json(updated);
 });
 
 // POST /api/v1/thread/threads/:id/duplicate — clone as a draft (title
@@ -872,6 +963,8 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       certificate_enabled: src.certificate_enabled,
       certificate_criteria: src.certificate_criteria,
       certificate_template_id: src.certificate_template_id,
+      // locked_at/locked_by are the deliberate exception to the note above:
+      // a copy is a fresh draft you are about to work on, so it starts open.
       created_by: ctx.userId,
     })
     .select('id')
@@ -1118,6 +1211,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   }
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   const windowErr = await activityWindowError(
     threadId,
@@ -1193,6 +1287,7 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     .eq('id', id)
     .single();
   if (!existing) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(existing.thread_id)) return c.json(LOCKED, 423);
 
   // Type may only move within its family after creation (v3 rule).
   if (body.data.type) {
@@ -1229,6 +1324,9 @@ threadRoutes.patch('/engagements/:id', async (c) => {
 
 threadRoutes.delete('/engagements/:id', async (c) => {
   const ctx = c.get('ctx');
+  if (await ownerThreadLocked('thread_engagement', c.req.param('id'))) {
+    return c.json(LOCKED, 423);
+  }
 
   if (!(await can(ctx.workspaceId, 'thread_custom_templates'))) {
     // Tidying the seeded system messages stays allowed (they fall back to
@@ -1557,6 +1655,7 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     .eq('id', threadId)
     .maybeSingle();
   if (!thread) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   // The invited user needs a thread_organiser row — auto-provision like /me.
   let { data: organiser } = await adminClient
@@ -1611,6 +1710,7 @@ threadRoutes.post('/threads/:id/members', async (c) => {
 threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await threadLocked(c.req.param('id'))) return c.json(LOCKED, 423);
   // RLS-scoped delete through the join policy.
   const { error } = await db
     .from('thread_thread_organiser')
@@ -2457,6 +2557,7 @@ threadRoutes.post('/threads/:id/tickets', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
   const { data: last } = await db
     .from('thread_ticket')
     .select('position')
@@ -2483,6 +2584,7 @@ threadRoutes.patch('/tickets/:id', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_ticket', c.req.param('id'))) return c.json(LOCKED, 423);
   const { data, error } = await db
     .from('thread_ticket')
     .update(body.data)
@@ -2496,6 +2598,7 @@ threadRoutes.patch('/tickets/:id', async (c) => {
 threadRoutes.delete('/tickets/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_ticket', c.req.param('id'))) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_ticket').delete().eq('id', c.req.param('id'));
   if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
@@ -2532,6 +2635,7 @@ threadRoutes.post('/threads/:id/coupons', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await threadLocked(c.req.param('id'))) return c.json(LOCKED, 423);
   const { data, error } = await db
     .from('thread_coupon')
     .insert({
@@ -2554,6 +2658,7 @@ threadRoutes.patch('/coupons/:id', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_coupon', c.req.param('id'))) return c.json(LOCKED, 423);
   const patch = { ...body.data };
   if (patch.code) patch.code = patch.code.trim().toUpperCase();
   const { data, error } = await db
@@ -2569,6 +2674,7 @@ threadRoutes.patch('/coupons/:id', async (c) => {
 threadRoutes.delete('/coupons/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_coupon', c.req.param('id'))) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_coupon').delete().eq('id', c.req.param('id'));
   if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
@@ -4240,6 +4346,7 @@ threadRoutes.put('/threads/:id/categories', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   // RLS scopes both tables, but validate the ids belong to this workspace so
   // a stray id fails loudly instead of vanishing in the insert.
