@@ -187,8 +187,13 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
             <X size={18} strokeWidth={1.75} />
           </button>
         </div>
+        {/* Same as the thread page: a plain textarea's line breaks survive.
+            The CARD version above keeps its line-clamp and no pre-line — a
+            two-line clamp plus hard breaks wastes the preview. */}
         {th.intention && (
-          <p className="mt-2 text-sm text-ink-subtle leading-relaxed">{th.intention}</p>
+          <p className="mt-2 text-sm text-ink-subtle leading-relaxed whitespace-pre-line">
+            {th.intention}
+          </p>
         )}
         <div className="mt-4">
           <EnrolCard

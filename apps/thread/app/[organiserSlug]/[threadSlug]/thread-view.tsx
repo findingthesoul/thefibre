@@ -28,6 +28,8 @@ type AgendaItem = {
   ends_at: string | null;
   daily_schedule: { date: string; start: string; end: string }[] | null;
   location: string | null;
+  /** A map link the organiser pasted. Additive on the public payload. */
+  location_url?: string | null;
   image_url?: string | null;
   is_online: boolean;
 };
@@ -190,7 +192,14 @@ export function PublicThreadView({
             </div>
             <h1 className="mt-2 text-3xl font-medium tracking-tight">{program?.title}</h1>
             {thread.intention && (
-              <p className="mt-3 text-base text-ink-subtle leading-relaxed">{thread.intention}</p>
+              // `whitespace-pre-line` because the field behind this is a plain
+              // textarea: the organiser's paragraph breaks were being collapsed
+              // into one wall of text (Sjoerd 2026-09-10, "geen mooie opmaak
+              // met enters"). pre-LINE rather than pre-WRAP so long lines still
+              // wrap to the column.
+              <p className="mt-3 text-base text-ink-subtle leading-relaxed whitespace-pre-line">
+                {thread.intention}
+              </p>
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-ink-subtle">
@@ -275,12 +284,23 @@ export function PublicThreadView({
                               {fmtSlot(a.starts_at, a.ends_at, thread.timezone)}
                             </span>
                           )}
-                        {a.location && (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin size={11} strokeWidth={1.75} />
-                            {a.location}
-                          </span>
-                        )}
+                        {a.location &&
+                          (a.location_url ? (
+                            <a
+                              href={a.location_url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-ink"
+                            >
+                              <MapPin size={11} strokeWidth={1.75} />
+                              {a.location}
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin size={11} strokeWidth={1.75} />
+                              {a.location}
+                            </span>
+                          ))}
                         {a.is_online && (
                           <span className="inline-flex items-center gap-1">
                             <Video size={11} strokeWidth={1.75} />

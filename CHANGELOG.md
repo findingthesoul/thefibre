@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.62] — 2026-09-10 — the venue is a link, and the paragraphs are paragraphs
+
+Two from Sjoerd on a live public thread page: "geen mooie opmaak met enters
+etc." and "praktische info over venue / Maps link".
+
+**The map link was stored and never published.** `thread_engagement
+.location_url` has existed since the schema did, the editor writes it, and
+four published agenda items in production carry one right now — pointing at
+Google Maps, entered by an organiser who reasonably assumed it would be
+usable. The public agenda's select simply never asked for the column, so the
+page could only ever render the venue as dead text. One column added to the
+select; the payload spread publishes it; the page renders the venue as a link
+when there is one and plain text when there is not.
+
+Verified against production rows before shipping rather than after, which is
+the habit the membership session was demonstrating an hour earlier when it
+caught a select naming a column that does not exist — clean typecheck, latent
+400 in production, found only by running the query against real data.
+
+**The paragraph breaks were being eaten.** A thread's intention is a plain
+textarea; the public page rendered it in a bare `<p>`, where HTML collapses
+every newline into a space. An organiser's carefully broken invitation
+arrived as one wall of text. `whitespace-pre-line` on the two places that
+render it in full — the thread page and the owner page's single-thread
+hero — and deliberately NOT on the clamped preview card, where a two-line
+clamp plus hard breaks wastes the preview on white space.
+
+Not a bug, recorded because it looked like one: the missing photo on that
+page is a thread with no cover image set. The record has `cover_url: null`
+and the page is rendering exactly what it has.
+
 ## [0.68.61] — 2026-09-10 — a member can see what they bought and what they belong to (Portal 0.4.0)
 
 Slices 3 and 4 of `docs/member-portal-plan.md`.

@@ -4998,7 +4998,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     ? { data: [] as never[] }
     : await adminClient
     .from('thread_engagement')
-    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, image_url, meeting_url')
+    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, location_url, image_url, meeting_url')
     .eq('thread_id', thread.id)
     .eq('status', 'published')
     .eq('show_in_agenda', true)
