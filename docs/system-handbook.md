@@ -486,6 +486,16 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     verify every import the commit introduces resolves within the commit.
   - Fence lanes by directory; coordinate shared files (layouts,
     `packages/shared/package.json`) explicitly.
+  - **Announce what you are about to do NEXT, not only what you are doing.**
+    A lane claim that names the next task lets a peer see a collision before
+    either of you writes the code. 2026-09-09: the thread session mentioned
+    that its next page needed "an info popup"; the membership session had
+    been offered "a shared info-icon-with-hover" as one of three features.
+    Same component, two apps, same evening — caught only because the next
+    task was in the claim. Nothing in `packages/shared/src/ui` provided it,
+    so this would have been a duplicate the two of us CREATED, which is what
+    Components-first (CLAUDE.md, binding) exists to prevent. Cost of the
+    catch: three messages. Cost of the miss: two implementations that drift.
   - **A peer's UNCOMMITTED work can block your release.**
     `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
     over the WORKING TREE, not over your commit. So a third session's
