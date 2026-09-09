@@ -54,6 +54,14 @@ The live collision was settled first: the Solidarity Lab team moved to
 `vertrouwen-als-de-basis-lab`, soul.com keeps the plain address, and all four
 pages answer 200 again.
 
+**Two unrelated 404s shipped fixes today; do not merge the stories.** This one
+is a slug collision on the `{owner}` segment, where two owners claimed one
+address and the resolver could not choose. v0.68.36 is a different fault
+entirely: the visitor portal built a thread's URL as a bare path with no
+origin, so it resolved against the portal's own domain. Same symptom, nothing
+else in common. The fixes touch different files and neither would have caught
+the other.
+
 ## [0.68.36] — 2026-09-09 — the portal's links point at the Thread, not at itself
 
 **The verification found two real bugs and this fixes both.** Sjoerd granted
