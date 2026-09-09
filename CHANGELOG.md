@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.39] — 2026-09-09 — the portal's link points at the canonical owner
+
+Found by the thread session chasing the coupling between the portal's URL
+builder and its new `public_root_slug`, and measured before it was reported.
+
+`routes/portal.ts` derived the owner segment as `team ?? organiser`. There
+are **three** owner kinds, not two: a workspace-scoped thread has `team_id`
+NULL by design (brief D1), so it fell through to the organiser and the portal
+emitted `/{organiser}/{thread}` where the canonical address is
+`/{workspace}/{thread}`. Now `(public_scope === 'workspace' ? workspaceSlug :
+null) ?? team ?? organiser`, the same order the web app's own builders use.
+
+**Not a 404, and that was checked before the report was made.** Brief D2
+keeps `/{organiser}/{thread}` valid as a second address for exactly this
+case; production's one active workspace-scoped thread resolved 200 under both
+forms, and the other three 404 under both because they are drafts. The cost
+was canonicality — the portal handed a visitor a link that is not the one the
+page's own canonical tag points at.
+
+**The same shape is still live in `routes/thread.ts:4657`** (`ownerSlugOf`,
+`team ?? organiser`, feeding public payloads). Deliberately not changed
+tonight: it alters the value of a published field, which is Sjoerd's call and
+not an end-of-evening one. Noted for him.
+
+**And this is now the FOURTH hand-written copy of one URL rule** — here,
+`apps/thread` timeline.tsx, `settings/embeds/page.tsx`, and `ownerSlugOf`.
+Three of the four agree and one didn't, which is exactly how this class of
+bug presents. The rule belongs in `@thefibre/shared` as a pure function over
+`{public_scope, workspaceSlug, teamSlug, organiserSlug}`, with all four
+calling it. Not done here because it spans two other sessions' lanes; it is
+the eighth instance of a hand-copied fact drifting today and the one most
+worth extracting.
+
 ## [0.68.38] — 2026-09-09 — the buttons people actually press are now 44px too
 
 v0.68.36 fixed two links and then claimed "everything tappable in the popup

@@ -220,7 +220,7 @@ portalRoutes.get('/portal', async (c) => {
     .select(
       `id, workspace_id, checkin_code, checked_in_at, payment_status, created_at,
        enrolment:enrolment_id (status, progress_pct),
-       thread:thread_id (id, slug, language, cover_url,
+       thread:thread_id (id, slug, language, cover_url, public_scope,
          organiser:organiser_id (slug, display_name),
          team:team_id (slug, name),
          program:program_id (title, format, status, starts_on, ends_on))`,
@@ -400,6 +400,7 @@ portalRoutes.get('/portal', async (c) => {
           slug: string;
           language: string | null;
           cover_url: string | null;
+          public_scope: string | null;
           organiser: unknown;
           team: unknown;
           program: unknown;
@@ -418,9 +419,20 @@ portalRoutes.get('/portal', async (c) => {
     const ended = prog?.ends_on ?? prog?.starts_on ?? null;
     if (ended && ended < sinceDate && enr?.status === 'completed') continue;
 
-    // Public URL: team threads live under the TEAM slug, never the
-    // organiser's — the same rule every public URL builder follows.
-    const ownerSlug = team?.slug ?? org?.slug ?? '';
+    // Public URL owner segment. THREE kinds, not two: a workspace-scoped
+    // thread has team_id NULL by design (brief D1), so `team ?? organiser`
+    // silently falls through to the organiser and emits an address that is
+    // reachable but not canonical — the page's own canonical tag points
+    // somewhere else. Same order the web app's builders use
+    // (apps/thread timeline.tsx, settings/embeds).
+    //
+    // Found 2026-09-09 by the thread session chasing the coupling between
+    // this and `public_root_slug`. Not a 404: brief D2 keeps
+    // /{organiser}/{thread} valid as a second address for exactly this case,
+    // and the one active workspace-scoped thread in production resolves 200
+    // under both. The cost is canonicality, not reachability.
+    const ownerSlug =
+      (t.public_scope === 'workspace' ? g.slug : null) ?? team?.slug ?? org?.slug ?? '';
 
     g.threads.push({
       thread_id: t.id,
