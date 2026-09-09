@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.50] — 2026-09-09 — the join page from the home screen (Members 0.14.6)
+
+Sjoerd: "on the home of members — a link to the membership page."
+
+The public join page's address has lived in one place, Settings → Join page,
+which is the one screen you do not open when you simply want to look at the
+page or send someone the link. It is now on the Members home, top right,
+opening in a new tab.
+
+Built from `appUrl('membership', …)` and the workspace slug, the same
+composition Settings uses, so staging produces the staging host. A failed
+`/auth/me` hides the link rather than rendering a half-formed URL with a
+placeholder slug in it.
+
 ## [0.68.49] — 2026-09-09 — a thread grant picks its thread (Members 0.14.5)
 
 Sjoerd, looking at a product's Access row: "how do I set that someone will

@@ -1517,6 +1517,14 @@ const CATALOG = {
     de: 'Space-ID', // MT
     fr: "ID de l'espace", // MT
   },
+  view_join_page: {
+    en: 'View join page',
+    nl: 'Bekijk aanmeldpagina',
+    es: 'Ver página de alta', // MT
+    pt: 'Ver página de adesão', // MT
+    de: 'Beitrittsseite ansehen', // MT
+    fr: "Voir la page d'adhésion", // MT
+  },
   pick_thread_ph: {
     en: 'Pick a thread…',
     nl: 'Kies een thread…',

@@ -1,6 +1,6 @@
-import { appName } from '@thefibre/shared';
+import { appName, appUrl } from '@thefibre/shared';
 import Link from 'next/link';
-import { CalendarClock, UserPlus, Users, Banknote } from 'lucide-react';
+import { CalendarClock, UserPlus, Users, Banknote, ExternalLink } from 'lucide-react';
 import { apiFetch } from '@/lib/api';
 import { money } from '@/lib/money';
 import { uiLocale } from '@/lib/locale';
@@ -26,6 +26,18 @@ export default async function MembershipDashboard() {
   } catch {
     /* empty state below */
   }
+
+  // The public join page, straight from the home screen (Sjoerd,
+  // 2026-09-09). It has lived only inside Settings, which is the one place
+  // you do not go when you simply want to look at it or send someone the
+  // link. A failed /auth/me just hides the link rather than showing a
+  // half-built URL.
+  const me = await apiFetch<{ workspace: { slug: string } | null }>('/api/v1/auth/me').catch(
+    () => null,
+  );
+  const joinUrl = me?.workspace?.slug
+    ? `${appUrl('membership', process.env)}/${encodeURIComponent(me.workspace.slug)}`
+    : null;
 
   const tierById = new Map(tiers.map((t) => [t.id, t]));
   const active = members.filter((m) => m.status === 'active');
@@ -59,10 +71,25 @@ export default async function MembershipDashboard() {
 
   return (
     <div className="px-6 py-10 max-w-5xl">
-      <h1 className="text-[28px] font-semibold tracking-tight text-ink">
-        {t(locale, 'nav_membership')}
-      </h1>
-      <p className="mt-1 text-sm text-ink-muted">{t(locale, 'dash_blurb')}</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h1 className="text-[28px] font-semibold tracking-tight text-ink">
+            {t(locale, 'nav_membership')}
+          </h1>
+          <p className="mt-1 text-sm text-ink-muted">{t(locale, 'dash_blurb')}</p>
+        </div>
+        {joinUrl && (
+          <a
+            href={joinUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface-raised px-3 py-2 text-sm text-ink-subtle hover:text-ink hover:border-line-strong"
+          >
+            <ExternalLink size={14} strokeWidth={1.75} />
+            {t(locale, 'view_join_page')}
+          </a>
+        )}
+      </div>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard icon={Users} value={active.length} label={t(locale, 'active_members')} />
