@@ -46,8 +46,18 @@ preview regex, and the API route itself (`GET /api/v1/me/portal`, live on
 both Fly APIs — it answers `401 sign in required`, which is the route
 existing).
 
-> **One thing is NOT done, contrary to what this doc said before.** The
-> staging API does **not** allow `https://my.thefibre.tech`. Its
+> **RESOLVED 2026-09-09** — the secret has been set and verified: the staging
+> API now reflects both `https://my.thefibre.tech` and
+> `https://membership.thefibre.tech` back. The rest of this note is kept as
+> the record of what was wrong and why. **The live value already contained
+> `membership.thefibre.tech`** before the change, so this added exactly one
+> origin; `docs/environments.md`'s setup example lists only five and is the
+> thing that makes it look otherwise — don't rebuild the value from that
+> example, read the live one with
+> `fly ssh console -a thefibre-api-staging -C "printenv CORS_ORIGINS"`.
+>
+> **What was wrong.** The
+> staging API did **not** allow `https://my.thefibre.tech`. Its
 > `CORS_ORIGINS` secret lists the six older subdomains and stops there, so
 > the staging portal will be CORS-blocked the moment it loads. Prod is
 > derived from the `SURFACES` registry and needs nothing; staging is a
