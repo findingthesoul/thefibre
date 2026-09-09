@@ -148,7 +148,7 @@ function DateChip({ iso }: { iso: string }) {
  * 44px targets beat a native picker. Design argued with the membership
  * session; Sjoerd can overrule it in a word.
  */
-function Rsvp({ item }: { item: AgendaItem }) {
+export function Rsvp({ item }: { item: AgendaItem }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   // Optimistic, because a tap that does nothing visible for 400ms gets tapped
@@ -276,16 +276,27 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
   );
 }
 
-export function ThreadDetail({
+/**
+ * The sheet, without a trigger.
+ *
+ * It used to own its own card and its own open state. Since v0.68.59 the
+ * timeline owns both: one card can be a SESSION inside a thread rather than
+ * the thread itself, and the same sheet is opened from several cards. So the
+ * component that knows what was tapped opens it.
+ */
+export function ThreadSheet({
   thread,
   ticket,
   wallet,
+  open,
+  onClose,
 }: {
   thread: ThreadItem;
   ticket: TicketRow | null;
   wallet: Portal['wallet'];
+  open: boolean;
+  onClose: () => void;
 }) {
-  const [open, setOpen] = useState(false);
   const [zoom, setZoom] = useState(false);
   const when = fmtDate(thread.starts_on);
 
@@ -312,30 +323,7 @@ export function ThreadDetail({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="w-full rounded-xl border border-line bg-surface-raised p-4 text-left hover:border-line-strong"
-      >
-        <div className="flex items-baseline justify-between gap-3">
-          <span className="font-medium text-ink">{thread.title}</span>
-          {thread.progress_pct != null && (
-            <span className="shrink-0 text-xs text-ink-muted">{thread.progress_pct}%</span>
-          )}
-        </div>
-        {when && <p className="mt-0.5 text-sm text-ink-muted">{when}</p>}
-        <p className="mt-1 flex items-center gap-3 text-xs text-ink-muted">
-          {code && (
-            <span className="inline-flex items-center gap-1">
-              <QrCode className="h-3.5 w-3.5" aria-hidden />
-              Ticket
-            </span>
-          )}
-          {thread.agenda.length > 0 && <span>{thread.agenda.length} on the agenda</span>}
-        </p>
-      </button>
-
-      <Dialog open={open} onClose={() => setOpen(false)} title={thread.title} description={when} size="lg">
+      <Dialog open={open} onClose={onClose} title={thread.title} description={when} size="lg">
         {/* The QR is the reason this page exists and it is NOT redesigned.
             It is only laid out sideways and made tappable, for one measured
             reason: at 375px this dialog is a bottom sheet and the ticket

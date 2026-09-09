@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.59] — 2026-09-10 — Next is a timeline, not a list of organisers (Portal 0.3.0)
+
+Sjoerd: "the overview page is ugly… maybe a list, organised per date… a
+timeline… with the event you're joining per date… and then a selector per
+organiser." Slice 2 of `docs/member-portal-plan.md`.
+
+The page's skeleton used to be the ORGANISER, with dates scattered inside
+each card. That answers "what does soul.com hold for me", which is a question
+nobody asks. **Time is the spine now and the organiser is a filter**, which
+only appears when there is more than one — a control with a single meaningful
+setting is furniture.
+
+- **A thread with dated sessions contributes its SESSIONS, not itself.** A
+  session is what you attend; a thread is the container, and a container has
+  no place in a list of things that happen. A thread with nothing scheduled
+  still appears, on its own start date.
+- **Date chip, title, time and organiser, and at most one action.** The RSVP
+  segmented control moved onto the card, which is what "a toggle for coming
+  or not coming, in the overview" asked for. Join appears only from fifteen
+  minutes before until it ends — a Join button three months early is clutter
+  pretending to be an action.
+- **Past is behind one "Earlier" toggle**, newest first, because you look
+  backwards from now.
+- Tapping a card opens the same sheet as before — QR, agenda, RSVP, calendar.
+  `ThreadDetail` became `ThreadSheet`: it used to own its own card and its own
+  open state, and now the list owns both, because one card can be a session
+  inside a thread rather than the thread itself.
+
+**The two kinds of date needed one deliberate rule.** Some entries carry a
+day and some a clock, and mixing them without a rule sorts the same list
+differently on different days. An all-day entry sorts at the START of its day
+and stays until the day is over; a timed one stays for two hours after it
+starts, so something happening RIGHT NOW is the top of the list rather than
+gone from it.
+
+Flattening happens in the page, not the API — the plan's open decision,
+decided. Everything is already fetched in one call and one member has few
+entries.
+
+**apps/my has unit tests now** (9, and a `test` script `pnpm -r test` picks
+up). They cover exactly what the staging fixture cannot: it holds one
+upcoming session for one organiser, so the past toggle and the organiser
+filter never render there and the mixed-date rule never fires. Driven signed
+in at 375px for the parts it can prove.
+
 ## [0.68.58] — 2026-09-10 — completing somebody stops issuing their certificate
 
 Sjoerd asked for the participant list inside a thread's Certificate tab —

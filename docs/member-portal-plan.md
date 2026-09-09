@@ -222,9 +222,15 @@ and a local rail above it. The existing content moved into NEXT unchanged;
 memberships and invoices moved out to their own tabs, so all four
 destinations are real on day one rather than three placeholders.
 
-**2 · NEXT as a timeline.** Flatten to one date-ordered list, date chip
-first, one action per card, past behind a toggle. Organiser becomes a filter
-rather than the page's skeleton.
+**2 · NEXT as a timeline.** Done (v0.68.59). One date-ordered list, date chip
+first, RSVP or Join on the card, past behind an "Earlier" toggle, organiser as
+a filter that only appears when there is more than one. Flattened in the page,
+not the API — the open decision below, decided.
+
+A thread with dated sessions contributes its SESSIONS, not itself: a session
+is what you attend, a thread is the container, and a container has no place
+in a list of things that happen. A thread with nothing scheduled still
+appears, on its own start date.
 
 **3 · PURCHASES.** The shared invoice components against the endpoints that
 exist. Membership invoices work today; Thread and Meet need theirs.
@@ -246,7 +252,14 @@ has been used for a while.
 
 ## 9. Open decisions
 
-- **Flatten in the API or the client?** (slice 2) Affects the filter.
+- ~~**Flatten in the API or the client?**~~ Decided in slice 2: **the page**.
+  Everything is fetched in one call and one member has few entries. The
+  organiser filter is therefore a client-side predicate. Move it server-side
+  when a real member's list is long enough to hurt.
+- **The two kinds of date needed one rule and now have one.** Some entries
+  carry a day, some a clock. An all-day entry sorts at the START of its day
+  and stays until the day is over; a timed one stays for two hours after it
+  starts, so something happening RIGHT NOW is still the top of the list.
 - **Do past events expire?** The payload has a 90-day window for meets today.
   A certificate from two years ago still matters.
 - **Does a member need a workspace filter at all** if the list is short? Add
