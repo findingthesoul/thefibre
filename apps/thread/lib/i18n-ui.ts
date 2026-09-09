@@ -6133,6 +6133,30 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  what_is_this: {
+    en: 'What is this?',
+    nl: 'Wat is dit?',
+    es: '¿Qué es esto?', // MT
+    pt: 'O que é isto?', // MT
+    de: 'Was ist das?', // MT
+    fr: 'Qu’est-ce que c’est ?', // MT
+  },
+  personal_account: {
+    en: 'Personal account',
+    nl: 'Persoonlijk account',
+    es: 'Cuenta personal', // MT
+    pt: 'Conta pessoal', // MT
+    de: 'Persönliches Konto', // MT
+    fr: 'Compte personnel', // MT
+  },
+  payout_hint: {
+    en: 'Where the money for this thread lands. Your personal account is for what you run yourself; the workspace account is for what the organisation runs, and everything a team sells goes there. Only accounts connected to Stripe can be chosen.',
+    nl: 'Waar het geld voor deze thread terechtkomt. Je persoonlijke account is voor wat je zelf organiseert; het workspace-account is voor wat de organisatie organiseert, en alles wat een team verkoopt gaat daarheen. Alleen accounts die met Stripe verbonden zijn, kun je kiezen.',
+    es: 'Dónde llega el dinero de este thread. Tu cuenta personal es para lo que organizas tú; la cuenta del espacio de trabajo es para lo que organiza la organización, y todo lo que vende un equipo va allí. Solo se pueden elegir cuentas conectadas a Stripe.', // MT
+    pt: 'Onde o dinheiro deste thread chega. Sua conta pessoal é para o que você mesmo organiza; a conta do workspace é para o que a organização organiza, e tudo o que uma equipe vende vai para lá. Só é possível escolher contas conectadas ao Stripe.', // MT
+    de: 'Wo das Geld für diesen Thread landet. Dein persönliches Konto ist für das, was du selbst durchführst; das Workspace-Konto für das, was die Organisation durchführt — und alles, was ein Team verkauft, geht dorthin. Wählbar sind nur mit Stripe verbundene Konten.', // MT
+    fr: 'Où arrive l’argent de ce thread. Ton compte personnel sert à ce que tu organises toi-même ; le compte de l’espace de travail à ce qu’organise l’organisation, et tout ce qu’une équipe vend y va. Seuls les comptes connectés à Stripe peuvent être choisis.', // MT
+  },
   tpl_more_info: {
     en: 'What each one gives you',
     nl: 'Wat elke variant je geeft',

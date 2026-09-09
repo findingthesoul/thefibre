@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.40] — 2026-09-09 — the account has a name, and the workspace has a chip
+
+Sjoerd, on the payments screen: "payment account is unclear — add the
+different accounts: workspace | personal, then a popup for info". And on the
+Threads list: the owner filter should read everyone, personal, soul.com, then
+the teams.
+
+**The accounts are now called what they are.** "My account" became Personal
+account, and "Workspace account" became the workspace's actual name —
+soul.com, Solidarity Lab — in Settings → Payments and in a thread's payout
+choice. Sending money to the wrong account is not a mistake anyone should be
+able to make from a label, and a category is a worse label than a name.
+
+**Each one's explanation moved behind an ⓘ.** Those grey paragraphs are read
+once and then become furniture, and meanwhile they push the fields you came
+for below the fold. The per-thread payout choice gets one for the opposite
+reason: it explained itself nowhere at all, despite being the control that
+decides whose bank account receives the money.
+
+**`InfoHint` is BORN in `@thefibre/shared`**, not in this app. Two sessions
+were asked for the same affordance within the hour — the membership session
+for its product dialog, this one for payments — which is exactly the fork the
+components-first rule exists to catch, and it was caught by them telling me
+rather than by anyone reviewing it later. Three things it has to survive, each
+learned rather than guessed: the bubble is `position: fixed` and placed from
+the trigger's own rect, because these live in dialog bodies that scroll and an
+absolutely-positioned one is clipped at the scroll edge; click makes it sticky,
+because hover alone means the explanation does not exist on a phone; and it is
+a real button with focus, Escape and `aria-describedby`, because otherwise a
+screen reader gets an icon called "i".
+
+**The Threads owner filter was quietly lying.** "Personal" filtered on
+`!team_id` — but a workspace-scoped thread stores `team_id` NULL by design
+(brief D1: that is HOW a workspace thread is stored), so the whole
+organisation's threads were being counted as one person's. There is now a
+chip for the workspace, named after it, and Personal means personal again.
+Ownership here is the same three-way it is in the URL: personal, workspace,
+or a team. That is the third surface today where "team_id is null means
+personal" turned out to be false.
+
 ## [0.68.39] — 2026-09-09 — the portal's link points at the canonical owner
 
 Found by the thread session chasing the coupling between the portal's URL

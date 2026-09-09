@@ -157,6 +157,42 @@ export async function deleteEngagement(
   }
 }
 
+/** Who has answered an agenda item's RSVP, and who has not. Read-only —
+ *  an RSVP is the participant's own act and an organiser reads it, never
+ *  sets it. Returns three groups because "no answer" is a real state and
+ *  the one worth chasing. */
+export async function getEngagementRsvps(
+  threadId: string,
+  engagementId: string,
+): Promise<
+  | {
+      ok: true;
+      counts: { coming: number; not_coming: number; no_answer: number };
+      items: {
+        person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+        enrolment_status: string | null;
+        response: 'coming' | 'not_coming' | null;
+        responded_at: string | null;
+      }[];
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    const r = await apiFetch<{
+      counts: { coming: number; not_coming: number; no_answer: number };
+      items: {
+        person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+        enrolment_status: string | null;
+        response: 'coming' | 'not_coming' | null;
+        responded_at: string | null;
+      }[];
+    }>(`/api/v1/thread/threads/${threadId}/engagements/${engagementId}/rsvps`);
+    return { ok: true, counts: r.counts, items: r.items };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function addThreadMember(
   threadId: string,
   userId: string,
@@ -343,18 +379,23 @@ export type PayoutInfo = {
   ok: true;
   workspace_connected: boolean;
   personal_connected: boolean;
+  /** The workspace's own name, so the choice names the account rather than
+   *  its category (Sjoerd 2026-09-09). Null falls back to the generic word. */
+  workspace_name: string | null;
 };
 
 export async function getPayoutInfo(): Promise<PayoutInfo | { ok: false; error: string }> {
   try {
-    const [settings, me] = await Promise.all([
+    const [settings, me, brand] = await Promise.all([
       apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/settings'),
       apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/me'),
+      apiFetch<{ name: string | null }>('/api/v1/workspace-brand').catch(() => ({ name: null })),
     ]);
     return {
       ok: true,
       workspace_connected: !!settings.stripe_account_id,
       personal_connected: !!me.stripe_account_id,
+      workspace_name: brand.name,
     };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };

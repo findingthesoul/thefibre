@@ -1,7 +1,15 @@
 'use client';
 
-// Threads overview list with the team filter (Sjoerd 2026-07-02:
-// "see all, but also select teams"). Chips: All · Personal · one per team.
+// Threads overview list with the owner filter (Sjoerd 2026-07-02: "see all,
+// but also select teams"). Chips: Everyone · Personal · the workspace · one
+// per team.
+//
+// The workspace chip arrived 2026-09-09 because "Personal" was quietly
+// lying. A workspace-scoped thread stores team_id NULL by design
+// (docs/brief-workspace-urls.md D1) — that is HOW a workspace thread is
+// stored — so `!team_id` swept the whole workspace's threads into one
+// person's filter. Ownership here is a three-way, exactly as it is in the
+// URL: personal, workspace, or a team.
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
@@ -34,19 +42,26 @@ export function ThreadsList({
   locale,
   threads,
   teams,
+  workspaceName = null,
 }: {
   locale: Locale;
   threads: ThreadRow[];
   teams: TeamOption[];
+  /** The workspace's own name, for its chip. Null hides the chip rather
+   *  than showing the generic word. */
+  workspaceName?: string | null;
 }) {
-  const [filter, setFilter] = useState<string>('all'); // 'all' | 'personal' | team id
+  // 'all' | 'personal' | 'workspace' | team id
+  const [filter, setFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft' | 'past'>('all');
 
   // Only offer team chips for teams that actually own threads (+ all teams
   // so a freshly assigned team is findable).
   const filtered = useMemo(() => {
     let list = threads;
-    if (filter === 'personal') list = list.filter((t) => !t.team_id);
+    if (filter === 'personal')
+      list = list.filter((t) => !t.team_id && t.public_scope !== 'workspace');
+    else if (filter === 'workspace') list = list.filter((t) => t.public_scope === 'workspace');
     else if (filter !== 'all') list = list.filter((t) => t.team_id === filter);
     if (statusFilter !== 'all') {
       list = list.filter((t) => {
@@ -95,11 +110,13 @@ export function ThreadsList({
         {statusChip('active', t(locale, 'filter_active'))}
         {statusChip('draft', t(locale, 'filter_drafts'))}
         {statusChip('past', t(locale, 'filter_past'))}
-        {(teams.length > 0 || threads.some((t) => t.team_id)) && (
+        {(teams.length > 0 ||
+          threads.some((t) => t.team_id || t.public_scope === 'workspace')) && (
           <>
             <span className="mx-1 h-4 w-px bg-line" />
             {chip('all', t(locale, 'filter_everyone'))}
             {chip('personal', t(locale, 'personal'))}
+            {workspaceName && chip('workspace', workspaceName)}
             {teams.map((t) => chip(t.id, t.name))}
           </>
         )}
