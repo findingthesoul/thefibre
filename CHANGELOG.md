@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.33] — 2026-09-09 — the one fact those two predicates share, written once
+
+Review catch from the membership session on v0.68.32, and the seventh
+hand-copied-fact-drifting-from-a-derivable-one of the day — the only one we
+were introducing ourselves.
+
+`enrolmentCanRespond` and `ticketIsAdmissible` each carried the literal
+`'dropped'`, ten lines apart, in the file whose whole point is that they
+agree on exactly that. The day someone adds `'withdrawn'` or `'removed'`,
+one gets updated and the other does not, and the silent direction is the bad
+one: a person who should not be answering, answering.
+
+`enrolmentIsLive(status)` now holds it and both call it. The two predicates
+stay separate — that part was right and is unchanged. What is extracted is
+their **agreement**, not the predicate.
+
+**The reason for keeping them apart is now recorded properly**, because the
+one shipped in v0.68.32 was the weaker half. Money is the obvious difference;
+the real one is that these will diverge *again*, predictably, on statuses
+neither has been asked about yet. `'completed'` is admissible to the session
+that happened and should almost certainly not be answering for future ones.
+`'invoice_sent'` is admitted on trust at a door, but an invoice six weeks old
+is a different question for an RSVP than for entry. One predicate would force
+both through a shape that cannot express them, and whoever hit it would add a
+boolean parameter rather than split the function again.
+
+Two new tests: one asserting the shared definition, one asserting it reaches
+BOTH predicates so a new terminal status cannot land in only one.
+`portal.test.ts` is at 17.
+
+Verified separately by the membership session, driving all three directions
+against production with Sjoerd's test member: grant creates both rows and a
+check-in code, revoke sets the enrolment to `'dropped'` and KEEPS both rows,
+rejoin restores the same rows rather than duplicating. So the state
+v0.68.32 guards is real, reachable and reversible. It also confirmed
+`ticketIsAdmissible` already accepts `'not_required'`, which is what the
+worker writes — had that list been `'paid'` only, every member who joined
+through a tier would have been turned away at a door holding a valid QR.
+
 ## [0.68.32] — 2026-09-09 — a lapsed member stops answering for future sessions
 
 v0.68.31's thread worker made a bug in v0.68.30 reachable, and the other

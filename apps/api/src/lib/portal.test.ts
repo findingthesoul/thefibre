@@ -1,7 +1,12 @@
 // Locks the two judgements behind the visitor portal (docs/visitor-portal-proposal.md).
 
 import { describe, expect, it } from 'vitest';
-import { enrolmentCanRespond, mergeById, ticketIsAdmissible } from './portal.js';
+import {
+  enrolmentCanRespond,
+  enrolmentIsLive,
+  mergeById,
+  ticketIsAdmissible,
+} from './portal.js';
 
 describe('ticketIsAdmissible', () => {
   it('a free thread admits — no payment was ever asked for', () => {
@@ -79,5 +84,23 @@ describe('enrolmentCanRespond', () => {
     // "I'm coming" is not a purchase, and the organiser still wants to know.
     expect(ticketIsAdmissible('enrolled', 'pending')).toBe(false);
     expect(enrolmentCanRespond('enrolled')).toBe(true);
+  });
+});
+
+describe('enrolmentIsLive — the one fact both predicates share', () => {
+  it('is the single definition of "no longer taking part"', () => {
+    expect(enrolmentIsLive('dropped')).toBe(false);
+    expect(enrolmentIsLive('enrolled')).toBe(true);
+  });
+
+  // The point of extracting it: adding 'withdrawn' or 'removed' here must
+  // reach BOTH predicates. Before this existed the literal was hand-copied
+  // into each, and only one would have been updated.
+  it('flows into both, so a new terminal status cannot reach only one', () => {
+    for (const status of ['dropped']) {
+      expect(enrolmentIsLive(status)).toBe(false);
+      expect(enrolmentCanRespond(status)).toBe(false);
+      expect(ticketIsAdmissible(status, 'paid')).toBe(false);
+    }
   });
 });

@@ -3,6 +3,23 @@
 // shaping; these two are decisions.
 
 /**
+ * Is this person still a participant at all, as opposed to someone with a
+ * record of having taken part?
+ *
+ * THE ONE FACT the door and the RSVP agree on, extracted so it is written
+ * once. Both predicates below start here and then diverge; before this
+ * existed the literal `'dropped'` was hand-copied into both, ten lines
+ * apart, in the file whose whole point is that they agree on exactly this.
+ * The day someone adds 'withdrawn' or 'removed', one copy gets updated and
+ * the other does not — and the silent direction is the bad one: a person who
+ * should not be answering, answering. (Caught by the membership session,
+ * 2026-09-09, reviewing the fix that introduced the second copy.)
+ */
+export function enrolmentIsLive(enrolmentStatus: string | null): boolean {
+  return enrolmentStatus !== 'dropped';
+}
+
+/**
  * Does this enrolment carry a QR the door will actually honour?
  *
  * A ticket the door refuses is worse than no ticket at all: the holder
@@ -19,7 +36,7 @@ export function ticketIsAdmissible(
   enrolmentStatus: string | null,
   paymentStatus: string | null,
 ): boolean {
-  if (enrolmentStatus === 'dropped') return false;
+  if (!enrolmentIsLive(enrolmentStatus)) return false;
   if (paymentStatus === null) return true;
   return ['paid', 'not_required', 'invoice_sent'].includes(paymentStatus);
 }
@@ -28,18 +45,29 @@ export function ticketIsAdmissible(
  * May this person still act as a participant of the thread — RSVP, in
  * practice — or are they only looking at a record of having taken part?
  *
- * Split out from `ticketIsAdmissible` rather than reused: a door and an RSVP
- * ask different questions. The door also asks whether the money landed; an
- * RSVP is not a purchase and an unpaid participant answering "I'm coming"
- * costs nothing and is useful to know. What both agree on is 'dropped'.
+ * Separate from `ticketIsAdmissible`, and it must STAY separate. The weak
+ * reason is that a door also asks whether the money landed, where an RSVP is
+ * not a purchase — an unpaid participant saying "I'm coming" costs nothing
+ * and is worth knowing. The strong reason is that these two will diverge
+ * again, predictably, on statuses neither has been asked about yet:
  *
- * This became reachable in v0.68.31, when the membership thread worker
- * started setting enrolments to 'dropped' as a membership lapses — soft
- * delete, so the rows stay and the person keeps seeing the thread. They
- * should not keep answering for its future sessions.
+ *   'completed'     admissible to the session that happened; should almost
+ *                   certainly NOT be answering for future ones.
+ *   'invoice_sent'  admitted on trust at a door; an invoice six weeks old is
+ *                   a different question for an RSVP than for entry.
+ *
+ * One predicate would force both through a shape that cannot express them,
+ * and whoever hit it would add a boolean parameter rather than split the
+ * function again. `portal.test.ts` asserts the divergence on purpose so a
+ * later reader does not merge them thinking it is a tidy-up.
+ *
+ * Reachable since v0.68.31: the membership thread worker sets an enrolment
+ * to 'dropped' as a membership lapses — soft delete, so the rows stay and
+ * the person keeps seeing the thread. They stop answering for its future
+ * sessions.
  */
 export function enrolmentCanRespond(enrolmentStatus: string | null): boolean {
-  return enrolmentStatus !== 'dropped';
+  return enrolmentIsLive(enrolmentStatus);
 }
 
 /**
