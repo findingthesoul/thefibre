@@ -64,7 +64,7 @@
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
-import { mergeById, ticketIsAdmissible } from '../lib/portal.js';
+import { enrolmentCanRespond, mergeById, ticketIsAdmissible } from '../lib/portal.js';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 
 export const portalRoutes = new Hono();
@@ -218,6 +218,16 @@ portalRoutes.get('/portal', async (c) => {
         .map((t) => t.id),
     ),
   ];
+  // Threads this person has dropped out of. They still see them — the record
+  // of having taken part is theirs — but the RSVP control is not offered,
+  // matching the write path's refusal.
+  const droppedThreads = new Set<string>();
+  for (const e of enrolments ?? []) {
+    const t = one(e.thread as { id: string } | { id: string }[] | null);
+    const enr = one(e.enrolment as never) as { status: string | null } | null;
+    if (t && !enrolmentCanRespond(enr?.status ?? null)) droppedThreads.add(t.id);
+  }
+
   const agendaByThread = new Map<string, AgendaItem[]>();
   const rsvpEnabledByThread = new Map<string, boolean>();
   if (threadIds.length) {
@@ -283,7 +293,9 @@ portalRoutes.get('/portal', async (c) => {
         external_url: content.external_url ?? content.file_url ?? null,
         // Only timed items can be attended, so only they can be answered.
         rsvp_enabled:
-          !!e.starts_at && (rsvpEnabledByThread.get(e.thread_id as string) ?? true),
+          !!e.starts_at &&
+          !droppedThreads.has(e.thread_id as string) &&
+          (rsvpEnabledByThread.get(e.thread_id as string) ?? true),
         rsvp: answerByEngagement.get(e.id as string) ?? null,
       });
       agendaByThread.set(e.thread_id as string, list);
@@ -519,14 +531,28 @@ portalRoutes.put('/portal/rsvp', async (c) => {
   const personId = personByWorkspace.get(engagement.workspace_id as string);
   if (!personId) return c.json({ error: 'not found' }, 404);
 
-  // Enrolled in that thread? Same table the read uses.
+  // Enrolled in that thread, and still a participant of it? Same table the
+  // read uses. A membership that lapses leaves the enrolment standing as
+  // 'dropped' (soft delete — v0.68.31's thread worker), so existence alone
+  // is not enough: that person keeps SEEING the thread and must stop
+  // ANSWERING for its future sessions.
   const { data: enrolled } = await adminClient
     .from('thread_enrolment')
-    .select('id')
+    .select('id, enrolment:enrolment_id (status)')
     .eq('person_id', personId)
     .eq('thread_id', engagement.thread_id as string)
     .limit(1);
   if (!enrolled?.length) return c.json({ error: 'not found' }, 404);
+  const enrolmentStatus =
+    one(
+      enrolled[0]?.enrolment as unknown as
+        | { status: string | null }
+        | { status: string | null }[]
+        | null,
+    )?.status ?? null;
+  if (!enrolmentCanRespond(enrolmentStatus)) {
+    return c.json({ error: 'you are no longer taking part in this thread' }, 409);
+  }
 
   const own = one(
     engagement.thread as unknown as { rsvp_enabled: boolean | null } | { rsvp_enabled: boolean | null }[] | null,

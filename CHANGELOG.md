@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.32] — 2026-09-09 — a lapsed member stops answering for future sessions
+
+v0.68.31's thread worker made a bug in v0.68.30 reachable, and the other
+session flagged the behaviour as *context* rather than as a problem — it was
+a problem.
+
+When a membership lapses, the worker sets `enrolment.status = 'dropped'` and
+leaves both rows standing. That is correct: soft delete only for personal
+data, and the record that someone took part is theirs to keep. But the RSVP
+write checked only that a `thread_enrolment` row EXISTED. So from v0.68.31 a
+lapsed member kept seeing the thread — which is intended — and could keep
+answering for its future sessions, which is not. An organiser would have been
+counting someone who had left.
+
+Fixed on **both** sides, so the screen and the API agree rather than one
+offering what the other refuses:
+
+- **Write** — the enrolment's status is fetched and a dropped one gets `409`.
+- **Read** — `rsvp_enabled` is false for a thread this person has dropped, so
+  the control is never offered.
+
+**A deliberate non-reuse.** `enrolmentCanRespond` sits next to
+`ticketIsAdmissible` and does not call it. They answer different questions: a
+door also asks whether the money landed, and an RSVP is not a purchase — an
+unpaid participant saying "I'm coming" costs nothing and is worth knowing.
+The only thing both refuse is `'dropped'`. A test asserts that divergence
+explicitly, so a later reader doesn't merge them thinking it is a
+simplification.
+
+Checked while here: nothing in the RSVP path keys off how an enrolment was
+created, so v0.68.31's `membership:<grant_id>:<member_id>` request_id shape
+— a third one, after checkout and `manual:` — reaches nothing. The write
+matches on person, thread and now status.
+
+`apps/api/src/lib/portal.test.ts` is at 15 tests, all green.
+
 ## [0.68.31] — 2026-09-09 — a thread grant finally does something
 
 The access-grant dropdown has offered "Thread" since Membership shipped. It

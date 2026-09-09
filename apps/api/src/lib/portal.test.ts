@@ -1,7 +1,7 @@
 // Locks the two judgements behind the visitor portal (docs/visitor-portal-proposal.md).
 
 import { describe, expect, it } from 'vitest';
-import { mergeById, ticketIsAdmissible } from './portal.js';
+import { enrolmentCanRespond, mergeById, ticketIsAdmissible } from './portal.js';
 
 describe('ticketIsAdmissible', () => {
   it('a free thread admits — no payment was ever asked for', () => {
@@ -56,5 +56,28 @@ describe('mergeById', () => {
   it('tolerates null and empty lists', () => {
     expect(mergeById(null, undefined, [])).toEqual([]);
     expect(mergeById(null, [{ id: 'a' }])).toHaveLength(1);
+  });
+});
+
+describe('enrolmentCanRespond', () => {
+  // Reachable since v0.68.31: the membership thread worker sets an enrolment
+  // to 'dropped' when a membership lapses, soft-delete style. The person
+  // keeps seeing the thread and must stop answering for its future sessions.
+  it('refuses a dropped enrolment', () => {
+    expect(enrolmentCanRespond('dropped')).toBe(false);
+  });
+
+  it.each(['enrolled', 'completed', 'pending', 'approved', null])(
+    'allows %j — only dropped is out',
+    (status) => {
+      expect(enrolmentCanRespond(status)).toBe(true);
+    },
+  );
+
+  it('is deliberately NOT the door rule: money is irrelevant to an RSVP', () => {
+    // ticketIsAdmissible would refuse an unpaid ticket at the door. Saying
+    // "I'm coming" is not a purchase, and the organiser still wants to know.
+    expect(ticketIsAdmissible('enrolled', 'pending')).toBe(false);
+    expect(enrolmentCanRespond('enrolled')).toBe(true);
   });
 });

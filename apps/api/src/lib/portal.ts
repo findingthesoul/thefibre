@@ -25,6 +25,24 @@ export function ticketIsAdmissible(
 }
 
 /**
+ * May this person still act as a participant of the thread — RSVP, in
+ * practice — or are they only looking at a record of having taken part?
+ *
+ * Split out from `ticketIsAdmissible` rather than reused: a door and an RSVP
+ * ask different questions. The door also asks whether the money landed; an
+ * RSVP is not a purchase and an unpaid participant answering "I'm coming"
+ * costs nothing and is useful to know. What both agree on is 'dropped'.
+ *
+ * This became reachable in v0.68.31, when the membership thread worker
+ * started setting enrolments to 'dropped' as a membership lapses — soft
+ * delete, so the rows stay and the person keeps seeing the thread. They
+ * should not keep answering for its future sessions.
+ */
+export function enrolmentCanRespond(enrolmentStatus: string | null): boolean {
+  return enrolmentStatus !== 'dropped';
+}
+
+/**
  * Merge rows fetched under two different keys, keeping one copy each.
  *
  * Rows that predate a person id carry only an email; rows an organiser
