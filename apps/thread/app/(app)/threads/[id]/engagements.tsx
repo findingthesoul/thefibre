@@ -232,6 +232,18 @@ export function EngagementDialog({
     else onClose();
   }
 
+  // Will this item have a start time when saved? Read from the form, not
+  // from the saved row: on a new dated event the date exists in state and
+  // not yet on the row, so gating on `engagement.starts_at` would hide the
+  // control exactly when someone is setting the date it depends on.
+  //
+  // It matters because the API resolves RSVP on `hasStart` (lib/portal.ts).
+  // Gating the switch on the family instead — which is what shipped in
+  // v0.68.42 — offered "Ask who is coming" on an undated activity, where it
+  // stored a value the resolver then ignored. Same expression on both sides
+  // now, so the switch cannot promise what the API will not do.
+  const willHaveStart = timePerDay ? Boolean(firstDay) : Boolean(startsAt);
+
   const meta = metaFor(type);
   const family: EngagementFamily = meta.family;
   const typeOptions = ENGAGEMENT_META.filter((m) =>
@@ -253,7 +265,9 @@ export function EngagementDialog({
       // Touching a switch you can see means an explicit answer, so this
       // writes a boolean rather than leaving null to inherit. Only timed
       // items are asked about at all.
-      ...(family === 'activity' ? { rsvp_enabled: fd.get('rsvp_enabled') === 'on' } : {}),
+      ...(family === 'activity' && willHaveStart
+        ? { rsvp_enabled: fd.get('rsvp_enabled') === 'on' }
+        : {}),
       status,
     };
 
@@ -783,7 +797,7 @@ export function EngagementDialog({
                   the Responses panel use. Inside the fieldset because it is
                   a write: a locked thread refuses it here and again at the
                   API (423 thread_locked). */}
-              {family === 'activity' && (
+              {family === 'activity' && willHaveStart && (
                 <div className="mt-3">
                   <SwitchField
                     label={t(locale, 'ask_who_is_coming')}

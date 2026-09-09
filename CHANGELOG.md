@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.47] — 2026-09-09 — the RSVP switch stops offering what the API ignores
+
+A rough edge from 0.68.42, flagged when it shipped rather than found later.
+The switch appeared on `family === 'activity'`; the API resolves RSVP on
+`hasStart`. So an activity with no date showed "Ask who is coming", stored an
+answer, and the resolver ignored it — a control that did nothing, on the one
+screen where the whole point is knowing whether you asked.
+
+- **`willHaveStart`**, read from the LIVE form rather than the saved row:
+  `timePerDay ? Boolean(firstDay) : Boolean(startsAt)`. Gating on
+  `engagement.starts_at` would have hidden the switch exactly while someone
+  was setting the date it depends on, since a new event's date is in state
+  and not yet on the row.
+- Both sides now say the same thing, so the switch cannot promise something
+  the resolver will not do.
+- The PANEL still gates on the saved `starts_at`, deliberately: it renders
+  responses people actually gave, and those exist until the edit is saved.
+  Clearing a date in the form hides the switch and keeps the answers, which
+  is the honest way round.
+
 ## [0.68.46] — 2026-09-09 — the certificate element says what it is for
 
 Review catch from the membership session on v0.68.45, an hour old, and it is
