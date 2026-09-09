@@ -279,6 +279,23 @@ seeded into Pulse. What remains:
    policy) and scripts/verify-vercel-env.mjs (env-matrix audit/fix;
    first run caught a staging anon key in membership's PROD scope).
    Prod SSO_INTERNAL_SECRET rotated 2026-09-05.
+   **2026-09-09 — first live invoiced member (v0.68.22).** Four defects
+   fixed in code (invoice payment now settles the membership itself, in
+   both the webhook and mark-paid; a manual add dates its own renewal;
+   the overdue sweep skips renews_at <= started_at; `country` is back in
+   MEMBER_SELECT; /no-access routes members to /my). Two things remain
+   config, and both block soul.com going live this week:
+   - **The Connect webhook still looks unregistered.** The EUR 1 test
+     invoice for sjoerdluteyn@gmail.com holds a live `cs_live_…` session
+     and is still `pending`. Register it (below), then Mark paid on the
+     Invoices page to clear the stuck row — the new code activates the
+     membership from there.
+   - **Access grants are missing on soul.com's tiers.** The workspace has
+     exactly ONE grant (kind `thread`, on the product "The Thread"), and
+     that product is Off in the Community member tier. Joining currently
+     unlocks nothing — the Circle community product carries no Circle
+     grant.
+
    **Remaining — Sjoerd, not code:**
    - Stripe **Connect** webhook endpoint
      `https://thefibre-api.fly.dev/api/v1/membership/stripe-webhook`
