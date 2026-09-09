@@ -558,12 +558,26 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     you then read type fine whether or not they exist; and PostgREST answers
     a bad column with a runtime `400`, never a build failure.
     **The defence, and it costs a minute:** before shipping, run every NEW
-    select against real rows — `curl` the PostgREST endpoint with the
-    service-role key, or a five-line node script. It answers `200` or it
-    names the column you invented, with a hint. Do it for reads on
-    production (reads are safe there; see the no-destructive-tests rule) or
-    on staging where the table has rows. Both of these were caught that way
-    and neither by any gate we own.
+    OR WIDENED select verbatim against real rows — `curl` the PostgREST
+    endpoint with the service-role key, or a five-line node script. It
+    answers `200` or it names the column you invented, with a hint. Do it for
+    reads on production (reads are safe there; see the no-destructive-tests
+    rule) or on staging where the table has rows. Both of these were caught
+    that way and neither by any gate we own.
+    **Two directions, and only one of them announces itself.** A column that
+    does not exist gives you a `400` the moment the branch runs. A column
+    that DOES exist and was left out of the select gives you `undefined`,
+    forever, in silence — which is how `location_url` sat on
+    `thread_engagement` for months, stored by the editor and published on no
+    surface at all (v0.68.62 on the public thread page, v0.68.63 in the
+    portal). Running the select and READING what comes back catches both;
+    running it and checking the status code catches only the loud one.
+    **Worst in a worker.** A bad select in a request path is reported by
+    whoever hit it. A bad select in the five-minute scheduler is reported by
+    nobody, forever. The thread session went back and re-ran two it had
+    already shipped there — both fine, but it did not know that when it
+    shipped them. Three instances between two sessions in one day, none
+    catchable by any gate we have, all catchable in ten seconds.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
