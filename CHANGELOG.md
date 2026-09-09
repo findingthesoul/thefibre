@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.64] — 2026-09-10 — three corrections from a review of what a membership includes
+
+The my.thread session read the `includes` resolution against the code it
+claims to mirror and found three things. Its central check came back clean:
+`applyEntitlements` and the portal use the same two filters, so "the same
+fact shown to the person rather than executed against a tool" is literally
+true and cannot silently drift without someone editing one of those lines.
+
+- **One destination per included thing, chosen by KIND, not by the order the
+  links were typed in.** The product dialog appends and deletes links with no
+  way to reorder, so first-wins made the answer an editing artefact: a
+  product carrying both a `thread` and a `url` pointed two different places
+  depending on which was added first. A `thread` wins now, because it is the
+  one we RESOLVED — looked up in the member's own workspace and confirmed to
+  exist — where a url is whatever was pasted, checked only for a scheme.
+- **The optional-product exclusion has a better reason than the one written
+  down.** It was "an optional product is on the join form, not in the
+  membership". The real reason is that `applyEntitlements` filters
+  `optional = false` too, so listing them would promise a member something
+  the system does not grant them. Listing what is not granted is worse than
+  listing nothing.
+- **The purchase query now carries the workspace filter** `applyEntitlements`
+  has, rather than leaving it to the grouping downstream. Equivalent for sane
+  data — but "the same pair of queries" is the property the whole block leans
+  on, and that is only true while the filters match.
+
+Also in `docs/system-handbook.md` §10: **a PostgREST select is a string and
+the type-checker never reads it**, filed beside the action/route seam as the
+same species of gate-shaped hole. Two bad column names in one session, both
+typecheck-clean, one of them latent. A minute of curl against real rows
+before shipping is the whole defence.
+
 ## [0.68.63] — 2026-09-10 — a member can correct their own name (Portal 0.5.0)
 
 Slice 5 of `docs/member-portal-plan.md`, and the end of the read-only

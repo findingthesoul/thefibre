@@ -397,9 +397,12 @@ portalRoutes.get('/portal', async (c) => {
   // pair `applyEntitlements` resolves grants from — this is the same fact
   // shown to the person rather than executed against a tool.
   //
-  // Optional products are excluded deliberately: an optional product on a
-  // tier is on the JOIN FORM, not in the membership, until it is bought —
-  // and once bought it arrives here through the purchase side anyway.
+  // Optional products are excluded because ENTITLEMENTS exclude them —
+  // `applyEntitlements` filters `optional = false` too, so listing them here
+  // would tell a member "your membership includes X" for an X the system
+  // does not grant them. Listing what is not granted is worse than listing
+  // nothing. (An optional product bought à la carte arrives through the
+  // purchase side below, which is the path that DOES grant it.)
   const includesByMember = new Map<string, Included[]>();
   const memberRows = (members ?? []) as Record<string, unknown>[];
   if (memberRows.length) {
@@ -416,6 +419,14 @@ portalRoutes.get('/portal', async (c) => {
         .from('membership_product_purchase')
         .select('workspace_id, product_id')
         .in('person_id', personIds)
+        // Workspace-filtered like `applyEntitlements` is, rather than left to
+        // the grouping below. Equivalent for sane data, but "the same pair of
+        // queries" is the property this whole block leans on, and it is only
+        // true if the filters match.
+        .in(
+          'workspace_id',
+          [...new Set(memberRows.map((m) => m.workspace_id as string))],
+        )
         .eq('status', 'paid'),
     ]);
     const tierProductRows = (tierProducts ?? []) as { tier_id: string; product_id: string }[];
@@ -490,20 +501,30 @@ portalRoutes.get('/portal', async (c) => {
     const toIncluded = (productId: string, workspaceId: string): Included | null => {
       const p = productById.get(productId);
       if (!p) return null;
+      // ONE destination per included thing, chosen by KIND and not by the
+      // order somebody happened to add the links in. The product dialog has
+      // no reorder control — links are appended and deleted — so first-wins
+      // would make the answer an editing artefact: the same product could
+      // point two different places depending on which link was typed first.
+      //
+      // A `thread` beats a `url` because it is the one we RESOLVED: looked up
+      // in this member's own workspace and confirmed to exist. A url is
+      // whatever was pasted, checked only for a scheme. When a product has
+      // both, the resolved one lands the member inside the thing rather than
+      // on a page about it.
+      const links = linkList(p.links);
       let url: string | null = null;
-      for (const l of linkList(p.links)) {
-        if (l.kind === 'url' && /^https?:\/\//.test(l.ref)) {
-          url = l.ref;
+      for (const l of links) {
+        if (l.kind !== 'thread') continue;
+        const slug = threadSlugFromConfig({ thread_slug: l.ref });
+        const resolved = slug ? threadUrlByKey.get(`${workspaceId}:${slug}`) : undefined;
+        if (resolved) {
+          url = resolved;
           break;
         }
-        if (l.kind === 'thread') {
-          const slug = threadSlugFromConfig({ thread_slug: l.ref });
-          const resolved = slug ? threadUrlByKey.get(`${workspaceId}:${slug}`) : undefined;
-          if (resolved) {
-            url = resolved;
-            break;
-          }
-        }
+      }
+      if (!url) {
+        url = links.find((l) => l.kind === 'url' && /^https?:\/\//.test(l.ref))?.ref ?? null;
       }
       return { name: p.name, description: p.description ?? null, url };
     };
