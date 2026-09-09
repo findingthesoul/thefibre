@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.48] — 2026-09-09 — a drag that never ended, and a status that lied
+
+Sjoerd, twice: "once I am in the certificate editor, I can't leave", and
+after the first fix and a reload, "now it does not work anymore… I try to go
+to threads, nothing happens."
+
+**My first diagnosis was wrong and the second explains what the first could
+not.** v0.68.44 moved the autosave off the server-action path, which was a
+real problem and not his. The evidence that settled it: hover still
+highlights the sidebar, clicks do nothing, a fresh page load is fine, and it
+only breaks once you have edited something.
+
+That is a stuck drag. If a mouseup is missed — released outside the window,
+over the browser chrome, lost to a context menu — `draggingRef` stays set,
+and from then on every mouse movement anywhere re-renders the whole element
+list. Moving the pointer toward the sidebar fires hundreds of renders. The
+hover highlight survives because it is pure CSS; the click lands on a main
+thread with no time for it. Only a page load clears it.
+
+The guard is `e.buttons === 0` on every move: the button is not down, so
+whatever we thought was happening is over. Checked rather than waited for.
+Losing window focus ends a drag too, so the state cannot outlive the gesture.
+Both drags — elements and guides — carry it.
+
+**And the save status stops lying.** Sjoerd: "changed something and did not
+save (or is it auto save)… and it did not warn me." It HAD saved. The status
+said "Saved" for two seconds, then blanked, and a blank toolbar beside a Save
+button reads as nothing having been saved. It now always says where you
+stand: unsaved changes while the debounce is running, then "Saved
+automatically", and it stays there. The state that was missing was the honest
+one — touched, not yet written.
+
 ## [0.68.47] — 2026-09-09 — the RSVP switch stops offering what the API ignores
 
 A rough edge from 0.68.42, flagged when it shipped rather than found later.

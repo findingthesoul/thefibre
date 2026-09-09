@@ -6181,6 +6181,22 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  unsaved_changes: {
+    en: 'Unsaved changes…',
+    nl: 'Niet-opgeslagen wijzigingen…',
+    es: 'Cambios sin guardar…', // MT
+    pt: 'Alterações não salvas…', // MT
+    de: 'Nicht gespeicherte Änderungen…', // MT
+    fr: 'Modifications non enregistrées…', // MT
+  },
+  saved_automatically: {
+    en: 'Saved automatically',
+    nl: 'Automatisch opgeslagen',
+    es: 'Guardado automáticamente', // MT
+    pt: 'Salvo automaticamente', // MT
+    de: 'Automatisch gespeichert', // MT
+    fr: 'Enregistré automatiquement', // MT
+  },
   certificate_engagement_hint: {
     en: 'Issues to everyone who has completed and does not have a certificate yet. Completing someone already issues theirs, so on a thread that has been running normally this will correctly issue to nobody. It is here for the ones that slipped through: people who completed before certificates were switched on, before a design was chosen, or whose certificate failed to send.',
     nl: 'Reikt uit aan iedereen die afgerond heeft en nog geen certificaat heeft. Iemand afronden reikt het certificaat al uit, dus bij een thread die normaal loopt reikt dit terecht aan niemand uit. Het is er voor wie ertussendoor is geglipt: mensen die afrondden voordat certificaten aanstonden, voordat er een ontwerp gekozen was, of van wie het certificaat niet verstuurd kon worden.',

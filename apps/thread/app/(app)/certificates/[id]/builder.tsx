@@ -92,7 +92,16 @@ function toggleCls(active: boolean): string {
 // Upload-first image picker. Block layout for the left panel (background),
 // inline layout for the horizontal properties bar (image elements).
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+// The editor saves itself, so the only honest question the toolbar can
+// answer is "where does my work stand right now?" — and it has to answer it
+// at all times, not for two seconds after each save.
+//
+// Sjoerd, 2026-09-09: "changed something and did not save (or is it auto
+// save)... and it did not warn me". His change HAD been saved. The status
+// said "Saved" for two seconds and then went blank, and a blank toolbar
+// beside a Save button reads as "nothing has been saved". `pending` is the
+// state that was missing: touched, not yet written.
+type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
 export function CertificateBuilder({
   locale,
@@ -194,8 +203,9 @@ export function CertificateBuilder({
     });
     if (result.ok) {
       pendingRef.current = false;
+      // Stays on 'saved'. It used to fade back to 'idle' after two seconds,
+      // which is how somebody ends up believing their work is not stored.
       setSaveStatus('saved');
-      idleTimer.current = setTimeout(() => setSaveStatus('idle'), 2000);
     } else {
       setSaveStatus('error');
     }
@@ -212,6 +222,7 @@ export function CertificateBuilder({
   const pendingRef = useRef(false);
   const markPending = useCallback(() => {
     pendingRef.current = true;
+    setSaveStatus('pending');
     scheduleSave();
   }, [scheduleSave]);
 
@@ -255,10 +266,32 @@ export function CertificateBuilder({
   const selectedEl = elements.find((e) => e.id === selectedId) ?? null;
 
   // ── Global drag handlers ─────────────────────────────────────────────
+  //
+  // A drag that never ends is why this page felt frozen (Sjoerd, 2026-09-09:
+  // "I try to go to threads, nothing happens" — after editing, never on a
+  // fresh load). If the mouseup is missed — released outside the window, over
+  // the browser chrome, or lost to a context menu — `draggingRef` stays set,
+  // and from then on EVERY mouse movement anywhere on the page re-renders the
+  // whole element list. Moving the pointer toward the sidebar fires hundreds
+  // of renders; the hover highlight still works because that is pure CSS,
+  // while the click lands on a main thread that is busy. Hover alive, clicks
+  // dead, and only a fresh page load recovers it — which is exactly the shape
+  // of the report.
+  //
+  // `e.buttons === 0` is the answer: the mouse button is not down, so
+  // whatever we thought was happening is over. Checked on every move rather
+  // than trusted to arrive as an event.
   useEffect(() => {
+    function endDrag() {
+      if (!draggingRef.current) return;
+      draggingRef.current = null;
+      markPending();
+    }
     function onMove(e: MouseEvent) {
       const drag = draggingRef.current;
       if (!drag || !canvasRef.current) return;
+      // The button was released somewhere we never heard about.
+      if (e.buttons === 0) return endDrag();
       const rect = canvasRef.current.getBoundingClientRect();
       const dx = ((e.clientX - drag.startX) / rect.width) * 100;
       const dy = ((e.clientY - drag.startY) / rect.height) * 100;
@@ -311,9 +344,13 @@ export function CertificateBuilder({
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    // Leaving the window or losing focus mid-drag ends it too, so the state
+    // cannot outlive the gesture that created it.
+    window.addEventListener('blur', endDrag);
     return () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', endDrag);
     };
   }, [markPending]);
 
@@ -491,6 +528,11 @@ export function CertificateBuilder({
       const g = draggingGuideRef.current;
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!g || g.index === null || !rect) return;
+      // Same missed-mouseup hazard as the element drag above.
+      if (e.buttons === 0) {
+        draggingGuideRef.current = null;
+        return;
+      }
       const pos =
         g.axis === 'x'
           ? ((e.clientX - rect.left) / rect.width) * 100
@@ -626,13 +668,15 @@ export function CertificateBuilder({
   const aspect = PAGE_ASPECT[pageSize]?.[orientation] ?? PAGE_ASPECT.a4.portrait;
 
   const saveStatusLabel =
-    saveStatus === 'saving'
-      ? t(locale, 'saving')
-      : saveStatus === 'saved'
-        ? t(locale, 'saved_word')
-        : saveStatus === 'error'
-          ? t(locale, 'save_failed')
-          : null;
+    saveStatus === 'pending'
+      ? t(locale, 'unsaved_changes')
+      : saveStatus === 'saving'
+        ? t(locale, 'saving')
+        : saveStatus === 'saved'
+          ? t(locale, 'saved_automatically')
+          : saveStatus === 'error'
+            ? t(locale, 'save_failed')
+            : null;
 
   return (
     <div>
@@ -747,7 +791,13 @@ export function CertificateBuilder({
         )}
         {saveStatusLabel && (
           <span
-            className={`text-xs ${saveStatus === 'error' ? 'text-red-600' : 'text-ink-muted'}`}
+            className={`text-xs ${
+              saveStatus === 'error'
+                ? 'text-red-600'
+                : saveStatus === 'pending'
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-ink-muted'
+            }`}
           >
             {saveStatusLabel}
           </span>
