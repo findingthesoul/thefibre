@@ -6133,6 +6133,22 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  tpl_more_info: {
+    en: 'What each one gives you',
+    nl: 'Wat elke variant je geeft',
+    es: 'Qué te da cada una', // MT
+    pt: 'O que cada uma te dá', // MT
+    de: 'Was dir jede Variante gibt', // MT
+    fr: 'Ce que chacune apporte', // MT
+  },
+  tpl_pick_desc: {
+    en: 'A template seeds the timeline with elements you then configure. You can change everything afterwards.',
+    nl: 'Een sjabloon vult de tijdlijn met elementen die je daarna instelt. Je kunt achteraf alles wijzigen.',
+    es: 'Una plantilla llena la cronología con elementos que luego configuras. Puedes cambiarlo todo después.', // MT
+    pt: 'Um modelo preenche a linha do tempo com elementos que você depois configura. Você pode mudar tudo depois.', // MT
+    de: 'Eine Vorlage füllt die Zeitleiste mit Elementen, die du danach einstellst. Du kannst hinterher alles ändern.', // MT
+    fr: 'Un modèle remplit la chronologie d’éléments que tu configures ensuite. Tu peux tout changer après.', // MT
+  },
   tpl_single_event: {
     en: 'Single event',
     nl: 'Los evenement',

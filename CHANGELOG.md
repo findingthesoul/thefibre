@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.35] — 2026-09-09 — the template picker stops shouting
+
+Sjoerd, on the New thread form: don't show these large types, a dropdown
+with select template is sufficient; an (i) with more info can open a popup,
+and the template selector opens in that popup.
+
+The five template cards shipped yesterday and took the entire first screen
+of a form whose actual subject is the thread you are about to name. They are
+good at explaining what each shape gives you and bad at being a field you
+pass through on the way to the interesting part.
+
+So the choice is a dropdown now, sitting in the same column as Kind and
+Scope with the selected template's one-line description underneath — the
+pattern those two already use. The (i) beside the label opens the cards in a
+popup, and picking one there sets the dropdown and closes it. One control,
+two levels of detail, and the cards keep doing the only job they were ever
+good at. A template your plan doesn't cover still appears in the list,
+marked, rather than being silently absent.
+
+Nothing about what a template DOES has changed.
+
 ## [0.68.34] — 2026-09-09 — a thread you can freeze
 
 Sjoerd, this afternoon: in a thread's settings you should be able to lock it,
