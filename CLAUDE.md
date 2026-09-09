@@ -85,7 +85,7 @@ Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + or
 3. After every parallel batch: `pnpm -r typecheck`, then commit.
 4. Sequential is faster for ≤2 tasks. Parallel pays off at 3+.
 
-Worktree isolation isn't available in this repo — agents share the working directory. Strict file lanes prevent corruption. **The Next.js dev server gets confused when many files arrive at once** — kill and restart `pnpm dev` after a parallel batch.
+Subagents share the parent's working directory, so strict file lanes prevent corruption. (Git worktrees *are* available for whole SESSIONS — see the next section. Until 2026-09-09 this line claimed otherwise and that claim was already false.) **The Next.js dev server gets confused when many files arrive at once** — kill and restart `pnpm dev` after a parallel batch.
 
 ### Parallel SESSIONS — the serialization protocol (binding)
 
@@ -98,9 +98,18 @@ The rationale, the incident history and the release gates live in
 `docs/system-handbook.md` §10 and §11.4. This is the operative checklist,
 here because CLAUDE.md is the file every session loads automatically.
 
-**The shared working tree is the hazard.** There are no per-session
-worktrees. `git status` shows a union of everybody's work, and anything
-staged rides the next commit whoever makes it.
+**The shared working tree is the hazard**, and it is avoidable. When two
+sessions share one checkout, `git status` shows a union of everybody's work
+and anything staged rides the next commit whoever makes it — that is the root
+of every sweep incident in this repo's history.
+
+**So prefer a worktree.** `EnterWorktree`, or Agent with
+`isolation: "worktree"`, gives a session its own checkout under
+`.claude/worktrees/` on its own branch. This works here today and has been
+used (`git worktree list`). The cost is a per-worktree `node_modules`
+(~700MB) and a merge back to `main` at the end. Take that trade for anything
+touching code. Stay in the main checkout for docs-only work, for a release,
+or when you genuinely need the peer's uncommitted state.
 
 1. **Find your peers first.** `ListAgents`, or `list_sessions` filtered on
    this `cwd`. Message them with `send_message`. Do this at the START of a
@@ -123,10 +132,14 @@ staged rides the next commit whoever makes it.
 6. **After committing**, verify every import the commit introduces resolves
    *within* the commit (`git diff base..HEAD`) — the classic sweep bug is a
    half-written import from someone else's in-flight edit.
-7. **Rebasing over a peer costs you a stash.** `git stash -u` → rebase →
-   `git stash pop` picks up and puts back THEIR uncommitted files too. It
-   usually pops clean; it is still a clobber risk with no warning. Tell them
-   you did it and ask them to re-diff.
+7. **Never bare `git stash` / `git stash pop`.** The stash stack is shared
+   across the main checkout AND every worktree, so a bare `pop` can restore
+   a peer's entry into your tree. Set work aside with a temporary WIP commit
+   instead. If you must stash: `git stash push -u -m "<unique-tag>"`, capture
+   the SHA from `git stash list --format='%H %gs'`, restore with
+   `git stash apply <sha>`, then drop it by re-finding the tag. And note that
+   in a shared checkout a stash sweeps the PEER's uncommitted files too, not
+   just yours — if you do it to rebase, tell them and ask them to re-diff.
 8. **Docs-only commits skip the release script** — a commit touching only
    `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
    goes through `./scripts/release.sh <version>`, no exceptions.
