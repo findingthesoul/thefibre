@@ -409,6 +409,17 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   the staging stack was found publicly reachable AND fully indexable with no
   robots file anywhere in the repo. **Never make the open branch the
   default** — a de-indexed production site costs weeks.
+  - **Checking it**: `curl https://<host>/robots.txt` on each domain, not a
+    local build — only the live domain proves what it serves. Give Vercel a
+    few minutes first. Immediately after the 2026-09-09 release four of the
+    eight production domains answered **404** and were correct minutes
+    later; measured too early you would conclude half the estate is missing
+    a robots file.
+  - **`my.thethread.app` serving `Disallow: /` on its PRODUCTION domain is
+    CORRECT**, not the failure this design warns about. It calls
+    `robotsNeverIndex()`: every page below its sign-in is one person's own
+    tickets and memberships. Read `apps/my/app/robots.ts` before raising
+    it — one session nearly reported it as a broken production site.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
 - **Fly**: `fly deploy --remote-only` (prod) /
