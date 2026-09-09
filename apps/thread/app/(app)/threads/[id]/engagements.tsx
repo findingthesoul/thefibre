@@ -109,7 +109,6 @@ export function EngagementDialog({
   personalRoomUrl,
   canEditStructure = true,
   locked = false,
-  rsvpDefault = true,
   activities = [],
   onClose,
 }: {
@@ -134,7 +133,6 @@ export function EngagementDialog({
    *  setting, already resolved against the workspace default by the API. The
    *  switch must show the RESOLVED state — a thread sitting at off would
    *  otherwise render as On for something nobody can answer. */
-  rsvpDefault?: boolean;
   /** The thread's activities — anchor options for relative message triggers. */
   activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
@@ -771,7 +769,7 @@ export function EngagementDialog({
                   <SwitchField
                     label={t(locale, 'ask_who_is_coming')}
                     name="rsvp_enabled"
-                    defaultChecked={engagement?.rsvp_enabled ?? rsvpDefault}
+                    defaultChecked={engagement?.rsvp_enabled === true}
                     onChange={() => setDirty(true)}
                   />
                 </div>
@@ -788,7 +786,7 @@ export function EngagementDialog({
           an RSVP is the participant speaking for themselves. Shown on a
           locked thread too — the lock freezes the design, not the event, and
           reading who is coming is not an edit. */}
-      {!isNew && engagement?.starts_at && (engagement.rsvp_enabled ?? rsvpDefault) && (
+      {!isNew && engagement?.starts_at && engagement.rsvp_enabled === true && (
         <RsvpPanel locale={locale} threadId={threadId} engagementId={engagement.id} />
       )}
 

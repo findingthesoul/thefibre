@@ -6,6 +6,49 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.43] — 2026-09-09 — RSVP asks once, and only when asked to
+
+Sjoerd, an hour after the per-event switch shipped: "bring it back to one
+place: per event. Be default off — i.e. not visible for participants. If
+someone wants all their events to RSVP, they can toggle it, or duplicate an
+event for the rest of the thread."
+
+**Two things were wrong and only one of them was the count.** RSVP had three
+levels — item, thread, workspace default — each null meaning inherit. That is
+a lot of places to look when an item is not asking, and two of the three had
+no interface at all, so two of the three possible answers to "why is this
+item silent?" were invisible. The other, larger problem: the chain bottomed
+out at TRUE. Asking was the default. Every dated item on every thread asked
+every participant from the moment the feature landed, which is the opposite
+of a question you decide to ask.
+
+Now: one switch, on the event, off unless someone turns it on.
+`resolveRsvpEnabled({ item, hasStart })` is `hasStart && item === true`. The
+signature lost its two dead inputs rather than just ignoring them — leaving
+them in place is how somebody re-wires them by accident later. `rsvp_default`
+is gone from the thread payload, and the two dead levels no longer accept
+writes, because a field that takes a value and then ignores it is worse than
+one that is absent. The columns stay; dropping them is destructive and buys
+nothing.
+
+**Measured before shipping, not after.** Production holds zero RSVP answers
+and zero items with an explicit setting, so the flip silences 44 timed items
+that were asking and loses nothing. One workspace row carried
+`rsvp_default_enabled = true` and is now dead data. Had a single answer
+existed this would have needed a different plan.
+
+The seven tests written an hour ago are rewritten rather than deleted — the
+questions were right, the answers changed, and the two that flipped are the
+two worth reading. One is new: the rule is `item === true` and not a truthy
+check, because the value arrives from PostgREST and a column that came back
+as the string "true" would otherwise switch RSVP on for everybody.
+
+Worth recording that the resolver extracted an hour earlier is why this took
+twenty minutes. Had the rule still been written three times, this reversal
+would have been three edits with one of them silently missed — and the one
+most likely to be missed is the write path, which means answers still
+arriving for items an organiser had switched off.
+
 ## [0.68.42] — 2026-09-09 — RSVP moves to the event
 
 Sjoerd, after seeing the Responses panel for the first time: "maybe it is

@@ -101,37 +101,43 @@ describe('enrolmentIsLive — the one fact both predicates share', () => {
 });
 
 describe('resolveRsvpEnabled', () => {
-  const base = { item: null, thread: null, workspaceDefault: null, hasStart: true };
+  // ONE PLACE, DEFAULT OFF (Sjoerd 2026-09-09). These cases were written an
+  // hour earlier against a three-level inheritance chain and are kept rather
+  // than deleted: the questions are still the right questions, the answers
+  // changed. The two that flipped are the two that matter — "nothing
+  // configured" used to mean ASK and now means don't, and there is no level
+  // left for a null to inherit from.
+  const base = { item: null as boolean | null | undefined, hasStart: true };
 
-  it('asks by default — an unconfigured workspace still asks', () => {
-    expect(resolveRsvpEnabled(base)).toBe(true);
+  it('does not ask unless someone switched it on', () => {
+    expect(resolveRsvpEnabled(base)).toBe(false);
   });
 
-  it('never asks about an item with no start time', () => {
+  it('asks when the item says so', () => {
+    expect(resolveRsvpEnabled({ ...base, item: true })).toBe(true);
+  });
+
+  it('never asks about an item with no start time, however the switch is set', () => {
     expect(resolveRsvpEnabled({ ...base, hasStart: false })).toBe(false);
     expect(resolveRsvpEnabled({ ...base, item: true, hasStart: false })).toBe(false);
   });
 
-  it('the workspace default applies when nothing overrides it', () => {
-    expect(resolveRsvpEnabled({ ...base, workspaceDefault: false })).toBe(false);
+  it('an explicit false is off, same as an unset one', () => {
+    expect(resolveRsvpEnabled({ ...base, item: false })).toBe(false);
   });
 
-  it('the thread overrides the workspace, in both directions', () => {
-    expect(resolveRsvpEnabled({ ...base, thread: false, workspaceDefault: true })).toBe(false);
-    expect(resolveRsvpEnabled({ ...base, thread: true, workspaceDefault: false })).toBe(true);
+  it('undefined behaves as null — a column not selected must not read as ON', () => {
+    // The direction of this hazard reversed with the default. It used to be
+    // that an unselected column read as "ask everybody"; now the danger is
+    // the opposite, so the assertion is the opposite too.
+    expect(resolveRsvpEnabled({ ...base, item: undefined })).toBe(false);
   });
 
-  it('the item overrides the thread, in both directions', () => {
-    expect(resolveRsvpEnabled({ ...base, item: false, thread: true })).toBe(false);
-    expect(resolveRsvpEnabled({ ...base, item: true, thread: false })).toBe(true);
-  });
-
-  it('null at a level inherits rather than switching off', () => {
-    expect(resolveRsvpEnabled({ ...base, item: null, thread: true, workspaceDefault: false })).toBe(true);
-    expect(resolveRsvpEnabled({ ...base, item: null, thread: null, workspaceDefault: false })).toBe(false);
-  });
-
-  it('undefined behaves as null — a column not selected must not read as off', () => {
-    expect(resolveRsvpEnabled({ ...base, item: undefined, thread: undefined, workspaceDefault: undefined })).toBe(true);
+  it('only a boolean true asks — no truthy strings, no 1', () => {
+    // The rule is `item === true` rather than a truthy check, because this
+    // value arrives from PostgREST and a column that ever came back as the
+    // string "true" would otherwise switch RSVP on for everybody.
+    expect(resolveRsvpEnabled({ ...base, item: 'true' as unknown as boolean })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, item: 1 as unknown as boolean })).toBe(false);
   });
 });

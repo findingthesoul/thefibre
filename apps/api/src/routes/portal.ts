@@ -247,39 +247,11 @@ portalRoutes.get('/portal', async (c) => {
   }
 
   const agendaByThread = new Map<string, AgendaItem[]>();
-  const rsvpEnabledByThread = new Map<string, boolean>();
   if (threadIds.length) {
-    // The RSVP switch, resolved here so the client never carries the rule:
-    // workspace default, overridden per thread, overridden per ITEM — each
-    // level's NULL meaning "inherit" rather than "off". Sjoerd moved the
-    // operative control to the item (2026-09-09): a residential weekend needs
-    // a headcount and the reading group before it does not, and one switch
-    // for a year-long thread makes you choose between asking about everything
-    // and asking about nothing.
-    const [{ data: rsvpThreads }, { data: rsvpSettings }] = await Promise.all([
-      adminClient
-        .from('thread_thread')
-        .select('id, workspace_id, rsvp_enabled')
-        .in('id', threadIds),
-      adminClient.from('thread_settings').select('workspace_id, rsvp_default_enabled'),
-    ]);
-    const defaultByWorkspace = new Map(
-      (rsvpSettings ?? []).map((r) => [
-        r.workspace_id as string,
-        (r.rsvp_default_enabled as boolean | null) ?? true,
-      ]),
-    );
-    for (const t of rsvpThreads ?? []) {
-      const own = t.rsvp_enabled as boolean | null;
-      rsvpEnabledByThread.set(
-        t.id as string,
-        // No workspace row yet? The column defaults to true, so an
-        // unconfigured workspace asks — which is what "default RSVP on"
-        // means.
-        own ?? defaultByWorkspace.get(t.workspace_id as string) ?? true,
-      );
-    }
-
+    // An item asks only when its own switch is on (lib/portal.ts
+    // resolveRsvpEnabled). Two queries stood here — the thread's override and
+    // the workspace default — and both are gone with the inheritance chain
+    // they served.
     const { data: engagements } = await adminClient
       .from('thread_engagement')
       .select(
@@ -320,10 +292,6 @@ portalRoutes.get('/portal', async (c) => {
           !droppedThreads.has(e.thread_id as string) &&
           resolveRsvpEnabled({
             item: e.rsvp_enabled as boolean | null,
-            // Already resolved against the workspace default in the batch
-            // above, so this level carries both.
-            thread: rsvpEnabledByThread.get(e.thread_id as string),
-            workspaceDefault: null,
             hasStart: !!e.starts_at,
           }),
         rsvp: answerByEngagement.get(e.id as string) ?? null,
@@ -564,7 +532,7 @@ portalRoutes.put('/portal/rsvp', async (c) => {
   const { data: engagement } = await adminClient
     .from('thread_engagement')
     .select(
-      'id, workspace_id, thread_id, starts_at, status, rsvp_enabled, thread:thread_id (rsvp_enabled)',
+      'id, workspace_id, thread_id, starts_at, status, rsvp_enabled',
     )
     .eq('id', engagementId)
     .maybeSingle();
@@ -601,18 +569,8 @@ portalRoutes.put('/portal/rsvp', async (c) => {
   // The SAME resolver the read uses. The write must refuse exactly what the
   // read declined to offer: a control that is absent while the endpoint still
   // accepts is a stale tab writing answers nobody asked for.
-  const threadOwn = one(
-    engagement.thread as unknown as { rsvp_enabled: boolean | null } | { rsvp_enabled: boolean | null }[] | null,
-  )?.rsvp_enabled;
-  const { data: settings } = await adminClient
-    .from('thread_settings')
-    .select('rsvp_default_enabled')
-    .eq('workspace_id', engagement.workspace_id as string)
-    .maybeSingle();
   const asks = resolveRsvpEnabled({
     item: engagement.rsvp_enabled as boolean | null,
-    thread: threadOwn,
-    workspaceDefault: settings?.rsvp_default_enabled as boolean | null,
     hasStart: !!engagement.starts_at,
   });
   if (!asks) return c.json({ error: 'this item is not asking for RSVPs' }, 409);

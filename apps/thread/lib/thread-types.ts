@@ -58,11 +58,6 @@ export type ThreadRow = {
    *  editable and it can't be deleted; participants carry on enrolling. */
   locked_at: string | null;
   locked_by: string | null;
-  /** Per-thread RSVP override; null inherits the workspace default. */
-  rsvp_enabled: boolean | null;
-  /** That override already resolved against the workspace default — what an
-   *  item inherits when its own column is null. */
-  rsvp_default: boolean;
   created_at: string;
   updated_at: string;
   team_id: string | null;
@@ -159,7 +154,9 @@ export type EngagementRow = {
   content: Record<string, unknown>;
   position: number;
   show_in_agenda: boolean;
-  /** Per-item RSVP override; null inherits the thread. */
+  /** Does this item ask participants whether they are coming? The ONLY
+   *  RSVP switch there is (Sjoerd 2026-09-09) — anything but an explicit
+   *  true is off, so a new item does not ask. */
   rsvp_enabled: boolean | null;
   /** Set on the seeded transactional messages (enrolment_received /
    *  enrolment_confirmed). System messages stay deletable on every plan —

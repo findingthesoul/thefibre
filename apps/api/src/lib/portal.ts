@@ -92,17 +92,34 @@ export function enrolmentCanRespond(enrolmentStatus: string | null): boolean {
  * that is one condition rather than a parallel test in three places.
  */
 export function resolveRsvpEnabled(input: {
-  /** thread_engagement.rsvp_enabled — null inherits. */
+  /** thread_engagement.rsvp_enabled. Anything but an explicit true is off. */
   item: boolean | null | undefined;
-  /** thread_thread.rsvp_enabled — null inherits. */
-  thread: boolean | null | undefined;
-  /** thread_settings.rsvp_default_enabled — null/absent means yes. */
-  workspaceDefault: boolean | null | undefined;
   /** Whether the item has a start time. */
   hasStart: boolean;
 }): boolean {
-  if (!input.hasStart) return false;
-  return input.item ?? input.thread ?? input.workspaceDefault ?? true;
+  // ONE PLACE, DEFAULT OFF (Sjoerd, 2026-09-09): "bring it back to one place:
+  // per event. Be default off — i.e. not visible for participants. If someone
+  // wants all their events to RSVP, they can toggle it, or duplicate an event
+  // for the rest of the thread."
+  //
+  // This replaced a three-level inheritance chain — item → thread → workspace
+  // default → true — that was correct for the requirement it was built for
+  // and outlived it by an hour. Two properties of the old rule are worth
+  // knowing about because they are exactly what the new one refuses:
+  //
+  //   Asking was the DEFAULT. Every dated item on every thread asked every
+  //   participant, unless someone turned it off in a column with no UI. The
+  //   feature arrived switched on for everybody, which is the opposite of a
+  //   question you choose to ask.
+  //
+  //   Off was reachable from three levels, so "why is this item not asking?"
+  //   had three possible answers and two of them were invisible.
+  //
+  // `thread_thread.rsvp_enabled` and `thread_settings.rsvp_default_enabled`
+  // still EXIST — dropping a column is destructive and buys nothing — but
+  // nothing reads them and the API no longer accepts writes to them. If you
+  // are here to re-wire one, that is a product decision, not a repair.
+  return input.hasStart && input.item === true;
 }
 
 /**

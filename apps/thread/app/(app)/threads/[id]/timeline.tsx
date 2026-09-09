@@ -664,7 +664,6 @@ export function ThreadTimeline({
           personalRoomUrl={personalRoomUrl}
           canEditStructure={canEditStructure}
           locked={locked}
-          rsvpDefault={thread.rsvp_default ?? true}
           activities={engagements
             .filter((e) => metaFor(e.type).family === 'activity')
             .map((e) => ({ id: e.id, title: e.title, hasDate: !!e.starts_at }))}
