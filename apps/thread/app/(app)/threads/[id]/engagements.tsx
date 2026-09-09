@@ -4,12 +4,17 @@
 // (Sjoerd 2026-07-02): left = what it is (title, description/content),
 // right = when + where. Delete/Duplicate live in the footer next to Save.
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Copy, MapPin, Video } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t, engagementTypeLabel } from '@/lib/i18n-ui';
-import { createEngagement, updateEngagement, deleteEngagement } from '../actions';
+import {
+  createEngagement,
+  updateEngagement,
+  deleteEngagement,
+  getEngagementRsvps,
+} from '../actions';
 import type { EngagementRow, EngagementType, TriggerKind, DailyTime } from '@/lib/thread-types';
 import {
   ENGAGEMENT_META,
@@ -752,6 +757,16 @@ export function EngagementDialog({
         </fieldset>
       </form>
 
+      {/* Who is coming. Only a saved, TIMED item can be answered — the same
+          rule the portal applies (rsvp_enabled is `!!starts_at && ...`), so
+          the panel appears exactly where an answer is possible. Read-only:
+          an RSVP is the participant speaking for themselves. Shown on a
+          locked thread too — the lock freezes the design, not the event, and
+          reading who is coming is not an edit. */}
+      {!isNew && engagement?.starts_at && (
+        <RsvpPanel locale={locale} threadId={threadId} engagementId={engagement.id} />
+      )}
+
       <ConfirmDialog
         open={confirmDiscard}
         onCancel={() => setConfirmDiscard(false)}
@@ -1034,4 +1049,106 @@ export function MessageContentFields({
         />
       );
   }
+}
+
+
+/** Who answered, and who has not. Three groups, because "no answer" is the
+ *  one an organiser acts on: forty declines and forty silences are different
+ *  facts and only one of them is worth a reminder. Loads lazily when the
+ *  dialog opens rather than with the timeline — most items are never
+ *  inspected. */
+function RsvpPanel({
+  locale,
+  threadId,
+  engagementId,
+}: {
+  locale: Locale;
+  threadId: string;
+  engagementId: string;
+}) {
+  const [state, setState] = useState<
+    | { status: 'loading' }
+    | { status: 'error'; error: string }
+    | {
+        status: 'ready';
+        counts: { coming: number; not_coming: number; no_answer: number };
+        items: {
+          person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+          enrolment_status: string | null;
+          response: 'coming' | 'not_coming' | null;
+          responded_at: string | null;
+        }[];
+      }
+  >({ status: 'loading' });
+
+  useEffect(() => {
+    let live = true;
+    getEngagementRsvps(threadId, engagementId).then((r) => {
+      if (!live) return;
+      setState(r.ok ? { status: 'ready', counts: r.counts, items: r.items } : { status: 'error', error: r.error });
+    });
+    return () => {
+      live = false;
+    };
+  }, [threadId, engagementId]);
+
+  const name = (p: { first_name: string | null; last_name: string | null; email: string | null }) =>
+    [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '—';
+
+  return (
+    <div className="border-t border-line px-5 py-4 sm:px-6">
+      <div className="text-sm font-medium">{t(locale, 'rsvp_responses')}</div>
+
+      {state.status === 'loading' && (
+        <p className="mt-2 text-sm text-ink-muted">{t(locale, 'loading')}</p>
+      )}
+      {state.status === 'error' && <p className="mt-2 text-sm text-red-700">{state.error}</p>}
+
+      {state.status === 'ready' && (
+        <>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.coming}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_coming')}</span>
+            </span>
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.not_coming}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_not_coming')}</span>
+            </span>
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.no_answer}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_no_answer')}</span>
+            </span>
+          </div>
+
+          {state.items.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-muted">{t(locale, 'rsvp_nobody_enrolled')}</p>
+          ) : (
+            <ul className="mt-3 max-h-64 overflow-y-auto divide-y divide-line rounded-md border border-line">
+              {state.items.map((r) => (
+                <li key={r.person.id} className="flex items-baseline gap-3 px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{name(r.person)}</span>
+                  <span
+                    className={
+                      r.response === 'coming'
+                        ? 'shrink-0 text-emerald-700'
+                        : r.response === 'not_coming'
+                          ? 'shrink-0 text-ink-subtle'
+                          : 'shrink-0 text-ink-muted'
+                    }
+                  >
+                    {r.response === 'coming'
+                      ? t(locale, 'rsvp_coming')
+                      : r.response === 'not_coming'
+                        ? t(locale, 'rsvp_not_coming')
+                        : t(locale, 'rsvp_no_answer')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
 }

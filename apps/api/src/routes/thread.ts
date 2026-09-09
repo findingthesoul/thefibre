@@ -1581,6 +1581,108 @@ threadRoutes.get('/contacts', async (c) => {
   return c.json({ items: [...byPerson.values()] });
 });
 
+// GET /threads/:id/engagements/:engagementId/rsvps — who is coming.
+//
+// The participant half of RSVP shipped in v0.68.30 and an organiser could
+// not see a single answer (Sjoerd, 2026-09-09: "it is not clear where we can
+// review who of the participants has signed up"). This is the read side.
+//
+// THREE numbers, not two. `thread_rsvp` holds a row only when someone has
+// answered, so "no answer" is the thread's participants MINUS the people who
+// answered — a left join, not a group-by. A count of the rows that exist
+// reports 12 coming and 3 not and silently loses the 8 who said nothing,
+// which is the number an organiser actually acts on: 8 silent people and 8
+// refusals are different facts and only one of them is worth chasing.
+//
+// Dropped enrolments are excluded from both the list and the counts. They are
+// no longer participants, the portal already refuses their answers
+// (v0.68.32), and counting them would inflate "no answer" with people who
+// were never going to reply.
+threadRoutes.get('/threads/:id/engagements/:engagementId/rsvps', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.param('id');
+  const engagementId = c.req.param('engagementId');
+
+  // The item must belong to this thread. RLS covers the workspace; this
+  // stops a valid id from another thread being read through this one.
+  const { data: engagement } = await db
+    .from('thread_engagement')
+    .select('id, thread_id, title, starts_at')
+    .eq('id', engagementId)
+    .eq('thread_id', threadId)
+    .maybeSingle();
+  if (!engagement) return c.json({ error: 'not found' }, 404);
+
+  const [{ data: enrolments, error: enrErr }, { data: answers }] = await Promise.all([
+    db
+      .from('thread_enrolment')
+      .select(
+        `person:person_id (id, first_name, last_name, email),
+         enrolment:enrolment_id (status)`,
+      )
+      .eq('thread_id', threadId)
+      .limit(1000),
+    db
+      .from('thread_rsvp')
+      .select('person_id, response, responded_at')
+      .eq('engagement_id', engagementId),
+  ]);
+  if (enrErr) return c.json({ error: enrErr.message }, 500);
+
+  const answerByPerson = new Map(
+    (answers ?? []).map((r) => [
+      r.person_id as string,
+      { response: r.response as 'coming' | 'not_coming', responded_at: r.responded_at as string },
+    ]),
+  );
+
+  type Row = {
+    person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+    enrolment_status: string | null;
+    response: 'coming' | 'not_coming' | null;
+    responded_at: string | null;
+  };
+  const items: Row[] = [];
+  const seen = new Set<string>();
+  for (const e of enrolments ?? []) {
+    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as Row['person'] | null;
+    const enr = (Array.isArray(e.enrolment) ? e.enrolment[0] : e.enrolment) as { status: string | null } | null;
+    if (!person || seen.has(person.id)) continue;
+    if (enr?.status === 'dropped') continue;
+    seen.add(person.id);
+    const a = answerByPerson.get(person.id) ?? null;
+    items.push({
+      person,
+      enrolment_status: enr?.status ?? null,
+      response: a?.response ?? null,
+      responded_at: a?.responded_at ?? null,
+    });
+  }
+
+  // Answered first, then the silent — an organiser reads this to find who to
+  // chase, and the people to chase are the ones at the bottom.
+  const order = { coming: 0, not_coming: 1 } as Record<string, number>;
+  items.sort((a, b) => {
+    const ra = a.response ? order[a.response]! : 2;
+    const rb = b.response ? order[b.response]! : 2;
+    if (ra !== rb) return ra - rb;
+    const na = `${a.person.first_name ?? ''} ${a.person.last_name ?? ''}`.trim().toLowerCase();
+    const nb = `${b.person.first_name ?? ''} ${b.person.last_name ?? ''}`.trim().toLowerCase();
+    return na.localeCompare(nb);
+  });
+
+  return c.json({
+    engagement: { id: engagement.id, title: engagement.title, starts_at: engagement.starts_at },
+    counts: {
+      coming: items.filter((i) => i.response === 'coming').length,
+      not_coming: items.filter((i) => i.response === 'not_coming').length,
+      no_answer: items.filter((i) => i.response === null).length,
+    },
+    items,
+  });
+});
+
 // GET /internal-team — workspace members + the-thread app membership state.
 threadRoutes.get('/internal-team', async (c) => {
   const ctx = c.get('ctx');

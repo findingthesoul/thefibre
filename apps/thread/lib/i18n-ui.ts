@@ -111,6 +111,46 @@ const CATALOG = {
     de: 'Wird ausgeführt…', // MT
     fr: 'En cours…', // MT
   },
+  rsvp_responses: {
+    en: 'Who is coming',
+    nl: 'Wie komt er',
+    es: 'Quién viene', // MT
+    pt: 'Quem vem', // MT
+    de: 'Wer kommt', // MT
+    fr: 'Qui vient', // MT
+  },
+  rsvp_coming: {
+    en: 'coming',
+    nl: 'komt',
+    es: 'viene', // MT
+    pt: 'vem', // MT
+    de: 'kommt', // MT
+    fr: 'vient', // MT
+  },
+  rsvp_not_coming: {
+    en: "can't make it",
+    nl: 'kan niet',
+    es: 'no puede', // MT
+    pt: 'não pode', // MT
+    de: 'kann nicht', // MT
+    fr: 'ne peut pas', // MT
+  },
+  rsvp_no_answer: {
+    en: 'no answer',
+    nl: 'geen antwoord',
+    es: 'sin respuesta', // MT
+    pt: 'sem resposta', // MT
+    de: 'keine Antwort', // MT
+    fr: 'sans réponse', // MT
+  },
+  rsvp_nobody_enrolled: {
+    en: 'Nobody is enrolled in this thread yet.',
+    nl: 'Er is nog niemand ingeschreven voor deze thread.',
+    es: 'Todavía no hay nadie inscrito en este thread.', // MT
+    pt: 'Ainda não há ninguém inscrito nesta thread.', // MT
+    de: 'Für diesen Thread ist noch niemand angemeldet.', // MT
+    fr: "Personne n'est encore inscrit à ce thread.", // MT
+  },
   loading: {
     en: 'Loading…',
     nl: 'Laden…',

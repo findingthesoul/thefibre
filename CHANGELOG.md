@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.41] — 2026-09-09 — who is coming, and who never said
+
+Sjoerd: "it is not clear where we can review who of the participants has
+signed up for RSVP... maybe it should be a tab on a thread event". The
+participant half shipped in 0.68.30-33; an organiser could not see a single
+answer. `grep -rn rsvp apps/thread` returned nothing at all.
+
+- **`GET /threads/:id/engagements/:engagementId/rsvps`** and a Responses
+  panel on the agenda item, which is where he suggested it and the right
+  home for "who".
+- **Three numbers, not two.** `thread_rsvp` holds a row only when someone
+  answers, so "no answer" is the thread's participants MINUS those who
+  answered — a left join, not a group-by. Counting the rows that exist
+  reports 12 coming and 3 not, and silently loses the 8 who said nothing.
+  Eight silences and eight refusals are different facts and only one is
+  worth chasing.
+- **Answered first, silent last**, because the list is read to find who to
+  chase and the people to chase are at the bottom.
+- Dropped enrolments are excluded from both list and counts: they are not
+  participants, the portal already refuses their answers (0.68.32), and
+  counting them would inflate "no answer" with people who were never going
+  to reply.
+- Only saved, TIMED items get the panel — the same rule the portal applies
+  (`rsvp_enabled` is `!!starts_at && …`), so it appears exactly where an
+  answer is possible. Shown on a locked thread too: the lock freezes the
+  design, not the event, and reading who is coming is not an edit.
+- Verified against real staging data, both branches: a participant who
+  answered and a second seeded specifically to never answer, so the left
+  join is exercised rather than assumed.
+
+Carries the API route for `getEngagementRsvps`, which was swept into
+0.68.40 from an uncommitted tree and shipped there calling a route that did
+not exist yet. Inert (nothing called it), now whole. The lane claim that
+would have prevented it omitted the file — a lane list that is not true is
+not a lane claim.
+
+Not built, deliberately: counts on the timeline itself, and the two RSVP
+switches (`thread_settings.rsvp_default_enabled`, `thread_thread.rsvp_enabled`)
+which still have no UI. Both are Sjoerd's to ask for.
+
 ## [0.68.40] — 2026-09-09 — the account has a name, and the workspace has a chip
 
 Sjoerd, on the payments screen: "payment account is unclear — add the
