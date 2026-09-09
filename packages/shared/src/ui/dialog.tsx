@@ -34,6 +34,21 @@ export function Dialog({ open, onClose, title, description, children, footer, si
   const ref = useRef<HTMLDivElement>(null);
   const locale = useLocale();
 
+  // Escape closes. NOTE FOR ANYONE PUTTING A LAYER ON TOP OF THIS DIALOG:
+  // the listener is on `document` in the BUBBLE phase, and listeners on the
+  // same node fire in REGISTRATION order. This dialog opens first, so it
+  // registers first, so it wins — and no amount of stopPropagation from a
+  // later bubble listener can get in front of it.
+  //
+  // The symptom when that bites points away from the cause: pressing Escape
+  // with an overlay open closes the dialog UNDERNEATH and leaves the overlay
+  // stranded over the page with its parent gone. Found in the visitor
+  // portal's enlarged check-in code, 2026-09-09, and it cost an hour.
+  //
+  // A layer above must listen in the CAPTURE phase on the same node —
+  // capture runs before every bubble listener there — and call
+  // `stopImmediatePropagation` so the key never reaches this handler at all.
+  // See apps/my/app/detail.tsx for the worked example.
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {

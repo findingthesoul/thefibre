@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.53] — 2026-09-09 — the shared Dialog says it assumes it is the only layer
+
+Comment only, no behaviour. The fix it explains shipped in 0.68.52; this is
+the thing that would have prevented the hour it cost.
+
+`Dialog` listens for Escape on `document` in the BUBBLE phase, and listeners
+on the same node fire in registration order. It opens first, so it registers
+first, so it wins — and a later bubble listener cannot get in front of it
+however much it calls `stopPropagation`. Six apps use this Dialog and the
+assumption is invisible until someone stacks something on top of it.
+
+The symptom points away from the cause, which is why it is written down:
+Escape with an overlay open closed the dialog UNDERNEATH and left the
+overlay stranded with its parent gone. A layer above must listen in the
+CAPTURE phase on the same node and call `stopImmediatePropagation`. The
+comment names `apps/my/app/detail.tsx` as the worked example.
+
 ## [0.68.52] — 2026-09-09 — Escape closes the layer you are looking at
 
 Round five on the staging fixture, signed in at 375×812. One real bug, and
