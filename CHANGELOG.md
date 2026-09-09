@@ -64,10 +64,14 @@ one that is absent. The columns stay; dropping them is destructive and buys
 nothing.
 
 **Measured before shipping, not after.** Production holds zero RSVP answers
-and zero items with an explicit setting, so the flip silences 44 timed items
-that were asking and loses nothing. One workspace row carried
-`rsvp_default_enabled = true` and is now dead data. Had a single answer
-existed this would have needed a different plan.
+and zero items with an explicit setting, so the flip loses nothing. It does
+SILENCE items that were asking an hour ago, which is invisible in the diff
+and worth stating plainly: **36 items stop asking.** Those are the published,
+on-agenda, timed ones — the only items a participant could ever have been
+asked on. A wider count of 44 timed items includes 8 drafts, which were not
+asking anybody and would have started once published. One workspace row
+carried `rsvp_default_enabled = true` and is now dead data. Had a single
+answer existed this would have needed a different plan.
 
 The seven tests written an hour ago are rewritten rather than deleted — the
 questions were right, the answers changed, and the two that flipped are the
