@@ -114,6 +114,27 @@ _Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
    by browsers essentially forever, which is unforgiving if someone moves a
    thread back.
 
+**0b. Relative triggers cannot say "on the same day."** Sjoerd, 2026-09-10,
+   looking at a certificate element set to fire relative to the thread's end.
+   `TRIGGER_DAY_OPTIONS` (engagements.tsx) starts at 1, so the nearest you
+   can get to "the day it finishes" is one day after. The API already accepts
+   it — `trigger_offset_days` is `int().min(-365).max(365)` and the scheduler
+   adds it straight to the anchor date, so zero means the anchor day itself
+   and needs no server change.
+
+   The wrinkle that makes it more than adding '0' to an array: the form pairs
+   Days with a Direction, and zero before equals zero after. A "0 day(s)"
+   entry would leave a live control that changes nothing, which is the same
+   class of thing as the switch that stored a value the resolver ignored.
+   Better shape: one option reading "on the day" that hides Direction while
+   selected, and writes `trigger_offset_days: 0`. Reading an existing 0 back
+   has to select it too, since `defaultDirection` currently derives from the
+   sign and 0 is not negative.
+
+   Applies to every relative trigger, so messages get it as well as
+   certificates — and "the day it ends" is the obvious setting for a
+   certificate, which is how it was noticed.
+
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
    smoke-prod). Phase 1 DONE (CI installed — SSH
