@@ -65,7 +65,7 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
-import { appUrl } from '@thefibre/shared';
+import { appUrl, isLocale } from '@thefibre/shared';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { sellerForSale } from './purchases.js';
@@ -152,6 +152,11 @@ type AgendaItem = {
   starts_at: string | null;
   ends_at: string | null;
   location: string | null;
+  /** A map link for the venue. Stored on the engagement all along and never
+   *  published anywhere until the thread session found it missing from the
+   *  public page (v0.68.62); the portal shows the same venue and had the
+   *  same gap. Null is the ordinary case. */
+  location_url: string | null;
   meeting_url: string | null;
   external_url: string | null;
   /**
@@ -296,7 +301,7 @@ portalRoutes.get('/portal', async (c) => {
     const { data: engagements } = await adminClient
       .from('thread_engagement')
       .select(
-        'id, thread_id, title, description, type, starts_at, ends_at, location, meeting_url, content, position, rsvp_enabled',
+        'id, thread_id, title, description, type, starts_at, ends_at, location, location_url, meeting_url, content, position, rsvp_enabled',
       )
       .in('thread_id', threadIds)
       .eq('status', 'published')
@@ -324,6 +329,7 @@ portalRoutes.get('/portal', async (c) => {
         starts_at: (e.starts_at as string | null) ?? null,
         ends_at: (e.ends_at as string | null) ?? null,
         location: (e.location as string | null) ?? null,
+        location_url: (e.location_url as string | null) ?? null,
         meeting_url: (e.meeting_url as string | null) ?? null,
         external_url: content.external_url ?? content.file_url ?? null,
         // One resolver, shared with the write path and the organiser panel.
@@ -933,4 +939,133 @@ portalRoutes.get('/invoices/:id/pdf', async (c) => {
       'Content-Disposition': `attachment; filename="invoice-${number.replace(/[^A-Za-z0-9-]/g, '')}.pdf"`,
     },
   });
+});
+
+// ===========================================================================
+// GET / PATCH /api/v1/me/profile — the member's own details
+// ===========================================================================
+//
+// Slice 5 of docs/member-portal-plan.md, and the one destination that was
+// read-only: the YOU tab could show a name and no way to correct it.
+//
+// WHAT A MEMBER MAY CHANGE, and where each thing lives:
+//
+//   name      → every `person` row that carries their verified email.
+//               `person` is PER WORKSPACE, so someone in three communities
+//               has three rows, and a name corrected in one place and not
+//               the others is a worse state than not offering the edit. All
+//               of them, or none.
+//
+//   language  → `identity_profile.locale`, which is keyed by EMAIL and is
+//               already what the email templates and the app chrome read
+//               (i18n P2, D1). One identity, one preference, everywhere.
+//
+// WHAT THEY MAY NOT: the email. It is the key this entire route is scoped
+// by — changing it here would not move their tickets, it would orphan them.
+// Nor anything an app collected ABOUT them: that is curator data, it exists
+// because a specific app justified it (brief §5), and it is not the person's
+// to rewrite from here.
+//
+// Why a member editing organiser-visible rows is correct rather than
+// alarming: a name is identity, not curator data, and GDPR Article 16 is a
+// right to RECTIFY inaccurate personal data. "My name is spelled wrong on my
+// invoice" is exactly the case, and routing it through an email to an
+// organiser is the thing this portal exists to stop.
+
+/** Trim to null — an empty box means "cleared", not the empty string. */
+function trimmed(v: unknown, max: number): string | null | undefined {
+  if (v === undefined) return undefined;
+  if (v === null) return null;
+  if (typeof v !== 'string') return undefined;
+  const t = v.trim();
+  if (!t) return null;
+  return t.slice(0, max);
+}
+
+portalRoutes.get('/profile', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  const [{ data: persons }, { data: identity }] = await Promise.all([
+    adminClient
+      .from('person')
+      .select('first_name, last_name, created_at')
+      .eq('email', email)
+      .is('deleted_at', null)
+      // `person` has no updated_at — newest row first is the closest proxy
+      // for "most recently typed" when two organisers disagree. Checked
+      // against the live schema, which is the only way to know: a PostgREST
+      // select is a string and the type-checker never reads it.
+      .order('created_at', { ascending: false }),
+    adminClient.from('identity_profile').select('locale').eq('email', email).maybeSingle(),
+  ]);
+
+  // The newest row wins when they disagree, which they can: two organisers
+  // typed the name independently before this page existed.
+  const first = (persons ?? [])[0] as { first_name?: string; last_name?: string } | undefined;
+
+  return c.json({
+    email,
+    first_name: first?.first_name ?? null,
+    last_name: first?.last_name ?? null,
+    locale: (identity?.locale as string | null) ?? null,
+    /** How many communities the change will reach. The page says so before
+     *  they save, because "this updates your name everywhere" is a fact they
+     *  are entitled to before they press it, not after. */
+    person_rows: (persons ?? []).length,
+  });
+});
+
+portalRoutes.patch('/profile', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null;
+  if (!body) return c.json({ error: 'expected a JSON body' }, 400);
+
+  const first_name = trimmed(body.first_name, 100);
+  const last_name = trimmed(body.last_name, 100);
+  const locale = typeof body.locale === 'string' ? body.locale : undefined;
+  if (locale !== undefined && locale !== '' && !isLocale(locale)) {
+    return c.json({ error: 'not a language we speak' }, 400);
+  }
+
+  // A name that is blank on both halves would leave the person unnameable on
+  // every list an organiser reads. Refuse rather than accept it silently.
+  if (first_name === null && last_name === null) {
+    return c.json({ error: 'a name cannot be empty' }, 400);
+  }
+
+  const namePatch: Record<string, string | null> = {};
+  if (first_name !== undefined) namePatch.first_name = first_name;
+  if (last_name !== undefined) namePatch.last_name = last_name;
+
+  if (Object.keys(namePatch).length) {
+    const { error } = await adminClient
+      .from('person')
+      .update(namePatch)
+      .eq('email', email)
+      .is('deleted_at', null);
+    if (error) {
+      console.error('[portal/profile] name update failed', error);
+      return c.json({ error: 'could not save your name' }, 500);
+    }
+  }
+
+  if (locale !== undefined) {
+    const { error } = await adminClient.from('identity_profile').upsert(
+      {
+        email,
+        locale: locale === '' ? null : locale,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'email' },
+    );
+    if (error) {
+      console.error('[portal/profile] locale update failed', error);
+      return c.json({ error: 'could not save your language' }, 500);
+    }
+  }
+
+  return c.json({ ok: true });
 });

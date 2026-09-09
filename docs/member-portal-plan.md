@@ -253,7 +253,22 @@ without a link rather than hidden or, worse, offered dead.
 and seeding one needs Sjoerd's word (§10). Everything on these two tabs that
 depends on a membership existing has been driven only in its empty state.
 
-**5 · YOU.** Details plus sign out.
+**5 · YOU.** Done (v0.68.63). Name, email, language, sign out — and the
+name and language SAVE, which is the half that was missing. `ui/profile-form`
+was the shared candidate and is the wrong one: it is the organiser's profile
+(display name, bio, photo, timezone — the face a workspace sees) and a member
+has none of that.
+
+A name writes every `person` row carrying the verified email. `person` is per
+workspace, so a name corrected in one community and not the others is a worse
+state than not offering the edit at all. GDPR Article 16 is the reason a
+member editing organiser-visible rows is correct rather than alarming: a name
+is identity, not curator data, and "my name is spelled wrong on my invoice"
+currently becomes an email to an organiser — which is the thing this portal
+exists to stop. Language writes `identity_profile.locale`, which is already
+what the emails and the chrome read. The email itself is shown and locked: it
+is the key the whole surface is scoped by, and changing it here would orphan
+everything rather than move it.
 
 **6 · Retire the other two.** `membership.thethread.app/my` and
 `app.thethread.app/my` redirect to `my.thethread.app`. **Not before parity** —
@@ -261,6 +276,14 @@ a redirect that loses something is worse than two pages.
 
 **7 · The deeper thread content.** Participants and documents, once the shape
 has been used for a while.
+
+### Where slice 6 stands
+
+`membership.thethread.app/my` now has nothing this surface lacks: memberships
+with what they include, invoices with the PDF, and Manage payment. Thread's
+`/my` still has one thing of its own — the activity trail. Neither redirect
+should be written until someone has driven this surface against a real
+membership, which is still the open ask in §10.
 
 ---
 

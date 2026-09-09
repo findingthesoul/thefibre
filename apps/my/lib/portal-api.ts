@@ -20,6 +20,8 @@ export type AgendaItem = {
   starts_at: string | null;
   ends_at: string | null;
   location: string | null;
+  /** A map link for the venue, when the organiser gave one. */
+  location_url: string | null;
   meeting_url: string | null;
   external_url: string | null;
   /** Whether this item asks for an RSVP. The API resolves the two-level
@@ -178,6 +180,52 @@ export async function fetchInvoices(accessToken: string): Promise<PortalInvoice[
     return body.items ?? [];
   } catch {
     return [];
+  }
+}
+
+/** The member's own details — the only thing on this surface they can
+ *  change. Name reaches every community that knows their email; language is
+ *  identity-level and is what the emails and the chrome read. */
+export type MyProfile = {
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  locale: string | null;
+  /** How many communities a name change will reach. Said before they save. */
+  person_rows: number;
+};
+
+export async function fetchProfile(accessToken: string): Promise<MyProfile | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/me/profile`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as MyProfile;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save the details. Goes through this app's own route handler rather than
+ * straight to the API, so the session token never reaches the browser — the
+ * same reason the .ics and the invoice PDF are served here.
+ */
+export async function saveProfile(patch: {
+  first_name?: string;
+  last_name?: string;
+  locale?: string;
+}): Promise<void> {
+  const res = await fetch('/api/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not save');
   }
 }
 

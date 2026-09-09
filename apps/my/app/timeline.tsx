@@ -58,6 +58,7 @@ function Card({
         starts_at: entry.dateIso,
         ends_at: null,
         location: entry.where,
+        location_url: entry.whereUrl,
         meeting_url: null,
         external_url: null,
       }

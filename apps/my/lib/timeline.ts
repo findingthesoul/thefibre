@@ -25,6 +25,8 @@ export type Entry = {
   /** "16:00", or null for an all-day entry. */
   time: string | null;
   where: string | null;
+  /** A map link for `where`, when there is one. */
+  whereUrl: string | null;
   /** Offered only inside the window below — a Join button three months early
    *  is clutter pretending to be an action. */
   joinUrl: string | null;
@@ -83,6 +85,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           dateIso: startsAt,
           time: hhmm(startsAt),
           where: a.location ?? null,
+          whereUrl: a.location_url ?? null,
           joinUrl: a.meeting_url && joinable(startsAt, a.ends_at, now) ? a.meeting_url : null,
           threadId: t.thread_id,
           engagementId: a.id,
@@ -106,6 +109,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
           dateIso: t.starts_on,
           time: null,
           where: null,
+          whereUrl: null,
           joinUrl: null,
           threadId: t.thread_id,
           engagementId: null,
@@ -127,6 +131,7 @@ export function buildTimeline(portal: Portal, now = Date.now()): Entry[] {
         dateIso: m.starts_at,
         time: hhmm(m.starts_at),
         where: m.location ?? (m.host ? `with ${m.host}` : null),
+        whereUrl: null,
         joinUrl: m.meet_url && joinable(m.starts_at, m.ends_at, now) ? m.meet_url : null,
         threadId: null,
         engagementId: null,

@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.63] — 2026-09-10 — a member can correct their own name (Portal 0.5.0)
+
+Slice 5 of `docs/member-portal-plan.md`, and the end of the read-only
+portal. The YOU tab showed a name with no way to fix it, which is the wrong
+answer to "my name is spelled wrong on my invoice" — a question that today
+becomes an email to an organiser, and stopping exactly that is what this
+surface is for.
+
+`GET` and `PATCH /api/v1/me/profile`. Two things are editable and each lives
+somewhere different:
+
+- **A name writes every `person` row carrying the verified email.** `person`
+  is per workspace, so somebody in three communities has three rows, and a
+  name corrected in one and not the others is a worse state than not offering
+  the edit at all. All of them, or none. The form says how many communities
+  the change reaches before it is pressed, because that is a fact a person is
+  entitled to in advance rather than after.
+- **A language writes `identity_profile.locale`**, keyed by email, which is
+  already what the email templates and the app chrome read. One identity, one
+  preference, everywhere.
+
+**The email is shown and locked.** It is the key this entire surface is
+scoped by; changing it here would not move somebody's tickets, it would
+orphan them. Nor is anything an app collected ABOUT a person editable: that
+is curator data, it exists because a specific app justified it, and it is not
+the person's to rewrite from here.
+
+A member editing organiser-visible rows is correct rather than alarming, and
+the reason is worth writing down: a name is identity, not curator data, and
+GDPR Article 16 is a right to RECTIFY inaccurate personal data.
+`ui/profile-form` was the shared candidate and is the wrong one — it is the
+ORGANISER's profile, with display name, bio, photo and timezone, none of
+which a member has.
+
+**Also: the venue is a link here too.** v0.68.62 published `location_url` on
+the public thread page after finding it had been stored on engagements all
+along and shown nowhere. The portal renders the same venue and had the same
+gap; it does not now.
+
+**Two bugs caught by driving it, neither of which any gate could see.**
+`person` has no `updated_at` column — the profile read ordered by it and
+would have 400'd for every member on the first load; found by running the
+select against production rows before shipping, which is now the habit,
+because a PostgREST select is a string and the type-checker never reads it.
+And a successful save left the form still marked unsaved, with the button lit
+and no confirmation, because `dirty` compared against the server-rendered
+prop, which a client component never sees change. It compares against what
+was last committed now.
+
 ## [0.68.62] — 2026-09-10 — the venue is a link, and the paragraphs are paragraphs
 
 Two from Sjoerd on a live public thread page: "geen mooie opmaak met enters

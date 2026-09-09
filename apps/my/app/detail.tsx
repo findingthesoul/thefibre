@@ -233,15 +233,27 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
               <p className="font-medium text-ink">{item.title}</p>
-              {item.starts_at && (
-                <p className="text-sm text-ink-muted">
-                  {fmtTime(item.starts_at)}
-                  {item.location ? ` · ${item.location}` : ''}
-                </p>
-              )}
-              {!item.starts_at && item.location && (
-                <p className="text-sm text-ink-muted">{item.location}</p>
-              )}
+              {/* The venue is a link when the organiser gave one — the map
+                  link has been on the engagement all along and was published
+                  nowhere (v0.68.62 fixed the public page; this is the same
+                  gap on the same field). */}
+              <p className="text-sm text-ink-muted">
+                {item.starts_at && fmtTime(item.starts_at)}
+                {item.starts_at && item.location && ' · '}
+                {item.location &&
+                  (item.location_url ? (
+                    <a
+                      href={item.location_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="underline underline-offset-2 hover:text-ink"
+                    >
+                      {item.location}
+                    </a>
+                  ) : (
+                    item.location
+                  ))}
+              </p>
             </div>
             {/* Icons, not worded buttons: four equal-weight labels per row is
                 what "no clear overview" actually meant. */}

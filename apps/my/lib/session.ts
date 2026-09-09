@@ -12,7 +12,9 @@ import { serverSupabase } from './supabase/server';
 import {
   fetchInvoices,
   fetchPortal,
+  fetchProfile,
   PortalApiError,
+  type MyProfile,
   type Portal,
   type PortalInvoice,
 } from './portal-api';
@@ -43,4 +45,13 @@ export const loadInvoices = cache(async (): Promise<PortalInvoice[]> => {
   const s = await loadSession();
   if (!s) return [];
   return fetchInvoices(s.token);
+});
+
+/** The member's own editable details. Null when the call failed — the YOU tab
+ *  falls back to what the portal payload already knows rather than showing an
+ *  error where a name should be. */
+export const loadProfile = cache(async (): Promise<MyProfile | null> => {
+  const s = await loadSession();
+  if (!s) return null;
+  return fetchProfile(s.token);
 });
