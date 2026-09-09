@@ -50,10 +50,23 @@ not an end-of-evening one. Noted for him.
 > here), `routes/thread.ts:4965 canonical_owner_slug`, `timeline.tsx:363`,
 > `timeline.tsx:1140`, `settings/embeds/page.tsx:55` — all three-way — and
 > **`routes/thread.ts:4657 ownerSlugOf`, still two-way, the odd one out.**
-> Plus a seventh place, `[deepSlug]/page.tsx:42`, re-deriving "is this
-> workspace-scoped" from the payload with a fallback heuristic because the
-> boolean was not handed to it. Five correct out of six is exactly why nobody
-> notices: the wrong one looks fine alone and nobody diffs six files.
+> Five correct out of six is exactly why nobody notices: the wrong one looks
+> fine alone and nobody diffs six files.
+>
+> **Two further corrections, both verified here.** (a) `ownerSlugOf` is not
+> an internal helper — line 5197 is inside `GET /public/my-enrolments`, so
+> the two-way copy is on **the link a participant clicks from their own
+> enrolments list**. Same class of surface as the portal link fixed in this
+> release, same non-canonical result. That is the copy to fix first, on
+> exactly the reasoning that made the portal one worth fixing: it is the one
+> a person actually follows. (b) The "seventh place" was overstated by both
+> sessions, including this entry. `public_scope` IS published
+> (`routes/thread.ts:4959`), so `[deepSlug]/page.tsx:42` reads
+> `thread.public_scope != null ? <the field> : <fallback>` — legacy defensive
+> code whose fallback branch is dead against a current API, not a heuristic
+> covering a missing field. Delete it when someone is in there; it is not
+> evidence of a gap and should not have been put forward as the first thing
+> to look at.
 >
 > And the fix is better-shaped than a new function. **The server already
 > publishes the answer** — `canonical_owner_slug` is a field on the public
