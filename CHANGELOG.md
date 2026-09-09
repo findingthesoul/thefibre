@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.44] — 2026-09-09 — you can leave the certificate editor
+
+Sjoerd: "once I am in the certificate editor, I can't leave. Clicking on any
+item from the thread does not respond. It needs a warning when leaving
+without save, but you should be able to go somewhere else."
+
+**The editor was not frozen, it was permanently busy, and those look
+identical.** The builder autosaves on a two-second debounce, so while you are
+moving elements there is a save in flight or about to be, more or less
+continuously. Each of those was a SERVER ACTION, and two things follow from
+that in the App Router: client-side navigation queues behind a pending
+action, and the route re-renders when the action returns — this page's server
+component making four sequential calls to Frankfurt before it can paint. Put
+together, every sidebar link was dead for as long as you kept working.
+
+So the hot path leaves the router alone entirely. The autosave is now a plain
+client-side PATCH to the API with the browser session token
+(`lib/certificate-save.ts`), the shape `lib/upload.ts` already established for
+the same class of reason. The old server action is deleted rather than left
+beside its replacement. The templates LIST still has to notice a renamed
+template, but that is once, on the way out, and stays a server action.
+
+**On the warning, I did something narrower than asked and want to say so.**
+This editor has always saved itself, so "leaving without saving" is at most
+the last two seconds. Every in-app exit now FLUSHES that pending save on the
+way out — the back arrow, a sidebar link, the browser's back button — because
+asking somebody whether they want to keep work the editor was always going to
+save is a question with one sensible answer, and it teaches people to click
+through dialogs. Closing the tab is the one exit that cannot be flushed, and
+that is where the warning went. Before this, the last two seconds of work
+vanished silently on any of those routes.
+
 ## [0.68.43] — 2026-09-09 — RSVP asks once, and only when asked to
 
 Sjoerd, an hour after the per-event switch shipped: "bring it back to one

@@ -63,8 +63,9 @@ import {
 import {
   archiveCertificateTemplate,
   deleteCertificateTemplate,
-  updateCertificateTemplate,
+  refreshCertificateList,
 } from '../actions';
+import { saveCertificateTemplate } from '@/lib/certificate-save';
 import { ShareDialog } from './share-dialog';
 
 // Brand accent (yellow-300) for selection outlines and centre guides.
@@ -176,7 +177,9 @@ export function CertificateBuilder({
     if (idleTimer.current) clearTimeout(idleTimer.current);
     const s = stateRef.current;
     setSaveStatus('saving');
-    const result = await updateCertificateTemplate(template.id, {
+    // A plain client-side PATCH, deliberately not a server action — see
+    // lib/certificate-save.ts for what that cost when it was one.
+    const result = await saveCertificateTemplate(template.id, {
       name: s.name,
       page_size: s.pageSize,
       orientation: s.orientation,
@@ -187,6 +190,7 @@ export function CertificateBuilder({
       owner_team_id: s.scope === 'team' ? s.ownerTeamId || null : null,
     });
     if (result.ok) {
+      pendingRef.current = false;
       setSaveStatus('saved');
       idleTimer.current = setTimeout(() => setSaveStatus('idle'), 2000);
     } else {
@@ -198,6 +202,44 @@ export function CertificateBuilder({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => void doSave(), 2000);
   }, [doSave]);
+
+  // Is there work the server has not been told about yet? True from the
+  // moment you touch something until the debounce fires and the save
+  // returns. This is what "unsaved" means in an editor that saves itself.
+  const pendingRef = useRef(false);
+  const markPending = useCallback(() => {
+    pendingRef.current = true;
+    scheduleSave();
+  }, [scheduleSave]);
+
+  // Closing the tab is the one exit we cannot flush, so it is the one that
+  // gets a warning. Every other way out flushes instead — asking somebody
+  // whether they want to keep work the editor was always going to save is a
+  // question with only one sensible answer, and it trains people to click
+  // through dialogs.
+  useEffect(() => {
+    function onBeforeUnload(ev: BeforeUnloadEvent) {
+      if (!pendingRef.current) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // Leaving by any in-app route — the back arrow, a sidebar link, the
+  // browser's back button. Unmount cleanup cannot await, but the request
+  // survives the component, so firing it is enough. Without this, the last
+  // two seconds of work vanished silently whenever somebody clicked away.
+  useEffect(
+    () => () => {
+      if (pendingRef.current) {
+        void doSave();
+        void refreshCertificateList();
+      }
+    },
+    [doSave],
+  );
 
   useEffect(
     () => () => {
@@ -262,7 +304,7 @@ export function CertificateBuilder({
     function onUp() {
       if (!draggingRef.current) return;
       draggingRef.current = null;
-      scheduleSave();
+      markPending();
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -270,13 +312,13 @@ export function CertificateBuilder({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
-  }, [scheduleSave]);
+  }, [markPending]);
 
   // ── Mutators ─────────────────────────────────────────────────────────
 
   function updateElements(next: CertElement[]) {
     setElements(next);
-    scheduleSave();
+    markPending();
   }
 
   function addElement(el: CertElement, startEditing = false) {
@@ -464,7 +506,7 @@ export function CertificateBuilder({
         rect &&
         (g.axis === 'x' ? e.clientX < rect.left - 2 : e.clientY < rect.top - 2);
       if (off) setGuides((prev) => prev.filter((_, i) => i !== g.index));
-      scheduleSave();
+      markPending();
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -472,7 +514,7 @@ export function CertificateBuilder({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
-  }, [scheduleSave]);
+  }, [markPending]);
 
   /** The remove handle: a dot on the selected element's corner, the way
    *  every design tool does it. It replaced a Delete button in the toolbar,
@@ -605,7 +647,7 @@ export function CertificateBuilder({
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            scheduleSave();
+            markPending();
           }}
           placeholder={t(locale, 'template_name')}
           aria-label={t(locale, 'template_name')}
@@ -616,7 +658,7 @@ export function CertificateBuilder({
           value={pageSize}
           onChange={(e) => {
             setPageSize(e.target.value as CertPageSize);
-            scheduleSave();
+            markPending();
           }}
           aria-label={t(locale, 'page_size')}
           className={CONTROL}
@@ -632,7 +674,7 @@ export function CertificateBuilder({
               type="button"
               onClick={() => {
                 setOrientation(ori);
-                scheduleSave();
+                markPending();
               }}
               className={`px-3 text-sm transition-colors ${
                 orientation === ori
@@ -653,7 +695,7 @@ export function CertificateBuilder({
             const next = e.target.value as CertScope;
             setScope(next);
             if (next === 'team' && !ownerTeamId && teams[0]) setOwnerTeamId(teams[0].id);
-            scheduleSave();
+            markPending();
           }}
           aria-label={t(locale, 'scope')}
           className={CONTROL}
@@ -668,7 +710,7 @@ export function CertificateBuilder({
             value={ownerTeamId}
             onChange={(e) => {
               setOwnerTeamId(e.target.value);
-              scheduleSave();
+              markPending();
             }}
             aria-label={t(locale, 'owning_team')}
             className={CONTROL}
@@ -1134,7 +1176,7 @@ export function CertificateBuilder({
                 type="button"
                 onClick={() => {
                   setGuides([]);
-                  scheduleSave();
+                  markPending();
                 }}
                 className="mt-1.5 text-[11px] text-ink-subtle underline underline-offset-2 hover:text-ink"
               >
@@ -1225,7 +1267,7 @@ export function CertificateBuilder({
                 value={backgroundUrl}
                 onChange={(url) => {
                   setBackgroundUrl(url);
-                  scheduleSave();
+                  markPending();
                 }}
                 buttonLabel={t(locale, 'upload_background')}
                 hint={t(locale, 'bg_hint')}
