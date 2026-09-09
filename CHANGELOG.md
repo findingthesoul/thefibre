@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.57] — 2026-09-10 — the portal has four places, not one long page (Portal 0.2.0)
+
+Sjoerd: "why are there two my. environments. As a user, I want 1 environment
+for everything." Slice 1 of `docs/member-portal-plan.md` — the shell that
+the other two member pages will eventually retire into.
+
+**Four destinations: Next, Memberships, Purchases, You.** Seven things is a
+menu; four is a page you can hold in your head. `@thefibre/shared/ui/bottom-nav`
+below `md` — four items is exactly its no-"More"-sheet case, which is one
+reason to stop at four — and a left rail above it.
+
+The rail is the one deliberate fork in the family. `ui/sidebar-shell` is
+organiser chrome: brand tile, workspace switcher, collapse preference, Help.
+A member has one identity, one list and no preferences, so all of that would
+be dead furniture. It is a fork of nothing, because slice 6 retires the other
+two member pages INTO this one rather than alongside it.
+
+**All four are real on day one.** The plan said "existing content moves into
+NEXT unchanged", which would have left three placeholders; instead the
+content that already existed was split to where it belongs. Memberships and
+invoices came out of the per-community cards and became their own tabs, and
+Next keeps what has a date.
+
+- **Next** — tickets, threads and meets, still grouped by organiser. Slice 2
+  turns this into one flat date-ordered timeline; it is not that yet.
+- **Memberships** — community, tier, state, renewal, member since. What a
+  membership *unlocks* is slice 4 and the page does not pretend otherwise.
+- **Purchases** — one list, newest first, with the PDF. **Membership
+  invoices only**, and it says so: thread and meet purchases are in the same
+  ledger with no member-facing endpoint yet.
+- **You** — name, email, sign out, version. Editing is not possible yet and
+  the page says that too, rather than showing fields that do not save.
+
+Signed out, the chrome disappears entirely: four tabs leading to four copies
+of one sign-in form is noise.
+
+Driven signed in at 375px against the staging fixture, including sign-out and
+signing back in. The plan now records how to get a session as that fixture —
+`localhost:3007` is not in staging Supabase's redirect allowlist, so the
+magic link is useless locally and the eight-digit code is the way in.
+
+**Still on Sjoerd:** the `thefibre-my` Vercel project does not exist yet, so
+none of this is reachable at `my.thethread.app`. Steps in
+`docs/my-portal-setup.md`.
+
 ## [0.68.56] — 2026-09-10 — a membership is sold by the community, not by a person
 
 The first live membership invoice on soul.com was issued in the name of

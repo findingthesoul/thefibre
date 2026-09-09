@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import { SURFACES } from '@thefibre/shared';
+import { loadSession } from '@/lib/session';
+import { VERSION } from '@/lib/version';
+import { MemberRail, MemberTabs } from './nav';
 
 export const metadata: Metadata = {
   title: SURFACES['my-portal'].shortLabel,
@@ -12,10 +15,29 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export const dynamic = 'force-dynamic';
+
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // The chrome only exists for someone who is signed in. A signed-out visitor
+  // gets one page with one thing on it, and four tabs leading to four copies
+  // of that same sign-in form would be noise.
+  const session = await loadSession();
+
   return (
     <html lang="en" suppressHydrationWarning>
-      <body className="min-h-screen antialiased bg-surface text-ink">{children}</body>
+      <body className="h-dvh antialiased bg-surface text-ink">
+        {session ? (
+          <div className="flex h-full">
+            <MemberRail />
+            <div className="flex min-w-0 flex-1 flex-col">
+              <main className="flex-1 overflow-y-auto">{children}</main>
+              <MemberTabs version={VERSION} />
+            </div>
+          </div>
+        ) : (
+          <main className="h-full overflow-y-auto">{children}</main>
+        )}
+      </body>
     </html>
   );
 }

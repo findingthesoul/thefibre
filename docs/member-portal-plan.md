@@ -217,10 +217,10 @@ throughout; desktop follows in the same slice, not in a later one.
 
 **0 · Sign out.** Done (v0.68.55). One import for the other two pages.
 
-**1 · The shell.** Four tabs on `my.thethread.app` using `ui/bottom-nav`;
-left rail above `sm`. Existing content moves into NEXT unchanged. Nothing new
-to look at, everything reachable — the smallest change that makes the shape
-real.
+**1 · The shell.** Done (v0.68.57). Four tabs, `ui/bottom-nav` below `md`
+and a local rail above it. The existing content moved into NEXT unchanged;
+memberships and invoices moved out to their own tabs, so all four
+destinations are real on day one rather than three placeholders.
 
 **2 · NEXT as a timeline.** Flatten to one date-ordered list, date chip
 first, one action per card, past behind a toggle. Organiser becomes a filter
@@ -267,3 +267,24 @@ staging fixture** (`portal-verify@thefibre.tech`). The fixture has already
 paid for itself seven times in one evening. It currently proves a thread, a
 ticket, an agenda item and RSVP; it does **not** yet prove a membership or an
 invoice, and slice 3 or 4 should start by fixing that.
+
+### How to sign in as the fixture
+
+`localhost:3007` is **not** in staging Supabase's redirect allowlist, so the
+magic link an admin `generate_link` produces comes back pointed at
+`thefibre.tech` and is useless locally. The eight-digit code path does not go
+near that allowlist, and `generate_link` hands you the code in plain text:
+
+1. Point `apps/my/.env.local` at staging (Supabase URL + anon key from
+   `apps/api/.env.staging`, API at `thefibre-api-staging.fly.dev`). Back the
+   file up first and restore it afterwards — it normally points at
+   production.
+2. In the app, enter the fixture address and ask for a code. The email itself
+   goes nowhere; the request is only there to put the form in its code state.
+3. `POST {staging}/auth/v1/admin/generate_link` with the service-role key and
+   `{"type":"magiclink","email":"portal-verify@thefibre.tech"}`. The response
+   carries `email_otp` — that is the current code, and it supersedes the one
+   step 2 minted.
+4. Type it in.
+
+Verified end to end on 2026-09-10, including sign-out and signing back in.
