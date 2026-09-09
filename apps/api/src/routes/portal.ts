@@ -65,6 +65,7 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { enrolmentCanRespond, mergeById, ticketIsAdmissible } from '../lib/portal.js';
+import { appUrl } from '@thefibre/shared';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 
 export const portalRoutes = new Hono();
@@ -77,6 +78,24 @@ export const portalRoutes = new Hono();
  * return null without them and the pass routes 503. A button that fails is
  * worse than no button, so the answer travels with the payload.
  */
+/**
+ * A thread's public page lives on THE THREAD's domain, not the portal's.
+ *
+ * This was `/${ownerSlug}/${slug}` — a bare path — until 2026-09-09, and it
+ * was wrong for both of its consumers, which is why it goes here once rather
+ * than being patched in either. "Open the full page" resolved the path
+ * against my.thethread.app and 404'd for every thread; and the .ics fell
+ * back to it, emitting `URL:/owner/slug`, which is not a URI (RFC 5545 wants
+ * a scheme) so calendars ignored or mangled it.
+ *
+ * Found by the membership session driving the real signed-in portal on
+ * staging — neither bug is reachable without a session, which is exactly the
+ * gap that verification existed to close.
+ */
+function threadPublicUrl(ownerSlug: string, threadSlug: string): string {
+  return `${appUrl('the-thread', process.env)}/${ownerSlug}/${threadSlug}`;
+}
+
 function walletAvailability(): { apple: boolean; google: boolean } {
   return { apple: !!appleWalletConfig(), google: !!googleWalletConfig() };
 }
@@ -414,7 +433,7 @@ portalRoutes.get('/portal', async (c) => {
       cover_url: t.cover_url ?? null,
       enrolment_status: enr?.status ?? null,
       progress_pct: enr?.progress_pct ?? null,
-      url: `/${ownerSlug}/${t.slug}`,
+      url: threadPublicUrl(ownerSlug, t.slug as string),
       agenda: agendaByThread.get(t.id) ?? [],
     });
 

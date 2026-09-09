@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.36] — 2026-09-09 — the portal's links point at the Thread, not at itself
+
+**The verification found two real bugs and this fixes both.** Sjoerd granted
+the membership session permission to build a staging fixture and drive the
+signed-in portal for real — a throwaway user, person and enrolment against an
+existing thread, signed in through the actual 8-digit code form. Neither bug
+is reachable without a session, which is precisely why they survived four
+releases of typechecks, builds and unit tests.
+
+**One cause, two consumers.** `routes/portal.ts` built a thread's public URL
+as a bare path, `` `/${ownerSlug}/${slug}` ``, with no origin:
+
+- **"Open the full page" was a dead link.** The popup rendered that path, so
+  the browser resolved it against `my.thethread.app`. Measured on staging:
+  `404`. Every thread, in every popup.
+- **The `.ics` carried an invalid `URL:` property.** The calendar route falls
+  back to the thread URL, so the file contained `URL:/owner/slug`. RFC 5545's
+  URL property is a URI and needs a scheme; calendars ignore or mangle a bare
+  path.
+
+Fixed once, in the API, with `appUrl('the-thread', process.env)` — so both
+consumers are correct without either changing. Patching it twice in `apps/my`
+would have been the wrong shape and left the payload still lying.
+
+**Touch targets.** Everything tappable in the popup is now at least 44px
+tall. "Open the full page" was a 17px line of text on a surface whose whole
+purpose is a phone held at arm's length at a door.
+
+**What the same run verified as working**, so it is on the record rather than
+assumed: the signed-in list with the right workspace group and ticket; the
+QR; the agenda item in local time; **all three RSVP states including the
+withdraw path** — the one this session trusted least — with a clean `400` on
+a malformed body; the `.ics` returning `text/calendar` with a valid
+VCALENDAR; the wallet buttons correctly ABSENT, which means the availability
+gate added in v0.68.28 does its job; and no horizontal overflow at 375px with
+the RSVP buttons not overlapping.
+
+**A fixture trap worth knowing:** Supabase's admin API will happily create an
+`@example.com` user, and the sign-in form then **rejects** that address as
+invalid. An admin-created example.com fixture can never sign in. Use a real
+domain — the staging fixture uses `@thefibre.tech`.
+
+The fixture is left in place on staging (`portal-verify@thefibre.tech`),
+which makes re-verifying a portal change about a two-minute job.
+
 ## [0.68.35] — 2026-09-09 — the template picker stops shouting
 
 Sjoerd, on the New thread form: don't show these large types, a dropdown

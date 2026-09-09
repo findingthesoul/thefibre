@@ -61,7 +61,7 @@ function ActionLink({
     <a
       href={href}
       {...(download ? { download: '' } : { target: '_blank', rel: 'noreferrer' })}
-      className="inline-flex items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:border-line-strong"
+      className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink hover:border-line-strong"
     >
       {children}
     </a>
@@ -248,16 +248,12 @@ export function ThreadDetail({
           <p className="text-sm text-ink-muted">No agenda published yet.</p>
         )}
 
-        <p className="mt-6 border-t border-line pt-4 text-sm">
-          <a
-            href={thread.url}
-            target="_blank"
-            rel="noreferrer"
-            className="text-ink underline underline-offset-2 hover:opacity-70"
-          >
-            Open the full page
-          </a>
-        </p>
+        {/* A tappable target, not a line of text. This surface is used on a
+            phone, often one-handed at a door; a 17px-tall link was under half
+            the ~44px guidance (measured on staging at 375px, 2026-09-09). */}
+        <div className="mt-6 border-t border-line pt-4">
+          <ActionLink href={thread.url}>Open the full page</ActionLink>
+        </div>
       </Dialog>
     </>
   );
