@@ -49,7 +49,11 @@ When designing a new field: which app justifies it? If none, don't add it.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
-pnpm dev          # all seven dev servers: api :8080, web :3000, meet :3001, thread :3002, flow :3003, pulse :3004, membership :3005
+pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run dev`)
+                  # api :8080, web :3000, meet :3001, thread :3002, flow :3003,
+                  # pulse :3004, membership :3005, website :3006, my :3007
+                  # Derived from the workspace, so a new app joins automatically —
+                  # this comment is the thing that goes stale, not the script.
 ```
 
 ### Version bumps
@@ -174,6 +178,7 @@ second, drifting copy.
 - After parallel agent runs, the Next.js dev server can wedge. Kill + restart.
 - Shared UI lives in `@thefibre/shared` too: `DateField`/`DateTimeField` (`src/ui/date-field.tsx`, subpath export `./ui/date-field`) - the app-local `components/ui/date-field.tsx` files are re-export shims. Edit the shared copy; per-app copies drifted once already (v0.13.104).
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
+- **After pulling a commit that ADDS a shared subpath export, build shared before believing a typecheck failure.** A stale `dist/` makes an unrelated app fail with e.g. `apps/membership/lib/i18n.ts(17,34): error TS2307: Cannot find module '@thefibre/shared/participant-auth-i18n' or its corresponding type declarations.` The error names the consuming app and a module path and points nowhere near the stale artefact in another package. Fix: `pnpm --filter @thefibre/shared build`.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
 ## Where we left off — 2026-09-01 (v0.21.0)
@@ -374,8 +379,10 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 ### Not yet shipped
 - ~~The delivery-app frontends~~ Meet, Thread and Flow are live (see "Where
   we left off" above); Fibre Sales and Fibre Learn remain unbuilt.
-- Article 15 export, retention policy admin, cross-app erasure webhook handlers.
-- Activity filter by `organisation_id` (only person_id today — org per-app tab timelines render EmptyState).
+- Retention policy admin, cross-app erasure webhook handlers. (**Article 15
+  export shipped** — `apps/api/src/routes/privacy.ts`, `GET /api/v1/privacy/export`.)
+- ~~Activity filter by `organisation_id`~~ **shipped** — `routes/activities.ts`
+  accepts `organisation_id` and resolves it to the org's member person_ids.
 - Microsoft / LinkedIn OAuth.
 - Custom `api.thefibre.app` CNAME (API is reachable at `thefibre-api.fly.dev` for now).
 - ~~Tightened CORS~~ done in v0.13.17 — allowlist in `apps/api/src/server.ts`.
@@ -386,7 +393,9 @@ Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample 
 ## Suggested next moves
 
 Superseded by `docs/build-plan.md` (the "Open queue" section under "Where Fibre Meet is right now"). Highest-priority items today:
-1. Magic-link auth (so non-Google invitees can sign in)
+1. ~~Magic-link auth~~ **shipped** — every app with a sign-in surface calls
+   `signInWithOtp` (web, meet, thread, flow, pulse, membership, my; the
+   website has no auth).
 2. Fibre web: label per-app curator-data tabs by app name
 3. Cutover plan for Meet ↔ Suite (Sjoerd owns)
 
