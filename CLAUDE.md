@@ -118,7 +118,14 @@ or when you genuinely need the peer's uncommitted state.
 1. **Find your peers first.** `ListAgents`, or `list_sessions` filtered on
    this `cwd`. Message them with `send_message`. Do this at the START of a
    working session, not at push time.
-2. **Fence a lane by directory** and say out loud which one you took.
+2. **Fence a lane by directory** and say out loud which one you took —
+   **and name what you are about to do NEXT, not only what you are doing.**
+   A claim that names the next task lets a peer see a collision before either
+   of you writes the code. (2026-09-09: two sessions were an hour from
+   building the same info-popup component in two different apps. Caught only
+   because one of them mentioned its next page in its lane claim. Three
+   messages to prevent one duplicate, against two implementations that
+   drift.)
    Whoever is holding uncommitted code in a directory owns it until they
    ship. Cross a lane only after asking.
 3. **Stage explicit paths. Never `git add -A`.** Check `git status`
@@ -157,6 +164,15 @@ or when you genuinely need the peer's uncommitted state.
 9. **Docs-only commits skip the release script** — a commit touching only
    `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
    goes through `./scripts/release.sh <version>`, no exceptions.
+10. **A peer's UNCOMMITTED work can block your release.**
+   `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
+   over the WORKING TREE, not over your commit. So another session's
+   mid-edit file — a prop passed before it is declared — fails the gate for
+   everybody, and surfaces as a typecheck error in a file you have never
+   opened. **Read the failing PATH before assuming the error is yours.** If
+   it is in someone else's lane, tell them; do not fix it, and do not route
+   around the gate. The gate is behaving correctly: this is the shared
+   checkout's cost, and the sharpest argument for taking a worktree.
 
 Read §10 before proposing new coordination rules to a peer. The protocol is
 written down; re-deriving it from scratch wastes a round trip and produces a
