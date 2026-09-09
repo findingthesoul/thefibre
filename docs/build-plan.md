@@ -20,7 +20,41 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-09 (v0.68.37). Done items get removed, not ticked._
+_Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
+
+**DESIGN — an Appearance tab on a thread** (Sjoerd, 2026-09-09, explicitly
+   deferred: "we do not make this now. That's for later"). The thread's
+   display settings are scattered through the general settings list, mixed
+   with things that are not about appearance at all. Group them on their own
+   tab: show the agenda, show the location on a map, show location
+   descriptions, and the thread's BRANDING alongside them.
+
+   **The evidence that it is worth doing** came from a real half-hour tonight.
+   soul.com's Community Member Year Agenda had five conversations, all
+   published, all with "Show on the public agenda" turned on, and none of
+   them appeared. Two thread-level switches were off and neither is anywhere
+   near the item you are looking at:
+
+     is_public_listed = false   the thread is missing from /{organiser}
+     public_agenda    = false   the page has NO agenda section, so every
+                                per-item switch is inert
+
+   The per-item control says "Show on the public agenda", you turn it on, and
+   nothing happens, with no hint that a different switch on a different
+   screen is the reason. That is the same shape as several bugs fixed on
+   2026-09-09: a control that looks like it worked.
+
+   Sjoerd's model, in his words, is the two-switch one and it is already what
+   the code does: thread-level decides whether the thread is in the OVERVIEW,
+   item-level decides whether the item is on the THREAD PAGE. `public_agenda`
+   is a third switch that is in neither half of that model and silently
+   overrides the second. Two ways out, and the tab does not settle it:
+   surface the dependency where it bites (the item switch says the section is
+   off, with a link), or delete `public_agenda` entirely and let the section
+   appear whenever any item asks to be on it. The second is what was done to
+   RSVP the same evening for the same reason. Note there is NO per-item
+   public page — an item is on the thread page or invisible — so "the event
+   exists but is not listed" is not a state the system can hold.
 
 **0. Public root slugs — the one that is now guarded, and the one that is
    not.** `public_root_slug` (v0.68.37) makes the app.thethread.app/{owner}
