@@ -509,6 +509,27 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     The gate is behaving correctly — this is the shared checkout's cost, and
     the sharpest argument for taking a worktree for code work (CLAUDE.md,
     Parallel SESSIONS): in a worktree it cannot happen.
+    It then bit for real the same evening: v0.68.40 was refused by five
+    missing i18n keys and a TS7006 in another session's `engagements.tsx`.
+    The releasing session read the path, told the owner, fixed nothing and
+    re-ran minutes later. Cost: one release cycle, no correctness.
+  - **A lane claim that omits the file you are actually in is not a lane
+    claim.** v0.68.40 also swept another session's in-progress work out of
+    `apps/thread/app/(app)/threads/actions.ts` — announced four files, and
+    not that one, which was the first file it edited. Both halves are
+    avoidable and both are already in this list: name every file, and
+    `git diff HEAD -- <file>` before staging a shared-ownership file whole.
+  - **A server action and the route it calls are a PAIR, and no gate checks
+    the pair.** That same sweep shipped a call to
+    `GET /thread/threads/:id/engagements/:engagementId/rsvps` while the route
+    itself was still uncommitted. **Every gate passed**, because a call to a
+    nonexistent HTTP route is not a type error: the import resolved, the
+    endpoint did not. It shipped inert (nothing called the action yet) and
+    v0.68.41 completed the pair. §10 already says "verify every import the
+    commit introduces resolves within the commit" — this is that rule one
+    level up, so: **if a commit adds a call to an API path, grep the API for
+    that path in the same commit.** Framing from the membership session,
+    which found it in its own swept work and volunteered it unasked.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
