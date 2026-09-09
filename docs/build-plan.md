@@ -106,7 +106,20 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
      `meet/public/bookings/:id/calendar.ics`; a thread variant is an
      extension of that, not new work. And RSVP, which has NO model anywhere
      (`grep -i rsvp` finds only an `RSVP=FALSE` string in ical.ts).
-   - **RSVP — design conversation held 2026-09-09, decision NOT taken.**
+   - **RSVP participant half SHIPPED v0.68.30.** Sjoerd decided the shape
+     2026-09-09: workspace default (on), overridable per thread. Two-level
+     switch inheriting by NULL; `thread_rsvp` holds THREE states (a missing
+     row is "no answer", never collapsed into a boolean);
+     `PUT /me/portal/rsvp` checks enrolment + that the thread is asking;
+     portal control posts via its own `/api/rsvp` so the browser holds no
+     token. **NEXT: the organiser half — a switch in The Thread's settings
+     and per-thread screen (new i18n keys ×6 locales) and a view of who
+     answered.** The API already accepts both fields, so it is UI work.
+     Still undecided by Sjoerd: what silence MEANS (the recommendation was
+     to let it follow whether an item is included or optional). Capacity
+     arrives with RSVP whether or not it is built — the record is shaped so
+     adding it is not a migration.
+   - **RSVP — the original design conversation, 2026-09-09.**
      Sjoerd asked whether RSVP defaults to on per event, or is a thread-level
      setting. Recommendation given: those are two different questions and
      they compose. (a) Organiser side — put the switch on the AGENDA ITEM,

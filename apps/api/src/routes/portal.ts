@@ -115,6 +115,16 @@ type AgendaItem = {
   location: string | null;
   meeting_url: string | null;
   external_url: string | null;
+  /**
+   * Whether this item asks for an RSVP. Resolved server-side from the
+   * two-level switch Sjoerd specified: the workspace default, overridden per
+   * thread when `thread_thread.rsvp_enabled` is not null. The client is told
+   * the answer, never the rule.
+   */
+  rsvp_enabled: boolean;
+  /** This person's current answer. `null` is NO ANSWER, which is a third
+   *  state and not the same as 'not_coming'. */
+  rsvp: 'coming' | 'not_coming' | null;
 };
 
 type ThreadItem = {
@@ -209,7 +219,35 @@ portalRoutes.get('/portal', async (c) => {
     ),
   ];
   const agendaByThread = new Map<string, AgendaItem[]>();
+  const rsvpEnabledByThread = new Map<string, boolean>();
   if (threadIds.length) {
+    // The two-level RSVP switch, resolved here so the client never carries
+    // the rule: workspace default, overridden per thread when the thread's
+    // own column is not null.
+    const [{ data: rsvpThreads }, { data: rsvpSettings }] = await Promise.all([
+      adminClient
+        .from('thread_thread')
+        .select('id, workspace_id, rsvp_enabled')
+        .in('id', threadIds),
+      adminClient.from('thread_settings').select('workspace_id, rsvp_default_enabled'),
+    ]);
+    const defaultByWorkspace = new Map(
+      (rsvpSettings ?? []).map((r) => [
+        r.workspace_id as string,
+        (r.rsvp_default_enabled as boolean | null) ?? true,
+      ]),
+    );
+    for (const t of rsvpThreads ?? []) {
+      const own = t.rsvp_enabled as boolean | null;
+      rsvpEnabledByThread.set(
+        t.id as string,
+        // No workspace row yet? The column defaults to true, so an
+        // unconfigured workspace asks — which is what "default RSVP on"
+        // means.
+        own ?? defaultByWorkspace.get(t.workspace_id as string) ?? true,
+      );
+    }
+
     const { data: engagements } = await adminClient
       .from('thread_engagement')
       .select(
@@ -219,6 +257,17 @@ portalRoutes.get('/portal', async (c) => {
       .eq('status', 'published')
       .eq('show_in_agenda', true)
       .order('position', { ascending: true });
+
+    // This person's own answers. Scoped by person_id exactly as everything
+    // else here is — a visitor has no RLS identity in these workspaces.
+    const { data: rsvps } = await adminClient
+      .from('thread_rsvp')
+      .select('engagement_id, response')
+      .in('person_id', personIds);
+    const answerByEngagement = new Map(
+      (rsvps ?? []).map((r) => [r.engagement_id as string, r.response as 'coming' | 'not_coming']),
+    );
+
     for (const e of engagements ?? []) {
       const content = (e.content ?? {}) as { external_url?: string; file_url?: string };
       const list = agendaByThread.get(e.thread_id as string) ?? [];
@@ -232,6 +281,10 @@ portalRoutes.get('/portal', async (c) => {
         location: (e.location as string | null) ?? null,
         meeting_url: (e.meeting_url as string | null) ?? null,
         external_url: content.external_url ?? content.file_url ?? null,
+        // Only timed items can be attended, so only they can be answered.
+        rsvp_enabled:
+          !!e.starts_at && (rsvpEnabledByThread.get(e.thread_id as string) ?? true),
+        rsvp: answerByEngagement.get(e.id as string) ?? null,
       });
       agendaByThread.set(e.thread_id as string, list);
     }
@@ -411,4 +464,109 @@ portalRoutes.get('/portal', async (c) => {
   );
 
   return c.json({ person: me, wallet: walletAvailability(), groups: out });
+});
+
+// ---------------------------------------------------------------------------
+// PUT /api/v1/me/portal/rsvp — the visitor answers.
+//
+// The only write this app makes. Everything about it is scoped by the SAME
+// verified email the read is scoped by: a person can only answer for an
+// agenda item that belongs to a thread they are enrolled in, and only when
+// that thread is actually asking. Nothing here trusts an id from the client
+// beyond using it to look inside the caller's own reachable set.
+//
+// PUT rather than POST because it is idempotent: one current answer per
+// (item, person), and changing your mind replaces it. The history of changes
+// is not this table's job — the activity log is append-only and holds the
+// fact that something happened, never the body.
+// ---------------------------------------------------------------------------
+portalRoutes.put('/portal/rsvp', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  const body = (await c.req.json().catch(() => null)) as {
+    engagement_id?: unknown;
+    response?: unknown;
+  } | null;
+  const engagementId = typeof body?.engagement_id === 'string' ? body.engagement_id : null;
+  const response = body?.response;
+  // 'none' withdraws an answer and returns the person to "no answer", which
+  // is a real state and has to be reachable — otherwise a mis-tap is
+  // permanent and every count is quietly wrong.
+  if (!engagementId || (response !== 'coming' && response !== 'not_coming' && response !== 'none')) {
+    return c.json({ error: 'engagement_id and response (coming|not_coming|none) required' }, 400);
+  }
+
+  const { data: persons } = await adminClient
+    .from('person')
+    .select('id, workspace_id')
+    .eq('email', email);
+  const personByWorkspace = new Map(
+    (persons ?? []).map((p) => [p.workspace_id as string, p.id as string]),
+  );
+  if (!personByWorkspace.size) return c.json({ error: 'not found' }, 404);
+
+  // The item, its thread, and whether that thread asks.
+  const { data: engagement } = await adminClient
+    .from('thread_engagement')
+    .select('id, workspace_id, thread_id, starts_at, status, thread:thread_id (rsvp_enabled)')
+    .eq('id', engagementId)
+    .maybeSingle();
+  if (!engagement || engagement.status !== 'published' || !engagement.starts_at) {
+    return c.json({ error: 'not found' }, 404);
+  }
+
+  const personId = personByWorkspace.get(engagement.workspace_id as string);
+  if (!personId) return c.json({ error: 'not found' }, 404);
+
+  // Enrolled in that thread? Same table the read uses.
+  const { data: enrolled } = await adminClient
+    .from('thread_enrolment')
+    .select('id')
+    .eq('person_id', personId)
+    .eq('thread_id', engagement.thread_id as string)
+    .limit(1);
+  if (!enrolled?.length) return c.json({ error: 'not found' }, 404);
+
+  const own = one(
+    engagement.thread as unknown as { rsvp_enabled: boolean | null } | { rsvp_enabled: boolean | null }[] | null,
+  )?.rsvp_enabled;
+  let asks = own;
+  if (asks === null || asks === undefined) {
+    const { data: settings } = await adminClient
+      .from('thread_settings')
+      .select('rsvp_default_enabled')
+      .eq('workspace_id', engagement.workspace_id as string)
+      .maybeSingle();
+    asks = (settings?.rsvp_default_enabled as boolean | null) ?? true;
+  }
+  if (!asks) return c.json({ error: 'this thread is not asking for RSVPs' }, 409);
+
+  if (response === 'none') {
+    await adminClient
+      .from('thread_rsvp')
+      .delete()
+      .eq('engagement_id', engagementId)
+      .eq('person_id', personId);
+    return c.json({ engagement_id: engagementId, rsvp: null });
+  }
+
+  const now = new Date().toISOString();
+  const { error } = await adminClient.from('thread_rsvp').upsert(
+    {
+      workspace_id: engagement.workspace_id as string,
+      engagement_id: engagementId,
+      person_id: personId,
+      response,
+      responded_at: now,
+      updated_at: now,
+    },
+    { onConflict: 'engagement_id,person_id' },
+  );
+  if (error) {
+    console.error('[portal/rsvp] upsert failed', error);
+    return c.json({ error: 'could not save your answer' }, 500);
+  }
+
+  return c.json({ engagement_id: engagementId, rsvp: response });
 });

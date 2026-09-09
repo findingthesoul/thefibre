@@ -10,16 +10,19 @@
 // Everything here is a link. There is no state to save and no call that
 // changes anything, which is why it can be a plain dialog rather than a form.
 
-import { useState } from 'react';
+import { useState, useTransition } from 'react';
+import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { Calendar, QrCode, Wallet } from 'lucide-react';
 import {
   agendaIcsUrl,
   appleWalletUrl,
   googleWalletUrl,
+  setRsvp,
   ticketQrUrl,
   type AgendaItem,
   type Portal,
+  type RsvpResponse,
   type Ticket as TicketRow,
   type ThreadItem,
 } from '@/lib/portal-api';
@@ -65,6 +68,74 @@ function ActionLink({
   );
 }
 
+/**
+ * Coming / Can't make it, with the current answer selected. Tapping the
+ * selected one WITHDRAWS it — back to no answer, which is a real state and
+ * has to be reachable, or a mis-tap is permanent and the organiser's counts
+ * are quietly wrong. Nothing here says what silence means; that is the
+ * organiser's business and Sjoerd hasn't decided it.
+ */
+function Rsvp({ item }: { item: AgendaItem }) {
+  const router = useRouter();
+  const [pending, start] = useTransition();
+  // Optimistic, because a tap that does nothing visible for 400ms gets tapped
+  // again. The refresh below is what makes it true.
+  const [answer, setAnswer] = useState<RsvpResponse | null>(item.rsvp);
+  const [failed, setFailed] = useState(false);
+
+  function choose(next: RsvpResponse) {
+    const value = answer === next ? 'none' : next;
+    const previous = answer;
+    setAnswer(value === 'none' ? null : next);
+    setFailed(false);
+    start(async () => {
+      try {
+        await setRsvp(item.id, value);
+        router.refresh();
+      } catch {
+        setAnswer(previous);
+        setFailed(true);
+      }
+    });
+  }
+
+  const base =
+    'rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:opacity-60';
+  const on = 'border-ink bg-ink text-surface';
+  const off = 'border-line bg-surface text-ink hover:border-line-strong';
+
+  return (
+    <div className="mt-2">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-ink-muted">Coming?</span>
+        <button
+          type="button"
+          onClick={() => choose('coming')}
+          disabled={pending}
+          aria-pressed={answer === 'coming'}
+          className={`${base} ${answer === 'coming' ? on : off}`}
+        >
+          Yes
+        </button>
+        <button
+          type="button"
+          onClick={() => choose('not_coming')}
+          disabled={pending}
+          aria-pressed={answer === 'not_coming'}
+          className={`${base} ${answer === 'not_coming' ? on : off}`}
+        >
+          Can&rsquo;t make it
+        </button>
+      </div>
+      {failed && (
+        <p className="mt-1 text-xs text-ink-muted">
+          That didn&rsquo;t save. Check your connection and try again.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
   const link = item.meeting_url ?? item.external_url;
   return (
@@ -90,6 +161,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
           </ActionLink>
         )}
       </div>
+      {item.rsvp_enabled && <Rsvp item={item} />}
     </li>
   );
 }

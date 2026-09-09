@@ -22,7 +22,16 @@ export type AgendaItem = {
   location: string | null;
   meeting_url: string | null;
   external_url: string | null;
+  /** Whether this item asks for an RSVP. The API resolves the two-level
+   *  switch (workspace default, per-thread override) — we are told the
+   *  answer, never the rule. */
+  rsvp_enabled: boolean;
+  /** This person's answer. `null` is NO ANSWER: a third state, and not the
+   *  same as 'not_coming'. */
+  rsvp: RsvpResponse | null;
 };
+
+export type RsvpResponse = 'coming' | 'not_coming';
 
 export type Ticket = {
   enrolment_id: string;
@@ -78,6 +87,25 @@ export type Group = {
   meets: MeetItem[];
   memberships: MembershipItem[];
 };
+
+/**
+ * Answer, change, or withdraw an RSVP. Goes through this app's own route
+ * handler rather than straight to the API, so the session token never
+ * reaches the browser — the same reason the .ics is served here.
+ * `'none'` withdraws and returns the person to "no answer", which has to be
+ * reachable or a mis-tap is permanent and every count is quietly wrong.
+ */
+export async function setRsvp(
+  engagementId: string,
+  response: RsvpResponse | 'none',
+): Promise<void> {
+  const res = await fetch('/api/rsvp', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ engagement_id: engagementId, response }),
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `RSVP failed (${res.status})`);
+}
 
 export type Portal = {
   person: { first_name: string | null; last_name: string | null; email: string };

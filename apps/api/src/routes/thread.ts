@@ -322,6 +322,9 @@ const SettingsUpdate = z.object({
   // (stripe_account_id intentionally NOT accepted — the payments SPoT
   // writes workspace-level config via /api/v1/workspace-billing.)
   default_vendor_cut_percent: z.number().min(0).max(100).optional(),
+  // Does this workspace ask participants to RSVP? Threads inherit it unless
+  // they override (thread.rsvp_enabled). Sjoerd, 2026-09-09: default on.
+  rsvp_default_enabled: z.boolean().optional(),
   email_from_mode: z.enum(['workspace', 'team', 'personal', 'custom']).optional(),
   email_from_name: z.string().max(200).nullable().optional(),
   email_footer_note: z.string().max(1000).nullable().optional(),
@@ -613,6 +616,10 @@ const ThreadUpdate = z.object({
   enrolment_note: z.string().max(4000).nullable().optional(),
   payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).optional(),
   share_participants_public: z.boolean().optional(),
+  // RSVP override. NULL inherits thread_settings.rsvp_default_enabled — so a
+  // thread follows the workspace as it changes rather than freezing at
+  // creation. Same null-means-inherit rule as payment_destination.
+  rsvp_enabled: z.boolean().nullable().optional(),
   share_participants_participants: z.boolean().optional(),
   capacity: z.number().int().positive().nullable().optional(),
   registration_fields: z

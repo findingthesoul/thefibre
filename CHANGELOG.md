@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.30] — 2026-09-09 — RSVP: the participant half
+
+Sjoerd decided the shape: *"Setting in workspace: default RSVP on... and can
+be put out per thread."* Built as specified, which is **not** what was
+recommended — the recommendation put the switch on the agenda item defaulted
+from the thread, and the simpler two-level version was chosen. His call.
+
+**The switch is two-level and inherits by NULL.**
+`thread_settings.rsvp_default_enabled` defaults to true, so an unconfigured
+workspace asks. `thread_thread.rsvp_enabled` is **nullable** rather than a
+defaulted boolean, because a default would freeze each thread at whatever the
+workspace said on the day it was created; null means inherit, and a thread
+follows the workspace as it changes. Same rule payment destinations already
+use here. The API resolves it server-side, so the client is told the answer
+and never carries the rule.
+
+**The answer is three states, not two.** `thread_rsvp` holds one current row
+per (agenda item, person) with `coming | not_coming`; a MISSING row is *no
+answer*, and that is deliberately not collapsed into a boolean. Forty
+declines and forty non-replies are different facts, and a caterer needs to
+tell them apart — storing a boolean would destroy that difference
+permanently, where keeping it costs nothing. Withdrawing an answer is
+reachable (`response: 'none'`), because otherwise a mis-tap is forever and
+every count is quietly wrong. What silence *means* is a presentation question
+Sjoerd has not decided, and nothing here pre-empts it.
+
+**Where the checks live.** `PUT /api/v1/me/portal/rsvp` verifies, against the
+same verified email the read uses, that the item exists and is published and
+timed, that the person is enrolled in its thread, and that the thread is
+actually asking. The browser never holds a token: the control posts to the
+portal's own `/api/rsvp` handler, which reads the session server-side and
+forwards. It forwards rather than decides — every check that matters is in
+the API, because that is the only place one cannot be skipped by calling
+something else.
+
+Only timed items can be answered. An item with no `starts_at` is not
+something you can attend.
+
+**NOT BUILT, and this is the honest half of the release:** there is no
+organiser UI yet. The API accepts `rsvp_default_enabled` on workspace
+settings and `rsvp_enabled` on a thread, and the migration defaults to on, so
+the feature is live and answerable — but a switch in The Thread's own screens
+and an organiser view of who answered are the next slice, and neither exists.
+Adding them means new i18n keys across six locales and a response list, which
+is its own piece of work rather than a tail on this one.
+
+**Verified:** typecheck clean across all nine; portal build clean with
+`/api/rsvp` registered; migration applied to staging and production. **Not
+verified: nobody has actually answered an RSVP** — that needs a participant
+session, which is the same gap v0.68.28 carries.
+
 ## [0.68.29] — 2026-09-09 — staging stops inviting search engines in
 
 While answering a question about Vercel's deployment protection, a bigger
