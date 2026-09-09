@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.24] — 2026-09-09 — the portal's first real deploy, and the build-skip trap that hid it
+
+`my.thethread.app` served a `500` all day from a deployment built the night
+before it had any environment variables. The cause was not the project, the
+env, DNS or the domains — all of those were wired correctly. It was that
+**no build ever ran.**
+
+Each app's `vercel.json` carries `ignoreCommand: vercel-ignore.mjs <app>`,
+which builds only when a push touches that app, `packages/shared` or the
+lockfile. It is a good rule and it saved ~€150 in five days. But a brand-new
+app's project never deploys on its own: two builds landed on 2026-09-08 at
+21:37, from the commit that created `apps/my`, and every push for the next
+day touched `apps/api`, `apps/membership` or docs, so all eight reported
+CANCELED. `NEXT_PUBLIC_*` values are inlined at build time, so the env vars
+set that morning were invisible to the deployment being served, and
+`createServerClient(undefined, undefined)` threw in a server component —
+which is a `500` with an opaque digest and nothing pointing at the cause.
+
+**Redeploying from the dashboard or the API does not help**: the ignore step
+runs there too and cancels those the same way. The only fix is a commit
+touching the app's folder. This one is that commit, and it earns its place on
+its own merits rather than as a build trigger.
+
+- **The visitor portal is `noindex`.** `robots: { index: false, follow: false }`
+  on `apps/my/app/layout.tsx`. Every page below the sign-in is one person's
+  own tickets, enrolments and memberships, on the one app whose whole purpose
+  is showing that to its subject. It should never enter a search index. Same
+  posture the Thread and Membership embed layouts already take.
+- **`docs/system-handbook.md` stops giving the wrong remedy.** The build-skip
+  bullet told the reader to "redeploy manually" to pick up env-var changes.
+  Measured on `thefibre-my` today: that does not work. Corrected, with both
+  sharp edges named — env-only changes rebuild nothing, and a new app's
+  project silently never deploys.
+- **`docs/my-portal-setup.md` gains step 4**: make a commit that touches
+  `apps/<app>`. It is now the documented last step of standing up any new app,
+  because everything can be perfect and still serve nothing.
+
+Found by the two sessions working this repo in parallel: the membership
+session read the deployment states with the Vercel token and produced the
+21:37 timeline and the `ssoProtection` matrix; this one reproduced the
+throw locally and wrote it up.
+
+**Still open for Sjoerd, not code:** `thefibre-my` carries Vercel Standard
+Protection (`ssoProtection: all_except_custom_domains`) where the six product
+apps carry `null`. That is why `my.thefibre.tech` redirects to Vercel's SSO —
+it is bound to the `staging` branch, so it is a Preview. Flipping it to `null`
+is a security setting and his call.
+
 ## [0.68.23] — 2026-09-09 — the landing page has a door for members (Members 0.14.3)
 
 Signing in at membership.thethread.app takes you to the admin side, which

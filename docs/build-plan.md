@@ -66,12 +66,20 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
    workspace). **API SHIPPED v0.68.15** — GET /api/v1/me/portal, live on Fly
    prod + staging, 8 unit tests, no client calling it yet. branding.ts
    SURFACES registry + CORS derivation landed v0.68.13. Remaining:
-   - **Sjoerd:** TransIP A record for my.thethread.app + an eighth Vercel
-     project (nothing is broken while these wait — no client calls the
-     route).
-   - **The surface itself** (apps/my, dev port 3007) — read-only portal
-     first, then the visitor's own ticket QR, which today exists only in
-     the enrolment email.
+   - ~~**Sjoerd:** TransIP records + an eighth Vercel project~~ **done
+     2026-09-09.** Both zones have records (thethread.app an A record,
+     thefibre.tech a CNAME — the target is ACCOUNT-scoped, all six .tech
+     subdomains share it), the `thefibre-my` project exists, both domains
+     are attached and verified, and env is set and machine-verified on both
+     scopes.
+   - ~~**The surface itself** (apps/my, dev port 3007)~~ **shipped v0.68.20**,
+     first real deploy v0.68.24 — read-only portal. The visitor's own ticket
+     QR is in it; it previously existed only in the enrolment email.
+   - **Sjoerd, still open:** flip `ssoProtection` to `null` on `thefibre-my`
+     to match the six product apps. It currently carries Vercel Standard
+     Protection (`all_except_custom_domains`), so `my.thefibre.tech` — bound
+     to the `staging` branch, hence a Preview — redirects to Vercel's SSO
+     instead of serving. Production is unaffected. Security setting, his call.
    - **D4 — PWA.** Recommended thin (manifest, icons, service worker
      caching the shell + the visitor's own tickets) and only AFTER the
      wallet passes; NOT an offline-first rewrite. iOS installs manually, so

@@ -224,6 +224,28 @@ after ~15 minutes, re-check the record name is `my` and not `my.thethread.app`
 
 ---
 
+## Step 4 — make a commit that touches `apps/my`
+
+**Do not skip this, and do not assume the previous steps deployed anything.**
+`apps/my/vercel.json` carries `ignoreCommand: vercel-ignore.mjs my`, which
+builds only when a push touches `apps/my`, `packages/shared` or the lockfile.
+A brand-new project therefore never deploys on its own: the project, the env
+vars and the domains can all be perfect and every push still reports
+**CANCELED**.
+
+That is exactly what happened here on 2026-09-09. Two builds landed on
+2026-09-08 at 21:37, when the commit creating `apps/my` touched the folder.
+Every push for the next day skipped. The env vars set that morning were
+invisible, because `NEXT_PUBLIC_*` values are inlined at build time and the
+serving deployment predated them — so `my.thethread.app` answered `500` from
+`createServerClient(undefined, undefined)` throwing in a server component.
+
+Redeploying from the Vercel dashboard or API does **not** get around it; the
+ignore step runs there too. The only fix is a commit touching the folder.
+Prefer a real change over an empty one.
+
+---
+
 ## How to know it worked
 
 ```bash

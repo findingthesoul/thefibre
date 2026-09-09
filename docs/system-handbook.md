@@ -384,9 +384,21 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   Preview deployments bound to the `staging` branch.
 - **Build skipping**: each app's `vercel.json` has
   `ignoreCommand: scripts/vercel-ignore.mjs <app>` — a build runs only if
-  that app, `packages/shared`, or the lockfile changed. Consequence:
-  **env-var-only changes rebuild nothing**; touch `packages/shared` or
-  redeploy manually to pick them up.
+  that app, `packages/shared`, or the lockfile changed. It saved ~€150 in
+  five days and it has two sharp edges:
+  - **Env-var-only changes rebuild nothing.** `NEXT_PUBLIC_*` values are
+    inlined at BUILD time, so setting them changes nothing until a build
+    runs. **"Redeploy manually" does not work** — the ignore step runs on
+    dashboard and API-created deployments too, and cancels them the same
+    way (measured 2026-09-09 on `thefibre-my`). The only fix is a commit
+    that touches the app's folder, `packages/shared` or the lockfile.
+  - **A brand-new app's Vercel project silently never deploys.** Wire the
+    project, env and domains perfectly and every push still skips, because
+    no commit happens to touch the new folder. `thefibre-my` sat on a build
+    from the night before for a full day this way, serving a 500 from a
+    deployment that predated its own env vars, while eight pushes reported
+    CANCELED. **Last step of standing up any new app: make a commit that
+    touches `apps/<app>`.** Prefer a real change; there is always one.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
 - **Fly**: `fly deploy --remote-only` (prod) /
