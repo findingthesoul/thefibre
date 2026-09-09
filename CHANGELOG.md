@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.38] — 2026-09-09 — the buttons people actually press are now 44px too
+
+v0.68.36 fixed two links and then claimed "everything tappable in the popup
+is now at least 44px tall". It wasn't. The membership session re-measured
+against the staging fixture at 375×812:
+
+```
+Add to calendar      152 × 44   fixed in 0.68.36
+Open the full page   145 × 44   fixed in 0.68.36
+Yes                   49 × 34   still under
+Can't make it        111 × 34   still under
+```
+
+The two that were fixed are exactly the two that had been reported. The claim
+was then generalised to the whole popup without measuring the rest — and the
+ones missed are the RSVP pair, which is the most-pressed control on that
+screen. Now `min-h-11` with wider padding, like every other control there.
+The 0.68.36 entry carries an inline correction rather than being quietly
+restated.
+
+The lesson is cheaper than the bug: **fix what was measured, claim only what
+was measured.** A green re-verification of two specific things is not a green
+verification of the surface they sit on.
+
+**Also confirmed in the same run, so it is on the record:** both URL fixes
+work signed in, and they are environment-aware — the STAGING API produced the
+staging Thread host rather than a hardcoded production one, which is the part
+that would have been easy to get wrong invisibly.
+
+**And a false alarm worth writing down so nobody chases it:** that staging
+thread URL returns 404, correctly. The fixture thread's program status is
+`draft` and a draft has no public page; the same shape against a published
+thread on production returns 200. The URL is right, the thread simply is not
+published.
+
+**Still under 44px and deliberately not fixed here:** the shared `Dialog`
+close button, at 18×18. It is chrome across six apps, so it needs a signed-in
+render check in each before it ships — the right fix is a 44px hit area with
+the glyph left at 18px so nothing moves visually. Owned by the membership
+session, deferred on purpose rather than done at the end of a long day.
+
 ## [0.68.37] — 2026-09-09 — one public address, one owner
 
 Sjoerd made a team called "Vertrouwen als de Basis" in the soul.com
@@ -86,9 +127,16 @@ Fixed once, in the API, with `appUrl('the-thread', process.env)` — so both
 consumers are correct without either changing. Patching it twice in `apps/my`
 would have been the wrong shape and left the payload still lying.
 
-**Touch targets.** Everything tappable in the popup is now at least 44px
-tall. "Open the full page" was a 17px line of text on a surface whose whole
-purpose is a phone held at arm's length at a door.
+**Touch targets.** "Open the full page" was a 17px line of text on a surface
+whose whole purpose is a phone held at arm's length at a door.
+
+> **Correction (v0.68.38).** This entry originally said "everything tappable
+> in the popup is now at least 44px tall". That was wrong. Two LINKS were
+> fixed — the two that had been measured and reported — and the claim was
+> generalised to the whole popup without measuring the rest. Re-measured at
+> 375px: the RSVP buttons were still 34 high, and they are the most-pressed
+> control on the screen. Fixed in v0.68.38. The lesson is the cheaper one:
+> fix what was measured, claim only what was measured.
 
 **What the same run verified as working**, so it is on the record rather than
 assumed: the signed-in list with the right workspace group and ticket; the

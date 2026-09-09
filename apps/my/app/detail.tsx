@@ -99,8 +99,12 @@ function Rsvp({ item }: { item: AgendaItem }) {
     });
   }
 
+  // 44px minimum, like every other control here. These are the most-pressed
+  // things on the screen and were missed the first time round: v0.68.36
+  // fixed the two links that had been measured and claimed "everything",
+  // which was wrong — these stayed at 34 high. Measured again at 375px.
   const base =
-    'rounded-lg border px-3 py-1.5 text-sm transition-colors disabled:opacity-60';
+    'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm transition-colors disabled:opacity-60';
   const on = 'border-ink bg-ink text-surface';
   const off = 'border-line bg-surface text-ink hover:border-line-strong';
 
