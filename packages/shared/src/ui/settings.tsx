@@ -29,6 +29,8 @@
 import type { ReactNode } from 'react';
 import { ChevronRight, ExternalLink , Coins } from 'lucide-react';
 import { DEFAULT_LOCALE, type Locale } from '../i18n.js';
+import { crossAppHref } from '../sso-hop.js';
+import type { AppId } from '../index.js';
 import { serverChromeT, type ServerChromeKey } from './chrome-server-i18n.js';
 
 /** next/link, structurally. See HelpLink in help.tsx for why it is loose. */
@@ -260,13 +262,18 @@ const CANON: Record<
  * `omit` drops entries an app genuinely has no business showing.
  */
 export function platformSettings({
-  fibreUrl,
+  currentApp,
+  env,
   hosted = [],
   omit = [],
   appSection,
   locale = DEFAULT_LOCALE,
 }: {
-  fibreUrl: string;
+  /** The app drawing this hub. Needed because a link into The Fibre from
+   *  another apex has to hop for its session — see below. */
+  currentApp: AppId;
+  /** `process.env`, injected: this package carries no node types. */
+  env?: Record<string, string | undefined>;
   hosted?: PlatformSettingKey[];
   omit?: PlatformSettingKey[];
   /** This app's own settings, shown between Workspace and The Fibre. */
@@ -281,7 +288,14 @@ export function platformSettings({
         const c = CANON[k];
         const isLocal = hosted.includes(k);
         return {
-          href: isLocal ? c.path : `${fibreUrl}${c.path}`,
+          // Through the SSO hop, never a bare cross-apex URL (Sjoerd,
+          // 2026-09-10: "Workspace links to a Fibre login page, doesn't seem
+          // right"). The delivery apps live on thethread.app and Fibre on
+          // thefibre.app, and no cookie spans both — so a plain link landed a
+          // signed-in person on a sign-in form. crossAppHref returns the
+          // plain URL when the apexes match, so nothing changes for an app
+          // sitting on the same domain as Fibre.
+          href: isLocal ? c.path : crossAppHref(currentApp, 'fibre-platform', env, c.path),
           icon: c.icon,
           title: serverChromeT(locale, `st_${k}_title` as ServerChromeKey),
           desc: serverChromeT(locale, `st_${k}_desc` as ServerChromeKey),

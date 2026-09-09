@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.60] — 2026-09-10 — the settings hub stops sending you to a sign-in form
+
+Sjoerd, looking at Settings inside The Thread: "Workspace links to a Fibre
+login page… doesn't seem right."
+
+It wasn't. Every card marked "in The Fibre" — Workspace, Members, Apps, Plan,
+Currencies, Profile, About, Privacy — built its link as `${fibreUrl}${path}`,
+a bare cross-apex URL. The delivery apps live on `thethread.app` and Fibre on
+`thefibre.app`, and no cookie spans two registrable domains, so a signed-in
+person clicking Workspace landed on a sign-in form. Eight cards, five apps,
+every one of them.
+
+**The machinery for this already existed and was already in use.** `sso-hop.ts`
+does a silent handoff: a one-time 60-second code, redeemed server-to-server
+for a Supabase magic-link hash, minting an independent session on the target
+apex. Membership's and Pulse's own layouts already route their profile link
+through it. `platformSettings` simply never called it.
+
+So it does now. `fibreUrl` is gone from the signature rather than kept as a
+fallback, because a fallback here is a link that silently fails; the function
+takes the calling app and `process.env` and asks `crossAppHref`, which
+returns a plain URL when the apexes already match — so Fibre's own settings
+page and every local dev setup are byte-identical to before. Six callers
+updated, two dead `appUrl` locals removed.
+
+This is the same shape as the copied-rule problems of the last two days, with
+the polarity reversed: not a fact duplicated until copies disagreed, but a
+helper that existed, was correct, and had one caller who never heard of it.
+Nothing failed loudly in either case.
+
 ## [0.68.59] — 2026-09-10 — Next is a timeline, not a list of organisers (Portal 0.3.0)
 
 Sjoerd: "the overview page is ugly… maybe a list, organised per date… a

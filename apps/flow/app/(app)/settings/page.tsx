@@ -13,7 +13,8 @@ export default async function SettingsPage() {
   const locale = await uiLocale();
   const sections = platformSettings({
     locale,
-    fibreUrl: appUrl('fibre-platform', process.env),
+    currentApp: 'fibre-flow',
+    env: process.env,
     omit: ['payments', 'connections'],
   });
 

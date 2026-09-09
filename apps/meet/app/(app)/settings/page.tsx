@@ -12,7 +12,8 @@ export default async function SettingsIndex() {
   const locale = await uiLocale();
   const sections = platformSettings({
     locale,
-    fibreUrl: appUrl('fibre-platform', process.env),
+    currentApp: 'fibre-meet',
+    env: process.env,
     hosted: ['payments'],
     appSection: {
       label: appName('fibre-meet'),
