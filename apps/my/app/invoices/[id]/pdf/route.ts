@@ -13,13 +13,16 @@ import { createInvoicePdfRoute } from '@thefibre/shared/invoice-pdf-route';
 import { serverSupabase } from '@/lib/supabase/server';
 
 export const GET = createInvoicePdfRoute({
-  // 'membership', not 'my-portal': this identifies whose LEDGER the invoice
-  // belongs to, and the portal is a SURFACE, not a catalogue app — it has no
-  // AppId by design (branding.ts SURFACES). The invoice is a membership
-  // invoice; the portal is only the door it is fetched through.
-  appId: 'membership',
+  // 'fibre-platform', because this invoice can belong to ANY app's ledger
+  // now — a membership, a thread ticket, a meet booking. It used to say
+  // 'membership', which was true while the only reachable endpoint was
+  // Membership's. `/api/v1/me/*` is the PLATFORM composing the data
+  // subject's own data across apps (portal.ts, the data-wall note), and that
+  // is what this header should say. The portal itself is a SURFACE and has
+  // no AppId by design (branding.ts SURFACES).
+  appId: 'fibre-platform',
   baseUrl: process.env.NEXT_PUBLIC_API_BASE_URL,
-  apiPath: (id) => `/api/v1/membership/portal/me/invoices/${id}/pdf`,
+  apiPath: (id) => `/api/v1/me/invoices/${id}/pdf`,
   getToken: async () => {
     const supabase = await serverSupabase();
     const { data } = await supabase.auth.getSession();

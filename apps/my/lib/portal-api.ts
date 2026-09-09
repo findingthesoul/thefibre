@@ -70,19 +70,37 @@ export type MeetItem = {
 };
 
 /**
- * A membership invoice, from the platform purchase ledger. Fetched from
- * Membership's OWN email-scoped portal endpoint rather than added to
- * `/me/portal`: the route exists, is deployed and is verified, and the
- * cheapest correct thing is to call it rather than widen this payload.
+ * One invoice from the platform purchase ledger — from ANY app.
+ *
+ * It used to come from Membership's own per-membership endpoint, which could
+ * only ever answer for memberships; a thread ticket or a meet booking had no
+ * member-facing route at all. `GET /api/v1/me/invoices` answers for all of
+ * them at once, scoped to the verified email, so the Purchases tab is one
+ * list rather than one list per membership plus two silent gaps.
  */
 export type PortalInvoice = {
   id: string;
+  /** Which app sold it — `membership`, `the-thread`, `fibre-meet`. */
+  app: string;
+  /** The community, by the name the member knows. */
+  workspace: string;
   item_label: string | null;
   amount_cents: number;
   currency: string;
   status: string;
   created_at: string;
+  paid_at: string | null;
   stripe_invoice_url: string | null;
+};
+
+/** One thing a membership includes. `url` null means "you have this, and we
+ *  cannot hand you a link to it" — a Circle space or a Meet page needs
+ *  per-workspace knowledge the API does not have. Naming it is still worth
+ *  more than hiding it; a dead link would be worth less than nothing. */
+export type Included = {
+  name: string;
+  description: string | null;
+  url: string | null;
 };
 
 export type MembershipItem = {
@@ -91,6 +109,10 @@ export type MembershipItem = {
   status: string;
   started_at: string | null;
   renews_at: string | null;
+  /** Whether Stripe holds a subscription. Manual and comped members have
+   *  none, so "manage payment" would only ever 409 for them. */
+  has_stripe?: boolean;
+  includes?: Included[];
 };
 
 export type Group = {
@@ -137,21 +159,20 @@ export type Portal = {
 };
 
 /**
- * One membership's invoices. Per membership rather than in one call, because
- * that is the shape the endpoint has and Membership's own /my already uses
- * it (apps/membership/app/my/page.tsx). A failure returns an empty list
- * rather than throwing: someone with three memberships and one bad workspace
- * should still see the other two, not an error page.
+ * Every invoice this person has, newest first, across every app. One call —
+ * it used to be one per membership, which is the shape Membership's own
+ * endpoint has and the reason thread tickets and meet bookings were missing
+ * from this page entirely.
+ *
+ * A failure returns an empty list rather than throwing: the Purchases tab is
+ * one destination among four and must not take the other three down with it.
  */
-export async function fetchInvoices(
-  accessToken: string,
-  memberId: string,
-): Promise<PortalInvoice[]> {
+export async function fetchInvoices(accessToken: string): Promise<PortalInvoice[]> {
   try {
-    const res = await fetch(
-      `${baseUrl}/api/v1/membership/portal/me/invoices?member_id=${encodeURIComponent(memberId)}`,
-      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' },
-    );
+    const res = await fetch(`${baseUrl}/api/v1/me/invoices`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
     if (!res.ok) return [];
     const body = (await res.json()) as { items?: PortalInvoice[] };
     return body.items ?? [];

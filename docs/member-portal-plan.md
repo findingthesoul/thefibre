@@ -232,12 +232,26 @@ is what you attend, a thread is the container, and a container has no place
 in a list of things that happen. A thread with nothing scheduled still
 appears, on its own start date.
 
-**3 · PURCHASES.** The shared invoice components against the endpoints that
-exist. Membership invoices work today; Thread and Meet need theirs.
+**3 · PURCHASES.** Done (v0.68.61). `GET /api/v1/me/invoices` — one
+email-scoped list across every app, replacing the per-membership call that
+could only ever answer for memberships. Thread tickets and meet bookings were
+in the same ledger the whole time with no member-facing route; they are on
+the page now. The PDF route (`GET /me/invoices/:id/pdf`) answers for any app
+and resolves the seller through `sellerForSale`, so a membership invoice
+names the community and a thread invoice names the person.
 
-**4 · MEMBERSHIPS.** What it unlocks, with links; through to its invoices;
-payment method where applicable. This is where `membership/my` earns its
-retirement.
+**4 · MEMBERSHIPS.** Done (v0.68.61). What it includes, with links; through
+to its invoices; Manage payment where Stripe holds the subscription. The
+payload's `includes` merges the tier's non-optional products with the ones
+bought outright — the same pair `applyEntitlements` resolves grants from,
+shown to the person instead of executed against a tool. A `thread` link is
+resolved to a real address, scoped to (workspace, slug) because a slug is
+unique per organiser and never globally. A link we cannot resolve is NAMED
+without a link rather than hidden or, worse, offered dead.
+
+**Not yet verified against a real membership.** The staging fixture has none,
+and seeding one needs Sjoerd's word (§10). Everything on these two tabs that
+depends on a membership existing has been driven only in its empty state.
 
 **5 · YOU.** Details plus sign out.
 

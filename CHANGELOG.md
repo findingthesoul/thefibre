@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.61] — 2026-09-10 — a member can see what they bought and what they belong to (Portal 0.4.0)
+
+Slices 3 and 4 of `docs/member-portal-plan.md`.
+
+**`GET /api/v1/me/invoices` — every invoice, across every app.** Sjoerd:
+"invoices please — it was there in version 1." They were, per membership.
+`/membership/portal/me/invoices?member_id=…` answers for ONE membership and
+nothing else, so a thread ticket and a meet booking — same ledger, same
+person — had no member-facing route at all, and the Purchases tab showed a
+partial list as if it were a complete one. Now it is one email-scoped list,
+newest first, with `GET /me/invoices/:id/pdf` for any app. Both prove
+ownership on the two ledger keys (`person_id` OR `payer_email`, either alone
+drops rows) and both resolve the seller through `sellerForSale`, so a
+membership invoice names the community and a thread invoice names the person.
+
+**A membership now says what it includes.** Sjoerd: "click and then what it
+contains, with links to what is included." The payload's `includes` merges
+two sources, and both are the member's by different routes: the non-optional
+products of their tier, held for as long as they are a member, and the
+products they bought outright, kept through a tier change or a lapse. That is
+the same pair `applyEntitlements` resolves access grants from — the same fact,
+shown to the person instead of executed against a tool. Optional products
+stay out: an optional product is on the join form, not in the membership,
+until it is bought.
+
+- **A `thread` link stores a ref, not a URL**, and was therefore unshowable.
+  It resolves now — scoped to (workspace, slug), because a thread slug is
+  unique per organiser and never globally, and resolving by slug alone would
+  hand someone another community's thread.
+- **A link we cannot resolve is NAMED without a link**, not hidden. A Circle
+  space needs per-workspace knowledge this route does not have. The member is
+  entitled to know what they are paying for; a dead link would be worth less
+  than nothing.
+- **Manage payment came with it**, opening the Stripe Billing Portal on the
+  community's connected account. It is the control the plan says must not be
+  lost when `membership.thethread.app/my` retires into this surface — it
+  exists here first, and the redirect comes after. Members without a Stripe
+  subscription get a sentence rather than a button that would only 409.
+
+The portal's PDF proxy now sends `fibre-platform` rather than `membership`,
+because the invoice can belong to any app's ledger and `/api/v1/me/*` is the
+platform composing the data subject's own data.
+
+**What is NOT verified.** The staging fixture holds no membership and no
+invoice, and seeding one is still waiting on Sjoerd. Both tabs have been
+driven signed in only in their EMPTY state. Everything that depends on a
+membership existing — the includes list, the resolved thread link, Manage
+payment, the invoice rows — is typechecked and reasoned, not seen.
+
 ## [0.68.60] — 2026-09-10 — the settings hub stops sending you to a sign-in form
 
 Sjoerd, looking at Settings inside The Thread: "Workspace links to a Fibre
