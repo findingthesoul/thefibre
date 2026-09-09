@@ -6,29 +6,60 @@
 
 ---
 
-## Status: step 1 is done — `my` is in the picker now
+## Status (checked 2026-09-09): the Vercel project still does not exist
 
 `apps/my` shipped in **v0.68.20** and is on `main`. The Vercel Root Directory
 list reads from the repo, so `my` now appears between `meet`/`membership` and
 `pulse`. If you had the import dialog open before that, close and reopen it —
 the list is fetched once.
 
-Remaining order, which still matters:
+What the outside world says today:
 
-1. ~~Build `apps/my`~~ **done (v0.68.20)**.
-2. **Create the Vercel project** — below.
-3. **Add the DNS records** — after step 2, because Vercel shows you the exact
-   values and can only verify a domain once a project claims it.
+- `dig +short my.thethread.app A` → `76.76.21.21`. The production DNS record
+  **is already there** — step 3 got done ahead of step 2.
+- `curl https://my.thethread.app` → TLS handshake failure. No certificate,
+  because no Vercel project has claimed the hostname yet.
+- `https://thefibre-my.vercel.app` → `404` with `x-vercel-error:
+  DEPLOYMENT_NOT_FOUND`. That is Vercel saying the project isn't there.
+- `my.thefibre.tech` doesn't resolve at all — staging DNS is untouched.
+
+Remaining order:
+
+1. ~~Build `apps/my`~~ **done (v0.68.20)**. Verified 2026-09-09: `pnpm
+   --filter @thefibre/my... build` is clean and the sign-in page renders on
+   `localhost:3007`.
+2. **Create the Vercel project** — below. This is the only thing standing
+   between the app and a live URL.
+3. **Add the DNS records.** Production's A record already exists, so this
+   reduces to the staging CNAME — take its value from Vercel's Domains tab
+   once the project claims `my.thefibre.tech`.
 
 > **In the Root Directory dialog, do not pick `api`.** It's first in the list
 > and the radio may default to it. The API runs on Fly, not Vercel, and hard
 > rule §1 is that no personal data goes to Vercel. Pick `my`.
 
 What is **already done**, so you don't redo it: the `my-portal` entry in the
-`SURFACES` registry, the API's CORS accepting `https://my.thethread.app` on
-prod and staging, `localhost:3007` in the dev origins, `thefibre-my` in the
-Vercel preview regex, and the API route itself (`GET /api/v1/me/portal`,
-live on both Fly APIs).
+`SURFACES` registry, the production API's CORS accepting
+`https://my.thethread.app` (verified — the deployed prod API reflects that
+origin back), `localhost:3007` in the dev origins, `thefibre-my` in the Vercel
+preview regex, and the API route itself (`GET /api/v1/me/portal`, live on
+both Fly APIs — it answers `401 sign in required`, which is the route
+existing).
+
+> **One thing is NOT done, contrary to what this doc said before.** The
+> staging API does **not** allow `https://my.thefibre.tech`. Its
+> `CORS_ORIGINS` secret lists the six older subdomains and stops there, so
+> the staging portal will be CORS-blocked the moment it loads. Prod is
+> derived from the `SURFACES` registry and needs nothing; staging is a
+> hand-written env var and needs this, before the staging domain is useful:
+>
+> ```bash
+> fly secrets set CORS_ORIGINS="https://thefibre.tech,https://meet.thefibre.tech,https://thread.thefibre.tech,https://flow.thefibre.tech,https://pulse.thefibre.tech,https://membership.thefibre.tech,https://my.thefibre.tech" -a thefibre-api-staging
+> ```
+>
+> This is the fourth instance of the "new app forgotten in a hand-written
+> list" bug the derived allowlist was meant to end. The staging half is still
+> hand-written, so it keeps happening.
 
 ---
 
@@ -169,7 +200,9 @@ dig +short my.thethread.app A
 curl -s -o /dev/null -w "%{http_code}\n" https://my.thethread.app
 ```
 
-Today those give you nothing and `000`. When it's live: an IP, and `200`.
+As of 2026-09-09 that gives you `76.76.21.21` and `000` — DNS points at
+Vercel, but nothing there answers for the name. When it's live: the same IP,
+and `200`.
 
 ---
 
