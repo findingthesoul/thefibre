@@ -1,3 +1,4 @@
+import { ENTITY } from '@thefibre/shared';
 import { notFound } from 'next/navigation';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -261,7 +262,7 @@ export default async function EmbedThreadPage({
       )}
 
       <footer className="mt-6 text-[11px] text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
       </footer>
     </div>
   );

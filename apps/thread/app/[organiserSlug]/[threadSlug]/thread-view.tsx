@@ -7,6 +7,7 @@
 // Both routes call fetchPublicThread + <PublicThreadView>; the page bodies
 // stay thin so the render never forks.
 
+import { ENTITY } from '@thefibre/shared';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -317,7 +318,7 @@ export function PublicThreadView({
         </div>
 
         <footer className="mt-16 text-xs text-ink-muted">
-          {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
+          {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
         </footer>
       </main>
     </div>

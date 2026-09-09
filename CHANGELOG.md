@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.25] — 2026-09-09 — a member can get their own invoice (Members 0.14.4)
+
+Sjoerd on his own member page, on production: "Can't download or send the
+invoice", and "should it not say Powered by Members · The Thread".
+
+- **`GET /membership/portal/me/invoices/:id/pdf`.** The ledger's PDF route
+  scopes to organiser-or-admin, which is precisely what a member is not, so
+  the portal listed an invoice with nothing to click unless Stripe happened
+  to host one — and an invoice-method membership never does. Ownership is
+  proved the way the rest of the portal proves it: the verified email
+  resolves to person rows, and the row must match `person_id` OR
+  `payer_email`, both keys, because either alone drops rows. The shared
+  `createInvoicePdfRoute` factory takes an optional `apiPath` so the member
+  door reuses it rather than becoming a sixth copy.
+- **The public face is The Thread.** The 2026-09-08 branding pivot made
+  `ENTITY.publicName` 'The Thread', and four public surfaces still carried
+  "· The Fibre" as a literal: Membership's `/my`, and in Thread the public
+  thread page, the embed, and its own `/my`. All four now read the constant.
+  Fourth hardcoded copy of a derived value found today, after the dev-server
+  list, the version-file count and the CORS origins.
+
 ## [0.68.24] — 2026-09-09 — the portal's first real deploy, and the build-skip trap that hid it
 
 `my.thethread.app` served a `500` all day from a deployment built the night

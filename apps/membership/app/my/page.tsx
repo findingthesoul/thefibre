@@ -2,7 +2,7 @@
 // every membership held under your email, across communities. No workspace
 // membership required — outside the (app) group on purpose.
 
-import { appName } from '@thefibre/shared';
+import { appName, ENTITY } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { money } from '@/lib/money';
@@ -196,6 +196,12 @@ export default async function MyPage() {
                         <span className="text-xs text-ink-muted shrink-0 tabular-nums">
                           {fmtDate(inv.created_at, locale)}
                         </span>
+                        <a
+                          href={`/my/invoices/${inv.id}/pdf`}
+                          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 shrink-0"
+                        >
+                          {t(locale, 'download')}
+                        </a>
                         {inv.stripe_invoice_url && (
                           <a
                             href={inv.stripe_invoice_url}
@@ -266,7 +272,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · The Fibre
+        {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}
       </footer>
     </Shell>
   );

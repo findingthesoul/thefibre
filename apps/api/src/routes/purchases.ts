@@ -189,7 +189,7 @@ type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } 
  *  Resolves through the payments SPoT (review 2026-07-05: this read the
  *  legacy columns directly, so Settings → Payments edits never reached
  *  receipts). */
-async function sellerDetailsFor(
+export async function sellerDetailsFor(
   workspaceId: string,
   organiserUserId: string | null,
 ): Promise<SellerDetails> {

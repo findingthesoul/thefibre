@@ -3,6 +3,7 @@
 // emailed login code as the passwordless path, more providers later.
 // No workspace membership required.
 
+import { ENTITY } from '@thefibre/shared';
 import { CalendarRange, Route, ExternalLink } from 'lucide-react';
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -194,7 +195,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
       </footer>
     </Shell>
   );

@@ -384,6 +384,14 @@ const CATALOG = {
     de: 'Rechnungen ({n})', // MT
     fr: 'Factures ({n})', // MT
   },
+  download: {
+    en: 'Download',
+    nl: 'Downloaden',
+    es: 'Descargar', // MT
+    pt: 'Descarregar', // MT
+    de: 'Herunterladen', // MT
+    fr: 'Télécharger', // MT
+  },
   view: {
     en: 'View',
     nl: 'Bekijken',
