@@ -387,6 +387,7 @@ const THREAD_SELECT = `
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
+  rsvp_enabled,
   locked_at, locked_by,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
@@ -626,6 +627,21 @@ threadRoutes.get('/threads/:id', async (c) => {
   // first time somebody opens them. Idempotent, and cheap: one count.
   await ensureSystemEngagements(thread.id);
 
+  // The thread's own RSVP answer, already resolved against the workspace
+  // default. The organiser UI needs to show a switch's RESOLVED state — a
+  // thread sitting at false would otherwise render every item's switch as On
+  // for something nobody can answer — and this saves it re-implementing the
+  // rule client-side. Item-level resolution stays one `??` on top.
+  const { data: rsvpSettings } = await db
+    .from('thread_settings')
+    .select('rsvp_default_enabled')
+    .eq('workspace_id', thread.workspace_id)
+    .maybeSingle();
+  const rsvpDefault =
+    (thread.rsvp_enabled as boolean | null) ??
+    (rsvpSettings?.rsvp_default_enabled as boolean | null) ??
+    true;
+
   const [{ data: engagements }, { data: coOrganisers }] = await Promise.all([
     db
       .from('thread_engagement')
@@ -640,6 +656,9 @@ threadRoutes.get('/threads/:id', async (c) => {
 
   return c.json({
     ...thread,
+    /** The thread's RSVP answer, resolved against the workspace default.
+     *  Additive; the organiser UI resolves the item on top with one `??`. */
+    rsvp_default: rsvpDefault,
     engagements: engagements ?? [],
     co_organisers: coOrganisers ?? [],
   });
@@ -1167,6 +1186,10 @@ export const EngagementCreate = z.object({
     .optional(),
   content: z.record(z.unknown()).optional(),
   show_in_agenda: z.boolean().optional(),
+  // Per-item RSVP override. NULL inherits the thread, which inherits the
+  // workspace default — never a boolean default, so an item follows its
+  // thread as the thread changes.
+  rsvp_enabled: z.boolean().nullable().optional(),
 });
 
 // Activities must fall inside the thread's date window (Sjoerd 2026-07-02).

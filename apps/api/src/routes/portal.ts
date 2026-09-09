@@ -64,7 +64,7 @@
 import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
-import { enrolmentCanRespond, mergeById, ticketIsAdmissible } from '../lib/portal.js';
+import { enrolmentCanRespond, mergeById, resolveRsvpEnabled, ticketIsAdmissible } from '../lib/portal.js';
 import { appUrl } from '@thefibre/shared';
 import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 
@@ -135,10 +135,9 @@ type AgendaItem = {
   meeting_url: string | null;
   external_url: string | null;
   /**
-   * Whether this item asks for an RSVP. Resolved server-side from the
-   * two-level switch Sjoerd specified: the workspace default, overridden per
-   * thread when `thread_thread.rsvp_enabled` is not null. The client is told
-   * the answer, never the rule.
+   * Whether this item asks for an RSVP. Resolved server-side: the workspace
+   * default, overridden per thread, overridden per ITEM, each level's NULL
+   * meaning inherit. The client is told the answer, never the rule.
    */
   rsvp_enabled: boolean;
   /** This person's current answer. `null` is NO ANSWER, which is a third
@@ -250,9 +249,13 @@ portalRoutes.get('/portal', async (c) => {
   const agendaByThread = new Map<string, AgendaItem[]>();
   const rsvpEnabledByThread = new Map<string, boolean>();
   if (threadIds.length) {
-    // The two-level RSVP switch, resolved here so the client never carries
-    // the rule: workspace default, overridden per thread when the thread's
-    // own column is not null.
+    // The RSVP switch, resolved here so the client never carries the rule:
+    // workspace default, overridden per thread, overridden per ITEM — each
+    // level's NULL meaning "inherit" rather than "off". Sjoerd moved the
+    // operative control to the item (2026-09-09): a residential weekend needs
+    // a headcount and the reading group before it does not, and one switch
+    // for a year-long thread makes you choose between asking about everything
+    // and asking about nothing.
     const [{ data: rsvpThreads }, { data: rsvpSettings }] = await Promise.all([
       adminClient
         .from('thread_thread')
@@ -280,7 +283,7 @@ portalRoutes.get('/portal', async (c) => {
     const { data: engagements } = await adminClient
       .from('thread_engagement')
       .select(
-        'id, thread_id, title, description, type, starts_at, ends_at, location, meeting_url, content, position',
+        'id, thread_id, title, description, type, starts_at, ends_at, location, meeting_url, content, position, rsvp_enabled',
       )
       .in('thread_id', threadIds)
       .eq('status', 'published')
@@ -310,11 +313,19 @@ portalRoutes.get('/portal', async (c) => {
         location: (e.location as string | null) ?? null,
         meeting_url: (e.meeting_url as string | null) ?? null,
         external_url: content.external_url ?? content.file_url ?? null,
-        // Only timed items can be attended, so only they can be answered.
+        // One resolver, shared with the write path and the organiser panel.
+        // A dropped participant is refused separately: they still SEE the
+        // thread, they just stop answering for it.
         rsvp_enabled:
-          !!e.starts_at &&
           !droppedThreads.has(e.thread_id as string) &&
-          (rsvpEnabledByThread.get(e.thread_id as string) ?? true),
+          resolveRsvpEnabled({
+            item: e.rsvp_enabled as boolean | null,
+            // Already resolved against the workspace default in the batch
+            // above, so this level carries both.
+            thread: rsvpEnabledByThread.get(e.thread_id as string),
+            workspaceDefault: null,
+            hasStart: !!e.starts_at,
+          }),
         rsvp: answerByEngagement.get(e.id as string) ?? null,
       });
       agendaByThread.set(e.thread_id as string, list);
@@ -549,10 +560,12 @@ portalRoutes.put('/portal/rsvp', async (c) => {
   );
   if (!personByWorkspace.size) return c.json({ error: 'not found' }, 404);
 
-  // The item, its thread, and whether that thread asks.
+  // The item, its thread, and whether either of them asks.
   const { data: engagement } = await adminClient
     .from('thread_engagement')
-    .select('id, workspace_id, thread_id, starts_at, status, thread:thread_id (rsvp_enabled)')
+    .select(
+      'id, workspace_id, thread_id, starts_at, status, rsvp_enabled, thread:thread_id (rsvp_enabled)',
+    )
     .eq('id', engagementId)
     .maybeSingle();
   if (!engagement || engagement.status !== 'published' || !engagement.starts_at) {
@@ -585,19 +598,24 @@ portalRoutes.put('/portal/rsvp', async (c) => {
     return c.json({ error: 'you are no longer taking part in this thread' }, 409);
   }
 
-  const own = one(
+  // The SAME resolver the read uses. The write must refuse exactly what the
+  // read declined to offer: a control that is absent while the endpoint still
+  // accepts is a stale tab writing answers nobody asked for.
+  const threadOwn = one(
     engagement.thread as unknown as { rsvp_enabled: boolean | null } | { rsvp_enabled: boolean | null }[] | null,
   )?.rsvp_enabled;
-  let asks = own;
-  if (asks === null || asks === undefined) {
-    const { data: settings } = await adminClient
-      .from('thread_settings')
-      .select('rsvp_default_enabled')
-      .eq('workspace_id', engagement.workspace_id as string)
-      .maybeSingle();
-    asks = (settings?.rsvp_default_enabled as boolean | null) ?? true;
-  }
-  if (!asks) return c.json({ error: 'this thread is not asking for RSVPs' }, 409);
+  const { data: settings } = await adminClient
+    .from('thread_settings')
+    .select('rsvp_default_enabled')
+    .eq('workspace_id', engagement.workspace_id as string)
+    .maybeSingle();
+  const asks = resolveRsvpEnabled({
+    item: engagement.rsvp_enabled as boolean | null,
+    thread: threadOwn,
+    workspaceDefault: settings?.rsvp_default_enabled as boolean | null,
+    hasStart: !!engagement.starts_at,
+  });
+  if (!asks) return c.json({ error: 'this item is not asking for RSVPs' }, 409);
 
   if (response === 'none') {
     await adminClient

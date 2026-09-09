@@ -1,12 +1,7 @@
 // Locks the two judgements behind the visitor portal (docs/visitor-portal-proposal.md).
 
 import { describe, expect, it } from 'vitest';
-import {
-  enrolmentCanRespond,
-  enrolmentIsLive,
-  mergeById,
-  ticketIsAdmissible,
-} from './portal.js';
+import { enrolmentCanRespond, enrolmentIsLive, mergeById, ticketIsAdmissible, resolveRsvpEnabled } from './portal.js';
 
 describe('ticketIsAdmissible', () => {
   it('a free thread admits — no payment was ever asked for', () => {
@@ -102,5 +97,41 @@ describe('enrolmentIsLive — the one fact both predicates share', () => {
       expect(enrolmentCanRespond(status)).toBe(false);
       expect(ticketIsAdmissible(status, 'paid')).toBe(false);
     }
+  });
+});
+
+describe('resolveRsvpEnabled', () => {
+  const base = { item: null, thread: null, workspaceDefault: null, hasStart: true };
+
+  it('asks by default — an unconfigured workspace still asks', () => {
+    expect(resolveRsvpEnabled(base)).toBe(true);
+  });
+
+  it('never asks about an item with no start time', () => {
+    expect(resolveRsvpEnabled({ ...base, hasStart: false })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, item: true, hasStart: false })).toBe(false);
+  });
+
+  it('the workspace default applies when nothing overrides it', () => {
+    expect(resolveRsvpEnabled({ ...base, workspaceDefault: false })).toBe(false);
+  });
+
+  it('the thread overrides the workspace, in both directions', () => {
+    expect(resolveRsvpEnabled({ ...base, thread: false, workspaceDefault: true })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, thread: true, workspaceDefault: false })).toBe(true);
+  });
+
+  it('the item overrides the thread, in both directions', () => {
+    expect(resolveRsvpEnabled({ ...base, item: false, thread: true })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, item: true, thread: false })).toBe(true);
+  });
+
+  it('null at a level inherits rather than switching off', () => {
+    expect(resolveRsvpEnabled({ ...base, item: null, thread: true, workspaceDefault: false })).toBe(true);
+    expect(resolveRsvpEnabled({ ...base, item: null, thread: null, workspaceDefault: false })).toBe(false);
+  });
+
+  it('undefined behaves as null — a column not selected must not read as off', () => {
+    expect(resolveRsvpEnabled({ ...base, item: undefined, thread: undefined, workspaceDefault: undefined })).toBe(true);
   });
 });

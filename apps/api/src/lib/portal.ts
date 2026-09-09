@@ -71,6 +71,41 @@ export function enrolmentCanRespond(enrolmentStatus: string | null): boolean {
 }
 
 /**
+ * Does this agenda item ask who is coming?
+ *
+ * THREE levels, each NULL meaning "inherit" rather than "off": the item, then
+ * its thread, then the workspace default, then yes. Sjoerd moved the operative
+ * control to the item on 2026-09-09 — a residential weekend needs a headcount
+ * and the reading group before it does not — without removing the thread
+ * level, which is deployed and is a real thing to want.
+ *
+ * ONE resolver because the rule had already forked: the portal's read side
+ * resolved it batched across a page of items, its write side resolved it again
+ * per request, and the organiser's panel needed it a third time. Two of those
+ * disagreeing is silent in the worst way — the participant's control vanishes
+ * and the endpoint still accepts, or the control shows and every answer 409s.
+ * Neither surfaces to the organiser, who sees a switch that looked like it
+ * worked.
+ *
+ * `hasStart` is here rather than at the call sites for the same reason: only a
+ * timed item can be attended, so only a timed item can be asked about, and
+ * that is one condition rather than a parallel test in three places.
+ */
+export function resolveRsvpEnabled(input: {
+  /** thread_engagement.rsvp_enabled — null inherits. */
+  item: boolean | null | undefined;
+  /** thread_thread.rsvp_enabled — null inherits. */
+  thread: boolean | null | undefined;
+  /** thread_settings.rsvp_default_enabled — null/absent means yes. */
+  workspaceDefault: boolean | null | undefined;
+  /** Whether the item has a start time. */
+  hasStart: boolean;
+}): boolean {
+  if (!input.hasStart) return false;
+  return input.item ?? input.thread ?? input.workspaceDefault ?? true;
+}
+
+/**
  * Merge rows fetched under two different keys, keeping one copy each.
  *
  * Rows that predate a person id carry only an email; rows an organiser

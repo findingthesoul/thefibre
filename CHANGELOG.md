@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.42] — 2026-09-09 — RSVP moves to the event
+
+Sjoerd, after seeing the Responses panel for the first time: "maybe it is
+better to set it per event... so per event toggle RSVP and then you have the
+second tab." He is right, and a year-long thread shows why: a residential
+weekend needs a headcount and the reading group before it does not. One
+switch for the whole thread makes you choose between asking about everything
+and asking about nothing.
+
+- **`thread_engagement.rsvp_enabled`**, nullable. A THIRD level rather than a
+  replacement: item → thread → workspace default → yes, each NULL meaning
+  inherit. Nothing existing changes behaviour, no backfill, and the rule the
+  thread column already states carries down intact — an item follows its
+  thread as the thread changes rather than freezing at creation.
+- **One resolver, `resolveRsvpEnabled()`**, in lib/portal.ts with seven
+  tests. The rule had already forked into two shapes — the portal's read
+  resolving it batched, its write resolving it per request — and the
+  organiser panel wanted it a third time. Two of those disagreeing is silent
+  in the worst way: either the participant's control vanishes and the
+  endpoint still accepts, or the control shows and every answer 409s.
+  Neither reaches the organiser, who sees a switch that looked like it
+  worked. `hasStart` lives inside the resolver, so timed-items-only is one
+  condition rather than three.
+- **The switch shows the RESOLVED value.** `GET /threads/:id` returns
+  `rsvp_default` (the thread's own answer, already resolved against the
+  workspace), so the UI does one `??` and never carries the rule. Rendering
+  `item ?? true` on a thread already sitting at off would have shown On for
+  something nobody could answer.
+- **Write inside the lock, read outside it.** The switch sits in the
+  disabled fieldset because it is a write, and the API refuses it too (423
+  `thread_locked`). The Responses panel stays outside: a lock freezes the
+  design, and who is coming is not the design.
+- Migration applied to both databases BEFORE the code shipped, which is the
+  reverse of the action/route pairing failure two hours earlier.
+
+Still no UI for the thread- and workspace-level switches. The item is now the
+operative control, which is what was asked for.
+
 ## [0.68.41] — 2026-09-09 — who is coming, and who never said
 
 Sjoerd: "it is not clear where we can review who of the participants has

@@ -111,6 +111,14 @@ const CATALOG = {
     de: 'Wird ausgeführt…', // MT
     fr: 'En cours…', // MT
   },
+  ask_who_is_coming: {
+    en: 'Ask who is coming',
+    nl: 'Vraag wie er komt',
+    es: 'Preguntar quién viene', // MT
+    pt: 'Perguntar quem vem', // MT
+    de: 'Fragen, wer kommt', // MT
+    fr: 'Demander qui vient', // MT
+  },
   rsvp_responses: {
     en: 'Who is coming',
     nl: 'Wie komt er',

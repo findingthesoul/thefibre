@@ -109,6 +109,7 @@ export function EngagementDialog({
   personalRoomUrl,
   canEditStructure = true,
   locked = false,
+  rsvpDefault = true,
   activities = [],
   onClose,
 }: {
@@ -129,6 +130,11 @@ export function EngagementDialog({
    *  inert, so a locked timeline can still be inspected element by element.
    *  The API refuses the same writes (423 `thread_locked`) regardless. */
   locked?: boolean;
+  /** What this item inherits when its own RSVP column is null: the thread's
+   *  setting, already resolved against the workspace default by the API. The
+   *  switch must show the RESOLVED state — a thread sitting at off would
+   *  otherwise render as On for something nobody can answer. */
+  rsvpDefault?: boolean;
   /** The thread's activities — anchor options for relative message triggers. */
   activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
@@ -246,6 +252,10 @@ export function EngagementDialog({
       type,
       description: String(fd.get('description') ?? '').trim() || null,
       show_in_agenda: fd.get('show_in_agenda') === 'on',
+      // Touching a switch you can see means an explicit answer, so this
+      // writes a boolean rather than leaving null to inherit. Only timed
+      // items are asked about at all.
+      ...(family === 'activity' ? { rsvp_enabled: fd.get('rsvp_enabled') === 'on' } : {}),
       status,
     };
 
@@ -751,6 +761,21 @@ export function EngagementDialog({
                 defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
                 onChange={() => setDirty(true)}
               />
+              {/* Only a timed item can be attended, so only a timed item can
+                  be asked about — the same single condition the portal and
+                  the Responses panel use. Inside the fieldset because it is
+                  a write: a locked thread refuses it here and again at the
+                  API (423 thread_locked). */}
+              {family === 'activity' && (
+                <div className="mt-3">
+                  <SwitchField
+                    label={t(locale, 'ask_who_is_coming')}
+                    name="rsvp_enabled"
+                    defaultChecked={engagement?.rsvp_enabled ?? rsvpDefault}
+                    onChange={() => setDirty(true)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -763,7 +788,7 @@ export function EngagementDialog({
           an RSVP is the participant speaking for themselves. Shown on a
           locked thread too — the lock freezes the design, not the event, and
           reading who is coming is not an edit. */}
-      {!isNew && engagement?.starts_at && (
+      {!isNew && engagement?.starts_at && (engagement.rsvp_enabled ?? rsvpDefault) && (
         <RsvpPanel locale={locale} threadId={threadId} engagementId={engagement.id} />
       )}
 
