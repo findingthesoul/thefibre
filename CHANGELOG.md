@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.54] — 2026-09-09 — the portal shows your invoices
+
+Sjoerd, two words: *"add invoices"*. Earlier, looking for them: *"can't find
+them now"* — and he was right to look and right not to find them. They were
+never on this surface. `grep -rn invoice apps/my` returned nothing, and the
+portal's membership payload carried tier, status and renewal date and nothing
+else.
+
+**No new API, no migration.** Membership's own `/my` has had them since
+v0.68.25 and both endpoints are deployed and verified:
+`GET /membership/portal/me/invoices?member_id=…` and `…/:id/pdf`. Both are
+email-scoped — the same auth shape the portal already holds a token for — and
+the PDF proves ownership on `person_id` OR `payer_email`, both keys, because
+either alone drops rows. `member_id` was already in the portal payload, so
+the cheapest correct thing was to call the endpoint rather than widen
+`/me/portal`.
+
+- **One call per membership, in parallel, server-side.** A failure yields an
+  empty list for THAT membership rather than failing the page: three
+  memberships and one bad workspace should still show the other two.
+- **The PDF goes through the portal's own route**, `/invoices/:id/pdf`, built
+  from the shared `createInvoicePdfRoute` factory — the third caller, not a
+  third copy. It exists because a plain `<a>` cannot carry an Authorization
+  header and hard rule §13 keeps nothing on Vercel: the route reads the
+  session server-side and streams the API's bytes through. Its `appId` is
+  `membership`, not the portal, because that identifies whose LEDGER the
+  invoice belongs to — the portal is a SURFACE with no AppId by design, and
+  it is only the door.
+- **The empty state says so out loud** — "Nothing invoiced yet." An empty
+  list and a missing feature look identical when both render nothing, which
+  is exactly the confusion this release is fixing.
+
+**What he will actually see, and it is worth saying:** production holds ZERO
+invoices. Every ledger row in the database is the one €1 soul.com row, still
+`pending`, and it belongs to his test member rather than to him. So a correct
+build shows him an empty state. That is the list being right and the data not
+being there yet — which is the Stripe Connect webhook still standing between
+soul.com and money.
+
+Not in the detail popup, deliberately: an invoice is not about a thread, and
+that popup is already the densest thing on the surface.
+
+**Verified:** typecheck clean, production build clean with `/invoices/[id]/pdf`
+registered. Everything else lives behind a session, so the staging fixture is
+the real check — and it has no invoices either, so what it can prove is the
+empty state and that nothing else broke.
+
 ## [0.68.53] — 2026-09-09 — the shared Dialog says it assumes it is the only layer
 
 Comment only, no behaviour. The fix it explains shipped in 0.68.52; this is

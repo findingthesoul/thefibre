@@ -7,12 +7,24 @@
 
 import { SURFACES, ENTITY } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
-import { fetchPortal, PortalApiError, type Group, type Portal } from '@/lib/portal-api';
+import {
+  fetchInvoices,
+  fetchPortal,
+  invoicePdfUrl,
+  PortalApiError,
+  type Group,
+  type Portal,
+  type PortalInvoice,
+} from '@/lib/portal-api';
 import { SignIn } from './sign-in';
 import { Ticket } from './ticket';
 import { ThreadDetail } from './detail';
 
 export const dynamic = 'force-dynamic';
+
+function money(cents: number, currency: string): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(cents / 100);
+}
 
 function fmtDate(iso: string | null): string | null {
   if (!iso) return null;
@@ -48,7 +60,17 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function GroupCard({ group, wallet }: { group: Group; wallet: Portal['wallet'] }) {
+function GroupCard({
+  group,
+  wallet,
+  invoices,
+}: {
+  group: Group;
+  wallet: Portal['wallet'];
+  /** member_id → that membership's invoices. Empty when there are none, or
+   *  when the fetch failed for that one membership. */
+  invoices: Map<string, PortalInvoice[]>;
+}) {
   // A ticket belongs to a thread. Showing both separately made the same
   // event appear twice, so the ticket rides inside its thread's detail and
   // only an ORPHAN ticket — one whose thread isn't in this payload — still
@@ -118,19 +140,70 @@ function GroupCard({ group, wallet }: { group: Group; wallet: Portal['wallet'] }
 
       {group.memberships.length > 0 && (
         <Section title="Membership">
-          {group.memberships.map((m) => (
-            <div
-              key={m.member_id}
-              className="flex items-baseline justify-between gap-3 rounded-xl border border-line bg-surface-raised p-4"
-            >
-              <span className="font-medium text-ink">{m.tier ?? 'Member'}</span>
-              <span className="text-sm text-ink-muted">
-                {m.status === 'active' && m.renews_at
-                  ? `Renews ${fmtDate(m.renews_at)}`
-                  : m.status}
-              </span>
-            </div>
-          ))}
+          {group.memberships.map((m) => {
+            const rows = invoices.get(m.member_id) ?? [];
+            return (
+              <div
+                key={m.member_id}
+                className="rounded-xl border border-line bg-surface-raised p-4"
+              >
+                <div className="flex items-baseline justify-between gap-3">
+                  <span className="font-medium text-ink">{m.tier ?? 'Member'}</span>
+                  <span className="text-sm text-ink-muted">
+                    {m.status === 'active' && m.renews_at
+                      ? `Renews ${fmtDate(m.renews_at)}`
+                      : m.status}
+                  </span>
+                </div>
+
+                {/* Invoices. Sjoerd, 2026-09-09: "add invoices" — and before
+                    that, "can't find them now", which was correct: they were
+                    never on this surface. The empty state says so out loud
+                    rather than showing nothing, because an empty list and a
+                    missing feature look identical otherwise. */}
+                <div className="mt-3 border-t border-line pt-3">
+                  <h4 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                    Invoices
+                  </h4>
+                  {rows.length === 0 ? (
+                    <p className="mt-1 text-sm text-ink-muted">
+                      Nothing invoiced yet.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {rows.map((inv) => (
+                        <li
+                          key={inv.id}
+                          className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-sm"
+                        >
+                          <span className="min-w-0 truncate text-ink">
+                            {inv.item_label ?? 'Membership'}
+                          </span>
+                          <span className="flex items-center gap-3">
+                            <span className="tabular-nums text-ink">
+                              {money(inv.amount_cents, inv.currency)}
+                            </span>
+                            <span className="text-xs text-ink-muted">
+                              {fmtDate(inv.created_at)}
+                            </span>
+                            {inv.status !== 'paid' && (
+                              <span className="text-xs text-ink-muted">{inv.status}</span>
+                            )}
+                            <a
+                              href={invoicePdfUrl(inv.id)}
+                              className="inline-flex min-h-11 items-center text-ink underline underline-offset-2 hover:opacity-70"
+                            >
+                              PDF
+                            </a>
+                          </span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </Section>
       )}
     </article>
@@ -179,6 +252,17 @@ export default async function Page() {
 
   const name = portal.person.first_name;
 
+  // One call per membership, in parallel, server-side with the same token.
+  // Per membership because that is the endpoint's shape (Membership's own /my
+  // does the same). A failure yields an empty list for THAT membership rather
+  // than failing the page: three memberships and one bad workspace should
+  // still show the other two.
+  const memberIds = portal.groups.flatMap((g) => g.memberships.map((m) => m.member_id));
+  const invoiceLists = await Promise.all(
+    memberIds.map((id) => fetchInvoices(session.access_token, id)),
+  );
+  const invoicesByMember = new Map(memberIds.map((id, i) => [id, invoiceLists[i] ?? []]));
+
   return (
     <Shell>
       <header>
@@ -200,7 +284,12 @@ export default async function Page() {
       ) : (
         <div className="mt-8 space-y-5">
           {portal.groups.map((g) => (
-            <GroupCard key={g.workspace_id} group={g} wallet={portal.wallet} />
+            <GroupCard
+              key={g.workspace_id}
+              group={g}
+              wallet={portal.wallet}
+              invoices={invoicesByMember}
+            />
           ))}
         </div>
       )}

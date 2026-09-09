@@ -69,6 +69,22 @@ export type MeetItem = {
   location: string | null;
 };
 
+/**
+ * A membership invoice, from the platform purchase ledger. Fetched from
+ * Membership's OWN email-scoped portal endpoint rather than added to
+ * `/me/portal`: the route exists, is deployed and is verified, and the
+ * cheapest correct thing is to call it rather than widen this payload.
+ */
+export type PortalInvoice = {
+  id: string;
+  item_label: string | null;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  stripe_invoice_url: string | null;
+};
+
 export type MembershipItem = {
   member_id: string;
   tier: string | null;
@@ -119,6 +135,36 @@ export type Portal = {
   wallet: { apple: boolean; google: boolean };
   groups: Group[];
 };
+
+/**
+ * One membership's invoices. Per membership rather than in one call, because
+ * that is the shape the endpoint has and Membership's own /my already uses
+ * it (apps/membership/app/my/page.tsx). A failure returns an empty list
+ * rather than throwing: someone with three memberships and one bad workspace
+ * should still see the other two, not an error page.
+ */
+export async function fetchInvoices(
+  accessToken: string,
+  memberId: string,
+): Promise<PortalInvoice[]> {
+  try {
+    const res = await fetch(
+      `${baseUrl}/api/v1/membership/portal/me/invoices?member_id=${encodeURIComponent(memberId)}`,
+      { headers: { Authorization: `Bearer ${accessToken}` }, cache: 'no-store' },
+    );
+    if (!res.ok) return [];
+    const body = (await res.json()) as { items?: PortalInvoice[] };
+    return body.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** The file itself, through this app's own route — a plain link cannot carry
+ *  a bearer token, which is why the route exists. */
+export function invoicePdfUrl(id: string): string {
+  return `/invoices/${id}/pdf`;
+}
 
 export async function fetchPortal(accessToken: string): Promise<Portal> {
   const res = await fetch(`${baseUrl}/api/v1/me/portal`, {
