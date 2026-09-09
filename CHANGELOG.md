@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.55] — 2026-09-09 — a member can sign out (Members 0.14.7)
+
+Sjoerd: "logout (not possible now)". He was right, and it was true of all
+three member-facing pages in the family — none of them had one.
+
+- **`@thefibre/shared/ui/sign-out`**, born shared because there are three
+  callers waiting. The organiser apps already have sign-out inside
+  `ui/user-menu`, but that is the avatar menu with theme, sidebar and
+  workspace switching — none of which a member has. What a member has is a
+  page that knows their email and no way to leave it.
+- The app-bound half is injected, the same rule `user-menu` follows: each
+  app owns its Supabase browser client and decides where to land.
+- Wired into Membership's `/my`, beside the email address, because that is
+  the line answering "who am I signed in as" — the question sign-out
+  follows from. Signing out returns to `/my`, which shows the sign-in form
+  rather than a blank page.
+
+The other two member pages, `my.thethread.app` and Thread's `/my`, are other
+sessions' lanes; the component is there for them and it is one import.
+
 ## [0.68.54] — 2026-09-09 — the portal shows your invoices
 
 Sjoerd, two words: *"add invoices"*. Earlier, looking for them: *"can't find

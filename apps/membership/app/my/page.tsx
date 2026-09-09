@@ -9,6 +9,7 @@ import { money } from '@/lib/money';
 import { DEFAULT_LOCALE, INTL_LOCALES, t, toLocale, type I18nKey, type Locale } from '@/lib/i18n';
 import { SignInButton } from '../sign-in-button';
 import { ManagePaymentButton } from './manage-payment-button';
+import { SignOutButton } from './sign-out-button';
 
 type PortalMembership = {
   member_id: string;
@@ -132,7 +133,12 @@ export default async function MyPage() {
   return (
     <Shell>
       <h1 className="text-2xl font-medium tracking-tight">{t(locale, 'my_memberships')}</h1>
-      <p className="mt-1 text-sm text-ink-subtle">{data.email}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-sm text-ink-subtle">{data.email}</p>
+        {/* Beside the address, because that is the line that answers "who am
+            I signed in as" — the question sign-out follows from. */}
+        <SignOutButton locale={locale} />
+      </div>
 
       {data.items.length === 0 && (data.products?.length ?? 0) === 0 && (
         <p className="mt-8 text-sm text-ink-subtle">{t(locale, 'no_memberships')}</p>

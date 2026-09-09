@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.54",
+  "version": "0.68.55",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -189,6 +189,10 @@
     "./robots": {
       "types": "./dist/robots.d.ts",
       "default": "./dist/robots.js"
+    },
+    "./ui/sign-out": {
+      "types": "./dist/ui/sign-out.d.ts",
+      "default": "./dist/ui/sign-out.js"
     }
   },
   "files": [

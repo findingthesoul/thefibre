@@ -34,6 +34,22 @@ const CATALOG = {
   ...PARTICIPANT_AUTH,
 
   // ── shared ────────────────────────────────────────────────────────────
+  sign_out: {
+    en: 'Sign out',
+    nl: 'Uitloggen',
+    es: 'Cerrar sesión', // MT
+    pt: 'Terminar sessão', // MT
+    de: 'Abmelden', // MT
+    fr: 'Se déconnecter', // MT
+  },
+  signing_out: {
+    en: 'Signing out…',
+    nl: 'Bezig met uitloggen…',
+    es: 'Cerrando sesión…', // MT
+    pt: 'A terminar sessão…', // MT
+    de: 'Abmelden…', // MT
+    fr: 'Déconnexion…', // MT
+  },
   powered_by: {
     en: 'Powered by',
     nl: 'Mogelijk gemaakt door',
