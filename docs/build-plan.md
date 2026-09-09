@@ -20,7 +20,7 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
+_Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
 
 **DESIGN — an Appearance tab on a thread** (Sjoerd, 2026-09-09, explicitly
    deferred: "we do not make this now. That's for later"). The thread's
@@ -302,9 +302,38 @@ _Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
      same capability pattern as checkin_code.
    - **Wallet passes** (coded, inert): blocked on an Apple Pass Type ID
      certificate and a Google Wallet issuer account — Sjoerd only.
-   - Not read by the portal: the purchase ledger (invoices weren't among
-     the four asks). The dual-key rule is documented in the route header
-     for whoever adds them.
+   - ~~Not read by the portal: the purchase ledger~~ **it is now.**
+     `GET /api/v1/me/invoices` + `/me/invoices/:id/pdf` (v0.68.61) answer
+     for EVERY app, dual-keyed, replacing the membership-only endpoint that
+     left thread tickets and meet bookings unreachable.
+
+   **THE CONSOLIDATION — `docs/member-portal-plan.md`, slices 1-5 SHIPPED
+   2026-09-10.** Sjoerd: "why are there two my. environments. As a user, I
+   want 1 environment for everything." Four destinations on
+   my.thethread.app — Next / Memberships / Purchases / You — bottom tabs
+   below `md`, a local rail above (`ui/sidebar-shell` is organiser chrome
+   and a member has none of it). Next is a date-ordered timeline; a thread
+   with dated sessions contributes its SESSIONS, not itself. Memberships
+   says what it includes with resolved links, plus Manage payment. You is
+   editable: a name writes every `person` row on the verified email, a
+   language writes `identity_profile.locale`. Portal VERSION 0.5.0.
+
+   Remaining on the plan:
+   - **Slice 6 — retire the other two `/my` pages.** NOT YET, and the plan
+     says why: not before parity, and not before somebody has watched this
+     surface render a REAL membership. `membership.thethread.app/my` is at
+     parity now; Thread's `/my` still has an activity trail the portal has
+     no equivalent for (thread session's lane).
+   - **Slice 7 — participants and documents on a thread**, consent-gated,
+     reusing `share_participants_participants`. Deferred on purpose until
+     the shape has been used.
+   - **BLOCKING BOTH, and it is one sentence from Sjoerd:** the staging
+     fixture (`portal-verify@thefibre.tech`) has no membership and no
+     invoice, so the two tabs that matter most have been driven only in
+     their EMPTY state. Seeding one was refused by RLS and two sessions have
+     now declined to force it with the service key, because the standing
+     authorisation covered "a test visitor and a seeded thread", not
+     memberships.
 
 **0. Domain migration aftercare (v0.48.0 hop + v0.52.0 flip are LIVE;
    hard cut EXECUTED 2026-09-07).**
