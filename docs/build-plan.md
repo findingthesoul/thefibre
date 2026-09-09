@@ -36,6 +36,23 @@ _Last groomed 2026-09-09 (v0.68.37). Done items get removed, not ticked._
    and every live URL would change. Decide the grammar before Thread embeds
    are widely live.
 
+   **Two API builders know only two of the three owner kinds.** `ownerKind`
+   is organiser | team | workspace, and the web builder branches on all
+   three, but `ownerSlugOf` (routes/thread.ts) and `threadPublicUrl`
+   (routes/portal.ts) both collapse it to `team?.slug ?? organiserSlug`. A
+   workspace-scoped thread stores team_id NULL by design (D1), so both emit
+   the ORGANISER address where the canonical one is the workspace's. Not a
+   broken link — D2 makes the organiser form a valid second door, and the
+   one published workspace-scoped thread in prod answers 200 under both —
+   so this is canonicality, not reachability. Changing it changes the value
+   of a published field, hence Sjoerd's call.
+
+   **And the fixture that verifies this proves one owner kind, not three.**
+   The staging portal fixture is organiser-scoped, so the green it produced
+   on 2026-09-09 said nothing about team- or workspace-scoped threads.
+   Anyone re-verifying a URL builder wants one seeded thread per owner kind
+   or the result covers a third of the surface.
+
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
    smoke-prod). Phase 1 DONE (CI installed — SSH
