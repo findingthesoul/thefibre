@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.27",
+  "version": "0.68.28",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -177,6 +177,10 @@
     "./invoice-model": {
       "types": "./dist/invoice-model.d.ts",
       "default": "./dist/invoice-model.js"
+    },
+    "./ical": {
+      "types": "./dist/ical.d.ts",
+      "default": "./dist/ical.js"
     }
   },
   "files": [

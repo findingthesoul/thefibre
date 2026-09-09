@@ -81,6 +81,14 @@ export type Group = {
 
 export type Portal = {
   person: { first_name: string | null; last_name: string | null; email: string };
+  /**
+   * Whether the wallet passes are actually issuable. Both are env-gated on
+   * credentials Sjoerd holds outside this repo (an Apple Pass Type ID
+   * certificate, a Google Wallet issuer account); without them the pass
+   * routes 503. Showing a button that fails is worse than showing none, so
+   * the API tells us rather than us guessing.
+   */
+  wallet: { apple: boolean; google: boolean };
   groups: Group[];
 };
 
@@ -93,7 +101,34 @@ export async function fetchPortal(accessToken: string): Promise<Portal> {
   return res.json() as Promise<Portal>;
 }
 
+// The QR and both wallet passes are already served by Thread, keyed on the
+// check-in code, which this app holds. So these are URL builders, not fetches
+// — the portal added no API surface to show a ticket.
+const checkinBase = (code: string) => `${baseUrl}/api/v1/thread/public/checkin/${code}`;
+
 /** The QR the door scans. Served by the API from the check-in code. */
 export function ticketQrUrl(code: string): string {
-  return `${baseUrl}/api/v1/thread/public/checkin/${code}/qr.png`;
+  return `${checkinBase(code)}/qr.png`;
+}
+
+/** Apple Wallet pass (.pkpass). Only offer it when `portal.wallet.apple`. */
+export function appleWalletUrl(code: string): string {
+  return `${checkinBase(code)}/apple.pkpass`;
+}
+
+/** 302 to Google's save-to-wallet. Only offer it when `portal.wallet.google`. */
+export function googleWalletUrl(code: string): string {
+  return `${checkinBase(code)}/google`;
+}
+
+/**
+ * Add-to-calendar for ONE agenda item. Served by this app, not the API,
+ * because a calendar download is a plain link and a plain link cannot carry
+ * a bearer token — the route handler has the session cookie and re-reads the
+ * portal server-side, so the file is scoped to the person exactly as the
+ * page is. Agenda items only: they carry real timestamps, where a thread
+ * carries dates and would need all-day VEVENTs for no benefit.
+ */
+export function agendaIcsUrl(threadId: string, itemId: string): string {
+  return `/ics/${threadId}/${itemId}`;
 }

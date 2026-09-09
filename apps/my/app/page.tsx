@@ -7,9 +7,10 @@
 
 import { SURFACES, ENTITY } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
-import { fetchPortal, PortalApiError, type Group } from '@/lib/portal-api';
+import { fetchPortal, PortalApiError, type Group, type Portal } from '@/lib/portal-api';
 import { SignIn } from './sign-in';
 import { Ticket } from './ticket';
+import { ThreadDetail } from './detail';
 
 export const dynamic = 'force-dynamic';
 
@@ -47,7 +48,14 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
-function GroupCard({ group }: { group: Group }) {
+function GroupCard({ group, wallet }: { group: Group; wallet: Portal['wallet'] }) {
+  // A ticket belongs to a thread. Showing both separately made the same
+  // event appear twice, so the ticket rides inside its thread's detail and
+  // only an ORPHAN ticket — one whose thread isn't in this payload — still
+  // gets its own row.
+  const ticketFor = new Map(group.tickets.map((t) => [t.thread_id, t]));
+  const threadIds = new Set(group.threads.map((t) => t.thread_id));
+  const orphanTickets = group.tickets.filter((t) => !threadIds.has(t.thread_id));
   return (
     <article className="rounded-2xl border border-line bg-surface p-5">
       <header className="flex items-center gap-3">
@@ -62,9 +70,9 @@ function GroupCard({ group }: { group: Group }) {
         <h2 className="text-lg font-medium tracking-tight text-ink">{group.name}</h2>
       </header>
 
-      {group.tickets.length > 0 && (
+      {orphanTickets.length > 0 && (
         <Section title="Tickets">
-          {group.tickets.map((t) => (
+          {orphanTickets.map((t) => (
             <Ticket key={t.enrolment_id} ticket={t} />
           ))}
         </Section>
@@ -73,44 +81,12 @@ function GroupCard({ group }: { group: Group }) {
       {group.threads.length > 0 && (
         <Section title="Threads">
           {group.threads.map((t) => (
-            <div key={t.thread_id} className="rounded-xl border border-line bg-surface-raised p-4">
-              <div className="flex items-baseline justify-between gap-3">
-                <h4 className="font-medium text-ink">{t.title}</h4>
-                {t.progress_pct != null && (
-                  <span className="shrink-0 text-xs text-ink-muted">{t.progress_pct}%</span>
-                )}
-              </div>
-              {fmtDate(t.starts_on) && (
-                <p className="mt-0.5 text-sm text-ink-muted">{fmtDate(t.starts_on)}</p>
-              )}
-              {t.agenda.length > 0 && (
-                <ul className="mt-3 space-y-2 border-t border-line pt-3">
-                  {t.agenda.map((a) => (
-                    <li key={a.id} className="text-sm">
-                      <div className="flex items-baseline justify-between gap-3">
-                        <span className="text-ink">{a.title}</span>
-                        {a.starts_at && (
-                          <span className="shrink-0 text-xs text-ink-muted">
-                            {fmtDateTime(a.starts_at)}
-                          </span>
-                        )}
-                      </div>
-                      {a.location && <p className="text-ink-muted">{a.location}</p>}
-                      {(a.meeting_url || a.external_url) && (
-                        <a
-                          href={(a.meeting_url ?? a.external_url)!}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-ink underline underline-offset-2 hover:opacity-70"
-                        >
-                          {a.meeting_url ? 'Join' : 'Open'}
-                        </a>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
+            <ThreadDetail
+              key={t.thread_id}
+              thread={t}
+              ticket={ticketFor.get(t.thread_id) ?? null}
+              wallet={wallet}
+            />
           ))}
         </Section>
       )}
@@ -224,7 +200,7 @@ export default async function Page() {
       ) : (
         <div className="mt-8 space-y-5">
           {portal.groups.map((g) => (
-            <GroupCard key={g.workspace_id} group={g} />
+            <GroupCard key={g.workspace_id} group={g} wallet={portal.wallet} />
           ))}
         </div>
       )}

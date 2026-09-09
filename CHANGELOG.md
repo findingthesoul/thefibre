@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.28] — 2026-09-09 — the portal opens: agenda, ticket, wallet, calendar
+
+The visitor portal was a list. Tapping an item now opens it, which is where
+the things a person actually needs on the way to a door live.
+
+**The detail popup** (`apps/my/app/detail.tsx`) is ordered physically rather
+than by data shape: the QR first, because a phone at a door is held at arm's
+length; then the ways to keep it — Apple Wallet, Google Wallet, add to
+calendar; then the agenda, each item with its own join link and its own
+calendar file; then the page it came from. It uses the shared `Dialog`, not a
+portal-local copy, per CLAUDE.md's components-first rule.
+
+A ticket now rides **inside** its thread rather than beside it. The two
+sections showed the same event twice; only an orphan ticket — one whose
+thread isn't in the payload — still gets its own row.
+
+**No new API surface for the ticket.** The QR and both wallet passes are
+already served by Thread at `/api/v1/thread/public/checkin/:code/*`, and the
+portal holds the check-in code, so these are URL builders. The one thing the
+portal could not know is whether the passes are *issuable*: both config
+readers return null without credentials and the routes 503. A button that
+fails is worse than no button, so `GET /me/portal` now carries
+`wallet: { apple, google }` and the buttons appear only when they work. Both
+are false in production today, waiting on Sjoerd's Apple Pass Type ID
+certificate and Google Wallet issuer account.
+
+**`lib/ical.ts` moved to `@thefibre/shared/ical`.** It is a hand-rolled RFC
+5545 string builder with zero dependencies and no node imports — the same
+test v0.68.26 applied to the invoice model: the *definition* is shared, a
+renderer that needs an engine is not. Meet keeps its endpoint and its import
+path via a re-export shim; the portal renders its own. `ORGANIZER`,
+`ATTENDEE`, `URL` and `PRODID` became optional, so a thread agenda item —
+which has no single host and is a download rather than an invitation — emits
+a valid VEVENT without them. Meet's output is unchanged: PRODID still
+defaults to Meet's, and all five original tests pass through the shim
+untouched. Four new ones lock the portal shape.
+
+**Add-to-calendar is served by the portal, not the API** (`/ics/:threadId/:itemId`).
+A calendar link is a plain `<a>`, and a plain link cannot carry a bearer
+token. The route handler has the session cookie, re-reads the portal with the
+same call the page makes, and finds the item inside that payload — so the
+file is scoped to the signed-in person by construction, and there is no new
+way to address someone else's agenda. Agenda items only: they carry
+timestamps, where a thread carries dates and would need all-day VEVENTs for
+no benefit. An item with a start but no end gets an hour.
+
+**Not built, deliberately:** "email it to me" needs a visitor-facing resend
+endpoint and a template, and RSVP has no model anywhere — its shape was
+discussed on 2026-09-09 and Sjoerd has not decided it. Both are specified in
+`docs/build-plan.md` rather than guessed at.
+
+**Verified:** `pnpm -r typecheck` clean across all nine; the production build
+of `@thefibre/my` clean with `/ics/[threadId]/[itemId]` registered; the ics
+route returns 401 unauthenticated; nine ical tests pass. **Not verified: the
+signed-in list and the popup were not rendered** — that needs a participant
+session this session does not have.
+
 ## [0.68.27] — 2026-09-09 — the import cycle is inert for one reason; say so
 
 `routes/purchases.ts` and `routes/membership.ts` now import each other

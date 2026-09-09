@@ -80,7 +80,17 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
      Protection (`all_except_custom_domains`), so `my.thefibre.tech` — bound
      to the `staging` branch, hence a Preview — redirects to Vercel's SSO
      instead of serving. Production is unaffected. Security setting, his call.
-   - **NEXT SLICE, specified by Sjoerd 2026-09-09 (not started).** The portal
+   - **Detail popup SHIPPED v0.68.28** — tapping an item opens agenda, QR,
+     both wallet buttons (shown only when `portal.wallet.{apple,google}`,
+     both false until the credentials exist) and per-agenda-item
+     add-to-calendar (`/ics/:threadId/:itemId`, served by the portal because
+     a calendar link cannot carry a bearer token). `lib/ical.ts` lifted to
+     `@thefibre/shared/ical` with an API re-export shim.
+   - **STILL TO BUILD from the same slice**: "email it to me" (needs a
+     visitor-facing resend endpoint + template + rate limiting — the portal
+     exists because the ticket lives in an email, so this is arguably the
+     highest-value button left) and RSVP (below, decision not taken).
+   - **Original slice as specified by Sjoerd 2026-09-09.** The portal
      is a LIST; tapping an item opens a detail popup carrying: the agenda,
      the ticket QR, **Add to wallet**, **Email it to me**, **Add to
      calendar**, and **RSVP** where applicable. What already exists, so none

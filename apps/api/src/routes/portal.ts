@@ -65,8 +65,21 @@ import { Hono } from 'hono';
 import { adminClient } from '../db.js';
 import { participantEmailFromAuth } from '../lib/participant-auth.js';
 import { mergeById, ticketIsAdmissible } from '../lib/portal.js';
+import { appleWalletConfig, googleWalletConfig } from '../lib/checkin.js';
 
 export const portalRoutes = new Hono();
+
+/**
+ * Which wallet buttons the portal may show. The QR and both passes are
+ * already served by Thread at /thread/public/checkin/:code/*, and the portal
+ * holds the check-in code, so it builds those URLs itself — no route here.
+ * What it cannot know is whether the credentials exist: both config readers
+ * return null without them and the pass routes 503. A button that fails is
+ * worse than no button, so the answer travels with the payload.
+ */
+function walletAvailability(): { apple: boolean; google: boolean } {
+  return { apple: !!appleWalletConfig(), google: !!googleWalletConfig() };
+}
 
 const one = <T>(v: T | T[] | null | undefined): T | null =>
   !v ? null : Array.isArray(v) ? v[0] ?? null : v;
@@ -167,7 +180,7 @@ portalRoutes.get('/portal', async (c) => {
     last_name: (persons?.[0]?.last_name as string | null) ?? null,
     email,
   };
-  if (!personIds.length) return c.json({ person: me, groups: [] });
+  if (!personIds.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
 
   const since = new Date(Date.now() - PAST_WINDOW_DAYS * 86400_000).toISOString();
   const sinceDate = since.slice(0, 10);
@@ -273,7 +286,7 @@ portalRoutes.get('/portal', async (c) => {
     ]),
   ].filter(Boolean);
 
-  if (!workspaceIds.length) return c.json({ person: me, groups: [] });
+  if (!workspaceIds.length) return c.json({ person: me, wallet: walletAvailability(), groups: [] });
 
   const { data: workspaces } = await adminClient
     .from('workspace')
@@ -397,5 +410,5 @@ portalRoutes.get('/portal', async (c) => {
       (a.tickets.length + a.threads.length + a.meets.length + a.memberships.length),
   );
 
-  return c.json({ person: me, groups: out });
+  return c.json({ person: me, wallet: walletAvailability(), groups: out });
 });

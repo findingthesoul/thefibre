@@ -50,3 +50,47 @@ describe('buildBookingIcal', () => {
     expect(buildBookingIcal({ ...base, sequence: 2 })).toContain('SEQUENCE:2');
   });
 });
+
+// ---------------------------------------------------------------------------
+// Lifted to @thefibre/shared in v0.68.28 so the visitor portal could render an
+// agenda item's .ics without a second copy. Meet's calls are unchanged; these
+// lock the parts the portal added, because a portal agenda item has no single
+// host and the file is a download rather than an invitation.
+// ---------------------------------------------------------------------------
+
+describe('buildBookingIcal — the portal shape', () => {
+  const item = {
+    uid: 'agenda-xyz@thefibre',
+    startsAt: new Date('2026-09-10T09:00:00Z'),
+    endsAt: new Date('2026-09-10T10:00:00Z'),
+    summary: 'Opening circle',
+  };
+
+  it('omits ORGANIZER and ATTENDEE entirely when there is no host or invitee', () => {
+    const ics = buildBookingIcal(item);
+    expect(ics).not.toContain('ORGANIZER');
+    expect(ics).not.toContain('ATTENDEE');
+    // Still a valid single event.
+    expect(ics).toContain('BEGIN:VEVENT');
+    expect(ics).toContain('SUMMARY:Opening circle');
+    expect(ics.endsWith('END:VCALENDAR\r\n')).toBe(true);
+  });
+
+  it('emits ATTENDEE alone when only the reader is known', () => {
+    const ics = buildBookingIcal({ ...item, attendeeEmail: 'visitor@example.com' });
+    expect(ics).toContain('ATTENDEE;CN=visitor@example.com;RSVP=FALSE:mailto:visitor@example.com');
+    expect(ics).not.toContain('ORGANIZER');
+  });
+
+  it('carries a URL and escapes it', () => {
+    const ics = buildBookingIcal({ ...item, url: 'https://x.test/a,b' });
+    expect(ics).toContain('URL:https://x.test/a\\,b');
+  });
+
+  it('defaults PRODID to Meet so existing bookings are byte-identical', () => {
+    expect(buildBookingIcal(item)).toContain('PRODID:-//The Fibre//Meet//EN');
+    expect(buildBookingIcal({ ...item, prodId: '-//X//Portal//EN' })).toContain(
+      'PRODID:-//X//Portal//EN',
+    );
+  });
+});
