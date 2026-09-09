@@ -525,7 +525,18 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     itself was still uncommitted. **Every gate passed**, because a call to a
     nonexistent HTTP route is not a type error: the import resolved, the
     endpoint did not. It shipped inert (nothing called the action yet) and
-    v0.68.41 completed the pair. §10 already says "verify every import the
+    v0.68.41 completed the pair, twelve minutes later.
+    **Why no gate sees it, one by one:** typecheck sees a function that
+    compiles; unit tests do not cross the wire; `verify-public-api.mjs`
+    guards the PUBLISHED contract, not internal routes. So a commit can ship
+    one half of a pair with every gate green — not because anyone was
+    careless, but because nothing is looking at that seam. It bit in the most
+    benign possible way: the half that shipped was the caller, nothing called
+    the caller, and the callee arrived minutes later. **Rotate those facts
+    even slightly and it is a 404 in production behind a green pipeline.**
+    And the cheap mitigation is NOT a new gate — it is that a lane claim
+    lists every file you have already touched, which is what stops the halves
+    being separated at all. §10 already says "verify every import the
     commit introduces resolves within the commit" — this is that rule one
     level up, so: **if a commit adds a call to an API path, grep the API for
     that path in the same commit.** Framing from the membership session,
