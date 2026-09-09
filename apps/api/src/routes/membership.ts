@@ -842,7 +842,7 @@ membershipRoutes.post('/members', async (c) => {
         const { data: saved } = await adminClient
           .from('purchase')
           .select(
-            'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+            'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id, app_id',
           )
           .eq('item_ref', itemRef)
           .maybeSingle();
@@ -929,7 +929,7 @@ membershipRoutes.post('/members', async (c) => {
       const { data: saved } = await adminClient
         .from('purchase')
         .select(
-          'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+          'id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id, app_id',
         )
         .eq('item_ref', itemRef)
         .maybeSingle();
@@ -2288,10 +2288,11 @@ async function membershipInvoicePaid(account: string, invoice: Stripe.Invoice): 
   }
 
   // Receipt in the house style, the WORKSPACE as seller (no override —
-  // sellerDetailsFor resolves the workspace's own invoice details).
+  // sendReceipt reads `app_id` off the row and sellerForSale pins a
+  // membership sale to the community's own invoice details).
   const { data: saved } = await adminClient
     .from('purchase')
-    .select('payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id')
+    .select('payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id, app_id')
     .eq('stripe_invoice_id', invoice.id ?? '')
     .maybeSingle();
   if (saved) {
@@ -2492,7 +2493,7 @@ async function membershipProductPurchased(
   const { data: saved } = await adminClient
     .from('purchase')
     .select(
-      'payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+      'payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id, app_id',
     )
     .eq('item_ref', itemRef)
     .maybeSingle();
@@ -2557,7 +2558,7 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
             .eq('id', purchaseId)
             .eq('status', 'pending')
             .select(
-              'item_ref, workspace_id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+              'item_ref, workspace_id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id, app_id',
             )
             .maybeSingle();
           if (paidRow) {

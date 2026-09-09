@@ -6,6 +6,40 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.56] — 2026-09-10 — a membership is sold by the community, not by a person
+
+The first live membership invoice on soul.com was issued in the name of
+**Solidarity Lab B.V**, at a private address in Zierikzee, with no VAT
+number on it — while charging 21% VAT. soul.com's own entity, One Soul
+Community Cooperative U.A. in Rotterdam, VAT NL813651141B01, sat unused in
+the workspace's invoice details. That is the wrong legal entity on a tax
+document, and it was live.
+
+The cause is that `identity_billing` is keyed by **email**, so an
+organiser's personal invoicing identity follows them into every workspace
+they work in, and `sellerDetailsFor` prefers personal over workspace. That
+preference is right for Thread and Meet — a freelance facilitator selling a
+workshop genuinely does sell in their own name, and their workspace may
+have no legal entity at all. It is wrong for a membership, which the
+community sells.
+
+- **`sellerForSale(appSlug, workspaceId, organiserUserId)`** in
+  `routes/purchases.ts` is now the one place that answers "who is this
+  invoice from". Membership resolves the workspace and ignores the
+  organiser; every other app keeps personal-first.
+- Every seller resolution goes through it: both PDF routes (the ledger's
+  and the member portal's), both payment-link emails, and `sendReceipt`,
+  which reads the app off the ledger row itself — `app.slug` when the row
+  carries the join, else a lookup by `app_id`. A row with neither degrades
+  to personal-first, which is what Thread and Meet want anyway, so a
+  forgotten call site can never produce a wrong entity on a Thread invoice.
+- The five membership receipt queries now select `app_id` deliberately, for
+  that reason.
+
+`organiser_user_id` stays on the row and still means what it meant: who to
+contact about the sale, and what the Invoices page's "Me" scope keys on. It
+just no longer decides the seller for a membership.
+
 ## [0.68.55] — 2026-09-09 — a member can sign out (Members 0.14.7)
 
 Sjoerd: "logout (not possible now)". He was right, and it was true of all

@@ -209,6 +209,51 @@ export async function sellerDetailsFor(
   return ((await workspaceInvoiceDetails(workspaceId)) as SellerDetails) ?? null;
 }
 
+/** Who the invoice is FROM, for a given SALE — one rule, in one place.
+ *
+ *  A MEMBERSHIP is sold by the community, never by the person who happened
+ *  to record it. Found on soul.com 2026-09-09: the €1 membership invoice was
+ *  issued in the name of "Solidarity Lab B.V" at a private address with NO
+ *  VAT number, while charging 21% VAT — because `identity_billing` is keyed
+ *  by EMAIL, so an organiser's own invoicing identity follows them into every
+ *  workspace they work in, and personal details won. soul.com's own entity
+ *  (One Soul Community Cooperative U.A., Rotterdam, NL813651141B01) sat
+ *  unused. That is the wrong legal entity on a tax document.
+ *
+ *  `organiser_user_id` stays on the row: it is who to contact about the sale
+ *  and what the Invoices page's "Me" scope keys on. It just does not decide
+ *  the seller for a membership.
+ *
+ *  Thread and Meet keep personal-first deliberately (Sjoerd's decision, same
+ *  day): a freelance facilitator selling a workshop genuinely does sell in
+ *  their own name, and their workspace may have no legal entity at all.
+ */
+export async function sellerForSale(
+  appSlug: string,
+  workspaceId: string,
+  organiserUserId: string | null,
+): Promise<SellerDetails> {
+  if (appSlug === 'membership') return sellerDetailsFor(workspaceId, null);
+  return sellerDetailsFor(workspaceId, organiserUserId);
+}
+
+/** Which app sold this, read off the ledger row itself.
+ *
+ *  Rows loaded with PURCHASE_SELECT carry the join (`app: { slug }`); rows a
+ *  webhook re-selects by hand usually carry only `app_id`, so look that up.
+ *  Unresolvable = personal-first, which is what Thread and Meet want anyway —
+ *  so a caller that forgets `app_id` degrades to today's behaviour, never to
+ *  a wrong legal entity on a Thread invoice. Membership call sites therefore
+ *  select `app_id` deliberately. */
+async function appSlugOfPurchase(purchase: Record<string, unknown>): Promise<string> {
+  const joined = (purchase as { app?: { slug?: string } }).app?.slug;
+  if (joined) return joined;
+  const appId = (purchase as { app_id?: string }).app_id;
+  if (!appId) return '';
+  const { data } = await adminClient.from('app').select('slug').eq('id', appId).maybeSingle();
+  return (data as { slug?: string } | null)?.slug ?? '';
+}
+
 // Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
 //
 // WHAT the document contains comes from @thefibre/shared/invoice-model, the
@@ -307,7 +352,13 @@ export async function sendReceipt(
   };
   const recipient = toOverride ?? p.payer_email;
   if (!recipient) return { error: 'no payer email on file', code: 409 };
-  const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
+  const seller =
+    sellerOverride ??
+    (await sellerForSale(
+      await appSlugOfPurchase(purchase),
+      workspaceId,
+      p.organiser_user_id ?? null,
+    ));
 
   // Sender identity: the WORKSPACE (Sjoerd, 2026-09-06: "sender was The
   // Fibre, which is not the workspace owner"). Platform-sent invoices
@@ -359,7 +410,7 @@ purchasesRoutes.get('/:id/pdf', async (c) => {
   const seller =
     r.appSlug === 'fibre-platform'
       ? { legal_name: ENTITY.name, address: ENTITY.address }
-      : ((await sellerDetailsFor(ctx.workspaceId, p.organiser_user_id ?? null)) ?? {
+      : ((await sellerForSale(r.appSlug, ctx.workspaceId, p.organiser_user_id ?? null)) ?? {
           legal_name: '',
         });
   const pdf = await buildInvoicePdf(p, { legal_name: seller.legal_name ?? '', ...seller });
@@ -546,7 +597,8 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       payerEmail: p.payer_email,
     });
     if (!url) return c.json({ error: 'payments are not connected for this workspace' }, 409);
-    const seller = await sellerDetailsFor(
+    const seller = await sellerForSale(
+      r.appSlug,
       ctx.workspaceId,
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );
@@ -642,7 +694,8 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       .from('purchase')
       .update({ stripe_account_id: account })
       .eq('id', p.id);
-    const seller = await sellerDetailsFor(
+    const seller = await sellerForSale(
+      r.appSlug,
       ctx.workspaceId,
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );

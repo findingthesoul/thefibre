@@ -3,7 +3,7 @@ import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
-import { sellerDetailsFor } from './purchases.js';
+import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 
@@ -291,7 +291,11 @@ membershipPortalRoutes.get('/me/invoices/:id/pdf', async (c) => {
       purchase.payer_email.toLowerCase() === email.toLowerCase());
   if (!mine) return c.json({ error: 'not found' }, 404);
 
-  const seller = (await sellerDetailsFor(
+  // The app is `membership` by construction (the query filters on it), so
+  // this always resolves the COMMUNITY as seller, never the organiser's
+  // personal invoicing identity. See sellerForSale.
+  const seller = (await sellerForSale(
+    'membership',
     purchase.workspace_id as string,
     (purchase.organiser_user_id as string | null) ?? null,
   )) ?? { legal_name: '' };
