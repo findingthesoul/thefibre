@@ -17,6 +17,7 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
+import { activateMemberFromInvoice } from './membership.js';
 import {
   chargeAccountForItem,
   personalInvoiceDetails,
@@ -745,6 +746,10 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
     .from('purchase')
     .update({ status: 'paid', paid_at: paidAt })
     .eq('id', p.id);
+
+  // A membership invoice pays for a period — settling the ledger row has to
+  // move the membership with it, exactly as the Stripe webhook does.
+  if (r.appSlug === 'membership') await activateMemberFromInvoice(p.item_ref);
 
   // The money landed somewhere: bump the chosen account's balance with a new
   // snapshot (old latest + amount, dated the paid date). A later manual

@@ -966,12 +966,12 @@ const CATALOG = {
     fr: "Leur souhaite la bienvenue et renvoie vers leur page membre (adhésion, factures, moyens de paiement).", // MT
   },
   renews_hint: {
-    en: 'Optional — the scheduler moves overdue manual members to grace, then lapsed.',
-    nl: 'Optioneel — de planner zet handmatige leden die over tijd zijn eerst op respijt, dan op verlopen.',
-    es: 'Opcional — el planificador pasa a los miembros manuales vencidos a gracia y luego a vencido.', // MT
-    pt: 'Opcional — o agendador move membros manuais em atraso para carência e depois para expirado.', // MT
-    de: 'Optional — der Scheduler setzt überfällige manuelle Mitglieder erst auf Nachfrist, dann auf abgelaufen.', // MT
-    fr: "Facultatif — le planificateur passe les membres manuels en retard en grâce, puis en expiré.", // MT
+    en: 'Leave blank for one period from today. Overdue manual members move to grace, then lapsed.',
+    nl: 'Laat leeg voor één periode vanaf vandaag. Handmatige leden die over tijd zijn gaan naar respijt, dan verlopen.',
+    es: 'Déjalo en blanco para un periodo desde hoy. Los miembros manuales vencidos pasan a gracia y luego a vencido.', // MT
+    pt: 'Deixe em branco para um período a partir de hoje. Membros manuais em atraso passam a carência e depois a expirado.', // MT
+    de: 'Leer lassen für eine Periode ab heute. Überfällige manuelle Mitglieder gehen auf Nachfrist, dann abgelaufen.', // MT
+    fr: "Laissez vide pour une période à partir d'aujourd'hui. Les membres manuels en retard passent en grâce, puis en expiré.", // MT
   },
   pick_a_tier: {
     en: 'Pick a tier.',

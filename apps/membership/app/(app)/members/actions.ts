@@ -29,7 +29,7 @@ export async function createMember(input: {
   organisation_id?: string;
   seat_allowance?: number;
   tier_id: string;
-  renews_at: string | null; // full ISO datetime or null
+  renews_at?: string | null; // full ISO datetime; omitted = one period from today
   country?: string | null;
   billing?: 'comped' | 'invoice';
   interval?: 'year' | 'month';

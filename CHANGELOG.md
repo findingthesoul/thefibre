@@ -6,6 +6,43 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.22] — 2026-09-09 — a paid membership stays paid (Members 0.14.2)
+
+soul.com's first live member joined on an invoice, paid, and the app
+disagreed with all three parts of that sentence. Four defects, found from
+the row itself rather than the symptom.
+
+- **Paying an invoice now moves the membership.** The Stripe payment link
+  in a membership invoice email settled the ledger row and stopped there —
+  the membership kept the status and renewal date it was created with, so
+  someone who paid on day one sat in grace forever. New
+  `activateMemberFromInvoice()` (routes/membership.ts): item refs shaped
+  `member-inv-<member id>-<n>` set the member active, clear `lapsed_at` and
+  roll `renews_at` one period on from whichever is later, the date already
+  on the row or today. Wired into the Connect webhook AND
+  `POST /purchases/:id/mark-paid`, which had the same hole. The period the
+  invoice bought is stamped into `purchase.billing.membership_interval` at
+  creation (person and organisation paths both).
+- **A manual add gets a real renewal date.** `renews_at` was whatever the
+  caller sent, and the Add-member dialog sent an explicit `null` when the
+  field was blank. Absent now means one period from `started_at`; an
+  explicit null still means "never renews". The dialog omits the key
+  instead of nulling it, and its hint says so.
+- **The overdue sweep no longer graces a membership on its first day.** A
+  renewal date on or before `started_at` is a data error, not a late
+  payment. The sweep skips those rows — before this, a membership created
+  with today's date was graced by the next 5-minute tick, two minutes after
+  joining, with a `membership_payment_failed` activity row to match.
+- **`country` comes back from the API.** It was missing from
+  `MEMBER_SELECT`, so the member dialog read it as undefined, always showed
+  "Not declared", and — worse — wrote that null back over a declared
+  country on the next save.
+- **The wall knows about members** (`/no-access`). The (app) gate sends
+  everyone without a workspace seat there, and the largest group hitting it
+  is community members, who have no seat by design. It now checks the
+  portal and redirects a member to `/my`; the wall that remains says what
+  it is and links there anyway.
+
 ## [0.68.21] — 2026-09-08 — one copy of the participant sign-in strings (Members 0.14.1)
 
 The passwordless email-code + Google sign-in copy lived twice — six

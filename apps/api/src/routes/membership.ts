@@ -603,8 +603,68 @@ const MemberListQuery = z.object({
   q: z.string().trim().min(1).max(100).optional(),
 });
 
+/** One billing period on from a date, in UTC. */
+function addInterval(from: Date, interval: 'year' | 'month'): Date {
+  const d = new Date(from);
+  if (interval === 'month') d.setUTCMonth(d.getUTCMonth() + 1);
+  else d.setUTCFullYear(d.getUTCFullYear() + 1);
+  return d;
+}
+
+/** A membership invoice was paid — by the payment link in the invoice email
+ *  or by an admin marking it paid. Settling the ledger row was never enough
+ *  on its own: the membership kept the status and renewal date it was
+ *  created with, so someone who paid on day one stayed in grace (soul.com,
+ *  2026-09-09). Item refs are `member-inv-<member id>-<n>`; anything else
+ *  belongs to another app and is left alone. */
+export async function activateMemberFromInvoice(itemRef: string): Promise<void> {
+  const match = /^member-inv-([0-9a-f-]{36})-\d+$/i.exec(itemRef);
+  const memberId = match?.[1];
+  if (!memberId) return;
+  const { data: member } = await adminClient
+    .from('membership_member')
+    .select('id, workspace_id, person_id, status, renews_at')
+    .eq('id', memberId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  if (!member) return;
+
+  // The interval the invoice was raised for, stamped into billing when it
+  // was created. Yearly is the default everywhere else in this app.
+  const { data: purchase } = await adminClient
+    .from('purchase')
+    .select('billing')
+    .eq('item_ref', itemRef)
+    .maybeSingle();
+  const interval =
+    (purchase?.billing as { membership_interval?: string } | null)?.membership_interval === 'month'
+      ? 'month'
+      : 'year';
+
+  // Roll forward from whichever is later — the date already on the row, or
+  // now. A late payment must not buy back a period that already elapsed.
+  const current = member.renews_at ? new Date(member.renews_at) : null;
+  const from = current && current.getTime() > Date.now() ? current : new Date();
+  await adminClient
+    .from('membership_member')
+    .update({
+      status: 'active',
+      lapsed_at: null,
+      renews_at: addInterval(from, interval).toISOString(),
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', memberId);
+  await logMemberActivity(
+    member.workspace_id,
+    member.person_id,
+    'membership_renewed',
+    'Invoice paid — membership active',
+  );
+  await reconcileMemberAccess(memberId);
+}
+
 const MEMBER_SELECT =
-  'id, person_id, organisation_id, seat_allowance, org_member_id, tier_id, status, started_at, renews_at, lapsed_at, stripe_subscription_id, notes, created_at, ' +
+  'id, person_id, organisation_id, seat_allowance, org_member_id, tier_id, status, started_at, renews_at, lapsed_at, stripe_subscription_id, notes, country, created_at, ' +
   'person:person_id (id, first_name, last_name, email), tier:tier_id (id, name), ' +
   'organisation:organisation_id (id, name), ' +
   // A seat row's parent org membership → the organisation it seats under.
@@ -680,10 +740,19 @@ membershipRoutes.post('/members', async (c) => {
   const db = userClient(ctx.jwt);
   const { billing, interval, invite, country, ...memberFields } = body.data;
   const isOrg = Boolean(memberFields.organisation_id);
+  // A membership added today renews a period from today. Left to the caller
+  // this arrived blank, or — worse — as today's date, which the overdue
+  // sweep read as already due and graced minutes later (soul.com, 2026-09-09).
+  const startedAt = memberFields.started_at ? new Date(memberFields.started_at) : new Date();
+  const renewsAt =
+    memberFields.renews_at === undefined
+      ? addInterval(startedAt, interval).toISOString()
+      : memberFields.renews_at;
   const { data, error } = await db
     .from('membership_member')
     .insert({
       ...memberFields,
+      renews_at: renewsAt,
       // Org rows always carry an allowance (the UI sends one; default 1).
       ...(isOrg && !memberFields.seat_allowance ? { seat_allowance: 1 } : {}),
       ...(country && !isOrg ? { country: country.toUpperCase() } : {}),
@@ -757,6 +826,7 @@ membershipRoutes.post('/members', async (c) => {
           method: 'invoice',
           status: 'pending',
           billing: {
+            membership_interval: interval,
             company: ob?.legal_name ?? org?.legal_name ?? org?.name ?? null,
             address: ob?.billing_street ?? org?.street ?? null,
             postal_code: ob?.billing_postal_code ?? org?.postal_code ?? null,
@@ -844,6 +914,7 @@ membershipRoutes.post('/members', async (c) => {
         method: 'invoice',
         status: 'pending',
         billing: {
+          membership_interval: interval,
           address: person.street ?? null,
           postal_code: person.postal_code ?? null,
           city: person.city ?? null,
@@ -2482,10 +2553,13 @@ membershipRoutes.post('/stripe-webhook', async (c) => {
             .eq('id', purchaseId)
             .eq('status', 'pending')
             .select(
-              'workspace_id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
+              'item_ref, workspace_id, payer_name, payer_email, item_label, amount_cents, currency, method, status, created_at, billing, stripe_invoice_url, organiser_user_id',
             )
             .maybeSingle();
           if (paidRow) {
+            // An invoice pays for a period, so settling it moves the
+            // membership too — active, renewing a period on.
+            await activateMemberFromInvoice(paidRow.item_ref as string);
             void sendReceipt(paidRow.workspace_id, paidRow as Record<string, unknown>).catch((e) =>
               console.error('[membership/webhook] paid receipt failed', e),
             );
@@ -2646,7 +2720,7 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
   // move through the webhook instead, never here.
   const { data: overdue } = await adminClient
     .from('membership_member')
-    .select('id, workspace_id, person_id, status, renews_at')
+    .select('id, workspace_id, person_id, status, started_at, renews_at')
     .in('status', ['active', 'grace'])
     .is('stripe_subscription_id', null)
     .not('renews_at', 'is', null)
@@ -2655,6 +2729,10 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
 
   for (const m of overdue ?? []) {
     const renewsAtMs = new Date(m.renews_at as string).getTime();
+    // A renewal date on or before the day the membership began is a data
+    // error, not an overdue payment — grace-ing it tells someone who just
+    // joined that they didn't pay. Leave those rows for a human to correct.
+    if (new Date(m.started_at as string).getTime() >= renewsAtMs) continue;
     const pastGrace = now - renewsAtMs > MANUAL_GRACE_DAYS * 24 * 60 * 60 * 1000;
     if (m.status === 'active') {
       await adminClient

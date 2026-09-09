@@ -121,7 +121,9 @@ export function AddMemberDialog({
         organisation_id: org.id,
         seat_allowance: seatAllowance,
         tier_id: tierId,
-        renews_at: renewsAt ? dateToIso(renewsAt) : null,
+        // Left blank the API dates it one period from today. Sending an
+        // explicit null would instead mean "never renews".
+        ...(renewsAt ? { renews_at: dateToIso(renewsAt) } : {}),
         billing: priced ? billing : 'comped',
         interval: effectiveInterval,
       });
@@ -186,7 +188,7 @@ export function AddMemberDialog({
     const res = await createMember({
       person_id: personId!,
       tier_id: tierId,
-      renews_at: renewsAt ? dateToIso(renewsAt) : null,
+      ...(renewsAt ? { renews_at: dateToIso(renewsAt) } : {}),
       country: country || null,
       billing: priced ? billing : 'comped',
       interval: effectiveInterval,
