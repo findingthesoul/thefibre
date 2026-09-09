@@ -486,6 +486,19 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     verify every import the commit introduces resolves within the commit.
   - Fence lanes by directory; coordinate shared files (layouts,
     `packages/shared/package.json`) explicitly.
+  - **A peer's UNCOMMITTED work can block your release.**
+    `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
+    over the WORKING TREE, not over your commit. So a third session's
+    mid-edit file — a prop passed before it is declared, an import written
+    before its target — fails the gate for everybody, and it surfaces as a
+    typecheck error in a file you have never opened. **Read the failing PATH
+    before assuming the error is yours.** If it is in someone else's lane,
+    tell them; do not fix it, and do not work around the gate. First seen
+    2026-09-09, the first day three sessions held in-flight code at once;
+    found by a session running a cross-check, not by the one that caused it.
+    The gate is behaving correctly — this is the shared checkout's cost, and
+    the sharpest argument for taking a worktree for code work (CLAUDE.md,
+    Parallel SESSIONS): in a worktree it cannot happen.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
