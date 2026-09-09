@@ -87,6 +87,33 @@ _Last groomed 2026-09-09 (v0.68.48). Done items get removed, not ticked._
    Anyone re-verifying a URL builder wants one seeded thread per owner kind
    or the result covers a third of the surface.
 
+   **Moving a thread between owners silently kills its old public URL.**
+   Sjoerd, 2026-09-09, after doing it to himself: a thread re-scoped from
+   personal to a team moved from `/{organiser}/{thread}` to
+   `/{team}/{thread}`, and the old address 404s with no redirect. Anyone
+   holding the previous link — an email, a Webflow embed, a WhatsApp
+   message — hits a dead page, and nothing tells the organiser that
+   happened. Same class covers renaming the thread's own slug, and renaming
+   an organiser, team or workspace slug: every one of those rewrites a live
+   public address.
+
+   His call on the shape, and it is the right one: a REDIRECT from the old
+   address, not keeping both live. Two live addresses for one thread splits
+   analytics, confuses the canonical tag and doubles the surface D2 already
+   made subtle.
+
+   Sketch, not a decision: an alias row per retired address —
+   (owner_segment, thread_slug) → thread_id, written by the same triggers or
+   route code that changes any of those four slugs. `resolvePublicOwner`
+   plus the thread lookup already miss cleanly, so the alias table is a
+   fallback consulted only on a 404, which keeps the happy path untouched.
+   Three things need deciding before building it: how long an alias lives; what
+   happens when a NEW thread legitimately claims a retired address (the live
+   one must win, so the alias is checked last and pruned on conflict); and
+   whether a 301 or a 302 — 301 is right for a permanent move but is cached
+   by browsers essentially forever, which is unforgiving if someone moves a
+   thread back.
+
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
    smoke-prod). Phase 1 DONE (CI installed — SSH
