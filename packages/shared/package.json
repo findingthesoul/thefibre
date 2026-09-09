@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.25",
+  "version": "0.68.26",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -173,6 +173,10 @@
     "./ui/legal-docs": {
       "types": "./dist/ui/legal-docs.d.ts",
       "default": "./dist/ui/legal-docs.js"
+    },
+    "./invoice-model": {
+      "types": "./dist/invoice-model.d.ts",
+      "default": "./dist/invoice-model.js"
     }
   },
   "files": [

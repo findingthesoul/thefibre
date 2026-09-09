@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.26] — 2026-09-09 — one definition of what an invoice is
+
+Sjoerd: "PDF and send can also be created based on what is in the
+@fibre/shared environment right? Like a single point of truth." Half yes.
+The renderers stay in the API; the DEFINITION moves to shared.
+
+- **`@thefibre/shared/invoice-model`** — a pure function turning a ledger
+  row into the invoice: kind (a pending row is an invoice, anything else a
+  receipt), number, date, seller and buyer blocks, the line with its
+  optional service-until, subtotal/tax/total, and the payment method as a
+  decided vocabulary. It returns DATA, never formatted text, because the
+  on-screen dialog localises and the two server renderers do not. No
+  dependencies, no node, no I/O.
+- **All three renderers now read it**: `apps/api/src/lib/invoice-pdf.ts`,
+  `receiptHtml` in `routes/purchases.ts`, and
+  `packages/shared/src/ui/invoice-dialog.tsx`. Each keeps its own layout and
+  its own wording; none decides any more what an invoice contains.
+- **They had drifted, which is the point.** The email dated a settled
+  receipt by `created_at`, so it showed when the invoice was RAISED rather
+  than when it was paid — now the paid date, as the PDF always did. The PDF
+  showed a subtotal always and the email only alongside tax. The buyer name
+  fell back differently in each. One definition, one answer.
+- Not moved, deliberately: `buildInvoicePdf` needs pdfkit and returns a
+  Buffer, and `packages/shared` has zero dependencies and is bundled into
+  every web app. It also draws from personal data, which HARD RULE 1 keeps
+  in the EU API.
+- Verified beyond typecheck: real production ledger rows rendered
+  byte-identically through the rebuilt PDF (2060 bytes before and after for
+  soul.com's €1 invoice).
+
 ## [0.68.25] — 2026-09-09 — a member can get their own invoice (Members 0.14.4)
 
 Sjoerd on his own member page, on production: "Can't download or send the

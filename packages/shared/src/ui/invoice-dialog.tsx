@@ -13,37 +13,17 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import { INTL_LOCALES } from '../i18n.js';
+import {
+  invoiceModel,
+  type InvoicePurchase,
+  type InvoiceSeller,
+} from '../invoice-model.js';
 import { chromeT, useLocale, type ChromeKey } from './i18n-ui.js';
 
-export type InvoicePurchase = {
-  id: string;
-  item_label: string;
-  amount_cents: number;
-  currency: string;
-  status: string;
-  method: string;
-  paid_at: string | null;
-  created_at: string;
-  payer_name: string;
-  payer_email: string | null;
-  stripe_invoice_url: string | null;
-  billing?: {
-    number?: string | null;
-    company?: string | null;
-    address?: string | null;
-    postal_code?: string | null;
-    city?: string | null;
-    country?: string | null;
-    tax_no?: string | null;
-    period_end?: string | null;
-    pdf?: string | null;
-    subtotal_cents?: number | null;
-    tax_cents?: number | null;
-    tax_label?: string | null;
-  } | null;
-};
-
-export type InvoiceSeller = { legal_name: string; address?: string; tax_no?: string };
+// The shape and the composition are decided once, in ../invoice-model.js,
+// and shared with the PDF and the invoice email. Re-exported here because
+// the apps already import these names from this module.
+export type { InvoicePurchase, InvoiceSeller } from '../invoice-model.js';
 
 function moneyIn(intl: string, cents: number, currency: string): string {
   return new Intl.NumberFormat(intl, { style: 'currency', currency: currency || 'EUR' }).format(
@@ -108,15 +88,9 @@ export function InvoiceDialog({
   if (!open) return null;
 
   const b = purchase.billing ?? {};
-  const date = new Date(purchase.paid_at ?? purchase.created_at);
-  const settled = purchase.status !== 'pending';
-  const buyerAddress = [
-    b.address,
-    [b.postal_code, b.city].filter(Boolean).join(' '),
-    b.country,
-  ]
-    .filter(Boolean)
-    .join(', ');
+  const m = invoiceModel(purchase, seller);
+  const date = new Date(m.dateIso);
+  const settled = m.kind === 'receipt';
   const pdfUrl = pdfHref ?? b.pdf ?? purchase.stripe_invoice_url ?? null;
   // The share link is OUR invoice page — Stripe's hosted copy only when the
   // app gave us no page at all (the ledger is the record, Stripe is rails).
@@ -176,7 +150,7 @@ export function InvoiceDialog({
             <h2 className="text-base font-medium">
               {settled ? chromeT(locale, 'receipt') : chromeT(locale, 'invoice')}
             </h2>
-            {b.number && <div className="font-mono text-xs text-ink-muted">{b.number}</div>}
+            {m.number && <div className="font-mono text-xs text-ink-muted">{m.number}</div>}
           </div>
           <button
             onClick={onClose}
@@ -243,42 +217,42 @@ export function InvoiceDialog({
           <div className="flex items-start justify-between gap-4">
             {seller && (
               <Block label={chromeT(locale, 'from')}>
-                <div className="font-medium">{seller.legal_name}</div>
-                {seller.address && <div className="text-ink-subtle">{seller.address}</div>}
-                {seller.tax_no && (
-                  <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {seller.tax_no}</div>
+                <div className="font-medium">{m.seller.name}</div>
+                {m.seller.address && <div className="text-ink-subtle">{m.seller.address}</div>}
+                {m.seller.taxNo && (
+                  <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {m.seller.taxNo}</div>
                 )}
               </Block>
             )}
             <Block label={chromeT(locale, 'billed_to')} right={Boolean(seller)}>
-              <div>{b.company ?? purchase.payer_name}</div>
-              {buyerAddress && <div className="text-ink-subtle">{buyerAddress}</div>}
-              {b.tax_no && (
-                <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {b.tax_no}</div>
+              <div>{m.buyer.name}</div>
+              {m.buyer.address && <div className="text-ink-subtle">{m.buyer.address}</div>}
+              {m.buyer.taxNo && (
+                <div className="text-ink-subtle">{chromeT(locale, 'vat')}: {m.buyer.taxNo}</div>
               )}
-              {purchase.payer_email && <div className="text-ink-muted">{purchase.payer_email}</div>}
+              {m.buyer.email && <div className="text-ink-muted">{m.buyer.email}</div>}
             </Block>
           </div>
 
           <div className="mt-5 rounded-md border border-line">
             <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3">
-              <span className="min-w-0">{purchase.item_label}</span>
+              <span className="min-w-0">{m.line.label}</span>
               <span className="shrink-0 font-mono">
-                {money(b.subtotal_cents ?? purchase.amount_cents, purchase.currency)}
+                {money(m.line.amountCents, m.currency)}
               </span>
             </div>
-            {typeof b.tax_cents === 'number' && (b.tax_cents > 0 || b.tax_label) && (
+            {m.totals.tax && (
               <div className="flex items-baseline justify-between gap-4 border-b border-line px-4 py-3 text-ink-subtle">
-                <span>{b.tax_label ?? chromeT(locale, 'vat')}</span>
-                <span className="font-mono">{money(b.tax_cents, purchase.currency)}</span>
+                <span>{m.totals.tax.label ?? chromeT(locale, 'vat')}</span>
+                <span className="font-mono">{money(m.totals.tax.amountCents, m.currency)}</span>
               </div>
             )}
             <div className="flex items-baseline justify-between gap-4 px-4 py-3">
               <span className="font-medium">
-                {chromeT(locale, 'total_currency', { currency: purchase.currency })}
+                {chromeT(locale, 'total_currency', { currency: m.currency })}
               </span>
               <span className="font-mono text-base font-medium">
-                {money(purchase.amount_cents, purchase.currency)}
+                {money(m.totals.totalCents, m.currency)}
               </span>
             </div>
           </div>
@@ -286,15 +260,15 @@ export function InvoiceDialog({
           <div className="mt-4 flex flex-wrap gap-x-6 gap-y-1 text-xs text-ink-muted">
             <span>{date.toLocaleDateString(intl, { dateStyle: 'long' })}</span>
             <span>
-              {purchase.method === 'stripe'
+              {m.method === 'card'
                 ? chromeT(locale, 'method_card')
-                : purchase.method === 'invoice'
+                : m.method === 'invoice' || m.method === 'invoice_awaiting'
                   ? chromeT(locale, 'by_invoice')
-                  : purchase.method}
+                  : m.raw.method}
               {' · '}
-              {STATUS_KEYS[purchase.status]
-                ? chromeT(locale, STATUS_KEYS[purchase.status]!)
-                : purchase.status}
+              {STATUS_KEYS[m.raw.status]
+                ? chromeT(locale, STATUS_KEYS[m.raw.status]!)
+                : m.raw.status}
             </span>
             {b.period_end && (
               <span>

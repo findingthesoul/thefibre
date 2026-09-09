@@ -70,6 +70,7 @@ export type ActivityType = (typeof ACTIVITY_TYPES)[number];
 // subpath export './i18n' for the Next apps; re-exported here so the API
 // can keep importing from the root.
 export * from './i18n.js';
+export * from './invoice-model.js';
 
 // Participant sign-in catalog (email code + Google) — shared by every
 // participant-facing portal; also the subpath './participant-auth-i18n'.
