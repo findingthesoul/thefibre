@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.51] — 2026-09-09 — the portal's popup stops shouting all at once
+
+Sjoerd, on his own membership: *"improve the interface drastically... more
+clear overview... simple icons... a toggle for coming or not coming... or
+dropdown for RSVP."* The complaint underneath it was measurable — each agenda
+row carried four controls of equal weight and the eye had nothing to land on.
+Design worked out with the membership session, which had the screenshot and
+the measurements.
+
+- **A date chip, day over month, on the left of each row.** The date had been
+  right-aligned in small grey text, which is where you put something you do
+  not want read. An agenda is scanned by date. The time moves into the
+  subtitle beside the location.
+- **Join and Add to calendar are icons**, 44×44, with `aria-label` and
+  `title`. Both are already icon-labelled in every calendar app anyone uses;
+  dropping the visible word is a visual decision, not an accessibility one.
+- **RSVP is ONE segmented control over THREE states.** He asked for a toggle
+  or a dropdown; both are two-state shapes and the answer is three — coming,
+  can't, and **no answer**. A toggle would have to render "no answer" as off,
+  which is exactly the collapse v0.68.30 was careful to avoid: an organiser
+  chasing eight silences is doing something different from one reading eight
+  refusals. So neither segment is filled until you answer, tapping the filled
+  one withdraws, and the caption says which state you are in. Segmented
+  rather than a select because this is used on a phone at a door, where a
+  44px target beats a native picker. **Taken as the three-state reading of
+  his words rather than asked twice** — he has had the argument from the
+  other session and can overrule it in a word.
+
+**The ticket block is laid sideways, not redesigned.** The QR, the wording
+and the wallet actions are unchanged in substance. But the fifth verification
+round measured it filling about half the viewport at 375px, which put the
+agenda below the fold **from the first item** — and on a bottom sheet the
+only budget is vertical. Stacked, that was unfixable without touching it. Now
+the QR sits at 96px on the left with the caption and wallet icons beside it,
+and **tapping it opens it full size on white** — the same treatment
+`ticket.tsx` already gives an orphan ticket, for the same reason: held at
+arm's length, half-turned, sometimes in sun. Full size is one tap away, which
+is the right cost for the size that actually matters at a door.
+
+**Verified here, thinly and on purpose:** typecheck clean, production build
+clean, signed-out page renders with no console errors. Everything changed
+lives inside a dialog that only exists behind a session, so the real check is
+the staging fixture — round five is requested, with the withdraw path and the
+above-the-fold claim named as the two least trusted.
+
 ## [0.68.50] — 2026-09-09 — the join page from the home screen (Members 0.14.6)
 
 Sjoerd: "on the home of members — a link to the membership page."

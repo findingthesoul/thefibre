@@ -13,7 +13,7 @@
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
-import { Calendar, QrCode, Wallet } from 'lucide-react';
+import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X } from 'lucide-react';
 import {
   agendaIcsUrl,
   appleWalletUrl,
@@ -26,6 +26,24 @@ import {
   type Ticket as TicketRow,
   type ThreadItem,
 } from '@/lib/portal-api';
+
+/** The date chip: day over month, which is how an agenda is scanned. The
+ *  date used to sit right-aligned in small grey text, which is where you put
+ *  something you do not want read. */
+function dayMonth(iso: string): { day: string; month: string } {
+  const d = new Date(iso);
+  return {
+    day: new Intl.DateTimeFormat('en-GB', { day: 'numeric' }).format(d),
+    month: new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d),
+  };
+}
+
+/** Just the clock, since the chip already carries the date. */
+function fmtTime(iso: string): string {
+  return new Intl.DateTimeFormat('en-GB', { hour: '2-digit', minute: '2-digit' }).format(
+    new Date(iso),
+  );
+}
 
 function fmtDateTime(iso: string): string {
   return new Intl.DateTimeFormat('en-GB', {
@@ -69,11 +87,66 @@ function ActionLink({
 }
 
 /**
- * Coming / Can't make it, with the current answer selected. Tapping the
- * selected one WITHDRAWS it — back to no answer, which is a real state and
- * has to be reachable, or a mis-tap is permanent and the organiser's counts
- * are quietly wrong. Nothing here says what silence means; that is the
- * organiser's business and Sjoerd hasn't decided it.
+ * The same thing without the word. "Join" and "Add to calendar" are already
+ * labelled by their icon in every calendar app anyone uses, and four
+ * equal-weight worded buttons per agenda row left the eye nothing to land on.
+ * The name survives for screen readers and as a tooltip — dropping the label
+ * is a visual decision, not an accessibility one.
+ */
+function IconLink({
+  href,
+  label,
+  download,
+  children,
+}: {
+  href: string;
+  label: string;
+  download?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      title={label}
+      aria-label={label}
+      {...(download ? { download: '' } : { target: '_blank', rel: 'noreferrer' })}
+      className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink"
+    >
+      {children}
+    </a>
+  );
+}
+
+/** Day over month, left of the row. */
+function DateChip({ iso }: { iso: string }) {
+  const { day, month } = dayMonth(iso);
+  return (
+    <div
+      aria-hidden
+      className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-line bg-surface-sunken leading-none"
+    >
+      <span className="text-base font-medium text-ink">{day}</span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-wide text-ink-muted">{month}</span>
+    </div>
+  );
+}
+
+/**
+ * Coming? — ONE segmented control over THREE states.
+ *
+ * Sjoerd asked for "a toggle for coming or not coming... or dropdown". Both
+ * of those are two-state shapes and the answer is three: coming, can't, and
+ * NO ANSWER. A toggle would have to render "no answer" as off, which is
+ * precisely the collapse the whole design avoids — an organiser chasing
+ * eight silences is doing something different from one reading eight
+ * refusals, and v0.68.30's storage keeps them apart on purpose. So: a
+ * segment per answer, none filled until you answer, and tapping the filled
+ * one WITHDRAWS back to no answer. Three states, one control, two taps deep
+ * at most.
+ *
+ * Segmented rather than a select because this is used on a phone at a door:
+ * 44px targets beat a native picker. Design argued with the membership
+ * session; Sjoerd can overrule it in a word.
  */
 function Rsvp({ item }: { item: AgendaItem }) {
   const router = useRouter();
@@ -99,38 +172,48 @@ function Rsvp({ item }: { item: AgendaItem }) {
     });
   }
 
-  // 44px minimum, like every other control here. These are the most-pressed
-  // things on the screen and were missed the first time round: v0.68.36
-  // fixed the two links that had been measured and claimed "everything",
-  // which was wrong — these stayed at 34 high. Measured again at 375px.
-  const base =
-    'inline-flex min-h-11 items-center justify-center rounded-lg border px-4 text-sm transition-colors disabled:opacity-60';
-  const on = 'border-ink bg-ink text-surface';
-  const off = 'border-line bg-surface text-ink hover:border-line-strong';
+  const seg =
+    'inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 text-sm transition-colors disabled:opacity-60';
 
   return (
-    <div className="mt-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-ink-muted">Coming?</span>
+    <div className="mt-3">
+      <div
+        role="group"
+        aria-label="Are you coming?"
+        className="flex overflow-hidden rounded-lg border border-line"
+      >
         <button
           type="button"
           onClick={() => choose('coming')}
           disabled={pending}
           aria-pressed={answer === 'coming'}
-          className={`${base} ${answer === 'coming' ? on : off}`}
+          className={`${seg} border-r border-line ${
+            answer === 'coming' ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-surface-sunken'
+          }`}
         >
-          Yes
+          <Check className="h-4 w-4" aria-hidden />
+          Coming
         </button>
         <button
           type="button"
           onClick={() => choose('not_coming')}
           disabled={pending}
           aria-pressed={answer === 'not_coming'}
-          className={`${base} ${answer === 'not_coming' ? on : off}`}
+          className={`${seg} ${
+            answer === 'not_coming'
+              ? 'bg-ink text-surface'
+              : 'bg-surface text-ink hover:bg-surface-sunken'
+          }`}
         >
-          Can&rsquo;t make it
+          <X className="h-4 w-4" aria-hidden />
+          Can&rsquo;t
         </button>
       </div>
+      <p className="mt-1 text-xs text-ink-muted">
+        {answer === null
+          ? 'You haven\u2019t answered yet.'
+          : 'Tap again to undo.'}
+      </p>
       {failed && (
         <p className="mt-1 text-xs text-ink-muted">
           That didn&rsquo;t save. Check your connection and try again.
@@ -144,28 +227,51 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
   const link = item.meeting_url ?? item.external_url;
   return (
     <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-medium text-ink">{item.title}</span>
-        {item.starts_at && (
-          <span className="shrink-0 text-xs text-ink-muted">{fmtDateTime(item.starts_at)}</span>
-        )}
+      <div className="flex gap-3">
+        {item.starts_at ? <DateChip iso={item.starts_at} /> : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <p className="font-medium text-ink">{item.title}</p>
+              {item.starts_at && (
+                <p className="text-sm text-ink-muted">
+                  {fmtTime(item.starts_at)}
+                  {item.location ? ` · ${item.location}` : ''}
+                </p>
+              )}
+              {!item.starts_at && item.location && (
+                <p className="text-sm text-ink-muted">{item.location}</p>
+              )}
+            </div>
+            {/* Icons, not worded buttons: four equal-weight labels per row is
+                what "no clear overview" actually meant. */}
+            <div className="flex shrink-0 gap-1.5">
+              {link && (
+                <IconLink href={link} label={item.meeting_url ? 'Join' : 'Open link'}>
+                  {item.meeting_url ? (
+                    <Video className="h-5 w-5" aria-hidden />
+                  ) : (
+                    <ExternalLink className="h-5 w-5" aria-hidden />
+                  )}
+                </IconLink>
+              )}
+              {/* Only items with a real timestamp: a thread carries dates, and
+                  an all-day VEVENT would be machinery for no benefit. */}
+              {item.starts_at && (
+                <IconLink
+                  href={agendaIcsUrl(threadId, item.id)}
+                  label="Add to calendar"
+                  download
+                >
+                  <CalendarPlus className="h-5 w-5" aria-hidden />
+                </IconLink>
+              )}
+            </div>
+          </div>
+          {item.description && <p className="mt-1 text-sm text-ink-subtle">{item.description}</p>}
+          {item.rsvp_enabled && <Rsvp item={item} />}
+        </div>
       </div>
-      {item.description && <p className="mt-1 text-sm text-ink-subtle">{item.description}</p>}
-      {item.location && <p className="mt-0.5 text-sm text-ink-muted">{item.location}</p>}
-      <div className="mt-2 flex flex-wrap gap-2">
-        {link && (
-          <ActionLink href={link}>{item.meeting_url ? 'Join' : 'Open'}</ActionLink>
-        )}
-        {/* Only items with a real timestamp: a thread carries dates, and an
-            all-day VEVENT would be machinery for no benefit. */}
-        {item.starts_at && (
-          <ActionLink href={agendaIcsUrl(threadId, item.id)} download>
-            <Calendar className="h-4 w-4" aria-hidden />
-            Add to calendar
-          </ActionLink>
-        )}
-      </div>
-      {item.rsvp_enabled && <Rsvp item={item} />}
     </li>
   );
 }
@@ -180,6 +286,7 @@ export function ThreadDetail({
   wallet: Portal['wallet'];
 }) {
   const [open, setOpen] = useState(false);
+  const [zoom, setZoom] = useState(false);
   const when = fmtDate(thread.starts_on);
   const code = ticket?.checkin_code ?? null;
 
@@ -209,33 +316,51 @@ export function ThreadDetail({
       </button>
 
       <Dialog open={open} onClose={() => setOpen(false)} title={thread.title} description={when} size="lg">
+        {/* The QR is the reason this page exists and it is NOT redesigned.
+            It is only laid out sideways and made tappable, for one measured
+            reason: at 375px this dialog is a bottom sheet and the ticket
+            block alone filled about half the viewport, so the agenda began
+            below the fold from the first item. Side by side, the first
+            agenda row is visible without scrolling — which is worth more
+            than anything done to rows two and three. Full size is one tap
+            away, which is the size that matters at a door. */}
         {code && (
-          <section className="mb-6">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={ticketQrUrl(code)}
-              alt={`Check-in code for ${thread.title}`}
-              className="mx-auto w-full max-w-[220px] rounded-lg bg-white p-3"
-            />
-            <p className="mt-2 text-center text-xs text-ink-muted">
-              {ticket?.checked_in_at ? 'Already checked in' : 'Show this at the door'}
-            </p>
-            {(wallet.apple || wallet.google) && (
-              <div className="mt-3 flex flex-wrap justify-center gap-2">
-                {wallet.apple && (
-                  <ActionLink href={appleWalletUrl(code)}>
-                    <Wallet className="h-4 w-4" aria-hidden />
-                    Add to Apple Wallet
-                  </ActionLink>
-                )}
-                {wallet.google && (
-                  <ActionLink href={googleWalletUrl(code)}>
-                    <Wallet className="h-4 w-4" aria-hidden />
-                    Save to Google Wallet
-                  </ActionLink>
+          <section className="mb-5">
+            <div className="flex items-center gap-4">
+              <button
+                type="button"
+                onClick={() => setZoom(true)}
+                aria-label="Show the check-in code full size"
+                className="shrink-0 rounded-lg bg-white p-2"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={ticketQrUrl(code)}
+                  alt={`Check-in code for ${thread.title}`}
+                  className="h-24 w-24"
+                />
+              </button>
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">
+                  {ticket?.checked_in_at ? 'Already checked in' : 'Show this at the door'}
+                </p>
+                <p className="mt-0.5 text-xs text-ink-muted">Tap the code to enlarge.</p>
+                {(wallet.apple || wallet.google) && (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    {wallet.apple && (
+                      <IconLink href={appleWalletUrl(code)} label="Add to Apple Wallet">
+                        <Wallet className="h-5 w-5" aria-hidden />
+                      </IconLink>
+                    )}
+                    {wallet.google && (
+                      <IconLink href={googleWalletUrl(code)} label="Save to Google Wallet">
+                        <Wallet className="h-5 w-5" aria-hidden />
+                      </IconLink>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+            </div>
           </section>
         )}
 
@@ -259,6 +384,28 @@ export function ThreadDetail({
           <ActionLink href={thread.url}>Open the full page</ActionLink>
         </div>
       </Dialog>
+
+      {/* Full size, white, nothing else on screen — the same treatment
+          ticket.tsx gives an orphan ticket, for the same reason: held at
+          arm's length, half-turned toward someone else, sometimes in sun. */}
+      {zoom && code && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Check-in code for ${thread.title}`}
+          onClick={() => setZoom(false)}
+          className="fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 bg-white p-6"
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={ticketQrUrl(code)}
+            alt={`Check-in code for ${thread.title}`}
+            className="w-full max-w-xs"
+          />
+          <p className="text-lg font-medium text-black">{thread.title}</p>
+          <p className="text-sm text-neutral-500">Tap anywhere to close</p>
+        </div>
+      )}
     </>
   );
 }
