@@ -21,7 +21,9 @@ What the outside world says today:
   because no Vercel project has claimed the hostname yet.
 - `https://thefibre-my.vercel.app` → `404` with `x-vercel-error:
   DEPLOYMENT_NOT_FOUND`. That is Vercel saying the project isn't there.
-- `my.thefibre.tech` doesn't resolve at all — staging DNS is untouched.
+- `my.thefibre.tech` **now resolves** — `CNAME 5966874a0d5c85ce.vercel-dns-016.com`,
+  created mid-morning on 2026-09-09, after an earlier check that hour found
+  nothing. HTTPS on it still fails, same missing certificate, same cause.
 
 Remaining order:
 
@@ -30,9 +32,13 @@ Remaining order:
    `localhost:3007`.
 2. **Create the Vercel project** — below. This is the only thing standing
    between the app and a live URL.
-3. **Add the DNS records.** Production's A record already exists, so this
-   reduces to the staging CNAME — take its value from Vercel's Domains tab
-   once the project claims `my.thefibre.tech`.
+3. **Add the DNS records** — already done, both zones. Production has its A
+   record and staging has its CNAME.
+
+So DNS is no longer part of the critical path at all. Everything now waits on
+step 2, and only step 2. **DNS does not have to follow the project**, which
+an earlier draft of this doc implied: `my.thefibre.tech` resolves today with
+no Vercel project behind it. What a project supplies is the certificate.
 
 > **In the Root Directory dialog, do not pick `api`.** It's first in the list
 > and the radio may default to it. The API runs on Fly, not Vercel, and hard
@@ -181,10 +187,25 @@ shows you something different, follow Vercel.
 
 ### `thefibre.tech` zone (staging)
 
-The staging siblings use a **CNAME** to a per-project Vercel hostname rather
-than an A record — `membership.thefibre.tech` resolves via
-`…vercel-dns-016.com`. That target is project-specific, so **take it from
-Vercel's Domains tab**; don't copy the membership one.
+The staging siblings use a **CNAME** rather than an A record. The target is
+**account-scoped, not project-specific** — measured 2026-09-09, all six
+`.tech` subdomains (meet, thread, flow, pulse, membership, my) share one
+identical value:
+
+```
+5966874a0d5c85ce.vercel-dns-016.com
+```
+
+Still take it from Vercel's Domains tab rather than from here — but because
+Vercel is authoritative, not because each project gets its own. The wrong
+reason produced a wrong sequencing rule ("DNS must follow the project"),
+which is corrected above.
+
+**Why A records on `thethread.app` and CNAMEs on `thefibre.tech`?** Half of
+it isn't a choice: DNS forbids a CNAME at a zone apex, so an apex is always
+an A record. The subdomain split is generational — `76.76.21.21` is Vercel's
+older shared anycast address, and the CNAME is their current style, which
+lets them move you without you editing DNS.
 
 | Field | Value |
 |---|---|
