@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.29] — 2026-09-09 — staging stops inviting search engines in
+
+While answering a question about Vercel's deployment protection, a bigger
+hole turned up behind it: **there was no robots file anywhere in the repo**,
+and the staging stack is publicly reachable. Six `.tech` subdomains were
+serving a complete copy of the product with nothing telling a crawler to stay
+away. Verified by fetching a staging site with no credentials and finding no
+`noindex` and no `/robots.txt`. A staging copy in a search index competes
+with the real site and confuses real people.
+
+Every app now has `app/robots.ts`, one line each, over a single policy in
+`@thefibre/shared/robots`.
+
+**The asymmetry is the design.** The only thing that opens a site is
+`VERCEL_ENV === 'production'`. Preview, development, an empty string, a
+missing variable, a build outside Vercel — all closed. A staging site that
+gets indexed is a nuisance; a production site accidentally de-indexed is
+weeks of lost ground, so "unknown" must never mean "index me". Eight unit
+tests lock that, including the near-misses `'Production'` and `'prod'`.
+
+**The environment is passed in, not read.** `packages/shared` is bundled into
+eight browser builds and carries no node types on purpose — it decides what
+the policy is, the caller supplies `process.env.VERCEL_ENV`. Same split as
+the invoice model and the ical builder. (First attempt read `process.env`
+inside shared and the build refused it, correctly.)
+
+**The visitor portal is closed everywhere, production included** — every page
+below its sign-in is one person's own tickets, enrolments and memberships. It
+now carries both halves: `robots.ts` stops the crawl, the `robots` metadata
+added in v0.68.24 stops the listing.
+
+**Verified against real builds, in both directions**, because the risky
+branch is the one that would de-index `thethread.app`:
+
+```
+VERCEL_ENV unset        →  User-Agent: *  /  Disallow: /
+VERCEL_ENV=production   →  User-Agent: *  /  Allow: /
+```
+
+**This is not the same thing as Vercel's SSO protection**, which is still
+Sjoerd's open decision. That gates who can reach a preview at all; this gates
+what a crawler does with one it can reach. They are independent, and neither
+touches the platform's own cross-app sign-in.
+
 ## [0.68.28] — 2026-09-09 — the portal opens: agenda, ticket, wallet, calendar
 
 The visitor portal was a list. Tapping an item now opens it, which is where

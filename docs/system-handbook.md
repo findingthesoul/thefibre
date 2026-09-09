@@ -402,6 +402,13 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     `packages/shared` is what fires, because most releases touch it, which
     is why the rule went a day unnoticed: both builds `thefibre-my` has ever
     run were triggered by `packages/shared`, never by `apps/my`.
+- **Crawlers**: every app has `app/robots.ts` over one policy in
+  `@thefibre/shared/robots`. Open ONLY when `VERCEL_ENV === 'production'`;
+  preview, development, absent and unrecognised all close. The visitor
+  portal is closed everywhere, production included. Added 2026-09-09 after
+  the staging stack was found publicly reachable AND fully indexable with no
+  robots file anywhere in the repo. **Never make the open branch the
+  default** — a de-indexed production site costs weeks.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
 - **Fly**: `fly deploy --remote-only` (prod) /
