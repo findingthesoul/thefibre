@@ -5,6 +5,9 @@ import { userClient, adminClient } from '../db.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { recordPurchase } from '../lib/purchases.js';
+// Half of a deliberate import cycle — see the note above the matching
+// import in routes/purchases.ts. sendReceipt must stay a hoisted `function`
+// declaration, not a const arrow, or the cycle stops being harmless.
 import { sendReceipt } from './purchases.js';
 import { createMembershipPaymentLink, payButtonHtml } from '../lib/membership-payment-link.js';
 import { sendEmail } from '../lib/email/client.js';

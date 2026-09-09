@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.27] — 2026-09-09 — the import cycle is inert for one reason; say so
+
+`routes/purchases.ts` and `routes/membership.ts` now import each other
+(0.68.22 added `activateMemberFromInvoice` to mark-paid). Caught in review
+the same day.
+
+- **Measured, not reasoned about**: the built modules were imported in both
+  evaluation orders and every binding resolves. It is inert ONLY because
+  all three crossing functions — `activateMemberFromInvoice`,
+  `sendReceipt`, `sellerDetailsFor` — are hoisted `function` declarations,
+  so the live binding is populated before either module body runs.
+- **Both import sites now say that.** Converting any of the three to
+  `const fn = () => {}` reads as a style change and would turn this into
+  `undefined is not a function` on the path a membership payment runs
+  through. The comment is the guard until the real fix, which is lifting
+  `sendReceipt` / `receiptHtml` / `sellerDetailsFor` into a lib module.
+  That surgery is not something to do at the end of a long day through the
+  middle of the live payment path.
+
 ## [0.68.26] — 2026-09-09 — one definition of what an invoice is
 
 Sjoerd: "PDF and send can also be created based on what is in the

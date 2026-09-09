@@ -17,6 +17,15 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
+// CYCLE: membership.ts imports sendReceipt from this file, and this file
+// imports activateMemberFromInvoice from it. Measured 2026-09-09 in both
+// evaluation orders — every binding resolves, because all three are hoisted
+// `function` declarations, so the live binding is populated before either
+// module body runs. It is inert ONLY for that reason. Converting any of the
+// three to `const fn = () => {}` looks like a style change and turns this
+// into `undefined is not a function` on the path soul.com's money runs
+// through. The real fix is lifting sendReceipt/receiptHtml/sellerDetailsFor
+// into a lib module; until then, leave these three as declarations.
 import { activateMemberFromInvoice } from './membership.js';
 import {
   chargeAccountForItem,
