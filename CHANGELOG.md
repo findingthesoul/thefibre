@@ -47,9 +47,13 @@ signing back in. The plan now records how to get a session as that fixture —
 `localhost:3007` is not in staging Supabase's redirect allowlist, so the
 magic link is useless locally and the eight-digit code is the way in.
 
-**Still on Sjoerd:** the `thefibre-my` Vercel project does not exist yet, so
-none of this is reachable at `my.thethread.app`. Steps in
-`docs/my-portal-setup.md`.
+**Correction, same morning:** an earlier draft of this entry said the
+`thefibre-my` Vercel project did not exist. It has existed since v0.68.24 and
+`my.thethread.app` answers 200 — the claim came from a stale line in
+`docs/my-portal-setup.md`, believed rather than measured. What is still open
+there is staging: `my.thefibre.tech` redirects to Vercel's own SSO, because
+that project carries Standard Protection where the six product apps carry
+none.
 
 ## [0.68.56] — 2026-09-10 — a membership is sold by the community, not by a person
 
