@@ -22,6 +22,7 @@ import {
 import { appUrl, LOCALES, isLocale, toLocale, type Locale } from '@thefibre/shared';
 import { runCircleAccessSync } from '../lib/circle.js';
 import { runGoogleUserSync } from '../lib/google-admin.js';
+import { runThreadAccessSync } from '../lib/thread-access.js';
 import {
   applyPct,
   evaluatePriceLogic,
@@ -2770,6 +2771,11 @@ export async function runMembershipScheduler(): Promise<{ reminded: number; grac
     await runGoogleUserSync();
   } catch (e) {
     console.error('[membership/scheduler] google sync failed', e);
+  }
+  try {
+    await runThreadAccessSync();
+  } catch (e) {
+    console.error('[membership/scheduler] thread sync failed', e);
   }
 
   return out;

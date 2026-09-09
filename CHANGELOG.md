@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.31] — 2026-09-09 — a thread grant finally does something
+
+The access-grant dropdown has offered "Thread" since Membership shipped. It
+saved, it listed, and nothing consumed it — circle, fibre_seat and
+google_user each had a worker; thread had none. So a tier could promise a
+thread and deliver nothing, silently, forever. Found on soul.com, where four
+of seven products are threads and the €2300 tier unlocked nothing at all.
+
+- **`lib/thread-access.ts`, `runThreadAccessSync()`**, drained on the same
+  five-minute tick as the other three. A member joining a tier that includes
+  a thread is enrolled in it; a member lapsing is withdrawn.
+- **An enrolment is two rows** — `enrolment` (platform, keyed on program)
+  and `thread_enrolment` (the app's) — and the worker writes both directly,
+  the in-family-app rule.
+- **Revoke does not delete.** It marks the enrolment `dropped` and leaves
+  both rows: deleting would destroy the record that someone took part, and
+  the platform rule is soft delete only for personal data. The participant
+  list already selects `enrolment.status`, so a dropped member reads as
+  dropped rather than vanishing. Rejoining flips the same rows back.
+- **`payment_status: 'not_required'`** — a grant is an entitlement the tier
+  already paid for, never a second charge.
+- **The config parser is tested**, because it decides whether a grant
+  resolves at all. Real grants store the full public URL rather than a slug
+  (`https://app.thethread.app/soul/community-member-year-agenda`), so it
+  takes the last path segment and tolerates query strings, fragments,
+  trailing slashes and case. apps/api: 51 tests, 8 files.
+
+Not code, same session: a `google_user` grant now sits on soul.com's
+"email@soul.com / Google Workspace" product. Circle stays ungranted — that
+workspace's `circle_api_token` is null, and a grant with no credential waits
+forever without saying so.
+
 ## [0.68.30] — 2026-09-09 — RSVP: the participant half
 
 Sjoerd decided the shape: *"Setting in workspace: default RSVP on... and can
