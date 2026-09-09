@@ -392,13 +392,16 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     dashboard and API-created deployments too, and cancels them the same
     way (measured 2026-09-09 on `thefibre-my`). The only fix is a commit
     that touches the app's folder, `packages/shared` or the lockfile.
-  - **A brand-new app's Vercel project silently never deploys.** Wire the
-    project, env and domains perfectly and every push still skips, because
-    no commit happens to touch the new folder. `thefibre-my` sat on a build
-    from the night before for a full day this way, serving a 500 from a
-    deployment that predated its own env vars, while eight pushes reported
-    CANCELED. **Last step of standing up any new app: make a commit that
-    touches `apps/<app>`.** Prefer a real change; there is always one.
+  - **A brand-new app's Vercel project can sit for a day without deploying.**
+    Wire the project, env and domains perfectly and every push still skips
+    until one touches a trigger path. `thefibre-my` served a 500 for a day
+    this way, from a deployment that predated its own env vars, while eight
+    pushes reported CANCELED. **Last step of standing up any new app: push a
+    commit touching `apps/<app>`, `packages/shared` or the lockfile** — any
+    of the three, not the app folder specifically. In practice
+    `packages/shared` is what fires, because most releases touch it, which
+    is why the rule went a day unnoticed: both builds `thefibre-my` has ever
+    run were triggered by `packages/shared`, never by `apps/my`.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
 - **Fly**: `fly deploy --remote-only` (prod) /

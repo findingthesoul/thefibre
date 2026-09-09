@@ -224,25 +224,30 @@ after ~15 minutes, re-check the record name is `my` and not `my.thethread.app`
 
 ---
 
-## Step 4 — make a commit that touches `apps/my`
+## Step 4 — push something that triggers a build
 
-**Do not skip this, and do not assume the previous steps deployed anything.**
-`apps/my/vercel.json` carries `ignoreCommand: vercel-ignore.mjs my`, which
-builds only when a push touches `apps/my`, `packages/shared` or the lockfile.
-A brand-new project therefore never deploys on its own: the project, the env
-vars and the domains can all be perfect and every push still reports
-**CANCELED**.
+**Do not assume the previous steps deployed anything.** `apps/my/vercel.json`
+carries `ignoreCommand: vercel-ignore.mjs my`, which builds only when a push
+touches one of three paths: `apps/my`, `packages/shared`, or the lockfile.
+Everything else reports **CANCELED**. So the project, the env vars and the
+domains can all be perfect and nothing is served.
 
-That is exactly what happened here on 2026-09-09. Two builds landed on
-2026-09-08 at 21:37, when the commit creating `apps/my` touched the folder.
-Every push for the next day skipped. The env vars set that morning were
-invisible, because `NEXT_PUBLIC_*` values are inlined at build time and the
-serving deployment predated them — so `my.thethread.app` answered `500` from
-`createServerClient(undefined, undefined)` throwing in a server component.
+That is what happened here on 2026-09-09. `my.thethread.app` answered `500`
+all day from a deployment built the previous evening, before it had any env
+vars — `NEXT_PUBLIC_*` is inlined at BUILD time, so setting the vars changed
+nothing, and `createServerClient(undefined, undefined)` threw in a server
+component.
 
-Redeploying from the Vercel dashboard or API does **not** get around it; the
-ignore step runs there too. The only fix is a commit touching the folder.
-Prefer a real change over an empty one.
+**Redeploying from the Vercel dashboard or API does not get around it**; the
+ignore step runs there too and cancels those the same way. A push touching a
+trigger path is the only thing that produces a build.
+
+Usually this resolves itself, which is exactly why the rule is easy to miss:
+most releases touch `packages/shared`, and that counts. Both builds this
+project has ever run were triggered by `packages/shared` — never by
+`apps/my`. If you are standing up a new app and nothing is deploying, that is
+the first thing to check, and any real change to one of the three paths fixes
+it.
 
 ---
 

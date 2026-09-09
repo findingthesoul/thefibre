@@ -36,19 +36,33 @@ env, DNS or the domains — all of those were wired correctly. It was that
 
 Each app's `vercel.json` carries `ignoreCommand: vercel-ignore.mjs <app>`,
 which builds only when a push touches that app, `packages/shared` or the
-lockfile. It is a good rule and it saved ~€150 in five days. But a brand-new
-app's project never deploys on its own: two builds landed on 2026-09-08 at
-21:37, from the commit that created `apps/my`, and every push for the next
-day touched `apps/api`, `apps/membership` or docs, so all eight reported
-CANCELED. `NEXT_PUBLIC_*` values are inlined at build time, so the env vars
-set that morning were invisible to the deployment being served, and
+lockfile. It is a good rule and it saved ~€150 in five days. But a project
+can sit for a day with correct config and never deploy, because no push
+happens to touch any of those three paths. That is what happened: between
+2026-09-08 21:37 UTC and 2026-09-09 08:48 UTC every push was `apps/api`,
+`apps/membership` or docs, and every one reported CANCELED. `NEXT_PUBLIC_*`
+values are inlined at build time, so the env vars set that morning were
+invisible to the deployment still being served, and
 `createServerClient(undefined, undefined)` threw in a server component —
-which is a `500` with an opaque digest and nothing pointing at the cause.
+a `500` with an opaque digest and nothing pointing at the cause.
 
 **Redeploying from the dashboard or the API does not help**: the ignore step
-runs there too and cancels those the same way. The only fix is a commit
-touching the app's folder. This one is that commit, and it earns its place on
-its own merits rather than as a build trigger.
+runs there too and cancels those the same way. A push touching one of the
+three trigger paths is the only thing that produces a build.
+
+> **Correction, same day.** The first version of this entry said the fix was
+> "a commit touching `apps/my`" and implied this release is what unblocked
+> the portal. Both are wrong, and the deployment record says so. The two
+> builds this project has ever run were BOTH triggered by `packages/shared`,
+> never by `apps/my`: `dpl_DC2M…` at 21:37 UTC from `fa2d8e5` (v0.68.21,
+> `packages/shared/src/participant-auth-i18n.ts`) and `dpl_Djwjz…` at 08:48
+> UTC from `bf5f7d7` (v0.68.23, `packages/shared/src/ui/app-landing.tsx`) —
+> the latter landing about two minutes before this release. The portal was
+> already unblocked when this shipped. The trigger set is three paths, and
+> `packages/shared` is the one that fires in practice because most releases
+> touch it, which is precisely why nobody noticed the rule for a day. Caught
+> by the membership session reading the commit column of the deployment
+> table. The `noindex` change below stands on its own merits either way.
 
 - **The visitor portal is `noindex`.** `robots: { index: false, follow: false }`
   on `apps/my/app/layout.tsx`. Every page below the sign-in is one person's
