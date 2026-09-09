@@ -30,14 +30,37 @@ page's own canonical tag points at.
 tonight: it alters the value of a published field, which is Sjoerd's call and
 not an end-of-evening one. Noted for him.
 
-**And this is now the FOURTH hand-written copy of one URL rule** — here,
-`apps/thread` timeline.tsx, `settings/embeds/page.tsx`, and `ownerSlugOf`.
-Three of the four agree and one didn't, which is exactly how this class of
-bug presents. The rule belongs in `@thefibre/shared` as a pure function over
-`{public_scope, workspaceSlug, teamSlug, organiserSlug}`, with all four
-calling it. Not done here because it spans two other sessions' lanes; it is
-the eighth instance of a hand-copied fact drifting today and the one most
-worth extracting.
+**And this is now at least the SIXTH hand-written copy of one URL rule.**
+
+> **Correction, same evening.** This entry first said "fourth", and proposed
+> a pure shared function over `{public_scope, workspaceSlug, teamSlug,
+> organiserSlug}` as the fix. The thread session grepped the RULE rather than
+> the files it remembered, and both halves were wrong.
+>
+> The count is six, five agreeing and one not: `routes/portal.ts` (fixed
+> here), `routes/thread.ts:4965 canonical_owner_slug`, `timeline.tsx:363`,
+> `timeline.tsx:1140`, `settings/embeds/page.tsx:55` — all three-way — and
+> **`routes/thread.ts:4657 ownerSlugOf`, still two-way, the odd one out.**
+> Plus a seventh place, `[deepSlug]/page.tsx:42`, re-deriving "is this
+> workspace-scoped" from the payload with a fallback heuristic because the
+> boolean was not handed to it. Five correct out of six is exactly why nobody
+> notices: the wrong one looks fine alone and nobody diffs six files.
+>
+> And the fix is better-shaped than a new function. **The server already
+> publishes the answer** — `canonical_owner_slug` is a field on the public
+> thread payload and `thread-view.tsx:155` already reads it for the canonical
+> tag. So several of those copies are clients recomputing a value that is
+> already on the wire. The extraction is: ONE server-side function feeding
+> both `canonical_owner_slug` and `ownerSlugOf`, clients that hold the
+> payload reading the field, and a shared pure function only for the surfaces
+> that build a URL with no payload in hand (the editor, the embed generator).
+> Six new call sites of a helper would have been the wrong answer arrived at
+> confidently.
+>
+> Still not built, and still Sjoerd's to assign: it spans three sessions'
+> lanes and `ownerSlugOf` feeds a published field. If it is assigned, the
+> extraction and the `ownerSlugOf` change must be ONE commit — fixing either
+> alone reproduces exactly this state.
 
 ## [0.68.38] — 2026-09-09 — the buttons people actually press are now 44px too
 
