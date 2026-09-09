@@ -4,6 +4,7 @@ import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
@@ -140,13 +141,44 @@ const THREAD_RESERVED = new Set<string>([
 
 /** D3 (docs/brief-workspace-urls.md): workspace slugs own the first URL
  *  segment — an organiser or team may not take one. */
-async function takenByWorkspace(slug: string): Promise<boolean> {
-  const { data } = await adminClient
-    .from('workspace')
-    .select('id')
-    .eq('slug', slug.trim().toLowerCase())
-    .maybeSingle();
-  return !!data;
+/** Give a user a thread_organiser row. The slug carries a short random
+ *  suffix; since 2026-09-09 the public root namespace is unique platform-
+ *  wide, so an unlucky suffix is now a real (if rare) failure rather than a
+ *  silent duplicate — retry it instead of 500ing someone's sign-in. */
+async function provisionOrganiser(
+  userId: string,
+  workspaceId: string,
+): Promise<{ id: string } | null> {
+  const { data: u } = await adminClient
+    .from('user')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single();
+  const seed =
+    (u?.full_name ?? u?.email ?? 'organiser')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'organiser';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await adminClient
+      .from('thread_organiser')
+      .insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        slug: `${seed}-${Math.random().toString(36).slice(2, 5 + attempt)}`,
+        display_name: u?.full_name ?? null,
+      })
+      .select('*')
+      .single();
+    if (data) return data;
+    if (error?.code !== '23505') {
+      console.error('[thread] organiser provision failed', error);
+      return null;
+    }
+  }
+  console.error('[thread] organiser provision gave up after five slug attempts', { userId });
+  return null;
 }
 
 function isReserved(slug: string): boolean {
@@ -188,32 +220,8 @@ threadRoutes.get('/me', async (c) => {
   if (!organiser) {
     // First visit — provision an organiser row with a sensible default slug.
     // Admin client for the same PostgREST order-of-checks reason as meet/me.
-    const { data: u } = await adminClient
-      .from('user')
-      .select('email, full_name')
-      .eq('id', ctx.userId)
-      .single();
-    const seed =
-      (u?.full_name ?? u?.email ?? 'organiser')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 30) || 'organiser';
-    const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
-    const { data: created, error: cErr } = await adminClient
-      .from('thread_organiser')
-      .insert({
-        user_id: ctx.userId,
-        workspace_id: ctx.workspaceId,
-        slug,
-        display_name: u?.full_name ?? null,
-      })
-      .select('*')
-      .single();
-    if (cErr || !created) {
-      console.error('[thread/me] auto-provision failed', cErr);
-      return c.json({ error: 'failed to provision organiser' }, 500);
-    }
+    const created = await provisionOrganiser(ctx.userId, ctx.workspaceId);
+    if (!created) return c.json({ error: 'failed to provision organiser' }, 500);
     organiser = created;
   }
 
@@ -267,8 +275,16 @@ threadRoutes.patch('/me', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
-  if (body.data.slug && (await takenByWorkspace(body.data.slug))) {
-    return c.json({ error: `slug '${body.data.slug}' is taken` }, 409);
+  if (body.data.slug) {
+    // Your own row must not read as a conflict with itself.
+    const { data: mine } = await adminClient
+      .from('thread_organiser')
+      .select('id')
+      .eq('user_id', ctx.userId)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    const holder = await rootSlugHolder(body.data.slug, { organiserId: mine?.id });
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
   }
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
@@ -1390,6 +1406,13 @@ threadRoutes.post('/teams', async (c) => {
   const body = TeamCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+  // A team's slug is its whole public address, shared with every workspace,
+  // team and organiser on the platform. Asked here so the answer is a
+  // sentence; the database refuses it either way.
+  {
+    const holder = await rootSlugHolder(body.data.slug);
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
+  }
   const { data: team, error } = await adminClient
     .from('team')
     .insert({
@@ -1402,8 +1425,13 @@ threadRoutes.post('/teams', async (c) => {
     .select('id, name, slug, description')
     .single();
   if (error) {
+    // The pre-check above loses to a simultaneous claim; the constraint does
+    // not. Same sentence either way.
     const s = error.code === '23505' ? 409 : 500;
-    return c.json({ error: error.code === '23505' ? 'slug already taken' : error.message }, s);
+    return c.json(
+      { error: error.code === '23505' ? slugTakenBy('team') : error.message },
+      s,
+    );
   }
   await adminClient
     .from('team_member')
@@ -1667,28 +1695,8 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     const { data: u } = await adminClient
       .from('user')
       .select('email, full_name')
-      .eq('id', body.data.user_id)
-      .single();
-    const seed =
-      (u?.full_name ?? u?.email ?? 'organiser')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 30) || 'organiser';
-    const { data: created, error: cErr } = await adminClient
-      .from('thread_organiser')
-      .insert({
-        user_id: body.data.user_id,
-        workspace_id: thread.workspace_id,
-        slug: `${seed}-${Math.random().toString(36).slice(2, 5)}`,
-        display_name: u?.full_name ?? null,
-      })
-      .select('id')
-      .single();
-    if (cErr || !created) {
-      console.error('[thread/members] organiser provision failed', cErr);
-      return c.json({ error: 'could not provision organiser profile' }, 500);
-    }
+    const created = await provisionOrganiser(body.data.user_id, thread.workspace_id);
+    if (!created) return c.json({ error: 'could not provision organiser profile' }, 500);
     organiser = created;
   }
 

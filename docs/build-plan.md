@@ -20,7 +20,21 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
+_Last groomed 2026-09-09 (v0.68.37). Done items get removed, not ticked._
+
+**0. Public root slugs — the one that is now guarded, and the one that is
+   not.** `public_root_slug` (v0.68.37) makes the app.thethread.app/{owner}
+   namespace unique across workspaces, teams and organisers, so the second
+   claimant is refused instead of 404ing both. Meet's own root
+   (meet.thethread.app/{host|team}) is STILL only unique per workspace via
+   `meet_root_slug` — the same silent double-404 is available there and
+   nobody has hit it yet. Sjoerd's alternative, putting the (globally
+   unique) workspace slug in front of every public path, is still on the
+   table and would make both impossible structurally; the reason it was not
+   done today is that existing workspace slugs were never designed to be
+   read by a visitor (`default`, `de-werkhaven-9npq`, `testers-inc-fgol`)
+   and every live URL would change. Decide the grammar before Thread embeds
+   are widely live.
 
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,

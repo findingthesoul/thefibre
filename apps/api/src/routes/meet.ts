@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { profileFor } from '../lib/identity-profile.js';
 import { z } from 'zod';
 import { SignJWT, jwtVerify } from 'jose';
+import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { adminClient, userClient } from '../db.js';
 import {
   isAdminRole,
@@ -3556,6 +3557,13 @@ meetRoutes.post('/teams', async (c) => {
     .eq('slug', body.data.slug)
     .maybeSingle();
   if (clash) return c.json({ error: 'slug taken' }, 409);
+  // A team is addressable on app.thethread.app too, where the namespace is
+  // platform-wide rather than per-workspace (lib/root-slug.ts). Without this
+  // the constraint would answer with a 500 instead of a sentence.
+  {
+    const holder = await rootSlugHolder(body.data.slug);
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
+  }
 
   const { data: team, error } = await adminClient
     .from('team')
@@ -3649,6 +3657,8 @@ meetRoutes.patch('/teams/:id', async (c) => {
     if (clash && clash.team_id !== id) {
       return c.json({ error: 'slug taken' }, 409);
     }
+    const holder = await rootSlugHolder(body.data.slug, { teamId: id });
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
   }
   const { data, error } = await adminClient
     .from('team')

@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.37] — 2026-09-09 — one public address, one owner
+
+Sjoerd made a team called "Vertrouwen als de Basis" in the soul.com
+workspace. Solidarity Lab already had a team of that name. Within seconds,
+`app.thethread.app/vertrouwen-als-de-basis` was a 404 — and so were the two
+live threads sitting under the Solidarity Lab team, which had done nothing
+at all. Nothing warned anyone at the moment of creation.
+
+**The namespace was never actually unique.** `app.thethread.app/{owner}`
+resolves a workspace, a team or an organiser from one global segment, but
+uniqueness existed only INSIDE a workspace and only per table: `workspace`
+globally unique on its own, `thread_organiser` per (workspace, slug), `team`
+per workspace through Meet's `meet_root_slug` — none of the three aware of
+the others. The workspace-URLs brief said a duplicate claim was refused. It
+described an intention. `resolvePublicOwner` reads the owner with
+`.maybeSingle()`, so two rows returned nothing, and the resolver's honest
+answer to "which of these two did you mean" was 404 for both.
+
+`public_root_slug` is now that table: one row per workspace, team and
+organiser, the slug as its primary key, kept in sync by triggers on all
+three. A second claim is a unique violation the moment it is made, and both
+The Thread and Meet turn it into a 409 that names who holds the address
+(`lib/root-slug.ts`, shared rather than copied). Organiser auto-provisioning,
+which invents a slug with a random three-character suffix, now retries on a
+collision instead of failing someone's first sign-in.
+
+The backfill uses `on conflict do nothing` on purpose: a collision that
+already exists is a human decision, and it must not take a migration — and
+every other change riding with it — down on whichever database happens to
+hold one. `scripts/audit-root-slugs.mjs` reports what a database was already
+carrying. Both prod and staging come back clean: 18 and 12 addresses, nothing
+to settle.
+
+Six tests. The two that matter say a row never conflicts with itself — get
+that wrong and a team can never be renamed once it holds its own address.
+
+**Not fixed, deliberately:** Meet's own root namespace
+(meet.thethread.app/{host|team}) is still only unique per workspace and has
+exactly the same hole. Sjoerd's proposal — put the globally unique workspace
+slug in front of every public path, which would make both impossible by
+construction — is recorded at the top of the build plan's open queue rather
+than built, because today's workspace slugs were never meant to be read by a
+visitor (`default`, `de-werkhaven-9npq`) and it would change every live URL.
+
+The live collision was settled first: the Solidarity Lab team moved to
+`vertrouwen-als-de-basis-lab`, soul.com keeps the plain address, and all four
+pages answer 200 again.
+
 ## [0.68.36] — 2026-09-09 — the portal's links point at the Thread, not at itself
 
 **The verification found two real bugs and this fixes both.** Sjoerd granted
