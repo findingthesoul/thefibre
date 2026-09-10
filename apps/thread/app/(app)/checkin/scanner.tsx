@@ -32,7 +32,14 @@ export function WorkspaceScanner({
   rows: DoorRow[];
   timezone: string;
 }) {
-  const [tab, setTab] = useState<'just' | 'everyone'>('just');
+  // LAND ON THE LIST, not on the receipt (Sjoerd, 2026-09-11: "for desktop
+  // the list is probably more intuitive than the QR"). It is the right
+  // default on both: on a laptop nobody is holding up a phone camera, and on
+  // a phone "Just in" is empty until you have scanned somebody, so landing
+  // there means landing on nothing. The first successful scan switches over
+  // by itself, because that is the moment the receipt starts being the
+  // useful half.
+  const [tab, setTab] = useState<'just' | 'everyone'>('everyone');
   const [justIn, setJustIn] = useState<Admitted[]>([]);
 
   const fmtTime = (iso: string) =>
@@ -54,6 +61,7 @@ export function WorkspaceScanner({
               { name: v.name, threadTitle: v.threadTitle, at: new Date().toISOString() },
               ...prev,
             ]);
+            setTab('just');
           }
           return v;
         }}

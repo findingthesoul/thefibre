@@ -140,6 +140,38 @@ _Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
    carries its owner and needs no session at all. The asymmetry is what makes
    the admin side feel wrong.
 
+**DESIGN — online check-in: the Join button should BE the check-in.**
+   Sjoerd, 2026-09-11: "think about an online check-in… how can that be done
+   quickly?" Check-in today assumes a door — a QR held up, or a name ticked
+   off a list. An online session has neither, and an organiser watching a
+   video call has no way to record who came without typing names twice.
+
+   **The answer already exists and nobody is using it.** The visitor portal
+   renders a **Join** button on an agenda item carrying `meeting_url`
+   (apps/my/app/detail.tsx). That is the click a participant makes ANYWAY.
+   Route it through a check-in stamp and attendance records itself: zero
+   effort for the participant, zero for the organiser, and the door list
+   fills as people arrive exactly as it does at a physical one.
+
+   Shape: `POST /checkin/self` (or a redirect through `/join/:code`) that
+   stamps `checked_in_at` for the caller's own enrolment and 302s to the
+   meeting URL. Authorisation is the participant's own portal session, so it
+   grants nothing they did not already have — this is the one check-in a
+   person may legitimately perform on themselves.
+
+   **The honest caveat, which is a product decision not a bug:** clicking
+   Join proves somebody opened the room, not that they stayed. For a
+   certificate that follows completion, that distinction may matter. Options,
+   in increasing cost: accept it and say so in the UI; only stamp within a
+   window around the session's start; or read real attendance from the
+   provider (Zoom and Teams both report it), which is a per-provider
+   integration and a different order of work.
+
+   Cheaper adjacent win, same screen: the workspace door's "Everyone today"
+   tab could offer multi-select and a "check in selected" for the organiser
+   who is looking at a video call roster and ticking names. That needs no new
+   concepts at all — the selection pattern already exists on Enrolments.
+
 **DESIGN — a venue has an address and nowhere to say anything else.**
    Noticed 2026-09-10 while making the map link work, recorded on Sjoerd's
    instruction because it had only ever existed in a chat message.

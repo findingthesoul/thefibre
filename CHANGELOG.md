@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.73] — 2026-09-11 — the door lands on the list, not on an empty receipt
+
+Sjoerd: "for desktop the list is probably more intuitive than the QR."
+
+The check-in screen opened on "Just in", which is empty until you have
+scanned somebody — so arriving there meant arriving at nothing, on any
+device. It now opens on "Everyone today", and the first successful scan
+switches to the receipt by itself, which is the moment that half starts being
+the useful one. One default, right on a laptop where nobody is holding up a
+camera and right on a phone where the list is what you need before the queue
+starts.
+
+Recorded rather than built, in the same pass: **online check-in**, which has
+no door at all. The answer looks like it already exists — the visitor portal
+renders a Join button carrying the meeting URL, and that is the click a
+participant makes anyway. Routing it through a check-in stamp records
+attendance with zero effort from either side. Build plan carries the shape,
+the authorisation (a participant may legitimately check themselves in), and
+the honest caveat: clicking Join proves somebody opened the room, not that
+they stayed — which matters if a certificate follows completion.
+
 ## [0.68.72] — 2026-09-11 — two tabs under the scanner: what you just did, and everyone else
 
 Sjoerd, after using yesterday's scanner at a real door — including trying it
