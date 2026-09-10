@@ -5,7 +5,7 @@
 // instead.
 
 import { describe, expect, it } from 'vitest';
-import { buildTimeline, splitAt, type Entry } from './timeline';
+import { buildTimeline, quarterLabel, splitAt, unanswered, type Entry } from './timeline';
 import type { AgendaItem, Portal } from './portal-api';
 
 const NOW = new Date('2026-06-15T12:00:00Z').getTime();
@@ -217,5 +217,57 @@ describe('splitAt', () => {
       '2026-06-10T09:00:00Z',
       '2026-06-01T09:00:00Z',
     ]);
+  });
+});
+
+describe('quarterLabel', () => {
+  it('names the months rather than saying Q4', () => {
+    expect(quarterLabel(new Date('2026-01-15T12:00:00').getTime())).toBe('Jan–Mar 2026');
+    expect(quarterLabel(new Date('2026-06-30T12:00:00').getTime())).toBe('Apr–Jun 2026');
+    expect(quarterLabel(new Date('2026-09-01T12:00:00').getTime())).toBe('Jul–Sep 2026');
+    expect(quarterLabel(new Date('2026-12-31T12:00:00').getTime())).toBe('Oct–Dec 2026');
+  });
+
+  it('changes at the boundary, which is what a header keys on', () => {
+    const sep = quarterLabel(new Date('2026-09-30T23:00:00').getTime());
+    const oct = quarterLabel(new Date('2026-10-01T01:00:00').getTime());
+    expect(sep).not.toBe(oct);
+  });
+});
+
+describe('unanswered', () => {
+  const entry = (over: Partial<Entry>): Entry =>
+    ({
+      key: 'k',
+      at: 0,
+      allDay: false,
+      title: 't',
+      organiser: 'One',
+      workspaceId: 'w',
+      dateIso: '2026-06-15T09:00:00Z',
+      time: null,
+      where: null,
+      whereUrl: null,
+      joinUrl: null,
+      threadId: null,
+      engagementId: 'e',
+      rsvpEnabled: false,
+      rsvp: null,
+      hasTicket: false,
+      ...over,
+    }) satisfies Entry;
+
+  it('counts only what is actually asking', () => {
+    const rows = [
+      entry({ key: 'a', rsvpEnabled: true, rsvp: null }),
+      entry({ key: 'b', rsvpEnabled: true, rsvp: 'coming' }),
+      entry({ key: 'c', rsvpEnabled: true, rsvp: 'not_coming' }),
+      entry({ key: 'd', rsvpEnabled: false, rsvp: null }),
+    ];
+    expect(unanswered(rows).map((e) => e.key)).toEqual(['a']);
+  });
+
+  it("treats 'can't' as answered — it is a reply, not a silence", () => {
+    expect(unanswered([entry({ rsvpEnabled: true, rsvp: 'not_coming' })])).toHaveLength(0);
   });
 });

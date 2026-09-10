@@ -165,3 +165,34 @@ export function splitAt(
     past: entries.filter(over).reverse(),
   };
 }
+
+/** The quarter an entry falls in, as something a member would say out loud.
+ *
+ *  Sjoerd asked to "organise your timeline per quarter". Grouping, not
+ *  filtering: it costs no control, nothing to tap and nothing to reset, and
+ *  it makes a long list scannable without adding a row of chrome above a
+ *  short one. "Q4 2026" is a finance word; a member reads months.
+ */
+export function quarterLabel(at: number): string {
+  const d = new Date(at);
+  const q = Math.floor(d.getMonth() / 3);
+  const months = [
+    ['Jan', 'Mar'],
+    ['Apr', 'Jun'],
+    ['Jul', 'Sep'],
+    ['Oct', 'Dec'],
+  ][q]!;
+  return `${months[0]}\u2013${months[1]} ${d.getFullYear()}`;
+}
+
+/** Entries that ask a question this person has not answered.
+ *
+ *  The other filters answer "show me a subset". This one answers "what have
+ *  I not dealt with", which is a to-do rather than a view — so it surfaces as
+ *  a COUNT that appears when it is non-zero, not as a chip sitting there
+ *  forever. A filter you have to think to use does not get used; a number
+ *  that shows up when it means something does.
+ */
+export function unanswered(entries: Entry[]): Entry[] {
+  return entries.filter((e) => e.rsvpEnabled && e.rsvp === null);
+}

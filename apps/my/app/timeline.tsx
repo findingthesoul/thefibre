@@ -8,10 +8,10 @@
 // me" — a question nobody asks. Time is the spine now, and the organiser
 // became a filter, which is where it belongs.
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { QrCode, Video } from 'lucide-react';
 import { SearchSelect } from '@thefibre/shared/ui/search-select';
-import type { Entry } from '@/lib/timeline';
+import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
 import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
 
@@ -140,6 +140,7 @@ export function Timeline({
 }) {
   const [organiser, setOrganiser] = useState<string | null>(null);
   const [threadId, setThreadId] = useState('');
+  const [onlyUnanswered, setOnlyUnanswered] = useState(false);
   const [showPast, setShowPast] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
@@ -171,8 +172,16 @@ export function Timeline({
   // mean — "show me this thread" is not "show me this thread and also my
   // coaching call" — and "All threads" is one tap away.
   const keep = (e: Entry) => inOrganiser(e) && (!chosenThread || e.threadId === chosenThread);
-  const upcoming = entries.filter(keep);
+  const inScope = entries.filter(keep);
+  // Counted within the CURRENT scope, so the number and the list it filters
+  // to are never describing different things.
+  const owed = unanswered(inScope);
+  const upcoming = onlyUnanswered ? owed : inScope;
+  // Past RSVPs are moot — the question is not still open, whatever the
+  // answer was — so "Earlier" never narrows to unanswered.
   const earlier = past.filter(keep);
+
+  const showQuarters = new Set(upcoming.map((e) => quarterLabel(e.at))).size > 1;
 
   const open = openThread ? threads[openThread] : null;
 
@@ -221,6 +230,27 @@ export function Timeline({
         </div>
       )}
 
+      {/* A to-do, not a view. It appears only when something is actually
+          owed, says the number rather than making him find it, and filters
+          when tapped. A filter you have to think to use does not get used. */}
+      {owed.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setOnlyUnanswered((v) => !v)}
+          aria-pressed={onlyUnanswered}
+          className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm ${
+            onlyUnanswered
+              ? 'border-ink bg-ink text-surface'
+              : 'border-line bg-surface text-ink hover:border-line-strong'
+          }`}
+        >
+          {owed.length === 1
+            ? '1 still needs an answer'
+            : `${owed.length} still need an answer`}
+          {onlyUnanswered && <span className="text-xs opacity-80">· show all</span>}
+        </button>
+      )}
+
       {upcoming.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
           {chosenThread
@@ -231,9 +261,26 @@ export function Timeline({
         </p>
       ) : (
         <ul className="mt-6 space-y-3">
-          {upcoming.map((e) => (
-            <Card key={e.key} entry={e} onOpen={(id) => setOpenThread(id)} />
-          ))}
+          {upcoming.map((e, i) => {
+            const q = quarterLabel(e.at);
+            // Only where the list actually crosses a boundary. A single
+            // header over everything labels nothing.
+            const newQuarter = showQuarters && (i === 0 || quarterLabel(upcoming[i - 1]!.at) !== q);
+            return (
+              // A Fragment, not a wrapper: `Card` IS the <li>, and an <li>
+              // inside an <li> is not markup a browser will keep.
+              <Fragment key={e.key}>
+                {newQuarter && (
+                  <li role="presentation" className="pt-3 first:pt-0">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                      {q}
+                    </h2>
+                  </li>
+                )}
+                <Card entry={e} onOpen={(id) => setOpenThread(id)} />
+              </Fragment>
+            );
+          })}
         </ul>
       )}
 

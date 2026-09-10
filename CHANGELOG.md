@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.70] — 2026-09-10 — quarters, and what still needs an answer (Portal 0.7.0)
+
+Sjoerd, on the Next timeline: "you should be able to organise your timeline
+(per quarter, only organiser x, thread… rsvp's)." Two of those four shipped
+already — the organiser chips and the thread dropdown. These are the other
+two, and they are not the same kind of thing as each other.
+
+**Quarter is GROUPING, and it costs no control at all.** A heading appears
+where the list crosses a boundary: nothing to tap, nothing to reset, nothing
+added to the bar above a short list. It only appears when the list actually
+spans more than one quarter, because a single header over everything labels
+nothing. The label says `Oct–Dec 2026` rather than `Q4 2026` — a quarter is a
+finance word and a member reads months.
+
+**RSVP is the only one of the four that is a to-do rather than a view**, so
+it is not a filter chip. When something is unanswered, a line appears saying
+so and how many; tapping it narrows to those, tapping again shows everything.
+A filter you have to think to use does not get used. A number that turns up
+when it means something does. It counts within the current organiser and
+thread scope, so the number and the list it filters to always describe the
+same set, and "Earlier" never narrows this way — a past RSVP is not a
+question still open, whatever the answer was.
+
+Driven signed in against the staging fixture, using the product's own
+controls rather than writing to the database: withdrawing the RSVP made the
+line appear, tapping it filtered, tapping again cleared, and answering again
+put the fixture back. Four more unit tests cover the quarter boundary and
+what counts as unanswered — "can't" is a reply, not a silence.
+
 ## [0.68.69] — 2026-09-10 — preferred language is a picker, not an ISO code
 
 Sjoerd, on the Edit contact dialog: "make the language a dropdown." It was a
