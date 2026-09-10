@@ -12,12 +12,19 @@
 // design-leading copy — lists keep their markers, links stay underlined.
 //
 // TRUST: this is `dangerouslySetInnerHTML`, and deliberately. The HTML is
-// written by a workspace member in our own editor, which is the same trust
-// level as every other thing an organiser publishes on their thread page.
-// It is NOT visitor input and must never be pointed at any. If that ever
-// changes, sanitise at the API boundary where `isomorphic-dompurify`
-// already lives (lib/uploads.ts), not here — this package has no
-// dependencies and no DOM.
+// written by a workspace member in our own editor. It is NOT visitor input
+// and must never be pointed at any.
+//
+// It IS sanitised, as of v0.68.67 — `apps/api/src/lib/rich-text.ts` cleans
+// organiser rich text at the API boundary before it is stored, with the
+// DOMPurify that already lived in lib/uploads.ts. That is the right place and
+// this is not: the sanitiser belongs where the value ENTERS, because it
+// leaves through four surfaces and only one of them has to forget. This
+// package keeps no dependencies and no DOM, so do not add one here.
+//
+// Written before that landed, this comment said sanitising was a thing to do
+// "if that ever changes". It has changed; the note is updated so nobody
+// reads the old one and concludes nothing guards it.
 
 export function RichText({
   html,

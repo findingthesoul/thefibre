@@ -1,5 +1,6 @@
 import { CalendarRange, Route } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
+import { richTextPreview } from '@/lib/rich-text-preview';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from './view-button';
 
@@ -132,7 +133,7 @@ export default async function EmbedListPage({
                 </div>
                 {!compact && item.intention && (
                   <p className="te-intention mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                    {item.intention}
+                    {richTextPreview(item.intention)}
                   </p>
                 )}
                 <div className="te-meta mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">

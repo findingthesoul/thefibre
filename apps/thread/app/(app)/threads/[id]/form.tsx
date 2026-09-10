@@ -7,7 +7,8 @@ import { setThreadCategories, updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { t } from '@/lib/i18n-ui';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
-import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
+import { TextField, SelectField } from '@/components/ui/field';
+import { RichTextField } from '@/components/ui/rich-text';
 import { DateField } from '@/components/ui/date-field';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { uploadAsset } from '@/lib/upload';
@@ -128,10 +129,15 @@ export function ThreadEditorForm({
             prefix={`${THREAD_HOST}/${urlOwner}/`}
           />
 
-          <TextAreaField
+          {/* Rich text since 2026-09-10 (Sjoerd asked for bold, italic,
+              headings and links). Everything written before is plain text and
+              renders unchanged — the sanitiser leaves it alone and the public
+              page keeps `whitespace-pre-line`, so old paragraph breaks
+              survive alongside new markup. */}
+          <RichTextField
+            locale={locale}
             label={t(locale, 'intention')}
             name="intention"
-            rows={3}
             defaultValue={thread.intention ?? ''}
             hint={t(locale, 'intention_hint')}
           />

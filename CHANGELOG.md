@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.67] — 2026-09-10 — a thread's intention can be written, and rich text is sanitised
+
+Sjoerd, on the intention field: "Can this field have a style thing (B, I,
+Headers, link, etc.)". Yes — and the editor already existed, used for an
+engagement's body since the rebuild. The intention now uses it, and the
+toolbar gains a heading button that toggles back to a paragraph rather than
+being a one-way door.
+
+**The change that is not visible is the one worth reading.** Those rich-text
+fields are written by an organiser and rendered with
+`dangerouslySetInnerHTML` on a public page and in emails — and nothing
+sanitised them. That is a stored-XSS path: not from a stranger, but from
+anyone a workspace makes an organiser, aimed at that workspace's own
+visitors. It predates this release; what it did not have was a sanitiser.
+
+`lib/rich-text.ts` now cleans on the way IN — an allowlist of what the
+toolbar can produce plus what a paste from a document carries, with DOMPurify
+(already a dependency, already used for SVG uploads) doing the work rather
+than a hand-rolled regex. On the way in rather than out, because out is four
+surfaces and counting and only one of them has to forget. Applied to the
+intention AND to engagement descriptions, which had the same exposure. Nine
+tests: what must survive, and what must never.
+
+**Six render sites, and getting this half wrong is how you ship raw tags.**
+A field that becomes HTML breaks every place that printed it as text. Full
+renderings — the thread page, the full thread embed, the owner page's single
+thread — render HTML. Clamped previews — listing cards, the list embed, the
+card embed, the participant portal — get `richTextPreview()`, which flattens
+to a sentence, because two clipped lines of block tags fight the clamp and an
+unclosed fragment leaks styling into the card.
+
+**Everything written before today is plain text and renders unchanged.** The
+sanitiser passes it through, and `whitespace-pre-line` stays on the full
+renderings, so the paragraph breaks fixed four releases ago still work
+alongside the new markup.
+
+**Renumbered from 0.68.66 mid-flight**: the membership session released that
+number while this was being prepared, with `RichText` — a SHARED renderer for
+organiser rich text, built for the same reason on the portal side. Rebased
+onto it, and the three full renderings here now use it rather than the class
+lists this change had hand-rolled. Two sessions solving one problem in one
+hour, caught by the release guard rather than by review.
+
+Its trust comment said sanitising was something to do "if that ever changes".
+It changed in this release, so the note is corrected — otherwise the next
+reader concludes nothing guards it.
+
 ## [0.68.66] — 2026-09-10 — the portal shows a description, not its markup (Portal 0.5.1)
 
 Sjoerd opened his own thread in the portal and the agenda showed

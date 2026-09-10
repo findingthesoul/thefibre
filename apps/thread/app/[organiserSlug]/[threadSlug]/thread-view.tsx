@@ -8,6 +8,7 @@
 // stay thin so the render never forks.
 
 import { ENTITY } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -192,14 +193,16 @@ export function PublicThreadView({
             </div>
             <h1 className="mt-2 text-3xl font-medium tracking-tight">{program?.title}</h1>
             {thread.intention && (
-              // `whitespace-pre-line` because the field behind this is a plain
-              // textarea: the organiser's paragraph breaks were being collapsed
-              // into one wall of text (Sjoerd 2026-09-10, "geen mooie opmaak
-              // met enters"). pre-LINE rather than pre-WRAP so long lines still
-              // wrap to the column.
-              <p className="mt-3 text-base text-ink-subtle leading-relaxed whitespace-pre-line">
-                {thread.intention}
-              </p>
+              // ONE renderer for organiser rich text (@thefibre/shared), so the
+              // portal and this page cannot disagree about what a bullet looks
+              // like. `whitespace-pre-line` stays for every intention written
+              // before this field was rich text: those are plain strings whose
+              // newlines are their only markup, and collapsing them was the
+              // wall of text Sjoerd hit on 2026-09-10.
+              <RichText
+                html={thread.intention}
+                className="mt-3 text-base text-ink-subtle leading-relaxed whitespace-pre-line [&_h3]:mt-4 [&_h3]:text-ink [&_h3]:font-medium"
+              />
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-ink-subtle">

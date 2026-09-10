@@ -6,6 +6,7 @@
 
 import { CalendarRange, Route } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
+import { richTextPreview } from '@/lib/rich-text-preview';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { ViewButton } from '../list/view-button';
 import { EnrolCard } from '@/app/[organiserSlug]/[threadSlug]/enrol-form';
@@ -114,7 +115,7 @@ export default async function EmbedCardPage({
             <div className="te-title text-base font-medium">{program?.title ?? thread.slug}</div>
             {thread.intention && (
               <p className="te-intention mt-1 line-clamp-2 text-sm leading-relaxed text-ink-subtle">
-                {thread.intention}
+                {richTextPreview(thread.intention)}
               </p>
             )}
             <div className="te-meta mt-1.5 flex flex-wrap items-center gap-3 text-xs text-ink-muted">

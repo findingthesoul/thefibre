@@ -1,5 +1,7 @@
 'use client';
 
+import { RichText } from '@thefibre/shared/ui/rich-text';
+
 // Public organiser page listing (Sjoerd 2026-07-02): a thread opens either
 // its full page or — Luma-style — a popup with info + direct enrolment,
 // per the thread's public_interaction setting.
@@ -8,6 +10,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { CalendarRange, Route, X } from 'lucide-react';
 import { publicFetch } from '@/lib/public-api';
+import { richTextPreview } from '@/lib/rich-text-preview';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, isLocale, type Locale } from '@/lib/i18n';
 import { EnrolCard } from './[threadSlug]/enrol-form';
@@ -111,7 +114,7 @@ export function ThreadsGrid({
                 <div className="text-base font-medium">{p?.title ?? th.slug}</div>
                 {th.intention && (
                   <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                    {th.intention}
+                    {richTextPreview(th.intention)}
                   </p>
                 )}
                 <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
@@ -191,9 +194,10 @@ function PopupBody({ detail, onClose }: { detail: PopupDetail; onClose: () => vo
             The CARD version above keeps its line-clamp and no pre-line — a
             two-line clamp plus hard breaks wastes the preview. */}
         {th.intention && (
-          <p className="mt-2 text-sm text-ink-subtle leading-relaxed whitespace-pre-line">
-            {th.intention}
-          </p>
+          <RichText
+            html={th.intention}
+            className="mt-2 text-sm text-ink-subtle leading-relaxed whitespace-pre-line"
+          />
         )}
         <div className="mt-4">
           <EnrolCard

@@ -7,6 +7,7 @@ import { userClient, adminClient } from '../db.js';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
+import { sanitizeRichText } from '../lib/rich-text.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
@@ -533,7 +534,7 @@ threadRoutes.post('/threads', async (c) => {
       program_id: program.id,
       organiser_id: organiser.id,
       slug: body.data.slug,
-      intention: body.data.intention ?? null,
+      intention: sanitizeRichText(body.data.intention),
       timezone: body.data.timezone ?? 'Europe/Amsterdam',
       team_id: body.data.team_id ?? null,
       public_scope: body.data.public_scope ?? null,
@@ -813,6 +814,12 @@ threadRoutes.patch('/threads/:id', async (c) => {
       console.error('[thread/threads] program update failed', { programPatch, pErr });
       return c.json({ error: pErr.message }, 500);
     }
+  }
+
+  // Rich text is sanitised on the way IN — the way out is four surfaces and
+  // only one of them has to forget (lib/rich-text.ts).
+  if ('intention' in threadPatch) {
+    threadPatch.intention = sanitizeRichText(threadPatch.intention as string | null);
   }
 
   if (Object.keys(threadPatch).length > 0) {
@@ -1265,7 +1272,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       title: body.data.title,
       type: body.data.type,
       status: body.data.status ?? 'draft',
-      description: body.data.description ?? null,
+      description: sanitizeRichText(body.data.description),
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
       daily_schedule: body.data.daily_schedule ?? null,
@@ -1334,9 +1341,15 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   const schedErr = dailyScheduleError(body.data.daily_schedule);
   if (schedErr) return c.json({ error: schedErr }, 400);
 
+  // Same as the insert: rich text is cleaned before it is stored.
+  const enPatch: Record<string, unknown> = { ...body.data };
+  if ('description' in enPatch) {
+    enPatch.description = sanitizeRichText(enPatch.description as string | null);
+  }
+
   const { data, error } = await db
     .from('thread_engagement')
-    .update({ ...body.data, updated_at: new Date().toISOString() })
+    .update({ ...enPatch, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select('*')
     .single();
@@ -1428,7 +1441,7 @@ threadRoutes.post('/teams', async (c) => {
       workspace_id: ctx.workspaceId,
       name: body.data.name,
       slug: body.data.slug,
-      description: body.data.description ?? null,
+      description: sanitizeRichText(body.data.description),
       created_by: ctx.userId,
     })
     .select('id, name, slug, description')

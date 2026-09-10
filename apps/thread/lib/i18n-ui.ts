@@ -6197,6 +6197,14 @@ const CATALOG = {
     de: 'Automatisch gespeichert', // MT
     fr: 'Enregistré automatiquement', // MT
   },
+  heading: {
+    en: 'Heading',
+    nl: 'Kop',
+    es: 'Título', // MT
+    pt: 'Título', // MT
+    de: 'Überschrift', // MT
+    fr: 'Titre', // MT
+  },
   tab_appearance: {
     en: 'Appearance',
     nl: 'Weergave',
