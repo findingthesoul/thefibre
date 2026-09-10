@@ -6197,6 +6197,46 @@ const CATALOG = {
     de: 'Automatisch gespeichert', // MT
     fr: 'Enregistré automatiquement', // MT
   },
+  nav_checkin: {
+    en: 'Check-in',
+    nl: 'Inchecken',
+    es: 'Registro', // MT
+    pt: 'Check-in', // MT
+    de: 'Check-in', // MT
+    fr: 'Pointage', // MT
+  },
+  checkin_any_desc: {
+    en: 'Scan a ticket from any of this workspace\u2019s events. The camera finds the right one.',
+    nl: 'Scan een ticket van elk evenement van deze workspace. De camera vindt het juiste.',
+    es: 'Escanea una entrada de cualquier evento de este espacio de trabajo. La cámara encuentra el correcto.', // MT
+    pt: 'Escaneie um ingresso de qualquer evento deste workspace. A câmera encontra o certo.', // MT
+    de: 'Scanne ein Ticket von jeder Veranstaltung dieses Workspace. Die Kamera findet die richtige.', // MT
+    fr: 'Scanne un billet de n\u2019importe quel événement de cet espace de travail. La caméra trouve le bon.', // MT
+  },
+  go_to_manual_checkin: {
+    en: 'Go to manual check-in',
+    nl: 'Naar handmatig inchecken',
+    es: 'Ir al registro manual', // MT
+    pt: 'Ir para check-in manual', // MT
+    de: 'Zum manuellen Check-in', // MT
+    fr: 'Aller au pointage manuel', // MT
+  },
+  happening_today: {
+    en: 'Happening today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: "Aujourd\u2019hui", // MT
+  },
+  nothing_today: {
+    en: 'Nothing is happening today.',
+    nl: 'Er is vandaag niets.',
+    es: 'Hoy no hay nada.', // MT
+    pt: 'Nada acontece hoje.', // MT
+    de: 'Heute findet nichts statt.', // MT
+    fr: 'Rien aujourd\u2019hui.', // MT
+  },
   heading: {
     en: 'Heading',
     nl: 'Kop',

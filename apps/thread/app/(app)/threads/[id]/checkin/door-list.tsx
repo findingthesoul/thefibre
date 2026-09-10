@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
+import { TicketScanner } from '@/components/ticket-scanner';
 import { Camera, CameraOff, CheckCircle2, Search, Undo2 } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
@@ -35,27 +36,9 @@ export function DoorList({
   const [query, setQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
-  const [, startTransition] = useTransition();
-
-  // The scan's answer, written across the whole screen for a moment — the
-  // person at the door reads it at arm's length, phone half-turned toward
-  // the guest.
-  const [flash, setFlash] = useState<ScanVerdict | null>(null);
-  const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirrors the scanner's camera state, reported by TicketScanner.
   const [scanning, setScanning] = useState(false);
-  const video = useRef<HTMLVideoElement>(null);
-  const lastCode = useRef<{ code: string; at: number }>({ code: '', at: 0 });
-
-  function showFlash(v: ScanVerdict) {
-    if (flashTimer.current) clearTimeout(flashTimer.current);
-    setFlash(v);
-    try {
-      navigator.vibrate?.(v.kind === 'admitted' ? 80 : [60, 60, 60]);
-    } catch {
-      /* no vibration on this device — the colour is the signal */
-    }
-    flashTimer.current = setTimeout(() => setFlash(null), FLASH_MS);
-  }
+  const [, startTransition] = useTransition();
 
   const fmtTime = (iso: string) =>
     new Intl.DateTimeFormat(INTL_LOCALES[locale], {
@@ -91,173 +74,34 @@ export function DoorList({
     });
   }
 
-  // The camera loop lives and dies with the scanning flag.
-  useEffect(() => {
-    if (!scanning) return;
-    let stream: MediaStream | null = null;
-    let stop = false;
-    let timer: ReturnType<typeof setTimeout> | null = null;
 
-    const onCode = (raw: string) => {
-      const code = THREAD_CODE.exec(raw)?.[1];
-      if (!code) {
-        showFlash({ kind: 'refused', reason: t(locale, 'not_a_ticket') });
-        return;
-      }
-      // One ticket held in front of the lens reads many times a second; without
-      // this the screen would strobe.
-      const now = Date.now();
-      if (lastCode.current.code === code && now - lastCode.current.at < REPEAT_MS) return;
-      lastCode.current = { code, at: now };
-      startTransition(async () => {
-        const v = await scanTicket(threadId, code.toLowerCase());
-        showFlash(v);
-        if (v.kind === 'admitted') {
-          setRows((rs) =>
-            rs.map((x) =>
-              x.name === v.name && !x.checked_in_at
-                ? { ...x, checked_in_at: new Date().toISOString() }
-                : x,
-            ),
-          );
-        }
-      });
-    };
-
-    (async () => {
-      try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } },
-        });
-        if (stop || !video.current) return;
-        video.current.srcObject = stream;
-        await video.current.play();
-
-        // BarcodeDetector is a trap on desktop browsers: the constructor
-        // exists while the implementation does not, and detect() answers []
-        // forever. Only trust it when it names qr_code as supported — and
-        // keep the JavaScript decoder as the working fallback (Safari).
-        const Detector = (
-          window as Window & {
-            BarcodeDetector?: {
-              new (o: { formats: string[] }): {
-                detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
-              };
-              getSupportedFormats?: () => Promise<string[]>;
-            };
-          }
-        ).BarcodeDetector;
-        let detector: {
-          detect: (v: HTMLVideoElement) => Promise<{ rawValue: string }[]>;
-        } | null = null;
-        if (Detector) {
-          try {
-            const formats = (await Detector.getSupportedFormats?.()) ?? [];
-            if (formats.includes('qr_code')) detector = new Detector({ formats: ['qr_code'] });
-          } catch {
-            /* fall through to jsQR */
-          }
-        }
-        const jsqr = detector ? null : (await import('jsqr')).default;
-        const canvas = document.createElement('canvas');
-
-        const tick = async () => {
-          if (stop || !video.current) return;
-          try {
-            if (detector) {
-              const codes = await detector.detect(video.current);
-              for (const c of codes) onCode(c.rawValue);
-            } else if (jsqr && video.current.videoWidth) {
-              canvas.width = video.current.videoWidth;
-              canvas.height = video.current.videoHeight;
-              const ctx = canvas.getContext('2d');
-              if (ctx) {
-                ctx.drawImage(video.current, 0, 0);
-                const img = ctx.getImageData(0, 0, canvas.width, canvas.height);
-                const hit = jsqr(img.data, img.width, img.height);
-                if (hit?.data) onCode(hit.data);
-              }
-            }
-          } catch {
-            /* a bad frame is not an error worth showing */
-          }
-          timer = setTimeout(tick, 350);
-        };
-        void tick();
-      } catch {
-        setError(t(locale, 'camera_error'));
-        setScanning(false);
-      }
-    })();
-
-    return () => {
-      stop = true;
-      if (timer) clearTimeout(timer);
-      stream?.getTracks().forEach((t) => t.stop());
-    };
-    // threadId is stable for the page's life; startTransition is stable.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scanning]);
-
-  useEffect(() => () => void (flashTimer.current && clearTimeout(flashTimer.current)), []);
-
-  const admitted = flash?.kind === 'admitted';
 
   return (
     <div className="mt-4">
-      {/* The verdict, full screen. Scanning continues underneath it. */}
-      {flash && (
-        <div
-          role="alert"
-          aria-live="assertive"
-          onClick={() => setFlash(null)}
-          className={`fixed inset-0 z-[100] flex flex-col items-center justify-center px-8 text-center text-white ${
-            admitted ? 'bg-green-600' : 'bg-red-600'
-          }`}
-        >
-          <span className="text-[clamp(4rem,20vw,9rem)] leading-none" aria-hidden="true">
-            {admitted ? '✓' : '✕'}
-          </span>
-          <p className="mt-4 text-[clamp(1.5rem,6vw,3rem)] font-bold leading-tight text-balance">
-            {flash.kind === 'admitted'
-              ? flash.name
-              : flash.kind === 'already'
-                ? t(locale, 'already_checked_in_at', {
-                    name: flash.name,
-                    time: fmtTime(flash.at),
-                  })
-                : flash.reason}
-          </p>
-          <p className="mt-3 text-sm opacity-80">
-            {admitted ? t(locale, 'checked_in') : t(locale, 'not_admitted')}
-          </p>
-        </div>
-      )}
-
       <div className="flex items-center justify-between gap-3 text-sm text-ink-subtle">
         <span>
           <strong className="font-medium text-ink">{checkedIn}</strong> / {rows.length}{' '}
           {t(locale, 'checked_in_lower')}
         </span>
-        <button
-          type="button"
-          onClick={() => setScanning((s) => !s)}
-          className={`inline-flex h-9 items-center gap-1.5 rounded-md px-3 text-sm font-medium ${
-            scanning
-              ? 'bg-ink text-ink-inverse'
-              : 'border border-line text-ink hover:bg-surface-sunken'
-          }`}
-        >
-          {scanning ? <CameraOff size={15} strokeWidth={1.75} /> : <Camera size={15} strokeWidth={1.75} />}
-          {scanning ? t(locale, 'stop_scanning') : t(locale, 'scan_tickets')}
-        </button>
+        <TicketScanner
+          locale={locale}
+          onScanningChange={setScanning}
+          onScan={async (code) => {
+            const v = await scanTicket(threadId, code);
+            // The door's own list ticks the row it just admitted.
+            if (v.kind === 'admitted') {
+              setRows((rs) =>
+                rs.map((x) =>
+                  x.name === v.name && !x.checked_in_at
+                    ? { ...x, checked_in_at: new Date().toISOString() }
+                    : x,
+                ),
+              );
+            }
+            return v;
+          }}
+        />
       </div>
-
-      {scanning && (
-        <div className="mt-3 overflow-hidden rounded-xl border border-line bg-black">
-          <video ref={video} playsInline muted className="h-56 w-full object-cover" />
-        </div>
-      )}
 
       <div className="relative mt-3">
         <Search

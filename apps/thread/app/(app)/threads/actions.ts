@@ -520,14 +520,36 @@ export async function setThreadCategories(
  * Undo in the list, then rescan, stays the honest path back.
  */
 export type ScanVerdict =
-  | { kind: 'admitted'; name: string }
+  /** `threadTitle` is set by the workspace-wide scanner only: naming the
+   *  event is what stops a global scan admitting somebody to the wrong one.
+   *  The per-thread door already knows which event it is standing at. */
+  | { kind: 'admitted'; name: string; threadTitle?: string }
   | { kind: 'already'; name: string; at: string }
   | { kind: 'refused'; reason: string };
 
+/** Scan anywhere in the workspace: whatever event the ticket belongs to.
+ *
+ *  The API half has always been workspace-wide — `checkin_code` is unique
+ *  across `thread_enrolment`, and `GET /checkin/:code` resolves it globally
+ *  and then authorises through the same rule as approve/decline, so a ticket
+ *  for a thread you do not run is a 403 rather than a leak. The ONLY thing
+ *  scoping the scanner to one thread was the comparison in `scanTicket`
+ *  below. This is that function without it, naming the event instead.
+ */
+export async function scanAnyTicket(code: string): Promise<ScanVerdict> {
+  return scanResolved(code, null);
+}
+
 export async function scanTicket(threadId: string, code: string): Promise<ScanVerdict> {
+  return scanResolved(code, threadId);
+}
+
+/** `expectThreadId` null = admit whatever the code resolves to. */
+async function scanResolved(code: string, expectThreadId: string | null): Promise<ScanVerdict> {
   type Resolved = {
     id: string;
     thread_id: string;
+    thread_title: string;
     person_name: string;
     status: string | null;
     checked_in_at: string | null;
@@ -542,7 +564,7 @@ export async function scanTicket(threadId: string, code: string): Promise<ScanVe
       reason: /not found/i.test(msg) ? t(await uiLocale(), 'not_a_ticket') : msg,
     };
   }
-  if (found.thread_id !== threadId) {
+  if (expectThreadId && found.thread_id !== expectThreadId) {
     return { kind: 'refused', reason: t(await uiLocale(), 'ticket_other_event') };
   }
   if (found.checked_in_at) {
@@ -558,7 +580,9 @@ export async function scanTicket(threadId: string, code: string): Promise<ScanVe
     if (r.already && r.checked_in_at) {
       return { kind: 'already', name: found.person_name, at: r.checked_in_at };
     }
-    return { kind: 'admitted', name: found.person_name };
+    return expectThreadId
+      ? { kind: 'admitted', name: found.person_name }
+      : { kind: 'admitted', name: found.person_name, threadTitle: found.thread_title };
   } catch (e) {
     return { kind: 'refused', reason: errorMessage(e) };
   }

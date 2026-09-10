@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.71] — 2026-09-10 — a scanner you can reach without choosing an event first
+
+Sjoerd: "In the mobile version, maybe add the QR scanner at the bottom, and it
+scans throughout any list of this organiser/workspace… below the scanner is a
+button that says go to manual check-in, and then there is a list of only the
+threads that happen today."
+
+Until now the scanner lived INSIDE a thread: you had to know which door you
+were standing at before you could scan for it. Check-in is now its own place,
+third in the nav so it lands in the mobile tab bar rather than the More
+sheet — it is the one screen used standing up, at a door, with one hand.
+
+**Most of it already existed and nobody had noticed.** `checkin_code` carries
+a unique index across every enrolment, and `GET /checkin/:code` has always
+resolved it globally and then authorised with the same rule as
+approve/decline — so a ticket for a thread you do not run was already a 403
+rather than a leak. The only thing scoping the scanner to one thread was a
+single client-side comparison. Removing it is the feature.
+
+**Sjoerd's shape answers the one hazard a global scanner has.** It can admit
+somebody to the wrong event; the per-thread one cannot. His manual fallback
+is scoped to today, which puts the guard exactly where a human picks an event
+by hand and could pick wrongly. The scan itself stays global and now names
+the event in the verdict, since the API already returned the title.
+
+**The scanner was extracted, not copied.** It was woven through the door
+list — shared flash state and vibration, optimistic row ticks, camera
+lifecycle, and a BarcodeDetector fallback whose comment records a real
+Safari/desktop trap. That is the one screen in the product where a quiet fork
+means a queue outside a building, so `components/ticket-scanner.tsx` is now
+the only scanner and both doors use it. The seam is small and holds: the
+component owns reading a code and showing a verdict, the caller owns what a
+code MEANS. The door list's deliberate freeze — a thumb resting on a row must
+not admit somebody mid-scan — survives as an explicit callback rather than
+by accident.
+
 ## [0.68.70] — 2026-09-10 — quarters, and what still needs an answer (Portal 0.7.0)
 
 Sjoerd, on the Next timeline: "you should be able to organise your timeline

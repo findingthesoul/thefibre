@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   CalendarRange,
   Users,
+  ScanLine,
   LayoutTemplate,
   BookUser,
   UsersRound,
@@ -37,6 +38,9 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     items: [
       { href: '/threads', label: t(locale, 'nav_threads'), icon: CalendarRange },
       { href: '/enrolments', label: t(locale, 'nav_enrolments'), icon: Users },
+      // Third, so it lands in the mobile tab bar rather than the More sheet:
+      // it is the one screen used standing up, at a door, with one hand.
+      { href: '/checkin', label: t(locale, 'nav_checkin'), icon: ScanLine },
       { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
       { href: '/templates', label: t(locale, 'nav_templates'), icon: LayoutTemplate },
     ],
