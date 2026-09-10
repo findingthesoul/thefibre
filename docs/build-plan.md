@@ -88,13 +88,17 @@ _Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
    would fork the one screen where a copy failing quietly means a queue at a
    door. Extract, use in both, port carefully.
 
-   **The safety question, which is Sjoerd's:** the per-thread scanner cannot
-   admit somebody to the wrong event, and a global one can. Two events in one
-   venue on one evening, or a ticket for next month held up at tonight's
-   door, both currently get a clear refusal. A global scanner must at least
-   show the event name in the flash, and probably treat "this ticket is for
-   an event that is not today" as a warning that needs a second tap rather
-   than a silent admit. Decide that before building, not after.
+   **The shape, from Sjoerd (2026-09-10), and it answers the safety question
+   by routing around it:** tapping the scanner opens the camera. Below the
+   camera sits one button — "go to manual check-in" — and that leads to a
+   list of only the threads happening TODAY. So the scan is global and just
+   works, while the manual fallback, which is where a human picks an event by
+   hand and could pick the wrong one, is scoped to today by construction.
+
+   Remaining judgement, smaller than it was: the scan flash should name the
+   event, since the API already returns `thread_title` and admitting to the
+   wrong event is the one thing a global scanner can do that a per-thread one
+   cannot.
 
 **DESIGN — the workspace is invisible in the URL.** Sjoerd, 2026-09-10,
    looking at `membership.thefibre.tech/tiers`: "URL change for workspace
