@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.65",
+  "version": "0.68.66",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -49,6 +49,10 @@
     "./ui/list": {
       "types": "./dist/ui/list.d.ts",
       "default": "./dist/ui/list.js"
+    },
+    "./ui/rich-text": {
+      "types": "./dist/ui/rich-text.d.ts",
+      "default": "./dist/ui/rich-text.js"
     },
     "./ui/theme-script": {
       "types": "./dist/ui/theme-script.d.ts",

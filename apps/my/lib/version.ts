@@ -6,4 +6,4 @@
 // It lives here rather than in the layout because Next allows a route file
 // to export only its own reserved names — an extra export from layout.tsx is
 // a type error, not a style opinion.
-export const VERSION = '0.5.0';
+export const VERSION = '0.5.1';

@@ -6,6 +6,32 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.66] — 2026-09-10 — the portal shows a description, not its markup (Portal 0.5.1)
+
+Sjoerd opened his own thread in the portal and the agenda showed
+`<div>Een intensieve start…</div>`, tags and all. The engagement
+descriptions come out of the editor as HTML; the public thread page has
+always rendered them as HTML, and the portal rendered the same field as
+plain characters. One field, two surfaces, two answers.
+
+- **`@thefibre/shared/ui/rich-text`** — born shared rather than fixed twice.
+  The class list is lifted verbatim from the public page, which is the
+  design-leading copy: lists keep their markers, links stay underlined. The
+  caller supplies spacing and size, so a bottom sheet and a public page can
+  differ in scale without differing in what a bullet looks like. The trust
+  boundary is written into the file: this is organiser-authored HTML from our
+  own editor, never visitor input, and if that ever changes it gets sanitised
+  at the API boundary where `isomorphic-dompurify` already lives.
+  Thread's `thread-view.tsx` still has its own copy and is another session's
+  lane; the component is there for it and it is one import.
+- **An undated agenda item now holds the date column open.** Not everything
+  is scheduled — a reflection is something you do when you get to it — and
+  rendering nothing there collapsed the row to the left edge, so an undated
+  item read as a HEADING for the dated one below it. On the thread that found
+  this, a reflection and a conversation share a title, so it looked like one
+  session printed twice. A dashed outline says "no date" without claiming one
+  is coming, which for a reflection would be false.
+
 ## [0.68.65] — 2026-09-10 — an Appearance tab, and the switch that was overriding you
 
 Sjoerd asked for this yesterday and deferred it — "that's for later" — after

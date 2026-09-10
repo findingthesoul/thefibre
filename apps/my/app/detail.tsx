@@ -13,6 +13,7 @@
 import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X } from 'lucide-react';
 import {
   agendaIcsUrl,
@@ -132,6 +133,30 @@ function DateChip({ iso }: { iso: string }) {
 }
 
 /**
+ * The same footprint, for an item that has no date.
+ *
+ * Not every engagement is scheduled — a reflection is something you do when
+ * you get to it. Rendering nothing in the date column collapsed the row
+ * against the left edge, so an undated item read as a HEADING for the dated
+ * item beneath it. On a real thread that put a reflection and a conversation
+ * of the same name one above the other, and it looked like the same session
+ * printed twice (Sjoerd, 2026-09-10).
+ *
+ * An outline holds the column open and says "no date" without claiming one
+ * is coming, which for a reflection would be wrong.
+ */
+function NoDateChip() {
+  return (
+    <div
+      aria-hidden
+      className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg border border-dashed border-line leading-none"
+    >
+      <span className="h-1 w-3 rounded-full bg-line-strong" />
+    </div>
+  );
+}
+
+/**
  * Coming? — ONE segmented control over THREE states.
  *
  * Sjoerd asked for "a toggle for coming or not coming... or dropdown". Both
@@ -228,7 +253,7 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
   return (
     <li className="border-t border-line py-3 first:border-t-0 first:pt-0">
       <div className="flex gap-3">
-        {item.starts_at ? <DateChip iso={item.starts_at} /> : null}
+        {item.starts_at ? <DateChip iso={item.starts_at} /> : <NoDateChip />}
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
@@ -280,7 +305,16 @@ function AgendaRow({ threadId, item }: { threadId: string; item: AgendaItem }) {
               )}
             </div>
           </div>
-          {item.description && <p className="mt-1 text-sm text-ink-subtle">{item.description}</p>}
+          {/* Rich text, not characters. This rendered the editor's own HTML
+              as literal `<div>` tags until 2026-09-10 — the public thread
+              page had always rendered it properly, and the portal showed the
+              same field two ways. One renderer decides now. */}
+          {item.description && (
+            <RichText
+              html={item.description}
+              className="mt-1 text-sm text-ink-subtle leading-relaxed"
+            />
+          )}
           {item.rsvp_enabled && <Rsvp item={item} />}
         </div>
       </div>
