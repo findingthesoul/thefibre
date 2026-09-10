@@ -6197,6 +6197,22 @@ const CATALOG = {
     de: 'Automatisch gespeichert', // MT
     fr: 'Enregistré automatiquement', // MT
   },
+  tab_appearance: {
+    en: 'Appearance',
+    nl: 'Weergave',
+    es: 'Apariencia', // MT
+    pt: 'Aparência', // MT
+    de: 'Darstellung', // MT
+    fr: 'Apparence', // MT
+  },
+  public_agenda_off_warning: {
+    en: 'With this off, the public page has no agenda section at all — so each item\u2019s own "Show on the public agenda" switch does nothing, however it is set.',
+    nl: 'Als dit uit staat heeft de publieke pagina helemaal geen agenda — de schakelaar "Tonen op de publieke agenda" bij een los item doet dan niets, hoe je die ook zet.',
+    es: 'Con esto desactivado, la página pública no tiene sección de agenda — así que el interruptor "Mostrar en la agenda pública" de cada elemento no hace nada, esté como esté.', // MT
+    pt: 'Com isto desligado, a página pública não tem seção de agenda — então o botão "Mostrar na agenda pública" de cada item não faz nada, esteja como estiver.', // MT
+    de: 'Ist das aus, hat die öffentliche Seite überhaupt keinen Agendabereich — der Schalter "Auf der öffentlichen Agenda zeigen" an einem Element bewirkt dann nichts, egal wie er steht.', // MT
+    fr: 'Avec ceci désactivé, la page publique n\u2019a aucune section agenda — l\u2019interrupteur « Afficher dans l\u2019agenda public » de chaque élément ne fait donc rien, quel que soit son état.', // MT
+  },
   choose_recipients: {
     en: 'Choose who gets one →',
     nl: 'Kies wie er een krijgt →',

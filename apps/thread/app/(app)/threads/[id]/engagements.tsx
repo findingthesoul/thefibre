@@ -109,6 +109,7 @@ export function EngagementDialog({
   personalRoomUrl,
   canEditStructure = true,
   locked = false,
+  threadAgendaOff = false,
   activities = [],
   onClose,
 }: {
@@ -124,6 +125,9 @@ export function EngagementDialog({
   /** Plan gate: false hides Delete (except on system messages, which stay
    *  deletable — they fall back to compiled emails) and Duplicate. */
   canEditStructure?: boolean;
+  /** The thread's own agenda switch is off, so this item's agenda switch
+   *  cannot do anything whatever it is set to. */
+  threadAgendaOff?: boolean;
   /** The thread is locked: this dialog stays open as a READER. Every write
    *  it offers — save, delete, duplicate — goes away, and the fields go
    *  inert, so a locked timeline can still be inspected element by element.
@@ -786,6 +790,16 @@ export function EngagementDialog({
             <div className="pt-1">
               {/* Activities belong on the public agenda; messages are the
                   participant journey — private by default (Sjoerd 2026-07-02). */}
+              {/* The thread-level agenda switch silently overrides this one,
+                  and that cost Sjoerd half an hour: five items ticked, none
+                  showing, the reason three screens away. The Appearance tab
+                  groups the settings, but whoever ticks THIS is looking at an
+                  item, so it has to say so here too. */}
+              {threadAgendaOff && (
+                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                  {t(locale, 'public_agenda_off_warning')}
+                </p>
+              )}
               <SwitchField
                 label={t(locale, 'show_on_agenda')}
                 name="show_in_agenda"

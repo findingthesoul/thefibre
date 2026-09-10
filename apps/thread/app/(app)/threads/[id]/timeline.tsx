@@ -59,6 +59,7 @@ import { RegistrationsDialog } from './registrations-dialog';
 import { saveThreadAsTemplate } from '../../templates/threads/actions';
 import { RegistrationPanel } from './registration';
 import { PricingPanel } from './pricing-panel';
+import { AppearancePanel } from './appearance-panel';
 import { CertificatePanel } from './certificate-panel';
 import { ThreadEmbedPanel } from './embed-panel';
 
@@ -674,6 +675,7 @@ export function ThreadTimeline({
           personalRoomUrl={personalRoomUrl}
           canEditStructure={canEditStructure}
           locked={locked}
+          threadAgendaOff={thread.public_agenda === false}
           activities={engagements
             .filter((e) => metaFor(e.type).family === 'activity')
             .map((e) => ({ id: e.id, title: e.title, hasDate: !!e.starts_at }))}
@@ -1025,7 +1027,13 @@ function EngagementCard({
 // more tabs will come. All tabs stay in the DOM (Meet's pattern).
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate' | 'embed';
+type SettingsTab =
+  | 'basics'
+  | 'appearance'
+  | 'pricing'
+  | 'registration'
+  | 'certificate'
+  | 'embed';
 
 function SettingsTabs({
   locale,
@@ -1064,6 +1072,7 @@ function SettingsTabs({
 }) {
   const tabs = [
     { value: 'basics', label: t(locale, 'basics') },
+    { value: 'appearance', label: t(locale, 'tab_appearance') },
     { value: 'pricing', label: t(locale, 'tab_pricing') },
     { value: 'registration', label: t(locale, 'tab_registration') },
     { value: 'certificate', label: t(locale, 'certificate') },
@@ -1109,6 +1118,11 @@ function SettingsTabs({
             members={members}
             workspaceMembers={workspaceMembers}
           />
+        </fieldset>
+      </div>
+      <div className={`pt-5 ${tab === 'appearance' ? '' : 'hidden'}`}>
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <AppearancePanel locale={locale} thread={thread} onSaved={onSaved} />
         </fieldset>
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>

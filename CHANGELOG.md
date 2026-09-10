@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.65] — 2026-09-10 — an Appearance tab, and the switch that was overriding you
+
+Sjoerd asked for this yesterday and deferred it — "that's for later" — after
+losing half an hour to the thing it exists to prevent. soul.com's Community
+Member Year Agenda had five conversations, all published, all with "Show on
+the public agenda" ticked, and none of them appeared on the page. Two
+thread-level switches were off, and neither was anywhere near the item he was
+looking at.
+
+**The public face of a thread now lives on one tab**, in the order somebody
+actually asks the questions: is it visible at all, what does it look like,
+what does it contain, how does it open. So `List publicly`, the thread image,
+`Show the agenda` and the page-or-popup choice move out of the general
+settings list, where they were mixed in with dates, language and timezone —
+facts about the thread rather than decisions about its appearance. The image
+came too: it is branding, and Sjoerd named it as belonging here.
+
+**The trap is now named twice, on purpose.** `public_agenda` is a third
+switch that sits in neither half of the two-switch model and silently
+overrides the per-item one. Turning it off is legitimate — some threads have
+no business publishing a schedule — so it stays. What changes is that it
+stops being silent. The tab warns the moment you turn it off, and the ITEM
+dialog warns too, because whoever ticks "Show on the public agenda" is
+looking at an item, not at settings, and that is where the half hour went.
+
+**One thing worth checking if you review this**: moving a field between tabs
+is not just moving markup. Both forms send a full patch, and `fd.get()` on a
+checkbox that is no longer rendered returns null, which reads as false. Left
+half-done, every save of the Basics tab would have quietly switched off the
+things that had moved. The keys left the Basics patch in the same change as
+the controls, and the image picker went with them rather than staying behind
+as a control that no longer saves anything.
+
+Deliberately NOT done: deleting `public_agenda` and letting the section
+appear whenever an item asks for it — the other way out recorded in the build
+plan, and what was done to RSVP the same evening. That removes a capability
+rather than surfacing it, and this is the smaller move.
+
 ## [0.68.64] — 2026-09-10 — three corrections from a review of what a membership includes
 
 The my.thread session read the `includes` resolution against the code it
