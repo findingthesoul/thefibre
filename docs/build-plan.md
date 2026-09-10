@@ -56,6 +56,46 @@ _Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
    public page — an item is on the thread page or invisible — so "the event
    exists but is not listed" is not a state the system can hold.
 
+**A workspace-wide QR scanner, reachable from the mobile tab bar.** Sjoerd,
+   2026-09-10: "In the mobile version, maybe add the QR scanner at the bottom,
+   and it scans throughout any list of this organiser/workspace." Today the
+   scanner exists only INSIDE a thread — you must know which event you are on
+   the door of before you can scan for it.
+
+   **Most of this already exists.** `GET /api/v1/thread/checkin/:code` is
+   already workspace-wide: `checkin_code` carries a UNIQUE index across
+   `thread_enrolment` (20260830120000), so the code alone identifies the
+   enrolment; the route resolves it globally, authorises through
+   `loadEnrolmentForAction` (admins, the thread's organiser, co-organiser
+   hosts, the owning team) and already returns `thread_title`. Scanning a
+   ticket for a thread you do not run is a 403 today, so a global scanner is
+   safe to authorise as-is.
+
+   The scoping is ONE CLIENT LINE: `scanTicket()` in threads/actions.ts
+   compares `found.thread_id !== threadId` and refuses with "this ticket is
+   for another event". A global scanner is that check removed and the event
+   name shown instead.
+
+   **What is missing:** a nav entry (Thread's nav has no check-in item at all
+   — it is reachable only from inside a thread), a `/checkin` page, and the
+   scanner extracted out of `DoorList`.
+
+   **The extraction is the real work, and it is a refactor of a live door
+   surface.** The scanner is not a component inside door-list.tsx; it is
+   woven through it — shared flash state and vibration, the door list's rows
+   optimistically updated on admit, camera lifecycle, and a BarcodeDetector
+   fallback with a comment explaining a real Safari/desktop trap. Copying it
+   would fork the one screen where a copy failing quietly means a queue at a
+   door. Extract, use in both, port carefully.
+
+   **The safety question, which is Sjoerd's:** the per-thread scanner cannot
+   admit somebody to the wrong event, and a global one can. Two events in one
+   venue on one evening, or a ticket for next month held up at tonight's
+   door, both currently get a clear refusal. A global scanner must at least
+   show the event name in the flash, and probably treat "this ticket is for
+   an event that is not today" as a warning that needs a second tap rather
+   than a silent admit. Decide that before building, not after.
+
 **DESIGN — the workspace is invisible in the URL.** Sjoerd, 2026-09-10,
    looking at `membership.thefibre.tech/tiers`: "URL change for workspace
    would be nice." Every admin URL in every app is workspace-less. You cannot
