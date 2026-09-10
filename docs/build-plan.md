@@ -56,6 +56,38 @@ _Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
    public page — an item is on the thread page or invisible — so "the event
    exists but is not listed" is not a state the system can hold.
 
+**DESIGN — a venue has an address and nowhere to say anything else.**
+   Noticed 2026-09-10 while making the map link work, recorded on Sjoerd's
+   instruction because it had only ever existed in a chat message.
+
+   An engagement carries `location` (one line of text), `location_url` (a map
+   link, published since v0.68.62), `meeting_url` for the online case, and
+   `description`. That is the whole vocabulary. Everything a person actually
+   needs on the day — second floor, ring the bell, parking is behind the
+   building, bring indoor shoes, lunch is included, the entrance is not the
+   one the map pin shows — has to be written into the description or left
+   out. So it competes with the invitation copy, and the same practical text
+   gets retyped on every session of a series held in the same room.
+
+   Two shapes, and they answer different questions:
+
+   - A `location_notes` (or `practical_info`) text field beside the address,
+     rendered under the venue on the public page and in the portal's agenda
+     row. Small, obvious, and still retyped per session.
+   - A VENUE as a thing in its own right — name, address, map link, practical
+     notes, maybe a photo — that engagements point at. Solves the repetition
+     and gives "the room we always use" a home, at the cost of a new table
+     and a picker in the engagement editor.
+
+   The second is the honest model for anyone running a series, and the first
+   is a fifth of the work. Sjoerd's call which problem is real.
+
+   Whichever wins, note the surfaces that must show it or it is invisible
+   where it matters: the public thread page, the visitor portal's agenda row
+   (people read that ON THE WAY), and the calendar file — `lib/ical.ts` puts
+   `location` in the LOCATION property today, and practical notes belong in
+   DESCRIPTION rather than appended to the address.
+
 **0. Public root slugs — the one that is now guarded, and the one that is
    not.** `public_root_slug` (v0.68.37) makes the app.thethread.app/{owner}
    namespace unique across workspaces, teams and organisers, so the second
