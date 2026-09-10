@@ -2669,14 +2669,6 @@ const CATALOG = {
     de: 'Region', // MT
     fr: 'Région', // MT
   },
-  iso_639_hint: {
-    en: 'ISO 639 code, e.g. nl or en-GB',
-    nl: 'ISO 639-code, bijv. nl of en-GB',
-    es: 'Código ISO 639, p. ej. nl o en-GB', // MT
-    pt: 'Código ISO 639, p. ex. nl ou en-GB', // MT
-    de: 'ISO-639-Code, z. B. nl oder en-GB', // MT
-    fr: 'Code ISO 639, p. ex. nl ou en-GB', // MT
-  },
   edit_contact: {
     en: 'Edit contact',
     nl: 'Contact bewerken',

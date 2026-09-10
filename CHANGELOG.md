@@ -6,6 +6,44 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.69] — 2026-09-10 — preferred language is a picker, not an ISO code
+
+Sjoerd, on the Edit contact dialog: "make the language a dropdown." It was a
+text box with the hint "ISO 639 code, e.g. nl or en-GB", which asks a
+question about a standard rather than about a person — and it sat directly
+beside a country field that had been a searchable picker all along.
+
+- **`@thefibre/shared/languages`** — all 183 ISO 639-1 languages with English
+  names, the sibling of `countries.ts` and deliberately the same shape. Names
+  were generated once from `Intl.DisplayNames` and frozen into the file, the
+  same trade countries makes: no runtime dependency, and nothing that shifts
+  when a platform ships different ICU data. `languageName()` degrades a region
+  variant to its base, so a stored `en-GB` reads as English.
+- **`LanguageCombobox`** in the web app, a twin of `CountryCombobox` down to
+  the div-not-label wrapper, over the shared `SearchSelect`.
+
+**Why the whole list and not the six locales we speak.** This field describes
+a HUMAN, not a setting. It records that a contact would rather be written to
+in Afrikaans, and it leaves in their Article 15 export as their own data.
+Nothing reads it to pick an email language — that is
+`identity_profile.locale`, a different field with a different job. Narrowing
+it to what our interface happens to be translated into would discard true
+things about real people.
+
+**A value we cannot place is kept, not dropped.** The column is free text and
+has been since it was a text box, so it may hold `EN` or `en-GB`. The stored
+value is lowercased to match and, if it is still unknown, offered as its own
+option. A dropdown that silently discards what somebody already typed would
+be worse than the box it replaced.
+
+The `iso_639_hint` string is deleted rather than reworded. The list explains
+itself.
+
+Driven signed in on staging, all the way through: the picker opens inside the
+dialog, searching "afri" finds Afrikaans, choosing it sets the hidden input
+to `af`, saving persists `af` to the person row. The fixture was put back to
+null afterwards.
+
 ## [0.68.68] — 2026-09-10 — pick a thread on the timeline (Portal 0.6.0)
 
 Sjoerd, looking at his own live Next tab: "maybe also add a dropdown above

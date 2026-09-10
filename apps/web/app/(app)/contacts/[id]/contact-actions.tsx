@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
 import { TextField } from '@/components/ui/field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
+import { LanguageCombobox } from '@/components/ui/language-combobox';
 import { updatePerson, deletePerson, type ActionResult } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
 
@@ -138,13 +139,13 @@ function EditDialog({
           defaultValue={person.country}
           errors={state.fieldErrors?.country}
         />
-        <TextField
+        {/* A picker, not a box asking for an ISO code (Sjoerd, 2026-09-10).
+            The hint that used to sit under it explained a standard; the list
+            explains itself, so the hint is gone rather than reworded. */}
+        <LanguageCombobox
           label={t(locale, 'preferred_language')}
           name="preferred_language"
-          defaultValue={person.preferred_language ?? ''}
-          placeholder="en, nl, fr…"
-          hint={t(locale, 'iso_639_hint')}
-          maxLength={10}
+          defaultValue={person.preferred_language}
           errors={state.fieldErrors?.preferred_language}
         />
 

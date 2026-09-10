@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.68",
+  "version": "0.68.69",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -105,6 +105,10 @@
     "./countries": {
       "types": "./dist/countries.d.ts",
       "default": "./dist/countries.js"
+    },
+    "./languages": {
+      "types": "./dist/languages.d.ts",
+      "default": "./dist/languages.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",
