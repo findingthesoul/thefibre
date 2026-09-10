@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.68] — 2026-09-10 — pick a thread on the timeline (Portal 0.6.0)
+
+Sjoerd, looking at his own live Next tab: "maybe also add a dropdown above
+the timeline, with the threads you are part of (as a selector)."
+
+**The two filters are hierarchical, not independent.** The thread list is
+always drawn from what the organiser chips already allow, and changing the
+organiser resets the thread. That removes the state nobody wants to define —
+one community selected and somebody else's thread chosen — rather than
+handling it. It is `@thefibre/shared/ui/search-select`, the same dropdown the
+product dialog picks threads with, not a fifth hand-rolled one.
+
+It appears only when the current scope holds more than one thread. A selector
+with a single meaningful setting is furniture, which is the same rule the
+organiser chips already follow.
+
+**Choosing a thread hides meets, deliberately.** A meet booking belongs to no
+thread, and "show me this thread" is not "show me this thread and also my
+coaching call". Getting back is one tap on All threads, and the empty state
+names the thread rather than saying nothing is coming up, which would be
+false about everything else.
+
+No API change: `groups[].threads[]` already carries the titles, so this is a
+client-side predicate like the organiser filter.
+
+Driven signed in against the staging fixture, which holds one thread — so the
+control was forced to render locally to prove it mounts, opens, filters and
+clears. The case it is actually for, several threads across two organisers,
+exists only on Sjoerd's own production account.
+
 ## [0.68.67] — 2026-09-10 — a thread's intention can be written, and rich text is sanitised
 
 Sjoerd, on the intention field: "Can this field have a style thing (B, I,

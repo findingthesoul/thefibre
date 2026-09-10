@@ -10,6 +10,7 @@
 
 import { useMemo, useState } from 'react';
 import { QrCode, Video } from 'lucide-react';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import type { Entry } from '@/lib/timeline';
 import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
 import { Rsvp, ThreadSheet } from './detail';
@@ -138,15 +139,38 @@ export function Timeline({
   wallet: Portal['wallet'];
 }) {
   const [organiser, setOrganiser] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState('');
   const [showPast, setShowPast] = useState(false);
   const [openThread, setOpenThread] = useState<string | null>(null);
 
+  const all = useMemo(() => [...entries, ...past], [entries, past]);
   const organisers = useMemo(
-    () => [...new Set([...entries, ...past].map((e) => e.organiser))].sort(),
-    [entries, past],
+    () => [...new Set(all.map((e) => e.organiser))].sort(),
+    [all],
   );
 
-  const keep = (e: Entry) => organiser === null || e.organiser === organiser;
+  // The two filters are HIERARCHICAL, not independent (Sjoerd, 2026-09-10:
+  // "a dropdown above the timeline, with the threads you are part of"). The
+  // thread list is always drawn from what the organiser filter already
+  // allows, so the pair can never contradict each other — no "soul.com plus
+  // somebody else's thread" state to define, and changing the organiser
+  // resets the thread rather than leaving a dead selection behind.
+  const inOrganiser = (e: Entry) => organiser === null || e.organiser === organiser;
+  const threadOptions = useMemo(() => {
+    const ids = [...new Set(all.filter(inOrganiser).map((e) => e.threadId).filter(Boolean))];
+    return ids
+      .map((id) => ({ value: id as string, label: threads[id as string]?.thread.title ?? '' }))
+      .filter((o) => o.label)
+      .sort((a, b) => a.label.localeCompare(b.label));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all, organiser, threads]);
+
+  const chosenThread = threadOptions.some((o) => o.value === threadId) ? threadId : '';
+
+  // A meet has no thread, so choosing one hides meets. That is what the words
+  // mean — "show me this thread" is not "show me this thread and also my
+  // coaching call" — and "All threads" is one tap away.
+  const keep = (e: Entry) => inOrganiser(e) && (!chosenThread || e.threadId === chosenThread);
   const upcoming = entries.filter(keep);
   const earlier = past.filter(keep);
 
@@ -159,20 +183,51 @@ export function Timeline({
           furniture. */}
       {organisers.length > 1 && (
         <div className="mt-6 flex flex-wrap gap-2">
-          <Chip active={organiser === null} onClick={() => setOrganiser(null)}>
+          <Chip
+            active={organiser === null}
+            onClick={() => {
+              setOrganiser(null);
+              setThreadId('');
+            }}
+          >
             Everyone
           </Chip>
           {organisers.map((o) => (
-            <Chip key={o} active={organiser === o} onClick={() => setOrganiser(o)}>
+            <Chip
+              key={o}
+              active={organiser === o}
+              onClick={() => {
+                setOrganiser(o);
+                setThreadId('');
+              }}
+            >
               {o}
             </Chip>
           ))}
         </div>
       )}
 
+      {/* Only when it does something. One thread means a control with a
+          single meaningful setting, which is furniture. */}
+      {threadOptions.length > 1 && (
+        <div className="mt-3 max-w-sm">
+          <SearchSelect
+            value={chosenThread}
+            onChange={setThreadId}
+            options={threadOptions}
+            placeholder="All threads"
+            clearLabel="All threads"
+          />
+        </div>
+      )}
+
       {upcoming.length === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">
-          {organiser ? `Nothing coming up with ${organiser}.` : 'Nothing coming up.'}
+          {chosenThread
+            ? `Nothing coming up in ${threadOptions.find((o) => o.value === chosenThread)?.label ?? 'this thread'}.`
+            : organiser
+              ? `Nothing coming up with ${organiser}.`
+              : 'Nothing coming up.'}
         </p>
       ) : (
         <ul className="mt-6 space-y-3">
