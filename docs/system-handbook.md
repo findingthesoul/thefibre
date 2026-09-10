@@ -578,6 +578,22 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     already shipped there — both fine, but it did not know that when it
     shipped them. Three instances between two sessions in one day, none
     catchable by any gate we have, all catchable in ten seconds.
+  - **A pipe eats the release guard's exit code.** `./scripts/release.sh X`
+    is `set -euo pipefail` inside, but that governs its own internals, not
+    the caller's shell. Write `./scripts/release.sh X | tail -4 && fly
+    deploy` and `$?` is TAIL's status, which is always 0 — so a REFUSED
+    release still runs the deploy, from the working tree, and production ends
+    up on code that was never pushed (2026-09-10, the thread session; caught
+    and redeployed from the released commit within minutes). This is the
+    exact broken-`&&`-chain failure release.sh was written to make
+    impossible, reintroduced one level up by piping its output.
+    **So: never chain anything onto release.sh, and never pipe it if you
+    then branch on the result.** Run it, read what it says, then deploy as a
+    separate command. And note there is currently no way to ask the running
+    API which commit it is on — `/health` reports only `{ok, service}` — so
+    an API running unpushed code is invisible from outside. Putting the
+    version in that payload would turn "is production what main says" from a
+    guess into a curl.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 
