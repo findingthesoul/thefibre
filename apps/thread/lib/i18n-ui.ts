@@ -6197,6 +6197,30 @@ const CATALOG = {
     de: 'Automatisch gespeichert', // MT
     fr: 'Enregistré automatiquement', // MT
   },
+  tab_just_checked_in: {
+    en: 'Just in',
+    nl: 'Net binnen',
+    es: 'Recién dentro', // MT
+    pt: 'Acabaram de entrar', // MT
+    de: 'Gerade rein', // MT
+    fr: 'Vient d\u2019entrer', // MT
+  },
+  tab_everyone_today: {
+    en: 'Everyone today',
+    nl: 'Iedereen vandaag',
+    es: 'Todos hoy', // MT
+    pt: 'Todos hoje', // MT
+    de: 'Alle heute', // MT
+    fr: 'Tout le monde aujourd\u2019hui', // MT
+  },
+  nobody_scanned_yet: {
+    en: 'Nobody scanned yet. The people you check in appear here.',
+    nl: 'Nog niemand gescand. Wie je incheckt verschijnt hier.',
+    es: 'Nadie escaneado todavía. Las personas que registres aparecerán aquí.', // MT
+    pt: 'Ninguém escaneado ainda. As pessoas que você registrar aparecem aqui.', // MT
+    de: 'Noch niemand gescannt. Wen du eincheckst, erscheint hier.', // MT
+    fr: 'Personne scanné pour l\u2019instant. Les personnes que tu pointes apparaissent ici.', // MT
+  },
   nav_checkin: {
     en: 'Check-in',
     nl: 'Inchecken',

@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.72] — 2026-09-11 — two tabs under the scanner: what you just did, and everyone else
+
+Sjoerd, after using yesterday's scanner at a real door — including trying it
+from the wrong account first, which correctly refused: "only see the people
+you just checked in, and have a second tab in the same screen with participant
+list."
+
+They are two tabs because they answer two questions. **Just in** is the
+running receipt of this session: did that scan work, and who have I let
+through? Newest first, no search, because you are reading the last few lines
+at arm's length. It starts empty and does not survive a reload, which is
+honest — it is what YOU just did, not a record. **Everyone today** is the
+other question entirely: this person has no QR, are they on the list?
+Searchable, with checked-in state, tappable to admit by hand.
+
+**Scoped to today, for two reasons that agree.** It is the path where a human
+picks a person by hand and could pick the wrong event, and everyone a
+workspace has ever enrolled is not a door list. Each row carries its own
+event, so admitting goes to the right one, and the event name only appears
+when the door actually covers more than one.
+
+**The door list was generalised, not copied.** `DoorRow` now carries its own
+`threadId` instead of the list holding one for everybody, so the same
+component serves a single event's door and a mixed one. Its scanner became
+optional for the same reason — the workspace screen has one camera above the
+tabs, not one per tab. The single-event door is unchanged in behaviour: it
+passes its own id as the scan scope and still refuses a ticket for another
+event, which is what a single door wants.
+
+That is the second extraction in two releases on the same screen, and both
+were forced by the same thing: this is the one surface where a quiet
+divergence means a queue outside a building.
+
 ## [0.68.71] — 2026-09-10 — a scanner you can reach without choosing an event first
 
 Sjoerd: "In the mobile version, maybe add the QR scanner at the bottom, and it

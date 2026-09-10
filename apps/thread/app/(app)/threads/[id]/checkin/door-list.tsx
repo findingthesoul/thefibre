@@ -5,10 +5,16 @@ import { TicketScanner } from '@/components/ticket-scanner';
 import { Camera, CameraOff, CheckCircle2, Search, Undo2 } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
-import { checkinEnrolment, scanTicket, type ScanVerdict } from '../../actions';
+import { checkinEnrolment, scanAnyTicket, scanTicket, type ScanVerdict } from '../../actions';
 
 export type DoorRow = {
   id: string;
+  /** Which thread this enrolment belongs to. On a single event's door every
+   *  row carries the same one; the workspace door mixes today's events, and
+   *  a check-in has to go to the right one. */
+  threadId: string;
+  /** Shown only when a list holds more than one event. */
+  threadTitle?: string;
   name: string;
   email: string | null;
   status: string | null;
@@ -23,14 +29,20 @@ const REPEAT_MS = 4000;
 
 export function DoorList({
   locale,
-  threadId,
   initialRows,
   timezone,
+  scanScope,
+  showScanner = true,
 }: {
   locale: Locale;
-  threadId: string;
   initialRows: DoorRow[];
   timezone: string;
+  /** False where the screen already has a scanner above the list — the
+   *  workspace door has one camera, not one per tab. */
+  showScanner?: boolean;
+  /** A thread id scans that event's door and refuses tickets for any other;
+   *  null scans the whole workspace. */
+  scanScope: string | null;
 }) {
   const [rows, setRows] = useState(initialRows);
   const [query, setQuery] = useState('');
@@ -65,7 +77,7 @@ export function DoorList({
     setError(null);
     setBusyId(row.id);
     startTransition(async () => {
-      const r = await checkinEnrolment(threadId, row.id, undo);
+      const r = await checkinEnrolment(row.threadId, row.id, undo);
       setBusyId(null);
       if (!r.ok) return setError(r.error);
       setRows((rs) =>
@@ -83,11 +95,14 @@ export function DoorList({
           <strong className="font-medium text-ink">{checkedIn}</strong> / {rows.length}{' '}
           {t(locale, 'checked_in_lower')}
         </span>
+        {showScanner && (
         <TicketScanner
           locale={locale}
           onScanningChange={setScanning}
           onScan={async (code) => {
-            const v = await scanTicket(threadId, code);
+            const v = scanScope
+              ? await scanTicket(scanScope, code)
+              : await scanAnyTicket(code);
             // The door's own list ticks the row it just admitted.
             if (v.kind === 'admitted') {
               setRows((rs) =>
@@ -101,6 +116,7 @@ export function DoorList({
             return v;
           }}
         />
+        )}
       </div>
 
       <div className="relative mt-3">
@@ -151,6 +167,10 @@ export function DoorList({
                   <span className={`block truncate text-[15px] ${done ? 'text-ink-subtle' : ''}`}>
                     {r.name}
                   </span>
+                  {/* Which event, only when the list holds more than one. */}
+                  {r.threadTitle && (
+                    <span className="block truncate text-xs text-ink-muted">{r.threadTitle}</span>
+                  )}
                   {note && <span className="block text-xs text-amber-700">{note}</span>}
                 </span>
                 {done ? (

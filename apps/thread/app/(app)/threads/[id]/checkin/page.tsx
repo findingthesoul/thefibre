@@ -51,6 +51,7 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
       const e = one(r.enrolment);
       return {
         id: r.id,
+        threadId: id,
         name:
           [p?.first_name, p?.last_name].filter(Boolean).join(' ') ||
           p?.email ||
@@ -73,7 +74,9 @@ export default async function CheckinPage({ params }: { params: Promise<{ id: st
         </Link>
       </nav>
       <h1 className="mt-3 text-xl font-medium tracking-tight">{t(locale, 'checkin')}</h1>
-      <DoorList locale={locale} threadId={id} initialRows={rows} timezone={timezone} />
+      {/* scanScope = this thread: a ticket for another event is refused here,
+          which is what a single door wants. The workspace door passes null. */}
+      <DoorList locale={locale} initialRows={rows} timezone={timezone} scanScope={id} />
     </main>
   );
 }
