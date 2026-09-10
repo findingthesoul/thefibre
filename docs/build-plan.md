@@ -56,6 +56,46 @@ _Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
    public page — an item is on the thread page or invisible — so "the event
    exists but is not listed" is not a state the system can hold.
 
+**DESIGN — the workspace is invisible in the URL.** Sjoerd, 2026-09-10,
+   looking at `membership.thefibre.tech/tiers`: "URL change for workspace
+   would be nice." Every admin URL in every app is workspace-less. You cannot
+   tell from a link which workspace it opens, you cannot bookmark one that
+   reliably opens the right one, and you cannot send a colleague a link to a
+   page in a workspace you both belong to.
+
+   **Why it is not a routing change.** The active workspace is not a URL
+   concept at all today: it lives in `user_active_workspace`, is stamped into
+   the ACCESS TOKEN by the auth hook, and every RLS policy reads the token
+   rather than the request. Switching is two ordered steps — record the
+   choice, then let the browser refresh its token. So a workspace segment in
+   the path could not scope anything by itself; it could only ask for a
+   switch, and then the page has to wait for a new token before it can render
+   a single row.
+
+   **And the choice is per ACCOUNT, not per app or per tab** (see the header
+   of `lib/workspace-actions.ts`). That is the hard part and the reason this
+   is a design item rather than a task. Two tabs on two workspaces is the
+   thing people will expect the moment the workspace is in the URL, and today
+   the second tab's next token silently flips the first. Putting the
+   workspace in the path without addressing that builds a URL that lies.
+
+   Three levels, increasing in cost:
+
+   1. Show it, don't route it — the workspace slug in the path purely as a
+      label, and a mismatch with the token offers a switch instead of
+      rendering. Cheap, honest, fixes "which workspace is this link".
+   2. Route it — the segment drives the switch on navigation. Needs a token
+      refresh in the middle of a page load, and a clear story for a person
+      who has no access to that workspace.
+   3. Per-tab workspaces — the real prize and a different system: the
+      workspace stops being one row per account and becomes part of the
+      request, which means every RLS policy that reads the token has to
+      change. Not a URL feature.
+
+   Worth noting the public side already does this properly: `/{owner}/{thread}`
+   carries its owner and needs no session at all. The asymmetry is what makes
+   the admin side feel wrong.
+
 **DESIGN — a venue has an address and nowhere to say anything else.**
    Noticed 2026-09-10 while making the map link work, recorded on Sjoerd's
    instruction because it had only ever existed in a chat message.
