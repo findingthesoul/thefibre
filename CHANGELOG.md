@@ -23,6 +23,23 @@ HEAD, and refuses with the command that shows what is there.
 The refusal deliberately does not offer to fix itself. Both ways out destroy
 or ship somebody's work: merging those commits into main releases them, and
 resetting staging to main throws them away. That is a decision, not a retry.
+It was taken here by Sjoerd and by the commit's author, not by the script.
+
+**So this release also carries `/contacts/duplicates`,** the screen for the
+four admin endpoints v0.70.0 shipped with nothing able to reach them. It
+lists candidate pairs with the reason in words rather than a score, shows how
+each record arrived so that "typed in" against "booked a meeting" can settle
+which to keep, and makes KEEPING the choice rather than merging in a
+direction nobody remembers.
+
+**One honest gap, stated by its author:** that page has never been rendered
+signed in. The API under it was verified properly — list, merge and undo
+exercised over HTTP against staging with a real admin session — but the page
+itself was only ever seen as a redirect to sign-in, because the staging
+magic-link sign-in does not complete for localhost. A runtime render error in
+it is the residual risk. It is admin-gated and behind a deliberate button, so
+the blast radius is one page for one role, but it has not been verified the
+way the rest of v0.70.0 was.
 
 ## [0.70.1] — 2026-09-11 — the release script can be run from where we now tell people to work
 
