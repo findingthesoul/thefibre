@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.70.0] — 2026-09-11 — one way a person is matched, and a merge you can undo
+
+Nine call sites across six route files each rolled their own match-or-create
+for a person. Reading them turned up three real bugs, not just duplication.
+
+Five used a single-row fetch with no limit, and PostgREST raises PGRST116 when
+more than one row matches — so the moment a workspace held two people on one
+address, booking a meeting, joining a membership and an external app's link
+call all failed. The duplicate problem was eating the code meant to prevent
+it. Membership matched with `ilike`, where `%` and `_` in the VALUE are
+wildcards and `_` is legal in an address, so `foo_bar@x.com` could match a
+different person. Name splitting was written six times, storing `''` in two
+places and `null` in the rest.
+
+`lib/resolve-person.ts` is now the only way a person is matched or created —
+same pattern as `connections.ts` and `payment-accounts.ts`, both of which
+exist because one value drifted across several readers. Creation is never
+implicit; callers ask for it. Matching is oldest-wins, explicitly ordered and
+limited, so duplicates can never raise, and the count comes back so callers
+log it.
+
+No unique index on (workspace_id, email), deliberately: couples share an
+address and `info@` is one mailbox for an organisation. The API enforces with
+judgement; the database does not pretend otherwise.
+
+**New: `person.created_via`** records how every row arrives — typed in, a
+booking, an enrolment, a membership purchase, an external app. Plain text with
+no check constraint, so adding a source is a deploy rather than a migration.
+Existing rows stay null, which is honest. It joins the Article 15 export.
+
+**New: duplicate review and a reversible merge.** `merge_person` discovers
+every FK pointing at `person` from `pg_constraint` rather than listing them —
+28 exist today, and a hand-written list is what goes stale the first time
+someone adds a table. Every repointed row is recorded by id; every row a
+unique constraint refuses to move is stored whole before being dropped, so
+`unmerge_person` restores it. The merged person is soft-deleted and stamped
+with `merged_into`, never removed.
+
+`person_duplicate_candidates` uses `pg_trgm`, not a model: same address, same
+name, and trigram-similar names — the case deterministic matching misses.
+Nothing leaves the database and it answers the same way every run.
+
+**The integration test earned its place immediately.** The merge hit
+`activity is append-only — write a correction row instead`. The tempting fix
+is to exempt the merge, which puts a permanent hole in hard rule 5 for an
+administrative convenience. Instead activity is excluded from the repoint and
+reads resolve through `person_and_merged()` — the event really did happen
+against that record.
+
+Routes (admin-gated — merging rewrites who owns a payment and a certificate):
+`GET /persons/duplicates`, `POST /persons/merge`,
+`POST /persons/merges/:id/undo`, `GET /persons/merges`. No UI yet; the queue
+is reachable by API only.
+
+Also: `callerWorkspaceRole` moved from `routes/members.ts` into
+`lib/workspace-roles.ts` rather than being copied — one reader, not two that
+drift. `POST /persons` now returns an advisory `duplicate_of` instead of
+silently creating a second record; it still creates, because typing a contact
+in is deliberate.
+
+Migrations went to staging first per the documented rhythm for anything
+touching RLS or existing data. 40 integration tests against staging, 6 new;
+160 unit tests, 17 new.
+
+
 ## [0.69.8] — 2026-09-11 — the contact heading starts under the logo
 
 Found by looking at the page rather than at the code: the contact form sat in
