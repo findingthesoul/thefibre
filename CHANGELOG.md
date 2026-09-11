@@ -6,6 +6,64 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.0] — 2026-09-11 — the team decides which apps its people open
+
+Sjoerd, adding more apps: *"I don't want all apps to be available to all
+people in a workspace."* The first sketch was a new grouping concept. His was
+better: **"the workspace admin can make teams... and the teams he/she makes
+can also be used for access levels."**
+
+No new concept, because the right one already existed. `team` stopped being a
+Meet rota in May and became a platform primitive; it is workspace-scoped, it
+has members, and `team_member.role` already distinguishes lead from member —
+which is exactly the distinction an app grant needs. Nothing about
+enforcement moves: `workspace_app` still says what a workspace runs and
+`app_membership` still says what a person may open. This is an assignment
+layer that writes the same rows an admin used to tick one at a time. The test
+it passes is the ninth app: you edit one team, not one member after another.
+
+**A team can now be internal.** `team.slug` is a public address, so a Finance
+team made to let the bookkeeper into Pulse would otherwise also have stood up
+a public page — a surprising side effect for an internal permission. Internal
+teams have no public page, and the slug is claimed either way, so publishing
+later cannot collide with anyone. That last part needed no work:
+`public_root_slug` has claimed the segment globally since 2026-09-09.
+
+**Grants apply immediately** to everyone already in the team. Going-forward-only
+would leave two people in one team with different access and no visible
+reason. The cost is that adding an app widens access for people added months
+ago, so the screen says how many people that is before you save.
+
+**Removing an app no longer guesses.** `app_membership.is_direct` records
+whether an admin ticked a grant, so unticking it can tell the difference
+between revoking and leaving alone what a team still owes. Every existing row
+defaults to direct, which is precisely what it was.
+
+**Workspace admins can manage team membership.** Those writes required a Meet
+seat *and* being a lead of that specific team — correct for a rota, and
+impossible for an admin putting a finance-only person into a group.
+
+Editing team grants is **Pro** (`team_access_groups`). Resolution never is: a
+workspace that drops below Pro keeps the access its people already have and
+simply cannot change it. Revoking half a workspace because a card failed is
+the wrong answer to a billing event.
+
+`lib/team-grants.ts` is the single resolver, and `mergeGrants` inside it is
+pure and covered by nine tests. Union, never intersection — nobody loses an
+app by joining a team.
+
+New: Fibre settings → Teams. The Members list now names the team an app comes
+from, so "why does she have Pulse?" is answerable where the question occurs.
+
+Design and the decisions behind it: `docs/teams-as-access-groups-proposal.md`.
+
+**Not in this release, deliberately.** Sjoerd's wider rule — apps outside the
+plan go read-only with history intact — does not exist today. Plan gates are
+per-action and mostly guard switching an app on, so an app already running
+keeps working after a downgrade. Doing it properly needs a writable-app
+resolver, every write path consulting it, and a banner that explains why; done
+badly it means data people cannot reach. It gets its own slice.
+
 ## [0.68.76] — 2026-09-11 — the RSVP waits for you to stop tapping (Portal 0.7.3)
 
 Sjoerd, reading the cost v0.68.75 wrote down: *"could there be a delay before
