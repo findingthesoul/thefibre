@@ -10,7 +10,7 @@
 // Everything here is a link. There is no state to save and no call that
 // changes anything, which is why it can be a plain dialog rather than a form.
 
-import { useEffect, useState, useTransition } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { RichText } from '@thefibre/shared/ui/rich-text';
@@ -175,9 +175,6 @@ function NoDateChip() {
  */
 export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean }) {
   const router = useRouter();
-  const [pending, start] = useTransition();
-  // Optimistic, because a tap that does nothing visible for 400ms gets tapped
-  // again. The refresh below is what makes it true.
   const [answer, setAnswer] = useState<RsvpResponse | null>(item.rsvp);
   const [failed, setFailed] = useState(false);
 
@@ -187,31 +184,73 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
   // Order is his: no answer -> coming -> can't -> no answer. The button shows
   // the state it IS IN, never the state a tap would produce — a control that
   // displays its own next action is the classic confusion, and here the state
-  // is the thing the organiser is counting.
-  //
-  // THE COST, stated rather than hidden: a cycle cannot be aimed. Someone who
-  // means "can't" from a blank card taps twice and passes through "coming" on
-  // the way, which is briefly a wrong answer sent to the server. That is
-  // acceptable because the trip is one tap long and the third state exists to
-  // undo it — but it is why `title` and `aria-label` both name the CURRENT
-  // state and what the next tap does, and why the sheet keeps a words line
-  // that the timeline card has no room for.
+  // is the thing an organiser is counting.
   const STATES: (RsvpResponse | null)[] = [null, 'coming', 'not_coming'];
+
+  // THE SEND WAITS, Sjoerd 2026-09-11: "could there be a delay before it
+  // sends?" — and it is the right fix for the cost this control otherwise
+  // carries. A cycle cannot be aimed, so someone who means "can't" from a
+  // blank card passes THROUGH "coming" on the way. Sending on every tap makes
+  // that a real answer the organiser briefly sees and counts. Waiting for the
+  // tapping to stop means only where the finger LANDS is ever sent.
+  //
+  // The screen still changes instantly — the delay is on the wire, not in the
+  // feedback. And the timer resets on every tap, so a deliberate double tap
+  // costs one request rather than two.
+  const SETTLE_MS = 800;
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // What the server is known to hold. Reverting on failure has to come back
+  // to THIS, not to the previous on-screen value, which may itself have been
+  // a state the tapping passed through and never sent.
+  const saved = useRef<RsvpResponse | null>(item.rsvp);
+
+  const send = useCallback(
+    (value: RsvpResponse | null) => {
+      if (value === saved.current) return;
+      setRsvp(item.id, value ?? 'none')
+        .then(() => {
+          saved.current = value;
+          router.refresh();
+        })
+        .catch(() => {
+          setAnswer(saved.current);
+          setFailed(true);
+        });
+    },
+    [item.id, router],
+  );
+
+  // What is waiting to go out, so unmount can flush it.
+  const queued = useRef<RsvpResponse | null>(item.rsvp);
+  const flush = useRef(send);
+  flush.current = send;
+
+  // A PENDING ANSWER MUST NOT DIE WITH THE COMPONENT. Closing the sheet or
+  // re-rendering the list inside the 800ms window would otherwise drop it
+  // silently, which is the one failure a delay can introduce and the worst
+  // one here: the person saw the answer change and believes it is saved.
+  // So the timer is cleared AND the value is sent, not awaited — the request
+  // outlives the component.
+  useEffect(
+    () => () => {
+      if (!timer.current) return;
+      clearTimeout(timer.current);
+      timer.current = null;
+      flush.current(queued.current);
+    },
+    [],
+  );
 
   function cycle() {
     const next = STATES[(STATES.indexOf(answer) + 1) % STATES.length] ?? null;
-    const previous = answer;
     setAnswer(next);
     setFailed(false);
-    start(async () => {
-      try {
-        await setRsvp(item.id, next ?? 'none');
-        router.refresh();
-      } catch {
-        setAnswer(previous);
-        setFailed(true);
-      }
-    });
+    queued.current = next;
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => {
+      timer.current = null;
+      send(next);
+    }, SETTLE_MS);
   }
 
   // COLOUR REINFORCES, THE ICON CARRIES THE STATE. Red and green is the
@@ -233,7 +272,6 @@ export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean })
     <button
       type="button"
       onClick={cycle}
-      disabled={pending}
       // Never aria-pressed: this is not a two-state toggle, and announcing it
       // as one would hide the third state from exactly the people who cannot
       // see the colour.

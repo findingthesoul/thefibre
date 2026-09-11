@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.76] — 2026-09-11 — the RSVP waits for you to stop tapping (Portal 0.7.3)
+
+Sjoerd, reading the cost v0.68.75 wrote down: *"could there be a delay before
+it sends?"* — and it is the right fix rather than a mitigation.
+
+A cycling control cannot be aimed. Someone who means "can't" from a blank
+card passes **through** "coming" on the way. Sending on every tap made that a
+real answer, briefly counted by an organiser who might be looking at the
+moment it lands. The send now waits **800ms after the last tap**, so only
+where the finger comes to rest is ever sent — the trip through the middle
+state stops existing on the wire.
+
+The screen still changes instantly. The delay is on the wire, not in the
+feedback, which is the distinction that makes it free: the control feels
+exactly as immediate as before. A deliberate double tap now costs one request
+instead of two.
+
+**A pending answer must not die with the component**, and that is the one
+failure a delay can introduce. Closing the sheet or re-rendering the list
+inside the window would drop it silently — the worst shape of bug here,
+because the person watched the answer change and believes it is saved. So
+unmount clears the timer **and sends**, without awaiting: the request outlives
+the component.
+
+**Reverting on failure goes back to what the SERVER holds**, tracked
+separately from what is on screen. The previous on-screen value may itself
+have been a state the tapping passed through and never sent, so restoring it
+would invent an answer nobody gave.
+
+The button is no longer disabled while in flight — there is nothing to wait
+for, and a control that locks after a tap is what makes people tap it again.
+
+**Verified:** typecheck clean, production build clean, 13 portal unit tests
+pass. Not verified: the timing itself, which needs a session — the staging
+fixture is the only place the control renders.
+
 ## [0.68.75] — 2026-09-11 — one card, three columns, one RSVP button (Portal 0.7.2)
 
 Sjoerd, with a layout sketch: *"reduce it to one button, that toggles
