@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Globe, Code2, Shapes } from 'lucide-react';
+import { Globe, Code2, Shapes, LayoutTemplate } from 'lucide-react';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
@@ -27,6 +27,12 @@ export default async function SettingsPage() {
           icon: <Globe {...ICON} />,
           title: t(locale, 'settings_public_page'),
           desc: t(locale, 'settings_public_page_desc'),
+        },
+        {
+          href: '/settings/website',
+          icon: <LayoutTemplate {...ICON} />,
+          title: t(locale, 'settings_website'),
+          desc: t(locale, 'settings_website_desc'),
         },
         {
           href: '/settings/embeds',

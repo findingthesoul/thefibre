@@ -17,6 +17,8 @@ import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from './enrol-form';
 import { t, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { one } from '@/lib/thread-types';
+import { siteOf, type PublicSite } from '@/lib/public-site';
+import { SiteNav, SiteFooter } from '../site-chrome';
 
 const PUBLIC_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
@@ -37,6 +39,8 @@ type AgendaItem = {
 
 export type PublicThreadDetail = {
   organiser: { slug: string; display_name: string | null; photo_url: string | null };
+  /** The workspace's public site. Absent on an older payload = plain. */
+  site?: PublicSite;
   thread: {
     id: string;
     slug: string;
@@ -159,10 +163,27 @@ export function PublicThreadView({
     ? `${PUBLIC_HOST}/${thread.canonical_owner_slug}/${thread.slug}`
     : null;
 
+  // A thread page wears the same navbar and footer as the listing it was
+  // reached from — a site whose header stopped at the front door would not
+  // read as a site. 'plain' renders exactly what was here before.
+  const site = siteOf(data);
+  const themed = site.theme !== 'plain';
+
   return (
-    <div className="min-h-screen bg-surface-sunken">
+    <div className="flex min-h-screen flex-col bg-surface-sunken">
       {canonicalHref && <link rel="canonical" href={canonicalHref} />}
-      <main className="mx-auto max-w-4xl px-6 py-16">
+      {/* Festival's navbar floats transparently OVER its hero image. There
+          is no hero here, so it would float over the thread's first
+          paragraph instead — it borrows corporate's solid bar for this one
+          page. Same site, same links, a bar that has something to sit on. */}
+      {themed && (
+        <SiteNav
+          site={{ ...site, theme: site.theme === 'festival' ? 'corporate' : site.theme }}
+          ownerSlug={thread.canonical_owner_slug ?? organiser.slug}
+          ownerName={site.name ?? organiserName}
+        />
+      )}
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
         {thread.is_preview && (
           <div className="mb-8 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             <span className="font-medium">Draft preview.</span> This is how the page will look
@@ -340,10 +361,19 @@ export function PublicThreadView({
           />
         </div>
 
-        <footer className="mt-16 text-xs text-ink-muted">
-          {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
-        </footer>
+        {!themed && (
+          <footer className="mt-16 text-xs text-ink-muted">
+            {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
+          </footer>
+        )}
       </main>
+      {themed && (
+        <SiteFooter
+          site={site}
+          ownerSlug={thread.canonical_owner_slug ?? organiser.slug}
+          ownerName={site.name ?? organiserName}
+        />
+      )}
     </div>
   );
 }

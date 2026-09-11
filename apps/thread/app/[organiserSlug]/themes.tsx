@@ -121,9 +121,13 @@ export function FestivalTheme(p: ThemeProps) {
               className="absolute inset-0 -z-10 h-full w-full object-cover"
             />
             {/* The scrim is what makes white text legible over a photograph
-                nobody chose for its contrast. Bottom-weighted so the top of
-                the image survives. */}
-            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/45 to-black/25" />
+                nobody chose for its contrast. Bottom-weighted so the middle
+                of the image survives, plus a shallow second one at the top
+                purely for the navbar — checked on staging against a photo of
+                a bright ceiling, where white-on-white was exactly the
+                failure. */}
+            <div className="absolute inset-0 -z-10 bg-gradient-to-t from-black/85 via-black/45 to-black/20" />
+            <div className="absolute inset-x-0 top-0 -z-10 h-32 bg-gradient-to-b from-black/55 to-transparent" />
           </>
         ) : (
           <div className="absolute inset-0 -z-10 bg-gradient-to-br from-neutral-900 via-neutral-800 to-neutral-700" />

@@ -1077,6 +1077,279 @@ const CATALOG = {
     fr: '{count} sans dates', // MT
   },
 
+  // ── settings → website (the workspace's public site) ──────────────────
+  settings_website: {
+    en: 'Website',
+    nl: 'Website',
+    es: 'Sitio web', // MT
+    pt: 'Site', // MT
+    de: 'Website', // MT
+    fr: 'Site web', // MT
+  },
+  settings_website_desc: {
+    en: 'How your public pages look, and what surrounds them.',
+    nl: 'Hoe je openbare pagina’s eruitzien, en wat eromheen staat.',
+    es: 'Cómo se ven tus páginas públicas y qué las rodea.', // MT
+    pt: 'Como suas páginas públicas aparecem e o que as cerca.', // MT
+    de: 'Wie deine öffentlichen Seiten aussehen und was sie umgibt.', // MT
+    fr: 'À quoi ressemblent tes pages publiques et ce qui les entoure.', // MT
+  },
+  site_design: {
+    en: 'Design',
+    nl: 'Ontwerp',
+    es: 'Diseño', // MT
+    pt: 'Design', // MT
+    de: 'Design', // MT
+    fr: 'Design', // MT
+  },
+  site_design_desc: {
+    en: 'The three designs differ in what a visitor sees first. Pick the one that fits who arrives.',
+    nl: 'De drie ontwerpen verschillen in wat een bezoeker als eerste ziet. Kies degene die past bij wie er binnenkomt.',
+    es: 'Los tres diseños difieren en lo que ve primero un visitante. Elige el que encaje con quien llega.', // MT
+    pt: 'Os três designs diferem no que o visitante vê primeiro. Escolha o que combina com quem chega.', // MT
+    de: 'Die drei Designs unterscheiden sich darin, was Besucher zuerst sehen. Wähle das passende.', // MT
+    fr: 'Les trois designs diffèrent par ce que le visiteur voit en premier. Choisis celui qui correspond.', // MT
+  },
+  theme_plain: {
+    en: 'Plain',
+    nl: 'Eenvoudig',
+    es: 'Sencillo', // MT
+    pt: 'Simples', // MT
+    de: 'Schlicht', // MT
+    fr: 'Simple', // MT
+  },
+  theme_plain_desc: {
+    en: 'A listing, not a website. Your name and what’s on.',
+    nl: 'Een overzicht, geen website. Je naam en wat er is.',
+    es: 'Un listado, no un sitio web. Tu nombre y lo que hay.', // MT
+    pt: 'Uma lista, não um site. Seu nome e o que há.', // MT
+    de: 'Eine Liste, keine Website. Dein Name und was läuft.', // MT
+    fr: 'Une liste, pas un site. Ton nom et ce qui se passe.', // MT
+  },
+  theme_festival: {
+    en: 'Festival',
+    nl: 'Festival',
+    es: 'Festival', // MT
+    pt: 'Festival', // MT
+    de: 'Festival', // MT
+    fr: 'Festival', // MT
+  },
+  theme_festival_desc: {
+    en: 'The image fills the screen and the words sit on it. For strangers who have to feel something first.',
+    nl: 'De afbeelding vult het scherm en de woorden liggen erop. Voor vreemden die eerst iets moeten voelen.',
+    es: 'La imagen llena la pantalla y las palabras se apoyan en ella. Para desconocidos que primero deben sentir algo.', // MT
+    pt: 'A imagem preenche a tela e as palavras ficam sobre ela. Para desconhecidos que precisam sentir algo primeiro.', // MT
+    de: 'Das Bild füllt den Bildschirm, die Worte liegen darauf. Für Fremde, die zuerst etwas spüren müssen.', // MT
+    fr: 'L’image remplit l’écran et les mots se posent dessus. Pour des inconnus qui doivent d’abord ressentir.', // MT
+  },
+  theme_corporate: {
+    en: 'Corporate',
+    nl: 'Zakelijk',
+    es: 'Corporativo', // MT
+    pt: 'Corporativo', // MT
+    de: 'Geschäftlich', // MT
+    fr: 'Institutionnel', // MT
+  },
+  theme_corporate_desc: {
+    en: 'Nothing decorative above the fold, and dates in the first column. For people sent to find a date and a price.',
+    nl: 'Niets decoratiefs bovenaan, en datums in de eerste kolom. Voor mensen die een datum en een prijs zoeken.',
+    es: 'Nada decorativo arriba y fechas en la primera columna. Para quien viene a buscar fecha y precio.', // MT
+    pt: 'Nada decorativo no topo e datas na primeira coluna. Para quem vem buscar data e preço.', // MT
+    de: 'Nichts Dekoratives oben, Daten in der ersten Spalte. Für Leute, die Termin und Preis suchen.', // MT
+    fr: 'Rien de décoratif en haut, les dates en première colonne. Pour ceux qui cherchent une date et un prix.', // MT
+  },
+  theme_community: {
+    en: 'Community',
+    nl: 'Gemeenschap',
+    es: 'Comunidad', // MT
+    pt: 'Comunidade', // MT
+    de: 'Gemeinschaft', // MT
+    fr: 'Communauté', // MT
+  },
+  theme_community_desc: {
+    en: 'Your face and your voice first, then what’s on. For people who already belong.',
+    nl: 'Eerst je gezicht en je stem, dan wat er is. Voor mensen die er al bij horen.',
+    es: 'Primero tu cara y tu voz, luego lo que hay. Para quienes ya pertenecen.', // MT
+    pt: 'Primeiro seu rosto e sua voz, depois o que há. Para quem já pertence.', // MT
+    de: 'Erst dein Gesicht und deine Stimme, dann das Programm. Für Leute, die schon dazugehören.', // MT
+    fr: 'D’abord ton visage et ta voix, puis le programme. Pour ceux qui font déjà partie.', // MT
+  },
+  site_name_label: {
+    en: 'Site name',
+    nl: 'Naam van de site',
+    es: 'Nombre del sitio', // MT
+    pt: 'Nome do site', // MT
+    de: 'Name der Website', // MT
+    fr: 'Nom du site', // MT
+  },
+  site_name_hint: {
+    en: 'Leave empty to use the workspace name.',
+    nl: 'Laat leeg om de naam van de workspace te gebruiken.',
+    es: 'Déjalo vacío para usar el nombre del espacio de trabajo.', // MT
+    pt: 'Deixe vazio para usar o nome do workspace.', // MT
+    de: 'Leer lassen, um den Workspace-Namen zu verwenden.', // MT
+    fr: 'Laisse vide pour utiliser le nom de l’espace de travail.', // MT
+  },
+  site_logo: {
+    en: 'Logo',
+    nl: 'Logo',
+    es: 'Logotipo', // MT
+    pt: 'Logotipo', // MT
+    de: 'Logo', // MT
+    fr: 'Logo', // MT
+  },
+  site_logo_hint: {
+    en: 'Shown in the navbar instead of the name. A wide image works best.',
+    nl: 'Wordt in de navigatiebalk getoond in plaats van de naam. Een brede afbeelding werkt het best.',
+    es: 'Se muestra en la barra en lugar del nombre. Una imagen ancha funciona mejor.', // MT
+    pt: 'Aparece na barra no lugar do nome. Uma imagem larga funciona melhor.', // MT
+    de: 'Erscheint in der Navigation statt des Namens. Ein breites Bild wirkt am besten.', // MT
+    fr: 'Affiché dans la barre à la place du nom. Une image large fonctionne mieux.', // MT
+  },
+  site_hero: {
+    en: 'Header image',
+    nl: 'Header-afbeelding',
+    es: 'Imagen de cabecera', // MT
+    pt: 'Imagem de cabeçalho', // MT
+    de: 'Kopfbild', // MT
+    fr: 'Image d’en-tête', // MT
+  },
+  site_hero_hint: {
+    en: 'The festival design fills the screen with it, so use something large and dark enough to read white text on.',
+    nl: 'Het festivalontwerp vult het scherm ermee, dus gebruik iets groots en donker genoeg voor witte tekst.',
+    es: 'El diseño festival llena la pantalla con ella: usa algo grande y bastante oscuro para leer texto blanco.', // MT
+    pt: 'O design festival preenche a tela com ela: use algo grande e escuro o bastante para texto branco.', // MT
+    de: 'Das Festival-Design füllt den Bildschirm damit — groß und dunkel genug für weiße Schrift.', // MT
+    fr: 'Le design festival remplit l’écran avec : prends une image grande et assez sombre pour du texte blanc.', // MT
+  },
+  site_headline: {
+    en: 'Headline',
+    nl: 'Kop',
+    es: 'Titular', // MT
+    pt: 'Título', // MT
+    de: 'Überschrift', // MT
+    fr: 'Titre', // MT
+  },
+  site_headline_hint: {
+    en: 'The big line at the top. Leave empty to use the name.',
+    nl: 'De grote regel bovenaan. Laat leeg om de naam te gebruiken.',
+    es: 'La línea grande de arriba. Déjalo vacío para usar el nombre.', // MT
+    pt: 'A linha grande no topo. Deixe vazio para usar o nome.', // MT
+    de: 'Die große Zeile oben. Leer lassen, um den Namen zu verwenden.', // MT
+    fr: 'La grande ligne en haut. Laisse vide pour utiliser le nom.', // MT
+  },
+  site_intro: {
+    en: 'Intro text',
+    nl: 'Introtekst',
+    es: 'Texto de introducción', // MT
+    pt: 'Texto de introdução', // MT
+    de: 'Einleitungstext', // MT
+    fr: 'Texte d’introduction', // MT
+  },
+  site_intro_hint: {
+    en: 'A paragraph under the headline. Keep it short — it sits over an image in the festival design.',
+    nl: 'Een alinea onder de kop. Houd het kort — in het festivalontwerp staat het over een afbeelding.',
+    es: 'Un párrafo bajo el titular. Que sea breve: en el diseño festival va sobre una imagen.', // MT
+    pt: 'Um parágrafo sob o título. Seja breve — no design festival ele fica sobre uma imagem.', // MT
+    de: 'Ein Absatz unter der Überschrift. Kurz halten — im Festival-Design liegt er über einem Bild.', // MT
+    fr: 'Un paragraphe sous le titre. Reste bref : dans le design festival il se pose sur une image.', // MT
+  },
+  site_footer_note: {
+    en: 'Footer text',
+    nl: 'Footertekst',
+    es: 'Texto del pie', // MT
+    pt: 'Texto do rodapé', // MT
+    de: 'Fußzeilentext', // MT
+    fr: 'Texte de pied de page', // MT
+  },
+  site_footer_hint: {
+    en: 'An address, a line about who you are. Privacy and terms are added automatically.',
+    nl: 'Een adres, een regel over wie je bent. Privacy en voorwaarden worden automatisch toegevoegd.',
+    es: 'Una dirección, una línea sobre quién eres. Privacidad y condiciones se añaden solas.', // MT
+    pt: 'Um endereço, uma linha sobre quem você é. Privacidade e termos são adicionados automaticamente.', // MT
+    de: 'Eine Adresse, eine Zeile über euch. Datenschutz und AGB kommen automatisch dazu.', // MT
+    fr: 'Une adresse, une ligne sur qui tu es. Confidentialité et conditions sont ajoutées automatiquement.', // MT
+  },
+  site_links: {
+    en: 'Navbar links',
+    nl: 'Links in de navigatiebalk',
+    es: 'Enlaces de la barra', // MT
+    pt: 'Links da barra', // MT
+    de: 'Links in der Navigation', // MT
+    fr: 'Liens de la barre', // MT
+  },
+  site_links_hint: {
+    en: 'Up to eight. Contact is added on its own when you turn the form on.',
+    nl: 'Maximaal acht. Contact wordt vanzelf toegevoegd als je het formulier aanzet.',
+    es: 'Hasta ocho. Contacto se añade solo cuando activas el formulario.', // MT
+    pt: 'Até oito. Contato é adicionado sozinho quando você liga o formulário.', // MT
+    de: 'Bis zu acht. Kontakt kommt von selbst dazu, sobald das Formular an ist.', // MT
+    fr: 'Jusqu’à huit. Contact s’ajoute tout seul quand tu actives le formulaire.', // MT
+  },
+  add_link: {
+    en: 'Add a link',
+    nl: 'Link toevoegen',
+    es: 'Añadir un enlace', // MT
+    pt: 'Adicionar um link', // MT
+    de: 'Link hinzufügen', // MT
+    fr: 'Ajouter un lien', // MT
+  },
+  nav_link_label: {
+    en: 'Label',
+    nl: 'Label',
+    es: 'Etiqueta', // MT
+    pt: 'Rótulo', // MT
+    de: 'Beschriftung', // MT
+    fr: 'Libellé', // MT
+  },
+  site_contact: {
+    en: 'Contact page',
+    nl: 'Contactpagina',
+    es: 'Página de contacto', // MT
+    pt: 'Página de contato', // MT
+    de: 'Kontaktseite', // MT
+    fr: 'Page de contact', // MT
+  },
+  site_contact_enable: {
+    en: 'Offer a contact form',
+    nl: 'Een contactformulier aanbieden',
+    es: 'Ofrecer un formulario de contacto', // MT
+    pt: 'Oferecer um formulário de contato', // MT
+    de: 'Ein Kontaktformular anbieten', // MT
+    fr: 'Proposer un formulaire de contact', // MT
+  },
+  site_contact_enable_hint: {
+    en: 'Adds /contact to your site. Visitors never see the address it delivers to.',
+    nl: 'Voegt /contact toe aan je site. Bezoekers zien nooit het adres waar het heen gaat.',
+    es: 'Añade /contact a tu sitio. Los visitantes nunca ven la dirección a la que llega.', // MT
+    pt: 'Adiciona /contact ao seu site. Visitantes nunca veem o endereço de destino.', // MT
+    de: 'Fügt /contact zu deiner Seite hinzu. Besucher sehen die Zieladresse nie.', // MT
+    fr: 'Ajoute /contact à ton site. Les visiteurs ne voient jamais l’adresse de destination.', // MT
+  },
+  site_contact_email_label: {
+    en: 'Deliver messages to',
+    nl: 'Berichten bezorgen op',
+    es: 'Entregar los mensajes a', // MT
+    pt: 'Entregar mensagens para', // MT
+    de: 'Nachrichten zustellen an', // MT
+    fr: 'Livrer les messages à', // MT
+  },
+  site_contact_intro_label: {
+    en: 'What to say above the form',
+    nl: 'Wat er boven het formulier staat',
+    es: 'Qué decir encima del formulario', // MT
+    pt: 'O que dizer acima do formulário', // MT
+    de: 'Was über dem Formular steht', // MT
+    fr: 'Ce qui figure au-dessus du formulaire', // MT
+  },
+  view_public_page: {
+    en: 'View the public page',
+    nl: 'Bekijk de openbare pagina',
+    es: 'Ver la página pública', // MT
+    pt: 'Ver a página pública', // MT
+    de: 'Öffentliche Seite ansehen', // MT
+    fr: 'Voir la page publique', // MT
+  },
   // ── threads list ──────────────────────────────────────────────────────
   threads_desc: {
     en: 'Events and journeys — each thread carries its own engagements, enrolments and certificate.',

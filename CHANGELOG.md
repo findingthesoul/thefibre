@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.6] — 2026-09-11 — somewhere to choose the design, and a way to be written to
+
+The other half of v0.69.4. That release taught the public pages three
+designs; this one is where a workspace picks one, and the contact page the
+ingredients list promised.
+
+**Settings → Website.** The design, chosen from four cards, then the site's
+name, logo, header image, headline, intro, navbar links, footer text and the
+contact form. Each theme card carries a small abstract of its layout rather
+than a screenshot: what differs between the three is where the weight sits,
+and four rectangles say that honestly and never go stale.
+
+**`/{owner}/contact`.** Name, address, message. It delivers to an address the
+visitor never sees, which is most of why a form beats printing the address.
+Turning the switch on without naming that address is refused in the editor,
+because a form with nowhere to deliver eats messages silently. The page 404s
+unless the form is on, so the route can never render as a way to reach
+somebody that isn't one.
+
+**Thread pages wear the site too.** Same navbar, same footer, reached from
+the same listing. One exception, found by looking: festival's navbar floats
+transparently over its hero image, and a thread page has no hero, so it
+borrows corporate's solid bar for that one page.
+
+Checked in a browser against staging rather than reasoned about, which is how
+the festival navbar turned out to be white text on a photograph of a bright
+ceiling. It now carries a shallow scrim of its own, and the fixtures that
+proved it were removed afterwards.
+
 ## [0.69.5] — 2026-09-11 — one sidebar, and nothing in it twice
 
 Sjoerd: *"make the side bar simple, and remove double function (like Settings
