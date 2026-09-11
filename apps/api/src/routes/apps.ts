@@ -117,7 +117,7 @@ appsRoutes.post('/register', async (c) => {
 });
 
 const APP_SELECT =
-  'id, slug, name, base_url, homepage_url, description, contact_email, status, kind, released_at, manifest, owner_user_id, submitted_at, reviewed_at, reviewed_by, review_notes, created_at';
+  'id, slug, name, base_url, homepage_url, description, contact_email, status, kind, released_at, beta_at, manifest, owner_user_id, submitted_at, reviewed_at, reviewed_by, review_notes, created_at';
 
 // ---------------------------------------------------------------------------
 // GET /api/v1/apps — the catalogue. Super admins see every status; everyone

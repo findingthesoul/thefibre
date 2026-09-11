@@ -24,6 +24,8 @@ type CatalogueApp = {
   kind: 'first_party' | 'third_party';
   /** null = not built yet. See 20260824210000_app_released_at.sql. */
   released_at: string | null;
+  /** Set with released_at null = testable, beta workspaces only (20260912090000). */
+  beta_at?: string | null;
 };
 type WorkspaceApp = {
   id: string;
@@ -68,10 +70,15 @@ const INSTALLABLE_META: Record<
 //
 // First-party apps still get their hand-written copy from INSTALLABLE_META;
 // a third-party one shows what it declared at registration.
-function describe(a: CatalogueApp, locale: Locale) {
+function describe(a: CatalogueApp, locale: Locale, canBeta: boolean) {
   const meta = INSTALLABLE_META[a.slug];
   const known = a.slug in APPS ? APPS[a.slug as keyof typeof APPS] : null;
+  // Three states, not two (20260912090000): live, testable, not built. A
+  // workspace without beta access sees a testable app exactly as it saw it
+  // before — not built — because from where it stands that is still true.
+  const beta = !a.released_at && !!a.beta_at && canBeta;
   return {
+    beta,
     slug: a.slug,
     name: known?.name ?? a.name,
     tagline: known?.tagline ?? (a.kind === 'third_party' ? t(locale, 'third_party_app') : ''),
@@ -79,7 +86,7 @@ function describe(a: CatalogueApp, locale: Locale) {
     body: meta ? t(locale, meta.body) : (a.description ?? t(locale, 'no_description')),
     status: t(locale, meta?.status ?? 'app_status_active'),
     kind: a.kind,
-    released: !!a.released_at,
+    released: !!a.released_at || beta,
     // In-family apps link via appUrl (env-aware — the catalogue's base_url
     // is the production address even in the staging DB); third-party apps
     // keep their own declared link.
@@ -156,7 +163,7 @@ export default async function WorkspaceAppsPage() {
   // First party first, then alphabetically — so the apps someone recognises
   // don't get pushed down the page as third-party ones arrive.
   const available = catalogue
-    .map((a) => describe(a, locale))
+    .map((a) => describe(a, locale, features.beta_apps === true))
     .sort((a, b) => {
       // Things you can actually switch on come first; the not-built-yet ones
       // sink to the bottom where they read as a roadmap rather than a menu.
@@ -199,6 +206,11 @@ export default async function WorkspaceAppsPage() {
                       <span className="text-[10px] uppercase tracking-wider text-ink-muted">
                         {a.kind === 'third_party' ? t(locale, 'third_party') : a.status}
                       </span>
+                      {a.beta && (
+                        <span className="rounded-full border border-line px-2 py-0.5 text-[10px] uppercase tracking-wider text-ink-subtle">
+                          {t(locale, 'app_beta')}
+                        </span>
+                      )}
                     </div>
                     {a.tagline && (
                       <div className="text-sm text-ink-subtle mt-1">{a.tagline}</div>

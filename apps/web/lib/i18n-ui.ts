@@ -5893,6 +5893,15 @@ const CATALOG = {
     de: 'Stillgelegt', // MT
     fr: 'Archivée', // MT
   },
+  // Beta apps — the tier above Enterprise (2026-09-12).
+  app_beta: {
+    en: 'Beta',
+    nl: 'Beta',
+    es: 'Beta', // MT
+    pt: 'Beta', // MT
+    de: 'Beta', // MT
+    fr: 'Bêta', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

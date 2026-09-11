@@ -53,7 +53,7 @@ workspacesRoutes.get('/', async (c) => {
     adminClient
       .from('workspace_subscription')
       .select(
-        'workspace_id, plan_id, status, comped_reason, comped_until, custom_price_cents_month, custom_price_cents_year, plan:plan_id(name, price_cents_month)',
+        'workspace_id, plan_id, status, comped_reason, comped_until, beta_until, custom_price_cents_month, custom_price_cents_year, plan:plan_id(name, price_cents_month)',
       ),
   ]);
   if (error || sErr) {
@@ -99,6 +99,7 @@ workspacesRoutes.get('/', async (c) => {
               status: sub.status,
               comped_reason: sub.comped_reason,
               comped_until: sub.comped_until,
+              beta_until: sub.beta_until,
               custom_price_cents_month: sub.custom_price_cents_month,
               custom_price_cents_year: sub.custom_price_cents_year,
               list_price_cents_month: plan?.price_cents_month ?? 0,
@@ -217,6 +218,9 @@ const SubscriptionBody = z
     comped: z.boolean(),
     comped_reason: z.string().max(500).nullable(),
     comped_until: z.string().datetime().nullable(),
+    // "for a while" — when this workspace stops being a beta tester
+    // (20260912090000). Unlike comped_until, this one is enforced.
+    beta_until: z.string().datetime().nullable(),
     custom_price_cents_month: z.number().int().min(0).nullable(),
     custom_price_cents_year: z.number().int().min(0).nullable(),
   })
@@ -254,6 +258,7 @@ workspacesRoutes.patch('/:id/subscription', async (c) => {
   }
   if (b.comped_reason !== undefined) patch.comped_reason = b.comped_reason;
   if (b.comped_until !== undefined) patch.comped_until = b.comped_until;
+  if (b.beta_until !== undefined) patch.beta_until = b.beta_until;
   if (b.custom_price_cents_month !== undefined) patch.custom_price_cents_month = b.custom_price_cents_month;
   if (b.custom_price_cents_year !== undefined) patch.custom_price_cents_year = b.custom_price_cents_year;
 

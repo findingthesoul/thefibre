@@ -6,6 +6,53 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.0] — 2026-09-12 — Beta: the companies who see an app first
+
+Sjoerd: *"Give one more plan above enterprise. Beta... it is companies that
+get the newest apps to test for a while."*
+
+So the new tier is not about volume or support. It is about **earliness**, and
+about a **while** — both of which had to become real things rather than a
+promise in a sales conversation.
+
+**A third answer in the catalogue.** `app.released_at` has meant "is there a
+product behind this" since August, and `status` means "has a human allowed it
+to act" — two questions, two columns, deliberately. Beta needs a third that
+neither can give: an app that renders real pages, is worth a tester's time,
+and is not ready for everyone. That is `app.beta_at`. Set it with
+`released_at` still null and the app can be switched on by a beta workspace
+and by nobody else. Everyone else sees exactly what they saw before, "not
+built yet", because from where they stand that is still true. Releasing
+generally later just sets `released_at`, which always wins.
+
+**The while is enforced.** `workspace_subscription.beta_until` is read on
+every plan resolution, and past it the `beta_apps` feature lapses. Only that
+feature: the rest of the plan stands and **nothing already switched on is
+taken away**. A tester keeps the apps they turned on and simply stops being
+first in the queue — taking a live app out of a company's hands because a
+date passed would be a worse failure than the one this prevents. Eight tests
+cover the expiry, including that an unreadable date keeps access rather than
+guessing.
+
+Worth knowing, and deliberately not touched: `comped_until` sits on the same
+row, has the same shape, and is read by nothing at all — a comp with an end
+date does not end. Making comps start expiring is a billing decision and
+belongs to whoever makes it, not to this release.
+
+**Beta is invited, not bought.** `billing_plan.is_public` is new and every
+existing plan defaults to true; only Beta opts out, so it never appears on the
+public price list beside the tiers you can actually pick. It still gates, it
+still shows in /admin/plans, and a workspace on it still sees it on their own
+plan page.
+
+Its features are copied from Enterprise **by the migration** rather than
+retyped, so a feature added to Enterprise before this ran cannot be quietly
+missing from the tier above it. Priced at 0 like Enterprise, which here means
+a conversation rather than free.
+
+Setting it up: /admin/workspaces → Plan → Beta, with a "Testing until" date
+that only appears for that plan and clears itself when a workspace moves off.
+
 ## [0.71.0] — 2026-09-12 — Connections: where everybody stands
 
 The eighth app. `connections.thethread.app` and `connections.thefibre.tech`

@@ -14,10 +14,10 @@ export const workspaceAppsRoutes = new Hono();
 // The DB has the last word regardless: workspace_app_approved_gate rejects the
 // insert if the app isn't approved. This lookup exists to return a clean 400
 // instead of a trigger's exception.
-async function resolveInstallableApp(slug: string) {
+async function resolveInstallableApp(slug: string, workspaceId: string) {
   const { data } = await adminClient
     .from('app')
-    .select('id, slug, name, base_url, status, released_at, kind')
+    .select('id, slug, name, base_url, status, released_at, beta_at, kind')
     .eq('slug', slug)
     .maybeSingle();
   if (!data) return { app: null, error: 'app not found' as const };
@@ -28,7 +28,15 @@ async function resolveInstallableApp(slug: string) {
   // Approved says a human allowed it to act. released_at says it exists at all.
   // Without this check a workspace can switch on an app that will never render
   // a page — see 20260824210000_app_released_at.sql.
+  //
+  // beta_at is the third answer (20260912090000): the app renders, it is worth
+  // a tester's time, and it is not ready for everyone. A workspace whose plan
+  // carries beta_apps may switch it on; everyone else gets the same "not built
+  // yet" they got before, because from where they stand that is still true.
   if (!data.released_at) {
+    if (data.beta_at && (await can(workspaceId, 'beta_apps'))) {
+      return { app: data, error: null };
+    }
     return { app: null, error: `app "${slug}" is not built yet` as const };
   }
   return { app: data, error: null };
@@ -67,7 +75,7 @@ workspaceAppsRoutes.post('/', async (c) => {
   const db = userClient(ctx.jwt);
   const slug = body.data.app_slug;
 
-  const { app, error: resolveErr } = await resolveInstallableApp(slug);
+  const { app, error: resolveErr } = await resolveInstallableApp(slug, ctx.workspaceId);
   if (!app) return c.json({ error: resolveErr }, resolveErr === 'app not found' ? 404 : 400);
 
   // The plan gate for Flow and Pulse, and it is the ONLY one they need.
