@@ -14,7 +14,7 @@ import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { RichText } from '@thefibre/shared/ui/rich-text';
-import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X } from 'lucide-react';
+import { CalendarPlus, Check, ExternalLink, QrCode, Video, Wallet, X, HelpCircle } from 'lucide-react';
 import {
   agendaIcsUrl,
   appleWalletUrl,
@@ -173,7 +173,7 @@ function NoDateChip() {
  * 44px targets beat a native picker. Design argued with the membership
  * session; Sjoerd can overrule it in a word.
  */
-export function Rsvp({ item }: { item: AgendaItem }) {
+export function Rsvp({ item, stretch }: { item: AgendaItem; stretch?: boolean }) {
   const router = useRouter();
   const [pending, start] = useTransition();
   // Optimistic, because a tap that does nothing visible for 400ms gets tapped
@@ -181,14 +181,31 @@ export function Rsvp({ item }: { item: AgendaItem }) {
   const [answer, setAnswer] = useState<RsvpResponse | null>(item.rsvp);
   const [failed, setFailed] = useState(false);
 
-  function choose(next: RsvpResponse) {
-    const value = answer === next ? 'none' : next;
+  // ONE button that cycles, Sjoerd 2026-09-11: "reduce it to one button, that
+  // toggles between: ? / check / X".
+  //
+  // Order is his: no answer -> coming -> can't -> no answer. The button shows
+  // the state it IS IN, never the state a tap would produce — a control that
+  // displays its own next action is the classic confusion, and here the state
+  // is the thing the organiser is counting.
+  //
+  // THE COST, stated rather than hidden: a cycle cannot be aimed. Someone who
+  // means "can't" from a blank card taps twice and passes through "coming" on
+  // the way, which is briefly a wrong answer sent to the server. That is
+  // acceptable because the trip is one tap long and the third state exists to
+  // undo it — but it is why `title` and `aria-label` both name the CURRENT
+  // state and what the next tap does, and why the sheet keeps a words line
+  // that the timeline card has no room for.
+  const STATES: (RsvpResponse | null)[] = [null, 'coming', 'not_coming'];
+
+  function cycle() {
+    const next = STATES[(STATES.indexOf(answer) + 1) % STATES.length] ?? null;
     const previous = answer;
-    setAnswer(value === 'none' ? null : next);
+    setAnswer(next);
     setFailed(false);
     start(async () => {
       try {
-        await setRsvp(item.id, value);
+        await setRsvp(item.id, next ?? 'none');
         router.refresh();
       } catch {
         setAnswer(previous);
@@ -197,70 +214,55 @@ export function Rsvp({ item }: { item: AgendaItem }) {
     });
   }
 
-  // Two 44x44 squares, not two short rectangles.
-  //
-  // Sjoerd, 2026-09-10: "make the RSVP smaller — like more smaller icons.
-  // And maybe with green/red once activated." The FOOTPRINT shrinks a lot:
-  // the pair was two ~136x44 buttons spanning the card, and is now 96px of
-  // total width. The HEIGHT does not, and that is deliberate — this control
-  // was already caught once at 34px high (v0.68.38) after a round that
-  // believed it was compliant. It is used one-handed on a phone, so 44
-  // stays. Small square, never short rectangle.
-  //
-  // COLOUR REINFORCES, THE ICON CARRIES THE STATE. The check and the cross
-  // stay: red and green is the common colour-blind pair, "no answer" has to
-  // be visibly distinct from both rather than merely paler, and losing the
-  // words leaves the shape as the only thing that means anything.
-  const box =
-    'inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-60';
+  // COLOUR REINFORCES, THE ICON CARRIES THE STATE. Red and green is the
+  // common colour-blind pair, and with the words gone the shape is the only
+  // thing that means anything without it.
+  const look =
+    answer === 'coming'
+      ? 'border-emerald-600 bg-emerald-600 text-white'
+      : answer === 'not_coming'
+        ? 'border-red-600 bg-red-600 text-white'
+        : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink';
+
+  const now =
+    answer === 'coming' ? 'Coming' : answer === 'not_coming' ? 'Can\u2019t come' : 'No answer yet';
+  const nextLabel =
+    answer === 'coming' ? 'can\u2019t come' : answer === 'not_coming' ? 'no answer' : 'coming';
+
+  const button = (
+    <button
+      type="button"
+      onClick={cycle}
+      disabled={pending}
+      // Never aria-pressed: this is not a two-state toggle, and announcing it
+      // as one would hide the third state from exactly the people who cannot
+      // see the colour.
+      aria-label={`${now} — ${item.title}. Tap for ${nextLabel}.`}
+      title={`${now} · tap for ${nextLabel}`}
+      className={`inline-flex w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-60 ${
+        stretch ? 'h-full min-h-11 self-stretch' : 'h-11'
+      } ${look}`}
+    >
+      {answer === 'coming' ? (
+        <Check className="h-5 w-5" aria-hidden />
+      ) : answer === 'not_coming' ? (
+        <X className="h-5 w-5" aria-hidden />
+      ) : (
+        <HelpCircle className="h-5 w-5" aria-hidden />
+      )}
+    </button>
+  );
+
+  // In the timeline card the button stands alone at the end of the row and
+  // the words would not fit. In the sheet there is room, and the line is the
+  // only thing that makes the cycle discoverable without hovering.
+  if (stretch) return button;
 
   return (
     <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-      <div role="group" aria-label="Are you coming?" className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => choose('coming')}
-          disabled={pending}
-          aria-pressed={answer === 'coming'}
-          // The words are gone, so this label is the only name the control
-          // has. It carries the item, because a screen reader user does not
-          // get the row context that proximity gives a sighted one.
-          aria-label={`Coming to ${item.title}`}
-          title="Coming"
-          className={`${box} ${
-            answer === 'coming'
-              ? 'border-emerald-600 bg-emerald-600 text-white'
-              : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink'
-          }`}
-        >
-          <Check className="h-5 w-5" aria-hidden />
-        </button>
-        <button
-          type="button"
-          onClick={() => choose('not_coming')}
-          disabled={pending}
-          aria-pressed={answer === 'not_coming'}
-          aria-label={`Can\u2019t come to ${item.title}`}
-          title={'Can\u2019t come'}
-          className={`${box} ${
-            answer === 'not_coming'
-              ? 'border-red-600 bg-red-600 text-white'
-              : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink'
-          }`}
-        >
-          <X className="h-5 w-5" aria-hidden />
-        </button>
-      </div>
-      {/* Beside the icons, not beneath them — that is where the vertical
-          space is saved. It is NOT dropped: with the words gone this line is
-          the only thing telling anyone that withdrawing is possible at all,
-          and the third state is invisible without it. */}
+      {button}
       <p className="text-xs text-ink-muted">
-        {failed
-          ? 'That didn\u2019t save. Check your connection and try again.'
-          : answer === null
-            ? 'You haven\u2019t answered yet.'
-            : 'Tap again to undo.'}
+        {failed ? 'That didn\u2019t save. Check your connection and try again.' : `${now}. Tap for ${nextLabel}.`}
       </p>
     </div>
   );

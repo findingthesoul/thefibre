@@ -22,7 +22,10 @@ function DateChip({ iso, muted }: { iso: string; muted?: boolean }) {
   return (
     <div
       aria-hidden
-      className={`flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-lg border border-line leading-none ${
+      // Full card height, Sjoerd 2026-09-11. A fixed 48px square left the
+      // date floating beside a two-line body; stretching it makes the three
+      // columns read as one row rather than a square, some text and a button.
+      className={`flex w-12 shrink-0 flex-col items-center justify-center self-stretch rounded-lg border border-line leading-none ${
         muted ? 'bg-surface' : 'bg-surface-sunken'
       }`}
     >
@@ -68,60 +71,74 @@ function Card({
   const meta = [entry.time, entry.organiser, entry.where].filter(Boolean).join(' · ');
 
   return (
-    <li className={`rounded-xl border border-line bg-surface p-4 ${past ? 'opacity-70' : ''}`}>
-      <div className="flex gap-3">
+    <li className={`rounded-xl border border-line bg-surface p-3 ${past ? 'opacity-70' : ''}`}>
+      {/* Sjoerd's layout, 2026-09-11:
+          | date | title / time · organiser · QR | RSVP |
+          Date and RSVP both run the full height of the card, so the row is
+          three columns rather than a body with things tucked beside it.
+          `items-stretch` is what makes the outer columns tall; everything
+          inside the middle column stays vertically centred against them. */}
+      <div className="flex items-stretch gap-3">
         <DateChip iso={entry.dateIso} muted={past} />
-        <div className="min-w-0 flex-1">
-          <div className="flex items-start justify-between gap-2">
-            {/* The card body is the trigger, not the whole <li> — the RSVP
-                buttons live inside it, and a button inside a button is not a
-                thing a browser will render. */}
-            {entry.threadId ? (
-              <button
-                type="button"
-                onClick={() => onOpen(entry.threadId!, entry.engagementId)}
-                className="min-w-0 flex-1 text-left"
-              >
-                <span className="block truncate font-medium text-ink">{entry.title}</span>
-                <span className="mt-0.5 block truncate text-sm text-ink-muted">{meta}</span>
-              </button>
-            ) : (
-              <div className="min-w-0 flex-1">
-                <span className="block truncate font-medium text-ink">{entry.title}</span>
-                <span className="mt-0.5 block truncate text-sm text-ink-muted">{meta}</span>
-              </div>
-            )}
 
-            <div className="flex shrink-0 items-center gap-2">
-              {entry.hasTicket && (
-                <span
-                  title="You have a ticket"
-                  className="inline-flex items-center gap-1 text-xs text-ink-muted"
-                >
-                  <QrCode className="h-3.5 w-3.5" aria-hidden />
-                </span>
-              )}
-              {/* The one action that matters right now. Outside the window
-                  there is deliberately nothing: a Join button three months
-                  early is clutter pretending to be an action. */}
-              {entry.joinUrl && (
-                <a
-                  href={entry.joinUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="inline-flex min-h-11 items-center gap-1.5 rounded-lg bg-ink px-3 text-sm font-medium text-surface hover:opacity-90"
-                >
-                  <Video className="h-4 w-4" aria-hidden />
-                  Join
-                </a>
-              )}
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          {/* The card body is the trigger, not the whole <li> — the RSVP
+              button lives in the row, and a button inside a button is not a
+              thing a browser will render. */}
+          {entry.threadId ? (
+            <button
+              type="button"
+              onClick={() => onOpen(entry.threadId!, entry.engagementId)}
+              className="min-w-0 text-left"
+            >
+              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <MetaLine entry={entry} />
+            </button>
+          ) : (
+            <div className="min-w-0">
+              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <MetaLine entry={entry} />
             </div>
-          </div>
-
-          {rsvpItem?.rsvp_enabled && !past && <Rsvp item={rsvpItem} />}
+          )}
         </div>
+
+        {/* The one action that matters right now. Outside the window there is
+            deliberately nothing: a Join button three months early is clutter
+            pretending to be an action. */}
+        {entry.joinUrl && (
+          <a
+            href={entry.joinUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 self-stretch rounded-lg bg-ink px-3 text-sm font-medium text-surface hover:opacity-90"
+          >
+            <Video className="h-4 w-4" aria-hidden />
+            Join
+          </a>
+        )}
+
+        {rsvpItem?.rsvp_enabled && !past && <Rsvp item={rsvpItem} stretch />}
       </div>
     </li>
+  );
+}
+
+/** Second bar: time, organiser, where — and the ticket mark, which belongs
+ *  with the small facts rather than out at the edge competing with the one
+ *  control that does something. */
+function MetaLine({ entry }: { entry: Entry }) {
+  const meta = [entry.time, entry.organiser, entry.where].filter(Boolean).join(' \u00b7 ');
+  return (
+    <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-muted">
+      <span className="truncate">{meta}</span>
+      {entry.hasTicket && (
+        // Named on the wrapper, not the glyph: an aria-hidden SVG with a
+        // <title> inside it is announced by nothing.
+        <span title="You have a ticket" aria-label="You have a ticket" className="shrink-0">
+          <QrCode className="h-3.5 w-3.5" aria-hidden />
+        </span>
+      )}
+    </span>
   );
 }
 

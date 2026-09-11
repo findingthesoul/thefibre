@@ -6,6 +6,52 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.75] — 2026-09-11 — one card, three columns, one RSVP button (Portal 0.7.2)
+
+Sjoerd, with a layout sketch: *"reduce it to one button, that toggles
+between: ? / check / X (at the end of an engagement... total height of a
+card... Date also total height of a card):*
+
+```
+| [date] | [Titel event / (smaller) time · organiser · QR icon] | [RSVP] |
+```
+
+Built as drawn. The card is now three columns with `items-stretch`, so the
+date block and the RSVP button both run the **full height of the card**
+instead of floating beside a two-line body — the row reads as one row rather
+than a square, some text and a button. The ticket mark moved into the second
+line with the other small facts, where it stops competing with the one
+control that does something.
+
+**The RSVP is one button that cycles**, in his order: no answer → coming →
+can't → no answer. It shows the state it **is in**, never the state a tap
+would produce; a control that displays its own next action is the classic
+confusion, and here the state is the thing an organiser is counting.
+
+**The cost is stated rather than hidden.** A cycle cannot be aimed. Someone
+who means "can't" from a blank card taps twice and passes through "coming" on
+the way, which is briefly a wrong answer sent to the server. That is
+acceptable because the trip is one tap long and the third state exists to
+undo it — but it is why `title` and `aria-label` both name the CURRENT state
+*and* what the next tap does, and why the detail sheet keeps a words line
+("Coming. Tap for can't come.") that the timeline card has no room for.
+Without that line on a phone, where there is no hover, the cycle is
+undiscoverable.
+
+**`aria-pressed` is deliberately gone.** It describes a two-state toggle, and
+announcing three states as two would hide the middle one from exactly the
+people who cannot see the colour. Colour still only reinforces: the check,
+the cross and the question mark carry the state.
+
+Width dropped from two 44px squares to one; **height stayed**, as it has
+since v0.68.38 caught this control at 34px after a round that believed it
+was compliant. Small square, never short rectangle.
+
+**Verified:** typecheck clean, production build clean, 13 portal unit tests
+pass, signed-out render with no console errors. The control itself lives
+behind a session — the staging fixture proves it, and it has not been run
+against this change.
+
 ## [0.68.74] — 2026-09-11 — the RSVP is two small squares (Portal 0.7.1)
 
 Sjoerd: "make the RSVP smaller — like more smaller icons. And maybe with
