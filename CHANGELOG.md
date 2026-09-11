@@ -6,6 +6,38 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.70.1] — 2026-09-11 — the release script can be run from where we now tell people to work
+
+Two defects in the release path, both found by the first session to release
+from a git worktree, and both fixed at the root rather than written up as
+things to remember.
+
+**`release.sh` pushed the ref named `main`.** In the main checkout that is the
+commit it just verified. From a worktree it is a different thing entirely —
+`main` is checked out in the MAIN checkout and holds whatever that tree last
+had, so every gate would pass on your tree and somebody else's commit would
+ship. It pushes `HEAD` now, which is identical in the main checkout and
+correct everywhere else, and is in any case the honest ref: HEAD is what the
+gates read. This mattered today rather than in the abstract, because CLAUDE.md
+now tells sessions to take a worktree for code work, so the broken path was
+about to become the normal one.
+
+**Two secret files were being uploaded to the Fly builder.** A worktree has no
+`apps/api/.env` or `.env.staging` — they are gitignored — so `pnpm verify`
+cannot run until you copy them in, and then they sit there invisible to
+`git status`. The root `.dockerignore` said `.env` and `.env.*`, and Docker
+ignore patterns are relative to the CONTEXT ROOT, so those matched `/.env`
+and nothing deeper. `apps/api/.dockerignore` looked like it covered the gap
+and never has: BuildKit reads only the context-root file. The Dockerfile's
+COPY list is narrow enough that neither file reached the image — luck, not
+design — but the whole context is uploaded to the remote builder, so the
+secrets crossed the wire. `**/.env` and `**/.env.*` now match at any depth,
+and the decorative nested file says at the top that Docker never reads it.
+
+The general shape of both: a check you have to remember is the check that
+fails. Fixing the pattern beats adding "and list the env files" to a
+pre-deploy ritual.
+
 ## [0.70.0] — 2026-09-11 — one way a person is matched, and a merge you can undo
 
 Nine call sites across six route files each rolled their own match-or-create

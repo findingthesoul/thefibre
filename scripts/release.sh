@@ -55,5 +55,12 @@ fi
 
 pnpm verify
 
-git push origin main main:staging
+# HEAD, not the ref named `main`. In the main checkout they are the same
+# commit. From a WORKTREE they are not: `main` is checked out in the main
+# checkout and is whatever that tree last had, so every gate above would
+# pass on this tree and a different commit would ship (found 2026-09-11,
+# the first time anyone released from a worktree — CLAUDE.md now tells
+# sessions to take one for code work, so this was about to become the
+# normal path rather than the exception). HEAD is what the gates read.
+git push origin HEAD:main HEAD:staging
 echo "Released $V."

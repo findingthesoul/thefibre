@@ -1,3 +1,9 @@
+# NOT READ BY DOCKER. BuildKit reads only the .dockerignore at the build
+# CONTEXT root, and the API image is built with the repo root as its context
+# (fly.toml → apps/api/Dockerfile). This file has had no effect since it was
+# written in May 2026; the rules that matter are in /.dockerignore. Kept only
+# so that deleting it is a deliberate act rather than a surprise — add
+# exclusions to the root file.
 node_modules
 .env
 .env.local
