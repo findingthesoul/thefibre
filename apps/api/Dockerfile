@@ -20,6 +20,11 @@ RUN pnpm install --frozen-lockfile
 # Build the API. The `...` filter modifier tells pnpm "and its workspace deps"
 # so @thefibre/shared is compiled first in topological order.
 COPY apps/api/src/ apps/api/src/
+# tsc needs more than node's default heap here. The API crossed ~2GB during
+# v0.69.0 and the remote builder died with "Ineffective mark-compacts near
+# heap limit" — a hard ceiling, not a flake: two clean runs failed at the
+# same point. The builder has the RAM; node just would not ask for it.
+ENV NODE_OPTIONS=--max-old-space-size=4096
 RUN pnpm --filter @thefibre/api... build
 
 # Produce a self-contained deploy folder (resolves workspace:* deps,

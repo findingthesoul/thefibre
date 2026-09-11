@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.1] — 2026-09-11 — the API build gets the memory it was already using
+
+v0.69.0 built clean locally and died on the Fly remote builder: *"Ineffective
+mark-compacts near heap limit"* from `tsc`, twice in a row at the same point,
+around 1.95GB. Not a flake — node was taking its default ceiling on a builder
+with far more RAM to give, and the API finally grew past it.
+
+`NODE_OPTIONS=--max-old-space-size=4096` on the build stage. Nothing about the
+image or the running machine changes; only the compiler's allowance does.
+
 ## [0.69.0] — 2026-09-11 — the team decides which apps its people open
 
 Sjoerd, adding more apps: *"I don't want all apps to be available to all
