@@ -22,7 +22,7 @@ export default async function SettingsPage() {
     locale,
     currentApp: 'fibre-platform',
     env: process.env,
-    hosted: ['profile', 'workspace', 'members', 'apps', 'plan', 'about', 'privacy'],
+    hosted: ['profile', 'workspace', 'members', 'teams', 'apps', 'plan', 'about', 'privacy'],
     // Payments and connections are set up inside the apps that use them —
     // Meet and The Thread — and both write platform values.
     omit: ['payments', 'connections'],

@@ -8,6 +8,7 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
 import { wouldOrphanWorkspace, ORPHAN_ERROR, isAdminRole } from '../lib/workspace-roles.js';
 import type { RequestContext } from '../middleware/app-context.js';
+import { syncUsers, inheritedByUser } from '../lib/team-grants.js';
 
 // ===========================================================================
 // Platform members management — THE single point of truth for who is in the
@@ -50,8 +51,13 @@ function normalizeGrants(list: AppGrantIn[]): { slug: string; role: 'member' | '
   return list.map((g) => (typeof g === 'string' ? { slug: g, role: 'member' as const } : { slug: g.slug, role: g.role }));
 }
 
-// Reconcile a user's app grants against the wanted set. Sets the role
-// explicitly (the UI always sends the full picture), deletes the rest.
+// Reconcile a user's DIRECT app grants against the wanted set. Sets the role
+// explicitly (the UI always sends the full picture).
+//
+// Since teams became access groups (2026-09-11) an unticked app is no longer
+// deleted outright — a team the person belongs to may still owe it to them.
+// The tick is recorded as `is_direct` and lib/team-grants.ts decides what the
+// row should finally be, so there is one resolver rather than two opinions.
 async function syncAppGrants(userId: string, wanted: { slug: string; role: 'member' | 'admin' }[]) {
   const grantable = await grantableSlugs();
   const bySlug = new Map(wanted.filter((w) => grantable.includes(w.slug)).map((w) => [w.slug, w.role]));
@@ -64,11 +70,21 @@ async function syncAppGrants(userId: string, wanted: { slug: string; role: 'memb
     if (role) {
       await adminClient
         .from('app_membership')
-        .upsert({ user_id: userId, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
+        .upsert(
+          { user_id: userId, app_id: app.id, role, is_direct: true },
+          { onConflict: 'user_id,app_id' },
+        );
     } else {
-      await adminClient.from('app_membership').delete().eq('user_id', userId).eq('app_id', app.id);
+      await adminClient
+        .from('app_membership')
+        .update({ is_direct: false })
+        .eq('user_id', userId)
+        .eq('app_id', app.id);
     }
   }
+  // Drops rows nothing owes any more, and re-applies whatever the person's
+  // teams confer.
+  await syncUsers([userId]);
 }
 
 membersRoutes.get('/', async (c) => {
@@ -95,6 +111,12 @@ membersRoutes.get('/', async (c) => {
     appsByUser.set(g.user_id, list);
   }
 
+  // Which of those apps a team confers, and which team — so an admin can see
+  // WHY somebody has Pulse without hunting through the Teams page.
+  const inherited = await inheritedByUser(userIds);
+  const { data: appRows } = await adminClient.from('app').select('id, slug');
+  const slugById = new Map((appRows ?? []).map((a) => [a.id, a.slug]));
+
   return c.json({
     items: (members ?? []).map((m) => {
       const u = Array.isArray(m.user) ? m.user[0] : m.user;
@@ -106,6 +128,9 @@ membersRoutes.get('/', async (c) => {
         relationship_type: m.relationship_type,
         joined_at: m.joined_at,
         apps: appsByUser.get(m.user_id) ?? [],
+        apps_via: (inherited.get(m.user_id) ?? [])
+          .map((g) => ({ slug: slugById.get(g.app_id) ?? null, via: g.via }))
+          .filter((g): g is { slug: string; via: string[] } => !!g.slug),
       };
     }),
   });
@@ -336,7 +361,10 @@ membersRoutes.post('/', async (c) => {
       const role = usable.find((w) => w.slug === app.slug)?.role ?? 'member';
       await adminClient
         .from('app_membership')
-        .upsert({ user_id: u.id, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
+        .upsert(
+          { user_id: u.id, app_id: app.id, role, is_direct: true },
+          { onConflict: 'user_id,app_id' },
+        );
     }
   }
 

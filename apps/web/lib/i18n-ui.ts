@@ -5532,6 +5532,183 @@ const CATALOG = {
     de: 'App-Launcher', // MT
     fr: 'Lanceur d\'apps', // MT
   },
+  // ── teams as access groups (2026-09-11) ───────────────────────────────
+  teams_title: {
+    en: 'Teams',
+    nl: 'Teams',
+    es: 'Equipos', // MT
+    pt: 'Equipes', // MT
+    de: 'Teams', // MT
+    fr: 'Équipes', // MT
+  },
+  teams_blurb: {
+    en: 'Group people, and decide which apps the group can open.',
+    nl: 'Groepeer mensen en bepaal welke apps de groep mag openen.',
+    es: 'Agrupa personas y decide qué apps puede abrir el grupo.', // MT
+    pt: 'Agrupe pessoas e decida quais apps o grupo pode abrir.', // MT
+    de: 'Menschen gruppieren und festlegen, welche Apps die Gruppe öffnen darf.', // MT
+    fr: 'Regroupez des personnes et décidez quelles apps le groupe peut ouvrir.', // MT
+  },
+  new_team: {
+    en: 'New team',
+    nl: 'Nieuw team',
+    es: 'Nuevo equipo', // MT
+    pt: 'Nova equipe', // MT
+    de: 'Neues Team', // MT
+    fr: 'Nouvelle équipe', // MT
+  },
+  team_name: {
+    en: 'Name',
+    nl: 'Naam',
+    es: 'Nombre', // MT
+    pt: 'Nome', // MT
+    de: 'Name', // MT
+    fr: 'Nom', // MT
+  },
+  team_description: {
+    en: 'Description',
+    nl: 'Omschrijving',
+    es: 'Descripción', // MT
+    pt: 'Descrição', // MT
+    de: 'Beschreibung', // MT
+    fr: 'Description', // MT
+  },
+  team_published: {
+    en: 'Give this team a public page',
+    nl: 'Geef dit team een openbare pagina',
+    es: 'Dar a este equipo una página pública', // MT
+    pt: 'Dar a esta equipe uma página pública', // MT
+    de: 'Diesem Team eine öffentliche Seite geben', // MT
+    fr: 'Donner à cette équipe une page publique', // MT
+  },
+  team_published_help: {
+    en: 'The address is reserved either way, so you can publish later without losing it.',
+    nl: 'Het adres wordt sowieso vastgelegd, dus je kunt later publiceren zonder het kwijt te raken.',
+    es: 'La dirección queda reservada igualmente, así que puedes publicar más tarde sin perderla.', // MT
+    pt: 'O endereço fica reservado de qualquer forma, então você pode publicar depois sem perdê-lo.', // MT
+    de: 'Die Adresse wird ohnehin reserviert — du kannst später veröffentlichen, ohne sie zu verlieren.', // MT
+    fr: 'L\'adresse est réservée dans tous les cas, vous pouvez donc publier plus tard sans la perdre.', // MT
+  },
+  team_internal: {
+    en: 'Internal',
+    nl: 'Intern',
+    es: 'Interno', // MT
+    pt: 'Interno', // MT
+    de: 'Intern', // MT
+    fr: 'Interne', // MT
+  },
+  team_apps: {
+    en: 'Apps this team can open',
+    nl: 'Apps die dit team mag openen',
+    es: 'Apps que este equipo puede abrir', // MT
+    pt: 'Apps que esta equipe pode abrir', // MT
+    de: 'Apps, die dieses Team öffnen darf', // MT
+    fr: 'Apps que cette équipe peut ouvrir', // MT
+  },
+  team_apps_help: {
+    en: 'Everyone in the team gets these. People keep anything granted to them directly.',
+    nl: 'Iedereen in het team krijgt deze. Wat iemand rechtstreeks heeft gekregen, blijft.',
+    es: 'Todos en el equipo las reciben. Cada persona conserva lo que se le concedió directamente.', // MT
+    pt: 'Todos na equipe recebem estes. Cada pessoa mantém o que recebeu diretamente.', // MT
+    de: 'Alle im Team bekommen diese. Direkt erteilte Rechte bleiben bestehen.', // MT
+    fr: 'Toute l\'équipe les reçoit. Chacun conserve ce qui lui a été accordé directement.', // MT
+  },
+  team_lead_is_admin: {
+    en: 'Team leads manage this app',
+    nl: 'Teamleads beheren deze app',
+    es: 'Los líderes del equipo gestionan esta app', // MT
+    pt: 'Os líderes da equipe gerenciam este app', // MT
+    de: 'Team-Leads verwalten diese App', // MT
+    fr: 'Les responsables d\'équipe gèrent cette app', // MT
+  },
+  team_members_label: {
+    en: 'People',
+    nl: 'Mensen',
+    es: 'Personas', // MT
+    pt: 'Pessoas', // MT
+    de: 'Personen', // MT
+    fr: 'Personnes', // MT
+  },
+  add_to_team: {
+    en: 'Add someone',
+    nl: 'Iemand toevoegen',
+    es: 'Añadir a alguien', // MT
+    pt: 'Adicionar alguém', // MT
+    de: 'Jemanden hinzufügen', // MT
+    fr: 'Ajouter quelqu\'un', // MT
+  },
+  no_teams_yet: {
+    en: 'No teams yet.',
+    nl: 'Nog geen teams.',
+    es: 'Aún no hay equipos.', // MT
+    pt: 'Ainda não há equipes.', // MT
+    de: 'Noch keine Teams.', // MT
+    fr: 'Pas encore d\'équipes.', // MT
+  },
+  no_team_members_yet: {
+    en: 'Nobody in this team yet.',
+    nl: 'Nog niemand in dit team.',
+    es: 'Todavía no hay nadie en este equipo.', // MT
+    pt: 'Ainda não há ninguém nesta equipe.', // MT
+    de: 'Noch niemand in diesem Team.', // MT
+    fr: 'Personne dans cette équipe pour l\'instant.', // MT
+  },
+  teams_load_failed: {
+    en: 'Could not load teams.',
+    nl: 'Kon teams niet laden.',
+    es: 'No se pudieron cargar los equipos.', // MT
+    pt: 'Não foi possível carregar as equipes.', // MT
+    de: 'Teams konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les équipes.', // MT
+  },
+  team_role_lead: {
+    en: 'Lead',
+    nl: 'Lead',
+    es: 'Responsable', // MT
+    pt: 'Líder', // MT
+    de: 'Lead', // MT
+    fr: 'Responsable', // MT
+  },
+  team_role_member: {
+    en: 'Member',
+    nl: 'Lid',
+    es: 'Miembro', // MT
+    pt: 'Membro', // MT
+    de: 'Mitglied', // MT
+    fr: 'Membre', // MT
+  },
+  team_grants_need_pro: {
+    en: 'Letting teams decide app access is part of Pro. Settings → Plan has the details.',
+    nl: 'Teams app-toegang laten bepalen hoort bij Pro. Kijk bij Instellingen → Abonnement.',
+    es: 'Dejar que los equipos decidan el acceso a las apps es parte de Pro. Ajustes → Plan tiene los detalles.', // MT
+    pt: 'Deixar as equipes decidirem o acesso aos apps faz parte do Pro. Configurações → Plano tem os detalhes.', // MT
+    de: 'Teams über App-Zugriff entscheiden zu lassen, gehört zu Pro. Details unter Einstellungen → Tarif.', // MT
+    fr: 'Laisser les équipes décider de l\'accès aux apps fait partie de Pro. Détails dans Réglages → Formule.', // MT
+  },
+  team_widen_warning: {
+    en: 'people in this team receive these apps as soon as you save.',
+    nl: 'mensen in dit team krijgen deze apps zodra je opslaat.',
+    es: 'personas de este equipo reciben estas apps en cuanto guardes.', // MT
+    pt: 'pessoas nesta equipe recebem estes apps assim que você salvar.', // MT
+    de: 'Personen in diesem Team erhalten diese Apps, sobald du speicherst.', // MT
+    fr: 'personnes de cette équipe reçoivent ces apps dès que vous enregistrez.', // MT
+  },
+  apps_via_team: {
+    en: 'via',
+    nl: 'via',
+    es: 'vía', // MT
+    pt: 'via', // MT
+    de: 'über', // MT
+    fr: 'via', // MT
+  },
+  team_retired: {
+    en: 'Retired',
+    nl: 'Gearchiveerd',
+    es: 'Retirado', // MT
+    pt: 'Arquivado', // MT
+    de: 'Stillgelegt', // MT
+    fr: 'Archivée', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

@@ -156,6 +156,7 @@ import {
   CreditCard,
   Building2,
   Users,
+  UsersRound,
   LayoutGrid,
   Receipt,
   BookOpen,
@@ -168,6 +169,7 @@ export type PlatformSettingKey =
   | 'payments'
   | 'workspace'
   | 'members'
+  | 'teams'
   | 'apps'
   | 'currencies'
   | 'plan'
@@ -214,6 +216,13 @@ const CANON: Record<
     desc: 'Who is in the workspace, what they may do, and which apps they can use.',
     icon: <Users {...ICON} />,
     path: '/settings/members',
+  },
+  teams: {
+    section: 'workspace',
+    title: 'Teams',
+    desc: 'Group people, and let the group decide which apps its members can open.',
+    icon: <UsersRound {...ICON} />,
+    path: '/settings/teams',
   },
   apps: {
     section: 'workspace',

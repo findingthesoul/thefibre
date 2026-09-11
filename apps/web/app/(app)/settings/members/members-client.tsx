@@ -17,6 +17,9 @@ export type Member = {
   relationship_type: 'internal' | 'external';
   joined_at: string;
   apps: { slug: string; role: string }[];
+  /** Apps a team confers, and which team — so "why does she have Pulse?"
+      is answerable from this screen (teams as access groups, 2026-09-11). */
+  apps_via?: { slug: string; via: string[] }[];
 };
 
 // Role names are product vocabulary — the same words in every locale.
@@ -27,12 +30,17 @@ const ROLE_LABELS: Record<Member['workspace_role'], string> = {
 };
 
 // Compact per-row grant summary: "Meet · Thread · Membership (admin)".
-function appsSummary(member: Member): string {
+// An app a team confers is named with the team, because an admin looking at
+// this row needs to know the tick is not where that access comes from.
+function appsSummary(member: Member, locale: Locale): string {
   if (member.apps.length === 0) return '—';
+  const viaBySlug = new Map((member.apps_via ?? []).map((v) => [v.slug, v.via]));
   return member.apps
     .map((a) => {
       const label = (APPS as Record<string, { label: string } | undefined>)[a.slug]?.label ?? a.slug;
-      return a.role === 'admin' ? `${label} (admin)` : label;
+      const base = a.role === 'admin' ? `${label} (admin)` : label;
+      const via = viaBySlug.get(a.slug);
+      return via?.length ? `${base} (${t(locale, 'apps_via_team')} ${via.join(', ')})` : base;
     })
     .join(' · ');
 }
@@ -94,7 +102,7 @@ export function MembersClient({
                     <td className="px-5 py-3 text-ink-subtle">
                       {t(locale, m.relationship_type === 'internal' ? 'internal' : 'external')}
                     </td>
-                    <td className="px-5 py-3 text-ink-muted">{appsSummary(m)}</td>
+                    <td className="px-5 py-3 text-ink-muted">{appsSummary(m, locale)}</td>
                     <td className="px-5 py-3 text-ink-muted">
                       {new Date(m.joined_at).toLocaleDateString(INTL_LOCALES[locale], {
                         dateStyle: 'medium',
