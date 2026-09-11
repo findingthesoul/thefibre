@@ -13,6 +13,7 @@ import { Hono, type Context } from 'hono';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { adminClient, userClient } from '../db.js';
+import { resolvePerson } from '../lib/resolve-person.js';
 import { invalidateAppSlugCache } from '../middleware/app-context.js';
 import { APP_SCOPES, generateToken, partitionScopes } from '../lib/app-keys.js';
 import { readManifestActivityTypes, readManifestScopes } from '../lib/app-manifest.js';
@@ -577,38 +578,24 @@ async function linkOne(
     const email = input.match_on.email;
     if (!email) return fail(400, 'match_on.email is required for person mappings');
 
-    const { data: person } = await adminClient
-      .from('person')
-      .select('id')
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('email', email)
-      .is('deleted_at', null)
-      .maybeSingle();
-
-    if (person) {
-      platformId = person.id as string;
-    } else {
-      if (!input.create_if_missing) {
+    const resolved = await resolvePerson({
+      workspaceId: ctx.workspaceId,
+      email,
+      name: input.match_on.name,
+      source: 'app_link',
+      create: input.create_if_missing === true,
+    });
+    if (!resolved.ok) {
+      if (resolved.reason === 'not_found') {
         return fail(404, 'no matching person; pass create_if_missing=true to make one');
       }
-      const parts = (input.match_on.name ?? '').trim().split(/\s+/).filter(Boolean);
-      const { data: created, error } = await adminClient
-        .from('person')
-        .insert({
-          workspace_id: ctx.workspaceId,
-          email,
-          first_name: parts[0] ?? null,
-          last_name: parts.length > 1 ? parts.slice(1).join(' ') : null,
-        })
-        .select('id')
-        .single();
-      if (error || !created) {
-        console.error('[apps/links] person create failed', error);
-        return fail(500, error?.message ?? 'create failed');
+      if (resolved.reason === 'invalid_email') {
+        return fail(400, 'match_on.email is not a usable address');
       }
-      platformId = created.id as string;
-      action = 'created';
+      return fail(500, resolved.message ?? 'create failed');
     }
+    platformId = resolved.personId;
+    if (resolved.created) action = 'created';
   } else {
     // Organisation. Match on domain first (indexed, and the closest thing an
     // org has to a natural key), then fall back to an exact name match.

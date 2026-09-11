@@ -3,6 +3,7 @@ import { seatAvailable, planFor } from '../lib/plan.js';
 import { seatBillable, reconcileSeatBilling } from '../lib/seat-billing.js';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { resolvePersonId } from '../lib/resolve-person.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
@@ -288,33 +289,18 @@ membersRoutes.post('/', async (c) => {
 
   if (isNew && !u) {
     // Identity invariant: every user has a paired person.
-    let { data: person } = await adminClient
-      .from('person')
-      .select('id')
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('email', email)
-      .is('deleted_at', null)
-      .limit(1)
-      .maybeSingle();
-    if (!person) {
-      const parts = (body.data.name ?? '').trim().split(/\s+/);
-      const { data: created } = await adminClient
-        .from('person')
-        .insert({
-          workspace_id: ctx.workspaceId,
-          first_name: parts[0] || null,
-          last_name: parts.slice(1).join(' ') || null,
-          email,
-        })
-        .select('id')
-        .single();
-      person = created;
-    }
+    const personId = await resolvePersonId({
+      workspaceId: ctx.workspaceId,
+      email,
+      name: body.data.name,
+      source: 'member_invite',
+      create: true,
+    });
     const { data: createdUser, error: uErr } = await adminClient
       .from('user')
       .insert({
         workspace_id: ctx.workspaceId,
-        person_id: person?.id ?? null,
+        person_id: personId,
         email,
         full_name: body.data.name ?? null,
         primary_auth_method: 'google',
@@ -327,8 +313,8 @@ membersRoutes.post('/', async (c) => {
       return c.json({ error: uErr?.message ?? 'create failed' }, 500);
     }
     u = createdUser;
-    if (person) {
-      await adminClient.from('person').update({ user_id: u.id }).eq('id', person.id);
+    if (personId) {
+      await adminClient.from('person').update({ user_id: u.id }).eq('id', personId);
     }
   }
 

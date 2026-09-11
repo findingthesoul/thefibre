@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type Stripe from 'stripe';
 import { userClient, adminClient } from '../db.js';
+import { resolvePerson } from '../lib/resolve-person.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 import { recordPurchase } from '../lib/purchases.js';
@@ -1673,35 +1674,22 @@ membershipRoutes.post('/public/join', async (c) => {
     console.warn('[membership/public/join] account auto-create failed', e);
   }
 
-  // Create-or-match the person (case-insensitive email match, no wildcards).
-  let personId: string;
-  const { data: existingPerson } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('workspace_id', ws.id)
-    .ilike('email', email)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (existingPerson) {
-    personId = existingPerson.id;
-  } else {
-    const parts = d.name.trim().split(/\s+/);
-    const { data: created, error: personErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: ws.id,
-        first_name: parts[0] ?? d.name.trim(),
-        last_name: parts.slice(1).join(' ') || '',
-        email,
-      })
-      .select('id')
-      .single();
-    if (personErr || !created) {
-      console.error('[membership/public/join] person insert failed', personErr);
-      return c.json({ error: 'could not create your contact record' }, 500);
-    }
-    personId = created.id;
+  // Create-or-match the person via the platform SPoT. The old .ilike() match
+  // here treated % and _ in the ADDRESS as wildcards — and _ is legal in an
+  // address — so foo_bar@x.com could match fooXbar@x.com. email is citext, so
+  // resolvePerson's .eq() is already case-insensitive and cannot wildcard.
+  const resolved = await resolvePerson({
+    workspaceId: ws.id,
+    email,
+    name: d.name,
+    source: 'membership_join',
+    create: true,
+  });
+  if (!resolved.ok) {
+    console.error('[membership/public/join] person resolve failed', resolved.reason);
+    return c.json({ error: 'could not create your contact record' }, 500);
   }
+  const personId = resolved.personId;
 
   // Already an active member? Send them to sign-in instead of double-charging.
   const { data: existingMember } = await adminClient
@@ -1892,35 +1880,22 @@ membershipRoutes.post('/public/buy', async (c) => {
     console.warn('[membership/public/buy] account auto-create failed', e);
   }
 
-  // Create-or-match the person (case-insensitive email match, no wildcards).
-  let personId: string;
-  const { data: existingPerson } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('workspace_id', ws.id)
-    .ilike('email', email)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (existingPerson) {
-    personId = existingPerson.id;
-  } else {
-    const parts = d.name.trim().split(/\s+/);
-    const { data: created, error: personErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: ws.id,
-        first_name: parts[0] ?? d.name.trim(),
-        last_name: parts.slice(1).join(' ') || '',
-        email,
-      })
-      .select('id')
-      .single();
-    if (personErr || !created) {
-      console.error('[membership/public/buy] person insert failed', personErr);
-      return c.json({ error: 'could not create your contact record' }, 500);
-    }
-    personId = created.id;
+  // Create-or-match the person via the platform SPoT. The old .ilike() match
+  // here treated % and _ in the ADDRESS as wildcards — and _ is legal in an
+  // address — so foo_bar@x.com could match fooXbar@x.com. email is citext, so
+  // resolvePerson's .eq() is already case-insensitive and cannot wildcard.
+  const resolved = await resolvePerson({
+    workspaceId: ws.id,
+    email,
+    name: d.name,
+    source: 'membership_purchase',
+    create: true,
+  });
+  if (!resolved.ok) {
+    console.error('[membership/public/buy] person resolve failed', resolved.reason);
+    return c.json({ error: 'could not create your contact record' }, 500);
   }
+  const personId = resolved.personId;
 
   // Already owns it? Say so instead of double-charging (mirror of the join
   // flow's already_member).

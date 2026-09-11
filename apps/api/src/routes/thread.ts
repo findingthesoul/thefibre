@@ -16,6 +16,7 @@ import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { resolvePerson } from '../lib/resolve-person.js';
 // Circular with routes/purchases.ts (it imports finalizePaidEnrolment from
 // here) — safe: both are hoisted function declarations, called only at
 // request time.
@@ -3636,32 +3637,18 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     console.warn('[thread/participants] account auto-create failed', e);
   }
 
-  let { data: person } = await adminClient
-    .from('person')
-    .select('id, first_name')
-    .eq('workspace_id', thread.workspace_id)
-    .eq('email', email)
-    .is('deleted_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (!person) {
-    const parts = name.split(/\s+/);
-    const { data: created, error: pErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: thread.workspace_id,
-        first_name: parts[0] ?? name,
-        last_name: parts.slice(1).join(' ') || null,
-        email,
-      })
-      .select('id, first_name')
-      .single();
-    if (pErr || !created) {
-      console.error('[thread/participants] person insert failed', pErr);
-      return c.json({ error: 'could not create the person' }, 500);
-    }
-    person = created;
+  const resolvedParticipant = await resolvePerson({
+    workspaceId: thread.workspace_id,
+    email,
+    name,
+    source: 'thread_participant',
+    create: true,
+  });
+  if (!resolvedParticipant.ok) {
+    console.error('[thread/participants] person resolve failed', resolvedParticipant.reason);
+    return c.json({ error: 'could not create the person' }, 500);
   }
+  const person = { id: resolvedParticipant.personId, first_name: resolvedParticipant.firstName };
 
   // Platform enrolment — reuse if present; existing companion = already in.
   let enrolmentId: string;
@@ -5870,35 +5857,18 @@ threadRoutes.post('/public/enrol', async (c) => {
       console.warn('[thread/public/enrol] account auto-create failed', e);
     }
   }
-  let { data: person } = await adminClient
-    .from('person')
-    .select('id, first_name')
-    .eq('workspace_id', thread.workspace_id)
-    .eq('email', email)
-    .is('deleted_at', null)
-    .limit(1)
-    .maybeSingle();
-
-  if (!person) {
-    const parts = d.name.trim().split(/\s+/);
-    const firstName = parts[0] ?? d.name.trim();
-    const lastName = parts.slice(1).join(' ') || null;
-    const { data: created, error: pErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: thread.workspace_id,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-      })
-      .select('id, first_name')
-      .single();
-    if (pErr || !created) {
-      console.error('[thread/public/enrol] person insert failed', pErr);
-      return c.json({ error: 'could not register you — try again' }, 500);
-    }
-    person = created;
+  const resolvedEnrolee = await resolvePerson({
+    workspaceId: thread.workspace_id,
+    email,
+    name: d.name,
+    source: 'thread_enrolment',
+    create: true,
+  });
+  if (!resolvedEnrolee.ok) {
+    console.error('[thread/public/enrol] person resolve failed', resolvedEnrolee.reason);
+    return c.json({ error: 'could not register you — try again' }, 500);
   }
+  const person = { id: resolvedEnrolee.personId, first_name: resolvedEnrolee.firstName };
 
   // A prior enrolment with an unpaid checkout gets its companion row reused
   // (set in the duplicate branch below) instead of a new insert.

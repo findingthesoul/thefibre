@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
 
 export const personsRoutes = new Hono();
 
@@ -65,9 +66,36 @@ personsRoutes.post('/', async (c) => {
   // Insert-through-RLS kept failing here even after the 20260708150000
   // policy split (RLS violated on the returning read); the middleware
   // already guarantees the caller is a member of ctx.workspaceId.
+  // Typing a contact in is a deliberate act, so this path still creates even
+  // when the address is already on file — two real people can share one
+  // (a couple, an info@ mailbox). But it says so, and the UI can offer the
+  // existing record instead. Propose, don't block.
+  const normalisedEmail = normaliseEmail(body.data.email as string | null | undefined);
+  let duplicateOf: string | null = null;
+  if (normalisedEmail) {
+    const existing = await resolvePerson({
+      workspaceId: ctx.workspaceId,
+      email: normalisedEmail,
+      source: 'manual',
+      create: false,
+    });
+    if (existing.ok) {
+      duplicateOf = existing.personId;
+      console.warn('[persons POST] address already on file', {
+        workspace_id: ctx.workspaceId,
+        matches: existing.matches,
+      });
+    }
+  }
+
   const { data, error } = await adminClient
     .from('person')
-    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .insert({
+      ...body.data,
+      ...(normalisedEmail ? { email: normalisedEmail } : {}),
+      workspace_id: ctx.workspaceId,
+      created_via: 'manual',
+    })
     .select('id, first_name, last_name, email, country, created_at')
     .single();
 
@@ -161,7 +189,9 @@ personsRoutes.post('/', async (c) => {
   }
 
   return c.json(
-    { ...data, auto_linked_org_id: autoLinkedOrgId },
+    // duplicate_of: an existing person already holds this address. Additive,
+    // advisory, and never a refusal — the caller decides whether to keep both.
+    { ...data, auto_linked_org_id: autoLinkedOrgId, duplicate_of: duplicateOf },
     201,
   );
 });

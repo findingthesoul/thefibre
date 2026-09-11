@@ -54,6 +54,7 @@ import {
 } from '../lib/zoom/client.js';
 import { zoomAccessTokenForUser, clearZoomTokenCache } from '../lib/zoom/host.js';
 import { buildBookingIcal } from '../lib/ical.js';
+import { resolvePersonId } from '../lib/resolve-person.js';
 import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round-robin.js';
 import { sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
@@ -87,44 +88,22 @@ function meetAppUrl(): string {
 // the platform contact graph (brief §2). These helpers keep that invariant.
 // ---------------------------------------------------------------------------
 
-function splitName(full: string | null): { first: string | null; last: string | null } {
-  if (!full) return { first: null, last: null };
-  const parts = full.trim().split(/\s+/);
-  const first = parts[0] ?? null;
-  const last = parts.length > 1 ? parts.slice(1).join(' ') : null;
-  return { first, last };
-}
-
-/** Find-or-create a person for (workspace, email). Returns the person id. */
+/** Find-or-create a person for (workspace, email). Returns the person id.
+ *  Thin wrapper over the platform SPoT — see lib/resolve-person.ts for why
+ *  the hand-rolled version that lived here was unsafe once a workspace held
+ *  two people on one address. */
 async function ensurePersonForEmail(
   workspaceId: string,
   email: string,
   fullName: string | null,
 ): Promise<string | null> {
-  const { data: existing } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('workspace_id', workspaceId)
-    .eq('email', email)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (existing) return existing.id;
-  const { first, last } = splitName(fullName);
-  const { data: created, error } = await adminClient
-    .from('person')
-    .insert({
-      workspace_id: workspaceId,
-      email,
-      first_name: first,
-      last_name: last,
-    })
-    .select('id')
-    .single();
-  if (error || !created) {
-    console.error('[identity] person create failed', error);
-    return null;
-  }
-  return created.id;
+  return resolvePersonId({
+    workspaceId,
+    email,
+    name: fullName,
+    source: 'meet_invite',
+    create: true,
+  });
 }
 
 /** Ensure a workspace_member row exists for (user, workspace). Idempotent.
@@ -601,36 +580,15 @@ meetRoutes.post('/public/bookings', async (c) => {
     : null;
 
   // Find or create a person in the host's workspace for this email.
-  let personId: string | null = null;
-  const { data: existing } = await adminClient
-    .from('person')
-    .select('id')
-    .eq('workspace_id', mt.workspace_id)
-    .eq('email', data.invitee_email)
-    .is('deleted_at', null)
-    .maybeSingle();
-  if (existing) {
-    personId = existing.id;
-  } else {
-    const parts = data.invitee_name.trim().split(/\s+/);
-    const firstName = parts[0] ?? null;
-    const lastName = parts.length > 1 ? parts.slice(1).join(' ') : null;
-    const { data: created, error: pErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: mt.workspace_id,
-        email: data.invitee_email,
-        first_name: firstName,
-        last_name: lastName,
-      })
-      .select('id')
-      .single();
-    if (pErr || !created) {
-      console.error('[meet bookings] person create failed', pErr);
-    } else {
-      personId = created.id;
-    }
-  }
+  // Non-fatal on failure: a booking without a linked person is degraded but
+  // still a booking, which is the behaviour this replaced.
+  const personId = await resolvePersonId({
+    workspaceId: mt.workspace_id,
+    email: data.invitee_email,
+    name: data.invitee_name,
+    source: 'meet_booking',
+    create: true,
+  });
 
   const starts = starts0;
   const ends = ends0;
