@@ -1,151 +1,136 @@
-# Connections — state at 2026-09-11 22:55
+# Connections — state at 2026-09-12 01:15
 
-*Written at the end of the build session, for the debug-and-refinement chat
-that picks this up. Facts only; the reasoning lives in the other
-`connections-*.md` documents, indexed by
-[`connections-overview.md`](connections-overview.md).*
-
----
-
-## 1. What is live in production
-
-**v0.70.0 — the person SPoT.** Released, deployed, migrations applied to prod.
-
-- `apps/api/src/lib/resolve-person.ts` is the only way a person is matched or
-  created. Nine call sites across six route files now go through it.
-- `person.created_via` records how every new row arrived.
-- `person.merged_into`, `public.person_merge`, `merge_person()`,
-  `unmerge_person()`, `person_duplicate_candidates()` (pg_trgm),
-  `person_and_merged()`.
-- Four admin-gated routes: `GET /persons/duplicates`, `POST /persons/merge`,
-  `POST /persons/merges/:id/undo`, `GET /persons/merges`.
-
-**v0.70.1** (peer session) fixed `scripts/release.sh` to push `HEAD` rather
-than `main`, and added `**/.env` to `.dockerignore`.
-
-**v0.70.2** (peer session, `992b0d40`) released the **duplicate review
-screen** at `/contacts/duplicates` in Fibre web, plus a guard in
-`release.sh` that refuses to push unless `origin/staging` is an ancestor of
-`HEAD`.
-
-> **Gap closed 23:0x, after the v0.70.2 CHANGELOG entry was written.** That
-> entry says the screen had never been rendered signed in, which was true when
-> written and is no longer. Verified against staging with a planted session
-> (§7): empty state, both detection rules rendering with seeded pairs, the
-> provenance line reading "typed in" / "enrolled in a thread" / "booked a
-> meeting", **Keep this one** performing a real merge, the merge appearing
-> under Recent merges, and **Undo** restoring the pair. Fixtures removed by
-> id afterwards. The CHANGELOG was left as written rather than
-> retro-corrected — it was accurate at the time, and an entry that quietly
-> improves after the fact is worse than one that is dated.
-
-*Why the guard exists:* `git push origin HEAD:main HEAD:staging` updates two
-refs in one command and git does not apply them atomically. With staging
-diverged, main lands and only staging is rejected — released, reported as
-failed, one retry from burning a second version number. Staging had diverged
-because this session pushed `HEAD:staging` alone to get a Vercel build for a
-render check, which is off-label: the documented flow pushes the *same*
-commit to both refs.
+*End of the build session. Everything is released; nothing sits on a branch.
+The reasoning behind the design lives in the other `connections-*.md`
+documents, indexed by [`connections-overview.md`](connections-overview.md).*
 
 ---
 
-## 2. What is committed but NOT released
+## 1. Do these three, in this order
 
-Branch `worktree-connections-person-resolver`, two commits ahead of `main`:
+Connections is built, released and on GitHub. It does not serve yet, and
+**every remaining step is a Vercel or secrets action, not code.**
 
-| Commit | What |
-|---|---|
-| `a74db96c` | **`apps/connections`** — the eighth app: landscape + attention |
-| `02009601` | This handover note |
+**1. Fix the build settings** on the `thefibre-connections` project.
+`connections.thethread.app` returns 404 because no build has succeeded. Two
+failures so far, and the second looked like a new problem while being the
+same one:
 
-Neither is on `main` or `staging`. **Neither has a version bump or a
-CHANGELOG entry.**
+- **Root Directory → `apps/connections`.** At the repo root, Vercel reads the
+  root `vercel.json`, whose `outputDirectory` is `apps/web/.next` — so the app
+  builds correctly and then fails looking for web's output.
+- **Build, Install and Output overrides → all blank.** `apps/connections/vercel.json`
+  configures them. A dashboard override left from the first attempt survives
+  the Root Directory fix and causes a *second* failure after the build
+  succeeds.
+- Framework Preset → Next.js.
 
----
+Domains are already attached correctly: `connections.thefibre.tech` → the
+`staging` branch, `connections.thethread.app` → Production.
 
-## 3. Where prod and staging differ — read this before deploying anything
+**2. Set the environment variables.** Production scope:
 
-| | Prod | Staging |
-|---|---|---|
-| `connections_landscape()` | **missing** | applied |
-| `connections_attention()` | **missing** | applied |
-| API with `/api/v1/connections/*` | **not deployed** | deployed |
-| `apps/connections` on Vercel | project does not exist | project does not exist |
+```
+NEXT_PUBLIC_SUPABASE_URL=https://zfsyyokepyycefbxiblc.supabase.co
+NEXT_PUBLIC_API_BASE_URL=https://thefibre-api.fly.dev
+NEXT_PUBLIC_COOKIE_DOMAIN=.thethread.app
+```
 
-**The order matters.** The API route selects from functions that do not exist
-on prod. Migrations must land before the Fly deploy, or every call to
-`/api/v1/connections/*` errors in the window between them.
+Preview scope, git branch `staging`: the same three pointed at
+`lukhyylwhhjyihqtghvw.supabase.co`, `thefibre-api-staging.fly.dev` and
+`.thefibre.tech`, plus the eight `NEXT_PUBLIC_*_URL` values listed in the
+staging matrix of `scripts/verify-vercel-env.mjs`.
 
-`scripts/db-push-prod.sh` then `fly deploy --remote-only`. Check
-`git status --short` in the same breath as the deploy — Fly sends the tree.
+Both scopes also need `NEXT_PUBLIC_SUPABASE_ANON_KEY` and
+`SSO_INTERNAL_SECRET`, **copied from the Pulse project** — the SSO value must
+match what Fly holds or the cross-app sign-in hop breaks.
 
----
+`node scripts/verify-vercel-env.mjs <token-file> <prod-anon> <staging-anon> apply`
+does all of it except `SSO_INTERNAL_SECRET`, which it refuses to invent.
 
-## 4. Things done to staging data that are not in git
+**3. Then, and only then, flip `available: true`** for `fibre-sales` in
+`packages/shared/src/branding.ts`.
 
-- **Connections was activated** for workspace `ca0569d5…` (the rehearsal
-  workspace): `app.status = 'approved'` for `fibre-sales`, a `workspace_app`
-  row, and an `app_membership` for sjoerd@soul.com. Without these the app
-  redirects to `/no-access` — which is correct behaviour, not a bug.
-- Four fixture people were seeded and **removed again** by id.
-- One merge was performed and undone through the HTTP routes.
+It ships **false** on purpose. The flag means "you can go there": it gates
+every app switcher, the Fibre dashboard, the SSO hop target check, and —
+because that list is derived rather than written out — `scripts/smoke-prod.mjs`.
+Setting it true before the domain served failed the release gate on
+`connections.thethread.app`, which is the gate working. So Connections being
+absent from switchers right now is deliberate, not a bug.
 
-Prod has none of this. Activating Connections there is a deliberate act.
-
----
-
-## 5. Open, in rough order
-
-1. **Vercel projects** for `apps/connections` — prod and staging. The DNS
-   already points at Vercel for `connections.thethread.app` and
-   `connections.thefibre.tech`; the directory now exists, which was the
-   blocker. Copy the settings from `apps/pulse`'s project;
-   `apps/connections/vercel.json` already carries the right build and ignore
-   commands.
-2. **`CORS_ORIGINS`** on the staging API needs `https://connections.thefibre.tech`
-   appended (`fly secrets set`). Prod needs nothing: `PROD_ORIGINS` is derived
-   from `APP_IDS` + `appUrl`, so the branding change covered it.
-3. **Release** the two commits. Suggested `v0.71.0` — new app, two migrations.
-   This will be the first release run from a worktree through the patched
-   `release.sh`; the peer session asked for a report on whether it behaves.
-4. **D27 is still unanswered** and it is the one that matters: are the rungs
-   right for soul.com and EBBF? I guessed at *holds space / contributes /
-   came back / came once / in touch / not yet*. Everything above the ladder
-   inherits from it.
+Once it is true, every *other* app's staging Vercel project needs
+`NEXT_PUBLIC_CONNECTIONS_URL` too, or their switchers cannot link to it. The
+audit script will name the ones missing it.
 
 ---
 
-## 6. Known rough edges in what was built
+## 2. What is live
 
-- **`apps/connections/lib/i18n-ui.ts` is Pulse's catalog** plus the
-  Connections keys. The shell reads dozens of Pulse keys, so a trimmed
-  catalog would fail typecheck on chrome the app did not write. Prune once
-  the surfaces settle; the header says so.
-- **`/attention`'s "went quiet" never fires on young data.** It needs three
-  events and a gap of twice a person's own rhythm with a 60-day floor.
-  Correct, but it means the page looks thin on staging.
-- **No `/people` page.** The nav was trimmed to Landscape and Needs you
-  rather than ship an entry that 404s.
-- **The landscape is unpaginated.** Fine at 17 people, and
-  `docs/scale-issues.md` puts trouble at 10k. The snapshot pattern
-  (D35, `pulse_projection_snapshot` as precedent) is the intended answer
-  when it is needed, not now.
-- **`created_via` is null for every row that predates v0.70.0**, so the
-  duplicate screen shows "origin unknown" for most people today. Honest, and
-  it fills in from here.
+**v0.70.0 — the person SPoT.** `apps/api/src/lib/resolve-person.ts` is the
+only way a person is matched or created; nine call sites across six route
+files go through it. `person.created_via` records how each row arrived.
+Reversible merge: `merge_person()`, `unmerge_person()`,
+`person_duplicate_candidates()` (pg_trgm), `person_and_merged()`. Four
+admin-gated routes under `/persons`.
+
+**v0.70.2 — the duplicate review screen** at `/contacts/duplicates` in Fibre
+web, plus a guard in `release.sh` that refuses to push unless
+`origin/staging` is an ancestor of `HEAD`. *(That release's CHANGELOG says the
+screen had never been rendered signed in. True when written; closed shortly
+after — verified against staging with a planted session: both detection
+rules, the provenance line, a real merge, and undo. The entry was left as
+written rather than retro-corrected.)*
+
+**v0.71.0 — Connections**, the eighth app. Owns no data: two read-only SQL
+functions and nothing else. `connections_landscape(workspace, as_of)` places
+everyone on a ladder derived from activity, enrolments, purchases, membership
+and who runs threads. `connections_attention(workspace)` gives four named
+conditions, each carrying the fact behind it, never a score.
+
+**v0.72.1 — the Vercel recipe** in `docs/deploy.md`, `thefibre-connections`
+added to the audit script's hand-kept project list, brand letters fixed.
+
+Prod and staging schemas are level. Both APIs are deployed.
 
 ---
 
-## 7. Two things that cost real time, for whoever hits them next
+## 3. Not in git
+
+Connections is **activated on staging** for workspace `ca0569d5…` (the
+rehearsal workspace): `app.status = 'approved'` for `fibre-sales`, a
+`workspace_app` row, an `app_membership` for sjoerd@soul.com. Without these
+the app redirects to `/no-access`, which is correct behaviour rather than a
+bug. Production has none of it; activating there is a deliberate act.
+
+Fixture people seeded during verification were removed by id. One merge was
+performed and undone.
+
+---
+
+## 4. The one open question
+
+**Which rungs are real?** The ladder is *holds space / contributes / came back
+/ came once / in touch / not yet* — my guess, not a decision. It sits
+underneath every view in the series, so a wrong ladder makes everything above
+it subtly wrong. This is the thing to answer before building further on it.
+
+Next in the build order after that is `flow_note`: widening `flow_run_note` so
+a conversation note can hang off a person or an organisation, with
+`happened_at`, `origin` and `client_ref` from the first migration. Nothing of
+it is started.
+
+---
+
+## 5. Two things that cost real time
 
 - **A fresh worktree has no gitignored env files.** `pnpm verify` needs
-  `apps/api/.env`, the integration suite needs `apps/api/.env.staging`, and a
-  dev server needs `apps/*/.env.local`. Copy them in, and **delete them
-  before any deploy** — they do not show in `git status`, so the tree can look
-  clean while secrets sit in the build context. The `.dockerignore` fix in
-  v0.70.1 closes the hazard; the habit is still worth keeping.
+  `apps/api/.env`, the integration suite needs `apps/api/.env.staging`, a dev
+  server needs `apps/*/.env.local`. Copy them in, and **delete them before any
+  deploy** — they never show in `git status`, so the tree can look clean while
+  secrets sit in the build context. The `**/.env` fix in v0.70.1 closes the
+  hazard; the habit is still worth keeping.
 - **Signing in locally against staging.** The magic-link `redirect_to` is not
   allowlisted for localhost, and `generateLink` returns a fragment the
-  server-side PKCE callback cannot read. What works: `verifyOtp` server-side
-  for a session, then write it as the `sb-<ref>-auth-token` cookie
-  (base64-prefixed JSON, chunked at 3180 chars) into the browser.
+  server-side PKCE callback cannot read. What works, proven twice: `verifyOtp`
+  server-side for a session, then write it into the browser as the
+  `sb-<ref>-auth-token` cookie — base64-prefixed JSON, chunked at 3180 chars.
