@@ -20,85 +20,42 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-10 (v0.68.64). Done items get removed, not ticked._
+_Last groomed 2026-09-11 (v0.69.8). Done items get removed, not ticked._
 
-**DESIGN — an Appearance tab on a thread** (Sjoerd, 2026-09-09, explicitly
-   deferred: "we do not make this now. That's for later"). The thread's
-   display settings are scattered through the general settings list, mixed
-   with things that are not about appearance at all. Group them on their own
-   tab: show the agenda, show the location on a map, show location
-   descriptions, and the thread's BRANDING alongside them.
+**DESIGN — the site designer, and templates that are documents.** Sjoerd,
+   2026-09-11, when the three themes shipped: *"In the future I want to
+   expand the design parts (think about the drag and drop of the certificates
+   for an vert chique design tool) ... but for now a basic structure to use
+   templates. Later we will make templates."*
 
-   **The evidence that it is worth doing** came from a real half-hour tonight.
-   soul.com's Community Member Year Agenda had five conversations, all
-   published, all with "Show on the public agenda" turned on, and none of
-   them appeared. Two thread-level switches were off and neither is anywhere
-   near the item you are looking at:
+   What exists after v0.69.4–0.69.8: four themes, which are CODE, reading a
+   fixed set of ingredients on `thread_settings` (logo, header image,
+   headline, intro, navbar links, footer, contact). A workspace picks a theme
+   in Settings → Website. That is deliberately the whole of it — no page
+   layout is stored anywhere.
 
-     is_public_listed = false   the thread is missing from /{organiser}
-     public_agenda    = false   the page has NO agenda section, so every
-                                per-item switch is inert
+   What "templates" would add is the other axis: a stored DOCUMENT describing
+   an arrangement, the way `thread_certificate_template` stores an element
+   list the builder drags around. The certificate builder is the working
+   precedent for the interaction AND for the trap — its autosave and its
+   stuck-drag bug (v0.68.44–0.68.47) are what a second drag surface would
+   inherit if it were forked rather than shared.
 
-   The per-item control says "Show on the public agenda", you turn it on, and
-   nothing happens, with no hint that a different switch on a different
-   screen is the reason. That is the same shape as several bugs fixed on
-   2026-09-09: a control that looks like it worked.
+   Three questions to answer before any of it:
+   - Does a site template belong to a workspace, or is it a library item a
+     workspace copies — the way a thread template already works?
+   - Does the designer place SECTIONS from a fixed vocabulary (hero, listing,
+     text, contact), or free elements on a canvas? The certificate is free
+     elements because a certificate is one fixed page; a website is not.
+   - What happens to a site whose theme is code when its workspace later
+     saves a template? A theme has to stay the fallback, or every existing
+     page becomes an unmaintained document.
 
-   Sjoerd's model, in his words, is the two-switch one and it is already what
-   the code does: thread-level decides whether the thread is in the OVERVIEW,
-   item-level decides whether the item is on the THREAD PAGE. `public_agenda`
-   is a third switch that is in neither half of that model and silently
-   overrides the second. Two ways out, and the tab does not settle it:
-   surface the dependency where it bites (the item switch says the section is
-   off, with a link), or delete `public_agenda` entirely and let the section
-   appear whenever any item asks to be on it. The second is what was done to
-   RSVP the same evening for the same reason. Note there is NO per-item
-   public page — an item is on the thread page or invisible — so "the event
-   exists but is not listed" is not a state the system can hold.
-
-**A workspace-wide QR scanner, reachable from the mobile tab bar.** Sjoerd,
-   2026-09-10: "In the mobile version, maybe add the QR scanner at the bottom,
-   and it scans throughout any list of this organiser/workspace." Today the
-   scanner exists only INSIDE a thread — you must know which event you are on
-   the door of before you can scan for it.
-
-   **Most of this already exists.** `GET /api/v1/thread/checkin/:code` is
-   already workspace-wide: `checkin_code` carries a UNIQUE index across
-   `thread_enrolment` (20260830120000), so the code alone identifies the
-   enrolment; the route resolves it globally, authorises through
-   `loadEnrolmentForAction` (admins, the thread's organiser, co-organiser
-   hosts, the owning team) and already returns `thread_title`. Scanning a
-   ticket for a thread you do not run is a 403 today, so a global scanner is
-   safe to authorise as-is.
-
-   The scoping is ONE CLIENT LINE: `scanTicket()` in threads/actions.ts
-   compares `found.thread_id !== threadId` and refuses with "this ticket is
-   for another event". A global scanner is that check removed and the event
-   name shown instead.
-
-   **What is missing:** a nav entry (Thread's nav has no check-in item at all
-   — it is reachable only from inside a thread), a `/checkin` page, and the
-   scanner extracted out of `DoorList`.
-
-   **The extraction is the real work, and it is a refactor of a live door
-   surface.** The scanner is not a component inside door-list.tsx; it is
-   woven through it — shared flash state and vibration, the door list's rows
-   optimistically updated on admit, camera lifecycle, and a BarcodeDetector
-   fallback with a comment explaining a real Safari/desktop trap. Copying it
-   would fork the one screen where a copy failing quietly means a queue at a
-   door. Extract, use in both, port carefully.
-
-   **The shape, from Sjoerd (2026-09-10), and it answers the safety question
-   by routing around it:** tapping the scanner opens the camera. Below the
-   camera sits one button — "go to manual check-in" — and that leads to a
-   list of only the threads happening TODAY. So the scan is global and just
-   works, while the manual fallback, which is where a human picks an event by
-   hand and could pick the wrong one, is scoped to today by construction.
-
-   Remaining judgement, smaller than it was: the scan flash should name the
-   event, since the API already returns `thread_title` and admitting to the
-   wrong event is the one thing a global scanner can do that a per-thread one
-   cannot.
+   Cheap next step if the appetite is for more designs rather than a
+   designer: a theme is now one entry in `THEMES` plus one renderer in
+   `apps/thread/app/[organiserSlug]/themes.tsx` and one option in the
+   editor's card list. A fourth and fifth design cost an afternoon each and
+   need no schema at all.
 
 **DESIGN — the workspace is invisible in the URL.** Sjoerd, 2026-09-10,
    looking at `membership.thefibre.tech/tiers`: "URL change for workspace
