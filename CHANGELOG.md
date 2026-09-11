@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.70.2] — 2026-09-11 — the release refuses a half-push instead of making one
+
+`git push origin HEAD:main HEAD:staging` updates two refs in one command and
+git does not apply them atomically. So when `staging` has diverged, `main`
+lands anyway and only the second ref is rejected: you are released on main,
+the script reports failure, and you are one retry away from spending a second
+version number on the same change.
+
+`staging` diverged tonight, for a good reason — a session pushed one commit
+there to exercise it on the staging stack without releasing it. That is a
+legitimate thing to want and the script had no way to survive it. It now
+checks, before pushing anything, that `origin/staging` is an ancestor of
+HEAD, and refuses with the command that shows what is there.
+
+The refusal deliberately does not offer to fix itself. Both ways out destroy
+or ship somebody's work: merging those commits into main releases them, and
+resetting staging to main throws them away. That is a decision, not a retry.
+
 ## [0.70.1] — 2026-09-11 — the release script can be run from where we now tell people to work
 
 Two defects in the release path, both found by the first session to release

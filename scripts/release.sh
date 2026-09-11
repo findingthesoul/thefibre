@@ -53,6 +53,29 @@ if ! git diff --cached --quiet; then
   exit 1
 fi
 
+# The push at the bottom updates two refs in one command, and git does NOT
+# apply them atomically: if `staging` has diverged, `main` still lands and
+# only the second ref is rejected. You are then released on main, reported
+# as failed, and one retry away from burning a second version number on the
+# same change. So check the thing that can diverge BEFORE pushing anything.
+#
+# `staging` is a deploy branch that release.sh has only ever fast-forwarded
+# from main, so a divergence means somebody pushed to it directly — a
+# legitimate thing to do (2026-09-11: a session put one commit there to
+# exercise it on the staging stack without releasing it) that this script
+# had no way to survive. Reconcile deliberately; do not force past it.
+git fetch origin staging --quiet 2>/dev/null || true
+if git rev-parse --verify --quiet origin/staging >/dev/null; then
+  if ! git merge-base --is-ancestor origin/staging HEAD; then
+    echo "REFUSED: origin/staging has commits HEAD does not (it is not an ancestor)." >&2
+    echo "  Pushing would land main and be rejected on staging, leaving a half-release." >&2
+    echo "  See what is there:  git log --oneline HEAD..origin/staging" >&2
+    echo "  Then either merge those commits into main and re-run, or — only if" >&2
+    echo "  they are genuinely disposable — reset staging to main deliberately." >&2
+    exit 1
+  fi
+fi
+
 pnpm verify
 
 # HEAD, not the ref named `main`. In the main checkout they are the same
