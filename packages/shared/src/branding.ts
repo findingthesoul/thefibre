@@ -153,7 +153,18 @@ export const APPS: Record<AppId, AppBrand> = {
     tagline: 'Where everybody stands, and who needs you.',
     url: 'https://connections.thethread.app',
     urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',
-    available: true,
+    // False until the Vercel projects exist and the domain actually serves.
+    // `available` means "you can go there": it gates every app switcher, the
+    // Fibre dashboard, the SSO hop target check, and — because the list is
+    // derived rather than written out — scripts/smoke-prod.mjs. Setting it
+    // true before the deployment existed made the release gate fail, which
+    // is the gate being right: it caught an app in the catalogue that no
+    // browser could reach.
+    //
+    // FLIPPING THIS TO TRUE IS THE LAST STEP of bringing Connections up,
+    // after the Vercel import and after CORS_ORIGINS on the staging API
+    // gains https://connections.thefibre.tech.
+    available: false,
   },
   'fibre-learn': {
     name: 'Learn',

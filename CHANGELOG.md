@@ -6,6 +6,71 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.71.0] — 2026-09-12 — Connections: where everybody stands
+
+The eighth app. `connections.thethread.app` and `connections.thefibre.tech`
+already pointed at Vercel; the directory had to exist before the projects
+could be imported, which is what this release is for.
+
+**It owns no data.** No tables, no schema, two read-only SQL functions.
+Everything on screen is derived from what Thread, Meet, Membership and the
+purchase ledger already recorded — which is the whole argument for it: it
+shows something useful on the day it ships and asks nobody to fill anything
+in.
+
+**The landscape** (`connections_landscape(workspace, as_of)`) places everyone
+on a ladder: holds space, contributes, came back, came once, in touch, not
+yet. Highest rung wins. Derived and never typed, because nobody maintains
+four hundred people's stage by hand and a stored one is wrong within a month.
+
+`as_of` is what makes movement free. Every source is a timestamped event, so
+"what did this look like a month ago" is the same query with an earlier
+cutoff — no snapshot table, and the answer cannot drift from the facts
+underneath.
+
+One bug caught by looking at the page rather than the code: the obvious delta
+(count now minus count then) showed a confident "+6" on every band of a young
+workspace, because those people did not exist a month ago. It read as six
+promotions and was six arrivals. The band delta is now net movement over
+people who existed at both ends; arrivals are counted separately.
+
+**What needs you** (`connections_attention(workspace)`) — four named
+conditions, each carrying the fact that produced it, never a score. A single
+number is lead scoring wearing community clothes, and for this audience it
+quietly turns people into a ranking. "Went quiet" is measured against a
+person's *own* rhythm with a sixty-day floor, because somebody you speak to
+yearly is not stale at ninety days. On staging it immediately found two
+people who came to something and were never contacted again.
+
+**Naming.** The slug stays `fibre-sales` — it tags curator data on
+`person_relationship_context` and `org_relationship`, and slugs never change
+(the membership/Hyve rule). Only the display name moved: here, and on the
+profile tab in Fibre web that "Sales" had been titling. `docs/connections-naming.md`.
+
+CORS needed no allowlist entry — `PROD_ORIGINS` is derived from `APP_IDS` and
+`appUrl`, so changing the branding URL covered it. Dev port 3008 and the
+Vercel preview pattern did need adding.
+
+Verified signed in against staging: both pages render with real data, mobile
+stacks to the bottom tab bar, workspace typecheck clean.
+
+**Not done by this release**, in order: import the Vercel projects now that
+the directory is on `main`; append `https://connections.thefibre.tech` to
+`CORS_ORIGINS` on the staging API (prod needs nothing — its origins are
+derived); then flip `available` to `true` for `fibre-sales` in
+`packages/shared/src/branding.ts`.
+
+`available` ships **false**, which is the honest value: it means "you can go
+there", and until the Vercel projects exist you cannot. It gates every app
+switcher, the Fibre dashboard and the SSO hop target check — and, because
+that list is derived rather than written out, `scripts/smoke-prod.mjs`.
+Setting it true first made the release gate fail on
+`connections.thethread.app`, which is the gate working exactly as intended:
+it caught an app listed in the catalogue that no browser could reach.
+
+Design series indexed at `docs/connections-overview.md`; current state and the
+prod/staging divergence at `docs/connections-handover.md`.
+
 ## [0.70.2] — 2026-09-11 — the release refuses a half-push instead of making one
 
 `git push origin HEAD:main HEAD:staging` updates two refs in one command and
