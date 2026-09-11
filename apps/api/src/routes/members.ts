@@ -7,7 +7,12 @@ import { resolvePersonId } from '../lib/resolve-person.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
-import { wouldOrphanWorkspace, ORPHAN_ERROR, isAdminRole } from '../lib/workspace-roles.js';
+import {
+  wouldOrphanWorkspace,
+  ORPHAN_ERROR,
+  isAdminRole,
+  callerWorkspaceRole,
+} from '../lib/workspace-roles.js';
 import type { RequestContext } from '../middleware/app-context.js';
 import { syncUsers, inheritedByUser } from '../lib/team-grants.js';
 
@@ -136,18 +141,6 @@ membersRoutes.get('/', async (c) => {
     }),
   });
 });
-
-// The caller's workspace role — read fresh, never from a claim, so a
-// demotion takes effect on the next request rather than the next sign-in.
-async function callerWorkspaceRole(ctx: RequestContext): Promise<string> {
-  const { data } = await adminClient
-    .from('workspace_member')
-    .select('workspace_role')
-    .eq('user_id', ctx.userId)
-    .eq('workspace_id', ctx.workspaceId)
-    .maybeSingle();
-  return data?.workspace_role ?? 'organiser';
-}
 
 const MemberInvite = z.object({
   email: z.string().email().max(320),
