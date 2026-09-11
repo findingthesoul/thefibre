@@ -962,13 +962,119 @@ const CATALOG = {
     de: 'Identität (die Person, die Organisation), das Aktivitätsprotokoll der Plattform und geteilter Programm-/Anmeldestatus. Für Thread markierte Kuratordaten liegen ebenfalls auf The Fibre, sind aber nur für Thread-Mitglieder sichtbar.', // MT
     fr: 'L’identité (la personne, l’organisation), le journal d’activité de la plateforme et l’état partagé des programmes/inscriptions. Les données de curation marquées pour Thread vivent aussi sur The Fibre mais ne sont visibles que par les membres de Thread.', // MT
   },
-  dash_skeleton: {
-    en: 'Skeleton. Programme creation, session attendance tracking, and the public arc view come next.',
-    nl: 'Skelet. Programma’s aanmaken, aanwezigheid per sessie bijhouden en de openbare boogweergave volgen hierna.',
-    es: 'Esqueleto. La creación de programas, el registro de asistencia por sesión y la vista pública del arco llegan después.', // MT
-    pt: 'Esqueleto. Criação de programas, registro de presença por sessão e a visão pública do arco vêm a seguir.', // MT
-    de: 'Skelett. Programm-Erstellung, Anwesenheits-Tracking pro Session und die öffentliche Bogen-Ansicht kommen als Nächstes.', // MT
-    fr: 'Squelette. La création de programmes, le suivi de présence par session et la vue publique de l’arc arrivent ensuite.', // MT
+
+  // ── dashboard: the day, not the brochure ──────────────────────────────
+  dash_needs_you: {
+    en: 'Waiting for you',
+    nl: 'Wacht op jou',
+    es: 'Esperándote', // MT
+    pt: 'Esperando por você', // MT
+    de: 'Wartet auf dich', // MT
+    fr: 'En attente de toi', // MT
+  },
+  dash_awaiting_approval: {
+    en: '{count} waiting for approval',
+    nl: '{count} wachten op goedkeuring',
+    es: '{count} esperando aprobación', // MT
+    pt: '{count} aguardando aprovação', // MT
+    de: '{count} warten auf Freigabe', // MT
+    fr: '{count} en attente d’approbation', // MT
+  },
+  dash_unpaid: {
+    en: '{count} not paid yet',
+    nl: '{count} nog niet betaald',
+    es: '{count} sin pagar todavía', // MT
+    pt: '{count} ainda não pagos', // MT
+    de: '{count} noch nicht bezahlt', // MT
+    fr: '{count} pas encore payés', // MT
+  },
+  dash_today: {
+    en: 'Happening today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: 'Aujourd’hui', // MT
+  },
+  dash_checked_in_of: {
+    en: '{done} of {total} checked in',
+    nl: '{done} van {total} ingecheckt',
+    es: '{done} de {total} registrados', // MT
+    pt: '{done} de {total} com check-in', // MT
+    de: '{done} von {total} eingecheckt', // MT
+    fr: '{done} sur {total} pointés', // MT
+  },
+  dash_open_door: {
+    en: 'Check people in',
+    nl: 'Mensen inchecken',
+    es: 'Registrar personas', // MT
+    pt: 'Fazer check-in', // MT
+    de: 'Leute einchecken', // MT
+    fr: 'Pointer les gens', // MT
+  },
+  dash_coming_up: {
+    en: 'Coming up',
+    nl: 'Binnenkort',
+    es: 'Próximamente', // MT
+    pt: 'Em breve', // MT
+    de: 'Demnächst', // MT
+    fr: 'À venir', // MT
+  },
+  dash_tomorrow: {
+    en: 'Tomorrow',
+    nl: 'Morgen',
+    es: 'Mañana', // MT
+    pt: 'Amanhã', // MT
+    de: 'Morgen', // MT
+    fr: 'Demain', // MT
+  },
+  dash_in_days: {
+    en: 'In {days} days',
+    nl: 'Over {days} dagen',
+    es: 'En {days} días', // MT
+    pt: 'Em {days} dias', // MT
+    de: 'In {days} Tagen', // MT
+    fr: 'Dans {days} jours', // MT
+  },
+  dash_enrolled_count: {
+    en: '{count} enrolled',
+    nl: '{count} ingeschreven',
+    es: '{count} inscritos', // MT
+    pt: '{count} inscritos', // MT
+    de: '{count} angemeldet', // MT
+    fr: '{count} inscrits', // MT
+  },
+  dash_recent: {
+    en: 'Latest enrolments',
+    nl: 'Laatste inschrijvingen',
+    es: 'Últimas inscripciones', // MT
+    pt: 'Últimas inscrições', // MT
+    de: 'Neueste Anmeldungen', // MT
+    fr: 'Dernières inscriptions', // MT
+  },
+  dash_see_all: {
+    en: 'See all',
+    nl: 'Alles bekijken',
+    es: 'Ver todo', // MT
+    pt: 'Ver tudo', // MT
+    de: 'Alle ansehen', // MT
+    fr: 'Tout voir', // MT
+  },
+  dash_quiet: {
+    en: 'Nothing is running today and nothing is scheduled ahead. A good moment to plan the next one.',
+    nl: 'Vandaag loopt er niets en er staat ook niets gepland. Een goed moment om de volgende te plannen.',
+    es: 'Hoy no hay nada en marcha ni nada programado. Buen momento para planear lo siguiente.', // MT
+    pt: 'Nada acontecendo hoje e nada agendado. Um bom momento para planejar o próximo.', // MT
+    de: 'Heute läuft nichts und es ist auch nichts geplant. Ein guter Moment, das Nächste zu planen.', // MT
+    fr: 'Rien aujourd’hui et rien de programmé. Un bon moment pour planifier la suite.', // MT
+  },
+  dash_undated: {
+    en: '{count} without dates',
+    nl: '{count} zonder datum',
+    es: '{count} sin fechas', // MT
+    pt: '{count} sem datas', // MT
+    de: '{count} ohne Datum', // MT
+    fr: '{count} sans dates', // MT
   },
 
   // ── threads list ──────────────────────────────────────────────────────

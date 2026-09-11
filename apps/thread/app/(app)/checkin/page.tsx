@@ -18,6 +18,7 @@
 
 import { apiFetch, ApiError } from '@/lib/api';
 import { one, type ThreadRow } from '@/lib/thread-types';
+import { happeningToday } from '@/lib/thread-dates';
 import { PageContainer, PageHeader, ErrorBanner } from '@/components/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -36,21 +37,6 @@ type EnrolmentListRow = {
     | null;
   enrolment: { status: string | null } | { status: string | null }[] | null;
 };
-
-/** A thread's own timezone is the honest frame for "is this happening
- *  today" — an event that starts at 09:00 in Amsterdam is today all day,
- *  wherever the phone is. Date-only comparison. */
-function happeningToday(thread: ThreadRow): boolean {
-  const program = one(thread.program);
-  if (!program || program.status !== 'active') return false;
-  const today = new Date().toLocaleDateString('en-CA', {
-    timeZone: thread.timezone || 'Europe/Amsterdam',
-  });
-  const starts = program.starts_on;
-  if (!starts) return false;
-  const ends = program.ends_on ?? starts;
-  return starts <= today && today <= ends;
-}
 
 export default async function WorkspaceCheckinPage() {
   const locale = await uiLocale();

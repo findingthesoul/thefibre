@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.2] — 2026-09-11 — a home page about today
+
+Sjoerd, on the Thread dashboard: *"every time I have to skip it because there
+is nothing meaningful (yet??)"*. He was right, and had been for months. The
+page greeted you by name and then explained what the product is for — to
+somebody already inside it, standing on top of their own live data.
+
+It now answers the four questions you actually open the app with, in the order
+the day asks them: **what needs me** (applications waiting for approval,
+invoices unpaid, threads still without dates), **what is on now** (today's
+threads, each with how full the room is and a way straight to the door),
+**what is next** (the soonest few, how far off, how many are coming), and
+**what just happened** (the last handful of people who signed up).
+
+Every section hides when empty, so a quiet Tuesday is a short page rather than
+four empty boxes. The orientation copy did not die — it is what an *empty*
+workspace sees, beside the template picker, which is the one moment somebody
+genuinely does not know what lives here. The line that literally said
+"Skeleton" is gone.
+
+Today's rooms get their own per-thread query, because "4 of 12 checked in" has
+to be exactly true when somebody is standing at a door. The workspace-wide
+counts come from the 200 most recent enrolments and are deliberately kept to
+things that link straight through to the page holding the full truth — a
+prompt, not a ledger.
+
+**`happeningToday` moved to `apps/thread/lib/thread-dates.ts`.** The check-in
+door owned it, and stopped being the only surface that needs it. Two answers
+to "is this today" in two files is how the two answers drift.
+
+**The threads filter row: the owner chips became a dropdown.** Sjoerd:
+*"maybe categories with a dropdown?"* One chip per team is fine at two teams
+and wraps at five; the row was already six wide. Status stays chips — a closed
+set of four that never grows. Owner and category are open lists, and an open
+list in a row of chips is a layout with a deadline.
+
+**Category became a real filter.** The workspace could define categories and
+then not filter by them, which is a control that looks like it worked. The
+options come off the thread rows themselves, so there is no extra request and
+no dead option for a category nothing carries.
+
 ## [0.69.1] — 2026-09-11 — the API build gets the memory it was already using
 
 v0.69.0 built clean locally and died on the Fly remote builder: *"Ineffective
