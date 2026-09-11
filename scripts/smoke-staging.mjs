@@ -7,6 +7,8 @@
 // Defaults: STAGING_API_URL / STAGING_WEB_URL env vars, then the canonical
 // staging hosts.
 
+import { APPS } from '../packages/shared/dist/branding.js';
+
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
   return i !== -1 ? process.argv[i + 1] : fallback;
@@ -84,14 +86,34 @@ await check('sign-in page reachable', async () => {
 // @thefibre/shared branding.ts) — a title mismatch means the domain is
 // routed to the wrong Vercel project.
 const apex = new URL(WEB).hostname.replace(/^www\./, '');
-const APP_TITLES = { meet: 'Meet', thread: 'Thread', flow: 'Flow', pulse: 'Pulse', membership: 'Membership' };
-for (const [sub, title] of Object.entries(APP_TITLES)) {
+// The subdomain → app mapping is the only staging-specific fact here; the
+// NAME comes from the catalogue, never from a second copy. A hand-written
+// title list went stale twice over — it still said "Thread" and
+// "Membership" after branding.ts had moved to "The Thread" and "Members",
+// so this check reported two correctly-routed domains as misrouted
+// (2026-09-12). smoke-prod.mjs has always derived; this now matches it,
+// `includes` and all, so a title with a page suffix does not read as a
+// wrong app.
+const STAGING_SUBS = {
+  meet: 'fibre-meet',
+  thread: 'the-thread',
+  flow: 'fibre-flow',
+  pulse: 'fibre-pulse',
+  membership: 'membership',
+};
+for (const [sub, slug] of Object.entries(STAGING_SUBS)) {
+  const title = APPS[slug]?.name;
+  if (!title) {
+    console.error(`  ✗ ${sub}.${apex} — no app "${slug}" in the catalogue`);
+    failed += 1;
+    continue;
+  }
   await check(`${sub}.${apex} serves ${title}, not another app`, async () => {
     const r = await get(`https://${sub}.${apex}/`);
     if (!r.ok) throw new Error(`status ${r.status}`);
     const m = (await r.text()).match(/<title>([^<]*)<\/title>/);
     if (!m) throw new Error('no <title> in HTML');
-    if (m[1] !== title) {
+    if (!m[1].includes(title)) {
       throw new Error(
         `title is "${m[1]}" — this domain is serving the wrong app; ` +
         'check the Vercel domain→project assignment and the DNS CNAME target'

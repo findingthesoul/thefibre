@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.2] — 2026-09-12 — the test run, and the two things it caught
+
+A full pass of the documented flow: types, unit, prod smoke, staging smoke,
+the published-contract checks on both environments, the external-app walk,
+Stripe webhook registration, the slug and admin audits, the integration suite
+against the staging database, Playwright's golden paths, and a signed-in
+exploratory pass over everything v0.69–v0.72 shipped.
+
+**The staging smoke was lying, politely.** It reported two correctly-routed
+domains as misrouted because it carried a hand-written list of expected page
+titles, and that list still said "Thread" and "Membership" after branding had
+moved to "The Thread" and "Members". The prod smoke has always derived the
+name from the app catalogue; this one now does too, `includes` and all, so a
+page title with a suffix no longer reads as the wrong app. The subdomain
+mapping is the only staging-specific fact left in it.
+
+**The staging API was three hours behind its own database.** v0.72.0 pushed
+the Beta migration to both databases but deployed the code to production
+only, so staging had the Beta plan row and none of the code that hides it —
+and Beta appeared on the public staging price list with a Get started button.
+Deployed; the staging catalogue is back to four plans. The rule this breaks
+is already in the release gates: a migration goes to both databases in the
+same ship, and the code has to follow it to both too.
+
+**New: `e2e/exploratory.spec.ts`.** The signed-in render check that v0.69.5
+and v0.69.7 went out without. It asserts the sidebar shape in Meet and
+Thread, that the routes removed from the nav still answer, that Settings →
+Teams renders, and that Beta stays off the price list. It asserts nav ORDER
+rather than section labels, because labels only render on an expanded
+sidebar and a fixture user's preference is not a fact to assume — the first
+version of this file failed for exactly that reason and was wrong, not the
+app.
+
 ## [0.72.1] — 2026-09-12 — the three settings a new app's Vercel project needs
 
 Written while importing Connections, because two of the three bit on the way
