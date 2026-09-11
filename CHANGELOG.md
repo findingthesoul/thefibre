@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.1] — 2026-09-12 — the three settings a new app's Vercel project needs
+
+Written while importing Connections, because two of the three bit on the way
+in and the second one looked like a new problem while being the same one.
+
+`docs/deploy.md` now carries the recipe. **Root Directory must be
+`apps/<app>`** — left at the repo root, Vercel reads the root `vercel.json`
+whose `outputDirectory` is `apps/web/.next`, so the app builds correctly and
+then the deploy fails looking for web's output. And the **build, install and
+output overrides must be blank**: a leftover from a first failed attempt
+survives the Root Directory fix and produces a second, different failure
+*after* the build succeeds.
+
+`scripts/verify-vercel-env.mjs` gains `thefibre-connections` in its NAMES
+list and `NEXT_PUBLIC_CONNECTIONS_URL` in the staging matrix. That list is
+hand-kept and cannot be derived — Fibre web's project is plain `thefibre`,
+not `thefibre-web`, and a project can exist before its directory or after it.
+The eighth app was exactly the "new thing forgotten in a list" bug this repo
+keeps hitting.
+
+Connections' `brandLetters` go from an arbitrary `cx` to `cn`; every other app
+uses its initials.
+
+Connections remains `available: false` and `connections.thethread.app` still
+404s — its Vercel project has no successful build yet. Build settings first,
+then the env vars, then flip the flag. Order matters: flipping it early fails
+the release gate, because `smoke-prod.mjs` derives its domain list from the
+catalogue and will check a domain no browser can reach.
+
 ## [0.72.0] — 2026-09-12 — Beta: the companies who see an app first
 
 Sjoerd: *"Give one more plan above enterprise. Beta... it is companies that
