@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.8] — 2026-09-11 — the contact heading starts under the logo
+
+Found by looking at the page rather than at the code: the contact form sat in
+a narrower container than the navbar above it, so the word Contact floated in
+from the left while the logo stayed at the edge. The container now matches the
+navbar's and the form alone stays narrow, because a text field the width of
+the page is unpleasant to read back.
+
+Also checked on staging, on a phone-sized viewport and against fixtures that
+were removed afterwards: the three designs render, the contact route 404s for
+an unknown owner, rejects an incomplete body, and answers a filled honeypot
+with a cheerful ok while delivering nothing. The delivery leg itself is
+untested — that would mean sending real mail to a real person.
+
 ## [0.69.7] — 2026-09-11 — Thread's sidebar catches up with the others
 
 The one piece v0.69.5 left out. Thread's Money section needed a translation

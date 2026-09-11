@@ -44,14 +44,20 @@ export default async function ContactPage({
   return (
     <div className="flex min-h-screen flex-col bg-surface-sunken">
       <SiteNav site={site} ownerSlug={organiserSlug} ownerName={name} />
-      <main className="mx-auto w-full max-w-xl flex-1 px-6 py-20">
-        <h1 className="text-3xl font-medium tracking-tight">Contact</h1>
-        {site.contact_intro && (
-          <p className="mt-3 text-base leading-relaxed text-ink-subtle whitespace-pre-line">
-            {site.contact_intro}
-          </p>
-        )}
-        <ContactForm ownerSlug={organiserSlug} />
+      {/* The container matches the navbar's, so the heading starts under the
+          logo rather than floating in from the left. The form itself stays
+          narrow — a text field the width of the page is unpleasant to read
+          back. */}
+      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-20">
+        <div className="max-w-xl">
+          <h1 className="text-3xl font-medium tracking-tight">Contact</h1>
+          {site.contact_intro && (
+            <p className="mt-3 text-base leading-relaxed text-ink-subtle whitespace-pre-line">
+              {site.contact_intro}
+            </p>
+          )}
+          <ContactForm ownerSlug={organiserSlug} />
+        </div>
       </main>
       <SiteFooter site={site} ownerSlug={organiserSlug} ownerName={name} />
     </div>
