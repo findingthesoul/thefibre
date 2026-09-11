@@ -1,4 +1,4 @@
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, CopyCheck } from 'lucide-react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { ButtonLink } from '@/components/ui/button';
 import { PageContainer, PageHeader, EmptyState, ErrorBanner } from '@/components/ui/page';
@@ -39,9 +39,20 @@ export default async function ContactsPage({
       <PageHeader
         title={t(locale, 'nav_contacts')}
         actions={
-          <ButtonLink href="/contacts/new" leading={<Plus size={14} strokeWidth={2.25} />}>
-            {t(locale, 'add_person')}
-          </ButtonLink>
+          <div className="flex items-center gap-2">
+            {/* Admin-gated in the API; a non-admin who follows it is told so
+                rather than shown an empty queue. */}
+            <ButtonLink
+              href="/contacts/duplicates"
+              variant="secondary"
+              leading={<CopyCheck size={14} strokeWidth={2} />}
+            >
+              {t(locale, 'dup_find')}
+            </ButtonLink>
+            <ButtonLink href="/contacts/new" leading={<Plus size={14} strokeWidth={2.25} />}>
+              {t(locale, 'add_person')}
+            </ButtonLink>
+          </div>
         }
       />
 
