@@ -35,7 +35,7 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     ],
   },
   {
-    label: t(locale, 'nav_workspace'),
+    label: t(locale, 'nav_people'),
     items: [
       { href: '/contacts', label: t(locale, 'nav_contacts'), icon: ContactIcon },
     ],

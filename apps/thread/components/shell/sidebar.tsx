@@ -50,13 +50,9 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     items: [
       { href: '/contacts', label: t(locale, 'nav_contacts'), icon: BookUser },
       { href: '/teams', label: t(locale, 'nav_teams'), icon: UsersRound },
-      { href: '/internal-team', label: t(locale, 'nav_internal_team'), icon: ShieldCheck },
     ],
   },
-  {
-    label: t(locale, 'nav_workspace'),
-    items: [{ href: '/settings', label: t(locale, 'nav_settings'), icon: Settings }],
-  },
+  // Settings lives in the avatar menu, one place only (Sjoerd, 2026-09-11).
   ];
 }
 

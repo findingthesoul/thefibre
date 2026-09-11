@@ -2102,10 +2102,15 @@ meetRoutes.post('/internal-team', async (c) => {
     .eq('slug', 'fibre-meet')
     .single();
   if (meetApp) {
+    // is_direct: an admin asked for this, so it must survive a team losing
+    // the app (teams as access groups, 2026-09-11). Without it an upsert onto
+    // a row a team happened to confer would leave the grant marked
+    // team-derived, and the resolver would withdraw it the next time that
+    // team changed — a deliberate invite revoked by something unrelated.
     await adminClient
       .from('app_membership')
       .upsert(
-        { user_id: u.id, app_id: meetApp.id, role: 'member' },
+        { user_id: u.id, app_id: meetApp.id, role: 'member', is_direct: true },
         { onConflict: 'user_id,app_id' },
       );
   }

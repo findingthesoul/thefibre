@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.5] — 2026-09-11 — one sidebar, and nothing in it twice
+
+Sjoerd: *"make the side bar simple, and remove double function (like Settings
+from two places).. maybe just one... (dropdown)... Side bar should be
+consistent through the app (contacts, teams, invoice... etc.)"*
+
+**Settings leaves the sidebar.** It was already in the avatar menu in every
+app, so it was in two places everywhere. The menu keeps it. In Thread and
+Membership it was the only thing in its section, so the section goes too.
+
+**Internal team leaves the sidebar** in Thread and Meet. It was a second
+Members screen inside the app, and its own page said so — it linked to The
+Fibre and called that the single point of truth. Since yesterday that screen
+also has Teams beside it, so there is nothing left for a copy to add. Thread's
+was already read-only. **The routes stay**, so existing links and the Help
+pages still work; only the nav entries go.
+
+**Every app now has the same shape.** Home, then the app's own work, then
+People, then Money. Contacts and Teams are platform things, so they stopped
+being filed under "Workspace" in Meet and Flow and under "People" in Thread
+and Pulse.
+
+Thread's Money section is the one piece not here: it needs a translation key
+in a catalogue another session is holding uncommitted, so its invoices stay
+where they were until that lands. Better a Thread sidebar that is one step
+behind than a second sweep of somebody's in-flight work.
+
+Also fixed, a defect from yesterday's teams release: Meet's internal-team
+invite wrote `app_membership` without `is_direct`. An invite landing on a row
+a team happened to confer would have been recorded as team-derived, and the
+resolver would have withdrawn it the next time that team changed — a
+deliberate grant revoked by something unrelated to it.
+
 ## [0.69.4] — 2026-09-11 — three ways for a workspace to look public
 
 Sjoerd: *"on workspace level.. provide three different design styles... A

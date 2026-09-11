@@ -40,12 +40,9 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     label: t(locale, 'nav_money'),
     items: [{ href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt }],
   },
-  {
-    // Access lives ON products (2026-09-05) — no separate nav entry; the
-    // sync overview is linked from the Products page.
-    label: t(locale, 'nav_setup'),
-    items: [{ href: '/settings', label: t(locale, 'nav_settings'), icon: Settings }],
-  },
+  // Access lives ON products (2026-09-05) — no separate nav entry; the sync
+  // overview is linked from the Products page. Settings is not here either:
+  // it lives in the avatar menu, one place only (Sjoerd, 2026-09-11).
   ];
 }
 

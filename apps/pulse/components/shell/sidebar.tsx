@@ -51,7 +51,6 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     items: [
       { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
       { href: '/accounts', label: t(locale, 'nav_accounts'), icon: Landmark },
-      { href: '/settings', label: t(locale, 'nav_settings'), icon: Settings },
     ],
   },
   ];
