@@ -9,7 +9,7 @@ Current version: **v0.13.108**. Live in production at https://thefibre.app (web 
 
 ---
 
-## Where the Fibre suite is right now (2026-07-07, v0.13.108 ÃÂ· Thread 3.31.1 ÃÂ· Meet 2.4.1 ÃÂ· Flow 1.10.0)
+## Where the Fibre suite is right now (2026-07-07, v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
 
 Four apps live: web (platform), Meet, Thread, Flow. **The Thread rebuild is
 complete** (all 6 phases + certificates + templates + embeds + /my portal);
@@ -263,14 +263,14 @@ _Last groomed 2026-09-11 (v0.69.8). Done items get removed, not ticked._
    decides everyone completed. Both the element's on-screen hint and the
    comment on `issueDueCertificates` say so.
 
-**0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
+**0a. Testing roadmap (docs/testing-approach.md + handbook §11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
    smoke-prod). Phase 1 DONE (CI installed — SSH
    pushes need no workflow scope; ci.yml per push + nightly-contracts.yml
    daily smoke). Money extractions DONE v0.54.0 (computeFeeCents,
    seatItemAction, archived-cache, embed-loader). Integration pack
    STARTED v0.55.0 (`pnpm test:integration` vs staging: RLS anon-floor
-   ÃÂ14 tables, recordPurchase idempotency, sso_handoff race;
+   ×14 tables, recordPurchase idempotency, sso_handoff race;
    vercel-ignore extracted+tested). Playwright STARTED v0.56.0
    (`pnpm test:e2e`: 6 golden paths green incl. SIGNED-IN Meet dashboard
    via a minted /sso/land code — the hop machinery is the E2E session
@@ -282,13 +282,13 @@ _Last groomed 2026-09-11 (v0.69.8). Done items get removed, not ticked._
    ~~Hook email-case finding~~ FIXED v0.57.2 (migration 20260907190000,
    lower() both sides; red-then-green regression hook-case.int.test.ts).
 
-**0b. Meet â Suite parity (docs/meet-vs-suite-parity.md).** Five of the ten
+**0b. Meet ↔ Suite parity (docs/meet-vs-suite-parity.md).** Five of the ten
    Suite-only features SHIPPED v0.59.0: Zoom, reschedule, round-robin
    fairness, per-team availability, .ics — plus reimburse-from-a-booking via
    the shared refund dialog. Remaining, in the order they'd be missed:
    - **Zoom Marketplace app** (Sjoerd, gating): create it and
      `fly secrets set ZOOM_CLIENT_ID ZOOM_CLIENT_SECRET` — steps in
-     docs/deploy.md Â§ Zoom. Until then Zoom stays unselectable everywhere.
+     docs/deploy.md § Zoom. Until then Zoom stays unselectable everywhere.
    - **Branding on public booking pages** — `workspace_brand` exists; Meet's
      public pages don't read it.
    - **Retry-finalize** for a paid booking whose calendar/email step failed
@@ -484,25 +484,25 @@ _Last groomed 2026-09-11 (v0.69.8). Done items get removed, not ticked._
      @thefibre.app. The OLD Resend account has thethread.app verified
      (hello@/certificates@) — reconcile, don't duplicate, if/when app mail
      should come from @thethread.app.
-   - Real cross-apex E2E of the hop is now live-testable (thefibre.app Ã¢ÂÂ
+   - Real cross-apex E2E of the hop is now live-testable (thefibre.app ↔
      app.thethread.app); exercise the full v0.48.0 test matrix.
 
 **Productisation — Sjoerd's two Stripe steps, then the metered phases.**
 The plans are decided (docs/pricing-proposal.md), gated (0.19.24), surfaced
 and chargeable (0.20.0 + 0.21.0 — docs/productisation-proposal.md is the
-umbrella): /admin/plans matrix, Settings Ã¢ÂÂ Plan, public /pricing, tailored
+umbrella): /admin/plans matrix, Settings → Plan, public /pricing, tailored
 pricing + comps + New workspace on /admin/workspaces, approval email, Stripe
 Billing code (checkout/portal/webhook), /admin/economics, operating costs
 seeded into Pulse. What remains:
 
 1. ~~Stripe~~ **DONE 2026-09-03**: live key + all three webhook secrets on
    prod (meet/thread/billing — the July item, finally), sandbox twins on
-   staging, live + test Products/Prices synced. Ã¢ÂÂ Ã¯Â¸Â Residual: the Stripe
+   staging, live + test Products/Prices synced. ⚠️ Residual: the Stripe
    account showed "capabilities paused — required task overdue" in the
    sandbox view; if a real charge bounces, complete that verification task
    in the Stripe dashboard. ~~First real charge unrehearsed~~ REHEARSED 2026-09-07 on staging:
-   â¬350 join (Community member + â¬50 optional product) through real
-   Stripe sandbox checkout â webhook â ACTIVE member + correct ledger
+   €350 join (Community member + €50 optional product) through real
+   Stripe sandbox checkout → webhook → ACTIVE member + correct ledger
    rows verified server-side. The flow is proven; first LIVE charge is
    just a customer now.
 1e. **Event template library (Thread)** — CONTENT-DONE 2026-09-08
@@ -516,7 +516,7 @@ seeded into Pulse. What remains:
    the ready-made-shapes bullet (v0.67.3). Remaining tail: shared-template
    DESIGNER polish only, already behind Pro+.
 1f3. **Members page redo (Sjoerd spec, 2026-09-05)**: list rows; click a
-   name Ã¢ÂÂ settings popup; Add button Ã¢ÂÂ invite popup (house pattern, like
+   name → settings popup; Add button → invite popup (house pattern, like
    Membership's members page). Same session: **profile convergence** —
    Fibre /settings/profile and Meet/Thread profile overlays must share
    ONE layout (platform identity block + app overlay block beneath,
@@ -544,7 +544,7 @@ seeded into Pulse. What remains:
    planner's value (Sjoerd's other repo) in the same hour; repair the row
    to Europe/Athens.
 
-2. **P4 — meters that bill** (proposal ÃÂ§4): ~~seat billing~~ (done 0.22.0 —
+2. **P4 — meters that bill** (proposal §4): ~~seat billing~~ (done 0.22.0 —
    quantity item on the subscription, prorated; invites past the allowance
    are charged, not refused). Remaining: email/storage overage lines on the
    monthly invoice, 80% warnings, the 13-month Free archive (warning email +
@@ -580,43 +580,43 @@ seeded into Pulse. What remains:
      staging build (docs/environments.md Phase 0), one DNS afternoon.
    - /terms + /privacy-policy still carry old names — bundle with the lawyer
      review (queue item 1c), don't edit unreviewed legal text piecemeal.
-5. Decisions D1Ã¢ÂÂD6 in docs/productisation-proposal.md ÃÂ§5 were built as
+5. Decisions D1–D6 in docs/productisation-proposal.md §5 were built as
    recommended ("continue building, don't wait" — Sjoerd, 2026-09-01, while
    sporting); mark the section RESOLVED once he has read it.
 6. **First-visit onboarding for Meet + Thread** (Sjoerd's refinement note,
    2026-09-03): role-aware "Set up" card on each dashboard (person steps +
    workspace-admin steps, all DERIVED from data, no stored wizard state) and
-   a first-visit tour offer. Proposal with decisions D1Ã¢ÂÂD3 in
+   a first-visit tour offer. Proposal with decisions D1–D3 in
    docs/onboarding-proposal.md — Sjoerd decides, then ~one session to build.
-6b. **Multilingual platform** — docs/i18n-proposal.md; D1Ã¢ÂÂD5 decided
+6b. **Multilingual platform** — docs/i18n-proposal.md; D1–D5 decided
    2026-09-05 (D4 overridden: FRENCH NOW). **P1 SHIPPED in v0.41.0**:
    @thefibre/shared ./i18n (six locales incl. fr), Thread catalog+emails
-   ÃÂ6, thread.language split into page vs facilitation language,
-   Membership public surfaces + lifecycle emails ÃÂ6, certificate emails
-   ÃÂ6, membership_settings.locale + membership_member.locale. Same round:
+   ×6, thread.language split into page vs facilitation language,
+   Membership public surfaces + lifecycle emails ×6, certificate emails
+   ×6, membership_settings.locale + membership_member.locale. Same round:
    ONE shared embed integration (@thefibre/shared/embed-loader — both
    apps serve /embed.js from it; Membership embeds are now script+div).
    **P2 SHIPPED same day** (split across the two parallel sessions):
    v0.43.0 — identity_profile.locale (NOT user_profile: that's a dead
-   read-only fallback since the profile SPoT moved) + Settings Ã¢ÂÂ Profile
+   read-only fallback since the profile SPoT moved) + Settings → Profile
    language picker + thefibre.locale cookie in savePref + platform
-   emails ÃÂ6 (platform-i18n.ts, exports platformEmailLocale — THE
+   emails ×6 (platform-i18n.ts, exports platformEmailLocale — THE
    resolver for platform-side emails); v0.44.0/0.44.1 — all 8
-   auth-templates ÃÂ6, auth hook resolves via platformEmailLocale.
+   auth-templates ×6, auth hook resolves via platformEmailLocale.
    **P3 SHIPPED 2026-09-06** (Sjoerd overrode demand-driven: "P3 for all
    6 languages") in v0.50.0 + v0.51.0: ALL six apps' signed-in
-   interfaces ÃÂ6 via per-app lib/i18n-ui.ts catalogs (~3,000 keys
+   interfaces ×6 via per-app lib/i18n-ui.ts catalogs (~3,000 keys
    total), shared chrome via useLocale()/chromeT + chrome-server-i18n
    for the server-renderable hub/help, nav labels per-app, locale from
    the thefibre.locale cookie via each layout's LocaleProvider.
    Deliberately English: /admin/**, the about explainer, invoice legal
    documents, raw API errors (P4 never — unchanged). Standing rule: NEW
-   user-facing strings always go through a catalog ÃÂ6 — never hardcode
+   user-facing strings always go through a catalog ×6 — never hardcode
    EN. MT burn-down: `grep -rn '// MT'` is the native-review list
-   (NL: Sjoerd; known ES divergence Ajustes/ConfiguraciÃÂ³n; pt is BR —
+   (NL: Sjoerd; known ES divergence Ajustes/Configuración; pt is BR —
    INTL_LOCALES.pt flipped to pt-BR to match).
 7. **Membership app (soul.com community)** — **v1 SHIPPED whole in
-   v0.31.0** (2026-09-05, docs/membership-proposal.md; D1Ã¢ÂÂD6 accepted):
+   v0.31.0** (2026-09-05, docs/membership-proposal.md; D1–D6 accepted):
    7th app, slug `membership` (display name may become **Hyve** — one
    branding.ts edit), schema+RLS, subscription checkout on the
    workspace's Stripe account, Connect webhook, renewal scheduler,
@@ -652,9 +652,9 @@ seeded into Pulse. What remains:
      `https://thefibre-api.fly.dev/api/v1/membership/stripe-webhook`
      (checkout.session.completed, invoice.paid, invoice.payment_failed,
      customer.subscription.updated/deleted — MUST pick "listen on
-     Connected accounts" AT CREATION, it can't be flipped later) Ã¢ÂÂ
+     Connected accounts" AT CREATION, it can't be flipped later) →
      `fly secrets set STRIPE_MEMBERSHIP_WEBHOOK_SECRET`. Was mid-redo
-     2026-09-05. Staging twin (test mode Ã¢ÂÂ thefibre-api-staging)
+     2026-09-05. Staging twin (test mode → thefibre-api-staging)
      recommended for the test-card rehearsal.
    - ~~Create the soul.com workspace~~ **LIVE 2026-09-07**: workspace
      986d1631 (slug `soul`, org plan comped), Membership active, tiers
@@ -669,7 +669,7 @@ seeded into Pulse. What remains:
      Stripe~~ DONE 2026-09-07 (live, connected-accounts config; Klarna
      off; v0.56.2 made all flows follow the dashboard config).
    SHIPPED 2026-09-05 pm (the parallel-agents round): pricing rules
-   ÃÂ§3.9 as the generalised LOGIC BUILDER (Settings Ã¢ÂÂ Pricing rules;
+   §3.9 as the generalised LOGIC BUILDER (Settings → Pricing rules;
    country self-declared on join; card-mismatch admin email; country
    change reprices from next renewal); member self-serve portal (/my on
    the membership app + /api/v1/membership/portal, Stripe billing-portal
@@ -677,12 +677,12 @@ seeded into Pulse. What remains:
    net lines into @thefibre/shared). Circle SSO spike:
    docs/spike-circle-sso.md + /api/v1/oauth endpoints — TEST ON STAGING
    before touching Circle's SSO screen. Workspace-threads design:
-   docs/brief-workspace-threads.md (D1Ã¢ÂÂD3 await Sjoerd).
-   STILL QUEUED: ÃÂ -la-carte product buying; i18n P1 (D1Ã¢ÂÂD5 unread);
-   extraction phases 2Ã¢ÂÂ4; SearchSelect adoption sweep.
-   **Roadmap (proposal ÃÂ§3.6):** Memberful-style integrations catalogue —
+   docs/brief-workspace-threads.md (D1–D3 await Sjoerd).
+   STILL QUEUED: à-la-carte product buying; i18n P1 (D1–D5 unread);
+   extraction phases 2–4; SearchSelect adoption sweep.
+   **Roadmap (proposal §3.6):** Memberful-style integrations catalogue —
    each tool = a new access_grant kind + worker (deploy, not migration);
-   then org seats (ÃÂ§3.5), OAuth provider phase 2, plan-gating +
+   then org seats (§3.5), OAuth provider phase 2, plan-gating +
    /pricing surface when Membership gets a price.
 
 _The Thread's public read API is a published contract as of v0.18.15
@@ -706,8 +706,8 @@ says may not belong in Flow at all. That needs a design call before code._
 
 _External apps (docs/brief-external-apps.md) shipped whole in v0.14.0 — open
 catalogue + lifecycle, `app_key` with enforced scopes, org links, bulk links,
-manifest-validated activity types. Follow-ups from its ÃÂ§4 that are still open
-are items 10aÃ¢ÂÂ10c below._
+manifest-validated activity types. Follow-ups from its §4 that are still open
+are items 10a–10c below._
 
 _The Festival of Trust planner stays EXTERNAL (Sjoerd, 2026-08-22): its own
 repo, consuming Fibre / Flow / later The Thread over the app-key surface. It is
@@ -716,10 +716,10 @@ the live proof that path works. Item 1b carries what that needs from us._
 0. **Wallet issuer credentials (Sjoerd, not code)** — check-in ships with
    QR-in-email working everywhere; the two wallet buttons appear only once
    the platform can sign passes. Apple: a Pass Type ID + certificate from the
-   Apple Developer account Ã¢ÂÂ `fly secrets set APPLE_WALLET_CERT_PEM
+   Apple Developer account → `fly secrets set APPLE_WALLET_CERT_PEM
    APPLE_WALLET_KEY_PEM APPLE_WALLET_WWDR_PEM APPLE_WALLET_PASS_TYPE_ID
    APPLE_WALLET_TEAM_ID` (optional `APPLE_WALLET_KEY_PASSPHRASE`). Google: a
-   Google Wallet issuer account + service account Ã¢ÂÂ
+   Google Wallet issuer account + service account →
    `GOOGLE_WALLET_ISSUER_ID GOOGLE_WALLET_SA_EMAIL GOOGLE_WALLET_SA_KEY_PEM`.
    Code path is live and tested (503 with a sentence until configured).
 
@@ -745,7 +745,7 @@ the live proof that path works. Item 1b carries what that needs from us._
    **v0.18.7 removed the last code blocker.** The step copy now exists
    (`~/Projects/festivaloftrust.com/supabase/seed/fot_festival_graph.json` —
    nine steps, eight transitions, 39 default tasks, four `meta` fields each),
-   and the flow builder can import it: *Design file* Ã¢ÂÂ paste/choose Ã¢ÂÂ Check Ã¢ÂÂ
+   and the flow builder can import it: *Design file* → paste/choose → Check →
    Import. `progression` and `system_key` travel in the file's `flow` block,
    so the SQL seed is no longer needed. Add
    `"flow": { "progression": "open", "system_key": "fot_festival" }` to the
@@ -758,14 +758,14 @@ the live proof that path works. Item 1b carries what that needs from us._
    the routes they replaced 404'd and enrolees were ticking "I accept the
    privacy policy" against nothing. They are accurate and conservative but
    have not been near a lawyer. A Dutch commercial/privacy lawyer should read
-   both; the source files carry a Ã¢ÂÂ Ã¯Â¸Â comment saying so. When the text changes,
+   both; the source files carry a ⚠️ comment saying so. When the text changes,
    bump `TERMS_UPDATED` / `POLICY_UPDATED` in the pages and
    `POLICIES[].version` in `apps/thread/lib/policies.ts` together.
    Also still open: `support@thefibre.app` and `hello@thefibre.app` are
    published on /support — confirm both actually deliver to a human.
 
 2. ~~**Members UI role vocabulary**~~ — **done in v0.18.8.** The web Members
-   page was already correct; the stale surface was **Meet Ã¢ÂÂ Internal team**,
+   page was already correct; the stale surface was **Meet → Internal team**,
    whose dropdown posted `'member'` — a value the DB has rejected since
    `20260704090000_role_tiers` — so changing a role there 500'd. Fixed, along
    with its admin gate, which excluded `super_admin`. Facilitator = per-thread
@@ -774,8 +774,8 @@ the live proof that path works. Item 1b carries what that needs from us._
 3. **Org-share transfers** — thread_payout ledger rows exist ('pending');
    actual Stripe transfers of the workspace share are deferred.
 4. **Role-gating beyond Invoices** — enrolments/contacts visibility per the
-   tiers (proposal ÃÂ§3.8, deliberately out of v1).
-5. ~~Certificate email i18n~~ **done in v0.41.0** (ÃÂ6, thread's page
+   tiers (proposal §3.8, deliberately out of v1).
+5. ~~Certificate email i18n~~ **done in v0.41.0** (×6, thread's page
    language). Still open here: `customer_tax_ids` so the Stripe legal
    invoice carries the buyer's VAT number.
 6. **Uploads: per-app membership gate** — any workspace member can upload
@@ -793,16 +793,16 @@ the live proof that path works. Item 1b carries what that needs from us._
    (button/dialog/field/page, ~600), payments settings (3 files
    byte-identical, 352), sign-in button, no-access page, auth-callback
    core, upload lib. API-side dup worth a lib too: person find-or-create
-   ÃÂ3, displayName join ÃÂ7, `one()` embed-normalize ÃÂ~80, activity-insert
-   ÃÂ13 (`lib/activity.ts` — it IS the data wall), admin-role check ÃÂ2,
-   slugField ÃÂ2.
+   ×3, displayName join ×7, `one()` embed-normalize ×~80, activity-insert
+   ×13 (`lib/activity.ts` — it IS the data wall), admin-role check ×2,
+   slugField ×2.
 8b. **ESLint flat config** — the four `next lint` scripts were zombies (no
    config existed, eslint 9 vs legacy scaffold) and were removed in
    0.13.109; add a real flat config + CI when wanted.
 9a. **Curator-data write API** — an external app that wants to annotate a
    person (lead score, lifecycle stage) has no generic surface. A manifest can
    declare a `curator_data` mapping; nothing consumes it. Last of
-   docs/brief-external-apps.md ÃÂ§4.
+   docs/brief-external-apps.md §4.
 9b. **App-key liveness beyond `last_used_at`** — keys don't expire and nothing
    nags an admin to rotate one. `last_used_at` is shown; that's it.
 9c. **Retrofit manifests onto first-party apps** — Meet/Thread/Flow/Pulse
@@ -812,11 +812,11 @@ the live proof that path works. Item 1b carries what that needs from us._
 9. **Meet event types** — Group / One-off / Meeting poll stubs in
    new-menu.tsx.
 10. **Fibre Pulse — business planner** — LIVE at pulse.thefibre.app,
-    v0.13.0 after the 2026-07-07Ã¢ÂÂ09 marathon (CHANGELOG 0.13.112Ã¢ÂÂ136).
+    v0.13.0 after the 2026-07-07→09 marathon (CHANGELOG 0.13.112→136).
     Everything Sjoerd specced across two days is shipped: sheet-grid
     cashflow (BANK chain, Total column, virtual reserve growth,
-    drag/Ã¢ÂÂ¥-drag, folds remembered, focus mode, toasts), invoice-style
-    opportunity popup (offering rows ÃÂ qty ÃÂ price ÃÂ repeat, VAT
+    drag/⌥-drag, folds remembered, focus mode, toasts), invoice-style
+    opportunity popup (offering rows × qty × price × repeat, VAT
     tariffs, transfer-to-invoice with numbering + ledger row + auto/
     manual email), two-way Flow pipeline sync, scopes with entry
     chooser, settings hub (Profile/Payments/Planner), projection
@@ -826,7 +826,7 @@ the live proof that path works. Item 1b carries what that needs from us._
     COMPLETE** 0.16.0 (settle-on-paid hook in recordPurchase,
     conservative auto-matching, receivable dedup). **NEXT**: P5 annual
     budget, P6 workbook importer (also sets the payroll-aligned
-    anchor), payment-terms curator field (ÃÂ§2.5), comparison overlay,
+    anchor), payment-terms curator field (§2.5), comparison overlay,
     workspace-tab read/read-write grants.
 10b. **Teams SPoT endpoint** (decided with Sjoerd 2026-07-07): the `team`
     table is already the single source of truth, but CRUD lives under
@@ -870,7 +870,7 @@ Learned along the way (Stripe housekeeping):
   pinned) and all four staging Fly secrets rotated to the new endpoints.
   Delivery re-verified with a real connected-account event (200).
 - CHECK: the SL B.V. sandbox may still hold its four junk endpoints
-  (meet/billing/thread Ã¢ÂÂ PROD api + a misplaced membership one) — if
+  (meet/billing/thread → PROD api + a misplaced membership one) — if
   "no destinations left" referred to staging, delete the SL B.V. set
   too. Identify by the sandbox switcher label before deleting.
 - "Accounts v1 support" feature flag is now ENABLED in the staging
@@ -888,7 +888,7 @@ Learned along the way (Stripe housekeeping):
 ### Google Workspace integration — SHIPPED v0.47.0 (2026-09-06)
 
 'google_user' grant kind (suspend member's Google account on lapse,
-unsuspend on rejoin — never create/delete) + Settings Ã¢ÂÂ Integrations
+unsuspend on rejoin — never create/delete) + Settings → Integrations
 credential card. Credential walkthrough DONE 2026-09-07: service account
 (project fibre-membership) + domain-wide delegation + Admin SDK API
 enabled; verified end-to-end in BOTH envs (token mint + directory read
@@ -905,10 +905,31 @@ purchase machinery so grants ride the existing journal).
 ## Outstanding for Sjoerd
 
 - **Create the Zoom Marketplace app** and set `ZOOM_CLIENT_ID` /
-  `ZOOM_CLIENT_SECRET` on Fly (docs/deploy.md Â§ Zoom). Meet's Zoom support
+  `ZOOM_CLIENT_SECRET` on Fly (docs/deploy.md § Zoom). Meet's Zoom support
   shipped in v0.59.0 and is inert until those exist.
-- **Decide Meet Ã¢ÂÂ Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
+- **Decide Meet ↔ Suite cutover** strategy (decided: hard swap, case-by-case for any slug breakage).
 - **Add yourself as an org_membership** on Solidarity Lab B.V. via the UI so your own profile's Organisations section populates.
+
+- **Staging's Stripe webhooks are registered against the wrong account.**
+  Found by the overnight pass, 2026-09-12. Thread, Meet and Membership all
+  take money on CONNECTED accounts, but all three staging endpoints listen on
+  the platform's own account, and Meet's is also missing
+  `payment_intent.payment_failed`. The mode is fixed at creation, so each has
+  to be deleted and recreated, and the new signing secrets pushed to Fly.
+  Recreating them without setting the secrets would leave staging payments
+  worse off than they are now, which is why the pass left them alone. Until
+  this is done a staging payment rehearsal cannot confirm.
+  Check with: `FIBRE_ENV_FILE=.env.staging node scripts/verify-stripe-webhooks.mjs`
+
+- **Decide how staging gets a published-contract fixture.** `verify-public-api.mjs`
+  needs a thread that is public-listed, has an owner slug, and has a programme
+  that is active or completed. Staging has none — its one listed thread,
+  `single-event`, is still in draft. So the published contract is currently
+  only verifiable against PRODUCTION, i.e. after it ships, which is backwards
+  for a staging-first workflow. Moving that thread's programme to active would
+  do it, but it lives in a real workspace so the call is yours. Do NOT reach
+  for `seed-ebbf.mjs` here: on staging it targets the `default` workspace,
+  which is the Stripe payment-rehearsal rig.
 
 _(Resend rotated; Stripe Connect onboarded.)_
 
@@ -928,13 +949,13 @@ _(Resend rotated; Stripe Connect onboarded.)_
 - [ ] **App switcher in the top nav** — dropdown showing The Fibre / Fibre Meet / The Thread (only the apps activated for this workspace + the user has membership for). Surfaces in apps/web's Topbar and apps/meet's header. Each entry links to the relevant subdomain.
 - [ ] Activity filter by `organisation_id` — join through `org_membership`. Unblocks org per-app tab timelines (currently EmptyState).
 - [ ] Tags — create, assign, filter persons and orgs by them.
-- [ ] Person Ã¢ÂÂ person relationship form (the `relationship` table already exists, no UI).
+- [ ] Person ↔ person relationship form (the `relationship` table already exists, no UI).
 - [ ] Microsoft + LinkedIn OAuth providers — Supabase Auth config only.
 
 ### Medium (a session or two each)
 - [ ] App membership management UI — assign roles + permissions per app per user.
 - [ ] Workspace creation + switching (currently one seeded workspace).
-- [ ] Invite by email (magic link flow per brief ÃÂ§5.5b).
+- [ ] Invite by email (magic link flow per brief §5.5b).
 - [ ] Article 15 export — JSON of everything held about you.
 - [ ] Article 16 rectification — link from privacy to self-edit fields.
 - [ ] Article 20 portability — same payload as export with schema.
@@ -942,7 +963,7 @@ _(Resend rotated; Stripe Connect onboarded.)_
 - [ ] Cross-app erasure webhook handlers (each delivery app registers an endpoint).
 
 ### Bigger (one of the delivery apps)
-- [ ] The Thread frontend at `apps/thread/` — events + journeys + sessions. Best-specified in the brief (ÃÂ§8 EBBF Athens example). Once one delivery app exists writing activity events back, the full architecture loop closes.
+- [ ] The Thread frontend at `apps/thread/` — events + journeys + sessions. Best-specified in the brief (§8 EBBF Athens example). Once one delivery app exists writing activity events back, the full architecture loop closes.
 - [ ] Fibre Meet frontend at `apps/meet/` — meetings + agendas + outcomes.
 - [ ] Fibre Sales — sovereign app, gated, deal pipeline + handover webhook on `deal_won`.
 - [ ] Fibre Learn — future, blocked on a content authoring system.
@@ -974,14 +995,14 @@ _(Resend rotated; Stripe Connect onboarded.)_
 
 ## Phase 4 — Fibre Sales (gated app, when ready)
 
-(See "Bigger" above. Schema in ÃÂ§5 Domain 8 of v0.3 brief still applies — it's the only delivery app whose schema is fully specified.)
+(See "Bigger" above. Schema in §5 Domain 8 of v0.3 brief still applies — it's the only delivery app whose schema is fully specified.)
 
 ---
 
 ## Operational & infra
 
 - [ ] **Custom email domain** — Resend with `@thefibre.app`, SPF / DKIM / DMARC
-- [ ] **Lint rule banning Supabase imports under `apps/web/app/api/`** — enforce brief rule ÃÂ§13
+- [ ] **Lint rule banning Supabase imports under `apps/web/app/api/`** — enforce brief rule §13
 - [ ] **CI** — typecheck + build on every PR
 - [ ] **Backups** — Supabase has them; confirm retention, document restore
 - [ ] **Migrations workflow** — staging environment for trying migrations before prod
@@ -1002,7 +1023,7 @@ _(Resend rotated; Stripe Connect onboarded.)_
 
 - **Supabase migrations** need 14-digit timestamps (`YYYYMMDDHHMMSS`). Same-day shorter prefixes collide in the tracker.
 - **`custom_access_token_hook`** must be enabled in the Auth dashboard or RLS denies everything authenticated.
-- **JWT `sub` Ã¢ÂÂ  `public.user.id`.** Use the `app_user_id` claim (the hook injects it).
+- **JWT `sub` ≠ `public.user.id`.** Use the `app_user_id` claim (the hook injects it).
 - **`userClient`** must use the anon key as base apikey. Service-role key elevates PostgREST out of RLS context. (Fixed v0.3.6.)
 - **NOT NULL on text[] / int counters / booleans** with default values still rejects explicit nulls from the UI. Drop NOT NULL on optional columns. (Fixed v0.3.9, v0.3.10.)
 - **`revalidatePath` from a server action** doesn't auto-refresh the active client route. Call `router.refresh()` in the dialog after a successful save. (Fixed v0.3.11.)
@@ -1022,7 +1043,7 @@ _(Resend rotated; Stripe Connect onboarded.)_
   - **patch** (`0.x.y+1`) — additions and fixes that don't change UX shape
   - **minor** (`0.x+1.0`) — UX milestone or new top-level page or schema principle
   - **major** — reserved for breaking API changes once we have external consumers
-- Every shipped version updates: `package.json` ÃÂ 4, `apps/web/app/(app)/layout.tsx` (sidebar footer), `CHANGELOG.md`.
+- Every shipped version updates: `package.json` × 4, `apps/web/app/(app)/layout.tsx` (sidebar footer), `CHANGELOG.md`.
 - Build plan ticks come *off* when shipped — completed items move out of view here (CHANGELOG keeps them).
 
 ## How we use parallel agents
@@ -1033,15 +1054,15 @@ Rules:
 1. Each agent owns one disjoint folder. No shared files.
 2. Parent (me) builds the foundation first — layout, stubs, shared API. Agents only fill leaves.
 3. After every parallel batch: full `pnpm -r typecheck`, then commit.
-4. Sequential is faster for Ã¢ÂÂ¤2 tasks. Parallel pays off at 3+.
+4. Sequential is faster for ≤2 tasks. Parallel pays off at 3+.
 
 ---
 
 ## Parked / decisions deferred
 
-- **`person_app_profile` / `org_app_profile` JSONB extension tables** (brief v0.4 ÃÂ§5 Domain 5) — the canonical home for app-owned curator data once schema stabilises. Right now the existing app-tagged tables play that role.
+- **`person_app_profile` / `org_app_profile` JSONB extension tables** (brief v0.4 §5 Domain 5) — the canonical home for app-owned curator data once schema stabilises. Right now the existing app-tagged tables play that role.
 - **Auto-edit / 10-step undo / change history** — good idea, premature. GDPR erasure must zero PII; storing old field values is a hidden second copy. Revisit once we know which fields people actually edit most.
-- **Self-hosted Supabase on Hetzner** — migration trigger documented in brief ÃÂ§4 (client requiring no-US parent, scale Ã¢ÂÂ¥10k users, or sovereign regulator).
+- **Self-hosted Supabase on Hetzner** — migration trigger documented in brief §4 (client requiring no-US parent, scale ≥10k users, or sovereign regulator).
 - **Fly.io vs Railway** — picked Fly.io. Config in `apps/api/fly.toml`.
 - **Region** — project is West EU (Ireland). Both EU, GDPR-compliant. API will deploy to Fly Frankfurt to align with brief intent.
 - **GraphQL via Hasura** — only if a contract requires it.

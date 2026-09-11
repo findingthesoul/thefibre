@@ -51,9 +51,14 @@ export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
 pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run dev`)
                   # api :8080, web :3000, meet :3001, thread :3002, flow :3003,
-                  # pulse :3004, membership :3005, website :3006, my :3007
+                  # pulse :3004, membership :3005, website :3006, my :3007,
+                  # connections :3008
                   # Derived from the workspace, so a new app joins automatically —
                   # this comment is the thing that goes stale, not the script.
+                  # (It went stale on 2026-09-12, exactly as predicted: connections
+                  # had existed for a day and was missing from the list. To read the
+                  # truth instead of this comment:
+                  #   grep -h '"dev"' apps/*/package.json)
 ```
 
 ### Version bumps
@@ -374,46 +379,45 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 - The scheduler + webhook + payment link all converge on
   finalizePaidEnrolment / sendTriggeredMessages — extend those, don't fork.
 
-## State as of v0.4.8 (live in production)
+## Where things stand (2026-09-12)
 
-### Live URLs
-- **Web** — https://thefibre.app (Vercel, fra1) and the project's preview deployments
-- **API** — https://thefibre-api.fly.dev (Fly.io, fra region, 1 shared-cpu-1x 1GB machine)
-- **DB + Auth** — Supabase project `zfsyyokepyycefbxiblc`, West EU (Ireland)
-- Google OAuth signed-in user (sjoerd@soul.com) hits the real API; RLS scopes data; the 8 seeded contacts render.
+This replaces a "State as of v0.4.8" section that described May 2026 and had
+been wrong for months — it named `thefibre.app` as where the apps live, put
+the platform at eight seeded contacts, and listed shipped work as pending.
+The old text is in git history if anyone wants it. The lesson is the one this
+file keeps relearning: a hand-maintained inventory goes stale silently, so
+prefer pointing at the thing that cannot lie.
 
-### What works end-to-end
-- Sign in via Google → land on dashboard → see your apps
-- Contacts (8 seeded people) → click one → Overview + Profile + per-app tabs that exist (Fibre Meet, Fibre Sales, Fibre Learn — emergent from actual data)
-- Edit basic identity (with searchable country picker, address, language), edit per-app curator data. All saves persist.
-- Organisations → EBBF → Overview + members + per-app tabs (including invoicing on Fibre Sales)
-- Programmes (3 seeded: Athens, post-Athens journey, board session) → enrol people → see enrolment list with status + progress
-- Workspace-wide Activity timeline (~21 events across 90 days), filterable by app + type
-- Privacy page (consents + erasure request)
-- Settings page (profile + workspace + app memberships)
+**Read these instead of trusting a summary here:**
 
-### Not yet shipped
-- ~~The delivery-app frontends~~ Meet, Thread and Flow are live (see "Where
-  we left off" above); Fibre Sales and Fibre Learn remain unbuilt.
-- Retention policy admin, cross-app erasure webhook handlers. (**Article 15
-  export shipped** — `apps/api/src/routes/privacy.ts`, `GET /api/v1/privacy/export`.)
-- ~~Activity filter by `organisation_id`~~ **shipped** — `routes/activities.ts`
-  accepts `organisation_id` and resolves it to the org's member person_ids.
-- Microsoft / LinkedIn OAuth.
-- Custom `api.thefibre.app` CNAME (API is reachable at `thefibre-api.fly.dev` for now).
-- ~~Tightened CORS~~ done in v0.13.17 — allowlist in `apps/api/src/server.ts`.
+| Question | Where the truth is |
+|---|---|
+| What shipped, and when | `CHANGELOG.md` |
+| What is queued | `docs/build-plan.md`, Open queue |
+| How the system is put together | `docs/system-handbook.md` |
+| Which apps exist and their state | the `app` table — ask the catalogue, never a list in a file |
+| What is tested, and what that proves | `docs/testing-approach.md` |
 
-### Data state
-Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample people, 1 org (EBBF), 3 programmes, ~11 enrolments, ~21 activity events.
+**The shape, as of this date.** Nine Next.js apps plus the Hono API. Live on
+`thethread.app` subdomains, with the platform itself still on `thefibre.app`;
+staging is the `thefibre.tech` twin. `fibre-sales` and `fibre-learn` are
+registered in the catalogue but unreleased. `connections` exists as an app
+directory on port 3008 and is **not** registered in the catalogue yet.
+`fot-planner` is a real external app running against the published contract in
+production — which is why `/api/v1/apps/*` stays additive-only in practice and
+not just in principle.
 
-## Suggested next moves
+**Still genuinely not shipped:** retention-policy admin, cross-app erasure
+webhook handlers, Microsoft and LinkedIn OAuth, and the `api.thefibre.app`
+CNAME (the API still answers on `thefibre-api.fly.dev`).
 
-Superseded by `docs/build-plan.md` (the "Open queue" section under "Where Fibre Meet is right now"). Highest-priority items today:
-1. ~~Magic-link auth~~ **shipped** — every app with a sign-in surface calls
-   `signInWithOtp` (web, meet, thread, flow, pulse, membership, my; the
-   website has no auth).
-2. Fibre web: label per-app curator-data tabs by app name
-3. Cutover plan for Meet ↔ Suite (Sjoerd owns)
+**One structural note for whoever grooms this file next.** The three "Where we
+left off" sections above run to about 180 lines and every session loads all of
+them. `CHANGELOG.md` already carries the shipped record in more detail. They
+were left alone here because they are Sjoerd's narrative and trimming them is
+his call, not a passing agent's — but they are the obvious next thing to fold
+down.
+
 
 ## Reviewer's note
 
