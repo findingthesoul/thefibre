@@ -22,17 +22,30 @@ gates read. This mattered today rather than in the abstract, because CLAUDE.md
 now tells sessions to take a worktree for code work, so the broken path was
 about to become the normal one.
 
-**Two secret files were being uploaded to the Fly builder.** A worktree has no
-`apps/api/.env` or `.env.staging` — they are gitignored — so `pnpm verify`
-cannot run until you copy them in, and then they sit there invisible to
-`git status`. The root `.dockerignore` said `.env` and `.env.*`, and Docker
-ignore patterns are relative to the CONTEXT ROOT, so those matched `/.env`
-and nothing deeper. `apps/api/.dockerignore` looked like it covered the gap
-and never has: BuildKit reads only the context-root file. The Dockerfile's
-COPY list is narrow enough that neither file reached the image — luck, not
-design — but the whole context is uploaded to the remote builder, so the
-secrets crossed the wire. `**/.env` and `**/.env.*` now match at any depth,
-and the decorative nested file says at the top that Docker never reads it.
+**Two secret files were being uploaded to the Fly builder.** The root
+`.dockerignore` said `.env` and `.env.*`, and Docker ignore patterns are
+relative to the CONTEXT ROOT, so those matched `/.env` and nothing deeper.
+`apps/api/.dockerignore` looked like it covered the gap and never has:
+BuildKit reads only the context-root file. The Dockerfile's COPY list is
+narrow enough that neither file reached the image — luck, not design — but
+the whole context is uploaded to the remote builder, so the secrets crossed
+the wire. `**/.env` and `**/.env.*` now match at any depth, and the
+decorative nested file says at the top that Docker never reads it.
+
+**Corrected after publishing.** This entry first said the exposure was a
+worktree problem, because a worktree has to have those files copied in before
+`pnpm verify` will run. That was wrong, and it understated it.
+`apps/api/.env` has sat in the MAIN checkout since 12 May 2026, the day the
+project started, and `apps/api/.env.staging` since 3 September — so every
+`fly deploy --remote-only` anyone has ever run uploaded them, not just the
+one release made from a worktree. The API is at v266. Between them the two
+files hold `SUPABASE_SERVICE_ROLE_KEY` for both projects — the credential
+that bypasses every RLS policy on the EU database — plus
+`SSO_INTERNAL_SECRET` and `STRIPE_SECRET_KEY`. Whether to rotate any of it is
+Sjoerd's call and nobody else's: rotating the service-role key needs a
+coordinated `fly secrets set` and a redeploy or the API stops answering.
+Found by the session that made the original report, which corrected its own
+framing at the same time.
 
 The general shape of both: a check you have to remember is the check that
 fails. Fixing the pattern beats adding "and list the env files" to a
