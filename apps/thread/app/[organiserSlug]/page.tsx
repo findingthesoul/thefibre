@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicThreadListItem } from './threads-grid';
 import { OrganiserListing, type PublicOrganiser } from './organiser-listing';
+import type { PublicSite } from '@/lib/public-site';
 
 // The first URL segment is any public owner slug — workspace, team or
 // organiser (docs/brief-workspace-urls.md D3: one namespace, workspaces
@@ -13,7 +14,7 @@ export default async function PublicOrganiserPage({
 }) {
   const { organiserSlug } = await params;
 
-  let data: { organiser: PublicOrganiser; threads: PublicThreadListItem[] };
+  let data: { organiser: PublicOrganiser; threads: PublicThreadListItem[]; site?: PublicSite };
   try {
     data = await publicFetch(`/api/v1/thread/public/organiser/${organiserSlug}`);
   } catch (e) {
@@ -26,6 +27,7 @@ export default async function PublicOrganiserPage({
       organiser={data.organiser}
       threads={data.threads}
       baseSlug={data.organiser.slug}
+      site={data.site ?? null}
     />
   );
 }

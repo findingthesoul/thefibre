@@ -5,6 +5,7 @@ import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
+import { hit } from '../lib/rate-limit.js';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
@@ -139,6 +140,12 @@ const THREAD_RESERVED = new Set<string>([
   'agenda',
   'enrol',
   'register',
+  // The workspace site's own pages (2026-09-11). '/{owner}/contact' is a
+  // real route now, and a thread slugged 'contact' would be shadowed by it
+  // — Next resolves the static segment first. Nothing in production held
+  // either slug when this was added (checked).
+  'contact',
+  'about',
 ]);
 
 /** D3 (docs/brief-workspace-urls.md): workspace slugs own the first URL
@@ -4917,6 +4924,16 @@ function ownerSlugOf(thread: { team?: unknown }, organiserSlug: string | null): 
   return team?.slug ?? organiserSlug ?? '';
 }
 
+/** Every public owner belongs to a workspace, and the workspace is what
+ *  carries the site design (migration 20260911193000). A team page and an
+ *  organiser page inside the same workspace wear the same site — that is
+ *  what "on workspace level" means. */
+function ownerWorkspaceId(owner: PublicOwner): string {
+  if (owner.kind === 'workspace') return owner.workspace.id;
+  if (owner.kind === 'team') return owner.team.workspace_id;
+  return owner.organiser.workspace_id;
+}
+
 // Public price display: tickets are the source of truth when they exist —
 // the lowest active, non-expired ticket wins (Sjoerd 2026-07-02: a thread
 // had a €250 ticket yet the public card said Free, because the card read
@@ -4981,6 +4998,8 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     organiser: publicOrganiser(owner),
     threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
     owner_kind: owner.kind,
+    // Additive (rule 8): the workspace's public site — theme and ingredients.
+    site: await publicSite(ownerWorkspaceId(owner)),
   });
 });
 
@@ -5022,6 +5041,8 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
     organiser: publicOrganiser({ kind: 'organiser', organiser }),
     threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+    // Additive (rule 8): the workspace's public site — theme and ingredients.
+    site: await publicSite(owner.workspace.id),
   });
 });
 
@@ -5201,6 +5222,10 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   const price = effectivePrice(thread, prices);
   return c.json({
     organiser,
+    // Additive (rule 8): the workspace's public site. The thread page wears
+    // the same navbar and footer as the listing it was reached from — a
+    // theme that stopped at the front door would not be a site.
+    site: await publicSite(thread.workspace_id as string),
     thread: {
       id: thread.id,
       slug: thread.slug,
@@ -5627,6 +5652,62 @@ const PublicEnrol = z.object({
   policy_accepted: z.boolean().optional(),
   policy_version: z.string().max(200).optional(),
   request_id: z.string().min(8).max(80),
+});
+
+// POST /api/v1/thread/public/contact — the site's contact form.
+//
+// Sjoerd asked for "contact page (with basic form)". Basic is the whole
+// specification: a name, an address to reply to, and a message. It delivers
+// to the address the workspace set in Settings → Website, which the visitor
+// never sees — the form exists so that address never has to be published.
+//
+// Two brakes, because this is a public endpoint that causes mail:
+//   · a honeypot field no human fills in, which stops the cheap bots;
+//   · a per-WORKSPACE hourly cap, keyed on the recipient rather than the
+//     sender's IP, because the form is submitted by our own server and every
+//     visitor would otherwise share one Vercel egress address. The cap bounds
+//     what an abuser can do to the person receiving it, which is the harm
+//     worth bounding.
+const ContactBody = z.object({
+  owner: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(200),
+  message: z.string().min(1).max(5000),
+  /** Honeypot. A real visitor never sees this field. */
+  website: z.string().max(200).optional(),
+});
+
+threadRoutes.post('/public/contact', async (c) => {
+  const body = ContactBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  // A filled honeypot gets the same answer a real send does. Telling a bot
+  // it was caught only teaches it which field to leave alone.
+  if (body.data.website) return c.json({ ok: true });
+
+  const owner = await resolvePublicOwner(body.data.owner);
+  if (!owner) return c.json({ error: 'not found' }, 404);
+  const workspaceId = ownerWorkspaceId(owner);
+  const to = await siteContactEmail(workspaceId);
+  if (!to) return c.json({ error: 'not found' }, 404);
+
+  const gate = hit(`site-contact:${workspaceId}`, 20, 3_600_000);
+  if (!gate.allowed) {
+    c.header('Retry-After', String(gate.resetSeconds));
+    return c.json({ error: 'too many messages, try again later' }, 429);
+  }
+
+  const { name, email, message } = body.data;
+  const ownerName = publicOrganiser(owner).display_name ?? body.data.owner;
+  const text = `${name} <${email}> wrote through the contact form on ${ownerName}:\n\n${message}`;
+  await sendEmail({
+    to,
+    subject: `Message from ${name}`,
+    text,
+    html: `<p><strong>${escapeHtml(name)}</strong> &lt;${escapeHtml(email)}&gt; wrote through the contact form on ${escapeHtml(ownerName)}:</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+    // Reply goes to the visitor, not to us. The whole point of the form.
+    replyTo: email,
+  });
+  return c.json({ ok: true });
 });
 
 threadRoutes.post('/public/enrol', async (c) => {

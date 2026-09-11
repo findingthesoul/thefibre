@@ -5,6 +5,11 @@ import { RichText } from '@thefibre/shared/ui/rich-text';
 // Public organiser page listing (Sjoerd 2026-07-02): a thread opens either
 // its full page or — Luma-style — a popup with info + direct enrolment,
 // per the thread's public_interaction setting.
+//
+// Three shapes since 2026-09-11, one per site theme's needs. The DATA and the
+// popup are identical in all three — only the card changes — because the
+// thing a theme is allowed to vary is what a visitor sees first, never what
+// they can do.
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
@@ -67,12 +72,22 @@ function fmtPrice(cents: number | null, currency: string | null): string {
   }).format(cents / 100);
 }
 
+export type GridVariant =
+  /** A stack of wide cards. The original, and what community uses. */
+  | 'list'
+  /** Image-forward tiles for the festival theme — the cover does the work. */
+  | 'poster'
+  /** A scannable table-like row, date first. Corporate. */
+  | 'row';
+
 export function ThreadsGrid({
   organiserSlug,
   threads,
+  variant = 'list',
 }: {
   organiserSlug: string;
   threads: PublicThreadListItem[];
+  variant?: GridVariant;
 }) {
   const [popupSlug, setPopupSlug] = useState<string | null>(null);
   const [detail, setDetail] = useState<PopupDetail | null>(null);
@@ -98,34 +113,88 @@ export function ThreadsGrid({
     };
   }, [popupSlug, organiserSlug]);
 
+  const listClass =
+    variant === 'poster'
+      ? 'mt-6 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3'
+      : variant === 'row'
+        ? 'mt-6 border-t border-line'
+        : 'mt-3 space-y-3';
+
   return (
     <>
-      <ul className="mt-3 space-y-3">
+      <ul className={listClass}>
         {threads.map((th) => {
           const p = one(th.program);
           const Icon = p?.format === 'journey' ? Route : CalendarRange;
           const dates = fmtDates(p?.starts_on ?? null, p?.ends_on ?? null);
-          const inner = (
-            <>
-              <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken ring-1 ring-line shrink-0">
-                <Icon size={18} strokeWidth={1.75} className="text-ink-subtle" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <div className="text-base font-medium">{p?.title ?? th.slug}</div>
-                {th.intention && (
-                  <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                    {richTextPreview(th.intention)}
-                  </p>
-                )}
-                <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
-                  {dates && <span>{dates}</span>}
-                  <span>{fmtPrice(th.price_cents, th.price_currency)}</span>
+          const title = p?.title ?? th.slug;
+          const price = fmtPrice(th.price_cents, th.price_currency);
+
+          const inner =
+            variant === 'poster' ? (
+              <>
+                <span className="block aspect-[4/3] w-full overflow-hidden rounded-xl bg-surface-sunken ring-1 ring-line">
+                  {th.cover_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={th.cover_url}
+                      alt=""
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <span className="flex h-full w-full items-center justify-center">
+                      <Icon size={28} strokeWidth={1.25} className="text-ink-muted" />
+                    </span>
+                  )}
+                </span>
+                <span className="mt-4 block text-lg font-medium leading-snug text-balance">
+                  {title}
+                </span>
+                <span className="mt-1.5 block text-xs text-ink-muted">
+                  {dates ? `${dates} · ${price}` : price}
+                </span>
+              </>
+            ) : variant === 'row' ? (
+              <>
+                <span className="w-40 shrink-0 text-sm text-ink-subtle tabular-nums">
+                  {dates ?? '—'}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block text-base font-medium truncate">{title}</span>
+                  {th.intention && (
+                    <span className="mt-0.5 block text-sm text-ink-muted line-clamp-1">
+                      {richTextPreview(th.intention)}
+                    </span>
+                  )}
+                </span>
+                <span className="shrink-0 text-sm text-ink-subtle tabular-nums">{price}</span>
+              </>
+            ) : (
+              <>
+                <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-surface-sunken ring-1 ring-line shrink-0">
+                  <Icon size={18} strokeWidth={1.75} className="text-ink-subtle" />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="text-base font-medium">{title}</div>
+                  {th.intention && (
+                    <p className="mt-1 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
+                      {richTextPreview(th.intention)}
+                    </p>
+                  )}
+                  <div className="mt-2 flex items-center gap-3 text-xs text-ink-muted">
+                    {dates && <span>{dates}</span>}
+                    <span>{price}</span>
+                  </div>
                 </div>
-              </div>
-            </>
-          );
+              </>
+            );
+
           const cls =
-            'w-full flex items-start gap-4 rounded-xl border border-line bg-surface-raised p-5 hover:border-line-strong transition-colors text-left';
+            variant === 'poster'
+              ? 'group block w-full text-left'
+              : variant === 'row'
+                ? 'flex w-full items-center gap-6 border-b border-line px-1 py-5 text-left hover:bg-surface-sunken/60 transition-colors'
+                : 'w-full flex items-start gap-4 rounded-xl border border-line bg-surface-raised p-5 hover:border-line-strong transition-colors text-left';
           return (
             <li key={th.id}>
               {th.public_interaction === 'popup' ? (

@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicThreadListItem } from '../threads-grid';
 import { OrganiserListing, type PublicOrganiser } from '../organiser-listing';
+import type { PublicSite } from '@/lib/public-site';
 import { fetchPublicThread, PublicThreadView } from './thread-view';
 
 // /{owner}/{thread} — the canonical thread address (personal · team ·
@@ -33,6 +34,7 @@ export default async function PublicThreadPage({
     workspace: { slug: string; name: string | null };
     organiser: PublicOrganiser;
     threads: PublicThreadListItem[];
+    site?: PublicSite;
   };
   try {
     listing = await publicFetch(
@@ -50,6 +52,7 @@ export default async function PublicThreadPage({
       // Workspace-scoped threads live under the WORKSPACE slug.
       baseSlug={listing.workspace.slug}
       workspace={listing.workspace}
+      site={listing.site ?? null}
     />
   );
 }

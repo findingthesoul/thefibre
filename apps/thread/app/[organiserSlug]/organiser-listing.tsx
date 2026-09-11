@@ -6,9 +6,17 @@
 //
 // Presentational server component — both routes fetch and hand the payload
 // here so the render never forks.
+//
+// Since 2026-09-11 it is a DISPATCHER: the workspace picks one of four
+// designs in Settings → Website and this chooses the renderer. The themes
+// live in ./themes.tsx with the reasoning for each; what stays here is the
+// mapping from a payload to the props every theme takes, so a new theme is
+// one entry in THEMES and nothing else.
 
 import Link from 'next/link';
-import { ThreadsGrid, type PublicThreadListItem } from './threads-grid';
+import { PLAIN_SITE, type PublicSite } from '@/lib/public-site';
+import { THEMES } from './themes';
+import type { PublicThreadListItem } from './threads-grid';
 
 export type PublicOrganiser = {
   id?: string;
@@ -23,6 +31,7 @@ export function OrganiserListing({
   threads,
   baseSlug,
   workspace = null,
+  site = null,
 }: {
   organiser: PublicOrganiser;
   threads: PublicThreadListItem[];
@@ -32,57 +41,36 @@ export function OrganiserListing({
   /** Set on the /{workspace}/{organiser} form: names the workspace the
    *  organiser is listed within and links back to its page. */
   workspace?: { slug: string; name: string | null } | null;
+  /** The workspace's site design. Null (an older payload) = the plain page. */
+  site?: PublicSite | null;
 }) {
   const name = organiser.display_name ?? organiser.slug;
+  const resolved = site ?? PLAIN_SITE;
+  const Theme = THEMES[resolved.theme] ?? THEMES.plain;
+
+  // On /{workspace}/{organiser} the nav's home link and the contact page
+  // belong to the WORKSPACE — it owns the site — while thread links still
+  // live under baseSlug. They are the same slug everywhere else.
+  const ownerSlug = workspace?.slug ?? baseSlug;
 
   return (
-    <div className="min-h-screen bg-surface-sunken">
-      <main className="mx-auto max-w-2xl px-6 py-16">
-        {workspace && (
+    <Theme
+      site={resolved}
+      name={name}
+      bio={organiser.bio ?? null}
+      photoUrl={organiser.photo_url ?? null}
+      baseSlug={baseSlug}
+      ownerSlug={ownerSlug}
+      threads={threads}
+      crumb={
+        workspace ? (
           <nav className="mb-8 text-sm">
-            <Link href={`/${workspace.slug}`} className="text-ink-subtle hover:text-ink">
+            <Link href={`/${workspace.slug}`} className="opacity-70 hover:opacity-100">
               ← {workspace.name ?? workspace.slug}
             </Link>
           </nav>
-        )}
-        <header className="flex items-center gap-4">
-          {organiser.photo_url ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={organiser.photo_url}
-              alt={name}
-              className="h-16 w-16 rounded-full object-cover ring-1 ring-line"
-            />
-          ) : (
-            <span className="inline-flex h-16 w-16 items-center justify-center rounded-full bg-surface-raised ring-1 ring-line text-xl font-medium text-ink-subtle">
-              {name.slice(0, 1).toUpperCase()}
-            </span>
-          )}
-          <div>
-            <h1 className="text-2xl font-medium tracking-tight">
-              {name}
-              {workspace && (
-                <span className="text-ink-muted"> · {workspace.name ?? workspace.slug}</span>
-              )}
-            </h1>
-            {organiser.bio && (
-              <p className="mt-1 text-sm text-ink-subtle leading-relaxed">{organiser.bio}</p>
-            )}
-          </div>
-        </header>
-
-        <section className="mt-12">
-          <h2 className="text-[11px] uppercase tracking-wider text-ink-muted">Threads</h2>
-          {threads.length === 0 && (
-            <p className="mt-3 text-sm text-ink-subtle">Nothing public right now.</p>
-          )}
-          <ThreadsGrid organiserSlug={baseSlug} threads={threads} />
-        </section>
-
-        <footer className="mt-16 text-xs text-ink-muted">
-          Powered by <span className="font-medium">Thread</span> · The Fibre
-        </footer>
-      </main>
-    </div>
+        ) : undefined
+      }
+    />
   );
 }

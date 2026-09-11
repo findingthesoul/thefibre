@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.4] — 2026-09-11 — three ways for a workspace to look public
+
+Sjoerd: *"on workspace level.. provide three different design styles... A
+festival: full page hero image with a title and navbar at the top. A second
+one more corporate. A third one more community like style."* Plus the
+ingredients: image, navbar, logo, intro text, footer, privacy, conditions,
+contact page.
+
+**A theme is a layout, not a palette.** The three differ in what they put
+first, because they are for visitors arriving in different states of mind.
+*Festival* is for a stranger who has to feel something before they read: the
+hero image is the page, the navbar floats over it, the programme is a grid of
+posters. *Corporate* is for somebody sent here to find a date and a price:
+nothing decorative above the fold, and a listing whose first column is the
+date. *Community* is for somebody who already belongs: the host's face and
+voice first, then what's on.
+
+**`plain` stays the default**, and is exactly the page that was there before,
+so no published page changed the day this shipped. It is also the honest
+choice for a workspace that wants a listing rather than a website.
+
+The ingredients live on `thread_settings` — one row per workspace, which is
+what the public renderer already loads. Deliberately NOT stored: pages.
+Sjoerd named the future ("the drag and drop of the certificates for a very
+chic design tool") and asked for a basic structure now. A theme is code; a
+template will be a document; these columns are what both read from.
+
+Privacy and terms come from the shared `FOOTER_LINKS` — the same two
+documents the platform's emails point at. A workspace does not write its own
+and should not: they describe what The Fibre does with the data, which does
+not change because the page is wearing a festival poster.
+
+**`POST /public/contact`** delivers the form to an address the visitor never
+sees, which is most of why the form exists. Two brakes, because it is a public
+endpoint that causes mail: a honeypot, and an hourly cap keyed on the
+*recipient* workspace rather than the sender's IP — every visitor shares one
+Vercel egress address, so an IP cap would have throttled the site and missed
+the abuser. `contact` and `about` became reserved thread slugs; nothing in
+production held either.
+
+Also in this release: `apps/api/src/lib/public-site.ts` and the migration,
+which v0.69.3 committed the callers of without the files themselves. Main was
+red for that reason and is green again.
+
 ## [0.69.3] — 2026-09-11 — the contact card says who this person is
 
 Sjoerd, looking at the contacts popup in The Thread: *"people may need a
