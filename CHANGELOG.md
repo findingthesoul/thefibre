@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.3] — 2026-09-12 — two scripts that could not say what was wrong
+
+Both findings come from running the documented flow rather than from reading
+it. Neither is a product bug; both are the kind of thing that wastes an hour
+at the wrong moment.
+
+**`audit-workspace-admins.mjs` read its environment unlike every one of its
+siblings.** Every other script in `apps/api/scripts` takes `FIBRE_ENV_FILE`
+and parses the file itself. This one required the caller to remember
+`node --env-file=.env`, and the entire reward for forgetting was a
+supabase-js stack trace reading `supabaseUrl is required.` — which names
+neither the script, nor the missing file, nor the flag. It now reads the
+house way, `--env-file` still works because a value already in the process
+wins, and a missing file prints the path it looked for. It also announces
+which project it is auditing, so pointing it at production by accident is
+visible rather than inferred.
+
+**`verify-public-api.mjs` could not say why staging had no fixture.** It
+needs a thread that is public-listed, has an owner slug, and has a programme
+that is active or completed. When nothing qualified it said only "publish
+one, or run seed-ebbf.mjs" — so an environment holding threads that were
+merely in draft read exactly like an environment holding none, and the
+advice was wrong for both. It now lists every public-listed candidate with
+the condition it failed. Staging's says `single-event — programme is draft`,
+which is the whole diagnosis in six words.
+
+The advice changed too: it no longer points at `seed-ebbf.mjs` for staging.
+That script targets the `default` workspace, which on staging is the Stripe
+payment-rehearsal rig — the one the integration suite marks load-bearing and
+tells you never to touch.
+
+**Not fixed, and needing Sjoerd** (recorded here so it is not rediscovered):
+staging's Stripe webhooks are registered against the platform's own account
+for Thread, Meet and Membership, when all three take money on connected
+accounts, and Meet's endpoint is missing `payment_intent.payment_failed`.
+The mode is fixed at creation, so each has to be deleted and remade, and the
+new signing secrets pushed to Fly. Remaking them without the secrets would
+leave staging payments worse off than they are now, so they were left alone.
+
+
 ## [0.72.2] — 2026-09-12 — the test run, and the two things it caught
 
 A full pass of the documented flow: types, unit, prod smoke, staging smoke,

@@ -174,7 +174,7 @@ console.log(`The Thread — public read API contract\nAPI: ${API}`);
 // Find a real published thread to assert against.
 const { data: candidates } = await db
   .from('thread_thread')
-  .select('slug, workspace_id, organiser:organiser_id (slug), team:team_id (slug), program:program_id (status)')
+  .select('slug, is_public_listed, workspace_id, organiser:organiser_id (slug), team:team_id (slug), program:program_id (status)')
   .eq('is_public_listed', true)
   .limit(25);
 
@@ -186,10 +186,38 @@ const live = (candidates ?? []).find((t) => {
 });
 
 if (!live) {
+  // Say WHICH of the three conditions each candidate failed. The old message
+  // named none of them, so an environment with threads that were merely in
+  // draft read identically to one with no threads at all — and the advice
+  // ("publish one, or seed") was wrong for both.
+  const why = (t) => {
+    const p = one(t.program);
+    const owner = one(t.team)?.slug ?? one(t.organiser)?.slug;
+    const missing = [];
+    if (!t.is_public_listed) missing.push('not public-listed');
+    if (!owner) missing.push('no owner slug');
+    if (!p) missing.push('no programme');
+    else if (p.status !== 'active' && p.status !== 'completed')
+      missing.push(`programme is ${p.status}`);
+    return `  ${t.slug} — ${missing.join(', ')}`;
+  };
+  const all = candidates ?? [];
   console.error(
-    '\nNo public listed thread with an active programme was found, so there is\n' +
-      'nothing to assert the contract against. Publish one, or run\n' +
-      '`node scripts/seed-ebbf.mjs` first.',
+    `\nNo thread here satisfies all three conditions the published contract ` +
+      `needs:\npublic-listed, an owner slug, and a programme that is active or ` +
+      `completed.\n`,
+  );
+  if (!all.length) {
+    console.error('This environment has no public-listed threads at all.');
+  } else {
+    console.error(`${all.length} public-listed thread(s) considered:`);
+    for (const t of all) console.error(why(t));
+  }
+  console.error(
+    `\nFix by moving one of those threads' programmes to active, or by ` +
+      `publishing\na thread that qualifies. Do NOT reach for seed-ebbf.mjs on ` +
+      `staging: it targets\nthe 'default' workspace, which is the Stripe ` +
+      `payment-rehearsal rig.`,
   );
   process.exit(1);
 }
