@@ -509,6 +509,29 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     The gate is behaving correctly — this is the shared checkout's cost, and
     the sharpest argument for taking a worktree for code work (CLAUDE.md,
     Parallel SESSIONS): in a worktree it cannot happen.
+  - **The worktree decision has to be REVISITED when the work changes
+    shape** — not made once at the start. 2026-09-11, three sessions live.
+    Two sweeps happened that night, both in the main checkout, both between
+    sessions that were being careful. A third session was in a worktree and
+    had nothing to sweep, because the shared tree was never visible to it —
+    its diff of a twice-swept file, taken against the merge base, came back
+    containing only its own edits. The session that got swept had opened on
+    a docs question, correctly stayed in the main checkout for it, and then
+    never re-decided when the night turned into four releases. **That is the
+    failure mode: not declining the worktree, but never asking again once
+    docs became code.** (Observed by the session it happened to,
+    thefibre-43, and written here at its suggestion.) The practical rule:
+    the moment a docs-only session's next step is an edit under `apps/` or
+    `supabase/`, stop and take a worktree — `EnterWorktree` mid-session
+    costs a `pnpm install` and a merge at the end, which is less than one
+    sweep. Over-firing is the safe direction here: the objection is always
+    "this one is small", and that is precisely the judgement that failed.
+    And the worktree does not merely postpone the sweep to merge time — by
+    then the commits exist, and a merge stages nobody's dirty files. What
+    *does* still reach you is the bullet above: `pnpm verify` reads the
+    working tree, so a peer's mid-edit can still block a release made from
+    a worktree-merged commit. That is the gate working, not the worktree
+    failing.
     It then bit for real the same evening: v0.68.40 was refused by five
     missing i18n keys and a TS7006 in another session's `engagements.tsx`.
     The releasing session read the path, told the owner, fixed nothing and
