@@ -41,11 +41,16 @@ project started, and `apps/api/.env.staging` since 3 September — so every
 one release made from a worktree. The API is at v266. Between them the two
 files hold `SUPABASE_SERVICE_ROLE_KEY` for both projects — the credential
 that bypasses every RLS policy on the EU database — plus
-`SSO_INTERNAL_SECRET` and `STRIPE_SECRET_KEY`. Whether to rotate any of it is
-Sjoerd's call and nobody else's: rotating the service-role key needs a
-coordinated `fly secrets set` and a redeploy or the API stops answering.
-Found by the session that made the original report, which corrected its own
-framing at the same time.
+`SSO_INTERNAL_SECRET` and `STRIPE_SECRET_KEY`. What bounds it: `fly secrets list`
+shows Fly already holds every one of those values, and has to — the API reads
+them at runtime. So the same secrets reached the same vendor by a sloppier
+path than the intended one, a build context instead of an encrypted secrets
+store. Lower assurance, no new party. A real hygiene defect, now fixed, and
+not grounds for an emergency rotation. Whether to rotate anyway is Sjoerd's
+call and nobody else's: the service-role key means a Supabase rotation plus
+`fly secrets set` plus a redeploy, with a window where the API does not
+answer. Found by the session that made the original report, which corrected
+its own framing twice — first the scope, then the severity.
 
 The general shape of both: a check you have to remember is the check that
 fails. Fixing the pattern beats adding "and list the env files" to a
