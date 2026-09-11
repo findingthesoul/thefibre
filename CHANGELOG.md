@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.5] — 2026-09-12 — the staging footer stops walking people into production
+
+Caught by opening staging in a real browser, after every scripted layer had
+passed. This is the argument for the exploratory pass in one finding.
+
+**Every link in the shared marketing footer pointed at production.** It held
+`const WEBSITE = 'https://thethread.app'` and read `APPS[...].url` directly
+rather than the env-aware `appUrl`. On `thefibre.tech` that meant Why The
+Thread, The workshop, Pricing, About, Contact, the legal links, the logo —
+and, worst, **Sign in** — all left staging and landed on the live app.
+Sign in on a staging page opening the production app, against production
+data, is exactly the bleed the separate staging apex was chosen to prevent
+(docs/environments.md D1).
+
+The comment above the constant said "Links are absolute for the same reason",
+and absolute was right: this footer renders into emails too. Absolute is not
+the same as hardcoded-to-production, and the two had been conflated.
+
+Fixes:
+
+- **`website` is now a registered SURFACE** (`NEXT_PUBLIC_WEBSITE_URL`, dev
+  port 3006), beside `my-portal`. The registry comment already said surfaces
+  exist so "URLs and CORS derive from ONE place (the domain-flip lesson)" —
+  the marketing site was simply never added to it.
+- **The footer derives all three hosts** — website, Thread, Fibre — through
+  `surfaceUrl` / `appUrl`, defaulting to the ambient environment.
+- **`FOOTER_PATHS` split out from `FOOTER_LINKS`.** The absolute production
+  links stay exactly as they are, because their job is EMAIL and an inbox is
+  read from anywhere, long after sending; a staging host in one is a dead
+  link in somebody's inbox. A rendered page joins the paths onto whichever
+  host it resolved.
+- **`ambientEnv()`** reaches `process.env` without pulling `@types/node` into
+  a package that also compiles for browsers, and documents that it is
+  server-only — Next inlines `process.env.NEXT_PUBLIC_*` into client bundles
+  as literals, which going through `globalThis` would dodge.
+
+Nothing moves until the environment says so: unset variables still resolve to
+production, so this is a no-op on production and a fix on staging the moment
+`NEXT_PUBLIC_WEBSITE_URL` is set there. **Sign in corrects itself
+immediately**, since staging already sets `NEXT_PUBLIC_THREAD_URL`.
+
+Five tests lock it, including that no surface URL carries a path or a
+trailing slash, and that the email links stay pinned to production.
+
+
 ## [0.72.4] — 2026-09-12 — a sign-in stops writing twelve rows one at a time
 
 Legacy and optimisation night. The headline finding is a negative one and

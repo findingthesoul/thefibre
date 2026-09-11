@@ -51,13 +51,26 @@ export const ENTITY = {
  *  first email we ever sent until v0.18.2). Note `privacy` is deliberately
  *  /privacy-policy, not /privacy: the latter is the signed-in dashboard where
  *  you manage your own consents. */
+export const FOOTER_PATHS = {
+  help: '/support',
+  about: '/about',
+  legal: '/terms',
+  privacy: '/privacy-policy',
+} as const;
+
 export const FOOTER_LINKS = {
   // The Thread is the public door (Sjoerd, 2026-09-08); the same documents
   // also serve on thefibre.app under identical paths (shared/ui/legal-docs).
-  help: 'https://thethread.app/support',
-  about: 'https://thethread.app/about',
-  legal: 'https://thethread.app/terms',
-  privacy: 'https://thethread.app/privacy-policy',
+  //
+  // These stay pinned to PRODUCTION on purpose: their job is emails, which
+  // are read long after they are sent and from anywhere, so a staging host
+  // in one would be a dead link in somebody's inbox. A rendered PAGE wants
+  // its own environment instead — see FOOTER_PATHS, which the marketing
+  // footer joins onto whichever website host it resolves.
+  help: `https://thethread.app${FOOTER_PATHS.help}`,
+  about: `https://thethread.app${FOOTER_PATHS.about}`,
+  legal: `https://thethread.app${FOOTER_PATHS.legal}`,
+  privacy: `https://thethread.app${FOOTER_PATHS.privacy}`,
 };
 
 /** Hosted brand assets. Served from apps/web/public/brand/. */
@@ -216,9 +229,35 @@ export const SURFACES = {
     urlEnv: 'NEXT_PUBLIC_MY_URL',
     devPort: 3007,
   },
+  /** The marketing site on the apex. Registered 2026-09-12, when the shared
+   *  marketing footer was found sending every staging visitor to PRODUCTION
+   *  — including its Sign in link, which is the one thing the separate
+   *  staging apex exists to prevent. It had `https://thethread.app` as a
+   *  const, which is absolute (correct, the footer renders in emails too)
+   *  but not env-derived (not correct). Same lesson as the domain flip:
+   *  one place, derived. */
+  website: {
+    name: ENTITY.publicName,
+    shortLabel: 'Website',
+    tagline: 'Tools to facilitate change.',
+    url: 'https://thethread.app',
+    urlEnv: 'NEXT_PUBLIC_WEBSITE_URL',
+    devPort: 3006,
+  },
 } as const;
 
 export type SurfaceKey = keyof typeof SURFACES;
+
+/** The ambient process environment, reached without pulling @types/node into
+ *  this package (it has none, deliberately — it compiles for browsers too).
+ *
+ *  Only safe in SERVER code. Next inlines `process.env.NEXT_PUBLIC_*` into
+ *  client bundles as literals; going through globalThis dodges that
+ *  substitution and would read undefined in the browser. Server components
+ *  and route handlers read the real thing. */
+export function ambientEnv(): Record<string, string | undefined> | undefined {
+  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+}
 
 /** Like appUrl, for surfaces: the env override wins, else production. */
 export function surfaceUrl(

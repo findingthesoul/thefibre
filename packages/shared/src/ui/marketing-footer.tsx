@@ -7,9 +7,8 @@
 // identical wherever it renders. Links are absolute for the same reason.
 // Server component; no hooks.
 
-import { APPS, ENTITY, FOOTER_LINKS } from '../branding.js';
+import { ENTITY, FOOTER_PATHS, ambientEnv, appUrl, surfaceUrl } from '../branding.js';
 
-const WEBSITE = 'https://thethread.app';
 const CONTACT_EMAIL = 'hello@thethread.app';
 
 const INK = 'text-[#1a1a2e]';
@@ -20,14 +19,28 @@ const COL_LINK =
 export function MarketingFooter({
   className = '',
   variant = 'thread',
+  env = ambientEnv(),
 }: {
   className?: string;
   /** 'thread' = the yellow brand band (thethread.app); 'fibre' = the same
    *  structure in the Fibre's quiet neutral, so thefibre.app stays a
    *  FIBRE page (Sjoerd, 2026-09-08). */
   variant?: 'thread' | 'fibre';
+  /** Overrides for the host lookups. Defaults to the process environment,
+   *  which is what every caller wants; a test passes its own. */
+  env?: Record<string, string | undefined>;
 }) {
   const fibre = variant === 'fibre';
+
+  // Absolute, and DERIVED. These were absolute constants pointing at
+  // production, so on staging every link in this footer — Sign in included —
+  // walked the visitor straight out of staging and into the live app. That
+  // is precisely what a separate staging apex exists to prevent. Unset env
+  // still falls back to production, so nothing moves until staging sets
+  // NEXT_PUBLIC_WEBSITE_URL / _THREAD_URL / _FIBRE_URL.
+  const WEBSITE = surfaceUrl('website', env);
+  const THREAD = appUrl('the-thread', env);
+  const FIBRE = appUrl('fibre-platform', env);
   return (
     <footer
       className={`${fibre ? 'border-t border-neutral-200 bg-neutral-50' : 'bg-[#ffdd00]'} ${INK} ${className}`}
@@ -37,7 +50,7 @@ export function MarketingFooter({
           <div>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={fibre ? 'https://thefibre.app/brand/the-fibre.png' : `${WEBSITE}/logo-the-thread.svg`}
+              src={fibre ? `${FIBRE}/brand/the-fibre.png` : `${WEBSITE}/logo-the-thread.svg`}
               alt={fibre ? 'The Fibre' : 'The Thread'}
               className="h-7 w-auto"
             />
@@ -54,16 +67,16 @@ export function MarketingFooter({
               <li><a href={`${WEBSITE}/pricing`} className={COL_LINK}>Pricing</a></li>
               <li><a href={`${WEBSITE}/about`} className={COL_LINK}>About</a></li>
               <li><a href={`${WEBSITE}/contact`} className={COL_LINK}>Contact</a></li>
-              <li><a href={APPS['the-thread'].url} className={COL_LINK}>Sign in</a></li>
+              <li><a href={THREAD} className={COL_LINK}>Sign in</a></li>
             </ul>
           </div>
 
           <div>
             <p className={COL_TITLE}>Legal &amp; help</p>
             <ul className="mt-4 space-y-1.5">
-              <li><a href={FOOTER_LINKS.privacy} className={COL_LINK}>Privacy policy</a></li>
-              <li><a href={FOOTER_LINKS.legal} className={COL_LINK}>Terms of service</a></li>
-              <li><a href={FOOTER_LINKS.help} className={COL_LINK}>Support</a></li>
+              <li><a href={`${WEBSITE}${FOOTER_PATHS.privacy}`} className={COL_LINK}>Privacy policy</a></li>
+              <li><a href={`${WEBSITE}${FOOTER_PATHS.legal}`} className={COL_LINK}>Terms of service</a></li>
+              <li><a href={`${WEBSITE}${FOOTER_PATHS.help}`} className={COL_LINK}>Support</a></li>
               <li><a href={`mailto:${CONTACT_EMAIL}`} className={COL_LINK}>{CONTACT_EMAIL}</a></li>
             </ul>
           </div>
@@ -73,7 +86,7 @@ export function MarketingFooter({
             <p className="mt-4 text-[13px] leading-6 text-[#1a1a2e]/75">
               Every Thread tool stands on{' '}
               <a
-                href={APPS['fibre-platform'].url}
+                href={FIBRE}
                 className="underline underline-offset-2 transition-colors hover:text-[#1a1a2e]"
               >
                 The Fibre
