@@ -1,7 +1,20 @@
 // The VAT module — rates as DATA the operator maintains (/admin/vat), not
-// constants in a deploy. Stripe Tax computes on card rails; this module is
-// the platform's own reference and the calculator for every rail Stripe
-// does not touch (invoice-method purchases, future PSPs).
+// constants in a deploy.
+//
+// WHAT ACTUALLY USES THIS TODAY: the rates, not the calculator. vat-sync.ts
+// refreshes them and vat-stripe.ts pushes them into Stripe Tax, which is what
+// computes VAT on card rails.
+//
+// `computeVat` below is the platform's own reference implementation of the
+// same rules, and NOTHING CALLS IT. The header used to say it was the
+// calculator for "invoice-method purchases", and that is not true: app sales
+// on every rail get their tax from lib/seller-vat.ts, which does a
+// VAT-INCLUSIVE split against the seller's own registration — a different
+// model from the destination-rate rules below, not a different caller.
+//
+// It is kept rather than deleted because a non-Stripe PSP would need exactly
+// this, and the platform is deliberately PSP-agnostic. Treat it as untested
+// reference code: wire it to anything that handles money and test it first.
 //
 // Rules implemented (NL-seated seller):
 //  - home country            → home standard rate

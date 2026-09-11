@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.4] — 2026-09-12 — a sign-in stops writing twelve rows one at a time
+
+Legacy and optimisation night. The headline finding is a negative one and
+worth recording as such: **there is almost no dead code here.** A sweep of
+every exported symbol in `apps/api/src/lib` and `packages/shared/src` turned
+up four functions nothing calls, and on inspection three of them are
+unfinished features with their scaffolding already in place — seat overage,
+Zoom's host lookup — not corpses. There are zero TODO, FIXME or deprecated
+markers in the entire codebase.
+
+What there is, instead, is comments that describe code that no longer does
+what they say. Those cost more than dead code does, because dead code is
+inert and a wrong comment actively sends the next person the wrong way.
+
+**`ensurePlanApps` did twelve sequential round trips per sign-in.** It ran a
+nested loop over apps × users doing one awaited upsert per pair. `sso/resolve`
+calls it fire-and-forget on EVERY sign-in, so a six-person workspace on two
+apps paid twelve sequential writes each time anybody logged in, to insert
+rows that already existed. The grid is small and uniform, so it is now one
+upsert of the whole thing. A failed app activation still skips only that
+app's memberships, and the membership write now reports its own error instead
+of discarding it silently.
+
+**The rate limiter had a test seam and no test.** `resetAllBuckets` carried a
+comment saying the contract script used it to assert the limiter without
+waiting a minute. The contract script talks to a deployed API over HTTP and
+cannot reach an in-process Map, so nothing had ever called the seam and
+nothing had ever tested the file. It guards whether a stranger's site can keep
+reading the published thread routes, so it now has ten tests: the boundary
+(the request exactly ON the limit is allowed, the next is not), that
+`remaining` never goes negative because it goes out in a header, that the
+window is fixed rather than sliding, and that an unidentifiable caller shares
+one bucket — being unidentifiable is not a way to be exempt.
+
+**`vat.ts` claimed a job that `seller-vat.ts` does.** Its header called
+`computeVat` the calculator for "invoice-method purchases". Untrue: app sales
+on every rail get their tax from `seller-vat.ts`, which does a VAT-inclusive
+split against the seller's own registration — a different model, not a
+different caller. `computeVat` is called by nothing at all. It is kept,
+because a non-Stripe PSP would need exactly these destination rules and the
+platform is deliberately PSP-agnostic, but the header now says plainly that it
+is untested reference code and must be tested before it touches money.
+
+Left alone on purpose: the admin workspace list's N×5 head-count queries,
+which are a documented decision with a stated revisit point at ~100
+workspaces, not an oversight.
+
+
 ## [0.72.3] — 2026-09-12 — two scripts that could not say what was wrong
 
 Both findings come from running the documented flow rather than from reading

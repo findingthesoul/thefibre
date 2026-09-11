@@ -51,7 +51,13 @@ export function hit(key: string, limit: number, windowMs: number): RateLimitResu
   };
 }
 
-/** Test seam — the contract script asserts the limiter without waiting a minute. */
+/**
+ * Test seam — lets the unit tests (rate-limit.test.ts) assert the limiter
+ * without waiting out a window. This comment used to credit the contract
+ * script; that script talks to a deployed API over HTTP and cannot reach
+ * this Map, so for as long as it said that, nothing called this and nothing
+ * tested this file.
+ */
 export function resetAllBuckets(): void {
   buckets.clear();
   lastSweep = 0;
