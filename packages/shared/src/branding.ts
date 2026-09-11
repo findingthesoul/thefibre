@@ -149,7 +149,7 @@ export const APPS: Record<AppId, AppBrand> = {
   'fibre-sales': {
     name: 'Connections',
     shortName: 'Connections',
-    brandLetters: 'cx',
+    brandLetters: 'cn',
     tagline: 'Where everybody stands, and who needs you.',
     url: 'https://connections.thethread.app',
     urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',

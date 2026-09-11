@@ -16,6 +16,33 @@ The web is stateless. Personal data is processed *only* by the API on Fly.io —
 
 ## Web → Vercel
 
+> ## Adding a NEW app's Vercel project
+>
+> Written 2026-09-12 while importing Connections, the eighth app, because the
+> same three settings bit on the way in. The project name is
+> `thefibre-<app>` — plain `thefibre` for Fibre web is the one exception, and
+> `scripts/verify-vercel-env.mjs` and the preview-origin regex in
+> `apps/api/src/server.ts` both hold that list by hand.
+>
+> 1. **Root Directory → `apps/<app>`.** Not the repo root. Left at the root,
+>    Vercel reads the root `vercel.json`, whose `outputDirectory` is
+>    `apps/web/.next` — so the app builds correctly and then the deploy fails
+>    looking for web's output. That is the first error you get.
+> 2. **Build, Install and Output commands → all blank.** The app's own
+>    `apps/<app>/vercel.json` configures them (`cd ../.. && pnpm --filter …`).
+>    A dashboard override left over from a first failed attempt outlives the
+>    Root Directory fix and produces a *second*, different failure after the
+>    build succeeds.
+> 3. **Framework Preset → Next.js.**
+> 4. Env vars per the matrix below, and note `NEXT_PUBLIC_COOKIE_DOMAIN` is
+>    `.thethread.app` for every delivery app — only Fibre web uses
+>    `.thefibre.app`.
+> 5. **Last**, once the domain actually serves: flip `available: true` for the
+>    app in `packages/shared/src/branding.ts`. It gates the app switchers, the
+>    Fibre dashboard, the SSO hop check and — because that list is derived —
+>    `scripts/smoke-prod.mjs`, which will fail the release gate on a catalogue
+>    entry no browser can reach.
+
 You already created a Vercel project named `thefibre` earlier. Fix the configuration that failed last time:
 
 ### One-time setup
