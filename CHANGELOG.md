@@ -6,6 +6,42 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.68.74] — 2026-09-11 — the RSVP is two small squares (Portal 0.7.1)
+
+Sjoerd: "make the RSVP smaller — like more smaller icons. And maybe with
+green/red once activated."
+
+**The footprint shrinks; the tap target does not.** It was two buttons of
+roughly 136×44 spanning the card and is now two 44×44 squares, about 96px of
+total width including the gap. The height is deliberately unchanged: this
+exact control was already caught at 34px high in v0.68.38, after a round that
+believed it was compliant. It is used one-handed on a phone. Small square,
+never short rectangle.
+
+**Colour reinforces, the icon carries the state.** The check and the cross
+stay. Red and green is the common colour-blind pair; "no answer" has to be
+visibly different from both rather than merely paler; and dropping the words
+leaves the shape as the only thing that means anything. Selected is a filled
+emerald or red; unanswered is two plain outlines.
+
+**Two things that survived the shrink on purpose.** The caption moved beside
+the icons rather than being deleted for vertical space — with the words gone
+it is the only thing telling anyone that tapping again withdraws, and the
+third state is undiscoverable without it. And the `aria-label` now carries
+the item, "Coming to Conversation 1" rather than "Coming", because it is the
+control's only name now and a screen reader user does not get the row context
+that proximity gives a sighted one.
+
+Driven signed in against the staging fixture in all three states, measured
+rather than eyeballed: both buttons are exactly 44×44, selected reads green
+or red in pixels, and the fixture was returned to the answer it started with.
+
+**A note on the instrument, since it cost three reads.** `getComputedStyle`
+in the preview pane reported stale colours while the tab was not repainting —
+class lists and a reload-forced screenshot were the signals that held. When a
+rendered colour and a class list disagree, the class list is the code and the
+computed value is the instrument.
+
 ## [0.68.73] — 2026-09-11 — the door lands on the list, not on an empty receipt
 
 Sjoerd: "for desktop the list is probably more intuitive than the QR."

@@ -197,53 +197,71 @@ export function Rsvp({ item }: { item: AgendaItem }) {
     });
   }
 
-  const seg =
-    'inline-flex min-h-11 flex-1 items-center justify-center gap-1.5 px-3 text-sm transition-colors disabled:opacity-60';
+  // Two 44x44 squares, not two short rectangles.
+  //
+  // Sjoerd, 2026-09-10: "make the RSVP smaller — like more smaller icons.
+  // And maybe with green/red once activated." The FOOTPRINT shrinks a lot:
+  // the pair was two ~136x44 buttons spanning the card, and is now 96px of
+  // total width. The HEIGHT does not, and that is deliberate — this control
+  // was already caught once at 34px high (v0.68.38) after a round that
+  // believed it was compliant. It is used one-handed on a phone, so 44
+  // stays. Small square, never short rectangle.
+  //
+  // COLOUR REINFORCES, THE ICON CARRIES THE STATE. The check and the cross
+  // stay: red and green is the common colour-blind pair, "no answer" has to
+  // be visibly distinct from both rather than merely paler, and losing the
+  // words leaves the shape as the only thing that means anything.
+  const box =
+    'inline-flex h-11 w-11 items-center justify-center rounded-lg border transition-colors disabled:opacity-60';
 
   return (
-    <div className="mt-3">
-      <div
-        role="group"
-        aria-label="Are you coming?"
-        className="flex overflow-hidden rounded-lg border border-line"
-      >
+    <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+      <div role="group" aria-label="Are you coming?" className="flex gap-2">
         <button
           type="button"
           onClick={() => choose('coming')}
           disabled={pending}
           aria-pressed={answer === 'coming'}
-          className={`${seg} border-r border-line ${
-            answer === 'coming' ? 'bg-ink text-surface' : 'bg-surface text-ink hover:bg-surface-sunken'
+          // The words are gone, so this label is the only name the control
+          // has. It carries the item, because a screen reader user does not
+          // get the row context that proximity gives a sighted one.
+          aria-label={`Coming to ${item.title}`}
+          title="Coming"
+          className={`${box} ${
+            answer === 'coming'
+              ? 'border-emerald-600 bg-emerald-600 text-white'
+              : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink'
           }`}
         >
-          <Check className="h-4 w-4" aria-hidden />
-          Coming
+          <Check className="h-5 w-5" aria-hidden />
         </button>
         <button
           type="button"
           onClick={() => choose('not_coming')}
           disabled={pending}
           aria-pressed={answer === 'not_coming'}
-          className={`${seg} ${
+          aria-label={`Can\u2019t come to ${item.title}`}
+          title={'Can\u2019t come'}
+          className={`${box} ${
             answer === 'not_coming'
-              ? 'bg-ink text-surface'
-              : 'bg-surface text-ink hover:bg-surface-sunken'
+              ? 'border-red-600 bg-red-600 text-white'
+              : 'border-line bg-surface text-ink-subtle hover:border-line-strong hover:text-ink'
           }`}
         >
-          <X className="h-4 w-4" aria-hidden />
-          Can&rsquo;t
+          <X className="h-5 w-5" aria-hidden />
         </button>
       </div>
-      <p className="mt-1 text-xs text-ink-muted">
-        {answer === null
-          ? 'You haven\u2019t answered yet.'
-          : 'Tap again to undo.'}
+      {/* Beside the icons, not beneath them — that is where the vertical
+          space is saved. It is NOT dropped: with the words gone this line is
+          the only thing telling anyone that withdrawing is possible at all,
+          and the third state is invisible without it. */}
+      <p className="text-xs text-ink-muted">
+        {failed
+          ? 'That didn\u2019t save. Check your connection and try again.'
+          : answer === null
+            ? 'You haven\u2019t answered yet.'
+            : 'Tap again to undo.'}
       </p>
-      {failed && (
-        <p className="mt-1 text-xs text-ink-muted">
-          That didn&rsquo;t save. Check your connection and try again.
-        </p>
-      )}
     </div>
   );
 }
