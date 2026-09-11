@@ -141,14 +141,19 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_MEMBERSHIP_URL',
     available: true,
   },
+  // The slug stays fibre-sales forever — it tags curator data on
+  // person_relationship_context and org_relationship, and slugs never change
+  // (same rule as membership / Hyve). Only the display name moves. "Sales"
+  // named one axis of five and titled the tab holding the relationship
+  // record; see docs/connections-naming.md.
   'fibre-sales': {
-    name: 'Sales',
-    shortName: 'Sales',
-    brandLetters: 'fs',
-    tagline: 'Moving a prospect toward becoming a Thread.',
-    url: 'https://sales.thefibre.app',
-    urlEnv: 'NEXT_PUBLIC_SALES_URL',
-    available: false,
+    name: 'Connections',
+    shortName: 'Connections',
+    brandLetters: 'cx',
+    tagline: 'Where everybody stands, and who needs you.',
+    url: 'https://connections.thethread.app',
+    urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',
+    available: true,
   },
   'fibre-learn': {
     name: 'Learn',
