@@ -6931,6 +6931,15 @@ const CATALOG = {
     de: 'LinkedIn', // MT
     fr: 'LinkedIn', // MT
   },
+  // Shared sidebar section label — one shape in every app (2026-09-11).
+  nav_money: {
+    en: 'Money',
+    nl: 'Geld',
+    es: 'Dinero', // MT
+    pt: 'Dinheiro', // MT
+    de: 'Geld', // MT
+    fr: 'Argent', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

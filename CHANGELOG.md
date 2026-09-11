@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.7] — 2026-09-11 — Thread's sidebar catches up with the others
+
+The one piece v0.69.5 left out. Thread's Money section needed a translation
+key in a catalogue another session was holding uncommitted, so its invoices
+stayed among the Thread screens while the other five apps moved. That
+catalogue landed, so Thread now reads the same as everything else: Home,
+Thread, People, Money.
+
 ## [0.69.6] — 2026-09-11 — somewhere to choose the design, and a way to be written to
 
 The other half of v0.69.4. That release taught the public pages three

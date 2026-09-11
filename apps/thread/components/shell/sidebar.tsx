@@ -41,7 +41,6 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
       // Third, so it lands in the mobile tab bar rather than the More sheet:
       // it is the one screen used standing up, at a door, with one hand.
       { href: '/checkin', label: t(locale, 'nav_checkin'), icon: ScanLine },
-      { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
       { href: '/templates', label: t(locale, 'nav_templates'), icon: LayoutTemplate },
     ],
   },
@@ -51,6 +50,10 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
       { href: '/contacts', label: t(locale, 'nav_contacts'), icon: BookUser },
       { href: '/teams', label: t(locale, 'nav_teams'), icon: UsersRound },
     ],
+  },
+  {
+    label: t(locale, 'nav_money'),
+    items: [{ href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt }],
   },
   // Settings lives in the avatar menu, one place only (Sjoerd, 2026-09-11).
   ];
