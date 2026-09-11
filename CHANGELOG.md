@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.69.3] — 2026-09-11 — the contact card says who this person is
+
+Sjoerd, looking at the contacts popup in The Thread: *"people may need a
+little more info about this person.. e.g. organisations"*. The card held an
+email address, a thread and a date — enough to confirm a row, not enough to
+recognise a human.
+
+**Organisations first**, because an employer identifies someone faster than
+an email does. Current memberships only: a job somebody left is history, and
+this card is for knowing who you are looking at. The organisation name now
+also rides the list row, so recognising a person no longer costs a click.
+
+Also on the card, and only when we hold them: phone, city and country, and a
+LinkedIn link.
+
+None of this is new data. The contact graph is platform-owned and The Thread
+reads it natively as an in-family app — the same person row, not a copy, and
+the same wall as always. Both new queries were run against production before
+shipping, which is how the shape of an embedded select gets checked at all:
+TypeScript never reads those strings.
+
+If the organisation lookup fails, the contact list still renders without
+employers. A card missing a line is useful; a page that 500s is not.
+
 ## [0.69.2] — 2026-09-11 — a home page about today
 
 Sjoerd, on the Thread dashboard: *"every time I have to skip it because there

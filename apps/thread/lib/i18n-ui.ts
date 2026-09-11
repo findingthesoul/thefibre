@@ -6625,6 +6625,39 @@ const CATALOG = {
     de: 'Die Standardformen konnten nicht geladen werden — du kannst den Thread trotzdem anlegen und Elemente später hinzufügen, oder die Seite neu laden.', // MT
     fr: 'Impossible de charger les formes standard — tu peux quand même créer le thread et ajouter des éléments plus tard, ou recharger la page.', // MT
   },
+  // ── contacts popup: who this person is (2026-09-11) ───────────────────
+  organisations: {
+    en: 'Organisations',
+    nl: 'Organisaties',
+    es: 'Organizaciones', // MT
+    pt: 'Organizações', // MT
+    de: 'Organisationen', // MT
+    fr: 'Organisations', // MT
+  },
+  no_organisations_linked: {
+    en: 'No organisations linked.',
+    nl: 'Geen organisaties gekoppeld.',
+    es: 'No hay organizaciones vinculadas.', // MT
+    pt: 'Nenhuma organização vinculada.', // MT
+    de: 'Keine Organisationen verknüpft.', // MT
+    fr: 'Aucune organisation liée.', // MT
+  },
+  phone: {
+    en: 'Phone',
+    nl: 'Telefoon',
+    es: 'Teléfono', // MT
+    pt: 'Telefone', // MT
+    de: 'Telefon', // MT
+    fr: 'Téléphone', // MT
+  },
+  linkedin: {
+    en: 'LinkedIn',
+    nl: 'LinkedIn',
+    es: 'LinkedIn', // MT
+    pt: 'LinkedIn', // MT
+    de: 'LinkedIn', // MT
+    fr: 'LinkedIn', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export type UiKey = keyof typeof CATALOG;

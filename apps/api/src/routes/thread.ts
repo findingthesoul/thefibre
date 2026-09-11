@@ -4,6 +4,7 @@ import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { publicSite, siteContactEmail } from '../lib/public-site.js';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
@@ -279,6 +280,22 @@ const OrganiserUpdate = z.object({
     })
     .nullable()
     .optional(),
+  // The public site (2026-09-11). The theme is a closed set because each
+  // value names a renderer that has to exist; everything else is content.
+  site_theme: z.enum(['plain', 'festival', 'corporate', 'community']).optional(),
+  site_name: z.string().max(120).nullable().optional(),
+  site_logo_url: z.string().url().max(500).nullable().optional(),
+  site_hero_url: z.string().url().max(500).nullable().optional(),
+  site_headline: z.string().max(200).nullable().optional(),
+  site_intro: z.string().max(8000).nullable().optional(),
+  site_footer_note: z.string().max(1000).nullable().optional(),
+  site_links: z
+    .array(z.object({ label: z.string().max(60), href: z.string().max(500) }))
+    .max(8)
+    .optional(),
+  site_contact_enabled: z.boolean().optional(),
+  site_contact_email: z.string().email().max(200).nullable().optional(),
+  site_contact_intro: z.string().max(1000).nullable().optional(),
 });
 
 threadRoutes.patch('/me', async (c) => {
@@ -373,6 +390,9 @@ threadRoutes.patch('/settings', async (c) => {
   const db = userClient(ctx.jwt);
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  // The site intro renders with dangerouslySetInnerHTML on a public page —
+  // same path, same sanitiser, as a thread's intention.
+  if ('site_intro' in patch) patch.site_intro = sanitizeRichText(patch.site_intro as string | null);
 
   const { data, error } = await db
     .from('thread_settings')
@@ -1569,14 +1589,22 @@ threadRoutes.get('/contacts', async (c) => {
   const { data, error } = await db
     .from('thread_enrolment')
     .select(
-      `person:person_id (id, first_name, last_name, email),
+      `person:person_id (id, first_name, last_name, email, phone, city, country, linkedin_url),
        thread:thread_id (id, slug, program:program_id (title)),
        enrolment:enrolment_id (status),
        created_at`,
     )
     .order('created_at', { ascending: false })
     .limit(500);
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[thread/contacts] list failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message }, 500);
+  }
   // Group by person.
   type ContactEntry = {
     person: {
@@ -1584,9 +1612,14 @@ threadRoutes.get('/contacts', async (c) => {
       first_name: string | null;
       last_name: string | null;
       email: string | null;
+      phone?: string | null;
+      city?: string | null;
+      country?: string | null;
+      linkedin_url?: string | null;
     };
     threads: { id: string; title: string; status: string }[];
     last_enrolled_at: string;
+    organisations: { id: string; name: string; title: string | null }[];
   };
   const byPerson = new Map<string, ContactEntry>();
   for (const row of data ?? []) {
@@ -1596,10 +1629,46 @@ threadRoutes.get('/contacts', async (c) => {
     const prog = t ? (Array.isArray(t.program) ? t.program[0] : t.program) : null;
     const enr = Array.isArray(row.enrolment) ? row.enrolment[0] : row.enrolment;
     const e: ContactEntry =
-      byPerson.get(p.id) ?? { person: p, threads: [], last_enrolled_at: row.created_at };
+      byPerson.get(p.id) ??
+      { person: p, threads: [], last_enrolled_at: row.created_at, organisations: [] };
     if (t && prog) e.threads.push({ id: t.id, title: prog.title, status: enr?.status ?? '' });
     byPerson.set(p.id, e);
   }
+
+  // Where these people work (Sjoerd, 2026-09-11: "people may need a little
+  // more info about this person... e.g. organisations"). The contact graph is
+  // PLATFORM data, which Thread reads natively as an in-family app — the same
+  // person row, not a copy. Current memberships only: a job someone left is
+  // history, and this card is for recognising who you are looking at.
+  const personIds = [...byPerson.keys()];
+  if (personIds.length) {
+    const { data: orgRows, error: orgErr } = await db
+      .from('org_membership')
+      .select('person_id, title, is_primary, organisation:org_id (id, name)')
+      .in('person_id', personIds)
+      .is('ended_at', null)
+      .order('is_primary', { ascending: false });
+    if (orgErr) {
+      // A contact list without employers is still useful; one that 500s is
+      // not. Log and carry on.
+      console.error('[thread/contacts] org memberships failed', {
+        code: orgErr.code,
+        message: orgErr.message,
+        details: orgErr.details,
+        hint: orgErr.hint,
+      });
+    }
+    for (const row of orgRows ?? []) {
+      const org = Array.isArray(row.organisation) ? row.organisation[0] : row.organisation;
+      if (!org) continue;
+      byPerson.get(row.person_id)?.organisations.push({
+        id: org.id,
+        name: org.name,
+        title: row.title ?? null,
+      });
+    }
+  }
+
   return c.json({ items: [...byPerson.values()] });
 });
 

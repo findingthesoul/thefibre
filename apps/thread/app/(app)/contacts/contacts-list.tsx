@@ -16,10 +16,21 @@ export type ContactItem = {
     first_name: string | null;
     last_name: string | null;
     email: string | null;
+    phone?: string | null;
+    city?: string | null;
+    country?: string | null;
+    linkedin_url?: string | null;
   };
   threads: { id: string; title: string; status: string }[];
   last_enrolled_at: string | null;
+  /** Where they work — platform contact-graph data, read natively. */
+  organisations?: { id: string; name: string; title: string | null }[];
 };
+
+/** "Fish hoek, South Africa" — whichever halves we actually hold. */
+function placeOf(person: ContactItem['person']): string {
+  return [person.city, person.country].filter(Boolean).join(', ');
+}
 
 function formatDate(locale: Locale, iso: string | null): string {
   if (!iso) return '';
@@ -55,7 +66,13 @@ export function ContactsList({ locale, items }: { locale: Locale; items: Contact
             >
               <div className="min-w-0 flex-1">
                 <div className="text-sm font-medium truncate">{contactName(locale, it)}</div>
-                <div className="text-xs text-ink-subtle mt-0.5 truncate">{it.person.email}</div>
+                <div className="text-xs text-ink-subtle mt-0.5 truncate">
+                  {it.organisations?.length
+                    ? `${it.person.email ?? ''}${it.person.email ? ' · ' : ''}${it.organisations
+                        .map((o) => o.name)
+                        .join(', ')}`
+                    : it.person.email}
+                </div>
                 {it.threads.length > 0 && (
                   <div className="mt-1.5 flex flex-wrap gap-1.5">
                     {it.threads.map((t) => (
@@ -90,6 +107,52 @@ export function ContactsList({ locale, items }: { locale: Locale; items: Contact
                 )}
               </p>
             </div>
+
+            <div>
+              <SectionLabel>{t(locale, 'organisations')}</SectionLabel>
+              {!selected.organisations?.length ? (
+                <p className="mt-1 text-sm text-ink-muted">
+                  {t(locale, 'no_organisations_linked')}
+                </p>
+              ) : (
+                <ul className="mt-1 space-y-0.5">
+                  {selected.organisations.map((o) => (
+                    <li key={o.id} className="text-sm">
+                      {o.name}
+                      {o.title && <span className="text-ink-muted"> · {o.title}</span>}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {selected.person.phone && (
+              <div>
+                <SectionLabel>{t(locale, 'phone')}</SectionLabel>
+                <p className="mt-1 text-sm">{selected.person.phone}</p>
+              </div>
+            )}
+
+            {placeOf(selected.person) && (
+              <div>
+                <SectionLabel>{t(locale, 'location')}</SectionLabel>
+                <p className="mt-1 text-sm">{placeOf(selected.person)}</p>
+              </div>
+            )}
+
+            {selected.person.linkedin_url && (
+              <div>
+                <SectionLabel>{t(locale, 'linkedin')}</SectionLabel>
+                <a
+                  href={selected.person.linkedin_url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="mt-1 block text-sm underline underline-offset-2 break-all"
+                >
+                  {selected.person.linkedin_url}
+                </a>
+              </div>
+            )}
 
             <div>
               <SectionLabel>{t(locale, 'threads')}</SectionLabel>
