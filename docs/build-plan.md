@@ -1028,6 +1028,7 @@ code on 2026-09-12 rather than remembered.
 | 2b | The fifth attention condition — carrying too much | `connections_attention`, v0.73.12 |
 | 0b | Nightly hygiene sweep + review queue | `lib/hygiene.ts`, `hygiene_finding`, v0.73.13 |
 | 4 | Rotting, one mechanism for people and deals | `pulse_commitment_stage_event`, `pulse_commitment_rot`, v0.73.14 |
+| — | The opportunity axis reads the stage log, so its movement is real | `connections_landscape_axis`, v0.73.15 |
 
 **Open, in the order I would do them**
 
@@ -1048,11 +1049,12 @@ database has still never deleted anything. A hygiene procedure without a
 retention half is tidying the surface of something that keeps getting heavier.
 The policies are a business decision, not an engineering one.
 
-**Now possible and not yet done:** the opportunity axis still reports no
-movement, and since 20260913010000 the stage history it lacked exists.
-`connections_landscape_axis` can be taught to read
-`pulse_commitment_stage_event` at a cutoff, which would give that axis real
-movement instead of the honest shrug it currently shows.
+**The last axis without history is `closeness`.** `relationship_strength` is
+a current-state column and the axis says so rather than inventing movement.
+Fixing it is the same decision `pulse_commitment_stage_event` answered — a
+change log, a trigger, an honest backfill — made again for a different
+column. Worth doing when somebody is rating people often enough for the
+history to be interesting.
 
 **Open decisions** (`connections-overview.md` §7): D11 Microsoft calendar,
 D21 audience as saved query or list, D27 the lifecycle rungs — *partly

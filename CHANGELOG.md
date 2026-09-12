@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.15] — 2026-09-12 — the opportunity axis learns to remember
+
+The landscape has five readings, and until now two of them said the same
+apologetic thing under the movement heading: *"this axis has no history to
+compare against — only today's answer is recorded."*
+
+That was true when it was written. `pulse_commitment_stage_event` landed an
+hour ago for rotting deals, so it stopped being true for `opportunity`, and
+**an axis that shrugs when it now has the answer is a worse lie than the
+shrug was.**
+
+**One change.** The stage is read from the log at the cutoff instead of from
+`pulse_commitment.stage`, which is today's answer at every cutoff. Bands and
+arrivals are untouched; only movement becomes real. A deal that went from a
+lead to committed last week now shows as a person who moved, which is the
+question the movement list exists to answer.
+
+**What the log cannot say, and what is done about it.** Every deal that
+existed before the log has one backfilled row dated when it was last touched.
+Ask for an earlier cutoff and there is no event — not because the deal was at
+no stage, but because nobody was writing it down. Treating that as "not in
+the pipeline" would invent a wave of arrivals on the backfill date that never
+happened, the exact fabrication the backfill was designed to avoid. So it
+falls back to the earliest stage the log knows, then to today's value:
+conservative in the right direction, under-reporting movement rather than
+inventing it.
+
+**`closeness` keeps its notice and should.** `relationship_strength` has no
+log, and building one is the same decision made again for a different column,
+not something to paper over in a read.
+
+**Two things the fixtures caught, both of which read as failures and were
+not.** The first run showed the fixture person absent at every past cutoff —
+because the axis filters people by `created_at <= cutoff` and the fixture was
+made that morning. The filter was right; the test was wrong. The second was a
+function comment carried forward from before the log, still claiming
+opportunity had no history. Fixed in its own migration, because Supabase
+tracks migrations by filename and editing an applied file changes nothing on
+the remote.
+
+Verified on staging across three cutoffs: absent before the deal existed,
+`open` while it was a lead, `committed` today, and the fixture removed
+cleanly.
+
+
 ## [0.73.14] — 2026-09-12 — deals rot the way people do
 
 Build-order step 4: *"cadence and rotting, one mechanism for people and

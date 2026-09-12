@@ -32,11 +32,17 @@ const RAMP: Record<number, string[]> = {
   3: ['bg-ink', 'bg-ink/55', 'bg-ink/22'],
 };
 
-// Two axes read a column the database keeps only the current value of, so
+// `closeness` reads a column the database keeps only the current value of, so
 // there is no earlier state to compare against and "nothing moved" would be a
-// claim we cannot make. Said out loud instead — see the header of
-// supabase/migrations/20260912160000_connections_axes.sql.
-const NO_HISTORY: Partial<Record<Axis, true>> = { closeness: true, opportunity: true };
+// claim we cannot make. Said out loud instead.
+//
+// `opportunity` WAS in this list and is not any more: 20260913010000 started
+// logging stage moves and 20260913030000 taught the axis to read that log, so
+// its movement is now real. An axis that shrugs when it has the answer is a
+// worse lie than the shrug was. Building the same log for
+// relationship_strength is the same decision made again, not a thing to
+// paper over here.
+const NO_HISTORY: Partial<Record<Axis, true>> = { closeness: true };
 
 function name(m: Moved) {
   const p = m.person;
