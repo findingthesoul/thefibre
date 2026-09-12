@@ -10,6 +10,20 @@ import type { SidebarMode, Theme } from '@/lib/prefs-shared';
 import { browserSupabase } from '@/lib/supabase/client';
 import { savePref } from '@/lib/prefs-actions';
 import { switchWorkspace } from '@/lib/workspace-actions';
+import { saveNote } from '@/app/(app)/people/[id]/actions';
+import { clearOfflineData, flushQueuedNotes } from '@/lib/offline-notes';
+
+/** The service worker's caches hold app shell files, not personal data, but a
+ *  signed-out device should not keep even those tied to a session. */
+async function clearServiceWorkerCaches(): Promise<void> {
+  try {
+    if (typeof caches === 'undefined') return;
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((k) => k.startsWith('connections-')).map((k) => caches.delete(k)));
+  } catch {
+    /* nothing further possible */
+  }
+}
 
 export type { WorkspaceChoice };
 
@@ -43,6 +57,17 @@ export function UserMenu(props: {
         return {};
       }}
       onSignOut={async () => {
+        // Leave nothing of this person's on the device. Waiting notes are
+        // attempted first, then cleared either way — signing out of a phone
+        // is saying "remove me from it", and conversation notes are the most
+        // sensitive text in the system. See clearOfflineData.
+        try {
+          if (navigator.onLine) await flushQueuedNotes((p) => saveNote(p as never));
+        } catch {
+          /* best effort; clearing below still happens */
+        }
+        clearOfflineData();
+        await clearServiceWorkerCaches();
         await browserSupabase().auth.signOut();
         router.push('/');
         router.refresh();

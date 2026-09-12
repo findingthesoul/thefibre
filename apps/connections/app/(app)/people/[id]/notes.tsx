@@ -28,7 +28,7 @@ import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, fetchVocabulary, type NoteKind } from './actions';
-import { flushQueuedNotes, queueNote, queuedNotes } from '@/lib/offline-notes';
+import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
 import {
   detectMentions,
   detectTags,
@@ -200,34 +200,19 @@ export function Notes({
 
   const hasContent = body.trim().length > 0 || followUp === 'week' || followUp === 'month';
 
-  // Send anything this device is holding: once on arrival, and again every
-  // time the connection comes back. The queue spans people, so a note written
-  // about Wilma in a lift is sent from whichever person's page is open when
-  // the signal returns.
+  // The waiting count. SENDING is not done here any more: it moved to
+  // OfflineSync in the layout, because a note queued in a lift should be sent
+  // when the signal returns on ANY page, not only when somebody happens to
+  // open a note box. This just keeps the number on screen true.
   useEffect(() => {
-    let alive = true;
-    const flush = async () => {
-      const before = queuedNotes().length;
-      setWaiting(before);
-      if (!before) return;
-      const stuck = await flushQueuedNotes((p) => saveNote(p as never));
-      if (!alive) return;
-      setWaiting(stuck);
-      // Something landed, so the list of notes is out of date.
-      if (stuck < before) {
-        if (onCommitted) onCommitted();
-        else router.refresh();
-      }
-    };
-    void flush();
-    window.addEventListener('online', flush);
+    const refresh = () => setWaiting(queuedNotes(currentWorkspace()).length);
+    refresh();
+    window.addEventListener(QUEUE_CHANGED, refresh);
+    window.addEventListener('online', refresh);
     return () => {
-      alive = false;
-      window.removeEventListener('online', flush);
+      window.removeEventListener(QUEUE_CHANGED, refresh);
+      window.removeEventListener('online', refresh);
     };
-    // Mount-only by intent: the handler reads the queue fresh every time it
-    // runs, so it never closes over a stale count.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -319,7 +304,7 @@ export function Notes({
       if (generation.current !== myGen) return false;
       if (queueNote(body)) {
         lastQueued.current = true;
-        setWaiting(queuedNotes().length);
+        window.dispatchEvent(new Event(QUEUE_CHANGED));
         setStatus('offline');
         return true;
       }

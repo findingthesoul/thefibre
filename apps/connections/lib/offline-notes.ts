@@ -1,39 +1,57 @@
 // Notes that could not reach the server, kept on the device until they can.
 //
-// The phone-app half of build-order step 7. The installable app landed first;
-// this is the part that matters on an actual phone: walking out of a meeting
-// into a lift, typing the one line that is the whole point of the app, and
-// not losing it because the signal dropped.
+// The phone-app half of build-order step 7: walking out of a meeting into a
+// lift, typing the one line that is the point of the app, and not losing it
+// because the signal dropped.
 //
 // ── Why this is small ───────────────────────────────────────────────────────
 //
-// Because the hard part already exists. Every note carries a `client_ref`,
-// minted once when somebody starts typing, and PUT /notes upserts on it. So a
-// note replayed twice, or replayed after a newer version already landed, is
-// the SAME row updated — never a duplicate. An offline queue is otherwise the
-// part people get wrong; here idempotency was designed in on day one for
-// autosave, and this just leans on it.
+// The hard part already exists. Every note carries a `client_ref`, minted once
+// when somebody starts typing, and PUT /notes upserts on it. A note replayed
+// twice, or after a newer version landed, updates ONE row.
 //
-// ── What it is not ──────────────────────────────────────────────────────────
+// ── Every queued note remembers its workspace ───────────────────────────────
 //
-// Not a service worker, and not an app that launches without a connection.
-// If the page was never loaded, nothing here runs. This protects a note typed
-// into a page that WAS loaded and then lost its network — which is the case
-// that actually happens, and the one where losing text is unforgivable.
+// Added 2026-09-13, after building the first version exposed a cross-tenant
+// hole in PUT /notes: the route filed a note under the CALLER's workspace
+// pointing at whatever person the body named. A note queued in workspace A and
+// replayed after switching to B would have landed in B about A's person. The
+// route now refuses that (404), which means a queue without workspace
+// awareness would hold such a note forever as "stuck". So each entry is
+// stamped with the workspace it was written in, and a flush only sends the
+// current workspace's notes — the others wait, untouched, until that workspace
+// is active again.
 //
 // ── Why localStorage and not IndexedDB ──────────────────────────────────────
 //
-// A queued note is a few hundred bytes of JSON and there are rarely more than
-// a handful. localStorage is synchronous, which means a write completes before
-// the tab can be closed out from under it — the property that matters most
-// when the reason for queueing is that something is going wrong. IndexedDB is
-// the right tool for megabytes, and wrong for "this must be on disk NOW".
+// A queued note is a few hundred bytes and there are rarely more than a
+// handful. localStorage is synchronous, so a write completes before the tab
+// can be closed out from under it — what matters most when the reason for
+// queueing is that something is going wrong.
+//
+// ── The offline page reads and writes the SAME keys ─────────────────────────
+//
+// public/offline.html is plain HTML with no framework, because it has to work
+// when nothing but the service worker's cache is reachable. It writes queue
+// entries in exactly this format and reads the people cache below. The format
+// is therefore a contract between two files that share no code, and
+// offline-notes.test.ts checks an entry written the way offline.html writes
+// one is read back here.
 
-const PREFIX = 'connections:offline-note:';
+/** Announced whenever the queue changes, so the composer's "waiting" count
+ *  stays true without polling. Lives here rather than in a component: it is a
+ *  value read by more than one client module. */
+export const QUEUE_CHANGED = 'connections:queue-changed';
 
-/** The payload saveNote takes. Kept loose here so this module does not import
- *  a 'use server' file and drag it into places it should not be. */
+const NOTE_PREFIX = 'connections:offline-note:';
+const WORKSPACE_KEY = 'connections:workspace';
+const PEOPLE_KEY = 'connections:people';
+
+/** The payload saveNote takes. Kept loose so this module does not import a
+ *  'use server' file and drag it somewhere it should not be. */
 export type QueuedNote = { client_ref: string } & Record<string, unknown>;
+
+type Entry = { payload: QueuedNote; queuedAt: number; workspaceId: string | null };
 
 function storage(): Storage | null {
   try {
@@ -46,49 +64,74 @@ function storage(): Storage | null {
   }
 }
 
+// ── The current workspace ──────────────────────────────────────────────────
+
+/** Recorded by OfflineSync whenever the signed-in app loads. */
+export function setCurrentWorkspace(id: string): void {
+  try {
+    storage()?.setItem(WORKSPACE_KEY, id);
+  } catch {
+    /* storage unavailable; the queue degrades to workspace-less */
+  }
+}
+
+export function currentWorkspace(): string | null {
+  try {
+    return storage()?.getItem(WORKSPACE_KEY) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+// ── The note queue ──────────────────────────────────────────────────────────
+
 /**
- * Keep the latest version of a note on the device.
+ * Keep the latest version of a note on the device, stamped with the workspace
+ * it was written in.
  *
- * Keyed by client_ref, so a note edited three times while offline is stored
- * ONCE, as its newest text. Replaying an older draft after a newer commit
- * would be the classic offline bug; keying by the note makes it impossible
- * rather than something to guard against.
+ * Keyed by client_ref, so a note edited three times offline is stored ONCE, as
+ * its newest text. Replaying an older draft after a newer commit is the classic
+ * offline bug; keying by the note makes it impossible rather than guarded.
  */
 export function queueNote(payload: QueuedNote): boolean {
   const s = storage();
   if (!s) return false;
   try {
-    s.setItem(PREFIX + payload.client_ref, JSON.stringify({ payload, queuedAt: Date.now() }));
+    const entry: Entry = { payload, queuedAt: Date.now(), workspaceId: currentWorkspace() };
+    s.setItem(NOTE_PREFIX + payload.client_ref, JSON.stringify(entry));
     return true;
   } catch {
-    // Quota exceeded or storage revoked. Reported, so the composer can keep
-    // the text in the box instead of pretending it is safe.
+    // Quota exceeded or storage revoked. Reported, so the composer keeps the
+    // text in the box instead of pretending it is safe.
     return false;
   }
 }
 
 export function dequeueNote(clientRef: string): void {
-  const s = storage();
-  if (!s) return;
   try {
-    s.removeItem(PREFIX + clientRef);
+    storage()?.removeItem(NOTE_PREFIX + clientRef);
   } catch {
-    // Nothing useful to do; a stale entry replays idempotently next time.
+    /* a stale entry replays idempotently next time */
   }
 }
 
-/** Every note waiting on this device, oldest first. */
-export function queuedNotes(): QueuedNote[] {
+function entries(): Entry[] {
   const s = storage();
   if (!s) return [];
-  const out: { payload: QueuedNote; queuedAt: number }[] = [];
+  const out: Entry[] = [];
   try {
     for (let i = 0; i < s.length; i += 1) {
       const key = s.key(i);
-      if (!key?.startsWith(PREFIX)) continue;
+      if (!key?.startsWith(NOTE_PREFIX)) continue;
       try {
         const parsed = JSON.parse(s.getItem(key) ?? 'null');
-        if (parsed?.payload?.client_ref) out.push(parsed);
+        if (parsed?.payload?.client_ref) {
+          out.push({
+            payload: parsed.payload,
+            queuedAt: Number(parsed.queuedAt) || 0,
+            workspaceId: parsed.workspaceId ?? null,
+          });
+        }
       } catch {
         // A corrupt entry is skipped rather than blocking every other note.
       }
@@ -96,11 +139,25 @@ export function queuedNotes(): QueuedNote[] {
   } catch {
     return [];
   }
-  return out.sort((a, b) => a.queuedAt - b.queuedAt).map((e) => e.payload);
+  return out.sort((a, b) => a.queuedAt - b.queuedAt);
 }
 
 /**
- * Send everything waiting. Returns how many are still stuck.
+ * Notes waiting for a workspace, oldest first.
+ *
+ * With no workspace given, every note on the device. An entry written before
+ * workspaces were recorded (workspaceId null) is offered to whichever
+ * workspace flushes first — the server's own check then decides, and refuses
+ * it if the person is not there.
+ */
+export function queuedNotes(workspaceId?: string | null): QueuedNote[] {
+  return entries()
+    .filter((e) => workspaceId === undefined || e.workspaceId === null || e.workspaceId === workspaceId)
+    .map((e) => e.payload);
+}
+
+/**
+ * Send the current workspace's waiting notes. Returns how many are still stuck.
  *
  * Sequential, not parallel: a handful of notes, and replaying them in the
  * order they were written keeps derived effects (the activity row, the
@@ -108,17 +165,80 @@ export function queuedNotes(): QueuedNote[] {
  */
 export async function flushQueuedNotes(
   save: (p: QueuedNote) => Promise<{ ok: boolean }>,
+  workspaceId: string | null = currentWorkspace(),
 ): Promise<number> {
   let stuck = 0;
-  for (const note of queuedNotes()) {
+  for (const note of queuedNotes(workspaceId)) {
     try {
       const r = await save(note);
       if (r.ok) dequeueNote(note.client_ref);
       else stuck += 1;
     } catch {
-      // Still offline, or the server refused. Left in place for next time.
+      // Still offline, or the request failed. Left in place for next time.
       stuck += 1;
     }
   }
   return stuck;
+}
+
+// ── The people cache, for the offline page ─────────────────────────────────
+
+export type CachedPerson = { id: string; name: string };
+
+/**
+ * The people the offline page offers to write about.
+ *
+ * Names on the device are justified the way the vocabulary payload is — the
+ * recipient is a signed-in member who can already read every one of these —
+ * and cleared on sign-out by `clearOfflineData`, because "the reader already
+ * has it" stops being true the moment they are no longer the reader.
+ */
+export function cachePeople(workspaceId: string, people: CachedPerson[]): void {
+  try {
+    storage()?.setItem(PEOPLE_KEY, JSON.stringify({ workspaceId, people, at: Date.now() }));
+  } catch {
+    /* quota: the offline page simply has no list to offer */
+  }
+}
+
+export function cachedPeople(workspaceId: string | null): CachedPerson[] {
+  try {
+    const parsed = JSON.parse(storage()?.getItem(PEOPLE_KEY) ?? 'null');
+    // Never offer another workspace's people: a note written about one of them
+    // would be refused by the server and sit in the queue for nothing.
+    if (!parsed || parsed.workspaceId !== workspaceId) return [];
+    return Array.isArray(parsed.people) ? parsed.people : [];
+  } catch {
+    return [];
+  }
+}
+
+// ── Leaving the device ──────────────────────────────────────────────────────
+
+/**
+ * Remove everything Connections keeps on this device.
+ *
+ * Called on sign-out. Includes notes that have not been sent, and that is a
+ * deliberate trade rather than an oversight: somebody signing out is saying
+ * "remove me from this device", which on a shared or borrowed phone is the
+ * whole point, and conversation notes are the most sensitive text in the
+ * system. The caller tries to send them first.
+ */
+export function clearOfflineData(): void {
+  const s = storage();
+  if (!s) return;
+  try {
+    const doomed: string[] = [];
+    for (let i = 0; i < s.length; i += 1) {
+      const key = s.key(i);
+      if (key && (key.startsWith(NOTE_PREFIX) || key === WORKSPACE_KEY || key === PEOPLE_KEY)) {
+        doomed.push(key);
+      }
+    }
+    // Collected first, removed second: removing while iterating shifts the
+    // indices and skips every other entry.
+    for (const key of doomed) s.removeItem(key);
+  } catch {
+    /* nothing further possible */
+  }
 }
