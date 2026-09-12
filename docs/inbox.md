@@ -33,6 +33,10 @@ Sjoerd, in the fibre chat, with three Visual Thesaurus screenshots attached:
 > with one or more charateristics
 >
 > could also be a list.... ordder in what ranks more...
+>
+> but then there should be characteriustcis you can select or type..
+>
+> Like info is like a tag
 
 What the screenshots show, since they do not live in the repo:
 visualthesaurus.com, the word "connection". A force-directed graph, one big
@@ -45,7 +49,10 @@ lines mean a weaker or different relation than solid ones; one red dashed
 line marks an opposite ("disconnect").
 
 So the graph is one view, not the only one. A ranked list is another: the
-same people, ordered by how much they rank on the characteristic.
+same people, ordered by how much they rank on the characteristic. The
+characteristic is the input to both views, picked from a list or typed. His
+own gloss on what a characteristic is: a piece of information behaving like
+a tag.
 
 Not scoped. Which surface he means is not settled either: "connections
 between people with one or more characteristics" reads like Connections,
