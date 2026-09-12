@@ -17,8 +17,8 @@ export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community';
 
 export type PublicSite = {
   theme: SiteTheme;
-  /** The site's own name, when it differs from the owner's. Null = use the
-   *  owner's display name, which is right for almost everybody. */
+  /** What to call this site. The Settings → Website value if there is one,
+   *  else the workspace's own name. Null only when neither exists. */
   name: string | null;
   logo_url: string | null;
   hero_url: string | null;
@@ -62,21 +62,39 @@ function safeLinks(raw: unknown): { label: string; href: string }[] {
 
 /** The public half of a workspace's site settings. Never throws — a missing
  *  row or a failed read renders the plain page rather than a 500, because
- *  the site config is decoration and the listing under it is the point. */
+ *  the site config is decoration and the listing under it is the point.
+ *
+ *  The workspace's own brand is read alongside it and used as the FALLBACK
+ *  for the two fields a workspace should never have to fill in twice: its
+ *  name and its logo. `workspace.brand_logo_url` is already the logo on
+ *  their outgoing email, so a workspace that has branded itself once in The
+ *  Fibre gets a branded public site and branded link previews without
+ *  touching Settings → Website at all (2026-09-12). An explicit site value
+ *  still wins — that field exists precisely for a site that wants to look
+ *  different from the workspace behind it. */
 export async function publicSite(workspaceId: string): Promise<PublicSite> {
-  const { data } = await adminClient
-    .from('thread_settings')
-    .select(
-      'site_theme, site_name, site_logo_url, site_hero_url, site_headline, site_intro, site_footer_note, site_links, site_contact_enabled, site_contact_email, site_contact_intro',
-    )
-    .eq('workspace_id', workspaceId)
-    .maybeSingle();
-  if (!data) return DEFAULT_SITE;
+  const [{ data }, { data: ws }] = await Promise.all([
+    adminClient
+      .from('thread_settings')
+      .select(
+        'site_theme, site_name, site_logo_url, site_hero_url, site_headline, site_intro, site_footer_note, site_links, site_contact_enabled, site_contact_email, site_contact_intro',
+      )
+      .eq('workspace_id', workspaceId)
+      .maybeSingle(),
+    adminClient
+      .from('workspace')
+      .select('name, brand_logo_url')
+      .eq('id', workspaceId)
+      .maybeSingle(),
+  ]);
+  const brandName = (ws?.name as string | null) ?? null;
+  const brandLogo = (ws?.brand_logo_url as string | null) ?? null;
+  if (!data) return { ...DEFAULT_SITE, name: brandName, logo_url: brandLogo };
   const theme = (data.site_theme ?? 'plain') as SiteTheme;
   return {
     theme,
-    name: data.site_name ?? null,
-    logo_url: data.site_logo_url ?? null,
+    name: data.site_name ?? brandName,
+    logo_url: data.site_logo_url ?? brandLogo,
     hero_url: data.site_hero_url ?? null,
     headline: data.site_headline ?? null,
     intro: data.site_intro ?? null,

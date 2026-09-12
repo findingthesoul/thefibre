@@ -13,11 +13,35 @@
 
 import type { ReactNode } from 'react';
 import { ThemeScript } from './ui/theme-script.js';
-import { APPS } from './branding.js';
+import { APPS, appUrl } from './branding.js';
 import type { AppId } from './index.js';
 
-export function appMetadata(slug: AppId): { title: string; description: string } {
-  return { title: APPS[slug].name, description: APPS[slug].tagline };
+/**
+ * `metadataBase` is what turns a relative `opengraph-image` into the absolute
+ * URL a link-preview scraper can actually fetch. Without it Next warns at
+ * build and falls back to localhost, so a pasted link shows no picture at
+ * all — which is how The Thread's public pages went a year with bare grey
+ * cards (Sjoerd, 2026-09-12). Derived from `appUrl`, so it follows the env
+ * per deployment and nobody hand-writes a domain (house rule 7).
+ */
+export function appMetadata(
+  slug: AppId,
+  /** Pass `process.env` so a staging deployment points at itself. Omitted,
+   *  the registry's production URL is used — right in production, and
+   *  harmless anywhere a link preview is not being scraped. This package
+   *  has no node types on purpose, so it cannot read the environment
+   *  itself. */
+  env?: Record<string, string | undefined>,
+): {
+  title: string;
+  description: string;
+  metadataBase: URL;
+} {
+  return {
+    title: APPS[slug].name,
+    description: APPS[slug].tagline,
+    metadataBase: new URL(appUrl(slug, env)),
+  };
 }
 
 export function createRootLayout() {

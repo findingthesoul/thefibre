@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.4] — 2026-09-12 — an event link that looks like the event
+
+Sjoerd, after the website's preview was fixed: *"Solve that. Incl. the logo
+of the organiser/workspace."*
+
+An organiser pasting their own event into a WhatsApp group got a grey card
+with the words "The Thread" on it — the app's root metadata, identical for
+every public page in the product. They were advertising us to their own
+participants. Every public thread already had a cover image, a title and
+dates, and every workspace already had a logo on its outgoing email.
+
+**Two cards now.** `/{owner}/{thread}` shows the workspace's logo, the event
+title, the dates and the cover; `/{owner}` shows the logo, the name, the
+headline and how many events are open. Both carry The Thread's wordmark small
+at the bottom, the size of a printer's mark. Whose card it is matters: an
+organiser sharing their event is not promoting us.
+
+**The layout keeps everything on white** rather than over the photograph. A
+logo is somebody else's file — black, white, or a transparent PNG that
+vanishes on either — and a scrim that works for one breaks the next. White is
+the only ground that takes them all, and the cover keeps the half of the
+frame it is good at.
+
+**A workspace that branded itself once is now branded everywhere.**
+`publicSite()` falls back to `workspace.name` and `workspace.brand_logo_url`
+when the Settings → Website fields are empty, so the logo already on their
+outgoing email reaches their public site and their link previews without
+anyone filling a second form. An explicit site value still wins.
+
+**`appMetadata()` returns a `metadataBase`.** Without one Next resolves a
+relative `opengraph-image` against localhost and the preview silently has no
+picture — which is the actual reason these pages have never had a card, and
+would have quietly defeated the rest of this release.
+
+Three details found by looking rather than reasoning. The owner's name was
+printed twice on any workspace whose logo IS its name, soul.com's being
+exactly that. The coverless card left two thirds of the frame empty until the
+type grew and the site's own fallen thread ran through it. And the remote
+fetch for a cover happens here with a deadline and a size cap rather than
+inside the renderer, because a renderer that throws on one broken upload
+takes the preview off every link that workspace has ever shared.
+
+Drafts stay private: both cards fetch anonymously, while the page itself
+still forwards a signed-in organiser's token for previewing.
+
 ## [0.73.3] — 2026-09-12 — Connections gets a row in the plan matrix
 
 "I don't see Connections in my plans" was two causes wearing one symptom.
