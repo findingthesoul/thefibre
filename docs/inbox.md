@@ -81,14 +81,27 @@ request while he looks at the Vercel bill):
 - `@` mentions for people and organisations, by intent rather than
   inference. People open in a popup.
 
-**Still not built, and this is the part of his item that is genuinely open:**
+**Then the rest of it shipped too, still on `staging`, still unreleased**
+(v0.73.20, added here 2026-09-12 23:00 UTC):
 
-- The **graph**. Tags gave it an edge source for the first time, and it is
-  the desktop landscape rather than a screen that exists.
-- The dissatisfaction he opened with: *"I am not so happy witht the
-  interface"*. That is about the landscape as it stands. It is separable from
-  the request for new views, and possibly cheaper. Worth asking him which one
-  he actually wants first.
+- The **map**. Everyone at once: distance is recency, size is attention, ink
+  is the ladder, over a year fades into a count. Clicking a dot opens the
+  person popup.
+- **"Who is near"**, which is the part he actually asked for. It draws lines
+  from one person to their neighbourhood with every reason written out.
+- Tags marked **inside the sentence** while typing (D71), not beside the box.
+
+So between his message and this line, the whole item was built. What remains
+of it is only the half he opened with: *"I am not so happy witht the
+interface"*. That is a complaint about the landscape as it stands, separable
+from the views, and nobody has touched it. Worth asking him whether the new
+map answers it or whether the original irritation is still there.
+
+**One open gap inside what shipped.** Placement on the map is a plain hash of
+the person id, so people who belong together are not drawn together. Named as
+a gap rather than faked; `connections-desktop.md` §5c resolves it with a
+nightly snapshot. If his Visual Thesaurus reference was about clustering as
+much as about lines, this is the piece still missing.
 
 **Two things that push back on the item as stated:**
 
@@ -109,8 +122,14 @@ request while he looks at the Vercel bill):
   STORED in `relationship`, not about what a view may draw. A layout that
   places people near each other because they share a tag stores nothing and
   claims nothing. So his graph is not forbidden; one implementation of it is.
-  Anyone scoping this needs to hold that line explicitly, because it is the
-  cheap step the rule was written about.
+  **The map that shipped a few hours later holds exactly that line**, arrived
+  at independently: a stated relationship draws a solid line, a shared tag or
+  organisation or mention draws a dashed one, each with its reason written
+  out, positioned and weighted but never stored and never fed into another
+  computation (`system-handbook.md` §12). Shared attributes weigh by rarity,
+  so a tag on two people pulls them together and a tag on everybody pulls
+  nobody. Left in this note as written, because the question was real when it
+  was asked and the answer is worth keeping next to it.
 
 **One caveat on his example tags.** Of the two he named, closeness is the
 last axis with no history: a current-state column. A view ranking people by
