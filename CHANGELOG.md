@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.16] — 2026-09-13 — the web app stops rebuilding to update a string
+
+Sjoerd, on a fortnight of Vercel: *"only rebuild what needs rebuilding. If
+something changes or effects the webapp, please rebuild. If not, dont. Save
+rebuilding."*
+
+`apps/web/lib/version.ts` holds the MONOREPO's version, not web's own — web
+is the one app with no decoupled series. It happens to live inside
+`apps/web`, and `vercel-ignore.mjs` excluded each app's `package.json` from
+the build trigger but not that file. So every release rewrote it and web
+rebuilt, on both branches, whether or not a line of web had changed. Measured
+over fourteen days: web built 621 times and skipped 151, while every other
+app skipped half or more. Roughly 600 builds and six hours of build time in a
+fortnight for one string.
+
+It is excluded now, and only for web. `apps/my/lib/version.ts` keeps
+triggering builds, because the portal's version is its own series and moves
+only when the portal does — it marks a real change.
+
+Proved in both directions against real commits rather than reasoned about.
+v0.73.7, which stamped versions and touched one Thread file, now produces an
+empty diff for web and skips; without the exclusion it produces exactly one
+path, the version stamp. v0.72.0, which changed the admin workspaces screen,
+still builds. A test locks both, and locks that `my` is not excluded.
+
+**The cost, stated rather than hidden:** the number in web's sidebar and on
+Settings → How The Fibre works is now the release at which the web app last
+changed, not the newest release. That is the right answer to "which build of
+this interface am I looking at" and the wrong one to "am I on the latest
+code" — and the second question is how you find out which build somebody is
+running when they report a bug. So the About page's label is now "App
+version" rather than "Version", with the reason beside it. Shipping the
+saving and leaving a label that claims the other thing would have been a
+number quietly meaning something its label denies.
+
 ## [0.73.15] — 2026-09-12 — the opportunity axis learns to remember
 
 The landscape has five readings, and until now two of them said the same

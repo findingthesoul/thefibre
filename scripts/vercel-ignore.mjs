@@ -10,7 +10,8 @@
 //   - its own folder (apps/<app>), EXCLUDING its package.json — the release
 //     ritual bumps every app's version field every time, which would defeat
 //     the whole check; real dependency changes also touch pnpm-lock.yaml,
-//     which IS included.
+//     which IS included. For `web` also EXCLUDING apps/web/lib/version.ts,
+//     for the same reason and at far greater cost: see changePaths.
 //   - packages/shared (same package.json exclusion, same reasoning — new
 //     exports always come with new src files).
 //   - pnpm-lock.yaml or pnpm-workspace.yaml (dependency graph changed).
@@ -59,6 +60,25 @@ export function changePaths(app) {
   return [
     `apps/${app}`,
     `:(exclude)apps/${app}/package.json`,
+    // apps/web/lib/version.ts is the MONOREPO's version stamp, not web's own
+    // — every release rewrites it, and it happens to live inside apps/web, so
+    // web rebuilt on every release whether or not a line of web changed.
+    // Measured over fourteen days: web built 621 times and skipped 151, while
+    // every other app skipped half or more. Roughly 600 builds and six hours
+    // of build time in a fortnight to update one string (Sjoerd, 2026-09-13,
+    // on a ~EUR 300 Vercel fortnight: "only rebuild what needs rebuilding").
+    //
+    // THE COST, so nobody rediscovers it as a bug: the number in web's
+    // sidebar and on Settings → How The Fibre works is now the release at
+    // which apps/web LAST CHANGED, not the newest release. That is the right
+    // number for "which build of this interface am I looking at" and the
+    // wrong one for "am I on the latest code" — the About page's label says
+    // so. The alternative was paying six hours a fortnight for a string.
+    //
+    // apps/my/lib/version.ts is deliberately NOT excluded: the portal's
+    // version is its own series and only moves when the portal does, so it
+    // marks a real change.
+    ...(app === 'web' ? [':(exclude)apps/web/lib/version.ts'] : []),
     'packages/shared',
     ':(exclude)packages/shared/package.json',
     'pnpm-lock.yaml',

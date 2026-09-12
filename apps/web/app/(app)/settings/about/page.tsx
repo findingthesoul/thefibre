@@ -107,7 +107,15 @@ export default async function AboutFibrePage() {
       {/* ---------------------------------------------------------- */}
       <section className="mt-10">
         <dl className="grid grid-cols-2 gap-x-8 gap-y-4 rounded-lg border border-line bg-surface-raised p-5 text-sm md:grid-cols-4">
-          <Fact label="Version" value={`v${VERSION}`} mono />
+          {/* "App version", not "Version": since 2026-09-13 this number is the
+              release at which the Fibre WEB APP last changed, not the newest
+              release in the monorepo. apps/web/lib/version.ts is excluded
+              from web's Vercel build trigger (scripts/vercel-ignore.mjs) —
+              rebuilding this app on every release to update one string cost
+              roughly 600 builds a fortnight. The label has to say which
+              question the number answers: "which build of this interface am
+              I looking at", never "am I on the latest code". */}
+          <Fact label="App version" value={`v${VERSION}`} mono />
           <Fact label="Workspace" value={me?.workspace?.name ?? '—'} />
           <Fact label="Plan" value={planName ?? '—'} />
           <Fact label="Apps switched on" value={String(workspaceApps.length)} />
