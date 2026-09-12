@@ -1032,33 +1032,35 @@ code on 2026-09-12 rather than remembered.
 | 0b | Nightly hygiene sweep + review queue | `lib/hygiene.ts`, `hygiene_finding`, v0.73.13 |
 | 4 | Rotting, one mechanism for people and deals | `pulse_commitment_stage_event`, `pulse_commitment_rot`, v0.73.14 |
 | — | The opportunity axis reads the stage log, so its movement is real | `connections_landscape_axis`, v0.73.15 |
+| 7 | Installable phone app; notes kept offline and sent on reconnect; opens with no signal (STAGING) | `public/sw.js`, `lib/offline-notes.ts`, v0.73.18 |
+| D71 | Tags and @mentions marked inside the sentence while typing (STAGING) | `components/tag-highlight-box.tsx`, v0.73.20 |
+| D70 | The desktop map: recency, attention, ladder; who is near and why (STAGING) | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
 
 **Open, in the order I would do them**
 
-1. **Step 7, the remaining half — launching with no connection.** Installable
-   and offline note capture are BUILT, committed locally, not yet released
-   (see below). What is left is a service worker so the app opens at all when
-   there is no signal. Harder than it sounds with Next's server-rendered
-   pages; the capture half was the part that loses people's words.
-2. **D71 — the tag inline in the sentence** rather than beside the box. Known
-   technique, genuinely fragile on mobile; deserves its own go.
-3. **D70, the map half — the desktop landscape.** The cloud and list shipped
-   in v0.73.17. The map wants edges between PEOPLE, and the rule for what may
-   feed one is now in system-handbook §12: a signal inferred from
-   co-occurrence may position and weight, never become the edge.
-4. **Step 6b — effort estimates and the forward view.**
-5. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+1. **Step 6b — effort estimates and the forward view.** Defaults per task
+   kind, per workspace, never asked for (`connections-overview.md` §3).
+2. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+3. **Map clusters.** Placement is a plain hash of the id today, so people who
+   belong together are not placed together. §5c of connections-desktop.md
+   resolves it with a nightly snapshot; named as a gap, not faked.
 
-**Built locally, not yet released:** Connections installs as a phone app
-(manifest, iOS tags, icons), and notes survive losing the signal — kept on the
-device and sent on reconnect. That second commit also FIXES TWO BUGS LIVE IN
-PRODUCTION: a save that fails for lack of network left the composer on
-"Saving…" forever and locked Done until reload.
+**Decision for Sjoerd: the offline people list.** The offline page offers
+names to write about, so v0.73.18 keeps each person's id and name on the
+device, cleared on sign-out. `connections-overview.md` §4 says an offline
+contact cache "breaks the first hard rule". Hard rule 1 is about Vercel, not
+the device, and the list is names only — but the design doc said no, so the
+call is yours before promotion. Removing it means the offline page takes a
+typed name, which the server then resolves.
 
-**On staging, not yet promoted (v0.73.17):** the tag cloud and list, `@` for
-people and organisations, people opening in a popup. One migration waits for
-production — `20260913040000_note_mentions.sql`, additive. Promotion order is
-db-push-prod, then promote.sh, then fly deploy; see system-handbook §10.
+**On staging, not yet promoted (v0.73.17 to v0.73.20):** the tag cloud and
+list, `@` mentions, people in a popup, the phone app and offline notes, the
+security fixes in v0.73.18 and v0.73.19, inline tags, and the map. v0.73.18
+also FIXES TWO BUGS LIVE IN PRODUCTION: a save that fails for lack of network
+left the composer on "Saving…" forever and locked Done until reload. Two
+migrations wait for production — `20260913040000_note_mentions.sql` and
+`20260913050000_connections_neighbourhood.sql`, both additive. Promotion order
+is db-push-prod, then promote.sh, then fly deploy; see system-handbook §10.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
