@@ -6,6 +6,50 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.18] — 2026-09-13 — a security fix, and Connections on a phone with no signal (staging)
+
+**Promote this one soon.** It carries a fix for a write across workspaces that
+is live in production today, and a fix for a note composer that freezes when
+a save fails. Both are bugs in code already shipped, not in anything new.
+
+**A note could be filed about another workspace's person.** PUT /notes writes
+through the service-role client, so row-level security checks nothing, and the
+route did not check either. Proved on staging: the database accepted a note in
+one workspace about a person in another, and the same request attached tags to
+that person and wrote an activity row against them. Low exploitability — it
+needs another tenant's person uuid — but a real cross-tenant write. The route
+now checks that every id it is given belongs to the caller's workspace, and
+answers the same 404 for "missing" and "elsewhere" so ids cannot be probed. A
+tag's organisation id had the same hole and is closed. The neighbouring
+service-role routes were checked; this was the only one.
+
+**The note box froze when a save failed for lack of network.** The call to the
+server action rejected on the client and nothing caught it: the status sat on
+"Saving…", and a stuck lock ignored every later Done until reload. Both proved
+by tests that failed against the shipped code.
+
+**Connections installs as a phone app** — a home-screen icon that opens into
+Today, with iPhone's separate tags, and icons cut from the brand tile.
+
+**Notes survive the signal dropping.** A note that cannot reach the server is
+kept on the device, says "Kept on this phone" rather than "saved", and sends
+itself when the connection returns, from any page. Every note already carried
+an idempotency key, so a note sent twice lands once.
+
+**The app opens with no connection.** Honestly narrower than it sounds: every
+page is rendered on the server for a signed-in person, so no page can load
+offline. A small service worker serves a standalone page instead, where you
+pick a person and write a note into the same queue. The worker never caches a
+signed-in page, never touches anything but same-origin GET, and never answers
+the app's router with HTML; each protection is proved by mutating the real
+file. Signing out clears Connections from the device.
+
+Found by opening the offline page in a real browser that blocked storage: it
+promised the note would be kept, which was false there. It now says so.
+
+65 Connections tests, 138 API tests.
+
+
 ## [0.73.17] — 2026-09-12 — tags, @, and people in a popup (staging)
 
 **The first release under the staging-only flow.** It lands on `.tech` and
