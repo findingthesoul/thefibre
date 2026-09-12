@@ -6,6 +6,111 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.19] — 2026-09-13 — The Thread stops writing across workspaces (staging)
+
+**Security.** Found by reading `routes/thread.ts` after another session
+reported the same class in `PUT /notes` and said plainly it had not looked at
+Thread. Several routes wrote through the service-role client — which RLS
+never sees — and checked nothing about the caller. Any signed-in user of ANY
+workspace on the platform could:
+
+- **grant any user The Thread, with role admin** — `POST /internal-team` read
+  no context at all, and `app_membership` has no `workspace_id` column, so a
+  grant to another tenant's user was access inside their workspace;
+- **put themselves into any team as lead**, or add anyone — `POST
+  /teams/:id/members`, which since v0.69.0 is also an app-access grant,
+  because teams decide which apps their people open;
+- **remove anybody from any team** — `DELETE /teams/:id/members/:userId`;
+- **replace another workspace's certificate grants** — `PUT
+  /certificate-templates/:id/shares`. Its GET sibling was fixed for reading
+  across workspaces on 2026-07-05 and carries a comment saying so; the PUT
+  beside it, which WROTE across them, was not;
+- **wipe another workspace's template grants by "deleting" the template** —
+  both template deletes run an RLS delete that silently matches nothing for a
+  foreign id, then a service-role share cleanup that ran regardless;
+- **add somebody from another workspace as a co-organiser** of a thread — a
+  host co-organiser may approve, decline and mark enrolments paid.
+
+Every one now resolves the target inside the caller's workspace first, with a
+single 404 for "does not exist" and "exists elsewhere", so the routes cannot
+be used to learn which ids live in other tenants. Authority inside the
+workspace is unchanged: an admin, or a team's lead.
+
+**Proved, not read.** `src/integration/thread-tenancy.int.test.ts` attacks
+all seven routes through the real `appContext` middleware with real
+signed-in sessions, in process, on staging. Against the fixed code, 16 of 16
+pass. With the UNFIXED routes swapped in, 11 fail — every hole — while the
+five legitimate paths pass on both, so the suite tells a closed hole from an
+open one and a fix from a lockout.
+
+Two mistakes caught by that test rather than by reading, recorded because
+both are the kind a careful read misses:
+
+- The co-organiser lookup was scoped by workspace. `thread_organiser.user_id`
+  is UNIQUE platform-wide, so that would have made every co-organiser invite
+  500 for anybody belonging to two workspaces. Reverted.
+- The first co-organiser refusal test passed VACUOUSLY. RLS hides a thread
+  from a user without Thread membership, so the request stopped at an earlier
+  404 and never reached the check. Its success-case twin failing is what
+  exposed it. A refusal test with no success twin cannot tell a working check
+  from an unreachable one.
+
+**One truth about the schema instead of two.** `lib/workspace-refs.ts` now
+states each table's soft-delete column in one map read by one lookup. It had
+been a hardcoded exception — "every table has `deleted_at` except
+`flow_run`" — which was wrong both ways: `flow_run` does have `deleted_at`,
+with four of its 56 production rows soft-deleted, so a note could attach to a
+deleted flow run; and the team and template tables have none, so adding them
+under the old rule would have refused every legitimate caller. The check
+fails closed, so a wrong entry looks like an admin being refused, never like
+a hole.
+
+On STAGING only. Promoting it is Sjoerd's call; the severity argues for soon.
+
+## [0.73.18] — 2026-09-13 — a security fix, and Connections on a phone with no signal (staging)
+
+**Promote this one soon.** It carries a fix for a write across workspaces that
+is live in production today, and a fix for a note composer that freezes when
+a save fails. Both are bugs in code already shipped, not in anything new.
+
+**A note could be filed about another workspace's person.** PUT /notes writes
+through the service-role client, so row-level security checks nothing, and the
+route did not check either. Proved on staging: the database accepted a note in
+one workspace about a person in another, and the same request attached tags to
+that person and wrote an activity row against them. Low exploitability — it
+needs another tenant's person uuid — but a real cross-tenant write. The route
+now checks that every id it is given belongs to the caller's workspace, and
+answers the same 404 for "missing" and "elsewhere" so ids cannot be probed. A
+tag's organisation id had the same hole and is closed. The neighbouring
+service-role routes were checked; this was the only one.
+
+**The note box froze when a save failed for lack of network.** The call to the
+server action rejected on the client and nothing caught it: the status sat on
+"Saving…", and a stuck lock ignored every later Done until reload. Both proved
+by tests that failed against the shipped code.
+
+**Connections installs as a phone app** — a home-screen icon that opens into
+Today, with iPhone's separate tags, and icons cut from the brand tile.
+
+**Notes survive the signal dropping.** A note that cannot reach the server is
+kept on the device, says "Kept on this phone" rather than "saved", and sends
+itself when the connection returns, from any page. Every note already carried
+an idempotency key, so a note sent twice lands once.
+
+**The app opens with no connection.** Honestly narrower than it sounds: every
+page is rendered on the server for a signed-in person, so no page can load
+offline. A small service worker serves a standalone page instead, where you
+pick a person and write a note into the same queue. The worker never caches a
+signed-in page, never touches anything but same-origin GET, and never answers
+the app's router with HTML; each protection is proved by mutating the real
+file. Signing out clears Connections from the device.
+
+Found by opening the offline page in a real browser that blocked storage: it
+promised the note would be kept, which was false there. It now says so.
+
+65 Connections tests, 138 API tests.
+
+
 ## [0.73.17] — 2026-09-12 — tags, @, and people in a popup (staging)
 
 **The first release under the staging-only flow.** It lands on `.tech` and

@@ -11,6 +11,7 @@ import { buildAppList } from '@/lib/available-apps';
 import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
+import { OfflineSync } from '@/components/offline-sync';
 
 // Connections has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
@@ -127,6 +128,10 @@ export default async function ConnectionsAppLayout({
           >
             {children}
           </PersonPopupProvider>
+          {/* Records the active workspace, sends notes queued offline when the
+              signal returns, keeps a people list for the offline page, and
+              registers the service worker — on every signed-in page. */}
+          <OfflineSync workspaceId={me.workspace?.id ?? null} />
         </main>
         <MobileNav version={VERSION} />
       </div>

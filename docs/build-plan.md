@@ -1048,11 +1048,11 @@ code on 2026-09-12 rather than remembered.
 
 **Open, in the order I would do them**
 
-1. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
-   service worker anywhere in this monorepo. Connections is a responsive web
-   app with a mobile bottom nav, which is not the same thing. Sjoerd asked
-   about it directly on 2026-09-12 ("did you already build the app PWS"), and
-   it is the capture pillar from the first design conversation.
+1. **Step 7, the remaining half — launching with no connection.** Installable
+   and offline note capture are BUILT, committed locally, not yet released
+   (see below). What is left is a service worker so the app opens at all when
+   there is no signal. Harder than it sounds with Next's server-rendered
+   pages; the capture half was the part that loses people's words.
 2. **D71 — the tag inline in the sentence** rather than beside the box. Known
    technique, genuinely fragile on mobile; deserves its own go.
 3. **D70, the map half — the desktop landscape.** The cloud and list shipped
@@ -1061,6 +1061,12 @@ code on 2026-09-12 rather than remembered.
    co-occurrence may position and weight, never become the edge.
 4. **Step 6b — effort estimates and the forward view.**
 5. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+
+**Built locally, not yet released:** Connections installs as a phone app
+(manifest, iOS tags, icons), and notes survive losing the signal — kept on the
+device and sent on reconnect. That second commit also FIXES TWO BUGS LIVE IN
+PRODUCTION: a save that fails for lack of network left the composer on
+"Saving…" forever and locked Done until reload.
 
 **On staging, not yet promoted (v0.73.17):** the tag cloud and list, `@` for
 people and organisations, people opening in a popup. One migration waits for
