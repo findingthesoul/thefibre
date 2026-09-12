@@ -547,12 +547,40 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   workspace package — DERIVED from `apps/*/package.json` + root +
   `packages/shared` since v0.68.20, never hand-listed, so an eighth app is
   covered the moment it exists →
-  no staged leftovers → `pnpm verify` → push main + main:staging — one
+  no staged leftovers → `pnpm verify` → push **`staging` only** — one
   `set -e` script, born 2026-09-08 after a broken `&&` chain pushed past a
-  guard refusal). Then `bash scripts/db-push-prod.sh` + `db-push-staging.sh`
-  if migrations, `fly deploy` (both APIs if `apps/api` or `packages/shared`
-  changed). Vercel deploys itself from the push. When debugging, first
-  verify deployed == committed.
+  guard refusal). Then `bash scripts/db-push-staging.sh` if migrations.
+  Vercel deploys itself from the push. When debugging, first verify
+  deployed == committed.
+
+  **Production is promoted, not released** (2026-09-12). `release.sh` used to
+  push `main` and `staging` together, so every release built every changed app
+  TWICE. Measured over the fourteen days to that date: **2374 builds and 1268
+  build-minutes** across nine Vercel projects, against a bill Sjoerd put at
+  about €300. Halving the branches halves that, and it finally buys what the
+  two-stack setup was for — look at it on `.tech`, then ship.
+
+  So: `./scripts/release.sh <version>` lands on staging. Look at it. Then
+  `./scripts/promote.sh` fast-forwards main to whatever staging has, printing
+  the range and warning if it carries migrations that are not on production
+  yet. Fast-forward only: if main has commits staging does not, something
+  reached production outside this flow and merging it here would be guesswork
+  about whose work survives. `scripts/release-guard.sh` now reads the last
+  released number from `origin/staging` for the same reason — main lags by
+  design, and a guard reading a lagging ref would approve a number another
+  session already used.
+
+  `db-push-prod.sh` and `fly deploy` belong with the PROMOTION, not with the
+  release — migrations first, then the code that needs them.
+
+  **Track `origin/staging`.** This is the one new habit and it bites
+  immediately: main lags by design, so the reflex pull leaves a session
+  without the last release and release.sh's ancestor check refuses. Caught by
+  the Thread session reviewing this change, rather than by the first person to
+  hit it in the morning. Merge staging fast-forward before starting and again
+  before bumping a version; the refusal message now says so instead of the old
+  advice to reconcile, which was right under the previous flow and wrong under
+  this one.
   **Docs-only exception** (agreed between sessions, 2026-09-08): a commit
   touching ONLY `docs/**` / `*.md` — no code, no version surfaces — may
   push directly (`git push origin main main:staging`) with a `docs:`

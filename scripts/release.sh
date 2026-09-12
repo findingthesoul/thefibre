@@ -53,25 +53,41 @@ if ! git diff --cached --quiet; then
   exit 1
 fi
 
-# The push at the bottom updates two refs in one command, and git does NOT
-# apply them atomically: if `staging` has diverged, `main` still lands and
-# only the second ref is rejected. You are then released on main, reported
-# as failed, and one retry away from burning a second version number on the
-# same change. So check the thing that can diverge BEFORE pushing anything.
+# ── A release lands on STAGING only (2026-09-12) ────────────────────────────
 #
-# `staging` is a deploy branch that release.sh has only ever fast-forwarded
-# from main, so a divergence means somebody pushed to it directly — a
-# legitimate thing to do (2026-09-11: a session put one commit there to
-# exercise it on the staging stack without releasing it) that this script
-# had no way to survive. Reconcile deliberately; do not force past it.
+# It used to push `HEAD:main HEAD:staging`, so every release built every
+# changed app TWICE. Measured over the fourteen days to 2026-09-12: 2374
+# builds and 1268 build-minutes across nine Vercel projects, against a bill
+# Sjoerd put at about €300. Halving the branches halves that, and it buys the
+# thing the two-stack setup was for in the first place — look at it on
+# `.tech`, then promote.
+#
+# Production is promoted deliberately with `./scripts/promote.sh`, which
+# fast-forwards main to whatever staging has been shown to be good.
+#
+# The divergence check below stays and its ADVICE had to change, which the
+# Thread session caught before this shipped.
+#
+# It was written when staging was only ever fast-forwarded from main, so a
+# divergence meant somebody had pushed to staging directly and the fix was to
+# reconcile. Under the new flow main lags staging BY DESIGN, so the common
+# cause is now completely ordinary: a session did the reflex `git pull`, which
+# tracks main, and is therefore missing the last release. Telling that person
+# to "merge those commits into main" would send them the wrong way.
+#
+# **Sessions track `origin/staging`, not `origin/main`.** That is the one new
+# habit this flow needs. Pull staging, commit, release, promote when good.
 git fetch origin staging --quiet 2>/dev/null || true
 if git rev-parse --verify --quiet origin/staging >/dev/null; then
   if ! git merge-base --is-ancestor origin/staging HEAD; then
     echo "REFUSED: origin/staging has commits HEAD does not (it is not an ancestor)." >&2
-    echo "  Pushing would land main and be rejected on staging, leaving a half-release." >&2
-    echo "  See what is there:  git log --oneline HEAD..origin/staging" >&2
-    echo "  Then either merge those commits into main and re-run, or — only if" >&2
-    echo "  they are genuinely disposable — reset staging to main deliberately." >&2
+    echo "  The push would be rejected as non-fast-forward anyway." >&2
+    echo >&2
+    echo "  Most likely you pulled MAIN, which now lags staging by design —" >&2
+    echo "  releases land on staging and production is promoted separately." >&2
+    echo "      git merge --ff-only origin/staging     # then re-run" >&2
+    echo >&2
+    echo "  See what you are missing:  git log --oneline HEAD..origin/staging" >&2
     exit 1
   fi
 fi
@@ -85,5 +101,10 @@ pnpm verify
 # the first time anyone released from a worktree — CLAUDE.md now tells
 # sessions to take one for code work, so this was about to become the
 # normal path rather than the exception). HEAD is what the gates read.
-git push origin HEAD:main HEAD:staging
-echo "Released $V."
+git push origin HEAD:staging
+echo "Released $V to STAGING."
+echo
+echo "  Look at it on the .tech stack. When it is good:"
+echo "      ./scripts/promote.sh"
+echo
+echo "  Nothing is on production until you do."
