@@ -602,7 +602,14 @@ threadRoutes.post('/threads', async (c) => {
     // Two passes: rows first, anchors second. A relative message may hang on
     // an element that comes AFTER it in the blueprint (the circle's
     // reminder), so ids only resolve once everything is in.
-    const rows = seedRowsFor(tpl, { workspace_id: ctx.workspaceId, thread_id: thread.id });
+    const rows = seedRowsFor(
+      tpl,
+      { workspace_id: ctx.workspaceId, thread_id: thread.id },
+      // The date the organiser just typed, so the first activity is placed
+      // instead of arriving date-less next to a message that says it will
+      // never send.
+      { startsOn: body.data.starts_on ?? null, timezone: thread.timezone },
+    );
     const keyToId = new Map<string, string>();
     for (const row of rows) {
       const { data: made, error: eErr } = await adminClient

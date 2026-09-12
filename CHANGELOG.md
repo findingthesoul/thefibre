@@ -6,6 +6,51 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.6] — 2026-09-12 — a new thread stops being born broken
+
+Found by signing in as a genuinely cold organiser — a workspace with nothing
+in it, an account that had never logged in — and doing what a first client
+does: pick a shape, name the event, give it a date, create it.
+
+**The date went nowhere the organiser could see.** "Starts on" was written to
+the `program` row and never reached the timeline. So the create form accepted
+a date, the thread header showed it, and the editor opened on:
+
+    NO DATE   The event                                    Draft
+              Thank you · 1d after The event · 10:00
+              won't send: the anchor has no date
+
+A warning about a problem they had not caused and could not have avoided, on
+a thread they had just given a date to, in the first minute of using the
+product. `seedRowsFor` simply had no parameter for it.
+
+It now places the FIRST activity element on that date, and the relative
+messages hanging off it resolve themselves. Only the first: the rest of the
+timeline stays the organiser's to arrange. A multi-day shape ends on its last
+day. No date given, or a malformed one, changes nothing.
+
+**It uses `zonedTimeToUtc`, not the naive form.** The template-duplication
+path builds its timestamps as `new Date(\`${date}T${time}:00Z\`)`, which
+treats a wall clock as UTC and lands a 10:00 Amsterdam event at 12:00 local
+in summer. The correct helper already existed in `lib/availability/timezone.ts`
+and Meet's availability engine already used it. Twelve tests, including a
+December date to prove the DST boundary is handled and that a winter event is
+UTC+1 rather than UTC+2.
+
+Note for whoever touches the duplication path next: it is still on the naive
+form, so a duplicated thread and a newly seeded one will disagree by the
+offset. That is a real inconsistency and it is now the only one left.
+
+**New: `apps/api/scripts/cold-organiser.mjs`.** The tool that found this.
+Creates a brand-new workspace, person, user, admin membership, the plan's
+apps and a Supabase auth account on STAGING, then prints a single-use sign-in
+link. Every other fixture path reuses an account that already has a
+workspace, contacts and habits — which is exactly what a first client does
+not have, and why empty states and first-run prompts are invisible from a
+seeded account. `--list` and `--signin <slug>` come back to one later. It
+refuses to run anywhere but staging.
+
+
 ## [0.72.5] — 2026-09-12 — the staging footer stops walking people into production
 
 Caught by opening staging in a real browser, after every scripted layer had
