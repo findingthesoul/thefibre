@@ -10,6 +10,37 @@ import { revalidatePath } from 'next/cache';
 import { apiFetch, ApiError } from '@/lib/api';
 
 export type SaveLabelsResult = { ok: true } | { ok: false; error: string };
+export type ActResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Accept or dismiss one hygiene finding.
+ *
+ * Accept records a JUDGEMENT, not an action. For a duplicate it does not
+ * merge — merging is `merge_person()`, a real reversible operation with its
+ * own confirmation and its own choice of which record survives, and wiring it
+ * behind a one-tap button in a cleanup list would make it the most dangerous
+ * control in the product. Accept means "somebody looked and agreed this is
+ * real"; doing the thing stays where it belongs.
+ */
+export async function actOnFinding(
+  id: string,
+  action: 'accept' | 'dismiss',
+): Promise<ActResult> {
+  try {
+    await apiFetch(`/api/v1/connections/hygiene/${id}`, {
+      method: 'POST',
+      body: JSON.stringify({ action }),
+    });
+    revalidatePath('/settings/hygiene');
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      if (e.status === 403) return { ok: false, error: 'forbidden' };
+      return { ok: false, error: `API ${e.status}` };
+    }
+    return { ok: false, error: 'unknown error' };
+  }
+}
 
 /**
  * Replace the names for one axis. An empty string means "put the shipped

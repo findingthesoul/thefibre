@@ -6028,6 +6028,170 @@ const CATALOG = {
     de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
     fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
   },
+  // ── The hygiene queue ────────────────────────────────────────────────────
+  // The sweep proposes and a person decides. Nothing here offers to fill in a
+  // blank: cleaning removes wrongness, it does not invent completeness.
+  hyg_card_title: {
+    en: 'What the nightly check found',
+    nl: 'Wat de nachtelijke controle vond',
+    es: 'Lo que encontró la revisión nocturna', // MT
+    pt: 'O que a verificação noturna encontrou', // MT
+    de: 'Was die nächtliche Prüfung gefunden hat', // MT
+    fr: 'Ce que le contrôle nocturne a trouvé', // MT
+  },
+  hyg_card_desc: {
+    en: 'Duplicates and stale records, with the evidence.',
+    nl: 'Dubbelen en verouderde records, met het bewijs erbij.',
+    es: 'Duplicados y registros obsoletos, con la evidencia.', // MT
+    pt: 'Duplicados e registos obsoletos, com a evidência.', // MT
+    de: 'Dubletten und veraltete Einträge, mit dem Beleg.', // MT
+    fr: 'Doublons et enregistrements obsolètes, avec la preuve.', // MT
+  },
+  hyg_intro: {
+    en: 'A check runs once a night. It proposes; you decide. Nothing here is changed behind your back except the small, reversible fixes listed at the bottom.',
+    nl: 'Eén keer per nacht draait er een controle. Die stelt voor, jij beslist. Er verandert hier niets buiten je om, behalve de kleine, omkeerbare correcties onderaan.',
+    es: 'Una revisión corre cada noche. Propone; tú decides. Aquí no cambia nada a tus espaldas, salvo las correcciones pequeñas y reversibles del final.', // MT
+    pt: 'Uma verificação corre todas as noites. Propõe; tu decides. Aqui nada muda nas tuas costas, exceto as correções pequenas e reversíveis no fim.', // MT
+    de: 'Einmal pro Nacht läuft eine Prüfung. Sie schlägt vor, du entscheidest. Hier ändert sich nichts hinter deinem Rücken, außer den kleinen, umkehrbaren Korrekturen unten.', // MT
+    fr: 'Un contrôle tourne chaque nuit. Il propose, vous décidez. Rien ne change ici dans votre dos, sauf les petites corrections réversibles listées en bas.', // MT
+  },
+  hyg_never_invents: {
+    en: 'It never fills in a blank. Cleaning means removing what is wrong, not inventing what is missing.',
+    nl: 'Het vult nooit iets in. Opschonen betekent weghalen wat fout is, niet verzinnen wat ontbreekt.',
+    es: 'Nunca rellena un hueco. Limpiar es quitar lo que está mal, no inventar lo que falta.', // MT
+    pt: 'Nunca preenche um vazio. Limpar é tirar o que está errado, não inventar o que falta.', // MT
+    de: 'Es füllt nie eine Lücke. Aufräumen heißt entfernen, was falsch ist, nicht erfinden, was fehlt.', // MT
+    fr: 'Il ne remplit jamais un vide. Nettoyer, c’est retirer ce qui est faux, pas inventer ce qui manque.', // MT
+  },
+  hyg_to_review: {
+    en: 'Waiting for you',
+    nl: 'Wacht op jou',
+    es: 'Esperándote', // MT
+    pt: 'À tua espera', // MT
+    de: 'Wartet auf dich', // MT
+    fr: 'En attente de vous', // MT
+  },
+  hyg_nothing_to_review: {
+    en: 'Nothing to review.',
+    nl: 'Niets te beoordelen.',
+    es: 'Nada que revisar.', // MT
+    pt: 'Nada para rever.', // MT
+    de: 'Nichts zu prüfen.', // MT
+    fr: 'Rien à examiner.', // MT
+  },
+  hyg_already_done: {
+    en: 'Already tidied',
+    nl: 'Al opgeruimd',
+    es: 'Ya ordenado', // MT
+    pt: 'Já arrumado', // MT
+    de: 'Schon aufgeräumt', // MT
+    fr: 'Déjà rangé', // MT
+  },
+  hyg_already_done_note: {
+    en: 'Small and reversible, so it was done for you — and listed here, because a change nobody was told about is the thing this page prevents.',
+    nl: 'Klein en omkeerbaar, dus het is voor je gedaan — en hier vermeld, want een verandering waar niemand van weet is precies wat deze pagina voorkomt.',
+    es: 'Pequeño y reversible, así que se hizo por ti, y se lista aquí porque un cambio del que nadie se entera es justo lo que esta página evita.', // MT
+    pt: 'Pequeno e reversível, por isso foi feito por ti — e listado aqui, porque uma mudança que ninguém soube é o que esta página evita.', // MT
+    de: 'Klein und umkehrbar, also wurde es für dich erledigt — und hier aufgeführt, weil eine Änderung, von der niemand erfährt, genau das ist, was diese Seite verhindert.', // MT
+    fr: 'Petit et réversible, donc fait pour vous — et listé ici, car un changement dont personne n’est informé est ce que cette page évite.', // MT
+  },
+  hyg_real: {
+    en: 'Real',
+    nl: 'Klopt',
+    es: 'Correcto', // MT
+    pt: 'Correto', // MT
+    de: 'Stimmt', // MT
+    fr: 'Exact', // MT
+  },
+  hyg_not_real: {
+    en: 'Not a problem',
+    nl: 'Geen probleem',
+    es: 'No es un problema', // MT
+    pt: 'Não é problema', // MT
+    de: 'Kein Problem', // MT
+    fr: 'Pas un problème', // MT
+  },
+  hyg_accept_hint: {
+    en: 'Marks it as real. It does not merge or delete anything — that stays a separate, deliberate step.',
+    nl: 'Markeert het als terecht. Er wordt niets samengevoegd of verwijderd — dat blijft een aparte, bewuste stap.',
+    es: 'Lo marca como real. No fusiona ni borra nada: eso sigue siendo un paso aparte y deliberado.', // MT
+    pt: 'Marca como real. Não junta nem apaga nada — isso continua a ser um passo separado e deliberado.', // MT
+    de: 'Markiert es als zutreffend. Es führt nichts zusammen und löscht nichts — das bleibt ein eigener, bewusster Schritt.', // MT
+    fr: 'Le marque comme réel. Cela ne fusionne ni ne supprime rien : cela reste une étape distincte et délibérée.', // MT
+  },
+  hyg_duplicate_person: {
+    en: 'Possibly the same person twice',
+    nl: 'Mogelijk twee keer dezelfde persoon',
+    es: 'Posiblemente la misma persona dos veces', // MT
+    pt: 'Possivelmente a mesma pessoa duas vezes', // MT
+    de: 'Möglicherweise dieselbe Person zweimal', // MT
+    fr: 'Peut-être deux fois la même personne', // MT
+  },
+  hyg_ghost_record: {
+    en: 'An address and nothing else',
+    nl: 'Een adres en verder niets',
+    es: 'Una dirección y nada más', // MT
+    pt: 'Um endereço e mais nada', // MT
+    de: 'Eine Adresse und sonst nichts', // MT
+    fr: 'Une adresse et rien d’autre', // MT
+  },
+  hyg_stranded_run: {
+    en: 'Stuck at the same step for a year',
+    nl: 'Al een jaar op dezelfde stap',
+    es: 'Atascado en el mismo paso un año', // MT
+    pt: 'Parado no mesmo passo há um ano', // MT
+    de: 'Seit einem Jahr auf demselben Schritt', // MT
+    fr: 'Bloqué à la même étape depuis un an', // MT
+  },
+  hyg_email_formatting: {
+    en: 'Tidied an address',
+    nl: 'Adres opgeschoond',
+    es: 'Dirección ordenada', // MT
+    pt: 'Endereço arrumado', // MT
+    de: 'Adresse bereinigt', // MT
+    fr: 'Adresse nettoyée', // MT
+  },
+  hyg_empty_draft: {
+    en: 'Removed an empty draft',
+    nl: 'Leeg concept verwijderd',
+    es: 'Borrador vacío retirado', // MT
+    pt: 'Rascunho vazio removido', // MT
+    de: 'Leerer Entwurf entfernt', // MT
+    fr: 'Brouillon vide retiré', // MT
+  },
+  hyg_unknown_kind: {
+    en: 'Something to look at',
+    nl: 'Iets om naar te kijken',
+    es: 'Algo que mirar', // MT
+    pt: 'Algo para ver', // MT
+    de: 'Etwas zum Anschauen', // MT
+    fr: 'Quelque chose à regarder', // MT
+  },
+  hyg_days_at_step: {
+    en: '{n} days at the same step',
+    nl: '{n} dagen op dezelfde stap',
+    es: '{n} días en el mismo paso', // MT
+    pt: '{n} dias no mesmo passo', // MT
+    de: '{n} Tage auf demselben Schritt', // MT
+    fr: '{n} jours à la même étape', // MT
+  },
+  hyg_draft_removed: {
+    en: 'empty for two weeks',
+    nl: 'twee weken leeg',
+    es: 'vacío durante dos semanas', // MT
+    pt: 'vazio durante duas semanas', // MT
+    de: 'zwei Wochen leer', // MT
+    fr: 'vide depuis deux semaines', // MT
+  },
+  hyg_load_failed: {
+    en: 'Could not load what the check found.',
+    nl: 'Kon niet laden wat de controle vond.',
+    es: 'No se ha podido cargar lo que encontró la revisión.', // MT
+    pt: 'Não foi possível carregar o que a verificação encontrou.', // MT
+    de: 'Die Ergebnisse der Prüfung konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger ce que le contrôle a trouvé.', // MT
+  },
+
   // ── Today's calendar, with the people already found ──────────────────────
   agenda_heading: {
     en: 'Who you are seeing today',

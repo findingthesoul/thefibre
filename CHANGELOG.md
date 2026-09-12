@@ -6,6 +6,70 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.13] — 2026-09-12 — a nightly check that proposes and never repairs
+
+`docs/connections-data-integrity.md` §9, from Sjoerd: *"how do we keep the
+data clean? Can we make a procedure to clean up the database regularly — auto,
+with AI support maybe?"*
+
+§9.1 answered the AI half and this release follows it: **the large majority of
+what goes wrong here is detectable with SQL** — exactly, cheaply, repeatably,
+and with an audit trail. A language model is slower, costs money, answers
+differently on different runs, and cannot be explained to a regulator. So
+this is a scheduled query and no model is involved.
+
+**It produces a review queue. It does not silently repair.** A sweep that
+rewrites a workspace's records at 3am is indistinguishable from corruption the
+morning somebody notices. Findings are rows with the evidence attached, and a
+person decides.
+
+**Three things it proposes**, never applies: two people who look like one,
+a person who is an address and nothing else with no activity in ninety days,
+and a flow run stuck at the same step for a year with no open task. Duplicates
+come from `person_duplicate_candidates()`, which existed since the merge work
+and had never been called by anything.
+
+**Two things it fixes**, because they are provably safe and reversible:
+whitespace and case in email addresses, and empty drafts older than two weeks.
+Both are **recorded as findings anyway**, with the value before the change,
+because "we changed your data and told nobody" is precisely what the queue
+exists to prevent. Drafts are soft-deleted, never hard — soft delete is a hard
+rule, and a draft with any text in it is untouched, because unfinished writing
+is not litter.
+
+**Never, not even as a proposal: filling in a blank.** Cleaning removes
+wrongness; it does not invent completeness. A suggestion that somebody
+"probably works at Acme" is enrichment wearing a hygiene badge.
+
+**Accept does not mean apply.** For a duplicate, applying would mean merging
+two people — a real operation with its own reversible implementation, its own
+confirmation and its own choice of which record survives. Behind a one-tap
+button in a cleanup list it would be the most dangerous control in the
+product. Accept records that somebody looked and agreed; doing the thing stays
+where it belongs.
+
+**The guard is persisted, not in memory.** The billing meters keep an hourly
+guard in a module variable, which is right for hourly work — but this repo
+deploys several times a day, and an in-memory guard would make "nightly" mean
+"every deploy". The stamp lives in `hygiene_run`, which is also the audit
+trail: a run that throws still writes a row, because a scheduled job that
+silently stopped three weeks ago has an empty table as its only symptom.
+
+**A bug the migration and the typechecker both missed.** The first version
+built the uniqueness index over an expression, `coalesce(related_id, …)`.
+Correct SQL, and unusable: PostgREST's conflict target takes a column list,
+not an expression, so every upsert failed and the sweep recorded nothing at
+all. It applied cleanly and typechecked. It was found by running the real
+sweep against staging, and fixed with `NULLS NOT DISTINCT`, which gives both
+a nameable column list and NULLs that collide.
+
+Proved on staging: 73 duplicate findings across 28 workspaces, the guard
+declining a second call a second later, and a planted fixture confirming an
+address is trimmed and lowercased, an empty draft is soft-deleted and not
+hard-deleted, both are recorded with the before-value, and the fixture leaves
+nothing behind.
+
+
 ## [0.73.12] — 2026-09-12 — the fifth condition: carrying a lot
 
 `docs/connections-model.md` §3.2 named five attention conditions. Four
