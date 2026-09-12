@@ -1035,6 +1035,7 @@ code on 2026-09-12 rather than remembered.
 | 7 | Installable phone app; notes kept offline and sent on reconnect; opens with no signal | `public/sw.js`, `lib/offline-notes.ts`, v0.73.18 |
 | D71 | Tags and @mentions marked inside the sentence while typing | `components/tag-highlight-box.tsx`, v0.73.20 |
 | D70 | The desktop map: recency, attention, ladder; who is near and why | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
+| D70b | The moving web: click a name to centre it, companies as boxed nodes, Back (STAGING) | `app/(app)/map/focus-web.tsx`, `lib/web-layout.ts`, v0.73.24 |
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
@@ -1048,9 +1049,12 @@ code on 2026-09-12 rather than remembered.
    profile timezone. Worth a setting once somebody who works weekends uses
    Today; all-day holidays could also remove the day.
 
-**Everything above is in PRODUCTION** as of v0.73.22 (2026-09-13, promoted
-at Sjoerd's request), including the security fixes from v0.73.18 and v0.73.19
-and all three migrations.
+**In production up to v0.73.23** (2026-09-13). v0.73.24, the moving web, is
+on STAGING and waits for Sjoerd to look at it and promote.
+
+**Sjoerd has an example video of the interface he means** ("like the
+thesaurus"). Look at it before tuning the web further: speed, how many names,
+whether second-degree connections show faintly.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
