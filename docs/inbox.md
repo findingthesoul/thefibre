@@ -103,6 +103,32 @@ a gap rather than faked; `connections-desktop.md` §5c resolves it with a
 nightly snapshot. If his Visual Thesaurus reference was about clustering as
 much as about lines, this is the piece still missing.
 
+**And then he said the rest of it out loud, to another session** (2026-09-13,
+recorded in `d3e414f`):
+
+> a moving web of connection. You click on a name (not a dot) and then you see
+> the connections.. you click on the next... and that one is centered (and
+> bigger)... you can always go Back.
+
+and, separately: *"company needs to be connected to the person."* Which is the
+Visual Thesaurus behaviour named exactly, four screenshots' worth of intent in
+two lines. It shipped the same night as v0.73.24, on staging: one person in the
+middle, strongest connections nearest, each saying why underneath, click a name
+and it travels to the centre while the web rebuilds, the name you came from
+staying faded behind you, Back being the browser's Back. Companies are boxed
+nodes on solid lines where a membership is recorded, and not drawn at all where
+a company was merely named in a note.
+
+So the item that opened this file is now built end to end, and the hash-placement
+gap above is superseded for the web view: `lib/web-layout.ts` is a damped
+simulation, not a hash. The still overview cloud keeps the hash placement (D38).
+
+**What is actually waiting on him now**, and it is small: he has an example
+video of the interface he means. Nobody has seen it. The build plan asks for it
+before tuning speed, how many names to draw, and whether second-degree
+connections should show faintly. That is the one input that cannot be derived
+from the code.
+
 **Two things that push back on the item as stated:**
 
 - **Ranking.** He asked for a list *"ordder in what ranks more"*. The cloud
