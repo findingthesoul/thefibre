@@ -370,6 +370,68 @@ for that.
 If a future feature needs to infer a person from free text, the answer is
 that the feature should change, not the rule.
 
+**And the same rule one level up: co-occurrence is not a relationship.** The
+version above is about the INPUT — an email address is exact, a first name in
+prose is not. This one is about the INFERENCE. Two people appearing in the
+same note have co-occurred. Two people enrolled in the same thread have
+co-attended. Neither is a connection, and both are one small step from being
+recorded as one, because the step is cheap and the result looks like insight.
+
+The cost is the same shape as a wrong match: an edge that meant "somebody
+states these two know each other" starts meaning "these two were typed near
+each other", and every surface reading it inherits the dilution silently.
+Connections keeps `flow_run_note_mention` deliberately out of `relationship`
+for exactly this reason — the contribution axis reads `relationship` for
+introductions, and promoting mentions would inflate a number that is supposed
+to mean something.
+
+So: **a relationship edge is something a person STATES.**
+
+And the test that keeps the rest of it from being a placeholder: **a signal
+inferred from co-occurrence or similarity may be shown, but must never be the
+input to another computation.** Position a cloud with it, size a word with it,
+sort a list by it. The moment it feeds a second derivation its provenance is
+gone and it has become a fact — which is the mechanism by which weak signals
+turn into edges without anybody deciding to promote one. Checkable by reading
+the code rather than by judgement, which is the whole point of having it.
+
+**This does not forbid composing derivations, and the distinction matters or
+the rule reads as banning what this codebase does everywhere.**
+`connections_landscape_axis` delegates maturity to `connections_landscape`;
+`connections_attention` delegates `deal_rotting` to `pulse_commitment_rot`.
+Both are fine and both should stay. They compute over RECORDED FACTS —
+somebody attended, somebody paid, a stage moved on a date — and composing
+those is factoring, not inference.
+
+**The exemption is a property of the INPUTS, not of the function, and it is
+transitive.** A computation is fact-derived only if every input is, all the
+way down. One proximity or similarity signal entering anywhere upstream makes
+everything below it proximity-derived, and the ban applies to all of it. It
+behaves like a taint rather than a category, which is what keeps it checkable:
+follow the inputs through the definitions, no judgement about whether
+something "counts".
+
+That clause is the one that has to survive contact with a future change, and
+the pressure will not look like an attack. Nobody will propose composing two
+inferences. Somebody will propose nudging maturity when two people co-occur
+in notes — one weak signal added to something already trusted, an obvious
+improvement. Maturity is then part proximity, every axis and queue below it
+inherits that, and all of them are still described by the sentence that
+exempted them. Nobody lies. The label just stops tracking the thing.
+
+The test also protects the door it might look like it closes: the desktop
+cloud can use co-occurrence for position and weight, which is exactly what it
+needs, and still cannot say "these two know each other", because saying that
+would mean something else reading the signal.
+
+(Named jointly on 2026-09-12. The input half came from Connections, the
+inference half and this test from the Thread session — which also identified
+thread co-attendance as the same trap waiting in a different table, and
+caught the first draft of this paragraph saying derived closeness may use
+co-occurrence "if it earns it": a phrase with no test attached, which would
+have been quoted as permission. That draft was written in the same hour as
+the three corrections above, by the session writing the rule about them.)
+
 ### Do not write "X is not personal data" when you mean "the reader already has it"
 
 Connections ships the workspace's organisation names to the browser as a
@@ -569,12 +631,40 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   workspace package — DERIVED from `apps/*/package.json` + root +
   `packages/shared` since v0.68.20, never hand-listed, so an eighth app is
   covered the moment it exists →
-  no staged leftovers → `pnpm verify` → push main + main:staging — one
+  no staged leftovers → `pnpm verify` → push **`staging` only** — one
   `set -e` script, born 2026-09-08 after a broken `&&` chain pushed past a
-  guard refusal). Then `bash scripts/db-push-prod.sh` + `db-push-staging.sh`
-  if migrations, `fly deploy` (both APIs if `apps/api` or `packages/shared`
-  changed). Vercel deploys itself from the push. When debugging, first
-  verify deployed == committed.
+  guard refusal). Then `bash scripts/db-push-staging.sh` if migrations.
+  Vercel deploys itself from the push. When debugging, first verify
+  deployed == committed.
+
+  **Production is promoted, not released** (2026-09-12). `release.sh` used to
+  push `main` and `staging` together, so every release built every changed app
+  TWICE. Measured over the fourteen days to that date: **2374 builds and 1268
+  build-minutes** across nine Vercel projects, against a bill Sjoerd put at
+  about €300. Halving the branches halves that, and it finally buys what the
+  two-stack setup was for — look at it on `.tech`, then ship.
+
+  So: `./scripts/release.sh <version>` lands on staging. Look at it. Then
+  `./scripts/promote.sh` fast-forwards main to whatever staging has, printing
+  the range and warning if it carries migrations that are not on production
+  yet. Fast-forward only: if main has commits staging does not, something
+  reached production outside this flow and merging it here would be guesswork
+  about whose work survives. `scripts/release-guard.sh` now reads the last
+  released number from `origin/staging` for the same reason — main lags by
+  design, and a guard reading a lagging ref would approve a number another
+  session already used.
+
+  `db-push-prod.sh` and `fly deploy` belong with the PROMOTION, not with the
+  release — migrations first, then the code that needs them.
+
+  **Track `origin/staging`.** This is the one new habit and it bites
+  immediately: main lags by design, so the reflex pull leaves a session
+  without the last release and release.sh's ancestor check refuses. Caught by
+  the Thread session reviewing this change, rather than by the first person to
+  hit it in the morning. Merge staging fast-forward before starting and again
+  before bumping a version; the refusal message now says so instead of the old
+  advice to reconcile, which was right under the previous flow and wrong under
+  this one.
   **Docs-only exception** (agreed between sessions, 2026-09-08): a commit
   touching ONLY `docs/**` / `*.md` — no code, no version surfaces — may
   push directly (`git push origin main main:staging`) with a `docs:`

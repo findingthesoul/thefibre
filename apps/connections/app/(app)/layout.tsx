@@ -8,8 +8,9 @@ import { LocaleProvider } from '@thefibre/shared/ui/i18n-ui';
 import { Topbar } from '@/components/shell/topbar';
 import type { WorkspaceChoice } from '@/components/shell/user-menu';
 import { buildAppList } from '@/lib/available-apps';
-import { APPS, tileArtUrl } from '@thefibre/shared';
+import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
+import { PersonPopupProvider } from '@/components/person-popup';
 
 // Connections has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
@@ -116,7 +117,16 @@ export default async function ConnectionsAppLayout({
         {/* Soft-cream content surface so the white cards inside
          (Scope, Details, lists, dialogs) lift cleanly off the page. */}
         <main className="flex-1 overflow-y-auto bg-surface-sunken">
-          {children}
+          {/* One person popup for the whole app, so any list can open
+              somebody without leaving the page it is on. The Fibre contacts
+              URL is resolved here because a client component cannot read the
+              env map. */}
+          <PersonPopupProvider
+            locale={locale}
+            fibreContactsBase={`${appUrl('fibre-platform', process.env)}/contacts`}
+          >
+            {children}
+          </PersonPopupProvider>
         </main>
         <MobileNav version={VERSION} />
       </div>

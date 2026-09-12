@@ -51,6 +51,16 @@ describe('changePaths', () => {
     expect(paths).toContain(':(exclude)packages/shared/package.json');
   });
 
+  it('excludes the monorepo version stamp for web, and ONLY for web', () => {
+    // apps/web/lib/version.ts is rewritten by every release and lives inside
+    // apps/web, so without this web was the one app that never skipped.
+    expect(changePaths('web')).toContain(':(exclude)apps/web/lib/version.ts');
+    // apps/my/lib/version.ts is the portal's own series and marks a real
+    // change, so it must keep triggering a build.
+    expect(changePaths('my')).not.toContain(':(exclude)apps/my/lib/version.ts');
+    expect(paths).not.toContain(':(exclude)apps/web/lib/version.ts');
+  });
+
   it('includes the lockfile — real dependency changes always rebuild', () => {
     expect(paths).toContain('pnpm-lock.yaml');
     expect(paths).toContain('pnpm-workspace.yaml');

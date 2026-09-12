@@ -156,3 +156,87 @@ export function detectTags(text: string, known: readonly KnownTag[]): DetectedTa
 
   return out;
 }
+
+// ── @ — people and organisations, by intent ─────────────────────────────────
+//
+// Sjoerd, 2026-09-12: *"# for tags is great and @ for people or
+// organisations."*
+//
+// THIS IS A DIFFERENT MECHANISM FROM EVERYTHING ABOVE, and the separation is
+// deliberate rather than tidy. `detectTags` never sees people and must not:
+// matching a person's name inside prose is a guess that attaches a claim to a
+// real person's record, and this codebase refuses it (system-handbook §12,
+// "attach a person by an EXACT identifier, never by a name in prose").
+//
+// `@` is not inference. Somebody typed a marker and picked from a list, which
+// makes it intent — the same thing that makes a calendar attendee safe where
+// a first name in a sentence is not. So people appear here and nowhere else.
+
+export type KnownPerson = { id: string; name: string };
+
+export type DetectedMention = {
+  kind: 'person' | 'organisation';
+  id: string;
+  name: string;
+  /** What was typed after the @, so the interface can show the fragment when
+   *  nothing has matched it yet. */
+  typed: string;
+};
+
+/** Same shape as HASH, same finished-word rule. Dots and hyphens are allowed
+ *  because people type `@jan.de.vries`. */
+const AT = /@([\p{L}\p{N}][\p{L}\p{N}_.\-]{1,59})/gu;
+
+/** Does `key` begin any word of `name`, or the whole name with spaces gone? */
+function matchesFragment(name: string, key: string): boolean {
+  const folded = fold(name);
+  if (folded.replace(/ /g, '').startsWith(key.replace(/ /g, ''))) return true;
+  return folded.split(' ').some((word) => word.startsWith(key));
+}
+
+/**
+ * Resolve `@fragment` against people and organisations.
+ *
+ * A fragment matches when it begins any word of the name, folded — so
+ * `@wilma`, `@doornbos` and `@wilmadoornbos` all find Wilma Doornbos.
+ *
+ * Only an UNAMBIGUOUS match counts. Two Wilmas produce nothing rather than a
+ * coin toss, because the cost of picking the wrong one is a claim on the
+ * wrong person's record — the same cost that keeps automatic name matching
+ * out of this file entirely. Offering a choice is the composer's job; this
+ * function does not guess.
+ */
+export function detectMentions(
+  text: string,
+  people: readonly KnownPerson[],
+  organisations: readonly KnownTag[],
+): DetectedMention[] {
+  const out: DetectedMention[] = [];
+  const seen = new Set<string>();
+
+  for (const m of text.matchAll(AT)) {
+    const typed = m[1]!;
+    if (!isFinished(text, m.index + m[0].length)) continue;
+    const key = fold(typed);
+    if (!key || seen.has(key)) continue;
+
+    const hits: DetectedMention[] = [];
+    for (const p of people) {
+      if (matchesFragment(p.name, key)) {
+        hits.push({ kind: 'person', id: p.id, name: p.name, typed });
+      }
+    }
+    for (const o of organisations) {
+      if (o.organisationId && matchesFragment(o.name, key)) {
+        hits.push({ kind: 'organisation', id: o.organisationId, name: o.name, typed });
+      }
+    }
+
+    if (hits.length === 1) {
+      seen.add(key);
+      out.push(hits[0]!);
+    }
+  }
+
+  return out;
+}

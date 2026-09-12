@@ -36,6 +36,8 @@ export type SaveNoteInput = {
    * was on screen is what gets written.
    */
   tags?: { name: string; organisation_id?: string }[];
+  /** People named with @ inside the note. Ids, resolved in the composer. */
+  mentions?: string[];
 };
 
 export type SaveNoteResult =
@@ -73,20 +75,27 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
  * names is where false positives live, and one wrong tag lands a claim on a
  * real person's record.
  */
-export async function fetchVocabulary(): Promise<
-  { id?: string; name: string; organisationId?: string }[]
-> {
+export async function fetchVocabulary(): Promise<{
+  words: { id?: string; name: string; organisationId?: string }[];
+  people: { id: string; name: string }[];
+}> {
   try {
     const r = await apiFetch<{
       words: { id?: string; name: string; organisation_id?: string }[];
+      people: { id: string; name: string }[];
     }>('/api/v1/connections/vocabulary');
-    return (r.words ?? []).map((w) => ({
-      ...(w.id ? { id: w.id } : {}),
-      name: w.name,
-      ...(w.organisation_id ? { organisationId: w.organisation_id } : {}),
-    }));
+    return {
+      words: (r.words ?? []).map((w) => ({
+        ...(w.id ? { id: w.id } : {}),
+        name: w.name,
+        ...(w.organisation_id ? { organisationId: w.organisation_id } : {}),
+      })),
+      // Kept apart from `words` all the way through, because the automatic
+      // matcher must never be able to reach them. See detect-tags.ts.
+      people: r.people ?? [],
+    };
   } catch {
     // Nothing detected is a working composer; a thrown error is not.
-    return [];
+    return { words: [], people: [] };
   }
 }

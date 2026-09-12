@@ -1,4 +1,4 @@
-import Link from 'next/link';
+import { PersonLink } from '@/components/person-popup';
 import { Clock, MapPin, UserPlus } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { BAND_KEYS } from '../landscape/axes';
@@ -145,8 +145,10 @@ export function Agenda({
                   if (p.person_id) {
                     return (
                       <li key={p.email}>
-                        <Link
-                          href={`/people/${p.person_id}`}
+                        {/* Opens in the popup, so writing the note after a
+                            meeting never costs leaving Today. */}
+                        <PersonLink
+                          personId={p.person_id}
                           className="inline-flex h-8 items-center gap-1.5 rounded-full border border-line px-3 text-xs transition-colors hover:border-ink/40"
                         >
                           <span className="font-medium">{p.person_name}</span>
@@ -160,7 +162,7 @@ export function Agenda({
                           <span className="text-ink-subtle">
                             {ago ?? t(locale, 'agenda_never_written')}
                           </span>
-                        </Link>
+                        </PersonLink>
                       </li>
                     );
                   }

@@ -24,7 +24,7 @@ type PersonsPage = { items: Person[]; next: string | null };
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; pages?: string; axis?: string; band?: string }>;
+  searchParams: Promise<{ q?: string; pages?: string; axis?: string; band?: string; tag?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? '').trim();
@@ -32,6 +32,7 @@ export default async function PeoplePage({
   // than 404s, the same rule the landscape itself uses for a stale bookmark.
   const axis: Axis = isAxis(sp.axis) ? sp.axis : 'maturity';
   const band = (sp.band ?? '').trim() || null;
+  const tagId = (sp.tag ?? '').trim() || null;
   const wanted = Math.min(Math.max(Number.parseInt(sp.pages ?? '1', 10) || 1, 1), MAX_PAGES);
   const locale = await uiLocale();
 
@@ -40,6 +41,22 @@ export default async function PeoplePage({
   // else on the page: a workspace that has renamed nothing gets an empty
   // object and every chip falls back to its shipped translation, which is why
   // this one swallows its own failure instead of reaching the error banner.
+  // Arriving from the tag cloud. One read of who carries the tag, then the
+  // same filter-the-loaded-window approach the band filter uses, with the
+  // same honest limit: somebody in this tag can sit on a page nobody has
+  // asked for yet, and Load more still extends the filtered list.
+  const tagPromise: Promise<{ ids: Set<string>; name: string | null } | null> = tagId
+    ? Promise.all([
+        apiFetch<{ person_ids: string[] }>(`/api/v1/connections/tags/${tagId}/people`),
+        apiFetch<{ tags: { id: string; name: string }[] }>('/api/v1/connections/tags?min_people=0'),
+      ])
+        .then(([p, all]) => ({
+          ids: new Set(p.person_ids ?? []),
+          name: (all.tags ?? []).find((t) => t.id === tagId)?.name ?? null,
+        }))
+        .catch(() => null)
+    : Promise.resolve(null);
+
   const labelsPromise = apiFetch<{ labels: BandLabels }>('/api/v1/connections/labels')
     .then((r) => r.labels)
     .catch(() => undefined);
@@ -102,8 +119,15 @@ export default async function PeoplePage({
   // from the landscape rather than from the rows, so the count on screen is
   // the true size of the band and not the size of what happened to load.
   const labels = await labelsPromise;
+  const tag = await tagPromise;
   const bandTotal = band ? Object.values(rungById).filter((r) => r === band).length : null;
-  const shown = band && !bandsUnavailable ? items.filter((p) => rungById[p.id] === band) : items;
+
+  // Both filters compose: a band filter and a tag filter narrow together
+  // rather than one replacing the other, because "who in this tag has come
+  // back" is a real question and refusing it would be arbitrary.
+  let shown = items;
+  if (band && !bandsUnavailable) shown = shown.filter((p) => rungById[p.id] === band);
+  if (tag) shown = shown.filter((p) => tag.ids.has(p.id));
 
   return (
     <PageContainer>
@@ -122,6 +146,9 @@ export default async function PeoplePage({
           labels={labels}
           band={band}
           bandTotal={bandTotal}
+          tagName={tag?.name ?? null}
+          tagTotal={tag ? tag.ids.size : null}
+          tagId={tagId}
           hasMore={cursor !== null}
           nextPages={Math.min(wanted + 1, MAX_PAGES)}
           locale={locale}

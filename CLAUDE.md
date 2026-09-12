@@ -178,6 +178,14 @@ or when you genuinely need the peer's uncommitted state.
 9. **Docs-only commits skip the release script** — a commit touching only
    `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
    goes through `./scripts/release.sh <version>`, no exceptions.
+   **Since 2026-09-12 that lands on `staging` ONLY** — production is a
+   separate, deliberate `./scripts/promote.sh`. Every release used to build
+   every changed app twice, once per branch; see system-handbook §10 for the
+   numbers. Do not "helpfully" push main as well.
+   **And track `origin/staging`, not `origin/main`.** Main lags by design now,
+   so the reflex pull leaves you without the last release and release.sh
+   refuses. `git merge --ff-only origin/staging` before you start, and again
+   before you bump a version.
 10. **A peer's UNCOMMITTED work can block your release.**
    `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
    over the WORKING TREE, not over your commit. So another session's

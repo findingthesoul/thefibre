@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { PersonLink } from '@/components/person-popup';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -33,6 +34,9 @@ export function PeopleList({
   axis,
   band,
   bandTotal,
+  tagName,
+  tagTotal,
+  tagId,
   labels,
   hasMore,
   nextPages,
@@ -54,6 +58,12 @@ export function PeopleList({
   /** How many people are in `band` workspace-wide — from the landscape, not
    *  from the loaded rows, so the number is the band's true size. */
   bandTotal: number | null;
+  /** The tag being filtered to, when the tag cloud sent us here. */
+  tagName: string | null;
+  /** Carried so search and Load more keep the filter. */
+  tagId: string | null;
+  /** How many people carry it workspace-wide, for the same reason as above. */
+  tagTotal: number | null;
   hasMore: boolean;
   nextPages: number;
   locale: Locale;
@@ -84,16 +94,18 @@ export function PeopleList({
         qs.set('axis', axis);
         qs.set('band', band);
       }
+      if (tagId) qs.set('tag', tagId);
       startTransition(() => {
         router.replace(qs.toString() ? `/people?${qs.toString()}` : '/people');
       });
     }, 300);
     return () => clearTimeout(id);
-  }, [term, router, axis, band]);
+  }, [term, router, axis, band, tagId]);
 
   const moreHref = `/people?${new URLSearchParams({
     ...(q ? { q } : {}),
     ...(band ? { axis, band } : {}),
+    ...(tagId ? { tag: tagId } : {}),
     pages: String(nextPages),
   }).toString()}`;
 
@@ -120,12 +132,22 @@ export function PeopleList({
           otherwise a shortened list reads as a broken one. The way out is on
           the same line, because a filter you cannot see how to leave is a
           trap rather than a lens. */}
-      {band && (
+      {(band || tagName) && (
         <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full border border-ink bg-ink px-3 py-1 text-xs text-surface">
-            {bandLabel(band)}
-            {bandTotal !== null && <span className="ml-1.5 tabular-nums">{bandTotal}</span>}
-          </span>
+          {band && (
+            <span className="rounded-full border border-ink bg-ink px-3 py-1 text-xs text-surface">
+              {bandLabel(band)}
+              {bandTotal !== null && <span className="ml-1.5 tabular-nums">{bandTotal}</span>}
+            </span>
+          )}
+          {/* Both filters can be on at once and both are named, because a
+              list narrowed twice with only one label showing reads as broken. */}
+          {tagName && (
+            <span className="rounded-full border border-ink bg-ink px-3 py-1 text-xs text-surface">
+              {tagName}
+              {tagTotal !== null && <span className="ml-1.5 tabular-nums">{tagTotal}</span>}
+            </span>
+          )}
           <Link
             href={q ? `/people?q=${encodeURIComponent(q)}` : '/people'}
             className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
@@ -142,7 +164,7 @@ export function PeopleList({
             size, so this line stands down to a plain count. */}
         {pending
           ? t(locale, 'loading')
-          : band
+          : band || tagName
             ? items.length > 0
               ? `${items.length} ${t(locale, 'landscape_people')}`
               : ''
@@ -155,7 +177,7 @@ export function PeopleList({
 
       {items.length === 0 && (
         <p className="mt-6 text-sm text-ink-muted">
-          {band
+          {band || tagName
             ? t(locale, 'people_none_in_band')
             : q
               ? t(locale, 'people_none')
@@ -171,8 +193,8 @@ export function PeopleList({
             const rung = rungById[p.id];
             return (
               <li key={p.id}>
-                <Link
-                  href={`/people/${p.id}`}
+                <PersonLink
+                  personId={p.id}
                   className="flex items-baseline justify-between gap-3 px-4 py-3 hover:bg-surface-sunken"
                 >
                   <span className="min-w-0">
@@ -193,7 +215,7 @@ export function PeopleList({
                     )}
                     {p.country && <span>{p.country}</span>}
                   </span>
-                </Link>
+                </PersonLink>
               </li>
             );
           })}

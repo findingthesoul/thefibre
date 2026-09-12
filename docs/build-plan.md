@@ -1038,6 +1038,9 @@ code on 2026-09-12 rather than remembered.
 | — | Band names renameable per workspace, rules fixed | `connections_band_label`, v0.73.9 |
 | — | Tags detected while writing a note; organisations are tags | `lib/detect-tags.ts`, v0.73.10 |
 | 5a | **D72** — today's calendar, attendees matched to people by email | `routes/connections-agenda.ts`, v0.73.11 |
+| D70 | Tag cloud and list; tag filter on people (STAGING) | `app/(app)/tags/`, v0.73.17 |
+| — | `@` people and organisations, by intent (STAGING) | `flow_run_note_mention`, v0.73.17 |
+| — | People open in a popup, like Thread (STAGING) | `components/person-popup.tsx`, v0.73.17 |
 | 2b | The fifth attention condition — carrying too much | `connections_attention`, v0.73.12 |
 | 0b | Nightly hygiene sweep + review queue | `lib/hygiene.ts`, `hygiene_finding`, v0.73.13 |
 | 4 | Rotting, one mechanism for people and deals | `pulse_commitment_stage_event`, `pulse_commitment_rot`, v0.73.14 |
@@ -1045,16 +1048,24 @@ code on 2026-09-12 rather than remembered.
 
 **Open, in the order I would do them**
 
-1. **D71 — the tag inline in the sentence** rather than beside the box. Known
-   technique, genuinely fragile on mobile; deserves its own go.
-2. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
-   cloud over four tags is a diagram of nothing. This is step 8's desktop
-   landscape, and tags are the first edge source the rarity rule can police.
-3. **Step 6b — effort estimates and the forward view.**
-4. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
+1. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
    service worker anywhere in this monorepo. Connections is a responsive web
-   app with a mobile bottom nav, which is not the same thing.
+   app with a mobile bottom nav, which is not the same thing. Sjoerd asked
+   about it directly on 2026-09-12 ("did you already build the app PWS"), and
+   it is the capture pillar from the first design conversation.
+2. **D71 — the tag inline in the sentence** rather than beside the box. Known
+   technique, genuinely fragile on mobile; deserves its own go.
+3. **D70, the map half — the desktop landscape.** The cloud and list shipped
+   in v0.73.17. The map wants edges between PEOPLE, and the rule for what may
+   feed one is now in system-handbook §12: a signal inferred from
+   co-occurrence may position and weight, never become the edge.
+4. **Step 6b — effort estimates and the forward view.**
 5. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+
+**On staging, not yet promoted (v0.73.17):** the tag cloud and list, `@` for
+people and organisations, people opening in a popup. One migration waits for
+production — `20260913040000_note_mentions.sql`, additive. Promotion order is
+db-push-prod, then promote.sh, then fly deploy; see system-handbook §10.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
