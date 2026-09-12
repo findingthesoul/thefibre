@@ -22,6 +22,7 @@ export type PlanFeature =
   | 'certificates'
   | 'flow'
   | 'pulse'
+  | 'connections'
   | 'email_branding'
   | 'custom_sender_domain'
   | 'team_access_groups'
