@@ -30,6 +30,9 @@ CLAUDE.md points at the sources of truth; this file keeps the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
+_Unranked items from Sjoerd live in [`inbox.md`](inbox.md) until he ranks
+them. Do not append raw captures here: this list promises priority order._
+
 _Last groomed 2026-09-12. Done items get removed, not ticked._
 
 **DESIGN — the site designer, and templates that are documents.** Sjoerd,

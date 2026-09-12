@@ -8,6 +8,7 @@ Read this before doing anything. Orientation document for whoever picks up this 
 - **Vision (current):** [`docs/fibre-technical-brief-v0.4.md`](docs/fibre-technical-brief-v0.4.md) — the canonical spec. Read §1 (vision), §2 (data wall + profile structure), §5 (data model with app-owned curator extensions), §6 (data ownership + minimisation), §13 (developer rules), §15 (principles).
 - **Previous brief:** [`docs/fibre-technical-brief-v0.3.md`](docs/fibre-technical-brief-v0.3.md) — kept in repo for traceability. **v0.4 supersedes for new work.**
 - **Operational plan:** [`docs/build-plan.md`](docs/build-plan.md) — what's queued, what's parked, gotchas.
+- **Inbox:** [`docs/inbox.md`](docs/inbox.md) — Sjoerd's gathering box for raw items from any chat. Append them there verbatim, unranked; the build-plan queue is where they go once he ranks them.
 - **Shipped record:** [`CHANGELOG.md`](CHANGELOG.md).
 - **Deploy procedure:** [`docs/deploy.md`](docs/deploy.md).
 - **App contract:** [`docs/building-on-the-fibre.md`](docs/building-on-the-fibre.md) — what every app, in-family or external, has to know and obey. Read §6 before touching anything under `/api/v1/apps/*`.
