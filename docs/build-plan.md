@@ -1002,7 +1002,7 @@ _(Resend rotated; Stripe Connect onboarded.)_
 
 ---
 
-## Phase 4 — Fibre Sales → CONNECTIONS (shipped 2026-09-11/12, still early)
+## Phase 4 — Fibre Sales → CONNECTIONS (shipped 2026-09-11/13, still early)
 
 The gated app happened, under the name **Connections** (slug stays
 `fibre-sales` forever). Live on both stacks, activated for The Thread B.V.
@@ -1025,46 +1025,32 @@ code on 2026-09-12 rather than remembered.
 | — | Band names renameable per workspace, rules fixed | `connections_band_label`, v0.73.9 |
 | — | Tags detected while writing a note; organisations are tags | `lib/detect-tags.ts`, v0.73.10 |
 | 5a | **D72** — today's calendar, attendees matched to people by email | `routes/connections-agenda.ts`, v0.73.11 |
-| D70 | Tag cloud and list; tag filter on people (STAGING) | `app/(app)/tags/`, v0.73.17 |
-| — | `@` people and organisations, by intent (STAGING) | `flow_run_note_mention`, v0.73.17 |
-| — | People open in a popup, like Thread (STAGING) | `components/person-popup.tsx`, v0.73.17 |
+| D70 | Tag cloud and list; tag filter on people | `app/(app)/tags/`, v0.73.17 |
+| — | `@` people and organisations, by intent | `flow_run_note_mention`, v0.73.17 |
+| — | People open in a popup, like Thread | `components/person-popup.tsx`, v0.73.17 |
 | 2b | The fifth attention condition — carrying too much | `connections_attention`, v0.73.12 |
 | 0b | Nightly hygiene sweep + review queue | `lib/hygiene.ts`, `hygiene_finding`, v0.73.13 |
 | 4 | Rotting, one mechanism for people and deals | `pulse_commitment_stage_event`, `pulse_commitment_rot`, v0.73.14 |
 | — | The opportunity axis reads the stage log, so its movement is real | `connections_landscape_axis`, v0.73.15 |
-| 7 | Installable phone app; notes kept offline and sent on reconnect; opens with no signal (STAGING) | `public/sw.js`, `lib/offline-notes.ts`, v0.73.18 |
-| D71 | Tags and @mentions marked inside the sentence while typing (STAGING) | `components/tag-highlight-box.tsx`, v0.73.20 |
-| D70 | The desktop map: recency, attention, ladder; who is near and why (STAGING) | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
+| 7 | Installable phone app; notes kept offline and sent on reconnect; opens with no signal | `public/sw.js`, `lib/offline-notes.ts`, v0.73.18 |
+| D71 | Tags and @mentions marked inside the sentence while typing | `components/tag-highlight-box.tsx`, v0.73.20 |
+| D70 | The desktop map: recency, attention, ladder; who is near and why | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
+| 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
+| — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
 **Open, in the order I would do them**
 
-1. **Step 6b, second half — free time beside the estimates.** Estimates on
-   Today shipped in v0.73.21 (STAGING). The overcommitment sentence ("fourteen
-   hours of preparation, nine unbooked") still needs the week's busy time from
-   the calendar; the agenda reads only today.
-2. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
-3. **Map clusters.** Placement is a plain hash of the id today, so people who
+1. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+2. **Map clusters.** Placement is a plain hash of the id today, so people who
    belong together are not placed together. §5c of connections-desktop.md
    resolves it with a nightly snapshot; named as a gap, not faked.
+3. **Working hours.** Free time assumes Monday to Friday, 9 to 5, in the
+   profile timezone. Worth a setting once somebody who works weekends uses
+   Today; all-day holidays could also remove the day.
 
-**Decision for Sjoerd: the offline people list.** The offline page offers
-names to write about, so v0.73.18 keeps each person's id and name on the
-device, cleared on sign-out. `connections-overview.md` §4 says an offline
-contact cache "breaks the first hard rule". Hard rule 1 is about Vercel, not
-the device, and the list is names only — but the design doc said no, so the
-call is yours before promotion. Removing it means the offline page takes a
-typed name, which the server then resolves.
-
-**On staging, not yet promoted (v0.73.17 to v0.73.21):** the tag cloud and
-list, `@` mentions, people in a popup, the phone app and offline notes, the
-security fixes in v0.73.18 and v0.73.19, inline tags, the map, and effort
-estimates on Today. v0.73.18
-also FIXES TWO BUGS LIVE IN PRODUCTION: a save that fails for lack of network
-left the composer on "Saving…" forever and locked Done until reload. Three
-migrations wait for production — `20260913040000_note_mentions.sql`,
-`20260913050000_connections_neighbourhood.sql` and
-`20260913060000_connections_effort_default.sql`, all additive. Promotion order
-is db-push-prod, then promote.sh, then fly deploy; see system-handbook §10.
+**Everything above is in PRODUCTION** as of v0.73.22 (2026-09-13, promoted
+at Sjoerd's request), including the security fixes from v0.73.18 and v0.73.19
+and all three migrations.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
