@@ -24,6 +24,8 @@ that its footer sends visitors into production.
 | 0.72.4 | A sign-in stops writing twelve rows one at a time |
 | 0.72.5 | The staging footer stops walking people into production |
 | 0.72.6 | A new thread stops being born broken |
+| 0.72.7 | The participant's own page was never checked |
+| 0.72.8 | Looking at the pricing options stops creating a live discount |
 | two `docs:` commits | Three documents corrected; 81 runs of mojibake repaired |
 
 The API was deployed to staging and then production, both verified after.
@@ -166,6 +168,13 @@ URL. The rest follows once `NEXT_PUBLIC_WEBSITE_URL` is set on staging.
    those links still resolve to production, which is the old behaviour, not a
    new break.
 
+3a. **Staging's visitor portal is behind Vercel deployment protection.**
+   `my.thefibre.tech` answers a Vercel login rather than the portal, while
+   every other staging domain is open, so the participant half of the product
+   is untestable on staging. Production is fine. Vercel → the `my` project →
+   Settings → Deployment Protection. The staging smoke check now fails on it,
+   so the nightly contract job stays red until it is done.
+
 3. **Staging's Stripe webhooks are registered against the wrong account.**
    Thread, Meet and Membership all take money on connected accounts; all three
    staging endpoints listen on the platform's own. Meet's is also missing
@@ -264,9 +273,46 @@ run. The Playwright suite covers a thin signed-in path and v0.72.2's session
 did an exploratory pass over v0.69–v0.72 the evening before, so this is not
 untouched ground, but it is not the same thing as walking it.
 
-~~**The cold first-client walkthrough did not happen.**~~ It happened after
-all — see the section above. What remains unwalked from it: **publishing** the
-thread, **enrolling** a participant, and a **Stripe Connect payment run**. I
-stopped at the editor because the bug was there and worth fixing first. Those
-three are the next thing to walk, and `cold-organiser.mjs` makes it a
-two-minute setup now rather than an afternoon.
+~~**The cold first-client walkthrough did not happen.**~~ It happened, and
+then it kept going — see "The rest of the first hour" below.
+
+Genuinely still unwalked: a **Stripe Connect card payment**. It cannot be
+rehearsed on staging until the webhooks in item 3 are fixed, so it is blocked
+on you rather than skipped by me.
+
+## The rest of the first hour
+
+Publishing, the public page and enrolment all work. The thread published from
+a dropdown, the public page rendered at the staging host with an enrol form,
+a stranger enrolled, and the platform auto-created their person and account
+exactly as the form promises. Two more things came out of it.
+
+**The participant's own page does not exist on staging** (v0.72.7). Following
+the enrolled person to `my.thefibre.tech` landed on a Vercel login: deployment
+protection is on for that project while every other staging domain is open.
+The staging smoke check had never looked, because its subdomain list was
+hand-written and `my` had been missing since the portal shipped. The list now
+carries a completeness guard, so the next omission fails loudly. The Vercel
+setting is yours — item 3a below.
+
+**Opening the pricing options created a live discount** (v0.72.8). Clicking
+"Paid" in Thread settings, just to see what was there, wrote an active 10%
+EARLYBIRD code to the thread. It is seeded on purpose as an example to edit,
+but it was written on a toggle before any Save, Cancel could not undo it, and
+it was active — so once a ticket existed, anyone guessing the word got 10% off
+a thread whose owner never asked for a discount. Now seeded inactive, with
+four integration tests against the live API locking the rule that makes that
+safe.
+
+**One piece of copy went the wrong way round.** The first line a participant
+reads after enrolling said "One Fibre account for everything". The naming
+brief is explicit that Fibre is backstage and never the first thing a customer
+meets. Fixed in all six locales, with the brand name dropped rather than
+swapped, because the sentence also covers Meet's bookings.
+
+**Two things I checked and deliberately did not change.** The privacy-policy
+link on the enrolment form points at production from staging, which is right:
+a consent checkbox should reference the canonical legal document, not an
+environment copy. And the Membership no-access page says "Apply for a Fibre
+account" — arguably the same naming problem, but that page's audience is
+mixed and the judgement is yours, not mine.
