@@ -6,6 +6,55 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.17] — 2026-09-12 — tags, @, and people in a popup (staging)
+
+**The first release under the staging-only flow.** It lands on `.tech` and
+nowhere else. Production gets it when Sjoerd has looked and runs
+`./scripts/promote.sh`. The flow itself landed just before this, as 8a422ff7,
+pushed to both refs once so every session reads the new instructions — it
+touched only scripts and docs and cost no builds.
+
+Held locally while Sjoerd looked at a ~€300 Vercel bill, then shipped as one
+release rather than six: one build per changed app instead of the twelve it
+would have been.
+
+**Tags, as a cloud and a list.** Asked for as a list, a visual cloud, or a
+map. The cloud sizes each word by how many people carry it and fades it as it
+grows common — `connections-model.md` §3.5's rarity rule made visible, so the
+biggest word is deliberately not the most important one, and the legend says
+so. Tapping a tag filters the people list; band and tag filters stack.
+
+**`@` for people and organisations.** *"# for tags is great and @ for people
+or organisations."* The automatic tag matcher still refuses person names in
+prose — a name found by an algorithm is a guess that lands a claim on a real
+record. `@` is intent: somebody typed a marker and chose from a list. The two
+mechanisms are physically separate and a test keeps the matcher blind to
+names. An ambiguous `@wilma` with two Wilmas resolves to nothing. Mentions live
+in `flow_run_note_mention`, not in tags (people are not words) and not in
+`relationship` (co-occurrence is not a connection).
+
+**People open in a popup.** *"work with popups... like the threads.. works
+quicker and more smooth."* Tapping a person on Today or in the list opens them
+over the page you are on. Still a real link, so a new tab gets the full page;
+back closes it on a phone.
+
+**Honesty about how the popup was verified.** I claimed and wrote into a code
+comment that the first history design closed the popup the instant it opened,
+under React's development double-render. That was false: StrictMode doubles
+effects only on mount. The test written for it passed on both versions, which
+is how it was found. Two bugs that WERE real — the popup staying open over the
+page it linked to, and a failed load hanging on "Loading" — are each proved by
+removing the fix and watching exactly its own test fail. A third, the title
+saying "Loading…" above "Could not load", was found by one of those tests.
+
+**Handbook rules** from the evening's review with the Thread session: attach a
+person by an exact identifier; co-occurrence is not a relationship, with a
+checkable test — an inferred signal may be shown but never feed another
+computation — and a fact-derived exemption that is transitive over inputs.
+
+Connections gains a vitest config and jsdom; 36 tests. API 130.
+
+
 ## [0.73.16] — 2026-09-13 — the web app stops rebuilding to update a string
 
 Sjoerd, on a fortnight of Vercel: *"only rebuild what needs rebuilding. If
