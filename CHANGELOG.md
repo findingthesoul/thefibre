@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.0] — 2026-09-12 — Connections can be written to (Connections 0.2.0)
+
+Four surfaces, built in parallel on one foundation, then integrated and
+verified signed in against staging with real data.
+
+**Notes hang off people now.** Before this the only place a body could live
+against somebody was `flow_run_note`, and it required a run — so "I spoke to
+Marja" had nowhere to go unless Marja happened to be on a flow. Widened in
+place rather than renamed: four of its nine call sites back the published
+external-app contract, and a better name is not worth risking that.
+
+The capture rules from `docs/connections-data-integrity.md` §7 are enforced in
+the API rather than trusted to the interface, and each is verified against a
+real database: three autosaves make one row (the idempotency key and the
+autosave key are the same key), a draft fires nothing, committing fires
+exactly once and editing afterwards does not fire again, the activity row
+carries type and subject and **never the body**, a follow-up becomes a
+`flow_task` rather than a second to-do list, and an invalid timezone is
+refused at the boundary — the exact bug that crashed the Thread editor on
+2026-09-08.
+
+`last_spoken_at()` counts personal kinds only. **A newsletter is not a
+conversation:** if a mailshot reset that clock, the attention conditions would
+report a dead relationship as healthy. There is a test holding that.
+
+**Today** — what you owe, and what is coming at you. The second half is the
+one no other CRM has, and it works: a gathering nine days out surfaces
+*today*, because its preparation lead time is fourteen days. `prepare_at`,
+never `happens_at`, decides the segment. Four signals compute; a fifth was
+left out deliberately, because deciding "the joining message should have gone
+by now" means re-deriving the scheduler's trigger logic and would produce
+confident false positives.
+
+**Five axes** re-segment the same people in an identical visual — maturity,
+closeness, cadence, opportunity, contribution. Closeness and opportunity
+cannot time-travel (current-state columns with no history) and the interface
+says so rather than hiding it. Cadence gained a fourth band beyond the brief:
+without `never spoken`, everyone you have never talked to reads as "gone
+quiet", which is a different and untrue fact.
+
+**Entries** — who can get us in. Two hops structurally, never recursive. Path
+strength is the **weakest** edge, verified at 0.286 against real data where an
+average would have claimed 0.57. Former employment is included and named,
+which is the strongest warm path most CRMs cannot see at all. An entry through
+someone marked `sceptic` is shown as a warning and sorted last.
+
+**People** — the list with each person's standing, and the note composer.
+
+Also: `GET /connections/landscape?people=1` returns the per-person rows the
+handler already had in memory and was discarding. Additive — omitting the flag
+is byte-identical, so every existing caller is untouched.
+
+**One bug only a render check could find.** `HORIZONS` was a runtime constant
+exported from a `'use client'` module and imported by a server component. That
+typechecks perfectly and crashes on first paint: Next replaces client-module
+exports with client-reference proxies, and types are erased, so the compiler
+sees nothing. Moved to `today/shape.ts` — a runtime value shared between a
+server and a client component belongs in a module that is neither.
+
+Three migrations, all additive, all applied to staging first.
+
 ## [0.72.8] — 2026-09-12 — looking at the pricing options stops creating a live discount
 
 Still walking the new organiser's first hour. Opened Thread settings →
