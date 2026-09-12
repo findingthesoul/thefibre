@@ -1,3 +1,4 @@
+import { Suspense } from 'react';
 import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
@@ -33,8 +34,12 @@ export default async function MapPage() {
       {!error && people.length === 0 && (
         <p className="mt-8 text-sm text-ink-muted">{t(locale, 'map_empty')}</p>
       )}
+      {/* MapView reads ?focus= with useSearchParams, which Next requires to
+          sit inside a Suspense boundary or the whole route renders client-side. */}
       {!error && people.length > 0 && (
-        <MapView people={people} now={Date.now()} locale={locale} />
+        <Suspense>
+          <MapView people={people} now={Date.now()} locale={locale} />
+        </Suspense>
       )}
     </PageContainer>
   );

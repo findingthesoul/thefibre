@@ -6646,12 +6646,12 @@ const CATALOG = {
     fr: 'Qui est proche', // MT
   },
   map_near_hint: {
-    en: 'Pick a person to see who shares something with them, and what.',
-    nl: 'Kies iemand om te zien wie iets met die persoon deelt, en wat.',
-    es: 'Elige a alguien para ver quién comparte algo con esa persona, y qué.', // MT
-    pt: 'Escolhe alguém para ver quem partilha algo com essa pessoa, e o quê.', // MT
-    de: 'Wähle eine Person, um zu sehen, wer etwas mit ihr teilt, und was.', // MT
-    fr: 'Choisissez une personne pour voir qui partage quelque chose avec elle, et quoi.', // MT
+    en: 'Pick a person, or click a dot, to see their web of connections.',
+    nl: 'Kies iemand, of klik op een stip, om hun web van verbindingen te zien.',
+    es: 'Elige a alguien, o haz clic en un punto, para ver su red de conexiones.', // MT
+    pt: 'Escolhe alguém, ou clica num ponto, para ver a sua rede de ligações.', // MT
+    de: 'Wähle eine Person oder klicke auf einen Punkt, um ihr Netz an Verbindungen zu sehen.', // MT
+    fr: 'Choisissez une personne, ou cliquez sur un point, pour voir son réseau de liens.', // MT
   },
   map_near_pick: {
     en: 'Choose a person…',
@@ -6998,6 +6998,63 @@ const CATALOG = {
     pt: 'Não foi possível ler o teu calendário agora, por isso o tempo livre não aparece.', // MT
     de: 'Dein Kalender konnte gerade nicht gelesen werden, daher wird keine freie Zeit angezeigt.', // MT
     fr: 'Votre agenda n’a pas pu être lu, le temps libre n’est donc pas affiché.', // MT
+  },
+  // ── The moving web on the map ────────────────────────────────────────────
+  map_back: {
+    en: 'Back',
+    nl: 'Terug',
+    es: 'Atrás', // MT
+    pt: 'Voltar', // MT
+    de: 'Zurück', // MT
+    fr: 'Retour', // MT
+  },
+  map_overview: {
+    en: 'Everyone',
+    nl: 'Iedereen',
+    es: 'Todos', // MT
+    pt: 'Todos', // MT
+    de: 'Alle', // MT
+    fr: 'Tout le monde', // MT
+  },
+  map_start_from: {
+    en: 'Start from a person…',
+    nl: 'Begin bij een persoon…',
+    es: 'Empieza por una persona…', // MT
+    pt: 'Começa por uma pessoa…', // MT
+    de: 'Mit einer Person beginnen…', // MT
+    fr: 'Partir d’une personne…', // MT
+  },
+  map_web_hint: {
+    en: 'Click a name to move to them. Click the name in the middle to open their details.',
+    nl: 'Klik op een naam om ernaartoe te gaan. Klik op de naam in het midden voor de details.',
+    es: 'Haz clic en un nombre para ir a esa persona. Haz clic en el nombre del centro para ver sus datos.', // MT
+    pt: 'Clica num nome para ir até essa pessoa. Clica no nome ao centro para ver os detalhes.', // MT
+    de: 'Klicke auf einen Namen, um dorthin zu gehen. Klicke auf den Namen in der Mitte für Details.', // MT
+    fr: 'Cliquez sur un nom pour aller vers cette personne. Cliquez sur le nom au centre pour ses détails.', // MT
+  },
+  map_web_legend_near: {
+    en: 'Closer to the middle means a stronger connection.',
+    nl: 'Dichter bij het midden betekent een sterkere verbinding.',
+    es: 'Más cerca del centro es una conexión más fuerte.', // MT
+    pt: 'Mais perto do centro é uma ligação mais forte.', // MT
+    de: 'Näher an der Mitte heißt eine stärkere Verbindung.', // MT
+    fr: 'Plus près du centre, c’est un lien plus fort.', // MT
+  },
+  map_web_legend_org: {
+    en: 'A name in a box is an organisation. Its line is solid: somebody recorded that this person belongs there.',
+    nl: 'Een naam in een kader is een organisatie. De lijn is doorgetrokken: iemand heeft vastgelegd dat deze persoon daar hoort.',
+    es: 'Un nombre en un recuadro es una organización. Su línea es continua: alguien registró que esta persona pertenece a ella.', // MT
+    pt: 'Um nome numa caixa é uma organização. A linha é contínua: alguém registou que esta pessoa pertence lá.', // MT
+    de: 'Ein Name im Kasten ist eine Organisation. Die Linie ist durchgezogen: Jemand hat erfasst, dass diese Person dazugehört.', // MT
+    fr: 'Un nom encadré est une organisation. Son trait est plein : quelqu’un a noté que cette personne en fait partie.', // MT
+  },
+  map_org_empty: {
+    en: 'Nobody is linked to this organisation yet.',
+    nl: 'Er is nog niemand aan deze organisatie gekoppeld.',
+    es: 'Aún no hay nadie vinculado a esta organización.', // MT
+    pt: 'Ainda ninguém está ligado a esta organização.', // MT
+    de: 'Noch niemand ist mit dieser Organisation verbunden.', // MT
+    fr: 'Personne n’est encore lié à cette organisation.', // MT
   },
 } satisfies Record<string, I18nEntry>;
 
