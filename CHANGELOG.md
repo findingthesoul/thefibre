@@ -6,6 +6,48 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.12] — 2026-09-12 — the fifth condition: carrying a lot
+
+`docs/connections-model.md` §3.2 named five attention conditions. Four
+shipped this morning and the fifth was deferred with a note saying it needed
+task load, "which lands with the note/task work". That work landed the same
+day, so the reason to wait was gone.
+
+**What it is.** Appearing in many live things at once. It is the only
+condition on the list that points at your own team as much as at the
+community, and the one no CRM has, because no CRM knows what delivery looks
+like.
+
+**Four sources of live load**, each counted distinct and summed: threads with
+a session still ahead, flows still running, open tasks about the person, and
+commitments at a stage that is still open. One thread with three sessions is
+one thing, not three. Tasks are counted by who they are ABOUT rather than who
+is doing them, because this measures what somebody is carrying.
+
+**The threshold is the workspace's own, never a number.** Four live
+commitments is a heavy week for a volunteer and a quiet one for a full-time
+facilitator; a fixed cut-off would flag the second forever and never notice
+the first. So it is the 90th percentile among people carrying anything —
+`connections-model.md` §3.5's rule for counts, applied — **with a floor of
+four**. The floor matters: a percentile alone is degenerate in a quiet
+workspace, where the busiest of five people is automatically the top tenth,
+and a condition that fires on an ordinary Tuesday teaches everyone to ignore
+the list.
+
+**The row carries both numbers** — *"in 5 live things at once; 5+ is the top
+tenth here"* — so the page can say why this person and not somebody else,
+rather than asking to be trusted. Still not a score, like the other four.
+
+**Phrased about the load, never about the person.** "Carrying a lot" is
+something you could say to somebody's face, which is the test every condition
+on this list has to pass.
+
+Proved on staging with a throwaway fixture before production: five open tasks
+makes it fire, on that person and nobody else; dropping to three below the
+floor makes it stop; the fixture was deleted and left nothing. On production
+it finds two people in The Thread B.V. carrying five things each.
+
+
 ## [0.73.11] — 2026-09-12 — the app opens already knowing who today is about
 
 Sjoerd: *"would be great if the app — when you open it — based on agenda —

@@ -604,6 +604,18 @@ const CATALOG = {
     de: 'Ein Fürsprecher entfernt sich', // MT
     fr: 'Un ambassadeur qui s’éloigne', // MT
   },
+  // The fifth condition, and the only one that points at your own team as
+  // much as at the community. Phrased about the load, never about the
+  // person: "carrying a lot" is something you could say to their face,
+  // which is the test every condition on this list has to pass.
+  cond_carrying_too_much: {
+    en: 'Carrying a lot',
+    nl: 'Draagt veel',
+    es: 'Con mucho encima', // MT
+    pt: 'Com muito em mãos', // MT
+    de: 'Trägt viel', // MT
+    fr: 'Porte beaucoup', // MT
+  },
 
   // ── people + the note composer ───────────────────────────────────────
   // (`nav_people`, `notes`, `kind`, `done`, `search`, `load_more` already

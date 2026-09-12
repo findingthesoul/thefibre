@@ -1016,7 +1016,7 @@ code on 2026-09-12 rather than remembered.
 |---|---|---|
 | 0 | `resolvePerson()` + reversible merge | `apps/api/src/lib/resolve-person.ts`, `person_merge` |
 | 1 | Landscape — derived ladder, five axes, mobile bands | `connections_landscape`, `connections_landscape_axis` |
-| 2 | Attention conditions — **four of five** | `connections_attention` |
+| 2 | Attention conditions — all five | `connections_attention` |
 | 3 | Notes — `client_ref` autosave, drafts, follow-ups | `flow_run_note`, `routes/notes.ts` |
 | 6a | Today + the horizon | `routes/connections-today.ts` |
 | 8b | Entries — who can get me in | `connections_entries` |
@@ -1025,28 +1025,26 @@ code on 2026-09-12 rather than remembered.
 | — | Band names renameable per workspace, rules fixed | `connections_band_label`, v0.73.9 |
 | — | Tags detected while writing a note; organisations are tags | `lib/detect-tags.ts`, v0.73.10 |
 | 5a | **D72** — today's calendar, attendees matched to people by email | `routes/connections-agenda.ts`, v0.73.11 |
+| 2b | The fifth attention condition — carrying too much | `connections_attention`, v0.73.12 |
 
 **Open, in the order I would do them**
 
-1. **The fifth attention condition — "carrying too much."** Four shipped;
-   this one is missing. It is the burnout signal no CRM has, and it points at
-   your own team rather than the community. (`connections-model.md` §3.2)
-2. **0b — the nightly hygiene sweep.** The scheduler in `server.ts` runs every
+1. **0b — the nightly hygiene sweep.** The scheduler in `server.ts` runs every
    five minutes and has no hygiene job on it. `person_duplicate_candidates()`
    already exists and nothing calls it. Blocked on nothing except the
    retention half, which is D69 and a business decision.
-3. **Step 4 — rotting, one mechanism for people and deals.** The cadence axis
+2. **Step 4 — rotting, one mechanism for people and deals.** The cadence axis
    rots PEOPLE against their own rhythm. Deals do not rot at all yet.
-4. **D71 — the tag inline in the sentence** rather than beside the box. Known
+3. **D71 — the tag inline in the sentence** rather than beside the box. Known
    technique, genuinely fragile on mobile; deserves its own go.
-5. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
+4. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
    cloud over four tags is a diagram of nothing. This is step 8's desktop
    landscape, and tags are the first edge source the rarity rule can police.
-6. **Step 6b — effort estimates and the forward view.**
-7. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
+5. **Step 6b — effort estimates and the forward view.**
+6. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
    service worker anywhere in this monorepo. Connections is a responsive web
    app with a mobile bottom nav, which is not the same thing.
-8. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+7. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
 
 **Open decisions** (`connections-overview.md` §7): D11 Microsoft calendar,
 D21 audience as saved query or list, D27 the lifecycle rungs — *partly
