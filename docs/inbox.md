@@ -64,6 +64,25 @@ share or do not.
 himself at the end. Its landscape already places people on derived axes, so
 this lands on a screen that exists rather than a blank one.
 
+**Where this stands against what is already written** (added 2026-09-12,
+after merging main; not a scoping decision, just what a reader should know):
+
+- Tags now exist. `v0.73.10` detects them while a note is being written, and
+  organisation names are tags. So the "select or type a characteristic"
+  input has a vocabulary behind it that did not exist this morning.
+- `docs/connections-model.md` **D70** already asks for a tag list, a tag
+  cloud and a map, and the build plan queues it fourth in the Connections
+  list, held back until enough tags exist that a drawing means something.
+- What Sjoerd asks for here is **not** D70, and the difference is the whole
+  item. D70 draws tags. He wants to draw **people**, with the characteristic
+  as the filter that decides which edges are worth a line. The Visual
+  Thesaurus behaviour he points at, click a node and the map re-centres on
+  it, is a person-to-person graph, not a cloud.
+- He also opens with dissatisfaction: *"I am not so happy witht the
+  interface"*. That is about the landscape as it stands, so this is partly a
+  complaint about an existing screen and only partly a request for a new one.
+  Worth separating before anyone scopes it.
+
 Not scoped.
 
 ## Moved out
