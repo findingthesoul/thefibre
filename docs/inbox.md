@@ -37,6 +37,8 @@ Sjoerd, in the fibre chat, with three Visual Thesaurus screenshots attached:
 > but then there should be characteriustcis you can select or type..
 >
 > Like info is like a tag
+>
+> a tag could be closness, but also company
 
 What the screenshots show, since they do not live in the repo:
 visualthesaurus.com, the word "connection". A force-directed graph, one big
@@ -52,7 +54,9 @@ So the graph is one view, not the only one. A ranked list is another: the
 same people, ordered by how much they rank on the characteristic. The
 characteristic is the input to both views, picked from a list or typed. His
 own gloss on what a characteristic is: a piece of information behaving like
-a tag.
+a tag. His two examples pull in different directions: closeness, which is a
+degree and orders naturally, and company, which is a category you either
+share or do not.
 
 Not scoped. Which surface he means is not settled either: "connections
 between people with one or more characteristics" reads like Connections,
