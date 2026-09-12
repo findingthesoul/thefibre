@@ -356,6 +356,27 @@ for that.
 If a future feature needs to infer a person from free text, the answer is
 that the feature should change, not the rule.
 
+**And the same rule one level up: co-occurrence is not a relationship.** The
+version above is about the INPUT — an email address is exact, a first name in
+prose is not. This one is about the INFERENCE. Two people appearing in the
+same note have co-occurred. Two people enrolled in the same thread have
+co-attended. Neither is a connection, and both are one small step from being
+recorded as one, because the step is cheap and the result looks like insight.
+
+The cost is the same shape as a wrong match: an edge that meant "somebody
+states these two know each other" starts meaning "these two were typed near
+each other", and every surface reading it inherits the dilution silently.
+Connections keeps `flow_run_note_mention` deliberately out of `relationship`
+for exactly this reason — the contribution axis reads `relationship` for
+introductions, and promoting mentions would inflate a number that is supposed
+to mean something.
+
+So: a relationship edge is something a person STATES. Derived closeness may
+read co-occurrence as a signal if it earns it; it must not become the edge.
+(Named jointly on 2026-09-12 — the input half from Connections, the
+inference half from the Thread session, which also identified thread
+co-attendance as the same trap waiting in a different table.)
+
 ### Do not write "X is not personal data" when you mean "the reader already has it"
 
 Connections ships the workspace's organisation names to the browser as a
