@@ -6,6 +6,66 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.21] — 2026-09-13 — Today says how long the work takes (staging)
+
+**Connections — effort estimates, the first half of step 6b.** Every row on
+Today now carries a rough time, and every horizon a total under its count, so
+"next week: 12" reads "next week: 12 · 14 h". A sentence above the lists says
+how much work the chosen view holds.
+
+Nobody is asked for an estimate (connections-overview.md §3: asking is a
+threshold, and a task form that demands a number is how people stop writing
+tasks down). Each piece of work takes its kind's number: a follow-up from a
+note, a step in a Flow journey, any other task, a meeting brief, reaching a
+newcomer and chasing a payment (both per person), and sending an invoice. An
+admin changes a kind's minutes once, in **Settings → How long things take**,
+for the whole workspace. An empty field puts the suggested time back.
+
+- Migration `20260913060000_connections_effort_default` — sparse overrides,
+  admin-only writes by RLS. Applied to staging.
+- `GET/PUT /connections/effort`. A non-admin's save answers 403 up front: an
+  RLS delete that matches nothing would otherwise report success.
+- A follow-up is recognised by the note that created it, never by its title.
+
+**Not yet:** free time from the calendar. "Fourteen hours of preparation and
+nine hours unbooked" needs the week's busy time beside these numbers, and the
+agenda reads only today so far.
+
+## [0.73.20] — 2026-09-13 — Connections draws a map of everyone (staging)
+
+**Connections — the desktop map.** A new Map page shows the whole community
+at once, as a cloud rather than a chart. Distance from the centre is how long
+since you were last in touch; a larger dot needs your attention now; darker
+ink is further along the ladder. People not seen in over a year stop being
+dots and become a count at the rim, which opens a list.
+
+Placement is computed, never simulated (`lib/map-layout.ts`): a person's
+bearing comes from their id, so adding somebody never moves anybody else, and
+spatial memory has something to hold on to. The first hash clumped sequential
+ids into one quadrant — a fake cluster of unrelated people — and was fixed
+with a finalising mix before it shipped.
+
+Clicking a dot opens the person popup. **Who is near** asks
+`connections_neighbourhood` who shares something rare with a person and draws
+a line to each, with every reason written beside it. Only a stated
+relationship is a solid line; a shared tag, organisation or mention is dashed,
+because sharing a word is not knowing someone (handbook §12). The checkboxes
+thin the lines: each tick is a requirement, so more ticks leave fewer, stronger
+links.
+
+- `GET /connections/map` and `GET /connections/map/:personId/neighbourhood`.
+  The focus is checked with `rowInWorkspace`, so a person from another
+  workspace is a 404, not an empty list.
+- Migration `20260913050000_connections_neighbourhood` (already applied to
+  staging).
+- The server's clock is passed to the map. Two clocks a moment apart put every
+  dot a hair apart and React reported a hydration mismatch.
+
+**Connections — tags are marked inside the sentence.** While you write a note,
+detected tags and @mentions are highlighted in the text itself, behind the
+native textarea, so typing, spellcheck and the phone keyboard are untouched.
+Hovering a chip under the note lights up its words.
+
 ## [0.73.19] — 2026-09-13 — The Thread stops writing across workspaces (staging)
 
 **Security.** Found by reading `routes/thread.ts` after another session

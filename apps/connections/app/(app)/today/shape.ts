@@ -28,6 +28,8 @@ export type OwedRow = {
   overdue: boolean;
   person: PersonRef | null;
   organisation: { id: string; name: string } | null;
+  /** Estimated minutes — the kind's default, never asked for. */
+  minutes: number;
 };
 
 export type PrepareSignal =
@@ -58,12 +60,14 @@ export type PrepareRow = {
   person: PersonRef | null;
   /** Exactly one destination, never a menu. */
   link: { kind: 'person' | 'thread'; id: string } | null;
+  /** Estimated minutes; per-person signals already multiplied by count. */
+  minutes: number;
 };
 
 export type TodayPayload = {
   now: string;
   horizon: Horizon;
-  segments: { key: Horizon; count: number }[];
+  segments: { key: Horizon; count: number; minutes: number }[];
   owed: OwedRow[];
   prepare: PrepareRow[];
 };

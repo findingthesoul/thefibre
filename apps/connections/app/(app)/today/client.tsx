@@ -15,6 +15,7 @@ import { useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { AlertCircle, CalendarClock, CheckSquare, Receipt, UserRound } from 'lucide-react';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
+import { formatMinutes } from '@/lib/effort-format';
 
 // The rendering half of Today. Client, for one reason that matters: the only
 // clock in a server render is Fly's, which is UTC, so a 14:00 meeting would
@@ -94,13 +95,13 @@ function Segments({
   active,
   locale,
 }: {
-  segments: { key: Horizon; count: number }[];
+  segments: { key: Horizon; count: number; minutes: number }[];
   active: Horizon;
   locale: Locale;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const byKey = new Map(segments.map((s) => [s.key, s.count]));
+  const byKey = new Map(segments.map((s) => [s.key, s]));
 
   // A segmented control, not four stacked sections — four sections means
   // scrolling past three you did not ask for (§3). The COUNT is on every
@@ -132,7 +133,14 @@ function Segments({
             }`}
           >
             <span className="truncate">{t(locale, SEGMENT_KEYS[h])}</span>
-            <span className="tabular-nums text-[11px] leading-none">{byKey.get(h) ?? 0}</span>
+            <span className="tabular-nums text-[11px] leading-none">{byKey.get(h)?.count ?? 0}</span>
+            {/* The estimate under the count: "next week is heavy" in hours,
+                not only in rows (connections-overview.md §3). */}
+            {(byKey.get(h)?.minutes ?? 0) > 0 && (
+              <span className="tabular-nums text-[10px] leading-none text-ink-subtle">
+                {formatMinutes(byKey.get(h)!.minutes, locale)}
+              </span>
+            )}
           </Link>
         );
       })}
@@ -155,6 +163,7 @@ export function Today({
 }) {
   const now = new Date(data.now).getTime();
   const empty = data.owed.length === 0 && data.prepare.length === 0;
+  const totalMinutes = data.segments.find((s) => s.key === horizon)?.minutes ?? 0;
 
   const time = (iso: string) =>
     new Intl.DateTimeFormat(INTL_LOCALES[locale], { timeStyle: 'short' }).format(new Date(iso));
@@ -164,6 +173,15 @@ export function Today({
       <Segments segments={data.segments} active={horizon} locale={locale} />
 
       {empty && <p className="mt-8 text-sm text-ink-muted">{t(locale, 'today_all_clear')}</p>}
+
+      {/* One sentence that turns the list into a plan. Estimates are the
+          defaults for each kind of work, adjustable in settings, and the
+          sentence says "about" because that is what they are. */}
+      {!empty && totalMinutes > 0 && (
+        <p className="mt-4 text-sm text-ink-muted">
+          {t(locale, 'today_effort_total', { time: formatMinutes(totalMinutes, locale) })}
+        </p>
+      )}
 
       {/* Preparation first. What you owe you already know about; what is
           coming at you is the thing you would otherwise meet unprepared. */}
@@ -202,6 +220,7 @@ export function Today({
                     <span className="truncate">{title}</span>
                   </span>
                   <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                    {r.minutes > 0 && <span className="mr-2 text-ink-subtle">~{formatMinutes(r.minutes, locale)}</span>}
                     {relative(r.days_until, locale)}
                     {r.signal === 'meeting_brief' && (
                       <>
@@ -262,6 +281,7 @@ export function Today({
                     <span className="truncate">{o.title}</span>
                   </span>
                   <span className="shrink-0 text-xs text-ink-muted tabular-nums">
+                    {o.minutes > 0 && <span className="mr-2 text-ink-subtle">~{formatMinutes(o.minutes, locale)}</span>}
                     {o.overdue && <span className="mr-1">{t(locale, 'today_overdue')}</span>}
                     {relative(days, locale)}
                   </span>

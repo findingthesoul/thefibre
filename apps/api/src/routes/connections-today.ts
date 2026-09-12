@@ -29,6 +29,8 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
 import { actorUserId } from '../middleware/app-context.js';
+import { effortFor, taskKind, type EffortKind } from '../lib/effort.js';
+import { loadEffortOverrides } from './connections-effort.js';
 
 export const connectionsTodayRoutes = new Hono();
 
@@ -160,6 +162,11 @@ type OwedRow = {
   organisation_id: string | null;
   person: PersonRef | null;
   organisation: OrgRef | null;
+  /** Where the task came from, which decides its estimate (lib/effort.ts). */
+  kind: EffortKind;
+  /** Estimated minutes. Never asked for: the kind's default, or the
+   *  workspace's own number for that kind. */
+  minutes: number;
   in: Record<Horizon, boolean>;
 };
 
@@ -189,6 +196,8 @@ type PrepareRow = {
   person: PersonRef | null;
   /** Where the row taps to. Exactly one destination, never a menu (§4.4). */
   link: { kind: 'person' | 'thread'; id: string } | null;
+  /** Estimated minutes; per-person signals multiply by `count`. */
+  minutes: number;
   in: Record<Horizon, boolean>;
 };
 
@@ -227,7 +236,7 @@ connectionsTodayRoutes.get('/today', async (c) => {
     // you did not do last week is work you have today.
     const { data: taskRows, error: taskErr } = await adminClient
       .from('flow_task')
-      .select('id, title, due_at, status, contact_id, organisation_id, assignee_user_id')
+      .select('id, title, due_at, status, contact_id, organisation_id, assignee_user_id, step_default_task_id, gate_task_id')
       .eq('workspace_id', ws)
       .is('deleted_at', null)
       .in('status', ['open', 'in_progress'])
@@ -236,6 +245,20 @@ connectionsTodayRoutes.get('/today', async (c) => {
       .order('due_at', { ascending: true })
       .limit(MAX_TASKS);
     if (taskErr) throw new Error(`flow_task: ${taskErr.message}`);
+
+    // Which of these tasks a note created, so a follow-up is estimated as a
+    // follow-up. Recognised by the note's pointer, never by the title.
+    const taskIds = ((taskRows ?? []) as { id: string }[]).map((t) => t.id);
+    const followUps = new Set<string>();
+    if (taskIds.length) {
+      const { data, error } = await adminClient
+        .from('flow_run_note')
+        .select('follow_up_task_id')
+        .eq('workspace_id', ws)
+        .in('follow_up_task_id', taskIds);
+      if (error) throw new Error(`flow_run_note: ${error.message}`);
+      for (const r of (data ?? []) as { follow_up_task_id: string }[]) followUps.add(r.follow_up_task_id);
+    }
 
     for (const t of (taskRows ?? []) as Record<string, string | null>[]) {
       // "What I OWE" — mine, plus anything nobody has picked up. An
@@ -253,6 +276,15 @@ connectionsTodayRoutes.get('/today', async (c) => {
         organisation_id: t.organisation_id ?? null,
         person: null,
         organisation: null,
+        kind: taskKind(
+          {
+            step_default_task_id: t.step_default_task_id ?? null,
+            gate_task_id: t.gate_task_id ?? null,
+          },
+          followUps.has(t.id as string),
+        ),
+        // Filled in once the overrides are read, below.
+        minutes: 0,
         in: segmentsFor(due, w),
       });
     }
@@ -410,7 +442,8 @@ connectionsTodayRoutes.get('/today', async (c) => {
             person_id: null,
             person: null,
             link: { kind: 'thread', id: threadId },
-            in: segmentsFor(prepareAt, w),
+            minutes: 0,
+          in: segmentsFor(prepareAt, w),
           });
         }
       }
@@ -436,6 +469,7 @@ connectionsTodayRoutes.get('/today', async (c) => {
           person_id: null,
           person: null,
           link: { kind: 'thread', id: threadId },
+          minutes: 0,
           in: segmentsFor(prepareAt, w),
         });
       }
@@ -525,7 +559,8 @@ connectionsTodayRoutes.get('/today', async (c) => {
         person_id: pid,
         person: null,
         link: pid ? { kind: 'person', id: pid } : null,
-        in: segmentsFor(prepareAt, w),
+        minutes: 0,
+          in: segmentsFor(prepareAt, w),
       });
     }
 
@@ -598,6 +633,7 @@ connectionsTodayRoutes.get('/today', async (c) => {
           person_id: pid,
           person: null,
           link: pid ? { kind: 'person', id: pid } : null,
+          minutes: 0,
           in: segmentsFor(prepareAt, w),
         });
       }
@@ -646,13 +682,20 @@ connectionsTodayRoutes.get('/today', async (c) => {
     return c.json({ error: (e as Error).message }, 500);
   }
 
+  // Estimates, after everything is collected: one read of the workspace's
+  // overrides, applied to every row. A failed read falls back to the shipped
+  // defaults inside loadEffortOverrides rather than failing the page.
+  const overrides = await loadEffortOverrides(ws);
+  for (const o of owed) o.minutes = effortFor(o.kind, null, overrides);
+  for (const p of prepare) p.minutes = effortFor(p.signal, p.count, overrides);
+
   // Counts for ALL four segments — the number is what you read before you
   // tap, and "next week is heavy" is only visible if next week was counted.
-  const segments = HORIZONS.map((key) => ({
-    key,
-    count:
-      owed.filter((o) => o.in[key]).length + prepare.filter((p) => p.in[key]).length,
-  }));
+  // Minutes beside them turn the count into a plan (connections-overview §3).
+  const segments = HORIZONS.map((key) => {
+    const rows = [...owed.filter((o) => o.in[key]), ...prepare.filter((p) => p.in[key])];
+    return { key, count: rows.length, minutes: rows.reduce((sum, r) => sum + r.minutes, 0) };
+  });
 
   const owedNow = owed
     .filter((o) => o.in[horizon])

@@ -79,3 +79,29 @@ export async function saveBandLabels(
     return { ok: false, error: 'unknown error' };
   }
 }
+
+/**
+ * Change how long kinds of work take, for the whole workspace. A null puts
+ * the shipped default back. Today is revalidated because every estimate on it
+ * reads these numbers.
+ */
+export async function saveEffortDefaults(
+  minutes: Record<string, number | null>,
+): Promise<ActResult> {
+  try {
+    await apiFetch('/api/v1/connections/effort', {
+      method: 'PUT',
+      body: JSON.stringify({ minutes }),
+    });
+    revalidatePath('/today');
+    revalidatePath('/settings/effort');
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      if (e.status === 403) return { ok: false, error: 'forbidden' };
+      const body = e.body as { error?: unknown } | undefined;
+      return { ok: false, error: typeof body?.error === 'string' ? body.error : `API ${e.status}` };
+    }
+    return { ok: false, error: 'unknown error' };
+  }
+}

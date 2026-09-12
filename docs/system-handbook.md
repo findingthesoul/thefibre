@@ -893,6 +893,42 @@ against production data** — reads on prod are fine; writes need a fixture
 workspace or an explicit check-in first. Rehearse risky flows (payments,
 erasure, cutovers) on staging or a Solidarity-Lab-owned prod fixture.
 
+### 11.3a A refusal test needs a success twin
+
+**A test that asserts a request is refused cannot, on its own, tell a working
+check from one the request never reached.** Pair every refusal with the
+nearest request that must SUCCEED — same route, same caller, same fixture,
+one thing different. If the refusal passes and its twin also fails, the
+refusal was never testing your check.
+
+Found 2026-09-13 writing `apps/api/src/integration/thread-tenancy.int.test.ts`
+for the cross-workspace fix in v0.73.19. The co-organiser refusal test —
+"an admin cannot add somebody from another workspace" — passed. Its twin,
+"an admin CAN add somebody from their own workspace", failed with the same
+404. The fixture admin had no Thread `app_membership`, RLS on `thread_thread`
+hides a thread from such a user, and the route checks visibility through RLS
+BEFORE the tenancy check. Both requests stopped at that earlier gate. The
+refusal was green and proved nothing.
+
+Two companion habits that made the rest of that suite trustworthy:
+
+- **Run the suite against the unfixed code.** Swap the old route in, run it,
+  put the fix back. The refusal tests must FAIL there and the success twins
+  must pass on both. That suite: 16/16 fixed, 11 failing unfixed — one per
+  hole — with the 5 legitimate paths green either way. A security test that
+  has never been seen to fail has not been shown to detect anything.
+- **Check the schema before tightening a filter.** The same fix nearly scoped
+  an organiser lookup by workspace. `thread_organiser.user_id` is UNIQUE
+  across the whole platform, so that filter would have 500'd every
+  co-organiser invite for anybody in two workspaces. A filter that looks like
+  tightening can break a legitimate path; scoping is not automatically safe,
+  and "add a workspace filter" is exactly the reflex a tenancy fix produces.
+
+Unit tests can satisfy the rule by accident — `workspace-refs.test.ts` pairs
+"accepts a person in the caller's own workspace" with "refuses one in
+another" — which is the argument for stating it: a rule followed by accident
+is not followed by the next test.
+
 ### 11.4 Release gates (run per release)
 
 0. `./scripts/release-guard.sh <intended-version>` — refuses a release

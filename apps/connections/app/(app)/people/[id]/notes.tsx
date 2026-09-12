@@ -29,9 +29,12 @@ import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, fetchVocabulary, type NoteKind } from './actions';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
+import { TagHighlightBox } from '@/components/tag-highlight-box';
 import {
   detectMentions,
   detectTags,
+  foldKey,
+  highlightRanges,
   type DetectedMention,
   type DetectedTag,
   type KnownPerson,
@@ -176,6 +179,8 @@ export function Notes({
    * name so a different capitalisation is the same refusal.
    */
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
+  /** The chip being pointed at, so its word lights up in the sentence. */
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const [status, setStatus] = useState<Status>('idle');
   /** Notes on this device waiting to reach the server, across every person. */
   const [waiting, setWaiting] = useState(0);
@@ -245,6 +250,9 @@ export function Notes({
   );
   const peopleMentioned = mentions.filter((m) => m.kind === 'person');
   const orgsMentioned = mentions.filter((m) => m.kind === 'organisation');
+  // Where each tag and mention sits in the sentence, from the SAME detection
+  // results the chips show, so the two can never disagree about a word.
+  const ranges = highlightRanges(body, tags, mentions);
 
   function payload(isDraft: boolean) {
     if (!clientRef.current) clientRef.current = crypto.randomUUID();
@@ -421,13 +429,17 @@ export function Notes({
         }}
         className="rounded-lg border border-line bg-surface-raised p-3 sm:p-4"
       >
-        <textarea
+        {/* The tags are marked INSIDE the sentence as it is typed. The real
+            text box is untouched — the tints are painted behind it — so
+            typing, autocorrect and the caret behave exactly as before. See
+            TagHighlightBox for why that trade was made. */}
+        <TagHighlightBox
           value={body}
-          onChange={(e) => setBody(e.target.value)}
-          rows={3}
+          onChange={setBody}
+          ranges={ranges}
+          activeKey={activeKey}
           placeholder={t(locale, 'note_placeholder')}
-          aria-label={`${t(locale, 'notes_heading')} — ${personName}`}
-          className="w-full resize-y bg-transparent text-sm leading-relaxed placeholder:text-ink-muted focus:outline-none"
+          ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
 
         {/* Tags found in what was just written.
@@ -453,6 +465,14 @@ export function Notes({
                 onClick={() =>
                   setDismissed((d) => new Set(d).add(`@${m.name.toLowerCase()}`))
                 }
+                // Pointing at a chip lights its word in the sentence, so the
+                // chip and the highlight read as the same thing. Focus too,
+                // not only hover, for keyboards and for touch screens that
+                // focus on first tap.
+                onMouseEnter={() => setActiveKey(foldKey(m.name))}
+                onMouseLeave={() => setActiveKey(null)}
+                onFocus={() => setActiveKey(foldKey(m.name))}
+                onBlur={() => setActiveKey(null)}
                 title={t(locale, 'note_mention_remove')}
                 className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-surface-sunken px-3 text-xs"
               >
@@ -474,6 +494,10 @@ export function Notes({
                 onClick={() =>
                   setDismissed((d) => new Set(d).add(tag.name.toLowerCase()))
                 }
+                onMouseEnter={() => setActiveKey(foldKey(tag.name))}
+                onMouseLeave={() => setActiveKey(null)}
+                onFocus={() => setActiveKey(foldKey(tag.name))}
+                onBlur={() => setActiveKey(null)}
                 title={t(locale, tag.via === 'organisation' ? 'note_tag_org' : 'note_tag_remove')}
                 className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-ink bg-ink px-3 text-xs text-ink-inverse"
               >

@@ -77,6 +77,12 @@ function fold(s: string): string {
   return s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
 }
 
+/** The folded form a highlight range is keyed by — exported so a chip can
+ *  name the word it belongs to without re-implementing the folding. */
+export function foldKey(s: string): string {
+  return fold(s);
+}
+
 /**
  * Whole-word containment, so the tag "art" does not fire on "participate".
  * Both sides are folded to single-spaced lowercase first, which makes a
@@ -238,5 +244,102 @@ export function detectMentions(
     }
   }
 
+  return out;
+}
+
+// ── Where each tag sits in the sentence ─────────────────────────────────────
+//
+// D71. Sjoerd, 2026-09-12: *"when typing... and a word is finished... it can
+// turn it into a tag"*. The chips under the box already carry the meaning;
+// this is what lets the WORD itself look like a tag, in place.
+//
+// The functions above decide WHAT is a tag. This only decides WHERE — so it is
+// given their results rather than re-deciding, and can never mark a word the
+// chips do not also show. Two implementations of "is this a tag" would drift,
+// and the first time they did the sentence and the chips would disagree about
+// the same word.
+
+export type HighlightRange = {
+  start: number;
+  end: number;
+  kind: 'tag' | 'organisation' | 'person';
+  /** Folded name, matching the chip's, so hovering a chip can light the word. */
+  key: string;
+};
+
+function escapeRegExp(s: string): string {
+  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function highlightRanges(
+  text: string,
+  tags: readonly DetectedTag[],
+  mentions: readonly DetectedMention[],
+): HighlightRange[] {
+  const found: HighlightRange[] = [];
+
+  const hashed = new Map(tags.filter((t) => t.via === 'hash').map((t) => [fold(t.name), t]));
+  const prose = tags.filter((t) => t.via !== 'hash');
+  const mentioned = new Map(mentions.map((m) => [fold(m.typed), m]));
+
+  // #words — the whole token including the hash, so the marker reads as part
+  // of the tag rather than as a stray character beside a highlight.
+  for (const m of text.matchAll(HASH)) {
+    const key = fold(m[1]!);
+    const tag = hashed.get(key);
+    if (!tag) continue;
+    found.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      kind: tag.organisationId ? 'organisation' : 'tag',
+      key: fold(tag.name),
+    });
+  }
+
+  // @mentions, the same way.
+  for (const m of text.matchAll(AT)) {
+    const mention = mentioned.get(fold(m[1]!));
+    if (!mention) continue;
+    found.push({
+      start: m.index,
+      end: m.index + m[0].length,
+      kind: mention.kind,
+      key: fold(mention.name),
+    });
+  }
+
+  // Words from the vocabulary, found in the ORIGINAL text. The detector
+  // compared folded text, so a two-word tag matches across punctuation ("deep,
+  // democracy"); this allows the same separators between the words, and
+  // requires a non-letter on either side so "art" never lights up inside
+  // "participate".
+  for (const tag of prose) {
+    const words = fold(tag.name).split(' ').filter(Boolean).map(escapeRegExp);
+    if (!words.length) continue;
+    const re = new RegExp(
+      `(?<![\\p{L}\\p{N}#@])${words.join('[^\\p{L}\\p{N}]+')}(?![\\p{L}\\p{N}])`,
+      'giu',
+    );
+    for (const m of text.matchAll(re)) {
+      found.push({
+        start: m.index,
+        end: m.index + m[0].length,
+        kind: tag.organisationId ? 'organisation' : 'tag',
+        key: fold(tag.name),
+      });
+    }
+  }
+
+  // Overlaps resolved by position then length, so "Solidarity Lab" wins over
+  // a tag "lab" inside it. A word can only be one thing on screen.
+  found.sort((a, b) => a.start - b.start || b.end - b.start - (a.end - a.start));
+  const out: HighlightRange[] = [];
+  let cursor = -1;
+  for (const r of found) {
+    if (r.start >= cursor) {
+      out.push(r);
+      cursor = r.end;
+    }
+  }
   return out;
 }

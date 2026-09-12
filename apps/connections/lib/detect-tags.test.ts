@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectMentions, detectTags, type KnownTag } from './detect-tags';
+import { detectMentions, detectTags, highlightRanges, type KnownTag } from './detect-tags';
 
 // The vocabulary a small workspace might actually have: two tags somebody
 // made, and two organisations it holds.
@@ -150,6 +150,64 @@ describe('the two mechanisms stay apart', () => {
     // as a tag one day, detectTags has no concept of a person and this test
     // exists so the signature cannot quietly grow one.
     expect(detectTags('Wilma Doornbos came by', KNOWN)).toEqual([]);
+  });
+});
+
+describe('where the tags sit in the sentence', () => {
+  const PEOPLE = [{ id: 'p1', name: 'Wilma Doornbos' }];
+  /** Detect exactly as the composer does, then mark. */
+  const marked = (text: string) => {
+    const ranges = highlightRanges(
+      text,
+      detectTags(text, KNOWN),
+      detectMentions(text, PEOPLE, KNOWN),
+    );
+    return ranges.map((r) => text.slice(r.start, r.end));
+  };
+
+  it('marks a hashed tag including its #', () => {
+    expect(marked('good chat about #sdg13 today')).toEqual(['#sdg13']);
+  });
+
+  it('marks a vocabulary word where it was actually typed', () => {
+    expect(marked('some Outreach in March ')).toEqual(['Outreach']);
+  });
+
+  it('marks a two-word tag across the punctuation between its words', () => {
+    expect(marked('she runs deep, democracy sessions')).toEqual(['deep, democracy']);
+  });
+
+  it('marks an organisation name', () => {
+    expect(marked('met her at the EBBF gathering')).toEqual(['EBBF']);
+  });
+
+  it('marks an @mention including its @', () => {
+    expect(marked('spoke with @wilma about it ')).toEqual(['@wilma']);
+  });
+
+  it('never marks a word inside another word', () => {
+    const r = highlightRanges('everyone will participate', detectTags('everyone will participate', [{ id: 'x', name: 'art' }]), []);
+    expect(r).toEqual([]);
+  });
+
+  it('marks every occurrence, not only the first', () => {
+    expect(marked('outreach, then more outreach ')).toEqual(['outreach', 'outreach']);
+  });
+
+  it('marks nothing the chips would not also show', () => {
+    // An unfinished hash is not detected, so it must not light up either —
+    // the sentence and the chips can never disagree about the same word.
+    expect(marked('talked about #sdg1')).toEqual([]);
+  });
+
+  it('lets the longer match win when two overlap', () => {
+    const vocab = [
+      { id: 'a', name: 'lab' },
+      { id: 'b', name: 'Solidarity Lab', organisationId: 'o2' },
+    ];
+    const text = 'invoiced via Solidarity Lab ';
+    const r = highlightRanges(text, detectTags(text, vocab), []);
+    expect(r.map((x) => text.slice(x.start, x.end))).toEqual(['Solidarity Lab']);
   });
 });
 
