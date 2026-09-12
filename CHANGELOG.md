@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.19] — 2026-09-13 — The Thread stops writing across workspaces (staging)
+
+**Security.** Found by reading `routes/thread.ts` after another session
+reported the same class in `PUT /notes` and said plainly it had not looked at
+Thread. Several routes wrote through the service-role client — which RLS
+never sees — and checked nothing about the caller. Any signed-in user of ANY
+workspace on the platform could:
+
+- **grant any user The Thread, with role admin** — `POST /internal-team` read
+  no context at all, and `app_membership` has no `workspace_id` column, so a
+  grant to another tenant's user was access inside their workspace;
+- **put themselves into any team as lead**, or add anyone — `POST
+  /teams/:id/members`, which since v0.69.0 is also an app-access grant,
+  because teams decide which apps their people open;
+- **remove anybody from any team** — `DELETE /teams/:id/members/:userId`;
+- **replace another workspace's certificate grants** — `PUT
+  /certificate-templates/:id/shares`. Its GET sibling was fixed for reading
+  across workspaces on 2026-07-05 and carries a comment saying so; the PUT
+  beside it, which WROTE across them, was not;
+- **wipe another workspace's template grants by "deleting" the template** —
+  both template deletes run an RLS delete that silently matches nothing for a
+  foreign id, then a service-role share cleanup that ran regardless;
+- **add somebody from another workspace as a co-organiser** of a thread — a
+  host co-organiser may approve, decline and mark enrolments paid.
+
+Every one now resolves the target inside the caller's workspace first, with a
+single 404 for "does not exist" and "exists elsewhere", so the routes cannot
+be used to learn which ids live in other tenants. Authority inside the
+workspace is unchanged: an admin, or a team's lead.
+
+**Proved, not read.** `src/integration/thread-tenancy.int.test.ts` attacks
+all seven routes through the real `appContext` middleware with real
+signed-in sessions, in process, on staging. Against the fixed code, 16 of 16
+pass. With the UNFIXED routes swapped in, 11 fail — every hole — while the
+five legitimate paths pass on both, so the suite tells a closed hole from an
+open one and a fix from a lockout.
+
+Two mistakes caught by that test rather than by reading, recorded because
+both are the kind a careful read misses:
+
+- The co-organiser lookup was scoped by workspace. `thread_organiser.user_id`
+  is UNIQUE platform-wide, so that would have made every co-organiser invite
+  500 for anybody belonging to two workspaces. Reverted.
+- The first co-organiser refusal test passed VACUOUSLY. RLS hides a thread
+  from a user without Thread membership, so the request stopped at an earlier
+  404 and never reached the check. Its success-case twin failing is what
+  exposed it. A refusal test with no success twin cannot tell a working check
+  from an unreachable one.
+
+**One truth about the schema instead of two.** `lib/workspace-refs.ts` now
+states each table's soft-delete column in one map read by one lookup. It had
+been a hardcoded exception — "every table has `deleted_at` except
+`flow_run`" — which was wrong both ways: `flow_run` does have `deleted_at`,
+with four of its 56 production rows soft-deleted, so a note could attach to a
+deleted flow run; and the team and template tables have none, so adding them
+under the old rule would have refused every legitimate caller. The check
+fails closed, so a wrong entry looks like an admin being refused, never like
+a hole.
+
+On STAGING only. Promoting it is Sjoerd's call; the severity argues for soon.
+
 ## [0.73.18] — 2026-09-13 — a security fix, and Connections on a phone with no signal (staging)
 
 **Promote this one soon.** It carries a fix for a write across workspaces that

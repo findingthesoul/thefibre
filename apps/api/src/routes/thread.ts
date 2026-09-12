@@ -6,6 +6,13 @@ import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
 import { publicSite, siteContactEmail } from '../lib/public-site.js';
 import { hit } from '../lib/rate-limit.js';
+import {
+  rowInWorkspace,
+  isWorkspaceMember,
+  allWorkspaceMembers,
+  allTeamsInWorkspace,
+} from '../lib/workspace-refs.js';
+import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
@@ -1571,9 +1578,53 @@ const TeamMemberAdd = z.object({
   role: z.enum(['lead', 'member']).default('member'),
 });
 
+/**
+ * May the caller change who is in this team?
+ *
+ * Until 2026-09-13 neither the add nor the remove route below asked. They
+ * wrote through the service-role client, which RLS never sees, and read no
+ * context at all — so any signed-in user of ANY workspace could add anyone to
+ * any team, including as lead, or remove anyone from one. Since v0.69.0 teams
+ * decide which apps their people open, which made the add route an access
+ * grant across tenants as well.
+ *
+ * The team is resolved inside the caller's workspace FIRST, and a team that
+ * is missing and a team that is elsewhere give the same 404, so the route
+ * cannot be used to learn which team ids exist in another workspace. Then
+ * the same authority PATCH /teams/:id already applies: an admin, or a lead of
+ * this team.
+ */
+async function teamAuthority(
+  ctx: { userId: string; workspaceId: string },
+  teamId: string,
+): Promise<'ok' | 'not_found' | 'forbidden'> {
+  if (!(await rowInWorkspace('team', teamId, ctx.workspaceId))) return 'not_found';
+  if (isAdminRole(await callerWorkspaceRole(ctx))) return 'ok';
+  const { data: lead } = await adminClient
+    .from('team_member')
+    .select('user_id')
+    .eq('team_id', teamId)
+    .eq('user_id', ctx.userId)
+    .eq('role', 'lead')
+    .maybeSingle();
+  return lead ? 'ok' : 'forbidden';
+}
+
 threadRoutes.post('/teams/:id/members', async (c) => {
   const body = TeamMemberAdd.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const authority = await teamAuthority(ctx, c.req.param('id'));
+  if (authority === 'not_found') return c.json({ error: 'not found' }, 404);
+  if (authority === 'forbidden') {
+    return c.json({ error: 'only the team lead (or an admin) can change the team' }, 403);
+  }
+  // The person being added must belong to this workspace too — otherwise a
+  // team here becomes a door into this workspace's apps for somebody from
+  // another one.
+  if (!(await isWorkspaceMember(ctx.workspaceId, body.data.user_id))) {
+    return c.json({ error: 'not found' }, 404);
+  }
   const { error } = await adminClient.from('team_member').upsert(
     {
       team_id: c.req.param('id'),
@@ -1588,6 +1639,12 @@ threadRoutes.post('/teams/:id/members', async (c) => {
 });
 
 threadRoutes.delete('/teams/:id/members/:userId', async (c) => {
+  const ctx = c.get('ctx');
+  const authority = await teamAuthority(ctx, c.req.param('id'));
+  if (authority === 'not_found') return c.json({ error: 'not found' }, 404);
+  if (authority === 'forbidden') {
+    return c.json({ error: 'only the team lead (or an admin) can change the team' }, 403);
+  }
   const { error } = await adminClient
     .from('team_member')
     .delete()
@@ -1831,6 +1888,19 @@ const InternalGrant = z.object({
 threadRoutes.post('/internal-team', async (c) => {
   const body = InternalGrant.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  // Until 2026-09-13 this route read no context at all: any signed-in user of
+  // any workspace could grant any user The Thread, with role `admin`. And
+  // app_membership carries no workspace_id, so a grant to another tenant's
+  // user was access inside THEIR workspace. Granting app access is an admin
+  // act, and only to somebody who is a member here — which is exactly what
+  // GET /internal-team above already lists.
+  if (!isAdminRole(await callerWorkspaceRole(ctx))) {
+    return c.json({ error: 'only a workspace admin can change who opens The Thread' }, 403);
+  }
+  if (!(await isWorkspaceMember(ctx.workspaceId, body.data.user_id))) {
+    return c.json({ error: 'not found' }, 404);
+  }
   const { data: app } = await adminClient
     .from('app')
     .select('id')
@@ -1893,7 +1963,25 @@ threadRoutes.post('/threads/:id/members', async (c) => {
   if (!thread) return c.json({ error: 'not found' }, 404);
   if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
+  // The invited user must belong to the thread's workspace (2026-09-13). The
+  // thread itself was checked through RLS above, but the person was not, so a
+  // thread here could be given a co-organiser from another tenant — and a
+  // host co-organiser may approve, decline and mark paid on its enrolments.
+  if (!(await isWorkspaceMember(thread.workspace_id as string, body.data.user_id))) {
+    return c.json({ error: 'not found' }, 404);
+  }
+
   // The invited user needs a thread_organiser row — auto-provision like /me.
+  //
+  // NOT filtered by workspace, deliberately. thread_organiser.user_id is
+  // UNIQUE across the whole platform (20260701090000, never relaxed; checked
+  // in production 2026-09-13: nine rows, no user with two). A person who
+  // belongs to two workspaces has ONE organiser row, living in whichever they
+  // were provisioned in first. A workspace filter here would miss that row,
+  // provisioning would then insert a second one, the unique constraint would
+  // refuse it, and inviting any multi-workspace member as a co-organiser
+  // would 500. The check that matters is the membership check above; this
+  // lookup only finds the row that person already has.
   let { data: organiser } = await adminClient
     .from('thread_organiser')
     .select('id')
@@ -2008,11 +2096,19 @@ threadRoutes.patch('/thread-templates/:id', async (c) => {
 threadRoutes.delete('/thread-templates/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  // The delete below goes through RLS, which quietly matches nothing for a
+  // template in another workspace — and the share cleanup after it goes
+  // through the service client, which ran regardless and wiped THAT
+  // workspace's grants (found 2026-09-13). Ownership first, then both.
+  if (!(await rowInWorkspace('thread_template', c.req.param('id'), ctx.workspaceId))) {
+    return c.json({ error: 'not found' }, 404);
+  }
   const { error } = await db.from('thread_template').delete().eq('id', c.req.param('id'));
   if (error) return c.json({ error: error.message }, 500);
   await adminClient
     .from('thread_template_share')
     .delete()
+    .eq('workspace_id', ctx.workspaceId)
     .eq('template_kind', 'thread')
     .eq('template_id', c.req.param('id'));
   return c.body(null, 204);
@@ -4387,6 +4483,13 @@ threadRoutes.delete('/certificate-templates/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const id = c.req.param('id');
+  // Same shape as the thread-template delete: an RLS delete that silently
+  // matches nothing for a foreign id, followed by a service-role share wipe
+  // that did not care (2026-09-13). The in-use count below was already
+  // workspace-scoped, so a foreign id sailed straight past it.
+  if (!(await rowInWorkspace('thread_certificate_template', id, ctx.workspaceId))) {
+    return c.json({ error: 'not found' }, 404);
+  }
 
   // In use → archive, never delete. "In use" = a thread points at it.
   // (Issued certificates carry full snapshots — they never break — but a
@@ -4411,6 +4514,7 @@ threadRoutes.delete('/certificate-templates/:id', async (c) => {
   await adminClient
     .from('thread_template_share')
     .delete()
+    .eq('workspace_id', ctx.workspaceId)
     .eq('template_kind', 'certificate')
     .eq('template_id', c.req.param('id'));
   return c.body(null, 204);
@@ -4427,9 +4531,24 @@ threadRoutes.put('/certificate-templates/:id/shares', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const id = c.req.param('id');
+  // The GET beside this route was fixed on 2026-07-05 for reading across
+  // workspaces; this PUT was not, and it WROTE across them. Its delete had no
+  // workspace filter and nothing checked the template was ours, so it replaced
+  // another workspace's grants with rows pointing at their template
+  // (2026-09-13). Ownership of the template, then of every grantee.
+  if (!(await rowInWorkspace('thread_certificate_template', id, ctx.workspaceId))) {
+    return c.json({ error: 'not found' }, 404);
+  }
+  if (
+    !(await allWorkspaceMembers(ctx.workspaceId, body.data.user_ids)) ||
+    !(await allTeamsInWorkspace(ctx.workspaceId, body.data.team_ids))
+  ) {
+    return c.json({ error: 'not found' }, 404);
+  }
   await adminClient
     .from('thread_template_share')
     .delete()
+    .eq('workspace_id', ctx.workspaceId)
     .eq('template_kind', 'certificate')
     .eq('template_id', id);
   const rows = [
