@@ -25,6 +25,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { refsBelongToWorkspace } from '../lib/workspace-refs.js';
 
 export const notesRoutes = new Hono();
 
@@ -126,6 +127,34 @@ notesRoutes.put('/', async (c) => {
   }
   if (!validTimezone(d.happened_tz)) {
     return c.json({ error: `unknown timezone: ${d.happened_tz}` }, 400);
+  }
+
+  // ── Whatever the note is about must live in THIS workspace ───────────────
+  //
+  // This route writes through the service-role client, so RLS is not
+  // checking anything, and until 2026-09-13 nothing here checked either. The
+  // request named a person_id and the note was filed under the caller's
+  // workspace pointing at it, wherever that person lived. Proved on staging
+  // with a fixture: the database ACCEPTED a note in one workspace about a
+  // person in another. The same request then attached tags to that person
+  // and wrote an activity row against them — a write across the wall between
+  // customers, gated only by knowing a uuid.
+  //
+  // Found while building the offline note queue, which would have made it
+  // reachable by accident: queue a note, switch workspace, reconnect, and the
+  // replay files it under the wrong tenant.
+  //
+  // Checked here, once, before anything is written — not in each derived
+  // effect, where one forgotten check would reopen it.
+  const owned = await refsBelongToWorkspace(ctx.workspaceId, {
+    person_id: d.person_id ?? null,
+    organisation_id: d.organisation_id ?? null,
+    flow_run_id: d.flow_run_id ?? null,
+  });
+  if (!owned.ok) {
+    // 404 rather than 403: "that person is in another workspace" would
+    // confirm the id exists somewhere, which is itself a leak.
+    return c.json({ error: `${owned.field} not found` }, 404);
   }
 
   const row = {
@@ -338,13 +367,32 @@ async function applyTags(
   tags: { name: string; organisation_id?: string | undefined }[],
 ): Promise<void> {
   try {
+    // An organisation_id in a tag comes from the browser, same as the note's
+    // own person_id, and needed the same check. Without it a tag in this
+    // workspace could point at another workspace's organisation — the same
+    // cross-tenant write the route now refuses for the note's subject, one
+    // level down. An id that is not ours is DROPPED rather than failing the
+    // note: the word still becomes a plain tag, which is what it would have
+    // been had the organisation never been recognised.
+    const claimed = [...new Set(tags.map((t) => t.organisation_id).filter(Boolean))] as string[];
+    const ours = new Set<string>();
+    if (claimed.length) {
+      const { data } = await adminClient
+        .from('organisation')
+        .select('id')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .in('id', claimed);
+      for (const o of data ?? []) ours.add(o.id as string);
+    }
+
     // organisation_id is always present in the shape, null when the word is
     // not an organisation's name. A conditional spread would give the array a
     // union element type that PostgREST's generated types reject.
     const rows = tags.map((t) => ({
       workspace_id: workspaceId,
       name: t.name.trim(),
-      organisation_id: t.organisation_id ?? null,
+      organisation_id: t.organisation_id && ours.has(t.organisation_id) ? t.organisation_id : null,
     }));
 
     const { error: upErr } = await adminClient
