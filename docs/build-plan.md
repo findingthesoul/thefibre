@@ -1038,8 +1038,10 @@ code on 2026-09-12 rather than remembered.
 
 **Open, in the order I would do them**
 
-1. **Step 6b — effort estimates and the forward view.** Defaults per task
-   kind, per workspace, never asked for (`connections-overview.md` §3).
+1. **Step 6b, second half — free time beside the estimates.** Estimates on
+   Today shipped in v0.73.21 (STAGING). The overcommitment sentence ("fourteen
+   hours of preparation, nine unbooked") still needs the week's busy time from
+   the calendar; the agenda reads only today.
 2. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
 3. **Map clusters.** Placement is a plain hash of the id today, so people who
    belong together are not placed together. §5c of connections-desktop.md
@@ -1053,13 +1055,15 @@ the device, and the list is names only — but the design doc said no, so the
 call is yours before promotion. Removing it means the offline page takes a
 typed name, which the server then resolves.
 
-**On staging, not yet promoted (v0.73.17 to v0.73.20):** the tag cloud and
+**On staging, not yet promoted (v0.73.17 to v0.73.21):** the tag cloud and
 list, `@` mentions, people in a popup, the phone app and offline notes, the
-security fixes in v0.73.18 and v0.73.19, inline tags, and the map. v0.73.18
+security fixes in v0.73.18 and v0.73.19, inline tags, the map, and effort
+estimates on Today. v0.73.18
 also FIXES TWO BUGS LIVE IN PRODUCTION: a save that fails for lack of network
-left the composer on "Saving…" forever and locked Done until reload. Two
-migrations wait for production — `20260913040000_note_mentions.sql` and
-`20260913050000_connections_neighbourhood.sql`, both additive. Promotion order
+left the composer on "Saving…" forever and locked Done until reload. Three
+migrations wait for production — `20260913040000_note_mentions.sql`,
+`20260913050000_connections_neighbourhood.sql` and
+`20260913060000_connections_effort_default.sql`, all additive. Promotion order
 is db-push-prod, then promote.sh, then fly deploy; see system-handbook §10.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
