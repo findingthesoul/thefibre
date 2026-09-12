@@ -3,6 +3,7 @@ import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { PeopleList, type Person } from './people-list';
+import { isAxis, type Axis } from '../landscape/axes';
 
 // Everyone this workspace knows, as a list you can search and open.
 //
@@ -23,10 +24,14 @@ type PersonsPage = { items: Person[]; next: string | null };
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; pages?: string }>;
+  searchParams: Promise<{ q?: string; pages?: string; axis?: string; band?: string }>;
 }) {
   const sp = await searchParams;
   const q = (sp.q ?? '').trim();
+  // Arriving from a band on the landscape. An unknown axis falls back rather
+  // than 404s, the same rule the landscape itself uses for a stale bookmark.
+  const axis: Axis = isAxis(sp.axis) ? sp.axis : 'maturity';
+  const band = (sp.band ?? '').trim() || null;
   const wanted = Math.min(Math.max(Number.parseInt(sp.pages ?? '1', 10) || 1, 1), MAX_PAGES);
   const locale = await uiLocale();
 
@@ -58,23 +63,37 @@ export default async function PeoplePage({
   //     EVERY person in one go, which is why it is cheaper than asking per
   //     row and why it covers rows on later pages too.
   //
-  // Only the maturity axis. The other axes are the landscape's to offer — a
-  // second picker here would let the two surfaces disagree about what
-  // "standing" means.
+  // Maturity unless the landscape sent us here on another axis. There is
+  // still no picker on this page: the axis arrives in the URL from the band
+  // that was tapped, so the two surfaces can never disagree about what a
+  // band means — they are reading the same call with the same argument.
   //
-  // Never fatal: a list without bands is still a list.
+  // Never fatal: a list without bands is still a list. But a list that was
+  // ASKED for one band and could not fetch the bands would be a filter
+  // silently doing nothing, so that case drops the filter and says so.
   let total: number | null = null;
   let rungById: Record<string, string> = {};
+  let bandsUnavailable = false;
   try {
     const l = await apiFetch<{ total: number; people?: { person_id: string; rung: string }[] }>(
-      '/api/v1/connections/landscape?since_days=30&people=1',
+      `/api/v1/connections/landscape?since_days=30&axis=${axis}&people=1`,
     );
     if (!q) total = l.total;
     rungById = Object.fromEntries((l.people ?? []).map((p) => [p.person_id, p.rung]));
   } catch {
     total = null;
     rungById = {};
+    bandsUnavailable = true;
   }
+
+  // Filtering happens over the rows already loaded, which is a real limit
+  // worth naming: with more people than the loaded window holds, somebody in
+  // this band can sit on a page nobody has asked for yet. Load more still
+  // works and still extends the filtered list, and `bandTotal` below comes
+  // from the landscape rather than from the rows, so the count on screen is
+  // the true size of the band and not the size of what happened to load.
+  const bandTotal = band ? Object.values(rungById).filter((r) => r === band).length : null;
+  const shown = band && !bandsUnavailable ? items.filter((p) => rungById[p.id] === band) : items;
 
   return (
     <PageContainer>
@@ -85,10 +104,13 @@ export default async function PeoplePage({
 
       {!error && (
         <PeopleList
-          items={items}
+          items={shown}
           q={q}
           total={total}
           rungById={rungById}
+          axis={axis}
+          band={band}
+          bandTotal={bandTotal}
           hasMore={cursor !== null}
           nextPages={Math.min(wanted + 1, MAX_PAGES)}
           locale={locale}

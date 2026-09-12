@@ -769,6 +769,119 @@ sign in locally — that's known, not broken. Seed realistic data:
 §8 worked example). After a burst of many file changes (e.g. parallel
 agents), the Next dev server can wedge — kill and restart `pnpm dev`.
 
+### Sharing a constant between a server and a client component
+
+A **value** read by both a server component and a `'use client'` one must
+live in a module that is neither. Next replaces a client module's exports
+with proxies and erases the types, so a constant exported from a `'use
+client'` file and imported by a server component typechecks and then crashes
+on first render — a local `next build` does not catch it. Two such modules
+exist for exactly this reason: `apps/connections/app/(app)/today/shape.ts`
+and `apps/connections/app/(app)/landscape/axes.ts`.
+
+A **type** crosses freely from anywhere, as long as the import says `import
+type` — it is erased before Next builds a module graph, so no proxy is ever
+made. `apps/thread/lib/public-site.ts` is read by nine server components and
+one client component and survives on precisely this, which also means it
+survives by accident: nothing in the file says so, and the first person to
+import a VALUE from it there will find out the hard way.
+
+The trap is the const that reads like a type. A label map, a list of stages,
+a lookup table — all values.
+
+### A derived view over empty data looks WRONG, not empty
+
+Found in Connections on 2026-09-12 and general to every app here, because
+every app here computes a view from data another app filled in.
+
+**A rule written from one surface is not yet a rule, it is a description of
+that surface.** Both halves of this section were written that way and both
+were wrong until a second session tested them against a second surface — the
+"never hide it" version would have put teaching copy under every quiet
+Tuesday on Thread's home page, and the shape-of-the-view condition shipped as
+a live bug in Connections. So: test a general claim against a surface you did
+not write it from BEFORE it goes in, and treat "it survives" as a finding
+rather than a formality.
+
+Empty is honest and legible: no rows, one sentence, done. The failure mode is
+different and worse — a view that computes **correctly over nothing** and
+renders a confident, fully-formed answer. One bar at 100%. A chart with a
+single flat line. A score of zero presented as a score. The reader cannot
+tell a true statement about a young workspace from a broken page, and the
+more polished the rendering, the more it reads as a bug.
+
+The concrete case: three of Connections' five landscape axes put every person
+in one band, because those axes read captured conversations and recorded
+introductions and nothing had written either yet. Correct arithmetic, and it
+looked broken. Sjoerd's report was *"I dont get what it is doing now"*.
+
+**First decide WHICH emptiness it is**, because there are two and they want
+opposite treatments.
+
+*Transient* empty is a healthy workspace on an ordinary day: nothing on
+today, nobody enrolled this week, no invoice outstanding. It recurs forever,
+it is unremarkable, and a sentence teaching the reader how to fill it would
+appear every quiet Tuesday and become exactly the permanent furniture this
+rule is trying to prevent. **Hide it.** That is the correct answer, not the
+lazy one — Thread's home page hides a section with nothing in it for this
+reason, and should keep doing so.
+
+*Structural* empty is the case above: a source that has never been written to
+at all, so the view is not reporting a quiet week, it is reporting that a
+feature has never been used. **That earns the sentence.**
+
+The test between them is not "is it empty now" but "has anything ever been
+here". (Split added 2026-09-12 by the Thread session, testing the rule
+against a real dashboard at the author's invitation; the original text said
+simply "do not hide", which would have put teaching copy under every quiet
+Tuesday on Thread's home page.)
+
+**For the structural case, do not hide the section.** Hiding is the cheap fix
+and it costs the teaching moment, which is the one thing a day-one workspace
+needs; it leaves a short page that explains nothing. Instead say three things
+in one breath:
+
+1. what the surface is reading from,
+2. that the source is empty,
+3. the single action that would fill it — *"Write down a conversation on a
+   person and this axis starts working."*
+
+**Compute the condition from the data, never from a flag or a first-run
+check.** Then the sentence appears only while it is true and disappears by
+itself the moment it stops being true, instead of becoming permanent
+onboarding furniture somebody has to remember to switch off.
+
+**Point that computation at the SOURCE, not at the shape of the view.** "One
+occupied band out of five" also describes a workspace where everybody
+genuinely has been spoken to and nobody has been introduced — a true, stable
+answer the sentence would then nag at forever. "Zero conversations have ever
+been captured here" is the fact that actually makes the axis uninformative,
+it is the fact the sentence promises to change, and it stops being true
+exactly once.
+
+The source-not-shape correction above is not theoretical: Connections
+shipped the shape version in v0.73.6 and it was a real bug for half an hour.
+"Everybody in one band" also fires on a workspace where every person sits at
+`committed`, which would have been told to go add something to the pipeline
+it already has. The fix is `AXIS_UNWRITTEN_BAND` in
+`apps/connections/app/(app)/landscape/axes.ts` — per axis, the band a person
+falls into when nothing has been written — and the sentence renders only when
+the single occupied band is that one. For those five axes it is equivalent to
+counting the source and needs no second query; an axis whose bottom band were
+reachable with a non-empty source would need the real count.
+
+Applies to: the Connections landscape (done), Thread's home page, Pulse's
+dashboard, and anything else whose numbers come from a table a different
+app writes.
+
+One honest instance of the same sin, recorded by the session that shipped it
+rather than found by review: Thread's home page counts approvals and unpaid
+invoices from the 200 most recent enrolments, because that is where the
+endpoint caps. On a large workspace it renders a confident number that is
+quietly incomplete. It is documented in the file header and every count links
+through to the page holding the full truth — a mitigation, not a defence. A
+count is the most confident thing a screen can say.
+
 ### Debugging
 
 **Read the API server log first, hypothesise second.** `upsertProfile`,
