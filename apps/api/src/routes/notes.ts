@@ -76,6 +76,16 @@ const NoteUpsert = z.object({
     )
     .max(20)
     .optional(),
+  /**
+   * People named with `@` inside the note — somebody other than the person
+   * the note is about.
+   *
+   * Sent as ids the composer resolved from a picker, never as names for the
+   * server to match. Same rule the tags follow, and it matters more here: a
+   * name resolved server-side would be a guess, and the cost of guessing
+   * wrong is a claim attached to the wrong person.
+   */
+  mentions: z.array(z.string().uuid()).max(20).optional(),
 });
 
 function validTimezone(tz: string | null | undefined): boolean {
@@ -218,7 +228,15 @@ notesRoutes.put('/', async (c) => {
       await applyTags(ctx.workspaceId, d.person_id, noteId, d.tags);
     }
 
-    // 3. One activity row. Type + subject only — the body never crosses.
+    // 3. Mentions. Replaced wholesale rather than added to, so removing an @
+    //    from a note removes the mention — a note is edited until it commits,
+    //    and a mention that outlives its own sentence is a claim nobody can
+    //    trace back to anything.
+    if (d.mentions && d.person_id) {
+      await applyMentions(ctx.workspaceId, noteId, d.person_id, d.mentions);
+    }
+
+    // 4. One activity row. Type + subject only — the body never crosses.
     if (d.person_id) {
       const { data: app } = await adminClient
         .from('app')
@@ -242,6 +260,61 @@ notesRoutes.put('/', async (c) => {
 
   return c.json({ id: noteId, committed: justCommitted, follow_up_task_id: followUpTaskId });
 });
+
+/**
+ * Replace the people mentioned in a note.
+ *
+ * The note's OWN subject is filtered out: a note about Wilma that says
+ * "@wilma" must not record her as a mention of herself, and the composer
+ * cannot be relied on to prevent it because somebody will type it.
+ *
+ * Failures are warned and swallowed, like tags. A mention is an enrichment;
+ * losing one must never cost somebody the note they actually wrote, which is
+ * the thing here that cannot be derived from anything else.
+ */
+async function applyMentions(
+  workspaceId: string,
+  noteId: string,
+  subjectId: string,
+  personIds: string[],
+): Promise<void> {
+  try {
+    const wanted = [...new Set(personIds)].filter((id) => id !== subjectId);
+
+    // Delete-then-insert rather than a diff: the list is tiny, and a diff
+    // would be three round trips to save one.
+    const { error: dErr } = await adminClient
+      .from('flow_run_note_mention')
+      .delete()
+      .eq('note_id', noteId);
+    if (dErr) {
+      console.warn('[notes] clearing mentions failed (non-fatal)', dErr.message);
+      return;
+    }
+    if (!wanted.length) return;
+
+    // Only people in THIS workspace. The ids arrive from a browser, and a
+    // guessed uuid must not create a row pointing across tenants.
+    const { data: valid } = await adminClient
+      .from('person')
+      .select('id')
+      .eq('workspace_id', workspaceId)
+      .is('deleted_at', null)
+      .in('id', wanted);
+    if (!valid?.length) return;
+
+    const { error } = await adminClient.from('flow_run_note_mention').insert(
+      valid.map((p) => ({
+        note_id: noteId,
+        person_id: p.id as string,
+        workspace_id: workspaceId,
+      })),
+    );
+    if (error) console.warn('[notes] mentions failed (non-fatal)', error.message);
+  } catch (e) {
+    console.warn('[notes] applyMentions threw (non-fatal)', e);
+  }
+}
 
 /**
  * Find-or-create each tag in the workspace, then attach it to the person.

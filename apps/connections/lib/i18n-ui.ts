@@ -6333,6 +6333,25 @@ const CATALOG = {
     de: 'Erkannt', // MT
     fr: 'Repéré', // MT
   },
+  // People named with @. A different heading from the tags, because they are
+  // a different thing: a tag is a characteristic somebody carries, a mention
+  // is that they were in this conversation.
+  note_also_here: {
+    en: 'Also here',
+    nl: 'Ook aanwezig',
+    es: 'También presentes', // MT
+    pt: 'Também presentes', // MT
+    de: 'Auch dabei', // MT
+    fr: 'Également présents', // MT
+  },
+  note_mention_remove: {
+    en: 'Remove them from this note, keep the word',
+    nl: 'Haal ze uit deze notitie, het woord blijft staan',
+    es: 'Quítalos de esta nota y deja la palabra', // MT
+    pt: 'Remove-os desta nota e mantém a palavra', // MT
+    de: 'Aus dieser Notiz entfernen, das Wort bleibt', // MT
+    fr: 'Les retirer de cette note, garder le mot', // MT
+  },
   note_tag_remove: {
     en: 'Remove the tag, keep the word',
     nl: 'Haal de tag weg, het woord blijft staan',

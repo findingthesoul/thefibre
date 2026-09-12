@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { detectTags, type KnownTag } from './detect-tags';
+import { detectMentions, detectTags, type KnownTag } from './detect-tags';
 
 // The vocabulary a small workspace might actually have: two tags somebody
 // made, and two organisations it holds.
@@ -87,6 +87,69 @@ describe('organisations', () => {
   it('keeps an existing tag id when the organisation already has one', () => {
     const [tag] = detectTags('invoiced through Solidarity Lab last week', KNOWN);
     expect(tag).toMatchObject({ id: 't3', organisationId: 'o2', via: 'organisation' });
+  });
+});
+
+describe('@ mentions', () => {
+  const PEOPLE = [
+    { id: 'p1', name: 'Wilma Doornbos' },
+    { id: 'p2', name: 'Joost Veenstra' },
+  ];
+  const ORGS: KnownTag[] = [{ name: 'EBBF', organisationId: 'o1' }];
+  const found = (text: string) => detectMentions(text, PEOPLE, ORGS);
+
+  it('finds a person by first name', () => {
+    expect(found('spoke with @wilma about it ')).toMatchObject([{ id: 'p1', kind: 'person' }]);
+  });
+
+  it('finds a person by surname', () => {
+    expect(found('@doornbos was there ')).toMatchObject([{ id: 'p1' }]);
+  });
+
+  it('finds a person by the whole name without a space', () => {
+    expect(found('@wilmadoornbos joined ')).toMatchObject([{ id: 'p1' }]);
+  });
+
+  it('finds an organisation', () => {
+    expect(found('met them through @ebbf ')).toMatchObject([{ id: 'o1', kind: 'organisation' }]);
+  });
+
+  it('refuses an ambiguous fragment rather than guessing', () => {
+    // Two people whose first names are the same. The cost of picking the
+    // wrong one is a claim on the wrong person's record, which is the same
+    // cost that keeps automatic name matching out of this module entirely.
+    const two = [
+      { id: 'a', name: 'Wilma Doornbos' },
+      { id: 'b', name: 'Wilma Veenstra' },
+    ];
+    expect(detectMentions('@wilma said so ', two, [])).toEqual([]);
+  });
+
+  it('waits until the word is finished', () => {
+    expect(found('spoke with @wilm')).toEqual([]);
+  });
+
+  it('finds nothing for an unknown name', () => {
+    expect(found('@nobody was there ')).toEqual([]);
+  });
+
+  it('never picks up a bare name without the @', () => {
+    // The whole reason people are allowed in this module at all: intent, not
+    // inference. A name in prose stays invisible here.
+    expect(found('Wilma Doornbos was there')).toEqual([]);
+  });
+
+  it('does not report the same mention twice', () => {
+    expect(found('@wilma and later @wilma again ')).toHaveLength(1);
+  });
+});
+
+describe('the two mechanisms stay apart', () => {
+  it('detectTags never sees people', () => {
+    // Belt and braces on the rule: even if somebody passes a person's name in
+    // as a tag one day, detectTags has no concept of a person and this test
+    // exists so the signature cannot quietly grow one.
+    expect(detectTags('Wilma Doornbos came by', KNOWN)).toEqual([]);
   });
 });
 

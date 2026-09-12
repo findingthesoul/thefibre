@@ -24,11 +24,18 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, SlidersHorizontal, X } from 'lucide-react';
+import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, fetchVocabulary, type NoteKind } from './actions';
-import { detectTags, type DetectedTag, type KnownTag } from '@/lib/detect-tags';
+import {
+  detectMentions,
+  detectTags,
+  type DetectedMention,
+  type DetectedTag,
+  type KnownPerson,
+  type KnownTag,
+} from '@/lib/detect-tags';
 
 export type Note = {
   id: string;
@@ -134,6 +141,15 @@ export function Notes({
    */
   const [vocabulary, setVocabulary] = useState<KnownTag[]>([]);
   /**
+   * People this workspace knows, for `@` only.
+   *
+   * Held in its own state rather than merged into `vocabulary`, and that is
+   * the guarantee rather than a preference: detectTags takes `vocabulary` and
+   * has no parameter these could reach. Matching a name in prose is a guess;
+   * `@` is somebody choosing from a list.
+   */
+  const [mentionable, setMentionable] = useState<KnownPerson[]>([]);
+  /**
    * Tags the person has taken off. Sjoerd, 2026-09-12: *"clicking it can also
    * X the tag and keep it as a word"* — removing a tag must not remove the
    * word from the sentence, and re-typing the word must not bring the tag
@@ -162,8 +178,10 @@ export function Notes({
   useEffect(() => {
     let alive = true;
     fetchVocabulary()
-      .then((w) => {
-        if (alive) setVocabulary(w);
+      .then((v) => {
+        if (!alive) return;
+        setVocabulary(v.words);
+        setMentionable(v.people);
       })
       // Silent: without the vocabulary nothing is detected and the composer
       // is exactly the composer it was before this feature. A banner would
@@ -177,6 +195,16 @@ export function Notes({
   const tags: DetectedTag[] = detectTags(body, vocabulary).filter(
     (t) => !dismissed.has(t.name.toLowerCase()),
   );
+
+  // `@` — people and organisations, resolved from what was typed. An
+  // organisation mention is already a tag (an organisation IS a
+  // characteristic of the people in it), so only PEOPLE need their own list;
+  // the organisation ones are folded in with the tags below.
+  const mentions: DetectedMention[] = detectMentions(body, mentionable, vocabulary).filter(
+    (m) => !dismissed.has(`@${m.name.toLowerCase()}`),
+  );
+  const peopleMentioned = mentions.filter((m) => m.kind === 'person');
+  const orgsMentioned = mentions.filter((m) => m.kind === 'organisation');
 
   function payload(isDraft: boolean) {
     if (!clientRef.current) clientRef.current = crypto.randomUUID();
@@ -198,10 +226,15 @@ export function Notes({
       // Only what is on screen right now. The API applies this list rather
       // than re-detecting, so what the person SAW is what gets written —
       // including the ones they took off.
-      tags: tags.map((t) => ({
-        name: t.name,
-        ...(t.organisationId ? { organisation_id: t.organisationId } : {}),
-      })),
+      tags: [
+        ...tags.map((t) => ({
+          name: t.name,
+          ...(t.organisationId ? { organisation_id: t.organisationId } : {}),
+        })),
+        // An @organisation becomes a tag like any other organisation word.
+        ...orgsMentioned.map((m) => ({ name: m.name, organisation_id: m.id })),
+      ],
+      mentions: peopleMentioned.map((m) => m.id),
     };
   }
 
@@ -324,6 +357,30 @@ export function Notes({
             
             Nothing here blocks: a note with every tag removed saves exactly
             like a note with none found. */}
+        {/* People named with @. Separate from the tags, because they are a
+            different thing: a tag is a characteristic somebody carries, a
+            mention is that they were in this conversation. */}
+        {peopleMentioned.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-ink-muted">{t(locale, 'note_also_here')}</span>
+            {peopleMentioned.map((m) => (
+              <button
+                key={m.id}
+                type="button"
+                onClick={() =>
+                  setDismissed((d) => new Set(d).add(`@${m.name.toLowerCase()}`))
+                }
+                title={t(locale, 'note_mention_remove')}
+                className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-line bg-surface-sunken px-3 text-xs"
+              >
+                <AtSign size={12} className="text-ink-subtle" />
+                {m.name}
+                <X size={12} className="opacity-60 group-hover:opacity-100" />
+              </button>
+            ))}
+          </div>
+        )}
+
         {tags.length > 0 && (
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <span className="text-xs text-ink-muted">{t(locale, 'note_tags')}</span>

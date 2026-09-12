@@ -38,26 +38,38 @@ export const connectionsTagsRoutes = new Hono();
  * ordinary interface, so it discloses nothing they did not already have. That
  * holds for the sole trader too, which is what makes it the right test.
  *
- * Person names are still deliberately absent, for a different reason:
- * matching bare names is where false positives live (see lib/detect-tags.ts),
- * and a feature that would need them is a feature that should not exist.
+ * People ARE in this payload, under their own key, and were deliberately not
+ * until `@` existed. The distinction is the one that governs this whole area:
+ * `detectTags` must never see them, because matching a name in prose is a
+ * guess that lands a claim on a real person's record. `@` is somebody typing
+ * a marker and choosing from a list — intent, not inference — so the names
+ * have to be here for the picker to work, in a SEPARATE array the automatic
+ * matcher cannot reach.
  */
 connectionsTagsRoutes.get('/vocabulary', async (c) => {
   const ctx = c.get('ctx');
 
-  const [{ data: tags, error: tErr }, { data: orgs, error: oErr }] = await Promise.all([
-    adminClient
-      .from('tag')
-      .select('id,name,organisation_id')
-      .eq('workspace_id', ctx.workspaceId)
-      .limit(2000),
-    adminClient
-      .from('organisation')
-      .select('id,name')
-      .eq('workspace_id', ctx.workspaceId)
-      .is('deleted_at', null)
-      .limit(2000),
-  ]);
+  const [{ data: tags, error: tErr }, { data: orgs, error: oErr }, { data: people }] =
+    await Promise.all([
+      adminClient
+        .from('tag')
+        .select('id,name,organisation_id')
+        .eq('workspace_id', ctx.workspaceId)
+        .limit(2000),
+      adminClient
+        .from('organisation')
+        .select('id,name')
+        .eq('workspace_id', ctx.workspaceId)
+        .is('deleted_at', null)
+        .limit(2000),
+      adminClient
+        .from('person')
+        .select('id,first_name,last_name,email')
+        .eq('workspace_id', ctx.workspaceId)
+        .is('deleted_at', null)
+        .is('merged_into', null)
+        .limit(2000),
+    ]);
   if (tErr || oErr) return c.json({ error: (tErr ?? oErr)!.message }, 500);
 
   // An organisation that already has a tag appears once, as that tag, so the
@@ -78,7 +90,20 @@ connectionsTagsRoutes.get('/vocabulary', async (c) => {
       .map((o) => ({ name: o.name as string, organisation_id: o.id as string })),
   ];
 
-  return c.json({ words });
+  // A separate key, never merged into `words`. The shape is the guarantee:
+  // detectTags takes `words` and has no parameter that could receive these.
+  const mentionable = (people ?? [])
+    .map((p) => ({
+      id: p.id as string,
+      name:
+        [p.first_name, p.last_name].filter(Boolean).join(' ').trim() ||
+        ((p.email as string | null) ?? ''),
+    }))
+    // A person with no name and no address cannot be typed after an @, so
+    // shipping them would only make the payload bigger.
+    .filter((p) => p.name.length > 0);
+
+  return c.json({ words, people: mentionable });
 });
 
 /**
