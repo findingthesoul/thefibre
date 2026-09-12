@@ -31,6 +31,8 @@ Sjoerd, in the fibre chat, with three Visual Thesaurus screenshots attached:
 > I want to see connectiosn between people....
 >
 > with one or more charateristics
+>
+> could also be a list.... ordder in what ranks more...
 
 What the screenshots show, since they do not live in the repo:
 visualthesaurus.com, the word "connection". A force-directed graph, one big
@@ -41,6 +43,9 @@ panel lists the senses, grouped and colour-coded by part of speech, each
 group with its own on/off switch that filters what the map draws. Dashed
 lines mean a weaker or different relation than solid ones; one red dashed
 line marks an opposite ("disconnect").
+
+So the graph is one view, not the only one. A ranked list is another: the
+same people, ordered by how much they rank on the characteristic.
 
 Not scoped. Which surface he means is not settled either: "connections
 between people with one or more characteristics" reads like Connections,
