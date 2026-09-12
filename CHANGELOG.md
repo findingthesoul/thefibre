@@ -6,6 +6,39 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.1] — 2026-09-12 — the Connections build actually builds
+
+Three failures, three different causes, each one hidden behind the last.
+
+1. **Root Directory at the repo root**, so Vercel read the root `vercel.json`
+   whose `outputDirectory` is `apps/web/.next`. A project setting.
+2. **The Output Directory override survived that fix** and still said
+   `apps/web/.next`, now resolved against the new root as
+   `/vercel/path0/apps/connections/apps/web/.next`. Pinned explicitly in
+   `apps/connections/vercel.json`. The sibling apps omit it and rely on clean
+   dashboard settings, which is fine right up until a dashboard is not clean.
+3. **The real one, and a bug of ours.** `app/(app)/page.tsx` was a bare
+   redirect inside a route group, and `app/page.tsx` already resolves to the
+   same path. Next silently drops the duplicate and emits no
+   `page_client-reference-manifest.js` for it; Vercel then `lstat`s a file
+   that was never written, and the deploy dies **after** a successful build.
+   The root page already sends a signed-in user to `/landscape`, so the file
+   was redundant as well as fatal. Deleted.
+
+A local `next build` cannot catch (3): the manifest is only demanded when
+assembling the serverless function, which the local build never does. Two
+green builds in a row said nothing about it.
+
+Also: a blanket `.env*` in `.gitignore`, kept after the Vercel CLI added it,
+because it closes a real near-miss — a fresh worktree has no gitignored env
+files, so they get copied in by hand to run tests, and they never show in
+`git status`. The `!.env.example` negation is repeated below it, since a later
+rule wins and the original negation was dead the moment that line landed.
+
+Connections production env is now set (Supabase, API base, cookie domain
+`.thethread.app`, SSO secret) and the staging scope carries all thirteen,
+including `NEXT_PUBLIC_CONNECTIONS_URL`.
+
 ## [0.73.0] — 2026-09-12 — Connections can be written to (Connections 0.2.0)
 
 Four surfaces, built in parallel on one foundation, then integrated and
