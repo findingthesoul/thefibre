@@ -1029,7 +1029,7 @@ code on 2026-09-12 rather than remembered.
 |---|---|---|
 | 0 | `resolvePerson()` + reversible merge | `apps/api/src/lib/resolve-person.ts`, `person_merge` |
 | 1 | Landscape — derived ladder, five axes, mobile bands | `connections_landscape`, `connections_landscape_axis` |
-| 2 | Attention conditions — all five | `connections_attention` |
+| 2 | Attention conditions — all five, plus deal_rotting | `connections_attention` |
 | 3 | Notes — `client_ref` autosave, drafts, follow-ups | `flow_run_note`, `routes/notes.ts` |
 | 6a | Today + the horizon | `routes/connections-today.ts` |
 | 8b | Entries — who can get me in | `connections_entries` |
@@ -1039,25 +1039,35 @@ code on 2026-09-12 rather than remembered.
 | — | Tags detected while writing a note; organisations are tags | `lib/detect-tags.ts`, v0.73.10 |
 | 5a | **D72** — today's calendar, attendees matched to people by email | `routes/connections-agenda.ts`, v0.73.11 |
 | 2b | The fifth attention condition — carrying too much | `connections_attention`, v0.73.12 |
+| 0b | Nightly hygiene sweep + review queue | `lib/hygiene.ts`, `hygiene_finding`, v0.73.13 |
+| 4 | Rotting, one mechanism for people and deals | `pulse_commitment_stage_event`, `pulse_commitment_rot`, v0.73.14 |
+| — | The opportunity axis reads the stage log, so its movement is real | `connections_landscape_axis`, v0.73.15 |
 
 **Open, in the order I would do them**
 
-1. **0b — the nightly hygiene sweep.** The scheduler in `server.ts` runs every
-   five minutes and has no hygiene job on it. `person_duplicate_candidates()`
-   already exists and nothing calls it. Blocked on nothing except the
-   retention half, which is D69 and a business decision.
-2. **Step 4 — rotting, one mechanism for people and deals.** The cadence axis
-   rots PEOPLE against their own rhythm. Deals do not rot at all yet.
-3. **D71 — the tag inline in the sentence** rather than beside the box. Known
+1. **D71 — the tag inline in the sentence** rather than beside the box. Known
    technique, genuinely fragile on mobile; deserves its own go.
-4. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
+2. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
    cloud over four tags is a diagram of nothing. This is step 8's desktop
    landscape, and tags are the first edge source the rarity rule can police.
-5. **Step 6b — effort estimates and the forward view.**
-6. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
+3. **Step 6b — effort estimates and the forward view.**
+4. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
    service worker anywhere in this monorepo. Connections is a responsive web
    app with a mobile bottom nav, which is not the same thing.
-7. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+5. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+
+**D69 is now the sweep's missing half.** The hygiene sweep exists and finds
+things; `retention_policy` still exists and is referenced by nothing, so this
+database has still never deleted anything. A hygiene procedure without a
+retention half is tidying the surface of something that keeps getting heavier.
+The policies are a business decision, not an engineering one.
+
+**The last axis without history is `closeness`.** `relationship_strength` is
+a current-state column and the axis says so rather than inventing movement.
+Fixing it is the same decision `pulse_commitment_stage_event` answered — a
+change log, a trigger, an honest backfill — made again for a different
+column. Worth doing when somebody is rating people often enough for the
+history to be interesting.
 
 **Open decisions** (`connections-overview.md` §7): D11 Microsoft calendar,
 D21 audience as saved query or list, D27 the lifecycle rungs — *partly

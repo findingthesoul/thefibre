@@ -6,6 +6,176 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.15] — 2026-09-12 — the opportunity axis learns to remember
+
+The landscape has five readings, and until now two of them said the same
+apologetic thing under the movement heading: *"this axis has no history to
+compare against — only today's answer is recorded."*
+
+That was true when it was written. `pulse_commitment_stage_event` landed an
+hour ago for rotting deals, so it stopped being true for `opportunity`, and
+**an axis that shrugs when it now has the answer is a worse lie than the
+shrug was.**
+
+**One change.** The stage is read from the log at the cutoff instead of from
+`pulse_commitment.stage`, which is today's answer at every cutoff. Bands and
+arrivals are untouched; only movement becomes real. A deal that went from a
+lead to committed last week now shows as a person who moved, which is the
+question the movement list exists to answer.
+
+**What the log cannot say, and what is done about it.** Every deal that
+existed before the log has one backfilled row dated when it was last touched.
+Ask for an earlier cutoff and there is no event — not because the deal was at
+no stage, but because nobody was writing it down. Treating that as "not in
+the pipeline" would invent a wave of arrivals on the backfill date that never
+happened, the exact fabrication the backfill was designed to avoid. So it
+falls back to the earliest stage the log knows, then to today's value:
+conservative in the right direction, under-reporting movement rather than
+inventing it.
+
+**`closeness` keeps its notice and should.** `relationship_strength` has no
+log, and building one is the same decision made again for a different column,
+not something to paper over in a read.
+
+**Two things the fixtures caught, both of which read as failures and were
+not.** The first run showed the fixture person absent at every past cutoff —
+because the axis filters people by `created_at <= cutoff` and the fixture was
+made that morning. The filter was right; the test was wrong. The second was a
+function comment carried forward from before the log, still claiming
+opportunity had no history. Fixed in its own migration, because Supabase
+tracks migrations by filename and editing an applied file changes nothing on
+the remote.
+
+Verified on staging across three cutoffs: absent before the deal existed,
+`open` while it was a lead, `committed` today, and the fixture removed
+cleanly.
+
+
+## [0.73.14] — 2026-09-12 — deals rot the way people do
+
+Build-order step 4: *"cadence and rotting, one mechanism for people and
+deals"*. People already rotted — `went_quiet` measures somebody against their
+own rhythm. Deals could not, and the reason was structural rather than
+missing effort.
+
+**Nothing recorded when a deal changed stage.** `pulse_commitment` carries
+`stage` and `updated_at`, and `updated_at` moves when anything changes: a
+note, a label, a probability. So "how long has this been sitting at proposal"
+was unanswerable, which is why the axes migration said so out loud in
+September rather than faking it. `connections-data-integrity.md` named the
+fix: *"a stage/strength change log, which is a decision about writes, not a
+thing to paper over in a read."*
+
+**`pulse_commitment_stage_event`, maintained by a trigger.** Not by
+application code, because there is more than one writer and there will be
+more later: the board moves a stage by drag, the dialog by select, and
+anything reaching the table through PostgREST moves it without passing
+through either. A log kept by whichever path remembered is a log with holes,
+and a log with holes reads as authoritative while being silently wrong. A
+label edit does not log; only a stage move does.
+
+**The backfill says what it does not know.** Each existing commitment gets one
+row marked `source = 'backfill'`, dated `updated_at` — the best available
+upper bound on when its stage last moved — with `from_stage` null meaning
+"before this, unknown". Writing today's stage at `created_at` would have
+invented a history that every later read would trust.
+
+**Rot is measured against the workspace's own median time in that stage**,
+from moves that actually completed, needing two before it counts one as a
+rhythm. A proposal taking three weeks is normal in one practice and alarming
+in another.
+
+**A bug that returned zero and looked like good news.** The first version
+inner-joined to that median, so a stage nobody had left yet produced no row —
+and since the backfill writes one event per commitment, *no workspace had a
+completed move at all*. The function returned nothing, everywhere, with no
+error. A fixture caught it; reading it would not have, because "nothing is
+rotting" is exactly what a working version says most days. Now a stage with
+no local baseline falls back to a conservative 30 days and the row carries
+`measured: false`, so nobody has to guess whether a number was observed or
+assumed.
+
+**It lands on the attention list, not the pipeline.** A stalled deal is a
+stalled relationship wearing a number: the action is almost never "update the
+stage", it is "talk to them", and the person is where the conversation gets
+written down. Only commitments with a named person appear; one with an
+organisation alone is Pulse's own concern. The sixth condition delegates to
+`pulse_commitment_rot()` rather than re-implementing it, so the threshold has
+one definition.
+
+Proved on staging with a fixture: the trigger logs an insert and a move and
+stays quiet for a label edit, a deal left 400 days at one stage is flagged
+against a 30-day baseline, the row says the baseline is a default, and the
+whole chain reaches the attention list. On production it finds one.
+
+A door this opens and does not walk through: the opportunity axis still
+reports no movement, and the history it lacked now exists.
+
+
+## [0.73.13] — 2026-09-12 — a nightly check that proposes and never repairs
+
+`docs/connections-data-integrity.md` §9, from Sjoerd: *"how do we keep the
+data clean? Can we make a procedure to clean up the database regularly — auto,
+with AI support maybe?"*
+
+§9.1 answered the AI half and this release follows it: **the large majority of
+what goes wrong here is detectable with SQL** — exactly, cheaply, repeatably,
+and with an audit trail. A language model is slower, costs money, answers
+differently on different runs, and cannot be explained to a regulator. So
+this is a scheduled query and no model is involved.
+
+**It produces a review queue. It does not silently repair.** A sweep that
+rewrites a workspace's records at 3am is indistinguishable from corruption the
+morning somebody notices. Findings are rows with the evidence attached, and a
+person decides.
+
+**Three things it proposes**, never applies: two people who look like one,
+a person who is an address and nothing else with no activity in ninety days,
+and a flow run stuck at the same step for a year with no open task. Duplicates
+come from `person_duplicate_candidates()`, which existed since the merge work
+and had never been called by anything.
+
+**Two things it fixes**, because they are provably safe and reversible:
+whitespace and case in email addresses, and empty drafts older than two weeks.
+Both are **recorded as findings anyway**, with the value before the change,
+because "we changed your data and told nobody" is precisely what the queue
+exists to prevent. Drafts are soft-deleted, never hard — soft delete is a hard
+rule, and a draft with any text in it is untouched, because unfinished writing
+is not litter.
+
+**Never, not even as a proposal: filling in a blank.** Cleaning removes
+wrongness; it does not invent completeness. A suggestion that somebody
+"probably works at Acme" is enrichment wearing a hygiene badge.
+
+**Accept does not mean apply.** For a duplicate, applying would mean merging
+two people — a real operation with its own reversible implementation, its own
+confirmation and its own choice of which record survives. Behind a one-tap
+button in a cleanup list it would be the most dangerous control in the
+product. Accept records that somebody looked and agreed; doing the thing stays
+where it belongs.
+
+**The guard is persisted, not in memory.** The billing meters keep an hourly
+guard in a module variable, which is right for hourly work — but this repo
+deploys several times a day, and an in-memory guard would make "nightly" mean
+"every deploy". The stamp lives in `hygiene_run`, which is also the audit
+trail: a run that throws still writes a row, because a scheduled job that
+silently stopped three weeks ago has an empty table as its only symptom.
+
+**A bug the migration and the typechecker both missed.** The first version
+built the uniqueness index over an expression, `coalesce(related_id, …)`.
+Correct SQL, and unusable: PostgREST's conflict target takes a column list,
+not an expression, so every upsert failed and the sweep recorded nothing at
+all. It applied cleanly and typechecked. It was found by running the real
+sweep against staging, and fixed with `NULLS NOT DISTINCT`, which gives both
+a nameable column list and NULLs that collide.
+
+Proved on staging: 73 duplicate findings across 28 workspaces, the guard
+declining a second call a second later, and a planted fixture confirming an
+address is trimmed and lowercased, an empty draft is soft-deleted and not
+hard-deleted, both are recorded with the before-value, and the fixture leaves
+nothing behind.
+
+
 ## [0.73.12] — 2026-09-12 — the fifth condition: carrying a lot
 
 `docs/connections-model.md` §3.2 named five attention conditions. Four

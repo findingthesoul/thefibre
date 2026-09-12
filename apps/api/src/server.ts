@@ -14,6 +14,7 @@ import { connectionsEntriesRoutes } from './routes/connections-entries.js';
 import { connectionsLabelsRoutes } from './routes/connections-labels.js';
 import { connectionsTagsRoutes } from './routes/connections-tags.js';
 import { connectionsAgendaRoutes } from './routes/connections-agenda.js';
+import { connectionsHygieneRoutes } from './routes/connections-hygiene.js';
 import { organisationsRoutes } from './routes/organisations.js';
 import { activitiesRoutes } from './routes/activities.js';
 import { programsRoutes } from './routes/programs.js';
@@ -27,6 +28,7 @@ import { flowRoutes } from './routes/flow.js';
 import { pulseRoutes } from './routes/pulse.js';
 import { membershipRoutes, runMembershipScheduler } from './routes/membership.js';
 import { runBillingMeterTick } from './routes/billing.js';
+import { runHygieneSweep } from './lib/hygiene.js';
 import { currenciesRoutes } from './routes/currencies.js';
 import { membershipPortalRoutes } from './routes/membership-portal.js';
 import { portalRoutes } from './routes/portal.js';
@@ -236,6 +238,7 @@ v1.route('/connections', connectionsEntriesRoutes);
 v1.route('/connections', connectionsLabelsRoutes);
 v1.route('/connections', connectionsTagsRoutes);
 v1.route('/connections', connectionsAgendaRoutes);
+v1.route('/connections', connectionsHygieneRoutes);
 v1.route('/membership', membershipRoutes);
 v1.route('/currencies', currenciesRoutes);
 v1.route('/membership/portal', membershipPortalRoutes);
@@ -290,6 +293,11 @@ setTimeout(() => {
   void runBillingMeterTick().catch((e) =>
     console.error('[billing/meters] initial run failed', e),
   );
+  // Fourth job (connections-data-integrity.md §9.3). Its own nightly guard is
+  // PERSISTED in hygiene_run, not in memory, because this repo deploys
+  // several times a day and an in-memory guard would make "nightly" mean
+  // "every deploy".
+  void runHygieneSweep().catch((e) => console.error('[hygiene] initial run failed', e));
 }, 20_000);
 setInterval(() => {
   // Piggyback: hourly-ish guard, weekly probe of Stripe Tax → VAT table.
@@ -304,4 +312,5 @@ setInterval(() => {
   void runBillingMeterTick().catch((e) =>
     console.error('[billing/meters] run failed', e),
   );
+  void runHygieneSweep().catch((e) => console.error('[hygiene] run failed', e));
 }, SCHEDULER_INTERVAL_MS);
