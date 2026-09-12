@@ -39,6 +39,8 @@ Sjoerd, in the fibre chat, with three Visual Thesaurus screenshots attached:
 > Like info is like a tag
 >
 > a tag could be closness, but also company
+>
+> (sorry - all this neededd to go to connections)
 
 What the screenshots show, since they do not live in the repo:
 visualthesaurus.com, the word "connection". A force-directed graph, one big
@@ -58,9 +60,11 @@ a tag. His two examples pull in different directions: closeness, which is a
 degree and orders naturally, and company, which is a category you either
 share or do not.
 
-Not scoped. Which surface he means is not settled either: "connections
-between people with one or more characteristics" reads like Connections,
-but the interface complaint may be wider than one app.
+**Surface: Connections** (`apps/connections`, slug `fibre-sales`). He said so
+himself at the end. Its landscape already places people on derived axes, so
+this lands on a screen that exists rather than a blank one.
+
+Not scoped.
 
 ## Moved out
 
