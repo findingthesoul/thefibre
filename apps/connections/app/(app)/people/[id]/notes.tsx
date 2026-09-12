@@ -24,10 +24,11 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, SlidersHorizontal } from 'lucide-react';
+import { Check, SlidersHorizontal, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
-import { saveNote, type NoteKind } from './actions';
+import { saveNote, fetchVocabulary, type NoteKind } from './actions';
+import { detectTags, type DetectedTag, type KnownTag } from '@/lib/detect-tags';
 
 export type Note = {
   id: string;
@@ -125,6 +126,21 @@ export function Notes({
   const [when, setWhen] = useState('');
   const [followUp, setFollowUp] = useState<FollowUp | null>(null);
   const [details, setDetails] = useState(false);
+  /**
+   * Words this workspace already uses — its tags and the names of the
+   * organisations it holds. Fetched once per composer and held here, because
+   * detection runs on every keystroke and a round trip per keystroke would be
+   * both slow and a way to send a half-written sentence to a server.
+   */
+  const [vocabulary, setVocabulary] = useState<KnownTag[]>([]);
+  /**
+   * Tags the person has taken off. Sjoerd, 2026-09-12: *"clicking it can also
+   * X the tag and keep it as a word"* — removing a tag must not remove the
+   * word from the sentence, and re-typing the word must not bring the tag
+   * back, or the X would not be a decision, only a delay. Keyed by folded
+   * name so a different capitalisation is the same refusal.
+   */
+  const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [status, setStatus] = useState<Status>('idle');
   const [failure, setFailure] = useState<string | null>(null);
 
@@ -143,6 +159,25 @@ export function Notes({
 
   const hasContent = body.trim().length > 0 || followUp === 'week' || followUp === 'month';
 
+  useEffect(() => {
+    let alive = true;
+    fetchVocabulary()
+      .then((w) => {
+        if (alive) setVocabulary(w);
+      })
+      // Silent: without the vocabulary nothing is detected and the composer
+      // is exactly the composer it was before this feature. A banner would
+      // make a working note-taking box look broken over a missing garnish.
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  const tags: DetectedTag[] = detectTags(body, vocabulary).filter(
+    (t) => !dismissed.has(t.name.toLowerCase()),
+  );
+
   function payload(isDraft: boolean) {
     if (!clientRef.current) clientRef.current = crypto.randomUUID();
     let tz: string | undefined;
@@ -160,6 +195,13 @@ export function Notes({
       ...(tz ? { happened_tz: tz } : {}),
       follow_up_at: followUpIso(followUp),
       is_draft: isDraft,
+      // Only what is on screen right now. The API applies this list rather
+      // than re-detecting, so what the person SAW is what gets written —
+      // including the ones they took off.
+      tags: tags.map((t) => ({
+        name: t.name,
+        ...(t.organisationId ? { organisation_id: t.organisationId } : {}),
+      })),
     };
   }
 
@@ -271,6 +313,36 @@ export function Notes({
           aria-label={`${t(locale, 'notes_heading')} — ${personName}`}
           className="w-full resize-y bg-transparent text-sm leading-relaxed placeholder:text-ink-muted focus:outline-none"
         />
+
+        {/* Tags found in what was just written.
+            
+            They appear ON, not as a suggestion to accept, because the whole
+            request was that this happen "without you having to do it" — a row
+            of things to confirm would be another form. The X is the decision
+            that matters, and it takes the TAG off while leaving the WORD in
+            the sentence, which is the distinction Sjoerd drew.
+            
+            Nothing here blocks: a note with every tag removed saves exactly
+            like a note with none found. */}
+        {tags.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <span className="text-xs text-ink-muted">{t(locale, 'note_tags')}</span>
+            {tags.map((tag) => (
+              <button
+                key={tag.name}
+                type="button"
+                onClick={() =>
+                  setDismissed((d) => new Set(d).add(tag.name.toLowerCase()))
+                }
+                title={t(locale, tag.via === 'organisation' ? 'note_tag_org' : 'note_tag_remove')}
+                className="group inline-flex h-8 items-center gap-1.5 rounded-full border border-ink bg-ink px-3 text-xs text-ink-inverse"
+              >
+                {tag.name}
+                <X size={12} className="opacity-60 group-hover:opacity-100" />
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Follow-up: three taps, nothing preselected, closing without one
             is allowed. Tapping the chosen chip again unchooses it. */}

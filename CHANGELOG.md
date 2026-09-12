@@ -6,6 +6,70 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.10] — 2026-09-12 — tags that write themselves, from words you already use
+
+Sjoerd: *"if you type something after a visit or conversation, that it would
+integrate tags in the text... which connects things (without you having to do
+it)"* and *"e.g. company names are tags (if they exist; if not you can create
+it)"*.
+
+`tag` and `person_tag` were modelled in the first migration and read by
+nothing but the Article 15 export. `connections-model.md` §3.5 settled long
+ago that user-defined characteristics ARE tags rather than custom fields.
+This is the first surface that uses either.
+
+**Write a note; the tags appear.** Detection runs in the composer on every
+keystroke, against the workspace's OWN vocabulary: tags it already uses, and
+the names of organisations it holds. Plus `#anything` for a word nobody has
+used yet. They appear already on, because the request was that this happen
+without having to do it and a row of things to confirm is another form. The X
+removes the tag and leaves the word in the sentence.
+
+**No model, and nothing leaves the browser.** Note bodies are the most
+sensitive text in the system, and sending them to one is a processing
+operation needing a sub-processor entry, an EU endpoint and a DPA before it
+can happen at all (`connections-data-integrity.md` §9.5). None of that is
+needed to do the useful part, because the workspace's own words are already
+known.
+
+**Person names are deliberately not matched.** A false positive attaches a
+claim to a real person's record. An organisation name is distinctive and is
+not a person; a bare first name is neither.
+
+**Three rules that are load-bearing.** A word becomes a tag only once it is
+finished, or `#sdg13` flickers through four half-tags on the way to being
+typed. Matching is whole-word and case-insensitive, so "art" does not fire on
+"participate", and a two-word tag matches across punctuation. And the
+composer decides while the API applies: the tag list is sent explicitly and
+never re-detected server-side, because a second implementation of the same
+rules would eventually disagree with the chips, and the first time it did,
+somebody would be tagged with a word they watched themselves remove.
+
+**`person_tag` gained provenance** — `created_at`, `created_via`, `note_id`.
+Existing rows are backfilled to the epoch rather than to now, because
+backdating them to today would invent a stampede of arrivals that never
+happened. `note_id` is what makes an automatic tag answerable: "why is this
+person tagged sdg13" has to lead back to the sentence, or the tag is an
+assertion nobody can check.
+
+**`tag.organisation_id`** lets a tag name an organisation, unique per
+workspace so a company's people cannot split into two groups that look
+unrelated. One mechanism, not two — the alternative was a second kind of
+mention with its own table and its own rules.
+
+**Connections has unit tests now**, 17 of them, all on the detection rules.
+The app had none. Verified against production as well: the vocabulary query,
+find-or-create, the link with its provenance, the unique index correctly
+refusing a second tag for one organisation, and a clean-up that left nothing
+behind.
+
+`docs/connections-model.md` §3.7 records the three things asked for in the
+same conversation and not built yet: the tag cloud and map (D70), the tag
+marked inline in the sentence rather than beside it (D71, with the reason it
+is the risky one), and the calendar pre-selecting today's people (D72, which
+matches on email rather than name and is therefore the cheap one).
+
+
 ## [0.73.9] — 2026-09-12 — the steps keep their rules and lose their names
 
 Sjoerd, shown the six lifecycle steps: *"those six steps... not sure where

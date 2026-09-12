@@ -6016,6 +6016,32 @@ const CATALOG = {
     de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
     fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
   },
+  // ── Tags found in what you just wrote ────────────────────────────────────
+  note_tags: {
+    en: 'Picked up',
+    nl: 'Opgepikt',
+    es: 'Detectado', // MT
+    pt: 'Detetado', // MT
+    de: 'Erkannt', // MT
+    fr: 'Repéré', // MT
+  },
+  note_tag_remove: {
+    en: 'Remove the tag, keep the word',
+    nl: 'Haal de tag weg, het woord blijft staan',
+    es: 'Quitar la etiqueta y dejar la palabra', // MT
+    pt: 'Remover a etiqueta e manter a palavra', // MT
+    de: 'Tag entfernen, das Wort bleibt stehen', // MT
+    fr: 'Retirer l’étiquette, garder le mot', // MT
+  },
+  note_tag_org: {
+    en: 'An organisation you already hold. Remove the tag, keep the word.',
+    nl: 'Een organisatie die je al hebt. Haal de tag weg, het woord blijft staan.',
+    es: 'Una organización que ya tienes. Quita la etiqueta y deja la palabra.', // MT
+    pt: 'Uma organização que já tens. Remove a etiqueta e mantém a palavra.', // MT
+    de: 'Eine Organisation, die ihr schon habt. Tag entfernen, das Wort bleibt.', // MT
+    fr: 'Une organisation que vous avez déjà. Retirez l’étiquette, gardez le mot.', // MT
+  },
+
   // ── Naming the bands ─────────────────────────────────────────────────────
   // Sjoerd, 2026-09-12: "those six steps... not sure where they came from.
   // Can they be edited?" The names are the workspace's; what earns them is
