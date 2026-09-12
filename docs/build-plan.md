@@ -931,6 +931,15 @@ purchase machinery so grants ride the existing journal).
   for `seed-ebbf.mjs` here: on staging it targets the `default` workspace,
   which is the Stripe payment-rehearsal rig.
 
+- **Staging's visitor portal is behind Vercel deployment protection.**
+  `my.thefibre.tech` answers a Vercel login instead of the portal, while every
+  other staging domain is open. That makes the participant's own page — the
+  one place a non-customer ever signs in — untestable on staging. Production
+  is unaffected. Fix in Vercel → the `my` project → Settings → Deployment
+  Protection. `scripts/smoke-staging.mjs` now fails on it, so the nightly
+  contract job will stay red until it is done (found 2026-09-12, following an
+  enrolled participant to their own page).
+
 _(Resend rotated; Stripe Connect onboarded.)_
 
 ---

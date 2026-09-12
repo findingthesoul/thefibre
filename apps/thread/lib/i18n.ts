@@ -362,13 +362,18 @@ const CATALOG = {
     de: 'Bei deiner persönlichen Seite anmelden',
     fr: 'Connecte-toi à ta page personnelle', // MT
   },
+  // NOT "a Fibre account". This line is the first thing a participant reads
+  // after enrolling, and docs/naming-brief.md §2 is explicit that Fibre is
+  // backstage and "never the first thing a customer meets". The brand name is
+  // dropped rather than swapped for Thread's: the sentence goes on to mention
+  // bookings, which are Meet's, and "one account" is the true claim anyway.
   account_note: {
-    en: 'One Fibre account for everything — your threads, bookings and certificates in one place.',
-    nl: 'Eén Fibre-account voor alles — je threads, boekingen en certificaten op één plek.',
-    es: 'Una cuenta Fibre para todo — tus threads, reservas y certificados en un solo lugar.',
-    pt: 'Uma conta Fibre para tudo — seus threads, reservas e certificados num só lugar.',
-    de: 'Ein Fibre-Konto für alles — deine Threads, Buchungen und Zertifikate an einem Ort.',
-    fr: 'Un seul compte Fibre pour tout — tes threads, réservations et certificats au même endroit.', // MT
+    en: 'One account for everything — your threads, bookings and certificates in one place.',
+    nl: 'Eén account voor alles — je threads, boekingen en certificaten op één plek.',
+    es: 'Una cuenta para todo — tus threads, reservas y certificados en un solo lugar.',
+    pt: 'Uma conta para tudo — seus threads, reservas e certificados num só lugar.',
+    de: 'Ein Konto für alles — deine Threads, Buchungen und Zertifikate an einem Ort.',
+    fr: 'Un seul compte pour tout — tes threads, réservations et certificats au même endroit.', // MT
   },
   recent_activity: {
     en: 'Recent activity',

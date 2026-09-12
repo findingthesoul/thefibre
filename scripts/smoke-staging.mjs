@@ -7,7 +7,7 @@
 // Defaults: STAGING_API_URL / STAGING_WEB_URL env vars, then the canonical
 // staging hosts.
 
-import { APPS } from '../packages/shared/dist/branding.js';
+import { APPS, SURFACES } from '../packages/shared/dist/branding.js';
 
 const arg = (name, fallback) => {
   const i = process.argv.indexOf(`--${name}`);
@@ -94,6 +94,15 @@ const apex = new URL(WEB).hostname.replace(/^www\./, '');
 // (2026-09-12). smoke-prod.mjs has always derived; this now matches it,
 // `includes` and all, so a title with a page suffix does not read as a
 // wrong app.
+//
+// The MAP still has to be written by hand — production moved Thread to
+// `app.thethread.app` while staging kept `thread.thefibre.tech`, so the
+// subdomain is not derivable from the registry URL. What is NOT left to hand
+// is whether the map is COMPLETE: the guard below fails if a released app or
+// a registered surface is neither listed here nor deliberately excluded.
+// `my` was missing from this map from the day the portal shipped, so nothing
+// ever noticed that staging's portal answers a Vercel login page instead of
+// the portal (found 2026-09-12, walking an enrolled participant to it).
 const STAGING_SUBS = {
   meet: 'fibre-meet',
   thread: 'the-thread',
@@ -101,6 +110,39 @@ const STAGING_SUBS = {
   pulse: 'fibre-pulse',
   membership: 'membership',
 };
+
+/** Surfaces are not catalogue apps, so they carry their own map and their
+ *  title comes from `shortLabel` ("My Thread"), not `name`. */
+const STAGING_SURFACE_SUBS = {
+  my: 'my-portal',
+};
+
+/** Deliberately absent from staging, each with the reason. Anything not
+ *  here and not mapped above makes this script fail rather than skip. */
+const NOT_ON_STAGING = {
+  'fibre-platform': 'it IS the staging apex (thefibre.tech), checked above',
+  website: 'the marketing site has no staging deployment; the apex serves the Fibre web',
+  'fibre-sales': 'in the registry but unbuilt — no app to serve',
+  'fibre-learn': 'in the registry but unbuilt — no app to serve',
+};
+// Not listed above and not a gap: apps that live only in the DB catalogue
+// (fot-planner, and the contract script's throwaway) never reach this guard,
+// which reads the code registry. Correct — they are not ours to host.
+
+{
+  const mapped = new Set([...Object.values(STAGING_SUBS), ...Object.values(STAGING_SURFACE_SUBS)]);
+  const missing = [
+    ...Object.keys(APPS),
+    ...Object.keys(SURFACES),
+  ].filter((k) => !mapped.has(k) && !(k in NOT_ON_STAGING));
+  if (missing.length) {
+    console.error(
+      `  ✗ smoke-staging has no entry for: ${missing.join(', ')}\n` +
+        `    Add it to STAGING_SUBS / STAGING_SURFACE_SUBS, or to NOT_ON_STAGING with a reason.`,
+    );
+    failed += 1;
+  }
+}
 for (const [sub, slug] of Object.entries(STAGING_SUBS)) {
   const title = APPS[slug]?.name;
   if (!title) {
@@ -118,6 +160,41 @@ for (const [sub, slug] of Object.entries(STAGING_SUBS)) {
         `title is "${m[1]}" — this domain is serving the wrong app; ` +
         'check the Vercel domain→project assignment and the DNS CNAME target'
       );
+    }
+  });
+}
+
+// The same check for surfaces. `my` is the participant's own page — the one
+// place a person who is not a customer ever signs in — so it being
+// unreachable on staging means the whole participant half is untestable.
+for (const [sub, key] of Object.entries(STAGING_SURFACE_SUBS)) {
+  const title = SURFACES[key]?.shortLabel;
+  if (!title) {
+    console.error(`  ✗ ${sub}.${apex} — no surface "${key}" in the registry`);
+    failed += 1;
+    continue;
+  }
+  await check(`${sub}.${apex} serves ${title}, not another app`, async () => {
+    const r = await get(`https://${sub}.${apex}/`);
+    // Deployment protection announces itself as a redirect to Vercel's own
+    // SSO, so catch it on the Location header — the body is never reached.
+    // Saying "status 302" would send the reader hunting for a DNS or routing
+    // fault that is not there.
+    const loc = r.headers.get('location') ?? '';
+    if (/vercel\.com\/sso-api|vercel\.com\/login/i.test(loc)) {
+      throw new Error(
+        'Vercel deployment protection is ON for this project — it answers a ' +
+        'Vercel login, not the app, so nobody outside the team can reach it. ' +
+        'Every other staging domain is open. Vercel → Project → Settings → ' +
+        'Deployment Protection.'
+      );
+    }
+    if (!r.ok) throw new Error(`status ${r.status}${loc ? ` → ${loc}` : ''}`);
+    const body = await r.text();
+    const m = body.match(/<title>([^<]*)<\/title>/);
+    if (!m) throw new Error('no <title> in HTML');
+    if (!m[1].includes(title)) {
+      throw new Error(`title is "${m[1]}" — check the Vercel domain→project assignment`);
     }
   });
 }

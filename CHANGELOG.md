@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.7] — 2026-09-12 — the participant's own page was never checked
+
+Carrying the cold organiser through the rest of their first hour: publish the
+thread, open the public page, enrol somebody, follow that person to their own
+page. The first three work. The fourth does not exist on staging, and nothing
+had ever said so.
+
+**`my.thefibre.tech` answers a Vercel login, not the portal.** Deployment
+protection is on for that project while every other staging domain is open,
+so the participant's own page — the one place a person who is not a customer
+ever signs in — cannot be reached or tested on staging at all. Production is
+fine. This needs a Vercel settings change, so it is listed in build-plan's
+Outstanding for Sjoerd rather than fixed here.
+
+**The staging smoke check never looked.** Its subdomain map was written by
+hand and listed five apps; `my` had been missing since the portal shipped, so
+the gap was invisible. The map still cannot be derived — production moved
+Thread to `app.thethread.app` while staging kept `thread.thefibre.tech` — but
+whether it is COMPLETE now is: a guard fails the script if a registered app or
+surface is neither mapped nor in an explicit `NOT_ON_STAGING` list with a
+reason. The same class of bug as the title list this file fixed hours ago, and
+the same fix: stop trusting a hand-kept list to stay right.
+
+The new check also reads the `Location` header, so protection is reported as
+what it is rather than as "status 302", which would send the next person
+hunting for a DNS fault that is not there.
+
+**`One Fibre account for everything` was the first thing a participant read.**
+It appears on the public page immediately after enrolling, in all six locales.
+`docs/naming-brief.md` §2 is explicit that Fibre is backstage and "never the
+first thing a customer meets", and this is exactly that. The brand name is
+dropped rather than swapped for Thread's — the sentence goes on to mention
+bookings, which are Meet's, and "one account for everything" is the true claim
+without asserting a new one.
+
+Verified correct and deliberately left alone: the privacy-policy link on the
+enrolment form points at production from staging. That is right. A consent
+checkbox should reference the canonical legal document, not an environment
+copy of it — the same split v0.72.5 built into the footer.
+
+
 ## [0.72.6] — 2026-09-12 — a new thread stops being born broken
 
 Found by signing in as a genuinely cold organiser — a workspace with nothing
