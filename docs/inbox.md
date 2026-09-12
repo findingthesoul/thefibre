@@ -71,8 +71,11 @@ after merging main; not a scoping decision, just what a reader should know):
   organisation names are tags. So the "select or type a characteristic"
   input has a vocabulary behind it that did not exist this morning.
 - `docs/connections-model.md` **D70** already asks for a tag list, a tag
-  cloud and a map, and the build plan queues it fourth in the Connections
-  list, held back until enough tags exist that a drawing means something.
+  cloud and a map, held back until enough tags exist that a drawing means
+  something. It is on the Connections open list in `docs/build-plan.md`. No
+  position stated here on purpose: this line first said "fourth" and was
+  second within the hour, because two items above it shipped while this
+  branch sat.
 - What Sjoerd asks for here is **not** D70, and the difference is the whole
   item. D70 draws tags. He wants to draw **people**, with the characteristic
   as the filter that decides which edges are worth a line. The Visual
@@ -82,6 +85,12 @@ after merging main; not a scoping decision, just what a reader should know):
   interface"*. That is about the landscape as it stands, so this is partly a
   complaint about an existing screen and only partly a request for a new one.
   Worth separating before anyone scopes it.
+- One of his two example tags has a known problem waiting for it. The build
+  plan, same day: *"The last axis without history is `closeness`."* It is a
+  current-state column, so a view that ranks people by closeness can show
+  where they stand and cannot show them moving. His other example, company,
+  does not have that problem. Worth knowing before choosing which example to
+  build the first view against.
 
 Not scoped.
 
