@@ -86,6 +86,19 @@ export function PricingPanel({
   const [mode, setMode] = useState<'free' | 'paid' | null>(null);
   // Seed one default discount code the first time the user flips to Paid
   // with an empty coupon list — once per mount, never over existing codes.
+  //
+  // INACTIVE on purpose. This write happens on a TOGGLE, before any Save,
+  // and Cancel cannot undo it — the coupon list is its own API-backed list,
+  // not form state the dialog discards. Seeded active, that meant merely
+  // opening Pricing to look at the options left a live 10% discount on the
+  // thread, which anyone who guessed the word EARLYBIRD could redeem the
+  // moment a ticket existed. Nobody had asked for a discount.
+  //
+  // Inactive keeps what this is for — an example to edit rather than a blank
+  // list — and costs the organiser one switch. findValidCoupon filters on
+  // is_active, so it cannot be redeemed until they turn it on, and the list
+  // dims it and marks it "inactive" so its state is visible.
+  // (Found 2026-09-12, walking a new organiser through their first hour.)
   const seededDefaultCode = useRef(false);
 
   function choosePaid() {
@@ -98,7 +111,7 @@ export function PricingPanel({
         name: 'Early bird',
         type: 'percentage',
         discount_percentage: 10,
-        is_active: true,
+        is_active: false,
       });
       void reload();
     })();

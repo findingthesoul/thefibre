@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.72.8] — 2026-09-12 — looking at the pricing options stops creating a live discount
+
+Still walking the new organiser's first hour. Opened Thread settings →
+Pricing and clicked **Paid** to see what was there. A 10% discount code
+called EARLYBIRD appeared in the list, already switched on.
+
+It is seeded deliberately — an example to edit rather than an empty list, and
+a reasonable idea. The implementation was not:
+
+- it was written on a **toggle**, before any Save;
+- **Cancel could not undo it**, because the coupon list is its own API-backed
+  list rather than form state the dialog discards;
+- and it was created **active**, so the moment a ticket existed, anyone who
+  guessed the word EARLYBIRD got 10% off a thread whose owner had never asked
+  for a discount and may never have registered that the code existed.
+
+Verified on staging rather than reasoned about: flip the toggle, press
+Cancel, and the row is still there, `is_active: true`.
+
+**It is now seeded inactive.** That keeps what it is for and costs the
+organiser one switch. `findValidCoupon` filters on `is_active`, so it cannot
+be redeemed until they turn it on, and the list already dims an inactive code
+and marks it with a chip, so the state is visible rather than implied.
+
+**`coupon-active.int.test.ts`** locks the rule the fix depends on, against the
+real staging API: a switched-off code is refused, the same code is accepted
+once switched on, refused again when switched off, and the gate cannot be
+dodged by changing the case of the code. It also pins the refusal WORDING to
+the same message an unknown code gets — telling a stranger "that one is
+switched off" confirms the code is real and invites them back tomorrow.
+
+This is a money rule enforced by a single `.eq('is_active', true)`, which is
+exactly the kind of thing the testing approach says to attach a test to.
+
+
 ## [0.72.7] — 2026-09-12 — the participant's own page was never checked
 
 Carrying the cold organiser through the rest of their first hour: publish the
