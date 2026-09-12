@@ -387,8 +387,23 @@ the rule reads as banning what this codebase does everywhere.**
 `connections_attention` delegates `deal_rotting` to `pulse_commitment_rot`.
 Both are fine and both should stay. They compute over RECORDED FACTS —
 somebody attended, somebody paid, a stage moved on a date — and composing
-those is just not repeating yourself. The rule is about signals inferred from
-proximity, which assert something nobody recorded.
+those is factoring, not inference.
+
+**The exemption is a property of the INPUTS, not of the function, and it is
+transitive.** A computation is fact-derived only if every input is, all the
+way down. One proximity or similarity signal entering anywhere upstream makes
+everything below it proximity-derived, and the ban applies to all of it. It
+behaves like a taint rather than a category, which is what keeps it checkable:
+follow the inputs through the definitions, no judgement about whether
+something "counts".
+
+That clause is the one that has to survive contact with a future change, and
+the pressure will not look like an attack. Nobody will propose composing two
+inferences. Somebody will propose nudging maturity when two people co-occur
+in notes — one weak signal added to something already trusted, an obvious
+improvement. Maturity is then part proximity, every axis and queue below it
+inherits that, and all of them are still described by the sentence that
+exempted them. Nobody lies. The label just stops tracking the thing.
 
 The test also protects the door it might look like it closes: the desktop
 cloud can use co-occurrence for position and weight, which is exactly what it
