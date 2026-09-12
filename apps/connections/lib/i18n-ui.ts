@@ -6192,6 +6192,18 @@ const CATALOG = {
     fr: 'Impossible de charger ce que le contrôle a trouvé.', // MT
   },
 
+  // The sixth condition. Named for the relationship rather than the pipeline:
+  // a stalled deal is a stalled conversation, and the action is almost never
+  // "update the stage", it is "talk to them".
+  cond_deal_rotting: {
+    en: 'Something waiting on a conversation',
+    nl: 'Iets dat op een gesprek wacht',
+    es: 'Algo a la espera de una conversación', // MT
+    pt: 'Algo à espera de uma conversa', // MT
+    de: 'Etwas wartet auf ein Gespräch', // MT
+    fr: 'Quelque chose attend une conversation', // MT
+  },
+
   // ── Today's calendar, with the people already found ──────────────────────
   agenda_heading: {
     en: 'Who you are seeing today',

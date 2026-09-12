@@ -6,6 +6,67 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.14] — 2026-09-12 — deals rot the way people do
+
+Build-order step 4: *"cadence and rotting, one mechanism for people and
+deals"*. People already rotted — `went_quiet` measures somebody against their
+own rhythm. Deals could not, and the reason was structural rather than
+missing effort.
+
+**Nothing recorded when a deal changed stage.** `pulse_commitment` carries
+`stage` and `updated_at`, and `updated_at` moves when anything changes: a
+note, a label, a probability. So "how long has this been sitting at proposal"
+was unanswerable, which is why the axes migration said so out loud in
+September rather than faking it. `connections-data-integrity.md` named the
+fix: *"a stage/strength change log, which is a decision about writes, not a
+thing to paper over in a read."*
+
+**`pulse_commitment_stage_event`, maintained by a trigger.** Not by
+application code, because there is more than one writer and there will be
+more later: the board moves a stage by drag, the dialog by select, and
+anything reaching the table through PostgREST moves it without passing
+through either. A log kept by whichever path remembered is a log with holes,
+and a log with holes reads as authoritative while being silently wrong. A
+label edit does not log; only a stage move does.
+
+**The backfill says what it does not know.** Each existing commitment gets one
+row marked `source = 'backfill'`, dated `updated_at` — the best available
+upper bound on when its stage last moved — with `from_stage` null meaning
+"before this, unknown". Writing today's stage at `created_at` would have
+invented a history that every later read would trust.
+
+**Rot is measured against the workspace's own median time in that stage**,
+from moves that actually completed, needing two before it counts one as a
+rhythm. A proposal taking three weeks is normal in one practice and alarming
+in another.
+
+**A bug that returned zero and looked like good news.** The first version
+inner-joined to that median, so a stage nobody had left yet produced no row —
+and since the backfill writes one event per commitment, *no workspace had a
+completed move at all*. The function returned nothing, everywhere, with no
+error. A fixture caught it; reading it would not have, because "nothing is
+rotting" is exactly what a working version says most days. Now a stage with
+no local baseline falls back to a conservative 30 days and the row carries
+`measured: false`, so nobody has to guess whether a number was observed or
+assumed.
+
+**It lands on the attention list, not the pipeline.** A stalled deal is a
+stalled relationship wearing a number: the action is almost never "update the
+stage", it is "talk to them", and the person is where the conversation gets
+written down. Only commitments with a named person appear; one with an
+organisation alone is Pulse's own concern. The sixth condition delegates to
+`pulse_commitment_rot()` rather than re-implementing it, so the threshold has
+one definition.
+
+Proved on staging with a fixture: the trigger logs an insert and a move and
+stays quiet for a label edit, a deal left 400 days at one stage is flagged
+against a 30-day baseline, the row says the baseline is a default, and the
+whole chain reaches the attention list. On production it finds one.
+
+A door this opens and does not walk through: the opportunity axis still
+reports no movement, and the history it lacked now exists.
+
+
 ## [0.73.13] — 2026-09-12 — a nightly check that proposes and never repairs
 
 `docs/connections-data-integrity.md` §9, from Sjoerd: *"how do we keep the
