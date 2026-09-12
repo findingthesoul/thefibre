@@ -9,7 +9,8 @@ type Condition =
   | 'went_quiet'
   | 'arrived_unattended'
   | 'finished_nothing_next'
-  | 'ambassador_drifting';
+  | 'ambassador_drifting'
+  | 'carrying_too_much';
 
 type Item = {
   person_id: string;
@@ -27,6 +28,7 @@ const CONDITION_KEYS = {
   arrived_unattended: 'cond_arrived_unattended',
   finished_nothing_next: 'cond_finished_nothing_next',
   ambassador_drifting: 'cond_ambassador_drifting',
+  carrying_too_much: 'cond_carrying_too_much',
 } as const;
 
 function displayName(i: Item) {

@@ -30,6 +30,12 @@ export type SaveNoteInput = {
   follow_up_at?: string | null;
   /** True while the composer is open; false commits it. */
   is_draft: boolean;
+  /**
+   * Tags the composer is showing, minus any the person removed. Sent rather
+   * than re-detected server-side: detection runs once, in the box, and what
+   * was on screen is what gets written.
+   */
+  tags?: { name: string; organisation_id?: string }[];
 };
 
 export type SaveNoteResult =
@@ -50,5 +56,37 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
       return { ok: false, error: detail };
     }
     return { ok: false, error: 'could not save' };
+  }
+}
+
+/**
+ * The words this workspace already uses: its tags, plus the names of the
+ * organisations it holds. Read once per composer.
+ *
+ * Safe to hold in the browser because of WHO receives it, not because of
+ * what it contains: a signed-in workspace member who can already read all of
+ * these rows. "Organisation names are not personal data" would be the easy
+ * sentence and it is false — a sole trader's business name identifies a
+ * natural person, and nothing in the row says which is which.
+ *
+ * Person names are deliberately absent for a different reason: matching bare
+ * names is where false positives live, and one wrong tag lands a claim on a
+ * real person's record.
+ */
+export async function fetchVocabulary(): Promise<
+  { id?: string; name: string; organisationId?: string }[]
+> {
+  try {
+    const r = await apiFetch<{
+      words: { id?: string; name: string; organisation_id?: string }[];
+    }>('/api/v1/connections/vocabulary');
+    return (r.words ?? []).map((w) => ({
+      ...(w.id ? { id: w.id } : {}),
+      name: w.name,
+      ...(w.organisation_id ? { organisationId: w.organisation_id } : {}),
+    }));
+  } catch {
+    // Nothing detected is a working composer; a thrown error is not.
+    return [];
   }
 }

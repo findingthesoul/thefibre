@@ -8,7 +8,7 @@
 // imported by a server component typechecks and then crashes on first
 // render. There is no JSX in this file and there should never be.
 
-import { type UiKey } from '@/lib/i18n-ui';
+import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 
 // The five ways to read the same population (docs/connections-mobile.md §2,
 // D32). Each list runs LOW TO HIGH, matching the API's own ladder for that
@@ -138,7 +138,6 @@ export const BAND_NOTE_KEYS: Record<Axis, Partial<Record<string, UiKey>>> = {
   },
 };
 
-/** What would make this axis say something, when today it says nothing. */
 /**
  * The band a person lands in when the axis's SOURCE has never been written
  * to: no note, no rating, no commitment, no introduction, no activity at all.
@@ -167,6 +166,7 @@ export const AXIS_UNWRITTEN_BAND: Record<Axis, string> = {
   contribution: 'brought_nobody',
 };
 
+/** What would make this axis say something, when today it says nothing. */
 export const AXIS_FILL_KEYS: Record<Axis, UiKey> = {
   maturity: 'fill_maturity',
   closeness: 'fill_closeness',
@@ -174,3 +174,36 @@ export const AXIS_FILL_KEYS: Record<Axis, UiKey> = {
   opportunity: 'fill_opportunity',
   contribution: 'fill_contribution',
 };
+
+/**
+ * Per-axis band names this workspace has chosen, from
+ * `GET /api/v1/connections/labels`. Sparse: a band nobody renamed is absent
+ * and falls back to the shipped translation.
+ *
+ * Content, not chrome. A name somebody TYPED is never machine-translated —
+ * the same rule that leaves budget line names and note bodies alone — so
+ * there is one string per band rather than one per locale, and it shows to
+ * everybody in the workspace whatever their interface language.
+ */
+export type BandLabels = Record<string, Record<string, string>>;
+
+/**
+ * The name to show for a band: the workspace's word if it has one, otherwise
+ * the shipped translation, otherwise the raw key so an unknown band from a
+ * newer API still renders as something rather than as blank.
+ *
+ * EVERY surface that prints a band name goes through this. Three of them
+ * already existed with their own fallback chains, and a fourth would have
+ * been the one that forgot to check the override.
+ */
+export function bandName(
+  locale: Locale,
+  labels: BandLabels | undefined,
+  axis: Axis,
+  band: string,
+): string {
+  const own = labels?.[axis]?.[band];
+  if (own) return own;
+  const k = BAND_KEYS[axis][band];
+  return k ? t(locale, k) : band;
+}

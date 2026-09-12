@@ -2,7 +2,7 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import { Bands, isAxis, type Axis, type Band, type Moved } from './bands';
+import { Bands, isAxis, type Axis, type Band, type BandLabels, type Moved } from './bands';
 import { AxisPicker } from './axis-picker';
 
 type Landscape = {
@@ -37,10 +37,19 @@ export default async function LandscapePage({
 
   let data: Landscape | null = null;
   let error: string | null = null;
+  // Two independent reads, so the names never hold up the numbers. A
+  // workspace that has renamed nothing — which is all of them on day one —
+  // gets an empty object back and every band falls through to its shipped
+  // translation, so a failure here is cosmetic by construction and must not
+  // be allowed to blank the page.
+  let labels: BandLabels | undefined;
   try {
-    data = await apiFetch<Landscape>(
-      `/api/v1/connections/landscape?since_days=30&axis=${axis}`,
-    );
+    [data, labels] = await Promise.all([
+      apiFetch<Landscape>(`/api/v1/connections/landscape?since_days=30&axis=${axis}`),
+      apiFetch<{ labels: BandLabels }>('/api/v1/connections/labels')
+        .then((r) => r.labels)
+        .catch(() => undefined),
+    ]);
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -67,6 +76,7 @@ export default async function LandscapePage({
           movedTotal={data.moved_total}
           sinceDays={data.since_days}
           axis={axis}
+          labels={labels}
           locale={locale}
         />
       )}

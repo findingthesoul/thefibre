@@ -131,6 +131,91 @@ export async function freeBusy(
   return out;
 }
 
+/**
+ * The events on a person's own calendars in a window, with their attendees.
+ *
+ * `freeBusy` above deliberately returns intervals and nothing else, because
+ * booking only needs to know when somebody is busy. This needs the opposite:
+ * who is in the room. Both scopes are already granted (`calendar.readonly`),
+ * so this adds no consent step.
+ *
+ * Only calendars the person OWNS. A subscribed team calendar or a colleague's
+ * shared one would drag other people's meetings into "who are you seeing
+ * today", which is both wrong and a quiet way to surface somebody else's day.
+ *
+ * `singleEvents` expands recurrences, so a weekly one-to-one appears as
+ * today's instance with today's attendee list rather than as a rule that has
+ * to be interpreted. Cancelled instances are dropped by the same flag.
+ */
+export type AgendaEvent = {
+  id: string;
+  summary: string;
+  start: Date;
+  end: Date;
+  /** True for an all-day entry, which has a date and no time. */
+  allDay: boolean;
+  location: string | null;
+  attendees: { email: string; name: string | null; self: boolean; organiser: boolean }[];
+};
+
+export async function listEvents(
+  refreshToken: string,
+  from: Date,
+  to: Date,
+  max = 50,
+): Promise<AgendaEvent[]> {
+  const cal = calendarFor(refreshToken);
+  const list = await cal.calendarList.list({ minAccessRole: 'owner' });
+  const ids = (list.data.items ?? []).map((c) => c.id).filter(Boolean) as string[];
+
+  const perCalendar = await Promise.all(
+    ids.map(async (id) => {
+      try {
+        const r = await cal.events.list({
+          calendarId: id,
+          timeMin: from.toISOString(),
+          timeMax: to.toISOString(),
+          singleEvents: true,
+          orderBy: 'startTime',
+          maxResults: max,
+        });
+        return r.data.items ?? [];
+      } catch {
+        // One calendar failing must not cost the whole agenda. A calendar can
+        // disappear between the list call and the read.
+        return [];
+      }
+    }),
+  );
+
+  const out: AgendaEvent[] = [];
+  for (const item of perCalendar.flat()) {
+    const startRaw = item.start?.dateTime ?? item.start?.date;
+    const endRaw = item.end?.dateTime ?? item.end?.date;
+    if (!startRaw || !endRaw || !item.id) continue;
+    out.push({
+      id: item.id,
+      summary: item.summary ?? '',
+      start: new Date(startRaw),
+      end: new Date(endRaw),
+      allDay: !item.start?.dateTime,
+      location: item.location ?? null,
+      attendees: (item.attendees ?? [])
+        .filter((a) => a.email && !a.resource)
+        .map((a) => ({
+          email: a.email!,
+          name: a.displayName ?? null,
+          self: !!a.self,
+          organiser: !!a.organizer,
+        })),
+    });
+  }
+
+  // Merged across calendars, so the ordering Google gave per calendar is gone.
+  out.sort((a, b) => a.start.getTime() - b.start.getTime());
+  return out.slice(0, max);
+}
+
 export type CreateEventInput = {
   calendarId: string;
   summary: string;

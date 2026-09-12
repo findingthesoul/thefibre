@@ -3,7 +3,7 @@ import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { PeopleList, type Person } from './people-list';
-import { isAxis, type Axis } from '../landscape/axes';
+import { isAxis, type Axis, type BandLabels } from '../landscape/axes';
 
 // Everyone this workspace knows, as a list you can search and open.
 //
@@ -34,6 +34,15 @@ export default async function PeoplePage({
   const band = (sp.band ?? '').trim() || null;
   const wanted = Math.min(Math.max(Number.parseInt(sp.pages ?? '1', 10) || 1, 1), MAX_PAGES);
   const locale = await uiLocale();
+
+  // Started here and awaited at the bottom, so the names travel alongside the
+  // people rather than after them. Cosmetic and independent of everything
+  // else on the page: a workspace that has renamed nothing gets an empty
+  // object and every chip falls back to its shipped translation, which is why
+  // this one swallows its own failure instead of reaching the error banner.
+  const labelsPromise = apiFetch<{ labels: BandLabels }>('/api/v1/connections/labels')
+    .then((r) => r.labels)
+    .catch(() => undefined);
 
   const items: Person[] = [];
   let cursor: string | null = null;
@@ -92,6 +101,7 @@ export default async function PeoplePage({
   // works and still extends the filtered list, and `bandTotal` below comes
   // from the landscape rather than from the rows, so the count on screen is
   // the true size of the band and not the size of what happened to load.
+  const labels = await labelsPromise;
   const bandTotal = band ? Object.values(rungById).filter((r) => r === band).length : null;
   const shown = band && !bandsUnavailable ? items.filter((p) => rungById[p.id] === band) : items;
 
@@ -109,6 +119,7 @@ export default async function PeoplePage({
           total={total}
           rungById={rungById}
           axis={axis}
+          labels={labels}
           band={band}
           bandTotal={bandTotal}
           hasMore={cursor !== null}

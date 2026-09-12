@@ -53,6 +53,29 @@ const NoteUpsert = z.object({
   /** True while the composer is open. Derived effects fire on the first
    *  commit (is_draft false), never per keystroke. */
   is_draft: z.boolean().default(true),
+  /**
+   * Tags the composer showed as chips and the person did not remove.
+   *
+   * Sent explicitly rather than re-detected here, and that is the whole
+   * design: detection runs once, in the composer, and what the person SAW is
+   * what gets written. Re-running the match server-side would be a second
+   * implementation of the same rules, free to disagree with the chips — and
+   * the first time it disagreed, somebody would be tagged with a word they
+   * watched themselves remove.
+   *
+   * `organisation_id` is present when the word names an organisation this
+   * workspace holds, which is how "met her at EBBF" connects a person to a
+   * real entity rather than to a loose word.
+   */
+  tags: z
+    .array(
+      z.object({
+        name: z.string().min(1).max(60),
+        organisation_id: z.string().uuid().optional(),
+      }),
+    )
+    .max(20)
+    .optional(),
 });
 
 function validTimezone(tz: string | null | undefined): boolean {
@@ -182,7 +205,20 @@ notesRoutes.put('/', async (c) => {
       }
     }
 
-    // 2. One activity row. Type + subject only — the body never crosses.
+    // 2. Tags, find-or-created and attached to the person.
+    //
+    //    On commit only, like everything else here: a draft is somebody
+    //    still thinking, and creating workspace vocabulary from a sentence
+    //    that is later deleted would leave litter nobody asked for.
+    //
+    //    Failures are warned and swallowed. A tag is an enrichment; losing
+    //    one must never cost somebody the note they actually wrote, which is
+    //    the thing that cannot be derived from anything else.
+    if (d.person_id && d.tags?.length) {
+      await applyTags(ctx.workspaceId, d.person_id, noteId, d.tags);
+    }
+
+    // 3. One activity row. Type + subject only — the body never crosses.
     if (d.person_id) {
       const { data: app } = await adminClient
         .from('app')
@@ -206,6 +242,75 @@ notesRoutes.put('/', async (c) => {
 
   return c.json({ id: noteId, committed: justCommitted, follow_up_task_id: followUpTaskId });
 });
+
+/**
+ * Find-or-create each tag in the workspace, then attach it to the person.
+ *
+ * Find-or-create rather than insert: `tag` is unique on (workspace_id, name),
+ * so two people writing "outreach" in the same minute must converge on one
+ * tag rather than one of them failing. The upsert with ignoreDuplicates
+ * handles the race without a transaction.
+ *
+ * `person_tag` is upserted with ignoreDuplicates too, because a person can
+ * be tagged with the same word by several notes over months and the first
+ * one is the one that means something — overwriting `created_at` and
+ * `note_id` each time would keep rewriting history to say the tag arrived
+ * today, which is exactly what the epoch backfill in the migration exists to
+ * avoid.
+ */
+async function applyTags(
+  workspaceId: string,
+  personId: string,
+  noteId: string,
+  tags: { name: string; organisation_id?: string | undefined }[],
+): Promise<void> {
+  try {
+    // organisation_id is always present in the shape, null when the word is
+    // not an organisation's name. A conditional spread would give the array a
+    // union element type that PostgREST's generated types reject.
+    const rows = tags.map((t) => ({
+      workspace_id: workspaceId,
+      name: t.name.trim(),
+      organisation_id: t.organisation_id ?? null,
+    }));
+
+    const { error: upErr } = await adminClient
+      .from('tag')
+      .upsert(rows, { onConflict: 'workspace_id,name', ignoreDuplicates: true });
+    if (upErr) {
+      console.warn('[notes] tag upsert failed (non-fatal)', upErr.message);
+      return;
+    }
+
+    // Read back by name — the upsert above returns nothing for rows it
+    // ignored, so the ids have to be fetched rather than assumed.
+    const { data: found, error: selErr } = await adminClient
+      .from('tag')
+      .select('id,name')
+      .eq('workspace_id', workspaceId)
+      .in(
+        'name',
+        rows.map((r) => r.name),
+      );
+    if (selErr || !found?.length) {
+      if (selErr) console.warn('[notes] tag read-back failed (non-fatal)', selErr.message);
+      return;
+    }
+
+    const { error: linkErr } = await adminClient.from('person_tag').upsert(
+      found.map((t) => ({
+        person_id: personId,
+        tag_id: t.id as string,
+        note_id: noteId,
+        created_via: 'note',
+      })),
+      { onConflict: 'person_id,tag_id', ignoreDuplicates: true },
+    );
+    if (linkErr) console.warn('[notes] person_tag link failed (non-fatal)', linkErr.message);
+  } catch (e) {
+    console.warn('[notes] applyTags threw (non-fatal)', e);
+  }
+}
 
 const ListQuery = z.object({
   person_id: z.string().uuid().optional(),

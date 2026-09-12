@@ -484,3 +484,97 @@ rather than trivia.
 **D63 — Build the giving direction alongside the getting one.** "You could
 introduce Daniel to Acme." *Recommended: yes* — it is the same query reversed,
 and it is the half that fits a community builder rather than a salesperson.
+
+---
+
+## 3.7 Tags written by writing — and the three things asked for after it
+
+*(Added 2026-09-12, from Sjoerd in one stretch: "if you type something after a
+visit or conversation, that it would integrate tags in the text... which
+connects things (without you having to do it)", "could be in the form of a
+list... or in the form of visual cloud", "or maybe even a map (landcard)",
+"when typing... and a word is finished... it can turn it into a tag (going
+over it or clicking it can also X the tag and keep it as a word)", "e.g.
+company names are tags (if they exist; if not you can create it)", and
+"would be great if the app — when you open it — based on agenda — can pre
+select people from the DB, that are named in the agenda".)*
+
+### What shipped (v0.73.10)
+
+Tags are detected in the note as it is written, from **the workspace's own
+vocabulary only**: existing tags, and the names of organisations the
+workspace holds. Plus `#anything` as the escape hatch for a word nobody has
+used yet. They appear already on; the X removes the tag and leaves the word.
+
+Three rules that are load-bearing and should not be relaxed casually:
+
+1. **Nothing is inferred beyond the workspace's own words.** No model, no
+   noun-phrase extraction, nothing leaves the browser. Note bodies are the
+   most sensitive text in the system and §9.5 of
+   [`connections-data-integrity.md`](connections-data-integrity.md) governs
+   any change here. The precision this buys is what lets the chips default to
+   ON, which is what makes it feel automatic rather than like another form.
+2. **A word becomes a tag only once it is finished.** Otherwise `#sdg13`
+   flickers through four half-tags on the way to being typed.
+3. **The composer decides, the API applies.** The list of tags is sent
+   explicitly and never re-detected server-side. A second implementation of
+   the same rules would eventually disagree with the chips, and the first
+   time it did, somebody would be tagged with a word they watched themselves
+   remove.
+
+**Person names are deliberately not matched.** A false positive attaches a
+claim to a real person's record. Organisation names are safe because they are
+distinctive and because a company is not a person; a bare first name is
+neither.
+
+**An organisation is matched by its full name.** "European Bahá'í Business
+Forum" matches, "EBBF" does not — until somebody types `#ebbf` once, which
+makes it a tag forever. That is the intended path for aliases and is cheaper
+than an alias table nobody maintains.
+
+### D70 — the tag surface: list, cloud, or map
+
+Asked for as all three, and they are one dataset with three renderings. The
+list exists first because it is the one that cannot be wrong: tags, how many
+people carry each, how many arrived from a sentence rather than by hand.
+`GET /connections/tags` already returns exactly that.
+
+The **cloud** and the **map** are the desktop landscape of
+[`connections-desktop.md`](connections-desktop.md), and the rarity rule
+already written there is what makes them legible: a tag on three people is a
+strong link, a tag on three hundred is not a link at all. Tags are the first
+real edge source that rule can police, so this is the step that finally makes
+the cloud worth drawing — but it stays step 8, after there are enough tags
+for a drawing to mean anything. A cloud over four tags is a diagram of
+nothing.
+
+### D71 — the tag inline in the text, not beside it
+
+Sjoerd asked for the tag to be marked **in the sentence**, with the X on the
+word itself. v0.73.10 puts the chips under the box instead, which carries the
+same meaning and the same gesture but not the same feel.
+
+The inline version needs the text painted by an overlay while a transparent
+`<textarea>` keeps the caret, with the tag spans the only pointer-events
+targets. It is a known technique and it is also the fragile one: font metrics
+have to match exactly, scroll has to stay in sync, and this is a mobile-first
+app where that combination is least predictable. Worth doing, worth doing on
+its own, and not worth risking the note-taking box for on the day the
+detection ships.
+
+### D72 — the calendar pre-selects the people
+
+*"when you open it — based on agenda — can pre select people from the DB,
+that are named in the agenda"*. This is build-order step 5 arriving from the
+other end: today's meetings become the people you are about to need, before
+anything is typed.
+
+Note what it shares with tags and what it does not. Matching an attendee is
+matching an EMAIL ADDRESS, not a name, so it has none of the false-positive
+risk that keeps person names out of the note detection — calendar attendees
+are exact. `resolvePerson()` already exists and is the one way a person is
+matched or made, so this is a read against a function that is already the
+single point of truth. The calendar read scope is already granted.
+
+That makes this the cheapest of the three and the one with the most daily
+effect: the app open in the morning already knows who today is about.

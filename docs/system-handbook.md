@@ -337,6 +337,97 @@ membership IS the revocation. Client registrations are DB rows
    transition windows) ride the `CORS_ORIGINS` Fly secret. **Never
    hand-write an origin list** — hand-written domain lists are this repo's
    most-repeated bug class.
+4. **`/auth/me` is a published shape too, in practice.** Eight apps read it,
+   so a local need answered there is a wide contract widened for one screen.
+   Answer a situational question — may this user edit, does this workspace
+   have X — on the endpoint that already owns it and that the screen is
+   already calling. Connections' band-label endpoint returns `can_edit` for
+   exactly this reason; Thread's dashboard takes a name and an email from
+   `/me` and nothing else.
+
+### Attach a person by an EXACT identifier, never by a name in prose
+
+The line is drawn by whether the identifier is exact, **not** by how useful
+the feature would be. Three sightings, none of which knew about the others
+when they were written:
+
+- **Thread** resolves an enrolment by email and a door check-in by
+  `checkin_code`. Both refuse rather than guess.
+- **Connections** matches calendar attendees to people by email — exact, so
+  there is no fuzzy match to get wrong.
+- **Connections** deliberately does NOT match person names inside note text,
+  even though that is obviously the more powerful feature, because a bare
+  first name is not an identifier. `apps/connections/lib/detect-tags.ts`
+  matches only the workspace's own vocabulary and organisation names for
+  exactly this reason.
+
+The asymmetry is the point: the SAME product goal — connect things without
+the user doing it — gets a hard yes on an email address and a hard no on a
+name in a sentence. A false positive here does not produce a wrong row, it
+attaches a claim to a real person's record, and no amount of usefulness pays
+for that.
+
+If a future feature needs to infer a person from free text, the answer is
+that the feature should change, not the rule.
+
+### Do not write "X is not personal data" when you mean "the reader already has it"
+
+Connections ships the workspace's organisation names to the browser as a
+detection dictionary. The easy justification — *organisation names are
+companies, not people* — is **false**, and was caught in review: a sole
+trader is a person with a business name, and "Jan de Vries Coaching"
+identifies a natural person as directly as their own name. Nothing in an
+`organisation` row distinguishes the two cases and nothing ever will.
+
+The defensible reason is the RECIPIENT: the payload goes to a signed-in
+workspace member who can already read every one of those rows through the
+ordinary interface, so it discloses nothing new. That reasoning holds for the
+sole trader too, which is what makes it the right test.
+
+This is the same failure shape as the `Accept-Language` sentence below — a
+claim that happens to be true of today's data, written as though it were true
+by nature. Those sentences get cited later by somebody shipping the same
+thing somewhere less careful, which is why the wording matters more than the
+decision did.
+
+### Three conventions that were arrived at twice
+
+Each of these was reached independently in Connections and in Thread on
+2026-09-12, by sessions that had not compared notes. Recorded with both
+instances, because a convention with two independent sightings is a property
+of this codebase, while one is somebody's taste.
+
+**Typed text carries no locale.** The six-locale typed catalogs are for
+CHROME. A sentence a person typed is content, and this codebase does not
+translate content — `connections_band_label` has one `label` column,
+`thread_organiser`'s `site_name` / `site_headline` / `site_intro` are plain
+text. A workspace's own words are shown as they were written.
+
+Note what this does NOT rest on. It is not that we lack the visitor's
+language: every browser sends `Accept-Language` and a signed-in participant
+has `person.preferred_language`, which the enrolments select already reads.
+Nothing in the repo reads `Accept-Language` today — that is a choice, not an
+absence, and defending the rule as an absence loses the argument the first
+time somebody says "just read the header", which would be correct. The rule
+is simply that translating a workspace's own words is not something this
+product does, and it keeps holding on the day somebody does read that header
+for the chrome.
+
+**An empty value means absent, never "store today's default".** An emptied
+field deletes the row or writes null, because absence is what the fallback
+reads. An override holding the current default is a default that has quietly
+stopped being one — it will not follow the default when the default changes,
+and in a translated product it freezes that string in whatever language it
+was captured in. Connections' rename clears the row; Thread's website form
+maps an emptied field to null.
+
+**Name it, don't redefine it.** A workspace names things; the system decides
+what they DO. Thread lets a workspace name its categories and keeps what a
+category does; Connections lets a workspace name its lifecycle steps and
+keeps what earns one derived. The argument is the same in both: a rule a
+workspace can rewrite is a rule a workspace has to maintain, and a
+hand-maintained rule is wrong within a month. When a configuration request
+arrives, the useful question is which half is being asked for.
 
 ---
 

@@ -6,6 +6,218 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.12] — 2026-09-12 — the fifth condition: carrying a lot
+
+`docs/connections-model.md` §3.2 named five attention conditions. Four
+shipped this morning and the fifth was deferred with a note saying it needed
+task load, "which lands with the note/task work". That work landed the same
+day, so the reason to wait was gone.
+
+**What it is.** Appearing in many live things at once. It is the only
+condition on the list that points at your own team as much as at the
+community, and the one no CRM has, because no CRM knows what delivery looks
+like.
+
+**Four sources of live load**, each counted distinct and summed: threads with
+a session still ahead, flows still running, open tasks about the person, and
+commitments at a stage that is still open. One thread with three sessions is
+one thing, not three. Tasks are counted by who they are ABOUT rather than who
+is doing them, because this measures what somebody is carrying.
+
+**The threshold is the workspace's own, never a number.** Four live
+commitments is a heavy week for a volunteer and a quiet one for a full-time
+facilitator; a fixed cut-off would flag the second forever and never notice
+the first. So it is the 90th percentile among people carrying anything —
+`connections-model.md` §3.5's rule for counts, applied — **with a floor of
+four**. The floor matters: a percentile alone is degenerate in a quiet
+workspace, where the busiest of five people is automatically the top tenth,
+and a condition that fires on an ordinary Tuesday teaches everyone to ignore
+the list.
+
+**The row carries both numbers** — *"in 5 live things at once; 5+ is the top
+tenth here"* — so the page can say why this person and not somebody else,
+rather than asking to be trusted. Still not a score, like the other four.
+
+**Phrased about the load, never about the person.** "Carrying a lot" is
+something you could say to somebody's face, which is the test every condition
+on this list has to pass.
+
+Proved on staging with a throwaway fixture before production: five open tasks
+makes it fire, on that person and nobody else; dropping to three below the
+floor makes it stop; the fixture was deleted and left nothing. On production
+it finds two people in The Thread B.V. carrying five things each.
+
+
+## [0.73.11] — 2026-09-12 — the app opens already knowing who today is about
+
+Sjoerd: *"would be great if the app — when you open it — based on agenda —
+can pre select people from the DB, that are named in the agenda."* Build-order
+step 5, arriving from the end that pays for itself on a Tuesday morning.
+
+**Today now opens with your calendar**, above what you owe, because a meeting
+in an hour outranks a task due on Friday. Each meeting lists its attendees,
+and each attendee this workspace already knows is a link straight to their
+page — which is where the note gets written. The path from "I have a meeting
+at 11" to "here is what we said" is one tap, with the looking-up done.
+
+**Each known person carries two facts** next to their name: where they stand,
+in whatever this workspace calls that band, and how long since anything was
+written down about them. An old date beside somebody you are seeing in an
+hour is the entire reason to look at this page.
+
+**Why this one is safe where matching names in prose is not.** A calendar
+attendee is an EMAIL ADDRESS. It is exact, so there is no fuzzy match to get
+wrong and no chance of attaching a stranger to a record because they share a
+first name — which is precisely why person names stay out of the note
+detection shipped in v0.73.10. Both Google scopes were already granted, so
+this adds no consent step.
+
+**Nothing is created.** An attendee with no person row comes back unmatched
+and stops there, shown with a dashed outline and their address. That is the
+most useful row on the screen — somebody you are about to meet who is not in
+your people yet — and it is an offer, not an action. `resolvePerson()` is the
+only way a person is ever made here and its first rule is that creation is
+never implicit; a sync that quietly created a person for every address in
+every meeting would fill a workspace with booking robots and conference-room
+accounts inside a week.
+
+**Only your own calendars, only your own token.** `listEvents()` asks for
+`minAccessRole: 'owner'`, so a subscribed team calendar or a colleague's
+shared one cannot drag other people's meetings into your day. The route never
+reads another user's calendar, not even for an admin: who is in your day is
+not a workspace-level fact.
+
+**Three things that fail quietly and one that does not.** No calendar
+connected renders nothing at all — most people will never connect one, and a
+permanent notice about an optional integration is furniture. A failed band-
+name read falls back to the shipped names. A failed agenda read leaves what
+you owe untouched. But a calendar that could not be READ says so, because an
+empty calendar and an unreachable one look identical on screen and mean
+opposite things.
+
+Verified against production before shipping: the calendar is connected for a
+real user, and all three query shapes the route depends on — attendee email
+to person, standing, last note — run clean against live data.
+
+
+## [0.73.10] — 2026-09-12 — tags that write themselves, from words you already use
+
+Sjoerd: *"if you type something after a visit or conversation, that it would
+integrate tags in the text... which connects things (without you having to do
+it)"* and *"e.g. company names are tags (if they exist; if not you can create
+it)"*.
+
+`tag` and `person_tag` were modelled in the first migration and read by
+nothing but the Article 15 export. `connections-model.md` §3.5 settled long
+ago that user-defined characteristics ARE tags rather than custom fields.
+This is the first surface that uses either.
+
+**Write a note; the tags appear.** Detection runs in the composer on every
+keystroke, against the workspace's OWN vocabulary: tags it already uses, and
+the names of organisations it holds. Plus `#anything` for a word nobody has
+used yet. They appear already on, because the request was that this happen
+without having to do it and a row of things to confirm is another form. The X
+removes the tag and leaves the word in the sentence.
+
+**No model, and nothing leaves the browser.** Note bodies are the most
+sensitive text in the system, and sending them to one is a processing
+operation needing a sub-processor entry, an EU endpoint and a DPA before it
+can happen at all (`connections-data-integrity.md` §9.5). None of that is
+needed to do the useful part, because the workspace's own words are already
+known.
+
+**Person names are deliberately not matched.** A false positive attaches a
+claim to a real person's record. An organisation name is distinctive and is
+not a person; a bare first name is neither.
+
+**Three rules that are load-bearing.** A word becomes a tag only once it is
+finished, or `#sdg13` flickers through four half-tags on the way to being
+typed. Matching is whole-word and case-insensitive, so "art" does not fire on
+"participate", and a two-word tag matches across punctuation. And the
+composer decides while the API applies: the tag list is sent explicitly and
+never re-detected server-side, because a second implementation of the same
+rules would eventually disagree with the chips, and the first time it did,
+somebody would be tagged with a word they watched themselves remove.
+
+**`person_tag` gained provenance** — `created_at`, `created_via`, `note_id`.
+Existing rows are backfilled to the epoch rather than to now, because
+backdating them to today would invent a stampede of arrivals that never
+happened. `note_id` is what makes an automatic tag answerable: "why is this
+person tagged sdg13" has to lead back to the sentence, or the tag is an
+assertion nobody can check.
+
+**`tag.organisation_id`** lets a tag name an organisation, unique per
+workspace so a company's people cannot split into two groups that look
+unrelated. One mechanism, not two — the alternative was a second kind of
+mention with its own table and its own rules.
+
+**Connections has unit tests now**, 17 of them, all on the detection rules.
+The app had none. Verified against production as well: the vocabulary query,
+find-or-create, the link with its provenance, the unique index correctly
+refusing a second tag for one organisation, and a clean-up that left nothing
+behind.
+
+`docs/connections-model.md` §3.7 records the three things asked for in the
+same conversation and not built yet: the tag cloud and map (D70), the tag
+marked inline in the sentence rather than beside it (D71, with the reason it
+is the risky one), and the calendar pre-selecting today's people (D72, which
+matches on email rather than name and is therefore the cheap one).
+
+
+## [0.73.9] — 2026-09-12 — the steps keep their rules and lose their names
+
+Sjoerd, shown the six lifecycle steps: *"those six steps... not sure where
+they came from. Can they be edited?"*
+
+They came from one session on 2026-09-11 and nobody had reviewed them since.
+Offered the choice, he took: keep the rules, make the names the workspace's
+own. That split is the whole design and it is worth stating rather than
+inferring.
+
+**The rules stay derived and stay fixed.** What puts somebody on a step is
+worked out from what actually happened — attendance, purchases, membership,
+who runs a thread — which is why the landscape was useful on the day it
+shipped and asks nobody to fill anything in. A workspace that could rewrite
+those rules would have to MAINTAIN them, and a hand-maintained ladder is
+wrong within a month. There is deliberately no endpoint, column or screen
+anywhere in this release that says what earns a band.
+
+**The names are yours.** "Holds space" can be "convenes", or whatever only
+your community would say. `connections_band_label` stores one row per
+renamed band, keyed by workspace, axis and band, so a workspace that renames
+two of the twenty-two stores two rows and everything else falls through to
+the shipped translation. All five axes, not only the ladder — a rename
+mechanism covering one of five would be an arbitrary distinction to explain.
+
+**Three decisions inside it that are easy to get backwards.**
+
+No locale column. Shipped names live in a typed catalog in six languages, but
+a name somebody TYPED is content, and this codebase does not translate
+content. One string per band, shown to everyone in the workspace whatever
+their interface language. Machine-translating somebody's own vocabulary would
+be worse than showing it as they wrote it.
+
+An empty field is the reset. It deletes the row, because absence is what the
+fallback reads. Storing the current English as an override instead would
+freeze that band in English for every other locale.
+
+"May this user edit?" is answered on the labels endpoint, not added to
+`/auth/me`. That is a wide published shape read by eight apps and this is one
+screen's question. Renaming is admin-only, enforced in RLS rather than
+re-derived in the API, because the words are shared: one person changing
+"contributes" changes what the whole team reads on every screen.
+
+**Settings exists in Connections now**, reachable from the avatar menu, with
+the platform entries every app shows and one card of its own. The rename
+screen prints what earns each band underneath its field — you cannot sensibly
+name a step without being told what lands somebody on it.
+
+Verified against production before shipping: upsert, read back in the API's
+shape, a second identical upsert to prove idempotency, delete, zero rows left
+behind. Renaming two bands and re-rendering shows two changed and four
+falling back.
+
+
 ## [0.73.8] — 2026-09-12 — the prompt only appears where nothing was ever written
 
 A bug in v0.73.6, live for about forty minutes, found in review by the
