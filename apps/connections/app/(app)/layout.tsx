@@ -12,6 +12,7 @@ import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
 import { OfflineSync } from '@/components/offline-sync';
+import { UnfiledNotes } from '@/components/unfiled-notes';
 
 // Connections has its own user-facing version, independent of the monorepo
 // cadence in package.json. Starts at 0.1.0 because it's a new app (not a
@@ -126,11 +127,16 @@ export default async function ConnectionsAppLayout({
             locale={locale}
             fibreContactsBase={`${appUrl('fibre-platform', process.env)}/contacts`}
           >
+            {/* Notes written offline that still need a person. Renders
+                nothing unless one is waiting, on whichever page you land. */}
+            <div className="px-4 pt-4 empty:hidden sm:px-6">
+              <UnfiledNotes workspaceId={me.workspace?.id ?? null} locale={locale} />
+            </div>
             {children}
           </PersonPopupProvider>
           {/* Records the active workspace, sends notes queued offline when the
-              signal returns, keeps a people list for the offline page, and
-              registers the service worker — on every signed-in page. */}
+              signal returns, and registers the service worker — on every
+              signed-in page. */}
           <OfflineSync workspaceId={me.workspace?.id ?? null} />
         </main>
         <MobileNav version={VERSION} />

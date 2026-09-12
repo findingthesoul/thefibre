@@ -6934,6 +6934,47 @@ const CATALOG = {
     de: 'Bald erwartetes Geld, das noch nicht in Rechnung gestellt ist.', // MT
     fr: 'De l\'argent attendu bientôt, pas encore facturé.', // MT
   },
+  // ── Notes written offline that still need a person ──────────────────────
+  unfiled_title: {
+    en: 'Notes written offline need a person',
+    nl: 'Offline geschreven notities hebben een persoon nodig',
+    es: 'Notas escritas sin conexión necesitan una persona', // MT
+    pt: 'Notas escritas sem ligação precisam de uma pessoa', // MT
+    de: 'Offline geschriebene Notizen brauchen eine Person', // MT
+    fr: 'Des notes écrites hors ligne attendent une personne', // MT
+  },
+  unfiled_intro: {
+    en: 'Choose who each note is about. Nothing is sent until you do.',
+    nl: 'Kies over wie elke notitie gaat. Er wordt niets verstuurd tot je dat doet.',
+    es: 'Elige sobre quién es cada nota. No se envía nada hasta que lo hagas.', // MT
+    pt: 'Escolhe sobre quem é cada nota. Nada é enviado até o fazeres.', // MT
+    de: 'Wähle, um wen es in jeder Notiz geht. Vorher wird nichts gesendet.', // MT
+    fr: 'Choisissez de qui parle chaque note. Rien n\'est envoyé avant.', // MT
+  },
+  unfiled_typed: {
+    en: 'You wrote “{name}”. Search:',
+    nl: 'Je schreef “{name}”. Zoeken:',
+    es: 'Escribiste «{name}». Buscar:', // MT
+    pt: 'Escreveste “{name}”. Procurar:', // MT
+    de: 'Du hast „{name}“ geschrieben. Suchen:', // MT
+    fr: 'Vous avez écrit « {name} ». Rechercher :', // MT
+  },
+  unfiled_load_failed: {
+    en: 'Could not load people to choose from. This tries again when the connection is back.',
+    nl: 'Kon geen mensen laden om uit te kiezen. Dit probeert het opnieuw zodra de verbinding terug is.',
+    es: 'No se pudieron cargar las personas. Se volverá a intentar cuando vuelva la conexión.', // MT
+    pt: 'Não foi possível carregar as pessoas. Volta a tentar quando a ligação regressar.', // MT
+    de: 'Personen konnten nicht geladen werden. Es wird erneut versucht, sobald die Verbindung zurück ist.', // MT
+    fr: 'Impossible de charger les personnes. Nouvel essai au retour de la connexion.', // MT
+  },
+  unfiled_no_match: {
+    en: 'Nobody by that name. Try part of their first or last name.',
+    nl: 'Niemand met die naam. Probeer een deel van de voor- of achternaam.',
+    es: 'Nadie con ese nombre. Prueba con parte del nombre o apellido.', // MT
+    pt: 'Ninguém com esse nome. Tenta parte do nome ou apelido.', // MT
+    de: 'Niemand mit diesem Namen. Versuch einen Teil des Vor- oder Nachnamens.', // MT
+    fr: 'Personne à ce nom. Essayez une partie du prénom ou du nom.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

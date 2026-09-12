@@ -33,7 +33,7 @@
 //
 // public/offline.html is plain HTML with no framework, because it has to work
 // when nothing but the service worker's cache is reachable. It writes queue
-// entries in exactly this format and reads the people cache below. The format
+// entries in exactly this format. The format
 // is therefore a contract between two files that share no code, and
 // offline-notes.test.ts checks an entry written the way offline.html writes
 // one is read back here.
@@ -45,7 +45,15 @@ export const QUEUE_CHANGED = 'connections:queue-changed';
 
 const NOTE_PREFIX = 'connections:offline-note:';
 const WORKSPACE_KEY = 'connections:workspace';
-const PEOPLE_KEY = 'connections:people';
+/**
+ * Where v0.73.18 kept a list of people for the offline page. Nothing writes
+ * it any more; it is only ever REMOVED, from devices that still carry it.
+ *
+ * Sjoerd, 2026-09-13, removed the list. connections-overview.md §4 says the
+ * offline half must not become a local contact database, and names on a
+ * phone that can be lost are exactly that, however short the list.
+ */
+const LEGACY_PEOPLE_KEY = 'connections:people';
 
 /** The payload saveNote takes. Kept loose so this module does not import a
  *  'use server' file and drag it somewhere it should not be. */
@@ -169,6 +177,14 @@ export async function flushQueuedNotes(
 ): Promise<number> {
   let stuck = 0;
   for (const note of queuedNotes(workspaceId)) {
+    // A note written offline with only a typed name waits for somebody to say
+    // who it is about (see fileNote). Sending it would either fail or, worse,
+    // tempt the server into matching a name — which system-handbook §12
+    // forbids: a person is attached by an exact identifier, never by prose.
+    if (!isFiled(note)) {
+      stuck += 1;
+      continue;
+    }
     try {
       const r = await save(note);
       if (r.ok) dequeueNote(note.client_ref);
@@ -181,35 +197,55 @@ export async function flushQueuedNotes(
   return stuck;
 }
 
-// ── The people cache, for the offline page ─────────────────────────────────
+// ── Notes that still need a person ─────────────────────────────────────────
 
-export type CachedPerson = { id: string; name: string };
+function isFiled(note: QueuedNote): boolean {
+  return typeof note.person_id === 'string' && note.person_id.length > 0;
+}
+
+/** A queued note written offline, where only a name was typed. */
+export type UnfiledNote = { client_ref: string; person_name: string; body: string };
+
+/** Waiting notes with no person yet, oldest first. */
+export function unfiledNotes(workspaceId?: string | null): UnfiledNote[] {
+  return queuedNotes(workspaceId)
+    .filter((n) => !isFiled(n))
+    .map((n) => ({
+      client_ref: n.client_ref,
+      person_name: typeof n.person_name === 'string' ? n.person_name : '',
+      body: typeof n.body === 'string' ? n.body : '',
+    }));
+}
 
 /**
- * The people the offline page offers to write about.
+ * Say who an offline note is about, chosen by a person from real records.
  *
- * Names on the device are justified the way the vocabulary payload is — the
- * recipient is a signed-in member who can already read every one of these —
- * and cleared on sign-out by `clearOfflineData`, because "the reader already
- * has it" stops being true the moment they are no longer the reader.
+ * The typed name is dropped from the payload once a person is chosen: it was
+ * a reminder for the reader, not data for the server, and the save schema
+ * has no field for it. Returns false if the note is gone or cannot be written.
  */
-export function cachePeople(workspaceId: string, people: CachedPerson[]): void {
+export function fileNote(clientRef: string, personId: string): boolean {
+  const s = storage();
+  if (!s) return false;
   try {
-    storage()?.setItem(PEOPLE_KEY, JSON.stringify({ workspaceId, people, at: Date.now() }));
+    const raw = s.getItem(NOTE_PREFIX + clientRef);
+    if (!raw) return false;
+    const entry = JSON.parse(raw) as Entry;
+    const { person_name: _typed, ...rest } = entry.payload;
+    entry.payload = { ...rest, client_ref: clientRef, person_id: personId };
+    s.setItem(NOTE_PREFIX + clientRef, JSON.stringify(entry));
+    return true;
   } catch {
-    /* quota: the offline page simply has no list to offer */
+    return false;
   }
 }
 
-export function cachedPeople(workspaceId: string | null): CachedPerson[] {
+/** Remove the people list older versions kept on the device. */
+export function forgetLegacyPeople(): void {
   try {
-    const parsed = JSON.parse(storage()?.getItem(PEOPLE_KEY) ?? 'null');
-    // Never offer another workspace's people: a note written about one of them
-    // would be refused by the server and sit in the queue for nothing.
-    if (!parsed || parsed.workspaceId !== workspaceId) return [];
-    return Array.isArray(parsed.people) ? parsed.people : [];
+    storage()?.removeItem(LEGACY_PEOPLE_KEY);
   } catch {
-    return [];
+    /* storage unavailable: nothing to remove either */
   }
 }
 
@@ -231,7 +267,7 @@ export function clearOfflineData(): void {
     const doomed: string[] = [];
     for (let i = 0; i < s.length; i += 1) {
       const key = s.key(i);
-      if (key && (key.startsWith(NOTE_PREFIX) || key === WORKSPACE_KEY || key === PEOPLE_KEY)) {
+      if (key && (key.startsWith(NOTE_PREFIX) || key === WORKSPACE_KEY || key === LEGACY_PEOPLE_KEY)) {
         doomed.push(key);
       }
     }
