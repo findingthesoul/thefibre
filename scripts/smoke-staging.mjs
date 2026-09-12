@@ -109,6 +109,7 @@ const STAGING_SUBS = {
   flow: 'fibre-flow',
   pulse: 'fibre-pulse',
   membership: 'membership',
+  connections: 'fibre-sales',
 };
 
 /** Surfaces are not catalogue apps, so they carry their own map and their
@@ -122,7 +123,6 @@ const STAGING_SURFACE_SUBS = {
 const NOT_ON_STAGING = {
   'fibre-platform': 'it IS the staging apex (thefibre.tech), checked above',
   website: 'the marketing site has no staging deployment; the apex serves the Fibre web',
-  'fibre-sales': 'in the registry but unbuilt — no app to serve',
   'fibre-learn': 'in the registry but unbuilt — no app to serve',
 };
 // Not listed above and not a gap: apps that live only in the DB catalogue

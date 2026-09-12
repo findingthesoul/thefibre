@@ -166,18 +166,24 @@ export const APPS: Record<AppId, AppBrand> = {
     tagline: 'Where everybody stands, and who needs you.',
     url: 'https://connections.thethread.app',
     urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',
-    // False until the Vercel projects exist and the domain actually serves.
-    // `available` means "you can go there": it gates every app switcher, the
-    // Fibre dashboard, the SSO hop target check, and — because the list is
-    // derived rather than written out — scripts/smoke-prod.mjs. Setting it
-    // true before the deployment existed made the release gate fail, which
-    // is the gate being right: it caught an app in the catalogue that no
-    // browser could reach.
+    // True since 2026-09-12: both domains serve. `available` means "you can
+    // go there" — it gates every app switcher, the Fibre dashboard, the SSO
+    // hop target check, and, because those lists are derived rather than
+    // written out, scripts/smoke-prod.mjs and scripts/smoke-staging.mjs.
     //
-    // FLIPPING THIS TO TRUE IS THE LAST STEP of bringing Connections up,
-    // after the Vercel import and after CORS_ORIGINS on the staging API
-    // gains https://connections.thefibre.tech.
-    available: false,
+    // It was false for a day on purpose. Setting it true before the
+    // deployment existed made the release gate fail, which was the gate
+    // being right: it caught an app in the catalogue that no browser could
+    // reach. Flipping it is therefore the LAST step of bringing an app up,
+    // never the first — the flag describes the world, it does not create it.
+    //
+    // What the day cost, for whoever brings up app number nine: a new Vercel
+    // project is created with Deployment Protection ON, so its domains 302
+    // to vercel.com/sso-api for anyone without a session on the Vercel team.
+    // It looks fine to the person who set it up and to nobody else. The
+    // older projects predate that default and have it off. Check it signed
+    // out, with curl, before believing a domain works.
+    available: true,
   },
   'fibre-learn': {
     name: 'Learn',

@@ -6,6 +6,54 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.5] — 2026-09-12 — Connections is a door you can walk through
+
+Sjoerd, on returning: *"what do I need to do?"* Two switches, both his, and
+this is the release that follows them being thrown.
+
+**The flag is true.** `available` on `fibre-sales` flipped from false, which
+is the last step of bringing an app up and never the first. Connections now
+appears in every app switcher, on the Fibre dashboard, as a valid SSO hop
+target, and — because those lists are derived rather than hand-written — in
+both smoke tests. It was false for a day on purpose: set true before the
+deployment existed, it failed the release gate, which was the gate being
+right. The flag describes the world. It does not create it.
+
+**Two domains, two different reasons they were dark.**
+
+`connections.thethread.app` needed three stacked build fixes and has served
+since yesterday. `connections.thefibre.tech` returned 404 from the day the
+app was created, and the cause was not a misconfiguration: the domain was
+correctly bound to the staging branch, DNS was valid, and
+`scripts/vercel-ignore.mjs` was declining to build, correctly, because no
+push had touched `apps/connections` outside its `package.json` — which the
+script excludes on purpose, since the release ritual bumps every version
+field every time. **A new app's first staging build therefore waits for an
+unrelated change to `packages/shared`.** v0.73.4 was that change, and the
+404 resolved as a side effect of somebody else's release. Worth knowing
+before app number nine: force the first one.
+
+**Then it answered, and still was not reachable.** It redirected to
+`vercel.com/sso-api`. A Vercel project created recently has Deployment
+Protection ON by default; the older projects predate that default and have it
+off. The failure mode is the nasty kind — it looks fine to the person who set
+it up, because their browser carries a team session, and to nobody else. The
+only way to see it is signed out, with curl.
+
+**`smoke-staging.mjs` now checks Connections** instead of excusing it as "in
+the registry but unbuilt". That guard exists so an app cannot be quietly
+absent from staging, and the exclusion had gone stale the moment the app
+built. The same script found `my.thefibre.tech` sitting behind that same
+login wall — staging only, production is clean, and the switch is Sjoerd's.
+
+**One correction, made in public.** This session told both Sjoerd and a peer
+that a missing `CORS_ORIGINS` entry would leave staging Connections rendering
+without data. Wrong. Every call goes through `apps/connections/lib/api.ts`,
+which imports `serverSupabase` and therefore only ever runs server-side, so
+no browser request crosses an origin and the allowlist never applies. Worth
+setting for consistency with the other six. Blocks nothing.
+
+
 ## [0.73.4] — 2026-09-12 — an event link that looks like the event
 
 Sjoerd, after the website's preview was fixed: *"Solve that. Incl. the logo
