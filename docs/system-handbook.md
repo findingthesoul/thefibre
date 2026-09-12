@@ -783,9 +783,31 @@ in one band, because those axes read captured conversations and recorded
 introductions and nothing had written either yet. Correct arithmetic, and it
 looked broken. Sjoerd's report was *"I dont get what it is doing now"*.
 
-**Do not hide the section.** Hiding is the cheap fix and it costs the
-teaching moment, which is the one thing a day-one workspace needs; it leaves
-a short page that explains nothing. Instead say three things in one breath:
+**First decide WHICH emptiness it is**, because there are two and they want
+opposite treatments.
+
+*Transient* empty is a healthy workspace on an ordinary day: nothing on
+today, nobody enrolled this week, no invoice outstanding. It recurs forever,
+it is unremarkable, and a sentence teaching the reader how to fill it would
+appear every quiet Tuesday and become exactly the permanent furniture this
+rule is trying to prevent. **Hide it.** That is the correct answer, not the
+lazy one — Thread's home page hides a section with nothing in it for this
+reason, and should keep doing so.
+
+*Structural* empty is the case above: a source that has never been written to
+at all, so the view is not reporting a quiet week, it is reporting that a
+feature has never been used. **That earns the sentence.**
+
+The test between them is not "is it empty now" but "has anything ever been
+here". (Split added 2026-09-12 by the Thread session, testing the rule
+against a real dashboard at the author's invitation; the original text said
+simply "do not hide", which would have put teaching copy under every quiet
+Tuesday on Thread's home page.)
+
+**For the structural case, do not hide the section.** Hiding is the cheap fix
+and it costs the teaching moment, which is the one thing a day-one workspace
+needs; it leaves a short page that explains nothing. Instead say three things
+in one breath:
 
 1. what the surface is reading from,
 2. that the source is empty,
@@ -793,14 +815,29 @@ a short page that explains nothing. Instead say three things in one breath:
    person and this axis starts working."*
 
 **Compute the condition from the data, never from a flag or a first-run
-check.** One occupied band out of however many. Then the sentence appears
-only while it is true and disappears by itself the moment it stops being
-true, instead of becoming permanent onboarding furniture somebody has to
-remember to switch off.
+check.** Then the sentence appears only while it is true and disappears by
+itself the moment it stops being true, instead of becoming permanent
+onboarding furniture somebody has to remember to switch off.
+
+**Point that computation at the SOURCE, not at the shape of the view.** "One
+occupied band out of five" also describes a workspace where everybody
+genuinely has been spoken to and nobody has been introduced — a true, stable
+answer the sentence would then nag at forever. "Zero conversations have ever
+been captured here" is the fact that actually makes the axis uninformative,
+it is the fact the sentence promises to change, and it stops being true
+exactly once.
 
 Applies to: the Connections landscape (done), Thread's home page, Pulse's
 dashboard, and anything else whose numbers come from a table a different
 app writes.
+
+One honest instance of the same sin, recorded by the session that shipped it
+rather than found by review: Thread's home page counts approvals and unpaid
+invoices from the 200 most recent enrolments, because that is where the
+endpoint caps. On a large workspace it renders a confident number that is
+quietly incomplete. It is documented in the file header and every count links
+through to the page holding the full truth — a mitigation, not a defence. A
+count is the most confident thing a screen can say.
 
 ### Debugging
 
