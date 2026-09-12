@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.20] — 2026-09-13 — Connections draws a map of everyone (staging)
+
+**Connections — the desktop map.** A new Map page shows the whole community
+at once, as a cloud rather than a chart. Distance from the centre is how long
+since you were last in touch; a larger dot needs your attention now; darker
+ink is further along the ladder. People not seen in over a year stop being
+dots and become a count at the rim, which opens a list.
+
+Placement is computed, never simulated (`lib/map-layout.ts`): a person's
+bearing comes from their id, so adding somebody never moves anybody else, and
+spatial memory has something to hold on to. The first hash clumped sequential
+ids into one quadrant — a fake cluster of unrelated people — and was fixed
+with a finalising mix before it shipped.
+
+Clicking a dot opens the person popup. **Who is near** asks
+`connections_neighbourhood` who shares something rare with a person and draws
+a line to each, with every reason written beside it. Only a stated
+relationship is a solid line; a shared tag, organisation or mention is dashed,
+because sharing a word is not knowing someone (handbook §12). The checkboxes
+thin the lines: each tick is a requirement, so more ticks leave fewer, stronger
+links.
+
+- `GET /connections/map` and `GET /connections/map/:personId/neighbourhood`.
+  The focus is checked with `rowInWorkspace`, so a person from another
+  workspace is a 404, not an empty list.
+- Migration `20260913050000_connections_neighbourhood` (already applied to
+  staging).
+- The server's clock is passed to the map. Two clocks a moment apart put every
+  dot a hair apart and React reported a hydration mismatch.
+
+**Connections — tags are marked inside the sentence.** While you write a note,
+detected tags and @mentions are highlighted in the text itself, behind the
+native textarea, so typing, spellcheck and the phone keyboard are untouched.
+Hovering a chip under the note lights up its words.
+
 ## [0.73.19] — 2026-09-13 — The Thread stops writing across workspaces (staging)
 
 **Security.** Found by reading `routes/thread.ts` after another session
