@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { FAR_DAYS, daysSince, layout, radiusFor, unitHash, type MapPerson } from './map-layout';
+import { FAR_DAYS, daysSince, layout, radiusFor, thin, unitHash, type MapPerson } from './map-layout';
 
 const NOW = Date.UTC(2026, 8, 13);
 const ago = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
@@ -126,5 +126,27 @@ describe('helpers', () => {
 
   it('reads an unparseable date as never, not as today', () => {
     expect(daysSince('not a date', NOW)).toBeNull();
+  });
+});
+
+describe('thinning — each tick is a requirement', () => {
+  type Kind = 'stated' | 'tag' | 'organisation' | 'mentioned';
+  const n = (id: string, ...kinds: Kind[]) => ({ id, reasons: kinds.map((kind) => ({ kind, label: '' })) });
+  const all = [n('both', 'tag', 'organisation'), n('tag-only', 'tag'), n('org-only', 'organisation')];
+  const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
+
+  it('keeps everyone when nothing is ticked', () => {
+    expect(ids(thin(all, new Set<Kind>()))).toEqual(['both', 'tag-only', 'org-only']);
+  });
+
+  it('keeps a link that has the one ticked reason', () => {
+    // The success twin of the narrowing case below.
+    expect(ids(thin(all, new Set<Kind>(['tag'])))).toEqual(['both', 'tag-only']);
+  });
+
+  it('narrows, never widens, as a second box is ticked', () => {
+    // An OR filter would return all three here. That is the misreading D47
+    // warns about, and it looks like a working feature.
+    expect(ids(thin(all, new Set<Kind>(['tag', 'organisation'])))).toEqual(['both']);
   });
 });

@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Map, Bell, CalendarCheck, Users, DoorOpen, Hash } from 'lucide-react';
+import { Map, Bell, CalendarCheck, Users, DoorOpen, Hash, Orbit } from 'lucide-react';
 import {
   createSidebarShell,
   type SidebarNavSection,
@@ -37,6 +37,7 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     {
       items: [
         { href: '/landscape', label: t(locale, 'nav_landscape'), icon: Map },
+        { href: '/map', label: t(locale, 'nav_map'), icon: Orbit },
         { href: '/people', label: t(locale, 'nav_people'), icon: Users },
         { href: '/tags', label: t(locale, 'nav_tags'), icon: Hash },
         { href: '/entries', label: t(locale, 'nav_entries'), icon: DoorOpen },

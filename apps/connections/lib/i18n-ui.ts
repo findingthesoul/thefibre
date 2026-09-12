@@ -6540,6 +6540,191 @@ const CATALOG = {
     de: 'Erfasse bei einer Person, wer wen eingeführt hat, dann funktioniert diese Achse.', // MT
     fr: 'Notez sur une personne qui a présenté qui et cet axe se met à fonctionner.', // MT
   },
+  // ── Map: the desktop picture of everyone (connections-desktop.md) ────────
+  nav_map: {
+    en: 'Map',
+    nl: 'Kaart',
+    es: 'Mapa', // MT
+    pt: 'Mapa', // MT
+    de: 'Karte', // MT
+    fr: 'Carte', // MT
+  },
+  map_intro: {
+    en: 'Everyone at once. Nearer the centre means in touch more recently; larger means they need you now; darker means further along. Click a person to open them.',
+    nl: 'Iedereen tegelijk. Dichter bij het midden betekent recenter contact; groter betekent dat ze je nu nodig hebben; donkerder betekent verder op weg. Klik op iemand om die te openen.',
+    es: 'Todos a la vez. Más cerca del centro es contacto más reciente; más grande es que te necesitan ahora; más oscuro es más avanzado. Haz clic en una persona para abrirla.', // MT
+    pt: 'Todos de uma vez. Mais perto do centro é contacto mais recente; maior é que precisam de ti agora; mais escuro é mais avançado. Clica numa pessoa para a abrir.', // MT
+    de: 'Alle auf einmal. Näher an der Mitte heißt kürzlicher Kontakt; größer heißt, sie brauchen dich jetzt; dunkler heißt weiter fortgeschritten. Klicke auf eine Person, um sie zu öffnen.', // MT
+    fr: 'Tout le monde d\'un coup. Plus près du centre : contact plus récent ; plus grand : ils ont besoin de vous maintenant ; plus foncé : plus avancé. Cliquez sur une personne pour l\'ouvrir.', // MT
+  },
+  map_desktop_note: {
+    en: 'The map is made for a larger screen. On a phone, the landscape and Today work better.',
+    nl: 'De kaart is gemaakt voor een groter scherm. Op een telefoon werken het landschap en Vandaag beter.',
+    es: 'El mapa está pensado para una pantalla grande. En el móvil funcionan mejor el paisaje y Hoy.', // MT
+    pt: 'O mapa foi feito para um ecrã maior. No telemóvel, a paisagem e Hoje funcionam melhor.', // MT
+    de: 'Die Karte ist für einen größeren Bildschirm gemacht. Auf dem Handy funktionieren Landschaft und Heute besser.', // MT
+    fr: 'La carte est faite pour un grand écran. Sur un téléphone, le paysage et Aujourd\'hui marchent mieux.', // MT
+  },
+  map_empty: {
+    en: 'Nobody to draw yet.',
+    nl: 'Nog niemand om te tekenen.',
+    es: 'Aún no hay nadie que dibujar.', // MT
+    pt: 'Ainda não há ninguém para desenhar.', // MT
+    de: 'Noch niemand zum Zeichnen.', // MT
+    fr: 'Personne à dessiner pour l\'instant.', // MT
+  },
+  map_aria: {
+    en: 'Map of people by recency of contact',
+    nl: 'Kaart van mensen naar recentheid van contact',
+    es: 'Mapa de personas según contacto reciente', // MT
+    pt: 'Mapa de pessoas por contacto recente', // MT
+    de: 'Karte der Menschen nach letztem Kontakt', // MT
+    fr: 'Carte des personnes selon le dernier contact', // MT
+  },
+  map_far: {
+    en: '{n} not seen in over a year',
+    nl: '{n} al meer dan een jaar niet gezien',
+    es: '{n} sin ver en más de un año', // MT
+    pt: '{n} sem contacto há mais de um ano', // MT
+    de: '{n} seit über einem Jahr nicht gesehen', // MT
+    fr: '{n} pas vus depuis plus d\'un an', // MT
+  },
+  map_far_title: {
+    en: 'Not seen in over a year',
+    nl: 'Meer dan een jaar niet gezien',
+    es: 'Sin ver en más de un año', // MT
+    pt: 'Sem contacto há mais de um ano', // MT
+    de: 'Seit über einem Jahr nicht gesehen', // MT
+    fr: 'Pas vus depuis plus d\'un an', // MT
+  },
+  map_legend_title: {
+    en: 'Reading the map',
+    nl: 'De kaart lezen',
+    es: 'Cómo leer el mapa', // MT
+    pt: 'Como ler o mapa', // MT
+    de: 'Die Karte lesen', // MT
+    fr: 'Lire la carte', // MT
+  },
+  map_legend_distance: {
+    en: 'Distance from the centre: time since you were in touch',
+    nl: 'Afstand tot het midden: tijd sinds jullie contact',
+    es: 'Distancia al centro: tiempo desde el último contacto', // MT
+    pt: 'Distância ao centro: tempo desde o último contacto', // MT
+    de: 'Abstand zur Mitte: Zeit seit dem letzten Kontakt', // MT
+    fr: 'Distance au centre : temps depuis le dernier contact', // MT
+  },
+  map_legend_size: {
+    en: 'Size: needs your attention now',
+    nl: 'Grootte: heeft nu je aandacht nodig',
+    es: 'Tamaño: necesita tu atención ahora', // MT
+    pt: 'Tamanho: precisa da tua atenção agora', // MT
+    de: 'Größe: braucht jetzt deine Aufmerksamkeit', // MT
+    fr: 'Taille : a besoin de votre attention maintenant', // MT
+  },
+  map_legend_ink: {
+    en: 'Darker: further along the ladder',
+    nl: 'Donkerder: verder op de ladder',
+    es: 'Más oscuro: más arriba en la escalera', // MT
+    pt: 'Mais escuro: mais acima na escada', // MT
+    de: 'Dunkler: weiter oben auf der Leiter', // MT
+    fr: 'Plus foncé : plus haut sur l\'échelle', // MT
+  },
+  map_legend_lines: {
+    en: 'A solid line is a stated relationship. A dashed line is only something they share, not proof they know each other.',
+    nl: 'Een doorgetrokken lijn is een vastgelegde relatie. Een stippellijn is alleen iets wat ze delen, geen bewijs dat ze elkaar kennen.',
+    es: 'Una línea continua es una relación registrada. Una discontinua es solo algo que comparten, no prueba de que se conozcan.', // MT
+    pt: 'Uma linha contínua é uma relação registada. Uma tracejada é só algo que partilham, não prova de que se conhecem.', // MT
+    de: 'Eine durchgezogene Linie ist eine erfasste Beziehung. Eine gestrichelte ist nur etwas Gemeinsames, kein Beweis, dass sie sich kennen.', // MT
+    fr: 'Un trait plein est une relation déclarée. Un pointillé n\'est qu\'un point commun, pas la preuve qu\'ils se connaissent.', // MT
+  },
+  map_near_title: {
+    en: 'Who is near',
+    nl: 'Wie is dichtbij',
+    es: 'Quién está cerca', // MT
+    pt: 'Quem está perto', // MT
+    de: 'Wer ist nah', // MT
+    fr: 'Qui est proche', // MT
+  },
+  map_near_hint: {
+    en: 'Pick a person to see who shares something with them, and what.',
+    nl: 'Kies iemand om te zien wie iets met die persoon deelt, en wat.',
+    es: 'Elige a alguien para ver quién comparte algo con esa persona, y qué.', // MT
+    pt: 'Escolhe alguém para ver quem partilha algo com essa pessoa, e o quê.', // MT
+    de: 'Wähle eine Person, um zu sehen, wer etwas mit ihr teilt, und was.', // MT
+    fr: 'Choisissez une personne pour voir qui partage quelque chose avec elle, et quoi.', // MT
+  },
+  map_near_pick: {
+    en: 'Choose a person…',
+    nl: 'Kies een persoon…',
+    es: 'Elige una persona…', // MT
+    pt: 'Escolhe uma pessoa…', // MT
+    de: 'Person wählen…', // MT
+    fr: 'Choisir une personne…', // MT
+  },
+  map_thin_legend: {
+    en: 'Only show links that include',
+    nl: 'Toon alleen verbanden met',
+    es: 'Mostrar solo vínculos que incluyan', // MT
+    pt: 'Mostrar só ligações que incluam', // MT
+    de: 'Nur Verbindungen zeigen mit', // MT
+    fr: 'Afficher seulement les liens avec', // MT
+  },
+  map_reason_stated: {
+    en: 'Stated relationship',
+    nl: 'Vastgelegde relatie',
+    es: 'Relación registrada', // MT
+    pt: 'Relação registada', // MT
+    de: 'Erfasste Beziehung', // MT
+    fr: 'Relation déclarée', // MT
+  },
+  map_reason_tag: {
+    en: 'Shared tag',
+    nl: 'Gedeelde tag',
+    es: 'Etiqueta compartida', // MT
+    pt: 'Etiqueta partilhada', // MT
+    de: 'Gemeinsamer Tag', // MT
+    fr: 'Étiquette commune', // MT
+  },
+  map_reason_organisation: {
+    en: 'Same organisation',
+    nl: 'Zelfde organisatie',
+    es: 'Misma organización', // MT
+    pt: 'Mesma organização', // MT
+    de: 'Gleiche Organisation', // MT
+    fr: 'Même organisation', // MT
+  },
+  map_reason_mentioned: {
+    en: 'Mentioned in a note',
+    nl: 'Genoemd in een notitie',
+    es: 'Mencionado en una nota', // MT
+    pt: 'Mencionado numa nota', // MT
+    de: 'In einer Notiz erwähnt', // MT
+    fr: 'Mentionné dans une note', // MT
+  },
+  map_near_none: {
+    en: 'Nothing connects {name} to anyone yet. Tags and @mentions in notes will.',
+    nl: 'Nog niets verbindt {name} met iemand. Tags en @vermeldingen in notities gaan dat doen.',
+    es: 'Aún nada conecta a {name} con nadie. Las etiquetas y @menciones en notas lo harán.', // MT
+    pt: 'Ainda nada liga {name} a ninguém. Etiquetas e @menções nas notas vão fazê-lo.', // MT
+    de: 'Noch verbindet nichts {name} mit jemandem. Tags und @Erwähnungen in Notizen werden es tun.', // MT
+    fr: 'Rien ne relie encore {name} à quelqu\'un. Les étiquettes et @mentions dans les notes le feront.', // MT
+  },
+  map_near_thinned: {
+    en: 'No link includes every ticked reason. Untick one to see more.',
+    nl: 'Geen verband bevat alle aangevinkte redenen. Vink er een uit om meer te zien.',
+    es: 'Ningún vínculo incluye todas las razones marcadas. Desmarca una para ver más.', // MT
+    pt: 'Nenhuma ligação inclui todas as razões marcadas. Desmarca uma para ver mais.', // MT
+    de: 'Keine Verbindung enthält alle angehakten Gründe. Entferne einen Haken, um mehr zu sehen.', // MT
+    fr: 'Aucun lien ne contient toutes les raisons cochées. Décochez-en une pour en voir plus.', // MT
+  },
+  map_near_failed: {
+    en: 'Could not load who is near. Try again.',
+    nl: 'Kon niet laden wie dichtbij is. Probeer opnieuw.',
+    es: 'No se pudo cargar quién está cerca. Inténtalo de nuevo.', // MT
+    pt: 'Não foi possível carregar quem está perto. Tenta de novo.', // MT
+    de: 'Konnte nicht laden, wer nah ist. Versuche es erneut.', // MT
+    fr: 'Impossible de charger qui est proche. Réessayez.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

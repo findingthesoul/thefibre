@@ -145,3 +145,21 @@ export function layout(people: readonly MapPerson[], now: number): MapLayout {
   dots.sort((a, b) => a.size - b.size);
   return { dots, far };
 }
+
+/**
+ * Thinning (D47): every ticked reason kind is a REQUIREMENT, so more ticks
+ * leave fewer, stronger links. The reverse of an ordinary filter, which widens
+ * with each box ticked — and the obvious implementation, which is why this is
+ * a named function with a test rather than a line inside the component.
+ * Nothing ticked keeps everything.
+ */
+export function thin<K extends string, N extends { reasons: { kind: K }[] }>(
+  neighbours: N[],
+  required: ReadonlySet<K>,
+): N[] {
+  return neighbours.filter((n) => {
+    const kinds = new Set(n.reasons.map((r) => r.kind));
+    for (const k of required) if (!kinds.has(k)) return false;
+    return true;
+  });
+}
