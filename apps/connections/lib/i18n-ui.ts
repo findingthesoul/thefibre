@@ -6975,6 +6975,30 @@ const CATALOG = {
     de: 'Niemand mit diesem Namen. Versuch einen Teil des Vor- oder Nachnamens.', // MT
     fr: 'Personne à ce nom. Essayez une partie du prénom ou du nom.', // MT
   },
+  today_effort_free: {
+    en: 'About {time} of work, and {free} free in your calendar.',
+    nl: 'Ongeveer {time} werk, en {free} vrij in je agenda.',
+    es: 'Unos {time} de trabajo y {free} libres en tu calendario.', // MT
+    pt: 'Cerca de {time} de trabalho e {free} livres no teu calendário.', // MT
+    de: 'Etwa {time} Arbeit und {free} frei in deinem Kalender.', // MT
+    fr: 'Environ {time} de travail, et {free} de libre dans votre agenda.', // MT
+  },
+  today_effort_over: {
+    en: 'That is more work than free time.',
+    nl: 'Dat is meer werk dan vrije tijd.',
+    es: 'Es más trabajo que tiempo libre.', // MT
+    pt: 'É mais trabalho do que tempo livre.', // MT
+    de: 'Das ist mehr Arbeit als freie Zeit.', // MT
+    fr: 'C’est plus de travail que de temps libre.', // MT
+  },
+  today_calendar_unavailable: {
+    en: 'Your calendar could not be read just now, so free time is not shown.',
+    nl: 'Je agenda kon nu niet gelezen worden, dus vrije tijd wordt niet getoond.',
+    es: 'No se pudo leer tu calendario ahora, así que no se muestra el tiempo libre.', // MT
+    pt: 'Não foi possível ler o teu calendário agora, por isso o tempo livre não aparece.', // MT
+    de: 'Dein Kalender konnte gerade nicht gelesen werden, daher wird keine freie Zeit angezeigt.', // MT
+    fr: 'Votre agenda n’a pas pu être lu, le temps libre n’est donc pas affiché.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

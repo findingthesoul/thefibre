@@ -67,7 +67,10 @@ export type PrepareRow = {
 export type TodayPayload = {
   now: string;
   horizon: Horizon;
-  segments: { key: Horizon; count: number; minutes: number }[];
+  /** free_minutes: unbooked working time in the same stretch, from the
+   *  calendar. null when there is no calendar to ask — never read as zero. */
+  segments: { key: Horizon; count: number; minutes: number; free_minutes: number | null }[];
+  calendar: 'none' | 'unavailable' | 'ok';
   owed: OwedRow[];
   prepare: PrepareRow[];
 };

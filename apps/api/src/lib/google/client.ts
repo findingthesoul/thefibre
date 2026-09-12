@@ -156,6 +156,10 @@ export type AgendaEvent = {
   allDay: boolean;
   location: string | null;
   attendees: { email: string; name: string | null; self: boolean; organiser: boolean }[];
+  /** Marked "free" in Calendar, so it does not take time out of the day. */
+  transparent: boolean;
+  /** The calendar owner said no. Still listed; not busy. */
+  declined: boolean;
 };
 
 export async function listEvents(
@@ -200,6 +204,8 @@ export async function listEvents(
       end: new Date(endRaw),
       allDay: !item.start?.dateTime,
       location: item.location ?? null,
+      transparent: item.transparency === 'transparent',
+      declined: (item.attendees ?? []).some((a) => a.self && a.responseStatus === 'declined'),
       attendees: (item.attendees ?? [])
         .filter((a) => a.email && !a.resource)
         .map((a) => ({

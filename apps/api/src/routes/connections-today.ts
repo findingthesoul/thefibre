@@ -31,6 +31,10 @@ import { adminClient } from '../db.js';
 import { actorUserId } from '../middleware/app-context.js';
 import { effortFor, taskKind, type EffortKind } from '../lib/effort.js';
 import { loadEffortOverrides } from './connections-effort.js';
+import { userGoogleToken } from '../lib/connections.js';
+import { listEvents, type AgendaEvent } from '../lib/google/client.js';
+import { profileFor } from '../lib/identity-profile.js';
+import { freeMinutes, safeTimeZone } from '../lib/free-time.js';
 
 export const connectionsTodayRoutes = new Hono();
 
@@ -222,6 +226,34 @@ connectionsTodayRoutes.get('/today', async (c) => {
   const ws = ctx.workspaceId;
   const w = windowsFor(new Date());
   const meUserId = actorUserId(ctx);
+
+  // The calendar, started now and awaited at the end, so a slow Google call
+  // runs alongside the database reads instead of after them. Never rejects:
+  // Today without free time is still Today.
+  //   'none'         no calendar connected (or no human: an app key)
+  //   'unavailable'  connected, but the read failed — said, never shown as
+  //                  an empty week, because those mean opposite things
+  const calendarPromise: Promise<
+    { status: 'none' } | { status: 'unavailable' } | { status: 'ok'; events: AgendaEvent[]; tz: string }
+  > = (async () => {
+    if (!meUserId) return { status: 'none' as const };
+    try {
+      // Inside the try as well: if the database fails and the route returns
+      // its 500 early, a rejection here would otherwise go unhandled.
+      const token = await userGoogleToken(meUserId);
+      if (!token) return { status: 'none' as const };
+      const [events, profile] = await Promise.all([
+        // Two weeks of meetings; the per-calendar cap is raised from the
+        // agenda's 50, which a busy fortnight exceeds.
+        listEvents(token, w.now, w.nextWeekEnd, 250),
+        profileFor(meUserId),
+      ]);
+      return { status: 'ok' as const, events, tz: safeTimeZone(profile.timezone) };
+    } catch (e) {
+      console.warn('[connections/today] calendar read failed', (e as Error).message);
+      return { status: 'unavailable' as const };
+    }
+  })();
 
   // Everything is gathered across the WIDEST window once, then bucketed. The
   // counts on the segmented control are the useful part before you tap
@@ -692,9 +724,28 @@ connectionsTodayRoutes.get('/today', async (c) => {
   // Counts for ALL four segments — the number is what you read before you
   // tap, and "next week is heavy" is only visible if next week was counted.
   // Minutes beside them turn the count into a plan (connections-overview §3).
+  //
+  // And beside the estimate, the unbooked working time in the same stretch —
+  // the other half of "fourteen hours of preparation and nine hours free".
+  // null when there is no calendar to ask, which the interface must not read
+  // as zero.
+  const calendar = await calendarPromise;
+  const windows: Record<Horizon, [Date, Date]> = {
+    today: [w.now, w.tomorrowStart],
+    tomorrow: [w.tomorrowStart, w.dayAfterTomorrow],
+    week: [w.now, w.nextMonday],
+    next_week: [w.nextMonday, w.nextWeekEnd],
+  };
   const segments = HORIZONS.map((key) => {
     const rows = [...owed.filter((o) => o.in[key]), ...prepare.filter((p) => p.in[key])];
-    return { key, count: rows.length, minutes: rows.reduce((sum, r) => sum + r.minutes, 0) };
+    const [from, to] = windows[key];
+    return {
+      key,
+      count: rows.length,
+      minutes: rows.reduce((sum, r) => sum + r.minutes, 0),
+      free_minutes:
+        calendar.status === 'ok' ? freeMinutes(from, to, calendar.events, calendar.tz) : null,
+    };
   });
 
   const owedNow = owed
@@ -708,6 +759,7 @@ connectionsTodayRoutes.get('/today', async (c) => {
     now: w.now.toISOString(),
     horizon,
     segments,
+    calendar: calendar.status,
     owed: owedNow,
     prepare: prepareNow,
   });
