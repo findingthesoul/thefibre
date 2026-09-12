@@ -4,6 +4,7 @@
   "buildCommand": "cd ../.. && pnpm --filter @thefibre/connections... build",
   "installCommand": "cd ../.. && pnpm install",
   "ignoreCommand": "node ../../scripts/vercel-ignore.mjs connections",
+  "outputDirectory": ".next",
   "regions": [
     "fra1"
   ]
