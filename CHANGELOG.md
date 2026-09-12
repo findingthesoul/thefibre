@@ -6,6 +6,33 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.24] — 2026-09-13 — The map becomes a moving web (staging)
+
+**Connections — walk through your connections.** Sjoerd, on the first map:
+*"Is the map not moving? Like the thesaurus... You click on a name and then
+you see the connections.. you click on the next... and that one is centered
+(and bigger)... you can always go Back."*
+
+- Click a dot on the map, or pick a person, and the web opens: that person
+  larger in the middle, their strongest connections around them, the most
+  valuable nearest. Under each name, why they are there — a shared tag, a
+  stated relationship, an organisation.
+- Click another name: it travels to the middle and the web rebuilds around it.
+  The person you came from stays on screen, faded. Back is the browser's Back.
+- Click the name in the middle to open their details.
+- **Companies are connected to people.** A person's current organisations
+  appear as boxed names on solid lines. Click one to see its people around it.
+  A company that is only mentioned in a note is not drawn as membership.
+- The overview of everyone stays still, so where someone sits stays worth
+  remembering; the web is where things move.
+
+API, additive: organisations on `GET /connections/map/:id/neighbourhood`, and
+`GET /connections/map/org/:orgId`, both scoped to the workspace.
+
+**Also in the build-skip fix (v0.73.23):** excluding `apps/web/lib/version.ts`
+from web's build check (v0.73.16) was right. It only removed an accidental
+safety net, which let the shallow-clone bug reach web too. Do not revert it.
+
 ## [0.73.23] — 2026-09-13 — Promotions rebuild what changed
 
 **Fix: promoting to production skipped every web build.** The first promotion
