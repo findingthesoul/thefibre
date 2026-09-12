@@ -726,6 +726,36 @@ const CATALOG = {
     de: 'In Warteschlange', // MT
     fr: 'En attente', // MT
   },
+  // Where a note actually is when the connection has gone. Never "saved": a
+  // note that exists only on a phone is not saved in the sense the word
+  // promises, and saying so would cost somebody the note.
+  note_saved_on_device: {
+    en: 'Kept on this phone — sends when you are back online',
+    nl: 'Bewaard op deze telefoon — wordt verstuurd zodra je weer online bent',
+    es: 'Guardado en este teléfono: se envía cuando vuelvas a tener conexión', // MT
+    pt: 'Guardado neste telemóvel — é enviado quando voltares a ter ligação', // MT
+    de: 'Auf diesem Telefon behalten — wird gesendet, sobald du wieder online bist', // MT
+    fr: 'Gardé sur ce téléphone — envoyé dès que vous êtes de nouveau en ligne', // MT
+  },
+  note_waiting: {
+    en: '{n} waiting to send',
+    nl: '{n} wacht op verzenden',
+    es: '{n} pendientes de enviar', // MT
+    pt: '{n} à espera de envio', // MT
+    de: '{n} warten auf das Senden', // MT
+    fr: '{n} en attente d’envoi', // MT
+  },
+  // The one case where the note is NOT safe: no network AND the device refused
+  // to store it (private mode, storage full). Said plainly, and the text stays
+  // in the box.
+  note_offline_unsaved: {
+    en: 'No connection, and this phone could not keep it. Your text is still here — copy it somewhere safe.',
+    nl: 'Geen verbinding, en deze telefoon kon het niet bewaren. Je tekst staat er nog — kopieer hem naar een veilige plek.',
+    es: 'Sin conexión, y este teléfono no pudo guardarlo. Tu texto sigue aquí: cópialo a un lugar seguro.', // MT
+    pt: 'Sem ligação, e este telemóvel não o conseguiu guardar. O teu texto continua aqui — copia-o para um sítio seguro.', // MT
+    de: 'Keine Verbindung, und dieses Telefon konnte es nicht speichern. Dein Text ist noch da — kopiere ihn an einen sicheren Ort.', // MT
+    fr: 'Pas de connexion, et ce téléphone n’a pas pu le garder. Votre texte est encore là — copiez-le en lieu sûr.', // MT
+  },
   note_saving: {
     en: 'Saving…',
     nl: 'Opslaan…',

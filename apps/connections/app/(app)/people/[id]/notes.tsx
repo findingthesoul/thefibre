@@ -28,6 +28,7 @@ import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, fetchVocabulary, type NoteKind } from './actions';
+import { flushQueuedNotes, queueNote, queuedNotes } from '@/lib/offline-notes';
 import {
   detectMentions,
   detectTags,
@@ -66,7 +67,13 @@ function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
 }
 
 type FollowUp = 'week' | 'month' | 'none';
-type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error';
+/**
+ * `offline` is the note being safe ON THIS DEVICE and not yet on the server —
+ * deliberately distinct from `saved`, because telling somebody a note is saved
+ * when it only exists on a phone that might be dropped in a canal is a lie
+ * that costs them the note.
+ */
+type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error' | 'offline';
 
 /** Adding a month to the 31st must not land in the month after next. */
 function addMonth(from: Date): Date {
@@ -170,6 +177,8 @@ export function Notes({
    */
   const [dismissed, setDismissed] = useState<Set<string>>(() => new Set());
   const [status, setStatus] = useState<Status>('idle');
+  /** Notes on this device waiting to reach the server, across every person. */
+  const [waiting, setWaiting] = useState(0);
   const [failure, setFailure] = useState<string | null>(null);
 
   // One key per note, minted at the first write and reused by every write
@@ -184,8 +193,42 @@ export function Notes({
   const generation = useRef(0);
   const committing = useRef(false);
   const firstRender = useRef(true);
+  /** The last write went to the device queue rather than the server. Read by
+   *  commit(), which resets the box and must not then overwrite "saved on
+   *  this phone" with a blank status that implies the note went through. */
+  const lastQueued = useRef(false);
 
   const hasContent = body.trim().length > 0 || followUp === 'week' || followUp === 'month';
+
+  // Send anything this device is holding: once on arrival, and again every
+  // time the connection comes back. The queue spans people, so a note written
+  // about Wilma in a lift is sent from whichever person's page is open when
+  // the signal returns.
+  useEffect(() => {
+    let alive = true;
+    const flush = async () => {
+      const before = queuedNotes().length;
+      setWaiting(before);
+      if (!before) return;
+      const stuck = await flushQueuedNotes((p) => saveNote(p as never));
+      if (!alive) return;
+      setWaiting(stuck);
+      // Something landed, so the list of notes is out of date.
+      if (stuck < before) {
+        if (onCommitted) onCommitted();
+        else router.refresh();
+      }
+    };
+    void flush();
+    window.addEventListener('online', flush);
+    return () => {
+      alive = false;
+      window.removeEventListener('online', flush);
+    };
+    // Mount-only by intent: the handler reads the queue fresh every time it
+    // runs, so it never closes over a stale count.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -256,8 +299,38 @@ export function Notes({
     setStatus('saving');
     setFailure(null);
 
-    const r = await saveNote(payload(isDraft));
+    const body = payload(isDraft);
+    let r: Awaited<ReturnType<typeof saveNote>>;
+    try {
+      r = await saveNote(body);
+    } catch {
+      // THE CALL ITSELF FAILED — no network. saveNote catches errors raised
+      // inside the server function, but a phone that has lost its signal
+      // never reaches the server function, so the rejection lands here.
+      //
+      // Before this catch existed that rejection went nowhere: the status sat
+      // on "Saving…" forever, and `committing` stayed true so every later
+      // Done was silently ignored until reload. Both are locked by
+      // notes.test.tsx.
+      //
+      // The note is kept on the device instead. It replays through the same
+      // PUT, which upserts on client_ref, so sending it later — or twice —
+      // updates one row rather than making a second.
+      if (generation.current !== myGen) return false;
+      if (queueNote(body)) {
+        lastQueued.current = true;
+        setWaiting(queuedNotes().length);
+        setStatus('offline');
+        return true;
+      }
+      // Could not even store it locally (storage disabled, quota). Say so
+      // and keep the text in the box — never claim it is safe when it is not.
+      setStatus('error');
+      setFailure(t(locale, 'note_offline_unsaved'));
+      return false;
+    }
 
+    lastQueued.current = false;
     if (generation.current !== myGen) return r.ok; // this note is gone; say nothing
     if (!r.ok) {
       setStatus('error');
@@ -315,8 +388,17 @@ export function Notes({
       return;
     }
     committing.current = true;
-    const ok = await write(false);
-    committing.current = false;
+    let ok = false;
+    try {
+      ok = await write(false);
+    } finally {
+      // In a `finally`, so NOTHING can leave this set. When write() could
+      // throw, one failed commit left `committing` true and every later Done
+      // returned at the guard above — the composer locked until reload.
+      // write() no longer throws, but a lock that only one code path releases
+      // is a lock waiting for the next path.
+      committing.current = false;
+    }
     if (!ok) return; // keep what they typed; the retry is right there
 
     generation.current += 1;
@@ -327,7 +409,9 @@ export function Notes({
     setWhen('');
     setFollowUp(null);
     setDetails(false);
-    setStatus('idle');
+    // Queued on the device: the box resets so the person can move on, but the
+    // status keeps saying where the note actually is.
+    setStatus(lastQueued.current ? 'offline' : 'idle');
     // The committed note joins the list below.
     if (onCommitted) onCommitted();
     else router.refresh();
@@ -464,6 +548,8 @@ export function Notes({
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}
               {status === 'saving' && t(locale, 'note_saving')}
+              {status === 'offline' && t(locale, 'note_saved_on_device')}
+              {status !== 'offline' && waiting > 0 && t(locale, 'note_waiting', { n: waiting })}
               {status === 'saved' && t(locale, 'note_saved_draft')}
               {status === 'error' && (
                 <span className="text-red-700 dark:text-red-400">
