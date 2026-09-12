@@ -6,6 +6,60 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.9] — 2026-09-12 — the steps keep their rules and lose their names
+
+Sjoerd, shown the six lifecycle steps: *"those six steps... not sure where
+they came from. Can they be edited?"*
+
+They came from one session on 2026-09-11 and nobody had reviewed them since.
+Offered the choice, he took: keep the rules, make the names the workspace's
+own. That split is the whole design and it is worth stating rather than
+inferring.
+
+**The rules stay derived and stay fixed.** What puts somebody on a step is
+worked out from what actually happened — attendance, purchases, membership,
+who runs a thread — which is why the landscape was useful on the day it
+shipped and asks nobody to fill anything in. A workspace that could rewrite
+those rules would have to MAINTAIN them, and a hand-maintained ladder is
+wrong within a month. There is deliberately no endpoint, column or screen
+anywhere in this release that says what earns a band.
+
+**The names are yours.** "Holds space" can be "convenes", or whatever only
+your community would say. `connections_band_label` stores one row per
+renamed band, keyed by workspace, axis and band, so a workspace that renames
+two of the twenty-two stores two rows and everything else falls through to
+the shipped translation. All five axes, not only the ladder — a rename
+mechanism covering one of five would be an arbitrary distinction to explain.
+
+**Three decisions inside it that are easy to get backwards.**
+
+No locale column. Shipped names live in a typed catalog in six languages, but
+a name somebody TYPED is content, and this codebase does not translate
+content. One string per band, shown to everyone in the workspace whatever
+their interface language. Machine-translating somebody's own vocabulary would
+be worse than showing it as they wrote it.
+
+An empty field is the reset. It deletes the row, because absence is what the
+fallback reads. Storing the current English as an override instead would
+freeze that band in English for every other locale.
+
+"May this user edit?" is answered on the labels endpoint, not added to
+`/auth/me`. That is a wide published shape read by eight apps and this is one
+screen's question. Renaming is admin-only, enforced in RLS rather than
+re-derived in the API, because the words are shared: one person changing
+"contributes" changes what the whole team reads on every screen.
+
+**Settings exists in Connections now**, reachable from the avatar menu, with
+the platform entries every app shows and one card of its own. The rename
+screen prints what earns each band underneath its field — you cannot sensibly
+name a step without being told what lands somebody on it.
+
+Verified against production before shipping: upsert, read back in the API's
+shape, a second identical upsert to prove idempotency, delete, zero rows left
+behind. Renaming two bands and re-rendering shows two changed and four
+falling back.
+
+
 ## [0.73.8] — 2026-09-12 — the prompt only appears where nothing was ever written
 
 A bug in v0.73.6, live for about forty minutes, found in review by the

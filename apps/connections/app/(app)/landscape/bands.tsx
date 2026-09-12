@@ -4,10 +4,11 @@ import { t, type Locale } from '@/lib/i18n-ui';
 import {
   AXIS_FILL_KEYS,
   AXIS_UNWRITTEN_BAND,
-  BAND_KEYS,
   BAND_NOTE_KEYS,
+  bandName,
   type Axis,
   type Band,
+  type BandLabels,
   type Moved,
 } from './axes';
 
@@ -15,7 +16,7 @@ import {
 // DEFINITIONS moved to ./axes (see its header for why); this file is the
 // rendering and nothing else.
 export { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, isAxis } from './axes';
-export type { Axis, Band, Moved } from './axes';
+export type { Axis, Band, BandLabels, Moved } from './axes';
 
 
 // Depth of involvement read as depth of ink. Not a status colour — nothing
@@ -51,6 +52,7 @@ export function Bands({
   movedTotal,
   sinceDays,
   axis,
+  labels,
   locale,
 }: {
   bands: Band[];
@@ -60,15 +62,13 @@ export function Bands({
   movedTotal: number;
   sinceDays: number;
   axis: Axis;
+  /** What this workspace calls its bands. Sparse; absent falls back. */
+  labels?: BandLabels;
   locale: Locale;
 }) {
-  const keys = BAND_KEYS[axis];
   const notes = BAND_NOTE_KEYS[axis];
   const ramp = RAMP[bands.length] ?? RAMP[6]!;
-  const label = (band: string) => {
-    const k = keys[band];
-    return k ? t(locale, k) : band;
-  };
+  const label = (band: string) => bandName(locale, labels, axis, band);
 
   // The case that reads as a broken page: one bar, full width, holding
   // everybody, because the axis's source has never been written to. In a

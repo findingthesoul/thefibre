@@ -6016,6 +6016,75 @@ const CATALOG = {
     de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
     fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
   },
+  // ── Naming the bands ─────────────────────────────────────────────────────
+  // Sjoerd, 2026-09-12: "those six steps... not sure where they came from.
+  // Can they be edited?" The names are the workspace's; what earns them is
+  // not editable anywhere, and the screen says so rather than leaving the
+  // absence of those controls to read as an unfinished page.
+  names_card_title: {
+    en: 'What you call the steps',
+    nl: 'Hoe jullie de stappen noemen',
+    es: 'Cómo llamáis a los pasos', // MT
+    pt: 'Como chamam os passos', // MT
+    de: 'Wie ihr die Schritte nennt', // MT
+    fr: 'Comment vous appelez les étapes', // MT
+  },
+  names_card_desc: {
+    en: 'Use your own words for where people stand.',
+    nl: 'Gebruik jullie eigen woorden voor waar mensen staan.',
+    es: 'Usad vuestras propias palabras para dónde está cada persona.', // MT
+    pt: 'Usem as vossas palavras para onde cada pessoa está.', // MT
+    de: 'Nutzt eure eigenen Worte dafür, wo Menschen stehen.', // MT
+    fr: 'Utilisez vos propres mots pour situer les gens.', // MT
+  },
+  names_intro: {
+    en: 'Every name here can be yours. “Holds space” might be “convenes”, or something only your community would say.',
+    nl: 'Elke naam hier mag van jullie zijn. “Houdt ruimte” kan “brengt samen” zijn, of iets wat alleen jullie gemeenschap zegt.',
+    es: 'Cada nombre puede ser vuestro. “Sostiene el espacio” podría ser “convoca”, o algo que solo diría vuestra comunidad.', // MT
+    pt: 'Cada nome pode ser vosso. “Sustenta o espaço” pode ser “convoca”, ou algo que só a vossa comunidade diria.', // MT
+    de: 'Jeder Name hier darf eurer sein. „Hält den Raum“ kann „beruft ein“ heißen, oder etwas, das nur eure Gemeinschaft sagt.', // MT
+    fr: 'Chaque nom peut être le vôtre. « Tient l’espace » pourrait être « convoque », ou quelque chose que seule votre communauté dirait.', // MT
+  },
+  names_rules_fixed: {
+    en: 'What puts somebody on a step is worked out from what happened and cannot be changed here — that is why nobody has to keep it up to date. The line under each name says what earns it.',
+    nl: 'Wat iemand op een stap zet, wordt afgeleid uit wat er gebeurd is en kun je hier niet wijzigen — daarom hoeft niemand het bij te houden. De regel onder elke naam zegt wat je er brengt.',
+    es: 'Lo que sitúa a alguien en un paso se deduce de lo que ha pasado y no se cambia aquí: por eso nadie tiene que mantenerlo. La línea bajo cada nombre dice qué lo gana.', // MT
+    pt: 'O que coloca alguém num passo é deduzido do que aconteceu e não se muda aqui — por isso ninguém tem de o manter. A linha sob cada nome diz o que o ganha.', // MT
+    de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
+    fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
+  },
+  names_empty_restores: {
+    en: 'Leave a name empty to go back to the one we ship.',
+    nl: 'Laat een naam leeg om terug te gaan naar onze eigen naam.',
+    es: 'Deja un nombre vacío para volver al que traemos de serie.', // MT
+    pt: 'Deixa um nome vazio para voltar ao que vem de origem.', // MT
+    de: 'Lass einen Namen leer, um zum mitgelieferten zurückzukehren.', // MT
+    fr: 'Laissez un nom vide pour revenir à celui d’origine.', // MT
+  },
+  names_forbidden: {
+    en: 'Only workspace admins can rename these — everyone reads the same words.',
+    nl: 'Alleen workspace-admins kunnen deze hernoemen — iedereen leest dezelfde woorden.',
+    es: 'Solo los admins del espacio de trabajo pueden renombrarlos: todo el mundo lee las mismas palabras.', // MT
+    pt: 'Só os admins do espaço de trabalho podem renomear — toda a gente lê as mesmas palavras.', // MT
+    de: 'Nur Workspace-Admins können diese umbenennen — alle lesen dieselben Wörter.', // MT
+    fr: 'Seuls les admins de l’espace de travail peuvent les renommer — tout le monde lit les mêmes mots.', // MT
+  },
+  names_load_failed: {
+    en: 'Could not load the names.',
+    nl: 'Kon de namen niet laden.',
+    es: 'No se han podido cargar los nombres.', // MT
+    pt: 'Não foi possível carregar os nomes.', // MT
+    de: 'Die Namen konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les noms.', // MT
+  },
+  saved: {
+    en: 'Saved',
+    nl: 'Opgeslagen',
+    es: 'Guardado', // MT
+    pt: 'Guardado', // MT
+    de: 'Gespeichert', // MT
+    fr: 'Enregistré', // MT
+  },
   people_show_everyone: {
     en: 'Show everyone',
     nl: 'Toon iedereen',

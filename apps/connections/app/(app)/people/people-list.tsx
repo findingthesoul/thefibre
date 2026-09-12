@@ -10,7 +10,7 @@ import { t, type Locale } from '@/lib/i18n-ui';
 // copy, and a second copy of a label map is how two surfaces start
 // disagreeing about what a band is called. ../landscape/axes holds no JSX
 // precisely so a 'use client' file like this one can read it.
-import { BAND_KEYS, type Axis } from '../landscape/axes';
+import { bandName, type Axis, type BandLabels } from '../landscape/axes';
 
 export type Person = {
   id: string;
@@ -33,6 +33,7 @@ export function PeopleList({
   axis,
   band,
   bandTotal,
+  labels,
   hasMore,
   nextPages,
   locale,
@@ -48,6 +49,8 @@ export function PeopleList({
   axis: Axis;
   /** The band being filtered to, or null for everybody. */
   band: string | null;
+  /** What this workspace calls its bands. Sparse; absent falls back. */
+  labels?: BandLabels;
   /** How many people are in `band` workspace-wide — from the landscape, not
    *  from the loaded rows, so the number is the band's true size. */
   bandTotal: number | null;
@@ -94,11 +97,7 @@ export function PeopleList({
     pages: String(nextPages),
   }).toString()}`;
 
-  const bandKeys = BAND_KEYS[axis];
-  const bandLabel = (b: string) => {
-    const k = bandKeys[b];
-    return k ? t(locale, k) : b;
-  };
+  const bandLabel = (b: string) => bandName(locale, labels, axis, b);
 
   return (
     <div className="mt-6">
@@ -187,7 +186,7 @@ export function PeopleList({
                         and not a score — nothing on this ladder is good or
                         bad, and green/amber/red would say otherwise about
                         people. */}
-                    {rung && bandKeys[rung] && (
+                    {rung && (
                       <span className="rounded-full border border-line px-2 py-0.5">
                         {bandLabel(rung)}
                       </span>
