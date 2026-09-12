@@ -14,22 +14,68 @@ export const connectionsRoutes = new Hono();
 
 /** The ladder, low to high. Order matters — the bands render in it. */
 const RUNGS = ['never', 'touched', 'attended', 'returned', 'contributor', 'facilitator'] as const;
-type Rung = (typeof RUNGS)[number];
+
+// The five axes (docs/connections-mobile.md §2, D32). Same population, same
+// visual, same arithmetic — only what the bands MEAN changes. Each list runs
+// low to high, because "up" and "down" in the movement list are positions in
+// this array and nothing else.
+//
+// closeness and opportunity read current-state columns with no history, so
+// connections_landscape_axis returns today's value at every cutoff. Movement
+// on those two is therefore near-always empty, which is the truthful answer:
+// nothing records that anybody moved.
+const BANDS = {
+  maturity: RUNGS,
+  closeness: ['unrated', 'weak', 'warm', 'strong', 'advocate'],
+  cadence: ['never_spoken', 'quiet', 'slowing', 'in_rhythm'],
+  opportunity: ['none', 'open', 'proposal', 'committed'],
+  contribution: ['brought_nobody', 'brought_someone', 'brings_regularly'],
+} as const satisfies Record<string, readonly string[]>;
+
+type Axis = keyof typeof BANDS;
+const AXES = Object.keys(BANDS) as [Axis, ...Axis[]];
 
 const LandscapeQuery = z.object({
   /** How far back "movement" looks. Default a month. */
   since_days: z.coerce.number().int().min(1).max(400).default(30),
+  /** Which question the bands answer. Defaults to the ladder, so every
+   *  caller written before the picker existed keeps its exact response. */
+  axis: z.enum(AXES).default('maturity'),
+  /**
+   * Also return the per-person rows, which this handler already has in
+   * memory and was throwing away.
+   *
+   * The bands are counts, and counts are all the landscape needs. But any
+   * surface listing PEOPLE — /people, a cohort drill-down — needs each
+   * person's standing, and there was no way to get it: web cannot call the
+   * RPC directly (no direct Supabase from the frontend), so the only
+   * alternative was rendering a rung for the ≤40 who moved, which would
+   * read as "these people have a standing and those do not". False.
+   *
+   * Off by default: the landscape itself renders six numbers and should not
+   * pay for four hundred rows to do it.
+   */
+  people: z.coerce.boolean().default(false),
 });
 
-type Row = { person_id: string; rung: Rung; last_seen: string | null };
+// `last_seen` is gone: connections_landscape returned it, nothing here ever
+// read it, and only the ladder has such a column to return. Not in the
+// response, so nothing outside this file notices.
+type Row = { person_id: string; rung: string };
 
-async function landscapeAt(workspaceId: string, asOf?: Date) {
-  const { data, error } = await adminClient.rpc('connections_landscape', {
+async function landscapeAt(workspaceId: string, axis: Axis, asOf?: Date) {
+  const { data, error } = await adminClient.rpc('connections_landscape_axis', {
     p_workspace: workspaceId,
+    p_axis: axis,
     ...(asOf ? { p_as_of: asOf.toISOString() } : {}),
   });
   if (error) throw new Error(error.message);
-  return (data ?? []) as unknown as Row[];
+  // One shape for five axes: the function returns `band`, and this route has
+  // always called it `rung`. Kept, because /landscape's response is read by
+  // a shipped page and renaming a field to suit a new axis would break it.
+  return ((data ?? []) as unknown as { person_id: string; band: string }[]).map(
+    (r): Row => ({ person_id: r.person_id, rung: r.band }),
+  );
 }
 
 // GET /connections/landscape — the shape of the community, and what moved.
@@ -43,31 +89,33 @@ connectionsRoutes.get('/landscape', async (c) => {
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
 
   const since = new Date(Date.now() - parsed.data.since_days * 86_400_000);
+  const axis = parsed.data.axis;
+  const ladder = BANDS[axis] as readonly string[];
 
   let now: Row[];
   let then: Row[];
   try {
     [now, then] = await Promise.all([
-      landscapeAt(ctx.workspaceId),
-      landscapeAt(ctx.workspaceId, since),
+      landscapeAt(ctx.workspaceId, axis),
+      landscapeAt(ctx.workspaceId, axis, since),
     ]);
   } catch (e) {
-    console.error('[connections/landscape] failed', (e as Error).message);
+    console.error('[connections/landscape] failed', axis, (e as Error).message);
     return c.json({ error: (e as Error).message }, 500);
   }
 
   const tally = (rows: Row[]) => {
-    const m = Object.fromEntries(RUNGS.map((r) => [r, 0])) as Record<Rung, number>;
-    for (const r of rows) if (r.rung in m) m[r.rung] += 1;
+    const m = Object.fromEntries(ladder.map((r) => [r, 0])) as Record<string, number>;
+    for (const r of rows) if (r.rung in m) m[r.rung] = (m[r.rung] ?? 0) + 1;
     return m;
   };
 
   const before = new Map(then.map((r) => [r.person_id, r.rung]));
-  const rank = (r: Rung) => RUNGS.indexOf(r);
+  const rank = (r: string) => ladder.indexOf(r);
 
   // Only people who existed at both ends can have "moved" — somebody who
   // arrived since is new, which is a different fact and counted separately.
-  const moved: { person_id: string; from: Rung; to: Rung; up: boolean }[] = [];
+  const moved: { person_id: string; from: string; to: string; up: boolean }[] = [];
   let arrived = 0;
   for (const r of now) {
     const was = before.get(r.person_id);
@@ -102,25 +150,29 @@ connectionsRoutes.get('/landscape', async (c) => {
   // because those people did not exist a month ago, so "Contributes +6"
   // looks like six promotions and is six arrivals. Arrivals are a different
   // fact and are reported on their own.
-  const net = Object.fromEntries(RUNGS.map((r) => [r, 0])) as Record<Rung, number>;
+  const net = Object.fromEntries(ladder.map((r) => [r, 0])) as Record<string, number>;
   for (const m of moved) {
-    net[m.to] += 1;
-    net[m.from] -= 1;
+    net[m.to] = (net[m.to] ?? 0) + 1;
+    net[m.from] = (net[m.from] ?? 0) - 1;
   }
 
   return c.json({
     total: now.length,
     since_days: parsed.data.since_days,
+    axis,
     // Highest rung first: the top of the ladder is the part worth protecting.
-    bands: [...RUNGS].reverse().map((rung) => ({
+    bands: [...ladder].reverse().map((rung) => ({
       rung,
-      count: counts[rung],
-      was: wasCounts[rung],
-      net_moved: net[rung],
+      count: counts[rung] ?? 0,
+      was: wasCounts[rung] ?? 0,
+      net_moved: net[rung] ?? 0,
     })),
     arrived,
     moved: moved.slice(0, 40).map((m) => ({ ...m, person: byId.get(m.person_id) ?? null })),
     moved_total: moved.length,
+    // Additive and omitted unless asked for, so every existing caller sees
+    // the response it already saw.
+    ...(parsed.data.people ? { people: now.map((r) => ({ person_id: r.person_id, rung: r.rung })) } : {}),
   });
 });
 

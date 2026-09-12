@@ -5,7 +5,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Map, Bell } from 'lucide-react';
+import { Map, Bell, CalendarCheck, Users, DoorOpen } from 'lucide-react';
 import {
   createSidebarShell,
   type SidebarNavSection,
@@ -24,12 +24,22 @@ const BRAND = APPS['fibre-sales'];
 // it or a queue derived from it, so a nav with eight entries would be
 // describing a different product from the one in docs/connections-model.md.
 function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
+  // Today first: it is the surface with a reason to open it every morning.
+  // The landscape is for orientation and changes slowly; the queue changes
+  // daily (docs/connections-mobile.md §1, the shape vs the queue).
   return [
     {
-      items: [{ href: '/landscape', label: t(locale, 'nav_landscape'), icon: Map }],
+      items: [
+        { href: '/today', label: t(locale, 'nav_today'), icon: CalendarCheck },
+        { href: '/attention', label: t(locale, 'nav_attention'), icon: Bell },
+      ],
     },
     {
-      items: [{ href: '/attention', label: t(locale, 'nav_attention'), icon: Bell }],
+      items: [
+        { href: '/landscape', label: t(locale, 'nav_landscape'), icon: Map },
+        { href: '/people', label: t(locale, 'nav_people'), icon: Users },
+        { href: '/entries', label: t(locale, 'nav_entries'), icon: DoorOpen },
+      ],
     },
   ];
 }

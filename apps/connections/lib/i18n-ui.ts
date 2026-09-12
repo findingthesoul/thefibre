@@ -36,6 +36,157 @@ export {
 } from '@thefibre/shared/i18n';
 
 const CATALOG = {
+  // ── Entries — who can get us in (docs/connections-model.md §3.6) ──────
+  // The REASON on each row is not here and cannot be: it is a sentence the
+  // database composes out of this workspace's own names, dates and job
+  // titles. Everything around it — the labels, the cautions, the ask — is.
+  nav_entries: {
+    en: 'Entries',
+    nl: 'Ingangen',
+    es: 'Vías de entrada', // MT
+    pt: 'Portas de entrada', // MT
+    de: 'Zugänge', // MT
+    fr: 'Portes d’entrée', // MT
+  },
+  entries_intro: {
+    en: 'Who here can get us in to a person or an organisation — and why, in words. Nothing is typed in: the paths come from who worked where, who was in the room, and who said they know whom.',
+    nl: 'Wie hier ons kan introduceren bij een persoon of organisatie — en waarom, in woorden. Niets wordt ingevoerd: de paden komen uit wie waar werkte, wie in de zaal zat en wie zei wie te kennen.',
+    es: 'Quién de aquí puede abrirnos la puerta a una persona u organización, y por qué, en palabras. Nada se escribe a mano: los caminos salen de quién trabajó dónde, quién estuvo en la sala y quién dijo conocer a quién.', // MT
+    pt: 'Quem aqui pode nos abrir a porta para uma pessoa ou organização — e por quê, em palavras. Nada é digitado: os caminhos vêm de quem trabalhou onde, quem esteve na sala e quem disse conhecer quem.', // MT
+    de: 'Wer hier uns bei einer Person oder Organisation hineinbringen kann — und warum, in Worten. Nichts wird eingetippt: die Wege kommen daher, wer wo gearbeitet hat, wer im Raum war und wer sagt, wen er kennt.', // MT
+    fr: 'Qui ici peut nous ouvrir la porte d’une personne ou d’une organisation — et pourquoi, en toutes lettres. Rien n’est saisi : les chemins viennent de qui a travaillé où, qui était dans la salle et qui dit connaître qui.', // MT
+  },
+  entries_search_placeholder: {
+    en: 'Who do you want to reach?',
+    nl: 'Wie wil je bereiken?',
+    es: '¿A quién quieres llegar?', // MT
+    pt: 'Quem você quer alcançar?', // MT
+    de: 'Wen möchtest du erreichen?', // MT
+    fr: 'Qui veux-tu atteindre ?', // MT
+  },
+  entries_search_hint: {
+    en: 'Search a person or an organisation',
+    nl: 'Zoek een persoon of organisatie',
+    es: 'Busca una persona o una organización', // MT
+    pt: 'Busque uma pessoa ou uma organização', // MT
+    de: 'Suche eine Person oder eine Organisation', // MT
+    fr: 'Cherche une personne ou une organisation', // MT
+  },
+  entries_kind_organisation: {
+    en: 'Organisation',
+    nl: 'Organisatie',
+    es: 'Organización', // MT
+    pt: 'Organização', // MT
+    de: 'Organisation', // MT
+    fr: 'Organisation', // MT
+  },
+  entries_kind_person: {
+    en: 'Person',
+    nl: 'Persoon',
+    es: 'Persona', // MT
+    pt: 'Pessoa', // MT
+    de: 'Person', // MT
+    fr: 'Personne', // MT
+  },
+  entries_looking: {
+    en: 'Looking for a way in…',
+    nl: 'Op zoek naar een ingang…',
+    es: 'Buscando una vía de entrada…', // MT
+    pt: 'Procurando uma porta de entrada…', // MT
+    de: 'Suche nach einem Zugang…', // MT
+    fr: 'Recherche d’une porte d’entrée…', // MT
+  },
+  entries_found: {
+    en: 'Ways in to {target}',
+    nl: 'Ingangen bij {target}',
+    es: 'Vías de entrada a {target}', // MT
+    pt: 'Portas de entrada para {target}', // MT
+    de: 'Zugänge zu {target}', // MT
+    fr: 'Portes d’entrée vers {target}', // MT
+  },
+  // One hop is an entry, two is a maybe. Three is a coincidence with extra
+  // steps, which is why there is no third label here.
+  entries_hop_direct: {
+    en: 'Knows them directly',
+    nl: 'Kent ze rechtstreeks',
+    es: 'Les conoce directamente', // MT
+    pt: 'Conhece diretamente', // MT
+    de: 'Kennt sie direkt', // MT
+    fr: 'Les connaît directement', // MT
+  },
+  entries_hop_two: {
+    en: 'One person in between',
+    nl: 'Eén persoon ertussen',
+    es: 'Una persona de por medio', // MT
+    pt: 'Uma pessoa no meio', // MT
+    de: 'Eine Person dazwischen', // MT
+    fr: 'Une personne entre les deux', // MT
+  },
+  entries_careful: {
+    en: 'Careful',
+    nl: 'Let op',
+    es: 'Cuidado', // MT
+    pt: 'Atenção', // MT
+    de: 'Vorsicht', // MT
+    fr: 'Attention', // MT
+  },
+  entries_ask: {
+    en: 'Ask {person} for an introduction to {target}.',
+    nl: 'Vraag {person} om een introductie bij {target}.',
+    es: 'Pídele a {person} una presentación con {target}.', // MT
+    pt: 'Peça a {person} uma apresentação para {target}.', // MT
+    de: 'Bitte {person} um eine Vorstellung bei {target}.', // MT
+    fr: 'Demande à {person} une mise en relation avec {target}.', // MT
+  },
+  entries_none_title: {
+    en: 'No way in yet',
+    nl: 'Nog geen ingang',
+    es: 'Todavía no hay vía de entrada', // MT
+    pt: 'Ainda sem porta de entrada', // MT
+    de: 'Noch kein Zugang', // MT
+    fr: 'Pas encore de porte d’entrée', // MT
+  },
+  entries_none_body: {
+    en: 'Nobody here is within two steps of {target}. Further than that is not a relationship, it is a coincidence, so we do not show it.',
+    nl: 'Niemand hier zit binnen twee stappen van {target}. Verder dan dat is geen relatie maar toeval, dus tonen we het niet.',
+    es: 'Nadie de aquí está a menos de dos pasos de {target}. Más allá de eso no es una relación, es una coincidencia, así que no lo mostramos.', // MT
+    pt: 'Ninguém aqui está a menos de dois passos de {target}. Além disso não é relação, é coincidência, então não mostramos.', // MT
+    de: 'Niemand hier ist innerhalb von zwei Schritten von {target}. Weiter entfernt ist keine Beziehung, sondern ein Zufall — das zeigen wir nicht.', // MT
+    fr: 'Personne ici n’est à moins de deux pas de {target}. Au-delà, ce n’est plus une relation mais une coïncidence, donc nous ne l’affichons pas.', // MT
+  },
+  entries_related_title: {
+    en: 'Nearby, though',
+    nl: 'Wel in de buurt',
+    es: 'Cerca, eso sí', // MT
+    pt: 'Por perto, no entanto', // MT
+    de: 'In der Nähe allerdings', // MT
+    fr: 'Dans les parages, tout de même', // MT
+  },
+  entries_related_body: {
+    en: 'Not a way in, but the closest the data gets. Worth a look before you go cold.',
+    nl: 'Geen ingang, maar het dichtste wat de data heeft. De moeite waard voordat je koud benadert.',
+    es: 'No es una vía de entrada, pero es lo más cercano que hay en los datos. Vale mirarlo antes de ir en frío.', // MT
+    pt: 'Não é uma porta de entrada, mas é o mais próximo que os dados chegam. Vale olhar antes de ir a frio.', // MT
+    de: 'Kein Zugang, aber das Nächste, was die Daten hergeben. Einen Blick wert, bevor du kalt anfragst.', // MT
+    fr: 'Pas une porte d’entrée, mais ce que les données ont de plus proche. À regarder avant d’aller au contact à froid.', // MT
+  },
+  entries_nothing_at_all: {
+    en: 'Nothing nearby either — this one starts cold.',
+    nl: 'Ook niets in de buurt — deze begint koud.',
+    es: 'Tampoco hay nada cerca: este empieza en frío.', // MT
+    pt: 'Também não há nada por perto — este começa a frio.', // MT
+    de: 'Auch nichts in der Nähe — das hier fängt kalt an.', // MT
+    fr: 'Rien à proximité non plus — celui-ci part de zéro.', // MT
+  },
+  entries_error: {
+    en: 'Could not work out the paths: {error}',
+    nl: 'Kon de paden niet bepalen: {error}',
+    es: 'No se pudieron calcular los caminos: {error}', // MT
+    pt: 'Não foi possível calcular os caminhos: {error}', // MT
+    de: 'Die Wege konnten nicht ermittelt werden: {error}', // MT
+    fr: 'Impossible de déterminer les chemins : {error}', // MT
+  },
+
   // ── Connections ───────────────────────────────────────────────────────
   nav_landscape: {
     en: 'Landscape',
@@ -168,6 +319,243 @@ const CATALOG = {
     fr: 'Pas encore', // MT
   },
 
+  // ── The axes ────────────────────────────────────────────────────────────
+  // The same population, re-segmented; identical bands, different meaning
+  // (docs/connections-mobile.md §2, D32). The question under the picker is
+  // what teaches the grammar — without it a chip row is five words.
+  landscape_axis: {
+    en: 'Read by',
+    nl: 'Bekijk op',
+    es: 'Ver por', // MT
+    pt: 'Ver por', // MT
+    de: 'Ansicht nach', // MT
+    fr: 'Voir par', // MT
+  },
+  axis_maturity: {
+    en: 'Maturity',
+    nl: 'Betrokkenheid',
+    es: 'Madurez', // MT
+    pt: 'Maturidade', // MT
+    de: 'Reife', // MT
+    fr: 'Maturité', // MT
+  },
+  axis_closeness: {
+    en: 'Closeness',
+    nl: 'Nabijheid',
+    es: 'Cercanía', // MT
+    pt: 'Proximidade', // MT
+    de: 'Nähe', // MT
+    fr: 'Proximité', // MT
+  },
+  axis_cadence: {
+    en: 'Cadence',
+    nl: 'Ritme',
+    es: 'Ritmo', // MT
+    pt: 'Ritmo', // MT
+    de: 'Rhythmus', // MT
+    fr: 'Rythme', // MT
+  },
+  axis_opportunity: {
+    en: 'Opportunity',
+    nl: 'Kansen',
+    es: 'Oportunidad', // MT
+    pt: 'Oportunidade', // MT
+    de: 'Chancen', // MT
+    fr: 'Opportunité', // MT
+  },
+  axis_contribution: {
+    en: 'Contribution',
+    nl: 'Bijdrage',
+    es: 'Aportación', // MT
+    pt: 'Contribuição', // MT
+    de: 'Beitrag', // MT
+    fr: 'Contribution', // MT
+  },
+  axis_q_maturity: {
+    en: 'Where is everybody.',
+    nl: 'Waar staat iedereen.',
+    es: 'Dónde está cada persona.', // MT
+    pt: 'Onde está cada pessoa.', // MT
+    de: 'Wo alle stehen.', // MT
+    fr: 'Où en est chacun.', // MT
+  },
+  axis_q_closeness: {
+    en: 'Who is actually near us. The one thing here a person types in by hand.',
+    nl: 'Wie er werkelijk dichtbij staat. Het enige hier dat iemand met de hand invult.',
+    es: 'Quién está realmente cerca. Lo único aquí que alguien escribe a mano.', // MT
+    pt: 'Quem está realmente perto. A única coisa aqui que alguém escreve à mão.', // MT
+    de: 'Wer uns wirklich nahe steht. Das Einzige hier, das jemand von Hand einträgt.', // MT
+    fr: 'Qui est vraiment proche. La seule chose ici qu’une personne saisit à la main.', // MT
+  },
+  axis_q_cadence: {
+    en: 'Who is drifting — measured against their own rhythm, never a fixed number of days.',
+    nl: 'Wie wegdrijft — gemeten aan hun eigen ritme, nooit aan een vast aantal dagen.',
+    es: 'Quién se está alejando, medido contra su propio ritmo y nunca contra un número fijo de días.', // MT
+    pt: 'Quem está a afastar-se, medido pelo ritmo dele e nunca por um número fixo de dias.', // MT
+    de: 'Wer abdriftet — gemessen am eigenen Rhythmus, nie an einer festen Zahl von Tagen.', // MT
+    fr: 'Qui s’éloigne — mesuré à son propre rythme, jamais à un nombre de jours fixe.', // MT
+  },
+  axis_q_opportunity: {
+    en: 'What is on the table. The sales view is one way of looking, not a separate place.',
+    nl: 'Wat er op tafel ligt. De verkoopblik is één manier van kijken, geen aparte plek.',
+    es: 'Qué hay sobre la mesa. La mirada comercial es una forma de ver, no un lugar aparte.', // MT
+    pt: 'O que está em cima da mesa. O olhar comercial é uma forma de ver, não um lugar à parte.', // MT
+    de: 'Was auf dem Tisch liegt. Der Vertriebsblick ist eine Sichtweise, kein eigener Ort.', // MT
+    fr: 'Ce qui est sur la table. Le regard commercial est une façon de voir, pas un lieu à part.', // MT
+  },
+  axis_q_contribution: {
+    en: 'Who brings others. In a community they matter more than who spends most.',
+    nl: 'Wie anderen meebrengt. In een gemeenschap telt dat zwaarder dan wie het meest uitgeeft.',
+    es: 'Quién trae a otras personas. En una comunidad importa más que quién gasta más.', // MT
+    pt: 'Quem traz outras pessoas. Numa comunidade isso importa mais do que quem gasta mais.', // MT
+    de: 'Wer andere mitbringt. In einer Gemeinschaft zählt das mehr als wer am meisten ausgibt.', // MT
+    fr: 'Qui amène les autres. Dans une communauté, cela compte plus que qui dépense le plus.', // MT
+  },
+  // Said out loud rather than shown as a flat zero: on these two axes the
+  // database keeps only today's value, so "nobody moved" would be a claim
+  // we cannot make.
+  landscape_no_history: {
+    en: 'This axis has no history to compare against — only today’s answer is recorded.',
+    nl: 'Deze as heeft geen geschiedenis om mee te vergelijken — alleen het antwoord van vandaag is vastgelegd.',
+    es: 'Este eje no tiene historial con el que comparar: solo se registra la respuesta de hoy.', // MT
+    pt: 'Este eixo não tem histórico para comparar — só a resposta de hoje fica registada.', // MT
+    de: 'Diese Achse hat keine Historie zum Vergleich — nur die heutige Antwort ist erfasst.', // MT
+    fr: 'Cet axe n’a pas d’historique de comparaison : seule la réponse d’aujourd’hui est enregistrée.', // MT
+  },
+
+  // ── Bands, per axis ─────────────────────────────────────────────────────
+  // Closeness keeps the vocabulary of the field it reads (weak / warm /
+  // strong / advocate, as on the web relationship tab) so the two surfaces
+  // never disagree about the same word.
+  band_unrated: {
+    en: 'Not rated',
+    nl: 'Niet ingeschat',
+    es: 'Sin valorar', // MT
+    pt: 'Sem avaliação', // MT
+    de: 'Nicht eingeschätzt', // MT
+    fr: 'Non évalué', // MT
+  },
+  band_weak: {
+    en: 'Weak',
+    nl: 'Zwak',
+    es: 'Débil', // MT
+    pt: 'Fraca', // MT
+    de: 'Schwach', // MT
+    fr: 'Faible', // MT
+  },
+  band_warm: {
+    en: 'Warm',
+    nl: 'Warm',
+    es: 'Cálida', // MT
+    pt: 'Morna', // MT
+    de: 'Warm', // MT
+    fr: 'Chaleureuse', // MT
+  },
+  band_strong: {
+    en: 'Strong',
+    nl: 'Sterk',
+    es: 'Fuerte', // MT
+    pt: 'Forte', // MT
+    de: 'Stark', // MT
+    fr: 'Forte', // MT
+  },
+  band_advocate: {
+    en: 'Advocate',
+    nl: 'Ambassadeur',
+    es: 'Promotor', // MT
+    pt: 'Promotor', // MT
+    de: 'Fürsprecher', // MT
+    fr: 'Prescripteur', // MT
+  },
+  band_in_rhythm: {
+    en: 'In rhythm',
+    nl: 'In ritme',
+    es: 'En ritmo', // MT
+    pt: 'Em ritmo', // MT
+    de: 'Im Rhythmus', // MT
+    fr: 'Au rythme', // MT
+  },
+  band_slowing: {
+    en: 'Slowing',
+    nl: 'Zakt in',
+    es: 'Se ralentiza', // MT
+    pt: 'A abrandar', // MT
+    de: 'Wird langsamer', // MT
+    fr: 'Ralentit', // MT
+  },
+  band_quiet: {
+    en: 'Gone quiet',
+    nl: 'Stil gevallen',
+    es: 'En silencio', // MT
+    pt: 'Em silêncio', // MT
+    de: 'Still geworden', // MT
+    fr: 'Devenu silencieux', // MT
+  },
+  band_never_spoken: {
+    en: 'Never spoken',
+    nl: 'Nooit gesproken',
+    es: 'Nunca hablado', // MT
+    pt: 'Nunca falado', // MT
+    de: 'Nie gesprochen', // MT
+    fr: 'Jamais parlé', // MT
+  },
+  band_committed: {
+    en: 'Committed',
+    nl: 'Toegezegd',
+    es: 'Comprometido', // MT
+    pt: 'Comprometido', // MT
+    de: 'Zugesagt', // MT
+    fr: 'Engagé', // MT
+  },
+  band_proposal: {
+    en: 'Proposal out',
+    nl: 'Voorstel ligt er',
+    es: 'Propuesta enviada', // MT
+    pt: 'Proposta enviada', // MT
+    de: 'Angebot draußen', // MT
+    fr: 'Proposition envoyée', // MT
+  },
+  band_open: {
+    en: 'Open',
+    nl: 'Loopt',
+    es: 'Abierto', // MT
+    pt: 'Em aberto', // MT
+    de: 'Offen', // MT
+    fr: 'En cours', // MT
+  },
+  band_none: {
+    en: 'Nothing open',
+    nl: 'Niets lopend',
+    es: 'Nada abierto', // MT
+    pt: 'Nada em aberto', // MT
+    de: 'Nichts offen', // MT
+    fr: 'Rien en cours', // MT
+  },
+  band_brings_regularly: {
+    en: 'Brings people',
+    nl: 'Brengt mensen mee',
+    es: 'Trae a gente', // MT
+    pt: 'Traz pessoas', // MT
+    de: 'Bringt Leute mit', // MT
+    fr: 'Amène des gens', // MT
+  },
+  band_brought_someone: {
+    en: 'Brought someone',
+    nl: 'Bracht iemand mee',
+    es: 'Trajo a alguien', // MT
+    pt: 'Trouxe alguém', // MT
+    de: 'Hat jemanden mitgebracht', // MT
+    fr: 'A amené quelqu’un', // MT
+  },
+  band_brought_nobody: {
+    en: 'Brought nobody',
+    nl: 'Bracht niemand mee',
+    es: 'No trajo a nadie', // MT
+    pt: 'Não trouxe ninguém', // MT
+    de: 'Hat niemanden mitgebracht', // MT
+    fr: 'N’a amené personne', // MT
+  },
+
   attention_intro: {
     en: 'Named conditions, each with the fact behind it. Never a score — nobody here is ranked.',
     nl: 'Benoemde situaties, elk met het feit erachter. Nooit een score — niemand wordt hier gerangschikt.',
@@ -215,6 +603,234 @@ const CATALOG = {
     pt: 'Um defensor a afastar-se', // MT
     de: 'Ein Fürsprecher entfernt sich', // MT
     fr: 'Un ambassadeur qui s’éloigne', // MT
+  },
+
+  // ── people + the note composer ───────────────────────────────────────
+  // (`nav_people`, `notes`, `kind`, `done`, `search`, `load_more` already
+  //  exist further down and are reused rather than duplicated.)
+  people_intro: {
+    en: 'Everyone this workspace knows. Open somebody to read what has been said, and to write down the last conversation.',
+    nl: 'Iedereen die deze workspace kent. Open iemand om te lezen wat er gezegd is, en het laatste gesprek vast te leggen.',
+    es: 'Todas las personas que este espacio de trabajo conoce. Abre a alguien para leer lo que se ha dicho y anotar la última conversación.', // MT
+    pt: 'Todas as pessoas que este espaço de trabalho conhece. Abra alguém para ler o que foi dito e anotar a última conversa.', // MT
+    de: 'Alle, die dieser Workspace kennt. Öffne jemanden, um zu lesen, was gesprochen wurde, und das letzte Gespräch festzuhalten.', // MT
+    fr: 'Toutes les personnes que cet espace de travail connaît. Ouvre quelqu’un pour lire ce qui a été dit et noter la dernière conversation.', // MT
+  },
+  people_search_ph: {
+    en: 'Search by name or email',
+    nl: 'Zoek op naam of e-mail',
+    es: 'Busca por nombre o correo', // MT
+    pt: 'Busque por nome ou e-mail', // MT
+    de: 'Nach Name oder E-Mail suchen', // MT
+    fr: 'Chercher par nom ou e-mail', // MT
+  },
+  people_none: {
+    en: 'Nobody here matches that.',
+    nl: 'Niemand hier komt daarmee overeen.',
+    es: 'Aquí nadie coincide con eso.', // MT
+    pt: 'Ninguém aqui corresponde a isso.', // MT
+    de: 'Hier passt niemand dazu.', // MT
+    fr: 'Personne ici ne correspond.', // MT
+  },
+  people_showing: {
+    en: 'Showing {shown} of {total}',
+    nl: '{shown} van {total} getoond',
+    es: 'Mostrando {shown} de {total}', // MT
+    pt: 'Mostrando {shown} de {total}', // MT
+    de: '{shown} von {total} angezeigt', // MT
+    fr: '{shown} sur {total} affichés', // MT
+  },
+  people_load_failed: {
+    en: 'Could not load the people.',
+    nl: 'Kon de mensen niet laden.',
+    es: 'No se pudieron cargar las personas.', // MT
+    pt: 'Não foi possível carregar as pessoas.', // MT
+    de: 'Die Personen konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les personnes.', // MT
+  },
+  person_load_failed: {
+    en: 'Could not load this person.',
+    nl: 'Kon deze persoon niet laden.',
+    es: 'No se pudo cargar a esta persona.', // MT
+    pt: 'Não foi possível carregar esta pessoa.', // MT
+    de: 'Diese Person konnte nicht geladen werden.', // MT
+    fr: 'Impossible de charger cette personne.', // MT
+  },
+  person_open_in_fibre: {
+    en: 'Full profile in The Fibre',
+    nl: 'Volledig profiel in The Fibre',
+    es: 'Perfil completo en The Fibre', // MT
+    pt: 'Perfil completo no The Fibre', // MT
+    de: 'Vollständiges Profil in The Fibre', // MT
+    fr: 'Profil complet dans The Fibre', // MT
+  },
+  notes_heading: {
+    en: 'Conversations',
+    nl: 'Gesprekken',
+    es: 'Conversaciones', // MT
+    pt: 'Conversas', // MT
+    de: 'Gespräche', // MT
+    fr: 'Conversations', // MT
+  },
+  notes_none: {
+    en: 'Nothing written down yet.',
+    nl: 'Nog niets vastgelegd.',
+    es: 'Todavía no hay nada anotado.', // MT
+    pt: 'Ainda não há nada anotado.', // MT
+    de: 'Noch nichts festgehalten.', // MT
+    fr: 'Rien n’a encore été noté.', // MT
+  },
+  notes_load_failed: {
+    en: 'Could not load the conversations.',
+    nl: 'Kon de gesprekken niet laden.',
+    es: 'No se pudieron cargar las conversaciones.', // MT
+    pt: 'Não foi possível carregar as conversas.', // MT
+    de: 'Die Gespräche konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les conversations.', // MT
+  },
+  note_placeholder: {
+    en: 'What happened?',
+    nl: 'Wat is er gebeurd?',
+    es: '¿Qué pasó?', // MT
+    pt: 'O que aconteceu?', // MT
+    de: 'Was ist passiert?', // MT
+    fr: 'Que s’est-il passé ?', // MT
+  },
+  note_queued: {
+    en: 'Queued',
+    nl: 'In de wachtrij',
+    es: 'En cola', // MT
+    pt: 'Na fila', // MT
+    de: 'In Warteschlange', // MT
+    fr: 'En attente', // MT
+  },
+  note_saving: {
+    en: 'Saving…',
+    nl: 'Opslaan…',
+    es: 'Guardando…', // MT
+    pt: 'Salvando…', // MT
+    de: 'Speichern…', // MT
+    fr: 'Enregistrement…', // MT
+  },
+  note_saved_draft: {
+    en: 'Draft saved',
+    nl: 'Concept opgeslagen',
+    es: 'Borrador guardado', // MT
+    pt: 'Rascunho salvo', // MT
+    de: 'Entwurf gespeichert', // MT
+    fr: 'Brouillon enregistré', // MT
+  },
+  note_save_failed: {
+    en: 'Not saved',
+    nl: 'Niet opgeslagen',
+    es: 'No guardado', // MT
+    pt: 'Não salvo', // MT
+    de: 'Nicht gespeichert', // MT
+    fr: 'Non enregistré', // MT
+  },
+  note_try_again: {
+    en: 'Try again',
+    nl: 'Opnieuw proberen',
+    es: 'Intentar de nuevo', // MT
+    pt: 'Tentar de novo', // MT
+    de: 'Erneut versuchen', // MT
+    fr: 'Réessayer', // MT
+  },
+  note_change: {
+    en: 'Kind and when',
+    nl: 'Soort en wanneer',
+    es: 'Tipo y cuándo', // MT
+    pt: 'Tipo e quando', // MT
+    de: 'Art und Zeitpunkt', // MT
+    fr: 'Type et moment', // MT
+  },
+  note_when: {
+    en: 'When',
+    nl: 'Wanneer',
+    es: 'Cuándo', // MT
+    pt: 'Quando', // MT
+    de: 'Wann', // MT
+    fr: 'Quand', // MT
+  },
+  note_followup: {
+    en: 'Follow up',
+    nl: 'Opvolgen',
+    es: 'Dar seguimiento', // MT
+    pt: 'Dar seguimento', // MT
+    de: 'Nachfassen', // MT
+    fr: 'Relancer', // MT
+  },
+  note_followup_week: {
+    en: 'in a week',
+    nl: 'over een week',
+    es: 'en una semana', // MT
+    pt: 'daqui a uma semana', // MT
+    de: 'in einer Woche', // MT
+    fr: 'dans une semaine', // MT
+  },
+  note_followup_month: {
+    en: 'in a month',
+    nl: 'over een maand',
+    es: 'en un mes', // MT
+    pt: 'daqui a um mês', // MT
+    de: 'in einem Monat', // MT
+    fr: 'dans un mois', // MT
+  },
+  note_followup_none: {
+    en: 'nothing planned',
+    nl: 'niets gepland',
+    es: 'nada previsto', // MT
+    pt: 'nada previsto', // MT
+    de: 'nichts geplant', // MT
+    fr: 'rien de prévu', // MT
+  },
+  note_followup_on: {
+    en: 'Follow up {date}',
+    nl: 'Opvolgen {date}',
+    es: 'Seguimiento {date}', // MT
+    pt: 'Seguimento {date}', // MT
+    de: 'Nachfassen {date}', // MT
+    fr: 'Relance {date}', // MT
+  },
+  note_kind_note: {
+    en: 'Note',
+    nl: 'Notitie',
+    es: 'Nota', // MT
+    pt: 'Nota', // MT
+    de: 'Notiz', // MT
+    fr: 'Note', // MT
+  },
+  note_kind_call: {
+    en: 'Call',
+    nl: 'Telefoongesprek',
+    es: 'Llamada', // MT
+    pt: 'Ligação', // MT
+    de: 'Anruf', // MT
+    fr: 'Appel', // MT
+  },
+  note_kind_meeting: {
+    en: 'Meeting',
+    nl: 'Ontmoeting',
+    es: 'Reunión', // MT
+    pt: 'Encontro', // MT
+    de: 'Treffen', // MT
+    fr: 'Rencontre', // MT
+  },
+  note_kind_message: {
+    en: 'Message',
+    nl: 'Bericht',
+    es: 'Mensaje', // MT
+    pt: 'Mensagem', // MT
+    de: 'Nachricht', // MT
+    fr: 'Message', // MT
+  },
+  note_kind_email: {
+    en: 'Email',
+    nl: 'E-mail',
+    es: 'Correo', // MT
+    pt: 'E-mail', // MT
+    de: 'E-Mail', // MT
+    fr: 'E-mail', // MT
   },
 
   // ── shared ────────────────────────────────────────────────────────────
@@ -5025,6 +5641,211 @@ const CATALOG = {
     pt: 'Não foi possível criar a fatura: {error}', // MT
     de: 'Die Rechnung konnte nicht erstellt werden: {error}', // MT
     fr: 'Impossible de créer la facture : {error}', // MT
+  },
+
+  // ── Today: what I owe, and what is coming at me ────────────────────────
+  // Two halves that look adjacent and are not — docs/connections-mobile.md §3.
+  // The numbers arrive as numbers and are phrased HERE, so the same fact can
+  // be said in six languages instead of being frozen into English in SQL.
+  nav_today: {
+    en: 'Today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: 'Aujourd’hui', // MT
+  },
+  today_intro: {
+    en: 'What you owe, and what is coming at you that wants work before it. Preparation shows up on its own lead time, not on the day the thing happens.',
+    nl: 'Wat jij nog moet doen, en wat er op je afkomt en vooraf werk vraagt. Voorbereiding verschijnt op haar eigen aanlooptijd, niet op de dag zelf.',
+    es: 'Lo que debes hacer y lo que se te viene encima y pide trabajo antes. La preparación aparece con su propia antelación, no el día en que ocurre la cosa.', // MT
+    pt: 'O que você deve e o que vem na sua direção e pede trabalho antes. A preparação aparece no seu próprio prazo, não no dia em que a coisa acontece.', // MT
+    de: 'Was du schuldest, und was auf dich zukommt und vorher Arbeit braucht. Vorbereitung erscheint zu ihrer eigenen Vorlaufzeit, nicht am Tag des Ereignisses.', // MT
+    fr: 'Ce que tu dois, et ce qui arrive vers toi et demande du travail avant. La préparation apparaît selon son propre délai, pas le jour de l’événement.', // MT
+  },
+  today_seg_today: {
+    en: 'Today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: 'Aujourd’hui', // MT
+  },
+  today_seg_tomorrow: {
+    en: 'Tomorrow',
+    nl: 'Morgen',
+    es: 'Mañana', // MT
+    pt: 'Amanhã', // MT
+    de: 'Morgen', // MT
+    fr: 'Demain', // MT
+  },
+  today_seg_week: {
+    en: 'This week',
+    nl: 'Deze week',
+    es: 'Esta semana', // MT
+    pt: 'Esta semana', // MT
+    de: 'Diese Woche', // MT
+    fr: 'Cette semaine', // MT
+  },
+  today_seg_next_week: {
+    en: 'Next week',
+    nl: 'Volgende week',
+    es: 'La próxima semana', // MT
+    pt: 'Próxima semana', // MT
+    de: 'Nächste Woche', // MT
+    fr: 'La semaine prochaine', // MT
+  },
+  today_owed_heading: {
+    en: 'What’s next',
+    nl: 'Wat er nu ligt',
+    es: 'Qué sigue', // MT
+    pt: 'O que vem a seguir', // MT
+    de: 'Was ansteht', // MT
+    fr: 'La suite', // MT
+  },
+  today_owed_sub: {
+    en: 'What you owe.',
+    nl: 'Wat jij nog moet doen.',
+    es: 'Lo que debes hacer.', // MT
+    pt: 'O que você deve fazer.', // MT
+    de: 'Was du schuldest.', // MT
+    fr: 'Ce que tu dois.', // MT
+  },
+  today_prepare_heading: {
+    en: 'To prepare',
+    nl: 'Voor te bereiden',
+    es: 'Para preparar', // MT
+    pt: 'Para preparar', // MT
+    de: 'Vorzubereiten', // MT
+    fr: 'À préparer', // MT
+  },
+  today_prepare_sub: {
+    en: 'Coming at you, and it wants work first.',
+    nl: 'Komt op je af, en vraagt eerst werk.',
+    es: 'Se te viene encima y pide trabajo antes.', // MT
+    pt: 'Vem na sua direção e pede trabalho antes.', // MT
+    de: 'Kommt auf dich zu und braucht vorher Arbeit.', // MT
+    fr: 'Cela arrive vers toi et demande du travail avant.', // MT
+  },
+  today_owed_none: {
+    en: 'Nothing due.',
+    nl: 'Niets openstaand.',
+    es: 'Nada pendiente.', // MT
+    pt: 'Nada pendente.', // MT
+    de: 'Nichts fällig.', // MT
+    fr: 'Rien à échéance.', // MT
+  },
+  today_prepare_none: {
+    en: 'Nothing to prepare.',
+    nl: 'Niets voor te bereiden.',
+    es: 'Nada que preparar.', // MT
+    pt: 'Nada a preparar.', // MT
+    de: 'Nichts vorzubereiten.', // MT
+    fr: 'Rien à préparer.', // MT
+  },
+  today_all_clear: {
+    en: 'Nothing here. Try a wider horizon.',
+    nl: 'Hier is niets. Probeer een ruimere horizon.',
+    es: 'Aquí no hay nada. Prueba un horizonte más amplio.', // MT
+    pt: 'Aqui não há nada. Experimente um horizonte maior.', // MT
+    de: 'Hier ist nichts. Probiere einen weiteren Horizont.', // MT
+    fr: 'Rien ici. Essaie un horizon plus large.', // MT
+  },
+  today_overdue: {
+    en: 'overdue',
+    nl: 'te laat',
+    es: 'vencido', // MT
+    pt: 'atrasado', // MT
+    de: 'überfällig', // MT
+    fr: 'en retard', // MT
+  },
+  today_when_now: {
+    en: 'today',
+    nl: 'vandaag',
+    es: 'hoy', // MT
+    pt: 'hoje', // MT
+    de: 'heute', // MT
+    fr: 'aujourd’hui', // MT
+  },
+  today_when_tomorrow: {
+    en: 'tomorrow',
+    nl: 'morgen',
+    es: 'mañana', // MT
+    pt: 'amanhã', // MT
+    de: 'morgen', // MT
+    fr: 'demain', // MT
+  },
+  today_when_in_days: {
+    en: 'in {n} days',
+    nl: 'over {n} dagen',
+    es: 'en {n} días', // MT
+    pt: 'em {n} dias', // MT
+    de: 'in {n} Tagen', // MT
+    fr: 'dans {n} jours', // MT
+  },
+  today_when_days_ago: {
+    en: '{n} days ago',
+    nl: '{n} dagen geleden',
+    es: 'hace {n} días', // MT
+    pt: 'há {n} dias', // MT
+    de: 'vor {n} Tagen', // MT
+    fr: 'il y a {n} jours', // MT
+  },
+  today_sig_unreached: {
+    en: '{count} of {of} enrolled have never been contacted',
+    nl: '{count} van de {of} aangemelden is nooit benaderd',
+    es: '{count} de {of} inscritos nunca han recibido contacto', // MT
+    pt: '{count} de {of} inscritos nunca foram contatados', // MT
+    de: '{count} von {of} Angemeldeten wurden nie kontaktiert', // MT
+    fr: '{count} des {of} inscrits n’ont jamais été contactés', // MT
+  },
+  today_sig_unpaid: {
+    en: '{count} of {of} enrolled have not paid',
+    nl: '{count} van de {of} aangemelden heeft niet betaald',
+    es: '{count} de {of} inscritos no han pagado', // MT
+    pt: '{count} de {of} inscritos não pagaram', // MT
+    de: '{count} von {of} Angemeldeten haben nicht bezahlt', // MT
+    fr: '{count} des {of} inscrits n’ont pas payé', // MT
+  },
+  today_sig_money: {
+    en: '{amount} expected — no invoice sent yet',
+    nl: '{amount} verwacht — nog geen factuur verstuurd',
+    es: '{amount} esperados: aún no se ha enviado factura', // MT
+    pt: '{amount} esperados — ainda sem fatura enviada', // MT
+    de: '{amount} erwartet — noch keine Rechnung verschickt', // MT
+    fr: '{amount} attendus — aucune facture envoyée', // MT
+  },
+  today_spoke_days: {
+    en: 'you last spoke {n} days ago',
+    nl: 'je sprak elkaar {n} dagen geleden',
+    es: 'hablasteis por última vez hace {n} días', // MT
+    pt: 'vocês falaram pela última vez há {n} dias', // MT
+    de: 'ihr habt zuletzt vor {n} Tagen gesprochen', // MT
+    fr: 'vous vous êtes parlé il y a {n} jours', // MT
+  },
+  today_spoke_months: {
+    en: 'you last spoke {n} months ago',
+    nl: 'je sprak elkaar {n} maanden geleden',
+    es: 'hablasteis por última vez hace {n} meses', // MT
+    pt: 'vocês falaram pela última vez há {n} meses', // MT
+    de: 'ihr habt zuletzt vor {n} Monaten gesprochen', // MT
+    fr: 'vous vous êtes parlé il y a {n} mois', // MT
+  },
+  today_spoke_never: {
+    en: 'no personal conversation on record',
+    nl: 'geen persoonlijk gesprek vastgelegd',
+    es: 'sin ninguna conversación personal registrada', // MT
+    pt: 'sem nenhuma conversa pessoal registrada', // MT
+    de: 'kein persönliches Gespräch erfasst', // MT
+    fr: 'aucune conversation personnelle enregistrée', // MT
+  },
+  today_lead: {
+    en: 'wants {n} days',
+    nl: 'vraagt {n} dagen',
+    es: 'pide {n} días', // MT
+    pt: 'pede {n} dias', // MT
+    de: 'braucht {n} Tage', // MT
+    fr: 'demande {n} jours', // MT
   },
 } satisfies Record<string, I18nEntry>;
 
