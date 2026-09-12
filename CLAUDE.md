@@ -49,13 +49,35 @@ When designing a new field: which app justifies it? If none, don't add it.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
-pnpm dev          # all seven dev servers: api :8080, web :3000, meet :3001, thread :3002, flow :3003, pulse :3004, membership :3005
+pnpm dev          # all nine dev servers: api :8080, web :3000, meet :3001, thread :3002,
+                  # flow :3003, pulse :3004, membership :3005, website :3006, my :3007
 ```
 
 ### Version bumps
-Every shipped change updates the **ten** `package.json` files (root, web, api, meet, thread, flow, pulse, membership, website, shared) plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit.
 
-**Meet has its own user-facing version** in `apps/meet/app/(app)/layout.tsx` — **decoupled from the monorepo cadence**. Meet is the rebuild of Suite v1, so its sidebar shows `v2.x`. Bump Meet's VERSION constant independently when Meet-specific surfaces ship, not in lockstep with platform-wide work. **Pulse likewise** has its own `VERSION` in `apps/pulse/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-07-07). **Membership likewise** — its own `VERSION` in `apps/membership/app/(app)/layout.tsx` (new app, started at 0.1.0 on 2026-09-04; display name may become "Hyve" — the slug `membership` never changes, only branding.ts does).
+Every shipped change stamps one monorepo version into **eleven**
+`package.json` files (root, `packages/shared`, and all nine `apps/*`: api,
+flow, meet, membership, my, pulse, thread, web, website) plus
+`apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar
+footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in
+v0.17.1 so more than one surface could read it). The CHANGELOG entry and the
+`docs/build-plan.md` grooming land in the same commit.
+
+**Never hand-keep that list.** Since v0.68.20 `scripts/release.sh` derives it
+from `apps/*/package.json` + root + `packages/shared`, so a tenth app is
+covered the moment its folder exists — the hardcoded list would have skipped
+`apps/my` silently. The number above describes today; the script is the
+authority. Push only via `./scripts/release.sh <version>` (handbook §10;
+docs-only commits are the single exception).
+
+**Per-app user-facing versions are decoupled** from the monorepo cadence.
+Each lives in `apps/<app>/app/(app)/layout.tsx` and is bumped when that app's
+own surfaces ship, not in lockstep with platform work: Meet shows `2.x` (it
+is the rebuild of Suite v1), Thread `3.x`, Flow `1.x`, Pulse `0.x` (started
+0.1.0 on 2026-07-07), Membership `0.x` (started 0.1.0 on 2026-09-04; display
+name may become "Hyve" — the slug `membership` never changes, only
+branding.ts does). `apps/website` and `apps/my` carry no version constant:
+neither has a signed-in chrome to show one in.
 
 ### Seed realistic data
 
@@ -68,7 +90,7 @@ Creates the brief §8 worked example: EBBF Athens 2026 conference + post-Athens 
 ### Components first (Sjoerd, 2026-09-05 — binding)
 
 Before building ANY UI surface: check `packages/shared/src/ui` and the
-other five apps. If it exists anywhere, use the shared component — or
+other apps. If it exists anywhere, use the shared component — or
 extract it to `packages/shared` and port the copies. **Never fork a new
 per-app variant.** New recurring surfaces are BORN in `@thefibre/shared`
 with the app-bound pieces (apiFetch, server actions) injected as props
@@ -282,42 +304,70 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 - The scheduler + webhook + payment link all converge on
   finalizePaidEnrolment / sendTriggeredMessages — extend those, don't fork.
 
-## State as of v0.4.8 (live in production)
+## What runs today (v0.68.21)
 
-### Live URLs
-- **Web** — https://thefibre.app (Vercel, fra1) and the project's preview deployments
-- **API** — https://thefibre-api.fly.dev (Fly.io, fra region, 1 shared-cpu-1x 1GB machine)
-- **DB + Auth** — Supabase project `zfsyyokepyycefbxiblc`, West EU (Ireland)
-- Google OAuth signed-in user (sjoerd@soul.com) hits the real API; RLS scopes data; the 8 seeded contacts render.
+Nine workspaces under `apps/`, one shared package, one API. The domain
+source of truth is the `SURFACES` registry in `packages/shared/src/branding.ts`.
 
-### What works end-to-end
-- Sign in via Google → land on dashboard → see your apps
-- Contacts (8 seeded people) → click one → Overview + Profile + per-app tabs that exist (Fibre Meet, Fibre Sales, Fibre Learn — emergent from actual data)
-- Edit basic identity (with searchable country picker, address, language), edit per-app curator data. All saves persist.
-- Organisations → EBBF → Overview + members + per-app tabs (including invoicing on Fibre Sales)
-- Programmes (3 seeded: Athens, post-Athens journey, board session) → enrol people → see enrolment list with status + progress
-- Workspace-wide Activity timeline (~21 events across 90 days), filterable by app + type
-- Privacy page (consents + erasure request)
-- Settings page (profile + workspace + app memberships)
+| Surface | Domain | Dev | What it is |
+|---|---|---|---|
+| `web` | thefibre.app | 3000 | The backstage: identity, contacts, organisations, programmes, activity, consent, workspaces, billing, `/admin`. |
+| `thread` | app.thethread.app | 3002 | The flagship: journeys and events. Public enrolment, tickets, payments, scheduled messages, certificates, embeds, `/my`. |
+| `meet` | meet.thethread.app | 3001 | Scheduling and booking. The rebuild of Suite v1. |
+| `flow` | flow.thethread.app | 3003 | People-flow state machine: pipelines, gates, tasks, visual builder. |
+| `pulse` | pulse.thethread.app | 3004 | Business planner and cashflow. |
+| `membership` | membership.thethread.app | 3005 | Community subscriptions: tiers, renewals, access grants, Circle sync. |
+| `website` | thethread.app | 3006 | The public site. On the apex since 2026-09-08. |
+| `my` | my.thethread.app | 3007 | The visitor's own portal. Built (v0.68.20), waiting on a Vercel project and DNS. |
+| `api` | thefibre-api.fly.dev | 8080 | Hono. The only thing that touches Supabase data. |
 
-### Not yet shipped
-- ~~The delivery-app frontends~~ Meet, Thread and Flow are live (see "Where
-  we left off" above); Fibre Sales and Fibre Learn remain unbuilt.
-- Article 15 export, retention policy admin, cross-app erasure webhook handlers.
-- Activity filter by `organisation_id` (only person_id today — org per-app tab timelines render EmptyState).
-- Microsoft / LinkedIn OAuth.
-- Custom `api.thefibre.app` CNAME (API is reachable at `thefibre-api.fly.dev` for now).
-- ~~Tightened CORS~~ done in v0.13.17 — allowlist in `apps/api/src/server.ts`.
+`fibre-sales` and `fibre-learn` are registered slugs with `available: false`.
+Not built, and not scheduled.
+
+### Live end to end
+
+- Sign in with Google or an email code. Sessions cross the two apexes via the
+  SSO hop; `/sso/land` also doubles as the E2E session fixture.
+- Contacts and organisations with emergent per-app profile tabs, per-app
+  curator data, and an activity timeline filterable by app, type, person and
+  organisation.
+- Programmes and enrolments; consent and erasure requests; the Article 15
+  self-service export (`GET /api/v1/privacy/export`).
+- Thread whole: public pages in six languages, tickets, discount codes,
+  Stripe Checkout and invoice payment, triggered messages on a five-minute
+  scheduler, approval and completion flows, certificates, template library,
+  website embeds, door scanner.
+- Membership whole: join page, tiers, country pricing rules, Stripe Connect
+  subscriptions, renewals, member portal. The soul.com workspace runs on it.
+- Money in one place: the purchase ledger across apps, the invoices area in
+  Thread and Meet, refunds, and the payments SPoT (`lib/payment-accounts.ts`).
+- Productisation: `/admin/plans`, Settings → Plan, public `/pricing`, Stripe
+  Billing subscriptions, seat billing, `/admin/economics`.
+- External apps: open catalogue, `POST /apps/register`, `app_key` credentials
+  with enforced scopes, review at `/admin/apps`.
+- Six languages across every signed-in interface, platform email and auth
+  email. New user-facing strings always go through a catalog, never hardcoded EN.
+- CI per push, a nightly contract smoke, and `pnpm verify` over unit,
+  integration and Playwright packs.
+
+### Not built yet
+
+- Fibre Sales and Fibre Learn.
+- Retention enforcement. `retention_months` is a plan field; the 13-month
+  Free archive, overage lines and 80% warnings are queue item P4.
+- Microsoft and LinkedIn OAuth.
+- A custom `api.thefibre.app` CNAME. The API answers on `thefibre-api.fly.dev`.
+- For the visitor portal: PWA, wallet passes, and the per-thread door
+  capability that would let a volunteer work a door without workspace rights.
+
+What is NEXT lives in `docs/build-plan.md`. This section only says what
+exists; when the two disagree, believe the build plan and fix this one.
 
 ### Data state
-Workspace `eaf096f8…` (default), real user `sjoerd@soul.com`, 8 seeded sample people, 1 org (EBBF), 3 programmes, ~11 enrolments, ~21 activity events.
 
-## Suggested next moves
-
-Superseded by `docs/build-plan.md` (the "Open queue" section under "Where Fibre Meet is right now"). Highest-priority items today:
-1. Magic-link auth (so non-Google invitees can sign in)
-2. Fibre web: label per-app curator-data tabs by app name
-3. Cutover plan for Meet ↔ Suite (Sjoerd owns)
+Two real workspaces: the default `eaf096f8…` and soul.com `986d1631` (slug
+`soul`, Membership live, org plan comped). `cd apps/api && node
+scripts/seed-ebbf.mjs` lays the brief §8 demo set on top, idempotently.
 
 ## Reviewer's note
 

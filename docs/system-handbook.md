@@ -41,17 +41,22 @@ Lab B.V. (Rotterdam, EU-hosted). It is one product family:
 **Two apex domains, deliberately** (since v0.52.0, the "branding pivot"):
 fibre web lives on `thefibre.app`; the five delivery apps live on
 subdomains of `thethread.app` (Thread takes `app.`). The `thethread.app`
-apex itself serves the old standalone Thread V3 landing page (separate
-repo/Vercel project, being decommissioned — the landing must keep serving).
-Sessions cross the two apexes via the SSO hop (§6.3). Naming rationale:
-`docs/naming-brief.md`.
+apex serves `apps/website`, this repo's own public site, since the cut on
+2026-09-08; the old standalone Thread V3 landing it replaced is
+decommissioned bar a Vercel project to archive. Sessions cross the two
+apexes via the SSO hop (§6.3). Naming rationale: `docs/naming-brief.md`.
+
+Two further surfaces ship from the same repo and are not apps: `apps/website`
+above, and `apps/my` (my.thethread.app), the visitor's own portal — built in
+v0.68.20, waiting on its Vercel project. Neither has an AppId, activation or
+app membership; both are entries in the `SURFACES` registry.
 
 ---
 
 ## 2. Architecture in one paragraph
 
 A single **Hono API** (`apps/api`, port 8080, deployed on Fly.io) fronts a
-**Supabase** Postgres+Auth project (EU/Ireland). Six **Next.js 15** apps
+**Supabase** Postgres+Auth project (EU/Ireland). Eight **Next.js 15** apps
 (App Router, React 19) call the API for everything — **no app ever talks to
 Supabase data directly; only Supabase *Auth*** (sign-in, session cookies).
 The API is a thin convenience layer; **Row-Level Security is the real
@@ -114,6 +119,8 @@ apps/
   flow/           Flow                           :3003
   pulse/          Pulse                          :3004
   membership/     Membership                     :3005
+  website/        the public site (thethread.app apex)  :3006
+  my/             the visitor's own portal (a SURFACE)  :3007
 packages/
   shared/         @thefibre/shared — THE shared package (§5)
 supabase/
@@ -131,8 +138,8 @@ Each Next.js app has the same internal shape: `app/` (App Router;
 `components/shell/` (thin shims over shared chrome), `lib/`
 (`api.ts` = apiFetch, `supabase/{client,server}.ts`, `prefs*.ts`,
 `available-apps.ts`, `locale.ts`, `i18n-ui.ts`). Several `lib/` files are
-**byte-identical across all six apps by design** — if you change one, change
-all six identically (check with `md5 -q apps/*/lib/<file>`).
+**byte-identical across the signed-in apps by design** — if you change one,
+change them all identically (check with `md5 -q apps/*/lib/<file>`).
 
 ---
 
@@ -368,15 +375,17 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 | | Production | Staging |
 |---|---|---|
-| Web/apps | thefibre.app + app./meet./flow./pulse./membership.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
+| Web/apps | thefibre.app + thethread.app (site) + app./meet./flow./pulse./membership.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
 | API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev | `thefibre-api-staging` |
 | DB/Auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` |
 | Cookie domain | `.thefibre.app` (web) / `.thethread.app` (five apps) | `.thefibre.tech` |
 | Stripe | live keys | sandbox keys |
 | Deploy trigger | `git push origin main` | `git push origin main:staging` |
 
-- **Vercel**: six projects (`thefibre`, `thefibre-{meet,thread,flow,pulse,
-  membership}`), all in the `sjoerd-1708s-projects` scope. Domains are
+- **Vercel**: seven projects (`thefibre`, `thefibre-{meet,thread,flow,pulse,
+  membership}`, `thefibre-website`), all in the `sjoerd-1708s-projects`
+  scope. An eighth, `thefibre-my`, is the one step between `apps/my` and
+  a live visitor portal (docs/my-portal-setup.md). Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
@@ -406,15 +415,18 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 ## 10. Version management & release procedure
 
-- **One monorepo version** stamped in **nine** `package.json` files (root,
-  six apps, api, shared) **plus** `apps/web/lib/version.ts` (`VERSION`
-  constant — shown in the Fibre sidebar footer and Settings → How The
-  Fibre works). SemVer-ish: features bump minor, fixes bump patch.
+- **One monorepo version** stamped in **eleven** `package.json` files (root,
+  nine `apps/*` incl. api, website and my, and `packages/shared`) **plus**
+  `apps/web/lib/version.ts` (`VERSION` constant — shown in the Fibre sidebar
+  footer and Settings → How The Fibre works). The count is derived by
+  `release.sh`, never hand-kept. SemVer-ish: features bump minor, fixes bump
+  patch.
 - **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
   (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
   their own constants in their layouts. Bump those only when app-specific
-  surfaces ship.
-- **Every release = one commit** containing: the code, the nine version
+  surfaces ship. `website` and `my` have no such constant — no signed-in
+  chrome to show one in.
+- **Every release = one commit** containing: the code, the version
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
   narrative style — say *why*, record decisions and reversals explicitly).
   Groom `docs/build-plan.md`'s Open queue in the same ship.

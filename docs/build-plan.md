@@ -5,22 +5,28 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.13.108**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+Current version: **v0.68.21**. Live in production: https://thefibre.app (Fibre web,
+Vercel/fra1), https://thethread.app (the website, on the apex since 2026-09-08),
+app. / meet. / flow. / pulse. / membership.thethread.app (the five delivery apps,
+Vercel/fra1), and https://thefibre-api.fly.dev (API on Fly.io/fra). Built but not
+yet pointed at a domain: https://my.thethread.app (the visitor portal). The domain
+source of truth is the `SURFACES` registry in `packages/shared/src/branding.ts`,
+not this line.
 
 ---
 
-## Where the Fibre suite is right now (2026-07-07, v0.13.108 ÃÂ· Thread 3.31.1 ÃÂ· Meet 2.4.1 ÃÂ· Flow 1.10.0)
+## Where the Fibre suite is right now (2026-09-12, v0.68.21 · Thread 3.38.2 · Meet 2.8.1 · Flow 1.16.0 · Pulse 0.29.0 · Membership 0.14.1)
 
-Four apps live: web (platform), Meet, Thread, Flow. **The Thread rebuild is
-complete** (all 6 phases + certificates + templates + embeds + /my portal);
-the **Invoices area + role tiers + payments SPoT** landed 2026-07-04
-(docs/invoices-and-roles-proposal.md — all decisions resolved). CLAUDE.md's
-"Where we left off" carries the detailed feature inventory; this file keeps
-the queue.
+Six apps live behind sign-in: web (platform), Meet, Thread, Flow, Pulse,
+Membership. Two further surfaces ship from the same repo: the public website
+on the thethread.app apex, and `apps/my`, the visitor portal — built and on
+main since v0.68.20, waiting only on a Vercel project and DNS. CLAUDE.md,
+"What runs today", carries the feature inventory; CHANGELOG.md carries the
+narrative; this file keeps the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
+_Last groomed 2026-09-12 (v0.68.21). Done items get removed, not ticked._
 
 **0a. Testing roadmap (docs/testing-approach.md + handbook ÃÂ§11).** Phase 0
    DONE, Phase 2 started (v0.53.0: pnpm verify gate, 30 unit tests,
@@ -64,14 +70,15 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
    one person, grouped by organiser workspace. Decisions D1-D3 taken
    2026-09-08 (third sanctioned data-wall crossing / own surface / group by
    workspace). **API SHIPPED v0.68.15** — GET /api/v1/me/portal, live on Fly
-   prod + staging, 8 unit tests, no client calling it yet. branding.ts
-   SURFACES registry + CORS derivation landed v0.68.13. Remaining:
-   - **Sjoerd:** TransIP A record for my.thethread.app + an eighth Vercel
-     project (nothing is broken while these wait — no client calls the
-     route).
-   - **The surface itself** (apps/my, dev port 3007) — read-only portal
-     first, then the visitor's own ticket QR, which today exists only in
-     the enrolment email.
+   prod + staging, 8 unit tests. branding.ts SURFACES registry + CORS
+   derivation landed v0.68.13. **THE SURFACE SHIPPED v0.68.20** — `apps/my`
+   (dev port 3007), a SURFACE not an app: email + code sign-in, everything you are
+   part of grouped by organiser, and the ticket QR full-screen on white,
+   which until now existed only inside the enrolment email. Remaining:
+   - **Sjoerd, and it is the only thing between the portal and live:** create
+     the Vercel project (Root Directory `my`, *not* `api`), then the TransIP
+     DNS record Vercel gives you. Steps in docs/my-portal-setup.md. Nothing
+     is broken while this waits — no domain points at the app yet.
    - **D4 — PWA.** Recommended thin (manifest, icons, service worker
      caching the shell + the visitor's own tickets) and only AFTER the
      wallet passes; NOT an offline-first rewrite. iOS installs manually, so
@@ -85,6 +92,10 @@ _Last groomed 2026-09-08 (v0.68.16). Done items get removed, not ticked._
      same capability pattern as checkin_code.
    - **Wallet passes** (coded, inert): blocked on an Apple Pass Type ID
      certificate and a Google Wallet issuer account — Sjoerd only.
+   - **i18n when it comes:** the portal is English-only today. When it grows
+     languages it adopts `@thefibre/shared/participant-auth-i18n` (the
+     12 participant-auth keys, shared with Thread and Membership since
+     v0.68.21) rather than becoming a fourth copy of the sign-in strings.
    - Not read by the portal: the purchase ledger (invoices weren't among
      the four asks). The dual-key rule is documented in the route header
      for whoever adds them.
