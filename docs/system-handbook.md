@@ -771,6 +771,15 @@ a lookup table — all values.
 Found in Connections on 2026-09-12 and general to every app here, because
 every app here computes a view from data another app filled in.
 
+**A rule written from one surface is not yet a rule, it is a description of
+that surface.** Both halves of this section were written that way and both
+were wrong until a second session tested them against a second surface — the
+"never hide it" version would have put teaching copy under every quiet
+Tuesday on Thread's home page, and the shape-of-the-view condition shipped as
+a live bug in Connections. So: test a general claim against a surface you did
+not write it from BEFORE it goes in, and treat "it survives" as a finding
+rather than a formality.
+
 Empty is honest and legible: no rows, one sentence, done. The failure mode is
 different and worse — a view that computes **correctly over nothing** and
 renders a confident, fully-formed answer. One bar at 100%. A chart with a
