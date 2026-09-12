@@ -23,6 +23,7 @@ that its footer sends visitors into production.
 | 0.72.3 | Two scripts that could not say what was wrong |
 | 0.72.4 | A sign-in stops writing twelve rows one at a time |
 | 0.72.5 | The staging footer stops walking people into production |
+| 0.72.6 | A new thread stops being born broken |
 | two `docs:` commits | Three documents corrected; 81 runs of mojibake repaired |
 
 The API was deployed to staging and then production, both verified after.
@@ -206,6 +207,54 @@ URL. The rest follows once `NEXT_PUBLIC_WEBSITE_URL` is set on staging.
    detail. Left alone because they are your narrative and trimming them is your
    call, not a passing agent's.
 
+## The cold first-client walkthrough — done after all
+
+I flagged this as the highest-value thing I had skipped, then did it. It found
+the worst bug of the night, and it took eleven minutes.
+
+**The tool first.** `apps/api/scripts/cold-organiser.mjs` creates a brand-new
+workspace, person, user, admin membership, plan apps and Supabase auth account
+on staging, and prints a single-use sign-in link. Every other fixture path
+reuses an account that already has a workspace, contacts and habits — exactly
+what a first client does not have, which is why empty states and first-run
+prompts are invisible from a seeded account. `--list` and `--signin <slug>`
+come back to one later. It refuses to run anywhere but staging.
+
+```bash
+FIBRE_ENV_FILE=.env.staging node scripts/cold-organiser.mjs --name "Riverside Choir"
+```
+
+**What the first hour actually looks like.** Good, mostly. The dashboard opens
+with "Shall I guide you to your first journey?" and, if you accept, highlights
+the Thread card and says why. Clicking it hops apexes and signs you straight
+in — the cross-apex handoff works. Thread greets you with five event shapes,
+three marked as needing a higher plan. You pick one, name it, and the public
+URL derives from your own name on the staging host.
+
+**Then it breaks, in the first minute.** You give the event a date, click
+Create, and land in an editor showing:
+
+    NO DATE   The event                                    Draft
+              Thank you · 1d after The event · 10:00
+              won't send: the anchor has no date
+
+The date you just typed went to the `program` row and never reached the
+timeline, so a brand-new organiser's very first thread arrives carrying a
+warning about a problem they did not cause and could not have avoided.
+
+Fixed in v0.72.6, verified by walking it again: the event now reads
+`DEC 5 · 10:00` and the thank-you resolves to `DEC 6` with no warning. The
+stored value is `2026-12-05T09:00:00Z` — 10:00 Amsterdam in winter, so the
+timezone is right rather than an hour out.
+
+**One inconsistency I did not fix.** The template-DUPLICATION path still
+builds timestamps as `new Date(\`${date}T${time}:00Z\`)`, which treats a wall
+clock as UTC. The correct helper existed already and Meet's availability
+engine already used it; the new seeding path uses it too. So a duplicated
+thread and a newly seeded one now disagree by the UTC offset. That is a real
+bug, it predates tonight, and it is the last one of its kind — but changing
+the duplication path moves existing threads' times, which is your call.
+
 ## What was not covered
 
 The **signed-in** exploratory pass. I checked the public surfaces in a real
@@ -215,7 +264,9 @@ run. The Playwright suite covers a thin signed-in path and v0.72.2's session
 did an exploratory pass over v0.69–v0.72 the evening before, so this is not
 untouched ground, but it is not the same thing as walking it.
 
-**The cold first-client walkthrough did not happen** — creating a fresh
-workspace and living a new organiser's first hour. It is still the highest-value
-unexercised test given what you are doing this week, and it needs a signed-in
-session I did not set up.
+~~**The cold first-client walkthrough did not happen.**~~ It happened after
+all — see the section above. What remains unwalked from it: **publishing** the
+thread, **enrolling** a participant, and a **Stripe Connect payment run**. I
+stopped at the editor because the bug was there and worth fixing first. Those
+three are the next thing to walk, and `cold-organiser.mjs` makes it a
+two-minute setup now rather than an afternoon.
