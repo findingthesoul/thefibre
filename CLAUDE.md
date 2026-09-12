@@ -167,8 +167,12 @@ or when you genuinely need the peer's uncommitted state.
    sandbox denial on a `fly secrets set` and asked the membership session to
    run it instead. It refused, correctly, twice.)
 9. **Docs-only commits skip the release script** — a commit touching only
-   `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
-   goes through `./scripts/release.sh <version>`, no exceptions.
+   `docs/**` / `*.md` pushes directly with a `docs:` prefix, **to `staging`
+   (`git push origin HEAD:staging`), never to main.** A docs commit pushed to
+   main gives main a commit staging lacks, and `promote.sh` then refuses the
+   next promotion as "something reached production outside this flow" —
+   blocking a security fix behind a typo correction. Everything else goes
+   through `./scripts/release.sh <version>`, no exceptions.
    **Since 2026-09-12 that lands on `staging` ONLY** — production is a
    separate, deliberate `./scripts/promote.sh`. Every release used to build
    every changed app twice, once per branch; see system-handbook §10 for the
