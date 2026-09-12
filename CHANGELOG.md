@@ -6,6 +6,41 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.8] — 2026-09-12 — the prompt only appears where nothing was ever written
+
+A bug in v0.73.6, live for about forty minutes, found in review by the
+session working on Thread rather than by anything here.
+
+v0.73.6 showed a sentence — *"All 12 people are in one band, so this axis has
+nothing to separate yet"* plus what would fill it — whenever a single band
+held everybody. That condition reads the SHAPE of the view, and the shape has
+two causes. One is the intended one: nothing has ever been written to the
+axis's source. The other is a real, stable answer. A workspace where every
+person sits at `committed` would have been told to go put something in the
+pipeline it demonstrably already has. A community where everyone genuinely
+has been spoken to and nobody was ever introduced would have been nagged
+forever by a sentence that could never come down.
+
+**The condition now reads the source**, via `AXIS_UNWRITTEN_BAND` — per axis,
+the band a person falls into when nothing has been written: `never`,
+`unrated`, `never_spoken`, `none`, `brought_nobody`. The sentence renders
+only when the one occupied band is that one. For these five axes that is
+exactly equivalent to counting the source and costs no second query, because
+the source's emptiness is already visible in the band you are looking at. An
+axis whose bottom band were reachable with a non-empty source would need the
+real count, and the map says so.
+
+Verified by rendering five cases and checking which one prompts: nothing ever
+written on cadence and on opportunity do; everyone in rhythm, everyone
+committed, and a real maturity spread stay silent.
+
+`docs/system-handbook.md` §12 gained the split between transient and
+structural emptiness — hide the quiet Tuesday, explain the never-used feature
+— written by the Thread session after testing the rule against a real
+dashboard. This release adds the worked instance underneath it, so the next
+person reading the principle also gets the mechanism.
+
+
 ## [0.73.7] — 2026-09-12 — the module says out loud why it is safe
 
 `apps/thread/lib/public-site.ts` is read by nine server components and one

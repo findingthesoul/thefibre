@@ -827,6 +827,17 @@ been captured here" is the fact that actually makes the axis uninformative,
 it is the fact the sentence promises to change, and it stops being true
 exactly once.
 
+The source-not-shape correction above is not theoretical: Connections
+shipped the shape version in v0.73.6 and it was a real bug for half an hour.
+"Everybody in one band" also fires on a workspace where every person sits at
+`committed`, which would have been told to go add something to the pipeline
+it already has. The fix is `AXIS_UNWRITTEN_BAND` in
+`apps/connections/app/(app)/landscape/axes.ts` — per axis, the band a person
+falls into when nothing has been written — and the sentence renders only when
+the single occupied band is that one. For those five axes it is equivalent to
+counting the source and needs no second query; an axis whose bottom band were
+reachable with a non-empty source would need the real count.
+
 Applies to: the Connections landscape (done), Thread's home page, Pulse's
 dashboard, and anything else whose numbers come from a table a different
 app writes.

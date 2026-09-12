@@ -139,6 +139,34 @@ export const BAND_NOTE_KEYS: Record<Axis, Partial<Record<string, UiKey>>> = {
 };
 
 /** What would make this axis say something, when today it says nothing. */
+/**
+ * The band a person lands in when the axis's SOURCE has never been written
+ * to: no note, no rating, no commitment, no introduction, no activity at all.
+ *
+ * This is what separates a source nobody has filled from a real, stable
+ * answer, and the distinction is not cosmetic — it was a bug. "Everybody is
+ * in one band" also describes a workspace where every person genuinely sits
+ * at `committed`, and telling that workspace to "put something in the
+ * pipeline in Pulse" is false as well as annoying. It also describes a
+ * community where everyone truly has been spoken to and nobody was ever
+ * introduced: true, stable, and nagged at forever by a sentence that can
+ * never come down.
+ *
+ * So the fill sentence appears only when the one occupied band is THIS one.
+ * For every axis here that is exactly equivalent to "the source is empty" —
+ * all `never_spoken` iff no note exists, all `unrated` iff nothing was rated
+ * — which is why it needs no second query. If an axis is ever added whose
+ * bottom band is reachable with a non-empty source, that axis needs a real
+ * source count, not an entry in this map.
+ */
+export const AXIS_UNWRITTEN_BAND: Record<Axis, string> = {
+  maturity: 'never',
+  closeness: 'unrated',
+  cadence: 'never_spoken',
+  opportunity: 'none',
+  contribution: 'brought_nobody',
+};
+
 export const AXIS_FILL_KEYS: Record<Axis, UiKey> = {
   maturity: 'fill_maturity',
   closeness: 'fill_closeness',

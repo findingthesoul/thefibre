@@ -3,6 +3,7 @@ import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
 import {
   AXIS_FILL_KEYS,
+  AXIS_UNWRITTEN_BAND,
   BAND_KEYS,
   BAND_NOTE_KEYS,
   type Axis,
@@ -70,12 +71,22 @@ export function Bands({
   };
 
   // The case that reads as a broken page: one bar, full width, holding
-  // everybody. It is the truthful picture of an axis whose source nobody has
-  // filled in yet, and in a young workspace three of the five look like this.
-  // Computed from the bands rather than assumed, so it disappears by itself
-  // the moment a second band gets anybody in it.
+  // everybody, because the axis's source has never been written to. In a
+  // young workspace three of the five look like this.
+  //
+  // TWO conditions, not one. "Everybody in one band" alone is not enough:
+  // it also describes a workspace where every person genuinely sits at
+  // `committed`, or a community where everyone truly has been spoken to and
+  // nobody was ever introduced. Those are real answers, and a sentence
+  // telling them to go fill the source would be false in the first case and
+  // permanent in the second — onboarding furniture on every quiet Tuesday.
+  // So the band must ALSO be the axis's unwritten one (see AXIS_UNWRITTEN_BAND).
+  //
+  // Read from the data rather than from a flag, so it retires itself the
+  // moment the first note, rating, commitment or introduction lands.
   const occupied = bands.filter((b) => b.count > 0);
   const onlyBand = total > 0 && occupied.length === 1 ? occupied[0]! : null;
+  const sourceUnwritten = onlyBand?.rung === AXIS_UNWRITTEN_BAND[axis];
 
   return (
     <div className="mt-8">
@@ -147,7 +158,7 @@ export function Bands({
         })}
       </ul>
 
-      {onlyBand && (
+      {onlyBand && sourceUnwritten && (
         <p className="mt-3 text-sm text-ink-muted">
           {t(locale, 'landscape_all_one_band', { n: total })}{' '}
           {t(locale, AXIS_FILL_KEYS[axis])}
