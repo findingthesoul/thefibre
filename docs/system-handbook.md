@@ -746,6 +746,62 @@ sign in locally — that's known, not broken. Seed realistic data:
 §8 worked example). After a burst of many file changes (e.g. parallel
 agents), the Next dev server can wedge — kill and restart `pnpm dev`.
 
+### Sharing a constant between a server and a client component
+
+A **value** read by both a server component and a `'use client'` one must
+live in a module that is neither. Next replaces a client module's exports
+with proxies and erases the types, so a constant exported from a `'use
+client'` file and imported by a server component typechecks and then crashes
+on first render — a local `next build` does not catch it. Two such modules
+exist for exactly this reason: `apps/connections/app/(app)/today/shape.ts`
+and `apps/connections/app/(app)/landscape/axes.ts`.
+
+A **type** crosses freely from anywhere, as long as the import says `import
+type` — it is erased before Next builds a module graph, so no proxy is ever
+made. `apps/thread/lib/public-site.ts` is read by nine server components and
+one client component and survives on precisely this, which also means it
+survives by accident: nothing in the file says so, and the first person to
+import a VALUE from it there will find out the hard way.
+
+The trap is the const that reads like a type. A label map, a list of stages,
+a lookup table — all values.
+
+### A derived view over empty data looks WRONG, not empty
+
+Found in Connections on 2026-09-12 and general to every app here, because
+every app here computes a view from data another app filled in.
+
+Empty is honest and legible: no rows, one sentence, done. The failure mode is
+different and worse — a view that computes **correctly over nothing** and
+renders a confident, fully-formed answer. One bar at 100%. A chart with a
+single flat line. A score of zero presented as a score. The reader cannot
+tell a true statement about a young workspace from a broken page, and the
+more polished the rendering, the more it reads as a bug.
+
+The concrete case: three of Connections' five landscape axes put every person
+in one band, because those axes read captured conversations and recorded
+introductions and nothing had written either yet. Correct arithmetic, and it
+looked broken. Sjoerd's report was *"I dont get what it is doing now"*.
+
+**Do not hide the section.** Hiding is the cheap fix and it costs the
+teaching moment, which is the one thing a day-one workspace needs; it leaves
+a short page that explains nothing. Instead say three things in one breath:
+
+1. what the surface is reading from,
+2. that the source is empty,
+3. the single action that would fill it — *"Write down a conversation on a
+   person and this axis starts working."*
+
+**Compute the condition from the data, never from a flag or a first-run
+check.** One occupied band out of however many. Then the sentence appears
+only while it is true and disappears by itself the moment it stops being
+true, instead of becoming permanent onboarding furniture somebody has to
+remember to switch off.
+
+Applies to: the Connections landscape (done), Thread's home page, Pulse's
+dashboard, and anything else whose numbers come from a table a different
+app writes.
+
 ### Debugging
 
 **Read the API server log first, hypothesise second.** `upsertProfile`,
