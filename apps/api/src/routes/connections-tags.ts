@@ -81,6 +81,38 @@ connectionsTagsRoutes.get('/vocabulary', async (c) => {
   return c.json({ words });
 });
 
+/**
+ * Who carries one tag.
+ *
+ * Ids only. The people list already knows how to render a person from its own
+ * read, so returning names here would be a second source for the same fact
+ * and a second place for it to go stale.
+ */
+connectionsTagsRoutes.get('/tags/:id/people', async (c) => {
+  const ctx = c.get('ctx');
+  const tagId = c.req.param('id');
+
+  // The tag must belong to this workspace. Checked rather than assumed: this
+  // runs on the service client, so RLS is not filtering, and without the check
+  // a guessed uuid would read another tenant's membership.
+  const { data: tag } = await adminClient
+    .from('tag')
+    .select('id')
+    .eq('id', tagId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  if (!tag) return c.json({ error: 'not found' }, 404);
+
+  const { data, error } = await adminClient
+    .from('person_tag')
+    .select('person_id')
+    .eq('tag_id', tagId)
+    .limit(5000);
+  if (error) return c.json({ error: error.message }, 500);
+
+  return c.json({ person_ids: [...new Set((data ?? []).map((r) => r.person_id as string))] });
+});
+
 const ListQuery = z.object({
   /** Tags used by nobody are noise on a list meant to show what connects. */
   min_people: z.coerce.number().int().min(0).max(1000).default(1),

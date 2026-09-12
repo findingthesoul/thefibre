@@ -6028,6 +6028,66 @@ const CATALOG = {
     de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
     fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
   },
+  // ── Tags: the words this workspace connects people with ──────────────────
+  nav_tags: {
+    en: 'Tags',
+    nl: 'Tags',
+    es: 'Etiquetas', // MT
+    pt: 'Etiquetas', // MT
+    de: 'Tags', // MT
+    fr: 'Étiquettes', // MT
+  },
+  tags_intro: {
+    en: 'The words your notes keep using, and who they connect. Tap one to see those people.',
+    nl: 'De woorden die in jullie notities blijven terugkomen, en wie ze verbinden. Tik er een aan om die mensen te zien.',
+    es: 'Las palabras que vuestras notas repiten, y a quién conectan. Toca una para ver a esas personas.', // MT
+    pt: 'As palavras que as vossas notas repetem, e quem ligam. Toca numa para ver essas pessoas.', // MT
+    de: 'Die Wörter, die eure Notizen immer wieder benutzen, und wen sie verbinden. Tippe eines an, um diese Menschen zu sehen.', // MT
+    fr: 'Les mots que vos notes réutilisent, et qui ils relient. Touchez-en un pour voir ces personnes.', // MT
+  },
+  tags_empty: {
+    en: 'No tags yet. They appear as you write notes — a word your workspace already uses, or anything with a # in front of it.',
+    nl: 'Nog geen tags. Ze verschijnen terwijl je notities schrijft — een woord dat jullie al gebruiken, of iets met een # ervoor.',
+    es: 'Aún no hay etiquetas. Aparecen mientras escribes notas: una palabra que ya usáis, o cualquier cosa con # delante.', // MT
+    pt: 'Ainda não há etiquetas. Aparecem enquanto escreves notas — uma palavra que já usam, ou qualquer coisa com # à frente.', // MT
+    de: 'Noch keine Tags. Sie erscheinen beim Schreiben von Notizen — ein Wort, das ihr schon nutzt, oder alles mit einem # davor.', // MT
+    fr: 'Pas encore d’étiquettes. Elles apparaissent en écrivant des notes : un mot que vous utilisez déjà, ou n’importe quoi précédé d’un #.', // MT
+  },
+  tags_all: {
+    en: 'All of them',
+    nl: 'Allemaal',
+    es: 'Todas', // MT
+    pt: 'Todas', // MT
+    de: 'Alle davon', // MT
+    fr: 'Toutes', // MT
+  },
+  tags_carried_by: {
+    en: '{n} people',
+    nl: '{n} mensen',
+    es: '{n} personas', // MT
+    pt: '{n} pessoas', // MT
+    de: '{n} Personen', // MT
+    fr: '{n} personnes', // MT
+  },
+  tags_from_notes: {
+    en: '{n} from notes',
+    nl: '{n} uit notities',
+    es: '{n} de las notas', // MT
+    pt: '{n} das notas', // MT
+    de: '{n} aus Notizen', // MT
+    fr: '{n} depuis les notes', // MT
+  },
+  // The rarity rule, said out loud under the cloud. Without it the sizing
+  // reads as "big word = important", which is the opposite of what it means.
+  tags_cloud_legend: {
+    en: 'Bigger means more people carry it. Fainter means it connects less — a word almost everyone shares is a category, not a link.',
+    nl: 'Groter betekent dat meer mensen het hebben. Vager betekent dat het minder verbindt — een woord dat bijna iedereen deelt is een categorie, geen verbinding.',
+    es: 'Más grande significa que más personas la llevan. Más tenue significa que conecta menos: una palabra que casi todos comparten es una categoría, no un vínculo.', // MT
+    pt: 'Maior significa que mais pessoas a têm. Mais ténue significa que liga menos — uma palavra que quase todos partilham é uma categoria, não uma ligação.', // MT
+    de: 'Größer heißt, mehr Menschen tragen es. Blasser heißt, es verbindet weniger — ein Wort, das fast alle teilen, ist eine Kategorie, keine Verbindung.', // MT
+    fr: 'Plus gros signifie que plus de personnes le portent. Plus pâle signifie qu’il relie moins : un mot que presque tous partagent est une catégorie, pas un lien.', // MT
+  },
+
   // ── The hygiene queue ────────────────────────────────────────────────────
   // The sweep proposes and a person decides. Nothing here offers to fill in a
   // blank: cleaning removes wrongness, it does not invent completeness.
