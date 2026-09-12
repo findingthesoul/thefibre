@@ -64,33 +64,58 @@ share or do not.
 himself at the end. Its landscape already places people on derived axes, so
 this lands on a screen that exists rather than a blank one.
 
-**Where this stands against what is already written** (added 2026-09-12,
-after merging main; not a scoping decision, just what a reader should know):
+**Where this stands against what is already written.** Rewritten 2026-09-12
+21:00 UTC, after merging `staging`. The first version of this note was two
+hours old and already wrong, because part of the item shipped while it sat.
+Not a scoping decision, just what a reader should know.
 
-- Tags now exist. `v0.73.10` detects them while a note is being written, and
-  organisation names are tags. So the "select or type a characteristic"
-  input has a vocabulary behind it that did not exist this morning.
-- `docs/connections-model.md` **D70** already asks for a tag list, a tag
-  cloud and a map, held back until enough tags exist that a drawing means
-  something. It is on the Connections open list in `docs/build-plan.md`. No
-  position stated here on purpose: this line first said "fourth" and was
-  second within the hour, because two items above it shipped while this
-  branch sat.
-- What Sjoerd asks for here is **not** D70, and the difference is the whole
-  item. D70 draws tags. He wants to draw **people**, with the characteristic
-  as the filter that decides which edges are worth a line. The Visual
-  Thesaurus behaviour he points at, click a node and the map re-centres on
-  it, is a person-to-person graph, not a cloud.
-- He also opens with dissatisfaction: *"I am not so happy witht the
-  interface"*. That is about the landscape as it stands, so this is partly a
-  complaint about an existing screen and only partly a request for a new one.
-  Worth separating before anyone scopes it.
-- One of his two example tags has a known problem waiting for it. The build
-  plan, same day: *"The last axis without history is `closeness`."* It is a
-  current-state column, so a view that ranks people by closeness can show
-  where they stand and cannot show them moving. His other example, company,
-  does not have that problem. Worth knowing before choosing which example to
-  build the first view against.
+**Already built, on `staging` and not yet released** (held at Sjoerd's
+request while he looks at the Vercel bill):
+
+- Tags exist. `v0.73.10` detects them while a note is being written, and
+  organisation names count as tags. The "characteristic you can select or
+  type" has a vocabulary behind it.
+- The tag **list** and the tag **cloud** both shipped, on one page, and
+  tapping a tag filters the people list. Band and tag filters compose. So
+  "pick a characteristic, get the people who carry it" already works.
+- `@` mentions for people and organisations, by intent rather than
+  inference. People open in a popup.
+
+**Still not built, and this is the part of his item that is genuinely open:**
+
+- The **graph**. Tags gave it an edge source for the first time, and it is
+  the desktop landscape rather than a screen that exists.
+- The dissatisfaction he opened with: *"I am not so happy witht the
+  interface"*. That is about the landscape as it stands. It is separable from
+  the request for new views, and possibly cheaper. Worth asking him which one
+  he actually wants first.
+
+**Two things that push back on the item as stated:**
+
+- **Ranking.** He asked for a list *"ordder in what ranks more"*. The cloud
+  that shipped does the opposite on purpose: size is reach, opacity is
+  connective strength, and strength FALLS as reach grows, so the biggest word
+  is deliberately not the most important one. A tag on three people is a
+  strong link; a tag on nearly everybody is a category. If he means "most
+  people first", that is a different ordering from the one the model argues
+  for, and the disagreement is worth surfacing rather than silently picking
+  one.
+- **Edges.** `docs/system-handbook.md`, same day: *"co-occurrence is not a
+  relationship."* Two people sharing a tag have co-occurred. Drawing a line
+  between them because they share one is precisely the inference that rule
+  forbids, because an edge meaning "somebody states these two know each
+  other" quietly starts meaning "these two were typed near each other".
+  **The counter-reading, which matters here:** the rule is about what gets
+  STORED in `relationship`, not about what a view may draw. A layout that
+  places people near each other because they share a tag stores nothing and
+  claims nothing. So his graph is not forbidden; one implementation of it is.
+  Anyone scoping this needs to hold that line explicitly, because it is the
+  cheap step the rule was written about.
+
+**One caveat on his example tags.** Of the two he named, closeness is the
+last axis with no history: a current-state column. A view ranking people by
+closeness can show where they stand and cannot show them moving. Company does
+not have that problem.
 
 Not scoped.
 
