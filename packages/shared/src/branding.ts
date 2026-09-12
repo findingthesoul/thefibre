@@ -51,13 +51,26 @@ export const ENTITY = {
  *  first email we ever sent until v0.18.2). Note `privacy` is deliberately
  *  /privacy-policy, not /privacy: the latter is the signed-in dashboard where
  *  you manage your own consents. */
+export const FOOTER_PATHS = {
+  help: '/support',
+  about: '/about',
+  legal: '/terms',
+  privacy: '/privacy-policy',
+} as const;
+
 export const FOOTER_LINKS = {
   // The Thread is the public door (Sjoerd, 2026-09-08); the same documents
   // also serve on thefibre.app under identical paths (shared/ui/legal-docs).
-  help: 'https://thethread.app/support',
-  about: 'https://thethread.app/about',
-  legal: 'https://thethread.app/terms',
-  privacy: 'https://thethread.app/privacy-policy',
+  //
+  // These stay pinned to PRODUCTION on purpose: their job is emails, which
+  // are read long after they are sent and from anywhere, so a staging host
+  // in one would be a dead link in somebody's inbox. A rendered PAGE wants
+  // its own environment instead — see FOOTER_PATHS, which the marketing
+  // footer joins onto whichever website host it resolves.
+  help: `https://thethread.app${FOOTER_PATHS.help}`,
+  about: `https://thethread.app${FOOTER_PATHS.about}`,
+  legal: `https://thethread.app${FOOTER_PATHS.legal}`,
+  privacy: `https://thethread.app${FOOTER_PATHS.privacy}`,
 };
 
 /** Hosted brand assets. Served from apps/web/public/brand/. */
@@ -141,14 +154,36 @@ export const APPS: Record<AppId, AppBrand> = {
     urlEnv: 'NEXT_PUBLIC_MEMBERSHIP_URL',
     available: true,
   },
+  // The slug stays fibre-sales forever — it tags curator data on
+  // person_relationship_context and org_relationship, and slugs never change
+  // (same rule as membership / Hyve). Only the display name moves. "Sales"
+  // named one axis of five and titled the tab holding the relationship
+  // record; see docs/connections-naming.md.
   'fibre-sales': {
-    name: 'Sales',
-    shortName: 'Sales',
-    brandLetters: 'fs',
-    tagline: 'Moving a prospect toward becoming a Thread.',
-    url: 'https://sales.thefibre.app',
-    urlEnv: 'NEXT_PUBLIC_SALES_URL',
-    available: false,
+    name: 'Connections',
+    shortName: 'Connections',
+    brandLetters: 'cn',
+    tagline: 'Where everybody stands, and who needs you.',
+    url: 'https://connections.thethread.app',
+    urlEnv: 'NEXT_PUBLIC_CONNECTIONS_URL',
+    // True since 2026-09-12: both domains serve. `available` means "you can
+    // go there" — it gates every app switcher, the Fibre dashboard, the SSO
+    // hop target check, and, because those lists are derived rather than
+    // written out, scripts/smoke-prod.mjs and scripts/smoke-staging.mjs.
+    //
+    // It was false for a day on purpose. Setting it true before the
+    // deployment existed made the release gate fail, which was the gate
+    // being right: it caught an app in the catalogue that no browser could
+    // reach. Flipping it is therefore the LAST step of bringing an app up,
+    // never the first — the flag describes the world, it does not create it.
+    //
+    // What the day cost, for whoever brings up app number nine: a new Vercel
+    // project is created with Deployment Protection ON, so its domains 302
+    // to vercel.com/sso-api for anyone without a session on the Vercel team.
+    // It looks fine to the person who set it up and to nobody else. The
+    // older projects predate that default and have it off. Check it signed
+    // out, with curl, before believing a domain works.
+    available: true,
   },
   'fibre-learn': {
     name: 'Learn',
@@ -200,9 +235,35 @@ export const SURFACES = {
     urlEnv: 'NEXT_PUBLIC_MY_URL',
     devPort: 3007,
   },
+  /** The marketing site on the apex. Registered 2026-09-12, when the shared
+   *  marketing footer was found sending every staging visitor to PRODUCTION
+   *  — including its Sign in link, which is the one thing the separate
+   *  staging apex exists to prevent. It had `https://thethread.app` as a
+   *  const, which is absolute (correct, the footer renders in emails too)
+   *  but not env-derived (not correct). Same lesson as the domain flip:
+   *  one place, derived. */
+  website: {
+    name: ENTITY.publicName,
+    shortLabel: 'Website',
+    tagline: 'Tools to facilitate change.',
+    url: 'https://thethread.app',
+    urlEnv: 'NEXT_PUBLIC_WEBSITE_URL',
+    devPort: 3006,
+  },
 } as const;
 
 export type SurfaceKey = keyof typeof SURFACES;
+
+/** The ambient process environment, reached without pulling @types/node into
+ *  this package (it has none, deliberately — it compiles for browsers too).
+ *
+ *  Only safe in SERVER code. Next inlines `process.env.NEXT_PUBLIC_*` into
+ *  client bundles as literals; going through globalThis dodges that
+ *  substitution and would read undefined in the browser. Server components
+ *  and route handlers read the real thing. */
+export function ambientEnv(): Record<string, string | undefined> | undefined {
+  return (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+}
 
 /** Like appUrl, for surfaces: the env override wins, else production. */
 export function surfaceUrl(

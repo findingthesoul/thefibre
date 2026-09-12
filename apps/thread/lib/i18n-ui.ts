@@ -111,6 +111,54 @@ const CATALOG = {
     de: 'Wird ausgeführt…', // MT
     fr: 'En cours…', // MT
   },
+  ask_who_is_coming: {
+    en: 'Ask who is coming',
+    nl: 'Vraag wie er komt',
+    es: 'Preguntar quién viene', // MT
+    pt: 'Perguntar quem vem', // MT
+    de: 'Fragen, wer kommt', // MT
+    fr: 'Demander qui vient', // MT
+  },
+  rsvp_responses: {
+    en: 'Who is coming',
+    nl: 'Wie komt er',
+    es: 'Quién viene', // MT
+    pt: 'Quem vem', // MT
+    de: 'Wer kommt', // MT
+    fr: 'Qui vient', // MT
+  },
+  rsvp_coming: {
+    en: 'coming',
+    nl: 'komt',
+    es: 'viene', // MT
+    pt: 'vem', // MT
+    de: 'kommt', // MT
+    fr: 'vient', // MT
+  },
+  rsvp_not_coming: {
+    en: "can't make it",
+    nl: 'kan niet',
+    es: 'no puede', // MT
+    pt: 'não pode', // MT
+    de: 'kann nicht', // MT
+    fr: 'ne peut pas', // MT
+  },
+  rsvp_no_answer: {
+    en: 'no answer',
+    nl: 'geen antwoord',
+    es: 'sin respuesta', // MT
+    pt: 'sem resposta', // MT
+    de: 'keine Antwort', // MT
+    fr: 'sans réponse', // MT
+  },
+  rsvp_nobody_enrolled: {
+    en: 'Nobody is enrolled in this thread yet.',
+    nl: 'Er is nog niemand ingeschreven voor deze thread.',
+    es: 'Todavía no hay nadie inscrito en este thread.', // MT
+    pt: 'Ainda não há ninguém inscrito nesta thread.', // MT
+    de: 'Für diesen Thread ist noch niemand angemeldet.', // MT
+    fr: "Personne n'est encore inscrit à ce thread.", // MT
+  },
   loading: {
     en: 'Loading…',
     nl: 'Laden…',
@@ -914,15 +962,394 @@ const CATALOG = {
     de: 'Identität (die Person, die Organisation), das Aktivitätsprotokoll der Plattform und geteilter Programm-/Anmeldestatus. Für Thread markierte Kuratordaten liegen ebenfalls auf The Fibre, sind aber nur für Thread-Mitglieder sichtbar.', // MT
     fr: 'L’identité (la personne, l’organisation), le journal d’activité de la plateforme et l’état partagé des programmes/inscriptions. Les données de curation marquées pour Thread vivent aussi sur The Fibre mais ne sont visibles que par les membres de Thread.', // MT
   },
-  dash_skeleton: {
-    en: 'Skeleton. Programme creation, session attendance tracking, and the public arc view come next.',
-    nl: 'Skelet. Programma’s aanmaken, aanwezigheid per sessie bijhouden en de openbare boogweergave volgen hierna.',
-    es: 'Esqueleto. La creación de programas, el registro de asistencia por sesión y la vista pública del arco llegan después.', // MT
-    pt: 'Esqueleto. Criação de programas, registro de presença por sessão e a visão pública do arco vêm a seguir.', // MT
-    de: 'Skelett. Programm-Erstellung, Anwesenheits-Tracking pro Session und die öffentliche Bogen-Ansicht kommen als Nächstes.', // MT
-    fr: 'Squelette. La création de programmes, le suivi de présence par session et la vue publique de l’arc arrivent ensuite.', // MT
+
+  // ── dashboard: the day, not the brochure ──────────────────────────────
+  dash_needs_you: {
+    en: 'Waiting for you',
+    nl: 'Wacht op jou',
+    es: 'Esperándote', // MT
+    pt: 'Esperando por você', // MT
+    de: 'Wartet auf dich', // MT
+    fr: 'En attente de toi', // MT
+  },
+  dash_awaiting_approval: {
+    en: '{count} waiting for approval',
+    nl: '{count} wachten op goedkeuring',
+    es: '{count} esperando aprobación', // MT
+    pt: '{count} aguardando aprovação', // MT
+    de: '{count} warten auf Freigabe', // MT
+    fr: '{count} en attente d’approbation', // MT
+  },
+  dash_unpaid: {
+    en: '{count} not paid yet',
+    nl: '{count} nog niet betaald',
+    es: '{count} sin pagar todavía', // MT
+    pt: '{count} ainda não pagos', // MT
+    de: '{count} noch nicht bezahlt', // MT
+    fr: '{count} pas encore payés', // MT
+  },
+  dash_today: {
+    en: 'Happening today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: 'Aujourd’hui', // MT
+  },
+  dash_checked_in_of: {
+    en: '{done} of {total} checked in',
+    nl: '{done} van {total} ingecheckt',
+    es: '{done} de {total} registrados', // MT
+    pt: '{done} de {total} com check-in', // MT
+    de: '{done} von {total} eingecheckt', // MT
+    fr: '{done} sur {total} pointés', // MT
+  },
+  dash_open_door: {
+    en: 'Check people in',
+    nl: 'Mensen inchecken',
+    es: 'Registrar personas', // MT
+    pt: 'Fazer check-in', // MT
+    de: 'Leute einchecken', // MT
+    fr: 'Pointer les gens', // MT
+  },
+  dash_coming_up: {
+    en: 'Coming up',
+    nl: 'Binnenkort',
+    es: 'Próximamente', // MT
+    pt: 'Em breve', // MT
+    de: 'Demnächst', // MT
+    fr: 'À venir', // MT
+  },
+  dash_tomorrow: {
+    en: 'Tomorrow',
+    nl: 'Morgen',
+    es: 'Mañana', // MT
+    pt: 'Amanhã', // MT
+    de: 'Morgen', // MT
+    fr: 'Demain', // MT
+  },
+  dash_in_days: {
+    en: 'In {days} days',
+    nl: 'Over {days} dagen',
+    es: 'En {days} días', // MT
+    pt: 'Em {days} dias', // MT
+    de: 'In {days} Tagen', // MT
+    fr: 'Dans {days} jours', // MT
+  },
+  dash_enrolled_count: {
+    en: '{count} enrolled',
+    nl: '{count} ingeschreven',
+    es: '{count} inscritos', // MT
+    pt: '{count} inscritos', // MT
+    de: '{count} angemeldet', // MT
+    fr: '{count} inscrits', // MT
+  },
+  dash_recent: {
+    en: 'Latest enrolments',
+    nl: 'Laatste inschrijvingen',
+    es: 'Últimas inscripciones', // MT
+    pt: 'Últimas inscrições', // MT
+    de: 'Neueste Anmeldungen', // MT
+    fr: 'Dernières inscriptions', // MT
+  },
+  dash_see_all: {
+    en: 'See all',
+    nl: 'Alles bekijken',
+    es: 'Ver todo', // MT
+    pt: 'Ver tudo', // MT
+    de: 'Alle ansehen', // MT
+    fr: 'Tout voir', // MT
+  },
+  dash_quiet: {
+    en: 'Nothing is running today and nothing is scheduled ahead. A good moment to plan the next one.',
+    nl: 'Vandaag loopt er niets en er staat ook niets gepland. Een goed moment om de volgende te plannen.',
+    es: 'Hoy no hay nada en marcha ni nada programado. Buen momento para planear lo siguiente.', // MT
+    pt: 'Nada acontecendo hoje e nada agendado. Um bom momento para planejar o próximo.', // MT
+    de: 'Heute läuft nichts und es ist auch nichts geplant. Ein guter Moment, das Nächste zu planen.', // MT
+    fr: 'Rien aujourd’hui et rien de programmé. Un bon moment pour planifier la suite.', // MT
+  },
+  dash_undated: {
+    en: '{count} without dates',
+    nl: '{count} zonder datum',
+    es: '{count} sin fechas', // MT
+    pt: '{count} sem datas', // MT
+    de: '{count} ohne Datum', // MT
+    fr: '{count} sans dates', // MT
   },
 
+  // ── settings → website (the workspace's public site) ──────────────────
+  settings_website: {
+    en: 'Website',
+    nl: 'Website',
+    es: 'Sitio web', // MT
+    pt: 'Site', // MT
+    de: 'Website', // MT
+    fr: 'Site web', // MT
+  },
+  settings_website_desc: {
+    en: 'How your public pages look, and what surrounds them.',
+    nl: 'Hoe je openbare pagina’s eruitzien, en wat eromheen staat.',
+    es: 'Cómo se ven tus páginas públicas y qué las rodea.', // MT
+    pt: 'Como suas páginas públicas aparecem e o que as cerca.', // MT
+    de: 'Wie deine öffentlichen Seiten aussehen und was sie umgibt.', // MT
+    fr: 'À quoi ressemblent tes pages publiques et ce qui les entoure.', // MT
+  },
+  site_design: {
+    en: 'Design',
+    nl: 'Ontwerp',
+    es: 'Diseño', // MT
+    pt: 'Design', // MT
+    de: 'Design', // MT
+    fr: 'Design', // MT
+  },
+  site_design_desc: {
+    en: 'The three designs differ in what a visitor sees first. Pick the one that fits who arrives.',
+    nl: 'De drie ontwerpen verschillen in wat een bezoeker als eerste ziet. Kies degene die past bij wie er binnenkomt.',
+    es: 'Los tres diseños difieren en lo que ve primero un visitante. Elige el que encaje con quien llega.', // MT
+    pt: 'Os três designs diferem no que o visitante vê primeiro. Escolha o que combina com quem chega.', // MT
+    de: 'Die drei Designs unterscheiden sich darin, was Besucher zuerst sehen. Wähle das passende.', // MT
+    fr: 'Les trois designs diffèrent par ce que le visiteur voit en premier. Choisis celui qui correspond.', // MT
+  },
+  theme_plain: {
+    en: 'Plain',
+    nl: 'Eenvoudig',
+    es: 'Sencillo', // MT
+    pt: 'Simples', // MT
+    de: 'Schlicht', // MT
+    fr: 'Simple', // MT
+  },
+  theme_plain_desc: {
+    en: 'A listing, not a website. Your name and what’s on.',
+    nl: 'Een overzicht, geen website. Je naam en wat er is.',
+    es: 'Un listado, no un sitio web. Tu nombre y lo que hay.', // MT
+    pt: 'Uma lista, não um site. Seu nome e o que há.', // MT
+    de: 'Eine Liste, keine Website. Dein Name und was läuft.', // MT
+    fr: 'Une liste, pas un site. Ton nom et ce qui se passe.', // MT
+  },
+  theme_festival: {
+    en: 'Festival',
+    nl: 'Festival',
+    es: 'Festival', // MT
+    pt: 'Festival', // MT
+    de: 'Festival', // MT
+    fr: 'Festival', // MT
+  },
+  theme_festival_desc: {
+    en: 'The image fills the screen and the words sit on it. For strangers who have to feel something first.',
+    nl: 'De afbeelding vult het scherm en de woorden liggen erop. Voor vreemden die eerst iets moeten voelen.',
+    es: 'La imagen llena la pantalla y las palabras se apoyan en ella. Para desconocidos que primero deben sentir algo.', // MT
+    pt: 'A imagem preenche a tela e as palavras ficam sobre ela. Para desconhecidos que precisam sentir algo primeiro.', // MT
+    de: 'Das Bild füllt den Bildschirm, die Worte liegen darauf. Für Fremde, die zuerst etwas spüren müssen.', // MT
+    fr: 'L’image remplit l’écran et les mots se posent dessus. Pour des inconnus qui doivent d’abord ressentir.', // MT
+  },
+  theme_corporate: {
+    en: 'Corporate',
+    nl: 'Zakelijk',
+    es: 'Corporativo', // MT
+    pt: 'Corporativo', // MT
+    de: 'Geschäftlich', // MT
+    fr: 'Institutionnel', // MT
+  },
+  theme_corporate_desc: {
+    en: 'Nothing decorative above the fold, and dates in the first column. For people sent to find a date and a price.',
+    nl: 'Niets decoratiefs bovenaan, en datums in de eerste kolom. Voor mensen die een datum en een prijs zoeken.',
+    es: 'Nada decorativo arriba y fechas en la primera columna. Para quien viene a buscar fecha y precio.', // MT
+    pt: 'Nada decorativo no topo e datas na primeira coluna. Para quem vem buscar data e preço.', // MT
+    de: 'Nichts Dekoratives oben, Daten in der ersten Spalte. Für Leute, die Termin und Preis suchen.', // MT
+    fr: 'Rien de décoratif en haut, les dates en première colonne. Pour ceux qui cherchent une date et un prix.', // MT
+  },
+  theme_community: {
+    en: 'Community',
+    nl: 'Gemeenschap',
+    es: 'Comunidad', // MT
+    pt: 'Comunidade', // MT
+    de: 'Gemeinschaft', // MT
+    fr: 'Communauté', // MT
+  },
+  theme_community_desc: {
+    en: 'Your face and your voice first, then what’s on. For people who already belong.',
+    nl: 'Eerst je gezicht en je stem, dan wat er is. Voor mensen die er al bij horen.',
+    es: 'Primero tu cara y tu voz, luego lo que hay. Para quienes ya pertenecen.', // MT
+    pt: 'Primeiro seu rosto e sua voz, depois o que há. Para quem já pertence.', // MT
+    de: 'Erst dein Gesicht und deine Stimme, dann das Programm. Für Leute, die schon dazugehören.', // MT
+    fr: 'D’abord ton visage et ta voix, puis le programme. Pour ceux qui font déjà partie.', // MT
+  },
+  site_name_label: {
+    en: 'Site name',
+    nl: 'Naam van de site',
+    es: 'Nombre del sitio', // MT
+    pt: 'Nome do site', // MT
+    de: 'Name der Website', // MT
+    fr: 'Nom du site', // MT
+  },
+  site_name_hint: {
+    en: 'Leave empty to use the workspace name.',
+    nl: 'Laat leeg om de naam van de workspace te gebruiken.',
+    es: 'Déjalo vacío para usar el nombre del espacio de trabajo.', // MT
+    pt: 'Deixe vazio para usar o nome do workspace.', // MT
+    de: 'Leer lassen, um den Workspace-Namen zu verwenden.', // MT
+    fr: 'Laisse vide pour utiliser le nom de l’espace de travail.', // MT
+  },
+  site_logo: {
+    en: 'Logo',
+    nl: 'Logo',
+    es: 'Logotipo', // MT
+    pt: 'Logotipo', // MT
+    de: 'Logo', // MT
+    fr: 'Logo', // MT
+  },
+  site_logo_hint: {
+    en: 'Shown in the navbar instead of the name. A wide image works best.',
+    nl: 'Wordt in de navigatiebalk getoond in plaats van de naam. Een brede afbeelding werkt het best.',
+    es: 'Se muestra en la barra en lugar del nombre. Una imagen ancha funciona mejor.', // MT
+    pt: 'Aparece na barra no lugar do nome. Uma imagem larga funciona melhor.', // MT
+    de: 'Erscheint in der Navigation statt des Namens. Ein breites Bild wirkt am besten.', // MT
+    fr: 'Affiché dans la barre à la place du nom. Une image large fonctionne mieux.', // MT
+  },
+  site_hero: {
+    en: 'Header image',
+    nl: 'Header-afbeelding',
+    es: 'Imagen de cabecera', // MT
+    pt: 'Imagem de cabeçalho', // MT
+    de: 'Kopfbild', // MT
+    fr: 'Image d’en-tête', // MT
+  },
+  site_hero_hint: {
+    en: 'The festival design fills the screen with it, so use something large and dark enough to read white text on.',
+    nl: 'Het festivalontwerp vult het scherm ermee, dus gebruik iets groots en donker genoeg voor witte tekst.',
+    es: 'El diseño festival llena la pantalla con ella: usa algo grande y bastante oscuro para leer texto blanco.', // MT
+    pt: 'O design festival preenche a tela com ela: use algo grande e escuro o bastante para texto branco.', // MT
+    de: 'Das Festival-Design füllt den Bildschirm damit — groß und dunkel genug für weiße Schrift.', // MT
+    fr: 'Le design festival remplit l’écran avec : prends une image grande et assez sombre pour du texte blanc.', // MT
+  },
+  site_headline: {
+    en: 'Headline',
+    nl: 'Kop',
+    es: 'Titular', // MT
+    pt: 'Título', // MT
+    de: 'Überschrift', // MT
+    fr: 'Titre', // MT
+  },
+  site_headline_hint: {
+    en: 'The big line at the top. Leave empty to use the name.',
+    nl: 'De grote regel bovenaan. Laat leeg om de naam te gebruiken.',
+    es: 'La línea grande de arriba. Déjalo vacío para usar el nombre.', // MT
+    pt: 'A linha grande no topo. Deixe vazio para usar o nome.', // MT
+    de: 'Die große Zeile oben. Leer lassen, um den Namen zu verwenden.', // MT
+    fr: 'La grande ligne en haut. Laisse vide pour utiliser le nom.', // MT
+  },
+  site_intro: {
+    en: 'Intro text',
+    nl: 'Introtekst',
+    es: 'Texto de introducción', // MT
+    pt: 'Texto de introdução', // MT
+    de: 'Einleitungstext', // MT
+    fr: 'Texte d’introduction', // MT
+  },
+  site_intro_hint: {
+    en: 'A paragraph under the headline. Keep it short — it sits over an image in the festival design.',
+    nl: 'Een alinea onder de kop. Houd het kort — in het festivalontwerp staat het over een afbeelding.',
+    es: 'Un párrafo bajo el titular. Que sea breve: en el diseño festival va sobre una imagen.', // MT
+    pt: 'Um parágrafo sob o título. Seja breve — no design festival ele fica sobre uma imagem.', // MT
+    de: 'Ein Absatz unter der Überschrift. Kurz halten — im Festival-Design liegt er über einem Bild.', // MT
+    fr: 'Un paragraphe sous le titre. Reste bref : dans le design festival il se pose sur une image.', // MT
+  },
+  site_footer_note: {
+    en: 'Footer text',
+    nl: 'Footertekst',
+    es: 'Texto del pie', // MT
+    pt: 'Texto do rodapé', // MT
+    de: 'Fußzeilentext', // MT
+    fr: 'Texte de pied de page', // MT
+  },
+  site_footer_hint: {
+    en: 'An address, a line about who you are. Privacy and terms are added automatically.',
+    nl: 'Een adres, een regel over wie je bent. Privacy en voorwaarden worden automatisch toegevoegd.',
+    es: 'Una dirección, una línea sobre quién eres. Privacidad y condiciones se añaden solas.', // MT
+    pt: 'Um endereço, uma linha sobre quem você é. Privacidade e termos são adicionados automaticamente.', // MT
+    de: 'Eine Adresse, eine Zeile über euch. Datenschutz und AGB kommen automatisch dazu.', // MT
+    fr: 'Une adresse, une ligne sur qui tu es. Confidentialité et conditions sont ajoutées automatiquement.', // MT
+  },
+  site_links: {
+    en: 'Navbar links',
+    nl: 'Links in de navigatiebalk',
+    es: 'Enlaces de la barra', // MT
+    pt: 'Links da barra', // MT
+    de: 'Links in der Navigation', // MT
+    fr: 'Liens de la barre', // MT
+  },
+  site_links_hint: {
+    en: 'Up to eight. Contact is added on its own when you turn the form on.',
+    nl: 'Maximaal acht. Contact wordt vanzelf toegevoegd als je het formulier aanzet.',
+    es: 'Hasta ocho. Contacto se añade solo cuando activas el formulario.', // MT
+    pt: 'Até oito. Contato é adicionado sozinho quando você liga o formulário.', // MT
+    de: 'Bis zu acht. Kontakt kommt von selbst dazu, sobald das Formular an ist.', // MT
+    fr: 'Jusqu’à huit. Contact s’ajoute tout seul quand tu actives le formulaire.', // MT
+  },
+  add_link: {
+    en: 'Add a link',
+    nl: 'Link toevoegen',
+    es: 'Añadir un enlace', // MT
+    pt: 'Adicionar um link', // MT
+    de: 'Link hinzufügen', // MT
+    fr: 'Ajouter un lien', // MT
+  },
+  nav_link_label: {
+    en: 'Label',
+    nl: 'Label',
+    es: 'Etiqueta', // MT
+    pt: 'Rótulo', // MT
+    de: 'Beschriftung', // MT
+    fr: 'Libellé', // MT
+  },
+  site_contact: {
+    en: 'Contact page',
+    nl: 'Contactpagina',
+    es: 'Página de contacto', // MT
+    pt: 'Página de contato', // MT
+    de: 'Kontaktseite', // MT
+    fr: 'Page de contact', // MT
+  },
+  site_contact_enable: {
+    en: 'Offer a contact form',
+    nl: 'Een contactformulier aanbieden',
+    es: 'Ofrecer un formulario de contacto', // MT
+    pt: 'Oferecer um formulário de contato', // MT
+    de: 'Ein Kontaktformular anbieten', // MT
+    fr: 'Proposer un formulaire de contact', // MT
+  },
+  site_contact_enable_hint: {
+    en: 'Adds /contact to your site. Visitors never see the address it delivers to.',
+    nl: 'Voegt /contact toe aan je site. Bezoekers zien nooit het adres waar het heen gaat.',
+    es: 'Añade /contact a tu sitio. Los visitantes nunca ven la dirección a la que llega.', // MT
+    pt: 'Adiciona /contact ao seu site. Visitantes nunca veem o endereço de destino.', // MT
+    de: 'Fügt /contact zu deiner Seite hinzu. Besucher sehen die Zieladresse nie.', // MT
+    fr: 'Ajoute /contact à ton site. Les visiteurs ne voient jamais l’adresse de destination.', // MT
+  },
+  site_contact_email_label: {
+    en: 'Deliver messages to',
+    nl: 'Berichten bezorgen op',
+    es: 'Entregar los mensajes a', // MT
+    pt: 'Entregar mensagens para', // MT
+    de: 'Nachrichten zustellen an', // MT
+    fr: 'Livrer les messages à', // MT
+  },
+  site_contact_intro_label: {
+    en: 'What to say above the form',
+    nl: 'Wat er boven het formulier staat',
+    es: 'Qué decir encima del formulario', // MT
+    pt: 'O que dizer acima do formulário', // MT
+    de: 'Was über dem Formular steht', // MT
+    fr: 'Ce qui figure au-dessus du formulaire', // MT
+  },
+  view_public_page: {
+    en: 'View the public page',
+    nl: 'Bekijk de openbare pagina',
+    es: 'Ver la página pública', // MT
+    pt: 'Ver a página pública', // MT
+    de: 'Öffentliche Seite ansehen', // MT
+    fr: 'Voir la page publique', // MT
+  },
   // ── threads list ──────────────────────────────────────────────────────
   threads_desc: {
     en: 'Events and journeys — each thread carries its own engagements, enrolments and certificate.',
@@ -2466,6 +2893,55 @@ const CATALOG = {
     pt: 'com todos os seus engajamentos, ingressos, códigos e registros. Não há como desfazer.', // MT
     de: 'mit allen Engagements, Tickets, Codes und Registrierungen. Es gibt kein Zurück.', // MT
     fr: 'avec tous ses engagements, billets, codes et inscriptions. Il n’y a pas d’annulation.', // MT
+  },
+  // ── the lock ──────────────────────────────────────────────────────────
+  lock_thread: {
+    en: 'Lock',
+    nl: 'Vergrendelen',
+    es: 'Bloquear', // MT
+    pt: 'Bloquear', // MT
+    de: 'Sperren', // MT
+    fr: 'Verrouiller', // MT
+  },
+  unlock_thread: {
+    en: 'Unlock',
+    nl: 'Ontgrendelen',
+    es: 'Desbloquear', // MT
+    pt: 'Desbloquear', // MT
+    de: 'Entsperren', // MT
+    fr: 'Déverrouiller', // MT
+  },
+  locked: {
+    en: 'Locked',
+    nl: 'Vergrendeld',
+    es: 'Bloqueado', // MT
+    pt: 'Bloqueado', // MT
+    de: 'Gesperrt', // MT
+    fr: 'Verrouillé', // MT
+  },
+  locked_banner: {
+    en: 'This thread is locked. Nothing about it can be changed or deleted until you unlock it. People can still enrol, pay and check in.',
+    nl: 'Deze thread is vergrendeld. Er kan niets aan worden gewijzigd of verwijderd tot je hem ontgrendelt. Mensen kunnen zich nog wel inschrijven, betalen en inchecken.',
+    es: 'Este thread está bloqueado. No se puede cambiar ni eliminar nada hasta que lo desbloquees. La gente puede seguir inscribiéndose, pagando y registrando su llegada.', // MT
+    pt: 'Este thread está bloqueado. Nada pode ser alterado ou excluído até você desbloqueá-lo. As pessoas ainda podem se inscrever, pagar e fazer check-in.', // MT
+    de: 'Dieser Thread ist gesperrt. Bis du ihn entsperrst, kann nichts geändert oder gelöscht werden. Anmeldung, Zahlung und Check-in laufen weiter.', // MT
+    fr: 'Ce thread est verrouillé. Rien ne peut être modifié ni supprimé tant que tu ne l’as pas déverrouillé. Les gens peuvent toujours s’inscrire, payer et pointer.', // MT
+  },
+  lock_thread_confirm_title: {
+    en: 'Lock this thread?',
+    nl: 'Deze thread vergrendelen?',
+    es: '¿Bloquear este thread?', // MT
+    pt: 'Bloquear este thread?', // MT
+    de: 'Diesen Thread sperren?', // MT
+    fr: 'Verrouiller ce thread ?', // MT
+  },
+  lock_thread_confirm_msg: {
+    en: 'Its settings, timeline, tickets, codes and co-organisers all freeze, and it cannot be deleted. Enrolments, payments and check-in carry on as normal. You can unlock it again here at any time.',
+    nl: 'De instellingen, tijdlijn, tickets, codes en mede-organisatoren liggen dan vast, en verwijderen kan niet meer. Inschrijvingen, betalingen en check-in lopen gewoon door. Je kunt hem hier altijd weer ontgrendelen.',
+    es: 'Su configuración, cronología, entradas, códigos y coorganizadores quedan congelados, y no se puede eliminar. Las inscripciones, los pagos y el registro de llegada siguen como siempre. Puedes desbloquearlo aquí cuando quieras.', // MT
+    pt: 'Suas configurações, linha do tempo, ingressos, códigos e coorganizadores ficam congelados, e ele não pode ser excluído. Inscrições, pagamentos e check-in seguem normalmente. Você pode desbloqueá-lo aqui quando quiser.', // MT
+    de: 'Einstellungen, Zeitleiste, Tickets, Codes und Mitorganisator:innen sind dann eingefroren, und Löschen ist nicht mehr möglich. Anmeldungen, Zahlungen und Check-in laufen normal weiter. Du kannst ihn hier jederzeit wieder entsperren.', // MT
+    fr: 'Ses réglages, sa chronologie, ses billets, ses codes et ses co-organisateurs sont figés, et il ne peut plus être supprimé. Les inscriptions, les paiements et le pointage continuent normalement. Tu peux le déverrouiller ici à tout moment.', // MT
   },
   more_n: {
     en: '+{n} more',
@@ -6084,6 +6560,182 @@ const CATALOG = {
     de: 'Starte mit', // MT
     fr: 'Commencer avec', // MT
   },
+  unsaved_changes: {
+    en: 'Unsaved changes…',
+    nl: 'Niet-opgeslagen wijzigingen…',
+    es: 'Cambios sin guardar…', // MT
+    pt: 'Alterações não salvas…', // MT
+    de: 'Nicht gespeicherte Änderungen…', // MT
+    fr: 'Modifications non enregistrées…', // MT
+  },
+  saved_automatically: {
+    en: 'Saved automatically',
+    nl: 'Automatisch opgeslagen',
+    es: 'Guardado automáticamente', // MT
+    pt: 'Salvo automaticamente', // MT
+    de: 'Automatisch gespeichert', // MT
+    fr: 'Enregistré automatiquement', // MT
+  },
+  tab_just_checked_in: {
+    en: 'Just in',
+    nl: 'Net binnen',
+    es: 'Recién dentro', // MT
+    pt: 'Acabaram de entrar', // MT
+    de: 'Gerade rein', // MT
+    fr: 'Vient d\u2019entrer', // MT
+  },
+  tab_everyone_today: {
+    en: 'Everyone today',
+    nl: 'Iedereen vandaag',
+    es: 'Todos hoy', // MT
+    pt: 'Todos hoje', // MT
+    de: 'Alle heute', // MT
+    fr: 'Tout le monde aujourd\u2019hui', // MT
+  },
+  nobody_scanned_yet: {
+    en: 'Nobody scanned yet. The people you check in appear here.',
+    nl: 'Nog niemand gescand. Wie je incheckt verschijnt hier.',
+    es: 'Nadie escaneado todavía. Las personas que registres aparecerán aquí.', // MT
+    pt: 'Ninguém escaneado ainda. As pessoas que você registrar aparecem aqui.', // MT
+    de: 'Noch niemand gescannt. Wen du eincheckst, erscheint hier.', // MT
+    fr: 'Personne scanné pour l\u2019instant. Les personnes que tu pointes apparaissent ici.', // MT
+  },
+  nav_checkin: {
+    en: 'Check-in',
+    nl: 'Inchecken',
+    es: 'Registro', // MT
+    pt: 'Check-in', // MT
+    de: 'Check-in', // MT
+    fr: 'Pointage', // MT
+  },
+  checkin_any_desc: {
+    en: 'Scan a ticket from any of this workspace\u2019s events. The camera finds the right one.',
+    nl: 'Scan een ticket van elk evenement van deze workspace. De camera vindt het juiste.',
+    es: 'Escanea una entrada de cualquier evento de este espacio de trabajo. La cámara encuentra el correcto.', // MT
+    pt: 'Escaneie um ingresso de qualquer evento deste workspace. A câmera encontra o certo.', // MT
+    de: 'Scanne ein Ticket von jeder Veranstaltung dieses Workspace. Die Kamera findet die richtige.', // MT
+    fr: 'Scanne un billet de n\u2019importe quel événement de cet espace de travail. La caméra trouve le bon.', // MT
+  },
+  go_to_manual_checkin: {
+    en: 'Go to manual check-in',
+    nl: 'Naar handmatig inchecken',
+    es: 'Ir al registro manual', // MT
+    pt: 'Ir para check-in manual', // MT
+    de: 'Zum manuellen Check-in', // MT
+    fr: 'Aller au pointage manuel', // MT
+  },
+  happening_today: {
+    en: 'Happening today',
+    nl: 'Vandaag',
+    es: 'Hoy', // MT
+    pt: 'Hoje', // MT
+    de: 'Heute', // MT
+    fr: "Aujourd\u2019hui", // MT
+  },
+  nothing_today: {
+    en: 'Nothing is happening today.',
+    nl: 'Er is vandaag niets.',
+    es: 'Hoy no hay nada.', // MT
+    pt: 'Nada acontece hoje.', // MT
+    de: 'Heute findet nichts statt.', // MT
+    fr: 'Rien aujourd\u2019hui.', // MT
+  },
+  heading: {
+    en: 'Heading',
+    nl: 'Kop',
+    es: 'Título', // MT
+    pt: 'Título', // MT
+    de: 'Überschrift', // MT
+    fr: 'Titre', // MT
+  },
+  tab_appearance: {
+    en: 'Appearance',
+    nl: 'Weergave',
+    es: 'Apariencia', // MT
+    pt: 'Aparência', // MT
+    de: 'Darstellung', // MT
+    fr: 'Apparence', // MT
+  },
+  public_agenda_off_warning: {
+    en: 'With this off, the public page has no agenda section at all — so each item\u2019s own "Show on the public agenda" switch does nothing, however it is set.',
+    nl: 'Als dit uit staat heeft de publieke pagina helemaal geen agenda — de schakelaar "Tonen op de publieke agenda" bij een los item doet dan niets, hoe je die ook zet.',
+    es: 'Con esto desactivado, la página pública no tiene sección de agenda — así que el interruptor "Mostrar en la agenda pública" de cada elemento no hace nada, esté como esté.', // MT
+    pt: 'Com isto desligado, a página pública não tem seção de agenda — então o botão "Mostrar na agenda pública" de cada item não faz nada, esteja como estiver.', // MT
+    de: 'Ist das aus, hat die öffentliche Seite überhaupt keinen Agendabereich — der Schalter "Auf der öffentlichen Agenda zeigen" an einem Element bewirkt dann nichts, egal wie er steht.', // MT
+    fr: 'Avec ceci désactivé, la page publique n\u2019a aucune section agenda — l\u2019interrupteur « Afficher dans l\u2019agenda public » de chaque élément ne fait donc rien, quel que soit son état.', // MT
+  },
+  choose_recipients: {
+    en: 'Choose who gets one →',
+    nl: 'Kies wie er een krijgt →',
+    es: 'Elige quién recibe uno →', // MT
+    pt: 'Escolha quem recebe um →', // MT
+    de: 'Wähle, wer eines bekommt →', // MT
+    fr: 'Choisis qui en reçoit un →', // MT
+  },
+  choose_recipients_hint: {
+    en: "This thread's participants, with a search. Tick everyone, untick the ones who should not get a certificate, and issue. Completing someone does not issue one by itself.",
+    nl: 'De deelnemers van deze thread, met een zoekveld. Vink iedereen aan, vink af wie geen certificaat hoort te krijgen, en reik uit. Iemand afronden reikt op zichzelf niets uit.',
+    es: 'Los participantes de este thread, con un buscador. Marca a todos, desmarca a quienes no deban recibir certificado, y emite. Marcar a alguien como completado no emite nada por sí solo.', // MT
+    pt: 'Os participantes deste thread, com uma busca. Marque todos, desmarque quem não deve receber certificado, e emita. Concluir alguém não emite nada por si só.', // MT
+    de: 'Die Teilnehmenden dieses Threads, mit Suche. Alle anhaken, die abwählen, die kein Zertifikat bekommen sollen, und ausstellen. Jemanden abzuschließen stellt für sich genommen nichts aus.', // MT
+    fr: 'Les participants de ce thread, avec une recherche. Coche tout le monde, décoche celles et ceux qui ne doivent pas recevoir de certificat, puis émets. Marquer quelqu’un comme terminé n’émet rien en soi.', // MT
+  },
+  certificate_engagement_hint: {
+    en: 'Issues to everyone who has completed and does not have a certificate yet. Completing someone no longer issues theirs, so this is one of the two ways a certificate goes out — the other is choosing people by hand on the Enrolments page. Note that it does not know who you left unchecked there.',
+    nl: 'Reikt uit aan iedereen die afgerond heeft en nog geen certificaat heeft. Iemand afronden reikt het certificaat niet meer uit, dus dit is een van de twee manieren waarop een certificaat verstuurd wordt — de andere is mensen met de hand kiezen op de pagina Inschrijvingen. Let op: dit weet niet wie je daar hebt uitgevinkt.',
+    es: 'Emite a todos los que han completado y aún no tienen certificado. Marcar a alguien como completado ya emite el suyo, así que en un thread que funciona con normalidad esto no emitirá a nadie, y eso es correcto. Está aquí para los que se escaparon: quienes completaron antes de activar los certificados, antes de elegir un diseño, o cuyo certificado falló al enviarse.', // MT
+    pt: 'Emite para todos que concluíram e ainda não têm certificado. Marcar alguém como concluído já emite o dele, então num thread que roda normalmente isto corretamente não emitirá para ninguém. Está aqui para quem escapou: quem concluiu antes de os certificados serem ativados, antes de um design ser escolhido, ou cujo certificado falhou no envio.', // MT
+    de: 'Stellt allen aus, die abgeschlossen haben und noch kein Zertifikat besitzen. Wer abgeschlossen wird, bekommt seines bereits — in einem normal laufenden Thread stellt das hier also zu Recht niemandem etwas aus. Es ist für die Durchgerutschten da: alle, die vor der Aktivierung der Zertifikate abgeschlossen haben, vor der Wahl einer Vorlage, oder deren Zertifikat beim Versand fehlschlug.', // MT
+    fr: 'Émet pour toutes les personnes ayant terminé et n’ayant pas encore de certificat. Marquer quelqu’un comme terminé émet déjà le sien, donc sur un thread qui tourne normalement ceci n’émettra pour personne, et c’est correct. C’est là pour celles et ceux passés entre les mailles : terminé avant l’activation des certificats, avant le choix d’un modèle, ou dont le certificat n’a pas pu être envoyé.', // MT
+  },
+  duplicate_template_tooltip: {
+    en: 'Make a copy to work on — same design, yours to change',
+    nl: 'Maak een kopie om aan te werken — zelfde ontwerp, van jou om te wijzigen',
+    es: 'Haz una copia para trabajar — mismo diseño, tuyo para cambiar', // MT
+    pt: 'Faça uma cópia para trabalhar — mesmo design, seu para alterar', // MT
+    de: 'Eine Kopie zum Weiterarbeiten — gleiches Design, deins zum Ändern', // MT
+    fr: 'Fais une copie pour travailler — même design, à toi de le modifier', // MT
+  },
+  what_is_this: {
+    en: 'What is this?',
+    nl: 'Wat is dit?',
+    es: '¿Qué es esto?', // MT
+    pt: 'O que é isto?', // MT
+    de: 'Was ist das?', // MT
+    fr: 'Qu’est-ce que c’est ?', // MT
+  },
+  personal_account: {
+    en: 'Personal account',
+    nl: 'Persoonlijk account',
+    es: 'Cuenta personal', // MT
+    pt: 'Conta pessoal', // MT
+    de: 'Persönliches Konto', // MT
+    fr: 'Compte personnel', // MT
+  },
+  payout_hint: {
+    en: 'Where the money for this thread lands. Your personal account is for what you run yourself; the workspace account is for what the organisation runs, and everything a team sells goes there. Only accounts connected to Stripe can be chosen.',
+    nl: 'Waar het geld voor deze thread terechtkomt. Je persoonlijke account is voor wat je zelf organiseert; het workspace-account is voor wat de organisatie organiseert, en alles wat een team verkoopt gaat daarheen. Alleen accounts die met Stripe verbonden zijn, kun je kiezen.',
+    es: 'Dónde llega el dinero de este thread. Tu cuenta personal es para lo que organizas tú; la cuenta del espacio de trabajo es para lo que organiza la organización, y todo lo que vende un equipo va allí. Solo se pueden elegir cuentas conectadas a Stripe.', // MT
+    pt: 'Onde o dinheiro deste thread chega. Sua conta pessoal é para o que você mesmo organiza; a conta do workspace é para o que a organização organiza, e tudo o que uma equipe vende vai para lá. Só é possível escolher contas conectadas ao Stripe.', // MT
+    de: 'Wo das Geld für diesen Thread landet. Dein persönliches Konto ist für das, was du selbst durchführst; das Workspace-Konto für das, was die Organisation durchführt — und alles, was ein Team verkauft, geht dorthin. Wählbar sind nur mit Stripe verbundene Konten.', // MT
+    fr: 'Où arrive l’argent de ce thread. Ton compte personnel sert à ce que tu organises toi-même ; le compte de l’espace de travail à ce qu’organise l’organisation, et tout ce qu’une équipe vend y va. Seuls les comptes connectés à Stripe peuvent être choisis.', // MT
+  },
+  tpl_more_info: {
+    en: 'What each one gives you',
+    nl: 'Wat elke variant je geeft',
+    es: 'Qué te da cada una', // MT
+    pt: 'O que cada uma te dá', // MT
+    de: 'Was dir jede Variante gibt', // MT
+    fr: 'Ce que chacune apporte', // MT
+  },
+  tpl_pick_desc: {
+    en: 'A template seeds the timeline with elements you then configure. You can change everything afterwards.',
+    nl: 'Een sjabloon vult de tijdlijn met elementen die je daarna instelt. Je kunt achteraf alles wijzigen.',
+    es: 'Una plantilla llena la cronología con elementos que luego configuras. Puedes cambiarlo todo después.', // MT
+    pt: 'Um modelo preenche a linha do tempo com elementos que você depois configura. Você pode mudar tudo depois.', // MT
+    de: 'Eine Vorlage füllt die Zeitleiste mit Elementen, die du danach einstellst. Du kannst hinterher alles ändern.', // MT
+    fr: 'Un modèle remplit la chronologie d’éléments que tu configures ensuite. Tu peux tout changer après.', // MT
+  },
   tpl_single_event: {
     en: 'Single event',
     nl: 'Los evenement',
@@ -6245,6 +6897,48 @@ const CATALOG = {
     pt: 'Não foi possível carregar as formas padrão — você ainda pode criar o thread e adicionar elementos depois, ou recarregar a página.', // MT
     de: 'Die Standardformen konnten nicht geladen werden — du kannst den Thread trotzdem anlegen und Elemente später hinzufügen, oder die Seite neu laden.', // MT
     fr: 'Impossible de charger les formes standard — tu peux quand même créer le thread et ajouter des éléments plus tard, ou recharger la page.', // MT
+  },
+  // ── contacts popup: who this person is (2026-09-11) ───────────────────
+  organisations: {
+    en: 'Organisations',
+    nl: 'Organisaties',
+    es: 'Organizaciones', // MT
+    pt: 'Organizações', // MT
+    de: 'Organisationen', // MT
+    fr: 'Organisations', // MT
+  },
+  no_organisations_linked: {
+    en: 'No organisations linked.',
+    nl: 'Geen organisaties gekoppeld.',
+    es: 'No hay organizaciones vinculadas.', // MT
+    pt: 'Nenhuma organização vinculada.', // MT
+    de: 'Keine Organisationen verknüpft.', // MT
+    fr: 'Aucune organisation liée.', // MT
+  },
+  phone: {
+    en: 'Phone',
+    nl: 'Telefoon',
+    es: 'Teléfono', // MT
+    pt: 'Telefone', // MT
+    de: 'Telefon', // MT
+    fr: 'Téléphone', // MT
+  },
+  linkedin: {
+    en: 'LinkedIn',
+    nl: 'LinkedIn',
+    es: 'LinkedIn', // MT
+    pt: 'LinkedIn', // MT
+    de: 'LinkedIn', // MT
+    fr: 'LinkedIn', // MT
+  },
+  // Shared sidebar section label — one shape in every app (2026-09-11).
+  nav_money: {
+    en: 'Money',
+    nl: 'Geld',
+    es: 'Dinero', // MT
+    pt: 'Dinheiro', // MT
+    de: 'Geld', // MT
+    fr: 'Argent', // MT
   },
 } satisfies Record<string, I18nEntry>;
 

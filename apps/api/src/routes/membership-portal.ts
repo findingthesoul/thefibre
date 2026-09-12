@@ -2,6 +2,8 @@ import { Hono } from 'hono';
 import { createRemoteJWKSet, jwtVerify } from 'jose';
 import { appUrl, isLocale, toLocale } from '@thefibre/shared';
 import { adminClient } from '../db.js';
+import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
+import { sellerForSale } from './purchases.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { workspaceStripeAccount } from '../lib/payment-accounts.js';
 
@@ -242,6 +244,74 @@ membershipPortalRoutes.get('/me/invoices', async (c) => {
     .order('created_at', { ascending: false });
 
   return c.json({ items: rows ?? [] });
+});
+
+// GET /me/invoices/:id/pdf — the member's OWN invoice as a PDF.
+//
+// The ledger already had a PDF route, and a member could never reach it: it
+// scopes to the workspace's organiser-or-admin, which is what a member is
+// not. So the portal showed people an invoice line with nothing to click
+// unless Stripe happened to have hosted one — and an invoice-method
+// membership never has (soul.com, 2026-09-09).
+//
+// Ownership is the whole security surface here, and it is proven the way
+// every other handler in this file proves it: the verified email resolves
+// to person rows, and the ledger row must belong to one of them. Both keys
+// are checked — person_id OR payer_email — because either alone drops rows
+// (the ledger-identity rule).
+membershipPortalRoutes.get('/me/invoices/:id/pdf', async (c) => {
+  const email = await participantEmailFromAuth(c);
+  if (!email) return c.json({ error: 'sign in required' }, 401);
+
+  const { data: app } = await adminClient
+    .from('app')
+    .select('id')
+    .eq('slug', 'membership')
+    .maybeSingle();
+  if (!app) return c.json({ error: 'not found' }, 404);
+
+  const { data: persons } = await adminClient
+    .from('person')
+    .select('id')
+    .eq('email', email.toLowerCase())
+    .is('deleted_at', null);
+  const personIds = (persons ?? []).map((p) => p.id);
+
+  const { data: purchase } = await adminClient
+    .from('purchase')
+    .select('*')
+    .eq('id', c.req.param('id'))
+    .eq('app_id', app.id)
+    .maybeSingle();
+  if (!purchase) return c.json({ error: 'not found' }, 404);
+
+  const mine =
+    (purchase.person_id && personIds.includes(purchase.person_id as string)) ||
+    (typeof purchase.payer_email === 'string' &&
+      purchase.payer_email.toLowerCase() === email.toLowerCase());
+  if (!mine) return c.json({ error: 'not found' }, 404);
+
+  // The app is `membership` by construction (the query filters on it), so
+  // this always resolves the COMMUNITY as seller, never the organiser's
+  // personal invoicing identity. See sellerForSale.
+  const seller = (await sellerForSale(
+    'membership',
+    purchase.workspace_id as string,
+    (purchase.organiser_user_id as string | null) ?? null,
+  )) ?? { legal_name: '' };
+  const pdf = await buildInvoicePdf(purchase as unknown as PdfInvoice, {
+    legal_name: seller.legal_name ?? '',
+    ...seller,
+  });
+  const number = String(
+    (purchase.billing as { number?: string } | null)?.number ?? (purchase.id as string),
+  );
+  return new Response(new Uint8Array(pdf), {
+    headers: {
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="invoice-${number.replace(/[^A-Za-z0-9-]/g, '')}.pdf"`,
+    },
+  });
 });
 
 // POST /me/portal-session {member_id} — Stripe Billing-Portal session on the

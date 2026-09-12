@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   CalendarRange,
   Users,
+  ScanLine,
   LayoutTemplate,
   BookUser,
   UsersRound,
@@ -37,7 +38,9 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     items: [
       { href: '/threads', label: t(locale, 'nav_threads'), icon: CalendarRange },
       { href: '/enrolments', label: t(locale, 'nav_enrolments'), icon: Users },
-      { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
+      // Third, so it lands in the mobile tab bar rather than the More sheet:
+      // it is the one screen used standing up, at a door, with one hand.
+      { href: '/checkin', label: t(locale, 'nav_checkin'), icon: ScanLine },
       { href: '/templates', label: t(locale, 'nav_templates'), icon: LayoutTemplate },
     ],
   },
@@ -46,13 +49,13 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     items: [
       { href: '/contacts', label: t(locale, 'nav_contacts'), icon: BookUser },
       { href: '/teams', label: t(locale, 'nav_teams'), icon: UsersRound },
-      { href: '/internal-team', label: t(locale, 'nav_internal_team'), icon: ShieldCheck },
     ],
   },
   {
-    label: t(locale, 'nav_workspace'),
-    items: [{ href: '/settings', label: t(locale, 'nav_settings'), icon: Settings }],
+    label: t(locale, 'nav_money'),
+    items: [{ href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt }],
   },
+  // Settings lives in the avatar menu, one place only (Sjoerd, 2026-09-11).
   ];
 }
 

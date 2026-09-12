@@ -43,6 +43,15 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
       .eq('workspace_id', workspaceId)
       .is('deleted_at', null);
 
+    // Activation, then ONE membership write for the whole grid.
+    //
+    // This used to be a nested loop doing an awaited upsert per (app, user).
+    // It runs on every single sign-in — sso/resolve calls it fire-and-forget
+    // — so a six-person workspace paid twelve sequential round trips each
+    // time somebody logged in, to write rows that almost always already
+    // existed. The grid is small and uniform, so it is one upsert.
+    const granted: { user_id: string; app_id: string; role: string }[] = [];
+
     for (const app of apps) {
       if (!known.has(app.id)) {
         const { error } = await adminClient
@@ -50,18 +59,21 @@ export async function ensurePlanApps(workspaceId: string): Promise<void> {
           .insert({ workspace_id: workspaceId, app_id: app.id });
         if (error && error.code !== '23505') {
           console.error('[plan-apps] activate failed', app.slug, error.message);
+          // Skip THIS app's memberships, not the remaining apps.
           continue;
         }
       }
-      // Membership for everyone in the workspace, existing rows untouched.
       for (const u of users ?? []) {
-        await adminClient
-          .from('app_membership')
-          .upsert(
-            { user_id: u.id, app_id: app.id, role: 'member' },
-            { onConflict: 'user_id,app_id', ignoreDuplicates: true },
-          );
+        granted.push({ user_id: u.id, app_id: app.id, role: 'member' });
       }
+    }
+
+    // Membership for everyone in the workspace, existing rows untouched.
+    if (granted.length) {
+      const { error } = await adminClient
+        .from('app_membership')
+        .upsert(granted, { onConflict: 'user_id,app_id', ignoreDuplicates: true });
+      if (error) console.error('[plan-apps] membership grant failed', error.message);
     }
 
   } catch (e) {

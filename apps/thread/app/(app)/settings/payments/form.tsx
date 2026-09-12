@@ -3,6 +3,14 @@
 // Two levels, one SPoT — the Stripe Connect account, the invoice issuer
 // identity (legal name / address / tax no.) and, at personal level, the
 // DEFAULT payment options that threads and tickets inherit.
+//
+// The two accounts are named for what they ARE — Personal and the
+// workspace's own name — rather than "My account" and "Workspace account"
+// (Sjoerd 2026-09-09: "payment account is unclear... add the different
+// accounts"). Money leaving for the wrong account is not a mistake anyone
+// should make from a label. Each one's paragraph moved behind an ⓘ for the
+// same reason the descriptions were not working: read once, then furniture,
+// and meanwhile pushing the actual fields off the screen.
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -13,6 +21,7 @@ import {
 } from './actions';
 import type { Locale } from '@thefibre/shared';
 import { SectionLabel } from '@/components/ui/page';
+import { InfoHint } from '@thefibre/shared/ui/info-hint';
 import { Button } from '@/components/ui/button';
 import { t } from '@/lib/i18n-ui';
 
@@ -28,6 +37,7 @@ export function PaymentsForm({
   workspaceDetails,
   workspaceMethods,
   isAdmin,
+  workspaceName = null,
 }: {
   locale: Locale;
   personalAccount: string | null;
@@ -37,12 +47,14 @@ export function PaymentsForm({
   workspaceDetails: InvoiceDetails | null;
   workspaceMethods: ('stripe' | 'invoice')[] | null;
   isAdmin: boolean;
+  /** The workspace's own name. Null falls back to the generic label. */
+  workspaceName?: string | null;
 }) {
   return (
     <div className="mt-8 space-y-10">
       <AccountSection
         locale={locale}
-        label={t(locale, 'my_account')}
+        label={t(locale, 'personal_account')}
         description={t(locale, 'my_account_desc')}
         initialAccount={personalAccount}
         initialDetails={personalDetails}
@@ -52,7 +64,7 @@ export function PaymentsForm({
       />
       <AccountSection
         locale={locale}
-        label={t(locale, 'workspace_account')}
+        label={workspaceName ?? t(locale, 'workspace_account')}
         description={t(locale, 'workspace_account_desc')}
         initialAccount={workspaceAccount}
         initialDetails={workspaceDetails}
@@ -159,6 +171,7 @@ function AccountSection({
     <form onSubmit={onSubmit}>
       <div className="flex items-center gap-2">
         <SectionLabel>{label}</SectionLabel>
+        <InfoHint label={t(locale, 'what_is_this')}>{description}</InfoHint>
         <span
           className={`text-[11px] px-2 py-0.5 rounded-full ring-1 ${
             initialAccount
@@ -169,7 +182,6 @@ function AccountSection({
           {initialAccount ? t(locale, 'connected') : t(locale, 'not_connected')}
         </span>
       </div>
-      <p className="mt-1.5 text-xs text-ink-subtle max-w-xl leading-relaxed">{description}</p>
       {disabled ? (
         <p className="mt-2 text-xs text-ink-muted">{disabledNote}</p>
       ) : (

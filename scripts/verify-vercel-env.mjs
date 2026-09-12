@@ -30,7 +30,14 @@ async function v(path, init = {}) {
   return body;
 }
 
-const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership', 'thefibre-website', 'thefibre-my'];
+// Vercel project names, which are NOT the workspace package names: the Fibre
+// web project is plain `thefibre`, everything else is `thefibre-<app>`. A
+// hand-kept list, and the eighth app arriving (Connections, v0.71.0) is
+// exactly the "new thing forgotten in a list" bug this repo keeps hitting —
+// it cannot be derived from apps/* because of the `thefibre` exception and
+// because a project may exist before its directory does, or vice versa.
+// If you add an app, add it here in the same commit.
+const NAMES = ['thefibre', 'thefibre-meet', 'thefibre-thread', 'thefibre-flow', 'thefibre-pulse', 'thefibre-membership', 'thefibre-website', 'thefibre-my', 'thefibre-connections'];
 // The marketing site is not a product app: no Supabase, no cookies, no
 // staging twin. Only this key applies to it (production scope only).
 const WEBSITE = 'thefibre-website';
@@ -61,6 +68,7 @@ const MATRIX = {
     NEXT_PUBLIC_PULSE_URL: T('pulse.thefibre.tech'),
     NEXT_PUBLIC_MEMBERSHIP_URL: T('membership.thefibre.tech'),
     NEXT_PUBLIC_MY_URL: T('my.thefibre.tech'),
+    NEXT_PUBLIC_CONNECTIONS_URL: T('connections.thefibre.tech'),
   },
 };
 

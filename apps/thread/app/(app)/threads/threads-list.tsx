@@ -1,11 +1,28 @@
 'use client';
 
-// Threads overview list with the team filter (Sjoerd 2026-07-02:
-// "see all, but also select teams"). Chips: All · Personal · one per team.
+// Threads overview list with the owner filter (Sjoerd 2026-07-02: "see all,
+// but also select teams"). Chips: Everyone · Personal · the workspace · one
+// per team.
+//
+// The owner filter became a DROPDOWN on 2026-09-11 (Sjoerd: "maybe
+// categories with a dropdown?"). One chip per team is fine at two teams and
+// wraps onto a second line at five — and the row was already six wide with
+// only three teams in it. Status stays chips because it is a closed set of
+// four that never grows; owner and category are open lists, and an open list
+// in a row of chips is a layout with a deadline. Category joins it as a real
+// filter: the workspace could define categories and then not filter by them,
+// which is a control that looks like it worked.
+//
+// The workspace chip arrived 2026-09-09 because "Personal" was quietly
+// lying. A workspace-scoped thread stores team_id NULL by design
+// (docs/brief-workspace-urls.md D1) — that is HOW a workspace thread is
+// stored — so `!team_id` swept the whole workspace's threads into one
+// person's filter. Ownership here is a three-way, exactly as it is in the
+// URL: personal, workspace, or a team.
 
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
-import { CalendarRange, Route } from 'lucide-react';
+import { CalendarRange, ChevronDown, Lock, Route } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { one, type ThreadRow, type TeamOption } from '@/lib/thread-types';
 import { EmptyState } from '@/components/ui/page';
@@ -34,20 +51,45 @@ export function ThreadsList({
   locale,
   threads,
   teams,
+  workspaceName = null,
 }: {
   locale: Locale;
   threads: ThreadRow[];
   teams: TeamOption[];
+  /** The workspace's own name, for its chip. Null hides the chip rather
+   *  than showing the generic word. */
+  workspaceName?: string | null;
 }) {
-  const [filter, setFilter] = useState<string>('all'); // 'all' | 'personal' | team id
+  // 'all' | 'personal' | 'workspace' | team id
+  const [filter, setFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'draft' | 'past'>('all');
+  const [categoryFilter, setCategoryFilter] = useState<string>('all');
+
+  // Categories ride along on every thread row, so the options are whatever
+  // the workspace has actually USED — no second request, and no dead option
+  // for a category nothing carries.
+  const categories = useMemo(() => {
+    const byId = new Map<string, string>();
+    for (const th of threads)
+      for (const c of th.categories ?? []) {
+        const cat = one(c.category);
+        if (cat) byId.set(cat.id, cat.name);
+      }
+    return [...byId].map(([id, name]) => ({ id, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, [threads]);
 
   // Only offer team chips for teams that actually own threads (+ all teams
   // so a freshly assigned team is findable).
   const filtered = useMemo(() => {
     let list = threads;
-    if (filter === 'personal') list = list.filter((t) => !t.team_id);
+    if (filter === 'personal')
+      list = list.filter((t) => !t.team_id && t.public_scope !== 'workspace');
+    else if (filter === 'workspace') list = list.filter((t) => t.public_scope === 'workspace');
     else if (filter !== 'all') list = list.filter((t) => t.team_id === filter);
+    if (categoryFilter !== 'all')
+      list = list.filter((t) =>
+        (t.categories ?? []).some((c) => one(c.category)?.id === categoryFilter),
+      );
     if (statusFilter !== 'all') {
       list = list.filter((t) => {
         const status = one(t.program)?.status ?? 'draft';
@@ -56,7 +98,7 @@ export function ThreadsList({
       });
     }
     return list;
-  }, [threads, filter, statusFilter]);
+  }, [threads, filter, statusFilter, categoryFilter]);
 
   const statusChip = (value: 'all' | 'active' | 'draft' | 'past', label: string) => (
     <button
@@ -73,19 +115,39 @@ export function ThreadsList({
     </button>
   );
 
-  const chip = (value: string, label: string) => (
-    <button
-      key={value}
-      type="button"
-      onClick={() => setFilter(value)}
-      className={`px-3 py-1.5 rounded-full text-xs ring-1 transition-colors ${
-        filter === value
-          ? 'bg-ink text-ink-inverse ring-ink'
-          : 'bg-surface-raised text-ink-subtle ring-line hover:text-ink'
-      }`}
-    >
-      {label}
-    </button>
+  /** A chip that is a menu. Same pill as the status chips, same "chosen goes
+   *  dark" rule, so the row still reads as one set of filters. The native
+   *  arrow is suppressed and drawn back in currentColor — a system arrow
+   *  stays dark-on-dark when the pill is selected. */
+  const picker = (
+    active: boolean,
+    label: string,
+    value: string,
+    onChange: (v: string) => void,
+    children: React.ReactNode,
+  ) => (
+    <span className="relative inline-flex items-center">
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className={`appearance-none rounded-full pl-3 pr-7 py-1.5 text-xs ring-1 transition-colors cursor-pointer ${
+          active
+            ? 'bg-ink text-ink-inverse ring-ink'
+            : 'bg-surface-raised text-ink-subtle ring-line hover:text-ink'
+        }`}
+      >
+        {children}
+      </select>
+      <ChevronDown
+        size={12}
+        strokeWidth={2}
+        aria-hidden="true"
+        className={`pointer-events-none absolute right-2.5 ${
+          active ? 'text-ink-inverse' : 'text-ink-muted'
+        }`}
+      />
+    </span>
   );
 
   return (
@@ -95,13 +157,43 @@ export function ThreadsList({
         {statusChip('active', t(locale, 'filter_active'))}
         {statusChip('draft', t(locale, 'filter_drafts'))}
         {statusChip('past', t(locale, 'filter_past'))}
-        {(teams.length > 0 || threads.some((t) => t.team_id)) && (
+        {(teams.length > 0 ||
+          threads.some((t) => t.team_id || t.public_scope === 'workspace')) && (
           <>
             <span className="mx-1 h-4 w-px bg-line" />
-            {chip('all', t(locale, 'filter_everyone'))}
-            {chip('personal', t(locale, 'personal'))}
-            {teams.map((t) => chip(t.id, t.name))}
+            {picker(
+              filter !== 'all',
+              t(locale, 'filter_everyone'),
+              filter,
+              setFilter,
+              <>
+                <option value="all">{t(locale, 'filter_everyone')}</option>
+                <option value="personal">{t(locale, 'personal')}</option>
+                {workspaceName && <option value="workspace">{workspaceName}</option>}
+                {teams.map((tm) => (
+                  <option key={tm.id} value={tm.id}>
+                    {tm.name}
+                  </option>
+                ))}
+              </>,
+            )}
           </>
+        )}
+        {categories.length > 0 && (
+          picker(
+            categoryFilter !== 'all',
+            t(locale, 'category'),
+            categoryFilter,
+            setCategoryFilter,
+            <>
+              <option value="all">{t(locale, 'all_categories')}</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name}
+                </option>
+              ))}
+            </>,
+          )
         )}
       </div>
 
@@ -137,6 +229,14 @@ export function ThreadsList({
                       {team ? ` · ${team.name}` : ''}
                     </div>
                   </div>
+                  {row.locked_at && (
+                    <Lock
+                      size={13}
+                      strokeWidth={1.75}
+                      className="text-ink-muted shrink-0"
+                      aria-label={t(locale, 'locked')}
+                    />
+                  )}
                   <span
                     className={`text-[11px] px-2 py-0.5 rounded-full ring-1 shrink-0 ${
                       STATUS_STYLES[status] ?? STATUS_STYLES.draft

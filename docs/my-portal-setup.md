@@ -6,29 +6,29 @@
 
 ---
 
-## Status: step 1 is done — `my` is in the picker now
+## Status (measured 2026-09-10): production is LIVE; staging is behind Vercel SSO
 
-`apps/my` shipped in **v0.68.20** and is on `main`. The Vercel Root Directory
-list reads from the repo, so `my` now appears between `meet`/`membership` and
-`pulse`. If you had the import dialog open before that, close and reopen it —
-the list is fetched once.
+`apps/my` shipped in **v0.68.20**. The `thefibre-my` project was created,
+both domains were added, and the app has been serving since **v0.68.24**.
+Everything from here down is the record of how it was set up, kept because
+the next new app will need the same steps.
 
-Remaining order, which still matters:
+Measured this morning:
 
-1. ~~Build `apps/my`~~ **done (v0.68.20)**.
-2. **Create the Vercel project** — below.
-3. **Add the DNS records** — after step 2, because Vercel shows you the exact
-   values and can only verify a domain once a project claims it.
+| | |
+|---|---|
+| `https://my.thethread.app` | `200`, titled "My Thread" |
+| `https://my.thefibre.tech` | `302` to `vercel.com/sso-api` |
 
-> **In the Root Directory dialog, do not pick `api`.** It's first in the list
-> and the radio may default to it. The API runs on Fly, not Vercel, and hard
-> rule §1 is that no personal data goes to Vercel. Pick `my`.
+**The one thing still open is the staging redirect.** `thefibre-my` carries
+Vercel Standard Protection (`ssoProtection: all_except_custom_domains`) where
+the six product apps carry `null`, so the staging branch — which Vercel treats
+as a Preview — sits behind Vercel's own sign-in. Production is unaffected.
+Flipping it is a Vercel dashboard setting, yours to make.
 
-What is **already done**, so you don't redo it: the `my-portal` entry in the
-`SURFACES` registry, the API's CORS accepting `https://my.thethread.app` on
-prod and staging, `localhost:3007` in the dev origins, `thefibre-my` in the
-Vercel preview regex, and the API route itself (`GET /api/v1/me/portal`,
-live on both Fly APIs).
+> An earlier draft of this section said the project did not exist. It said so
+> for a day after it did, and it was believed rather than measured — the
+> CHANGELOG entry for v0.68.57 repeated the claim. Measure the domain.
 
 ---
 
@@ -140,10 +140,25 @@ shows you something different, follow Vercel.
 
 ### `thefibre.tech` zone (staging)
 
-The staging siblings use a **CNAME** to a per-project Vercel hostname rather
-than an A record — `membership.thefibre.tech` resolves via
-`…vercel-dns-016.com`. That target is project-specific, so **take it from
-Vercel's Domains tab**; don't copy the membership one.
+The staging siblings use a **CNAME** rather than an A record. The target is
+**account-scoped, not project-specific** — measured 2026-09-09, all six
+`.tech` subdomains (meet, thread, flow, pulse, membership, my) share one
+identical value:
+
+```
+5966874a0d5c85ce.vercel-dns-016.com
+```
+
+Still take it from Vercel's Domains tab rather than from here — but because
+Vercel is authoritative, not because each project gets its own. The wrong
+reason produced a wrong sequencing rule ("DNS must follow the project"),
+which is corrected above.
+
+**Why A records on `thethread.app` and CNAMEs on `thefibre.tech`?** Half of
+it isn't a choice: DNS forbids a CNAME at a zone apex, so an apex is always
+an A record. The subdomain split is generational — `76.76.21.21` is Vercel's
+older shared anycast address, and the CNAME is their current style, which
+lets them move you without you editing DNS.
 
 | Field | Value |
 |---|---|
@@ -162,6 +177,33 @@ after ~15 minutes, re-check the record name is `my` and not `my.thethread.app`
 
 ---
 
+## Step 4 — push something that triggers a build
+
+**Do not assume the previous steps deployed anything.** `apps/my/vercel.json`
+carries `ignoreCommand: vercel-ignore.mjs my`, which builds only when a push
+touches one of three paths: `apps/my`, `packages/shared`, or the lockfile.
+Everything else reports **CANCELED**. So the project, the env vars and the
+domains can all be perfect and nothing is served.
+
+That is what happened here on 2026-09-09. `my.thethread.app` answered `500`
+all day from a deployment built the previous evening, before it had any env
+vars — `NEXT_PUBLIC_*` is inlined at BUILD time, so setting the vars changed
+nothing, and `createServerClient(undefined, undefined)` threw in a server
+component.
+
+**Redeploying from the Vercel dashboard or API does not get around it**; the
+ignore step runs there too and cancels those the same way. A push touching a
+trigger path is the only thing that produces a build.
+
+Usually this resolves itself, which is exactly why the rule is easy to miss:
+most releases touch `packages/shared`, and that counts. Both builds this
+project has ever run were triggered by `packages/shared` — never by
+`apps/my`. If you are standing up a new app and nothing is deploying, that is
+the first thing to check, and any real change to one of the three paths fixes
+it.
+
+---
+
 ## How to know it worked
 
 ```bash
@@ -169,7 +211,9 @@ dig +short my.thethread.app A
 curl -s -o /dev/null -w "%{http_code}\n" https://my.thethread.app
 ```
 
-Today those give you nothing and `000`. When it's live: an IP, and `200`.
+As of 2026-09-10 that gives you `76.76.21.21` and `200`, which is what live
+looks like. `000` with the right IP is the in-between state: DNS points at
+Vercel and nothing there answers for the name yet.
 
 ---
 

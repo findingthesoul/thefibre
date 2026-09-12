@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { SignInButton } from './sign-in-button';
@@ -17,6 +18,20 @@ export default async function MembershipLanding() {
       appSlug="membership"
       fibreUrl={appUrl('fibre-platform', process.env)}
       signIn={<SignInButton />}
+      belowSignIn={
+        // The door a paying member actually needs. Signing in here goes to
+        // the admin side, which they have no seat for — that wall is what
+        // sent soul.com's first member nowhere (2026-09-09).
+        <p className="mt-4 text-sm text-neutral-600">
+          Already a member?{' '}
+          <Link
+            href="/my"
+            className="underline underline-offset-4 hover:text-neutral-900"
+          >
+            See your membership, invoices and payment details
+          </Link>
+        </p>
+      }
       headline="A community that carries itself."
       intro="Tiers, products, seats and renewals — Membership runs the
           subscriptions of a community inside The Fibre: who belongs, what

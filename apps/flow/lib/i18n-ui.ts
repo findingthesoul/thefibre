@@ -2123,6 +2123,23 @@ const CATALOG = {
     de: 'Flows', // MT
     fr: 'Flows', // MT
   },
+  // Shared sidebar section labels — one shape in every app (2026-09-11).
+  nav_people: {
+    en: 'People',
+    nl: 'Mensen',
+    es: 'Personas', // MT
+    pt: 'Pessoas', // MT
+    de: 'Menschen', // MT
+    fr: 'Personnes', // MT
+  },
+  nav_money: {
+    en: 'Money',
+    nl: 'Geld',
+    es: 'Dinero', // MT
+    pt: 'Dinheiro', // MT
+    de: 'Geld', // MT
+    fr: 'Argent', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

@@ -7,6 +7,10 @@ import { hit, clientIp } from './lib/rate-limit.js';
 import { appContext } from './middleware/app-context.js';
 import { authRoutes } from './routes/auth.js';
 import { personsRoutes } from './routes/persons.js';
+import { connectionsRoutes } from './routes/connections.js';
+import { notesRoutes } from './routes/notes.js';
+import { connectionsTodayRoutes } from './routes/connections-today.js';
+import { connectionsEntriesRoutes } from './routes/connections-entries.js';
 import { organisationsRoutes } from './routes/organisations.js';
 import { activitiesRoutes } from './routes/activities.js';
 import { programsRoutes } from './routes/programs.js';
@@ -78,6 +82,7 @@ const DEV_ORIGINS = new Set<string>([
   'http://localhost:3004', // apps/pulse dev
   'http://localhost:3005', // apps/membership dev
   'http://localhost:3007', // apps/my dev (3006 = apps/website, no API calls from the browser)
+  'http://localhost:3008', // apps/connections dev
 ]);
 const EXTRA_ORIGINS = new Set<string>(
   (process.env.CORS_ORIGINS ?? '')
@@ -91,7 +96,7 @@ const EXTRA_ORIGINS = new Set<string>(
 // stable enough that we allowlist the entire *.vercel.app suffix only
 // for the projects we know we own.
 const VERCEL_PREVIEW_RE =
-  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my)-[a-z0-9-]+\.vercel\.app$/;
+  /^https:\/\/(thefibre-web|thefibre-meet|thefibre-thread|thefibre-flow|thefibre-pulse|thefibre-membership|thefibre-my|thefibre-connections)-[a-z0-9-]+\.vercel\.app$/;
 
 function isAllowedOrigin(origin: string): boolean {
   if (PROD_ORIGINS.has(origin)) return true;
@@ -221,6 +226,10 @@ v1.route('/workspaces', workspacesRoutes);
 v1.route('/meet', meetRoutes);
 v1.route('/flow', flowRoutes);
 v1.route('/pulse', pulseRoutes);
+v1.route('/connections', connectionsRoutes);
+v1.route('/notes', notesRoutes);
+v1.route('/connections', connectionsTodayRoutes);
+v1.route('/connections', connectionsEntriesRoutes);
 v1.route('/membership', membershipRoutes);
 v1.route('/currencies', currenciesRoutes);
 v1.route('/membership/portal', membershipPortalRoutes);

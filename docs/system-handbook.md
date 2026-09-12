@@ -35,8 +35,12 @@ Lab B.V. (Rotterdam, EU-hosted). It is one product family:
   access grants, Circle/Google Workspace integrations; display name may
   become "Hyve" — only branding changes, never the slug).
   https://membership.thethread.app
-- `fibre-sales`, `fibre-learn` — registered slugs, **not built**
-  (`available: false` in the registry).
+- **Connections** (`fibre-sales`) — where everybody stands: a derived
+  landscape over what Thread, Meet, Membership and the ledger already
+  recorded. Owns no tables. https://connections.thethread.app
+  The slug stays `fibre-sales` forever: it tags curator data, and slugs never
+  change. Only the display name moved (`docs/connections-naming.md`).
+- `fibre-learn` — a registered slug, **not built** (`available: false`).
 
 **Two apex domains, deliberately** (since v0.52.0, the "branding pivot"):
 fibre web lives on `thefibre.app`; the five delivery apps live on
@@ -46,17 +50,19 @@ apex serves `apps/website`, this repo's own public site, since the cut on
 decommissioned bar a Vercel project to archive. Sessions cross the two
 apexes via the SSO hop (§6.3). Naming rationale: `docs/naming-brief.md`.
 
-Two further surfaces ship from the same repo and are not apps: `apps/website`
-above, and `apps/my` (my.thethread.app), the visitor's own portal — built in
-v0.68.20, waiting on its Vercel project. Neither has an AppId, activation or
-app membership; both are entries in the `SURFACES` registry.
+Further surfaces ship from the same repo and are not apps in the catalogue
+sense: `apps/website` above, and `apps/my` (my.thethread.app), the member's
+own portal — shipped v0.68.20, deployed v0.68.24, consolidated into four
+destinations on 2026-09-10. Neither has an AppId, activation or app
+membership; both are entries in the `SURFACES` registry. Which apps exist is
+a question for the `app` table, never for a list in a file.
 
 ---
 
 ## 2. Architecture in one paragraph
 
 A single **Hono API** (`apps/api`, port 8080, deployed on Fly.io) fronts a
-**Supabase** Postgres+Auth project (EU/Ireland). Eight **Next.js 15** apps
+**Supabase** Postgres+Auth project (EU/Ireland). The **Next.js 15** apps
 (App Router, React 19) call the API for everything — **no app ever talks to
 Supabase data directly; only Supabase *Auth*** (sign-in, session cookies).
 The API is a thin convenience layer; **Row-Level Security is the real
@@ -120,7 +126,8 @@ apps/
   pulse/          Pulse                          :3004
   membership/     Membership                     :3005
   website/        the public site (thethread.app apex)  :3006
-  my/             the visitor's own portal (a SURFACE)  :3007
+  my/             the member's own portal (a SURFACE)   :3007
+  connections/    Connections (slug `fibre-sales`)      :3008
 packages/
   shared/         @thefibre/shared — THE shared package (§5)
 supabase/
@@ -382,10 +389,11 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 | Stripe | live keys | sandbox keys |
 | Deploy trigger | `git push origin main` | `git push origin main:staging` |
 
-- **Vercel**: seven projects (`thefibre`, `thefibre-{meet,thread,flow,pulse,
-  membership}`, `thefibre-website`), all in the `sjoerd-1708s-projects`
-  scope. An eighth, `thefibre-my`, is the one step between `apps/my` and
-  a live visitor portal (docs/my-portal-setup.md). Domains are
+- **Vercel**: one project per app (`thefibre`, then `thefibre-{meet,thread,
+  flow,pulse,membership,website,my,connections}`), all in the
+  `sjoerd-1708s-projects` scope. A new app needs its project created before
+  its first PR, or that PR's checks go red on a missing Root Directory.
+  Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
@@ -393,9 +401,42 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   Preview deployments bound to the `staging` branch.
 - **Build skipping**: each app's `vercel.json` has
   `ignoreCommand: scripts/vercel-ignore.mjs <app>` — a build runs only if
-  that app, `packages/shared`, or the lockfile changed. Consequence:
-  **env-var-only changes rebuild nothing**; touch `packages/shared` or
-  redeploy manually to pick them up.
+  that app, `packages/shared`, or the lockfile changed. It saved ~€150 in
+  five days and it has two sharp edges:
+  - **Env-var-only changes rebuild nothing.** `NEXT_PUBLIC_*` values are
+    inlined at BUILD time, so setting them changes nothing until a build
+    runs. **"Redeploy manually" does not work** — the ignore step runs on
+    dashboard and API-created deployments too, and cancels them the same
+    way (measured 2026-09-09 on `thefibre-my`). The only fix is a commit
+    that touches the app's folder, `packages/shared` or the lockfile.
+  - **A brand-new app's Vercel project can sit for a day without deploying.**
+    Wire the project, env and domains perfectly and every push still skips
+    until one touches a trigger path. `thefibre-my` served a 500 for a day
+    this way, from a deployment that predated its own env vars, while eight
+    pushes reported CANCELED. **Last step of standing up any new app: push a
+    commit touching `apps/<app>`, `packages/shared` or the lockfile** — any
+    of the three, not the app folder specifically. In practice
+    `packages/shared` is what fires, because most releases touch it, which
+    is why the rule went a day unnoticed: both builds `thefibre-my` has ever
+    run were triggered by `packages/shared`, never by `apps/my`.
+- **Crawlers**: every app has `app/robots.ts` over one policy in
+  `@thefibre/shared/robots`. Open ONLY when `VERCEL_ENV === 'production'`;
+  preview, development, absent and unrecognised all close. The visitor
+  portal is closed everywhere, production included. Added 2026-09-09 after
+  the staging stack was found publicly reachable AND fully indexable with no
+  robots file anywhere in the repo. **Never make the open branch the
+  default** — a de-indexed production site costs weeks.
+  - **Checking it**: `curl https://<host>/robots.txt` on each domain, not a
+    local build — only the live domain proves what it serves. Give Vercel a
+    few minutes first. Immediately after the 2026-09-09 release four of the
+    eight production domains answered **404** and were correct minutes
+    later; measured too early you would conclude half the estate is missing
+    a robots file.
+  - **`my.thethread.app` serving `Disallow: /` on its PRODUCTION domain is
+    CORRECT**, not the failure this design warns about. It calls
+    `robotsNeverIndex()`: every page below its sign-in is one person's own
+    tickets and memberships. Read `apps/my/app/robots.ts` before raising
+    it — one session nearly reported it as a broken production site.
 - **Env matrix** is machine-checked: `node scripts/verify-vercel-env.mjs`
   (values may be per-project functions — e.g. the two-apex cookie domain).
 - **Fly**: `fly deploy --remote-only` (prod) /
@@ -415,17 +456,20 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 ## 10. Version management & release procedure
 
-- **One monorepo version** stamped in **eleven** `package.json` files (root,
-  nine `apps/*` incl. api, website and my, and `packages/shared`) **plus**
+- **One monorepo version** stamped in the `package.json` of **every workspace
+  package** (root, every `apps/*` incl. api, and `packages/shared`) **plus**
   `apps/web/lib/version.ts` (`VERSION` constant — shown in the Fibre sidebar
-  footer and Settings → How The Fibre works). The count is derived by
-  `release.sh`, never hand-kept. SemVer-ish: features bump minor, fixes bump
-  patch.
+  footer and Settings → How The Fibre works). Never count them by hand:
+  `release.sh` derives the list, and the hand-written counts in this file and
+  in CLAUDE.md were both wrong within days. SemVer-ish: features bump minor,
+  fixes bump patch.
 - **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
   (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
   their own constants in their layouts. Bump those only when app-specific
-  surfaces ship. `website` and `my` have no such constant — no signed-in
-  chrome to show one in.
+  surfaces ship; Connections likewise (`0.x`, started 0.1.0 on 2026-09-12).
+  `website` and `my` have no such constant in that pattern — the site has no
+  signed-in chrome, and the portal carries its own (`0.5.0` since the
+  consolidation).
 - **Every release = one commit** containing: the code, the version
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
   narrative style — say *why*, record decisions and reversals explicitly).
@@ -447,8 +491,13 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   message prefix; there is no version to mislabel, which is the failure
   the script prevents. Anything touching code or version surfaces goes
   through the script, no exceptions.
-- **Multiple concurrent LLM sessions are normal** in this repo. The
-  serialization protocol (see `CLAUDE.md` and the memory notes):
+- **Multiple concurrent LLM sessions are normal** in this repo — and
+  increasingly the default way Sjoerd works. The operative checklist lives
+  in `CLAUDE.md` under **"Parallel SESSIONS — the serialization protocol"**,
+  because that file loads into every session automatically and this one does
+  not. (Until 2026-09-09 this bullet pointed at CLAUDE.md for a protocol
+  CLAUDE.md did not contain — it documented parallel *subagents* only, and a
+  session duly reinvented the protocol from scratch.) The rules, in short:
   - The version files + CHANGELOG are the serialization point — **never
     two sessions in a release at once**.
   - Announce "RELEASING NOW" to the other sessions before a bump and
@@ -460,6 +509,137 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
     verify every import the commit introduces resolves within the commit.
   - Fence lanes by directory; coordinate shared files (layouts,
     `packages/shared/package.json`) explicitly.
+  - **Announce what you are about to do NEXT, not only what you are doing.**
+    A lane claim that names the next task lets a peer see a collision before
+    either of you writes the code. 2026-09-09: the thread session mentioned
+    that its next page needed "an info popup"; the membership session had
+    been offered "a shared info-icon-with-hover" as one of three features.
+    Same component, two apps, same evening — caught only because the next
+    task was in the claim. Nothing in `packages/shared/src/ui` provided it,
+    so this would have been a duplicate the two of us CREATED, which is what
+    Components-first (CLAUDE.md, binding) exists to prevent. Cost of the
+    catch: three messages. Cost of the miss: two implementations that drift.
+  - **A peer's UNCOMMITTED work can block your release.**
+    `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
+    over the WORKING TREE, not over your commit. So a third session's
+    mid-edit file — a prop passed before it is declared, an import written
+    before its target — fails the gate for everybody, and it surfaces as a
+    typecheck error in a file you have never opened. **Read the failing PATH
+    before assuming the error is yours.** If it is in someone else's lane,
+    tell them; do not fix it, and do not work around the gate. First seen
+    2026-09-09, the first day three sessions held in-flight code at once;
+    found by a session running a cross-check, not by the one that caused it.
+    The gate is behaving correctly — this is the shared checkout's cost, and
+    the sharpest argument for taking a worktree for code work (CLAUDE.md,
+    Parallel SESSIONS): in a worktree it cannot happen.
+  - **The worktree decision has to be REVISITED when the work changes
+    shape** — not made once at the start. 2026-09-11, three sessions live.
+    Two sweeps happened that night, both in the main checkout, both between
+    sessions that were being careful. A third session was in a worktree and
+    had nothing to sweep, because the shared tree was never visible to it —
+    its diff of a twice-swept file, taken against the merge base, came back
+    containing only its own edits. The session that got swept had opened on
+    a docs question, correctly stayed in the main checkout for it, and then
+    never re-decided when the night turned into four releases. **That is the
+    failure mode: not declining the worktree, but never asking again once
+    docs became code.** (Observed by the session it happened to,
+    thefibre-43, and written here at its suggestion.) The practical rule:
+    the moment a docs-only session's next step is an edit under `apps/` or
+    `supabase/`, stop and take a worktree — `EnterWorktree` mid-session
+    costs a `pnpm install` and a merge at the end, which is less than one
+    sweep. Over-firing is the safe direction here: the objection is always
+    "this one is small", and that is precisely the judgement that failed.
+    And the worktree does not merely postpone the sweep to merge time — by
+    then the commits exist, and a merge stages nobody's dirty files. What
+    *does* still reach you is the bullet above: `pnpm verify` reads the
+    working tree, so a peer's mid-edit can still block a release made from
+    a worktree-merged commit. That is the gate working, not the worktree
+    failing.
+    It then bit for real the same evening: v0.68.40 was refused by five
+    missing i18n keys and a TS7006 in another session's `engagements.tsx`.
+    The releasing session read the path, told the owner, fixed nothing and
+    re-ran minutes later. Cost: one release cycle, no correctness.
+  - **A lane claim that omits the file you are actually in is not a lane
+    claim.** v0.68.40 also swept another session's in-progress work out of
+    `apps/thread/app/(app)/threads/actions.ts` — announced four files, and
+    not that one, which was the first file it edited. Both halves are
+    avoidable and both are already in this list: name every file, and
+    `git diff HEAD -- <file>` before staging a shared-ownership file whole.
+  - **A server action and the route it calls are a PAIR, and no gate checks
+    the pair.** That same sweep shipped a call to
+    `GET /thread/threads/:id/engagements/:engagementId/rsvps` while the route
+    itself was still uncommitted. **Every gate passed**, because a call to a
+    nonexistent HTTP route is not a type error: the import resolved, the
+    endpoint did not. It shipped inert (nothing called the action yet) and
+    v0.68.41 completed the pair, twelve minutes later.
+    **Why no gate sees it, one by one:** typecheck sees a function that
+    compiles; unit tests do not cross the wire; `verify-public-api.mjs`
+    guards the PUBLISHED contract, not internal routes. So a commit can ship
+    one half of a pair with every gate green — not because anyone was
+    careless, but because nothing is looking at that seam. It bit in the most
+    benign possible way: the half that shipped was the caller, nothing called
+    the caller, and the callee arrived minutes later. **Rotate those facts
+    even slightly and it is a 404 in production behind a green pipeline.**
+    And the cheap mitigation is NOT a new gate — it is that a lane claim
+    lists every file you have already touched, which is what stops the halves
+    being separated at all. §10 already says "verify every import the
+    commit introduces resolves within the commit" — this is that rule one
+    level up, so: **if a commit adds a call to an API path, grep the API for
+    that path in the same commit.** Framing from the membership session,
+    which found it in its own swept work and volunteered it unasked.
+  - **A PostgREST select is a STRING, and the type-checker never reads it.**
+    Same species as the seam above: a gate-shaped hole where the compiler
+    looks like it is helping and is not. Two instances in one session
+    (2026-09-10, the member-portal build):
+    `organisation:organisation_id (slug)` on `thread_thread` — there is no
+    such column, it is `organiser_id`, and the working query eight lines
+    above already had it right; and ordering `person` by `updated_at`, a
+    column that does not exist either. Both typechecked clean. The first was
+    **latent** — its branch only runs for a product carrying a thread link
+    and no product has one yet — so no test could have failed and no render
+    check could have reached it. The second would have 400'd for every member
+    on first load of a new page.
+    **Why no gate sees it:** the select is a string literal, so tsc has
+    nothing to check; `.select()` returns `any`-shaped rows, so the fields
+    you then read type fine whether or not they exist; and PostgREST answers
+    a bad column with a runtime `400`, never a build failure.
+    **The defence, and it costs a minute:** before shipping, run every NEW
+    OR WIDENED select verbatim against real rows — `curl` the PostgREST
+    endpoint with the service-role key, or a five-line node script. It
+    answers `200` or it names the column you invented, with a hint. Do it for
+    reads on production (reads are safe there; see the no-destructive-tests
+    rule) or on staging where the table has rows. Both of these were caught
+    that way and neither by any gate we own.
+    **Two directions, and only one of them announces itself.** A column that
+    does not exist gives you a `400` the moment the branch runs. A column
+    that DOES exist and was left out of the select gives you `undefined`,
+    forever, in silence — which is how `location_url` sat on
+    `thread_engagement` for months, stored by the editor and published on no
+    surface at all (v0.68.62 on the public thread page, v0.68.63 in the
+    portal). Running the select and READING what comes back catches both;
+    running it and checking the status code catches only the loud one.
+    **Worst in a worker.** A bad select in a request path is reported by
+    whoever hit it. A bad select in the five-minute scheduler is reported by
+    nobody, forever. The thread session went back and re-ran two it had
+    already shipped there — both fine, but it did not know that when it
+    shipped them. Three instances between two sessions in one day, none
+    catchable by any gate we have, all catchable in ten seconds.
+  - **A pipe eats the release guard's exit code.** `./scripts/release.sh X`
+    is `set -euo pipefail` inside, but that governs its own internals, not
+    the caller's shell. Write `./scripts/release.sh X | tail -4 && fly
+    deploy` and `$?` is TAIL's status, which is always 0 — so a REFUSED
+    release still runs the deploy, from the working tree, and production ends
+    up on code that was never pushed (2026-09-10, the thread session; caught
+    and redeployed from the released commit within minutes). This is the
+    exact broken-`&&`-chain failure release.sh was written to make
+    impossible, reintroduced one level up by piping its output.
+    **So: never chain anything onto release.sh, and never pipe it if you
+    then branch on the result.** Run it, read what it says, then deploy as a
+    separate command. And note there is currently no way to ask the running
+    API which commit it is on — `/health` reports only `{ok, service}` — so
+    an API running unpushed code is invisible from outside. Putting the
+    version in that payload would turn "is production what main says" from a
+    guess into a curl.
 - **Verification is part of the release** — the full testing approach is
   §11; the per-release gate checklist is §11.4.
 

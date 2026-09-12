@@ -7,11 +7,11 @@ import { setThreadCategories, updateThread } from '../actions';
 import { one, type ThreadRow } from '@/lib/thread-types';
 import { t } from '@/lib/i18n-ui';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
-import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
+import { TextField, SelectField } from '@/components/ui/field';
+import { RichTextField } from '@/components/ui/rich-text';
 import { DateField } from '@/components/ui/date-field';
 import { LOCALES, LOCALE_LABELS } from '@/lib/i18n';
 import { uploadAsset } from '@/lib/upload';
-import { ImagePlus, X, PanelTop, MousePointerClick } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SwitchField } from '@/components/ui/switch';
 import { SectionLabel } from '@/components/ui/page';
@@ -66,7 +66,6 @@ export function ThreadEditorForm({
   // End date can only follow the start date.
   const [startsOn, setStartsOn] = useState(program?.starts_on ?? '');
   const [pending, startTransition] = useTransition();
-  const [coverUrl, setCoverUrl] = useState<string | null>(thread.cover_url);
   const [selectedCats, setSelectedCats] = useState<Set<string>>(
     () =>
       new Set(
@@ -76,26 +75,7 @@ export function ThreadEditorForm({
           .map((cat) => cat!.id),
       ),
   );
-  const [interaction, setInteraction] = useState<'page' | 'popup'>(
-    thread.public_interaction ?? 'page',
-  );
-  const [uploading, setUploading] = useState(false);
-  const fileRef = useRef<HTMLInputElement>(null);
 
-  async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploading(true);
-    setError(null);
-    try {
-      setCoverUrl(await uploadAsset(file));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t(locale, 'upload_failed'));
-    } finally {
-      setUploading(false);
-      if (fileRef.current) fileRef.current.value = '';
-    }
-  }
 
   function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -112,16 +92,12 @@ export function ThreadEditorForm({
       starts_on: String(fd.get('starts_on') ?? '') || null,
       ends_on: String(fd.get('ends_on') ?? '') || null,
       timezone: String(fd.get('timezone') ?? '').trim() || 'Europe/Amsterdam',
-      is_public_listed: fd.get('is_public_listed') === 'on',
-      public_agenda: fd.get('public_agenda') === 'on',
       // Scope → storage: Personal = no team, no scope; Team = team_id;
       // Workspace = public_scope 'workspace' with team_id null (D1).
       team_id: scope === 'team' ? teamId || null : null,
       public_scope: scope === 'workspace' ? ('workspace' as const) : null,
       language: String(fd.get('language') ?? 'en'),
       facilitation_language: String(fd.get('facilitation_language') ?? '').trim() || null,
-      cover_url: coverUrl,
-      public_interaction: interaction,
     };
     if (!patch.title) return setError(t(locale, 'err_thread_needs_name'));
     if (!patch.slug) return setError(t(locale, 'err_thread_needs_slug'));
@@ -153,62 +129,18 @@ export function ThreadEditorForm({
             prefix={`${THREAD_HOST}/${urlOwner}/`}
           />
 
-          <TextAreaField
+          {/* Rich text since 2026-09-10 (Sjoerd asked for bold, italic,
+              headings and links). Everything written before is plain text and
+              renders unchanged — the sanitiser leaves it alone and the public
+              page keeps `whitespace-pre-line`, so old paragraph breaks
+              survive alongside new markup. */}
+          <RichTextField
+            locale={locale}
             label={t(locale, 'intention')}
             name="intention"
-            rows={3}
             defaultValue={thread.intention ?? ''}
             hint={t(locale, 'intention_hint')}
           />
-
-          {/* Thread image — shown on the public page + embeds */}
-          <div>
-            <span className="text-sm text-ink-subtle">{t(locale, 'thread_image')}</span>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={onPickCover}
-            />
-            {coverUrl ? (
-              <div className="mt-1 flex items-center gap-3">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={coverUrl}
-                  alt=""
-                  className="h-20 w-32 rounded-md object-cover ring-1 ring-line"
-                />
-                <div className="flex flex-col gap-1">
-                  <button
-                    type="button"
-                    onClick={() => fileRef.current?.click()}
-                    className="text-xs text-ink-subtle hover:text-ink text-left"
-                  >
-                    {t(locale, 'replace')}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setCoverUrl(null)}
-                    className="text-xs text-ink-subtle hover:text-ink inline-flex items-center gap-1"
-                  >
-                    <X size={11} strokeWidth={1.75} /> {t(locale, 'remove')}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                disabled={uploading}
-                onClick={() => fileRef.current?.click()}
-                className="mt-1 w-full rounded-md border-2 border-dashed border-line hover:border-yellow-400 hover:bg-yellow-50/50 text-ink-subtle hover:text-ink py-4 text-sm inline-flex items-center justify-center gap-2 transition-colors disabled:opacity-50"
-              >
-                <ImagePlus size={16} strokeWidth={1.75} />
-                {uploading ? t(locale, 'uploading') : t(locale, 'upload_image')}
-              </button>
-            )}
-            <span className="mt-1 block text-xs text-ink-muted">{t(locale, 'cover_hint')}</span>
-          </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DateField
@@ -300,61 +232,6 @@ export function ThreadEditorForm({
               </div>
             )}
           </div>
-
-          {/* How an overview opens this thread (Luma-style choice) */}
-          <div>
-            <span className="text-sm text-ink-subtle">{t(locale, 'when_clicked')}</span>
-            <div className="mt-1 grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setInteraction('page')}
-                className={`text-left rounded-lg border p-3.5 transition-colors ${
-                  interaction === 'page'
-                    ? 'border-ink bg-surface-sunken'
-                    : 'border-line bg-surface hover:bg-surface-sunken'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <PanelTop size={15} strokeWidth={1.75} className="text-ink-subtle" />
-                  <span className="text-sm font-medium">{t(locale, 'thread_page')}</span>
-                </div>
-                <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                  {t(locale, 'thread_page_desc')}
-                </p>
-              </button>
-              <button
-                type="button"
-                onClick={() => setInteraction('popup')}
-                className={`text-left rounded-lg border p-3.5 transition-colors ${
-                  interaction === 'popup'
-                    ? 'border-ink bg-surface-sunken'
-                    : 'border-line bg-surface hover:bg-surface-sunken'
-                }`}
-              >
-                <div className="flex items-center gap-2">
-                  <MousePointerClick size={15} strokeWidth={1.75} className="text-ink-subtle" />
-                  <span className="text-sm font-medium">{t(locale, 'enrol_popup')}</span>
-                </div>
-                <p className="mt-1 text-xs text-ink-subtle leading-relaxed">
-                  {t(locale, 'enrol_popup_desc')}
-                </p>
-              </button>
-            </div>
-          </div>
-
-          <SwitchField
-            label={t(locale, 'list_public')}
-            hint={t(locale, 'list_public_hint')}
-            name="is_public_listed"
-            defaultChecked={thread.is_public_listed}
-          />
-
-          <SwitchField
-            label={t(locale, 'public_agenda')}
-            hint={t(locale, 'public_agenda_hint')}
-            name="public_agenda"
-            defaultChecked={thread.public_agenda ?? true}
-          />
 
           {categories.length > 0 && (
             <div>

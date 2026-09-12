@@ -4,12 +4,17 @@
 // (Sjoerd 2026-07-02): left = what it is (title, description/content),
 // right = when + where. Delete/Duplicate live in the footer next to Save.
 
-import { useState, useTransition } from 'react';
+import { useEffect, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Trash2, Copy, MapPin, Video } from 'lucide-react';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import { t, engagementTypeLabel } from '@/lib/i18n-ui';
-import { createEngagement, updateEngagement, deleteEngagement } from '../actions';
+import {
+  createEngagement,
+  updateEngagement,
+  deleteEngagement,
+  getEngagementRsvps,
+} from '../actions';
 import type { EngagementRow, EngagementType, TriggerKind, DailyTime } from '@/lib/thread-types';
 import {
   ENGAGEMENT_META,
@@ -103,6 +108,8 @@ export function EngagementDialog({
   requiresApproval,
   personalRoomUrl,
   canEditStructure = true,
+  locked = false,
+  threadAgendaOff = false,
   activities = [],
   onClose,
 }: {
@@ -118,6 +125,18 @@ export function EngagementDialog({
   /** Plan gate: false hides Delete (except on system messages, which stay
    *  deletable — they fall back to compiled emails) and Duplicate. */
   canEditStructure?: boolean;
+  /** The thread's own agenda switch is off, so this item's agenda switch
+   *  cannot do anything whatever it is set to. */
+  threadAgendaOff?: boolean;
+  /** The thread is locked: this dialog stays open as a READER. Every write
+   *  it offers — save, delete, duplicate — goes away, and the fields go
+   *  inert, so a locked timeline can still be inspected element by element.
+   *  The API refuses the same writes (423 `thread_locked`) regardless. */
+  locked?: boolean;
+  /** What this item inherits when its own RSVP column is null: the thread's
+   *  setting, already resolved against the workspace default by the API. The
+   *  switch must show the RESOLVED state — a thread sitting at off would
+   *  otherwise render as On for something nobody can answer. */
   /** The thread's activities — anchor options for relative message triggers. */
   activities?: { id: string; title: string; hasDate: boolean }[];
   onClose: () => void;
@@ -217,6 +236,18 @@ export function EngagementDialog({
     else onClose();
   }
 
+  // Will this item have a start time when saved? Read from the form, not
+  // from the saved row: on a new dated event the date exists in state and
+  // not yet on the row, so gating on `engagement.starts_at` would hide the
+  // control exactly when someone is setting the date it depends on.
+  //
+  // It matters because the API resolves RSVP on `hasStart` (lib/portal.ts).
+  // Gating the switch on the family instead — which is what shipped in
+  // v0.68.42 — offered "Ask who is coming" on an undated activity, where it
+  // stored a value the resolver then ignored. Same expression on both sides
+  // now, so the switch cannot promise what the API will not do.
+  const willHaveStart = timePerDay ? Boolean(firstDay) : Boolean(startsAt);
+
   const meta = metaFor(type);
   const family: EngagementFamily = meta.family;
   const typeOptions = ENGAGEMENT_META.filter((m) =>
@@ -235,6 +266,12 @@ export function EngagementDialog({
       type,
       description: String(fd.get('description') ?? '').trim() || null,
       show_in_agenda: fd.get('show_in_agenda') === 'on',
+      // Touching a switch you can see means an explicit answer, so this
+      // writes a boolean rather than leaving null to inherit. Only timed
+      // items are asked about at all.
+      ...(family === 'activity' && willHaveStart
+        ? { rsvp_enabled: fd.get('rsvp_enabled') === 'on' }
+        : {}),
       status,
     };
 
@@ -303,11 +340,19 @@ export function EngagementDialog({
             ...where,
             image_url: imageUrl.trim() || null,
           }
-        : {
-            ...common,
-            ...trigger,
-            content: contentFromForm(type, fd),
-          };
+        : family === 'certificate'
+          ? {
+              // No body: what goes out is the thread's certificate design.
+              ...common,
+              ...trigger,
+              content: {},
+              show_in_agenda: false,
+            }
+          : {
+              ...common,
+              ...trigger,
+              content: contentFromForm(type, fd),
+            };
 
     startTransition(async () => {
       const r = isNew
@@ -379,7 +424,7 @@ export function EngagementDialog({
       size="xl"
       footer={
         <>
-          {!isNew && (
+          {!isNew && !locked && (
             <div className="mr-auto flex items-center gap-1.5">
               {/* Structure gate: removing real elements needs a higher plan,
                   but the seeded system messages stay deletable everywhere
@@ -412,19 +457,22 @@ export function EngagementDialog({
           )}
           {error && <FormError message={error} />}
           <Button type="button" variant="secondary" onClick={requestClose}>
-            {t(locale, 'cancel')}
+            {t(locale, locked ? 'close' : 'cancel')}
           </Button>
-          <Button type="submit" form="engagement-form" disabled={pending}>
-            {pending
-              ? t(locale, 'saving')
-              : isNew
-                ? t(locale, 'add_to_timeline')
-                : t(locale, 'save')}
-          </Button>
+          {!locked && (
+            <Button type="submit" form="engagement-form" disabled={pending}>
+              {pending
+                ? t(locale, 'saving')
+                : isNew
+                  ? t(locale, 'add_to_timeline')
+                  : t(locale, 'save')}
+            </Button>
+          )}
         </>
       }
     >
       <form id="engagement-form" onSubmit={onSubmit} onInput={() => setDirty(true)}>
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
         <div className="mb-6 flex items-end gap-5">
           <div className="flex-1 min-w-0">
             <TextField
@@ -725,22 +773,69 @@ export function EngagementDialog({
                 engagement={engagement}
                 requiresApproval={requiresApproval ?? false}
                 activities={activities}
+                family={family}
               />
+            )}
+
+            {/* What this element is FOR. On a healthy thread it issues to
+                nobody, because completing somebody already issued theirs —
+                and an organiser watching it run correctly and do nothing
+                will report it as broken unless the screen says otherwise. */}
+            {family === 'certificate' && (
+              <p className="mt-3 rounded-lg border border-line bg-surface-sunken px-3.5 py-3 text-xs leading-relaxed text-ink-subtle">
+                {t(locale, 'certificate_engagement_hint')}
+              </p>
             )}
 
             <div className="pt-1">
               {/* Activities belong on the public agenda; messages are the
                   participant journey — private by default (Sjoerd 2026-07-02). */}
+              {/* The thread-level agenda switch silently overrides this one,
+                  and that cost Sjoerd half an hour: five items ticked, none
+                  showing, the reason three screens away. The Appearance tab
+                  groups the settings, but whoever ticks THIS is looking at an
+                  item, so it has to say so here too. */}
+              {threadAgendaOff && (
+                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
+                  {t(locale, 'public_agenda_off_warning')}
+                </p>
+              )}
               <SwitchField
                 label={t(locale, 'show_on_agenda')}
                 name="show_in_agenda"
                 defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
                 onChange={() => setDirty(true)}
               />
+              {/* Only a timed item can be attended, so only a timed item can
+                  be asked about — the same single condition the portal and
+                  the Responses panel use. Inside the fieldset because it is
+                  a write: a locked thread refuses it here and again at the
+                  API (423 thread_locked). */}
+              {family === 'activity' && willHaveStart && (
+                <div className="mt-3">
+                  <SwitchField
+                    label={t(locale, 'ask_who_is_coming')}
+                    name="rsvp_enabled"
+                    defaultChecked={engagement?.rsvp_enabled === true}
+                    onChange={() => setDirty(true)}
+                  />
+                </div>
+              )}
             </div>
           </div>
         </div>
+        </fieldset>
       </form>
+
+      {/* Who is coming. Only a saved, TIMED item can be answered — the same
+          rule the portal applies (rsvp_enabled is `!!starts_at && ...`), so
+          the panel appears exactly where an answer is possible. Read-only:
+          an RSVP is the participant speaking for themselves. Shown on a
+          locked thread too — the lock freezes the design, not the event, and
+          reading who is coming is not an edit. */}
+      {!isNew && engagement?.starts_at && engagement.rsvp_enabled === true && (
+        <RsvpPanel locale={locale} threadId={threadId} engagementId={engagement.id} />
+      )}
 
       <ConfirmDialog
         open={confirmDiscard}
@@ -810,6 +905,7 @@ function TriggerFields({
   engagement,
   requiresApproval,
   activities,
+  family,
 }: {
   locale: Locale;
   triggerKind: TriggerKind;
@@ -817,6 +913,8 @@ function TriggerFields({
   engagement: EngagementRow | null;
   requiresApproval: boolean;
   activities: { id: string; title: string; hasDate: boolean }[];
+  /** Certificates get dates only — see the note on kindOptions below. */
+  family: EngagementFamily;
 }) {
   const off = engagement?.trigger_offset_days ?? -3;
   const defaultDays = String(Math.min(30, Math.max(1, Math.abs(off || 3))));
@@ -827,15 +925,28 @@ function TriggerFields({
       : engagement?.trigger_anchor ?? 'start';
   const defaultTime = engagement?.trigger_time ?? '09:00';
 
-  const kindOptions = [
-    { value: 'fixed', label: t(locale, 'trig_fixed_date') },
-    { value: 'relative', label: t(locale, 'trig_relative') },
-    { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
-    ...(requiresApproval
-      ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
-      : []),
-    { value: 'on_completion', label: t(locale, 'trig_when_completes') },
-  ];
+  // A certificate goes out on a DATE. The lifecycle triggers are offered to
+  // messages because a message can greet one person the moment something
+  // happens to them; a certificate already does that — the completion flow
+  // issues one the moment somebody is marked complete, and has since
+  // certificates existed. Offering "when they complete" here would be a
+  // control that duplicates something automatic, and the person choosing it
+  // would reasonably expect it to be the thing that makes it happen.
+  const kindOptions =
+    family === 'certificate'
+      ? [
+          { value: 'fixed', label: t(locale, 'trig_fixed_date') },
+          { value: 'relative', label: t(locale, 'trig_relative') },
+        ]
+      : [
+          { value: 'fixed', label: t(locale, 'trig_fixed_date') },
+          { value: 'relative', label: t(locale, 'trig_relative') },
+          { value: 'on_enrolment', label: t(locale, 'trig_when_enrols') },
+          ...(requiresApproval
+            ? [{ value: 'on_approval', label: t(locale, 'trig_when_approved') }]
+            : []),
+          { value: 'on_completion', label: t(locale, 'trig_when_completes') },
+        ];
 
   return (
     <div className="space-y-4">
@@ -1024,4 +1135,106 @@ export function MessageContentFields({
         />
       );
   }
+}
+
+
+/** Who answered, and who has not. Three groups, because "no answer" is the
+ *  one an organiser acts on: forty declines and forty silences are different
+ *  facts and only one of them is worth a reminder. Loads lazily when the
+ *  dialog opens rather than with the timeline — most items are never
+ *  inspected. */
+function RsvpPanel({
+  locale,
+  threadId,
+  engagementId,
+}: {
+  locale: Locale;
+  threadId: string;
+  engagementId: string;
+}) {
+  const [state, setState] = useState<
+    | { status: 'loading' }
+    | { status: 'error'; error: string }
+    | {
+        status: 'ready';
+        counts: { coming: number; not_coming: number; no_answer: number };
+        items: {
+          person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+          enrolment_status: string | null;
+          response: 'coming' | 'not_coming' | null;
+          responded_at: string | null;
+        }[];
+      }
+  >({ status: 'loading' });
+
+  useEffect(() => {
+    let live = true;
+    getEngagementRsvps(threadId, engagementId).then((r) => {
+      if (!live) return;
+      setState(r.ok ? { status: 'ready', counts: r.counts, items: r.items } : { status: 'error', error: r.error });
+    });
+    return () => {
+      live = false;
+    };
+  }, [threadId, engagementId]);
+
+  const name = (p: { first_name: string | null; last_name: string | null; email: string | null }) =>
+    [p.first_name, p.last_name].filter(Boolean).join(' ') || p.email || '—';
+
+  return (
+    <div className="border-t border-line px-5 py-4 sm:px-6">
+      <div className="text-sm font-medium">{t(locale, 'rsvp_responses')}</div>
+
+      {state.status === 'loading' && (
+        <p className="mt-2 text-sm text-ink-muted">{t(locale, 'loading')}</p>
+      )}
+      {state.status === 'error' && <p className="mt-2 text-sm text-red-700">{state.error}</p>}
+
+      {state.status === 'ready' && (
+        <>
+          <div className="mt-2 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.coming}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_coming')}</span>
+            </span>
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.not_coming}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_not_coming')}</span>
+            </span>
+            <span>
+              <span className="font-medium tabular-nums">{state.counts.no_answer}</span>{' '}
+              <span className="text-ink-subtle">{t(locale, 'rsvp_no_answer')}</span>
+            </span>
+          </div>
+
+          {state.items.length === 0 ? (
+            <p className="mt-3 text-sm text-ink-muted">{t(locale, 'rsvp_nobody_enrolled')}</p>
+          ) : (
+            <ul className="mt-3 max-h-64 overflow-y-auto divide-y divide-line rounded-md border border-line">
+              {state.items.map((r) => (
+                <li key={r.person.id} className="flex items-baseline gap-3 px-3 py-2 text-sm">
+                  <span className="min-w-0 flex-1 truncate">{name(r.person)}</span>
+                  <span
+                    className={
+                      r.response === 'coming'
+                        ? 'shrink-0 text-emerald-700'
+                        : r.response === 'not_coming'
+                          ? 'shrink-0 text-ink-subtle'
+                          : 'shrink-0 text-ink-muted'
+                    }
+                  >
+                    {r.response === 'coming'
+                      ? t(locale, 'rsvp_coming')
+                      : r.response === 'not_coming'
+                        ? t(locale, 'rsvp_not_coming')
+                        : t(locale, 'rsvp_no_answer')}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
 }

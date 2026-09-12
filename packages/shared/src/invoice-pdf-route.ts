@@ -26,12 +26,17 @@ export function createInvoicePdfRoute({
   appId,
   getToken,
   baseUrl,
+  apiPath,
 }: {
   appId: AppId;
   /** Resolve the signed-in user's access token, or null when signed out. */
   getToken: () => Promise<string | null>;
   /** NEXT_PUBLIC_API_BASE_URL — defaults to local dev. */
   baseUrl?: string | undefined;
+  /** Which API endpoint builds the PDF. Defaults to the workspace-scoped
+   *  ledger route, which a MEMBER cannot reach — their own invoices live
+   *  behind the portal's email-scoped route instead. */
+  apiPath?: ((id: string) => string) | undefined;
 }) {
   return async function GET(
     _req: Request,
@@ -42,7 +47,10 @@ export function createInvoicePdfRoute({
     if (!token) return new Response('sign in first', { status: 401 });
 
     const base = baseUrl ?? 'http://localhost:8080';
-    const r = await fetch(`${base}/api/v1/purchases/${encodeURIComponent(id)}/pdf`, {
+    const path = apiPath
+      ? apiPath(encodeURIComponent(id))
+      : `/api/v1/purchases/${encodeURIComponent(id)}/pdf`;
+    const r = await fetch(`${base}${path}`, {
       headers: {
         Authorization: `Bearer ${token}`,
         'X-App-ID': appId,

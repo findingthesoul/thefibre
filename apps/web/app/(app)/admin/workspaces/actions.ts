@@ -41,6 +41,8 @@ export async function saveSubscription(
     plan_id?: string;
     comped?: boolean;
     comped_reason?: string | null;
+    /** When beta access ends. Enforced, unlike comped_until. */
+    beta_until?: string | null;
     custom_price_cents_month?: number | null;
     custom_price_cents_year?: number | null;
   },

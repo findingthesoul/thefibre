@@ -71,10 +71,21 @@ export const FEATURE_GROUPS: FeatureGroup[] = [
     rows: [{ key: 'pulse', label: 'Pulse', kind: 'flag' }],
   },
   {
+    // Ships unticked on every tier. Connections is in beta, and while
+    // app.beta_at is set with released_at still null the beta_apps feature
+    // is what actually lets a workspace activate it — this row is the switch
+    // for when it is released generally, so the tiers can be decided here
+    // rather than in a migration.
+    app: 'Connections',
+    rows: [{ key: 'connections', label: 'Connections', kind: 'flag' }],
+  },
+  {
     app: 'Platform',
     rows: [
       { key: 'email_branding', label: 'Your logo + sender name on email', kind: 'flag' },
       { key: 'custom_sender_domain', label: 'Your own sending domain', kind: 'flag' },
+      { key: 'team_access_groups', label: 'Teams decide app access', kind: 'flag' },
+      { key: 'beta_apps', label: 'Gets new apps early, to test', kind: 'flag' },
       { key: 'app_keys', label: 'API keys', kind: 'flag' },
       { key: 'third_party_apps', label: 'External apps', kind: 'flag' },
       { key: 'sso', label: 'SSO', kind: 'flag' },

@@ -53,6 +53,11 @@ export type ThreadRow = {
   certificate_enabled: boolean;
   certificate_criteria: string | null;
   certificate_template_id: string | null;
+  /** Set while the thread is locked — frozen as a design. Its settings,
+   *  timeline, tickets, coupons, categories and co-organisers stop being
+   *  editable and it can't be deleted; participants carry on enrolling. */
+  locked_at: string | null;
+  locked_by: string | null;
   created_at: string;
   updated_at: string;
   team_id: string | null;
@@ -107,9 +112,13 @@ export const MESSAGE_TYPES = [
   'document',
   'inspiration',
 ] as const;
+/** Its own family, not a ninth message — see the API's CERTIFICATE_TYPES. */
+export const CERTIFICATE_TYPES = ['certificate'] as const;
+
 export type EngagementType =
   | (typeof ACTIVITY_TYPES)[number]
-  | (typeof MESSAGE_TYPES)[number];
+  | (typeof MESSAGE_TYPES)[number]
+  | (typeof CERTIFICATE_TYPES)[number];
 
 export type TriggerKind =
   | 'fixed'
@@ -149,6 +158,10 @@ export type EngagementRow = {
   content: Record<string, unknown>;
   position: number;
   show_in_agenda: boolean;
+  /** Does this item ask participants whether they are coming? The ONLY
+   *  RSVP switch there is (Sjoerd 2026-09-09) — anything but an explicit
+   *  true is off, so a new item does not ask. */
+  rsvp_enabled: boolean | null;
   /** Set on the seeded transactional messages (enrolment_received /
    *  enrolment_confirmed). System messages stay deletable on every plan —
    *  they fall back to the compiled emails. */

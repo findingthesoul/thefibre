@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/ui/page';
 import { Button } from '@/components/ui/button';
 import { Dialog } from '@/components/ui/dialog';
+import { DateField } from '@/components/ui/date-field';
 import { eur } from '@/lib/plans';
 import { saveSubscription } from './actions';
 
@@ -20,6 +21,7 @@ export type Subscription = {
   status: string;
   comped_reason: string | null;
   comped_until: string | null;
+  beta_until: string | null;
   custom_price_cents_month: number | null;
   custom_price_cents_year: number | null;
   list_price_cents_month: number;
@@ -135,6 +137,8 @@ function SubscriptionDialog({
   const [planId, setPlanId] = useState(sub?.plan_id ?? 'free');
   const [comped, setComped] = useState(sub?.status === 'comped');
   const [reason, setReason] = useState(sub?.comped_reason ?? '');
+  // Date only — nobody schedules the end of a beta to the minute.
+  const [betaUntil, setBetaUntil] = useState((sub?.beta_until ?? '').slice(0, 10));
   const [customMonth, setCustomMonth] = useState(
     sub?.custom_price_cents_month === null || sub?.custom_price_cents_month === undefined
       ? ''
@@ -170,6 +174,9 @@ function SubscriptionDialog({
         plan_id: planId,
         comped,
         comped_reason: comped ? (reason.trim() || null) : null,
+        // Only sent for a plan that actually has beta access, so moving a
+        // workspace off Beta clears the date rather than leaving a stale one.
+        beta_until: planId === 'beta' && betaUntil ? `${betaUntil}T23:59:59.000Z` : null,
         custom_price_cents_month: month,
         custom_price_cents_year: year,
       });
@@ -238,6 +245,18 @@ function SubscriptionDialog({
               placeholder="e.g. social enterprise — founding cohort"
             />
           </label>
+        )}
+
+        {planId === 'beta' && (
+          /* The shared DateField, not a native date input — the house rule,
+             and it is the only date control on this page. */
+          <DateField
+            label="Testing until"
+            name="beta_until"
+            defaultValue={betaUntil || null}
+            onValueChange={setBetaUntil}
+            hint="After this date they stop getting NEW apps early. Nothing they already switched on is taken away. Leave empty for no end date."
+          />
         )}
 
         {!comped && (

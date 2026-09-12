@@ -22,8 +22,11 @@ export type PlanFeature =
   | 'certificates'
   | 'flow'
   | 'pulse'
+  | 'connections'
   | 'email_branding'
   | 'custom_sender_domain'
+  | 'team_access_groups'
+  | 'beta_apps'
   | 'app_keys'
   | 'third_party_apps'
   | 'sso'
@@ -105,7 +108,7 @@ export function forgetAllPlans(): void {
  * (priced 0 because it is a conversation) before Free; this is the honest
  * ladder. Unknown ids sort after, by price.
  */
-const PLAN_ORDER = ['free', 'starter', 'pro', 'org'];
+const PLAN_ORDER = ['free', 'starter', 'pro', 'org', 'beta'];
 export function sortPlans<T extends { id: string; price_cents_month?: number | null }>(
   rows: T[],
 ): T[] {
@@ -117,6 +120,30 @@ export function sortPlans<T extends { id: string; price_cents_month?: number | n
   });
 }
 
+/**
+ * "for a while" (Sjoerd, 2026-09-12) — beta access is bounded, and the bound
+ * is enforced rather than trusted to somebody remembering.
+ *
+ * Only `beta_apps` lapses. The rest of the plan stands, and nothing already
+ * switched on is taken away: a tester keeps the apps they turned on, they just
+ * stop being first in the queue. Taking a live app out of a company's hands
+ * because a date passed would be a worse failure than the one this prevents.
+ *
+ * Note that `comped_until`, the same shape on the same row, is NOT enforced
+ * anywhere — a comp with an end date does not end. Do not read this function
+ * as evidence that it does.
+ */
+export function applyBetaExpiry(
+  features: Record<string, unknown>,
+  betaUntil: string | null | undefined,
+  now: number = Date.now(),
+): Record<string, unknown> {
+  if (features.beta_apps !== true || !betaUntil) return features;
+  const until = Date.parse(betaUntil);
+  if (!Number.isFinite(until) || until >= now) return features;
+  return { ...features, beta_apps: false };
+}
+
 export async function planFor(workspaceId: string): Promise<Plan> {
   if (!workspaceId) return UNKNOWN;
   const hit = cache.get(workspaceId);
@@ -125,7 +152,7 @@ export async function planFor(workspaceId: string): Promise<Plan> {
   const { data, error } = await adminClient
     .from('workspace_subscription')
     .select(
-      `status, custom_price_cents_month, custom_price_cents_year, plan:plan_id (
+      `status, custom_price_cents_month, custom_price_cents_year, beta_until, plan:plan_id (
          id, name, price_cents_month, price_cents_year, included_seats,
          extra_seat_cents_month, included_emails_month, included_storage_gb,
          email_overage_cents_per_1000, storage_overage_cents_per_gb,
@@ -153,7 +180,7 @@ export async function planFor(workspaceId: string): Promise<Plan> {
     retention_months: number | null;
     features: Record<string, unknown> | null;
   };
-  const features = row.features ?? {};
+  const features = applyBetaExpiry(row.features ?? {}, data.beta_until as string | null);
   const plan: Plan = {
     id: row.id,
     name: row.name,

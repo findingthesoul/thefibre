@@ -1,0 +1,359 @@
+'use client';
+
+// NEXT, as one list ordered by date.
+//
+// Sjoerd: "a list, organised per date… a timeline… and then a selector per
+// organiser." Before this, the page's skeleton was the ORGANISER and the
+// dates were scattered inside it, which answers "what does soul.com hold for
+// me" — a question nobody asks. Time is the spine now, and the organiser
+// became a filter, which is where it belongs.
+
+import { Fragment, useMemo, useState } from 'react';
+import { QrCode, Video } from 'lucide-react';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
+import { quarterLabel, unanswered, type Entry } from '@/lib/timeline';
+import type { Portal, Ticket as TicketRow, ThreadItem } from '@/lib/portal-api';
+import { Rsvp, ThreadSheet } from './detail';
+
+/** Day over month — how an agenda is scanned, and the same chip the detail
+ *  sheet uses, so a card and its contents read alike. */
+function DateChip({ iso, muted }: { iso: string; muted?: boolean }) {
+  const d = new Date(iso);
+  return (
+    <div
+      aria-hidden
+      // Full card height, Sjoerd 2026-09-11. A fixed 48px square left the
+      // date floating beside a two-line body; stretching it makes the three
+      // columns read as one row rather than a square, some text and a button.
+      className={`flex w-12 shrink-0 flex-col items-center justify-center self-stretch rounded-lg border border-line leading-none ${
+        muted ? 'bg-surface' : 'bg-surface-sunken'
+      }`}
+    >
+      <span className="text-base font-medium text-ink">
+        {new Intl.DateTimeFormat('en-GB', { day: 'numeric' }).format(d)}
+      </span>
+      <span className="mt-0.5 text-[10px] uppercase tracking-wide text-ink-muted">
+        {new Intl.DateTimeFormat('en-GB', { month: 'short' }).format(d)}
+      </span>
+    </div>
+  );
+}
+
+function Card({
+  entry,
+  onOpen,
+  past,
+}: {
+  entry: Entry;
+  onOpen: (threadId: string, engagementId: string | null) => void;
+  past?: boolean;
+}) {
+  // The RSVP control needs the agenda item it answers for. The timeline
+  // carries the three fields it uses rather than the whole item, so the card
+  // does not have to hold a second copy of the payload.
+  const rsvpItem = entry.engagementId
+    ? {
+        id: entry.engagementId,
+        rsvp: entry.rsvp,
+        rsvp_enabled: entry.rsvpEnabled,
+        title: entry.title,
+        description: null,
+        type: '',
+        starts_at: entry.dateIso,
+        ends_at: null,
+        location: entry.where,
+        location_url: entry.whereUrl,
+        meeting_url: null,
+        external_url: null,
+      }
+    : null;
+
+  const meta = [entry.time, entry.organiser, entry.where].filter(Boolean).join(' · ');
+
+  return (
+    <li className={`rounded-xl border border-line bg-surface p-3 ${past ? 'opacity-70' : ''}`}>
+      {/* Sjoerd's layout, 2026-09-11:
+          | date | title / time · organiser · QR | RSVP |
+          Date and RSVP both run the full height of the card, so the row is
+          three columns rather than a body with things tucked beside it.
+          `items-stretch` is what makes the outer columns tall; everything
+          inside the middle column stays vertically centred against them. */}
+      <div className="flex items-stretch gap-3">
+        <DateChip iso={entry.dateIso} muted={past} />
+
+        <div className="flex min-w-0 flex-1 flex-col justify-center">
+          {/* The card body is the trigger, not the whole <li> — the RSVP
+              button lives in the row, and a button inside a button is not a
+              thing a browser will render. */}
+          {entry.threadId ? (
+            <button
+              type="button"
+              onClick={() => onOpen(entry.threadId!, entry.engagementId)}
+              className="min-w-0 text-left"
+            >
+              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <MetaLine entry={entry} />
+            </button>
+          ) : (
+            <div className="min-w-0">
+              <span className="block truncate font-medium text-ink">{entry.title}</span>
+              <MetaLine entry={entry} />
+            </div>
+          )}
+        </div>
+
+        {/* The one action that matters right now. Outside the window there is
+            deliberately nothing: a Join button three months early is clutter
+            pretending to be an action. */}
+        {entry.joinUrl && (
+          <a
+            href={entry.joinUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex shrink-0 items-center gap-1.5 self-stretch rounded-lg bg-ink px-3 text-sm font-medium text-surface hover:opacity-90"
+          >
+            <Video className="h-4 w-4" aria-hidden />
+            Join
+          </a>
+        )}
+
+        {rsvpItem?.rsvp_enabled && !past && <Rsvp item={rsvpItem} stretch />}
+      </div>
+    </li>
+  );
+}
+
+/** Second bar: time, organiser, where — and the ticket mark, which belongs
+ *  with the small facts rather than out at the edge competing with the one
+ *  control that does something. */
+function MetaLine({ entry }: { entry: Entry }) {
+  const meta = [entry.time, entry.organiser, entry.where].filter(Boolean).join(' \u00b7 ');
+  return (
+    <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-sm text-ink-muted">
+      <span className="truncate">{meta}</span>
+      {entry.hasTicket && (
+        // Named on the wrapper, not the glyph: an aria-hidden SVG with a
+        // <title> inside it is announced by nothing.
+        <span title="You have a ticket" aria-label="You have a ticket" className="shrink-0">
+          <QrCode className="h-3.5 w-3.5" aria-hidden />
+        </span>
+      )}
+    </span>
+  );
+}
+
+export function Timeline({
+  entries,
+  past,
+  threads,
+  wallet,
+}: {
+  entries: Entry[];
+  past: Entry[];
+  /** Every thread that a card can open, by id, with the ticket that belongs
+   *  to it. One sheet is rendered at a time — the one that was tapped. */
+  threads: Record<string, { thread: ThreadItem; ticket: TicketRow | null }>;
+  wallet: Portal['wallet'];
+}) {
+  const [organiser, setOrganiser] = useState<string | null>(null);
+  const [threadId, setThreadId] = useState('');
+  const [onlyUnanswered, setOnlyUnanswered] = useState(false);
+  const [showPast, setShowPast] = useState(false);
+  const [openThread, setOpenThread] = useState<string | null>(null);
+
+  const all = useMemo(() => [...entries, ...past], [entries, past]);
+  const organisers = useMemo(
+    () => [...new Set(all.map((e) => e.organiser))].sort(),
+    [all],
+  );
+
+  // The two filters are HIERARCHICAL, not independent (Sjoerd, 2026-09-10:
+  // "a dropdown above the timeline, with the threads you are part of"). The
+  // thread list is always drawn from what the organiser filter already
+  // allows, so the pair can never contradict each other — no "soul.com plus
+  // somebody else's thread" state to define, and changing the organiser
+  // resets the thread rather than leaving a dead selection behind.
+  const inOrganiser = (e: Entry) => organiser === null || e.organiser === organiser;
+  const threadOptions = useMemo(() => {
+    const ids = [...new Set(all.filter(inOrganiser).map((e) => e.threadId).filter(Boolean))];
+    return ids
+      .map((id) => ({ value: id as string, label: threads[id as string]?.thread.title ?? '' }))
+      .filter((o) => o.label)
+      .sort((a, b) => a.label.localeCompare(b.label));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [all, organiser, threads]);
+
+  const chosenThread = threadOptions.some((o) => o.value === threadId) ? threadId : '';
+
+  // A meet has no thread, so choosing one hides meets. That is what the words
+  // mean — "show me this thread" is not "show me this thread and also my
+  // coaching call" — and "All threads" is one tap away.
+  const keep = (e: Entry) => inOrganiser(e) && (!chosenThread || e.threadId === chosenThread);
+  const inScope = entries.filter(keep);
+  // Counted within the CURRENT scope, so the number and the list it filters
+  // to are never describing different things.
+  const owed = unanswered(inScope);
+  const upcoming = onlyUnanswered ? owed : inScope;
+  // Past RSVPs are moot — the question is not still open, whatever the
+  // answer was — so "Earlier" never narrows to unanswered.
+  const earlier = past.filter(keep);
+
+  const showQuarters = new Set(upcoming.map((e) => quarterLabel(e.at))).size > 1;
+
+  const open = openThread ? threads[openThread] : null;
+
+  return (
+    <>
+      {/* The filter appears only when there is something to filter. With one
+          organiser it is a control with a single meaningful setting, which is
+          furniture. */}
+      {organisers.length > 1 && (
+        <div className="mt-6 flex flex-wrap gap-2">
+          <Chip
+            active={organiser === null}
+            onClick={() => {
+              setOrganiser(null);
+              setThreadId('');
+            }}
+          >
+            Everyone
+          </Chip>
+          {organisers.map((o) => (
+            <Chip
+              key={o}
+              active={organiser === o}
+              onClick={() => {
+                setOrganiser(o);
+                setThreadId('');
+              }}
+            >
+              {o}
+            </Chip>
+          ))}
+        </div>
+      )}
+
+      {/* Only when it does something. One thread means a control with a
+          single meaningful setting, which is furniture. */}
+      {threadOptions.length > 1 && (
+        <div className="mt-3 max-w-sm">
+          <SearchSelect
+            value={chosenThread}
+            onChange={setThreadId}
+            options={threadOptions}
+            placeholder="All threads"
+            clearLabel="All threads"
+          />
+        </div>
+      )}
+
+      {/* A to-do, not a view. It appears only when something is actually
+          owed, says the number rather than making him find it, and filters
+          when tapped. A filter you have to think to use does not get used. */}
+      {owed.length > 0 && (
+        <button
+          type="button"
+          onClick={() => setOnlyUnanswered((v) => !v)}
+          aria-pressed={onlyUnanswered}
+          className={`mt-4 inline-flex min-h-11 items-center gap-2 rounded-lg border px-4 text-sm ${
+            onlyUnanswered
+              ? 'border-ink bg-ink text-surface'
+              : 'border-line bg-surface text-ink hover:border-line-strong'
+          }`}
+        >
+          {owed.length === 1
+            ? '1 still needs an answer'
+            : `${owed.length} still need an answer`}
+          {onlyUnanswered && <span className="text-xs opacity-80">· show all</span>}
+        </button>
+      )}
+
+      {upcoming.length === 0 ? (
+        <p className="mt-8 text-sm text-ink-muted">
+          {chosenThread
+            ? `Nothing coming up in ${threadOptions.find((o) => o.value === chosenThread)?.label ?? 'this thread'}.`
+            : organiser
+              ? `Nothing coming up with ${organiser}.`
+              : 'Nothing coming up.'}
+        </p>
+      ) : (
+        <ul className="mt-6 space-y-3">
+          {upcoming.map((e, i) => {
+            const q = quarterLabel(e.at);
+            // Only where the list actually crosses a boundary. A single
+            // header over everything labels nothing.
+            const newQuarter = showQuarters && (i === 0 || quarterLabel(upcoming[i - 1]!.at) !== q);
+            return (
+              // A Fragment, not a wrapper: `Card` IS the <li>, and an <li>
+              // inside an <li> is not markup a browser will keep.
+              <Fragment key={e.key}>
+                {newQuarter && (
+                  <li role="presentation" className="pt-3 first:pt-0">
+                    <h2 className="text-xs font-medium uppercase tracking-wide text-ink-muted">
+                      {q}
+                    </h2>
+                  </li>
+                )}
+                <Card entry={e} onOpen={(id) => setOpenThread(id)} />
+              </Fragment>
+            );
+          })}
+        </ul>
+      )}
+
+      {earlier.length > 0 && (
+        <div className="mt-8">
+          <button
+            type="button"
+            onClick={() => setShowPast((v) => !v)}
+            className="inline-flex min-h-11 items-center text-sm text-ink-subtle underline underline-offset-4 hover:text-ink"
+          >
+            {showPast ? 'Hide earlier' : `Earlier (${earlier.length})`}
+          </button>
+          {showPast && (
+            <ul className="mt-3 space-y-3">
+              {earlier.map((e) => (
+                <Card key={e.key} entry={e} onOpen={(id) => setOpenThread(id)} past />
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {open && (
+        <ThreadSheet
+          thread={open.thread}
+          ticket={open.ticket}
+          wallet={wallet}
+          open
+          onClose={() => setOpenThread(null)}
+        />
+      )}
+    </>
+  );
+}
+
+function Chip({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={`inline-flex min-h-11 items-center rounded-full border px-4 text-sm ${
+        active
+          ? 'border-ink bg-ink text-surface'
+          : 'border-line bg-surface text-ink-subtle hover:text-ink'
+      }`}
+    >
+      {children}
+    </button>
+  );
+}

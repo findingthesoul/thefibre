@@ -168,7 +168,7 @@ privacyRoutes.get('/export', async (c) => {
           db
             .from('person')
             .select(
-              'id, workspace_id, first_name, last_name, preferred_name, pronouns, email, email_secondary, phone, phone_secondary, linkedin_url, website_url, street, postal_code, city, region, country, preferred_language, languages_spoken, custom_fields, created_at, deleted_at',
+              'id, workspace_id, first_name, last_name, preferred_name, pronouns, email, email_secondary, phone, phone_secondary, linkedin_url, website_url, street, postal_code, city, region, country, preferred_language, languages_spoken, custom_fields, created_via, created_at, deleted_at',
             )
             .eq('id', personId)
             .maybeSingle(),

@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.68.21",
+  "version": "0.73.5",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -17,6 +17,10 @@
     "./ui/help": {
       "types": "./dist/ui/help.d.ts",
       "default": "./dist/ui/help.js"
+    },
+    "./ui/info-hint": {
+      "types": "./dist/ui/info-hint.d.ts",
+      "default": "./dist/ui/info-hint.js"
     },
     "./ui/photo-field": {
       "types": "./dist/ui/photo-field.d.ts",
@@ -45,6 +49,10 @@
     "./ui/list": {
       "types": "./dist/ui/list.d.ts",
       "default": "./dist/ui/list.js"
+    },
+    "./ui/rich-text": {
+      "types": "./dist/ui/rich-text.d.ts",
+      "default": "./dist/ui/rich-text.js"
     },
     "./ui/theme-script": {
       "types": "./dist/ui/theme-script.d.ts",
@@ -97,6 +105,10 @@
     "./countries": {
       "types": "./dist/countries.d.ts",
       "default": "./dist/countries.js"
+    },
+    "./languages": {
+      "types": "./dist/languages.d.ts",
+      "default": "./dist/languages.js"
     },
     "./i18n": {
       "types": "./dist/i18n.d.ts",
@@ -173,6 +185,22 @@
     "./ui/legal-docs": {
       "types": "./dist/ui/legal-docs.d.ts",
       "default": "./dist/ui/legal-docs.js"
+    },
+    "./invoice-model": {
+      "types": "./dist/invoice-model.d.ts",
+      "default": "./dist/invoice-model.js"
+    },
+    "./ical": {
+      "types": "./dist/ical.d.ts",
+      "default": "./dist/ical.js"
+    },
+    "./robots": {
+      "types": "./dist/robots.d.ts",
+      "default": "./dist/robots.js"
+    },
+    "./ui/sign-out": {
+      "types": "./dist/ui/sign-out.d.ts",
+      "default": "./dist/ui/sign-out.js"
     }
   },
   "files": [

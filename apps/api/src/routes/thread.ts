@@ -4,13 +4,19 @@ import { handleUpload } from '../lib/uploads.js';
 import { can, planFor, needsPlan } from '../lib/plan.js';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { publicSite, siteContactEmail } from '../lib/public-site.js';
+import { hit } from '../lib/rate-limit.js';
+import { rootSlugHolder, slugTakenBy } from '../lib/root-slug.js';
+import { actorUserId } from '../middleware/app-context.js';
 import { pgErrorBody, pgErrorStatus } from '../lib/pg-error.js';
+import { sanitizeRichText } from '../lib/rich-text.js';
 import { appleWalletConfig, appleWalletPass, googleWalletConfig, googleWalletSaveUrl } from '../lib/checkin.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { RESERVED_SLUGS, SLUG_PATTERN } from '../lib/reserved-slugs.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
+import { resolvePerson } from '../lib/resolve-person.js';
 // Circular with routes/purchases.ts (it imports finalizePaidEnrolment from
 // here) — safe: both are hoisted function declarations, called only at
 // request time.
@@ -135,17 +141,54 @@ const THREAD_RESERVED = new Set<string>([
   'agenda',
   'enrol',
   'register',
+  // The workspace site's own pages (2026-09-11). '/{owner}/contact' is a
+  // real route now, and a thread slugged 'contact' would be shadowed by it
+  // — Next resolves the static segment first. Nothing in production held
+  // either slug when this was added (checked).
+  'contact',
+  'about',
 ]);
 
 /** D3 (docs/brief-workspace-urls.md): workspace slugs own the first URL
  *  segment — an organiser or team may not take one. */
-async function takenByWorkspace(slug: string): Promise<boolean> {
-  const { data } = await adminClient
-    .from('workspace')
-    .select('id')
-    .eq('slug', slug.trim().toLowerCase())
-    .maybeSingle();
-  return !!data;
+/** Give a user a thread_organiser row. The slug carries a short random
+ *  suffix; since 2026-09-09 the public root namespace is unique platform-
+ *  wide, so an unlucky suffix is now a real (if rare) failure rather than a
+ *  silent duplicate — retry it instead of 500ing someone's sign-in. */
+async function provisionOrganiser(
+  userId: string,
+  workspaceId: string,
+): Promise<{ id: string } | null> {
+  const { data: u } = await adminClient
+    .from('user')
+    .select('email, full_name')
+    .eq('id', userId)
+    .single();
+  const seed =
+    (u?.full_name ?? u?.email ?? 'organiser')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 30) || 'organiser';
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const { data, error } = await adminClient
+      .from('thread_organiser')
+      .insert({
+        user_id: userId,
+        workspace_id: workspaceId,
+        slug: `${seed}-${Math.random().toString(36).slice(2, 5 + attempt)}`,
+        display_name: u?.full_name ?? null,
+      })
+      .select('*')
+      .single();
+    if (data) return data;
+    if (error?.code !== '23505') {
+      console.error('[thread] organiser provision failed', error);
+      return null;
+    }
+  }
+  console.error('[thread] organiser provision gave up after five slug attempts', { userId });
+  return null;
 }
 
 function isReserved(slug: string): boolean {
@@ -165,10 +208,21 @@ const slugField = z
 // creation (thethread-v3 rule; see docs/thread-rebuild-plan.md).
 const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'] as const;
 export const MESSAGE_TYPES = ['reflection', 'practice', 'message', 'document', 'inspiration'] as const;
-export const ENGAGEMENT_TYPES = [...ACTIVITY_TYPES, ...MESSAGE_TYPES] as const;
+/** Certificates are their own family, not a ninth message (2026-09-09). The
+ *  several `.in('type', MESSAGE_TYPES)` filters mean "things emailed as a
+ *  body"; a certificate is a scheduled send that carries a document instead,
+ *  and a ninth member would have been swept into all of them silently. */
+export const CERTIFICATE_TYPES = ['certificate'] as const;
+export const ENGAGEMENT_TYPES = [
+  ...ACTIVITY_TYPES,
+  ...MESSAGE_TYPES,
+  ...CERTIFICATE_TYPES,
+] as const;
 
-export function engagementFamily(type: string): 'activity' | 'message' {
-  return (ACTIVITY_TYPES as readonly string[]).includes(type) ? 'activity' : 'message';
+export function engagementFamily(type: string): 'activity' | 'message' | 'certificate' {
+  if ((ACTIVITY_TYPES as readonly string[]).includes(type)) return 'activity';
+  if ((CERTIFICATE_TYPES as readonly string[]).includes(type)) return 'certificate';
+  return 'message';
 }
 
 // ---------------------------------------------------------------------------
@@ -187,32 +241,8 @@ threadRoutes.get('/me', async (c) => {
   if (!organiser) {
     // First visit — provision an organiser row with a sensible default slug.
     // Admin client for the same PostgREST order-of-checks reason as meet/me.
-    const { data: u } = await adminClient
-      .from('user')
-      .select('email, full_name')
-      .eq('id', ctx.userId)
-      .single();
-    const seed =
-      (u?.full_name ?? u?.email ?? 'organiser')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 30) || 'organiser';
-    const slug = `${seed}-${Math.random().toString(36).slice(2, 5)}`;
-    const { data: created, error: cErr } = await adminClient
-      .from('thread_organiser')
-      .insert({
-        user_id: ctx.userId,
-        workspace_id: ctx.workspaceId,
-        slug,
-        display_name: u?.full_name ?? null,
-      })
-      .select('*')
-      .single();
-    if (cErr || !created) {
-      console.error('[thread/me] auto-provision failed', cErr);
-      return c.json({ error: 'failed to provision organiser' }, 500);
-    }
+    const created = await provisionOrganiser(ctx.userId, ctx.workspaceId);
+    if (!created) return c.json({ error: 'failed to provision organiser' }, 500);
     organiser = created;
   }
 
@@ -258,6 +288,22 @@ const OrganiserUpdate = z.object({
     })
     .nullable()
     .optional(),
+  // The public site (2026-09-11). The theme is a closed set because each
+  // value names a renderer that has to exist; everything else is content.
+  site_theme: z.enum(['plain', 'festival', 'corporate', 'community']).optional(),
+  site_name: z.string().max(120).nullable().optional(),
+  site_logo_url: z.string().url().max(500).nullable().optional(),
+  site_hero_url: z.string().url().max(500).nullable().optional(),
+  site_headline: z.string().max(200).nullable().optional(),
+  site_intro: z.string().max(8000).nullable().optional(),
+  site_footer_note: z.string().max(1000).nullable().optional(),
+  site_links: z
+    .array(z.object({ label: z.string().max(60), href: z.string().max(500) }))
+    .max(8)
+    .optional(),
+  site_contact_enabled: z.boolean().optional(),
+  site_contact_email: z.string().email().max(200).nullable().optional(),
+  site_contact_intro: z.string().max(1000).nullable().optional(),
 });
 
 threadRoutes.patch('/me', async (c) => {
@@ -266,8 +312,16 @@ threadRoutes.patch('/me', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
 
-  if (body.data.slug && (await takenByWorkspace(body.data.slug))) {
-    return c.json({ error: `slug '${body.data.slug}' is taken` }, 409);
+  if (body.data.slug) {
+    // Your own row must not read as a conflict with itself.
+    const { data: mine } = await adminClient
+      .from('thread_organiser')
+      .select('id')
+      .eq('user_id', ctx.userId)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    const holder = await rootSlugHolder(body.data.slug, { organiserId: mine?.id });
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
   }
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
@@ -322,6 +376,7 @@ const SettingsUpdate = z.object({
   // (stripe_account_id intentionally NOT accepted — the payments SPoT
   // writes workspace-level config via /api/v1/workspace-billing.)
   default_vendor_cut_percent: z.number().min(0).max(100).optional(),
+  // Does this workspace ask participants to RSVP? Threads inherit it unless
   email_from_mode: z.enum(['workspace', 'team', 'personal', 'custom']).optional(),
   email_from_name: z.string().max(200).nullable().optional(),
   email_footer_note: z.string().max(1000).nullable().optional(),
@@ -343,6 +398,9 @@ threadRoutes.patch('/settings', async (c) => {
   const db = userClient(ctx.jwt);
 
   const patch: Record<string, unknown> = { ...body.data, updated_at: new Date().toISOString() };
+  // The site intro renders with dangerouslySetInnerHTML on a public page —
+  // same path, same sanitiser, as a thread's intention.
+  if ('site_intro' in patch) patch.site_intro = sanitizeRichText(patch.site_intro as string | null);
 
   const { data, error } = await db
     .from('thread_settings')
@@ -367,6 +425,7 @@ const THREAD_SELECT = `
   price_cents, price_currency, payment_destination, payment_methods, language, facilitation_language, public_scope, public_interaction, share_participants_public, share_participants_participants, public_agenda, capacity, registration_fields,
   certificate_enabled, certificate_criteria, certificate_template_id,
   enrolment_note,
+  locked_at, locked_by,
   created_at, updated_at,
   categories:thread_thread_category (category:category_id (id, name, slug)),
   program:program_id (id, title, format, status, starts_on, ends_on),
@@ -374,6 +433,52 @@ const THREAD_SELECT = `
   team:team_id (id, name, slug),
   organisation:organisation_id (id, name)
 `;
+
+// ── The lock ────────────────────────────────────────────────────────────
+//
+// A locked thread is frozen AS A DESIGN (Sjoerd, 2026-09-09): its settings,
+// timeline, tickets, coupons, categories and co-organisers can't change, and
+// it can't be deleted. What PARTICIPANTS do keeps flowing — enrolment,
+// payment, check-in, certificates and the scheduler never consult the lock,
+// because a lock that took a live event off the air would be a worse bug
+// than the accident it prevents. Status stays editable too: marking a
+// finished thread completed or archived is lifecycle, not design.
+//
+// The lock is a guard against an accident, not a permission level — whoever
+// may edit the thread may unlock it. The UI is the polite half of this; these
+// checks are the half that actually holds, since the same routes are reachable
+// from anywhere holding the JWT.
+const LOCKED = {
+  error: 'this thread is locked. Unlock it in Settings to make changes.',
+  code: 'thread_locked',
+} as const;
+
+/** True when the thread carries a lock. Read with the admin client on
+ *  purpose: the handler's own query still runs under the caller's RLS, so
+ *  this only ever adds a refusal, never grants a read. */
+async function threadLocked(threadId: string | null | undefined): Promise<boolean> {
+  if (!threadId) return false;
+  const { data } = await adminClient
+    .from('thread_thread')
+    .select('locked_at')
+    .eq('id', threadId)
+    .maybeSingle();
+  return !!data?.locked_at;
+}
+
+/** Same question asked of a child row — an engagement, ticket or coupon —
+ *  which carries the thread it belongs to. */
+async function ownerThreadLocked(
+  table: 'thread_engagement' | 'thread_ticket' | 'thread_coupon',
+  childId: string,
+): Promise<boolean> {
+  const { data } = await adminClient
+    .from(table)
+    .select('thread_id')
+    .eq('id', childId)
+    .maybeSingle();
+  return threadLocked(data?.thread_id as string | undefined);
+}
 
 // GET /api/v1/thread/threads — all threads in the workspace
 threadRoutes.get('/threads', async (c) => {
@@ -457,7 +562,7 @@ threadRoutes.post('/threads', async (c) => {
       program_id: program.id,
       organiser_id: organiser.id,
       slug: body.data.slug,
-      intention: body.data.intention ?? null,
+      intention: sanitizeRichText(body.data.intention),
       timezone: body.data.timezone ?? 'Europe/Amsterdam',
       team_id: body.data.team_id ?? null,
       public_scope: body.data.public_scope ?? null,
@@ -497,7 +602,14 @@ threadRoutes.post('/threads', async (c) => {
     // Two passes: rows first, anchors second. A relative message may hang on
     // an element that comes AFTER it in the blueprint (the circle's
     // reminder), so ids only resolve once everything is in.
-    const rows = seedRowsFor(tpl, { workspace_id: ctx.workspaceId, thread_id: thread.id });
+    const rows = seedRowsFor(
+      tpl,
+      { workspace_id: ctx.workspaceId, thread_id: thread.id },
+      // The date the organiser just typed, so the first activity is placed
+      // instead of arriving date-less next to a message that says it will
+      // never send.
+      { startsOn: body.data.starts_on ?? null, timezone: thread.timezone },
+    );
     const keyToId = new Map<string, string>();
     for (const row of rows) {
       const { data: made, error: eErr } = await adminClient
@@ -648,6 +760,10 @@ threadRoutes.patch('/threads/:id', async (c) => {
     .single();
   if (eErr || !existing) return c.json({ error: 'not found' }, 404);
 
+  // A locked thread only accepts a status change — see the lock notes above.
+  const touchesDesign = Object.keys(body.data).some((k) => k !== 'status');
+  if (touchesDesign && (await threadLocked(id))) return c.json(LOCKED, 423);
+
   // How many events may be live at once. Free is one — a community group
   // running one gathering a year should be able to stay there forever, and a
   // second one at the same time is the moment this became an operation.
@@ -735,6 +851,12 @@ threadRoutes.patch('/threads/:id', async (c) => {
     }
   }
 
+  // Rich text is sanitised on the way IN — the way out is four surfaces and
+  // only one of them has to forget (lib/rich-text.ts).
+  if ('intention' in threadPatch) {
+    threadPatch.intention = sanitizeRichText(threadPatch.intention as string | null);
+  }
+
   if (Object.keys(threadPatch).length > 0) {
     const { error: tErr } = await db
       .from('thread_thread')
@@ -795,11 +917,50 @@ threadRoutes.delete('/threads/:id', async (c) => {
     .eq('id', c.req.param('id'))
     .maybeSingle();
   if (!existing) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(existing.id)) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_thread').delete().eq('id', existing.id);
   if (error) return c.json({ error: error.message }, 500);
   // Program second: deleting it cascades platform enrolments.
   await adminClient.from('program').delete().eq('id', existing.program_id);
   return c.body(null, 204);
+});
+
+// PATCH /api/v1/thread/threads/:id/lock — set or clear the lock. Its own
+// route rather than a field on the thread PATCH, because that PATCH is the
+// thing the lock refuses: a flag that had to travel through the guard it
+// controls is a puzzle nobody should have to solve twice.
+threadRoutes.patch('/threads/:id/lock', async (c) => {
+  const body = z
+    .object({ locked: z.boolean() })
+    .safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const id = c.req.param('id');
+
+  // The read goes through RLS — someone who can't see the thread can't lock
+  // it, and an app key (which carries no user) has no business here.
+  const { data: existing } = await db
+    .from('thread_thread')
+    .select('id')
+    .eq('id', id)
+    .maybeSingle();
+  if (!existing) return c.json({ error: 'not found' }, 404);
+
+  const patch = body.data.locked
+    ? { locked_at: new Date().toISOString(), locked_by: actorUserId(ctx) }
+    : { locked_at: null, locked_by: null };
+  const { error } = await db.from('thread_thread').update(patch).eq('id', id);
+  if (error) {
+    console.error('[thread/threads] lock failed', { id, patch, error });
+    return c.json(pgErrorBody(error), pgErrorStatus(error));
+  }
+  const { data: updated } = await db
+    .from('thread_thread')
+    .select(THREAD_SELECT)
+    .eq('id', id)
+    .single();
+  return c.json(updated);
 });
 
 // POST /api/v1/thread/threads/:id/duplicate — clone as a draft (title
@@ -865,6 +1026,8 @@ threadRoutes.post('/threads/:id/duplicate', async (c) => {
       certificate_enabled: src.certificate_enabled,
       certificate_criteria: src.certificate_criteria,
       certificate_template_id: src.certificate_template_id,
+      // locked_at/locked_by are the deliberate exception to the note above:
+      // a copy is a fresh draft you are about to work on, so it starts open.
       created_by: ctx.userId,
     })
     .select('id')
@@ -1051,6 +1214,10 @@ export const EngagementCreate = z.object({
     .optional(),
   content: z.record(z.unknown()).optional(),
   show_in_agenda: z.boolean().optional(),
+  // Per-item RSVP override. NULL inherits the thread, which inherits the
+  // workspace default — never a boolean default, so an item follows its
+  // thread as the thread changes.
+  rsvp_enabled: z.boolean().nullable().optional(),
 });
 
 // Activities must fall inside the thread's date window (Sjoerd 2026-07-02).
@@ -1111,6 +1278,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
   }
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   const windowErr = await activityWindowError(
     threadId,
@@ -1139,7 +1307,7 @@ threadRoutes.post('/threads/:id/engagements', async (c) => {
       title: body.data.title,
       type: body.data.type,
       status: body.data.status ?? 'draft',
-      description: body.data.description ?? null,
+      description: sanitizeRichText(body.data.description),
       starts_at: body.data.starts_at ?? null,
       ends_at: body.data.ends_at ?? null,
       daily_schedule: body.data.daily_schedule ?? null,
@@ -1186,6 +1354,7 @@ threadRoutes.patch('/engagements/:id', async (c) => {
     .eq('id', id)
     .single();
   if (!existing) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(existing.thread_id)) return c.json(LOCKED, 423);
 
   // Type may only move within its family after creation (v3 rule).
   if (body.data.type) {
@@ -1207,9 +1376,15 @@ threadRoutes.patch('/engagements/:id', async (c) => {
   const schedErr = dailyScheduleError(body.data.daily_schedule);
   if (schedErr) return c.json({ error: schedErr }, 400);
 
+  // Same as the insert: rich text is cleaned before it is stored.
+  const enPatch: Record<string, unknown> = { ...body.data };
+  if ('description' in enPatch) {
+    enPatch.description = sanitizeRichText(enPatch.description as string | null);
+  }
+
   const { data, error } = await db
     .from('thread_engagement')
-    .update({ ...body.data, updated_at: new Date().toISOString() })
+    .update({ ...enPatch, updated_at: new Date().toISOString() })
     .eq('id', id)
     .select('*')
     .single();
@@ -1222,6 +1397,9 @@ threadRoutes.patch('/engagements/:id', async (c) => {
 
 threadRoutes.delete('/engagements/:id', async (c) => {
   const ctx = c.get('ctx');
+  if (await ownerThreadLocked('thread_engagement', c.req.param('id'))) {
+    return c.json(LOCKED, 423);
+  }
 
   if (!(await can(ctx.workspaceId, 'thread_custom_templates'))) {
     // Tidying the seeded system messages stays allowed (they fall back to
@@ -1285,20 +1463,32 @@ threadRoutes.post('/teams', async (c) => {
   const body = TeamCreate.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
+  // A team's slug is its whole public address, shared with every workspace,
+  // team and organiser on the platform. Asked here so the answer is a
+  // sentence; the database refuses it either way.
+  {
+    const holder = await rootSlugHolder(body.data.slug);
+    if (holder) return c.json({ error: slugTakenBy(holder) }, 409);
+  }
   const { data: team, error } = await adminClient
     .from('team')
     .insert({
       workspace_id: ctx.workspaceId,
       name: body.data.name,
       slug: body.data.slug,
-      description: body.data.description ?? null,
+      description: sanitizeRichText(body.data.description),
       created_by: ctx.userId,
     })
     .select('id, name, slug, description')
     .single();
   if (error) {
+    // The pre-check above loses to a simultaneous claim; the constraint does
+    // not. Same sentence either way.
     const s = error.code === '23505' ? 409 : 500;
-    return c.json({ error: error.code === '23505' ? 'slug already taken' : error.message }, s);
+    return c.json(
+      { error: error.code === '23505' ? slugTakenBy('team') : error.message },
+      s,
+    );
   }
   await adminClient
     .from('team_member')
@@ -1414,14 +1604,22 @@ threadRoutes.get('/contacts', async (c) => {
   const { data, error } = await db
     .from('thread_enrolment')
     .select(
-      `person:person_id (id, first_name, last_name, email),
+      `person:person_id (id, first_name, last_name, email, phone, city, country, linkedin_url),
        thread:thread_id (id, slug, program:program_id (title)),
        enrolment:enrolment_id (status),
        created_at`,
     )
     .order('created_at', { ascending: false })
     .limit(500);
-  if (error) return c.json({ error: error.message }, 500);
+  if (error) {
+    console.error('[thread/contacts] list failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+      hint: error.hint,
+    });
+    return c.json({ error: error.message }, 500);
+  }
   // Group by person.
   type ContactEntry = {
     person: {
@@ -1429,9 +1627,14 @@ threadRoutes.get('/contacts', async (c) => {
       first_name: string | null;
       last_name: string | null;
       email: string | null;
+      phone?: string | null;
+      city?: string | null;
+      country?: string | null;
+      linkedin_url?: string | null;
     };
     threads: { id: string; title: string; status: string }[];
     last_enrolled_at: string;
+    organisations: { id: string; name: string; title: string | null }[];
   };
   const byPerson = new Map<string, ContactEntry>();
   for (const row of data ?? []) {
@@ -1441,11 +1644,149 @@ threadRoutes.get('/contacts', async (c) => {
     const prog = t ? (Array.isArray(t.program) ? t.program[0] : t.program) : null;
     const enr = Array.isArray(row.enrolment) ? row.enrolment[0] : row.enrolment;
     const e: ContactEntry =
-      byPerson.get(p.id) ?? { person: p, threads: [], last_enrolled_at: row.created_at };
+      byPerson.get(p.id) ??
+      { person: p, threads: [], last_enrolled_at: row.created_at, organisations: [] };
     if (t && prog) e.threads.push({ id: t.id, title: prog.title, status: enr?.status ?? '' });
     byPerson.set(p.id, e);
   }
+
+  // Where these people work (Sjoerd, 2026-09-11: "people may need a little
+  // more info about this person... e.g. organisations"). The contact graph is
+  // PLATFORM data, which Thread reads natively as an in-family app — the same
+  // person row, not a copy. Current memberships only: a job someone left is
+  // history, and this card is for recognising who you are looking at.
+  const personIds = [...byPerson.keys()];
+  if (personIds.length) {
+    const { data: orgRows, error: orgErr } = await db
+      .from('org_membership')
+      .select('person_id, title, is_primary, organisation:org_id (id, name)')
+      .in('person_id', personIds)
+      .is('ended_at', null)
+      .order('is_primary', { ascending: false });
+    if (orgErr) {
+      // A contact list without employers is still useful; one that 500s is
+      // not. Log and carry on.
+      console.error('[thread/contacts] org memberships failed', {
+        code: orgErr.code,
+        message: orgErr.message,
+        details: orgErr.details,
+        hint: orgErr.hint,
+      });
+    }
+    for (const row of orgRows ?? []) {
+      const org = Array.isArray(row.organisation) ? row.organisation[0] : row.organisation;
+      if (!org) continue;
+      byPerson.get(row.person_id)?.organisations.push({
+        id: org.id,
+        name: org.name,
+        title: row.title ?? null,
+      });
+    }
+  }
+
   return c.json({ items: [...byPerson.values()] });
+});
+
+// GET /threads/:id/engagements/:engagementId/rsvps — who is coming.
+//
+// The participant half of RSVP shipped in v0.68.30 and an organiser could
+// not see a single answer (Sjoerd, 2026-09-09: "it is not clear where we can
+// review who of the participants has signed up"). This is the read side.
+//
+// THREE numbers, not two. `thread_rsvp` holds a row only when someone has
+// answered, so "no answer" is the thread's participants MINUS the people who
+// answered — a left join, not a group-by. A count of the rows that exist
+// reports 12 coming and 3 not and silently loses the 8 who said nothing,
+// which is the number an organiser actually acts on: 8 silent people and 8
+// refusals are different facts and only one of them is worth chasing.
+//
+// Dropped enrolments are excluded from both the list and the counts. They are
+// no longer participants, the portal already refuses their answers
+// (v0.68.32), and counting them would inflate "no answer" with people who
+// were never going to reply.
+threadRoutes.get('/threads/:id/engagements/:engagementId/rsvps', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+  const threadId = c.req.param('id');
+  const engagementId = c.req.param('engagementId');
+
+  // The item must belong to this thread. RLS covers the workspace; this
+  // stops a valid id from another thread being read through this one.
+  const { data: engagement } = await db
+    .from('thread_engagement')
+    .select('id, thread_id, title, starts_at')
+    .eq('id', engagementId)
+    .eq('thread_id', threadId)
+    .maybeSingle();
+  if (!engagement) return c.json({ error: 'not found' }, 404);
+
+  const [{ data: enrolments, error: enrErr }, { data: answers }] = await Promise.all([
+    db
+      .from('thread_enrolment')
+      .select(
+        `person:person_id (id, first_name, last_name, email),
+         enrolment:enrolment_id (status)`,
+      )
+      .eq('thread_id', threadId)
+      .limit(1000),
+    db
+      .from('thread_rsvp')
+      .select('person_id, response, responded_at')
+      .eq('engagement_id', engagementId),
+  ]);
+  if (enrErr) return c.json({ error: enrErr.message }, 500);
+
+  const answerByPerson = new Map(
+    (answers ?? []).map((r) => [
+      r.person_id as string,
+      { response: r.response as 'coming' | 'not_coming', responded_at: r.responded_at as string },
+    ]),
+  );
+
+  type Row = {
+    person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+    enrolment_status: string | null;
+    response: 'coming' | 'not_coming' | null;
+    responded_at: string | null;
+  };
+  const items: Row[] = [];
+  const seen = new Set<string>();
+  for (const e of enrolments ?? []) {
+    const person = (Array.isArray(e.person) ? e.person[0] : e.person) as Row['person'] | null;
+    const enr = (Array.isArray(e.enrolment) ? e.enrolment[0] : e.enrolment) as { status: string | null } | null;
+    if (!person || seen.has(person.id)) continue;
+    if (enr?.status === 'dropped') continue;
+    seen.add(person.id);
+    const a = answerByPerson.get(person.id) ?? null;
+    items.push({
+      person,
+      enrolment_status: enr?.status ?? null,
+      response: a?.response ?? null,
+      responded_at: a?.responded_at ?? null,
+    });
+  }
+
+  // Answered first, then the silent — an organiser reads this to find who to
+  // chase, and the people to chase are the ones at the bottom.
+  const order = { coming: 0, not_coming: 1 } as Record<string, number>;
+  items.sort((a, b) => {
+    const ra = a.response ? order[a.response]! : 2;
+    const rb = b.response ? order[b.response]! : 2;
+    if (ra !== rb) return ra - rb;
+    const na = `${a.person.first_name ?? ''} ${a.person.last_name ?? ''}`.trim().toLowerCase();
+    const nb = `${b.person.first_name ?? ''} ${b.person.last_name ?? ''}`.trim().toLowerCase();
+    return na.localeCompare(nb);
+  });
+
+  return c.json({
+    engagement: { id: engagement.id, title: engagement.title, starts_at: engagement.starts_at },
+    counts: {
+      coming: items.filter((i) => i.response === 'coming').length,
+      not_coming: items.filter((i) => i.response === 'not_coming').length,
+      no_answer: items.filter((i) => i.response === null).length,
+    },
+    items,
+  });
 });
 
 // GET /internal-team — workspace members + the-thread app membership state.
@@ -1550,6 +1891,7 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     .eq('id', threadId)
     .maybeSingle();
   if (!thread) return c.json({ error: 'not found' }, 404);
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   // The invited user needs a thread_organiser row — auto-provision like /me.
   let { data: organiser } = await adminClient
@@ -1561,28 +1903,8 @@ threadRoutes.post('/threads/:id/members', async (c) => {
     const { data: u } = await adminClient
       .from('user')
       .select('email, full_name')
-      .eq('id', body.data.user_id)
-      .single();
-    const seed =
-      (u?.full_name ?? u?.email ?? 'organiser')
-        .toLowerCase()
-        .replace(/[^a-z0-9]+/g, '-')
-        .replace(/^-+|-+$/g, '')
-        .slice(0, 30) || 'organiser';
-    const { data: created, error: cErr } = await adminClient
-      .from('thread_organiser')
-      .insert({
-        user_id: body.data.user_id,
-        workspace_id: thread.workspace_id,
-        slug: `${seed}-${Math.random().toString(36).slice(2, 5)}`,
-        display_name: u?.full_name ?? null,
-      })
-      .select('id')
-      .single();
-    if (cErr || !created) {
-      console.error('[thread/members] organiser provision failed', cErr);
-      return c.json({ error: 'could not provision organiser profile' }, 500);
-    }
+    const created = await provisionOrganiser(body.data.user_id, thread.workspace_id);
+    if (!created) return c.json({ error: 'could not provision organiser profile' }, 500);
     organiser = created;
   }
 
@@ -1604,6 +1926,7 @@ threadRoutes.post('/threads/:id/members', async (c) => {
 threadRoutes.delete('/threads/:id/members/:organiserId', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await threadLocked(c.req.param('id'))) return c.json(LOCKED, 423);
   // RLS-scoped delete through the join policy.
   const { error } = await db
     .from('thread_thread_organiser')
@@ -2450,6 +2773,7 @@ threadRoutes.post('/threads/:id/tickets', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
   const { data: last } = await db
     .from('thread_ticket')
     .select('position')
@@ -2476,6 +2800,7 @@ threadRoutes.patch('/tickets/:id', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_ticket', c.req.param('id'))) return c.json(LOCKED, 423);
   const { data, error } = await db
     .from('thread_ticket')
     .update(body.data)
@@ -2489,6 +2814,7 @@ threadRoutes.patch('/tickets/:id', async (c) => {
 threadRoutes.delete('/tickets/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_ticket', c.req.param('id'))) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_ticket').delete().eq('id', c.req.param('id'));
   if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
@@ -2525,6 +2851,7 @@ threadRoutes.post('/threads/:id/coupons', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await threadLocked(c.req.param('id'))) return c.json(LOCKED, 423);
   const { data, error } = await db
     .from('thread_coupon')
     .insert({
@@ -2547,6 +2874,7 @@ threadRoutes.patch('/coupons/:id', async (c) => {
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_coupon', c.req.param('id'))) return c.json(LOCKED, 423);
   const patch = { ...body.data };
   if (patch.code) patch.code = patch.code.trim().toUpperCase();
   const { data, error } = await db
@@ -2562,6 +2890,7 @@ threadRoutes.patch('/coupons/:id', async (c) => {
 threadRoutes.delete('/coupons/:id', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
+  if (await ownerThreadLocked('thread_coupon', c.req.param('id'))) return c.json(LOCKED, 423);
   const { error } = await db.from('thread_coupon').delete().eq('id', c.req.param('id'));
   if (error) return c.json(pgErrorBody(error), pgErrorStatus(error));
   return c.body(null, 204);
@@ -2699,6 +3028,64 @@ threadRoutes.get('/certificate-templates/:id', async (c) => {
   const [visible] = await filterVisibleTemplates([data], 'certificate', ctx.userId);
   if (!visible) return c.json({ error: 'not found' }, 404);
   return c.json(data);
+});
+
+// POST /certificate-templates/:id/duplicate — a working copy.
+//
+// Sjoerd, 2026-09-09. A certificate is a design somebody spent an afternoon
+// positioning, and the second one for the same organisation differs by a
+// paragraph. Rebuilding it from a blank canvas to change a sentence is the
+// kind of work nobody should do twice.
+//
+// The copy is a NEW design, not a variant of the original: fresh id, "(copy)"
+// on the name, and it starts unarchived and unshared. Shares are deliberately
+// not carried over — who may use a template is a decision about that
+// template, and inheriting an access list silently is how somebody ends up
+// with a design they were never granted.
+//
+// Scope follows the caller, not the source. Duplicating a workspace template
+// gives you a PERSONAL draft to work on; widening it again is one control in
+// the builder and an explicit act.
+threadRoutes.post('/certificate-templates/:id/duplicate', async (c) => {
+  const ctx = c.get('ctx');
+  const db = userClient(ctx.jwt);
+
+  // Read through RLS, then through the same visibility filter the detail
+  // route uses — a template you cannot open is not one you can copy.
+  const { data: src } = await db
+    .from('thread_certificate_template')
+    .select(CERT_TEMPLATE_SELECT)
+    .eq('id', c.req.param('id'))
+    .maybeSingle();
+  if (!src) return c.json({ error: 'not found' }, 404);
+  const [visible] = await filterVisibleTemplates([src], 'certificate', ctx.userId);
+  if (!visible) return c.json({ error: 'not found' }, 404);
+
+  const { data, error } = await db
+    .from('thread_certificate_template')
+    .insert({
+      workspace_id: ctx.workspaceId,
+      name: `${src.name} (copy)`,
+      // The design itself, carried whole. If you add a column an author
+      // sets in the builder, add it here — the duplicate-loses-your-work
+      // bug has already happened once on threads (v0.68.x, pricing).
+      page_size: src.page_size,
+      orientation: src.orientation,
+      background_url: src.background_url,
+      elements: src.elements,
+      guides: src.guides,
+      scope: 'personal',
+      owner_user_id: ctx.userId,
+      owner_team_id: null,
+      created_by: ctx.userId,
+    })
+    .select(CERT_TEMPLATE_SELECT)
+    .single();
+  if (error) {
+    console.error('[thread/cert-templates] duplicate failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+  return c.json(data, 201);
 });
 
 const CertTemplateUpdate = z.object({
@@ -3257,32 +3644,18 @@ threadRoutes.post('/threads/:id/participants', async (c) => {
     console.warn('[thread/participants] account auto-create failed', e);
   }
 
-  let { data: person } = await adminClient
-    .from('person')
-    .select('id, first_name')
-    .eq('workspace_id', thread.workspace_id)
-    .eq('email', email)
-    .is('deleted_at', null)
-    .limit(1)
-    .maybeSingle();
-  if (!person) {
-    const parts = name.split(/\s+/);
-    const { data: created, error: pErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: thread.workspace_id,
-        first_name: parts[0] ?? name,
-        last_name: parts.slice(1).join(' ') || null,
-        email,
-      })
-      .select('id, first_name')
-      .single();
-    if (pErr || !created) {
-      console.error('[thread/participants] person insert failed', pErr);
-      return c.json({ error: 'could not create the person' }, 500);
-    }
-    person = created;
+  const resolvedParticipant = await resolvePerson({
+    workspaceId: thread.workspace_id,
+    email,
+    name,
+    source: 'thread_participant',
+    create: true,
+  });
+  if (!resolvedParticipant.ok) {
+    console.error('[thread/participants] person resolve failed', resolvedParticipant.reason);
+    return c.json({ error: 'could not create the person' }, 500);
   }
+  const person = { id: resolvedParticipant.personId, first_name: resolvedParticipant.firstName };
 
   // Platform enrolment — reuse if present; existing companion = already in.
   let enrolmentId: string;
@@ -3597,14 +3970,21 @@ threadRoutes.post('/enrolments/:id/complete', async (c) => {
     `Completed: ${program.title}`,
   );
 
-  let certificateNumber: string | null = null;
-  if (thread.certificate_enabled) {
-    const issued = await issueCertificate(te.id, ctx.userId);
-    if (issued.ok) certificateNumber = issued.certificate_number;
-    else if (!('skipped' in issued && issued.skipped)) {
-      console.warn('[thread/complete] auto-issue failed', issued.error);
-    }
-  }
+  // COMPLETING SOMEBODY NO LONGER ISSUES THEIR CERTIFICATE (Sjoerd,
+  // 2026-09-10). Until now it did, which meant "who gets a certificate" was
+  // decided by "who did you mark complete" and there was no way to complete
+  // someone and withhold the certificate — a facilitator who wanted to do
+  // that had no move at all.
+  //
+  // Issuing is now an explicit act with two doors, and neither is this one:
+  // the participant list on Enrolments (select who, press issue) and the
+  // certificate element on the timeline (issues on a date). Completion means
+  // completion.
+  //
+  // The failure this also removes: the old auto-issue wrote one warning line
+  // to stderr when it failed and nothing ever retried, so a person could be
+  // completed and silently never receive anything.
+  const certificateNumber: string | null = null;
 
   if (person.email) {
     try {
@@ -4233,6 +4613,7 @@ threadRoutes.put('/threads/:id/categories', async (c) => {
   const ctx = c.get('ctx');
   const db = userClient(ctx.jwt);
   const threadId = c.req.param('id');
+  if (await threadLocked(threadId)) return c.json(LOCKED, 423);
 
   // RLS scopes both tables, but validate the ids belong to this workspace so
   // a stray id fails loudly instead of vanishing in the insert.
@@ -4537,6 +4918,16 @@ function ownerSlugOf(thread: { team?: unknown }, organiserSlug: string | null): 
   return team?.slug ?? organiserSlug ?? '';
 }
 
+/** Every public owner belongs to a workspace, and the workspace is what
+ *  carries the site design (migration 20260911193000). A team page and an
+ *  organiser page inside the same workspace wear the same site — that is
+ *  what "on workspace level" means. */
+function ownerWorkspaceId(owner: PublicOwner): string {
+  if (owner.kind === 'workspace') return owner.workspace.id;
+  if (owner.kind === 'team') return owner.team.workspace_id;
+  return owner.organiser.workspace_id;
+}
+
 // Public price display: tickets are the source of truth when they exist —
 // the lowest active, non-expired ticket wins (Sjoerd 2026-07-02: a thread
 // had a €250 ticket yet the public card said Free, because the card read
@@ -4601,6 +4992,8 @@ threadRoutes.get('/public/organiser/:slug', async (c) => {
     organiser: publicOrganiser(owner),
     threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
     owner_kind: owner.kind,
+    // Additive (rule 8): the workspace's public site — theme and ingredients.
+    site: await publicSite(ownerWorkspaceId(owner)),
   });
 });
 
@@ -4642,6 +5035,8 @@ threadRoutes.get('/public/workspace/:wsSlug/organiser/:orgSlug', async (c) => {
     workspace: { slug: owner.workspace.slug, name: owner.workspace.name },
     organiser: publicOrganiser({ kind: 'organiser', organiser }),
     threads: listed.map((t) => publicThreadListItem(t as Record<string, unknown>)),
+    // Additive (rule 8): the workspace's public site — theme and ingredients.
+    site: await publicSite(owner.workspace.id),
   });
 });
 
@@ -4700,7 +5095,7 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
     ? { data: [] as never[] }
     : await adminClient
     .from('thread_engagement')
-    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, image_url, meeting_url')
+    .select('id, title, description, type, starts_at, ends_at, daily_schedule, location, location_url, image_url, meeting_url')
     .eq('thread_id', thread.id)
     .eq('status', 'published')
     .eq('show_in_agenda', true)
@@ -4821,6 +5216,10 @@ threadRoutes.get('/public/organiser/:slug/thread/:threadSlug', async (c) => {
   const price = effectivePrice(thread, prices);
   return c.json({
     organiser,
+    // Additive (rule 8): the workspace's public site. The thread page wears
+    // the same navbar and footer as the listing it was reached from — a
+    // theme that stopped at the front door would not be a site.
+    site: await publicSite(thread.workspace_id as string),
     thread: {
       id: thread.id,
       slug: thread.slug,
@@ -5249,6 +5648,62 @@ const PublicEnrol = z.object({
   request_id: z.string().min(8).max(80),
 });
 
+// POST /api/v1/thread/public/contact — the site's contact form.
+//
+// Sjoerd asked for "contact page (with basic form)". Basic is the whole
+// specification: a name, an address to reply to, and a message. It delivers
+// to the address the workspace set in Settings → Website, which the visitor
+// never sees — the form exists so that address never has to be published.
+//
+// Two brakes, because this is a public endpoint that causes mail:
+//   · a honeypot field no human fills in, which stops the cheap bots;
+//   · a per-WORKSPACE hourly cap, keyed on the recipient rather than the
+//     sender's IP, because the form is submitted by our own server and every
+//     visitor would otherwise share one Vercel egress address. The cap bounds
+//     what an abuser can do to the person receiving it, which is the harm
+//     worth bounding.
+const ContactBody = z.object({
+  owner: z.string().min(1).max(200),
+  name: z.string().min(1).max(200),
+  email: z.string().email().max(200),
+  message: z.string().min(1).max(5000),
+  /** Honeypot. A real visitor never sees this field. */
+  website: z.string().max(200).optional(),
+});
+
+threadRoutes.post('/public/contact', async (c) => {
+  const body = ContactBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+  // A filled honeypot gets the same answer a real send does. Telling a bot
+  // it was caught only teaches it which field to leave alone.
+  if (body.data.website) return c.json({ ok: true });
+
+  const owner = await resolvePublicOwner(body.data.owner);
+  if (!owner) return c.json({ error: 'not found' }, 404);
+  const workspaceId = ownerWorkspaceId(owner);
+  const to = await siteContactEmail(workspaceId);
+  if (!to) return c.json({ error: 'not found' }, 404);
+
+  const gate = hit(`site-contact:${workspaceId}`, 20, 3_600_000);
+  if (!gate.allowed) {
+    c.header('Retry-After', String(gate.resetSeconds));
+    return c.json({ error: 'too many messages, try again later' }, 429);
+  }
+
+  const { name, email, message } = body.data;
+  const ownerName = publicOrganiser(owner).display_name ?? body.data.owner;
+  const text = `${name} <${email}> wrote through the contact form on ${ownerName}:\n\n${message}`;
+  await sendEmail({
+    to,
+    subject: `Message from ${name}`,
+    text,
+    html: `<p><strong>${escapeHtml(name)}</strong> &lt;${escapeHtml(email)}&gt; wrote through the contact form on ${escapeHtml(ownerName)}:</p><p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
+    // Reply goes to the visitor, not to us. The whole point of the form.
+    replyTo: email,
+  });
+  return c.json({ ok: true });
+});
+
 threadRoutes.post('/public/enrol', async (c) => {
   const body = PublicEnrol.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
@@ -5409,35 +5864,18 @@ threadRoutes.post('/public/enrol', async (c) => {
       console.warn('[thread/public/enrol] account auto-create failed', e);
     }
   }
-  let { data: person } = await adminClient
-    .from('person')
-    .select('id, first_name')
-    .eq('workspace_id', thread.workspace_id)
-    .eq('email', email)
-    .is('deleted_at', null)
-    .limit(1)
-    .maybeSingle();
-
-  if (!person) {
-    const parts = d.name.trim().split(/\s+/);
-    const firstName = parts[0] ?? d.name.trim();
-    const lastName = parts.slice(1).join(' ') || null;
-    const { data: created, error: pErr } = await adminClient
-      .from('person')
-      .insert({
-        workspace_id: thread.workspace_id,
-        first_name: firstName,
-        last_name: lastName,
-        email,
-      })
-      .select('id, first_name')
-      .single();
-    if (pErr || !created) {
-      console.error('[thread/public/enrol] person insert failed', pErr);
-      return c.json({ error: 'could not register you — try again' }, 500);
-    }
-    person = created;
+  const resolvedEnrolee = await resolvePerson({
+    workspaceId: thread.workspace_id,
+    email,
+    name: d.name,
+    source: 'thread_enrolment',
+    create: true,
+  });
+  if (!resolvedEnrolee.ok) {
+    console.error('[thread/public/enrol] person resolve failed', resolvedEnrolee.reason);
+    return c.json({ error: 'could not register you — try again' }, 500);
   }
+  const person = { id: resolvedEnrolee.personId, first_name: resolvedEnrolee.firstName };
 
   // A prior enrolment with an unpaid checkout gets its companion row reused
   // (set in the duplicate branch below) instead of a new insert.
@@ -6040,6 +6478,77 @@ function wallTimeToUtc(dateStr: string, timeStr: string, timeZone: string): Date
 // stays unsent (visible on the timeline, never emailed late).
 const SCHEDULER_LOOKBACK_MS = 72 * 60 * 60 * 1000;
 
+/**
+ * A "send certificate" element has come due: issue to everyone who has
+ * earned one and has not got one yet. Returns how many went out.
+ *
+ * THIS IS NOW A MAIN PATH, not a backstop. It was written on 2026-09-09
+ * when completing somebody auto-issued their certificate, so a dated element
+ * fired and correctly issued to almost nobody. A day later Sjoerd took the
+ * automatic issue out — "the list becomes the decision" — and this became
+ * one of the two ways a certificate ever reaches anyone. The other is the
+ * participant list on Enrolments. If you are reading an old comment or
+ * changelog entry calling this a backstop, it is describing the world before
+ * that.
+ *
+ * WHO EARNED ONE is deliberately not a new rule. It is the same set the bulk
+ * button issues to — completed enrolments — because two definitions of "you
+ * finished the course" would drift, and the one that drifted would be the
+ * automatic one nobody watches.
+ *
+ * NOT YET HONOURED: unchecking somebody in the participant list means "not
+ * in this batch", not "never". Nothing persists that decision, so a dated
+ * element firing later will issue to them anyway. Recorded in the build
+ * plan; it wants a per-enrolment exclusion before the two doors agree. `issueCertificate` refuses a second issue per
+ * enrolment on its own, so a re-run, a retry, or two elements pointing at the
+ * same moment cannot produce two certificates for one person.
+ *
+ * The `thread_message_send` row is kept even though issuance is already
+ * idempotent: it is what stops the scheduler re-walking every completed
+ * enrolment on this thread every five minutes for the rest of the thread's
+ * life, and it is the same dedup the message path uses, so one table answers
+ * "did this element already act on this person?" for both families.
+ */
+async function issueDueCertificates(engagementId: string, threadId: string): Promise<number> {
+  const { data: enrolments } = await adminClient
+    .from('thread_enrolment')
+    .select('id, person:person_id (id, email), enrolment:enrolment_id (status)')
+    .eq('thread_id', threadId);
+
+  let issued = 0;
+  for (const te of enrolments ?? []) {
+    const person = Array.isArray(te.person) ? te.person[0] : te.person;
+    const enr = Array.isArray(te.enrolment) ? te.enrolment[0] : te.enrolment;
+    if (!person?.id) continue;
+    if ((enr?.status ?? null) !== 'completed') continue;
+
+    // Insert-first dedup, same mechanism as the message sends.
+    const { error: logErr } = await adminClient.from('thread_message_send').insert({
+      engagement_id: engagementId,
+      person_id: person.id,
+      email: person.email ?? '',
+    });
+    if (logErr) {
+      if (logErr.code !== '23505') {
+        console.warn('[thread/scheduler] certificate log failed', logErr);
+      }
+      continue;
+    }
+
+    // issuedBy is null: nobody pressed anything. The timeline did.
+    const r = await issueCertificate(te.id as string, null);
+    if (r.ok) issued += 1;
+    else if (!r.skipped) {
+      console.warn('[thread/scheduler] certificate issue failed', {
+        engagementId,
+        threadEnrolmentId: te.id,
+        error: r.error,
+      });
+    }
+  }
+  return issued;
+}
+
 export async function runThreadMessageScheduler(): Promise<{ due: number; sent: number }> {
   const now = Date.now();
 
@@ -6054,7 +6563,9 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
          program:program_id (title, status, starts_on, ends_on))`,
     )
     .eq('status', 'published')
-    .in('type', MESSAGE_TYPES as unknown as string[])
+    // Certificates are due on a date the same way a message is; what differs
+    // is what happens when they are (issueDueCertificates below).
+    .in('type', [...MESSAGE_TYPES, ...CERTIFICATE_TYPES] as unknown as string[])
     .in('trigger_kind', ['fixed', 'relative']);
   if (error) {
     console.error('[thread/scheduler] candidate query failed', error);
@@ -6135,6 +6646,12 @@ export async function runThreadMessageScheduler(): Promise<{ due: number; sent: 
 
   let sent = 0;
   for (const d of due) {
+    // A certificate element issues rather than emails. Same trigger, same
+    // dedup, different verb — so it forks here and nowhere else.
+    if (engagementFamily(d.engagement.type as string) === 'certificate') {
+      sent += await issueDueCertificates(d.engagement.id as string, d.threadId);
+      continue;
+    }
     // Everyone enrolled (not dropped) in the thread gets the message once.
     const { data: enrolments } = await adminClient
       .from('thread_enrolment')

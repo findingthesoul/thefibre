@@ -1,3 +1,5 @@
+import { ENTITY } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import { notFound } from 'next/navigation';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -159,7 +161,10 @@ export default async function EmbedThreadPage({
       <h1 className="te-title mt-1 text-xl font-medium tracking-tight">{program?.title ?? thread.slug}</h1>
 
       {elements.has('intention') && thread.intention && (
-        <p className="te-intention mt-2 text-sm text-ink-subtle leading-relaxed">{thread.intention}</p>
+        <RichText
+          html={thread.intention}
+          className="te-intention mt-2 text-sm text-ink-subtle leading-relaxed whitespace-pre-line"
+        />
       )}
 
       {(spotsLeft != null || thread.certificate_enabled || showFacilitatedIn) && (
@@ -261,7 +266,7 @@ export default async function EmbedThreadPage({
       )}
 
       <footer className="mt-6 text-[11px] text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
       </footer>
     </div>
   );

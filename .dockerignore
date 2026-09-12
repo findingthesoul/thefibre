@@ -26,6 +26,15 @@ docs/
 supabase/
 scratchpad/
 *.log
+# Docker ignore patterns are relative to the CONTEXT ROOT, so a bare `.env`
+# matched only /.env and left apps/api/.env in the context — and BuildKit
+# never reads apps/api/.dockerignore, which has been decorative since it was
+# written. The Dockerfile's COPY list is narrow enough that neither file
+# reached the image, but the whole context is uploaded to the Fly remote
+# builder, so the secrets crossed the wire on every deploy from a worktree
+# (where they have to be copied in for `pnpm verify` to run). 2026-09-11.
 .env
 .env.*
+**/.env
+**/.env.*
 .DS_Store

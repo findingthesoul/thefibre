@@ -55,7 +55,6 @@ const baseNav = (locale: Parameters<typeof t>[0]): SidebarNavSection[] => [
     label: t(locale, 'nav_workspace'),
     items: [
       { href: '/privacy', label: t(locale, 'nav_privacy'), icon: Shield },
-      { href: '/settings', label: t(locale, 'nav_settings'), icon: Settings },
     ],
   },
 ];

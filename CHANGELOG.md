@@ -6,6 +6,3137 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.5] — 2026-09-12 — Connections is a door you can walk through
+
+Sjoerd, on returning: *"what do I need to do?"* Two switches, both his, and
+this is the release that follows them being thrown.
+
+**The flag is true.** `available` on `fibre-sales` flipped from false, which
+is the last step of bringing an app up and never the first. Connections now
+appears in every app switcher, on the Fibre dashboard, as a valid SSO hop
+target, and — because those lists are derived rather than hand-written — in
+both smoke tests. It was false for a day on purpose: set true before the
+deployment existed, it failed the release gate, which was the gate being
+right. The flag describes the world. It does not create it.
+
+**Two domains, two different reasons they were dark.**
+
+`connections.thethread.app` needed three stacked build fixes and has served
+since yesterday. `connections.thefibre.tech` returned 404 from the day the
+app was created, and the cause was not a misconfiguration: the domain was
+correctly bound to the staging branch, DNS was valid, and
+`scripts/vercel-ignore.mjs` was declining to build, correctly, because no
+push had touched `apps/connections` outside its `package.json` — which the
+script excludes on purpose, since the release ritual bumps every version
+field every time. **A new app's first staging build therefore waits for an
+unrelated change to `packages/shared`.** v0.73.4 was that change, and the
+404 resolved as a side effect of somebody else's release. Worth knowing
+before app number nine: force the first one.
+
+**Then it answered, and still was not reachable.** It redirected to
+`vercel.com/sso-api`. A Vercel project created recently has Deployment
+Protection ON by default; the older projects predate that default and have it
+off. The failure mode is the nasty kind — it looks fine to the person who set
+it up, because their browser carries a team session, and to nobody else. The
+only way to see it is signed out, with curl.
+
+**`smoke-staging.mjs` now checks Connections** instead of excusing it as "in
+the registry but unbuilt". That guard exists so an app cannot be quietly
+absent from staging, and the exclusion had gone stale the moment the app
+built. The same script found `my.thefibre.tech` sitting behind that same
+login wall — staging only, production is clean, and the switch is Sjoerd's.
+
+**One correction, made in public.** This session told both Sjoerd and a peer
+that a missing `CORS_ORIGINS` entry would leave staging Connections rendering
+without data. Wrong. Every call goes through `apps/connections/lib/api.ts`,
+which imports `serverSupabase` and therefore only ever runs server-side, so
+no browser request crosses an origin and the allowlist never applies. Worth
+setting for consistency with the other six. Blocks nothing.
+
+
+## [0.73.4] — 2026-09-12 — an event link that looks like the event
+
+Sjoerd, after the website's preview was fixed: *"Solve that. Incl. the logo
+of the organiser/workspace."*
+
+An organiser pasting their own event into a WhatsApp group got a grey card
+with the words "The Thread" on it — the app's root metadata, identical for
+every public page in the product. They were advertising us to their own
+participants. Every public thread already had a cover image, a title and
+dates, and every workspace already had a logo on its outgoing email.
+
+**Two cards now.** `/{owner}/{thread}` shows the workspace's logo, the event
+title, the dates and the cover; `/{owner}` shows the logo, the name, the
+headline and how many events are open. Both carry The Thread's wordmark small
+at the bottom, the size of a printer's mark. Whose card it is matters: an
+organiser sharing their event is not promoting us.
+
+**The layout keeps everything on white** rather than over the photograph. A
+logo is somebody else's file — black, white, or a transparent PNG that
+vanishes on either — and a scrim that works for one breaks the next. White is
+the only ground that takes them all, and the cover keeps the half of the
+frame it is good at.
+
+**A workspace that branded itself once is now branded everywhere.**
+`publicSite()` falls back to `workspace.name` and `workspace.brand_logo_url`
+when the Settings → Website fields are empty, so the logo already on their
+outgoing email reaches their public site and their link previews without
+anyone filling a second form. An explicit site value still wins.
+
+**`appMetadata()` returns a `metadataBase`.** Without one Next resolves a
+relative `opengraph-image` against localhost and the preview silently has no
+picture — which is the actual reason these pages have never had a card, and
+would have quietly defeated the rest of this release.
+
+Three details found by looking rather than reasoning. The owner's name was
+printed twice on any workspace whose logo IS its name, soul.com's being
+exactly that. The coverless card left two thirds of the frame empty until the
+type grew and the site's own fallen thread ran through it. And the remote
+fetch for a cover happens here with a deadline and a size cap rather than
+inside the renderer, because a renderer that throws on one broken upload
+takes the preview off every link that workspace has ever shared.
+
+Drafts stay private: both cards fetch anonymously, while the page itself
+still forwards a signed-in organiser's token for previewing.
+
+## [0.73.3] — 2026-09-12 — Connections gets a row in the plan matrix
+
+"I don't see Connections in my plans" was two causes wearing one symptom.
+
+**The data half, already fixed.** The `app` row had `beta_at` and
+`released_at` both null, which the schema reads as *not built, nobody can
+activate it*. `beta_at` is now set on prod and staging, so Connections is
+testable by workspaces whose plan carries `beta_apps` — exactly the state it
+is in: it renders real pages, it is worth a tester's time, it is not ready
+for everyone. That mechanism landed overnight in v0.72.x and is a better
+answer than anything invented for the occasion. It is activated for The
+Thread B.V., the one workspace on the Beta plan.
+
+**The code half, this release.** There was no `connections` feature key, so
+`/admin/plans` had no row to tick. It ships **unticked on every tier**,
+because while `beta_at` is set and `released_at` is null it is `beta_apps`
+that gates activation. This row is the switch for general release, so which
+tiers include Connections is decided in the admin screen rather than in a
+migration.
+
+`connections.thethread.app` now serves (v0.73.1 fixed the build), with the
+production environment set. It is still absent from the app switcher: the
+`available` flag in `branding.ts` stays false until somebody has opened it
+signed in and confirmed it works.
+
+## [0.73.2] — 2026-09-12 — the link preview is the actual logo
+
+Sjoerd pasted thethread.app into WhatsApp on his phone and got the
+pre-rebrand card: *"The image of the thread is an old one. Not the new one."*
+
+`apps/website/app/opengraph-image.tsx` was DRAWING the brand rather than
+reading it — a yellow blob and a wavy line in hand-written SVG paths, with
+"The Thread" set in the renderer's default sans. None of that had been true
+since the site was rebranded on 7 September. The real wordmark is a
+handwritten mark in `public/logo-the-thread.svg`, the payoff under it is
+"Tools to facilitate change.", and the design language is the painted shapes
+in `public/shapes/`.
+
+The card now reads the same files the site renders, so replacing the logo
+updates the preview with it. **That is the point, not a detail:** a preview
+that redraws the brand from memory is a copy that goes stale in silence.
+Nothing failed, nothing warned, and the only way to catch it was to paste the
+link into a chat and look — which is how it was caught, five days late.
+
+Checked as a real PNG rather than reasoned about, twice. The first draft ran
+the thread straight through the wordmark and looped a curl over the payoff; no
+amount of being on-brand makes that legible, so the line moved below the type.
+Then built for production and opened the generated file, because the card
+reads its assets from disk at build time and dev is not proof of that.
+
+**Still missing, and unowned:** the Thread app and the public thread pages
+have no `og:image` at all — `appMetadata()` returns a title and a description
+and nothing else. An organiser pasting their own event link gets a bare card.
+The obvious fix is the thread's own cover image, which every public thread
+already has.
+
+## [0.73.1] — 2026-09-12 — the Connections build actually builds
+
+Three failures, three different causes, each one hidden behind the last.
+
+1. **Root Directory at the repo root**, so Vercel read the root `vercel.json`
+   whose `outputDirectory` is `apps/web/.next`. A project setting.
+2. **The Output Directory override survived that fix** and still said
+   `apps/web/.next`, now resolved against the new root as
+   `/vercel/path0/apps/connections/apps/web/.next`. Pinned explicitly in
+   `apps/connections/vercel.json`. The sibling apps omit it and rely on clean
+   dashboard settings, which is fine right up until a dashboard is not clean.
+3. **The real one, and a bug of ours.** `app/(app)/page.tsx` was a bare
+   redirect inside a route group, and `app/page.tsx` already resolves to the
+   same path. Next silently drops the duplicate and emits no
+   `page_client-reference-manifest.js` for it; Vercel then `lstat`s a file
+   that was never written, and the deploy dies **after** a successful build.
+   The root page already sends a signed-in user to `/landscape`, so the file
+   was redundant as well as fatal. Deleted.
+
+A local `next build` cannot catch (3): the manifest is only demanded when
+assembling the serverless function, which the local build never does. Two
+green builds in a row said nothing about it.
+
+Also: a blanket `.env*` in `.gitignore`, kept after the Vercel CLI added it,
+because it closes a real near-miss — a fresh worktree has no gitignored env
+files, so they get copied in by hand to run tests, and they never show in
+`git status`. The `!.env.example` negation is repeated below it, since a later
+rule wins and the original negation was dead the moment that line landed.
+
+Connections production env is now set (Supabase, API base, cookie domain
+`.thethread.app`, SSO secret) and the staging scope carries all thirteen,
+including `NEXT_PUBLIC_CONNECTIONS_URL`.
+
+## [0.73.0] — 2026-09-12 — Connections can be written to (Connections 0.2.0)
+
+Four surfaces, built in parallel on one foundation, then integrated and
+verified signed in against staging with real data.
+
+**Notes hang off people now.** Before this the only place a body could live
+against somebody was `flow_run_note`, and it required a run — so "I spoke to
+Marja" had nowhere to go unless Marja happened to be on a flow. Widened in
+place rather than renamed: four of its nine call sites back the published
+external-app contract, and a better name is not worth risking that.
+
+The capture rules from `docs/connections-data-integrity.md` §7 are enforced in
+the API rather than trusted to the interface, and each is verified against a
+real database: three autosaves make one row (the idempotency key and the
+autosave key are the same key), a draft fires nothing, committing fires
+exactly once and editing afterwards does not fire again, the activity row
+carries type and subject and **never the body**, a follow-up becomes a
+`flow_task` rather than a second to-do list, and an invalid timezone is
+refused at the boundary — the exact bug that crashed the Thread editor on
+2026-09-08.
+
+`last_spoken_at()` counts personal kinds only. **A newsletter is not a
+conversation:** if a mailshot reset that clock, the attention conditions would
+report a dead relationship as healthy. There is a test holding that.
+
+**Today** — what you owe, and what is coming at you. The second half is the
+one no other CRM has, and it works: a gathering nine days out surfaces
+*today*, because its preparation lead time is fourteen days. `prepare_at`,
+never `happens_at`, decides the segment. Four signals compute; a fifth was
+left out deliberately, because deciding "the joining message should have gone
+by now" means re-deriving the scheduler's trigger logic and would produce
+confident false positives.
+
+**Five axes** re-segment the same people in an identical visual — maturity,
+closeness, cadence, opportunity, contribution. Closeness and opportunity
+cannot time-travel (current-state columns with no history) and the interface
+says so rather than hiding it. Cadence gained a fourth band beyond the brief:
+without `never spoken`, everyone you have never talked to reads as "gone
+quiet", which is a different and untrue fact.
+
+**Entries** — who can get us in. Two hops structurally, never recursive. Path
+strength is the **weakest** edge, verified at 0.286 against real data where an
+average would have claimed 0.57. Former employment is included and named,
+which is the strongest warm path most CRMs cannot see at all. An entry through
+someone marked `sceptic` is shown as a warning and sorted last.
+
+**People** — the list with each person's standing, and the note composer.
+
+Also: `GET /connections/landscape?people=1` returns the per-person rows the
+handler already had in memory and was discarding. Additive — omitting the flag
+is byte-identical, so every existing caller is untouched.
+
+**One bug only a render check could find.** `HORIZONS` was a runtime constant
+exported from a `'use client'` module and imported by a server component. That
+typechecks perfectly and crashes on first paint: Next replaces client-module
+exports with client-reference proxies, and types are erased, so the compiler
+sees nothing. Moved to `today/shape.ts` — a runtime value shared between a
+server and a client component belongs in a module that is neither.
+
+Three migrations, all additive, all applied to staging first.
+
+## [0.72.8] — 2026-09-12 — looking at the pricing options stops creating a live discount
+
+Still walking the new organiser's first hour. Opened Thread settings →
+Pricing and clicked **Paid** to see what was there. A 10% discount code
+called EARLYBIRD appeared in the list, already switched on.
+
+It is seeded deliberately — an example to edit rather than an empty list, and
+a reasonable idea. The implementation was not:
+
+- it was written on a **toggle**, before any Save;
+- **Cancel could not undo it**, because the coupon list is its own API-backed
+  list rather than form state the dialog discards;
+- and it was created **active**, so the moment a ticket existed, anyone who
+  guessed the word EARLYBIRD got 10% off a thread whose owner had never asked
+  for a discount and may never have registered that the code existed.
+
+Verified on staging rather than reasoned about: flip the toggle, press
+Cancel, and the row is still there, `is_active: true`.
+
+**It is now seeded inactive.** That keeps what it is for and costs the
+organiser one switch. `findValidCoupon` filters on `is_active`, so it cannot
+be redeemed until they turn it on, and the list already dims an inactive code
+and marks it with a chip, so the state is visible rather than implied.
+
+**`coupon-active.int.test.ts`** locks the rule the fix depends on, against the
+real staging API: a switched-off code is refused, the same code is accepted
+once switched on, refused again when switched off, and the gate cannot be
+dodged by changing the case of the code. It also pins the refusal WORDING to
+the same message an unknown code gets — telling a stranger "that one is
+switched off" confirms the code is real and invites them back tomorrow.
+
+This is a money rule enforced by a single `.eq('is_active', true)`, which is
+exactly the kind of thing the testing approach says to attach a test to.
+
+
+## [0.72.7] — 2026-09-12 — the participant's own page was never checked
+
+Carrying the cold organiser through the rest of their first hour: publish the
+thread, open the public page, enrol somebody, follow that person to their own
+page. The first three work. The fourth does not exist on staging, and nothing
+had ever said so.
+
+**`my.thefibre.tech` answers a Vercel login, not the portal.** Deployment
+protection is on for that project while every other staging domain is open,
+so the participant's own page — the one place a person who is not a customer
+ever signs in — cannot be reached or tested on staging at all. Production is
+fine. This needs a Vercel settings change, so it is listed in build-plan's
+Outstanding for Sjoerd rather than fixed here.
+
+**The staging smoke check never looked.** Its subdomain map was written by
+hand and listed five apps; `my` had been missing since the portal shipped, so
+the gap was invisible. The map still cannot be derived — production moved
+Thread to `app.thethread.app` while staging kept `thread.thefibre.tech` — but
+whether it is COMPLETE now is: a guard fails the script if a registered app or
+surface is neither mapped nor in an explicit `NOT_ON_STAGING` list with a
+reason. The same class of bug as the title list this file fixed hours ago, and
+the same fix: stop trusting a hand-kept list to stay right.
+
+The new check also reads the `Location` header, so protection is reported as
+what it is rather than as "status 302", which would send the next person
+hunting for a DNS fault that is not there.
+
+**`One Fibre account for everything` was the first thing a participant read.**
+It appears on the public page immediately after enrolling, in all six locales.
+`docs/naming-brief.md` §2 is explicit that Fibre is backstage and "never the
+first thing a customer meets", and this is exactly that. The brand name is
+dropped rather than swapped for Thread's — the sentence goes on to mention
+bookings, which are Meet's, and "one account for everything" is the true claim
+without asserting a new one.
+
+Verified correct and deliberately left alone: the privacy-policy link on the
+enrolment form points at production from staging. That is right. A consent
+checkbox should reference the canonical legal document, not an environment
+copy of it — the same split v0.72.5 built into the footer.
+
+
+## [0.72.6] — 2026-09-12 — a new thread stops being born broken
+
+Found by signing in as a genuinely cold organiser — a workspace with nothing
+in it, an account that had never logged in — and doing what a first client
+does: pick a shape, name the event, give it a date, create it.
+
+**The date went nowhere the organiser could see.** "Starts on" was written to
+the `program` row and never reached the timeline. So the create form accepted
+a date, the thread header showed it, and the editor opened on:
+
+    NO DATE   The event                                    Draft
+              Thank you · 1d after The event · 10:00
+              won't send: the anchor has no date
+
+A warning about a problem they had not caused and could not have avoided, on
+a thread they had just given a date to, in the first minute of using the
+product. `seedRowsFor` simply had no parameter for it.
+
+It now places the FIRST activity element on that date, and the relative
+messages hanging off it resolve themselves. Only the first: the rest of the
+timeline stays the organiser's to arrange. A multi-day shape ends on its last
+day. No date given, or a malformed one, changes nothing.
+
+**It uses `zonedTimeToUtc`, not the naive form.** The template-duplication
+path builds its timestamps as `new Date(\`${date}T${time}:00Z\`)`, which
+treats a wall clock as UTC and lands a 10:00 Amsterdam event at 12:00 local
+in summer. The correct helper already existed in `lib/availability/timezone.ts`
+and Meet's availability engine already used it. Twelve tests, including a
+December date to prove the DST boundary is handled and that a winter event is
+UTC+1 rather than UTC+2.
+
+Note for whoever touches the duplication path next: it is still on the naive
+form, so a duplicated thread and a newly seeded one will disagree by the
+offset. That is a real inconsistency and it is now the only one left.
+
+**New: `apps/api/scripts/cold-organiser.mjs`.** The tool that found this.
+Creates a brand-new workspace, person, user, admin membership, the plan's
+apps and a Supabase auth account on STAGING, then prints a single-use sign-in
+link. Every other fixture path reuses an account that already has a
+workspace, contacts and habits — which is exactly what a first client does
+not have, and why empty states and first-run prompts are invisible from a
+seeded account. `--list` and `--signin <slug>` come back to one later. It
+refuses to run anywhere but staging.
+
+
+## [0.72.5] — 2026-09-12 — the staging footer stops walking people into production
+
+Caught by opening staging in a real browser, after every scripted layer had
+passed. This is the argument for the exploratory pass in one finding.
+
+**Every link in the shared marketing footer pointed at production.** It held
+`const WEBSITE = 'https://thethread.app'` and read `APPS[...].url` directly
+rather than the env-aware `appUrl`. On `thefibre.tech` that meant Why The
+Thread, The workshop, Pricing, About, Contact, the legal links, the logo —
+and, worst, **Sign in** — all left staging and landed on the live app.
+Sign in on a staging page opening the production app, against production
+data, is exactly the bleed the separate staging apex was chosen to prevent
+(docs/environments.md D1).
+
+The comment above the constant said "Links are absolute for the same reason",
+and absolute was right: this footer renders into emails too. Absolute is not
+the same as hardcoded-to-production, and the two had been conflated.
+
+Fixes:
+
+- **`website` is now a registered SURFACE** (`NEXT_PUBLIC_WEBSITE_URL`, dev
+  port 3006), beside `my-portal`. The registry comment already said surfaces
+  exist so "URLs and CORS derive from ONE place (the domain-flip lesson)" —
+  the marketing site was simply never added to it.
+- **The footer derives all three hosts** — website, Thread, Fibre — through
+  `surfaceUrl` / `appUrl`, defaulting to the ambient environment.
+- **`FOOTER_PATHS` split out from `FOOTER_LINKS`.** The absolute production
+  links stay exactly as they are, because their job is EMAIL and an inbox is
+  read from anywhere, long after sending; a staging host in one is a dead
+  link in somebody's inbox. A rendered page joins the paths onto whichever
+  host it resolved.
+- **`ambientEnv()`** reaches `process.env` without pulling `@types/node` into
+  a package that also compiles for browsers, and documents that it is
+  server-only — Next inlines `process.env.NEXT_PUBLIC_*` into client bundles
+  as literals, which going through `globalThis` would dodge.
+
+Nothing moves until the environment says so: unset variables still resolve to
+production, so this is a no-op on production and a fix on staging the moment
+`NEXT_PUBLIC_WEBSITE_URL` is set there. **Sign in corrects itself
+immediately**, since staging already sets `NEXT_PUBLIC_THREAD_URL`.
+
+Five tests lock it, including that no surface URL carries a path or a
+trailing slash, and that the email links stay pinned to production.
+
+
+## [0.72.4] — 2026-09-12 — a sign-in stops writing twelve rows one at a time
+
+Legacy and optimisation night. The headline finding is a negative one and
+worth recording as such: **there is almost no dead code here.** A sweep of
+every exported symbol in `apps/api/src/lib` and `packages/shared/src` turned
+up four functions nothing calls, and on inspection three of them are
+unfinished features with their scaffolding already in place — seat overage,
+Zoom's host lookup — not corpses. There are zero TODO, FIXME or deprecated
+markers in the entire codebase.
+
+What there is, instead, is comments that describe code that no longer does
+what they say. Those cost more than dead code does, because dead code is
+inert and a wrong comment actively sends the next person the wrong way.
+
+**`ensurePlanApps` did twelve sequential round trips per sign-in.** It ran a
+nested loop over apps × users doing one awaited upsert per pair. `sso/resolve`
+calls it fire-and-forget on EVERY sign-in, so a six-person workspace on two
+apps paid twelve sequential writes each time anybody logged in, to insert
+rows that already existed. The grid is small and uniform, so it is now one
+upsert of the whole thing. A failed app activation still skips only that
+app's memberships, and the membership write now reports its own error instead
+of discarding it silently.
+
+**The rate limiter had a test seam and no test.** `resetAllBuckets` carried a
+comment saying the contract script used it to assert the limiter without
+waiting a minute. The contract script talks to a deployed API over HTTP and
+cannot reach an in-process Map, so nothing had ever called the seam and
+nothing had ever tested the file. It guards whether a stranger's site can keep
+reading the published thread routes, so it now has ten tests: the boundary
+(the request exactly ON the limit is allowed, the next is not), that
+`remaining` never goes negative because it goes out in a header, that the
+window is fixed rather than sliding, and that an unidentifiable caller shares
+one bucket — being unidentifiable is not a way to be exempt.
+
+**`vat.ts` claimed a job that `seller-vat.ts` does.** Its header called
+`computeVat` the calculator for "invoice-method purchases". Untrue: app sales
+on every rail get their tax from `seller-vat.ts`, which does a VAT-inclusive
+split against the seller's own registration — a different model, not a
+different caller. `computeVat` is called by nothing at all. It is kept,
+because a non-Stripe PSP would need exactly these destination rules and the
+platform is deliberately PSP-agnostic, but the header now says plainly that it
+is untested reference code and must be tested before it touches money.
+
+Left alone on purpose: the admin workspace list's N×5 head-count queries,
+which are a documented decision with a stated revisit point at ~100
+workspaces, not an oversight.
+
+
+## [0.72.3] — 2026-09-12 — two scripts that could not say what was wrong
+
+Both findings come from running the documented flow rather than from reading
+it. Neither is a product bug; both are the kind of thing that wastes an hour
+at the wrong moment.
+
+**`audit-workspace-admins.mjs` read its environment unlike every one of its
+siblings.** Every other script in `apps/api/scripts` takes `FIBRE_ENV_FILE`
+and parses the file itself. This one required the caller to remember
+`node --env-file=.env`, and the entire reward for forgetting was a
+supabase-js stack trace reading `supabaseUrl is required.` — which names
+neither the script, nor the missing file, nor the flag. It now reads the
+house way, `--env-file` still works because a value already in the process
+wins, and a missing file prints the path it looked for. It also announces
+which project it is auditing, so pointing it at production by accident is
+visible rather than inferred.
+
+**`verify-public-api.mjs` could not say why staging had no fixture.** It
+needs a thread that is public-listed, has an owner slug, and has a programme
+that is active or completed. When nothing qualified it said only "publish
+one, or run seed-ebbf.mjs" — so an environment holding threads that were
+merely in draft read exactly like an environment holding none, and the
+advice was wrong for both. It now lists every public-listed candidate with
+the condition it failed. Staging's says `single-event — programme is draft`,
+which is the whole diagnosis in six words.
+
+The advice changed too: it no longer points at `seed-ebbf.mjs` for staging.
+That script targets the `default` workspace, which on staging is the Stripe
+payment-rehearsal rig — the one the integration suite marks load-bearing and
+tells you never to touch.
+
+**Not fixed, and needing Sjoerd** (recorded here so it is not rediscovered):
+staging's Stripe webhooks are registered against the platform's own account
+for Thread, Meet and Membership, when all three take money on connected
+accounts, and Meet's endpoint is missing `payment_intent.payment_failed`.
+The mode is fixed at creation, so each has to be deleted and remade, and the
+new signing secrets pushed to Fly. Remaking them without the secrets would
+leave staging payments worse off than they are now, so they were left alone.
+
+
+## [0.72.2] — 2026-09-12 — the test run, and the two things it caught
+
+A full pass of the documented flow: types, unit, prod smoke, staging smoke,
+the published-contract checks on both environments, the external-app walk,
+Stripe webhook registration, the slug and admin audits, the integration suite
+against the staging database, Playwright's golden paths, and a signed-in
+exploratory pass over everything v0.69–v0.72 shipped.
+
+**The staging smoke was lying, politely.** It reported two correctly-routed
+domains as misrouted because it carried a hand-written list of expected page
+titles, and that list still said "Thread" and "Membership" after branding had
+moved to "The Thread" and "Members". The prod smoke has always derived the
+name from the app catalogue; this one now does too, `includes` and all, so a
+page title with a suffix no longer reads as the wrong app. The subdomain
+mapping is the only staging-specific fact left in it.
+
+**The staging API was three hours behind its own database.** v0.72.0 pushed
+the Beta migration to both databases but deployed the code to production
+only, so staging had the Beta plan row and none of the code that hides it —
+and Beta appeared on the public staging price list with a Get started button.
+Deployed; the staging catalogue is back to four plans. The rule this breaks
+is already in the release gates: a migration goes to both databases in the
+same ship, and the code has to follow it to both too.
+
+**New: `e2e/exploratory.spec.ts`.** The signed-in render check that v0.69.5
+and v0.69.7 went out without. It asserts the sidebar shape in Meet and
+Thread, that the routes removed from the nav still answer, that Settings →
+Teams renders, and that Beta stays off the price list. It asserts nav ORDER
+rather than section labels, because labels only render on an expanded
+sidebar and a fixture user's preference is not a fact to assume — the first
+version of this file failed for exactly that reason and was wrong, not the
+app.
+
+## [0.72.1] — 2026-09-12 — the three settings a new app's Vercel project needs
+
+Written while importing Connections, because two of the three bit on the way
+in and the second one looked like a new problem while being the same one.
+
+`docs/deploy.md` now carries the recipe. **Root Directory must be
+`apps/<app>`** — left at the repo root, Vercel reads the root `vercel.json`
+whose `outputDirectory` is `apps/web/.next`, so the app builds correctly and
+then the deploy fails looking for web's output. And the **build, install and
+output overrides must be blank**: a leftover from a first failed attempt
+survives the Root Directory fix and produces a second, different failure
+*after* the build succeeds.
+
+`scripts/verify-vercel-env.mjs` gains `thefibre-connections` in its NAMES
+list and `NEXT_PUBLIC_CONNECTIONS_URL` in the staging matrix. That list is
+hand-kept and cannot be derived — Fibre web's project is plain `thefibre`,
+not `thefibre-web`, and a project can exist before its directory or after it.
+The eighth app was exactly the "new thing forgotten in a list" bug this repo
+keeps hitting.
+
+Connections' `brandLetters` go from an arbitrary `cx` to `cn`; every other app
+uses its initials.
+
+Connections remains `available: false` and `connections.thethread.app` still
+404s — its Vercel project has no successful build yet. Build settings first,
+then the env vars, then flip the flag. Order matters: flipping it early fails
+the release gate, because `smoke-prod.mjs` derives its domain list from the
+catalogue and will check a domain no browser can reach.
+
+## [0.72.0] — 2026-09-12 — Beta: the companies who see an app first
+
+Sjoerd: *"Give one more plan above enterprise. Beta... it is companies that
+get the newest apps to test for a while."*
+
+So the new tier is not about volume or support. It is about **earliness**, and
+about a **while** — both of which had to become real things rather than a
+promise in a sales conversation.
+
+**A third answer in the catalogue.** `app.released_at` has meant "is there a
+product behind this" since August, and `status` means "has a human allowed it
+to act" — two questions, two columns, deliberately. Beta needs a third that
+neither can give: an app that renders real pages, is worth a tester's time,
+and is not ready for everyone. That is `app.beta_at`. Set it with
+`released_at` still null and the app can be switched on by a beta workspace
+and by nobody else. Everyone else sees exactly what they saw before, "not
+built yet", because from where they stand that is still true. Releasing
+generally later just sets `released_at`, which always wins.
+
+**The while is enforced.** `workspace_subscription.beta_until` is read on
+every plan resolution, and past it the `beta_apps` feature lapses. Only that
+feature: the rest of the plan stands and **nothing already switched on is
+taken away**. A tester keeps the apps they turned on and simply stops being
+first in the queue — taking a live app out of a company's hands because a
+date passed would be a worse failure than the one this prevents. Eight tests
+cover the expiry, including that an unreadable date keeps access rather than
+guessing.
+
+Worth knowing, and deliberately not touched: `comped_until` sits on the same
+row, has the same shape, and is read by nothing at all — a comp with an end
+date does not end. Making comps start expiring is a billing decision and
+belongs to whoever makes it, not to this release.
+
+**Beta is invited, not bought.** `billing_plan.is_public` is new and every
+existing plan defaults to true; only Beta opts out, so it never appears on the
+public price list beside the tiers you can actually pick. It still gates, it
+still shows in /admin/plans, and a workspace on it still sees it on their own
+plan page.
+
+Its features are copied from Enterprise **by the migration** rather than
+retyped, so a feature added to Enterprise before this ran cannot be quietly
+missing from the tier above it. Priced at 0 like Enterprise, which here means
+a conversation rather than free.
+
+Setting it up: /admin/workspaces → Plan → Beta, with a "Testing until" date
+that only appears for that plan and clears itself when a workspace moves off.
+
+## [0.71.0] — 2026-09-12 — Connections: where everybody stands
+
+The eighth app. `connections.thethread.app` and `connections.thefibre.tech`
+already pointed at Vercel; the directory had to exist before the projects
+could be imported, which is what this release is for.
+
+**It owns no data.** No tables, no schema, two read-only SQL functions.
+Everything on screen is derived from what Thread, Meet, Membership and the
+purchase ledger already recorded — which is the whole argument for it: it
+shows something useful on the day it ships and asks nobody to fill anything
+in.
+
+**The landscape** (`connections_landscape(workspace, as_of)`) places everyone
+on a ladder: holds space, contributes, came back, came once, in touch, not
+yet. Highest rung wins. Derived and never typed, because nobody maintains
+four hundred people's stage by hand and a stored one is wrong within a month.
+
+`as_of` is what makes movement free. Every source is a timestamped event, so
+"what did this look like a month ago" is the same query with an earlier
+cutoff — no snapshot table, and the answer cannot drift from the facts
+underneath.
+
+One bug caught by looking at the page rather than the code: the obvious delta
+(count now minus count then) showed a confident "+6" on every band of a young
+workspace, because those people did not exist a month ago. It read as six
+promotions and was six arrivals. The band delta is now net movement over
+people who existed at both ends; arrivals are counted separately.
+
+**What needs you** (`connections_attention(workspace)`) — four named
+conditions, each carrying the fact that produced it, never a score. A single
+number is lead scoring wearing community clothes, and for this audience it
+quietly turns people into a ranking. "Went quiet" is measured against a
+person's *own* rhythm with a sixty-day floor, because somebody you speak to
+yearly is not stale at ninety days. On staging it immediately found two
+people who came to something and were never contacted again.
+
+**Naming.** The slug stays `fibre-sales` — it tags curator data on
+`person_relationship_context` and `org_relationship`, and slugs never change
+(the membership/Hyve rule). Only the display name moved: here, and on the
+profile tab in Fibre web that "Sales" had been titling. `docs/connections-naming.md`.
+
+CORS needed no allowlist entry — `PROD_ORIGINS` is derived from `APP_IDS` and
+`appUrl`, so changing the branding URL covered it. Dev port 3008 and the
+Vercel preview pattern did need adding.
+
+Verified signed in against staging: both pages render with real data, mobile
+stacks to the bottom tab bar, workspace typecheck clean.
+
+**Not done by this release**, in order: import the Vercel projects now that
+the directory is on `main`; append `https://connections.thefibre.tech` to
+`CORS_ORIGINS` on the staging API (prod needs nothing — its origins are
+derived); then flip `available` to `true` for `fibre-sales` in
+`packages/shared/src/branding.ts`.
+
+`available` ships **false**, which is the honest value: it means "you can go
+there", and until the Vercel projects exist you cannot. It gates every app
+switcher, the Fibre dashboard and the SSO hop target check — and, because
+that list is derived rather than written out, `scripts/smoke-prod.mjs`.
+Setting it true first made the release gate fail on
+`connections.thethread.app`, which is the gate working exactly as intended:
+it caught an app listed in the catalogue that no browser could reach.
+
+Design series indexed at `docs/connections-overview.md`; current state and the
+prod/staging divergence at `docs/connections-handover.md`.
+
+## [0.70.2] — 2026-09-11 — the release refuses a half-push instead of making one
+
+`git push origin HEAD:main HEAD:staging` updates two refs in one command and
+git does not apply them atomically. So when `staging` has diverged, `main`
+lands anyway and only the second ref is rejected: you are released on main,
+the script reports failure, and you are one retry away from spending a second
+version number on the same change.
+
+`staging` diverged tonight, for a good reason — a session pushed one commit
+there to exercise it on the staging stack without releasing it. That is a
+legitimate thing to want and the script had no way to survive it. It now
+checks, before pushing anything, that `origin/staging` is an ancestor of
+HEAD, and refuses with the command that shows what is there.
+
+The refusal deliberately does not offer to fix itself. Both ways out destroy
+or ship somebody's work: merging those commits into main releases them, and
+resetting staging to main throws them away. That is a decision, not a retry.
+It was taken here by Sjoerd and by the commit's author, not by the script.
+
+**So this release also carries `/contacts/duplicates`,** the screen for the
+four admin endpoints v0.70.0 shipped with nothing able to reach them. It
+lists candidate pairs with the reason in words rather than a score, shows how
+each record arrived so that "typed in" against "booked a meeting" can settle
+which to keep, and makes KEEPING the choice rather than merging in a
+direction nobody remembers.
+
+**One honest gap, stated by its author:** that page has never been rendered
+signed in. The API under it was verified properly — list, merge and undo
+exercised over HTTP against staging with a real admin session — but the page
+itself was only ever seen as a redirect to sign-in, because the staging
+magic-link sign-in does not complete for localhost. A runtime render error in
+it is the residual risk. It is admin-gated and behind a deliberate button, so
+the blast radius is one page for one role, but it has not been verified the
+way the rest of v0.70.0 was.
+
+## [0.70.1] — 2026-09-11 — the release script can be run from where we now tell people to work
+
+Two defects in the release path, both found by the first session to release
+from a git worktree, and both fixed at the root rather than written up as
+things to remember.
+
+**`release.sh` pushed the ref named `main`.** In the main checkout that is the
+commit it just verified. From a worktree it is a different thing entirely —
+`main` is checked out in the MAIN checkout and holds whatever that tree last
+had, so every gate would pass on your tree and somebody else's commit would
+ship. It pushes `HEAD` now, which is identical in the main checkout and
+correct everywhere else, and is in any case the honest ref: HEAD is what the
+gates read. This mattered today rather than in the abstract, because CLAUDE.md
+now tells sessions to take a worktree for code work, so the broken path was
+about to become the normal one.
+
+**Two secret files were being uploaded to the Fly builder.** The root
+`.dockerignore` said `.env` and `.env.*`, and Docker ignore patterns are
+relative to the CONTEXT ROOT, so those matched `/.env` and nothing deeper.
+`apps/api/.dockerignore` looked like it covered the gap and never has:
+BuildKit reads only the context-root file. The Dockerfile's COPY list is
+narrow enough that neither file reached the image — luck, not design — but
+the whole context is uploaded to the remote builder, so the secrets crossed
+the wire. `**/.env` and `**/.env.*` now match at any depth, and the
+decorative nested file says at the top that Docker never reads it.
+
+**Corrected after publishing.** This entry first said the exposure was a
+worktree problem, because a worktree has to have those files copied in before
+`pnpm verify` will run. That was wrong, and it understated it.
+`apps/api/.env` has sat in the MAIN checkout since 12 May 2026, the day the
+project started, and `apps/api/.env.staging` since 3 September — so every
+`fly deploy --remote-only` anyone has ever run uploaded them, not just the
+one release made from a worktree. The API is at v266. Between them the two
+files hold `SUPABASE_SERVICE_ROLE_KEY` for both projects — the credential
+that bypasses every RLS policy on the EU database — plus
+`SSO_INTERNAL_SECRET` and `STRIPE_SECRET_KEY`. What bounds it: `fly secrets list`
+shows Fly already holds every one of those values, and has to — the API reads
+them at runtime. So the same secrets reached the same vendor by a sloppier
+path than the intended one, a build context instead of an encrypted secrets
+store. Lower assurance, no new party. A real hygiene defect, now fixed, and
+not grounds for an emergency rotation. Whether to rotate anyway is Sjoerd's
+call and nobody else's: the service-role key means a Supabase rotation plus
+`fly secrets set` plus a redeploy, with a window where the API does not
+answer. Found by the session that made the original report, which corrected
+its own framing twice — first the scope, then the severity.
+
+The general shape of both: a check you have to remember is the check that
+fails. Fixing the pattern beats adding "and list the env files" to a
+pre-deploy ritual.
+
+## [0.70.0] — 2026-09-11 — one way a person is matched, and a merge you can undo
+
+Nine call sites across six route files each rolled their own match-or-create
+for a person. Reading them turned up three real bugs, not just duplication.
+
+Five used a single-row fetch with no limit, and PostgREST raises PGRST116 when
+more than one row matches — so the moment a workspace held two people on one
+address, booking a meeting, joining a membership and an external app's link
+call all failed. The duplicate problem was eating the code meant to prevent
+it. Membership matched with `ilike`, where `%` and `_` in the VALUE are
+wildcards and `_` is legal in an address, so `foo_bar@x.com` could match a
+different person. Name splitting was written six times, storing `''` in two
+places and `null` in the rest.
+
+`lib/resolve-person.ts` is now the only way a person is matched or created —
+same pattern as `connections.ts` and `payment-accounts.ts`, both of which
+exist because one value drifted across several readers. Creation is never
+implicit; callers ask for it. Matching is oldest-wins, explicitly ordered and
+limited, so duplicates can never raise, and the count comes back so callers
+log it.
+
+No unique index on (workspace_id, email), deliberately: couples share an
+address and `info@` is one mailbox for an organisation. The API enforces with
+judgement; the database does not pretend otherwise.
+
+**New: `person.created_via`** records how every row arrives — typed in, a
+booking, an enrolment, a membership purchase, an external app. Plain text with
+no check constraint, so adding a source is a deploy rather than a migration.
+Existing rows stay null, which is honest. It joins the Article 15 export.
+
+**New: duplicate review and a reversible merge.** `merge_person` discovers
+every FK pointing at `person` from `pg_constraint` rather than listing them —
+28 exist today, and a hand-written list is what goes stale the first time
+someone adds a table. Every repointed row is recorded by id; every row a
+unique constraint refuses to move is stored whole before being dropped, so
+`unmerge_person` restores it. The merged person is soft-deleted and stamped
+with `merged_into`, never removed.
+
+`person_duplicate_candidates` uses `pg_trgm`, not a model: same address, same
+name, and trigram-similar names — the case deterministic matching misses.
+Nothing leaves the database and it answers the same way every run.
+
+**The integration test earned its place immediately.** The merge hit
+`activity is append-only — write a correction row instead`. The tempting fix
+is to exempt the merge, which puts a permanent hole in hard rule 5 for an
+administrative convenience. Instead activity is excluded from the repoint and
+reads resolve through `person_and_merged()` — the event really did happen
+against that record.
+
+Routes (admin-gated — merging rewrites who owns a payment and a certificate):
+`GET /persons/duplicates`, `POST /persons/merge`,
+`POST /persons/merges/:id/undo`, `GET /persons/merges`. No UI yet; the queue
+is reachable by API only.
+
+Also: `callerWorkspaceRole` moved from `routes/members.ts` into
+`lib/workspace-roles.ts` rather than being copied — one reader, not two that
+drift. `POST /persons` now returns an advisory `duplicate_of` instead of
+silently creating a second record; it still creates, because typing a contact
+in is deliberate.
+
+Migrations went to staging first per the documented rhythm for anything
+touching RLS or existing data. 40 integration tests against staging, 6 new;
+160 unit tests, 17 new.
+
+
+## [0.69.8] — 2026-09-11 — the contact heading starts under the logo
+
+Found by looking at the page rather than at the code: the contact form sat in
+a narrower container than the navbar above it, so the word Contact floated in
+from the left while the logo stayed at the edge. The container now matches the
+navbar's and the form alone stays narrow, because a text field the width of
+the page is unpleasant to read back.
+
+Also checked on staging, on a phone-sized viewport and against fixtures that
+were removed afterwards: the three designs render, the contact route 404s for
+an unknown owner, rejects an incomplete body, and answers a filled honeypot
+with a cheerful ok while delivering nothing. The delivery leg itself is
+untested — that would mean sending real mail to a real person.
+
+## [0.69.7] — 2026-09-11 — Thread's sidebar catches up with the others
+
+The one piece v0.69.5 left out. Thread's Money section needed a translation
+key in a catalogue another session was holding uncommitted, so its invoices
+stayed among the Thread screens while the other five apps moved. That
+catalogue landed, so Thread now reads the same as everything else: Home,
+Thread, People, Money.
+
+## [0.69.6] — 2026-09-11 — somewhere to choose the design, and a way to be written to
+
+The other half of v0.69.4. That release taught the public pages three
+designs; this one is where a workspace picks one, and the contact page the
+ingredients list promised.
+
+**Settings → Website.** The design, chosen from four cards, then the site's
+name, logo, header image, headline, intro, navbar links, footer text and the
+contact form. Each theme card carries a small abstract of its layout rather
+than a screenshot: what differs between the three is where the weight sits,
+and four rectangles say that honestly and never go stale.
+
+**`/{owner}/contact`.** Name, address, message. It delivers to an address the
+visitor never sees, which is most of why a form beats printing the address.
+Turning the switch on without naming that address is refused in the editor,
+because a form with nowhere to deliver eats messages silently. The page 404s
+unless the form is on, so the route can never render as a way to reach
+somebody that isn't one.
+
+**Thread pages wear the site too.** Same navbar, same footer, reached from
+the same listing. One exception, found by looking: festival's navbar floats
+transparently over its hero image, and a thread page has no hero, so it
+borrows corporate's solid bar for that one page.
+
+Checked in a browser against staging rather than reasoned about, which is how
+the festival navbar turned out to be white text on a photograph of a bright
+ceiling. It now carries a shallow scrim of its own, and the fixtures that
+proved it were removed afterwards.
+
+## [0.69.5] — 2026-09-11 — one sidebar, and nothing in it twice
+
+Sjoerd: *"make the side bar simple, and remove double function (like Settings
+from two places).. maybe just one... (dropdown)... Side bar should be
+consistent through the app (contacts, teams, invoice... etc.)"*
+
+**Settings leaves the sidebar.** It was already in the avatar menu in every
+app, so it was in two places everywhere. The menu keeps it. In Thread and
+Membership it was the only thing in its section, so the section goes too.
+
+**Internal team leaves the sidebar** in Thread and Meet. It was a second
+Members screen inside the app, and its own page said so — it linked to The
+Fibre and called that the single point of truth. Since yesterday that screen
+also has Teams beside it, so there is nothing left for a copy to add. Thread's
+was already read-only. **The routes stay**, so existing links and the Help
+pages still work; only the nav entries go.
+
+**Every app now has the same shape.** Home, then the app's own work, then
+People, then Money. Contacts and Teams are platform things, so they stopped
+being filed under "Workspace" in Meet and Flow and under "People" in Thread
+and Pulse.
+
+Thread's Money section is the one piece not here: it needs a translation key
+in a catalogue another session is holding uncommitted, so its invoices stay
+where they were until that lands. Better a Thread sidebar that is one step
+behind than a second sweep of somebody's in-flight work.
+
+Also fixed, a defect from yesterday's teams release: Meet's internal-team
+invite wrote `app_membership` without `is_direct`. An invite landing on a row
+a team happened to confer would have been recorded as team-derived, and the
+resolver would have withdrawn it the next time that team changed — a
+deliberate grant revoked by something unrelated to it.
+
+## [0.69.4] — 2026-09-11 — three ways for a workspace to look public
+
+Sjoerd: *"on workspace level.. provide three different design styles... A
+festival: full page hero image with a title and navbar at the top. A second
+one more corporate. A third one more community like style."* Plus the
+ingredients: image, navbar, logo, intro text, footer, privacy, conditions,
+contact page.
+
+**A theme is a layout, not a palette.** The three differ in what they put
+first, because they are for visitors arriving in different states of mind.
+*Festival* is for a stranger who has to feel something before they read: the
+hero image is the page, the navbar floats over it, the programme is a grid of
+posters. *Corporate* is for somebody sent here to find a date and a price:
+nothing decorative above the fold, and a listing whose first column is the
+date. *Community* is for somebody who already belongs: the host's face and
+voice first, then what's on.
+
+**`plain` stays the default**, and is exactly the page that was there before,
+so no published page changed the day this shipped. It is also the honest
+choice for a workspace that wants a listing rather than a website.
+
+The ingredients live on `thread_settings` — one row per workspace, which is
+what the public renderer already loads. Deliberately NOT stored: pages.
+Sjoerd named the future ("the drag and drop of the certificates for a very
+chic design tool") and asked for a basic structure now. A theme is code; a
+template will be a document; these columns are what both read from.
+
+Privacy and terms come from the shared `FOOTER_LINKS` — the same two
+documents the platform's emails point at. A workspace does not write its own
+and should not: they describe what The Fibre does with the data, which does
+not change because the page is wearing a festival poster.
+
+**`POST /public/contact`** delivers the form to an address the visitor never
+sees, which is most of why the form exists. Two brakes, because it is a public
+endpoint that causes mail: a honeypot, and an hourly cap keyed on the
+*recipient* workspace rather than the sender's IP — every visitor shares one
+Vercel egress address, so an IP cap would have throttled the site and missed
+the abuser. `contact` and `about` became reserved thread slugs; nothing in
+production held either.
+
+Also in this release: `apps/api/src/lib/public-site.ts` and the migration,
+which v0.69.3 committed the callers of without the files themselves. Main was
+red for that reason and is green again.
+
+## [0.69.3] — 2026-09-11 — the contact card says who this person is
+
+Sjoerd, looking at the contacts popup in The Thread: *"people may need a
+little more info about this person.. e.g. organisations"*. The card held an
+email address, a thread and a date — enough to confirm a row, not enough to
+recognise a human.
+
+**Organisations first**, because an employer identifies someone faster than
+an email does. Current memberships only: a job somebody left is history, and
+this card is for knowing who you are looking at. The organisation name now
+also rides the list row, so recognising a person no longer costs a click.
+
+Also on the card, and only when we hold them: phone, city and country, and a
+LinkedIn link.
+
+None of this is new data. The contact graph is platform-owned and The Thread
+reads it natively as an in-family app — the same person row, not a copy, and
+the same wall as always. Both new queries were run against production before
+shipping, which is how the shape of an embedded select gets checked at all:
+TypeScript never reads those strings.
+
+If the organisation lookup fails, the contact list still renders without
+employers. A card missing a line is useful; a page that 500s is not.
+
+## [0.69.2] — 2026-09-11 — a home page about today
+
+Sjoerd, on the Thread dashboard: *"every time I have to skip it because there
+is nothing meaningful (yet??)"*. He was right, and had been for months. The
+page greeted you by name and then explained what the product is for — to
+somebody already inside it, standing on top of their own live data.
+
+It now answers the four questions you actually open the app with, in the order
+the day asks them: **what needs me** (applications waiting for approval,
+invoices unpaid, threads still without dates), **what is on now** (today's
+threads, each with how full the room is and a way straight to the door),
+**what is next** (the soonest few, how far off, how many are coming), and
+**what just happened** (the last handful of people who signed up).
+
+Every section hides when empty, so a quiet Tuesday is a short page rather than
+four empty boxes. The orientation copy did not die — it is what an *empty*
+workspace sees, beside the template picker, which is the one moment somebody
+genuinely does not know what lives here. The line that literally said
+"Skeleton" is gone.
+
+Today's rooms get their own per-thread query, because "4 of 12 checked in" has
+to be exactly true when somebody is standing at a door. The workspace-wide
+counts come from the 200 most recent enrolments and are deliberately kept to
+things that link straight through to the page holding the full truth — a
+prompt, not a ledger.
+
+**`happeningToday` moved to `apps/thread/lib/thread-dates.ts`.** The check-in
+door owned it, and stopped being the only surface that needs it. Two answers
+to "is this today" in two files is how the two answers drift.
+
+**The threads filter row: the owner chips became a dropdown.** Sjoerd:
+*"maybe categories with a dropdown?"* One chip per team is fine at two teams
+and wraps at five; the row was already six wide. Status stays chips — a closed
+set of four that never grows. Owner and category are open lists, and an open
+list in a row of chips is a layout with a deadline.
+
+**Category became a real filter.** The workspace could define categories and
+then not filter by them, which is a control that looks like it worked. The
+options come off the thread rows themselves, so there is no extra request and
+no dead option for a category nothing carries.
+
+## [0.69.1] — 2026-09-11 — the API build gets the memory it was already using
+
+v0.69.0 built clean locally and died on the Fly remote builder: *"Ineffective
+mark-compacts near heap limit"* from `tsc`, twice in a row at the same point,
+around 1.95GB. Not a flake — node was taking its default ceiling on a builder
+with far more RAM to give, and the API finally grew past it.
+
+`NODE_OPTIONS=--max-old-space-size=4096` on the build stage. Nothing about the
+image or the running machine changes; only the compiler's allowance does.
+
+## [0.69.0] — 2026-09-11 — the team decides which apps its people open
+
+Sjoerd, adding more apps: *"I don't want all apps to be available to all
+people in a workspace."* The first sketch was a new grouping concept. His was
+better: **"the workspace admin can make teams... and the teams he/she makes
+can also be used for access levels."**
+
+No new concept, because the right one already existed. `team` stopped being a
+Meet rota in May and became a platform primitive; it is workspace-scoped, it
+has members, and `team_member.role` already distinguishes lead from member —
+which is exactly the distinction an app grant needs. Nothing about
+enforcement moves: `workspace_app` still says what a workspace runs and
+`app_membership` still says what a person may open. This is an assignment
+layer that writes the same rows an admin used to tick one at a time. The test
+it passes is the ninth app: you edit one team, not one member after another.
+
+**A team can now be internal.** `team.slug` is a public address, so a Finance
+team made to let the bookkeeper into Pulse would otherwise also have stood up
+a public page — a surprising side effect for an internal permission. Internal
+teams have no public page, and the slug is claimed either way, so publishing
+later cannot collide with anyone. That last part needed no work:
+`public_root_slug` has claimed the segment globally since 2026-09-09.
+
+**Grants apply immediately** to everyone already in the team. Going-forward-only
+would leave two people in one team with different access and no visible
+reason. The cost is that adding an app widens access for people added months
+ago, so the screen says how many people that is before you save.
+
+**Removing an app no longer guesses.** `app_membership.is_direct` records
+whether an admin ticked a grant, so unticking it can tell the difference
+between revoking and leaving alone what a team still owes. Every existing row
+defaults to direct, which is precisely what it was.
+
+**Workspace admins can manage team membership.** Those writes required a Meet
+seat *and* being a lead of that specific team — correct for a rota, and
+impossible for an admin putting a finance-only person into a group.
+
+Editing team grants is **Pro** (`team_access_groups`). Resolution never is: a
+workspace that drops below Pro keeps the access its people already have and
+simply cannot change it. Revoking half a workspace because a card failed is
+the wrong answer to a billing event.
+
+`lib/team-grants.ts` is the single resolver, and `mergeGrants` inside it is
+pure and covered by nine tests. Union, never intersection — nobody loses an
+app by joining a team.
+
+New: Fibre settings → Teams. The Members list now names the team an app comes
+from, so "why does she have Pulse?" is answerable where the question occurs.
+
+Design and the decisions behind it: `docs/teams-as-access-groups-proposal.md`.
+
+**Not in this release, deliberately.** Sjoerd's wider rule — apps outside the
+plan go read-only with history intact — does not exist today. Plan gates are
+per-action and mostly guard switching an app on, so an app already running
+keeps working after a downgrade. Doing it properly needs a writable-app
+resolver, every write path consulting it, and a banner that explains why; done
+badly it means data people cannot reach. It gets its own slice.
+
+## [0.68.76] — 2026-09-11 — the RSVP waits for you to stop tapping (Portal 0.7.3)
+
+Sjoerd, reading the cost v0.68.75 wrote down: *"could there be a delay before
+it sends?"* — and it is the right fix rather than a mitigation.
+
+A cycling control cannot be aimed. Someone who means "can't" from a blank
+card passes **through** "coming" on the way. Sending on every tap made that a
+real answer, briefly counted by an organiser who might be looking at the
+moment it lands. The send now waits **800ms after the last tap**, so only
+where the finger comes to rest is ever sent — the trip through the middle
+state stops existing on the wire.
+
+The screen still changes instantly. The delay is on the wire, not in the
+feedback, which is the distinction that makes it free: the control feels
+exactly as immediate as before. A deliberate double tap now costs one request
+instead of two.
+
+**A pending answer must not die with the component**, and that is the one
+failure a delay can introduce. Closing the sheet or re-rendering the list
+inside the window would drop it silently — the worst shape of bug here,
+because the person watched the answer change and believes it is saved. So
+unmount clears the timer **and sends**, without awaiting: the request outlives
+the component.
+
+**Reverting on failure goes back to what the SERVER holds**, tracked
+separately from what is on screen. The previous on-screen value may itself
+have been a state the tapping passed through and never sent, so restoring it
+would invent an answer nobody gave.
+
+The button is no longer disabled while in flight — there is nothing to wait
+for, and a control that locks after a tap is what makes people tap it again.
+
+**Verified:** typecheck clean, production build clean, 13 portal unit tests
+pass. Not verified: the timing itself, which needs a session — the staging
+fixture is the only place the control renders.
+
+## [0.68.75] — 2026-09-11 — one card, three columns, one RSVP button (Portal 0.7.2)
+
+Sjoerd, with a layout sketch: *"reduce it to one button, that toggles
+between: ? / check / X (at the end of an engagement... total height of a
+card... Date also total height of a card):*
+
+```
+| [date] | [Titel event / (smaller) time · organiser · QR icon] | [RSVP] |
+```
+
+Built as drawn. The card is now three columns with `items-stretch`, so the
+date block and the RSVP button both run the **full height of the card**
+instead of floating beside a two-line body — the row reads as one row rather
+than a square, some text and a button. The ticket mark moved into the second
+line with the other small facts, where it stops competing with the one
+control that does something.
+
+**The RSVP is one button that cycles**, in his order: no answer → coming →
+can't → no answer. It shows the state it **is in**, never the state a tap
+would produce; a control that displays its own next action is the classic
+confusion, and here the state is the thing an organiser is counting.
+
+**The cost is stated rather than hidden.** A cycle cannot be aimed. Someone
+who means "can't" from a blank card taps twice and passes through "coming" on
+the way, which is briefly a wrong answer sent to the server. That is
+acceptable because the trip is one tap long and the third state exists to
+undo it — but it is why `title` and `aria-label` both name the CURRENT state
+*and* what the next tap does, and why the detail sheet keeps a words line
+("Coming. Tap for can't come.") that the timeline card has no room for.
+Without that line on a phone, where there is no hover, the cycle is
+undiscoverable.
+
+**`aria-pressed` is deliberately gone.** It describes a two-state toggle, and
+announcing three states as two would hide the middle one from exactly the
+people who cannot see the colour. Colour still only reinforces: the check,
+the cross and the question mark carry the state.
+
+Width dropped from two 44px squares to one; **height stayed**, as it has
+since v0.68.38 caught this control at 34px after a round that believed it
+was compliant. Small square, never short rectangle.
+
+**Verified:** typecheck clean, production build clean, 13 portal unit tests
+pass, signed-out render with no console errors. The control itself lives
+behind a session — the staging fixture proves it, and it has not been run
+against this change.
+
+## [0.68.74] — 2026-09-11 — the RSVP is two small squares (Portal 0.7.1)
+
+Sjoerd: "make the RSVP smaller — like more smaller icons. And maybe with
+green/red once activated."
+
+**The footprint shrinks; the tap target does not.** It was two buttons of
+roughly 136×44 spanning the card and is now two 44×44 squares, about 96px of
+total width including the gap. The height is deliberately unchanged: this
+exact control was already caught at 34px high in v0.68.38, after a round that
+believed it was compliant. It is used one-handed on a phone. Small square,
+never short rectangle.
+
+**Colour reinforces, the icon carries the state.** The check and the cross
+stay. Red and green is the common colour-blind pair; "no answer" has to be
+visibly different from both rather than merely paler; and dropping the words
+leaves the shape as the only thing that means anything. Selected is a filled
+emerald or red; unanswered is two plain outlines.
+
+**Two things that survived the shrink on purpose.** The caption moved beside
+the icons rather than being deleted for vertical space — with the words gone
+it is the only thing telling anyone that tapping again withdraws, and the
+third state is undiscoverable without it. And the `aria-label` now carries
+the item, "Coming to Conversation 1" rather than "Coming", because it is the
+control's only name now and a screen reader user does not get the row context
+that proximity gives a sighted one.
+
+Driven signed in against the staging fixture in all three states, measured
+rather than eyeballed: both buttons are exactly 44×44, selected reads green
+or red in pixels, and the fixture was returned to the answer it started with.
+
+**A note on the instrument, since it cost three reads.** `getComputedStyle`
+in the preview pane reported stale colours while the tab was not repainting —
+class lists and a reload-forced screenshot were the signals that held. When a
+rendered colour and a class list disagree, the class list is the code and the
+computed value is the instrument.
+
+## [0.68.73] — 2026-09-11 — the door lands on the list, not on an empty receipt
+
+Sjoerd: "for desktop the list is probably more intuitive than the QR."
+
+The check-in screen opened on "Just in", which is empty until you have
+scanned somebody — so arriving there meant arriving at nothing, on any
+device. It now opens on "Everyone today", and the first successful scan
+switches to the receipt by itself, which is the moment that half starts being
+the useful one. One default, right on a laptop where nobody is holding up a
+camera and right on a phone where the list is what you need before the queue
+starts.
+
+Recorded rather than built, in the same pass: **online check-in**, which has
+no door at all. The answer looks like it already exists — the visitor portal
+renders a Join button carrying the meeting URL, and that is the click a
+participant makes anyway. Routing it through a check-in stamp records
+attendance with zero effort from either side. Build plan carries the shape,
+the authorisation (a participant may legitimately check themselves in), and
+the honest caveat: clicking Join proves somebody opened the room, not that
+they stayed — which matters if a certificate follows completion.
+
+## [0.68.72] — 2026-09-11 — two tabs under the scanner: what you just did, and everyone else
+
+Sjoerd, after using yesterday's scanner at a real door — including trying it
+from the wrong account first, which correctly refused: "only see the people
+you just checked in, and have a second tab in the same screen with participant
+list."
+
+They are two tabs because they answer two questions. **Just in** is the
+running receipt of this session: did that scan work, and who have I let
+through? Newest first, no search, because you are reading the last few lines
+at arm's length. It starts empty and does not survive a reload, which is
+honest — it is what YOU just did, not a record. **Everyone today** is the
+other question entirely: this person has no QR, are they on the list?
+Searchable, with checked-in state, tappable to admit by hand.
+
+**Scoped to today, for two reasons that agree.** It is the path where a human
+picks a person by hand and could pick the wrong event, and everyone a
+workspace has ever enrolled is not a door list. Each row carries its own
+event, so admitting goes to the right one, and the event name only appears
+when the door actually covers more than one.
+
+**The door list was generalised, not copied.** `DoorRow` now carries its own
+`threadId` instead of the list holding one for everybody, so the same
+component serves a single event's door and a mixed one. Its scanner became
+optional for the same reason — the workspace screen has one camera above the
+tabs, not one per tab. The single-event door is unchanged in behaviour: it
+passes its own id as the scan scope and still refuses a ticket for another
+event, which is what a single door wants.
+
+That is the second extraction in two releases on the same screen, and both
+were forced by the same thing: this is the one surface where a quiet
+divergence means a queue outside a building.
+
+## [0.68.71] — 2026-09-10 — a scanner you can reach without choosing an event first
+
+Sjoerd: "In the mobile version, maybe add the QR scanner at the bottom, and it
+scans throughout any list of this organiser/workspace… below the scanner is a
+button that says go to manual check-in, and then there is a list of only the
+threads that happen today."
+
+Until now the scanner lived INSIDE a thread: you had to know which door you
+were standing at before you could scan for it. Check-in is now its own place,
+third in the nav so it lands in the mobile tab bar rather than the More
+sheet — it is the one screen used standing up, at a door, with one hand.
+
+**Most of it already existed and nobody had noticed.** `checkin_code` carries
+a unique index across every enrolment, and `GET /checkin/:code` has always
+resolved it globally and then authorised with the same rule as
+approve/decline — so a ticket for a thread you do not run was already a 403
+rather than a leak. The only thing scoping the scanner to one thread was a
+single client-side comparison. Removing it is the feature.
+
+**Sjoerd's shape answers the one hazard a global scanner has.** It can admit
+somebody to the wrong event; the per-thread one cannot. His manual fallback
+is scoped to today, which puts the guard exactly where a human picks an event
+by hand and could pick wrongly. The scan itself stays global and now names
+the event in the verdict, since the API already returned the title.
+
+**The scanner was extracted, not copied.** It was woven through the door
+list — shared flash state and vibration, optimistic row ticks, camera
+lifecycle, and a BarcodeDetector fallback whose comment records a real
+Safari/desktop trap. That is the one screen in the product where a quiet fork
+means a queue outside a building, so `components/ticket-scanner.tsx` is now
+the only scanner and both doors use it. The seam is small and holds: the
+component owns reading a code and showing a verdict, the caller owns what a
+code MEANS. The door list's deliberate freeze — a thumb resting on a row must
+not admit somebody mid-scan — survives as an explicit callback rather than
+by accident.
+
+## [0.68.70] — 2026-09-10 — quarters, and what still needs an answer (Portal 0.7.0)
+
+Sjoerd, on the Next timeline: "you should be able to organise your timeline
+(per quarter, only organiser x, thread… rsvp's)." Two of those four shipped
+already — the organiser chips and the thread dropdown. These are the other
+two, and they are not the same kind of thing as each other.
+
+**Quarter is GROUPING, and it costs no control at all.** A heading appears
+where the list crosses a boundary: nothing to tap, nothing to reset, nothing
+added to the bar above a short list. It only appears when the list actually
+spans more than one quarter, because a single header over everything labels
+nothing. The label says `Oct–Dec 2026` rather than `Q4 2026` — a quarter is a
+finance word and a member reads months.
+
+**RSVP is the only one of the four that is a to-do rather than a view**, so
+it is not a filter chip. When something is unanswered, a line appears saying
+so and how many; tapping it narrows to those, tapping again shows everything.
+A filter you have to think to use does not get used. A number that turns up
+when it means something does. It counts within the current organiser and
+thread scope, so the number and the list it filters to always describe the
+same set, and "Earlier" never narrows this way — a past RSVP is not a
+question still open, whatever the answer was.
+
+Driven signed in against the staging fixture, using the product's own
+controls rather than writing to the database: withdrawing the RSVP made the
+line appear, tapping it filtered, tapping again cleared, and answering again
+put the fixture back. Four more unit tests cover the quarter boundary and
+what counts as unanswered — "can't" is a reply, not a silence.
+
+## [0.68.69] — 2026-09-10 — preferred language is a picker, not an ISO code
+
+Sjoerd, on the Edit contact dialog: "make the language a dropdown." It was a
+text box with the hint "ISO 639 code, e.g. nl or en-GB", which asks a
+question about a standard rather than about a person — and it sat directly
+beside a country field that had been a searchable picker all along.
+
+- **`@thefibre/shared/languages`** — all 183 ISO 639-1 languages with English
+  names, the sibling of `countries.ts` and deliberately the same shape. Names
+  were generated once from `Intl.DisplayNames` and frozen into the file, the
+  same trade countries makes: no runtime dependency, and nothing that shifts
+  when a platform ships different ICU data. `languageName()` degrades a region
+  variant to its base, so a stored `en-GB` reads as English.
+- **`LanguageCombobox`** in the web app, a twin of `CountryCombobox` down to
+  the div-not-label wrapper, over the shared `SearchSelect`.
+
+**Why the whole list and not the six locales we speak.** This field describes
+a HUMAN, not a setting. It records that a contact would rather be written to
+in Afrikaans, and it leaves in their Article 15 export as their own data.
+Nothing reads it to pick an email language — that is
+`identity_profile.locale`, a different field with a different job. Narrowing
+it to what our interface happens to be translated into would discard true
+things about real people.
+
+**A value we cannot place is kept, not dropped.** The column is free text and
+has been since it was a text box, so it may hold `EN` or `en-GB`. The stored
+value is lowercased to match and, if it is still unknown, offered as its own
+option. A dropdown that silently discards what somebody already typed would
+be worse than the box it replaced.
+
+The `iso_639_hint` string is deleted rather than reworded. The list explains
+itself.
+
+Driven signed in on staging, all the way through: the picker opens inside the
+dialog, searching "afri" finds Afrikaans, choosing it sets the hidden input
+to `af`, saving persists `af` to the person row. The fixture was put back to
+null afterwards.
+
+## [0.68.68] — 2026-09-10 — pick a thread on the timeline (Portal 0.6.0)
+
+Sjoerd, looking at his own live Next tab: "maybe also add a dropdown above
+the timeline, with the threads you are part of (as a selector)."
+
+**The two filters are hierarchical, not independent.** The thread list is
+always drawn from what the organiser chips already allow, and changing the
+organiser resets the thread. That removes the state nobody wants to define —
+one community selected and somebody else's thread chosen — rather than
+handling it. It is `@thefibre/shared/ui/search-select`, the same dropdown the
+product dialog picks threads with, not a fifth hand-rolled one.
+
+It appears only when the current scope holds more than one thread. A selector
+with a single meaningful setting is furniture, which is the same rule the
+organiser chips already follow.
+
+**Choosing a thread hides meets, deliberately.** A meet booking belongs to no
+thread, and "show me this thread" is not "show me this thread and also my
+coaching call". Getting back is one tap on All threads, and the empty state
+names the thread rather than saying nothing is coming up, which would be
+false about everything else.
+
+No API change: `groups[].threads[]` already carries the titles, so this is a
+client-side predicate like the organiser filter.
+
+Driven signed in against the staging fixture, which holds one thread — so the
+control was forced to render locally to prove it mounts, opens, filters and
+clears. The case it is actually for, several threads across two organisers,
+exists only on Sjoerd's own production account.
+
+## [0.68.67] — 2026-09-10 — a thread's intention can be written, and rich text is sanitised
+
+Sjoerd, on the intention field: "Can this field have a style thing (B, I,
+Headers, link, etc.)". Yes — and the editor already existed, used for an
+engagement's body since the rebuild. The intention now uses it, and the
+toolbar gains a heading button that toggles back to a paragraph rather than
+being a one-way door.
+
+**The change that is not visible is the one worth reading.** Those rich-text
+fields are written by an organiser and rendered with
+`dangerouslySetInnerHTML` on a public page and in emails — and nothing
+sanitised them. That is a stored-XSS path: not from a stranger, but from
+anyone a workspace makes an organiser, aimed at that workspace's own
+visitors. It predates this release; what it did not have was a sanitiser.
+
+`lib/rich-text.ts` now cleans on the way IN — an allowlist of what the
+toolbar can produce plus what a paste from a document carries, with DOMPurify
+(already a dependency, already used for SVG uploads) doing the work rather
+than a hand-rolled regex. On the way in rather than out, because out is four
+surfaces and counting and only one of them has to forget. Applied to the
+intention AND to engagement descriptions, which had the same exposure. Nine
+tests: what must survive, and what must never.
+
+**Six render sites, and getting this half wrong is how you ship raw tags.**
+A field that becomes HTML breaks every place that printed it as text. Full
+renderings — the thread page, the full thread embed, the owner page's single
+thread — render HTML. Clamped previews — listing cards, the list embed, the
+card embed, the participant portal — get `richTextPreview()`, which flattens
+to a sentence, because two clipped lines of block tags fight the clamp and an
+unclosed fragment leaks styling into the card.
+
+**Everything written before today is plain text and renders unchanged.** The
+sanitiser passes it through, and `whitespace-pre-line` stays on the full
+renderings, so the paragraph breaks fixed four releases ago still work
+alongside the new markup.
+
+**Renumbered from 0.68.66 mid-flight**: the membership session released that
+number while this was being prepared, with `RichText` — a SHARED renderer for
+organiser rich text, built for the same reason on the portal side. Rebased
+onto it, and the three full renderings here now use it rather than the class
+lists this change had hand-rolled. Two sessions solving one problem in one
+hour, caught by the release guard rather than by review.
+
+Its trust comment said sanitising was something to do "if that ever changes".
+It changed in this release, so the note is corrected — otherwise the next
+reader concludes nothing guards it.
+
+## [0.68.66] — 2026-09-10 — the portal shows a description, not its markup (Portal 0.5.1)
+
+Sjoerd opened his own thread in the portal and the agenda showed
+`<div>Een intensieve start…</div>`, tags and all. The engagement
+descriptions come out of the editor as HTML; the public thread page has
+always rendered them as HTML, and the portal rendered the same field as
+plain characters. One field, two surfaces, two answers.
+
+- **`@thefibre/shared/ui/rich-text`** — born shared rather than fixed twice.
+  The class list is lifted verbatim from the public page, which is the
+  design-leading copy: lists keep their markers, links stay underlined. The
+  caller supplies spacing and size, so a bottom sheet and a public page can
+  differ in scale without differing in what a bullet looks like. The trust
+  boundary is written into the file: this is organiser-authored HTML from our
+  own editor, never visitor input, and if that ever changes it gets sanitised
+  at the API boundary where `isomorphic-dompurify` already lives.
+  Thread's `thread-view.tsx` still has its own copy and is another session's
+  lane; the component is there for it and it is one import.
+- **An undated agenda item now holds the date column open.** Not everything
+  is scheduled — a reflection is something you do when you get to it — and
+  rendering nothing there collapsed the row to the left edge, so an undated
+  item read as a HEADING for the dated one below it. On the thread that found
+  this, a reflection and a conversation share a title, so it looked like one
+  session printed twice. A dashed outline says "no date" without claiming one
+  is coming, which for a reflection would be false.
+
+## [0.68.65] — 2026-09-10 — an Appearance tab, and the switch that was overriding you
+
+Sjoerd asked for this yesterday and deferred it — "that's for later" — after
+losing half an hour to the thing it exists to prevent. soul.com's Community
+Member Year Agenda had five conversations, all published, all with "Show on
+the public agenda" ticked, and none of them appeared on the page. Two
+thread-level switches were off, and neither was anywhere near the item he was
+looking at.
+
+**The public face of a thread now lives on one tab**, in the order somebody
+actually asks the questions: is it visible at all, what does it look like,
+what does it contain, how does it open. So `List publicly`, the thread image,
+`Show the agenda` and the page-or-popup choice move out of the general
+settings list, where they were mixed in with dates, language and timezone —
+facts about the thread rather than decisions about its appearance. The image
+came too: it is branding, and Sjoerd named it as belonging here.
+
+**The trap is now named twice, on purpose.** `public_agenda` is a third
+switch that sits in neither half of the two-switch model and silently
+overrides the per-item one. Turning it off is legitimate — some threads have
+no business publishing a schedule — so it stays. What changes is that it
+stops being silent. The tab warns the moment you turn it off, and the ITEM
+dialog warns too, because whoever ticks "Show on the public agenda" is
+looking at an item, not at settings, and that is where the half hour went.
+
+**One thing worth checking if you review this**: moving a field between tabs
+is not just moving markup. Both forms send a full patch, and `fd.get()` on a
+checkbox that is no longer rendered returns null, which reads as false. Left
+half-done, every save of the Basics tab would have quietly switched off the
+things that had moved. The keys left the Basics patch in the same change as
+the controls, and the image picker went with them rather than staying behind
+as a control that no longer saves anything.
+
+Deliberately NOT done: deleting `public_agenda` and letting the section
+appear whenever an item asks for it — the other way out recorded in the build
+plan, and what was done to RSVP the same evening. That removes a capability
+rather than surfacing it, and this is the smaller move.
+
+## [0.68.64] — 2026-09-10 — three corrections from a review of what a membership includes
+
+The my.thread session read the `includes` resolution against the code it
+claims to mirror and found three things. Its central check came back clean:
+`applyEntitlements` and the portal use the same two filters, so "the same
+fact shown to the person rather than executed against a tool" is literally
+true and cannot silently drift without someone editing one of those lines.
+
+- **One destination per included thing, chosen by KIND, not by the order the
+  links were typed in.** The product dialog appends and deletes links with no
+  way to reorder, so first-wins made the answer an editing artefact: a
+  product carrying both a `thread` and a `url` pointed two different places
+  depending on which was added first. A `thread` wins now, because it is the
+  one we RESOLVED — looked up in the member's own workspace and confirmed to
+  exist — where a url is whatever was pasted, checked only for a scheme.
+- **The optional-product exclusion has a better reason than the one written
+  down.** It was "an optional product is on the join form, not in the
+  membership". The real reason is that `applyEntitlements` filters
+  `optional = false` too, so listing them would promise a member something
+  the system does not grant them. Listing what is not granted is worse than
+  listing nothing.
+- **The purchase query now carries the workspace filter** `applyEntitlements`
+  has, rather than leaving it to the grouping downstream. Equivalent for sane
+  data — but "the same pair of queries" is the property the whole block leans
+  on, and that is only true while the filters match.
+
+Also in `docs/system-handbook.md` §10: **a PostgREST select is a string and
+the type-checker never reads it**, filed beside the action/route seam as the
+same species of gate-shaped hole. Two bad column names in one session, both
+typecheck-clean, one of them latent. A minute of curl against real rows
+before shipping is the whole defence.
+
+## [0.68.63] — 2026-09-10 — a member can correct their own name (Portal 0.5.0)
+
+Slice 5 of `docs/member-portal-plan.md`, and the end of the read-only
+portal. The YOU tab showed a name with no way to fix it, which is the wrong
+answer to "my name is spelled wrong on my invoice" — a question that today
+becomes an email to an organiser, and stopping exactly that is what this
+surface is for.
+
+`GET` and `PATCH /api/v1/me/profile`. Two things are editable and each lives
+somewhere different:
+
+- **A name writes every `person` row carrying the verified email.** `person`
+  is per workspace, so somebody in three communities has three rows, and a
+  name corrected in one and not the others is a worse state than not offering
+  the edit at all. All of them, or none. The form says how many communities
+  the change reaches before it is pressed, because that is a fact a person is
+  entitled to in advance rather than after.
+- **A language writes `identity_profile.locale`**, keyed by email, which is
+  already what the email templates and the app chrome read. One identity, one
+  preference, everywhere.
+
+**The email is shown and locked.** It is the key this entire surface is
+scoped by; changing it here would not move somebody's tickets, it would
+orphan them. Nor is anything an app collected ABOUT a person editable: that
+is curator data, it exists because a specific app justified it, and it is not
+the person's to rewrite from here.
+
+A member editing organiser-visible rows is correct rather than alarming, and
+the reason is worth writing down: a name is identity, not curator data, and
+GDPR Article 16 is a right to RECTIFY inaccurate personal data.
+`ui/profile-form` was the shared candidate and is the wrong one — it is the
+ORGANISER's profile, with display name, bio, photo and timezone, none of
+which a member has.
+
+**Also: the venue is a link here too.** v0.68.62 published `location_url` on
+the public thread page after finding it had been stored on engagements all
+along and shown nowhere. The portal renders the same venue and had the same
+gap; it does not now.
+
+**Two bugs caught by driving it, neither of which any gate could see.**
+`person` has no `updated_at` column — the profile read ordered by it and
+would have 400'd for every member on the first load; found by running the
+select against production rows before shipping, which is now the habit,
+because a PostgREST select is a string and the type-checker never reads it.
+And a successful save left the form still marked unsaved, with the button lit
+and no confirmation, because `dirty` compared against the server-rendered
+prop, which a client component never sees change. It compares against what
+was last committed now.
+
+## [0.68.62] — 2026-09-10 — the venue is a link, and the paragraphs are paragraphs
+
+Two from Sjoerd on a live public thread page: "geen mooie opmaak met enters
+etc." and "praktische info over venue / Maps link".
+
+**The map link was stored and never published.** `thread_engagement
+.location_url` has existed since the schema did, the editor writes it, and
+four published agenda items in production carry one right now — pointing at
+Google Maps, entered by an organiser who reasonably assumed it would be
+usable. The public agenda's select simply never asked for the column, so the
+page could only ever render the venue as dead text. One column added to the
+select; the payload spread publishes it; the page renders the venue as a link
+when there is one and plain text when there is not.
+
+Verified against production rows before shipping rather than after, which is
+the habit the membership session was demonstrating an hour earlier when it
+caught a select naming a column that does not exist — clean typecheck, latent
+400 in production, found only by running the query against real data.
+
+**The paragraph breaks were being eaten.** A thread's intention is a plain
+textarea; the public page rendered it in a bare `<p>`, where HTML collapses
+every newline into a space. An organiser's carefully broken invitation
+arrived as one wall of text. `whitespace-pre-line` on the two places that
+render it in full — the thread page and the owner page's single-thread
+hero — and deliberately NOT on the clamped preview card, where a two-line
+clamp plus hard breaks wastes the preview on white space.
+
+Not a bug, recorded because it looked like one: the missing photo on that
+page is a thread with no cover image set. The record has `cover_url: null`
+and the page is rendering exactly what it has.
+
+## [0.68.61] — 2026-09-10 — a member can see what they bought and what they belong to (Portal 0.4.0)
+
+Slices 3 and 4 of `docs/member-portal-plan.md`.
+
+**`GET /api/v1/me/invoices` — every invoice, across every app.** Sjoerd:
+"invoices please — it was there in version 1." They were, per membership.
+`/membership/portal/me/invoices?member_id=…` answers for ONE membership and
+nothing else, so a thread ticket and a meet booking — same ledger, same
+person — had no member-facing route at all, and the Purchases tab showed a
+partial list as if it were a complete one. Now it is one email-scoped list,
+newest first, with `GET /me/invoices/:id/pdf` for any app. Both prove
+ownership on the two ledger keys (`person_id` OR `payer_email`, either alone
+drops rows) and both resolve the seller through `sellerForSale`, so a
+membership invoice names the community and a thread invoice names the person.
+
+**A membership now says what it includes.** Sjoerd: "click and then what it
+contains, with links to what is included." The payload's `includes` merges
+two sources, and both are the member's by different routes: the non-optional
+products of their tier, held for as long as they are a member, and the
+products they bought outright, kept through a tier change or a lapse. That is
+the same pair `applyEntitlements` resolves access grants from — the same fact,
+shown to the person instead of executed against a tool. Optional products
+stay out: an optional product is on the join form, not in the membership,
+until it is bought.
+
+- **A `thread` link stores a ref, not a URL**, and was therefore unshowable.
+  It resolves now — scoped to (workspace, slug), because a thread slug is
+  unique per organiser and never globally, and resolving by slug alone would
+  hand someone another community's thread.
+- **A link we cannot resolve is NAMED without a link**, not hidden. A Circle
+  space needs per-workspace knowledge this route does not have. The member is
+  entitled to know what they are paying for; a dead link would be worth less
+  than nothing.
+- **Manage payment came with it**, opening the Stripe Billing Portal on the
+  community's connected account. It is the control the plan says must not be
+  lost when `membership.thethread.app/my` retires into this surface — it
+  exists here first, and the redirect comes after. Members without a Stripe
+  subscription get a sentence rather than a button that would only 409.
+
+The portal's PDF proxy now sends `fibre-platform` rather than `membership`,
+because the invoice can belong to any app's ledger and `/api/v1/me/*` is the
+platform composing the data subject's own data.
+
+**What is NOT verified.** The staging fixture holds no membership and no
+invoice, and seeding one is still waiting on Sjoerd. Both tabs have been
+driven signed in only in their EMPTY state. Everything that depends on a
+membership existing — the includes list, the resolved thread link, Manage
+payment, the invoice rows — is typechecked and reasoned, not seen.
+
+## [0.68.60] — 2026-09-10 — the settings hub stops sending you to a sign-in form
+
+Sjoerd, looking at Settings inside The Thread: "Workspace links to a Fibre
+login page… doesn't seem right."
+
+It wasn't. Every card marked "in The Fibre" — Workspace, Members, Apps, Plan,
+Currencies, Profile, About, Privacy — built its link as `${fibreUrl}${path}`,
+a bare cross-apex URL. The delivery apps live on `thethread.app` and Fibre on
+`thefibre.app`, and no cookie spans two registrable domains, so a signed-in
+person clicking Workspace landed on a sign-in form. Eight cards, five apps,
+every one of them.
+
+**The machinery for this already existed and was already in use.** `sso-hop.ts`
+does a silent handoff: a one-time 60-second code, redeemed server-to-server
+for a Supabase magic-link hash, minting an independent session on the target
+apex. Membership's and Pulse's own layouts already route their profile link
+through it. `platformSettings` simply never called it.
+
+So it does now. `fibreUrl` is gone from the signature rather than kept as a
+fallback, because a fallback here is a link that silently fails; the function
+takes the calling app and `process.env` and asks `crossAppHref`, which
+returns a plain URL when the apexes already match — so Fibre's own settings
+page and every local dev setup are byte-identical to before. Six callers
+updated, two dead `appUrl` locals removed.
+
+This is the same shape as the copied-rule problems of the last two days, with
+the polarity reversed: not a fact duplicated until copies disagreed, but a
+helper that existed, was correct, and had one caller who never heard of it.
+Nothing failed loudly in either case.
+
+## [0.68.59] — 2026-09-10 — Next is a timeline, not a list of organisers (Portal 0.3.0)
+
+Sjoerd: "the overview page is ugly… maybe a list, organised per date… a
+timeline… with the event you're joining per date… and then a selector per
+organiser." Slice 2 of `docs/member-portal-plan.md`.
+
+The page's skeleton used to be the ORGANISER, with dates scattered inside
+each card. That answers "what does soul.com hold for me", which is a question
+nobody asks. **Time is the spine now and the organiser is a filter**, which
+only appears when there is more than one — a control with a single meaningful
+setting is furniture.
+
+- **A thread with dated sessions contributes its SESSIONS, not itself.** A
+  session is what you attend; a thread is the container, and a container has
+  no place in a list of things that happen. A thread with nothing scheduled
+  still appears, on its own start date.
+- **Date chip, title, time and organiser, and at most one action.** The RSVP
+  segmented control moved onto the card, which is what "a toggle for coming
+  or not coming, in the overview" asked for. Join appears only from fifteen
+  minutes before until it ends — a Join button three months early is clutter
+  pretending to be an action.
+- **Past is behind one "Earlier" toggle**, newest first, because you look
+  backwards from now.
+- Tapping a card opens the same sheet as before — QR, agenda, RSVP, calendar.
+  `ThreadDetail` became `ThreadSheet`: it used to own its own card and its own
+  open state, and now the list owns both, because one card can be a session
+  inside a thread rather than the thread itself.
+
+**The two kinds of date needed one deliberate rule.** Some entries carry a
+day and some a clock, and mixing them without a rule sorts the same list
+differently on different days. An all-day entry sorts at the START of its day
+and stays until the day is over; a timed one stays for two hours after it
+starts, so something happening RIGHT NOW is the top of the list rather than
+gone from it.
+
+Flattening happens in the page, not the API — the plan's open decision,
+decided. Everything is already fetched in one call and one member has few
+entries.
+
+**apps/my has unit tests now** (9, and a `test` script `pnpm -r test` picks
+up). They cover exactly what the staging fixture cannot: it holds one
+upcoming session for one organiser, so the past toggle and the organiser
+filter never render there and the mixed-date rule never fires. Driven signed
+in at 375px for the parts it can prove.
+
+## [0.68.58] — 2026-09-10 — completing somebody stops issuing their certificate
+
+Sjoerd asked for the participant list inside a thread's Certificate tab —
+search at the top, everyone ticked, untick the ones who should not get one —
+"this way the facilitators can select who gets the certificate and who
+doesn't."
+
+**That list already existed**, on Enrolments, filtered per thread, with a
+search, select-all and Issue certificates. It was simply unreachable from the
+screen where you set certificates up. So the Certificate tab links to it
+rather than growing a second copy. Two lists doing one job is the fork the
+components-first rule exists to stop, and this one would have been ours.
+
+**The real change is behind it.** Completing somebody used to issue their
+certificate automatically, which meant "who gets one" was decided entirely by
+"who did you mark complete" — and a facilitator who wanted to complete
+someone and withhold the certificate had no move at all. Sjoerd's call:
+the list becomes the decision. Completion now means completion. Issuing is an
+explicit act with two doors, the participant list and the dated timeline
+element.
+
+It also removes a silent failure: the old auto-issue wrote one warning line
+to stderr when it failed and nothing retried, so a completed person could
+receive nothing and nobody would know.
+
+**One consequence is recorded rather than fixed, and it is a real gap.**
+Unticking somebody means "not in this batch" — nothing persists it — so a
+dated certificate element firing later issues to them anyway. The element's
+own hint says so on screen, the comment on `issueDueCertificates` says so,
+and build-plan 0c has the shape of the fix. It needs a per-enrolment
+exclusion, and the hard part is the interaction rather than the column: a
+tick list is transient, and making one of its states permanent has to look
+permanent.
+
+**The v0.68.46 entry is now wrong about its own feature.** It called the
+timeline element a backstop that "correctly issues to nobody" on a healthy
+thread. That was true for a day. With auto-issue gone it is a main path, and
+the code comment says which world an old note is describing.
+
+Measured before changing: 2 certificates ever issued, 4 completed enrolments,
+1 certificate element in existence.
+
+## [0.68.57] — 2026-09-10 — the portal has four places, not one long page (Portal 0.2.0)
+
+Sjoerd: "why are there two my. environments. As a user, I want 1 environment
+for everything." Slice 1 of `docs/member-portal-plan.md` — the shell that
+the other two member pages will eventually retire into.
+
+**Four destinations: Next, Memberships, Purchases, You.** Seven things is a
+menu; four is a page you can hold in your head. `@thefibre/shared/ui/bottom-nav`
+below `md` — four items is exactly its no-"More"-sheet case, which is one
+reason to stop at four — and a left rail above it.
+
+The rail is the one deliberate fork in the family. `ui/sidebar-shell` is
+organiser chrome: brand tile, workspace switcher, collapse preference, Help.
+A member has one identity, one list and no preferences, so all of that would
+be dead furniture. It is a fork of nothing, because slice 6 retires the other
+two member pages INTO this one rather than alongside it.
+
+**All four are real on day one.** The plan said "existing content moves into
+NEXT unchanged", which would have left three placeholders; instead the
+content that already existed was split to where it belongs. Memberships and
+invoices came out of the per-community cards and became their own tabs, and
+Next keeps what has a date.
+
+- **Next** — tickets, threads and meets, still grouped by organiser. Slice 2
+  turns this into one flat date-ordered timeline; it is not that yet.
+- **Memberships** — community, tier, state, renewal, member since. What a
+  membership *unlocks* is slice 4 and the page does not pretend otherwise.
+- **Purchases** — one list, newest first, with the PDF. **Membership
+  invoices only**, and it says so: thread and meet purchases are in the same
+  ledger with no member-facing endpoint yet.
+- **You** — name, email, sign out, version. Editing is not possible yet and
+  the page says that too, rather than showing fields that do not save.
+
+Signed out, the chrome disappears entirely: four tabs leading to four copies
+of one sign-in form is noise.
+
+Driven signed in at 375px against the staging fixture, including sign-out and
+signing back in. The plan now records how to get a session as that fixture —
+`localhost:3007` is not in staging Supabase's redirect allowlist, so the
+magic link is useless locally and the eight-digit code is the way in.
+
+**Correction, same morning:** an earlier draft of this entry said the
+`thefibre-my` Vercel project did not exist. It has existed since v0.68.24 and
+`my.thethread.app` answers 200 — the claim came from a stale line in
+`docs/my-portal-setup.md`, believed rather than measured. What is still open
+there is staging: `my.thefibre.tech` redirects to Vercel's own SSO, because
+that project carries Standard Protection where the six product apps carry
+none.
+
+## [0.68.56] — 2026-09-10 — a membership is sold by the community, not by a person
+
+The first live membership invoice on soul.com was issued in the name of
+**Solidarity Lab B.V**, at a private address in Zierikzee, with no VAT
+number on it — while charging 21% VAT. soul.com's own entity, One Soul
+Community Cooperative U.A. in Rotterdam, VAT NL813651141B01, sat unused in
+the workspace's invoice details. That is the wrong legal entity on a tax
+document, and it was live.
+
+The cause is that `identity_billing` is keyed by **email**, so an
+organiser's personal invoicing identity follows them into every workspace
+they work in, and `sellerDetailsFor` prefers personal over workspace. That
+preference is right for Thread and Meet — a freelance facilitator selling a
+workshop genuinely does sell in their own name, and their workspace may
+have no legal entity at all. It is wrong for a membership, which the
+community sells.
+
+- **`sellerForSale(appSlug, workspaceId, organiserUserId)`** in
+  `routes/purchases.ts` is now the one place that answers "who is this
+  invoice from". Membership resolves the workspace and ignores the
+  organiser; every other app keeps personal-first.
+- Every seller resolution goes through it: both PDF routes (the ledger's
+  and the member portal's), both payment-link emails, and `sendReceipt`,
+  which reads the app off the ledger row itself — `app.slug` when the row
+  carries the join, else a lookup by `app_id`. A row with neither degrades
+  to personal-first, which is what Thread and Meet want anyway, so a
+  forgotten call site can never produce a wrong entity on a Thread invoice.
+- The five membership receipt queries now select `app_id` deliberately, for
+  that reason.
+
+`organiser_user_id` stays on the row and still means what it meant: who to
+contact about the sale, and what the Invoices page's "Me" scope keys on. It
+just no longer decides the seller for a membership.
+
+## [0.68.55] — 2026-09-09 — a member can sign out (Members 0.14.7)
+
+Sjoerd: "logout (not possible now)". He was right, and it was true of all
+three member-facing pages in the family — none of them had one.
+
+- **`@thefibre/shared/ui/sign-out`**, born shared because there are three
+  callers waiting. The organiser apps already have sign-out inside
+  `ui/user-menu`, but that is the avatar menu with theme, sidebar and
+  workspace switching — none of which a member has. What a member has is a
+  page that knows their email and no way to leave it.
+- The app-bound half is injected, the same rule `user-menu` follows: each
+  app owns its Supabase browser client and decides where to land.
+- Wired into Membership's `/my`, beside the email address, because that is
+  the line answering "who am I signed in as" — the question sign-out
+  follows from. Signing out returns to `/my`, which shows the sign-in form
+  rather than a blank page.
+
+The other two member pages, `my.thethread.app` and Thread's `/my`, are other
+sessions' lanes; the component is there for them and it is one import.
+
+## [0.68.54] — 2026-09-09 — the portal shows your invoices
+
+Sjoerd, two words: *"add invoices"*. Earlier, looking for them: *"can't find
+them now"* — and he was right to look and right not to find them. They were
+never on this surface. `grep -rn invoice apps/my` returned nothing, and the
+portal's membership payload carried tier, status and renewal date and nothing
+else.
+
+**No new API, no migration.** Membership's own `/my` has had them since
+v0.68.25 and both endpoints are deployed and verified:
+`GET /membership/portal/me/invoices?member_id=…` and `…/:id/pdf`. Both are
+email-scoped — the same auth shape the portal already holds a token for — and
+the PDF proves ownership on `person_id` OR `payer_email`, both keys, because
+either alone drops rows. `member_id` was already in the portal payload, so
+the cheapest correct thing was to call the endpoint rather than widen
+`/me/portal`.
+
+- **One call per membership, in parallel, server-side.** A failure yields an
+  empty list for THAT membership rather than failing the page: three
+  memberships and one bad workspace should still show the other two.
+- **The PDF goes through the portal's own route**, `/invoices/:id/pdf`, built
+  from the shared `createInvoicePdfRoute` factory — the third caller, not a
+  third copy. It exists because a plain `<a>` cannot carry an Authorization
+  header and hard rule §13 keeps nothing on Vercel: the route reads the
+  session server-side and streams the API's bytes through. Its `appId` is
+  `membership`, not the portal, because that identifies whose LEDGER the
+  invoice belongs to — the portal is a SURFACE with no AppId by design, and
+  it is only the door.
+- **The empty state says so out loud** — "Nothing invoiced yet." An empty
+  list and a missing feature look identical when both render nothing, which
+  is exactly the confusion this release is fixing.
+
+**What he will actually see, and it is worth saying:** production holds ZERO
+invoices. Every ledger row in the database is the one €1 soul.com row, still
+`pending`, and it belongs to his test member rather than to him. So a correct
+build shows him an empty state. That is the list being right and the data not
+being there yet — which is the Stripe Connect webhook still standing between
+soul.com and money.
+
+Not in the detail popup, deliberately: an invoice is not about a thread, and
+that popup is already the densest thing on the surface.
+
+**Verified:** typecheck clean, production build clean with `/invoices/[id]/pdf`
+registered. Everything else lives behind a session, so the staging fixture is
+the real check — and it has no invoices either, so what it can prove is the
+empty state and that nothing else broke.
+
+## [0.68.53] — 2026-09-09 — the shared Dialog says it assumes it is the only layer
+
+Comment only, no behaviour. The fix it explains shipped in 0.68.52; this is
+the thing that would have prevented the hour it cost.
+
+`Dialog` listens for Escape on `document` in the BUBBLE phase, and listeners
+on the same node fire in registration order. It opens first, so it registers
+first, so it wins — and a later bubble listener cannot get in front of it
+however much it calls `stopPropagation`. Six apps use this Dialog and the
+assumption is invisible until someone stacks something on top of it.
+
+The symptom points away from the cause, which is why it is written down:
+Escape with an overlay open closed the dialog UNDERNEATH and left the
+overlay stranded with its parent gone. A layer above must listen in the
+CAPTURE phase on the same node and call `stopImmediatePropagation`. The
+comment names `apps/my/app/detail.tsx` as the worked example.
+
+## [0.68.52] — 2026-09-09 — Escape closes the layer you are looking at
+
+Round five on the staging fixture, signed in at 375×812. One real bug, and
+the tap-to-enlarge overlay added in v0.68.51 is where it lives.
+
+Open the popup, tap the QR to enlarge, press Escape once: it closed the
+**dialog underneath** and left the full-screen QR floating over the thread
+list with its parent gone. Not a trap — the overlay's own caption says to tap
+it — but the topmost layer was failing to consume the key while the layer
+beneath it consumed it happily, and every other dialog in the family closes
+on Escape, so the muscle memory pointed exactly the wrong way.
+
+**Why it happened, since it will happen again to the next person who stacks
+two layers:** the shared `Dialog` listens on `document` in the bubble phase,
+and it registered first because it opened first. A second bubble listener
+cannot get in front of it. The overlay now listens in the **capture** phase
+on the same node — which runs before every bubble listener there — and calls
+`stopImmediatePropagation`, so the key never reaches the Dialog. Only while
+zoomed; the Dialog keeps its own Escape the rest of the time.
+
+**The ticket-block gamble is vindicated by the measurement that justified
+it.** v0.68.51 laid the QR sideways on the argument that the agenda started
+below the fold on a phone. Measured after: first agenda row top at 576px in
+an 812px viewport — above the fold with 236px to spare, where before it was
+below it from the first item. The agreement was that the measurement decides
+and the block goes back if it fails; it passed, so it stays.
+
+**Everything else passed**, and it is on the record rather than assumed: all
+three RSVP states including withdraw, with `aria-pressed` tracking; tap
+targets (Coming 136×44, Can't 135×44, calendar 44×44, QR 112×112, full page
+145×44 — only the shared Dialog's 18×18 close remains, known and owned
+elsewhere); the QR overlay opening 112→320; the `.ics` and the full-page link
+both absolute and resolving; **no cross-participant leak**, tested with two
+real sessions on the same agenda item rather than one and an assumption; and
+the caption agreeing with the API in both directions.
+
+**Two false alarms the verifying session caught in itself first**, worth
+recording as the sixth instance of tonight's recurring failure: a 1.6s wait
+for the round trip was too short, and a straight apostrophe was matched
+against a curly one. Both briefly read as "withdraw is broken". Both were the
+measurement, not the code.
+
+**The fixture grew two capabilities** and they are permanent: the agenda
+item's `rsvp_enabled` was null (which since v0.68.43 means off, so the
+control did not render at all on first load) and is now true, and
+`portal-silent@thefibre.tech` has a real auth user, so the fixture exercises
+RSVP-on and two participants rather than one participant and an assumption.
+
+## [0.68.51] — 2026-09-09 — the portal's popup stops shouting all at once
+
+Sjoerd, on his own membership: *"improve the interface drastically... more
+clear overview... simple icons... a toggle for coming or not coming... or
+dropdown for RSVP."* The complaint underneath it was measurable — each agenda
+row carried four controls of equal weight and the eye had nothing to land on.
+Design worked out with the membership session, which had the screenshot and
+the measurements.
+
+- **A date chip, day over month, on the left of each row.** The date had been
+  right-aligned in small grey text, which is where you put something you do
+  not want read. An agenda is scanned by date. The time moves into the
+  subtitle beside the location.
+- **Join and Add to calendar are icons**, 44×44, with `aria-label` and
+  `title`. Both are already icon-labelled in every calendar app anyone uses;
+  dropping the visible word is a visual decision, not an accessibility one.
+- **RSVP is ONE segmented control over THREE states.** He asked for a toggle
+  or a dropdown; both are two-state shapes and the answer is three — coming,
+  can't, and **no answer**. A toggle would have to render "no answer" as off,
+  which is exactly the collapse v0.68.30 was careful to avoid: an organiser
+  chasing eight silences is doing something different from one reading eight
+  refusals. So neither segment is filled until you answer, tapping the filled
+  one withdraws, and the caption says which state you are in. Segmented
+  rather than a select because this is used on a phone at a door, where a
+  44px target beats a native picker. **Taken as the three-state reading of
+  his words rather than asked twice** — he has had the argument from the
+  other session and can overrule it in a word.
+
+**The ticket block is laid sideways, not redesigned.** The QR, the wording
+and the wallet actions are unchanged in substance. But the fifth verification
+round measured it filling about half the viewport at 375px, which put the
+agenda below the fold **from the first item** — and on a bottom sheet the
+only budget is vertical. Stacked, that was unfixable without touching it. Now
+the QR sits at 96px on the left with the caption and wallet icons beside it,
+and **tapping it opens it full size on white** — the same treatment
+`ticket.tsx` already gives an orphan ticket, for the same reason: held at
+arm's length, half-turned, sometimes in sun. Full size is one tap away, which
+is the right cost for the size that actually matters at a door.
+
+**Verified here, thinly and on purpose:** typecheck clean, production build
+clean, signed-out page renders with no console errors. Everything changed
+lives inside a dialog that only exists behind a session, so the real check is
+the staging fixture — round five is requested, with the withdraw path and the
+above-the-fold claim named as the two least trusted.
+
+## [0.68.50] — 2026-09-09 — the join page from the home screen (Members 0.14.6)
+
+Sjoerd: "on the home of members — a link to the membership page."
+
+The public join page's address has lived in one place, Settings → Join page,
+which is the one screen you do not open when you simply want to look at the
+page or send someone the link. It is now on the Members home, top right,
+opening in a new tab.
+
+Built from `appUrl('membership', …)` and the workspace slug, the same
+composition Settings uses, so staging produces the staging host. A failed
+`/auth/me` hides the link rather than rendering a half-formed URL with a
+placeholder slug in it.
+
+## [0.68.49] — 2026-09-09 — a thread grant picks its thread (Members 0.14.5)
+
+Sjoerd, looking at a product's Access row: "how do I set that someone will
+enrol in a thread? And slug select". The answer to the first is that this IS
+the control — a `thread` grant is what enrols a member and withdraws them on
+lapse (v0.68.31). The second was a free-text field.
+
+- **The Access row picks a thread**, in both places that offer one: the
+  product dialog and the standalone grant dialog. Same `SearchSelect` and
+  the same option shape the LINKS row has used since 2026-09-05 — that row
+  got a picker then and Access was left typing.
+- **Why it matters more here than for a link.** A mistyped link is a dead
+  link, visible immediately. A mistyped grant saves fine, the member joins
+  fine, and the worker stamps `no thread "<slug>" in this workspace` into a
+  journal nobody is watching. The failure is late, silent, and lands on the
+  member rather than the organiser.
+- An existing value that is not in the list is kept as its own option, so
+  grants holding a full public URL (soul.com has one) still show and still
+  work — the worker's parser already takes the last path segment.
+- The access page now makes the same cross-app thread read the products page
+  makes, on the user's own RLS identity, falling back to the text field if it
+  fails. A 403 costs nothing.
+
+## [0.68.48] — 2026-09-09 — a drag that never ended, and a status that lied
+
+Sjoerd, twice: "once I am in the certificate editor, I can't leave", and
+after the first fix and a reload, "now it does not work anymore… I try to go
+to threads, nothing happens."
+
+**My first diagnosis was wrong and the second explains what the first could
+not.** v0.68.44 moved the autosave off the server-action path, which was a
+real problem and not his. The evidence that settled it: hover still
+highlights the sidebar, clicks do nothing, a fresh page load is fine, and it
+only breaks once you have edited something.
+
+That is a stuck drag. If a mouseup is missed — released outside the window,
+over the browser chrome, lost to a context menu — `draggingRef` stays set,
+and from then on every mouse movement anywhere re-renders the whole element
+list. Moving the pointer toward the sidebar fires hundreds of renders. The
+hover highlight survives because it is pure CSS; the click lands on a main
+thread with no time for it. Only a page load clears it.
+
+The guard is `e.buttons === 0` on every move: the button is not down, so
+whatever we thought was happening is over. Checked rather than waited for.
+Losing window focus ends a drag too, so the state cannot outlive the gesture.
+Both drags — elements and guides — carry it.
+
+**And the save status stops lying.** Sjoerd: "changed something and did not
+save (or is it auto save)… and it did not warn me." It HAD saved. The status
+said "Saved" for two seconds, then blanked, and a blank toolbar beside a Save
+button reads as nothing having been saved. It now always says where you
+stand: unsaved changes while the debounce is running, then "Saved
+automatically", and it stays there. The state that was missing was the honest
+one — touched, not yet written.
+
+## [0.68.47] — 2026-09-09 — the RSVP switch stops offering what the API ignores
+
+A rough edge from 0.68.42, flagged when it shipped rather than found later.
+The switch appeared on `family === 'activity'`; the API resolves RSVP on
+`hasStart`. So an activity with no date showed "Ask who is coming", stored an
+answer, and the resolver ignored it — a control that did nothing, on the one
+screen where the whole point is knowing whether you asked.
+
+- **`willHaveStart`**, read from the LIVE form rather than the saved row:
+  `timePerDay ? Boolean(firstDay) : Boolean(startsAt)`. Gating on
+  `engagement.starts_at` would have hidden the switch exactly while someone
+  was setting the date it depends on, since a new event's date is in state
+  and not yet on the row.
+- Both sides now say the same thing, so the switch cannot promise something
+  the resolver will not do.
+- The PANEL still gates on the saved `starts_at`, deliberately: it renders
+  responses people actually gave, and those exist until the edit is saved.
+  Clearing a date in the form hides the switch and keeps the answers, which
+  is the honest way round.
+
+## [0.68.46] — 2026-09-09 — the certificate element says what it is for
+
+Review catch from the membership session on v0.68.45, an hour old, and it is
+the difference between a feature and a support ticket.
+
+**On a thread that has been running normally, "send certificate" issues to
+nobody.** Completing somebody already issues their certificate, so by the
+time a dated element fires, almost everyone has theirs and issuance correctly
+refuses the second. The element runs, does nothing, and reports success. The
+first organiser to use it reports it as broken while looking at something
+that worked perfectly.
+
+So the editor now says so, in the dialog, next to the trigger. It is a
+BACKSTOP, and what it catches is real: people who completed before
+certificates were switched on, before a design was chosen, or whose
+certificate failed to send. That last case is the strongest and it is in the
+same file — a failed auto-issue writes a warning to stderr and nothing ever
+retries it, so today those people simply never get one. A dated element is
+the retry that did not exist.
+
+The eligibility rule needed no change, which is the part worth noticing:
+completed enrolments with no certificate yet was already exactly the
+definition of a straggler. Reusing the bulk button's rule rather than writing
+a second one turned out to be right for a reason nobody had stated yet.
+
+## [0.68.45] — 2026-09-09 — a certificate you can put on the calendar, and one you can copy
+
+Two of Sjoerd's: "one extra engagement: send certificate", and "certificate
+template builder: duplicate a certificate".
+
+**Sending certificates was never a plan you could write down.** One reached
+somebody automatically the moment they were marked complete, or because an
+organiser remembered to press the bulk button. A course ending on the 14th
+that hands out certificates on the 21st had nowhere to say so.
+
+Now it is an element on the timeline with a trigger, like everything else
+there. A fixed date, or relative to the thread's start, its end, or another
+item — the same machinery the scheduled messages use, because a certificate
+going out on a date IS a scheduled send. It just sends a document instead of
+a paragraph.
+
+**A third family, not a ninth message type.** Several queries filter
+`type IN (message types)` to mean "things emailed as a body", and a ninth
+member would have been swept into every one of them silently, each then
+needing an exclusion nobody would remember. `CERTIFICATE_TYPES` sits beside
+`MESSAGE_TYPES`, `engagementFamily` returns three values, and the scheduler's
+candidate query widens deliberately. It then forks in exactly one place:
+family is certificate, so issue instead of email.
+
+**Nothing about eligibility is new.** Who has earned one is the rule the bulk
+button already uses — completed enrolments — because two definitions of
+"finished the course" would drift and the one that drifted would be the
+automatic one nobody watches. Both idempotency layers already existed:
+issuance refuses a second certificate per enrolment, and the send log dedupes
+per element and person, which is also what stops the scheduler re-walking
+every completed enrolment every five minutes for the rest of the thread's
+life.
+
+**Dates only for this family, and that is a judgement call.** The lifecycle
+triggers are not offered. A message can greet one person the moment something
+happens to them; a certificate already does — the completion flow has issued
+one at that exact moment since certificates existed. "When they complete"
+would be a control duplicating something automatic, and whoever picked it
+would reasonably believe it was the thing making it happen.
+
+**Duplicate in the certificate builder.** A certificate is a design somebody
+spent an afternoon positioning, and the second one for the same organisation
+differs by a paragraph. The button flushes the pending autosave first, because
+the copy is taken from the server's row and anything still in the two-second
+debounce would not be in it. The copy is personal-scoped whatever you copied
+from, and shares are deliberately not carried across: inheriting an access
+list silently is how somebody ends up holding a design they were never
+granted.
+
+## [0.68.44] — 2026-09-09 — you can leave the certificate editor
+
+Sjoerd: "once I am in the certificate editor, I can't leave. Clicking on any
+item from the thread does not respond. It needs a warning when leaving
+without save, but you should be able to go somewhere else."
+
+**The editor was not frozen, it was permanently busy, and those look
+identical.** The builder autosaves on a two-second debounce, so while you are
+moving elements there is a save in flight or about to be, more or less
+continuously. Each of those was a SERVER ACTION, and two things follow from
+that in the App Router: client-side navigation queues behind a pending
+action, and the route re-renders when the action returns — this page's server
+component making four sequential calls to Frankfurt before it can paint. Put
+together, every sidebar link was dead for as long as you kept working.
+
+So the hot path leaves the router alone entirely. The autosave is now a plain
+client-side PATCH to the API with the browser session token
+(`lib/certificate-save.ts`), the shape `lib/upload.ts` already established for
+the same class of reason. The old server action is deleted rather than left
+beside its replacement. The templates LIST still has to notice a renamed
+template, but that is once, on the way out, and stays a server action.
+
+**On the warning, I did something narrower than asked and want to say so.**
+This editor has always saved itself, so "leaving without saving" is at most
+the last two seconds. Every in-app exit now FLUSHES that pending save on the
+way out — the back arrow, a sidebar link, the browser's back button — because
+asking somebody whether they want to keep work the editor was always going to
+save is a question with one sensible answer, and it teaches people to click
+through dialogs. Closing the tab is the one exit that cannot be flushed, and
+that is where the warning went. Before this, the last two seconds of work
+vanished silently on any of those routes.
+
+## [0.68.43] — 2026-09-09 — RSVP asks once, and only when asked to
+
+Sjoerd, an hour after the per-event switch shipped: "bring it back to one
+place: per event. Be default off — i.e. not visible for participants. If
+someone wants all their events to RSVP, they can toggle it, or duplicate an
+event for the rest of the thread."
+
+**Two things were wrong and only one of them was the count.** RSVP had three
+levels — item, thread, workspace default — each null meaning inherit. That is
+a lot of places to look when an item is not asking, and two of the three had
+no interface at all, so two of the three possible answers to "why is this
+item silent?" were invisible. The other, larger problem: the chain bottomed
+out at TRUE. Asking was the default. Every dated item on every thread asked
+every participant from the moment the feature landed, which is the opposite
+of a question you decide to ask.
+
+Now: one switch, on the event, off unless someone turns it on.
+`resolveRsvpEnabled({ item, hasStart })` is `hasStart && item === true`. The
+signature lost its two dead inputs rather than just ignoring them — leaving
+them in place is how somebody re-wires them by accident later. `rsvp_default`
+is gone from the thread payload, and the two dead levels no longer accept
+writes, because a field that takes a value and then ignores it is worse than
+one that is absent. The columns stay; dropping them is destructive and buys
+nothing.
+
+**Measured before shipping, not after.** Production holds zero RSVP answers
+and zero items with an explicit setting, so the flip loses nothing. It does
+SILENCE items that were asking an hour ago, which is invisible in the diff
+and worth stating plainly: **36 items stop asking.** Those are the published,
+on-agenda, timed ones — the only items a participant could ever have been
+asked on. A wider count of 44 timed items includes 8 drafts, which were not
+asking anybody and would have started once published. One workspace row
+carried `rsvp_default_enabled = true` and is now dead data. Had a single
+answer existed this would have needed a different plan.
+
+The seven tests written an hour ago are rewritten rather than deleted — the
+questions were right, the answers changed, and the two that flipped are the
+two worth reading. One is new: the rule is `item === true` and not a truthy
+check, because the value arrives from PostgREST and a column that came back
+as the string "true" would otherwise switch RSVP on for everybody.
+
+Worth recording that the resolver extracted an hour earlier is why this took
+twenty minutes. Had the rule still been written three times, this reversal
+would have been three edits with one of them silently missed — and the one
+most likely to be missed is the write path, which means answers still
+arriving for items an organiser had switched off.
+
+## [0.68.42] — 2026-09-09 — RSVP moves to the event
+
+Sjoerd, after seeing the Responses panel for the first time: "maybe it is
+better to set it per event... so per event toggle RSVP and then you have the
+second tab." He is right, and a year-long thread shows why: a residential
+weekend needs a headcount and the reading group before it does not. One
+switch for the whole thread makes you choose between asking about everything
+and asking about nothing.
+
+- **`thread_engagement.rsvp_enabled`**, nullable. A THIRD level rather than a
+  replacement: item → thread → workspace default → yes, each NULL meaning
+  inherit. Nothing existing changes behaviour, no backfill, and the rule the
+  thread column already states carries down intact — an item follows its
+  thread as the thread changes rather than freezing at creation.
+- **One resolver, `resolveRsvpEnabled()`**, in lib/portal.ts with seven
+  tests. The rule had already forked into two shapes — the portal's read
+  resolving it batched, its write resolving it per request — and the
+  organiser panel wanted it a third time. Two of those disagreeing is silent
+  in the worst way: either the participant's control vanishes and the
+  endpoint still accepts, or the control shows and every answer 409s.
+  Neither reaches the organiser, who sees a switch that looked like it
+  worked. `hasStart` lives inside the resolver, so timed-items-only is one
+  condition rather than three.
+- **The switch shows the RESOLVED value.** `GET /threads/:id` returns
+  `rsvp_default` (the thread's own answer, already resolved against the
+  workspace), so the UI does one `??` and never carries the rule. Rendering
+  `item ?? true` on a thread already sitting at off would have shown On for
+  something nobody could answer.
+- **Write inside the lock, read outside it.** The switch sits in the
+  disabled fieldset because it is a write, and the API refuses it too (423
+  `thread_locked`). The Responses panel stays outside: a lock freezes the
+  design, and who is coming is not the design.
+- Migration applied to both databases BEFORE the code shipped, which is the
+  reverse of the action/route pairing failure two hours earlier.
+
+Still no UI for the thread- and workspace-level switches. The item is now the
+operative control, which is what was asked for.
+
+## [0.68.41] — 2026-09-09 — who is coming, and who never said
+
+Sjoerd: "it is not clear where we can review who of the participants has
+signed up for RSVP... maybe it should be a tab on a thread event". The
+participant half shipped in 0.68.30-33; an organiser could not see a single
+answer. `grep -rn rsvp apps/thread` returned nothing at all.
+
+- **`GET /threads/:id/engagements/:engagementId/rsvps`** and a Responses
+  panel on the agenda item, which is where he suggested it and the right
+  home for "who".
+- **Three numbers, not two.** `thread_rsvp` holds a row only when someone
+  answers, so "no answer" is the thread's participants MINUS those who
+  answered — a left join, not a group-by. Counting the rows that exist
+  reports 12 coming and 3 not, and silently loses the 8 who said nothing.
+  Eight silences and eight refusals are different facts and only one is
+  worth chasing.
+- **Answered first, silent last**, because the list is read to find who to
+  chase and the people to chase are at the bottom.
+- Dropped enrolments are excluded from both list and counts: they are not
+  participants, the portal already refuses their answers (0.68.32), and
+  counting them would inflate "no answer" with people who were never going
+  to reply.
+- Only saved, TIMED items get the panel — the same rule the portal applies
+  (`rsvp_enabled` is `!!starts_at && …`), so it appears exactly where an
+  answer is possible. Shown on a locked thread too: the lock freezes the
+  design, not the event, and reading who is coming is not an edit.
+- Verified against real staging data, both branches: a participant who
+  answered and a second seeded specifically to never answer, so the left
+  join is exercised rather than assumed.
+
+Carries the API route for `getEngagementRsvps`, which was swept into
+0.68.40 from an uncommitted tree and shipped there calling a route that did
+not exist yet. Inert (nothing called it), now whole. The lane claim that
+would have prevented it omitted the file — a lane list that is not true is
+not a lane claim.
+
+Not built, deliberately: counts on the timeline itself, and the two RSVP
+switches (`thread_settings.rsvp_default_enabled`, `thread_thread.rsvp_enabled`)
+which still have no UI. Both are Sjoerd's to ask for.
+
+## [0.68.40] — 2026-09-09 — the account has a name, and the workspace has a chip
+
+Sjoerd, on the payments screen: "payment account is unclear — add the
+different accounts: workspace | personal, then a popup for info". And on the
+Threads list: the owner filter should read everyone, personal, soul.com, then
+the teams.
+
+**The accounts are now called what they are.** "My account" became Personal
+account, and "Workspace account" became the workspace's actual name —
+soul.com, Solidarity Lab — in Settings → Payments and in a thread's payout
+choice. Sending money to the wrong account is not a mistake anyone should be
+able to make from a label, and a category is a worse label than a name.
+
+**Each one's explanation moved behind an ⓘ.** Those grey paragraphs are read
+once and then become furniture, and meanwhile they push the fields you came
+for below the fold. The per-thread payout choice gets one for the opposite
+reason: it explained itself nowhere at all, despite being the control that
+decides whose bank account receives the money.
+
+**`InfoHint` is BORN in `@thefibre/shared`**, not in this app. Two sessions
+were asked for the same affordance within the hour — the membership session
+for its product dialog, this one for payments — which is exactly the fork the
+components-first rule exists to catch, and it was caught by them telling me
+rather than by anyone reviewing it later. Three things it has to survive, each
+learned rather than guessed: the bubble is `position: fixed` and placed from
+the trigger's own rect, because these live in dialog bodies that scroll and an
+absolutely-positioned one is clipped at the scroll edge; click makes it sticky,
+because hover alone means the explanation does not exist on a phone; and it is
+a real button with focus, Escape and `aria-describedby`, because otherwise a
+screen reader gets an icon called "i".
+
+**The Threads owner filter was quietly lying.** "Personal" filtered on
+`!team_id` — but a workspace-scoped thread stores `team_id` NULL by design
+(brief D1: that is HOW a workspace thread is stored), so the whole
+organisation's threads were being counted as one person's. There is now a
+chip for the workspace, named after it, and Personal means personal again.
+Ownership here is the same three-way it is in the URL: personal, workspace,
+or a team. That is the third surface today where "team_id is null means
+personal" turned out to be false.
+
+## [0.68.39] — 2026-09-09 — the portal's link points at the canonical owner
+
+Found by the thread session chasing the coupling between the portal's URL
+builder and its new `public_root_slug`, and measured before it was reported.
+
+`routes/portal.ts` derived the owner segment as `team ?? organiser`. There
+are **three** owner kinds, not two: a workspace-scoped thread has `team_id`
+NULL by design (brief D1), so it fell through to the organiser and the portal
+emitted `/{organiser}/{thread}` where the canonical address is
+`/{workspace}/{thread}`. Now `(public_scope === 'workspace' ? workspaceSlug :
+null) ?? team ?? organiser`, the same order the web app's own builders use.
+
+**Not a 404, and that was checked before the report was made.** Brief D2
+keeps `/{organiser}/{thread}` valid as a second address for exactly this
+case; production's one active workspace-scoped thread resolved 200 under both
+forms, and the other three 404 under both because they are drafts. The cost
+was canonicality — the portal handed a visitor a link that is not the one the
+page's own canonical tag points at.
+
+**NOT VERIFIED, and it is the case this fix is FOR.** A fourth staging round
+confirmed the fix does not disturb what it was not aimed at — an
+organiser-scoped thread's URL is byte-identical before and after. That is a
+negative worth having. But the staging fixture exercises exactly ONE owner
+kind, so nothing has yet exercised a workspace-scoped thread through the
+portal. The green means "organiser-scoped threads are unaffected", not "the
+fix works". A workspace-scoped and a team-scoped fixture want seeding before
+the next URL change; it is in `docs/build-plan.md` in those terms.
+
+**The same shape is still live in `routes/thread.ts:4657`** (`ownerSlugOf`,
+`team ?? organiser`, feeding public payloads). Deliberately not changed
+tonight: it alters the value of a published field, which is Sjoerd's call and
+not an end-of-evening one. Noted for him.
+
+**And this is now at least the SIXTH hand-written copy of one URL rule.**
+
+> **Correction, same evening.** This entry first said "fourth", and proposed
+> a pure shared function over `{public_scope, workspaceSlug, teamSlug,
+> organiserSlug}` as the fix. The thread session grepped the RULE rather than
+> the files it remembered, and both halves were wrong.
+>
+> The count is six, five agreeing and one not: `routes/portal.ts` (fixed
+> here), `routes/thread.ts:4965 canonical_owner_slug`, `timeline.tsx:363`,
+> `timeline.tsx:1140`, `settings/embeds/page.tsx:55` — all three-way — and
+> **`routes/thread.ts:4657 ownerSlugOf`, still two-way, the odd one out.**
+> Five correct out of six is exactly why nobody notices: the wrong one looks
+> fine alone and nobody diffs six files.
+>
+> **Two further corrections, both verified here.** (a) `ownerSlugOf` is not
+> an internal helper — line 5197 is inside `GET /public/my-enrolments`, so
+> the two-way copy is on **the link a participant clicks from their own
+> enrolments list**. Same class of surface as the portal link fixed in this
+> release, same non-canonical result. That is the copy to fix first, on
+> exactly the reasoning that made the portal one worth fixing: it is the one
+> a person actually follows. (b) The "seventh place" was overstated by both
+> sessions, including this entry. `public_scope` IS published
+> (`routes/thread.ts:4959`), so `[deepSlug]/page.tsx:42` reads
+> `thread.public_scope != null ? <the field> : <fallback>` — legacy defensive
+> code whose fallback branch is dead against a current API, not a heuristic
+> covering a missing field. Delete it when someone is in there; it is not
+> evidence of a gap and should not have been put forward as the first thing
+> to look at.
+>
+> And the fix is better-shaped than a new function. **The server already
+> publishes the answer** — `canonical_owner_slug` is a field on the public
+> thread payload and `thread-view.tsx:155` already reads it for the canonical
+> tag. So several of those copies are clients recomputing a value that is
+> already on the wire. The extraction is: ONE server-side function feeding
+> both `canonical_owner_slug` and `ownerSlugOf`, clients that hold the
+> payload reading the field, and a shared pure function only for the surfaces
+> that build a URL with no payload in hand (the editor, the embed generator).
+> Six new call sites of a helper would have been the wrong answer arrived at
+> confidently.
+>
+> Still not built, and still Sjoerd's to assign: it spans three sessions'
+> lanes and `ownerSlugOf` feeds a published field. If it is assigned, the
+> extraction and the `ownerSlugOf` change must be ONE commit — fixing either
+> alone reproduces exactly this state.
+
+## [0.68.38] — 2026-09-09 — the buttons people actually press are now 44px too
+
+v0.68.36 fixed two links and then claimed "everything tappable in the popup
+is now at least 44px tall". It wasn't. The membership session re-measured
+against the staging fixture at 375×812:
+
+```
+Add to calendar      152 × 44   fixed in 0.68.36
+Open the full page   145 × 44   fixed in 0.68.36
+Yes                   49 × 34   still under
+Can't make it        111 × 34   still under
+```
+
+The two that were fixed are exactly the two that had been reported. The claim
+was then generalised to the whole popup without measuring the rest — and the
+ones missed are the RSVP pair, which is the most-pressed control on that
+screen. Now `min-h-11` with wider padding, like every other control there.
+The 0.68.36 entry carries an inline correction rather than being quietly
+restated.
+
+The lesson is cheaper than the bug: **fix what was measured, claim only what
+was measured.** A green re-verification of two specific things is not a green
+verification of the surface they sit on.
+
+**Also confirmed in the same run, so it is on the record:** both URL fixes
+work signed in, and they are environment-aware — the STAGING API produced the
+staging Thread host rather than a hardcoded production one, which is the part
+that would have been easy to get wrong invisibly.
+
+**And a false alarm worth writing down so nobody chases it:** that staging
+thread URL returns 404, correctly. The fixture thread's program status is
+`draft` and a draft has no public page; the same shape against a published
+thread on production returns 200. The URL is right, the thread simply is not
+published.
+
+**Still under 44px and deliberately not fixed here:** the shared `Dialog`
+close button, at 18×18. It is chrome across six apps, so it needs a signed-in
+render check in each before it ships — the right fix is a 44px hit area with
+the glyph left at 18px so nothing moves visually. Owned by the membership
+session, deferred on purpose rather than done at the end of a long day.
+
+## [0.68.37] — 2026-09-09 — one public address, one owner
+
+Sjoerd made a team called "Vertrouwen als de Basis" in the soul.com
+workspace. Solidarity Lab already had a team of that name. Within seconds,
+`app.thethread.app/vertrouwen-als-de-basis` was a 404 — and so were the two
+live threads sitting under the Solidarity Lab team, which had done nothing
+at all. Nothing warned anyone at the moment of creation.
+
+**The namespace was never actually unique.** `app.thethread.app/{owner}`
+resolves a workspace, a team or an organiser from one global segment, but
+uniqueness existed only INSIDE a workspace and only per table: `workspace`
+globally unique on its own, `thread_organiser` per (workspace, slug), `team`
+per workspace through Meet's `meet_root_slug` — none of the three aware of
+the others. The workspace-URLs brief said a duplicate claim was refused. It
+described an intention. `resolvePublicOwner` reads the owner with
+`.maybeSingle()`, so two rows returned nothing, and the resolver's honest
+answer to "which of these two did you mean" was 404 for both.
+
+`public_root_slug` is now that table: one row per workspace, team and
+organiser, the slug as its primary key, kept in sync by triggers on all
+three. A second claim is a unique violation the moment it is made, and both
+The Thread and Meet turn it into a 409 that names who holds the address
+(`lib/root-slug.ts`, shared rather than copied). Organiser auto-provisioning,
+which invents a slug with a random three-character suffix, now retries on a
+collision instead of failing someone's first sign-in.
+
+The backfill uses `on conflict do nothing` on purpose: a collision that
+already exists is a human decision, and it must not take a migration — and
+every other change riding with it — down on whichever database happens to
+hold one. `scripts/audit-root-slugs.mjs` reports what a database was already
+carrying. Both prod and staging come back clean: 18 and 12 addresses, nothing
+to settle.
+
+Six tests. The two that matter say a row never conflicts with itself — get
+that wrong and a team can never be renamed once it holds its own address.
+
+**Not fixed, deliberately:** Meet's own root namespace
+(meet.thethread.app/{host|team}) is still only unique per workspace and has
+exactly the same hole. Sjoerd's proposal — put the globally unique workspace
+slug in front of every public path, which would make both impossible by
+construction — is recorded at the top of the build plan's open queue rather
+than built, because today's workspace slugs were never meant to be read by a
+visitor (`default`, `de-werkhaven-9npq`) and it would change every live URL.
+
+The live collision was settled first: the Solidarity Lab team moved to
+`vertrouwen-als-de-basis-lab`, soul.com keeps the plain address, and all four
+pages answer 200 again.
+
+**Two unrelated 404s shipped fixes today; do not merge the stories.** This one
+is a slug collision on the `{owner}` segment, where two owners claimed one
+address and the resolver could not choose. v0.68.36 is a different fault
+entirely: the visitor portal built a thread's URL as a bare path with no
+origin, so it resolved against the portal's own domain. Same symptom, nothing
+else in common. The fixes touch different files and neither would have caught
+the other.
+
+## [0.68.36] — 2026-09-09 — the portal's links point at the Thread, not at itself
+
+**The verification found two real bugs and this fixes both.** Sjoerd granted
+the membership session permission to build a staging fixture and drive the
+signed-in portal for real — a throwaway user, person and enrolment against an
+existing thread, signed in through the actual 8-digit code form. Neither bug
+is reachable without a session, which is precisely why they survived four
+releases of typechecks, builds and unit tests.
+
+**One cause, two consumers.** `routes/portal.ts` built a thread's public URL
+as a bare path, `` `/${ownerSlug}/${slug}` ``, with no origin:
+
+- **"Open the full page" was a dead link.** The popup rendered that path, so
+  the browser resolved it against `my.thethread.app`. Measured on staging:
+  `404`. Every thread, in every popup.
+- **The `.ics` carried an invalid `URL:` property.** The calendar route falls
+  back to the thread URL, so the file contained `URL:/owner/slug`. RFC 5545's
+  URL property is a URI and needs a scheme; calendars ignore or mangle a bare
+  path.
+
+Fixed once, in the API, with `appUrl('the-thread', process.env)` — so both
+consumers are correct without either changing. Patching it twice in `apps/my`
+would have been the wrong shape and left the payload still lying.
+
+**Touch targets.** "Open the full page" was a 17px line of text on a surface
+whose whole purpose is a phone held at arm's length at a door.
+
+> **Correction (v0.68.38).** This entry originally said "everything tappable
+> in the popup is now at least 44px tall". That was wrong. Two LINKS were
+> fixed — the two that had been measured and reported — and the claim was
+> generalised to the whole popup without measuring the rest. Re-measured at
+> 375px: the RSVP buttons were still 34 high, and they are the most-pressed
+> control on the screen. Fixed in v0.68.38. The lesson is the cheaper one:
+> fix what was measured, claim only what was measured.
+
+**What the same run verified as working**, so it is on the record rather than
+assumed: the signed-in list with the right workspace group and ticket; the
+QR; the agenda item in local time; **all three RSVP states including the
+withdraw path** — the one this session trusted least — with a clean `400` on
+a malformed body; the `.ics` returning `text/calendar` with a valid
+VCALENDAR; the wallet buttons correctly ABSENT, which means the availability
+gate added in v0.68.28 does its job; and no horizontal overflow at 375px with
+the RSVP buttons not overlapping.
+
+**A fixture trap worth knowing:** Supabase's admin API will happily create an
+`@example.com` user, and the sign-in form then **rejects** that address as
+invalid. An admin-created example.com fixture can never sign in. Use a real
+domain — the staging fixture uses `@thefibre.tech`.
+
+The fixture is left in place on staging (`portal-verify@thefibre.tech`),
+which makes re-verifying a portal change about a two-minute job.
+
+## [0.68.35] — 2026-09-09 — the template picker stops shouting
+
+Sjoerd, on the New thread form: don't show these large types, a dropdown
+with select template is sufficient; an (i) with more info can open a popup,
+and the template selector opens in that popup.
+
+The five template cards shipped yesterday and took the entire first screen
+of a form whose actual subject is the thread you are about to name. They are
+good at explaining what each shape gives you and bad at being a field you
+pass through on the way to the interesting part.
+
+So the choice is a dropdown now, sitting in the same column as Kind and
+Scope with the selected template's one-line description underneath — the
+pattern those two already use. The (i) beside the label opens the cards in a
+popup, and picking one there sets the dropdown and closes it. One control,
+two levels of detail, and the cards keep doing the only job they were ever
+good at. A template your plan doesn't cover still appears in the list,
+marked, rather than being silently absent.
+
+Nothing about what a template DOES has changed.
+
+## [0.68.34] — 2026-09-09 — a thread you can freeze
+
+Sjoerd, this afternoon: in a thread's settings you should be able to lock it,
+so it cannot be edited or deleted.
+
+**What the lock freezes is the thread AS A DESIGN**, and that boundary is the
+whole decision. Settings, timeline, tickets, discount codes, categories and
+co-organisers all stop moving; the thread cannot be deleted. Enrolment,
+payment, check-in, certificates and the message scheduler never consult it.
+A lock that took a live event off the air while people were enrolling would
+be a worse accident than the one it exists to prevent.
+
+Status is the other deliberate exception. Marking a finished thread completed
+or archived is lifecycle, not design, and it lives on its own control in the
+header — locking a thread should not strand it as `active` forever.
+
+**Unlocking is one click, locking asks first.** Unlocking removes a guard;
+ceremony there teaches people to leave threads unlocked, which is the outcome
+the feature is against. The lock is not a permission level either — whoever
+may edit the thread may unlock it. It is a guard against an accident by the
+person who already has the authority, which is what almost every real "don't
+touch this one" actually is.
+
+Both halves exist. The UI hides what it will not let you do: Save and Delete
+leave the settings dialog, every panel that writes goes inert behind a
+disabled fieldset (the embed tab keeps its copy buttons, they write nothing),
+the timeline's add button and the inline time shortcut go away, the
+engagement dialog stays open as a reader, the title stops being editable, and
+a chip beside the status pill says why. The API refuses the same writes with
+`423 thread_locked` on fourteen routes — the settings PATCH, the delete, all
+three engagement routes, tickets and coupons in all three, categories and
+both co-organiser routes — because the same endpoints are reachable by
+anything holding the JWT.
+
+Duplicating a locked thread still works and the copy starts unlocked; so does
+saving it as a template. Both build a NEW thread, which is exactly the escape
+hatch you want when the locked one is the one you must not touch.
+
+`thread_thread.locked_at` + `locked_by`, applied to prod and staging.
+Thread's own version goes to 3.39.0.
+
+## [0.68.33] — 2026-09-09 — the one fact those two predicates share, written once
+
+Review catch from the membership session on v0.68.32, and the seventh
+hand-copied-fact-drifting-from-a-derivable-one of the day — the only one we
+were introducing ourselves.
+
+`enrolmentCanRespond` and `ticketIsAdmissible` each carried the literal
+`'dropped'`, ten lines apart, in the file whose whole point is that they
+agree on exactly that. The day someone adds `'withdrawn'` or `'removed'`,
+one gets updated and the other does not, and the silent direction is the bad
+one: a person who should not be answering, answering.
+
+`enrolmentIsLive(status)` now holds it and both call it. The two predicates
+stay separate — that part was right and is unchanged. What is extracted is
+their **agreement**, not the predicate.
+
+**The reason for keeping them apart is now recorded properly**, because the
+one shipped in v0.68.32 was the weaker half. Money is the obvious difference;
+the real one is that these will diverge *again*, predictably, on statuses
+neither has been asked about yet. `'completed'` is admissible to the session
+that happened and should almost certainly not be answering for future ones.
+`'invoice_sent'` is admitted on trust at a door, but an invoice six weeks old
+is a different question for an RSVP than for entry. One predicate would force
+both through a shape that cannot express them, and whoever hit it would add a
+boolean parameter rather than split the function again.
+
+Two new tests: one asserting the shared definition, one asserting it reaches
+BOTH predicates so a new terminal status cannot land in only one.
+`portal.test.ts` is at 17.
+
+Verified separately by the membership session, driving all three directions
+against production with Sjoerd's test member: grant creates both rows and a
+check-in code, revoke sets the enrolment to `'dropped'` and KEEPS both rows,
+rejoin restores the same rows rather than duplicating. So the state
+v0.68.32 guards is real, reachable and reversible. It also confirmed
+`ticketIsAdmissible` already accepts `'not_required'`, which is what the
+worker writes — had that list been `'paid'` only, every member who joined
+through a tier would have been turned away at a door holding a valid QR.
+
+## [0.68.32] — 2026-09-09 — a lapsed member stops answering for future sessions
+
+v0.68.31's thread worker made a bug in v0.68.30 reachable, and the other
+session flagged the behaviour as *context* rather than as a problem — it was
+a problem.
+
+When a membership lapses, the worker sets `enrolment.status = 'dropped'` and
+leaves both rows standing. That is correct: soft delete only for personal
+data, and the record that someone took part is theirs to keep. But the RSVP
+write checked only that a `thread_enrolment` row EXISTED. So from v0.68.31 a
+lapsed member kept seeing the thread — which is intended — and could keep
+answering for its future sessions, which is not. An organiser would have been
+counting someone who had left.
+
+Fixed on **both** sides, so the screen and the API agree rather than one
+offering what the other refuses:
+
+- **Write** — the enrolment's status is fetched and a dropped one gets `409`.
+- **Read** — `rsvp_enabled` is false for a thread this person has dropped, so
+  the control is never offered.
+
+**A deliberate non-reuse.** `enrolmentCanRespond` sits next to
+`ticketIsAdmissible` and does not call it. They answer different questions: a
+door also asks whether the money landed, and an RSVP is not a purchase — an
+unpaid participant saying "I'm coming" costs nothing and is worth knowing.
+The only thing both refuse is `'dropped'`. A test asserts that divergence
+explicitly, so a later reader doesn't merge them thinking it is a
+simplification.
+
+Checked while here: nothing in the RSVP path keys off how an enrolment was
+created, so v0.68.31's `membership:<grant_id>:<member_id>` request_id shape
+— a third one, after checkout and `manual:` — reaches nothing. The write
+matches on person, thread and now status.
+
+`apps/api/src/lib/portal.test.ts` is at 15 tests, all green.
+
+## [0.68.31] — 2026-09-09 — a thread grant finally does something
+
+The access-grant dropdown has offered "Thread" since Membership shipped. It
+saved, it listed, and nothing consumed it — circle, fibre_seat and
+google_user each had a worker; thread had none. So a tier could promise a
+thread and deliver nothing, silently, forever. Found on soul.com, where four
+of seven products are threads and the €2300 tier unlocked nothing at all.
+
+- **`lib/thread-access.ts`, `runThreadAccessSync()`**, drained on the same
+  five-minute tick as the other three. A member joining a tier that includes
+  a thread is enrolled in it; a member lapsing is withdrawn.
+- **An enrolment is two rows** — `enrolment` (platform, keyed on program)
+  and `thread_enrolment` (the app's) — and the worker writes both directly,
+  the in-family-app rule.
+- **Revoke does not delete.** It marks the enrolment `dropped` and leaves
+  both rows: deleting would destroy the record that someone took part, and
+  the platform rule is soft delete only for personal data. The participant
+  list already selects `enrolment.status`, so a dropped member reads as
+  dropped rather than vanishing. Rejoining flips the same rows back.
+- **`payment_status: 'not_required'`** — a grant is an entitlement the tier
+  already paid for, never a second charge.
+- **The config parser is tested**, because it decides whether a grant
+  resolves at all. Real grants store the full public URL rather than a slug
+  (`https://app.thethread.app/soul/community-member-year-agenda`), so it
+  takes the last path segment and tolerates query strings, fragments,
+  trailing slashes and case. apps/api: 51 tests, 8 files.
+
+Not code, same session: a `google_user` grant now sits on soul.com's
+"email@soul.com / Google Workspace" product. Circle stays ungranted — that
+workspace's `circle_api_token` is null, and a grant with no credential waits
+forever without saying so.
+
+## [0.68.30] — 2026-09-09 — RSVP: the participant half
+
+Sjoerd decided the shape: *"Setting in workspace: default RSVP on... and can
+be put out per thread."* Built as specified, which is **not** what was
+recommended — the recommendation put the switch on the agenda item defaulted
+from the thread, and the simpler two-level version was chosen. His call.
+
+**The switch is two-level and inherits by NULL.**
+`thread_settings.rsvp_default_enabled` defaults to true, so an unconfigured
+workspace asks. `thread_thread.rsvp_enabled` is **nullable** rather than a
+defaulted boolean, because a default would freeze each thread at whatever the
+workspace said on the day it was created; null means inherit, and a thread
+follows the workspace as it changes. Same rule payment destinations already
+use here. The API resolves it server-side, so the client is told the answer
+and never carries the rule.
+
+**The answer is three states, not two.** `thread_rsvp` holds one current row
+per (agenda item, person) with `coming | not_coming`; a MISSING row is *no
+answer*, and that is deliberately not collapsed into a boolean. Forty
+declines and forty non-replies are different facts, and a caterer needs to
+tell them apart — storing a boolean would destroy that difference
+permanently, where keeping it costs nothing. Withdrawing an answer is
+reachable (`response: 'none'`), because otherwise a mis-tap is forever and
+every count is quietly wrong. What silence *means* is a presentation question
+Sjoerd has not decided, and nothing here pre-empts it.
+
+**Where the checks live.** `PUT /api/v1/me/portal/rsvp` verifies, against the
+same verified email the read uses, that the item exists and is published and
+timed, that the person is enrolled in its thread, and that the thread is
+actually asking. The browser never holds a token: the control posts to the
+portal's own `/api/rsvp` handler, which reads the session server-side and
+forwards. It forwards rather than decides — every check that matters is in
+the API, because that is the only place one cannot be skipped by calling
+something else.
+
+Only timed items can be answered. An item with no `starts_at` is not
+something you can attend.
+
+**NOT BUILT, and this is the honest half of the release:** there is no
+organiser UI yet. The API accepts `rsvp_default_enabled` on workspace
+settings and `rsvp_enabled` on a thread, and the migration defaults to on, so
+the feature is live and answerable — but a switch in The Thread's own screens
+and an organiser view of who answered are the next slice, and neither exists.
+Adding them means new i18n keys across six locales and a response list, which
+is its own piece of work rather than a tail on this one.
+
+**Verified:** typecheck clean across all nine; portal build clean with
+`/api/rsvp` registered; migration applied to staging and production. **Not
+verified: nobody has actually answered an RSVP** — that needs a participant
+session, which is the same gap v0.68.28 carries.
+
+## [0.68.29] — 2026-09-09 — staging stops inviting search engines in
+
+While answering a question about Vercel's deployment protection, a bigger
+hole turned up behind it: **there was no robots file anywhere in the repo**,
+and the staging stack is publicly reachable. Six `.tech` subdomains were
+serving a complete copy of the product with nothing telling a crawler to stay
+away. Verified by fetching a staging site with no credentials and finding no
+`noindex` and no `/robots.txt`. A staging copy in a search index competes
+with the real site and confuses real people.
+
+Every app now has `app/robots.ts`, one line each, over a single policy in
+`@thefibre/shared/robots`.
+
+**The asymmetry is the design.** The only thing that opens a site is
+`VERCEL_ENV === 'production'`. Preview, development, an empty string, a
+missing variable, a build outside Vercel — all closed. A staging site that
+gets indexed is a nuisance; a production site accidentally de-indexed is
+weeks of lost ground, so "unknown" must never mean "index me". Eight unit
+tests lock that, including the near-misses `'Production'` and `'prod'`.
+
+**The environment is passed in, not read.** `packages/shared` is bundled into
+eight browser builds and carries no node types on purpose — it decides what
+the policy is, the caller supplies `process.env.VERCEL_ENV`. Same split as
+the invoice model and the ical builder. (First attempt read `process.env`
+inside shared and the build refused it, correctly.)
+
+**The visitor portal is closed everywhere, production included** — every page
+below its sign-in is one person's own tickets, enrolments and memberships. It
+now carries both halves: `robots.ts` stops the crawl, the `robots` metadata
+added in v0.68.24 stops the listing.
+
+**Verified against real builds, in both directions**, because the risky
+branch is the one that would de-index `thethread.app`:
+
+```
+VERCEL_ENV unset        →  User-Agent: *  /  Disallow: /
+VERCEL_ENV=production   →  User-Agent: *  /  Allow: /
+```
+
+**This is not the same thing as Vercel's SSO protection**, which is still
+Sjoerd's open decision. That gates who can reach a preview at all; this gates
+what a crawler does with one it can reach. They are independent, and neither
+touches the platform's own cross-app sign-in.
+
+## [0.68.28] — 2026-09-09 — the portal opens: agenda, ticket, wallet, calendar
+
+The visitor portal was a list. Tapping an item now opens it, which is where
+the things a person actually needs on the way to a door live.
+
+**The detail popup** (`apps/my/app/detail.tsx`) is ordered physically rather
+than by data shape: the QR first, because a phone at a door is held at arm's
+length; then the ways to keep it — Apple Wallet, Google Wallet, add to
+calendar; then the agenda, each item with its own join link and its own
+calendar file; then the page it came from. It uses the shared `Dialog`, not a
+portal-local copy, per CLAUDE.md's components-first rule.
+
+A ticket now rides **inside** its thread rather than beside it. The two
+sections showed the same event twice; only an orphan ticket — one whose
+thread isn't in the payload — still gets its own row.
+
+**No new API surface for the ticket.** The QR and both wallet passes are
+already served by Thread at `/api/v1/thread/public/checkin/:code/*`, and the
+portal holds the check-in code, so these are URL builders. The one thing the
+portal could not know is whether the passes are *issuable*: both config
+readers return null without credentials and the routes 503. A button that
+fails is worse than no button, so `GET /me/portal` now carries
+`wallet: { apple, google }` and the buttons appear only when they work. Both
+are false in production today, waiting on Sjoerd's Apple Pass Type ID
+certificate and Google Wallet issuer account.
+
+**`lib/ical.ts` moved to `@thefibre/shared/ical`.** It is a hand-rolled RFC
+5545 string builder with zero dependencies and no node imports — the same
+test v0.68.26 applied to the invoice model: the *definition* is shared, a
+renderer that needs an engine is not. Meet keeps its endpoint and its import
+path via a re-export shim; the portal renders its own. `ORGANIZER`,
+`ATTENDEE`, `URL` and `PRODID` became optional, so a thread agenda item —
+which has no single host and is a download rather than an invitation — emits
+a valid VEVENT without them. Meet's output is unchanged: PRODID still
+defaults to Meet's, and all five original tests pass through the shim
+untouched. Four new ones lock the portal shape.
+
+**Add-to-calendar is served by the portal, not the API** (`/ics/:threadId/:itemId`).
+A calendar link is a plain `<a>`, and a plain link cannot carry a bearer
+token. The route handler has the session cookie, re-reads the portal with the
+same call the page makes, and finds the item inside that payload — so the
+file is scoped to the signed-in person by construction, and there is no new
+way to address someone else's agenda. Agenda items only: they carry
+timestamps, where a thread carries dates and would need all-day VEVENTs for
+no benefit. An item with a start but no end gets an hour.
+
+**Not built, deliberately:** "email it to me" needs a visitor-facing resend
+endpoint and a template, and RSVP has no model anywhere — its shape was
+discussed on 2026-09-09 and Sjoerd has not decided it. Both are specified in
+`docs/build-plan.md` rather than guessed at.
+
+**Verified:** `pnpm -r typecheck` clean across all nine; the production build
+of `@thefibre/my` clean with `/ics/[threadId]/[itemId]` registered; the ics
+route returns 401 unauthenticated; nine ical tests pass. **Not verified: the
+signed-in list and the popup were not rendered** — that needs a participant
+session this session does not have.
+
+## [0.68.27] — 2026-09-09 — the import cycle is inert for one reason; say so
+
+`routes/purchases.ts` and `routes/membership.ts` now import each other
+(0.68.22 added `activateMemberFromInvoice` to mark-paid). Caught in review
+the same day.
+
+- **Measured, not reasoned about**: the built modules were imported in both
+  evaluation orders and every binding resolves. It is inert ONLY because
+  all three crossing functions — `activateMemberFromInvoice`,
+  `sendReceipt`, `sellerDetailsFor` — are hoisted `function` declarations,
+  so the live binding is populated before either module body runs.
+- **Both import sites now say that.** Converting any of the three to
+  `const fn = () => {}` reads as a style change and would turn this into
+  `undefined is not a function` on the path a membership payment runs
+  through. The comment is the guard until the real fix, which is lifting
+  `sendReceipt` / `receiptHtml` / `sellerDetailsFor` into a lib module.
+  That surgery is not something to do at the end of a long day through the
+  middle of the live payment path.
+
+## [0.68.26] — 2026-09-09 — one definition of what an invoice is
+
+Sjoerd: "PDF and send can also be created based on what is in the
+@fibre/shared environment right? Like a single point of truth." Half yes.
+The renderers stay in the API; the DEFINITION moves to shared.
+
+- **`@thefibre/shared/invoice-model`** — a pure function turning a ledger
+  row into the invoice: kind (a pending row is an invoice, anything else a
+  receipt), number, date, seller and buyer blocks, the line with its
+  optional service-until, subtotal/tax/total, and the payment method as a
+  decided vocabulary. It returns DATA, never formatted text, because the
+  on-screen dialog localises and the two server renderers do not. No
+  dependencies, no node, no I/O.
+- **All three renderers now read it**: `apps/api/src/lib/invoice-pdf.ts`,
+  `receiptHtml` in `routes/purchases.ts`, and
+  `packages/shared/src/ui/invoice-dialog.tsx`. Each keeps its own layout and
+  its own wording; none decides any more what an invoice contains.
+- **They had drifted, which is the point.** The email dated a settled
+  receipt by `created_at`, so it showed when the invoice was RAISED rather
+  than when it was paid — now the paid date, as the PDF always did. The PDF
+  showed a subtotal always and the email only alongside tax. The buyer name
+  fell back differently in each. One definition, one answer.
+- Not moved, deliberately: `buildInvoicePdf` needs pdfkit and returns a
+  Buffer, and `packages/shared` has zero dependencies and is bundled into
+  every web app. It also draws from personal data, which HARD RULE 1 keeps
+  in the EU API.
+- Verified beyond typecheck: real production ledger rows rendered
+  byte-identically through the rebuilt PDF (2060 bytes before and after for
+  soul.com's €1 invoice).
+
+## [0.68.25] — 2026-09-09 — a member can get their own invoice (Members 0.14.4)
+
+Sjoerd on his own member page, on production: "Can't download or send the
+invoice", and "should it not say Powered by Members · The Thread".
+
+- **`GET /membership/portal/me/invoices/:id/pdf`.** The ledger's PDF route
+  scopes to organiser-or-admin, which is precisely what a member is not, so
+  the portal listed an invoice with nothing to click unless Stripe happened
+  to host one — and an invoice-method membership never does. Ownership is
+  proved the way the rest of the portal proves it: the verified email
+  resolves to person rows, and the row must match `person_id` OR
+  `payer_email`, both keys, because either alone drops rows. The shared
+  `createInvoicePdfRoute` factory takes an optional `apiPath` so the member
+  door reuses it rather than becoming a sixth copy.
+- **The public face is The Thread.** The 2026-09-08 branding pivot made
+  `ENTITY.publicName` 'The Thread', and four public surfaces still carried
+  "· The Fibre" as a literal: Membership's `/my`, and in Thread the public
+  thread page, the embed, and its own `/my`. All four now read the constant.
+  Fourth hardcoded copy of a derived value found today, after the dev-server
+  list, the version-file count and the CORS origins.
+
+## [0.68.24] — 2026-09-09 — the portal's first real deploy, and the build-skip trap that hid it
+
+`my.thethread.app` served a `500` all day from a deployment built the night
+before it had any environment variables. The cause was not the project, the
+env, DNS or the domains — all of those were wired correctly. It was that
+**no build ever ran.**
+
+Each app's `vercel.json` carries `ignoreCommand: vercel-ignore.mjs <app>`,
+which builds only when a push touches that app, `packages/shared` or the
+lockfile. It is a good rule and it saved ~€150 in five days. But a project
+can sit for a day with correct config and never deploy, because no push
+happens to touch any of those three paths. That is what happened: between
+2026-09-08 21:37 UTC and 2026-09-09 08:48 UTC every push was `apps/api`,
+`apps/membership` or docs, and every one reported CANCELED. `NEXT_PUBLIC_*`
+values are inlined at build time, so the env vars set that morning were
+invisible to the deployment still being served, and
+`createServerClient(undefined, undefined)` threw in a server component —
+a `500` with an opaque digest and nothing pointing at the cause.
+
+**Redeploying from the dashboard or the API does not help**: the ignore step
+runs there too and cancels those the same way. A push touching one of the
+three trigger paths is the only thing that produces a build.
+
+> **Correction, same day.** The first version of this entry said the fix was
+> "a commit touching `apps/my`" and implied this release is what unblocked
+> the portal. Both are wrong, and the deployment record says so. The two
+> builds this project has ever run were BOTH triggered by `packages/shared`,
+> never by `apps/my`: `dpl_DC2M…` at 21:37 UTC from `fa2d8e5` (v0.68.21,
+> `packages/shared/src/participant-auth-i18n.ts`) and `dpl_Djwjz…` at 08:48
+> UTC from `bf5f7d7` (v0.68.23, `packages/shared/src/ui/app-landing.tsx`) —
+> the latter landing about two minutes before this release. The portal was
+> already unblocked when this shipped. The trigger set is three paths, and
+> `packages/shared` is the one that fires in practice because most releases
+> touch it, which is precisely why nobody noticed the rule for a day. Caught
+> by the membership session reading the commit column of the deployment
+> table. The `noindex` change below stands on its own merits either way.
+
+- **The visitor portal is `noindex`.** `robots: { index: false, follow: false }`
+  on `apps/my/app/layout.tsx`. Every page below the sign-in is one person's
+  own tickets, enrolments and memberships, on the one app whose whole purpose
+  is showing that to its subject. It should never enter a search index. Same
+  posture the Thread and Membership embed layouts already take.
+- **`docs/system-handbook.md` stops giving the wrong remedy.** The build-skip
+  bullet told the reader to "redeploy manually" to pick up env-var changes.
+  Measured on `thefibre-my` today: that does not work. Corrected, with both
+  sharp edges named — env-only changes rebuild nothing, and a new app's
+  project silently never deploys.
+- **`docs/my-portal-setup.md` gains step 4**: make a commit that touches
+  `apps/<app>`. It is now the documented last step of standing up any new app,
+  because everything can be perfect and still serve nothing.
+
+Found by the two sessions working this repo in parallel: the membership
+session read the deployment states with the Vercel token and produced the
+21:37 timeline and the `ssoProtection` matrix; this one reproduced the
+throw locally and wrote it up.
+
+**Still open for Sjoerd, not code:** `thefibre-my` carries Vercel Standard
+Protection (`ssoProtection: all_except_custom_domains`) where the six product
+apps carry `null`. That is why `my.thefibre.tech` redirects to Vercel's SSO —
+it is bound to the `staging` branch, so it is a Preview. Flipping it to `null`
+is a security setting and his call.
+
+## [0.68.23] — 2026-09-09 — the landing page has a door for members (Members 0.14.3)
+
+Signing in at membership.thethread.app takes you to the admin side, which
+a community member has no seat for. That wall was fixed for people who
+arrive already signed in (0.68.22 sends them to /my); a signed-out member
+still had nowhere to click.
+
+- **`belowSignIn`** — an optional slot on the shared `AppLanding`, under
+  the sign-in block. Membership fills it with a link to `/my`; the other
+  apps are untouched.
+- Also carries `apps/api/scripts/verify-stripe-webhooks.mjs`, pushed
+  outside the release script in 72ca494 and recorded here instead of
+  quietly. Read-only auditor for the four Stripe endpoints: existence,
+  status, Connect-versus-account mode, and the events each route needs.
+  Written because a webhook in the wrong mode looks healthy in the Stripe
+  dashboard and delivers nothing — which is why soul.com's first live
+  payment never reached the membership.
+
+## [0.68.22] — 2026-09-09 — a paid membership stays paid (Members 0.14.2)
+
+soul.com's first live member joined on an invoice, paid, and the app
+disagreed with all three parts of that sentence. Four defects, found from
+the row itself rather than the symptom.
+
+- **Paying an invoice now moves the membership.** The Stripe payment link
+  in a membership invoice email settled the ledger row and stopped there —
+  the membership kept the status and renewal date it was created with, so
+  someone who paid on day one sat in grace forever. New
+  `activateMemberFromInvoice()` (routes/membership.ts): item refs shaped
+  `member-inv-<member id>-<n>` set the member active, clear `lapsed_at` and
+  roll `renews_at` one period on from whichever is later, the date already
+  on the row or today. Wired into the Connect webhook AND
+  `POST /purchases/:id/mark-paid`, which had the same hole. The period the
+  invoice bought is stamped into `purchase.billing.membership_interval` at
+  creation (person and organisation paths both).
+- **A manual add gets a real renewal date.** `renews_at` was whatever the
+  caller sent, and the Add-member dialog sent an explicit `null` when the
+  field was blank. Absent now means one period from `started_at`; an
+  explicit null still means "never renews". The dialog omits the key
+  instead of nulling it, and its hint says so.
+- **The overdue sweep no longer graces a membership on its first day.** A
+  renewal date on or before `started_at` is a data error, not a late
+  payment. The sweep skips those rows — before this, a membership created
+  with today's date was graced by the next 5-minute tick, two minutes after
+  joining, with a `membership_payment_failed` activity row to match.
+- **`country` comes back from the API.** It was missing from
+  `MEMBER_SELECT`, so the member dialog read it as undefined, always showed
+  "Not declared", and — worse — wrote that null back over a declared
+  country on the next save.
+- **The wall knows about members** (`/no-access`). The (app) gate sends
+  everyone without a workspace seat there, and the largest group hitting it
+  is community members, who have no seat by design. It now checks the
+  portal and redirects a member to `/my`; the wall that remains says what
+  it is and links there anyway.
+
 ## [0.68.21] — 2026-09-08 — one copy of the participant sign-in strings (Members 0.14.1)
 
 The passwordless email-code + Google sign-in copy lived twice — six

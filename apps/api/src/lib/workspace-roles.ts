@@ -47,3 +47,22 @@ export async function wouldOrphanWorkspace(
 
 export const ORPHAN_ERROR =
   'this is the workspace’s only admin — promote someone else first';
+
+/**
+ * The caller's workspace role — read fresh from workspace_member, never from
+ * a JWT claim, so a demotion takes effect on the next request rather than the
+ * next sign-in. Lived in routes/members.ts until persons.ts needed the same
+ * gate; one reader, not two that drift.
+ */
+export async function callerWorkspaceRole(ctx: {
+  userId: string;
+  workspaceId: string;
+}): Promise<string> {
+  const { data } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('user_id', ctx.userId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  return data?.workspace_role ?? 'organiser';
+}

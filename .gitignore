@@ -46,3 +46,14 @@ coverage/
 apps/*/.env.staging
 test-results/
 playwright-report/
+
+# Catch-all, kept after the Vercel CLI added it on 2026-09-12, because it
+# happens to close a real near-miss: a fresh worktree has no gitignored env
+# files, so they get copied in by hand to run tests — and they never show in
+# `git status`, which makes it easy to leave a secret sitting in a build
+# context. Belt over the specific rules above.
+#
+# The .env.example exception is REPEATED below it on purpose: a later rule
+# wins, so the negation at line 17 was dead the moment this line landed.
+.env*
+!.env.example

@@ -74,6 +74,22 @@ export async function duplicateThread(id: string): Promise<ActionResult> {
   }
 }
 
+/** Freeze or release the thread's design. Its own endpoint, not a field on
+ *  updateThread — that call is exactly what the lock refuses. */
+export async function setThreadLocked(id: string, locked: boolean): Promise<ActionResult> {
+  try {
+    await apiFetch(`/api/v1/thread/threads/${id}/lock`, {
+      method: 'PATCH',
+      body: JSON.stringify({ locked }),
+    });
+    revalidatePath('/threads');
+    revalidatePath(`/threads/${id}`);
+    return { ok: true, id };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
+  }
+}
+
 export async function updateThread(
   id: string,
   patch: Record<string, unknown>,
@@ -138,6 +154,42 @@ export async function deleteEngagement(
     return { ok: true };
   } catch (e) {
     return { ok: false, error: await structureAwareError(e) };
+  }
+}
+
+/** Who has answered an agenda item's RSVP, and who has not. Read-only —
+ *  an RSVP is the participant's own act and an organiser reads it, never
+ *  sets it. Returns three groups because "no answer" is a real state and
+ *  the one worth chasing. */
+export async function getEngagementRsvps(
+  threadId: string,
+  engagementId: string,
+): Promise<
+  | {
+      ok: true;
+      counts: { coming: number; not_coming: number; no_answer: number };
+      items: {
+        person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+        enrolment_status: string | null;
+        response: 'coming' | 'not_coming' | null;
+        responded_at: string | null;
+      }[];
+    }
+  | { ok: false; error: string }
+> {
+  try {
+    const r = await apiFetch<{
+      counts: { coming: number; not_coming: number; no_answer: number };
+      items: {
+        person: { id: string; first_name: string | null; last_name: string | null; email: string | null };
+        enrolment_status: string | null;
+        response: 'coming' | 'not_coming' | null;
+        responded_at: string | null;
+      }[];
+    }>(`/api/v1/thread/threads/${threadId}/engagements/${engagementId}/rsvps`);
+    return { ok: true, counts: r.counts, items: r.items };
+  } catch (e) {
+    return { ok: false, error: errorMessage(e) };
   }
 }
 
@@ -327,18 +379,23 @@ export type PayoutInfo = {
   ok: true;
   workspace_connected: boolean;
   personal_connected: boolean;
+  /** The workspace's own name, so the choice names the account rather than
+   *  its category (Sjoerd 2026-09-09). Null falls back to the generic word. */
+  workspace_name: string | null;
 };
 
 export async function getPayoutInfo(): Promise<PayoutInfo | { ok: false; error: string }> {
   try {
-    const [settings, me] = await Promise.all([
+    const [settings, me, brand] = await Promise.all([
       apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/settings'),
       apiFetch<{ stripe_account_id: string | null }>('/api/v1/thread/me'),
+      apiFetch<{ name: string | null }>('/api/v1/workspace-brand').catch(() => ({ name: null })),
     ]);
     return {
       ok: true,
       workspace_connected: !!settings.stripe_account_id,
       personal_connected: !!me.stripe_account_id,
+      workspace_name: brand.name,
     };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
@@ -463,14 +520,36 @@ export async function setThreadCategories(
  * Undo in the list, then rescan, stays the honest path back.
  */
 export type ScanVerdict =
-  | { kind: 'admitted'; name: string }
+  /** `threadTitle` is set by the workspace-wide scanner only: naming the
+   *  event is what stops a global scan admitting somebody to the wrong one.
+   *  The per-thread door already knows which event it is standing at. */
+  | { kind: 'admitted'; name: string; threadTitle?: string }
   | { kind: 'already'; name: string; at: string }
   | { kind: 'refused'; reason: string };
 
+/** Scan anywhere in the workspace: whatever event the ticket belongs to.
+ *
+ *  The API half has always been workspace-wide — `checkin_code` is unique
+ *  across `thread_enrolment`, and `GET /checkin/:code` resolves it globally
+ *  and then authorises through the same rule as approve/decline, so a ticket
+ *  for a thread you do not run is a 403 rather than a leak. The ONLY thing
+ *  scoping the scanner to one thread was the comparison in `scanTicket`
+ *  below. This is that function without it, naming the event instead.
+ */
+export async function scanAnyTicket(code: string): Promise<ScanVerdict> {
+  return scanResolved(code, null);
+}
+
 export async function scanTicket(threadId: string, code: string): Promise<ScanVerdict> {
+  return scanResolved(code, threadId);
+}
+
+/** `expectThreadId` null = admit whatever the code resolves to. */
+async function scanResolved(code: string, expectThreadId: string | null): Promise<ScanVerdict> {
   type Resolved = {
     id: string;
     thread_id: string;
+    thread_title: string;
     person_name: string;
     status: string | null;
     checked_in_at: string | null;
@@ -485,7 +564,7 @@ export async function scanTicket(threadId: string, code: string): Promise<ScanVe
       reason: /not found/i.test(msg) ? t(await uiLocale(), 'not_a_ticket') : msg,
     };
   }
-  if (found.thread_id !== threadId) {
+  if (expectThreadId && found.thread_id !== expectThreadId) {
     return { kind: 'refused', reason: t(await uiLocale(), 'ticket_other_event') };
   }
   if (found.checked_in_at) {
@@ -501,7 +580,9 @@ export async function scanTicket(threadId: string, code: string): Promise<ScanVe
     if (r.already && r.checked_in_at) {
       return { kind: 'already', name: found.person_name, at: r.checked_in_at };
     }
-    return { kind: 'admitted', name: found.person_name };
+    return expectThreadId
+      ? { kind: 'admitted', name: found.person_name }
+      : { kind: 'admitted', name: found.person_name, threadTitle: found.thread_title };
   } catch (e) {
     return { kind: 'refused', reason: errorMessage(e) };
   }

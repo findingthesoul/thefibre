@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { SearchSelect } from '@thefibre/shared/ui/search-select';
 import { Dialog } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
@@ -25,12 +26,15 @@ export function GrantDialog({
   grant,
   tiers,
   circleTokenSet,
+  threadOptions = [],
   locale,
   onClose,
 }: {
   grant: Grant | null; // null = new
   tiers: Tier[];
   circleTokenSet: boolean;
+  /** The workspace's threads — a thread grant PICKS a slug, never types one. */
+  threadOptions?: { slug: string; title: string }[];
   locale: Locale;
   onClose: () => void;
 }) {
@@ -188,13 +192,28 @@ export function GrantDialog({
             <label className="block text-sm font-medium mb-1">
               {kind === 'circle' ? t(locale, 'space_id') : t(locale, 'thread_slug')}
             </label>
-            <input
-              value={ref}
-              onChange={(e) => setRef(e.target.value)}
-              disabled={existing}
-              placeholder={kind === 'circle' ? t(locale, 'space_id_eg') : t(locale, 'thread_slug_eg')}
-              className={INPUT}
-            />
+            {kind === 'thread' && threadOptions.length > 0 && !existing ? (
+              <SearchSelect
+                value={ref}
+                onChange={setRef}
+                options={[
+                  ...threadOptions.map((x) => ({ value: x.slug, label: x.title, hint: x.slug })),
+                  ...(ref && !threadOptions.some((x) => x.slug === ref)
+                    ? [{ value: ref, label: ref }]
+                    : []),
+                ]}
+                placeholder={t(locale, 'pick_thread_ph')}
+                className="w-full"
+              />
+            ) : (
+              <input
+                value={ref}
+                onChange={(e) => setRef(e.target.value)}
+                disabled={existing}
+                placeholder={kind === 'circle' ? t(locale, 'space_id_eg') : t(locale, 'thread_slug_eg')}
+                className={INPUT}
+              />
+            )}
           </div>
         )}
         {kind === 'circle' && !circleTokenSet && (

@@ -1,0 +1,25 @@
+{
+  "$schema": "https://thefibre.app/schemas/fibre-app-manifest.v1.json",
+  "app_slug": "fibre-sales",
+  "app_name": "Connections",
+  "version": "0.1.0",
+  "description": "Where everybody stands in the community, who needs attention, and who knows whom. A read over the contact graph, participation, membership and the purchase ledger — it asks for nothing and shows something on the first day. The sales pipeline is one axis of it, not a separate place.",
+
+  "scopes_requested": [
+    "read:persons",
+    "read:organisations",
+    "read:purchases",
+    "write:activities"
+  ],
+
+  "entity_mappings": [],
+
+  "curator_fields": [],
+
+  "activity_types": [],
+
+  "deactivation": {
+    "on_workspace_uninstall": "preserve_relationship_record",
+    "on_user_revoke": "no_owned_content"
+  }
+}

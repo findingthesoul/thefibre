@@ -76,7 +76,11 @@ export const APPS: Record<AppSlug, AppDescriptor> = {
   },
   'fibre-sales': {
     slug: 'fibre-sales',
-    label: 'Sales',
+    // Slug stays fibre-sales (it tags the curator rows); the label is what
+    // moves. This one titles the profile tab holding the relationship
+    // record — source, who introduced them, relationship strength — which
+    // is why "Sales" was wrong there. docs/connections-naming.md, D53.
+    label: 'Connections',
     personSubResources: ['relationship', 'billing'],
     orgSubResources: ['relationship', 'billing'],
   },

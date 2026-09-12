@@ -3,8 +3,10 @@
 // emailed login code as the passwordless path, more providers later.
 // No workspace membership required.
 
+import { ENTITY } from '@thefibre/shared';
 import { CalendarRange, Route, ExternalLink } from 'lucide-react';
 import { serverSupabase } from '@/lib/supabase/server';
+import { richTextPreview } from '@/lib/rich-text-preview';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { t, type Locale, isLocale } from '@/lib/i18n';
 import { SignInButton } from '../sign-in-button';
@@ -140,7 +142,7 @@ export default async function MyPage() {
                   {dates && <div className="mt-1 text-xs text-ink-muted">{dates}</div>}
                   {it.intention && (
                     <p className="mt-1.5 text-sm text-ink-subtle line-clamp-2 leading-relaxed">
-                      {it.intention}
+                      {richTextPreview(it.intention)}
                     </p>
                   )}
                   {(it.cohort?.length ?? 0) > 0 && (
@@ -194,7 +196,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
+        {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
       </footer>
     </Shell>
   );

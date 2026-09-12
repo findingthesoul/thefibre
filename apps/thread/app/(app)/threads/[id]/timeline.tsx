@@ -22,6 +22,8 @@ import {
   MapPin,
   Video,
   ChevronLeft,
+  Lock,
+  LockOpen,
   X,
 } from 'lucide-react';
 import {
@@ -31,6 +33,7 @@ import {
   removeThreadMember,
   deleteThread,
   duplicateThread,
+  setThreadLocked,
 } from '../actions';
 import { INTL_LOCALES, type Locale } from '@thefibre/shared';
 import {
@@ -56,6 +59,7 @@ import { RegistrationsDialog } from './registrations-dialog';
 import { saveThreadAsTemplate } from '../../templates/threads/actions';
 import { RegistrationPanel } from './registration';
 import { PricingPanel } from './pricing-panel';
+import { AppearancePanel } from './appearance-panel';
 import { CertificatePanel } from './certificate-panel';
 import { ThreadEmbedPanel } from './embed-panel';
 
@@ -256,6 +260,14 @@ export function ThreadTimeline({
   >({ mode: 'closed' });
   const [quickTime, setQuickTime] = useState<EngagementRow | null>(null);
   const [confirmThreadDelete, setConfirmThreadDelete] = useState(false);
+  const [confirmLock, setConfirmLock] = useState(false);
+  // A locked thread is frozen as a design (Sjoerd 2026-09-09). Everything
+  // below reads this one flag: the title, the timeline's write affordances
+  // and the settings dialog. Enrolment, check-in and the registrations list
+  // are deliberately untouched — the event goes on running while its design
+  // sits still. The API refuses the same writes (423 `thread_locked`); this
+  // is the courteous half.
+  const locked = !!thread.locked_at;
   const [threadActionPending, startThreadAction] = useTransition();
   const [settingsDirty, setSettingsDirty] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -388,13 +400,33 @@ export function ThreadTimeline({
         <input
           key={program?.title}
           defaultValue={program?.title ?? ''}
+          readOnly={locked}
           onBlur={(e) => saveTitle(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
           }}
-          className="flex-1 min-w-0 bg-transparent text-2xl font-medium tracking-tight focus:outline-none rounded-md px-1 -mx-1 focus:bg-surface-raised focus:ring-1 focus:ring-line"
+          className={`flex-1 min-w-0 bg-transparent text-2xl font-medium tracking-tight focus:outline-none rounded-md px-1 -mx-1 ${
+            locked ? 'cursor-default' : 'focus:bg-surface-raised focus:ring-1 focus:ring-line'
+          }`}
           aria-label={t(locale, 'thread_title_aria')}
         />
+
+        {/* The lock reads as a state, beside the status pill. Settings is
+            where it comes off, so the chip opens settings. */}
+        {locked && (
+          <button
+            type="button"
+            onClick={() => {
+              setSettingsTab('basics');
+              setSettingsOpen(true);
+            }}
+            title={t(locale, 'locked_banner')}
+            className="inline-flex items-center gap-1 shrink-0 text-xs px-2.5 py-1.5 rounded-full ring-1 ring-line bg-surface-sunken text-ink-subtle hover:text-ink"
+          >
+            <Lock size={12} strokeWidth={1.75} />
+            {t(locale, 'locked')}
+          </button>
+        )}
 
         {/* Status pill (select disguised) */}
         <div className="relative shrink-0">
@@ -494,6 +526,7 @@ export function ThreadTimeline({
                     triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
+                    locked={locked}
                   />
                 ))}
               </div>
@@ -517,6 +550,7 @@ export function ThreadTimeline({
                       triggerText={triggerLabel(locale, e, byId)}
                       onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                       onQuickTime={() => setQuickTime(e)}
+                      locked={locked}
                     />
                   ))}
                 </div>
@@ -542,6 +576,7 @@ export function ThreadTimeline({
                     triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
+                    locked={locked}
                   />
                 ))}
               </div>
@@ -570,6 +605,7 @@ export function ThreadTimeline({
                     triggerText={triggerLabel(locale, e, byId)}
                     onEdit={() => setEditorState({ mode: 'edit', engagement: e })}
                     onQuickTime={() => setQuickTime(e)}
+                    locked={locked}
                   />
                 ))}
               </div>
@@ -578,7 +614,7 @@ export function ThreadTimeline({
 
           {/* ── Add engagement (hidden when the plan can't edit structure —
                  Free configures what the template gave) ─────────────── */}
-          {canEditStructure && (
+          {canEditStructure && !locked && (
           <div ref={addRef} className="relative">
             <button
               type="button"
@@ -609,6 +645,16 @@ export function ThreadTimeline({
                     setEditorState({ mode: 'new', type: t });
                   }}
                 />
+                <div className="my-1 border-t border-line" />
+                <TypeMenuSection
+                  locale={locale}
+                  label={t(locale, 'certificates')}
+                  family="certificate"
+                  onPick={(t) => {
+                    setAddMenuOpen(false);
+                    setEditorState({ mode: 'new', type: t });
+                  }}
+                />
               </div>
             )}
           </div>
@@ -628,6 +674,8 @@ export function ThreadTimeline({
           requiresApproval={thread.requires_approval}
           personalRoomUrl={personalRoomUrl}
           canEditStructure={canEditStructure}
+          locked={locked}
+          threadAgendaOff={thread.public_agenda === false}
           activities={engagements
             .filter((e) => metaFor(e.type).family === 'activity')
             .map((e) => ({ id: e.id, title: e.title, hasDate: !!e.starts_at }))}
@@ -649,11 +697,35 @@ export function ThreadTimeline({
                   type="button"
                   variant="ghost"
                   size="sm"
-                  leading={<Trash2 size={14} />}
-                  onClick={() => setConfirmThreadDelete(true)}
+                  leading={locked ? <LockOpen size={14} /> : <Lock size={14} />}
+                  disabled={threadActionPending}
+                  onClick={() => {
+                    // Unlocking is one click: it takes a guard OFF, and
+                    // ceremony there would only teach people to leave
+                    // threads unlocked. Locking is the half that asks.
+                    if (locked) {
+                      startThreadAction(async () => {
+                        await setThreadLocked(thread.id, false);
+                        router.refresh();
+                      });
+                    } else {
+                      setConfirmLock(true);
+                    }
+                  }}
                 >
-                  {t(locale, 'delete')}
+                  {t(locale, locked ? 'unlock_thread' : 'lock_thread')}
                 </Button>
+                {!locked && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    leading={<Trash2 size={14} />}
+                    onClick={() => setConfirmThreadDelete(true)}
+                  >
+                    {t(locale, 'delete')}
+                  </Button>
+                )}
                 <Button
                   type="button"
                   variant="ghost"
@@ -695,7 +767,7 @@ export function ThreadTimeline({
               <Button type="button" variant="secondary" onClick={requestCloseSettings}>
                 {t(locale, 'cancel')}
               </Button>
-              {settingsTab !== 'embed' && (
+              {settingsTab !== 'embed' && !locked && (
                 <Button type="submit" form={`thread-${settingsTab}-form`}>
                   {t(locale, 'save')}
                 </Button>
@@ -704,6 +776,12 @@ export function ThreadTimeline({
           }
         >
           <div onInput={() => setSettingsDirty(true)}>
+            {locked && (
+              <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-line bg-surface-sunken px-3.5 py-3 text-sm text-ink-subtle">
+                <Lock size={15} strokeWidth={1.75} className="mt-0.5 shrink-0" />
+                <p>{t(locale, 'locked_banner')}</p>
+              </div>
+            )}
             <SettingsTabs
               locale={locale}
               thread={thread}
@@ -718,6 +796,7 @@ export function ThreadTimeline({
               onSaved={closeSettings}
               workspaceNote={workspaceNote}
               workspaceSlug={workspaceSlug}
+              locked={locked}
             />
           </div>
         </Dialog>
@@ -731,6 +810,22 @@ export function ThreadTimeline({
         message={t(locale, 'discard_msg')}
         confirmLabel={t(locale, 'discard')}
         destructive
+      />
+
+      <ConfirmDialog
+        open={confirmLock}
+        onCancel={() => setConfirmLock(false)}
+        onConfirm={() =>
+          startThreadAction(async () => {
+            await setThreadLocked(thread.id, true);
+            setConfirmLock(false);
+            router.refresh();
+          })
+        }
+        title={t(locale, 'lock_thread_confirm_title')}
+        message={t(locale, 'lock_thread_confirm_msg')}
+        confirmLabel={t(locale, 'lock_thread')}
+        pending={threadActionPending}
       />
 
       <DangerConfirmDialog
@@ -814,6 +909,7 @@ function EngagementCard({
   triggerText,
   onEdit,
   onQuickTime,
+  locked = false,
 }: {
   locale: Locale;
   engagement: EngagementRow;
@@ -822,6 +918,9 @@ function EngagementCard({
   triggerText: string | null;
   onEdit: () => void;
   onQuickTime: () => void;
+  /** Locked thread: the card still opens (the dialog reads fine), but the
+   *  inline time shortcut, which saves the moment you use it, does not. */
+  locked?: boolean;
 }) {
   const meta = metaFor(e.type);
   const schedule = datedSchedule(e);
@@ -883,6 +982,12 @@ function EngagementCard({
                   </span>
                 )}
               </div>
+            ) : meta.family === 'activity' && when && locked ? (
+              <span className="inline-flex items-center gap-1 tabular-nums px-1.5 py-0.5 -mx-1.5">
+                <Clock size={12} strokeWidth={1.75} />
+                {fmtTime(locale, when)}
+                {e.ends_at && ` – ${fmtTime(locale, e.ends_at)}`}
+              </span>
             ) : meta.family === 'activity' && when ? (
               <button
                 type="button"
@@ -922,7 +1027,13 @@ function EngagementCard({
 // more tabs will come. All tabs stay in the DOM (Meet's pattern).
 // ---------------------------------------------------------------------------
 
-type SettingsTab = 'basics' | 'pricing' | 'registration' | 'certificate' | 'embed';
+type SettingsTab =
+  | 'basics'
+  | 'appearance'
+  | 'pricing'
+  | 'registration'
+  | 'certificate'
+  | 'embed';
 
 function SettingsTabs({
   locale,
@@ -938,6 +1049,7 @@ function SettingsTabs({
   onSaved,
   workspaceNote = null,
   workspaceSlug = null,
+  locked = false,
 }: {
   locale: Locale;
   thread: ThreadRow;
@@ -952,9 +1064,15 @@ function SettingsTabs({
   onSaved?: () => void;
   workspaceNote?: string | null;
   workspaceSlug?: string | null;
+  /** A locked thread still reads normally and its embed codes still copy —
+   *  only the panels that write go inert. One disabled fieldset per panel
+   *  does that for every control inside it at once, and leaves the tab bar
+   *  (outside them) working. */
+  locked?: boolean;
 }) {
   const tabs = [
     { value: 'basics', label: t(locale, 'basics') },
+    { value: 'appearance', label: t(locale, 'tab_appearance') },
     { value: 'pricing', label: t(locale, 'tab_pricing') },
     { value: 'registration', label: t(locale, 'tab_registration') },
     { value: 'certificate', label: t(locale, 'certificate') },
@@ -983,46 +1101,59 @@ function SettingsTabs({
         </ul>
       </nav>
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
-        <ThreadEditorForm
-          locale={locale}
-          thread={thread}
-          compact
-          teams={teams}
-          categories={categories}
-          workspaceSlug={workspaceSlug}
-          onSaved={onSaved}
-        />
-        <MembersPanel
-          locale={locale}
-          thread={thread}
-          organiserName={organiserName}
-          members={members}
-          workspaceMembers={workspaceMembers}
-        />
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <ThreadEditorForm
+            locale={locale}
+            thread={thread}
+            compact
+            teams={teams}
+            categories={categories}
+            workspaceSlug={workspaceSlug}
+            onSaved={onSaved}
+          />
+          <MembersPanel
+            locale={locale}
+            thread={thread}
+            organiserName={organiserName}
+            members={members}
+            workspaceMembers={workspaceMembers}
+          />
+        </fieldset>
+      </div>
+      <div className={`pt-5 ${tab === 'appearance' ? '' : 'hidden'}`}>
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <AppearancePanel locale={locale} thread={thread} onSaved={onSaved} />
+        </fieldset>
       </div>
       <div className={`pt-5 ${tab === 'pricing' ? '' : 'hidden'}`}>
-        <PricingPanel locale={locale} thread={thread} onSaved={onSaved} />
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <PricingPanel locale={locale} thread={thread} onSaved={onSaved} />
+        </fieldset>
       </div>
       <div className={`pt-5 ${tab === 'registration' ? '' : 'hidden'}`}>
-        <RegistrationPanel
-          locale={locale}
-          threadId={thread.id}
-          fields={thread.registration_fields ?? []}
-          sharePublic={thread.share_participants_public ?? false}
-          shareParticipants={thread.share_participants_participants ?? false}
-          requiresApproval={thread.requires_approval ?? false}
-          enrolmentNote={thread.enrolment_note ?? null}
-          workspaceNote={workspaceNote}
-          onSaved={onSaved}
-        />
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <RegistrationPanel
+            locale={locale}
+            threadId={thread.id}
+            fields={thread.registration_fields ?? []}
+            sharePublic={thread.share_participants_public ?? false}
+            shareParticipants={thread.share_participants_participants ?? false}
+            requiresApproval={thread.requires_approval ?? false}
+            enrolmentNote={thread.enrolment_note ?? null}
+            workspaceNote={workspaceNote}
+            onSaved={onSaved}
+          />
+        </fieldset>
       </div>
       <div className={`pt-5 ${tab === 'certificate' ? '' : 'hidden'}`}>
-        <CertificatePanel
-          locale={locale}
-          thread={thread}
-          certTemplates={certTemplates}
-          onSaved={onSaved}
-        />
+        <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
+          <CertificatePanel
+            locale={locale}
+            thread={thread}
+            certTemplates={certTemplates}
+            onSaved={onSaved}
+          />
+        </fieldset>
       </div>
       <div className={`pt-5 ${tab === 'embed' ? '' : 'hidden'}`}>
         <ThreadEmbedPanel
@@ -1267,7 +1398,7 @@ function TypeMenuSection({
 }: {
   locale: Locale;
   label: string;
-  family: 'activity' | 'message';
+  family: 'activity' | 'message' | 'certificate';
   onPick: (t: EngagementType) => void;
 }) {
   return (

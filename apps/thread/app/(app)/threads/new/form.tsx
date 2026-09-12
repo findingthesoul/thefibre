@@ -2,7 +2,15 @@
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
-import { CalendarRange, Route, User, Users, type LucideIcon, Building2 } from 'lucide-react';
+import {
+  CalendarRange,
+  Route,
+  User,
+  Users,
+  type LucideIcon,
+  Building2,
+  Info,
+} from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { createThread } from '../actions';
 import type { TeamOption } from '@/lib/thread-types';
@@ -10,8 +18,11 @@ import { t } from '@/lib/i18n-ui';
 import {
   TemplateCard,
   BlankTemplateCard,
+  templateDesc,
+  templateName,
   type TemplateLibrary,
 } from '@/components/template-cards';
+import { Dialog } from '@/components/ui/dialog';
 import { NameAndSlugFields } from '@/components/ui/name-slug';
 import { TextAreaField, SelectField } from '@/components/ui/field';
 import { DateField } from '@/components/ui/date-field';
@@ -50,6 +61,9 @@ export function NewThreadForm({
   const [teamId, setTeamId] = useState(teams[0]?.id ?? '');
   // End date can only follow the start date.
   const [startsOn, setStartsOn] = useState('');
+  // The cards moved behind an (i) (Sjoerd 2026-09-09) — the dropdown is the
+  // choice, the popup is the explanation of what each one gives you.
+  const [templatesOpen, setTemplatesOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -92,31 +106,92 @@ export function NewThreadForm({
     <form onSubmit={onSubmit} className="mt-8 space-y-8">
       {/* Standard template picker (Sjoerd 2026-09-08) — five event shapes;
           the plan slices which are available, and the seeded elements are
-          then configured rather than built. */}
+          then configured rather than built. The cards were the picker until
+          2026-09-09; they took the whole first screen of a form whose real
+          subject is the thread you are naming, so the choice is a dropdown
+          now and the cards are what the (i) opens. */}
       {library.templates.length > 0 ? (
-        <div>
-          <SectionLabel>{t(locale, 'tpl_pick')}</SectionLabel>
-          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6">
+          <div>
+            <div className="flex items-center gap-1.5">
+              <SectionLabel>{t(locale, 'tpl_pick')}</SectionLabel>
+              <button
+                type="button"
+                onClick={() => setTemplatesOpen(true)}
+                title={t(locale, 'tpl_more_info')}
+                aria-label={t(locale, 'tpl_more_info')}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full text-ink-muted hover:text-ink hover:bg-surface-sunken transition-colors"
+              >
+                <Info size={13} strokeWidth={1.75} />
+              </button>
+            </div>
+            <select
+              value={template}
+              onChange={(e) => setTemplate(e.target.value)}
+              className="mt-2 w-full rounded-md border border-line bg-surface-raised px-3 text-sm h-[38px] focus:border-line-strong focus:outline-none"
+              aria-label={t(locale, 'tpl_pick')}
+            >
+              {library.templates.map((tp) => (
+                <option key={tp.id} value={tp.id} disabled={!tp.available}>
+                  {templateName(locale, tp.id)}
+                  {tp.available ? '' : ` — ${t(locale, 'tpl_locked')}`}
+                </option>
+              ))}
+              {library.can_edit_structure && (
+                <option value="blank">{t(locale, 'tpl_blank')}</option>
+              )}
+            </select>
+            <p className="mt-1.5 text-xs text-ink-muted leading-relaxed">
+              {template === 'blank'
+                ? t(locale, 'tpl_blank_desc')
+                : templateDesc(locale, template)}
+            </p>
+          </div>
+        </div>
+      ) : (
+        <p className="text-sm text-amber-700 dark:text-amber-400">{t(locale, 'tpl_load_failed')}</p>
+      )}
+
+      {templatesOpen && (
+        <Dialog
+          open
+          onClose={() => setTemplatesOpen(false)}
+          title={t(locale, 'tpl_more_info')}
+          description={t(locale, 'tpl_pick_desc')}
+          size="xl"
+          footer={
+            <Button type="button" variant="secondary" onClick={() => setTemplatesOpen(false)}>
+              {t(locale, 'close')}
+            </Button>
+          }
+        >
+          {/* Picking here IS picking — the popup closes on choice, so the
+              dropdown and the cards are one control, not two. */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {library.templates.map((tp) => (
               <TemplateCard
                 key={tp.id}
                 locale={locale}
                 template={tp}
                 selected={template === tp.id}
-                onSelect={() => setTemplate(tp.id)}
+                onSelect={() => {
+                  setTemplate(tp.id);
+                  setTemplatesOpen(false);
+                }}
               />
             ))}
             {library.can_edit_structure && (
               <BlankTemplateCard
                 locale={locale}
                 selected={template === 'blank'}
-                onSelect={() => setTemplate('blank')}
+                onSelect={() => {
+                  setTemplate('blank');
+                  setTemplatesOpen(false);
+                }}
               />
             )}
           </div>
-        </div>
-      ) : (
-        <p className="text-sm text-amber-700 dark:text-amber-400">{t(locale, 'tpl_load_failed')}</p>
+        </Dialog>
       )}
 
       {/* Compact toggles (Sjoerd 2026-07-02) — the explanation of the active

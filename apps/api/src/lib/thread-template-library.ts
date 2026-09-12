@@ -14,16 +14,21 @@
 // removing timeline elements needs thread_custom_templates (Pro+) — Free
 // configures what the template gave, which is the whole design.
 
+import { zonedTimeToUtc } from './availability/timezone.js';
+
 export type LibraryElement = {
   /** Blueprint-local key — messages anchor to activities by this. */
   key: string;
   type: 'event' | 'conversation' | 'workshop' | 'reflection' | 'practice' | 'message' | 'document' | 'inspiration';
   title: string;
   description?: string;
-  /** Multi-day activities: shown on the template card ("2 days"). NOT
-   *  materialised as daily_schedule at seeding — a schedule row needs a
-   *  date, and a template has none (the date-less rows seeded until v0.68.15
-   *  crashed the editor). The organiser picks the days in the dialog. */
+  /** Multi-day activities: shown on the template card ("2 days"), and used
+   *  to set `ends_at` when the create form supplied a start date.
+   *
+   *  Still NOT materialised as `daily_schedule` rows at seeding, which is a
+   *  separate thing: a per-day row carries a date AND times, and the seeder
+   *  knows only the first. Date-less schedule rows crashed the editor once
+   *  (v0.68.15), so the organiser picks the days in the dialog. */
   days?: number;
   /** Message trigger; omitted = draft, organiser schedules it. */
   trigger?:
@@ -163,10 +168,39 @@ export type SeedRow = {
  *  without a database: no daily_schedule (a schedule row needs a date), and
  *  every relative trigger carries trigger_anchor 'engagement' — the value the
  *  editor and the scheduler both branch on. */
+/** Activity types — the ones that sit ON the timeline at a time, as opposed
+ *  to messages, which hang off an anchor. Same list the duplication path
+ *  uses. */
+const ACTIVITY_TYPES = ['event', 'conversation', 'workshop'];
+
+/** The hour a seeded activity lands on, in the thread's own timezone. The
+ *  organiser moves it; this only has to be plausible and non-null. 10:00
+ *  because that is already the house default for a message trigger time. */
+const DEFAULT_HOUR = 10;
+
 export function seedRowsFor(
   tpl: LibraryTemplate,
   base: { workspace_id: string; thread_id: string },
+  when?: { startsOn?: string | null; timezone?: string | null },
 ): SeedRow[] {
+  // The date the organiser typed into the create form, put on the first
+  // activity so the thread is not born broken.
+  //
+  // It used to go only onto the `program` row, and every seeded element came
+  // out date-less. For `single-event` that meant a brand-new organiser landed
+  // in the editor with "The event — NO DATE" and, underneath it, a thank-you
+  // message already labelled "won't send: the anchor has no date" — a warning
+  // about a problem they had not caused and could not have avoided, on a
+  // thread they had just given a date to. Found by walking the first-run flow
+  // as a cold account, 2026-09-12.
+  //
+  // Only the FIRST activity is placed. The rest of the timeline stays the
+  // organiser's to arrange, and relative messages resolve themselves once
+  // their anchor has a date.
+  const startsOn = when?.startsOn?.trim() || null;
+  const tz = when?.timezone?.trim() || 'Europe/Amsterdam';
+  const firstActivityKey = tpl.elements.find((e) => ACTIVITY_TYPES.includes(e.type))?.key ?? null;
+
   let position = 10;
   return tpl.elements.map((el) => {
     const insert: Record<string, unknown> = {
@@ -177,6 +211,26 @@ export function seedRowsFor(
       status: 'draft',
       position,
     };
+
+    if (startsOn && el.key === firstActivityKey) {
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(startsOn);
+      if (m) {
+        const [, y, mo, d] = m.map(Number) as unknown as [unknown, number, number, number];
+        // zonedTimeToUtc, not `new Date(`${date}T10:00:00Z`)`. The naive
+        // form treats the wall clock as UTC and lands an Amsterdam morning
+        // event two hours early in summer; this one survives DST.
+        const start = zonedTimeToUtc(y, mo, d, DEFAULT_HOUR, 0, tz);
+        insert.starts_at = start.toISOString();
+        // A multi-day shape ends on its last day at the same hour. Anything
+        // more precise would be invented, and the organiser sets real times
+        // in the dialog.
+        if (el.days && el.days > 1) {
+          const end = zonedTimeToUtc(y, mo, d + (el.days - 1), DEFAULT_HOUR, 0, tz);
+          insert.ends_at = end.toISOString();
+        }
+      }
+    }
+
     position += 10;
     let anchorKey: string | null = null;
     if (el.trigger) {

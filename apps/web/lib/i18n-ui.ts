@@ -412,6 +412,190 @@ const CATALOG = {
     de: 'Start', // MT
     fr: 'Accueil', // MT
   },
+  dup_title: {
+    en: 'Possible duplicates',
+    nl: 'Mogelijke dubbelen',
+    es: 'Posibles duplicados', // MT
+    pt: 'Possíveis duplicados', // MT
+    de: 'Mögliche Dubletten', // MT
+    fr: 'Doublons possibles', // MT
+  },
+  dup_intro: {
+    en: 'Two records that may be the same person. Nothing is merged until you choose which one to keep, and every merge can be undone.',
+    nl: 'Twee records die dezelfde persoon kunnen zijn. Er wordt niets samengevoegd tot jij kiest welke je houdt, en elke samenvoeging is terug te draaien.',
+    es: 'Dos registros que podrían ser la misma persona. No se fusiona nada hasta que elijas cuál conservar, y toda fusión se puede deshacer.', // MT
+    pt: 'Dois registos que podem ser a mesma pessoa. Nada é unido até escolheres qual manter, e cada união pode ser desfeita.', // MT
+    de: 'Zwei Einträge, die dieselbe Person sein könnten. Es wird nichts zusammengeführt, bis du wählst, welcher bleibt, und jede Zusammenführung lässt sich rückgängig machen.', // MT
+    fr: 'Deux fiches qui pourraient être la même personne. Rien n’est fusionné tant que vous n’avez pas choisi laquelle garder, et toute fusion est réversible.', // MT
+  },
+  dup_none: {
+    en: 'Nothing looks duplicated.',
+    nl: 'Niets lijkt dubbel.',
+    es: 'No parece haber duplicados.', // MT
+    pt: 'Nada parece duplicado.', // MT
+    de: 'Nichts wirkt doppelt.', // MT
+    fr: 'Rien ne semble en double.', // MT
+  },
+  dup_admins_only: {
+    en: 'Only workspace admins can review duplicates — merging changes who owns a payment or a certificate.',
+    nl: 'Alleen workspace-beheerders kunnen dubbelen beoordelen — samenvoegen verandert wie een betaling of certificaat bezit.',
+    es: 'Solo los administradores pueden revisar duplicados: fusionar cambia quién es dueño de un pago o un certificado.', // MT
+    pt: 'Só administradores podem rever duplicados — unir altera de quem é um pagamento ou certificado.', // MT
+    de: 'Nur Workspace-Admins können Dubletten prüfen — Zusammenführen ändert, wem eine Zahlung oder ein Zertifikat gehört.', // MT
+    fr: 'Seuls les administrateurs peuvent examiner les doublons : fusionner change à qui appartient un paiement ou un certificat.', // MT
+  },
+  dup_reason_same_email: {
+    en: 'Same email address',
+    nl: 'Zelfde e-mailadres',
+    es: 'Mismo correo electrónico', // MT
+    pt: 'Mesmo endereço de email', // MT
+    de: 'Gleiche E-Mail-Adresse', // MT
+    fr: 'Même adresse e-mail', // MT
+  },
+  dup_reason_same_name: {
+    en: 'Same name, different address',
+    nl: 'Zelfde naam, ander adres',
+    es: 'Mismo nombre, dirección distinta', // MT
+    pt: 'Mesmo nome, endereço diferente', // MT
+    de: 'Gleicher Name, andere Adresse', // MT
+    fr: 'Même nom, adresse différente', // MT
+  },
+  dup_reason_similar_name: {
+    en: 'Similar name',
+    nl: 'Vergelijkbare naam',
+    es: 'Nombre parecido', // MT
+    pt: 'Nome semelhante', // MT
+    de: 'Ähnlicher Name', // MT
+    fr: 'Nom similaire', // MT
+  },
+  dup_keep_this: {
+    en: 'Keep this one',
+    nl: 'Deze houden',
+    es: 'Conservar este', // MT
+    pt: 'Manter este', // MT
+    de: 'Diesen behalten', // MT
+    fr: 'Garder celui-ci', // MT
+  },
+  dup_keep_explainer: {
+    en: 'The other record is kept, soft-deleted, and everything attached to it moves across. Its past activity stays where it is and still shows on the timeline.',
+    nl: 'Het andere record blijft bestaan, zacht verwijderd, en alles wat eraan hangt verhuist mee. De activiteit blijft staan en is nog steeds zichtbaar in de tijdlijn.',
+    es: 'El otro registro se conserva, borrado de forma suave, y todo lo asociado se traslada. Su actividad pasada permanece y sigue apareciendo en la línea de tiempo.', // MT
+    pt: 'O outro registo mantém-se, apagado de forma suave, e tudo o que lhe está ligado passa para este. A atividade anterior fica onde está e continua a aparecer na cronologia.', // MT
+    de: 'Der andere Eintrag bleibt erhalten, weich gelöscht, und alles daran Hängende wandert mit. Seine bisherige Aktivität bleibt, wo sie ist, und erscheint weiterhin im Verlauf.', // MT
+    fr: 'L’autre fiche est conservée, supprimée en douceur, et tout ce qui y est rattaché est transféré. Son activité passée reste en place et apparaît toujours dans la chronologie.', // MT
+  },
+  dup_recent_merges: {
+    en: 'Recent merges',
+    nl: 'Recent samengevoegd',
+    es: 'Fusiones recientes', // MT
+    pt: 'Uniões recentes', // MT
+    de: 'Letzte Zusammenführungen', // MT
+    fr: 'Fusions récentes', // MT
+  },
+  dup_undo: {
+    en: 'Undo',
+    nl: 'Ongedaan maken',
+    es: 'Deshacer', // MT
+    pt: 'Desfazer', // MT
+    de: 'Rückgängig', // MT
+    fr: 'Annuler', // MT
+  },
+  dup_dropped_rows: {
+    en: 'could not be carried across:',
+    nl: 'kon niet mee:',
+    es: 'no se pudo trasladar:', // MT
+    pt: 'não pôde ser transferido:', // MT
+    de: 'konnte nicht übernommen werden:', // MT
+    fr: 'n’a pas pu être transféré :', // MT
+  },
+  dup_source_unknown: {
+    en: 'origin unknown',
+    nl: 'herkomst onbekend',
+    es: 'origen desconocido', // MT
+    pt: 'origem desconhecida', // MT
+    de: 'Herkunft unbekannt', // MT
+    fr: 'origine inconnue', // MT
+  },
+  dup_source_manual: {
+    en: 'typed in',
+    nl: 'handmatig ingevoerd',
+    es: 'introducido a mano', // MT
+    pt: 'introduzido à mão', // MT
+    de: 'manuell angelegt', // MT
+    fr: 'saisi à la main', // MT
+  },
+  dup_source_meet_booking: {
+    en: 'booked a meeting',
+    nl: 'boekte een afspraak',
+    es: 'reservó una reunión', // MT
+    pt: 'marcou uma reunião', // MT
+    de: 'hat ein Treffen gebucht', // MT
+    fr: 'a réservé une rencontre', // MT
+  },
+  dup_source_meet_invite: {
+    en: 'invited to a meeting',
+    nl: 'uitgenodigd voor een afspraak',
+    es: 'invitado a una reunión', // MT
+    pt: 'convidado para uma reunião', // MT
+    de: 'zu einem Treffen eingeladen', // MT
+    fr: 'invité à une rencontre', // MT
+  },
+  dup_source_thread_enrolment: {
+    en: 'enrolled in a thread',
+    nl: 'ingeschreven voor een thread',
+    es: 'inscrito en un thread', // MT
+    pt: 'inscrito num thread', // MT
+    de: 'für einen Thread angemeldet', // MT
+    fr: 'inscrit à un thread', // MT
+  },
+  dup_source_thread_participant: {
+    en: 'added to a thread',
+    nl: 'toegevoegd aan een thread',
+    es: 'añadido a un thread', // MT
+    pt: 'adicionado a um thread', // MT
+    de: 'zu einem Thread hinzugefügt', // MT
+    fr: 'ajouté à un thread', // MT
+  },
+  dup_source_member_invite: {
+    en: 'invited to the workspace',
+    nl: 'uitgenodigd voor de workspace',
+    es: 'invitado al espacio de trabajo', // MT
+    pt: 'convidado para o espaço de trabalho', // MT
+    de: 'in den Workspace eingeladen', // MT
+    fr: 'invité dans l’espace de travail', // MT
+  },
+  dup_source_membership_join: {
+    en: 'joined as a member',
+    nl: 'werd lid',
+    es: 'se hizo miembro', // MT
+    pt: 'tornou-se membro', // MT
+    de: 'ist Mitglied geworden', // MT
+    fr: 'est devenu membre', // MT
+  },
+  dup_source_membership_purchase: {
+    en: 'bought a membership',
+    nl: 'kocht een lidmaatschap',
+    es: 'compró una membresía', // MT
+    pt: 'comprou uma adesão', // MT
+    de: 'hat eine Mitgliedschaft gekauft', // MT
+    fr: 'a acheté une adhésion', // MT
+  },
+  dup_source_app_link: {
+    en: 'linked by an app',
+    nl: 'gekoppeld door een app',
+    es: 'vinculado por una app', // MT
+    pt: 'ligado por uma app', // MT
+    de: 'von einer App verknüpft', // MT
+    fr: 'lié par une application', // MT
+  },
+  dup_find: {
+    en: 'Find duplicates',
+    nl: 'Dubbelen zoeken',
+    es: 'Buscar duplicados', // MT
+    pt: 'Procurar duplicados', // MT
+    de: 'Dubletten finden', // MT
+    fr: 'Trouver les doublons', // MT
+  },
   nav_contacts: {
     en: 'Contacts',
     nl: 'Contacten',
@@ -2668,14 +2852,6 @@ const CATALOG = {
     pt: 'Região', // MT
     de: 'Region', // MT
     fr: 'Région', // MT
-  },
-  iso_639_hint: {
-    en: 'ISO 639 code, e.g. nl or en-GB',
-    nl: 'ISO 639-code, bijv. nl of en-GB',
-    es: 'Código ISO 639, p. ej. nl o en-GB', // MT
-    pt: 'Código ISO 639, p. ex. nl ou en-GB', // MT
-    de: 'ISO-639-Code, z. B. nl oder en-GB', // MT
-    fr: 'Code ISO 639, p. ex. nl ou en-GB', // MT
   },
   edit_contact: {
     en: 'Edit contact',
@@ -5539,6 +5715,192 @@ const CATALOG = {
     pt: 'Lançador de apps', // MT
     de: 'App-Launcher', // MT
     fr: 'Lanceur d\'apps', // MT
+  },
+  // ── teams as access groups (2026-09-11) ───────────────────────────────
+  teams_title: {
+    en: 'Teams',
+    nl: 'Teams',
+    es: 'Equipos', // MT
+    pt: 'Equipes', // MT
+    de: 'Teams', // MT
+    fr: 'Équipes', // MT
+  },
+  teams_blurb: {
+    en: 'Group people, and decide which apps the group can open.',
+    nl: 'Groepeer mensen en bepaal welke apps de groep mag openen.',
+    es: 'Agrupa personas y decide qué apps puede abrir el grupo.', // MT
+    pt: 'Agrupe pessoas e decida quais apps o grupo pode abrir.', // MT
+    de: 'Menschen gruppieren und festlegen, welche Apps die Gruppe öffnen darf.', // MT
+    fr: 'Regroupez des personnes et décidez quelles apps le groupe peut ouvrir.', // MT
+  },
+  new_team: {
+    en: 'New team',
+    nl: 'Nieuw team',
+    es: 'Nuevo equipo', // MT
+    pt: 'Nova equipe', // MT
+    de: 'Neues Team', // MT
+    fr: 'Nouvelle équipe', // MT
+  },
+  team_name: {
+    en: 'Name',
+    nl: 'Naam',
+    es: 'Nombre', // MT
+    pt: 'Nome', // MT
+    de: 'Name', // MT
+    fr: 'Nom', // MT
+  },
+  team_description: {
+    en: 'Description',
+    nl: 'Omschrijving',
+    es: 'Descripción', // MT
+    pt: 'Descrição', // MT
+    de: 'Beschreibung', // MT
+    fr: 'Description', // MT
+  },
+  team_published: {
+    en: 'Give this team a public page',
+    nl: 'Geef dit team een openbare pagina',
+    es: 'Dar a este equipo una página pública', // MT
+    pt: 'Dar a esta equipe uma página pública', // MT
+    de: 'Diesem Team eine öffentliche Seite geben', // MT
+    fr: 'Donner à cette équipe une page publique', // MT
+  },
+  team_published_help: {
+    en: 'The address is reserved either way, so you can publish later without losing it.',
+    nl: 'Het adres wordt sowieso vastgelegd, dus je kunt later publiceren zonder het kwijt te raken.',
+    es: 'La dirección queda reservada igualmente, así que puedes publicar más tarde sin perderla.', // MT
+    pt: 'O endereço fica reservado de qualquer forma, então você pode publicar depois sem perdê-lo.', // MT
+    de: 'Die Adresse wird ohnehin reserviert — du kannst später veröffentlichen, ohne sie zu verlieren.', // MT
+    fr: 'L\'adresse est réservée dans tous les cas, vous pouvez donc publier plus tard sans la perdre.', // MT
+  },
+  team_internal: {
+    en: 'Internal',
+    nl: 'Intern',
+    es: 'Interno', // MT
+    pt: 'Interno', // MT
+    de: 'Intern', // MT
+    fr: 'Interne', // MT
+  },
+  team_apps: {
+    en: 'Apps this team can open',
+    nl: 'Apps die dit team mag openen',
+    es: 'Apps que este equipo puede abrir', // MT
+    pt: 'Apps que esta equipe pode abrir', // MT
+    de: 'Apps, die dieses Team öffnen darf', // MT
+    fr: 'Apps que cette équipe peut ouvrir', // MT
+  },
+  team_apps_help: {
+    en: 'Everyone in the team gets these. People keep anything granted to them directly.',
+    nl: 'Iedereen in het team krijgt deze. Wat iemand rechtstreeks heeft gekregen, blijft.',
+    es: 'Todos en el equipo las reciben. Cada persona conserva lo que se le concedió directamente.', // MT
+    pt: 'Todos na equipe recebem estes. Cada pessoa mantém o que recebeu diretamente.', // MT
+    de: 'Alle im Team bekommen diese. Direkt erteilte Rechte bleiben bestehen.', // MT
+    fr: 'Toute l\'équipe les reçoit. Chacun conserve ce qui lui a été accordé directement.', // MT
+  },
+  team_lead_is_admin: {
+    en: 'Team leads manage this app',
+    nl: 'Teamleads beheren deze app',
+    es: 'Los líderes del equipo gestionan esta app', // MT
+    pt: 'Os líderes da equipe gerenciam este app', // MT
+    de: 'Team-Leads verwalten diese App', // MT
+    fr: 'Les responsables d\'équipe gèrent cette app', // MT
+  },
+  team_members_label: {
+    en: 'People',
+    nl: 'Mensen',
+    es: 'Personas', // MT
+    pt: 'Pessoas', // MT
+    de: 'Personen', // MT
+    fr: 'Personnes', // MT
+  },
+  add_to_team: {
+    en: 'Add someone',
+    nl: 'Iemand toevoegen',
+    es: 'Añadir a alguien', // MT
+    pt: 'Adicionar alguém', // MT
+    de: 'Jemanden hinzufügen', // MT
+    fr: 'Ajouter quelqu\'un', // MT
+  },
+  no_teams_yet: {
+    en: 'No teams yet.',
+    nl: 'Nog geen teams.',
+    es: 'Aún no hay equipos.', // MT
+    pt: 'Ainda não há equipes.', // MT
+    de: 'Noch keine Teams.', // MT
+    fr: 'Pas encore d\'équipes.', // MT
+  },
+  no_team_members_yet: {
+    en: 'Nobody in this team yet.',
+    nl: 'Nog niemand in dit team.',
+    es: 'Todavía no hay nadie en este equipo.', // MT
+    pt: 'Ainda não há ninguém nesta equipe.', // MT
+    de: 'Noch niemand in diesem Team.', // MT
+    fr: 'Personne dans cette équipe pour l\'instant.', // MT
+  },
+  teams_load_failed: {
+    en: 'Could not load teams.',
+    nl: 'Kon teams niet laden.',
+    es: 'No se pudieron cargar los equipos.', // MT
+    pt: 'Não foi possível carregar as equipes.', // MT
+    de: 'Teams konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les équipes.', // MT
+  },
+  team_role_lead: {
+    en: 'Lead',
+    nl: 'Lead',
+    es: 'Responsable', // MT
+    pt: 'Líder', // MT
+    de: 'Lead', // MT
+    fr: 'Responsable', // MT
+  },
+  team_role_member: {
+    en: 'Member',
+    nl: 'Lid',
+    es: 'Miembro', // MT
+    pt: 'Membro', // MT
+    de: 'Mitglied', // MT
+    fr: 'Membre', // MT
+  },
+  team_grants_need_pro: {
+    en: 'Letting teams decide app access is part of Pro. Settings → Plan has the details.',
+    nl: 'Teams app-toegang laten bepalen hoort bij Pro. Kijk bij Instellingen → Abonnement.',
+    es: 'Dejar que los equipos decidan el acceso a las apps es parte de Pro. Ajustes → Plan tiene los detalles.', // MT
+    pt: 'Deixar as equipes decidirem o acesso aos apps faz parte do Pro. Configurações → Plano tem os detalhes.', // MT
+    de: 'Teams über App-Zugriff entscheiden zu lassen, gehört zu Pro. Details unter Einstellungen → Tarif.', // MT
+    fr: 'Laisser les équipes décider de l\'accès aux apps fait partie de Pro. Détails dans Réglages → Formule.', // MT
+  },
+  team_widen_warning: {
+    en: 'people in this team receive these apps as soon as you save.',
+    nl: 'mensen in dit team krijgen deze apps zodra je opslaat.',
+    es: 'personas de este equipo reciben estas apps en cuanto guardes.', // MT
+    pt: 'pessoas nesta equipe recebem estes apps assim que você salvar.', // MT
+    de: 'Personen in diesem Team erhalten diese Apps, sobald du speicherst.', // MT
+    fr: 'personnes de cette équipe reçoivent ces apps dès que vous enregistrez.', // MT
+  },
+  apps_via_team: {
+    en: 'via',
+    nl: 'via',
+    es: 'vía', // MT
+    pt: 'via', // MT
+    de: 'über', // MT
+    fr: 'via', // MT
+  },
+  team_retired: {
+    en: 'Retired',
+    nl: 'Gearchiveerd',
+    es: 'Retirado', // MT
+    pt: 'Arquivado', // MT
+    de: 'Stillgelegt', // MT
+    fr: 'Archivée', // MT
+  },
+  // Beta apps — the tier above Enterprise (2026-09-12).
+  app_beta: {
+    en: 'Beta',
+    nl: 'Beta',
+    es: 'Beta', // MT
+    pt: 'Beta', // MT
+    de: 'Beta', // MT
+    fr: 'Bêta', // MT
   },
 } satisfies Record<string, I18nEntry>;
 

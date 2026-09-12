@@ -1,7 +1,7 @@
 // Locks the two judgements behind the visitor portal (docs/visitor-portal-proposal.md).
 
 import { describe, expect, it } from 'vitest';
-import { mergeById, ticketIsAdmissible } from './portal.js';
+import { enrolmentCanRespond, enrolmentIsLive, mergeById, ticketIsAdmissible, resolveRsvpEnabled } from './portal.js';
 
 describe('ticketIsAdmissible', () => {
   it('a free thread admits — no payment was ever asked for', () => {
@@ -56,5 +56,88 @@ describe('mergeById', () => {
   it('tolerates null and empty lists', () => {
     expect(mergeById(null, undefined, [])).toEqual([]);
     expect(mergeById(null, [{ id: 'a' }])).toHaveLength(1);
+  });
+});
+
+describe('enrolmentCanRespond', () => {
+  // Reachable since v0.68.31: the membership thread worker sets an enrolment
+  // to 'dropped' when a membership lapses, soft-delete style. The person
+  // keeps seeing the thread and must stop answering for its future sessions.
+  it('refuses a dropped enrolment', () => {
+    expect(enrolmentCanRespond('dropped')).toBe(false);
+  });
+
+  it.each(['enrolled', 'completed', 'pending', 'approved', null])(
+    'allows %j — only dropped is out',
+    (status) => {
+      expect(enrolmentCanRespond(status)).toBe(true);
+    },
+  );
+
+  it('is deliberately NOT the door rule: money is irrelevant to an RSVP', () => {
+    // ticketIsAdmissible would refuse an unpaid ticket at the door. Saying
+    // "I'm coming" is not a purchase, and the organiser still wants to know.
+    expect(ticketIsAdmissible('enrolled', 'pending')).toBe(false);
+    expect(enrolmentCanRespond('enrolled')).toBe(true);
+  });
+});
+
+describe('enrolmentIsLive — the one fact both predicates share', () => {
+  it('is the single definition of "no longer taking part"', () => {
+    expect(enrolmentIsLive('dropped')).toBe(false);
+    expect(enrolmentIsLive('enrolled')).toBe(true);
+  });
+
+  // The point of extracting it: adding 'withdrawn' or 'removed' here must
+  // reach BOTH predicates. Before this existed the literal was hand-copied
+  // into each, and only one would have been updated.
+  it('flows into both, so a new terminal status cannot reach only one', () => {
+    for (const status of ['dropped']) {
+      expect(enrolmentIsLive(status)).toBe(false);
+      expect(enrolmentCanRespond(status)).toBe(false);
+      expect(ticketIsAdmissible(status, 'paid')).toBe(false);
+    }
+  });
+});
+
+describe('resolveRsvpEnabled', () => {
+  // ONE PLACE, DEFAULT OFF (Sjoerd 2026-09-09). These cases were written an
+  // hour earlier against a three-level inheritance chain and are kept rather
+  // than deleted: the questions are still the right questions, the answers
+  // changed. The two that flipped are the two that matter — "nothing
+  // configured" used to mean ASK and now means don't, and there is no level
+  // left for a null to inherit from.
+  const base = { item: null as boolean | null | undefined, hasStart: true };
+
+  it('does not ask unless someone switched it on', () => {
+    expect(resolveRsvpEnabled(base)).toBe(false);
+  });
+
+  it('asks when the item says so', () => {
+    expect(resolveRsvpEnabled({ ...base, item: true })).toBe(true);
+  });
+
+  it('never asks about an item with no start time, however the switch is set', () => {
+    expect(resolveRsvpEnabled({ ...base, hasStart: false })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, item: true, hasStart: false })).toBe(false);
+  });
+
+  it('an explicit false is off, same as an unset one', () => {
+    expect(resolveRsvpEnabled({ ...base, item: false })).toBe(false);
+  });
+
+  it('undefined behaves as null — a column not selected must not read as ON', () => {
+    // The direction of this hazard reversed with the default. It used to be
+    // that an unselected column read as "ask everybody"; now the danger is
+    // the opposite, so the assertion is the opposite too.
+    expect(resolveRsvpEnabled({ ...base, item: undefined })).toBe(false);
+  });
+
+  it('only a boolean true asks — no truthy strings, no 1', () => {
+    // The rule is `item === true` rather than a truthy check, because this
+    // value arrives from PostgREST and a column that ever came back as the
+    // string "true" would otherwise switch RSVP on for everybody.
+    expect(resolveRsvpEnabled({ ...base, item: 'true' as unknown as boolean })).toBe(false);
+    expect(resolveRsvpEnabled({ ...base, item: 1 as unknown as boolean })).toBe(false);
   });
 });

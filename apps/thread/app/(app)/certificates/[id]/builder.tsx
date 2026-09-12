@@ -18,6 +18,7 @@ import {
   ChevronUp,
   ChevronsDown,
   ChevronsUp,
+  Copy,
   Image as ImageIcon,
   ImagePlus,
   Italic,
@@ -63,8 +64,10 @@ import {
 import {
   archiveCertificateTemplate,
   deleteCertificateTemplate,
-  updateCertificateTemplate,
+  duplicateCertificateTemplate,
+  refreshCertificateList,
 } from '../actions';
+import { saveCertificateTemplate } from '@/lib/certificate-save';
 import { ShareDialog } from './share-dialog';
 
 // Brand accent (yellow-300) for selection outlines and centre guides.
@@ -89,7 +92,16 @@ function toggleCls(active: boolean): string {
 // Upload-first image picker. Block layout for the left panel (background),
 // inline layout for the horizontal properties bar (image elements).
 
-type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+// The editor saves itself, so the only honest question the toolbar can
+// answer is "where does my work stand right now?" — and it has to answer it
+// at all times, not for two seconds after each save.
+//
+// Sjoerd, 2026-09-09: "changed something and did not save (or is it auto
+// save)... and it did not warn me". His change HAD been saved. The status
+// said "Saved" for two seconds and then went blank, and a blank toolbar
+// beside a Save button reads as "nothing has been saved". `pending` is the
+// state that was missing: touched, not yet written.
+type SaveStatus = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
 
 export function CertificateBuilder({
   locale,
@@ -120,6 +132,7 @@ export function CertificateBuilder({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [duplicating, setDuplicating] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deletePending, setDeletePending] = useState(false);
@@ -176,7 +189,9 @@ export function CertificateBuilder({
     if (idleTimer.current) clearTimeout(idleTimer.current);
     const s = stateRef.current;
     setSaveStatus('saving');
-    const result = await updateCertificateTemplate(template.id, {
+    // A plain client-side PATCH, deliberately not a server action — see
+    // lib/certificate-save.ts for what that cost when it was one.
+    const result = await saveCertificateTemplate(template.id, {
       name: s.name,
       page_size: s.pageSize,
       orientation: s.orientation,
@@ -187,8 +202,10 @@ export function CertificateBuilder({
       owner_team_id: s.scope === 'team' ? s.ownerTeamId || null : null,
     });
     if (result.ok) {
+      pendingRef.current = false;
+      // Stays on 'saved'. It used to fade back to 'idle' after two seconds,
+      // which is how somebody ends up believing their work is not stored.
       setSaveStatus('saved');
-      idleTimer.current = setTimeout(() => setSaveStatus('idle'), 2000);
     } else {
       setSaveStatus('error');
     }
@@ -198,6 +215,45 @@ export function CertificateBuilder({
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => void doSave(), 2000);
   }, [doSave]);
+
+  // Is there work the server has not been told about yet? True from the
+  // moment you touch something until the debounce fires and the save
+  // returns. This is what "unsaved" means in an editor that saves itself.
+  const pendingRef = useRef(false);
+  const markPending = useCallback(() => {
+    pendingRef.current = true;
+    setSaveStatus('pending');
+    scheduleSave();
+  }, [scheduleSave]);
+
+  // Closing the tab is the one exit we cannot flush, so it is the one that
+  // gets a warning. Every other way out flushes instead — asking somebody
+  // whether they want to keep work the editor was always going to save is a
+  // question with only one sensible answer, and it trains people to click
+  // through dialogs.
+  useEffect(() => {
+    function onBeforeUnload(ev: BeforeUnloadEvent) {
+      if (!pendingRef.current) return;
+      ev.preventDefault();
+      ev.returnValue = '';
+    }
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, []);
+
+  // Leaving by any in-app route — the back arrow, a sidebar link, the
+  // browser's back button. Unmount cleanup cannot await, but the request
+  // survives the component, so firing it is enough. Without this, the last
+  // two seconds of work vanished silently whenever somebody clicked away.
+  useEffect(
+    () => () => {
+      if (pendingRef.current) {
+        void doSave();
+        void refreshCertificateList();
+      }
+    },
+    [doSave],
+  );
 
   useEffect(
     () => () => {
@@ -210,10 +266,32 @@ export function CertificateBuilder({
   const selectedEl = elements.find((e) => e.id === selectedId) ?? null;
 
   // ── Global drag handlers ─────────────────────────────────────────────
+  //
+  // A drag that never ends is why this page felt frozen (Sjoerd, 2026-09-09:
+  // "I try to go to threads, nothing happens" — after editing, never on a
+  // fresh load). If the mouseup is missed — released outside the window, over
+  // the browser chrome, or lost to a context menu — `draggingRef` stays set,
+  // and from then on EVERY mouse movement anywhere on the page re-renders the
+  // whole element list. Moving the pointer toward the sidebar fires hundreds
+  // of renders; the hover highlight still works because that is pure CSS,
+  // while the click lands on a main thread that is busy. Hover alive, clicks
+  // dead, and only a fresh page load recovers it — which is exactly the shape
+  // of the report.
+  //
+  // `e.buttons === 0` is the answer: the mouse button is not down, so
+  // whatever we thought was happening is over. Checked on every move rather
+  // than trusted to arrive as an event.
   useEffect(() => {
+    function endDrag() {
+      if (!draggingRef.current) return;
+      draggingRef.current = null;
+      markPending();
+    }
     function onMove(e: MouseEvent) {
       const drag = draggingRef.current;
       if (!drag || !canvasRef.current) return;
+      // The button was released somewhere we never heard about.
+      if (e.buttons === 0) return endDrag();
       const rect = canvasRef.current.getBoundingClientRect();
       const dx = ((e.clientX - drag.startX) / rect.width) * 100;
       const dy = ((e.clientY - drag.startY) / rect.height) * 100;
@@ -262,21 +340,25 @@ export function CertificateBuilder({
     function onUp() {
       if (!draggingRef.current) return;
       draggingRef.current = null;
-      scheduleSave();
+      markPending();
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
+    // Leaving the window or losing focus mid-drag ends it too, so the state
+    // cannot outlive the gesture that created it.
+    window.addEventListener('blur', endDrag);
     return () => {
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
+      window.removeEventListener('blur', endDrag);
     };
-  }, [scheduleSave]);
+  }, [markPending]);
 
   // ── Mutators ─────────────────────────────────────────────────────────
 
   function updateElements(next: CertElement[]) {
     setElements(next);
-    scheduleSave();
+    markPending();
   }
 
   function addElement(el: CertElement, startEditing = false) {
@@ -446,6 +528,11 @@ export function CertificateBuilder({
       const g = draggingGuideRef.current;
       const rect = canvasRef.current?.getBoundingClientRect();
       if (!g || g.index === null || !rect) return;
+      // Same missed-mouseup hazard as the element drag above.
+      if (e.buttons === 0) {
+        draggingGuideRef.current = null;
+        return;
+      }
       const pos =
         g.axis === 'x'
           ? ((e.clientX - rect.left) / rect.width) * 100
@@ -464,7 +551,7 @@ export function CertificateBuilder({
         rect &&
         (g.axis === 'x' ? e.clientX < rect.left - 2 : e.clientY < rect.top - 2);
       if (off) setGuides((prev) => prev.filter((_, i) => i !== g.index));
-      scheduleSave();
+      markPending();
     }
     document.addEventListener('mousemove', onMove);
     document.addEventListener('mouseup', onUp);
@@ -472,7 +559,7 @@ export function CertificateBuilder({
       document.removeEventListener('mousemove', onMove);
       document.removeEventListener('mouseup', onUp);
     };
-  }, [scheduleSave]);
+  }, [markPending]);
 
   /** The remove handle: a dot on the selected element's corner, the way
    *  every design tool does it. It replaced a Delete button in the toolbar,
@@ -581,13 +668,15 @@ export function CertificateBuilder({
   const aspect = PAGE_ASPECT[pageSize]?.[orientation] ?? PAGE_ASPECT.a4.portrait;
 
   const saveStatusLabel =
-    saveStatus === 'saving'
-      ? t(locale, 'saving')
-      : saveStatus === 'saved'
-        ? t(locale, 'saved_word')
-        : saveStatus === 'error'
-          ? t(locale, 'save_failed')
-          : null;
+    saveStatus === 'pending'
+      ? t(locale, 'unsaved_changes')
+      : saveStatus === 'saving'
+        ? t(locale, 'saving')
+        : saveStatus === 'saved'
+          ? t(locale, 'saved_automatically')
+          : saveStatus === 'error'
+            ? t(locale, 'save_failed')
+            : null;
 
   return (
     <div>
@@ -605,7 +694,7 @@ export function CertificateBuilder({
           value={name}
           onChange={(e) => {
             setName(e.target.value);
-            scheduleSave();
+            markPending();
           }}
           placeholder={t(locale, 'template_name')}
           aria-label={t(locale, 'template_name')}
@@ -616,7 +705,7 @@ export function CertificateBuilder({
           value={pageSize}
           onChange={(e) => {
             setPageSize(e.target.value as CertPageSize);
-            scheduleSave();
+            markPending();
           }}
           aria-label={t(locale, 'page_size')}
           className={CONTROL}
@@ -632,7 +721,7 @@ export function CertificateBuilder({
               type="button"
               onClick={() => {
                 setOrientation(ori);
-                scheduleSave();
+                markPending();
               }}
               className={`px-3 text-sm transition-colors ${
                 orientation === ori
@@ -653,7 +742,7 @@ export function CertificateBuilder({
             const next = e.target.value as CertScope;
             setScope(next);
             if (next === 'team' && !ownerTeamId && teams[0]) setOwnerTeamId(teams[0].id);
-            scheduleSave();
+            markPending();
           }}
           aria-label={t(locale, 'scope')}
           className={CONTROL}
@@ -668,7 +757,7 @@ export function CertificateBuilder({
             value={ownerTeamId}
             onChange={(e) => {
               setOwnerTeamId(e.target.value);
-              scheduleSave();
+              markPending();
             }}
             aria-label={t(locale, 'owning_team')}
             className={CONTROL}
@@ -702,7 +791,13 @@ export function CertificateBuilder({
         )}
         {saveStatusLabel && (
           <span
-            className={`text-xs ${saveStatus === 'error' ? 'text-red-600' : 'text-ink-muted'}`}
+            className={`text-xs ${
+              saveStatus === 'error'
+                ? 'text-red-600'
+                : saveStatus === 'pending'
+                  ? 'text-amber-700 dark:text-amber-400'
+                  : 'text-ink-muted'
+            }`}
           >
             {saveStatusLabel}
           </span>
@@ -710,6 +805,27 @@ export function CertificateBuilder({
 
         <Button size="sm" onClick={() => void doSave()} disabled={saveStatus === 'saving'}>
           {t(locale, 'save')}
+        </Button>
+
+        {/* Duplicate flushes first: the copy is taken from the SERVER's row,
+            so anything still sitting in the debounce would not be in it. */}
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={duplicating}
+          onClick={() =>
+            void (async () => {
+              setDuplicating(true);
+              if (pendingRef.current) await doSave();
+              const r = await duplicateCertificateTemplate(template.id);
+              setDuplicating(false);
+              if (r.ok && r.id) router.push(`/certificates/${r.id}`);
+            })()
+          }
+          title={t(locale, 'duplicate_template_tooltip')}
+        >
+          <Copy size={15} strokeWidth={1.75} />
+          {t(locale, 'duplicate')}
         </Button>
 
         <Button
@@ -1134,7 +1250,7 @@ export function CertificateBuilder({
                 type="button"
                 onClick={() => {
                   setGuides([]);
-                  scheduleSave();
+                  markPending();
                 }}
                 className="mt-1.5 text-[11px] text-ink-subtle underline underline-offset-2 hover:text-ink"
               >
@@ -1225,7 +1341,7 @@ export function CertificateBuilder({
                 value={backgroundUrl}
                 onChange={(url) => {
                   setBackgroundUrl(url);
-                  scheduleSave();
+                  markPending();
                 }}
                 buttonLabel={t(locale, 'upload_background')}
                 hint={t(locale, 'bg_hint')}

@@ -1,6 +1,5 @@
 import Link from 'next/link';
 import { Globe, Plug, Code2, Percent } from 'lucide-react';
-import { appUrl } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
@@ -15,10 +14,10 @@ const ICON = { size: 17, strokeWidth: 1.75 } as const;
 
 export default async function SettingsPage() {
   const locale = await uiLocale();
-  const fibre = appUrl('fibre-platform', process.env);
   const sections = platformSettings({
     locale,
-    fibreUrl: fibre,
+    currentApp: 'membership',
+    env: process.env,
     // Membership serves your payments (the Stripe account subscriptions
     // charge on); everything else about you and the workspace is edited
     // once, in The Fibre.

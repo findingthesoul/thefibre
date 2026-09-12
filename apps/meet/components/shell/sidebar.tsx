@@ -35,18 +35,19 @@ function buildNav(locale: Parameters<typeof t>[0]): SidebarNavSection[] {
     label: 'Meet',
     items: [
       { href: '/meeting-types', label: t(locale, 'nav_meeting_types'), icon: CalendarRange },
-      { href: '/teams', label: t(locale, 'nav_teams'), icon: Users },
       { href: '/bookings', label: t(locale, 'nav_bookings'), icon: CalendarClock },
-      { href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt },
     ],
   },
   {
-    label: t(locale, 'nav_workspace'),
+    label: t(locale, 'nav_people'),
     items: [
       { href: '/contacts', label: t(locale, 'nav_contacts'), icon: ContactIcon },
-      { href: '/internal-team', label: t(locale, 'nav_internal_team'), icon: UsersRound },
-      { href: '/settings', label: t(locale, 'nav_settings'), icon: Settings },
+      { href: '/teams', label: t(locale, 'nav_teams'), icon: Users },
     ],
+  },
+  {
+    label: t(locale, 'nav_money'),
+    items: [{ href: '/invoices', label: t(locale, 'nav_invoices'), icon: Receipt }],
   },
   ];
 }

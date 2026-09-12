@@ -19,6 +19,9 @@ publicPlansRoutes.get('/', async (c) => {
     .select(
       'id, name, price_cents_month, price_cents_year, included_seats, extra_seat_cents_month, included_emails_month, included_storage_gb, retention_months, meet_paid_pct, meet_paid_cap_cents, features',
     )
+    // Invite-only tiers are not on the price list (20260912090000). Beta is
+    // something you get asked into, not something you can pick.
+    .eq('is_public', true)
     .order('price_cents_month');
   if (error) {
     console.error('[public-plans GET]', error);

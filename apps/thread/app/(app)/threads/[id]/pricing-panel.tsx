@@ -24,6 +24,7 @@ import { TicketDialog } from './ticket-dialog';
 import { CouponDialog, type ScopedCouponRow } from './coupon-dialog';
 import { Button } from '@/components/ui/button';
 import { SectionLabel } from '@/components/ui/page';
+import { InfoHint } from '@thefibre/shared/ui/info-hint';
 
 const CURRENCY_SYMBOLS: Record<string, string> = { EUR: '€', USD: '$', GBP: '£' };
 
@@ -85,6 +86,19 @@ export function PricingPanel({
   const [mode, setMode] = useState<'free' | 'paid' | null>(null);
   // Seed one default discount code the first time the user flips to Paid
   // with an empty coupon list — once per mount, never over existing codes.
+  //
+  // INACTIVE on purpose. This write happens on a TOGGLE, before any Save,
+  // and Cancel cannot undo it — the coupon list is its own API-backed list,
+  // not form state the dialog discards. Seeded active, that meant merely
+  // opening Pricing to look at the options left a live 10% discount on the
+  // thread, which anyone who guessed the word EARLYBIRD could redeem the
+  // moment a ticket existed. Nobody had asked for a discount.
+  //
+  // Inactive keeps what this is for — an example to edit rather than a blank
+  // list — and costs the organiser one switch. findValidCoupon filters on
+  // is_active, so it cannot be redeemed until they turn it on, and the list
+  // dims it and marks it "inactive" so its state is visible.
+  // (Found 2026-09-12, walking a new organiser through their first hour.)
   const seededDefaultCode = useRef(false);
 
   function choosePaid() {
@@ -97,7 +111,7 @@ export function PricingPanel({
         name: 'Early bird',
         type: 'percentage',
         discount_percentage: 10,
-        is_active: true,
+        is_active: false,
       });
       void reload();
     })();
@@ -415,6 +429,7 @@ function PayoutSection({
   const [connected, setConnected] = useState<{ workspace: boolean; personal: boolean } | null>(
     null,
   );
+  const [workspaceName, setWorkspaceName] = useState<string | null>(null);
   // Default per the rule: team/workspace-shared → workspace; personal thread
   // → personal when connected, else workspace. Always one of the two.
   const [dest, setDest] = useState<'workspace' | 'personal'>(
@@ -426,6 +441,7 @@ function PayoutSection({
       const info = await getPayoutInfo();
       if (info.ok) {
         setConnected({ workspace: info.workspace_connected, personal: info.personal_connected });
+        setWorkspaceName(info.workspace_name);
         // If the current default isn't connected but the other is, flip.
         if (!thread.payment_destination) {
           if (thread.team_id) setDest('workspace');
@@ -481,9 +497,14 @@ function PayoutSection({
 
   return (
     <section>
-      <SectionLabel>{t(locale, 'payout')}</SectionLabel>
+      <div className="flex items-center gap-2">
+        <SectionLabel>{t(locale, 'payout')}</SectionLabel>
+        {/* Until now this choice explained itself nowhere, and it is the
+            one that decides whose bank account the money reaches. */}
+        <InfoHint label={t(locale, 'what_is_this')}>{t(locale, 'payout_hint')}</InfoHint>
+      </div>
       <div className="mt-3 flex gap-3">
-        {opt('workspace', t(locale, 'workspace_account'), connected?.workspace ?? false)}
+        {opt('workspace', workspaceName ?? t(locale, 'workspace_account'), connected?.workspace ?? false)}
         {opt('personal', t(locale, 'my_personal_account'), connected?.personal ?? false)}
       </div>
       {error && (

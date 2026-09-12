@@ -85,7 +85,18 @@ activitiesRoutes.get('/', async (c) => {
     .limit(parsed.data.limit + 1);
 
   if (ctx.auth === 'app_key') q = q.eq('workspace_id', ctx.workspaceId);
-  if (parsed.data.person_id) q = q.eq('person_id', parsed.data.person_id);
+  if (parsed.data.person_id) {
+    // A merge does not repoint activity — the log is append-only, so the
+    // events keep the person_id they were written with. Expand the id to
+    // include anyone merged into this person, or their history goes missing
+    // from their own timeline the moment a duplicate is tidied up.
+    const { data: ids } = await adminClient.rpc('person_and_merged', {
+      p_person: parsed.data.person_id,
+    });
+    const expanded = (ids ?? []) as unknown as (string | { person_and_merged: string })[];
+    const list = expanded.map((x) => (typeof x === 'string' ? x : x.person_and_merged));
+    q = list.length > 1 ? q.in('person_id', list) : q.eq('person_id', parsed.data.person_id);
+  }
   if (memberPersonIds) q = q.in('person_id', memberPersonIds);
   if (parsed.data.app_id) {
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(parsed.data.app_id);

@@ -7,17 +7,22 @@ import {
   Mail,
   FileText,
   Sparkles,
+  Award,
   type LucideIcon,
 } from 'lucide-react';
 import type { EngagementType } from './thread-types';
 
-// The 8 engagement types in two families (thethread-v3 model):
-//   activities — timed, appear on the agenda, carry a location/meeting link
-//   messages   — scheduled sends to enrolled participants (the email
-//                sequence IS this family)
+// The 9 engagement types in three families (thethread-v3 model plus one):
+//   activities   — timed, appear on the agenda, carry a location/meeting link
+//   messages     — scheduled sends to enrolled participants (the email
+//                  sequence IS this family)
+//   certificates — a scheduled ISSUANCE. Same triggers as a message; what
+//                  goes out is a document rather than a paragraph, so it
+//                  carries no body and gets its own family rather than
+//                  becoming a ninth message (Sjoerd 2026-09-09).
 // Type can only change within its family after creation — the API enforces it.
 
-export type EngagementFamily = 'activity' | 'message';
+export type EngagementFamily = 'activity' | 'message' | 'certificate';
 
 export type EngagementMeta = {
   type: EngagementType;
@@ -115,6 +120,18 @@ export const ENGAGEMENT_META: EngagementMeta[] = [
     dot: 'bg-pink-500',
     text: 'text-pink-700',
     chip: 'bg-pink-50 ring-pink-200',
+  },
+  // Certificates
+  {
+    type: 'certificate',
+    family: 'certificate',
+    label: 'Send certificate',
+    description:
+      'Issues certificates to everyone who has completed, at the moment you choose.',
+    icon: Award,
+    dot: 'bg-violet-500',
+    text: 'text-violet-700',
+    chip: 'bg-violet-50 ring-violet-200',
   },
 ];
 

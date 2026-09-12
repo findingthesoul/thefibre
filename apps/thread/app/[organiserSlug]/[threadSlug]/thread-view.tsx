@@ -7,6 +7,8 @@
 // Both routes call fetchPublicThread + <PublicThreadView>; the page bodies
 // stay thin so the render never forks.
 
+import { ENTITY } from '@thefibre/shared';
+import { RichText } from '@thefibre/shared/ui/rich-text';
 import Link from 'next/link';
 import { Clock, MapPin, Video, Users, Award, Languages } from 'lucide-react';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
@@ -15,6 +17,8 @@ import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { EnrolCard } from './enrol-form';
 import { t, LOCALE_LABELS, type Locale } from '@/lib/i18n';
 import { one } from '@/lib/thread-types';
+import { siteOf, type PublicSite } from '@/lib/public-site';
+import { SiteNav, SiteFooter } from '../site-chrome';
 
 const PUBLIC_HOST = process.env.NEXT_PUBLIC_THREAD_URL ?? 'https://app.thethread.app';
 
@@ -27,12 +31,16 @@ type AgendaItem = {
   ends_at: string | null;
   daily_schedule: { date: string; start: string; end: string }[] | null;
   location: string | null;
+  /** A map link the organiser pasted. Additive on the public payload. */
+  location_url?: string | null;
   image_url?: string | null;
   is_online: boolean;
 };
 
 export type PublicThreadDetail = {
   organiser: { slug: string; display_name: string | null; photo_url: string | null };
+  /** The workspace's public site. Absent on an older payload = plain. */
+  site?: PublicSite;
   thread: {
     id: string;
     slug: string;
@@ -155,10 +163,27 @@ export function PublicThreadView({
     ? `${PUBLIC_HOST}/${thread.canonical_owner_slug}/${thread.slug}`
     : null;
 
+  // A thread page wears the same navbar and footer as the listing it was
+  // reached from — a site whose header stopped at the front door would not
+  // read as a site. 'plain' renders exactly what was here before.
+  const site = siteOf(data);
+  const themed = site.theme !== 'plain';
+
   return (
-    <div className="min-h-screen bg-surface-sunken">
+    <div className="flex min-h-screen flex-col bg-surface-sunken">
       {canonicalHref && <link rel="canonical" href={canonicalHref} />}
-      <main className="mx-auto max-w-4xl px-6 py-16">
+      {/* Festival's navbar floats transparently OVER its hero image. There
+          is no hero here, so it would float over the thread's first
+          paragraph instead — it borrows corporate's solid bar for this one
+          page. Same site, same links, a bar that has something to sit on. */}
+      {themed && (
+        <SiteNav
+          site={{ ...site, theme: site.theme === 'festival' ? 'corporate' : site.theme }}
+          ownerSlug={thread.canonical_owner_slug ?? organiser.slug}
+          ownerName={site.name ?? organiserName}
+        />
+      )}
+      <main className="mx-auto w-full max-w-4xl flex-1 px-6 py-16">
         {thread.is_preview && (
           <div className="mb-8 rounded-lg border border-amber-300/60 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-200">
             <span className="font-medium">Draft preview.</span> This is how the page will look
@@ -189,7 +214,16 @@ export function PublicThreadView({
             </div>
             <h1 className="mt-2 text-3xl font-medium tracking-tight">{program?.title}</h1>
             {thread.intention && (
-              <p className="mt-3 text-base text-ink-subtle leading-relaxed">{thread.intention}</p>
+              // ONE renderer for organiser rich text (@thefibre/shared), so the
+              // portal and this page cannot disagree about what a bullet looks
+              // like. `whitespace-pre-line` stays for every intention written
+              // before this field was rich text: those are plain strings whose
+              // newlines are their only markup, and collapsing them was the
+              // wall of text Sjoerd hit on 2026-09-10.
+              <RichText
+                html={thread.intention}
+                className="mt-3 text-base text-ink-subtle leading-relaxed whitespace-pre-line [&_h3]:mt-4 [&_h3]:text-ink [&_h3]:font-medium"
+              />
             )}
 
             <div className="mt-4 flex flex-wrap items-center gap-4 text-sm text-ink-subtle">
@@ -274,12 +308,23 @@ export function PublicThreadView({
                               {fmtSlot(a.starts_at, a.ends_at, thread.timezone)}
                             </span>
                           )}
-                        {a.location && (
-                          <span className="inline-flex items-center gap-1">
-                            <MapPin size={11} strokeWidth={1.75} />
-                            {a.location}
-                          </span>
-                        )}
+                        {a.location &&
+                          (a.location_url ? (
+                            <a
+                              href={a.location_url}
+                              target="_blank"
+                              rel="noreferrer noopener"
+                              className="inline-flex items-center gap-1 underline underline-offset-2 hover:text-ink"
+                            >
+                              <MapPin size={11} strokeWidth={1.75} />
+                              {a.location}
+                            </a>
+                          ) : (
+                            <span className="inline-flex items-center gap-1">
+                              <MapPin size={11} strokeWidth={1.75} />
+                              {a.location}
+                            </span>
+                          ))}
                         {a.is_online && (
                           <span className="inline-flex items-center gap-1">
                             <Video size={11} strokeWidth={1.75} />
@@ -316,10 +361,19 @@ export function PublicThreadView({
           />
         </div>
 
-        <footer className="mt-16 text-xs text-ink-muted">
-          {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · The Fibre
-        </footer>
+        {!themed && (
+          <footer className="mt-16 text-xs text-ink-muted">
+            {t(lang, 'powered_by')} <span className="font-medium">Thread</span> · {ENTITY.publicName}
+          </footer>
+        )}
       </main>
+      {themed && (
+        <SiteFooter
+          site={site}
+          ownerSlug={thread.canonical_owner_slug ?? organiser.slug}
+          ownerName={site.name ?? organiserName}
+        />
+      )}
     </div>
   );
 }

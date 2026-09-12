@@ -1,16 +1,56 @@
 /**
  * Read-only: which workspaces have nobody who can administer them.
  *
- *   node --env-file=.env scripts/audit-workspace-admins.mjs
+ *   node scripts/audit-workspace-admins.mjs
+ *   FIBRE_ENV_FILE=.env.staging node scripts/audit-workspace-admins.mjs
  *
  * A workspace with users but no `workspace_member` row of role admin/
  * super_admin is locked out of everything behind requireWorkspaceAdmin —
  * including the members screen, which is the only place the role could be
  * granted. See CHANGELOG 0.18.8.
+ *
+ * Reads its credentials the way every other script in this directory does,
+ * from apps/api/.env (or FIBRE_ENV_FILE). It used to require the caller to
+ * remember `node --env-file=.env`, and the whole reward for forgetting was
+ * a supabase-js stack trace reading "supabaseUrl is required." — which names
+ * neither the script nor the missing file. An env value already in the
+ * process still wins, so `--env-file` keeps working.
  */
 import { createClient } from '@supabase/supabase-js';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const db = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, {
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const envFile = resolve(__dirname, '..', process.env.FIBRE_ENV_FILE ?? '.env');
+let fileEnv = {};
+try {
+  fileEnv = Object.fromEntries(
+    readFileSync(envFile, 'utf-8')
+      .split('\n')
+      .filter((l) => l && !l.startsWith('#') && l.includes('='))
+      .map((l) => {
+        const i = l.indexOf('=');
+        return [l.slice(0, i), l.slice(i + 1).replace(/^"|"$/g, '')];
+      }),
+  );
+} catch {
+  // Not fatal on its own — the values may already be in the environment.
+}
+
+const url = process.env.NEXT_PUBLIC_SUPABASE_URL ?? fileEnv.NEXT_PUBLIC_SUPABASE_URL;
+const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? fileEnv.SUPABASE_SERVICE_ROLE_KEY;
+if (!url || !serviceKey) {
+  console.error(
+    `No Supabase credentials. Looked in the environment and in ${envFile}.\n` +
+      `Set FIBRE_ENV_FILE to pick a different one (e.g. .env.staging).`,
+  );
+  process.exit(1);
+}
+
+console.log(`Auditing ${url.replace('https://', '').split('.')[0]}\n`);
+
+const db = createClient(url, serviceKey, {
   auth: { persistSession: false },
 });
 

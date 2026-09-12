@@ -1,7 +1,15 @@
 'use client';
 
 // Certificate tab in thread settings — enable + pick from the template
-// list (designed under /certificates) + criteria text.
+// list (designed under /certificates) + criteria text, and the way OUT to
+// the people.
+//
+// Sjoerd asked for the participant list here, with a search and checkboxes,
+// so a facilitator can choose who gets one (2026-09-10). That list already
+// existed on Enrolments, filtered per thread, with search, select-all and
+// Issue certificates — it was simply unreachable from the screen where you
+// set certificates up. So this links to it rather than growing a second
+// copy (CLAUDE.md, components first: never fork a per-app variant).
 
 import { useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -11,6 +19,7 @@ import { updateThread } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { TextField, SelectField } from '@/components/ui/field';
 import { SwitchField } from '@/components/ui/switch';
+import { Users } from 'lucide-react';
 
 export function CertificatePanel({
   locale,
@@ -88,6 +97,19 @@ export function CertificatePanel({
             placeholder={t(locale, 'criteria_placeholder')}
           />
         </div>
+      )}
+
+      {enabled && (
+        <a
+          href={`/enrolments?thread=${thread.id}`}
+          className="flex items-start gap-2.5 rounded-lg border border-line bg-surface-sunken px-3.5 py-3 transition-colors hover:border-line-strong"
+        >
+          <Users size={15} strokeWidth={1.75} className="mt-0.5 shrink-0 text-ink-subtle" />
+          <span className="text-xs leading-relaxed text-ink-subtle">
+            <span className="font-medium text-ink">{t(locale, 'choose_recipients')}</span>{' '}
+            {t(locale, 'choose_recipients_hint')}
+          </span>
+        </a>
       )}
 
       {error && (

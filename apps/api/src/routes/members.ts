@@ -3,11 +3,18 @@ import { seatAvailable, planFor } from '../lib/plan.js';
 import { seatBillable, reconcileSeatBilling } from '../lib/seat-billing.js';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { resolvePersonId } from '../lib/resolve-person.js';
 import { sendEmail } from '../lib/email/client.js';
 import { shell, escapeHtml } from '../lib/email/templates.js';
 import { emailSignoff, appUrl } from '@thefibre/shared';
-import { wouldOrphanWorkspace, ORPHAN_ERROR, isAdminRole } from '../lib/workspace-roles.js';
+import {
+  wouldOrphanWorkspace,
+  ORPHAN_ERROR,
+  isAdminRole,
+  callerWorkspaceRole,
+} from '../lib/workspace-roles.js';
 import type { RequestContext } from '../middleware/app-context.js';
+import { syncUsers, inheritedByUser } from '../lib/team-grants.js';
 
 // ===========================================================================
 // Platform members management — THE single point of truth for who is in the
@@ -50,8 +57,13 @@ function normalizeGrants(list: AppGrantIn[]): { slug: string; role: 'member' | '
   return list.map((g) => (typeof g === 'string' ? { slug: g, role: 'member' as const } : { slug: g.slug, role: g.role }));
 }
 
-// Reconcile a user's app grants against the wanted set. Sets the role
-// explicitly (the UI always sends the full picture), deletes the rest.
+// Reconcile a user's DIRECT app grants against the wanted set. Sets the role
+// explicitly (the UI always sends the full picture).
+//
+// Since teams became access groups (2026-09-11) an unticked app is no longer
+// deleted outright — a team the person belongs to may still owe it to them.
+// The tick is recorded as `is_direct` and lib/team-grants.ts decides what the
+// row should finally be, so there is one resolver rather than two opinions.
 async function syncAppGrants(userId: string, wanted: { slug: string; role: 'member' | 'admin' }[]) {
   const grantable = await grantableSlugs();
   const bySlug = new Map(wanted.filter((w) => grantable.includes(w.slug)).map((w) => [w.slug, w.role]));
@@ -64,11 +76,21 @@ async function syncAppGrants(userId: string, wanted: { slug: string; role: 'memb
     if (role) {
       await adminClient
         .from('app_membership')
-        .upsert({ user_id: userId, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
+        .upsert(
+          { user_id: userId, app_id: app.id, role, is_direct: true },
+          { onConflict: 'user_id,app_id' },
+        );
     } else {
-      await adminClient.from('app_membership').delete().eq('user_id', userId).eq('app_id', app.id);
+      await adminClient
+        .from('app_membership')
+        .update({ is_direct: false })
+        .eq('user_id', userId)
+        .eq('app_id', app.id);
     }
   }
+  // Drops rows nothing owes any more, and re-applies whatever the person's
+  // teams confer.
+  await syncUsers([userId]);
 }
 
 membersRoutes.get('/', async (c) => {
@@ -95,6 +117,12 @@ membersRoutes.get('/', async (c) => {
     appsByUser.set(g.user_id, list);
   }
 
+  // Which of those apps a team confers, and which team — so an admin can see
+  // WHY somebody has Pulse without hunting through the Teams page.
+  const inherited = await inheritedByUser(userIds);
+  const { data: appRows } = await adminClient.from('app').select('id, slug');
+  const slugById = new Map((appRows ?? []).map((a) => [a.id, a.slug]));
+
   return c.json({
     items: (members ?? []).map((m) => {
       const u = Array.isArray(m.user) ? m.user[0] : m.user;
@@ -106,22 +134,13 @@ membersRoutes.get('/', async (c) => {
         relationship_type: m.relationship_type,
         joined_at: m.joined_at,
         apps: appsByUser.get(m.user_id) ?? [],
+        apps_via: (inherited.get(m.user_id) ?? [])
+          .map((g) => ({ slug: slugById.get(g.app_id) ?? null, via: g.via }))
+          .filter((g): g is { slug: string; via: string[] } => !!g.slug),
       };
     }),
   });
 });
-
-// The caller's workspace role — read fresh, never from a claim, so a
-// demotion takes effect on the next request rather than the next sign-in.
-async function callerWorkspaceRole(ctx: RequestContext): Promise<string> {
-  const { data } = await adminClient
-    .from('workspace_member')
-    .select('workspace_role')
-    .eq('user_id', ctx.userId)
-    .eq('workspace_id', ctx.workspaceId)
-    .maybeSingle();
-  return data?.workspace_role ?? 'organiser';
-}
 
 const MemberInvite = z.object({
   email: z.string().email().max(320),
@@ -263,33 +282,18 @@ membersRoutes.post('/', async (c) => {
 
   if (isNew && !u) {
     // Identity invariant: every user has a paired person.
-    let { data: person } = await adminClient
-      .from('person')
-      .select('id')
-      .eq('workspace_id', ctx.workspaceId)
-      .eq('email', email)
-      .is('deleted_at', null)
-      .limit(1)
-      .maybeSingle();
-    if (!person) {
-      const parts = (body.data.name ?? '').trim().split(/\s+/);
-      const { data: created } = await adminClient
-        .from('person')
-        .insert({
-          workspace_id: ctx.workspaceId,
-          first_name: parts[0] || null,
-          last_name: parts.slice(1).join(' ') || null,
-          email,
-        })
-        .select('id')
-        .single();
-      person = created;
-    }
+    const personId = await resolvePersonId({
+      workspaceId: ctx.workspaceId,
+      email,
+      name: body.data.name,
+      source: 'member_invite',
+      create: true,
+    });
     const { data: createdUser, error: uErr } = await adminClient
       .from('user')
       .insert({
         workspace_id: ctx.workspaceId,
-        person_id: person?.id ?? null,
+        person_id: personId,
         email,
         full_name: body.data.name ?? null,
         primary_auth_method: 'google',
@@ -302,8 +306,8 @@ membersRoutes.post('/', async (c) => {
       return c.json({ error: uErr?.message ?? 'create failed' }, 500);
     }
     u = createdUser;
-    if (person) {
-      await adminClient.from('person').update({ user_id: u.id }).eq('id', person.id);
+    if (personId) {
+      await adminClient.from('person').update({ user_id: u.id }).eq('id', personId);
     }
   }
 
@@ -336,7 +340,10 @@ membersRoutes.post('/', async (c) => {
       const role = usable.find((w) => w.slug === app.slug)?.role ?? 'member';
       await adminClient
         .from('app_membership')
-        .upsert({ user_id: u.id, app_id: app.id, role }, { onConflict: 'user_id,app_id' });
+        .upsert(
+          { user_id: u.id, app_id: app.id, role, is_direct: true },
+          { onConflict: 'user_id,app_id' },
+        );
     }
   }
 

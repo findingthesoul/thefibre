@@ -2,16 +2,16 @@
 
 import { revalidatePath } from 'next/cache';
 import { apiFetch, errorMessage } from '@/lib/api';
-import type {
-  CertElement,
-  CertGuide,
-  CertOrientation,
-  CertPageSize,
-  CertScope,
-  CertShares,
-} from '@/lib/certificate-types';
+import type { CertScope, CertShares } from '@/lib/certificate-types';
 
 export type ActionResult = { ok: true; id?: string } | { ok: false; error: string };
+
+/** Mark the templates list stale. Called when leaving the builder, so the
+ *  list shows the name you just changed without every autosave refreshing
+ *  the route the builder itself is on. */
+export async function refreshCertificateList(): Promise<void> {
+  revalidatePath('/certificates');
+}
 
 export async function createCertificateTemplate(input: {
   name: string;
@@ -30,27 +30,16 @@ export async function createCertificateTemplate(input: {
   }
 }
 
-export async function updateCertificateTemplate(
-  id: string,
-  patch: {
-    name?: string;
-    page_size?: CertPageSize;
-    orientation?: CertOrientation;
-    background_url?: string | null;
-    elements?: CertElement[];
-    guides?: CertGuide[];
-    scope?: CertScope;
-    owner_team_id?: string | null;
-  },
-): Promise<ActionResult> {
+/** A working copy of a template: same design, "(copy)" name, personal scope,
+ *  no shares. Returns the new id so the caller can open it. */
+export async function duplicateCertificateTemplate(id: string): Promise<ActionResult> {
   try {
-    await apiFetch(`/api/v1/thread/certificate-templates/${id}`, {
-      method: 'PATCH',
-      body: JSON.stringify(patch),
-    });
-    // The builder keeps its own client state; only the list needs refreshing.
+    const created = await apiFetch<{ id: string }>(
+      `/api/v1/thread/certificate-templates/${id}/duplicate`,
+      { method: 'POST' },
+    );
     revalidatePath('/certificates');
-    return { ok: true, id };
+    return { ok: true, id: created.id };
   } catch (e) {
     return { ok: false, error: errorMessage(e) };
   }

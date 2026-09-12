@@ -118,6 +118,22 @@ const SERVER_CHROME = {
     de: 'Wer im Workspace ist, was sie dürfen und welche Apps sie nutzen können.', // MT
     fr: 'Qui est dans l’espace, ce qu’ils peuvent faire et quelles apps ils peuvent utiliser.', // MT
   },
+  st_teams_title: {
+    en: 'Teams',
+    nl: 'Teams',
+    es: 'Equipos', // MT
+    pt: 'Equipes', // MT
+    de: 'Teams', // MT
+    fr: 'Équipes', // MT
+  },
+  st_teams_desc: {
+    en: 'Group people, and let the group decide which apps its members can open.',
+    nl: 'Groepeer mensen en laat de groep bepalen welke apps de leden mogen openen.',
+    es: 'Agrupa personas y deja que el grupo decida qué apps pueden abrir sus miembros.', // MT
+    pt: 'Agrupe pessoas e deixe o grupo decidir quais apps seus membros podem abrir.', // MT
+    de: 'Menschen gruppieren und die Gruppe entscheiden lassen, welche Apps ihre Mitglieder öffnen dürfen.', // MT
+    fr: 'Regroupez des personnes et laissez le groupe décider quelles apps ses membres peuvent ouvrir.', // MT
+  },
   st_apps_title: {
     en: 'Apps',
     nl: 'Apps',

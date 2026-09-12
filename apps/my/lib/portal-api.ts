@@ -20,9 +20,20 @@ export type AgendaItem = {
   starts_at: string | null;
   ends_at: string | null;
   location: string | null;
+  /** A map link for the venue, when the organiser gave one. */
+  location_url: string | null;
   meeting_url: string | null;
   external_url: string | null;
+  /** Whether this item asks for an RSVP. The API resolves the two-level
+   *  switch (workspace default, per-thread override) — we are told the
+   *  answer, never the rule. */
+  rsvp_enabled: boolean;
+  /** This person's answer. `null` is NO ANSWER: a third state, and not the
+   *  same as 'not_coming'. */
+  rsvp: RsvpResponse | null;
 };
+
+export type RsvpResponse = 'coming' | 'not_coming';
 
 export type Ticket = {
   enrolment_id: string;
@@ -60,12 +71,50 @@ export type MeetItem = {
   location: string | null;
 };
 
+/**
+ * One invoice from the platform purchase ledger — from ANY app.
+ *
+ * It used to come from Membership's own per-membership endpoint, which could
+ * only ever answer for memberships; a thread ticket or a meet booking had no
+ * member-facing route at all. `GET /api/v1/me/invoices` answers for all of
+ * them at once, scoped to the verified email, so the Purchases tab is one
+ * list rather than one list per membership plus two silent gaps.
+ */
+export type PortalInvoice = {
+  id: string;
+  /** Which app sold it — `membership`, `the-thread`, `fibre-meet`. */
+  app: string;
+  /** The community, by the name the member knows. */
+  workspace: string;
+  item_label: string | null;
+  amount_cents: number;
+  currency: string;
+  status: string;
+  created_at: string;
+  paid_at: string | null;
+  stripe_invoice_url: string | null;
+};
+
+/** One thing a membership includes. `url` null means "you have this, and we
+ *  cannot hand you a link to it" — a Circle space or a Meet page needs
+ *  per-workspace knowledge the API does not have. Naming it is still worth
+ *  more than hiding it; a dead link would be worth less than nothing. */
+export type Included = {
+  name: string;
+  description: string | null;
+  url: string | null;
+};
+
 export type MembershipItem = {
   member_id: string;
   tier: string | null;
   status: string;
   started_at: string | null;
   renews_at: string | null;
+  /** Whether Stripe holds a subscription. Manual and comped members have
+   *  none, so "manage payment" would only ever 409 for them. */
+  has_stripe?: boolean;
+  includes?: Included[];
 };
 
 export type Group = {
@@ -79,10 +128,112 @@ export type Group = {
   memberships: MembershipItem[];
 };
 
+/**
+ * Answer, change, or withdraw an RSVP. Goes through this app's own route
+ * handler rather than straight to the API, so the session token never
+ * reaches the browser — the same reason the .ics is served here.
+ * `'none'` withdraws and returns the person to "no answer", which has to be
+ * reachable or a mis-tap is permanent and every count is quietly wrong.
+ */
+export async function setRsvp(
+  engagementId: string,
+  response: RsvpResponse | 'none',
+): Promise<void> {
+  const res = await fetch('/api/rsvp', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ engagement_id: engagementId, response }),
+  });
+  if (!res.ok) throw new PortalApiError(res.status, `RSVP failed (${res.status})`);
+}
+
 export type Portal = {
   person: { first_name: string | null; last_name: string | null; email: string };
+  /**
+   * Whether the wallet passes are actually issuable. Both are env-gated on
+   * credentials Sjoerd holds outside this repo (an Apple Pass Type ID
+   * certificate, a Google Wallet issuer account); without them the pass
+   * routes 503. Showing a button that fails is worse than showing none, so
+   * the API tells us rather than us guessing.
+   */
+  wallet: { apple: boolean; google: boolean };
   groups: Group[];
 };
+
+/**
+ * Every invoice this person has, newest first, across every app. One call —
+ * it used to be one per membership, which is the shape Membership's own
+ * endpoint has and the reason thread tickets and meet bookings were missing
+ * from this page entirely.
+ *
+ * A failure returns an empty list rather than throwing: the Purchases tab is
+ * one destination among four and must not take the other three down with it.
+ */
+export async function fetchInvoices(accessToken: string): Promise<PortalInvoice[]> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/me/invoices`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return [];
+    const body = (await res.json()) as { items?: PortalInvoice[] };
+    return body.items ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** The member's own details — the only thing on this surface they can
+ *  change. Name reaches every community that knows their email; language is
+ *  identity-level and is what the emails and the chrome read. */
+export type MyProfile = {
+  email: string;
+  first_name: string | null;
+  last_name: string | null;
+  locale: string | null;
+  /** How many communities a name change will reach. Said before they save. */
+  person_rows: number;
+};
+
+export async function fetchProfile(accessToken: string): Promise<MyProfile | null> {
+  try {
+    const res = await fetch(`${baseUrl}/api/v1/me/profile`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
+    });
+    if (!res.ok) return null;
+    return (await res.json()) as MyProfile;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Save the details. Goes through this app's own route handler rather than
+ * straight to the API, so the session token never reaches the browser — the
+ * same reason the .ics and the invoice PDF are served here.
+ */
+export async function saveProfile(patch: {
+  first_name?: string;
+  last_name?: string;
+  locale?: string;
+}): Promise<void> {
+  const res = await fetch('/api/profile', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  });
+  if (!res.ok) {
+    const body = (await res.json().catch(() => null)) as { error?: string } | null;
+    throw new PortalApiError(res.status, body?.error ?? 'could not save');
+  }
+}
+
+/** The file itself, through this app's own route — a plain link cannot carry
+ *  a bearer token, which is why the route exists. */
+export function invoicePdfUrl(id: string): string {
+  return `/invoices/${id}/pdf`;
+}
 
 export async function fetchPortal(accessToken: string): Promise<Portal> {
   const res = await fetch(`${baseUrl}/api/v1/me/portal`, {
@@ -93,7 +244,34 @@ export async function fetchPortal(accessToken: string): Promise<Portal> {
   return res.json() as Promise<Portal>;
 }
 
+// The QR and both wallet passes are already served by Thread, keyed on the
+// check-in code, which this app holds. So these are URL builders, not fetches
+// — the portal added no API surface to show a ticket.
+const checkinBase = (code: string) => `${baseUrl}/api/v1/thread/public/checkin/${code}`;
+
 /** The QR the door scans. Served by the API from the check-in code. */
 export function ticketQrUrl(code: string): string {
-  return `${baseUrl}/api/v1/thread/public/checkin/${code}/qr.png`;
+  return `${checkinBase(code)}/qr.png`;
+}
+
+/** Apple Wallet pass (.pkpass). Only offer it when `portal.wallet.apple`. */
+export function appleWalletUrl(code: string): string {
+  return `${checkinBase(code)}/apple.pkpass`;
+}
+
+/** 302 to Google's save-to-wallet. Only offer it when `portal.wallet.google`. */
+export function googleWalletUrl(code: string): string {
+  return `${checkinBase(code)}/google`;
+}
+
+/**
+ * Add-to-calendar for ONE agenda item. Served by this app, not the API,
+ * because a calendar download is a plain link and a plain link cannot carry
+ * a bearer token — the route handler has the session cookie and re-reads the
+ * portal server-side, so the file is scoped to the person exactly as the
+ * page is. Agenda items only: they carry real timestamps, where a thread
+ * carries dates and would need all-day VEVENTs for no benefit.
+ */
+export function agendaIcsUrl(threadId: string, itemId: string): string {
+  return `/ics/${threadId}/${itemId}`;
 }

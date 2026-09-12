@@ -1,6 +1,8 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { userClient, adminClient } from '../db.js';
+import { resolvePerson, normaliseEmail } from '../lib/resolve-person.js';
+import { callerWorkspaceRole, isAdminRole } from '../lib/workspace-roles.js';
 
 export const personsRoutes = new Hono();
 
@@ -65,9 +67,36 @@ personsRoutes.post('/', async (c) => {
   // Insert-through-RLS kept failing here even after the 20260708150000
   // policy split (RLS violated on the returning read); the middleware
   // already guarantees the caller is a member of ctx.workspaceId.
+  // Typing a contact in is a deliberate act, so this path still creates even
+  // when the address is already on file — two real people can share one
+  // (a couple, an info@ mailbox). But it says so, and the UI can offer the
+  // existing record instead. Propose, don't block.
+  const normalisedEmail = normaliseEmail(body.data.email as string | null | undefined);
+  let duplicateOf: string | null = null;
+  if (normalisedEmail) {
+    const existing = await resolvePerson({
+      workspaceId: ctx.workspaceId,
+      email: normalisedEmail,
+      source: 'manual',
+      create: false,
+    });
+    if (existing.ok) {
+      duplicateOf = existing.personId;
+      console.warn('[persons POST] address already on file', {
+        workspace_id: ctx.workspaceId,
+        matches: existing.matches,
+      });
+    }
+  }
+
   const { data, error } = await adminClient
     .from('person')
-    .insert({ ...body.data, workspace_id: ctx.workspaceId })
+    .insert({
+      ...body.data,
+      ...(normalisedEmail ? { email: normalisedEmail } : {}),
+      workspace_id: ctx.workspaceId,
+      created_via: 'manual',
+    })
     .select('id, first_name, last_name, email, country, created_at')
     .single();
 
@@ -161,9 +190,170 @@ personsRoutes.post('/', async (c) => {
   }
 
   return c.json(
-    { ...data, auto_linked_org_id: autoLinkedOrgId },
+    // duplicate_of: an existing person already holds this address. Additive,
+    // advisory, and never a refusal — the caller decides whether to keep both.
+    { ...data, auto_linked_org_id: autoLinkedOrgId, duplicate_of: duplicateOf },
     201,
   );
+});
+
+// ---------------------------------------------------------------------------
+// Duplicates: find them, merge them, undo the merge.
+//
+// Registered BEFORE /:id — Hono matches in registration order, so a literal
+// segment declared after a parameter one is unreachable.
+//
+// Admin-gated throughout. Merging rewrites who owns an enrolment, a booking,
+// a payment and a certificate; that is not an organiser-level act.
+// ---------------------------------------------------------------------------
+
+async function isWorkspaceAdmin(ctx: { userId: string; workspaceId: string }) {
+  return isAdminRole(await callerWorkspaceRole(ctx));
+}
+
+const ADMINS_ONLY = { error: 'admins only' } as const;
+
+/**
+ * A person id plus anyone merged into them. Merges deliberately do NOT
+ * repoint activity — it is append-only — so every read of a person's history
+ * has to expand through merged_into or the history vanishes the moment a
+ * duplicate is tidied away.
+ */
+async function personAndMerged(personId: string): Promise<string[]> {
+  const { data, error } = await adminClient.rpc('person_and_merged', { p_person: personId });
+  if (error || !data) return [personId];
+  const rows = data as unknown as (string | { person_and_merged: string })[];
+  const ids = rows.map((x) => (typeof x === 'string' ? x : x.person_and_merged)).filter(Boolean);
+  return ids.length ? ids : [personId];
+}
+
+
+
+const DuplicatesQuery = z.object({
+  limit: z.coerce.number().int().min(1).max(200).default(50),
+  // Trigram threshold for the similar_name rule. Lower finds more and is
+  // noisier; this is the knob to turn if the queue is empty or unusable.
+  threshold: z.coerce.number().min(0.1).max(1).default(0.55),
+});
+
+// GET /persons/duplicates — the review queue. Proposes; never acts.
+personsRoutes.get('/duplicates', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const parsed = DuplicatesQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+
+  const { data, error } = await adminClient.rpc('person_duplicate_candidates', {
+    p_workspace: ctx.workspaceId,
+    p_limit: parsed.data.limit,
+    p_threshold: parsed.data.threshold,
+  });
+  if (error) {
+    console.error('[persons/duplicates] rpc failed', error);
+    return c.json({ error: error.message }, 500);
+  }
+
+  const pairs = (data ?? []) as { person_a: string; person_b: string; reason: string; score: number }[];
+  const ids = [...new Set(pairs.flatMap((p) => [p.person_a, p.person_b]))];
+  const { data: people } = ids.length
+    ? await adminClient
+        .from('person')
+        .select('id, first_name, last_name, email, created_at, created_via')
+        .in('id', ids)
+    : { data: [] as Record<string, unknown>[] };
+  const byId = new Map((people ?? []).map((p) => [p.id as string, p]));
+
+  return c.json({
+    items: pairs.map((p) => ({
+      reason: p.reason,
+      score: p.score,
+      a: byId.get(p.person_a) ?? { id: p.person_a },
+      b: byId.get(p.person_b) ?? { id: p.person_b },
+    })),
+  });
+});
+
+const MergeBody = z.object({
+  keep_id: z.string().uuid(),
+  merge_id: z.string().uuid(),
+});
+
+// POST /persons/merge — repoints every FK, soft-deletes the merged row.
+// Returns the audit id, which is the handle for undoing it.
+personsRoutes.post('/merge', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const body = MergeBody.safeParse(await c.req.json().catch(() => null));
+  if (!body.success) return c.json({ error: body.error.flatten() }, 400);
+
+  const { data, error } = await adminClient.rpc('merge_person', {
+    p_keep: body.data.keep_id,
+    p_merge: body.data.merge_id,
+    p_actor: ctx.userId || null,
+  });
+  if (error) {
+    console.error('[persons/merge] failed', {
+      code: error.code,
+      message: error.message,
+      details: error.details,
+    });
+    // The function raises for the refusals a caller can act on — same
+    // workspace, not already deleted, not two sign-in accounts — so pass the
+    // wording through rather than flattening them all to 500.
+    return c.json({ error: error.message }, 400);
+  }
+  return c.json({ merge_id: data as string }, 201);
+});
+
+// POST /persons/merges/:id/undo — put it back.
+personsRoutes.post('/merges/:id/undo', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const { error } = await adminClient.rpc('unmerge_person', {
+    p_merge_id: c.req.param('id'),
+    p_actor: ctx.userId || null,
+  });
+  if (error) {
+    console.error('[persons/merges/undo] failed', error);
+    return c.json({ error: error.message }, 400);
+  }
+  return c.json({ ok: true });
+});
+
+// GET /persons/merges — what has been merged, and what can still be undone.
+personsRoutes.get('/merges', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json(ADMINS_ONLY, 403);
+
+  const { data, error } = await adminClient
+    .from('person_merge')
+    .select('id, kept_person_id, merged_person_id, merged_at, merged_by, undone_at, dropped')
+    .eq('workspace_id', ctx.workspaceId)
+    .order('merged_at', { ascending: false })
+    .limit(100);
+  if (error) return c.json({ error: error.message }, 500);
+
+  return c.json({
+    items: (data ?? []).map((m) => ({
+      id: m.id,
+      kept_person_id: m.kept_person_id,
+      merged_person_id: m.merged_person_id,
+      merged_at: m.merged_at,
+      merged_by: m.merged_by,
+      undone_at: m.undone_at,
+      // How much a merge actually cost: rows a unique constraint would not
+      // let move. Surfaced so nobody has to guess what was lost.
+      dropped_rows: Array.isArray(m.dropped)
+        ? (m.dropped as { rows?: unknown[] }[]).reduce(
+            (n, d) => n + (Array.isArray(d.rows) ? d.rows.length : 0),
+            0,
+          )
+        : 0,
+    })),
+  });
 });
 
 personsRoutes.get('/:id', async (c) => {
@@ -645,7 +835,7 @@ personsRoutes.get('/:id/apps', async (c) => {
     db.from('person_learning').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_billing').select('app:app_id (slug)').eq('person_id', personId),
     db.from('person_meet_profile').select('app:app_id (slug)').eq('person_id', personId),
-    db.from('activity').select('app:app_id (slug)').eq('person_id', personId),
+    db.from('activity').select('app:app_id (slug)').in('person_id', await personAndMerged(personId)),
   ]);
 
   const slugs = new Set<string>();

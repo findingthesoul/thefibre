@@ -13,6 +13,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   Bold,
+  Heading3,
   Italic,
   Link2,
   List,
@@ -25,12 +26,18 @@ import { t, type UiKey } from '@/lib/i18n-ui';
 type Command =
   | 'bold'
   | 'italic'
+  | 'formatBlock'
   | 'insertUnorderedList'
   | 'insertOrderedList'
   | 'createLink'
   | 'removeFormat';
 
 const TOOLS: { command: Command; icon: typeof Bold; labelKey: UiKey; stateful: boolean }[] = [
+  // A heading, not headingS: one level is enough inside a form field, and
+  // `formatBlock` toggles the block back to a paragraph when pressed again,
+  // so it behaves like the other stateful buttons (Sjoerd asked for headers
+  // on a thread's intention, 2026-09-10).
+  { command: 'formatBlock', icon: Heading3, labelKey: 'heading', stateful: false },
   { command: 'bold', icon: Bold, labelKey: 'bold', stateful: true },
   { command: 'italic', icon: Italic, labelKey: 'italic', stateful: true },
   { command: 'insertUnorderedList', icon: List, labelKey: 'bullet_list', stateful: true },
@@ -107,6 +114,11 @@ export function RichTextField({
       const url = window.prompt(t(locale, 'link_url'));
       if (!url) return;
       document.execCommand('createLink', false, url);
+    } else if (command === 'formatBlock') {
+      // Toggle: pressing it inside a heading returns the block to a
+      // paragraph, so the button never becomes a one-way door.
+      const inHeading = document.queryCommandValue('formatBlock').toLowerCase().includes('h3');
+      document.execCommand('formatBlock', false, inHeading ? 'p' : 'h3');
     } else {
       document.execCommand(command, false);
     }

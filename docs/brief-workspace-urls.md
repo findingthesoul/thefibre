@@ -23,9 +23,21 @@ app.thethread.app/{workspace}/{organiser}            organiser inside the worksp
   lists that organiser's public threads within the workspace.
 - **D3 — one slug namespace, workspaces win.** Organiser, team and
   workspace slugs share the first URL segment. Workspace slugs take
-  precedence: creating an organiser or team slug equal to an existing
-  workspace slug is refused (RESERVED_SLUGS pattern); the public
-  resolver checks workspace → team → organiser in that order.
+  precedence; the public resolver checks workspace → organiser → team
+  in that order.
+
+  **Enforced since 2026-09-09 (v0.68.37) by `public_root_slug`** — one
+  row per workspace, team and organiser, slug as the primary key, kept
+  in sync by triggers. Before it, uniqueness existed only INSIDE a
+  workspace and only per table, and this paragraph described an
+  intention rather than a mechanism. What that cost: a team created in
+  soul.com with a name an existing Solidarity Lab team already used made
+  `resolvePublicOwner`'s `.maybeSingle()` see two rows, and both teams'
+  public pages plus the two live threads under one of them started
+  answering 404 — with no warning at the moment of creation. The API
+  now refuses the second claim with a 409 naming who holds the address
+  (`lib/root-slug.ts`); `scripts/audit-root-slugs.mjs` lists anything a
+  database was already carrying.
 - The public API grows additively (a third owner kind + one 3-segment
   route); the published 2-segment shapes never change (rule 8;
   verify-public-api.mjs stays the gate). Embeds already accept

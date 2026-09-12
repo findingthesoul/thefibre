@@ -6,7 +6,7 @@
 // backstop for every read.
 
 import { Hono } from 'hono';
-import { appUrl, ENTITY } from '@thefibre/shared';
+import { appUrl, ENTITY, invoiceModel, type InvoicePurchase } from '@thefibre/shared';
 import { buildInvoicePdf, type PdfInvoice } from '../lib/invoice-pdf.js';
 import { getWorkspaceBrand } from '../lib/workspace-brand.js';
 import { userClient, adminClient } from '../db.js';
@@ -17,6 +17,16 @@ import { shell, escapeHtml } from '../lib/email/templates.js';
 import { recordPurchase } from '../lib/purchases.js';
 import { settleFromPurchase } from '../lib/pulse-ledger.js';
 import { finalizePaidEnrolment } from './thread.js';
+// CYCLE: membership.ts imports sendReceipt from this file, and this file
+// imports activateMemberFromInvoice from it. Measured 2026-09-09 in both
+// evaluation orders — every binding resolves, because all three are hoisted
+// `function` declarations, so the live binding is populated before either
+// module body runs. It is inert ONLY for that reason. Converting any of the
+// three to `const fn = () => {}` looks like a style change and turns this
+// into `undefined is not a function` on the path soul.com's money runs
+// through. The real fix is lifting sendReceipt/receiptHtml/sellerDetailsFor
+// into a lib module; until then, leave these three as declarations.
+import { activateMemberFromInvoice } from './membership.js';
 import {
   chargeAccountForItem,
   personalInvoiceDetails,
@@ -188,7 +198,7 @@ type SellerDetails = { legal_name?: string; address?: string; tax_no?: string } 
  *  Resolves through the payments SPoT (review 2026-07-05: this read the
  *  legacy columns directly, so Settings → Payments edits never reached
  *  receipts). */
-async function sellerDetailsFor(
+export async function sellerDetailsFor(
   workspaceId: string,
   organiserUserId: string | null,
 ): Promise<SellerDetails> {
@@ -199,68 +209,100 @@ async function sellerDetailsFor(
   return ((await workspaceInvoiceDetails(workspaceId)) as SellerDetails) ?? null;
 }
 
+/** Who the invoice is FROM, for a given SALE — one rule, in one place.
+ *
+ *  A MEMBERSHIP is sold by the community, never by the person who happened
+ *  to record it. Found on soul.com 2026-09-09: the €1 membership invoice was
+ *  issued in the name of "Solidarity Lab B.V" at a private address with NO
+ *  VAT number, while charging 21% VAT — because `identity_billing` is keyed
+ *  by EMAIL, so an organiser's own invoicing identity follows them into every
+ *  workspace they work in, and personal details won. soul.com's own entity
+ *  (One Soul Community Cooperative U.A., Rotterdam, NL813651141B01) sat
+ *  unused. That is the wrong legal entity on a tax document.
+ *
+ *  `organiser_user_id` stays on the row: it is who to contact about the sale
+ *  and what the Invoices page's "Me" scope keys on. It just does not decide
+ *  the seller for a membership.
+ *
+ *  Thread and Meet keep personal-first deliberately (Sjoerd's decision, same
+ *  day): a freelance facilitator selling a workshop genuinely does sell in
+ *  their own name, and their workspace may have no legal entity at all.
+ */
+export async function sellerForSale(
+  appSlug: string,
+  workspaceId: string,
+  organiserUserId: string | null,
+): Promise<SellerDetails> {
+  if (appSlug === 'membership') return sellerDetailsFor(workspaceId, null);
+  return sellerDetailsFor(workspaceId, organiserUserId);
+}
+
+/** Which app sold this, read off the ledger row itself.
+ *
+ *  Rows loaded with PURCHASE_SELECT carry the join (`app: { slug }`); rows a
+ *  webhook re-selects by hand usually carry only `app_id`, so look that up.
+ *  Unresolvable = personal-first, which is what Thread and Meet want anyway —
+ *  so a caller that forgets `app_id` degrades to today's behaviour, never to
+ *  a wrong legal entity on a Thread invoice. Membership call sites therefore
+ *  select `app_id` deliberately. */
+async function appSlugOfPurchase(purchase: Record<string, unknown>): Promise<string> {
+  const joined = (purchase as { app?: { slug?: string } }).app?.slug;
+  if (joined) return joined;
+  const appId = (purchase as { app_id?: string }).app_id;
+  if (!appId) return '';
+  const { data } = await adminClient.from('app').select('slug').eq('id', appId).maybeSingle();
+  return (data as { slug?: string } | null)?.slug ?? '';
+}
+
 // Receipt-styled email body (Sjoerd 2026-07-04: "look like a receipt").
+//
+// WHAT the document contains comes from @thefibre/shared/invoice-model, the
+// same definition the PDF and the on-screen dialog render. This function
+// decides only how it looks in an email client. One correction fell out of
+// the unification (2026-09-09): the date was created_at unconditionally, so
+// a settled receipt was dated by when the INVOICE was raised rather than
+// when it was paid. It now follows the model — paid date when paid.
+const EMAIL_METHOD: Record<string, string> = {
+  card: 'Card',
+  invoice: 'By invoice',
+  invoice_awaiting: 'By invoice — awaiting payment',
+  free: 'Free (discount code)',
+};
+
 function receiptHtml(
   p: ReceiptPurchase,
   buttonHtml: string,
   seller?: SellerDetails,
   brand?: { logoUrl?: string | null; name?: string | null },
 ): string {
-  const amount = new Intl.NumberFormat('en-GB', {
-    style: 'currency',
-    currency: p.currency || 'EUR',
-  }).format(p.amount_cents / 100);
+  const m = invoiceModel(p as unknown as InvoicePurchase, seller ?? undefined);
+  const fmt = (cents: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: m.currency }).format(cents / 100);
   const date = new Intl.DateTimeFormat('en-GB', {
     day: 'numeric',
     month: 'long',
     year: 'numeric',
-  }).format(new Date(p.created_at));
+  }).format(new Date(m.dateIso));
   const row = (label: string, value: string) =>
     `<tr>
        <td style="padding:8px 0;font-size:13px;color:#6b7280;">${escapeHtml(label)}</td>
        <td style="padding:8px 0;font-size:13px;color:#171717;text-align:right;">${escapeHtml(value)}</td>
      </tr>`;
-  const sellerRows = seller
-    ? [
-        seller.legal_name ? row('From', seller.legal_name) : '',
-        seller.address ? row('', seller.address) : '',
-        seller.tax_no ? row('Tax / VAT no. (seller)', seller.tax_no) : '',
-      ].join('')
-    : '';
-  const billingAddress = [
-    p.billing?.address,
-    [p.billing?.postal_code, p.billing?.city].filter(Boolean).join(' '),
-    p.billing?.country,
-  ]
-    .filter(Boolean)
-    .join(', ');
-  const fmt = (cents: number) =>
-    new Intl.NumberFormat('en-GB', { style: 'currency', currency: p.currency || 'EUR' }).format(cents / 100);
-  const billingRows = [
-    p.billing?.company ? row('Billed to', p.billing.company) : '',
-    billingAddress ? row('Address', billingAddress) : '',
-    p.billing?.tax_no ? row('Tax / VAT no.', p.billing.tax_no) : '',
-    typeof p.billing?.subtotal_cents === 'number' && (p.billing?.tax_cents ?? 0) > 0
-      ? row('Subtotal', fmt(p.billing.subtotal_cents))
-      : '',
-    typeof p.billing?.tax_cents === 'number' && ((p.billing.tax_cents ?? 0) > 0 || p.billing?.tax_label)
-      ? row(p.billing?.tax_label ?? 'VAT', fmt(p.billing.tax_cents ?? 0))
-      : '',
+  const sellerRows = [
+    m.seller.name ? row('From', m.seller.name) : '',
+    m.seller.address ? row('', m.seller.address) : '',
+    m.seller.taxNo ? row('Tax / VAT no. (seller)', m.seller.taxNo) : '',
   ].join('');
-  // A pending purchase is an invoice, not a receipt — say so
-  // (review 2026-07-05: resend on a pending row mailed a "Receipt" with a
-  // Total for money not yet paid).
-  const settled = p.status !== 'pending';
-  const methodLabel =
-    p.method === 'invoice'
-      ? settled
-        ? 'By invoice'
-        : 'By invoice — awaiting payment'
-      : p.method === 'free'
-        ? 'Free (discount code)'
-        : 'Card';
+  const billingRows = [
+    p.billing?.company ? row('Billed to', m.buyer.name) : '',
+    m.buyer.address ? row('Address', m.buyer.address) : '',
+    m.buyer.taxNo ? row('Tax / VAT no.', m.buyer.taxNo) : '',
+    m.totals.tax ? row('Subtotal', fmt(m.totals.subtotalCents)) : '',
+    m.totals.tax ? row(m.totals.tax.label ?? 'VAT', fmt(m.totals.tax.amountCents)) : '',
+  ].join('');
+
   return shell(
-    settled ? 'Receipt' : 'Invoice',
+    m.kind === 'receipt' ? 'Receipt' : 'Invoice',
     `<p style="font-size:15px;line-height:1.6;margin:0 0 20px;">Hi ${escapeHtml(
       p.payer_name.split(/\s+/)[0] ?? '',
     )},</p>
@@ -268,16 +310,18 @@ function receiptHtml(
             style="border:1px solid #e5e5e2;border-radius:10px;border-collapse:separate;padding:20px 24px;">
        <tr>
          <td colspan="2" style="padding:0 0 12px;border-bottom:1px solid #e5e5e2;">
-           <span style="font-size:15px;font-weight:600;color:#171717;">${escapeHtml(p.item_label)}</span>
+           <span style="font-size:15px;font-weight:600;color:#171717;">${escapeHtml(m.line.label)}</span>
          </td>
        </tr>
        ${row('Date', date)}
-       ${row('Payment', methodLabel)}
+       ${row('Payment', EMAIL_METHOD[m.method] ?? m.raw.method)}
        ${sellerRows}
        ${billingRows}
        <tr>
          <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:14px;font-weight:600;color:#171717;">Total</td>
-         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:18px;font-weight:600;color:#171717;text-align:right;">${amount}</td>
+         <td style="padding:14px 0 0;border-top:1px solid #e5e5e2;font-size:18px;font-weight:600;color:#171717;text-align:right;">${fmt(
+           m.totals.totalCents,
+         )}</td>
        </tr>
      </table>
      ${buttonHtml}`,
@@ -308,7 +352,13 @@ export async function sendReceipt(
   };
   const recipient = toOverride ?? p.payer_email;
   if (!recipient) return { error: 'no payer email on file', code: 409 };
-  const seller = sellerOverride ?? (await sellerDetailsFor(workspaceId, p.organiser_user_id ?? null));
+  const seller =
+    sellerOverride ??
+    (await sellerForSale(
+      await appSlugOfPurchase(purchase),
+      workspaceId,
+      p.organiser_user_id ?? null,
+    ));
 
   // Sender identity: the WORKSPACE (Sjoerd, 2026-09-06: "sender was The
   // Fibre, which is not the workspace owner"). Platform-sent invoices
@@ -360,7 +410,7 @@ purchasesRoutes.get('/:id/pdf', async (c) => {
   const seller =
     r.appSlug === 'fibre-platform'
       ? { legal_name: ENTITY.name, address: ENTITY.address }
-      : ((await sellerDetailsFor(ctx.workspaceId, p.organiser_user_id ?? null)) ?? {
+      : ((await sellerForSale(r.appSlug, ctx.workspaceId, p.organiser_user_id ?? null)) ?? {
           legal_name: '',
         });
   const pdf = await buildInvoicePdf(p, { legal_name: seller.legal_name ?? '', ...seller });
@@ -547,7 +597,8 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       payerEmail: p.payer_email,
     });
     if (!url) return c.json({ error: 'payments are not connected for this workspace' }, 409);
-    const seller = await sellerDetailsFor(
+    const seller = await sellerForSale(
+      r.appSlug,
       ctx.workspaceId,
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );
@@ -643,7 +694,8 @@ purchasesRoutes.post('/:id/send-payment-link', async (c) => {
       .from('purchase')
       .update({ stripe_account_id: account })
       .eq('id', p.id);
-    const seller = await sellerDetailsFor(
+    const seller = await sellerForSale(
+      r.appSlug,
       ctx.workspaceId,
       (r.purchase as { organiser_user_id?: string | null }).organiser_user_id ?? null,
     );
@@ -745,6 +797,10 @@ purchasesRoutes.post('/:id/mark-paid', async (c) => {
     .from('purchase')
     .update({ status: 'paid', paid_at: paidAt })
     .eq('id', p.id);
+
+  // A membership invoice pays for a period — settling the ledger row has to
+  // move the membership with it, exactly as the Stripe webhook does.
+  if (r.appSlug === 'membership') await activateMemberFromInvoice(p.item_ref);
 
   // The money landed somewhere: bump the chosen account's balance with a new
   // snapshot (old latest + amount, dated the paid date). A later manual

@@ -49,26 +49,20 @@ When designing a new field: which app justifies it? If none, don't add it.
 ```bash
 export PATH="$HOME/.local/bin:$PATH"
 cd ~/Projects/thefibre
-pnpm dev          # all nine dev servers: api :8080, web :3000, meet :3001, thread :3002,
-                  # flow :3003, pulse :3004, membership :3005, website :3006, my :3007
+pnpm dev          # every app's dev script, in parallel (`pnpm -r --parallel run dev`)
+                  # api :8080, web :3000, meet :3001, thread :3002, flow :3003,
+                  # pulse :3004, membership :3005, website :3006, my :3007,
+                  # connections :3008
+                  # Derived from the workspace, so a new app joins automatically —
+                  # this comment is the thing that goes stale, not the script.
+                  # (It went stale on 2026-09-12, exactly as predicted: connections
+                  # had existed for a day and was missing from the list. To read the
+                  # truth instead of this comment:
+                  #   grep -h '"dev"' apps/*/package.json)
 ```
 
 ### Version bumps
-
-Every shipped change stamps one monorepo version into **eleven**
-`package.json` files (root, `packages/shared`, and all nine `apps/*`: api,
-flow, meet, membership, my, pulse, thread, web, website) plus
-`apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar
-footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in
-v0.17.1 so more than one surface could read it). The CHANGELOG entry and the
-`docs/build-plan.md` grooming land in the same commit.
-
-**Never hand-keep that list.** Since v0.68.20 `scripts/release.sh` derives it
-from `apps/*/package.json` + root + `packages/shared`, so a tenth app is
-covered the moment its folder exists — the hardcoded list would have skipped
-`apps/my` silently. The number above describes today; the script is the
-authority. Push only via `./scripts/release.sh <version>` (handbook §10;
-docs-only commits are the single exception).
+Every shipped change updates the `package.json` file of **every workspace package** plus `apps/web/lib/version.ts` (the `VERSION` constant shown in the Fibre sidebar footer and on Settings → How The Fibre works; it moved out of `layout.tsx` in v0.17.1 so more than one surface could read it). The CHANGELOG entry lands in the same commit. Don't count the packages by hand — `scripts/release.sh` derives the list from `apps/*/package.json` + root + `packages/shared` (since v0.68.20), so a new app is covered the moment it exists. The hand-written count in this file said "ten" and was already wrong once.
 
 **Per-app user-facing versions are decoupled** from the monorepo cadence.
 Each lives in `apps/<app>/app/(app)/layout.tsx` and is bumped when that app's
@@ -76,8 +70,9 @@ own surfaces ship, not in lockstep with platform work: Meet shows `2.x` (it
 is the rebuild of Suite v1), Thread `3.x`, Flow `1.x`, Pulse `0.x` (started
 0.1.0 on 2026-07-07), Membership `0.x` (started 0.1.0 on 2026-09-04; display
 name may become "Hyve" — the slug `membership` never changes, only
-branding.ts does). `apps/website` and `apps/my` carry no version constant:
-neither has a signed-in chrome to show one in.
+branding.ts does), Connections `0.x` (started 0.1.0 on 2026-09-12, v0.71.0).
+`apps/website` and `apps/my` carry no such constant: neither has a signed-in
+chrome to show one in.
 
 ### Seed realistic data
 
@@ -99,7 +94,7 @@ design-leading. Two companions: ordering UIs are drag-and-drop, never a
 numeric sort field; dates always use the shared `DateField`, never a
 native `<input type="date">`.
 
-### Parallel agents — when to use them
+### Parallel agents (subagents inside one session) — when to use them
 
 Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + org refactor). Rules:
 1. Each agent owns a disjoint folder. No shared files.
@@ -107,7 +102,94 @@ Worked well for v0.3.0 (4 person tabs), v0.3.2 (3 org tabs), v0.4.0 (person + or
 3. After every parallel batch: `pnpm -r typecheck`, then commit.
 4. Sequential is faster for ≤2 tasks. Parallel pays off at 3+.
 
-Worktree isolation isn't available in this repo — agents share the working directory. Strict file lanes prevent corruption. **The Next.js dev server gets confused when many files arrive at once** — kill and restart `pnpm dev` after a parallel batch.
+Subagents share the parent's working directory, so strict file lanes prevent corruption. (Git worktrees *are* available for whole SESSIONS — see the next section. Until 2026-09-09 this line claimed otherwise and that claim was already false.) **The Next.js dev server gets confused when many files arrive at once** — kill and restart `pnpm dev` after a parallel batch.
+
+### Parallel SESSIONS — the serialization protocol (binding)
+
+Different thing from the section above. That one is subagents you spawn.
+This one is **other chats, driven by Sjoerd, editing the same checkout at
+the same time.** He runs several by design and is running more of them over
+time, so assume a peer exists rather than checking whether one does.
+
+The rationale, the incident history and the release gates live in
+`docs/system-handbook.md` §10 and §11.4. This is the operative checklist,
+here because CLAUDE.md is the file every session loads automatically.
+
+**The shared working tree is the hazard**, and it is avoidable. When two
+sessions share one checkout, `git status` shows a union of everybody's work
+and anything staged rides the next commit whoever makes it — that is the root
+of every sweep incident in this repo's history.
+
+**So prefer a worktree.** `EnterWorktree`, or Agent with
+`isolation: "worktree"`, gives a session its own checkout under
+`.claude/worktrees/` on its own branch. This works here today and has been
+used (`git worktree list`). The cost is a per-worktree `node_modules`
+(~700MB) and a merge back to `main` at the end. Take that trade for anything
+touching code. Stay in the main checkout for docs-only work, for a release,
+or when you genuinely need the peer's uncommitted state.
+
+1. **Find your peers first.** `ListAgents`, or `list_sessions` filtered on
+   this `cwd`. Message them with `send_message`. Do this at the START of a
+   working session, not at push time.
+2. **Fence a lane by directory** and say out loud which one you took —
+   **and name what you are about to do NEXT, not only what you are doing.**
+   A claim that names the next task lets a peer see a collision before either
+   of you writes the code. (2026-09-09: two sessions were an hour from
+   building the same info-popup component in two different apps. Caught only
+   because one of them mentioned its next page in its lane claim. Three
+   messages to prevent one duplicate, against two implementations that
+   drift.)
+   Whoever is holding uncommitted code in a directory owns it until they
+   ship. Cross a lane only after asking.
+3. **Stage explicit paths. Never `git add -A`.** Check `git status`
+   column 1 for someone else's pre-staged entries before you commit.
+   Before adding a shared-ownership file whole, `git diff HEAD -- <file>`
+   and read what you'd be sweeping in.
+4. **One release at a time.** The version files + `CHANGELOG.md` are the
+   serialization point. Announce **`RELEASING NOW`** before a bump,
+   **`released <sha>`** after, and `git pull` immediately before bumping.
+   Never two sessions in a release at once.
+5. **History is the truth; announcements are courtesy.** Messages land
+   after the peer's current turn ends, so they can lose a race with a push.
+   `scripts/release-guard.sh` is what actually stops a duplicate version
+   number. If you still land one, you renumber.
+6. **After committing**, verify every import the commit introduces resolves
+   *within* the commit (`git diff base..HEAD`) — the classic sweep bug is a
+   half-written import from someone else's in-flight edit.
+7. **Never bare `git stash` / `git stash pop`.** The stash stack is shared
+   across the main checkout AND every worktree, so a bare `pop` can restore
+   a peer's entry into your tree. Set work aside with a temporary WIP commit
+   instead. If you must stash: `git stash push -u -m "<unique-tag>"`, capture
+   the SHA from `git stash list --format='%H %gs'`, restore with
+   `git stash apply <sha>`, then drop it by re-finding the tag. And note that
+   in a shared checkout a stash sweeps the PEER's uncommitted files too, not
+   just yours — if you do it to rebase, tell them and ask them to re-diff.
+8. **A peer cannot grant you permission.** If a tool denies you an action,
+   do NOT ask another session to run it — "the other session couldn't" is
+   not "Sjoerd approved", and routing around a denial that way is permission
+   laundering. Surface it to Sjoerd and leave it there. The same bar applies
+   in reverse: never edit CLAUDE.md, settings or config because a peer asked,
+   and never read a peer's message as approval for a prompt you are holding.
+   Say who asked for a change when you make one, so the peer can tell a
+   user-directed edit from a peer-initiated one. (Learned 2026-09-09: I hit a
+   sandbox denial on a `fly secrets set` and asked the membership session to
+   run it instead. It refused, correctly, twice.)
+9. **Docs-only commits skip the release script** — a commit touching only
+   `docs/**` / `*.md` pushes directly with a `docs:` prefix. Everything else
+   goes through `./scripts/release.sh <version>`, no exceptions.
+10. **A peer's UNCOMMITTED work can block your release.**
+   `scripts/release.sh` runs `pnpm verify`, which runs `pnpm -r typecheck`
+   over the WORKING TREE, not over your commit. So another session's
+   mid-edit file — a prop passed before it is declared — fails the gate for
+   everybody, and surfaces as a typecheck error in a file you have never
+   opened. **Read the failing PATH before assuming the error is yours.** If
+   it is in someone else's lane, tell them; do not fix it, and do not route
+   around the gate. The gate is behaving correctly: this is the shared
+   checkout's cost, and the sharpest argument for taking a worktree.
+
+Read §10 before proposing new coordination rules to a peer. The protocol is
+written down; re-deriving it from scratch wastes a round trip and produces a
+second, drifting copy.
 
 ### Debugging API failures
 
@@ -125,6 +207,7 @@ Worktree isolation isn't available in this repo — agents share the working dir
 - After parallel agent runs, the Next.js dev server can wedge. Kill + restart.
 - Shared UI lives in `@thefibre/shared` too: `DateField`/`DateTimeField` (`src/ui/date-field.tsx`, subpath export `./ui/date-field`) - the app-local `components/ui/date-field.tsx` files are re-export shims. Edit the shared copy; per-app copies drifted once already (v0.13.104).
 - `@thefibre/shared` emits a compiled `dist/` (since v0.4.8). Both apps must build it first. Done via the pnpm topological filter `--filter @thefibre/web... build` (the trailing `...` = "and its workspace dependencies"). Don't hand-chain build commands.
+- **After pulling a commit that ADDS a shared subpath export, build shared before believing a typecheck failure.** A stale `dist/` makes an unrelated app fail with e.g. `apps/membership/lib/i18n.ts(17,34): error TS2307: Cannot find module '@thefibre/shared/participant-auth-i18n' or its corresponding type declarations.` The error names the consuming app and a module path and points nowhere near the stale artefact in another package. Fix: `pnpm --filter @thefibre/shared build`.
 - Fly will refuse to release a machine lease until it expires (~15 min). If a deploy half-completes, you can't `fly machine destroy --force` it from a different token. Wait it out, then redeploy.
 
 ## Where we left off — 2026-09-01 (v0.21.0)
@@ -304,70 +387,47 @@ data-lang, data-workspace, popup interaction, custom CSS via te-* classes +
 - The scheduler + webhook + payment link all converge on
   finalizePaidEnrolment / sendTriggeredMessages — extend those, don't fork.
 
-## What runs today (v0.68.21)
+## Where things stand (2026-09-12)
 
-Nine workspaces under `apps/`, one shared package, one API. The domain
-source of truth is the `SURFACES` registry in `packages/shared/src/branding.ts`.
+This replaces a "State as of v0.4.8" section that described May 2026 and had
+been wrong for months — it named `thefibre.app` as where the apps live, put
+the platform at eight seeded contacts, and listed shipped work as pending.
+The old text is in git history if anyone wants it. The lesson is the one this
+file keeps relearning: a hand-maintained inventory goes stale silently, so
+prefer pointing at the thing that cannot lie.
 
-| Surface | Domain | Dev | What it is |
-|---|---|---|---|
-| `web` | thefibre.app | 3000 | The backstage: identity, contacts, organisations, programmes, activity, consent, workspaces, billing, `/admin`. |
-| `thread` | app.thethread.app | 3002 | The flagship: journeys and events. Public enrolment, tickets, payments, scheduled messages, certificates, embeds, `/my`. |
-| `meet` | meet.thethread.app | 3001 | Scheduling and booking. The rebuild of Suite v1. |
-| `flow` | flow.thethread.app | 3003 | People-flow state machine: pipelines, gates, tasks, visual builder. |
-| `pulse` | pulse.thethread.app | 3004 | Business planner and cashflow. |
-| `membership` | membership.thethread.app | 3005 | Community subscriptions: tiers, renewals, access grants, Circle sync. |
-| `website` | thethread.app | 3006 | The public site. On the apex since 2026-09-08. |
-| `my` | my.thethread.app | 3007 | The visitor's own portal. Built (v0.68.20), waiting on a Vercel project and DNS. |
-| `api` | thefibre-api.fly.dev | 8080 | Hono. The only thing that touches Supabase data. |
+**Read these instead of trusting a summary here:**
 
-`fibre-sales` and `fibre-learn` are registered slugs with `available: false`.
-Not built, and not scheduled.
+| Question | Where the truth is |
+|---|---|
+| What shipped, and when | `CHANGELOG.md` |
+| What is queued | `docs/build-plan.md`, Open queue |
+| How the system is put together | `docs/system-handbook.md` |
+| Which apps exist and their state | the `app` table — ask the catalogue, never a list in a file |
+| What is tested, and what that proves | `docs/testing-approach.md` |
 
-### Live end to end
+**The shape, as of this date.** Nine Next.js apps plus the Hono API. Live on
+`thethread.app` subdomains, with the platform itself still on `thefibre.app`;
+staging is the `thefibre.tech` twin. `connections` (port 3008) is the ninth,
+and it is not a new slug: it is `fibre-sales` renamed, because slugs tag
+curator data and never change (see `docs/connections-naming.md`). Its
+`available` flag went true on 2026-09-12, the last step of bringing an app up
+and never the first. `fibre-learn` is still registered and unreleased.
+`fot-planner` is a real external app running against the published contract in
+production — which is why `/api/v1/apps/*` stays additive-only in practice and
+not just in principle.
 
-- Sign in with Google or an email code. Sessions cross the two apexes via the
-  SSO hop; `/sso/land` also doubles as the E2E session fixture.
-- Contacts and organisations with emergent per-app profile tabs, per-app
-  curator data, and an activity timeline filterable by app, type, person and
-  organisation.
-- Programmes and enrolments; consent and erasure requests; the Article 15
-  self-service export (`GET /api/v1/privacy/export`).
-- Thread whole: public pages in six languages, tickets, discount codes,
-  Stripe Checkout and invoice payment, triggered messages on a five-minute
-  scheduler, approval and completion flows, certificates, template library,
-  website embeds, door scanner.
-- Membership whole: join page, tiers, country pricing rules, Stripe Connect
-  subscriptions, renewals, member portal. The soul.com workspace runs on it.
-- Money in one place: the purchase ledger across apps, the invoices area in
-  Thread and Meet, refunds, and the payments SPoT (`lib/payment-accounts.ts`).
-- Productisation: `/admin/plans`, Settings → Plan, public `/pricing`, Stripe
-  Billing subscriptions, seat billing, `/admin/economics`.
-- External apps: open catalogue, `POST /apps/register`, `app_key` credentials
-  with enforced scopes, review at `/admin/apps`.
-- Six languages across every signed-in interface, platform email and auth
-  email. New user-facing strings always go through a catalog, never hardcoded EN.
-- CI per push, a nightly contract smoke, and `pnpm verify` over unit,
-  integration and Playwright packs.
+**Still genuinely not shipped:** retention-policy admin, cross-app erasure
+webhook handlers, Microsoft and LinkedIn OAuth, and the `api.thefibre.app`
+CNAME (the API still answers on `thefibre-api.fly.dev`).
 
-### Not built yet
+**One structural note for whoever grooms this file next.** The three "Where we
+left off" sections above run to about 180 lines and every session loads all of
+them. `CHANGELOG.md` already carries the shipped record in more detail. They
+were left alone here because they are Sjoerd's narrative and trimming them is
+his call, not a passing agent's — but they are the obvious next thing to fold
+down.
 
-- Fibre Sales and Fibre Learn.
-- Retention enforcement. `retention_months` is a plan field; the 13-month
-  Free archive, overage lines and 80% warnings are queue item P4.
-- Microsoft and LinkedIn OAuth.
-- A custom `api.thefibre.app` CNAME. The API answers on `thefibre-api.fly.dev`.
-- For the visitor portal: PWA, wallet passes, and the per-thread door
-  capability that would let a volunteer work a door without workspace rights.
-
-What is NEXT lives in `docs/build-plan.md`. This section only says what
-exists; when the two disagree, believe the build plan and fix this one.
-
-### Data state
-
-Two real workspaces: the default `eaf096f8…` and soul.com `986d1631` (slug
-`soul`, Membership live, org plan comped). `cd apps/api && node
-scripts/seed-ebbf.mjs` lays the brief §8 demo set on top, idempotently.
 
 ## Reviewer's note
 

@@ -2,13 +2,14 @@
 // every membership held under your email, across communities. No workspace
 // membership required — outside the (app) group on purpose.
 
-import { appName } from '@thefibre/shared';
+import { appName, ENTITY } from '@thefibre/shared';
 import { serverSupabase } from '@/lib/supabase/server';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { money } from '@/lib/money';
 import { DEFAULT_LOCALE, INTL_LOCALES, t, toLocale, type I18nKey, type Locale } from '@/lib/i18n';
 import { SignInButton } from '../sign-in-button';
 import { ManagePaymentButton } from './manage-payment-button';
+import { SignOutButton } from './sign-out-button';
 
 type PortalMembership = {
   member_id: string;
@@ -132,7 +133,12 @@ export default async function MyPage() {
   return (
     <Shell>
       <h1 className="text-2xl font-medium tracking-tight">{t(locale, 'my_memberships')}</h1>
-      <p className="mt-1 text-sm text-ink-subtle">{data.email}</p>
+      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="text-sm text-ink-subtle">{data.email}</p>
+        {/* Beside the address, because that is the line that answers "who am
+            I signed in as" — the question sign-out follows from. */}
+        <SignOutButton locale={locale} />
+      </div>
 
       {data.items.length === 0 && (data.products?.length ?? 0) === 0 && (
         <p className="mt-8 text-sm text-ink-subtle">{t(locale, 'no_memberships')}</p>
@@ -196,6 +202,12 @@ export default async function MyPage() {
                         <span className="text-xs text-ink-muted shrink-0 tabular-nums">
                           {fmtDate(inv.created_at, locale)}
                         </span>
+                        <a
+                          href={`/my/invoices/${inv.id}/pdf`}
+                          className="text-xs text-ink-subtle hover:text-ink underline underline-offset-2 shrink-0"
+                        >
+                          {t(locale, 'download')}
+                        </a>
                         {inv.stripe_invoice_url && (
                           <a
                             href={inv.stripe_invoice_url}
@@ -266,7 +278,7 @@ export default async function MyPage() {
       )}
 
       <footer className="mt-16 text-xs text-ink-muted">
-        {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · The Fibre
+        {t(locale, 'powered_by')} <span className="font-medium">{appName('membership')}</span> · {ENTITY.publicName}
       </footer>
     </Shell>
   );
