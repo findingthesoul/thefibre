@@ -1,89 +1,21 @@
+import Link from 'next/link';
 import { ArrowUpRight, ArrowDownRight } from 'lucide-react';
-import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
+import { t, type Locale } from '@/lib/i18n-ui';
+import {
+  AXIS_FILL_KEYS,
+  BAND_KEYS,
+  BAND_NOTE_KEYS,
+  type Axis,
+  type Band,
+  type Moved,
+} from './axes';
 
-// The five ways to read the same population (docs/connections-mobile.md §2,
-// D32). Each list runs LOW TO HIGH, matching the API's own ladder for that
-// axis — "up" in the movement list is a position in this array and nothing
-// else, so the two must not drift. The API is the source: apps/api/src/
-// routes/connections.ts BANDS.
-export const AXES = ['maturity', 'closeness', 'cadence', 'opportunity', 'contribution'] as const;
-export type Axis = (typeof AXES)[number];
+// Re-exported so the page and the picker keep importing from one place. The
+// DEFINITIONS moved to ./axes (see its header for why); this file is the
+// rendering and nothing else.
+export { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, isAxis } from './axes';
+export type { Axis, Band, Moved } from './axes';
 
-export function isAxis(v: string | undefined | null): v is Axis {
-  return !!v && (AXES as readonly string[]).includes(v);
-}
-
-export type Band = {
-  rung: string;
-  count: number;
-  was: number;
-  /** Net people who MOVED into this rung, excluding anyone who simply
-   *  arrived in the window. count-minus-was would conflate the two and read
-   *  as insight while being an artefact of a young workspace. */
-  net_moved: number;
-};
-export type Moved = {
-  person_id: string;
-  from: string;
-  to: string;
-  up: boolean;
-  person: { first_name?: string | null; last_name?: string | null; email?: string | null } | null;
-};
-
-export const AXIS_KEYS: Record<Axis, UiKey> = {
-  maturity: 'axis_maturity',
-  closeness: 'axis_closeness',
-  cadence: 'axis_cadence',
-  opportunity: 'axis_opportunity',
-  contribution: 'axis_contribution',
-};
-
-export const AXIS_QUESTION_KEYS: Record<Axis, UiKey> = {
-  maturity: 'axis_q_maturity',
-  closeness: 'axis_q_closeness',
-  cadence: 'axis_q_cadence',
-  opportunity: 'axis_q_opportunity',
-  contribution: 'axis_q_contribution',
-};
-
-// Explicit maps, not computed keys: the catalog is typed so a missing
-// translation is a compile error, and a template key throws that away. One
-// map per axis — five axes' worth of band names is the ONLY thing about this
-// component that differs between them.
-const BAND_KEYS: Record<Axis, Record<string, UiKey>> = {
-  maturity: {
-    facilitator: 'rung_facilitator',
-    contributor: 'rung_contributor',
-    returned: 'rung_returned',
-    attended: 'rung_attended',
-    touched: 'rung_touched',
-    never: 'rung_never',
-  },
-  closeness: {
-    advocate: 'band_advocate',
-    strong: 'band_strong',
-    warm: 'band_warm',
-    weak: 'band_weak',
-    unrated: 'band_unrated',
-  },
-  cadence: {
-    in_rhythm: 'band_in_rhythm',
-    slowing: 'band_slowing',
-    quiet: 'band_quiet',
-    never_spoken: 'band_never_spoken',
-  },
-  opportunity: {
-    committed: 'band_committed',
-    proposal: 'band_proposal',
-    open: 'band_open',
-    none: 'band_none',
-  },
-  contribution: {
-    brings_regularly: 'band_brings_regularly',
-    brought_someone: 'band_brought_someone',
-    brought_nobody: 'band_brought_nobody',
-  },
-};
 
 // Depth of involvement read as depth of ink. Not a status colour — nothing
 // here is good or bad, and green/amber/red would say otherwise about people.
@@ -130,11 +62,20 @@ export function Bands({
   locale: Locale;
 }) {
   const keys = BAND_KEYS[axis];
+  const notes = BAND_NOTE_KEYS[axis];
   const ramp = RAMP[bands.length] ?? RAMP[6]!;
   const label = (band: string) => {
     const k = keys[band];
     return k ? t(locale, k) : band;
   };
+
+  // The case that reads as a broken page: one bar, full width, holding
+  // everybody. It is the truthful picture of an axis whose source nobody has
+  // filled in yet, and in a young workspace three of the five look like this.
+  // Computed from the bands rather than assumed, so it disappears by itself
+  // the moment a second band gets anybody in it.
+  const occupied = bands.filter((b) => b.count > 0);
+  const onlyBand = total > 0 && occupied.length === 1 ? occupied[0]! : null;
 
   return (
     <div className="mt-8">
@@ -150,8 +91,31 @@ export function Bands({
         {bands.map((b, i) => {
           const pct = total > 0 ? (b.count / total) * 100 : 0;
           const delta = b.net_moved;
+          const note = notes[b.rung];
+          // A band with people in it is a question — WHO are those nine? —
+          // and until now it was a number you could not follow. The whole
+          // row is the target rather than the label: it is the thumb-sized
+          // thing already on screen, and making somebody hit a word instead
+          // would break this project's own mobile rules.
+          //
+          // The <li> stays an <li> and the link goes INSIDE it. Swapping the
+          // element for an <a> would put an anchor directly in a <ul>, which
+          // is invalid and which React will not warn about. An empty band
+          // renders a plain div: there is nothing behind a zero, and a link
+          // to an empty list is a promise the page cannot keep.
+          const Inner = b.count > 0 ? Link : 'div';
+          const innerProps =
+            b.count > 0
+              ? { href: `/people?axis=${axis}&band=${b.rung}` as const }
+              : {};
           return (
-            <li key={b.rung} className="rounded-md border border-line bg-surface-raised px-3 py-2.5">
+            <li key={b.rung}>
+              <Inner
+                {...(innerProps as { href: string })}
+                className={`block rounded-md border border-line bg-surface-raised px-3 py-2.5 ${
+                  b.count > 0 ? 'transition-colors hover:border-ink/30' : ''
+                }`}
+              >
               <div className="flex items-baseline justify-between gap-3">
                 <span className="text-sm font-medium">{label(b.rung)}</span>
                 <span className="text-sm tabular-nums">
@@ -170,10 +134,25 @@ export function Bands({
                   style={{ width: `${Math.max(pct, b.count > 0 ? 1.5 : 0)}%` }}
                 />
               </div>
+
+              {/* Only where somebody actually stands. An empty band needs no
+                  explanation of who is in it, and glossing all six would
+                  bury the four that have people in them. */}
+              {b.count > 0 && note && (
+                <p className="mt-2 text-xs text-ink-subtle">{t(locale, note)}</p>
+              )}
+              </Inner>
             </li>
           );
         })}
       </ul>
+
+      {onlyBand && (
+        <p className="mt-3 text-sm text-ink-muted">
+          {t(locale, 'landscape_all_one_band', { n: total })}{' '}
+          {t(locale, AXIS_FILL_KEYS[axis])}
+        </p>
+      )}
 
       {/* Proportions alone are a poster. Movement is the reason to open it
           twice — docs/connections-mobile.md §2. */}

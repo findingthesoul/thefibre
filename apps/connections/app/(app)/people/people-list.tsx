@@ -5,6 +5,12 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
+// Band labels for whichever axis the landscape sent us in on. Imported
+// rather than redeclared: this file used to carry its own maturity-only
+// copy, and a second copy of a label map is how two surfaces start
+// disagreeing about what a band is called. ../landscape/axes holds no JSX
+// precisely so a 'use client' file like this one can read it.
+import { BAND_KEYS, type Axis } from '../landscape/axes';
 
 export type Person = {
   id: string;
@@ -15,26 +21,6 @@ export type Person = {
   created_at: string;
 };
 
-// The maturity ladder's labels. Explicit map, never a computed
-// t(locale, `rung_${x}`) — the catalog is typed so a missing translation is a
-// compile error, and a template key throws that guarantee away. Same keys the
-// landscape's bands render; the labels live in the catalog once and this is a
-// second reference to them, not a second copy.
-const RUNG_KEYS = {
-  facilitator: 'rung_facilitator',
-  contributor: 'rung_contributor',
-  returned: 'rung_returned',
-  attended: 'rung_attended',
-  touched: 'rung_touched',
-  never: 'rung_never',
-} as const;
-
-type Rung = keyof typeof RUNG_KEYS;
-
-function isRung(v: string | undefined): v is Rung {
-  return !!v && v in RUNG_KEYS;
-}
-
 export function displayName(p: Person): string {
   return [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || p.id.slice(0, 8);
 }
@@ -44,6 +30,9 @@ export function PeopleList({
   q,
   total,
   rungById,
+  axis,
+  band,
+  bandTotal,
   hasMore,
   nextPages,
   locale,
@@ -52,9 +41,16 @@ export function PeopleList({
   q: string;
   /** People in the workspace, or null when it could not be read. */
   total: number | null;
-  /** person id → maturity band. Empty when the landscape read failed; a row
+  /** person id → band ON `axis`. Empty when the landscape read failed; a row
    *  whose id is absent simply shows no band rather than a guess. */
   rungById: Record<string, string>;
+  /** Which question the bands answer. Arrives in the URL from the landscape. */
+  axis: Axis;
+  /** The band being filtered to, or null for everybody. */
+  band: string | null;
+  /** How many people are in `band` workspace-wide — from the landscape, not
+   *  from the loaded rows, so the number is the band's true size. */
+  bandTotal: number | null;
   hasMore: boolean;
   nextPages: number;
   locale: Locale;
@@ -76,19 +72,33 @@ export function PeopleList({
     if (term === applied.current) return;
     const id = setTimeout(() => {
       applied.current = term;
+      // The band filter survives a search: narrowing "who is in touch" down
+      // to one name is the point, and dropping the filter on the first
+      // keystroke would silently widen the list under the person typing.
       const qs = new URLSearchParams();
       if (term.trim()) qs.set('q', term.trim());
+      if (band) {
+        qs.set('axis', axis);
+        qs.set('band', band);
+      }
       startTransition(() => {
         router.replace(qs.toString() ? `/people?${qs.toString()}` : '/people');
       });
     }, 300);
     return () => clearTimeout(id);
-  }, [term, router]);
+  }, [term, router, axis, band]);
 
   const moreHref = `/people?${new URLSearchParams({
     ...(q ? { q } : {}),
+    ...(band ? { axis, band } : {}),
     pages: String(nextPages),
   }).toString()}`;
+
+  const bandKeys = BAND_KEYS[axis];
+  const bandLabel = (b: string) => {
+    const k = bandKeys[b];
+    return k ? t(locale, k) : b;
+  };
 
   return (
     <div className="mt-6">
@@ -107,19 +117,50 @@ export function PeopleList({
         />
       </div>
 
+      {/* Arriving from a band, the first thing to establish is WHICH band —
+          otherwise a shortened list reads as a broken one. The way out is on
+          the same line, because a filter you cannot see how to leave is a
+          trap rather than a lens. */}
+      {band && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-sm">
+          <span className="rounded-full border border-ink bg-ink px-3 py-1 text-xs text-surface">
+            {bandLabel(band)}
+            {bandTotal !== null && <span className="ml-1.5 tabular-nums">{bandTotal}</span>}
+          </span>
+          <Link
+            href={q ? `/people?q=${encodeURIComponent(q)}` : '/people'}
+            className="text-xs text-ink-muted underline underline-offset-2 hover:text-ink"
+          >
+            {t(locale, 'people_show_everyone')}
+          </Link>
+        </div>
+      )}
+
       <div className="mt-2 h-4 text-xs text-ink-muted tabular-nums">
+        {/* With a band filter on, `total` is the whole workspace and saying
+            "3 of 12" would be comparing the filtered list against the
+            unfiltered population. The chip above already carries the band's
+            size, so this line stands down to a plain count. */}
         {pending
           ? t(locale, 'loading')
-          : total !== null && items.length < total
-            ? t(locale, 'people_showing', { shown: items.length, total })
-            : items.length > 0
+          : band
+            ? items.length > 0
               ? `${items.length} ${t(locale, 'landscape_people')}`
-              : ''}
+              : ''
+            : total !== null && items.length < total
+              ? t(locale, 'people_showing', { shown: items.length, total })
+              : items.length > 0
+                ? `${items.length} ${t(locale, 'landscape_people')}`
+                : ''}
       </div>
 
       {items.length === 0 && (
         <p className="mt-6 text-sm text-ink-muted">
-          {q ? t(locale, 'people_none') : t(locale, 'landscape_empty')}
+          {band
+            ? t(locale, 'people_none_in_band')
+            : q
+              ? t(locale, 'people_none')
+              : t(locale, 'landscape_empty')}
         </p>
       )}
 
@@ -146,9 +187,9 @@ export function PeopleList({
                         and not a score — nothing on this ladder is good or
                         bad, and green/amber/red would say otherwise about
                         people. */}
-                    {isRung(rung) && (
+                    {rung && bandKeys[rung] && (
                       <span className="rounded-full border border-line px-2 py-0.5">
-                        {t(locale, RUNG_KEYS[rung])}
+                        {bandLabel(rung)}
                       </span>
                     )}
                     {p.country && <span>{p.country}</span>}

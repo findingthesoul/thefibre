@@ -6,6 +6,63 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.6] — 2026-09-12 — the landscape says where its numbers came from
+
+Sjoerd, having opened Connections for the first time: *"I dont get what it
+is doing now."* He was right, and every number on the page was correct.
+
+**What he was looking at.** Read against production, three of The Thread
+B.V.'s five axes put all twelve people in one band — cadence says
+`never_spoken` 12/12, contribution says `brought_nobody` 12/12 — because
+those axes read captured conversations and recorded introductions, and
+nothing has written either yet. A full-width bar labelled "Never spoken"
+holding everybody is indistinguishable from a broken page. The app had no
+way to say which it was.
+
+**Three additions, all of them the page explaining itself.**
+
+Every band a person actually stands in now carries one line saying what put
+them there: *came to two or more things*, *has paid for something or holds a
+membership*, *has something in Pulse at a committed or won stage*. These are
+restatements of the SQL predicates in `connections_landscape` and
+`connections_landscape_axis`, deliberately short, and they must change in the
+same commit as the query they describe — a gloss that has drifted from its
+predicate is worse than no gloss. Bands nobody is in stay unexplained; there
+is nothing to account for.
+
+An axis where everybody lands in one band now says so, and says what would
+fill it. *Write down a conversation on a person and this axis starts
+working.* That sentence is the difference between a page that looks broken
+and a page telling you what to do next, and it disappears by itself the
+moment a second band has anybody in it.
+
+A band with people in it is now a link. Nine people are "in touch" was a
+number you could not follow; it goes to `/people` filtered to that band, on
+that axis, with the band named in a chip and a way back out on the same line.
+The filter survives a search, so narrowing a band down to one name works.
+
+**One honest limit, stated in the code.** Filtering happens over the rows
+already loaded, so in a workspace larger than the loaded window somebody in a
+band can sit on a page nobody has asked for yet. The count in the chip comes
+from the landscape rather than from the rows, so it is the band's true size,
+and the empty state says *nobody from this band is in the people loaded so
+far* rather than pretending the band is empty.
+
+**`app/(app)/landscape/axes.ts`** is new and holds the label maps as data.
+It exists for the reason `today/shape.ts` exists: a module read by both a
+server component and a `'use client'` component must be neither, because Next
+replaces a client module's exports with proxies and erases the types — the
+constant typechecks and then crashes on first render. `people-list.tsx` was
+carrying its own maturity-only copy of the labels and now imports the one.
+
+**A markup trap not shipped.** Making a band row a link by swapping the
+`<li>` for the link component puts an anchor directly inside a `<ul>`.
+Invalid, and React says nothing. The link goes inside the `<li>`. Caught by
+rendering the component to static HTML with the real production counts and
+reading the output — worth doing for any surface with this much conditional
+copy, since a typechecker has no opinion about whether a page makes sense.
+
+
 ## [0.73.5] — 2026-09-12 — Connections is a door you can walk through
 
 Sjoerd, on returning: *"what do I need to do?"* Two switches, both his, and

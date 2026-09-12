@@ -5847,6 +5847,237 @@ const CATALOG = {
     de: 'braucht {n} Tage', // MT
     fr: 'demande {n} jours', // MT
   },
+  // ── What actually puts a person in a band ────────────────────────────────
+  // The landscape's numbers are correct and were, until now, unexplained: a
+  // bar labelled "Never spoken" holding everybody reads as a broken page
+  // rather than as a true statement about a workspace that has not captured
+  // any conversations yet. Every note below restates, in a facilitator's
+  // words, the predicate in connections_landscape / connections_landscape_axis.
+  // If one of those definitions changes, change its sentence here — a note
+  // that has drifted from the query is worse than no note.
+  //
+  // Only bands whose membership is NOT obvious from the label get one. The
+  // four rated closeness bands say what they mean already; `unrated` does not.
+  note_rung_facilitator: {
+    en: 'Runs a thread, or is named on one as a helper.',
+    nl: 'Leidt een thread, of staat erop als begeleider.',
+    es: 'Dirige un thread o figura en uno como acompañante.', // MT
+    pt: 'Conduz uma thread, ou está nela como facilitador.', // MT
+    de: 'Leitet einen Thread oder ist darin als Helfer benannt.', // MT
+    fr: 'Anime un thread, ou y est nommé comme accompagnant.', // MT
+  },
+  note_rung_contributor: {
+    en: 'Has paid for something, or holds a membership.',
+    nl: 'Heeft voor iets betaald, of heeft een lidmaatschap.',
+    es: 'Ha pagado algo o tiene una membresía.', // MT
+    pt: 'Pagou alguma coisa, ou tem uma adesão.', // MT
+    de: 'Hat für etwas bezahlt oder hat eine Mitgliedschaft.', // MT
+    fr: 'A payé quelque chose, ou a une adhésion.', // MT
+  },
+  note_rung_returned: {
+    en: 'Came to two or more things.',
+    nl: 'Kwam naar twee of meer dingen.',
+    es: 'Vino a dos cosas o más.', // MT
+    pt: 'Veio a duas coisas ou mais.', // MT
+    de: 'War bei zwei oder mehr Dingen dabei.', // MT
+    fr: 'Est venu à deux choses ou plus.', // MT
+  },
+  note_rung_attended: {
+    en: 'Came to one thing.',
+    nl: 'Kwam naar één ding.',
+    es: 'Vino a una cosa.', // MT
+    pt: 'Veio a uma coisa.', // MT
+    de: 'War bei einer Sache dabei.', // MT
+    fr: 'Est venu à une chose.', // MT
+  },
+  note_rung_touched: {
+    en: 'Something happened involving them, but they never came.',
+    nl: 'Er gebeurde iets met hen, maar ze kwamen nooit.',
+    es: 'Pasó algo que les involucra, pero nunca vinieron.', // MT
+    pt: 'Aconteceu algo que os envolve, mas nunca vieram.', // MT
+    de: 'Es gab etwas mit ihnen, aber sie kamen nie.', // MT
+    fr: 'Quelque chose les a impliqués, mais ils ne sont jamais venus.', // MT
+  },
+  note_rung_never: {
+    en: 'A contact record and nothing else yet.',
+    nl: 'Een contactregel en verder nog niets.',
+    es: 'Una ficha de contacto y nada más por ahora.', // MT
+    pt: 'Um registo de contacto e mais nada por enquanto.', // MT
+    de: 'Ein Kontakteintrag und sonst noch nichts.', // MT
+    fr: 'Une fiche de contact et rien d’autre pour l’instant.', // MT
+  },
+  note_band_unrated: {
+    en: 'Nobody has rated them. This is the one axis that is typed in, not worked out.',
+    nl: 'Niemand heeft ze beoordeeld. Dit is de enige as die je invult in plaats van afleidt.',
+    es: 'Nadie les ha valorado. Este es el único eje que se escribe a mano y no se deduce.', // MT
+    pt: 'Ninguém os avaliou. Este é o único eixo que se escreve à mão e não se deduz.', // MT
+    de: 'Niemand hat sie eingeschätzt. Das ist die einzige Achse, die eingetragen und nicht abgeleitet wird.', // MT
+    fr: 'Personne ne les a évalués. C’est le seul axe que l’on saisit au lieu de le déduire.', // MT
+  },
+  note_band_never_spoken: {
+    en: 'No conversation has been written down for them.',
+    nl: 'Er is nog geen gesprek van hen vastgelegd.',
+    es: 'No hay ninguna conversación registrada con ellos.', // MT
+    pt: 'Não há nenhuma conversa registada com eles.', // MT
+    de: 'Es ist noch kein Gespräch mit ihnen erfasst.', // MT
+    fr: 'Aucune conversation n’a été notée avec eux.', // MT
+  },
+  note_band_quiet: {
+    en: 'Longer than twice their usual gap since you last spoke.',
+    nl: 'Meer dan twee keer hun gebruikelijke tussenpoos sinds het laatste gesprek.',
+    es: 'Más del doble de su intervalo habitual desde la última conversación.', // MT
+    pt: 'Mais do dobro do intervalo habitual desde a última conversa.', // MT
+    de: 'Mehr als das Doppelte ihres üblichen Abstands seit dem letzten Gespräch.', // MT
+    fr: 'Plus du double de leur intervalle habituel depuis la dernière conversation.', // MT
+  },
+  note_band_slowing: {
+    en: 'Longer than their usual gap since you last spoke.',
+    nl: 'Langer dan hun gebruikelijke tussenpoos sinds het laatste gesprek.',
+    es: 'Más que su intervalo habitual desde la última conversación.', // MT
+    pt: 'Mais do que o intervalo habitual desde a última conversa.', // MT
+    de: 'Länger als ihr üblicher Abstand seit dem letzten Gespräch.', // MT
+    fr: 'Plus long que leur intervalle habituel depuis la dernière conversation.', // MT
+  },
+  note_band_in_rhythm: {
+    en: 'Spoken to within their usual gap.',
+    nl: 'Binnen hun gebruikelijke tussenpoos gesproken.',
+    es: 'Habéis hablado dentro de su intervalo habitual.', // MT
+    pt: 'Falaram dentro do intervalo habitual.', // MT
+    de: 'Innerhalb ihres üblichen Abstands gesprochen.', // MT
+    fr: 'Vous vous êtes parlé dans leur intervalle habituel.', // MT
+  },
+  note_band_committed: {
+    en: 'Has something in Pulse at a committed or won stage.',
+    nl: 'Heeft iets in Pulse in een vastgelegde of gewonnen fase.',
+    es: 'Tiene algo en Pulse en una etapa comprometida o ganada.', // MT
+    pt: 'Tem algo no Pulse numa fase comprometida ou ganha.', // MT
+    de: 'Hat etwas in Pulse in einer zugesagten oder gewonnenen Phase.', // MT
+    fr: 'A quelque chose dans Pulse à une étape engagée ou gagnée.', // MT
+  },
+  note_band_proposal: {
+    en: 'Has something in Pulse at the last open stage before committing.',
+    nl: 'Heeft iets in Pulse in de laatste open fase voor het vastleggen.',
+    es: 'Tiene algo en Pulse en la última etapa abierta antes de comprometerse.', // MT
+    pt: 'Tem algo no Pulse na última fase aberta antes de comprometer.', // MT
+    de: 'Hat etwas in Pulse in der letzten offenen Phase vor der Zusage.', // MT
+    fr: 'A quelque chose dans Pulse à la dernière étape ouverte avant l’engagement.', // MT
+  },
+  note_band_open: {
+    en: 'Has something in Pulse at an earlier open stage.',
+    nl: 'Heeft iets in Pulse in een eerdere open fase.',
+    es: 'Tiene algo en Pulse en una etapa abierta anterior.', // MT
+    pt: 'Tem algo no Pulse numa fase aberta anterior.', // MT
+    de: 'Hat etwas in Pulse in einer früheren offenen Phase.', // MT
+    fr: 'A quelque chose dans Pulse à une étape ouverte antérieure.', // MT
+  },
+  note_band_none: {
+    en: 'Nothing recorded in Pulse.',
+    nl: 'Niets vastgelegd in Pulse.',
+    es: 'Nada registrado en Pulse.', // MT
+    pt: 'Nada registado no Pulse.', // MT
+    de: 'Nichts in Pulse erfasst.', // MT
+    fr: 'Rien d’enregistré dans Pulse.', // MT
+  },
+  note_band_brings_regularly: {
+    en: 'Introduced two or more of the people here.',
+    nl: 'Bracht twee of meer van de mensen hier binnen.',
+    es: 'Ha presentado a dos o más de las personas de aquí.', // MT
+    pt: 'Apresentou duas ou mais das pessoas daqui.', // MT
+    de: 'Hat zwei oder mehr der Menschen hier eingeführt.', // MT
+    fr: 'A présenté deux personnes d’ici ou plus.', // MT
+  },
+  note_band_brought_someone: {
+    en: 'Introduced one of the people here.',
+    nl: 'Bracht één van de mensen hier binnen.',
+    es: 'Ha presentado a una de las personas de aquí.', // MT
+    pt: 'Apresentou uma das pessoas daqui.', // MT
+    de: 'Hat eine der Menschen hier eingeführt.', // MT
+    fr: 'A présenté une des personnes d’ici.', // MT
+  },
+  note_band_brought_nobody: {
+    en: 'No introduction recorded for them.',
+    nl: 'Geen introductie van hen vastgelegd.',
+    es: 'No hay ninguna presentación registrada.', // MT
+    pt: 'Não há nenhuma apresentação registada.', // MT
+    de: 'Keine Einführung durch sie erfasst.', // MT
+    fr: 'Aucune présentation enregistrée pour eux.', // MT
+  },
+
+  // ── When one band holds everybody ────────────────────────────────────────
+  // The case that reads as a bug and is not one. A single full-width bar is
+  // the truthful picture of an axis whose source nobody has filled yet, and
+  // saying so — plus what would fill it — is the difference between a page
+  // that looks broken and a page that is telling you what to do next.
+  landscape_all_one_band: {
+    en: 'All {n} people are in one band, so this axis has nothing to separate yet.',
+    nl: 'Alle {n} mensen zitten in één band, dus deze as onderscheidt nog niets.',
+    es: 'Las {n} personas están en una sola banda, así que este eje aún no distingue nada.', // MT
+    pt: 'As {n} pessoas estão numa só banda, por isso este eixo ainda não distingue nada.', // MT
+    de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
+    fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
+  },
+  people_show_everyone: {
+    en: 'Show everyone',
+    nl: 'Toon iedereen',
+    es: 'Mostrar a todo el mundo', // MT
+    pt: 'Mostrar toda a gente', // MT
+    de: 'Alle anzeigen', // MT
+    fr: 'Afficher tout le monde', // MT
+  },
+  // Distinct from people_none (a search that matched nothing) and from
+  // landscape_empty (a workspace with nobody in it). Three different facts;
+  // one message for all three would be wrong twice.
+  people_none_in_band: {
+    en: 'Nobody from this band is in the people loaded so far. Try Load more.',
+    nl: 'Niemand uit deze band zit in de mensen die tot nu toe geladen zijn. Probeer Meer laden.',
+    es: 'Nadie de esta banda está entre las personas cargadas hasta ahora. Prueba Cargar más.', // MT
+    pt: 'Ninguém desta banda está entre as pessoas carregadas até agora. Tenta Carregar mais.', // MT
+    de: 'Aus diesem Band ist niemand unter den bisher geladenen Personen. Versuche Mehr laden.', // MT
+    fr: 'Personne de cette bande n’est parmi les personnes chargées jusqu’ici. Essayez Charger plus.', // MT
+  },
+  fill_maturity: {
+    en: 'It spreads as people enrol, come, pay, or start running things.',
+    nl: 'Het spreidt zodra mensen zich inschrijven, komen, betalen of dingen gaan leiden.',
+    es: 'Se reparte a medida que la gente se inscribe, viene, paga o empieza a dirigir cosas.', // MT
+    pt: 'Espalha-se à medida que as pessoas se inscrevem, vêm, pagam ou começam a conduzir coisas.', // MT
+    de: 'Es verteilt sich, sobald Menschen sich anmelden, kommen, zahlen oder etwas leiten.', // MT
+    fr: 'Cela se répartit à mesure que les gens s’inscrivent, viennent, paient ou animent.', // MT
+  },
+  fill_closeness: {
+    en: 'Rate a few people by hand on their relationship tab and this axis starts working.',
+    nl: 'Beoordeel een paar mensen met de hand op hun relatietab en deze as gaat werken.',
+    es: 'Valora a mano a unas cuantas personas en su pestaña de relación y este eje empieza a funcionar.', // MT
+    pt: 'Avalia à mão algumas pessoas no separador de relação e este eixo começa a funcionar.', // MT
+    de: 'Schätze ein paar Menschen von Hand auf ihrem Beziehungs-Tab ein, dann funktioniert diese Achse.', // MT
+    fr: 'Évaluez quelques personnes à la main sur leur onglet de relation et cet axe se met à fonctionner.', // MT
+  },
+  fill_cadence: {
+    en: 'Write down a conversation on a person and this axis starts working.',
+    nl: 'Leg een gesprek vast bij een persoon en deze as gaat werken.',
+    es: 'Registra una conversación en una persona y este eje empieza a funcionar.', // MT
+    pt: 'Regista uma conversa numa pessoa e este eixo começa a funcionar.', // MT
+    de: 'Erfasse ein Gespräch bei einer Person, dann funktioniert diese Achse.', // MT
+    fr: 'Notez une conversation sur une personne et cet axe se met à fonctionner.', // MT
+  },
+  // These two say what to DO, never what is missing — the band note directly
+  // above them already states the fact, and rendering both made the page
+  // repeat itself in two registers.
+  fill_opportunity: {
+    en: 'Put something in the pipeline in Pulse and this axis starts working.',
+    nl: 'Zet iets in de pijplijn in Pulse en deze as gaat werken.',
+    es: 'Mete algo en el pipeline de Pulse y este eje empieza a funcionar.', // MT
+    pt: 'Põe algo no pipeline do Pulse e este eixo começa a funcionar.', // MT
+    de: 'Leg etwas in die Pipeline in Pulse, dann funktioniert diese Achse.', // MT
+    fr: 'Mettez quelque chose dans le pipeline dans Pulse et cet axe se met à fonctionner.', // MT
+  },
+  fill_contribution: {
+    en: 'Record who introduced whom on a person and this axis starts working.',
+    nl: 'Leg bij een persoon vast wie wie introduceerde en deze as gaat werken.',
+    es: 'Registra en una persona quién presentó a quién y este eje empieza a funcionar.', // MT
+    pt: 'Regista numa pessoa quem apresentou quem e este eixo começa a funcionar.', // MT
+    de: 'Erfasse bei einer Person, wer wen eingeführt hat, dann funktioniert diese Achse.', // MT
+    fr: 'Notez sur une personne qui a présenté qui et cet axe se met à fonctionner.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);
