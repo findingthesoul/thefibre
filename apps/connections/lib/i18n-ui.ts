@@ -6725,6 +6725,215 @@ const CATALOG = {
     de: 'Konnte nicht laden, wer nah ist. Versuche es erneut.', // MT
     fr: 'Impossible de charger qui est proche. Réessayez.', // MT
   },
+  // ── Effort: how long kinds of work take (connections-overview.md §3) ──────
+  effort_min: {
+    en: '{n} min',
+    nl: '{n} min',
+    es: '{n} min', // MT
+    pt: '{n} min', // MT
+    de: '{n} Min.', // MT
+    fr: '{n} min', // MT
+  },
+  effort_h: {
+    en: '{n} h',
+    nl: '{n} u',
+    es: '{n} h', // MT
+    pt: '{n} h', // MT
+    de: '{n} Std.', // MT
+    fr: '{n} h', // MT
+  },
+  effort_h_min: {
+    en: '{h} h {m} min',
+    nl: '{h} u {m} min',
+    es: '{h} h {m} min', // MT
+    pt: '{h} h {m} min', // MT
+    de: '{h} Std. {m} Min.', // MT
+    fr: '{h} h {m} min', // MT
+  },
+  today_effort_total: {
+    en: 'About {time} of work in this view.',
+    nl: 'Ongeveer {time} werk in deze weergave.',
+    es: 'Unos {time} de trabajo en esta vista.', // MT
+    pt: 'Cerca de {time} de trabalho nesta vista.', // MT
+    de: 'Etwa {time} Arbeit in dieser Ansicht.', // MT
+    fr: 'Environ {time} de travail dans cette vue.', // MT
+  },
+  effort_card_title: {
+    en: 'How long things take',
+    nl: 'Hoe lang dingen duren',
+    es: 'Cuánto tardan las cosas', // MT
+    pt: 'Quanto tempo as coisas levam', // MT
+    de: 'Wie lange Dinge dauern', // MT
+    fr: 'Combien de temps prennent les choses', // MT
+  },
+  effort_card_desc: {
+    en: 'The time Today estimates for each kind of work.',
+    nl: 'De tijd die Vandaag voor elk soort werk schat.',
+    es: 'El tiempo que Hoy estima para cada tipo de trabajo.', // MT
+    pt: 'O tempo que Hoje estima para cada tipo de trabalho.', // MT
+    de: 'Die Zeit, die Heute für jede Art von Arbeit schätzt.', // MT
+    fr: 'Le temps qu\'Aujourd\'hui estime pour chaque type de travail.', // MT
+  },
+  effort_intro: {
+    en: 'Today adds these up so you can see how heavy a day or a week is. Nobody is asked for an estimate on a task: each piece of work takes its kind\'s number, and you set that number once, here, for the whole workspace.',
+    nl: 'Vandaag telt deze op zodat je ziet hoe zwaar een dag of week is. Niemand hoeft een taak te schatten: elk stuk werk krijgt het getal van zijn soort, en dat getal stel je hier één keer in voor de hele werkruimte.',
+    es: 'Hoy suma estos tiempos para que veas lo cargado que está un día o una semana. Nadie tiene que estimar una tarea: cada trabajo toma el número de su tipo, y ese número se fija una vez, aquí, para todo el espacio.', // MT
+    pt: 'Hoje soma estes tempos para veres quão pesado é um dia ou uma semana. Ninguém tem de estimar uma tarefa: cada trabalho usa o número do seu tipo, definido uma vez, aqui, para todo o espaço.', // MT
+    de: 'Heute addiert diese Zeiten, damit du siehst, wie voll ein Tag oder eine Woche ist. Niemand muss eine Aufgabe schätzen: Jede Arbeit nimmt die Zahl ihrer Art, und diese Zahl legst du hier einmal für den ganzen Arbeitsbereich fest.', // MT
+    fr: 'Aujourd\'hui additionne ces durées pour montrer la charge d\'un jour ou d\'une semaine. Personne n\'estime une tâche : chaque travail prend le nombre de son type, fixé une fois, ici, pour tout l\'espace.', // MT
+  },
+  effort_load_failed: {
+    en: 'Could not load the estimates.',
+    nl: 'Kon de schattingen niet laden.',
+    es: 'No se pudieron cargar las estimaciones.', // MT
+    pt: 'Não foi possível carregar as estimativas.', // MT
+    de: 'Die Schätzungen konnten nicht geladen werden.', // MT
+    fr: 'Impossible de charger les estimations.', // MT
+  },
+  effort_empty_restores: {
+    en: 'Leave a field empty to use the suggested time shown in grey.',
+    nl: 'Laat een veld leeg om de voorgestelde tijd in grijs te gebruiken.',
+    es: 'Deja un campo vacío para usar el tiempo sugerido en gris.', // MT
+    pt: 'Deixa um campo vazio para usar o tempo sugerido a cinzento.', // MT
+    de: 'Lass ein Feld leer, um die grau angezeigte Vorschlagszeit zu nutzen.', // MT
+    fr: 'Laissez un champ vide pour utiliser la durée suggérée en gris.', // MT
+  },
+  effort_invalid: {
+    en: 'Use whole minutes, up to 1440.',
+    nl: 'Gebruik hele minuten, tot 1440.',
+    es: 'Usa minutos enteros, hasta 1440.', // MT
+    pt: 'Usa minutos inteiros, até 1440.', // MT
+    de: 'Ganze Minuten, bis 1440.', // MT
+    fr: 'Minutes entières, jusqu\'à 1440.', // MT
+  },
+  effort_unit: {
+    en: 'min',
+    nl: 'min',
+    es: 'min', // MT
+    pt: 'min', // MT
+    de: 'Min.', // MT
+    fr: 'min', // MT
+  },
+  effort_unit_per_person: {
+    en: 'min per person',
+    nl: 'min per persoon',
+    es: 'min por persona', // MT
+    pt: 'min por pessoa', // MT
+    de: 'Min. pro Person', // MT
+    fr: 'min par personne', // MT
+  },
+  effort_kind_follow_up: {
+    en: 'Follow-up',
+    nl: 'Opvolging',
+    es: 'Seguimiento', // MT
+    pt: 'Seguimento', // MT
+    de: 'Nachfassen', // MT
+    fr: 'Relance', // MT
+  },
+  effort_note_follow_up: {
+    en: 'A next step set when writing a note.',
+    nl: 'Een volgende stap gezet bij een notitie.',
+    es: 'Un siguiente paso fijado al escribir una nota.', // MT
+    pt: 'Um próximo passo definido ao escrever uma nota.', // MT
+    de: 'Ein nächster Schritt aus einer Notiz.', // MT
+    fr: 'Une prochaine étape fixée en écrivant une note.', // MT
+  },
+  effort_kind_flow_step: {
+    en: 'Journey step',
+    nl: 'Stap in een traject',
+    es: 'Paso de un recorrido', // MT
+    pt: 'Passo de um percurso', // MT
+    de: 'Schritt einer Reise', // MT
+    fr: 'Étape d\'un parcours', // MT
+  },
+  effort_note_flow_step: {
+    en: 'A task that arrived because someone reached a step in Flow.',
+    nl: 'Een taak die ontstond omdat iemand een stap in Flow bereikte.',
+    es: 'Una tarea que llegó porque alguien alcanzó un paso en Flow.', // MT
+    pt: 'Uma tarefa que surgiu porque alguém chegou a um passo no Flow.', // MT
+    de: 'Eine Aufgabe, weil jemand einen Schritt in Flow erreicht hat.', // MT
+    fr: 'Une tâche arrivée parce que quelqu\'un a atteint une étape dans Flow.', // MT
+  },
+  effort_kind_task: {
+    en: 'Other task',
+    nl: 'Andere taak',
+    es: 'Otra tarea', // MT
+    pt: 'Outra tarefa', // MT
+    de: 'Andere Aufgabe', // MT
+    fr: 'Autre tâche', // MT
+  },
+  effort_note_task: {
+    en: 'Anything added by hand.',
+    nl: 'Alles wat met de hand is toegevoegd.',
+    es: 'Cualquier cosa añadida a mano.', // MT
+    pt: 'Tudo o que foi adicionado à mão.', // MT
+    de: 'Alles, was von Hand hinzugefügt wurde.', // MT
+    fr: 'Tout ce qui a été ajouté à la main.', // MT
+  },
+  effort_kind_meeting_brief: {
+    en: 'Meeting brief',
+    nl: 'Voorbereiding afspraak',
+    es: 'Preparar una reunión', // MT
+    pt: 'Preparar uma reunião', // MT
+    de: 'Termin vorbereiten', // MT
+    fr: 'Préparer un rendez-vous', // MT
+  },
+  effort_note_meeting_brief: {
+    en: 'Reading up before a booked meeting.',
+    nl: 'Je inlezen voor een geboekte afspraak.',
+    es: 'Ponerse al día antes de una reunión reservada.', // MT
+    pt: 'Informar-se antes de uma reunião marcada.', // MT
+    de: 'Einlesen vor einem gebuchten Termin.', // MT
+    fr: 'Se renseigner avant un rendez-vous réservé.', // MT
+  },
+  effort_kind_thread_unreached: {
+    en: 'Reaching a newcomer',
+    nl: 'Een nieuwkomer bereiken',
+    es: 'Contactar a alguien nuevo', // MT
+    pt: 'Contactar alguém novo', // MT
+    de: 'Neue Person erreichen', // MT
+    fr: 'Joindre un nouveau venu', // MT
+  },
+  effort_note_thread_unreached: {
+    en: 'For each person enrolled in a session who has not been contacted yet.',
+    nl: 'Voor elke ingeschreven persoon die nog niet benaderd is.',
+    es: 'Por cada persona inscrita que aún no ha sido contactada.', // MT
+    pt: 'Por cada pessoa inscrita que ainda não foi contactada.', // MT
+    de: 'Für jede angemeldete Person, die noch nicht kontaktiert wurde.', // MT
+    fr: 'Pour chaque inscrit qui n\'a pas encore été contacté.', // MT
+  },
+  effort_kind_thread_unpaid: {
+    en: 'Payment reminder',
+    nl: 'Betalingsherinnering',
+    es: 'Recordatorio de pago', // MT
+    pt: 'Lembrete de pagamento', // MT
+    de: 'Zahlungserinnerung', // MT
+    fr: 'Rappel de paiement', // MT
+  },
+  effort_note_thread_unpaid: {
+    en: 'For each enrolled person who has not paid yet.',
+    nl: 'Voor elke ingeschreven persoon die nog niet betaald heeft.',
+    es: 'Por cada persona inscrita que aún no ha pagado.', // MT
+    pt: 'Por cada pessoa inscrita que ainda não pagou.', // MT
+    de: 'Für jede angemeldete Person, die noch nicht bezahlt hat.', // MT
+    fr: 'Pour chaque inscrit qui n\'a pas encore payé.', // MT
+  },
+  effort_kind_money_uninvoiced: {
+    en: 'Sending an invoice',
+    nl: 'Een factuur sturen',
+    es: 'Enviar una factura', // MT
+    pt: 'Enviar uma fatura', // MT
+    de: 'Rechnung senden', // MT
+    fr: 'Envoyer une facture', // MT
+  },
+  effort_note_money_uninvoiced: {
+    en: 'Money expected soon that has not been invoiced.',
+    nl: 'Geld dat binnenkort verwacht wordt maar nog niet gefactureerd is.',
+    es: 'Dinero esperado pronto que aún no se ha facturado.', // MT
+    pt: 'Dinheiro esperado em breve que ainda não foi faturado.', // MT
+    de: 'Bald erwartetes Geld, das noch nicht in Rechnung gestellt ist.', // MT
+    fr: 'De l\'argent attendu bientôt, pas encore facturé.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);
