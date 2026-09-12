@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.7] — 2026-09-12 — the module says out loud why it is safe
+
+`apps/thread/lib/public-site.ts` is read by nine server components and one
+client one, and it works only because that client import says `import type`
+— which Next erases before it builds a module graph, so no proxy is ever
+made. Import a VALUE the same way and it typechecks, `next build` says
+nothing, and the page crashes on first render. `PLAIN_SITE` and `siteOf` are
+values.
+
+None of that was written anywhere near the file. It was true by accident,
+and the next person to add an import had no way to know they were standing
+on it. Now the header says so and points at handbook §12.
+
+A comment, and worth a release on its own: the alternative was leaving a
+crash-on-first-render trap in a file with ten importers until somebody
+happened to be in there.
+
 ## [0.73.6] — 2026-09-12 — the landscape says where its numbers came from
 
 Sjoerd, having opened Connections for the first time: *"I dont get what it

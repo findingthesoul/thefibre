@@ -15,6 +15,17 @@
 //
 // 'plain' is what every page was before this existed and stays the default,
 // so nothing anybody has published changed the day this shipped.
+//
+// KEEP THIS MODULE FREE OF DIRECTIVES, and think before importing a VALUE
+// from it into a 'use client' file. Nine server components read it and one
+// client component does — settings/website/form.tsx — and that only works
+// because the client one takes `import type { SiteTheme }`, which is erased
+// before Next builds a module graph. A value crossing the same way gets
+// replaced by a proxy: it typechecks, `next build` says nothing, and it
+// crashes on first render. PLAIN_SITE and siteOf are values. See the
+// handbook §12, "Sharing a constant between a server and a client
+// component" — this file is named there as surviving by accident, and this
+// comment is the part that makes it deliberate.
 
 export type SiteTheme = 'plain' | 'festival' | 'corporate' | 'community';
 
