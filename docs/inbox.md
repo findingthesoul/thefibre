@@ -119,6 +119,62 @@ not have that problem.
 
 Not scoped.
 
+### 2026-09-12 — the person page has no timeline, and stage moves are nowhere
+
+Sjoerd, in the fibre chat, tagged `#connections`:
+
+> when I get to a person... why cant I see the timeline of activitieis. And -
+> in principles... I want to see a person in a popup. Quick scans. And if
+> someone moved from a stage to another, for example there is an offer made,
+> should the offer be there? I should somehow be able to scan the past
+> engagements right?
+
+Three questions. Checked against the code the same day rather than answered
+from memory, because two of them have answers already and the third is a real
+gap.
+
+**1. The timeline. The data exists; Connections does not ask for it.**
+`GET /api/v1/activities?person_id=…` already returns a cross-app timeline:
+type, subject, when, and which app wrote it. It even expands merged people, so
+tidying a duplicate does not lose their history. The Connections person page
+(`apps/connections/app/(app)/people/[id]/page.tsx`) fetches identity and notes
+and nothing else. Its own comment says why: *"Connections owns no person data
+… what this page adds is the only thing in the app that cannot be derived: a
+note somebody typed."* Defensible as a starting point, and it is the reason
+the page reads thin. This is a missing render, not missing data.
+
+**2. The popup. Already built**, on `staging`, unreleased, from his own
+earlier request (`2636b92`, *"work with popups... like the threads"*). It is a
+provider at the layout with one dialog and many openers, and `PersonLink`
+stays a real link, so cmd-click still opens the full page. It currently shows
+the same thing the page does: identity and notes.
+
+**3. Stage moves. This is the gap.** Two halves, and they do not meet.
+
+- The data half landed today. `pulse_commitment_stage_event` (v0.73.15) is an
+  append-only log of stage moves, maintained by trigger so every writer is
+  covered, whether the board dragged it or the dialog changed it.
+- The crossing half does not exist. `pulse.ts` is the one app route that
+  writes **no** `activity` rows at all. Notes, Thread, Meet, Flow,
+  Membership, persons and organisations all write them; Pulse does not. So an
+  offer being made is recorded in a Pulse table and appears on nobody's
+  timeline.
+
+So his instinct is right and the answer to *"should the offer be there?"* is
+yes, and it is not, and the reason is one missing write rather than a design
+that refused it. An activity row is type plus subject, which is exactly the
+shape a stage move has.
+
+**One thing to know before scoping it.** The activity log carries type and
+subject only, never body (brief §6, and it is the data wall's whole point). So
+a scan of past engagements shows *"offer made · Athens proposal"* and the date.
+It will not show what was offered. If what he wants when he says "scan the past
+engagements" is the substance rather than the trail, that is a different
+request and a heavier one, because it means an app reaching into another app's
+content.
+
+Not scoped.
+
 ## Moved out
 
 _Items that graduated to `docs/build-plan.md`, with the date and destination._
