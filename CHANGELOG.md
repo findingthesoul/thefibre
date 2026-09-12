@@ -6,6 +6,31 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.3] — 2026-09-12 — Connections gets a row in the plan matrix
+
+"I don't see Connections in my plans" was two causes wearing one symptom.
+
+**The data half, already fixed.** The `app` row had `beta_at` and
+`released_at` both null, which the schema reads as *not built, nobody can
+activate it*. `beta_at` is now set on prod and staging, so Connections is
+testable by workspaces whose plan carries `beta_apps` — exactly the state it
+is in: it renders real pages, it is worth a tester's time, it is not ready
+for everyone. That mechanism landed overnight in v0.72.x and is a better
+answer than anything invented for the occasion. It is activated for The
+Thread B.V., the one workspace on the Beta plan.
+
+**The code half, this release.** There was no `connections` feature key, so
+`/admin/plans` had no row to tick. It ships **unticked on every tier**,
+because while `beta_at` is set and `released_at` is null it is `beta_apps`
+that gates activation. This row is the switch for general release, so which
+tiers include Connections is decided in the admin screen rather than in a
+migration.
+
+`connections.thethread.app` now serves (v0.73.1 fixed the build), with the
+production environment set. It is still absent from the app switcher: the
+`available` flag in `branding.ts` stays false until somebody has opened it
+signed in and confirmed it works.
+
 ## [0.73.2] — 2026-09-12 — the link preview is the actual logo
 
 Sjoerd pasted thethread.app into WhatsApp on his phone and got the
