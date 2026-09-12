@@ -95,7 +95,7 @@ function Segments({
   active,
   locale,
 }: {
-  segments: { key: Horizon; count: number; minutes: number }[];
+  segments: TodayPayload['segments'];
   active: Horizon;
   locale: Locale;
 }) {
@@ -163,7 +163,12 @@ export function Today({
 }) {
   const now = new Date(data.now).getTime();
   const empty = data.owed.length === 0 && data.prepare.length === 0;
-  const totalMinutes = data.segments.find((s) => s.key === horizon)?.minutes ?? 0;
+  const seg = data.segments.find((s) => s.key === horizon);
+  const totalMinutes = seg?.minutes ?? 0;
+  const free = seg?.free_minutes ?? null;
+  // The sentence the whole of step 6b is for: more work than free time. Said
+  // plainly, not coloured — this app keeps status colours out of its grammar.
+  const over = free !== null && totalMinutes > free;
 
   const time = (iso: string) =>
     new Intl.DateTimeFormat(INTL_LOCALES[locale], { timeStyle: 'short' }).format(new Date(iso));
@@ -179,8 +184,22 @@ export function Today({
           sentence says "about" because that is what they are. */}
       {!empty && totalMinutes > 0 && (
         <p className="mt-4 text-sm text-ink-muted">
-          {t(locale, 'today_effort_total', { time: formatMinutes(totalMinutes, locale) })}
+          {free === null
+            ? t(locale, 'today_effort_total', { time: formatMinutes(totalMinutes, locale) })
+            : t(locale, 'today_effort_free', {
+                time: formatMinutes(totalMinutes, locale),
+                free: formatMinutes(free, locale),
+              })}
+          {over && (
+            <span className="mt-1 flex items-center gap-1.5 font-medium text-ink">
+              <AlertCircle size={14} className="shrink-0" />
+              {t(locale, 'today_effort_over')}
+            </span>
+          )}
         </p>
+      )}
+      {data.calendar === 'unavailable' && (
+        <p className="mt-2 text-xs text-ink-subtle">{t(locale, 'today_calendar_unavailable')}</p>
       )}
 
       {/* Preparation first. What you owe you already know about; what is

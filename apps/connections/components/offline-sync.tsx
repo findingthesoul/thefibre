@@ -2,7 +2,7 @@
 
 // Keeps the device ready for a lost connection, from every page.
 //
-// Mounted once in the signed-in layout. Three jobs, all quiet:
+// Mounted once in the signed-in layout. Two jobs, both quiet:
 //
 //   1. Record which workspace is active, so a note queued offline is stamped
 //      with the workspace it belongs to (see lib/offline-notes.ts for why that
@@ -11,19 +11,21 @@
 //      This used to live inside the note composer, which meant a note queued
 //      in a lift was only sent if somebody later opened a note box. It belongs
 //      to the app, not to one form.
-//   3. Keep a list of people for the offline page, refreshed while online, so
-//      that when there is no signal at all there is still somebody to pick.
+//
+// It used to have a third: keeping a list of people on the phone for the
+// offline page. Removed 2026-09-13 (Sjoerd) — see forgetLegacyPeople. It now
+// deletes that list from any device that still carries one.
 //
 // It also registers the service worker, for the same reason: it is the one
 // client component every signed-in page renders.
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { saveNote, fetchVocabulary } from '@/app/(app)/people/[id]/actions';
+import { saveNote } from '@/app/(app)/people/[id]/actions';
 import {
   QUEUE_CHANGED,
-  cachePeople,
   flushQueuedNotes,
+  forgetLegacyPeople,
   queuedNotes,
   setCurrentWorkspace,
 } from '@/lib/offline-notes';
@@ -32,35 +34,42 @@ export function OfflineSync({ workspaceId }: { workspaceId: string | null }) {
   const router = useRouter();
 
   useEffect(() => {
+    // First, before anything can return early: a device that ran v0.73.18
+    // holds a list of names, and it should not outlive the decision to stop
+    // keeping one.
+    forgetLegacyPeople();
     if (!workspaceId) return;
     setCurrentWorkspace(workspaceId);
 
     let alive = true;
+    let running = false;
 
     const flush = async () => {
+      if (running) return;
       const before = queuedNotes(workspaceId).length;
       if (!before) return;
-      const stuck = await flushQueuedNotes((p) => saveNote(p as never), workspaceId);
-      if (!alive) return;
-      window.dispatchEvent(new Event(QUEUE_CHANGED));
-      // Something landed, so any list of notes on screen is out of date.
-      if (stuck < before) router.refresh();
-    };
-
-    const refreshPeople = async () => {
-      if (!navigator.onLine) return;
-      const v = await fetchVocabulary();
-      if (alive && v.people.length) cachePeople(workspaceId, v.people);
+      running = true;
+      try {
+        const stuck = await flushQueuedNotes((p) => saveNote(p as never), workspaceId);
+        if (!alive) return;
+        // Announce ONLY when something left the queue. This listens to the
+        // same event, so announcing unconditionally loops forever while a
+        // note waits for a person: flush, announce, flush, announce.
+        if (stuck < before) {
+          window.dispatchEvent(new Event(QUEUE_CHANGED));
+          router.refresh();
+        }
+      } finally {
+        running = false;
+      }
     };
 
     void flush();
-    void refreshPeople();
-
-    const onOnline = () => {
-      void flush();
-      void refreshPeople();
-    };
+    const onOnline = () => void flush();
     window.addEventListener('online', onOnline);
+    // A note just filed by UnfiledNotes is sendable now; the queue event is
+    // how that component says so without importing this one.
+    window.addEventListener(QUEUE_CHANGED, onOnline);
 
     // The service worker. Registered here and nowhere else. A failure is
     // logged and otherwise ignored: without it the app works exactly as it
@@ -74,6 +83,7 @@ export function OfflineSync({ workspaceId }: { workspaceId: string | null }) {
     return () => {
       alive = false;
       window.removeEventListener('online', onOnline);
+      window.removeEventListener(QUEUE_CHANGED, onOnline);
     };
   }, [workspaceId, router]);
 

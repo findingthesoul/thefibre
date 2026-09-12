@@ -8,8 +8,8 @@
 // ── What it does ────────────────────────────────────────────────────────────
 //
 //   * Navigations go to the network first. Only when the network FAILS does it
-//     answer with /offline.html, a self-contained page that lets somebody pick
-//     a person and write a note into the device queue.
+//     answer with /offline.html, a self-contained page that lets somebody type
+//     who a note is about and write it into the device queue.
 //   * /_next/static files are cached as they load and served from cache after.
 //     They are content-hashed and immutable, so a cached copy can never be
 //     stale, and they contain no personal data — they are the app's code.
@@ -33,7 +33,12 @@
 // with `self.registration.unregister()` inside an activate handler and deploy.
 // Deleting the file does NOT remove an installed worker; it only stops updates.
 
-const VERSION = 'v1';
+// Bump this whenever /offline.html changes. The browser only reinstalls a
+// worker whose own bytes changed, so an edit to the page alone would leave
+// the OLD page cached on every phone. v2 (2026-09-13): the page takes a typed
+// name instead of a stored people list; the v1 page, with the list wiped,
+// would have offered nobody to write about.
+const VERSION = 'v2';
 const SHELL = `connections-shell-${VERSION}`;
 const STATIC = `connections-static-${VERSION}`;
 const PRECACHE = ['/offline.html', '/icon-192.png', '/apple-touch-icon.png'];

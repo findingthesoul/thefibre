@@ -40,12 +40,23 @@ export function validApp(app) {
  * Pick the diff base. `prevSha` is VERCEL_GIT_PREVIOUS_SHA (the branch's
  * last DEPLOYED sha — the correct base for a multi-commit push); `probe`
  * answers whether a candidate exists in this (possibly shallow) clone:
- * { commitExists(sha), hasParent() }. Returns the base or null (= no usable
- * base → build).
+ * { commitExists(sha), fetch(sha), hasParent() }. Returns the base or null
+ * (= no usable base → build).
+ *
+ * A KNOWN previous sha that is missing from the clone is fetched, and if it
+ * cannot be fetched the answer is "build" — never HEAD^. Found 2026-09-13:
+ * the first promotion under the staging-first flow pushed ~40 commits to main
+ * at once. Vercel's shallow clone did not reach the previous production sha,
+ * this fell back to HEAD^, HEAD^..HEAD was the release commit's version bumps
+ * only, and EVERY app skipped — production Connections stayed four releases
+ * behind while its API and database moved on. HEAD^ is only a sane base when
+ * there is no previous deploy to compare with at all.
  */
 export function pickBase(prevSha, probe) {
-  if (prevSha && /^[0-9a-f]{7,40}$/i.test(prevSha) && probe.commitExists(prevSha)) {
-    return prevSha;
+  if (prevSha && /^[0-9a-f]{7,40}$/i.test(prevSha)) {
+    if (probe.commitExists(prevSha)) return prevSha;
+    if (probe.fetch && probe.fetch(prevSha) && probe.commitExists(prevSha)) return prevSha;
+    return null;
   }
   return probe.hasParent() ? 'HEAD^' : null;
 }
@@ -122,6 +133,16 @@ const base = pickBase(process.env.VERCEL_GIT_PREVIOUS_SHA, {
       return true;
     } catch {
       return false; // previous deploy's sha isn't in this (shallow) clone
+    }
+  },
+  fetch: (sha) => {
+    try {
+      // Depth 1 is enough: `git diff <sha> HEAD` compares two trees and needs
+      // no history between them.
+      run(`git -C ${JSON.stringify(root)} fetch --quiet --depth=1 origin ${sha}`);
+      return true;
+    } catch {
+      return false;
     }
   },
   hasParent: () => {

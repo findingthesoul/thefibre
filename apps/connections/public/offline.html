@@ -6,9 +6,15 @@
   to work with NOTHING but the service worker's cache, so it is plain HTML with
   inline CSS and JS — no Next.js, no React, no framework to fail to load.
 
-  What it does: lets somebody pick a person and write a note, and puts that
-  note in the same device queue the app uses (lib/offline-notes.ts). When the
-  connection returns, the app sends it. The storage keys and the entry shape
+  What it does: lets somebody type who a note is about and write it, and puts
+  that note in the same device queue the app uses (lib/offline-notes.ts). Back
+  online, the app asks which real person the typed name means — it never
+  guesses (system-handbook §12) — and sends it.
+
+  NO PEOPLE ON THE DEVICE. Until 2026-09-13 this page picked from a list of
+  names kept on the phone. Sjoerd removed it: connections-overview.md §4 says
+  the offline half must not become a local contact database. So the name is
+  typed, and kept only inside the note it belongs to. The storage keys and the entry shape
   below are a CONTRACT with that file, which shares no code with this one;
   lib/offline-notes.test.ts checks an entry written this way is read back.
 
@@ -40,10 +46,6 @@
   label { display:block; margin:18px 0 6px; font-size:13px; font-weight:600; }
   input, textarea { width:100%; font:inherit; color:inherit; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:10px 12px; }
   textarea { min-height:120px; resize:vertical; }
-  ul { list-style:none; margin:6px 0 0; padding:0; max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:8px; background:var(--surface); }
-  li button { width:100%; text-align:left; background:none; border:0; border-bottom:1px solid var(--line); padding:10px 12px; font:inherit; color:inherit; }
-  li:last-child button { border-bottom:0; }
-  li button[aria-pressed="true"] { font-weight:600; background:var(--ground); }
   .row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:14px; }
   .primary { background:var(--ink); color:var(--surface); border:0; border-radius:8px; padding:10px 16px; font:inherit; font-weight:600; }
   .primary:disabled { opacity:.4; }
@@ -60,14 +62,9 @@
 <main>
   <div class="banner" id="banner"></div>
 
-  <div id="empty" hidden>
-    <p class="status" id="emptyText"></p>
-  </div>
-
   <form id="form" hidden>
-    <label for="search" id="whoLabel"></label>
-    <input id="search" type="search" autocomplete="off">
-    <ul id="people"></ul>
+    <label for="who" id="whoLabel"></label>
+    <input id="who" type="text" autocomplete="off" maxlength="120">
 
     <label for="body" id="whatLabel"></label>
     <textarea id="body"></textarea>
@@ -89,51 +86,51 @@
   // ── Translations — six locales, kept in step by offline-page.test.ts ──────
   var I18N = {
     en: {
-      banner: 'You are offline. Anything you write here is kept on this phone and sent when the connection comes back.',
-      who: 'Who is this about?', search: 'Search people', what: 'What was said',
+      banner: 'You are offline. Anything you write here is kept on this phone and sent when the connection comes back. You will confirm who it is about then.',
+      who: 'Who is this about?', name: 'Their name', what: 'What was said',
       save: 'Keep this note', saved: 'Kept on this phone.', waiting: '{n} waiting to send',
-      retry: 'Try again', empty: 'No people are stored on this phone yet. Open Connections once while online and they will be here next time.',
-      pick: 'Pick a person first.',
+      retry: 'Try again',
+      pick: 'Write who it is about and what was said.',
       nostore: 'This browser is not letting Connections keep anything on this device, so a note cannot be written offline here. Nothing you type would survive.'
     },
     nl: {
-      banner: 'Je bent offline. Wat je hier schrijft wordt op deze telefoon bewaard en verstuurd zodra de verbinding terug is.',
-      who: 'Over wie gaat dit?', search: 'Zoek mensen', what: 'Wat er gezegd is',
+      banner: 'Je bent offline. Wat je hier schrijft wordt op deze telefoon bewaard en verstuurd zodra de verbinding terug is. Dan bevestig je over wie het gaat.',
+      who: 'Over wie gaat dit?', name: 'Hun naam', what: 'Wat er gezegd is',
       save: 'Bewaar deze notitie', saved: 'Bewaard op deze telefoon.', waiting: '{n} wacht op verzenden',
-      retry: 'Opnieuw proberen', empty: 'Er staan nog geen mensen op deze telefoon. Open Connections één keer met verbinding, dan staan ze er de volgende keer.',
-      pick: 'Kies eerst een persoon.',
+      retry: 'Opnieuw proberen',
+      pick: 'Schrijf over wie het gaat en wat er gezegd is.',
       nostore: 'Deze browser laat Connections niets op dit apparaat bewaren, dus hier kun je offline geen notitie schrijven. Wat je typt zou verloren gaan.'
     },
     es: {
-      banner: 'Estás sin conexión. Lo que escribas aquí se guarda en este teléfono y se envía cuando vuelva la conexión.',
-      who: '¿Sobre quién es?', search: 'Buscar personas', what: 'Qué se dijo',
+      banner: 'Estás sin conexión. Lo que escribas aquí se guarda en este teléfono y se envía cuando vuelva la conexión. Entonces confirmarás sobre quién es.',
+      who: '¿Sobre quién es?', name: 'Su nombre', what: 'Qué se dijo',
       save: 'Guardar esta nota', saved: 'Guardado en este teléfono.', waiting: '{n} pendientes de enviar',
-      retry: 'Reintentar', empty: 'Aún no hay personas guardadas en este teléfono. Abre Connections una vez con conexión y estarán aquí la próxima vez.',
-      pick: 'Elige primero a una persona.',
+      retry: 'Reintentar',
+      pick: 'Escribe sobre quién es y qué se dijo.',
       nostore: 'Este navegador no deja que Connections guarde nada en este dispositivo, así que aquí no se puede escribir una nota sin conexión. Lo que escribas se perdería.'
     },
     pt: {
-      banner: 'Estás sem ligação. O que escreveres aqui fica guardado neste telemóvel e é enviado quando a ligação voltar.',
-      who: 'Sobre quem é?', search: 'Procurar pessoas', what: 'O que foi dito',
+      banner: 'Estás sem ligação. O que escreveres aqui fica guardado neste telemóvel e é enviado quando a ligação voltar. Nessa altura confirmas sobre quem é.',
+      who: 'Sobre quem é?', name: 'O nome', what: 'O que foi dito',
       save: 'Guardar esta nota', saved: 'Guardado neste telemóvel.', waiting: '{n} à espera de envio',
-      retry: 'Tentar de novo', empty: 'Ainda não há pessoas guardadas neste telemóvel. Abre o Connections uma vez com ligação e estarão cá da próxima vez.',
-      pick: 'Escolhe primeiro uma pessoa.',
+      retry: 'Tentar de novo',
+      pick: 'Escreve sobre quem é e o que foi dito.',
       nostore: 'Este navegador não deixa o Connections guardar nada neste dispositivo, por isso aqui não é possível escrever uma nota sem ligação. O que escreveres perder-se-ia.'
     },
     de: {
-      banner: 'Du bist offline. Was du hier schreibst, bleibt auf diesem Telefon und wird gesendet, sobald die Verbindung zurück ist.',
-      who: 'Um wen geht es?', search: 'Personen suchen', what: 'Was gesagt wurde',
+      banner: 'Du bist offline. Was du hier schreibst, bleibt auf diesem Telefon und wird gesendet, sobald die Verbindung zurück ist. Dann bestätigst du, um wen es geht.',
+      who: 'Um wen geht es?', name: 'Name der Person', what: 'Was gesagt wurde',
       save: 'Notiz behalten', saved: 'Auf diesem Telefon behalten.', waiting: '{n} warten auf das Senden',
-      retry: 'Erneut versuchen', empty: 'Auf diesem Telefon sind noch keine Personen gespeichert. Öffne Connections einmal mit Verbindung, dann sind sie beim nächsten Mal da.',
-      pick: 'Wähle zuerst eine Person.',
+      retry: 'Erneut versuchen',
+      pick: 'Schreib, um wen es geht und was gesagt wurde.',
       nostore: 'Dieser Browser lässt Connections nichts auf diesem Gerät speichern, daher kann hier offline keine Notiz geschrieben werden. Was du tippst, ginge verloren.'
     },
     fr: {
-      banner: 'Vous êtes hors ligne. Ce que vous écrivez ici reste sur ce téléphone et sera envoyé dès le retour de la connexion.',
-      who: 'De qui s’agit-il ?', search: 'Rechercher des personnes', what: 'Ce qui a été dit',
+      banner: 'Vous êtes hors ligne. Ce que vous écrivez ici reste sur ce téléphone et sera envoyé dès le retour de la connexion. Vous confirmerez alors de qui il s’agit.',
+      who: 'De qui s’agit-il ?', name: 'Son nom', what: 'Ce qui a été dit',
       save: 'Garder cette note', saved: 'Gardé sur ce téléphone.', waiting: '{n} en attente d’envoi',
-      retry: 'Réessayer', empty: 'Aucune personne n’est encore enregistrée sur ce téléphone. Ouvrez Connections une fois en ligne et elles seront là la prochaine fois.',
-      pick: 'Choisissez d’abord une personne.',
+      retry: 'Réessayer',
+      pick: 'Écrivez de qui il s’agit et ce qui a été dit.',
       nostore: 'Ce navigateur ne laisse pas Connections garder quoi que ce soit sur cet appareil, donc aucune note ne peut être écrite hors ligne ici. Ce que vous tapez serait perdu.'
     }
   };
@@ -144,21 +141,10 @@
   // ── The contract with lib/offline-notes.ts ──────────────────────────────────
   var NOTE_PREFIX = 'connections:offline-note:';
   var WORKSPACE_KEY = 'connections:workspace';
-  var PEOPLE_KEY = 'connections:people';
 
   function store() { try { return window.localStorage; } catch (e) { return null; } }
 
   function workspace() { var s = store(); try { return s ? s.getItem(WORKSPACE_KEY) : null; } catch (e) { return null; } }
-
-  function people() {
-    var s = store(); if (!s) return [];
-    try {
-      var p = JSON.parse(s.getItem(PEOPLE_KEY) || 'null');
-      // Never another workspace's people — mirrors cachedPeople().
-      if (!p || p.workspaceId !== workspace() || !Array.isArray(p.people)) return [];
-      return p.people;
-    } catch (e) { return []; }
-  }
 
   function waitingCount() {
     var s = store(); if (!s) return 0; var ws = workspace(); var n = 0;
@@ -182,11 +168,12 @@
   }
 
   /** Written in EXACTLY the shape queueNote() writes. */
-  function queue(personId, body) {
+  function queue(personName, body) {
     var s = store(); if (!s) return false;
     var tz; try { tz = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) {}
     var ref = uuid();
-    var payload = { client_ref: ref, person_id: personId, body: body, kind: 'note', is_draft: false, happened_at: new Date().toISOString() };
+    // No person_id: the app asks which person the name means, back online.
+    var payload = { client_ref: ref, person_name: personName, body: body, kind: 'note', is_draft: false, happened_at: new Date().toISOString() };
     if (tz) payload.happened_tz = tz;
     try {
       s.setItem(NOTE_PREFIX + ref, JSON.stringify({ payload: payload, queuedAt: Date.now(), workspaceId: workspace() }));
@@ -198,13 +185,11 @@
   var $ = function (id) { return document.getElementById(id); };
   $('banner').textContent = T.banner;
   $('whoLabel').textContent = T.who;
-  $('search').placeholder = T.search;
+  $('who').placeholder = T.name;
   $('whatLabel').textContent = T.what;
   $('save').textContent = T.save;
   $('retry').textContent = T.retry;
 
-  var all = people();
-  var chosen = null;
 
   // SAY WHAT IS TRUE. The banner promises the note is kept on this phone, and
   // with storage blocked — private mode on some browsers, a sandboxed frame,
@@ -223,45 +208,23 @@
     $('waiting').textContent = n ? T.waiting.replace('{n}', n) : '';
   }
 
-  function renderPeople() {
-    var q = $('search').value.trim().toLowerCase();
-    var list = $('people'); list.innerHTML = '';
-    all.filter(function (p) { return !q || p.name.toLowerCase().indexOf(q) !== -1; })
-      .slice(0, 50)
-      .forEach(function (p) {
-        var li = document.createElement('li');
-        var b = document.createElement('button');
-        b.type = 'button';
-        b.textContent = p.name; // textContent, never innerHTML: a name is data
-        b.setAttribute('aria-pressed', String(chosen === p.id));
-        b.onclick = function () { chosen = p.id; renderPeople(); update(); };
-        li.appendChild(b); list.appendChild(li);
-      });
-  }
-
   function update() {
-    $('save').disabled = !chosen || $('body').value.trim().length < 2;
+    $('save').disabled = !$('who').value.trim() || $('body').value.trim().length < 2;
   }
 
-  if (!canStore) {
-    // Nothing to offer: no list to pick from and nowhere to put a note.
-  } else if (!all.length) {
-    $('empty').hidden = false;
-    $('emptyText').textContent = T.empty;
-  } else {
-    $('form').hidden = false;
-    renderPeople();
-  }
+  // Nowhere to put a note means no form: the banner already says why.
+  if (canStore) $('form').hidden = false;
 
-  $('search').addEventListener('input', renderPeople);
+  $('who').addEventListener('input', update);
   $('body').addEventListener('input', update);
 
   $('form').addEventListener('submit', function (e) {
     e.preventDefault();
-    if (!chosen) { $('status').textContent = T.pick; return; }
-    if (queue(chosen, $('body').value.trim())) {
+    var who = $('who').value.trim(), body = $('body').value.trim();
+    if (!who || body.length < 2) { $('status').textContent = T.pick; return; }
+    if (queue(who, body)) {
       $('status').textContent = T.saved;
-      $('body').value = ''; chosen = null; renderPeople(); update(); renderWaiting();
+      $('who').value = ''; $('body').value = ''; update(); renderWaiting();
     }
   });
 

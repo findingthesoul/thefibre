@@ -6,6 +6,75 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.24] — 2026-09-13 — The map becomes a moving web (staging)
+
+**Connections — walk through your connections.** Sjoerd, on the first map:
+*"Is the map not moving? Like the thesaurus... You click on a name and then
+you see the connections.. you click on the next... and that one is centered
+(and bigger)... you can always go Back."*
+
+- Click a dot on the map, or pick a person, and the web opens: that person
+  larger in the middle, their strongest connections around them, the most
+  valuable nearest. Under each name, why they are there — a shared tag, a
+  stated relationship, an organisation.
+- Click another name: it travels to the middle and the web rebuilds around it.
+  The person you came from stays on screen, faded. Back is the browser's Back.
+- Click the name in the middle to open their details.
+- **Companies are connected to people.** A person's current organisations
+  appear as boxed names on solid lines. Click one to see its people around it.
+  A company that is only mentioned in a note is not drawn as membership.
+- The overview of everyone stays still, so where someone sits stays worth
+  remembering; the web is where things move.
+
+API, additive: organisations on `GET /connections/map/:id/neighbourhood`, and
+`GET /connections/map/org/:orgId`, both scoped to the workspace.
+
+**Also in the build-skip fix (v0.73.23):** excluding `apps/web/lib/version.ts`
+from web's build check (v0.73.16) was right. It only removed an accidental
+safety net, which let the shallow-clone bug reach web too. Do not revert it.
+
+## [0.73.23] — 2026-09-13 — Promotions rebuild what changed
+
+**Fix: promoting to production skipped every web build.** The first promotion
+under the staging-first flow pushed about forty commits to `main` at once.
+Vercel clones shallowly, the previous production commit was out of reach, and
+`scripts/vercel-ignore.mjs` fell back to comparing against the parent commit —
+which was only the version bump. Every app decided nothing had changed.
+Production API and database were current; production Connections was still
+the build from before v0.73.17.
+
+The script now fetches the previously deployed commit when the clone lacks
+it, and builds if it cannot. Comparing with the parent commit is kept only for
+a project with no previous deployment.
+
+## [0.73.22] — 2026-09-13 — No names on the phone; Today weighs work against free time (staging)
+
+**Connections keeps no list of people on the phone.** Since v0.73.18 the
+offline page offered names from a list kept on the device. Sjoerd removed it:
+`connections-overview.md` §4 says the offline half must not become a local
+contact database.
+
+- Offline, you now type who a note is about. The name stays inside that note.
+- Back online, a card asks who each such note is about and offers matching
+  people, fetched live and never stored. It never picks for you — a person is
+  attached by an exact identifier, never a name (system-handbook §12) — so
+  the note waits until you choose.
+- The old list is deleted from any phone that has it, on the next page load.
+- The service worker cache moves to v2, so phones replace the old offline
+  page, which would otherwise have offered nobody to write about.
+
+**Connections — more work than free time.** Today now sets the estimate
+against the unbooked working time in your own Google calendar for the same
+stretch: "About 14 h of work, and 9 h free in your calendar. That is more work
+than free time."
+
+- Working hours are Monday to Friday, 9 to 5, in your profile's timezone. A
+  default for now: Google does not expose the working hours set in Calendar.
+- Busy means a timed event you have not declined and have not marked free.
+  Overlapping meetings count once; all-day entries are not busy.
+- No calendar connected shows the estimate alone, never "0 h free". A calendar
+  that cannot be read says so.
+
 ## [0.73.21] — 2026-09-13 — Today says how long the work takes (staging)
 
 **Connections — effort estimates, the first half of step 6b.** Every row on

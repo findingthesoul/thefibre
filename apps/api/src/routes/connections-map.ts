@@ -6,7 +6,15 @@
 //                                              needs: rung, last contact,
 //                                              whether they need attention
 //   GET /connections/map/:personId/neighbourhood   who is near one person, and
-//                                              every reason why
+//                                              every reason why, plus the
+//                                              organisations they belong to
+//   GET /connections/map/org/:orgId            an organisation and its people
+//
+// Organisations in the web (Sjoerd, 2026-09-13: "company needs to be connected
+// to the person"). A current org_membership is a RECORDED fact — somebody put
+// that person in that organisation — so it is an edge, drawn solid, unlike a
+// shared tag. A company named in a note is not a membership and is not drawn
+// as one (system-handbook §12).
 //
 // Placement itself is NOT here. It is a pure function in the web app
 // (lib/map-layout.ts), because it has to be stable and cheap to recompute as
@@ -110,6 +118,8 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
   if (error) return c.json({ error: error.message }, 500);
 
   const rows = (data ?? []) as { person_id: string; weight: number; reasons: { kind: string; label: string }[] }[];
+
+  const organisations = await currentOrganisations(personId, ctx.workspaceId);
   const ids = rows.map((r) => r.person_id);
 
   const names = new Map<string, string>();
@@ -123,6 +133,7 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
   }
 
   return c.json({
+    organisations,
     neighbours: rows
       // A neighbour whose name could not be read was filtered by the workspace
       // above — drop it rather than show an anonymous dot.
@@ -133,5 +144,75 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
         weight: r.weight,
         reasons: r.reasons,
       })),
+  });
+});
+
+type Membership = { org_id: string; person_id: string; title: string | null };
+
+/** A person's CURRENT organisations, in this workspace, primary first. */
+async function currentOrganisations(personId: string, workspaceId: string) {
+  const { data: ms } = await adminClient
+    .from('org_membership')
+    .select('org_id, person_id, title, is_primary')
+    .eq('person_id', personId)
+    .is('ended_at', null);
+  const memberships = (ms ?? []) as (Membership & { is_primary: boolean })[];
+  if (!memberships.length) return [];
+  // org_membership has no workspace column; the organisation's row decides.
+  const { data: orgs } = await adminClient
+    .from('organisation')
+    .select('id, name')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .in('id', memberships.map((m) => m.org_id));
+  const name = new Map(((orgs ?? []) as { id: string; name: string }[]).map((o) => [o.id, o.name]));
+  return memberships
+    .filter((m) => name.has(m.org_id))
+    .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+    .map((m) => ({ id: m.org_id, name: name.get(m.org_id)!, title: m.title }));
+}
+
+connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
+  const ctx = c.get('ctx');
+  const orgId = c.req.param('orgId');
+
+  const { data: org } = await adminClient
+    .from('organisation')
+    .select('id, name')
+    .eq('id', orgId)
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .maybeSingle();
+  // Missing and elsewhere answer the same, as everywhere (lib/workspace-refs.ts).
+  if (!org) return c.json({ error: 'not found' }, 404);
+
+  const { data: ms } = await adminClient
+    .from('org_membership')
+    .select('person_id, title, is_decision_maker, is_primary')
+    .eq('org_id', orgId)
+    .is('ended_at', null)
+    .limit(200);
+  const memberships = (ms ?? []) as { person_id: string; title: string | null; is_decision_maker: boolean; is_primary: boolean }[];
+
+  const names = new Map<string, string>();
+  if (memberships.length) {
+    const { data: people } = await adminClient
+      .from('person')
+      .select('id, first_name, last_name, email')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .is('merged_into', null)
+      .in('id', memberships.map((m) => m.person_id));
+    for (const p of (people ?? []) as PersonRow[]) names.set(p.id, nameOf(p));
+  }
+
+  return c.json({
+    organisation: org,
+    members: memberships
+      .filter((m) => names.has(m.person_id))
+      // Decision makers and people for whom this is their main organisation
+      // first: when a web can show only a dozen names, those are the ones.
+      .sort((a, b) => Number(b.is_decision_maker) - Number(a.is_decision_maker) || Number(b.is_primary) - Number(a.is_primary))
+      .map((m) => ({ id: m.person_id, name: names.get(m.person_id)!, title: m.title })),
   });
 });
