@@ -371,11 +371,37 @@ for exactly this reason — the contribution axis reads `relationship` for
 introductions, and promoting mentions would inflate a number that is supposed
 to mean something.
 
-So: a relationship edge is something a person STATES. Derived closeness may
-read co-occurrence as a signal if it earns it; it must not become the edge.
-(Named jointly on 2026-09-12 — the input half from Connections, the
-inference half from the Thread session, which also identified thread
-co-attendance as the same trap waiting in a different table.)
+So: **a relationship edge is something a person STATES.**
+
+And the test that keeps the rest of it from being a placeholder: **a signal
+inferred from co-occurrence or similarity may be shown, but must never be the
+input to another computation.** Position a cloud with it, size a word with it,
+sort a list by it. The moment it feeds a second derivation its provenance is
+gone and it has become a fact — which is the mechanism by which weak signals
+turn into edges without anybody deciding to promote one. Checkable by reading
+the code rather than by judgement, which is the whole point of having it.
+
+**This does not forbid composing derivations, and the distinction matters or
+the rule reads as banning what this codebase does everywhere.**
+`connections_landscape_axis` delegates maturity to `connections_landscape`;
+`connections_attention` delegates `deal_rotting` to `pulse_commitment_rot`.
+Both are fine and both should stay. They compute over RECORDED FACTS —
+somebody attended, somebody paid, a stage moved on a date — and composing
+those is just not repeating yourself. The rule is about signals inferred from
+proximity, which assert something nobody recorded.
+
+The test also protects the door it might look like it closes: the desktop
+cloud can use co-occurrence for position and weight, which is exactly what it
+needs, and still cannot say "these two know each other", because saying that
+would mean something else reading the signal.
+
+(Named jointly on 2026-09-12. The input half came from Connections, the
+inference half and this test from the Thread session — which also identified
+thread co-attendance as the same trap waiting in a different table, and
+caught the first draft of this paragraph saying derived closeness may use
+co-occurrence "if it earns it": a phrase with no test attached, which would
+have been quoted as permission. That draft was written in the same hour as
+the three corrections above, by the session writing the rule about them.)
 
 ### Do not write "X is not personal data" when you mean "the reader already has it"
 
