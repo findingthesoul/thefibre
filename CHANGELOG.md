@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.23] — 2026-09-13 — Promotions rebuild what changed
+
+**Fix: promoting to production skipped every web build.** The first promotion
+under the staging-first flow pushed about forty commits to `main` at once.
+Vercel clones shallowly, the previous production commit was out of reach, and
+`scripts/vercel-ignore.mjs` fell back to comparing against the parent commit —
+which was only the version bump. Every app decided nothing had changed.
+Production API and database were current; production Connections was still
+the build from before v0.73.17.
+
+The script now fetches the previously deployed commit when the clone lacks
+it, and builds if it cannot. Comparing with the parent commit is kept only for
+a project with no previous deployment.
+
 ## [0.73.22] — 2026-09-13 — No names on the phone; Today weighs work against free time (staging)
 
 **Connections keeps no list of people on the phone.** Since v0.73.18 the
