@@ -468,8 +468,7 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
   their own constants in their layouts. Bump those only when app-specific
   surfaces ship; Connections likewise (`0.x`, started 0.1.0 on 2026-09-12).
   `website` and `my` have no such constant in that pattern — the site has no
-  signed-in chrome, and the portal carries its own (`0.5.0` since the
-  consolidation).
+  signed-in chrome, and the portal carries its own in its portal chrome.
 - **Every release = one commit** containing: the code, the version
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
   narrative style — say *why*, record decisions and reversals explicitly).

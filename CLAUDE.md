@@ -72,8 +72,7 @@ is the rebuild of Suite v1), Thread `3.x`, Flow `1.x`, Pulse `0.x` (started
 name may become "Hyve" — the slug `membership` never changes, only
 branding.ts does), Connections `0.x` (started 0.1.0 on 2026-09-12, v0.71.0).
 `apps/website` carries no such constant: no signed-in chrome to show one in.
-`apps/my` keeps its own outside that pattern (`0.5.0` since the 2026-09-10
-consolidation).
+`apps/my` keeps its own outside that pattern, in its portal chrome.
 
 ### Seed realistic data
 

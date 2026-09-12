@@ -5,17 +5,20 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.73.5**. Live in production: https://thefibre.app (Fibre web,
-Vercel/fra1), https://thethread.app (the website, on the apex since 2026-09-08),
-app. / meet. / flow. / pulse. / membership. / my.thethread.app (Vercel/fra1), and
-https://thefibre-api.fly.dev (API on Fly.io/fra). Do not trust this line for
-domains: the `SURFACES` registry in `packages/shared/src/branding.ts` is the
-source of truth. `connections` (port 3008) serves as of 2026-09-12 under the
-slug `fibre-sales`, which never changes.
+Live in production: https://thefibre.app (Fibre web, Vercel/fra1),
+https://thethread.app (the website, on the apex since 2026-09-08), and the
+delivery apps on `thethread.app` subdomains, with https://thefibre-api.fly.dev
+(API on Fly.io/fra) behind all of them.
+
+**No version number here on purpose.** This line carried one for two months and
+was forty releases stale when somebody finally read it. `apps/web/lib/version.ts`
+is the platform version, each app's `layout.tsx` holds its own, and the `SURFACES`
+registry in `packages/shared/src/branding.ts` holds the domains. Restating any of
+them here only creates a second copy to be wrong.
 
 ---
 
-## Where the Fibre suite is right now (2026-09-12, v0.73.5 · Thread 3.50.1 · Meet 2.8.1 · Flow 1.16.0 · Pulse 0.29.0 · Membership 0.14.7 · Connections 0.2.0)
+## Where the Fibre suite is right now
 
 Seven apps live behind sign-in: web (platform), Meet, Thread, Flow, Pulse,
 Membership, and Connections, which went available on 2026-09-12 under the slug
@@ -27,7 +30,7 @@ CLAUDE.md points at the sources of truth; this file keeps the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-12 (v0.73.5). Done items get removed, not ticked._
+_Last groomed 2026-09-12. Done items get removed, not ticked._
 
 **DESIGN — the site designer, and templates that are documents.** Sjoerd,
    2026-09-11, when the three themes shipped: *"In the future I want to
