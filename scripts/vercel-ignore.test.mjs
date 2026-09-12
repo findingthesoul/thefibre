@@ -17,17 +17,30 @@ describe('validApp', () => {
 });
 
 describe('pickBase', () => {
-  const probe = (commitExists, hasParent) => ({
-    commitExists: () => commitExists,
-    hasParent: () => hasParent,
-  });
+  const probe = (commitExists, hasParent, fetchable = false) => {
+    let present = commitExists;
+    return {
+      commitExists: () => present,
+      fetch: () => {
+        if (fetchable) present = true;
+        return fetchable;
+      },
+      hasParent: () => hasParent,
+    };
+  };
 
   it('prefers the previously deployed sha when it exists in the clone', () => {
     expect(pickBase('abc1234', probe(true, true))).toBe('abc1234');
   });
 
-  it('falls back to HEAD^ when the sha is missing from the (shallow) clone', () => {
-    expect(pickBase('abc1234', probe(false, true))).toBe('HEAD^');
+  it('fetches a previously deployed sha the shallow clone does not reach', () => {
+    expect(pickBase('abc1234', probe(false, true, true))).toBe('abc1234');
+  });
+
+  it('builds, never diffs against HEAD^, when that sha cannot be fetched', () => {
+    // A promotion pushes many commits; HEAD^..HEAD is then only the release
+    // commit's version bumps, and every app skipped (2026-09-13).
+    expect(pickBase('abc1234', probe(false, true, false))).toBe(null);
   });
 
   it('falls back to HEAD^ when the sha is absent or malformed', () => {
