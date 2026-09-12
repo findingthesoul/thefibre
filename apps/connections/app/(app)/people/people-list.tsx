@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { PersonLink } from '@/components/person-popup';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -192,8 +193,8 @@ export function PeopleList({
             const rung = rungById[p.id];
             return (
               <li key={p.id}>
-                <Link
-                  href={`/people/${p.id}`}
+                <PersonLink
+                  personId={p.id}
                   className="flex items-baseline justify-between gap-3 px-4 py-3 hover:bg-surface-sunken"
                 >
                   <span className="min-w-0">
@@ -214,7 +215,7 @@ export function PeopleList({
                     )}
                     {p.country && <span>{p.country}</span>}
                   </span>
-                </Link>
+                </PersonLink>
               </li>
             );
           })}

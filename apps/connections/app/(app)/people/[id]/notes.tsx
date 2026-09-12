@@ -119,11 +119,23 @@ export function Notes({
   personName,
   notes,
   locale,
+  onCommitted,
 }: {
   personId: string;
   personName: string;
   notes: Note[];
   locale: Locale;
+  /**
+   * What to do once a note commits. Defaults to `router.refresh()`, which is
+   * right on the person PAGE: the list below is a server component and a
+   * refresh re-reads it.
+   *
+   * In the popup that is wrong. The list there is client state loaded by a
+   * server action, so a refresh re-renders whatever page is UNDER the dialog
+   * and leaves the list inside it showing the old notes — the person commits
+   * a note and watches it not appear. The dialog passes its own reload.
+   */
+  onCommitted?: () => void;
 }) {
   const router = useRouter();
 
@@ -316,7 +328,9 @@ export function Notes({
     setFollowUp(null);
     setDetails(false);
     setStatus('idle');
-    router.refresh(); // the committed note joins the list below
+    // The committed note joins the list below.
+    if (onCommitted) onCommitted();
+    else router.refresh();
   }
 
   const dateTime = (iso: string) =>

@@ -668,6 +668,16 @@ const CATALOG = {
     de: 'Diese Person konnte nicht geladen werden.', // MT
     fr: 'Impossible de charger cette personne.', // MT
   },
+  // From the popup to the full page. Kept because the page still exists at
+  // its own URL — for sharing, for a new tab, for a long history.
+  person_open_full: {
+    en: 'Open the full page',
+    nl: 'Open de volledige pagina',
+    es: 'Abrir la página completa', // MT
+    pt: 'Abrir a página completa', // MT
+    de: 'Ganze Seite öffnen', // MT
+    fr: 'Ouvrir la page complète', // MT
+  },
   person_open_in_fibre: {
     en: 'Full profile in The Fibre',
     nl: 'Volledig profiel in The Fibre',
