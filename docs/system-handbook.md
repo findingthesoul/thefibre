@@ -43,8 +43,8 @@ Lab B.V. (Rotterdam, EU-hosted). It is one product family:
 - `fibre-learn` — a registered slug, **not built** (`available: false`).
 
 **Two apex domains, deliberately** (since v0.52.0, the "branding pivot"):
-fibre web lives on `thefibre.app`; the five delivery apps live on
-subdomains of `thethread.app` (Thread takes `app.`). The `thethread.app`
+fibre web lives on `thefibre.app`; the delivery apps live on subdomains of
+`thethread.app` (Thread takes `app.`). The `thethread.app`
 apex serves `apps/website`, this repo's own public site, since the cut on
 2026-09-08; the old standalone Thread V3 landing it replaced is
 decommissioned bar a Vercel project to archive. Sessions cross the two
@@ -382,18 +382,18 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 | | Production | Staging |
 |---|---|---|
-| Web/apps | thefibre.app + thethread.app (site) + app./meet./flow./pulse./membership.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
+| Web/apps | thefibre.app + thethread.app (site) + app./meet./flow./pulse./membership./my./connections.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
 | API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev | `thefibre-api-staging` |
 | DB/Auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` |
-| Cookie domain | `.thefibre.app` (web) / `.thethread.app` (five apps) | `.thefibre.tech` |
+| Cookie domain | `.thefibre.app` (web) / `.thethread.app` (the delivery apps) | `.thefibre.tech` |
 | Stripe | live keys | sandbox keys |
 | Deploy trigger | `git push origin main` | `git push origin main:staging` |
 
 - **Vercel**: one project per app (`thefibre`, then `thefibre-{meet,thread,
   flow,pulse,membership,website,my,connections}`), all in the
   `sjoerd-1708s-projects` scope. A new app needs its project created before
-  its first PR, or that PR's checks go red on a missing Root Directory.
-  Domains are
+  its first PR, or that PR's checks go red on a Root Directory that does not
+  exist on the branch. Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
