@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.2] — 2026-09-12 — the link preview is the actual logo
+
+Sjoerd pasted thethread.app into WhatsApp on his phone and got the
+pre-rebrand card: *"The image of the thread is an old one. Not the new one."*
+
+`apps/website/app/opengraph-image.tsx` was DRAWING the brand rather than
+reading it — a yellow blob and a wavy line in hand-written SVG paths, with
+"The Thread" set in the renderer's default sans. None of that had been true
+since the site was rebranded on 7 September. The real wordmark is a
+handwritten mark in `public/logo-the-thread.svg`, the payoff under it is
+"Tools to facilitate change.", and the design language is the painted shapes
+in `public/shapes/`.
+
+The card now reads the same files the site renders, so replacing the logo
+updates the preview with it. **That is the point, not a detail:** a preview
+that redraws the brand from memory is a copy that goes stale in silence.
+Nothing failed, nothing warned, and the only way to catch it was to paste the
+link into a chat and look — which is how it was caught, five days late.
+
+Checked as a real PNG rather than reasoned about, twice. The first draft ran
+the thread straight through the wordmark and looped a curl over the payoff; no
+amount of being on-brand makes that legible, so the line moved below the type.
+Then built for production and opened the generated file, because the card
+reads its assets from disk at build time and dev is not proof of that.
+
+**Still missing, and unowned:** the Thread app and the public thread pages
+have no `og:image` at all — `appMetadata()` returns a title and a description
+and nothing else. An organiser pasting their own event link gets a bare card.
+The obvious fix is the thread's own cover image, which every public thread
+already has.
+
 ## [0.73.1] — 2026-09-12 — the Connections build actually builds
 
 Three failures, three different causes, each one hidden behind the last.
