@@ -63,8 +63,13 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
  * The words this workspace already uses: its tags, plus the names of the
  * organisations it holds. Read once per composer.
  *
- * Not personal data — tag names are a team's vocabulary and organisation
- * names are companies. Person names are deliberately absent: matching bare
+ * Safe to hold in the browser because of WHO receives it, not because of
+ * what it contains: a signed-in workspace member who can already read all of
+ * these rows. "Organisation names are not personal data" would be the easy
+ * sentence and it is false — a sole trader's business name identifies a
+ * natural person, and nothing in the row says which is which.
+ *
+ * Person names are deliberately absent for a different reason: matching bare
  * names is where false positives live, and one wrong tag lands a claim on a
  * real person's record.
  */

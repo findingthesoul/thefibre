@@ -331,6 +331,51 @@ membership IS the revocation. Client registrations are DB rows
    exactly this reason; Thread's dashboard takes a name and an email from
    `/me` and nothing else.
 
+### Attach a person by an EXACT identifier, never by a name in prose
+
+The line is drawn by whether the identifier is exact, **not** by how useful
+the feature would be. Three sightings, none of which knew about the others
+when they were written:
+
+- **Thread** resolves an enrolment by email and a door check-in by
+  `checkin_code`. Both refuse rather than guess.
+- **Connections** matches calendar attendees to people by email — exact, so
+  there is no fuzzy match to get wrong.
+- **Connections** deliberately does NOT match person names inside note text,
+  even though that is obviously the more powerful feature, because a bare
+  first name is not an identifier. `apps/connections/lib/detect-tags.ts`
+  matches only the workspace's own vocabulary and organisation names for
+  exactly this reason.
+
+The asymmetry is the point: the SAME product goal — connect things without
+the user doing it — gets a hard yes on an email address and a hard no on a
+name in a sentence. A false positive here does not produce a wrong row, it
+attaches a claim to a real person's record, and no amount of usefulness pays
+for that.
+
+If a future feature needs to infer a person from free text, the answer is
+that the feature should change, not the rule.
+
+### Do not write "X is not personal data" when you mean "the reader already has it"
+
+Connections ships the workspace's organisation names to the browser as a
+detection dictionary. The easy justification — *organisation names are
+companies, not people* — is **false**, and was caught in review: a sole
+trader is a person with a business name, and "Jan de Vries Coaching"
+identifies a natural person as directly as their own name. Nothing in an
+`organisation` row distinguishes the two cases and nothing ever will.
+
+The defensible reason is the RECIPIENT: the payload goes to a signed-in
+workspace member who can already read every one of those rows through the
+ordinary interface, so it discloses nothing new. That reasoning holds for the
+sole trader too, which is what makes it the right test.
+
+This is the same failure shape as the `Accept-Language` sentence below — a
+claim that happens to be true of today's data, written as though it were true
+by nature. Those sentences get cited later by somebody shipping the same
+thing somewhere less careful, which is why the wording matters more than the
+decision did.
+
 ### Three conventions that were arrived at twice
 
 Each of these was reached independently in Connections and in Thread on

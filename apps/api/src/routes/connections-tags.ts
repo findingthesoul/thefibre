@@ -24,12 +24,23 @@ export const connectionsTagsRoutes = new Hono();
  *
  * Sent to the browser and held there for the length of a note, because
  * detection has to run on every keystroke and a round trip per keystroke is
- * both slow and a way to leak a half-typed sentence to the server. Nothing
- * here is personal data: tag names are workspace vocabulary and organisation
- * names are companies, not people. Person names are deliberately NOT in this
- * payload — matching bare names is where false positives live, and a list of
- * everybody's name sitting in a browser tab is a different privacy question
- * from a list of the words a team uses.
+ * both slow and a way to leak a half-typed sentence to the server.
+ *
+ * WHY THAT IS ACCEPTABLE, stated carefully because the obvious version of
+ * this sentence is wrong. It is NOT that organisation names are not personal
+ * data: a sole trader is a person with a business name, and "Jan de Vries
+ * Coaching" identifies a natural person as directly as their name does. There
+ * is nothing in the row that distinguishes that case from "EBBF", and there
+ * never will be.
+ *
+ * The defensible reason is the recipient. This payload goes to a signed-in
+ * workspace member who can already read every one of these rows through the
+ * ordinary interface, so it discloses nothing they did not already have. That
+ * holds for the sole trader too, which is what makes it the right test.
+ *
+ * Person names are still deliberately absent, for a different reason:
+ * matching bare names is where false positives live (see lib/detect-tags.ts),
+ * and a feature that would need them is a feature that should not exist.
  */
 connectionsTagsRoutes.get('/vocabulary', async (c) => {
   const ctx = c.get('ctx');
