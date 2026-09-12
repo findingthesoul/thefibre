@@ -323,6 +323,52 @@ membership IS the revocation. Client registrations are DB rows
    transition windows) ride the `CORS_ORIGINS` Fly secret. **Never
    hand-write an origin list** — hand-written domain lists are this repo's
    most-repeated bug class.
+4. **`/auth/me` is a published shape too, in practice.** Eight apps read it,
+   so a local need answered there is a wide contract widened for one screen.
+   Answer a situational question — may this user edit, does this workspace
+   have X — on the endpoint that already owns it and that the screen is
+   already calling. Connections' band-label endpoint returns `can_edit` for
+   exactly this reason; Thread's dashboard takes a name and an email from
+   `/me` and nothing else.
+
+### Three conventions that were arrived at twice
+
+Each of these was reached independently in Connections and in Thread on
+2026-09-12, by sessions that had not compared notes. Recorded with both
+instances, because a convention with two independent sightings is a property
+of this codebase, while one is somebody's taste.
+
+**Typed text carries no locale.** The six-locale typed catalogs are for
+CHROME. A sentence a person typed is content, and this codebase does not
+translate content — `connections_band_label` has one `label` column,
+`thread_organiser`'s `site_name` / `site_headline` / `site_intro` are plain
+text. A workspace's own words are shown as they were written.
+
+Note what this does NOT rest on. It is not that we lack the visitor's
+language: every browser sends `Accept-Language` and a signed-in participant
+has `person.preferred_language`, which the enrolments select already reads.
+Nothing in the repo reads `Accept-Language` today — that is a choice, not an
+absence, and defending the rule as an absence loses the argument the first
+time somebody says "just read the header", which would be correct. The rule
+is simply that translating a workspace's own words is not something this
+product does, and it keeps holding on the day somebody does read that header
+for the chrome.
+
+**An empty value means absent, never "store today's default".** An emptied
+field deletes the row or writes null, because absence is what the fallback
+reads. An override holding the current default is a default that has quietly
+stopped being one — it will not follow the default when the default changes,
+and in a translated product it freezes that string in whatever language it
+was captured in. Connections' rename clears the row; Thread's website form
+maps an emptied field to null.
+
+**Name it, don't redefine it.** A workspace names things; the system decides
+what they DO. Thread lets a workspace name its categories and keeps what a
+category does; Connections lets a workspace name its lifecycle steps and
+keeps what earns one derived. The argument is the same in both: a rule a
+workspace can rewrite is a rule a workspace has to maintain, and a
+hand-maintained rule is wrong within a month. When a configuration request
+arrives, the useful question is which half is being asked for.
 
 ---
 
