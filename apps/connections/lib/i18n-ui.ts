@@ -6016,6 +6016,66 @@ const CATALOG = {
     de: 'Alle {n} Personen liegen in einem Band, diese Achse unterscheidet also noch nichts.', // MT
     fr: 'Les {n} personnes sont dans une seule bande : cet axe ne distingue encore rien.', // MT
   },
+  // ── Today's calendar, with the people already found ──────────────────────
+  agenda_heading: {
+    en: 'Who you are seeing today',
+    nl: 'Wie je vandaag ziet',
+    es: 'A quién ves hoy', // MT
+    pt: 'Quem vais ver hoje', // MT
+    de: 'Wen du heute siehst', // MT
+    fr: 'Qui vous voyez aujourd’hui', // MT
+  },
+  agenda_empty: {
+    en: 'Nothing in your calendar today.',
+    nl: 'Niets in je agenda vandaag.',
+    es: 'Nada en tu calendario hoy.', // MT
+    pt: 'Nada na tua agenda hoje.', // MT
+    de: 'Heute nichts im Kalender.', // MT
+    fr: 'Rien dans votre agenda aujourd’hui.', // MT
+  },
+  // An empty calendar and an unreachable one look identical on screen and
+  // mean opposite things, so the second one says so.
+  agenda_unavailable: {
+    en: 'Your calendar could not be read just now.',
+    nl: 'Je agenda kon zojuist niet gelezen worden.',
+    es: 'Ahora mismo no se ha podido leer tu calendario.', // MT
+    pt: 'Não foi possível ler a tua agenda neste momento.', // MT
+    de: 'Dein Kalender konnte gerade nicht gelesen werden.', // MT
+    fr: 'Votre agenda n’a pas pu être lu à l’instant.', // MT
+  },
+  agenda_all_day: {
+    en: 'All day',
+    nl: 'Hele dag',
+    es: 'Todo el día', // MT
+    pt: 'Todo o dia', // MT
+    de: 'Ganztägig', // MT
+    fr: 'Toute la journée', // MT
+  },
+  agenda_untitled: {
+    en: 'Untitled',
+    nl: 'Zonder titel',
+    es: 'Sin título', // MT
+    pt: 'Sem título', // MT
+    de: 'Ohne Titel', // MT
+    fr: 'Sans titre', // MT
+  },
+  agenda_never_written: {
+    en: 'nothing written down',
+    nl: 'niets vastgelegd',
+    es: 'nada registrado', // MT
+    pt: 'nada registado', // MT
+    de: 'nichts erfasst', // MT
+    fr: 'rien de noté', // MT
+  },
+  agenda_not_yours: {
+    en: 'not in your people',
+    nl: 'nog niet bij je mensen',
+    es: 'no está entre tus personas', // MT
+    pt: 'não está nas tuas pessoas', // MT
+    de: 'nicht bei deinen Leuten', // MT
+    fr: 'pas parmi vos personnes', // MT
+  },
+
   // ── Tags found in what you just wrote ────────────────────────────────────
   note_tags: {
     en: 'Picked up',

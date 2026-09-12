@@ -6,6 +6,58 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.11] — 2026-09-12 — the app opens already knowing who today is about
+
+Sjoerd: *"would be great if the app — when you open it — based on agenda —
+can pre select people from the DB, that are named in the agenda."* Build-order
+step 5, arriving from the end that pays for itself on a Tuesday morning.
+
+**Today now opens with your calendar**, above what you owe, because a meeting
+in an hour outranks a task due on Friday. Each meeting lists its attendees,
+and each attendee this workspace already knows is a link straight to their
+page — which is where the note gets written. The path from "I have a meeting
+at 11" to "here is what we said" is one tap, with the looking-up done.
+
+**Each known person carries two facts** next to their name: where they stand,
+in whatever this workspace calls that band, and how long since anything was
+written down about them. An old date beside somebody you are seeing in an
+hour is the entire reason to look at this page.
+
+**Why this one is safe where matching names in prose is not.** A calendar
+attendee is an EMAIL ADDRESS. It is exact, so there is no fuzzy match to get
+wrong and no chance of attaching a stranger to a record because they share a
+first name — which is precisely why person names stay out of the note
+detection shipped in v0.73.10. Both Google scopes were already granted, so
+this adds no consent step.
+
+**Nothing is created.** An attendee with no person row comes back unmatched
+and stops there, shown with a dashed outline and their address. That is the
+most useful row on the screen — somebody you are about to meet who is not in
+your people yet — and it is an offer, not an action. `resolvePerson()` is the
+only way a person is ever made here and its first rule is that creation is
+never implicit; a sync that quietly created a person for every address in
+every meeting would fill a workspace with booking robots and conference-room
+accounts inside a week.
+
+**Only your own calendars, only your own token.** `listEvents()` asks for
+`minAccessRole: 'owner'`, so a subscribed team calendar or a colleague's
+shared one cannot drag other people's meetings into your day. The route never
+reads another user's calendar, not even for an admin: who is in your day is
+not a workspace-level fact.
+
+**Three things that fail quietly and one that does not.** No calendar
+connected renders nothing at all — most people will never connect one, and a
+permanent notice about an optional integration is furniture. A failed band-
+name read falls back to the shipped names. A failed agenda read leaves what
+you owe untouched. But a calendar that could not be READ says so, because an
+empty calendar and an unreachable one look identical on screen and mean
+opposite things.
+
+Verified against production before shipping: the calendar is connected for a
+real user, and all three query shapes the route depends on — attendee email
+to person, standing, last note — run clean against live data.
+
+
 ## [0.73.10] — 2026-09-12 — tags that write themselves, from words you already use
 
 Sjoerd: *"if you type something after a visit or conversation, that it would

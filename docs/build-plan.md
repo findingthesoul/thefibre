@@ -1024,34 +1024,29 @@ code on 2026-09-12 rather than remembered.
 | — | Bands say what earns them; a dead axis says what would fill it | v0.73.6/0.73.8 |
 | — | Band names renameable per workspace, rules fixed | `connections_band_label`, v0.73.9 |
 | — | Tags detected while writing a note; organisations are tags | `lib/detect-tags.ts`, v0.73.10 |
+| 5a | **D72** — today's calendar, attendees matched to people by email | `routes/connections-agenda.ts`, v0.73.11 |
 
 **Open, in the order I would do them**
 
-1. **D72 — the calendar pre-selects today's people.** Build-order step 5, and
-   the cheapest of everything left: attendees match on EMAIL, not name, so it
-   carries none of the false-positive risk that keeps person names out of the
-   note detection. `resolvePerson()` already exists; the calendar scope is
-   already granted. Biggest daily effect of anything on this list — the app
-   opens already knowing who today is about. (`connections-model.md` §3.7)
-2. **The fifth attention condition — "carrying too much."** Four shipped;
+1. **The fifth attention condition — "carrying too much."** Four shipped;
    this one is missing. It is the burnout signal no CRM has, and it points at
    your own team rather than the community. (`connections-model.md` §3.2)
-3. **0b — the nightly hygiene sweep.** The scheduler in `server.ts` runs every
+2. **0b — the nightly hygiene sweep.** The scheduler in `server.ts` runs every
    five minutes and has no hygiene job on it. `person_duplicate_candidates()`
    already exists and nothing calls it. Blocked on nothing except the
    retention half, which is D69 and a business decision.
-4. **Step 4 — rotting, one mechanism for people and deals.** The cadence axis
+3. **Step 4 — rotting, one mechanism for people and deals.** The cadence axis
    rots PEOPLE against their own rhythm. Deals do not rot at all yet.
-5. **D71 — the tag inline in the sentence** rather than beside the box. Known
+4. **D71 — the tag inline in the sentence** rather than beside the box. Known
    technique, genuinely fragile on mobile; deserves its own go.
-6. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
+5. **D70 — the tag cloud and the map.** Wants more tags to exist first; a
    cloud over four tags is a diagram of nothing. This is step 8's desktop
    landscape, and tags are the first edge source the rarity rule can police.
-7. **Step 6b — effort estimates and the forward view.**
-8. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
+6. **Step 6b — effort estimates and the forward view.**
+7. **Step 7 — the phone app.** NOT started: there is no PWA manifest or
    service worker anywhere in this monorepo. Connections is a responsive web
    app with a mobile bottom nav, which is not the same thing.
-9. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+8. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
 
 **Open decisions** (`connections-overview.md` §7): D11 Microsoft calendar,
 D21 audience as saved query or list, D27 the lifecycle rungs — *partly
