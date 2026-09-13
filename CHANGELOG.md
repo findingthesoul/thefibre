@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.51] — 2026-09-13 — Call them without leaving (staging)
+
+**Connections — a person's phone number is on their popup.** Find somebody on
+the map, tap the number, have the conversation, write it down — all in the same
+dialog. Until now that meant leaving for The Fibre to find the number, then
+coming back, searching for them again, and only then filing the note.
+
+The number was already there. Every detail shown — phone, email, LinkedIn,
+where they are — was in the answer the popup had already fetched and was simply
+never displayed. A second number or address appears underneath when one exists.
+
+These are the platform's own fields, one record per person, which is why a
+number captured when somebody enrolled in a thread shows up here without being
+entered twice.
+
 ## [0.73.50] — 2026-09-13 — an app is called one thing (staging)
 
 Sjoerd, looking at the Teams picker: *"This list is not a single point of

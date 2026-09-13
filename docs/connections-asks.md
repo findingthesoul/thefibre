@@ -43,8 +43,8 @@ neither in code nor in a document. That is what this file fixes.
 | 15 | After connecting somebody, the screen should update | **Shipped** v0.73.40 |
 | 16 | A full debug and optimisation pass | **Shipped** v0.73.41 |
 | 17 | A new full backlog | **Shipped** — [connections-backlog.md](connections-backlog.md) |
-| 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **MISSED** — see below |
-| 19 | **Click a name → popup with name, email, phone, LinkedIn** | **MISSED** — see below |
+| 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **Backlog** — was MISSED, see below |
+| 19 | **Click a name → popup with name, email, phone, LinkedIn** | **Shipped** v0.73.51 — was MISSED, see below |
 | 20 | **Landscape should work like "as columns" in macOS** | **MISSED** — see below |
 | 21 | Where do I change the labels of a reading? | **Answered** — Settings → What you call the steps; per workspace, admin only |
 | 22 | Entries: can I fill in everything? Also tags? | **Answered** + **Backlog** §1.3, §2.6 |
@@ -65,6 +65,8 @@ neither in code nor in a document. That is what this file fixes.
 | 37 | The list of readings should be flexible — title above, then rows of "name : description" | **Shipped** v0.73.49 |
 | 38 | Keep Connections at workspace level; admin decides who has access — everyone or a selection | **Answered** — that is exactly what exists |
 | 39 | "I remember we built something like groups... with rights" | **Answered** — teams as access groups, 2026-09-11 |
+| 40 | Calling somebody means leaving Maps for The Fibre and coming back to file the note | **Shipped** v0.73.51 — this is #19, and why it mattered |
+| 41 | Is the staging branch mine? (peer session, blocked release) | **Answered** — three stale premises corrected; peer released on top |
 
 ### The three that were lost
 
@@ -74,7 +76,19 @@ already highlights tags and `@` names as you type
 (`components/tag-highlight-box.tsx`); the saved note in the timeline renders as
 plain text. Same ranges, a different renderer.
 
-**19 — the contact-details popup.** Asked together with a real architectural
+**19 — the contact-details popup. SHIPPED v0.73.51**, after he said plainly
+what it cost: *"when I am searching for someone in my network and use maps to
+identify them, and want to call them... I need to leave MAPS and go to FIBRE
+for more info.. and then when I talked to them, I need to go back to
+Connections, search him again and then file the info... That does not seem user
+friendly"*.
+
+The sting is that the round trip bought nothing. `GET /persons/:id` is a
+`select('*')`, so the phone number was already in the response the popup had
+fetched — it was never typed and never rendered. A `tel:` link, and the call
+and the note happen in one dialog.
+
+The original note follows. Asked together with a real architectural
 question — *"This can be sent to basic info in fibre I guess... but at least
 can appear here. Right (considering Fibre's Wall)?"* — **which I never
 answered.** The answer is yes, and the reason matters: name, email, phone and
