@@ -11,6 +11,8 @@ import {
   seedPosition,
   settle,
   step,
+  LEAN_MAX,
+  leanToward,
   targetRadius,
   wander,
   type WebNode,
@@ -376,5 +378,49 @@ describe('links must not drag the whole cloud to one side', () => {
         expect(widestGap(ids, stride), `${ids[0]} / stride ${stride}`).toBeLessThan(100);
       }
     }
+  });
+});
+
+describe('the middle leans after the mouse', () => {
+  const centreOf = (nodes: WebNode[]) => nodes.find((n) => n.centre)!;
+
+  it('arrives late, not instantly — that is the whole effect', () => {
+    const nodes = web({ Joost: 2, Aniek: 1 });
+    settle(nodes);
+    const centre = centreOf(nodes);
+    const pointer = { x: 400, y: 0 };
+    const target = leanToward(pointer)!;
+    step(nodes, [], undefined, pointer);
+    const afterOne = Math.abs(centre.x - target.x);
+    // One frame gets nowhere near; a hundred gets there.
+    expect(afterOne).toBeGreaterThan(Math.abs(target.x) * 0.5);
+    for (let i = 0; i < 200; i += 1) step(nodes, [], undefined, pointer);
+    expect(Math.hypot(centre.x - target.x, centre.y - target.y)).toBeLessThan(3);
+  });
+
+  it('leans toward the pointer rather than chasing it to the edge', () => {
+    // A middle that flies to the frame's edge is no longer the middle of
+    // anything, and every line would stretch across the screen.
+    const far = leanToward({ x: 5000, y: 0 })!;
+    expect(Math.hypot(far.x, far.y)).toBeCloseTo(LEAN_MAX, 5);
+    const near = leanToward({ x: 100, y: 0 })!;
+    expect(near.x).toBeGreaterThan(0);
+    expect(near.x).toBeLessThan(100);
+  });
+
+  it('goes home when the mouse leaves', () => {
+    const nodes = web({ Joost: 2, Aniek: 1 });
+    settle(nodes);
+    const centre = centreOf(nodes);
+    const pointer = { x: 400, y: 300 };
+    for (let i = 0; i < 200; i += 1) step(nodes, [], undefined, pointer);
+    expect(Math.hypot(centre.x, centre.y)).toBeGreaterThan(10);
+    for (let i = 0; i < 200; i += 1) step(nodes, [], undefined, null);
+    expect(Math.hypot(centre.x, centre.y)).toBeLessThan(2);
+  });
+
+  it('stays put when there is no pointer at all', () => {
+    expect(leanToward(null)).toBeNull();
+    expect(leanToward(undefined)).toBeNull();
   });
 });

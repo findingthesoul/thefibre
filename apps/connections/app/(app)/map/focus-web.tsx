@@ -230,12 +230,15 @@ export function FocusWeb({
    * as a tap and opens the name.
    */
   const drag = useRef<{ id: string; moved: boolean } | null>(null);
+  /** Where the pointer is over the cloud, so the middle can lean after it. */
+  const pointer = useRef<{ x: number; y: number } | null>(null);
 
   // ── The animation loop ──────────────────────────────────────────────────
   const animate = useCallback(() => {
     if (raf.current !== null) return;
     if (prefersReducedMotion()) {
       settle([...nodes.current.values()], 600, webLinks(links.current), pan.current);
+      pointer.current = null; // no chasing the mouse if motion is unwelcome
       setFrame((f) => f + 1);
       return;
     }
@@ -245,7 +248,7 @@ export function FocusWeb({
     // requestAnimationFrame pauses itself when the tab is hidden.
     const tick = () => {
       const list = [...nodes.current.values()];
-      step(list, webLinks(links.current), pan.current);
+      step(list, webLinks(links.current), pan.current, pointer.current);
       wander(list, performance.now());
       setFrame((f) => f + 1);
       raf.current = requestAnimationFrame(tick);
@@ -259,6 +262,25 @@ export function FocusWeb({
     },
     [],
   );
+
+  // The mouse leaving is a NATIVE listener, not React's onPointerLeave.
+  // React synthesises enter/leave from pointerout/pointerover, which a test
+  // dispatching a plain `pointerleave` never triggers — and more to the point,
+  // a listener on the element itself is the thing that cannot be missed. If
+  // this failed the middle would stay leaning after the mouse had gone.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const gone = () => {
+      pointer.current = null;
+    };
+    svg.addEventListener('pointerleave', gone);
+    window.addEventListener('blur', gone);
+    return () => {
+      svg.removeEventListener('pointerleave', gone);
+      window.removeEventListener('blur', gone);
+    };
+  }, []);
 
   // ── A new focus ─────────────────────────────────────────────────────────
   useEffect(() => {
@@ -463,17 +485,20 @@ export function FocusWeb({
             role="img"
             aria-label={centreName}
             onPointerMove={(e) => {
+              const svg = svgRef.current;
+              const ctm = svg?.getScreenCTM();
+              if (!svg || !ctm) return;
+              const at = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+              // Every move, dragging or not: the middle leans after the mouse.
+              pointer.current = { x: at.x, y: at.y };
+
               const d = drag.current;
               if (!d) return;
               const node = nodes.current.get(d.id);
-              const svg = svgRef.current;
-              if (!node || !svg) return;
-              const ctm = svg.getScreenCTM();
-              if (!ctm) return;
-              const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
-              if (Math.hypot(pt.x - node.x, pt.y - node.y) > DRAG_SLOP) d.moved = true;
-              node.x = pt.x;
-              node.y = pt.y;
+              if (!node) return;
+              if (Math.hypot(at.x - node.x, at.y - node.y) > DRAG_SLOP) d.moved = true;
+              node.x = at.x;
+              node.y = at.y;
               node.held = true;
             }}
             onPointerUp={() => {
@@ -485,6 +510,8 @@ export function FocusWeb({
               drag.current = null;
             }}
             onPointerLeave={() => {
+              // The mouse has gone; the middle drifts home.
+              pointer.current = null;
               const d = drag.current;
               if (d) {
                 const node = nodes.current.get(d.id);

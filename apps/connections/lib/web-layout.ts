@@ -36,7 +36,16 @@
 // neighbour. And the cloud never fully freezes — a slow WANDER keeps it
 // breathing, so it reads as alive rather than as a diagram.
 //
-//   the centre      pulled to (0, 0)
+// ── The middle leans toward your mouse (Sjoerd, 2026-09-13) ────────────────
+//
+// *"make the main name, follow the mouse in a delay"*. The name in the middle
+// drifts after the pointer, softly and always behind it. It LEANS rather than
+// follows: the pull is a fraction of the distance and capped, because the
+// middle of a cloud that chases your cursor to the edge of the frame stops
+// being the middle of anything, and the lines to every other name would
+// stretch across the screen.
+//
+//   the centre      pulled toward where you are pointing, softly and capped
 //   a neighbour     pulled to a ring whose radius is its weight: the most
 //                   valuable connection sits closest
 //   two linked      pulled together, so people who share something sit near
@@ -151,6 +160,10 @@ const WANDER_SPEED = 0.0007;
 
 /** How firmly a name with a preferred direction is kept in it. */
 const BEARING_PULL = 0.08;
+/** How far the middle will lean from home, and how lazily it gets there. */
+export const LEAN_MAX = 55;
+const LEAN_FRACTION = 0.16;
+const LEAN_PULL = 0.022;
 
 const RADIAL = 0.06;
 const CENTRING = 0.12;
@@ -199,7 +212,14 @@ export function panning(pan?: Pan): boolean {
  * `pan` is consumed as it is spent, so the caller can hand the same object
  * back each frame and stop when it is empty.
  */
-export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number {
+export function step(
+  nodes: WebNode[],
+  links: WebLink[] = [],
+  pan?: Pan,
+  /** Where the pointer is, in the same units as the nodes. */
+  pointer?: { x: number; y: number } | null,
+): number {
+  const lean = leanToward(pointer);
   // Springs are quiet while the cloud is travelling. See the header.
   const springs = panning(pan) ? GLIDE_SPRING : 1;
   // The glide first, so a node's forces this frame are computed where it has
@@ -226,8 +246,11 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
       continue;
     }
     if (n.centre) {
-      n.vx += -n.x * CENTRING * springs;
-      n.vy += -n.y * CENTRING * springs;
+      // Home is (0, 0), or a little way toward the pointer. The soft pull is
+      // what makes it arrive late, which is the whole effect.
+      const k = lean ? LEAN_PULL : CENTRING;
+      n.vx += ((lean?.x ?? 0) - n.x) * k * springs;
+      n.vy += ((lean?.y ?? 0) - n.y) * k * springs;
       continue;
     }
     // Measured in a space squashed horizontally, so the ring it is pulled to
@@ -411,4 +434,20 @@ export function assignBearings(
   ordered.forEach((n, i) => {
     n.bearing = base + step * i;
   });
+}
+
+/**
+ * Where the middle should lean, given the pointer: a fraction of the way
+ * toward it, and never further than LEAN_MAX from home.
+ *
+ * Exported so the rule can be read and tested on its own. Null pointer — the
+ * mouse has left, or never arrived — means home.
+ */
+export function leanToward(pointer?: { x: number; y: number } | null): { x: number; y: number } | null {
+  if (!pointer) return null;
+  const x = pointer.x * LEAN_FRACTION;
+  const y = pointer.y * LEAN_FRACTION;
+  const d = Math.hypot(x, y);
+  if (d <= LEAN_MAX) return { x, y };
+  return { x: (x / d) * LEAN_MAX, y: (y / d) * LEAN_MAX };
 }
