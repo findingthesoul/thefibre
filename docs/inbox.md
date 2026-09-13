@@ -227,6 +227,18 @@ The fix is one write, not a redesign: a stage move is type plus subject, which
 is the shape `activity` takes. `pulse_commitment_stage_event` already records
 every move by trigger, so the data is there and only the crossing is missing.
 
+**Progress on it, checked 2026-09-13 15:00 UTC**, because a commit title can
+read as more than it did. `4b01687` says "one shared timeline", and what it
+means is that the Fibre contact page and Connections had written the SAME
+design twice; it is now `@thefibre/shared/ui/timeline` and both use it. Good
+work, and not the thing he asked for. `load.ts` still fetches the person card
+and their notes and nothing else, so Connections renders notes in the shape of
+a trail rather than rendering the trail. Same design, not the same content.
+
+Both halves of the original finding are therefore still open, re-verified the
+same minute: the person page reads no activities, and `pulse.ts` still writes
+none, so there would be no stage moves in the stream even once it is read.
+
 The original capture, kept whole:
 
 ### 2026-09-12 — the person page has no timeline, and stage moves are nowhere

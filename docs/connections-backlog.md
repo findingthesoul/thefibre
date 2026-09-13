@@ -14,10 +14,13 @@ releases, almost all of them the map.
 
 ---
 
-## 0. The sharp one: an axis nobody can fill
+## 0. The sharp one: an axis nobody can fill — **BUILT v0.73.43**
 
-**The landscape has five readings. One of them cannot be answered from inside
-this app.**
+**The landscape has five readings. One of them could not be answered from
+inside this app.** Shipped to staging 2026-09-13: the relationship card sits in
+the person popup, above the note composer, and writes
+`person_relationship_context`. What follows is the finding as it stood, kept
+because the reasoning is what the next gap of this kind will be found by.
 
 `closeness` is, by design, the one axis a human types in — the SQL says so in
 as many words: *"the one axis a human types in by hand, and the only place in
@@ -42,17 +45,29 @@ This is also what Sjoerd asked for on 2026-09-13, in the same breath as the
 popup-over-popup: *"And then see the CONNECTION card wirh absic info (maybe
 edit their relation fields)."*
 
-**What to build:** the relationship card in the person popup — strength, how
-you met, who introduced them, whether they are a key contact. Reading is a
-`GET`, writing is a `PATCH`, both exist. The only design question is how much
-of it belongs in a popup versus the person's page, and the answer is probably
-"strength and introduced-by in the popup, the rest on the page", because
-strength is the one somebody will want to set in the three seconds after a
-conversation.
+**What was built:** the card in the popup — how close, how you met, who
+introduced them, key contact, speaks for us. Every control saves itself: there
+is no Save button, because each control is a separate statement and the row is
+upserted per field, so somebody who has just put the phone down can press
+"warm" and close the popup. Pressing the chip that is already on clears it,
+because `unrated` is a real band somebody must be able to return a person to.
 
-**Watch out for:** `introduced_by` is a person id, so its control is a person
-picker and not a text field (handbook §12). And `relationship_strength` has no
-history — see §3.2.
+`introduced_by` is a person picker handing over an id, never a typed name
+(handbook §12).
+
+**Still open on this:** `relationship_strength` has no history — §3.2 — so the
+axis will show proportions and no movement however many people are rated. And
+the card is in the POPUP only; the person's page (§1.1) should show the same
+thing, which is an argument for it being a shared component the day that page
+is built rather than a second copy.
+
+**The trap it hit, worth remembering:** the value lists were first exported
+from the `'use server'` module beside the actions. Everything a 'use server'
+module exports must be an async function, so in the browser `STRENGTHS` was a
+proxy and `STRENGTHS.map` threw — after a clean typecheck and a clean build.
+Caught in the browser, not by the compiler. Values that both sides read belong
+in a module with no directive at all (`relationship-vocab.ts`); the mirror
+image of the same trap is written up in `landscape/axes.ts`.
 
 ---
 
