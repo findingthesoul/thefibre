@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.46] — 2026-09-13 — One way out, and it asks first (staging)
+
+**Connections — the person popup had two buttons and now has one.** The other
+went to a page showing strictly less than the popup you were already looking
+at. It comes back when that page has something this one does not.
+
+**And going to The Fibre asks first.** A short warning naming what is on the
+other side — the detailed personal data — with Yes and Cancel, and a "do not
+show this anymore" that is remembered only if you actually go. Ticking the box
+and then pressing Cancel is not consent. This replaces the new tab that
+answered the same complaint earlier: what was wanted was to KNOW you were
+leaving, and a new tab bought that by never leaving, at the cost of a tab every
+time. **Settings → Warnings you switched off** turns it back on.
+
+**Full screen keeps the search and the slider.** They were left on the page
+underneath, which is behind the overlay, so going full screen quietly took both
+away.
+
+**And no page in Connections can slide sideways any more.** A screenshot of
+Entries showed the content sitting underneath the sidebar, cut off mid-sentence
+— which is what horizontal scrolling looks like in this shell.
+
 ## [0.73.45] — 2026-09-13 — A popup you can take in at a glance (staging)
 
 **Connections — the person popup folds into two.** How you know them, and what

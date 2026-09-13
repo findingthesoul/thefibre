@@ -146,6 +146,25 @@ rather than treating every word alike.
 
 The "name a stranger" half is a bigger decision and is §2.6.
 
+### 1.3b Nothing says what would move a person
+Sjoerd, 2026-09-13: *"Imagine a person... she or he is now in a certain state...
+and I want to change that state.. where do you do that?"*
+
+The answer is "mostly you do not — you record the thing that moves them", and
+that is the design. But **nowhere in the app says so while you are looking at a
+person.** The settings screen explains what earns each band; the person's own
+surfaces explain nothing, so the reasonable conclusion from the interface is
+that the control is hidden somewhere.
+
+What the page should carry, per axis: where they sit, and the one sentence
+about what would move them — which already exists as `BAND_NOTE_KEYS`, written
+for the settings screen and never shown anywhere else. Plus the two that ARE
+answerable, pointed at their real home: closeness is the card in the popup, and
+opportunity is the deal's stage in Pulse.
+
+Belongs with §1.1 rather than beside it: this IS the header of the person's
+page.
+
 ### 1.4 Tags grow and nothing prunes them
 Tags are detected while writing (v0.73.10) and organisations are tags. There is
 a tag cloud and a tag filter, and no way to rename, merge or delete a tag.
@@ -183,6 +202,47 @@ popup says so by deliberately not offering an "open the full page" link. For a
 community app that may be right; for anyone who thinks in institutions it is a
 hole. Decide before adding more into the popup, because a popup that grows a
 third section is a page that has not admitted it yet.
+
+### 2.7 The meetings you have had with this person
+Sjoerd, 2026-09-13: *"if you have appointments in your calendar with this
+person, that in an extra tab you see an overview of your meetings?"*
+
+**Half of it is nearly free.** A meeting booked through Meet is platform data
+and already writes an activity event, so it lands in the person's stream (§1.1)
+with no new integration at all. The same is true of threads attended. If "your
+meetings" means "the times we have actually met", a good part of the answer is
+already in the database and simply has nowhere to be shown.
+
+**The Google calendar half needs a decision, because the read is
+forward-only.** `connections-agenda.ts` asks Google for 1–14 days AHEAD, live,
+and stores nothing — deliberately: it exists to answer "who is my day about",
+and a scan that persisted everything it saw would have been a much bigger
+decision made in passing. So "meetings we have had" cannot be answered from it
+as it stands.
+
+Two ways, and they trade the same thing against each other:
+
+1. **Ask on demand.** When a person is opened, query their calendar over the
+   last N months and filter to events carrying that person's email. Nothing is
+   stored, no new body of personal data, and it stops working the moment the
+   Google token lapses. The cost is real: the Calendar API cannot filter by
+   attendee, so this fetches a window and filters in memory — a year of
+   somebody's calendar, every time a popup opens.
+2. **Keep what the scan sees.** A row per (person, event, when). Fast, gives
+   history, survives a lapsed token — and creates a permanent record of every
+   meeting you have ever had with everyone, in a database that **has never
+   deleted anything** (§3.4, D69 unanswered). That is not a reason to refuse
+   it; it is a reason not to build it before there is a retention answer.
+
+**And one scoping question that changes what the tab means.** The calendar is
+per USER — the route reads only the signed-in person's own calendars, on
+purpose, because "who is in your day" is not a workspace-level fact. So a
+meetings tab built on the calendar shows YOUR meetings with them. Activity
+events show the whole team's. For a community organisation "has anyone here met
+them" is usually the more useful question, and it is the one already answerable.
+
+Recommendation: build the activity side with §1.1 and see whether the calendar
+half is still wanted once "every time anyone here met them" is on the page.
 
 ### 2.6 Naming a target the workspace has never heard of
 The other half of §1.3. "Can we reach Acme?" is the question Entries exists for,

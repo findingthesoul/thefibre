@@ -186,7 +186,12 @@ export function SearchSelect({
       </button>
       {open && (
         <div
-          className={`absolute z-50 w-full rounded-md border border-line bg-surface-raised shadow-lg ${
+          // `left-0` is not decoration. An absolutely positioned box with no
+          // `left` falls back to its STATIC position — where it would have sat
+          // in normal flow — which is fine until a parent's text-align,
+          // direction or a flex row moves that. Pinning it to the field's own
+          // left edge means the panel can only ever be under the field.
+          className={`absolute left-0 z-50 w-full rounded-md border border-line bg-surface-raised shadow-lg ${
             dropUp ? 'bottom-full mb-1' : 'mt-1'
           }`}
         >

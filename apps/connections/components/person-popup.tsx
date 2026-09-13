@@ -28,12 +28,12 @@
 // commit behaviour right.
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
-import Link from 'next/link';
 import { ExternalLink } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { Notes, type Note } from '@/app/(app)/people/[id]/notes';
 import { loadPerson, type PersonCard } from '@/app/(app)/people/[id]/load';
+import { suppressWarning, warningSuppressed } from '@/lib/leaving-warning';
 import { RelationshipCard } from '@/components/relationship-card';
 
 type Ctx = { openPerson: (id: string) => void };
@@ -67,6 +67,9 @@ export function PersonPopupProvider({
   const [notes, setNotes] = useState<Note[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Where we are about to go, while the warning is on screen. */
+  const [leavingTo, setLeavingTo] = useState<string | null>(null);
+  const [dontAsk, setDontAsk] = useState(false);
 
   const load = useCallback(async (personId: string) => {
     setLoading(true);
@@ -190,41 +193,36 @@ export function PersonPopupProvider({
           {person && (
             <div>
               {person.email && <p className="text-sm text-ink-muted">{person.email}</p>}
+              {/* ONE link, not two. Sjoerd, 2026-09-13: *"why two buttons?"*
+                  The other went to /people/:id, which today renders strictly
+                  LESS than the popup you are already looking at — the same
+                  notes without the relationship card. A second button to see
+                  less of the same person is clutter, and it comes back when
+                  that page has something this does not (backlog §1.1). The
+                  page is still a real page and every list still links to it. */}
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                {/* Clears the popup BEFORE navigating. The provider lives in
-                    the layout, which does not remount on a route change, so
-                    without this the dialog would stay open on top of the very
-                    page it just linked to. The history entry it pushed is left
-                    in place deliberately: it points at the page underneath, so
-                    back from the full page lands on the list — which is where
-                    the person came from. */}
-                <Link
-                  href={`/people/${person.id}`}
+                {/* Asks before it goes. Sjoerd, 2026-09-13: *"I just want to
+                    have a warning... that I am leaving connections and going
+                    to detailed personal data (with a YES and CANCEL button)"*.
+                    This REPLACES the new tab that answered the same complaint
+                    earlier the same day — what he wanted was to know he was
+                    leaving, and a new tab bought that by never leaving, at the
+                    cost of a tab every time. */}
+                <button
+                  type="button"
                   onClick={() => {
-                    pushed.current = false;
-                    clear();
+                    const href = `${fibreContactsBase}/${person.id}`;
+                    if (warningSuppressed()) {
+                      window.location.assign(href);
+                      return;
+                    }
+                    setLeavingTo(href);
                   }}
-                  className="text-ink-muted underline underline-offset-2 hover:text-ink"
-                >
-                  {t(locale, 'person_open_full')}
-                </Link>
-                {/* A NEW TAB. Sjoerd, 2026-09-13: "moving to the fibre (more
-                    contact info) is confusing... you're totally left
-                    connections then". It carried the external-link icon while
-                    navigating in place, so following it dropped you out of
-                    Connections — out of the map you were walking through, and
-                    out of the popup you opened from it — with only Back to
-                    return. The icon was already telling the truth; the link
-                    now behaves like it. */}
-                <a
-                  href={`${fibreContactsBase}/${person.id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-ink-muted hover:text-ink"
                 >
                   {t(locale, 'person_open_in_fibre')}
                   <ExternalLink size={11} strokeWidth={1.75} />
-                </a>
+                </button>
               </div>
 
               {/* Two folds. Sjoerd, 2026-09-13: *"Maybe they can be like an
@@ -273,6 +271,43 @@ export function PersonPopupProvider({
               </details>
             </div>
           )}
+        </Dialog>
+      )}
+
+      {/* Over the person popup, because that is where it was asked for and
+          because leaving is a decision about the thing you are looking at. */}
+      {leavingTo && (
+        <Dialog open onClose={() => setLeavingTo(null)} title={t(locale, 'leave_title')}>
+          <p className="text-sm text-ink-muted">{t(locale, 'leave_body')}</p>
+          <label className="mt-4 flex items-center gap-2 text-xs text-ink-muted">
+            <input
+              type="checkbox"
+              checked={dontAsk}
+              onChange={(e) => setDontAsk(e.target.checked)}
+            />
+            {t(locale, 'leave_dont_ask')}
+          </label>
+          <div className="mt-5 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setLeavingTo(null)}
+              className="text-sm text-ink-muted hover:text-ink"
+            >
+              {t(locale, 'cancel')}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                // Remembered only when they actually go. Ticking the box and
+                // then pressing Cancel is not consent to skip the warning.
+                if (dontAsk) suppressWarning();
+                window.location.assign(leavingTo);
+              }}
+              className="inline-flex h-8 items-center rounded-md border border-ink bg-ink px-3 text-sm text-ink-inverse"
+            >
+              {t(locale, 'leave_yes')}
+            </button>
+          </div>
         </Dialog>
       )}
     </PersonPopupContext.Provider>
