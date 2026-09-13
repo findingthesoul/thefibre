@@ -4,16 +4,23 @@
 //
 // Two views on one page, chosen by the URL:
 //
-//   /map                        the overview: everybody at once, a cloud
-//   /map?focus=<id>             the moving web around one person (focus-web.tsx)
+//   /map                        the cloud, around whoever you spoke to last
+//   /map?focus=<id>             the cloud around one person (focus-web.tsx)
 //   /map?focus=<id>&kind=org    ... or around one organisation
+//   /map?view=all               everybody at once, as still dots
+//
+// THE CLOUD IS THE LANDING PAGE (Sjoerd, 2026-09-13). It used to be the dot
+// overview, with the cloud one click in — and he twice reported not being able
+// to see the thing he had asked for, because the page he arrived at was the
+// old picture. What somebody wants on opening a map of their community is to
+// be standing in it. The overview is still here, one click away, because
+// "everybody at once" answers a different and real question.
 //
 // Sjoerd, 2026-09-11: *"I see a web of people.. connected. People who are
 // active bigger.. people who I have not contacted or seen... far removed.. I
 // click on a person.. zoom in... get info... but around it other people
 // appear.."* — and 2026-09-13, on seeing the first version: *"Is the map not
-// moving? Like the thesaurus..."*. The overview is the first sentence; the
-// web is the second.
+// moving? Like the thesaurus..."*
 //
 // ── What each thing in the overview means (D39: four encodings) ────────────
 //
@@ -28,7 +35,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { layout, type MapPerson } from '@/lib/map-layout';
+import { defaultStartPerson, layout, type MapPerson } from '@/lib/map-layout';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { FocusWeb, focusHref, type Focus } from './focus-web';
 
@@ -62,6 +69,12 @@ export function MapView({
     ? { kind: params.get('kind') === 'org' ? 'org' : 'person', id: focusId }
     : null;
 
+  const showAll = params.get('view') === 'all';
+
+  // Where the cloud starts when nobody chose. No extra query: the overview
+  // payload already carries the contact dates.
+  const defaultStart = useMemo(() => defaultStartPerson(people), [people]);
+
   const { dots, far } = useMemo(() => layout(people, now), [people, now]);
   const nameOf = useMemo(() => new Map(people.map((p) => [p.id, p.name])), [people]);
   const [hover, setHover] = useState<string | null>(null);
@@ -86,15 +99,19 @@ export function MapView({
     </select>
   );
 
-  if (focus) {
+  // The cloud, either because a name was chosen or because this is the landing
+  // page and somebody has to be in the middle.
+  const shown: Focus | null = focus ?? (showAll || !defaultStart ? null : { kind: 'person', id: defaultStart.id });
+
+  if (shown) {
     return (
       <>
         <div className="mt-4 max-w-xs">{picker}</div>
         {/* The same FocusWeb stays mounted as the focus changes, which is what
             lets the clicked name travel to the middle instead of jumping. */}
         <FocusWeb
-          focus={focus}
-          knownName={focus.kind === 'person' ? (nameOf.get(focus.id) ?? null) : null}
+          focus={shown}
+          knownName={shown.kind === 'person' ? (nameOf.get(shown.id) ?? null) : null}
           locale={locale}
         />
       </>

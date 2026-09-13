@@ -7056,6 +7056,14 @@ const CATALOG = {
     de: 'Noch niemand ist mit dieser Organisation verbunden.', // MT
     fr: 'Personne n’est encore lié à cette organisation.', // MT
   },
+  map_cloud_intro: {
+    en: 'Your community as a cloud. The name in the middle is where you are standing; the names around it are who they are connected to, nearest and largest for the strongest. Click any name to move to them.',
+    nl: 'Je gemeenschap als een wolk. De naam in het midden is waar je staat; de namen eromheen zijn met wie die verbonden is, dichterbij en groter naarmate de verbinding sterker is. Klik op een naam om ernaartoe te gaan.',
+    es: 'Tu comunidad como una nube. El nombre del centro es donde estás; los de alrededor son sus conexiones, más cerca y más grandes cuanto más fuertes. Haz clic en cualquier nombre para ir hacia él.', // MT
+    pt: 'A tua comunidade como uma nuvem. O nome ao centro é onde estás; os nomes à volta são as suas ligações, mais perto e maiores quanto mais fortes. Clica num nome para ires até ele.', // MT
+    de: 'Deine Gemeinschaft als Wolke. Der Name in der Mitte ist, wo du stehst; die Namen darum herum sind seine Verbindungen, näher und größer, je stärker sie sind. Klicke auf einen Namen, um dorthin zu gehen.', // MT
+    fr: 'Votre communauté comme un nuage. Le nom au centre est là où vous êtes ; ceux autour sont ses liens, plus près et plus grands quand ils sont plus forts. Cliquez sur un nom pour y aller.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

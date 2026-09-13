@@ -27,7 +27,7 @@ export default async function MapPage() {
   return (
     <PageContainer>
       <PageHeader title={t(locale, 'nav_map')} />
-      <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'map_intro')}</p>
+      <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'map_cloud_intro')}</p>
       <p className="mt-2 text-xs text-ink-subtle lg:hidden">{t(locale, 'map_desktop_note')}</p>
 
       {error && <ErrorBanner>{error}</ErrorBanner>}

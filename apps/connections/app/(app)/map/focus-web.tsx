@@ -317,7 +317,7 @@ export function FocusWeb({
         </button>
         <button
           type="button"
-          onClick={() => router.push(pathname)}
+          onClick={() => router.push(`${pathname}?view=all`)}
           className="rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
         >
           {t(locale, 'map_overview')}
