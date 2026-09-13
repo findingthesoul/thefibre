@@ -6,6 +6,65 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.25] — 2026-09-13 — the identity functions stop answering strangers (staging)
+
+**Security, severe.** The Connections session found its read functions
+callable with the public anon key. The cause was not a Connections mistake,
+so every SECURITY DEFINER function on production was swept for the same one.
+Three identity and membership functions were open to anyone on the internet,
+with no session:
+
+- **`resolve_sso_identity`** — when no identity matches, it finds an EXISTING
+  user in the given workspace by email and links the CALLER-SUPPLIED provider
+  identity to that account; otherwise it creates a person, a user and a
+  platform app membership in that workspace.
+- **`ensure_workspace_member`** — inserts a membership row for any user into
+  any workspace, as organiser, or as admin if the workspace has no members.
+  Anyone who signed up had a user id, and workspace ids are not secret: the
+  public embed API takes one as `?workspace=`.
+- **`ensure_user_person`** — re-links `person.user_id` for any user.
+
+**The cause, which will recur unless it is known.** Each was "locked" with
+`revoke all on function ... from public`. That does not close a function on
+Supabase, which grants EXECUTE on public-schema functions to `anon` and
+`authenticated` separately, through default privileges. Revoking from PUBLIC
+removes only the implicit Postgres grant and leaves both in place.
+
+**How it was found without running anything.** Call a function as anon with a
+malformed uuid. Postgres checks EXECUTE first (42501), then coerces arguments
+(22P02), then runs the body — so a 22P02 proves the role may execute while
+guaranteeing the body never ran. That makes it safe to probe even the functions
+that write. Calibrated first on a function known to be revoked on one
+environment and granted on the other.
+
+**The fix** revokes EXECUTE from public, anon and authenticated, grants the
+service role, and resolves every overload by OID rather than a hand-typed
+signature — `resolve_sso_identity` has been redefined repeatedly, and a
+REVOKE on a stale signature either errors or silently leaves the live one
+open. Safe because only the service role ever calls them: the API through
+`adminClient` for the resolver, and other SECURITY DEFINER functions, running
+as their owner, for the other two.
+
+**Verified, and exactly how far.** On staging the anon key is refused on all
+three and the service role still passes. The integration suite passes 68/68
+after the change. Every fixture user in it was minted through the real
+`custom_access_token_hook`, so session minting survives, and the tenancy and
+RLS tests show signed-in access unaffected. **Not exercised end to end:** the
+sign-in flow's own call to `resolve_sso_identity` — the suite's SSO test covers
+the cross-domain handoff, not the resolver. That call is verified at the grant,
+not by a real sign-in.
+
+**Deliberately not touched.** `can_see_person`, `can_see_activity`,
+`can_see_organisation` and `meet_is_team_lead` are also executable by anon,
+but they are RLS helpers evaluated as `authenticated` inside row policies.
+Revoking them from authenticated would make every policy that calls them fail
+and every signed-in user see nothing. `workspace_meet_fee` leaks a fee
+figure. All five need their own review.
+
+On STAGING only. Production needs one promotion carrying this and the
+Connections revokes (070000–073000), which is Sjoerd's call — and should not
+wait for morning.
+
 ## [0.73.24] — 2026-09-13 — The map becomes a moving web (staging)
 
 **Connections — walk through your connections.** Sjoerd, on the first map:
