@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.33] — 2026-09-13 — Every line runs through its topic (staging)
+
+**Connections — no direct lines.** A line never runs from the middle straight
+to a name any more. It runs to a small dot and on to everyone who shares that
+one thing: a tag, an employer, a recorded relationship. The dot IS the topic,
+and it says nothing until you hover it — so three names hanging off one dot
+read as three people with something in common before you read a word. The
+captions under each name are gone, because the dot carries that now.
+
+Names that share a topic sit together in one wedge of the circle, which is what
+lets their dot sit at the mouth of it. The dot is a real part of the layout
+rather than a drawn midpoint, so the lines bend and flex as the cloud moves.
+
+**Dragging keeps what you dropped.** Drag the name in the middle and the others
+stream after it, each at its own pace; let go and they gather around it where
+you left it. It used to spring back to the centre of the frame the moment you
+released, which is tugging elastic rather than dragging.
+
 ## [0.73.32] — 2026-09-13 — Staging links stay on staging
 
 **Fix, and a safety one.** On the .tech test stack the app switcher sent you to
