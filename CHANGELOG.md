@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.27] — 2026-09-13 — The map opens in the cloud (staging)
+
+**Connections — you land inside the web, not on a page of dots.** The cloud
+shipped in v0.73.24-26 and was live the whole time; what you arrived at was the
+still overview, with the moving web one click in. So the thing that had been
+asked for was invisible.
+
+- `/map` now opens the cloud, centred on the person you were in touch with most
+  recently. It never opens on somebody you have never spoken to while anyone
+  else qualifies — that is the emptiest corner of the map — and it opens the
+  same way twice.
+- `/map?view=all` still shows everybody at once as dots, behind "Everyone".
+  A different question, and a real one, just not the front door.
+
+Also: a seeding script for staging (`scripts/seed-staging-connections.mjs`).
+Staging carried a scrambled clone of production's PEOPLE but almost none of
+what ties them — 2 tags and no relationships across 30 people — so the map had
+nothing to draw. It now shows a median of 27 connections per person. The script
+refuses to run against anything but staging and can undo itself.
+
 ## [0.73.26] — 2026-09-13 — The map is a cloud you walk through (staging)
 
 **Connections — the web, rebuilt as Sjoerd described it.** Shown the first
