@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.34] — 2026-09-13 — A click is a click, a drag is a drag (staging)
+
+**Connections — two real bugs in the map's handling of clicks and drags.**
+Dragging a name and letting go navigated away from the very cloud you were
+rearranging: the guard meant to prevent that read a value already cleared, so
+it never once fired. And a name jumped under the cursor the moment you twitched,
+because it was placed at the pointer rather than held where you grabbed it.
+
+The rule now answers two questions separately. A name is **picked up** if you
+move more than five screen pixels, or hold still for a moment — the hold lets
+you pick something up without flinging it, and makes this work under a finger.
+It counts as a **click** only if the name never actually moved, so a slow,
+deliberate click still opens the person.
+
+**Switching people no longer jumps.** Names fade in and out between one person
+and the next instead of blinking, and nobody is flung to the outer edge before
+the new set has even arrived.
+
 ## [0.73.33] — 2026-09-13 — Every line runs through its topic (staging)
 
 **Connections — no direct lines.** A line never runs from the middle straight
