@@ -207,3 +207,44 @@ export function bandName(
   const k = BAND_KEYS[axis][band];
   return k ? t(locale, k) : band;
 }
+
+/**
+ * What this workspace calls each axis, and which axes it shows, from
+ * `GET /api/v1/connections/labels`. Sparse in the same way `BandLabels` is:
+ * an axis nobody has touched is absent and means "shipped title, visible".
+ *
+ * Sjoerd, 2026-09-13: *"the whole categorisation should be editible. Which
+ * charatceristics and how many"* / *"And the title too"*.
+ */
+export type AxisConfig = Record<string, { title: string | null; hidden: boolean }>;
+
+/**
+ * The title to show for an axis: the workspace's word if it has one,
+ * otherwise the shipped translation.
+ *
+ * The twin of `bandName`, and it exists for the same reason: three surfaces
+ * printed a band name with their own fallback chain before one of them
+ * forgot the override. There is no second copy of this chain.
+ */
+export function axisTitle(locale: Locale, config: AxisConfig | undefined, axis: Axis): string {
+  const own = config?.[axis]?.title;
+  return own && own.trim() ? own : t(locale, AXIS_KEYS[axis]);
+}
+
+/**
+ * The axes this workspace reads, in the shipped order.
+ *
+ * Hiding is a screen decision, never a data one: `connections_landscape_axis`
+ * is untouched and still answers for a hidden axis, so switching one back on
+ * shows its whole history rather than an axis that begins today.
+ *
+ * **Never returns empty.** A workspace that hides all five would have a
+ * landscape page with no landscape on it and no control to undo that from —
+ * the settings screen refuses it too, and this is the second guard, because
+ * a row written by anything other than that screen would otherwise strand
+ * somebody. Falling back to all five is the recoverable failure.
+ */
+export function visibleAxes(config: AxisConfig | undefined): readonly Axis[] {
+  const shown = AXES.filter((a) => !config?.[a]?.hidden);
+  return shown.length ? shown : AXES;
+}

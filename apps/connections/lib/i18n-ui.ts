@@ -6446,6 +6446,38 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  names_axis_title: {
+    en: 'What you call this',
+    nl: 'Hoe jullie dit noemen',
+    es: 'Cómo lo llamáis', // MT
+    pt: 'Como lhe chamam', // MT
+    de: 'Wie ihr das nennt', // MT
+    fr: 'Comment vous l’appelez', // MT
+  },
+  names_axis_shown: {
+    en: 'Show this reading',
+    nl: 'Deze kijk tonen',
+    es: 'Mostrar esta lectura', // MT
+    pt: 'Mostrar esta leitura', // MT
+    de: 'Diese Sicht zeigen', // MT
+    fr: 'Afficher cette lecture', // MT
+  },
+  names_axis_last: {
+    en: 'The last one has to stay — there would be no landscape without it.',
+    nl: 'De laatste moet blijven — zonder hem is er geen landschap.',
+    es: 'La última tiene que quedarse: sin ella no habría paisaje.', // MT
+    pt: 'A última tem de ficar — sem ela não haveria paisagem.', // MT
+    de: 'Die letzte muss bleiben — ohne sie gäbe es keine Landschaft.', // MT
+    fr: 'La dernière doit rester — sans elle, il n’y aurait pas de paysage.', // MT
+  },
+  names_axes_intro: {
+    en: 'You choose which readings you use, and what each is called. Switching one off only hides it: it keeps being worked out, so turning it back on shows the whole history.',
+    nl: 'Jullie kiezen welke kijken jullie gebruiken en hoe elke heet. Uitzetten verbergt alleen: hij wordt gewoon bijgehouden, dus weer aanzetten toont de hele geschiedenis.',
+    es: 'Vosotros elegís qué lecturas usáis y cómo se llama cada una. Apagar una solo la oculta: se sigue calculando, así que volver a encenderla muestra todo el histórico.', // MT
+    pt: 'Vocês escolhem que leituras usam e como se chama cada uma. Desligar uma apenas a esconde: continua a ser calculada, por isso voltar a ligá-la mostra todo o histórico.', // MT
+    de: 'Ihr wählt, welche Sichten ihr nutzt und wie jede heißt. Ausschalten verbirgt sie nur: sie wird weiter berechnet, ein Wiedereinschalten zeigt die ganze Geschichte.', // MT
+    fr: 'Vous choisissez quelles lectures vous utilisez et comment chacune s’appelle. En désactiver une ne fait que la masquer : elle continue d’être calculée, donc la réactiver montre tout l’historique.', // MT
+  },
   names_empty_restores: {
     en: 'Leave a name empty to go back to the one we ship.',
     nl: 'Laat een naam leeg om terug te gaan naar onze eigen naam.',

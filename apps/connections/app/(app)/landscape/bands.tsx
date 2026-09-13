@@ -15,8 +15,8 @@ import {
 // Re-exported so the page and the picker keep importing from one place. The
 // DEFINITIONS moved to ./axes (see its header for why); this file is the
 // rendering and nothing else.
-export { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, isAxis } from './axes';
-export type { Axis, Band, BandLabels, Moved } from './axes';
+export { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, isAxis, axisTitle, visibleAxes } from './axes';
+export type { Axis, AxisConfig, Band, BandLabels, Moved } from './axes';
 
 
 // Depth of involvement read as depth of ink. Not a status colour — nothing

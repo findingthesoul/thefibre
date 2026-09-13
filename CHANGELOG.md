@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.37] — 2026-09-13 — You choose which readings you use, and what they are called (staging)
+
+**Connections — the landscape is yours to name and to narrow.** Renaming the
+bands on an axis has been possible since v0.73.9; the axis itself was fixed,
+and so was the fact that there were five of them. Now the title of each
+reading is the workspace's own word, and a workspace can switch off a reading
+it does not use — a community that sells nothing has no Pipeline, and one that
+runs no events has nothing in Contribution.
+
+Switching one off only hides it. It keeps being worked out, so turning it back
+on shows the whole history rather than a reading that starts the day somebody
+changed their mind. The last visible one cannot be switched off, and says why.
+
+**What still is not editable, deliberately:** what puts somebody in a band.
+That is derived from what actually happened, which is why the landscape worked
+on the day it shipped and asks nobody to keep it up to date. A rule a
+workspace writes is a rule a workspace has to maintain, and a hand-maintained
+ladder is wrong within a month.
+
 ## [0.73.36] — 2026-09-13 — The other half of the fade, and a search instead of a list (staging)
 
 **Connections — the people you are LEAVING now fade out too.** The map had
