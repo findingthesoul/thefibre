@@ -33,7 +33,33 @@ CLAUDE.md points at the sources of truth; this file keeps the queue.
 _Unranked items from Sjoerd live in [`inbox.md`](inbox.md) until he ranks
 them. Do not append raw captures here: this list promises priority order._
 
-_Last groomed 2026-09-12. Done items get removed, not ticked._
+_Last groomed 2026-09-13 (v0.73.25). Done items get removed, not ticked._
+
+**SECURITY — five functions are still executable with the public anon key.**
+Found 2026-09-13 in the same production sweep that found and fixed the identity
+functions (handbook §11.3b). Deliberately NOT fixed with the same revoke,
+because four of them are RLS helpers evaluated as `authenticated` inside row
+policies, and revoking them from that role would blank the app for every
+signed-in user:
+
+  can_see_person        can_see_activity        can_see_organisation
+  meet_is_team_lead     workspace_meet_fee
+
+For each: read the body. If it reads the caller from `auth.uid()` / JWT claims
+and only returns a boolean about that caller, anon gets `false` and the
+exposure is nil — revoke `anon` only, keep `authenticated`, and move on. If it
+takes the TARGET as a parameter and answers about someone else, it is a real
+leak and needs a redesign, not a grant change. `workspace_meet_fee` returns a
+workspace's fee to anyone who names the workspace: low severity, and probably
+just revoke anon.
+
+**And a standing guard, so the next function does not repeat this.** The
+calibrated probe from that night — malformed uuid as anon, `42501` closed,
+`22P02` open — as an integration test against staging, over every SECURITY
+DEFINER function, with an explicit reviewed allowlist of the ones open on
+purpose. Every function written since May was "locked" the wrong way by
+careful authors; a rule in a handbook did not stop them and will not stop the
+next one. A failing test will.
 
 **DESIGN — the site designer, and templates that are documents.** Sjoerd,
    2026-09-11, when the three themes shipped: *"In the future I want to
@@ -1049,6 +1075,8 @@ code on 2026-09-12 rather than remembered.
 | D71 | Tags and @mentions marked inside the sentence while typing | `components/tag-highlight-box.tsx`, v0.73.20 |
 | D70 | The desktop map: recency, attention, ladder; who is near and why | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
 | D70b | The moving web: click a name to centre it, companies as boxed nodes, Back (STAGING) | `app/(app)/map/focus-web.tsx`, `lib/web-layout.ts`, v0.73.24 |
+| D70c | The cloud: size = strength, links between the people around you, glide with ease-in-out (STAGING) | `lib/web-layout.ts`, `connections_links_among`, v0.73.26 |
+| D70d | You land IN the cloud; wide ellipse, density slider, draggable, breathing, middle leans after the mouse (STAGING) | `app/(app)/map/`, `lib/web-layout.ts`, v0.73.27-29 |
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
@@ -1062,12 +1090,37 @@ code on 2026-09-12 rather than remembered.
    profile timezone. Worth a setting once somebody who works weekends uses
    Today; all-day holidays could also remove the day.
 
-**In production up to v0.73.23** (2026-09-13). v0.73.24, the moving web, is
-on STAGING and waits for Sjoerd to look at it and promote.
+**In production up to v0.73.23**, plus the security migrations 070000-073000
+(2026-09-13). **v0.73.24-29 are on STAGING only** — Sjoerd's call, and he has
+said staging only for now.
 
-**Sjoerd has an example video of the interface he means** ("like the
-thesaurus"). Look at it before tuning the web further: speed, how many names,
-whether second-degree connections show faintly.
+**The map is the cloud from Sjoerd's Visual Thesaurus screenshots.** Built over
+2026-09-13 in his own words: names not dots, size for strength, names linked to
+each other and not only to the middle, a click gliding the whole cloud so the
+one you came from lands opposite, easing in and out, wide across the screen, a
+density slider, draggable so it is never fixed, and the middle leaning after
+the mouse.
+
+Three things went wrong in ways worth remembering:
+
+- **You landed on the wrong page.** The cloud was deployed for hours while he
+  reported not seeing it, because `/map` opened on the dot overview with the
+  cloud one click in. The front door is now the cloud.
+- **Staging had no ties.** A scrambled clone of the PEOPLE with almost none of
+  what connects them: 2 tags, 0 relationships across 30 people, so the map drew
+  nothing and read as broken. `scripts/seed-staging-connections.mjs` fixes it.
+- **Emergent spreading does not work.** Link springs drag a cluster, and the
+  whole cloud with it, onto one side. Names are now GIVEN a direction each.
+  Two tests passed with the fix switched off before a measure was found that
+  actually separates the cases (the widest empty wedge).
+
+Not done, and the next tuning pass if he wants one:
+
+- second-degree names hanging faintly off the surrounding ones, as the
+  thesaurus does;
+- clusters in the overview: placement there is still a plain hash of the id, so
+  people who belong together are not placed together (§5c wants a nightly
+  snapshot).
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this

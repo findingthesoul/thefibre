@@ -1,0 +1,25 @@
+-- ============================================================================
+-- No-op, kept honest.
+--
+-- This file was an accidental partial write on 2026-09-13 (a security-fix
+-- draft, cut off after its comment header with none of its statements). A
+-- staging `supabase db push` applied it — valid SQL, being only comments — and
+-- registered version 20260913070000 in schema_migrations. The CLI tracks
+-- migrations by that 14-digit version, so the version is now spent on staging
+-- and cannot carry the real fix.
+--
+-- Rather than a `migration repair`, the file stays at this version as a
+-- truthful no-op so local and remote agree, and the ACTUAL fix lives in the
+-- two migrations that follow:
+--
+--   20260913071000_lock_down_connections_functions.sql       revoke public + authenticated
+--   20260913072000_lock_down_connections_functions_anon.sql  revoke anon (the Supabase default grant)
+--
+-- Together those revoke EXECUTE on the Connections read functions from every
+-- role but service_role, closing a hole where the public anon key could read
+-- any workspace's landscape and attention list straight through PostgREST.
+--
+-- Nothing to do here. Do not add statements to this file; write a new one.
+-- ============================================================================
+
+select 1 where false;

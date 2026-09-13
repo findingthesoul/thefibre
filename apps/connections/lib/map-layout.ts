@@ -163,3 +163,22 @@ export function thin<K extends string, N extends { reasons: { kind: K }[] }>(
     return true;
   });
 }
+
+/**
+ * Who the cloud opens on when nobody has chosen: the person you were in touch
+ * with most recently, because that is where you actually are in the community.
+ *
+ * People with no contact date at all are a last resort — landing on somebody
+ * you have never spoken to would open the map on its emptiest corner. Ties
+ * break by name so the same workspace opens the same way twice.
+ */
+export function defaultStartPerson<T extends { name: string; lastContactAt: string | null }>(
+  people: T[],
+): T | undefined {
+  const spokenTo = people.filter((p) => p.lastContactAt);
+  const pool = spokenTo.length ? spokenTo : people;
+  return [...pool].sort((a, b) => {
+    const byDate = (b.lastContactAt ?? '').localeCompare(a.lastContactAt ?? '');
+    return byDate !== 0 ? byDate : a.name.localeCompare(b.name);
+  })[0];
+}

@@ -105,3 +105,39 @@ describe('FOOTER_PATHS / FOOTER_LINKS', () => {
     );
   });
 });
+
+describe('which stack an app link points at', () => {
+  it('uses the configured URL when there is one', () => {
+    expect(appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: 'https://meet.example.test' })).toBe(
+      'https://meet.example.test',
+    );
+  });
+
+  it('keeps you on staging when the page is served from staging', () => {
+    // Sjoerd, 2026-09-13, on the .tech stack: "The menu brings me from .tech
+    // to .app". A staging project that was never given its siblings' URLs sent
+    // you to PRODUCTION from a menu while you thought you were still testing.
+    expect(appUrl('fibre-meet', {}, 'connections.thefibre.tech')).toBe('https://meet.thefibre.tech');
+    expect(appUrl('the-thread', {}, 'connections.thefibre.tech')).toBe('https://thread.thefibre.tech');
+    expect(appUrl('fibre-platform', {}, 'connections.thefibre.tech')).toBe('https://thefibre.tech');
+    expect(appUrl('fibre-sales', {}, 'thefibre.tech')).toBe('https://connections.thefibre.tech');
+  });
+
+  it('still goes to production from production', () => {
+    // The twin: the fallback must not follow anybody off the live stack.
+    expect(appUrl('fibre-meet', {}, 'connections.thethread.app')).toBe('https://meet.thethread.app');
+    expect(appUrl('fibre-meet', {})).toBe('https://meet.thethread.app');
+    expect(appUrl('fibre-meet', {}, 'localhost:3008')).toBe('https://meet.thethread.app');
+  });
+
+  it('is not fooled by a host that merely ends in the same letters', () => {
+    expect(appUrl('fibre-meet', {}, 'notthefibre.tech')).toBe('https://meet.thethread.app');
+    expect(appUrl('fibre-meet', {}, 'thefibre.tech.evil.test')).toBe('https://meet.thethread.app');
+  });
+
+  it('lets an explicit URL win over the host', () => {
+    expect(
+      appUrl('fibre-meet', { NEXT_PUBLIC_MEET_URL: 'https://meet.example.test' }, 'x.thefibre.tech'),
+    ).toBe('https://meet.example.test');
+  });
+});

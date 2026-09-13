@@ -1,3 +1,4 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { serverSupabase } from '@/lib/supabase/server';
 import { apiFetch } from '@/lib/api';
@@ -87,10 +88,16 @@ export default async function ConnectionsAppLayout({
     // in the one you are already in.
   }
 
+  // Which stack we are actually on. Every link OUT of this app is resolved
+  // against it, so a page served from the .tech twin never sends you to the
+  // live system by accident.
+  const host = (await headers()).get('host');
+
   const switcherApps = buildAppList({
     currentApp: 'fibre-sales',
     memberships: me.memberships,
     workspaceApps: apps,
+    host,
   });
 
   const locale = await uiLocale(me.locale);
@@ -114,7 +121,13 @@ export default async function ConnectionsAppLayout({
           current={{ slug: 'fibre-sales', name: APPS['fibre-sales'].name }}
           apps={switcherApps}
           workspaces={workspaces}
-          profileHref={crossAppHref('fibre-sales', 'fibre-platform', process.env, '/settings/profile')}
+          profileHref={crossAppHref(
+            'fibre-sales',
+            'fibre-platform',
+            process.env,
+            '/settings/profile',
+            host,
+          )}
         />
         {/* Soft-cream content surface so the white cards inside
          (Scope, Details, lists, dialogs) lift cleanly off the page. */}
@@ -125,7 +138,7 @@ export default async function ConnectionsAppLayout({
               env map. */}
           <PersonPopupProvider
             locale={locale}
-            fibreContactsBase={`${appUrl('fibre-platform', process.env)}/contacts`}
+            fibreContactsBase={`${appUrl('fibre-platform', process.env, host)}/contacts`}
           >
             {/* Notes written offline that still need a person. Renders
                 nothing unless one is waiting, on whichever page you land. */}

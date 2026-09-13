@@ -893,6 +893,51 @@ against production data** — reads on prod are fine; writes need a fixture
 workspace or an explicit check-in first. Rehearse risky flows (payments,
 erasure, cutovers) on staging or a Solidarity-Lab-owned prod fixture.
 
+### 11.3b `revoke ... from public` does NOT close a function on Supabase
+
+**Every new function in the `public` schema is executable by the `anon` and
+`authenticated` roles unless you revoke those roles by name.** Supabase grants
+them EXECUTE separately, through default privileges. `revoke all on function
+f from public` removes only the implicit Postgres grant to PUBLIC and leaves
+both of Supabase's in place. The anon key ships in every web bundle, so an
+unrevoked SECURITY DEFINER function is callable by anyone on the internet
+straight through PostgREST, with no session, and RLS does not apply to it.
+
+Found 2026-09-13. The Connections session found its read functions leaking
+people data to the anon key; a sweep of every SECURITY DEFINER function on
+production then found `resolve_sso_identity`, `ensure_workspace_member` and
+`ensure_user_person` open too — functions that link external identities to
+accounts, plant accounts in workspaces, and add any user to any workspace. All
+had been "locked" with `revoke ... from public`, by authors who reasonably
+believed that closed them. Fixed in 20260913071000–073000, promoted the same
+night.
+
+**The pattern for a function only the API should call:**
+
+```sql
+revoke execute on function public.f(uuid) from public, anon, authenticated;
+grant  execute on function public.f(uuid) to service_role;
+```
+
+For a function redefined more than once, revoke by OID across every overload
+(see `20260913073000_revoke_identity_functions.sql`) — a REVOKE naming a stale
+signature errors, or silently leaves the live overload open.
+
+**The exception that must NOT get this treatment:** a function evaluated
+inside a row policy — `can_see_person` and friends — runs AS the querying role.
+Revoke it from `authenticated` and every policy calling it fails, and every
+signed-in user sees nothing. Those need `anon` revoked and `authenticated`
+kept, or a design that does not take the target as a parameter.
+
+**How to check a function without running it:** call it as anon with a
+malformed uuid for a uuid parameter. Postgres checks EXECUTE privilege first
+(`42501` — closed), then coerces arguments (`22P02` — the role may execute, and
+the body never ran), then runs the body. So the probe is safe even on functions
+that write. Calibrate it first on one function known to be closed and one
+known to be open; the ordering is what makes it trustworthy, and it was
+observed, not assumed. A function whose parameters are all text cannot be
+probed this way — coercion will not stop its body.
+
 ### 11.3a A refusal test needs a success twin
 
 **A test that asserts a request is refused cannot, on its own, tell a working

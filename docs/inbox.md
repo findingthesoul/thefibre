@@ -123,11 +123,33 @@ So the item that opened this file is now built end to end, and the hash-placemen
 gap above is superseded for the web view: `lib/web-layout.ts` is a damped
 simulation, not a hash. The still overview cloud keeps the hash placement (D38).
 
-**What is actually waiting on him now**, and it is small: he has an example
-video of the interface he means. Nobody has seen it. The build plan asks for it
-before tuning speed, how many names to draw, and whether second-degree
-connections should show faintly. That is the one input that cannot be derived
-from the code.
+**And by the morning of 2026-09-13 the tuning was done too**, from his live
+feedback rather than from the video: names not dots, size for strength, names
+tied to each other and not only to the middle, a click gliding the whole cloud
+so the one you came from lands opposite, easing, wide across the screen, a
+density slider, draggable, and the middle leaning after the mouse. The build
+plan no longer asks for the example video, because he described it in words
+faster than anyone could have watched it.
+
+**So this item is closed as a request.** Three things are worth carrying
+forward from how it went, all recorded in the build plan:
+
+- **He reported not seeing the cloud for hours while it was deployed**, because
+  `/map` opened on the dot overview with the cloud one click in. The front door
+  is now the cloud. A feature one click from where somebody looks is a feature
+  that does not exist.
+- **Staging had no ties to draw.** A scrambled clone copied the people and
+  almost nothing that connects them: 2 tags and 0 relationships across 30
+  people, so the map rendered correctly and read as broken.
+  `scripts/seed-staging-connections.mjs` exists now.
+- **Emergent spreading did not work.** Link springs dragged a cluster, and the
+  whole cloud with it, to one side. Names are given a direction each instead.
+
+**Still open, and it is the one thing his original screenshots had that this
+does not:** map clusters. Placement in the overview is a plain hash of the
+person id, so people who belong together are not placed together.
+`connections-desktop.md` §5c resolves it with a nightly snapshot. Named as a
+gap rather than faked.
 
 **Two things that push back on the item as stated:**
 

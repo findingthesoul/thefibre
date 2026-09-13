@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { FAR_DAYS, daysSince, layout, radiusFor, thin, unitHash, type MapPerson } from './map-layout';
+import {
+  FAR_DAYS,
+  daysSince,
+  defaultStartPerson,
+  layout,
+  radiusFor,
+  thin,
+  unitHash,
+  type MapPerson,
+} from './map-layout';
 
 const NOW = Date.UTC(2026, 8, 13);
 const ago = (days: number) => new Date(NOW - days * 86_400_000).toISOString();
@@ -148,5 +157,38 @@ describe('thinning — each tick is a requirement', () => {
     // An OR filter would return all three here. That is the misreading D47
     // warns about, and it looks like a working feature.
     expect(ids(thin(all, new Set<Kind>(['tag', 'organisation'])))).toEqual(['both']);
+  });
+});
+
+describe('where the cloud opens', () => {
+  const p = (name: string, lastContactAt: string | null) => ({ name, lastContactAt });
+
+  it('opens on the person you were in touch with most recently', () => {
+    const who = defaultStartPerson([
+      p('Old friend', '2024-01-01T00:00:00Z'),
+      p('Spoke yesterday', '2026-09-12T00:00:00Z'),
+      p('Last spring', '2026-03-01T00:00:00Z'),
+    ]);
+    expect(who?.name).toBe('Spoke yesterday');
+  });
+
+  it('never opens on somebody never spoken to while anyone else qualifies', () => {
+    // Landing on a stranger would open the map on its emptiest corner, which
+    // is how it came to look broken in the first place.
+    const who = defaultStartPerson([p('Never spoken', null), p('Spoke once', '2025-05-05T00:00:00Z')]);
+    expect(who?.name).toBe('Spoke once');
+  });
+
+  it('falls back to somebody rather than nobody when no one has been contacted', () => {
+    expect(defaultStartPerson([p('Bea', null), p('Ann', null)])?.name).toBe('Ann');
+  });
+
+  it('opens the same way twice when dates tie', () => {
+    const same = '2026-09-01T00:00:00Z';
+    expect(defaultStartPerson([p('Zoe', same), p('Ann', same)])?.name).toBe('Ann');
+  });
+
+  it('has nobody to open on in an empty workspace', () => {
+    expect(defaultStartPerson([])).toBeUndefined();
   });
 });

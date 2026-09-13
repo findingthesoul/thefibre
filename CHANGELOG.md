@@ -6,6 +6,198 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.32] — 2026-09-13 — Staging links stay on staging
+
+**Fix, and a safety one.** On the .tech test stack the app switcher sent you to
+**production**. Every app's address is the production one unless a deployment
+is told otherwise, and the Connections staging project was never given its
+siblings' addresses — so the menu quietly moved you to the live system while
+you believed you were still testing. You could have edited real people's
+records thinking they were fixtures.
+
+An app's address is now resolved against the host actually serving the page. An
+explicit setting still wins; failing that, a page on the .tech stack links to
+the .tech stack. The same applies to the sign-in handoff between apps, so a hop
+started on staging cannot land on production.
+
+Checked against the usual traps: production still goes to production, local
+development is untouched, and a host that merely ends in the same letters is
+not mistaken for staging.
+
+## [0.73.31] — 2026-09-13 — Each name trails on its own; The Fibre opens in a new tab (staging)
+
+**Connections — the cloud stopped moving as a block.** Every name used to hang
+from one shared anchor, so when the middle leaned after your mouse the whole
+picture slid as a single piece. Each name now carries its own anchor and trails
+the middle at its own pace, taken from who they are, so it is the same on every
+visit. The strings between them stretch and contract independently.
+
+**Connections — "more contact info" no longer throws you out of the app.** The
+link to The Fibre on a person carried an external-link icon but opened in the
+same tab, so following it dropped you out of the map you were walking through,
+with only the Back button to return. It opens in a new tab now.
+
+Removed: a weak all-pairs push added earlier to stop linked clusters collapsing
+to one side. Now that every name is given its own direction around the ring, it
+changes the widest empty gap by at most one degree.
+
+## [0.73.30] — 2026-09-13 — The whole cloud follows, a beat later (staging)
+
+**Connections — when the middle leans after your mouse, the rest comes after
+it.** The ring the other names sit on used to be pinned to the middle of the
+frame, so the middle leaned and nothing else moved. It now hangs from a point
+that trails the middle on a slower spring.
+
+Three delays in a row: the middle follows your mouse, that point follows the
+middle, each name follows it. Because they are out of step, the lines stretch
+and compress while the cloud moves, which is what makes it feel like one body
+rather than a picture being dragged.
+
+## [0.73.29] — 2026-09-13 — The middle leans after your mouse (staging)
+
+**Connections — the name in the middle drifts after the pointer, always a
+little behind.** It leans rather than follows: a fraction of the way toward
+your cursor and no further than a set distance, on a soft spring. A middle that
+chased the cursor into the corner would stop being the middle of anything, and
+every line would stretch across the screen. When the mouse leaves the cloud, it
+drifts home.
+
+One thing worth recording: the mouse leaving is handled by a listener on the
+element itself rather than React's `onPointerLeave`, which React synthesises
+from other events. With the React handler the middle stayed leaning after the
+pointer had gone.
+
+## [0.73.28] — 2026-09-13 — The cloud goes wide, and you can push it around (staging)
+
+**Connections — the map fills the screen and moves under your hand.**
+
+- **Wide.** The cloud is an ellipse, not a disc: about 1.75 times wider than
+  tall, using the width a screen actually has. It breaks out of the page's
+  reading column, with the controls above and below rather than beside it.
+- **Density.** A slider from four to twenty names, remembered in your browser.
+  It re-cuts what is already loaded, so moving it costs no request.
+  Organisations are never cut below four — where somebody works is a recorded
+  fact, and worth keeping over one more shared tag.
+- **Draggable.** Take hold of a name and the others give way, which is how you
+  shake out one hidden behind another. Let go and it rejoins the ring. A drag
+  is not a click, so rearranging the cloud never navigates away from it.
+- **Never fixed.** The cloud keeps breathing after it settles, so it reads as
+  alive rather than as a diagram.
+
+Under it: each name is now given its own direction around the ring rather than
+left to find one. The link springs would otherwise drag a cluster, and with it
+the whole cloud, onto one side of the centre — which happened twice, once with
+every name left of the middle.
+
+## [0.73.27] — 2026-09-13 — The map opens in the cloud (staging)
+
+**Connections — you land inside the web, not on a page of dots.** The cloud
+shipped in v0.73.24-26 and was live the whole time; what you arrived at was the
+still overview, with the moving web one click in. So the thing that had been
+asked for was invisible.
+
+- `/map` now opens the cloud, centred on the person you were in touch with most
+  recently. It never opens on somebody you have never spoken to while anyone
+  else qualifies — that is the emptiest corner of the map — and it opens the
+  same way twice.
+- `/map?view=all` still shows everybody at once as dots, behind "Everyone".
+  A different question, and a real one, just not the front door.
+
+Also: a seeding script for staging (`scripts/seed-staging-connections.mjs`).
+Staging carried a scrambled clone of production's PEOPLE but almost none of
+what ties them — 2 tags and no relationships across 30 people — so the map had
+nothing to draw. It now shows a median of 27 connections per person. The script
+refuses to run against anything but staging and can undo itself.
+
+## [0.73.26] — 2026-09-13 — The map is a cloud you walk through (staging)
+
+**Connections — the web, rebuilt as Sjoerd described it.** Shown the first
+version he said it was the wrong shape: *"a cloud of words, that are connected.
+Some words are bigger and some are smaller, suggesting stronger connections.
+Some words are not only connected to the central word, but also to other words
+that are shown... If you click on a related word: that word moves towards the
+center... the word you came from moves to the side, opposite to where the
+second word first was."*
+
+- **Size is strength.** The person in the middle is largest; the rest are sized
+  by how strong the connection is, so the cloud reads at a glance.
+- **The people around you are tied to each other.** New SQL function
+  `connections_links_among` answers how the names already on screen connect —
+  a stated relationship, a shared tag, the same organisation, a shared note —
+  with the same rarity weighting as the neighbourhood. Linked names are drawn
+  together, so you see the group's shape rather than a star. Those lines are
+  the faintest on screen, and dashed unless somebody actually recorded the
+  relationship.
+- **Clicking glides the whole cloud** so the name you clicked arrives in the
+  middle, which puts the name you came from on the opposite side. Measured over
+  sixteen cases it never lands on the side you clicked, and typically sits
+  about 148 degrees round.
+- **The movement eases in and out** over half a second, and the springs are
+  quiet while the cloud travels, so it reads as going somewhere rather than
+  lurching and then drifting.
+
+The new function is locked to the API from its first line — `revoke execute`
+from public, anon and authenticated — per the finding earlier today.
+
+## [0.73.25] — 2026-09-13 — the identity functions stop answering strangers (staging)
+
+**Security, severe.** The Connections session found its read functions
+callable with the public anon key. The cause was not a Connections mistake,
+so every SECURITY DEFINER function on production was swept for the same one.
+Three identity and membership functions were open to anyone on the internet,
+with no session:
+
+- **`resolve_sso_identity`** — when no identity matches, it finds an EXISTING
+  user in the given workspace by email and links the CALLER-SUPPLIED provider
+  identity to that account; otherwise it creates a person, a user and a
+  platform app membership in that workspace.
+- **`ensure_workspace_member`** — inserts a membership row for any user into
+  any workspace, as organiser, or as admin if the workspace has no members.
+  Anyone who signed up had a user id, and workspace ids are not secret: the
+  public embed API takes one as `?workspace=`.
+- **`ensure_user_person`** — re-links `person.user_id` for any user.
+
+**The cause, which will recur unless it is known.** Each was "locked" with
+`revoke all on function ... from public`. That does not close a function on
+Supabase, which grants EXECUTE on public-schema functions to `anon` and
+`authenticated` separately, through default privileges. Revoking from PUBLIC
+removes only the implicit Postgres grant and leaves both in place.
+
+**How it was found without running anything.** Call a function as anon with a
+malformed uuid. Postgres checks EXECUTE first (42501), then coerces arguments
+(22P02), then runs the body — so a 22P02 proves the role may execute while
+guaranteeing the body never ran. That makes it safe to probe even the functions
+that write. Calibrated first on a function known to be revoked on one
+environment and granted on the other.
+
+**The fix** revokes EXECUTE from public, anon and authenticated, grants the
+service role, and resolves every overload by OID rather than a hand-typed
+signature — `resolve_sso_identity` has been redefined repeatedly, and a
+REVOKE on a stale signature either errors or silently leaves the live one
+open. Safe because only the service role ever calls them: the API through
+`adminClient` for the resolver, and other SECURITY DEFINER functions, running
+as their owner, for the other two.
+
+**Verified, and exactly how far.** On staging the anon key is refused on all
+three and the service role still passes. The integration suite passes 68/68
+after the change. Every fixture user in it was minted through the real
+`custom_access_token_hook`, so session minting survives, and the tenancy and
+RLS tests show signed-in access unaffected. **Not exercised end to end:** the
+sign-in flow's own call to `resolve_sso_identity` — the suite's SSO test covers
+the cross-domain handoff, not the resolver. That call is verified at the grant,
+not by a real sign-in.
+
+**Deliberately not touched.** `can_see_person`, `can_see_activity`,
+`can_see_organisation` and `meet_is_team_lead` are also executable by anon,
+but they are RLS helpers evaluated as `authenticated` inside row policies.
+Revoking them from authenticated would make every policy that calls them fail
+and every signed-in user see nothing. `workspace_meet_fee` leaks a fee
+figure. All five need their own review.
+
+On STAGING only. Production needs one promotion carrying this and the
+Connections revokes (070000–073000), which is Sjoerd's call — and should not
+wait for morning.
+
 ## [0.73.24] — 2026-09-13 — The map becomes a moving web (staging)
 
 **Connections — walk through your connections.** Sjoerd, on the first map:

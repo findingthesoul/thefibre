@@ -29,21 +29,53 @@ import { ArrowLeft } from 'lucide-react';
 import { usePersonPopup } from '@/components/person-popup';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import {
+  ASPECT,
   R_MAX,
+  fontSize,
   labelWidth,
+  panTo,
+  panning,
+  assignBearings,
   seedPosition,
   settle,
   step,
   targetRadius,
+  wander,
+  type Pan,
+  type WebLink,
   type WebNode,
 } from '@/lib/web-layout';
 import { thin } from '@/lib/map-layout';
-import { loadNeighbourhood, loadOrganisation, type Reason } from './actions';
+import {
+  loadNeighbourhood,
+  loadOrganisation,
+  type Link,
+  type Member,
+  type Neighbour,
+  type OrgRef,
+  type Reason,
+} from './actions';
 
 export type Focus = { kind: 'person' | 'org'; id: string };
 
-/** The most names a web shows around its centre. More stops being legible. */
-const MAX_AROUND = 12;
+/**
+ * How many names stand around the centre. Sjoerd, 2026-09-13: *"not too many
+ * people... maybe a slider... where you can choose: density"*. Eight is a
+ * cloud you can read; twenty is a thicket, and some communities want it.
+ */
+const DENSITY_MIN = 4;
+const DENSITY_MAX = 20;
+const DENSITY_DEFAULT = 8;
+const DENSITY_KEY = 'connections:map-density';
+
+function savedDensity(): number {
+  try {
+    const n = Number(window.localStorage.getItem(DENSITY_KEY));
+    return Number.isFinite(n) && n >= DENSITY_MIN && n <= DENSITY_MAX ? n : DENSITY_DEFAULT;
+  } catch {
+    return DENSITY_DEFAULT;
+  }
+}
 
 type Shown = WebNode & {
   kind: 'person' | 'org';
@@ -58,6 +90,67 @@ type Shown = WebNode & {
    *  new person's list, so the way back is always visible. */
   trail?: boolean;
 };
+
+type Around = {
+  id: string;
+  kind: 'person' | 'org';
+  label: string;
+  sub: string;
+  solid: boolean;
+  strength: number;
+  reasons: Reason[];
+  trail?: boolean;
+};
+
+/**
+ * The names to stand around the centre, at the chosen density.
+ *
+ * Organisations come first and are never cut below four: they are recorded
+ * facts about this person, and dropping "where they work" to fit one more
+ * shared tag would be the wrong trade.
+ */
+function aroundFrom(
+  data:
+    | { kind: 'person'; neighbours: Neighbour[]; organisations: OrgRef[] }
+    | { kind: 'org'; members: Member[] },
+  density: number,
+  locale: Locale,
+): Around[] {
+  if (data.kind === 'org') {
+    return data.members.slice(0, density).map((m) => ({
+      id: m.id,
+      kind: 'person' as const,
+      label: m.name,
+      sub: m.title ?? '',
+      // A membership is recorded, so every line to a member is solid.
+      solid: true,
+      strength: 0.6,
+      reasons: [],
+    }));
+  }
+  const max = Math.max(1, ...data.neighbours.map((n) => n.weight));
+  const orgs = data.organisations.slice(0, Math.max(1, Math.min(4, density)));
+  return [
+    ...orgs.map((o) => ({
+      id: o.id,
+      kind: 'org' as const,
+      label: o.name,
+      sub: o.title ?? '',
+      solid: true,
+      strength: 1,
+      reasons: [] as Reason[],
+    })),
+    ...data.neighbours.slice(0, Math.max(1, density - orgs.length)).map((n) => ({
+      id: n.id,
+      kind: 'person' as const,
+      label: n.name,
+      sub: n.reasons[0] ? reasonLine(n.reasons[0], locale) : '',
+      solid: n.reasons.some((x) => x.kind === 'stated'),
+      strength: n.weight / max,
+      reasons: n.reasons,
+    })),
+  ];
+}
 
 const REASON_KEYS: Record<Reason['kind'], UiKey> = {
   stated: 'map_reason_stated',
@@ -103,21 +196,62 @@ export function FocusWeb({
   const [centreName, setCentreName] = useState(knownName ?? '');
   const [status, setStatus] = useState<'loading' | 'ok' | 'failed'>('loading');
   const [allReasons, setAllReasons] = useState<Map<string, Reason[]>>(new Map());
+  // How the names around the centre are tied to EACH OTHER. Sjoerd: "some
+  // words are not only connected to the central word, but also to other words
+  // that are shown".
+  const links = useRef<Link[]>([]);
+  // Translation the cloud still owes, so a click slides everything instead of
+  // teleporting the clicked name (lib/web-layout.ts, the glide).
+  const pan = useRef<Pan | undefined>(undefined);
+  // The last thing the server said, kept so the density slider can re-cut it
+  // without asking again.
+  const payload = useRef<
+    | { kind: 'person'; neighbours: Neighbour[]; organisations: OrgRef[] }
+    | { kind: 'org'; members: Member[] }
+    | null
+  >(null);
+  /** The name you came from, kept visible as the way back. */
+  const trailId = useRef<string | null>(null);
+  /** The direction it must keep: exactly opposite the name that was clicked. */
+  const backBearing = useRef<number | null>(null);
+  const [density, setDensity] = useState(DENSITY_DEFAULT);
+  const densityRef = useRef(DENSITY_DEFAULT);
+  densityRef.current = density;
+  const placeRef = useRef<((around: Around[]) => void) | null>(null);
+  // Read after mount: localStorage does not exist while this renders on the
+  // server, and reading it in useState would make the two renders disagree.
+  useEffect(() => setDensity(savedDensity()), []);
   const [required, setRequired] = useState<Set<Reason['kind']>>(() => new Set());
   const raf = useRef<number | null>(null);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  /**
+   * A drag in progress. `moved` is what tells a drag from a click: a finger
+   * never lands perfectly still, so releasing within a few units still counts
+   * as a tap and opens the name.
+   */
+  const drag = useRef<{ id: string; moved: boolean } | null>(null);
+  /** Where the pointer is over the cloud, so the middle can lean after it. */
+  const pointer = useRef<{ x: number; y: number } | null>(null);
 
   // ── The animation loop ──────────────────────────────────────────────────
   const animate = useCallback(() => {
     if (raf.current !== null) return;
     if (prefersReducedMotion()) {
-      settle([...nodes.current.values()]);
+      pointer.current = null; // no chasing the mouse if motion is unwelcome
+      settle([...nodes.current.values()], 600, webLinks(links.current), pan.current, null);
       setFrame((f) => f + 1);
       return;
     }
+    // The loop does not stop. Sjoerd: *"it is always a bit moving... not
+    // fixed"*. `step` still comes to rest; `wander` is what keeps the cloud
+    // breathing afterwards, and a dragged name needs live frames anyway.
+    // requestAnimationFrame pauses itself when the tab is hidden.
     const tick = () => {
-      const energy = step([...nodes.current.values()]);
+      const list = [...nodes.current.values()];
+      step(list, webLinks(links.current), pan.current, pointer.current);
+      wander(list, performance.now());
       setFrame((f) => f + 1);
-      raf.current = energy > 0.01 ? requestAnimationFrame(tick) : null;
+      raf.current = requestAnimationFrame(tick);
     };
     raf.current = requestAnimationFrame(tick);
   }, []);
@@ -129,6 +263,25 @@ export function FocusWeb({
     [],
   );
 
+  // The mouse leaving is a NATIVE listener, not React's onPointerLeave.
+  // React synthesises enter/leave from pointerout/pointerover, which a test
+  // dispatching a plain `pointerleave` never triggers — and more to the point,
+  // a listener on the element itself is the thing that cannot be missed. If
+  // this failed the middle would stay leaning after the mouse had gone.
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+    const gone = () => {
+      pointer.current = null;
+    };
+    svg.addEventListener('pointerleave', gone);
+    window.addEventListener('blur', gone);
+    return () => {
+      svg.removeEventListener('pointerleave', gone);
+      window.removeEventListener('blur', gone);
+    };
+  }, []);
+
   // ── A new focus ─────────────────────────────────────────────────────────
   useEffect(() => {
     let alive = true;
@@ -139,19 +292,28 @@ export function FocusWeb({
     // before moving anything would make the click feel ignored.
     const clicked = map.get(focus.id);
     const previous = [...map.values()].find((n) => n.centre && n.id !== focus.id) ?? null;
+    // Slide the whole cloud so the clicked name ends up in the middle. This is
+    // what puts the name you came FROM on the opposite side, for free.
+    pan.current = clicked ? panTo(clicked) : undefined;
+    trailId.current = previous?.id ?? null;
+    // Hold the way back exactly opposite the name that was clicked. Left to
+    // the settling alone it drifts, in the worst case back onto the side you
+    // clicked from, which is the one thing this movement exists to show.
+    backBearing.current =
+      previous && clicked ? Math.atan2(-clicked.y, -clicked.x / ASPECT) : null;
     for (const n of map.values()) {
       n.centre = n.id === focus.id;
       // Whoever is in the middle is never the faded "way back" name, even if
       // they were a moment ago.
       if (n.centre) n.trail = false;
       n.targetR = n.centre ? 0 : R_MAX;
-      n.width = labelWidth(n.label, n.centre);
+      n.width = labelWidth(n.label, n.centre, n.strength);
     }
     if (!clicked) {
       map.clear();
       map.set(focus.id, {
         id: focus.id, x: 0, y: 0, vx: 0, vy: 0, targetR: 0, centre: true,
-        width: labelWidth(knownName ?? '', true), kind: focus.kind,
+        width: labelWidth(knownName ?? '', true, 1), kind: focus.kind,
         label: knownName ?? '', sub: '', solid: true, strength: 1, reasons: [],
       });
     } else {
@@ -160,15 +322,14 @@ export function FocusWeb({
     setStatus('loading');
     animate();
 
-    const place = (
-      around: { id: string; kind: 'person' | 'org'; label: string; sub: string; solid: boolean; strength: number; reasons: Reason[]; trail?: boolean }[],
-    ) => {
+    placeRef.current = (around: Around[]) => {
       const centre = map.get(focus.id)!;
-      if (previous && map.has(previous.id) && !around.some((a) => a.id === previous.id)) {
+      const back = trailId.current ? map.get(trailId.current) : undefined;
+      if (back && !around.some((a) => a.id === back.id)) {
         around = [
           ...around,
           {
-            id: previous.id, kind: previous.kind, label: previous.label, sub: '',
+            id: back.id, kind: back.kind, label: back.label, sub: '',
             solid: false, strength: 0, reasons: [], trail: true,
           },
         ];
@@ -179,38 +340,39 @@ export function FocusWeb({
         const existing = map.get(a.id);
         const targetR = targetRadius(a.strength, 1);
         if (existing) {
-          Object.assign(existing, { trail: false, ...a, targetR, centre: false, width: labelWidth(a.label, false) });
+          Object.assign(existing, {
+            trail: false, ...a, targetR, centre: false,
+            width: labelWidth(a.label, false, a.strength),
+          });
         } else {
           map.set(a.id, {
             ...a, ...seedPosition(a.id, centre), vx: 0, vy: 0, targetR, centre: false,
-            width: labelWidth(a.label, false),
+            width: labelWidth(a.label, false, a.strength),
           });
         }
       }
+      // Every name gets its own slice of the circle. Without this the link
+      // springs drag the whole cloud onto one side.
+      assignBearings(
+        [...map.values()],
+        trailId.current && backBearing.current !== null
+          ? { id: trailId.current, bearing: backBearing.current }
+          : undefined,
+      );
       animate();
     };
+
+    const place = placeRef.current;
 
     void (async () => {
       if (focus.kind === 'person') {
         const r = await loaders.neighbourhood(focus.id);
         if (!alive) return;
         if (!r.ok) return setStatus('failed');
-        const max = Math.max(1, ...r.neighbours.map((n) => n.weight));
         setAllReasons(new Map(r.neighbours.map((n) => [n.id, n.reasons])));
-        // Organisations first: they are recorded facts about THIS person and
-        // are never thinned away by a checkbox about shared attributes.
-        place([
-          ...r.organisations.map((o) => ({
-            id: o.id, kind: 'org' as const, label: o.name, sub: o.title ?? '',
-            solid: true, strength: 1, reasons: [],
-          })),
-          ...r.neighbours.slice(0, MAX_AROUND - Math.min(r.organisations.length, 4)).map((n) => ({
-            id: n.id, kind: 'person' as const, label: n.name,
-            sub: n.reasons[0] ? reasonLine(n.reasons[0], locale) : '',
-            solid: n.reasons.some((x) => x.kind === 'stated'),
-            strength: n.weight / max, reasons: n.reasons,
-          })),
-        ]);
+        links.current = r.links;
+        payload.current = { kind: 'person', neighbours: r.neighbours, organisations: r.organisations };
+        place(aroundFrom(payload.current, densityRef.current, locale));
       } else {
         const r = await loaders.organisation(focus.id);
         if (!alive) return;
@@ -223,13 +385,9 @@ export function FocusWeb({
           c.width = labelWidth(c.label, true);
         }
         setAllReasons(new Map());
-        place(
-          r.members.slice(0, MAX_AROUND).map((m) => ({
-            id: m.id, kind: 'person' as const, label: m.name, sub: m.title ?? '',
-            // A membership is recorded, so every line to a member is solid.
-            solid: true, strength: 0.6, reasons: [],
-          })),
-        );
+        links.current = r.links;
+        payload.current = { kind: 'org', members: r.members };
+        place(aroundFrom(payload.current, densityRef.current, locale));
       }
       if (alive) setStatus('ok');
     })();
@@ -241,12 +399,22 @@ export function FocusWeb({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [focus.id, focus.kind]);
 
+  // The slider: re-cut what is already loaded, no second request.
+  useEffect(() => {
+    if (payload.current && placeRef.current) placeRef.current(aroundFrom(payload.current, density, locale));
+    try {
+      window.localStorage.setItem(DENSITY_KEY, String(density));
+    } catch {
+      /* a viewer who blocks storage simply gets the default next time */
+    }
+  }, [density, locale]);
+
   // Keep the centre's label once the neighbourhood reveals it (a person
   // reached from the URL has no name until the first read).
   const centre = nodes.current.get(focus.id);
   if (centre && !centre.label && centreName) {
     centre.label = centreName;
-    centre.width = labelWidth(centreName, true);
+    centre.width = labelWidth(centreName, true, 1);
   }
 
   // Thinning applies to people only; organisations are facts, not reasons.
@@ -260,6 +428,22 @@ export function FocusWeb({
     (n) => n.centre || n.trail || n.kind === 'org' || focus.kind === 'org' || visiblePeople.has(n.id),
   );
   const around = shown.filter((n) => !n.centre);
+
+  // Links whose BOTH ends are currently on screen. A link to somebody thinned
+  // away, or not drawn at all, is simply not shown — never a line to nowhere.
+  const onScreen = new Map(shown.map((n) => [n.id, n]));
+  const crossLines = links.current.flatMap((l) => {
+    const a = onScreen.get(l.a);
+    const b = onScreen.get(l.b);
+    if (!a || !b || a.centre || b.centre) return [];
+    return [{
+      a,
+      b,
+      weight: l.weight,
+      solid: l.reasons.some((r) => r.kind === 'stated'),
+      why: l.reasons.map((r) => (r.kind === 'tag' ? `#${r.label}` : r.label)).join(', '),
+    }];
+  });
 
   const go = (n: Shown) => {
     if (n.centre) {
@@ -281,7 +465,7 @@ export function FocusWeb({
         </button>
         <button
           type="button"
-          onClick={() => router.push(pathname)}
+          onClick={() => router.push(`${pathname}?view=all`)}
           className="rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
         >
           {t(locale, 'map_overview')}
@@ -289,9 +473,73 @@ export function FocusWeb({
         <span className="text-xs text-ink-subtle">{t(locale, 'map_web_hint')}</span>
       </div>
 
-      <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
-        <div className="overflow-hidden rounded-lg border border-line bg-surface-raised">
-          <svg viewBox="-390 -285 780 570" className="block h-auto w-full touch-manipulation" role="img" aria-label={centreName}>
+      {/* The cloud takes the whole width. Sjoerd: *"Make it wide over the
+          screen"* — the controls sit above and below it rather than stealing a
+          column, and the container breaks out of the page's reading width. */}
+      <div className="mt-4">
+        <div className="relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border">
+          <svg
+            ref={svgRef}
+            viewBox="-620 -300 1240 600"
+            className="block h-auto w-full touch-none select-none"
+            role="img"
+            aria-label={centreName}
+            onPointerMove={(e) => {
+              const svg = svgRef.current;
+              const ctm = svg?.getScreenCTM();
+              if (!svg || !ctm) return;
+              const at = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+              // Every move, dragging or not: the middle leans after the mouse.
+              pointer.current = { x: at.x, y: at.y };
+
+              const d = drag.current;
+              if (!d) return;
+              const node = nodes.current.get(d.id);
+              if (!node) return;
+              if (Math.hypot(at.x - node.x, at.y - node.y) > DRAG_SLOP) d.moved = true;
+              node.x = at.x;
+              node.y = at.y;
+              node.held = true;
+            }}
+            onPointerUp={() => {
+              const d = drag.current;
+              if (!d) return;
+              const node = nodes.current.get(d.id);
+              // Let go: it rejoins the cloud and is pulled back to its ring.
+              if (node) node.held = false;
+              drag.current = null;
+            }}
+            onPointerLeave={() => {
+              // The mouse has gone; the middle drifts home.
+              pointer.current = null;
+              const d = drag.current;
+              if (d) {
+                const node = nodes.current.get(d.id);
+                if (node) node.held = false;
+              }
+              drag.current = null;
+            }}
+          >
+            {/* Between the people around the centre. Drawn first and faintest:
+                they are the shape of the group, not the answer to "who is near
+                this person", which is the star below. A shared tag is dashed —
+                sharing a word is not knowing someone (handbook §12). */}
+            {crossLines.map((l) => (
+              <line
+                key={`x-${l.a.id}-${l.b.id}`}
+                x1={round(l.a.x)}
+                y1={round(l.a.y)}
+                x2={round(l.b.x)}
+                y2={round(l.b.y)}
+                className="text-ink"
+                stroke="currentColor"
+                strokeOpacity={0.1 + 0.18 * Math.min(1, l.weight)}
+                strokeWidth={0.8 + 1.2 * Math.min(1, l.weight)}
+                strokeDasharray={l.solid ? undefined : '4 5'}
+              >
+                <title>{l.why}</title>
+              </line>
+            ))}
             {around.map((n) => (
               <line
                 key={`l-${n.id}`}
@@ -310,9 +558,21 @@ export function FocusWeb({
               <g
                 key={n.id}
                 transform={`translate(${round(n.x)} ${round(n.y)})`}
-                className="cursor-pointer"
+                className={n.held ? 'cursor-grabbing' : 'cursor-pointer'}
                 opacity={n.trail ? 0.55 : 1}
-                onClick={() => go(n)}
+                onPointerDown={(e) => {
+                  // Dragging a name shakes the others out of its way, which is
+                  // how you uncover one hidden behind another.
+                  (e.target as Element).releasePointerCapture?.(e.pointerId);
+                  drag.current = { id: n.id, moved: false };
+                }}
+                onClick={() => {
+                  // A drag is not a click. Without this, letting go of a name
+                  // you dragged would navigate away from the cloud you were
+                  // rearranging.
+                  if (drag.current?.moved) return;
+                  go(n);
+                }}
                 role="button"
                 aria-label={n.label}
               >
@@ -328,10 +588,13 @@ export function FocusWeb({
                   className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
                   strokeWidth={n.kind === 'org' ? 1.2 : 0}
                 />
+                {/* Bigger name, stronger connection (Sjoerd: "Some words are
+                    bigger and some are smaller"). */}
                 <text
                   textAnchor="middle"
                   y={n.centre ? 7 : n.sub ? 1 : 5}
-                  className={`fill-ink ${n.centre ? 'text-[20px] font-semibold' : 'text-[14px] font-medium hover:underline'}`}
+                  fontSize={fontSize(n.strength, n.centre)}
+                  className={`fill-ink ${n.centre ? 'font-semibold' : 'font-medium hover:underline'}`}
                 >
                   {n.label || '…'}
                 </text>
@@ -345,7 +608,26 @@ export function FocusWeb({
           </svg>
         </div>
 
-        <aside className="space-y-4 text-sm">
+        {/* Density: how many names stand around the centre. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+          <label className="flex items-center gap-3">
+            <span className="text-xs text-ink-subtle">{t(locale, 'map_density')}</span>
+            <input
+              type="range"
+              min={DENSITY_MIN}
+              max={DENSITY_MAX}
+              step={1}
+              value={density}
+              onChange={(e) => setDensity(Number(e.target.value))}
+              className="w-40 accent-ink"
+              aria-label={t(locale, 'map_density')}
+            />
+            <span className="w-6 text-xs tabular-nums text-ink-muted">{density}</span>
+          </label>
+          <span className="text-xs text-ink-subtle">{t(locale, 'map_drag_hint')}</span>
+        </div>
+
+        <aside className="mt-4 grid gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
           {status === 'loading' && <p className="text-xs text-ink-muted">{t(locale, 'loading')}</p>}
           {status === 'failed' && <p className="text-xs text-ink">{t(locale, 'map_near_failed')}</p>}
           {status === 'ok' && around.length === 0 && (
@@ -401,4 +683,11 @@ function reasonLine(r: Reason, locale: Locale): string {
 }
 
 const round = (v: number) => Math.round(v * 10) / 10;
+/** Below this, a pointer that went down and up again was a click, not a drag. */
+const DRAG_SLOP = 6;
+
+/** Only what the simulation needs from a link. */
+function webLinks(links: Link[]): WebLink[] {
+  return links.map((l) => ({ a: l.a, b: l.b, weight: l.weight }));
+}
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);

@@ -207,8 +207,18 @@ export function PersonPopupProvider({
                 >
                   {t(locale, 'person_open_full')}
                 </Link>
+                {/* A NEW TAB. Sjoerd, 2026-09-13: "moving to the fibre (more
+                    contact info) is confusing... you're totally left
+                    connections then". It carried the external-link icon while
+                    navigating in place, so following it dropped you out of
+                    Connections — out of the map you were walking through, and
+                    out of the popup you opened from it — with only Back to
+                    return. The icon was already telling the truth; the link
+                    now behaves like it. */}
                 <a
                   href={`${fibreContactsBase}/${person.id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-ink-muted hover:text-ink"
                 >
                   {t(locale, 'person_open_in_fibre')}

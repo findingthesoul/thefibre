@@ -59,9 +59,11 @@ export function crossAppHref(
   target: AppId,
   env?: Record<string, string | undefined>,
   next?: string,
+  /** The host serving this page, so a staging page links to staging. */
+  host?: string | null,
 ): string {
-  const to = appUrl(target, env);
-  if (!isCrossApex(appUrl(current, env), to)) {
+  const to = appUrl(target, env, host);
+  if (!isCrossApex(appUrl(current, env, host), to)) {
     return next ? new URL(next, to).toString() : to;
   }
   const q = new URLSearchParams({ to: target });
@@ -164,10 +166,12 @@ export function createSsoHop({
     if (!to || !meta || !meta.available) {
       return redirect(new URL('/', url.origin));
     }
-    const target = appUrl(to, env);
+    // The host this hop was served from decides which stack we are on, so a
+    // hop started on staging cannot land on production (see appUrl).
+    const target = appUrl(to, env, url.host);
 
     // Same apex → the cookie already travels; nothing to hand off.
-    if (!isCrossApex(appUrl(currentApp, env), target)) {
+    if (!isCrossApex(appUrl(currentApp, env, url.host), target)) {
       return redirect(new URL(next, target));
     }
 
