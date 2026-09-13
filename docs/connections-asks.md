@@ -67,6 +67,8 @@ neither in code nor in a document. That is what this file fixes.
 | 39 | "I remember we built something like groups... with rights" | **Answered** — teams as access groups, 2026-09-11 |
 | 40 | Calling somebody means leaving Maps for The Fibre and coming back to file the note | **Shipped** v0.73.51 — this is #19, and why it mattered |
 | 41 | Is the staging branch mine? (peer session, blocked release) | **Answered** — three stale premises corrected; peer released on top |
+| 42 | Kind and when should sit next to Follow up, not behind a click | **Shipped** v0.73.54 |
+| 43 | Peer: is the invoices tab yours? | **Answered** — evidence points at The Fibre contact profile, which already has the tab machinery |
 
 ### The three that were lost
 

@@ -6,6 +6,16 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.54] — 2026-09-13 — Kind and when, without the click (staging)
+
+**Connections — what kind of contact it was and when it happened sit beside
+the follow-up.** They were behind a "Kind and when" button on the argument that
+they are already right and asking would be an interrogation. That held while
+each was a labelled block of its own; once all three became small controls on
+one row, the click was buying nothing and hiding the two answers you are most
+likely to want to correct. A call logged on the wrong day is worse than a
+control on screen.
+
 ## [0.73.53] — 2026-09-13 — a meeting type keeps what you saved (Meet 2.8.2, staging)
 
 Sjoerd: "minimum notice does not save". It did save. The database held

@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
+import { AtSign, Check, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
@@ -337,7 +337,6 @@ export function Notes({
   const [followUp, setFollowUp] = useState<FollowUp>('none');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
-  const [details, setDetails] = useState(false);
   /**
    * Words this workspace already uses — its tags and the names of the
    * organisations it holds. Fetched once per composer and held here, because
@@ -588,7 +587,6 @@ export function Notes({
     setWhen('');
     setFollowUp('none');
     setFollowUpExact('');
-    setDetails(false);
     // Queued on the device: the box resets so the person can move on, but the
     // status keeps saying where the note actually is.
     setStatus(lastQueued.current ? 'offline' : 'idle');
@@ -743,8 +741,17 @@ export function Notes({
             </div>
           )}
 
-          {details && (
-            <>
+          {/* Always here, not behind a click. Sjoerd, 2026-09-13: *"Kind and
+              when should be next to Follow up (not an extra click)"*.
+
+              They were hidden on the argument that they are DEFAULTED and
+              usually right, so asking would be an interrogation. That argument
+              was sound when each one cost a labelled block of its own; once
+              all three became small controls on the row that was already
+              there, the click was buying nothing and hiding the two answers
+              somebody is most likely to want to correct — a call logged on the
+              wrong day is worse than a control on screen. */}
+          <>
               <label className="flex items-center gap-2">
                 <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
                 <select
@@ -766,22 +773,11 @@ export function Notes({
                   <DateTimeField value={when} onChange={setWhen} label={undefined} />
                 </span>
               </label>
-            </>
-          )}
+          </>
         </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setDetails((d) => !d)}
-              aria-expanded={details}
-              className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink"
-            >
-              <SlidersHorizontal size={13} strokeWidth={1.75} />
-              {t(locale, 'note_change')}
-            </button>
-
             {/* Honest state. Never "saved" while something is in flight. */}
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}
