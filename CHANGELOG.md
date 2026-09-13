@@ -6,6 +6,89 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.41] — 2026-09-13 — A sweep through Connections: stuck spinners and tenant filters (staging)
+
+**Connections — five buttons could get stuck for ever, and now cannot.** Every
+server action in this app is written not to throw, which makes the call sites
+read as if nothing can go wrong. Half true: the CALL is still a network request,
+and a dropped connection means the line that clears "Saving…" is one of the
+lines that never runs. Nothing appears on screen — the button simply stops
+working until the page is reloaded. It had already shipped twice here. Saving
+band names, saving the axes, saving effort defaults, acting on a hygiene
+finding, connecting somebody to an organisation and switching workspace all go
+through one helper now, so a failed call becomes a message instead of a
+freeze.
+
+**And every read of a person now names the workspace it is reading.** Three
+service-role reads relied on their ids having been scoped somewhere earlier.
+They had been — this changes no behaviour — but that is a fact a reader had to
+go and verify, and it is the exact shape of every cross-tenant leak this
+codebase has had.
+
+## [0.73.40] — 2026-09-13 — The map notices when you connect somebody (staging)
+
+**Connections — connecting a person now updates what is on screen.** The popup
+was already folding the new person into its own list; the map behind it was
+not, because the cloud holds its names in memory and only asks the server again
+when you move to somebody else. It now re-reads the facts in place, keeping the
+arrangement it had — the new name fades in where it belongs instead of the
+cloud jumping back to the start.
+
+## [0.73.39] — 2026-09-13 — Stand on a topic, not only on a person (staging)
+
+**Connections — a word can be the middle of the map.** The little dots joining
+names together were always topics, and they were somewhere to look rather than
+somewhere to stand. Click one now and the cloud rebuilds around that word, with
+everybody who carries it around the outside. Every tag in the tag cloud has a
+small orbit beside it that does the same.
+
+Two people sharing a word is still not a relationship. Standing on a topic
+answers "who carries this", which is a fact about each person on their own; the
+lines drawn between them come from the same place they always did, so a topic
+cannot invent a tie that a person's own cloud would not show.
+
+**The connect-somebody results were opening into the bottom edge of the popup**
+and being clipped, so you could not see what you were choosing from. The list
+now takes its own space and the popup grows.
+
+**A name in an organisation opens that person, over the top.**
+
+## [0.73.38] — 2026-09-13 — Open a company, connect somebody to it; the cloud stops standing still (staging)
+
+**Connections — an organisation opens like a person does.** Click the company
+in the middle of the map and it opens in a popup: who works there, and a field
+to say that somebody else does. You pick the person from the workspace's own
+list, never by typing a name — a name in a sentence is a hint, and belonging
+somewhere is a fact, so the two do not share a door.
+
+**The map's names now move past one another.** Every name was given a
+direction and held there, so the cloud could drift and breathe while no two
+names ever changed places. They now swing slowly around their own spot, far
+enough to overtake a neighbour — so somebody hidden behind another name comes
+out from behind them on their own. The way back keeps its direction, because
+that one is the whole point of the movement that put it there.
+
+**A full screen button**, next to Back. Escape closes it.
+
+## [0.73.37] — 2026-09-13 — You choose which readings you use, and what they are called (staging)
+
+**Connections — the landscape is yours to name and to narrow.** Renaming the
+bands on an axis has been possible since v0.73.9; the axis itself was fixed,
+and so was the fact that there were five of them. Now the title of each
+reading is the workspace's own word, and a workspace can switch off a reading
+it does not use — a community that sells nothing has no Pipeline, and one that
+runs no events has nothing in Contribution.
+
+Switching one off only hides it. It keeps being worked out, so turning it back
+on shows the whole history rather than a reading that starts the day somebody
+changed their mind. The last visible one cannot be switched off, and says why.
+
+**What still is not editable, deliberately:** what puts somebody in a band.
+That is derived from what actually happened, which is why the landscape worked
+on the day it shipped and asks nobody to keep it up to date. A rule a
+workspace writes is a rule a workspace has to maintain, and a hand-maintained
+ladder is wrong within a month.
+
 ## [0.73.36] — 2026-09-13 — The other half of the fade, and a search instead of a list (staging)
 
 **Connections — the people you are LEAVING now fade out too.** The map had

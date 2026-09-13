@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { t, type Locale } from '@/lib/i18n-ui';
-import { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, type Axis } from './bands';
+import { AXIS_QUESTION_KEYS, axisTitle, type Axis, type AxisConfig } from './bands';
 
 // The picker that makes this surface one page instead of five.
 //
@@ -15,7 +15,20 @@ import { AXES, AXIS_KEYS, AXIS_QUESTION_KEYS, type Axis } from './bands';
 // shareable and bookmarkable, the back button steps through the axes a person
 // actually looked at, and the page keeps working before any JavaScript has
 // arrived. Mobile rule 5 — the shape survives a bad connection.
-export function AxisPicker({ axis, locale }: { axis: Axis; locale: Locale }) {
+export function AxisPicker({
+  axis,
+  locale,
+  axes,
+  config,
+}: {
+  axis: Axis;
+  locale: Locale;
+  /** The axes this workspace reads. Since 2026-09-13 a workspace can switch
+   *  one off, so the row is no longer the shipped five. */
+  axes: readonly Axis[];
+  /** Their titles, where the workspace has chosen its own word. */
+  config?: AxisConfig;
+}) {
   return (
     <div className="mt-6">
       <div className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
@@ -29,7 +42,7 @@ export function AxisPicker({ axis, locale }: { axis: Axis; locale: Locale }) {
           with the heading above it. */}
       <div className="-mx-8 mt-2 overflow-x-auto px-8 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         <div className="flex w-max gap-2">
-          {AXES.map((a) => {
+          {axes.map((a) => {
             const on = a === axis;
             return (
               <Link
@@ -43,7 +56,7 @@ export function AxisPicker({ axis, locale }: { axis: Axis; locale: Locale }) {
                     : 'border-line bg-surface-raised text-ink-muted hover:text-ink'
                 }`}
               >
-                {t(locale, AXIS_KEYS[a])}
+                {axisTitle(locale, config, a)}
               </Link>
             );
           })}

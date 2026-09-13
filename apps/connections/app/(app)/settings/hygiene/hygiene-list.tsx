@@ -11,6 +11,7 @@ import { useState, useTransition } from 'react';
 import { Check, X } from 'lucide-react';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { actOnFinding } from '../actions';
+import { safely } from '@/lib/safely';
 
 export type Finding = {
   id: string;
@@ -75,7 +76,10 @@ export function HygieneList({
   function act(id: string, action: 'accept' | 'dismiss') {
     setError(null);
     startTransition(async () => {
-      const r = await actOnFinding(id, action);
+      const r = await safely(
+        () => actOnFinding(id, action),
+        (error) => ({ ok: false as const, error }),
+      );
       if (r.ok) setResolved((s) => new Set(s).add(id));
       else setError(r.error);
     });

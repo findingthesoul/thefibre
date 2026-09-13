@@ -132,10 +132,15 @@ connectionsRoutes.get('/landscape', async (c) => {
   // people, and pulling four hundred rows to render six numbers would be
   // the thing that makes this page slow enough to stop opening.
   const ids = moved.slice(0, 40).map((m) => m.person_id);
+  // Scoped explicitly. The ids came out of a workspace-scoped function, so
+  // this changes nothing today — but adminClient bypasses RLS, and a read of
+  // `person` that names no workspace is the shape every cross-tenant leak in
+  // this codebase has had. Cheaper to state than to re-verify.
   const { data: people } = ids.length
     ? await adminClient
         .from('person')
         .select('id, first_name, last_name, email')
+        .eq('workspace_id', ctx.workspaceId)
         .in('id', ids)
     : { data: [] as Record<string, unknown>[] };
   const byId = new Map((people ?? []).map((p) => [p.id as string, p]));
@@ -207,8 +212,13 @@ connectionsRoutes.get('/attention', async (c) => {
 
   const rows = (data ?? []) as unknown as AttentionRow[];
   const ids = [...new Set(rows.map((r) => r.person_id))];
+  // Scoped explicitly — see the note on the landscape read above.
   const { data: people } = ids.length
-    ? await adminClient.from('person').select('id, first_name, last_name, email').in('id', ids)
+    ? await adminClient
+        .from('person')
+        .select('id, first_name, last_name, email')
+        .eq('workspace_id', ctx.workspaceId)
+        .in('id', ids)
     : { data: [] as Record<string, unknown>[] };
   const byId = new Map((people ?? []).map((p) => [p.id as string, p]));
 

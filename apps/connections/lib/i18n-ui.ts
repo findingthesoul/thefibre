@@ -6446,6 +6446,142 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  tags_as_web: {
+    en: 'See {name} as a web',
+    nl: 'Zie {name} als web',
+    es: 'Ver {name} como una red', // MT
+    pt: 'Ver {name} como uma teia', // MT
+    de: '{name} als Netz ansehen', // MT
+    fr: 'Voir {name} comme une toile', // MT
+  },
+  map_tag_empty: {
+    en: 'Nobody carries this word yet.',
+    nl: 'Niemand draagt dit woord nog.',
+    es: 'Todavía nadie lleva esta palabra.', // MT
+    pt: 'Ainda ninguém tem esta palavra.', // MT
+    de: 'Noch trägt niemand dieses Wort.', // MT
+    fr: 'Personne ne porte encore ce mot.', // MT
+  },
+  map_full: {
+    en: 'Full screen',
+    nl: 'Volledig scherm',
+    es: 'Pantalla completa', // MT
+    pt: 'Ecrã inteiro', // MT
+    de: 'Vollbild', // MT
+    fr: 'Plein écran', // MT
+  },
+  map_exit_full: {
+    en: 'Close full screen',
+    nl: 'Volledig scherm sluiten',
+    es: 'Salir de pantalla completa', // MT
+    pt: 'Sair do ecrã inteiro', // MT
+    de: 'Vollbild schließen', // MT
+    fr: 'Quitter le plein écran', // MT
+  },
+  map_org_title: {
+    en: 'Organisation',
+    nl: 'Organisatie',
+    es: 'Organización', // MT
+    pt: 'Organização', // MT
+    de: 'Organisation', // MT
+    fr: 'Organisation', // MT
+  },
+  org_load_failed: {
+    en: 'Could not open this organisation.',
+    nl: 'Kon deze organisatie niet openen.',
+    es: 'No se pudo abrir esta organización.', // MT
+    pt: 'Não foi possível abrir esta organização.', // MT
+    de: 'Diese Organisation konnte nicht geöffnet werden.', // MT
+    fr: 'Impossible d’ouvrir cette organisation.', // MT
+  },
+  org_members: {
+    en: 'Who works here',
+    nl: 'Wie hier werkt',
+    es: 'Quién trabaja aquí', // MT
+    pt: 'Quem trabalha aqui', // MT
+    de: 'Wer hier arbeitet', // MT
+    fr: 'Qui travaille ici', // MT
+  },
+  org_no_members: {
+    en: 'Nobody is recorded here yet.',
+    nl: 'Hier staat nog niemand bij.',
+    es: 'Aquí todavía no hay nadie registrado.', // MT
+    pt: 'Ainda não há ninguém registado aqui.', // MT
+    de: 'Hier ist noch niemand vermerkt.', // MT
+    fr: 'Personne n’est encore enregistré ici.', // MT
+  },
+  org_connect_title: {
+    en: 'Connect someone',
+    nl: 'Iemand koppelen',
+    es: 'Conectar a alguien', // MT
+    pt: 'Ligar alguém', // MT
+    de: 'Jemanden verknüpfen', // MT
+    fr: 'Relier quelqu’un', // MT
+  },
+  org_connect_search: {
+    en: 'Search someone you know',
+    nl: 'Zoek iemand die je kent',
+    es: 'Busca a alguien que conoces', // MT
+    pt: 'Procura alguém que conheces', // MT
+    de: 'Jemanden suchen, den ihr kennt', // MT
+    fr: 'Cherchez quelqu’un que vous connaissez', // MT
+  },
+  org_connect_role: {
+    en: 'What they do here (optional)',
+    nl: 'Wat diegene hier doet (optioneel)',
+    es: 'Qué hace aquí (opcional)', // MT
+    pt: 'O que faz aqui (opcional)', // MT
+    de: 'Was die Person hier macht (optional)', // MT
+    fr: 'Ce qu’elle y fait (facultatif)', // MT
+  },
+  org_connect_do: {
+    en: 'Connect',
+    nl: 'Koppelen',
+    es: 'Conectar', // MT
+    pt: 'Ligar', // MT
+    de: 'Verknüpfen', // MT
+    fr: 'Relier', // MT
+  },
+  org_connect_forbidden: {
+    en: 'You do not have permission to change who works here.',
+    nl: 'Je mag niet wijzigen wie hier werkt.',
+    es: 'No tienes permiso para cambiar quién trabaja aquí.', // MT
+    pt: 'Não tens permissão para mudar quem trabalha aqui.', // MT
+    de: 'Du darfst nicht ändern, wer hier arbeitet.', // MT
+    fr: 'Vous n’avez pas la permission de changer qui travaille ici.', // MT
+  },
+  names_axis_title: {
+    en: 'What you call this',
+    nl: 'Hoe jullie dit noemen',
+    es: 'Cómo lo llamáis', // MT
+    pt: 'Como lhe chamam', // MT
+    de: 'Wie ihr das nennt', // MT
+    fr: 'Comment vous l’appelez', // MT
+  },
+  names_axis_shown: {
+    en: 'Show this reading',
+    nl: 'Deze kijk tonen',
+    es: 'Mostrar esta lectura', // MT
+    pt: 'Mostrar esta leitura', // MT
+    de: 'Diese Sicht zeigen', // MT
+    fr: 'Afficher cette lecture', // MT
+  },
+  names_axis_last: {
+    en: 'The last one has to stay — there would be no landscape without it.',
+    nl: 'De laatste moet blijven — zonder hem is er geen landschap.',
+    es: 'La última tiene que quedarse: sin ella no habría paisaje.', // MT
+    pt: 'A última tem de ficar — sem ela não haveria paisagem.', // MT
+    de: 'Die letzte muss bleiben — ohne sie gäbe es keine Landschaft.', // MT
+    fr: 'La dernière doit rester — sans elle, il n’y aurait pas de paysage.', // MT
+  },
+  names_axes_intro: {
+    en: 'You choose which readings you use, and what each is called. Switching one off only hides it: it keeps being worked out, so turning it back on shows the whole history.',
+    nl: 'Jullie kiezen welke kijken jullie gebruiken en hoe elke heet. Uitzetten verbergt alleen: hij wordt gewoon bijgehouden, dus weer aanzetten toont de hele geschiedenis.',
+    es: 'Vosotros elegís qué lecturas usáis y cómo se llama cada una. Apagar una solo la oculta: se sigue calculando, así que volver a encenderla muestra todo el histórico.', // MT
+    pt: 'Vocês escolhem que leituras usam e como se chama cada uma. Desligar uma apenas a esconde: continua a ser calculada, por isso voltar a ligá-la mostra todo o histórico.', // MT
+    de: 'Ihr wählt, welche Sichten ihr nutzt und wie jede heißt. Ausschalten verbirgt sie nur: sie wird weiter berechnet, ein Wiedereinschalten zeigt die ganze Geschichte.', // MT
+    fr: 'Vous choisissez quelles lectures vous utilisez et comment chacune s’appelle. En désactiver une ne fait que la masquer : elle continue d’être calculée, donc la réactiver montre tout l’historique.', // MT
+  },
   names_empty_restores: {
     en: 'Leave a name empty to go back to the one we ship.',
     nl: 'Laat een naam leeg om terug te gaan naar onze eigen naam.',

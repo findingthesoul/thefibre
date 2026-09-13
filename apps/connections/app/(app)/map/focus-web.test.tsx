@@ -40,7 +40,16 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./actions', () => ({ loadNeighbourhood: async () => ({ ok: false }), loadOrganisation: async () => ({ ok: false }) }));
+vi.mock('./actions', () => ({
+  loadNeighbourhood: async () => ({ ok: false }),
+  loadOrganisation: async () => ({ ok: false }),
+  loadTag: async () => ({ ok: false }),
+}));
+// The tag lookup behind a junction click. Not exercised by these tests, but
+// the module is imported at load, so it needs an answer.
+vi.mock('@/app/(app)/people/[id]/actions', () => ({
+  fetchVocabulary: async () => ({ words: [], people: [] }),
+}));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, back: () => {} }),
   usePathname: () => '/map',
@@ -95,10 +104,21 @@ async function run(n: number) {
   }
 }
 
+/**
+ * The map's own drawing.
+ *
+ * Scoped, and it has to be: this file first counted every `<line>` in the
+ * container, and the moment a lucide icon appeared in the controls above the
+ * cloud the count jumped by two — an icon is an SVG made of lines. The test
+ * failed for a reason with nothing to do with the map, which is the worst
+ * kind of failing test.
+ */
+const cloud = () => container.querySelector('svg[role="img"]')!;
+
 /** Every name on screen, with the opacity it is drawn at. */
 function namesOnScreen(): Map<string, number> {
   const out = new Map<string, number>();
-  for (const g of container.querySelectorAll('g[role="button"]')) {
+  for (const g of cloud().querySelectorAll('g[role="button"]')) {
     out.set(g.getAttribute('aria-label') ?? '', Number(g.getAttribute('opacity') ?? '1'));
   }
   return out;
@@ -192,10 +212,10 @@ describe('moving from one person to the next', () => {
     // name" means: every name on screen except the one in the middle hangs
     // from a line. Counting lines alone would pass while the departing names
     // hung from nothing, because the junction lines make up the number.
-    const lines = [...container.querySelectorAll('line')];
+    const lines = [...cloud().querySelectorAll('line')];
     const names = namesOnScreen();
     // Every junction is a dot, and every dot is joined to the middle.
-    const junctions = container.querySelectorAll('circle[r="4"]').length;
+    const junctions = cloud().querySelectorAll('circle[r="4"]').length;
     expect(names.size, 'both sets are on screen at once').toBeGreaterThan(4);
     // One line per name that is not the centre, plus one per junction. The
     // count alone is what an earlier version of this test checked, and it

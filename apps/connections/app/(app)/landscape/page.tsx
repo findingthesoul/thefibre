@@ -2,7 +2,16 @@ import { apiFetch, ApiError } from '@/lib/api';
 import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import { Bands, isAxis, type Axis, type Band, type BandLabels, type Moved } from './bands';
+import {
+  Bands,
+  isAxis,
+  visibleAxes,
+  type Axis,
+  type AxisConfig,
+  type Band,
+  type BandLabels,
+  type Moved,
+} from './bands';
 import { AxisPicker } from './axis-picker';
 
 type Landscape = {
@@ -31,25 +40,37 @@ export default async function LandscapePage({
 }) {
   const locale = await uiLocale();
   const raw = (await searchParams).axis;
+
+  // The vocabulary read comes FIRST, and on purpose, because which axis to
+  // show depends on it: a workspace can now switch an axis off, and the
+  // default has to be one it actually reads. This costs one API hop before
+  // the numbers start — deliberately, and it is the only ordering that does
+  // not either show a hidden axis by default or guess and then correct
+  // itself on screen.
+  //
+  // It still cannot blank the page. A failure here falls through to
+  // undefined, every band and title falls back to its shipped translation,
+  // and all five axes are visible — which is exactly the day-one state, so
+  // the failure mode is the default rather than an error.
+  const config = await apiFetch<{ labels: BandLabels; axes: AxisConfig }>(
+    '/api/v1/connections/labels',
+  ).catch(() => undefined);
+  const labels: BandLabels | undefined = config?.labels;
+  const axisConfig: AxisConfig | undefined = config?.axes;
+  const shown = visibleAxes(axisConfig);
+
   // An unknown axis falls back rather than 404s — a stale bookmark should
-  // still show the landscape.
-  const axis: Axis = isAxis(raw) ? raw : 'maturity';
+  // still show the landscape. So does a bookmark naming an axis this
+  // workspace has since switched off: it is not an error, it is a reading
+  // they stopped using, and the first one they DO use is the honest answer.
+  const axis: Axis = isAxis(raw) && shown.includes(raw) ? raw : (shown[0] ?? 'maturity');
 
   let data: Landscape | null = null;
   let error: string | null = null;
-  // Two independent reads, so the names never hold up the numbers. A
-  // workspace that has renamed nothing — which is all of them on day one —
-  // gets an empty object back and every band falls through to its shipped
-  // translation, so a failure here is cosmetic by construction and must not
-  // be allowed to blank the page.
-  let labels: BandLabels | undefined;
   try {
-    [data, labels] = await Promise.all([
-      apiFetch<Landscape>(`/api/v1/connections/landscape?since_days=30&axis=${axis}`),
-      apiFetch<{ labels: BandLabels }>('/api/v1/connections/labels')
-        .then((r) => r.labels)
-        .catch(() => undefined),
-    ]);
+    data = await apiFetch<Landscape>(
+      `/api/v1/connections/landscape?since_days=30&axis=${axis}`,
+    );
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -59,7 +80,7 @@ export default async function LandscapePage({
       <PageHeader title={t(locale, 'nav_landscape')} />
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'landscape_intro')}</p>
 
-      <AxisPicker axis={axis} locale={locale} />
+      <AxisPicker axis={axis} locale={locale} axes={shown} config={axisConfig} />
 
       {error && <ErrorBanner>{error}</ErrorBanner>}
 

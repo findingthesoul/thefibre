@@ -25,8 +25,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { usePersonPopup } from '@/components/person-popup';
+import { useOrgPopup } from '@/components/org-popup';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import {
   ASPECT,
@@ -36,6 +37,7 @@ import {
   panTo,
   panning,
   assignBearings,
+  driftBearings,
   junctionRadius,
   seedPosition,
   settle,
@@ -47,9 +49,12 @@ import {
   type WebNode,
 } from '@/lib/web-layout';
 import { thin } from '@/lib/map-layout';
+import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
+import { onGraphChanged } from '@/lib/graph-changed';
 import {
   loadNeighbourhood,
   loadOrganisation,
+  loadTag,
   type Link,
   type Member,
   type Neighbour,
@@ -57,7 +62,15 @@ import {
   type Reason,
 } from './actions';
 
-export type Focus = { kind: 'person' | 'org'; id: string };
+/**
+ * What the cloud is standing on.
+ *
+ * `tag` is the third kind, added 2026-09-13 — Sjoerd: *"Can you also create a
+ * cloud around a location - space... or tag? So you select people around a
+ * NODE?"* The map already DREW topics as junctions; this makes one somewhere
+ * you can stand rather than only something you can look at.
+ */
+export type Focus = { kind: 'person' | 'org' | 'tag'; id: string };
 
 /**
  * How many names stand around the centre. Sjoerd, 2026-09-13: *"not too many
@@ -88,7 +101,7 @@ type Shown = WebNode & {
   opacity?: number;
   /** On its way out: fading, then dropped. */
   leaving?: boolean;
-  kind: 'person' | 'org' | 'junction';
+  kind: 'person' | 'org' | 'junction' | 'tag';
   label: string;
   /** One short line under the name: why they are here. */
   sub: string;
@@ -99,11 +112,13 @@ type Shown = WebNode & {
   /** The person you came from, kept on screen even when they are not in the
    *  new person's list, so the way back is always visible. */
   trail?: boolean;
+  /** On a junction: the tag it stands for, when it stands for one. */
+  topicTag?: string;
 };
 
 type Around = {
   id: string;
-  kind: 'person' | 'org' | 'junction';
+  kind: 'person' | 'org' | 'junction' | 'tag';
   label: string;
   sub: string;
   solid: boolean;
@@ -171,7 +186,7 @@ const REASON_KEYS: Record<Reason['kind'], UiKey> = {
 const KINDS: Reason['kind'][] = ['stated', 'tag', 'organisation', 'mentioned'];
 
 export const focusHref = (f: Focus, base = '/map') =>
-  `${base}?focus=${f.id}${f.kind === 'org' ? '&kind=org' : ''}`;
+  `${base}?focus=${f.id}${f.kind === 'person' ? '' : `&kind=${f.kind}`}`;
 
 function prefersReducedMotion() {
   try {
@@ -181,8 +196,16 @@ function prefersReducedMotion() {
   }
 }
 
-type Loaders = { neighbourhood: typeof loadNeighbourhood; organisation: typeof loadOrganisation };
-const SERVER: Loaders = { neighbourhood: loadNeighbourhood, organisation: loadOrganisation };
+type Loaders = {
+  neighbourhood: typeof loadNeighbourhood;
+  organisation: typeof loadOrganisation;
+  tag: typeof loadTag;
+};
+const SERVER: Loaders = {
+  neighbourhood: loadNeighbourhood,
+  organisation: loadOrganisation,
+  tag: loadTag,
+};
 
 export function FocusWeb({
   focus,
@@ -205,6 +228,7 @@ export function FocusWeb({
   // The page this web lives on, so its links stay on it.
   const pathname = usePathname();
   const { openPerson } = usePersonPopup();
+  const { openOrg } = useOrgPopup();
   const nodes = useRef<Map<string, Shown>>(new Map());
   const [, setFrame] = useState(0);
   const [centreName, setCentreName] = useState(knownName ?? '');
@@ -235,6 +259,16 @@ export function FocusWeb({
   const densityRef = useRef(DENSITY_DEFAULT);
   densityRef.current = density;
   const placeRef = useRef<((around: Around[]) => void) | null>(null);
+  /**
+   * Re-read whatever this cloud is standing on, without disturbing it.
+   *
+   * Kept separate from the focus effect on purpose. Re-running THAT would
+   * recompute the pan, clear the trail and re-seed the arrivals — it is the
+   * code for "you clicked a name", and a membership being written is not
+   * that. This only replaces the facts; the cloud keeps its arrangement and
+   * the new name fades in where it belongs.
+   */
+  const refetchRef = useRef<(() => Promise<void>) | null>(null);
   // Read after mount: localStorage does not exist while this renders on the
   // server, and reading it in useState would make the two renders disagree.
   useEffect(() => setDensity(savedDensity()), []);
@@ -260,6 +294,33 @@ export function FocusWeb({
   const suppressClick = useRef(false);
   /** Where the pointer is over the cloud, so the middle can lean after it. */
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * Tag name to tag id, so clicking a junction can stand on that topic.
+   *
+   * The reasons that build a junction carry a tag's NAME and not its id, and
+   * this resolves one to the other against the workspace's own tag table —
+   * `tag` is unique on (workspace, name), so the lookup is exact and not a
+   * guess. That distinction matters here: matching a name in PROSE is the
+   * thing handbook §12 forbids, because prose is ambiguous. This is a name
+   * that came out of the tag table being looked up in the tag table.
+   *
+   * Lower-cased on both sides: the name travels through a reason as typed,
+   * and a junction that silently refused to open because of a capital letter
+   * would look like a bug rather than a rule.
+   */
+  const [tagIds, setTagIds] = useState<Map<string, string>>(() => new Map());
+  /**
+   * The cloud filling the screen. Sjoerd, 2026-09-13: *"also add a full
+   * screen button"*.
+   *
+   * A fixed overlay rather than the browser's Fullscreen API, and the choice
+   * is deliberate. The native one is refused outright in some embedded
+   * contexts, hides the browser's own chrome — and Back is how this map is
+   * navigated — and leaves the page in a state this component cannot reliably
+   * read back. An overlay always works, keeps every control, and Escape
+   * leaves it, which is the gesture people try first anyway.
+   */
+  const [full, setFull] = useState(false);
 
   // ── The animation loop ──────────────────────────────────────────────────
   const animate = useCallback(() => {
@@ -276,6 +337,10 @@ export function FocusWeb({
     // requestAnimationFrame pauses itself when the tab is hidden.
     const tick = () => {
       const list = [...nodes.current.values()];
+      // Where each name BELONGS moves first, then the forces pull it there.
+      // The other way round and every frame would be a step towards a target
+      // that had already moved.
+      driftBearings(list, performance.now());
       step(list, webLinks(links.current), pan.current, pointer.current);
       wander(list, performance.now());
       // Fade in what is arriving, fade out what is leaving, and only then let
@@ -300,6 +365,45 @@ export function FocusWeb({
     },
     [],
   );
+
+  // Escape leaves full screen, and the page underneath does not scroll while
+  // the cloud covers it — a background that scrolls behind an overlay is what
+  // makes one feel broken.
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFull(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [full]);
+
+  // Somebody wrote to the graph — a membership from the organisation popup,
+  // today — so the facts on screen are stale. Re-read them in place.
+  useEffect(() => onGraphChanged(() => void refetchRef.current?.()), []);
+
+  // The workspace's tags, once, so a junction knows which topic it is. A
+  // failure here costs the junction click and nothing else — the cloud is
+  // unaffected — so it is swallowed rather than shown.
+  useEffect(() => {
+    let alive = true;
+    void fetchVocabulary()
+      .then((v) => {
+        if (!alive) return;
+        const m = new Map<string, string>();
+        for (const w of v.words) if (w.id) m.set(w.name.toLowerCase(), w.id);
+        setTagIds(m);
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // The mouse leaving is a NATIVE listener, not React's onPointerLeave.
   // React synthesises enter/leave from pointerout/pointerover, which a test
@@ -401,13 +505,13 @@ export function FocusWeb({
       // names that share one sit in one wedge of the circle, which is what
       // lets their junction sit in the mouth of that wedge instead of
       // averaging out to somewhere across the cloud.
-      const grouped = new Map<string, { label: string; members: Shown[] }>();
+      const grouped = new Map<string, { label: string; tag?: string; members: Shown[] }>();
       const previousJoins = joinedBy.current;
       joinedBy.current = new Map();
       for (const n of map.values()) {
         if (n.centre || n.junction || n.leaving) continue;
-        const { key, label } = topicOf(n, locale);
-        const group = grouped.get(key) ?? { label, members: [] };
+        const { key, label, tag } = topicOf(n, locale);
+        const group = grouped.get(key) ?? { label, ...(tag ? { tag } : {}), members: [] };
         group.members.push(n);
         grouped.set(key, group);
         joinedBy.current.set(n.id, `junction:${key}`);
@@ -452,6 +556,7 @@ export function FocusWeb({
         }
         junction.leaving = false;
         junction.label = group.label;
+        junction.topicTag = group.tag;
         junction.targetR = junctionRadius(group.members.map((m) => m.targetR));
         return { junction, members: group.members };
       });
@@ -467,7 +572,7 @@ export function FocusWeb({
 
     const place = placeRef.current;
 
-    void (async () => {
+    const read = async () => {
       if (focus.kind === 'person') {
         const r = await loaders.neighbourhood(focus.id);
         if (!alive) return;
@@ -475,6 +580,29 @@ export function FocusWeb({
         setAllReasons(new Map(r.neighbours.map((n) => [n.id, n.reasons])));
         links.current = r.links;
         payload.current = { kind: 'person', neighbours: r.neighbours, organisations: r.organisations };
+        place(aroundFrom(payload.current, densityRef.current, locale));
+      } else if (focus.kind === 'tag') {
+        // A topic in the middle, its people around it. The same payload shape
+        // as an organisation on purpose: `aroundFrom` does not need to know
+        // which of the two it is holding, which is what keeps this one
+        // component rather than three that drift.
+        const r = await loaders.tag(focus.id);
+        if (!alive) return;
+        if (!r.ok) return setStatus('failed');
+        // The hash is how this app writes a tag everywhere else, and it is
+        // what tells somebody at a glance that the middle is a word rather
+        // than a person with an unusual name.
+        const label = `#${r.tag.name}`;
+        setCentreName(label);
+        const c = map.get(focus.id);
+        if (c) {
+          c.label = label;
+          c.kind = 'tag';
+          c.width = labelWidth(label, true);
+        }
+        setAllReasons(new Map());
+        links.current = r.links;
+        payload.current = { kind: 'org', members: r.members };
         place(aroundFrom(payload.current, densityRef.current, locale));
       } else {
         const r = await loaders.organisation(focus.id);
@@ -493,10 +621,14 @@ export function FocusWeb({
         place(aroundFrom(payload.current, densityRef.current, locale));
       }
       if (alive) setStatus('ok');
-    })();
+    };
+
+    refetchRef.current = read;
+    void read();
 
     return () => {
       alive = false;
+      if (refetchRef.current === read) refetchRef.current = null;
     };
     // knownName is read once per focus on purpose; locale only phrases subs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -567,10 +699,22 @@ export function FocusWeb({
   });
 
   const go = (n: Shown) => {
-    // A junction is a topic, not a place you can stand: it has no page.
-    if (n.junction || n.kind === 'junction') return;
+    if (n.junction || n.kind === 'junction') {
+      // A junction IS a topic, and since 2026-09-13 a topic is somewhere you
+      // can stand — Sjoerd: *"So you select people around a NODE?"*. Only a
+      // tag can be stood on: a junction may also be an organisation (which
+      // has its own popup) or the way back, and neither is a word.
+      const tagId = n.topicTag ? tagIds.get(n.topicTag.toLowerCase()) : undefined;
+      if (tagId) router.push(focusHref({ kind: 'tag', id: tagId }, pathname));
+      return;
+    }
     if (n.centre) {
+      // The same rule for both kinds: the middle opens its details. An
+      // organisation's details are its people and a way to add one
+      // (Sjoerd, 2026-09-13), which is why clicking a company in the middle
+      // is worth something rather than a no-op.
       if (n.kind === 'person') openPerson(n.id);
+      else if (n.kind === 'org') openOrg(n.id);
       return;
     }
     router.push(focusHref({ kind: n.kind, id: n.id }, pathname));
@@ -592,6 +736,15 @@ export function FocusWeb({
           className="rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
         >
           {t(locale, 'map_overview')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setFull((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
+          aria-pressed={full}
+        >
+          {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          {t(locale, full ? 'map_exit_full' : 'map_full')}
         </button>
         <span className="text-xs text-ink-subtle">{t(locale, 'map_web_hint')}</span>
       </div>
@@ -623,11 +776,31 @@ export function FocusWeb({
       {/* The cloud takes the whole width. Sjoerd: *"Make it wide over the
           screen"* — the container breaks out of the page's reading width. */}
       <div className="mt-3">
-        <div className="relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border">
+        <div
+          className={
+            full
+              ? 'fixed inset-0 z-50 overflow-hidden bg-surface-raised'
+              : 'relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border'
+          }
+        >
+          {/* In full screen the way out comes WITH the cloud. Leaving it on
+              the page underneath would put it behind the overlay. */}
+          {full && (
+            <button
+              type="button"
+              onClick={() => setFull(false)}
+              className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm hover:bg-surface-sunken"
+            >
+              <Minimize2 size={14} /> {t(locale, 'map_exit_full')}
+            </button>
+          )}
           <svg
             ref={svgRef}
             viewBox="-620 -300 1240 600"
-            className="block h-auto w-full touch-none select-none"
+            /* Full screen fills the height too. The drawing keeps its own
+               proportions (the default preserveAspectRatio), so a tall screen
+               gets margins rather than a stretched cloud. */
+            className={`block touch-none select-none ${full ? 'h-full w-full' : 'h-auto w-full'}`}
             role="img"
             aria-label={centreName}
             onPointerMove={(e) => {
@@ -759,8 +932,14 @@ export function FocusWeb({
                   key={j.id}
                   opacity={j.opacity ?? 1}
                   transform={`translate(${round(j.x)} ${round(j.y)})`}
+                  className={
+                    j.topicTag && tagIds.has(j.topicTag.toLowerCase())
+                      ? 'cursor-pointer'
+                      : undefined
+                  }
                   onMouseEnter={() => setHoverJunction(j.id)}
                   onMouseLeave={() => setHoverJunction((h) => (h === j.id ? null : h))}
+                  onClick={() => go(j)}
                 >
                   <circle r={9} fill="transparent" />
                   <circle r={4} className="fill-surface stroke-ink-muted" strokeWidth={1.2} />
@@ -880,7 +1059,9 @@ export function FocusWeb({
           {status === 'failed' && <p className="text-xs text-ink">{t(locale, 'map_near_failed')}</p>}
           {status === 'ok' && around.length === 0 && (
             <p className="text-xs text-ink-muted">
-              {focus.kind === 'org'
+              {focus.kind === 'tag'
+                ? t(locale, 'map_tag_empty')
+                : focus.kind === 'org'
                 ? t(locale, 'map_org_empty')
                 : allReasons.size && required.size
                   ? t(locale, 'map_near_thinned')
@@ -930,13 +1111,20 @@ export function FocusWeb({
  * The KEY groups people — everyone carrying #retreat shares one junction — and
  * the LABEL is what the junction says when you hover it.
  */
-function topicOf(n: Shown, locale: Locale): { key: string; label: string } {
+function topicOf(n: Shown, locale: Locale): { key: string; label: string; tag?: string } {
   if (n.trail) return { key: 'back', label: t(locale, 'map_back') };
   if (n.kind === 'org') return { key: `at:${n.id}`, label: n.sub || n.label };
   const r = n.reasons[0];
   if (!r) return { key: 'near', label: t(locale, 'map_near_title') };
   if (r.kind === 'mentioned') return { key: 'mentioned', label: t(locale, 'map_reason_mentioned') };
-  return { key: `${r.kind}:${r.label}`, label: reasonLine(r, locale) };
+  // `tag` is the only topic you can stand on, so it is the only one whose
+  // name is carried through. A junction without one is not clickable, which
+  // is the honest behaviour for "the way back" or "named in the same note".
+  return {
+    key: `${r.kind}:${r.label}`,
+    label: reasonLine(r, locale),
+    ...(r.kind === 'tag' ? { tag: r.label } : {}),
+  };
 }
 
 function reasonLine(r: Reason, locale: Locale): string {

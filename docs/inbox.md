@@ -200,6 +200,35 @@ not have that problem.
 
 Not scoped.
 
+
+## Moved out
+
+_Items that graduated, with the date and destination._
+
+### 2026-09-13 → `docs/connections-backlog.md` §1.1
+
+The person-timeline item below graduated. Sjoerd said it again to another
+session the next day, *"I want to improve the profile page - with activities -
+a lot."*, and it is now the first open Connections item, with the same gap found
+independently: `load.ts` fetches the card and the notes and nothing else. That
+write-up is better than this capture on the shape question, naming three
+products hiding inside "add activities" (a stream, a dossier, a tab on the
+platform profile) and recommending the stream.
+
+**One thing this capture has that §1.1 does not, and a builder will hit it.**
+§1.1 says the stream should interleave "notes, activity events, stage changes,
+meetings". There is no source for the stage changes. Re-checked against the code
+on 2026-09-13: eleven API routes write `activity` rows and `pulse.ts` is not one
+of them; nothing anywhere writes an activity row when a commitment moves stage.
+So a stream built exactly as specified will show notes and meetings and never a
+single deal moving, and whoever builds it will look for the bug in the merge.
+
+The fix is one write, not a redesign: a stage move is type plus subject, which
+is the shape `activity` takes. `pulse_commitment_stage_event` already records
+every move by trigger, so the data is there and only the crossing is missing.
+
+The original capture, kept whole:
+
 ### 2026-09-12 — the person page has no timeline, and stage moves are nowhere
 
 Sjoerd, in the fibre chat, tagged `#connections`:
@@ -255,7 +284,3 @@ request and a heavier one, because it means an app reaching into another app's
 content.
 
 Not scoped.
-
-## Moved out
-
-_Items that graduated to `docs/build-plan.md`, with the date and destination._

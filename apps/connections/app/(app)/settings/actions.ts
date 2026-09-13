@@ -81,6 +81,47 @@ export async function saveBandLabels(
 }
 
 /**
+ * Rename the axes, and say which ones this workspace reads.
+ *
+ * Sjoerd, 2026-09-13: *"the whole categorisation should be editible. Which
+ * charatceristics and how many"* / *"And the title too"*.
+ *
+ * An empty title puts the shipped one back, for the same reason an empty band
+ * name does: absence is what the fallback reads, and storing today's English
+ * as an override would freeze the axis in English for everybody reading the
+ * app in another language.
+ *
+ * Hiding is a screen decision and nothing else — the axis is still computed
+ * and its history is intact, so switching one back on tomorrow shows the
+ * whole thing rather than an axis that starts on the day somebody changed
+ * their mind.
+ *
+ * Revalidates every surface that prints an axis title or offers the picker.
+ */
+export async function saveAxisConfig(
+  axes: Record<string, { title?: string; hidden?: boolean }>,
+): Promise<ActResult> {
+  try {
+    await apiFetch('/api/v1/connections/axes', {
+      method: 'PUT',
+      body: JSON.stringify({ axes }),
+    });
+    revalidatePath('/landscape');
+    revalidatePath('/people');
+    revalidatePath('/settings/names');
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      // 403: admins only, same as renaming a band — shared vocabulary.
+      if (e.status === 403) return { ok: false, error: 'forbidden' };
+      const body = e.body as { error?: unknown } | undefined;
+      return { ok: false, error: typeof body?.error === 'string' ? body.error : `API ${e.status}` };
+    }
+    return { ok: false, error: 'unknown error' };
+  }
+}
+
+/**
  * Change how long kinds of work take, for the whole workspace. A null puts
  * the shipped default back. Today is revalidated because every estimate on it
  * reads these numbers.

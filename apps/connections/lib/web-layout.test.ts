@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ASPECT,
+  driftBearings,
   JUNCTION_FRACTION,
   junctionBearing,
   junctionRadius,
@@ -525,5 +526,94 @@ describe('where a topic sits between the middle and its names', () => {
 
   it('has somewhere to sit even with no names yet', () => {
     expect(junctionRadius([])).toBeGreaterThan(0);
+  });
+});
+
+// ── The cloud's order is never fixed ───────────────────────────────────────
+//
+// Sjoerd, 2026-09-13: *"it seems the position of the cloud names, relative to
+// each other stay the same... they can also move"*.
+//
+// He was reading the code's behaviour correctly from the outside. Every name
+// was GIVEN a bearing by assignBearings and BEARING_PULL held it there, so the
+// whole cloud could breathe, lean and drift while no two names ever changed
+// places — the picture moved and the arrangement inside it did not.
+//
+// The measurable claim is "they overtake", not "they move". A test that only
+// asserted movement would pass against a carousel, which is the exact thing
+// this is not: every name turning together changes nothing about who is next
+// to whom.
+//
+// Mutation-checked: with BEARING_SWING set to 0, or the sine dropped so the
+// bearing just returns its base, "two names trade places" fails. With the
+// anchor exemption removed, "the way back never drifts" fails.
+describe('names slide past each other', () => {
+  const members = ['Ada', 'Bo', 'Cy', 'Di', 'Eve'].map((id, i) => node(id, 300 + i * 5));
+
+  it('gives every name a slot, and room to swing around it', () => {
+    assignBearings([{ members }]);
+    for (const m of members) {
+      expect(m.bearingBase, `${m.id} has a slot`).toBeDefined();
+      expect(m.bearingSwing ?? 0, `${m.id} can move`).toBeGreaterThan(0);
+    }
+  });
+
+  it('lets two names trade places, not merely move together', () => {
+    assignBearings([{ members }]);
+    const order = () =>
+      [...members]
+        .sort((x, y) => (x.bearing ?? 0) - (y.bearing ?? 0))
+        .map((n) => n.id)
+        .join(' ');
+
+    driftBearings(members, 0);
+    const first = order();
+
+    // A full swing is around forty seconds, so a minute of frames covers more
+    // than one crossing for every pair whose rates differ.
+    const seen = new Set<string>();
+    for (let t = 0; t <= 120_000; t += 500) {
+      driftBearings(members, t);
+      seen.add(order());
+    }
+    expect(seen.size, 'the order changes at some point').toBeGreaterThan(1);
+    expect([...seen].some((o) => o !== first), 'and not only at the very start').toBe(true);
+  });
+
+  it('does not just rotate: the gaps between names change too', () => {
+    // The distinguishing measure. A carousel moves every bearing by the same
+    // amount, so every GAP is constant; only independent swings change them.
+    assignBearings([{ members }]);
+    const gaps = () => {
+      const b = [...members].map((n) => n.bearing ?? 0).sort((x, y) => x - y);
+      return b.slice(1).map((v, i) => v - b[i]!);
+    };
+    driftBearings(members, 0);
+    const before = gaps();
+    driftBearings(members, 9_000);
+    const after = gaps();
+    const moved = after.some((g, i) => Math.abs(g - before[i]!) > 0.05);
+    expect(moved, 'at least one gap has opened or closed').toBe(true);
+  });
+
+  it('never lets the way back drift off the direction it exists to show', () => {
+    // The name you came from belongs exactly opposite the one you clicked.
+    // Everything else may wander; this one may not, or the movement that put
+    // it there is quietly undone a few seconds later.
+    const anchored = ['Ada', 'Bo', 'Cy'].map((id, i) => node(id, 300 + i * 5));
+    assignBearings([{ members: anchored }], { id: 'Bo', bearing: Math.PI / 3 });
+    const bo = anchored.find((n) => n.id === 'Bo')!;
+    for (const t of [0, 3_000, 20_000, 90_000]) {
+      driftBearings(anchored, t);
+      expect(bo.bearing).toBeCloseTo(Math.PI / 3, 10);
+    }
+  });
+
+  it('leaves a node alone when it has no slot', () => {
+    // A node that assignBearings never saw — one mid-fade on its way out —
+    // must not have a bearing invented for it.
+    const stray = node('Zed', 300);
+    driftBearings([stray], 5_000);
+    expect(stray.bearing).toBeUndefined();
   });
 });

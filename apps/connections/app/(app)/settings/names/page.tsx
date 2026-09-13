@@ -2,7 +2,7 @@ import { apiFetch } from '@/lib/api';
 import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import type { BandLabels } from '../../landscape/axes';
+import type { AxisConfig, BandLabels } from '../../landscape/axes';
 import { NamesForm } from './names-form';
 
 // What this workspace calls its bands.
@@ -16,13 +16,15 @@ export default async function NamesPage() {
   const locale = await uiLocale();
 
   let labels: BandLabels = {};
+  let axes: AxisConfig = {};
   let canEdit = false;
   let error: string | null = null;
   try {
-    const r = await apiFetch<{ labels: BandLabels; can_edit: boolean }>(
+    const r = await apiFetch<{ labels: BandLabels; axes: AxisConfig; can_edit: boolean }>(
       '/api/v1/connections/labels',
     );
     labels = r.labels ?? {};
+    axes = r.axes ?? {};
     canEdit = r.can_edit;
   } catch {
     error = t(locale, 'names_load_failed');
@@ -33,6 +35,7 @@ export default async function NamesPage() {
       <PageHeader title={t(locale, 'names_card_title')} />
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'names_intro')}</p>
       <p className="mt-2 max-w-2xl text-sm text-ink-subtle">{t(locale, 'names_rules_fixed')}</p>
+      <p className="mt-2 max-w-2xl text-sm text-ink-subtle">{t(locale, 'names_axes_intro')}</p>
 
       {error && <ErrorBanner>{error}</ErrorBanner>}
 
@@ -40,7 +43,9 @@ export default async function NamesPage() {
         <p className="mt-6 text-sm text-ink-muted">{t(locale, 'admin_only_notice')}</p>
       )}
 
-      {!error && <NamesForm initial={labels} locale={locale} canEdit={canEdit} />}
+      {!error && (
+        <NamesForm initial={labels} initialAxes={axes} locale={locale} canEdit={canEdit} />
+      )}
     </PageContainer>
   );
 }
