@@ -50,6 +50,7 @@ import {
 } from '@/lib/web-layout';
 import { thin } from '@/lib/map-layout';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
+import { onGraphChanged } from '@/lib/graph-changed';
 import {
   loadNeighbourhood,
   loadOrganisation,
@@ -258,6 +259,16 @@ export function FocusWeb({
   const densityRef = useRef(DENSITY_DEFAULT);
   densityRef.current = density;
   const placeRef = useRef<((around: Around[]) => void) | null>(null);
+  /**
+   * Re-read whatever this cloud is standing on, without disturbing it.
+   *
+   * Kept separate from the focus effect on purpose. Re-running THAT would
+   * recompute the pan, clear the trail and re-seed the arrivals — it is the
+   * code for "you clicked a name", and a membership being written is not
+   * that. This only replaces the facts; the cloud keeps its arrangement and
+   * the new name fades in where it belongs.
+   */
+  const refetchRef = useRef<(() => Promise<void>) | null>(null);
   // Read after mount: localStorage does not exist while this renders on the
   // server, and reading it in useState would make the two renders disagree.
   useEffect(() => setDensity(savedDensity()), []);
@@ -371,6 +382,10 @@ export function FocusWeb({
       document.body.style.overflow = previous;
     };
   }, [full]);
+
+  // Somebody wrote to the graph — a membership from the organisation popup,
+  // today — so the facts on screen are stale. Re-read them in place.
+  useEffect(() => onGraphChanged(() => void refetchRef.current?.()), []);
 
   // The workspace's tags, once, so a junction knows which topic it is. A
   // failure here costs the junction click and nothing else — the cloud is
@@ -557,7 +572,7 @@ export function FocusWeb({
 
     const place = placeRef.current;
 
-    void (async () => {
+    const read = async () => {
       if (focus.kind === 'person') {
         const r = await loaders.neighbourhood(focus.id);
         if (!alive) return;
@@ -606,10 +621,14 @@ export function FocusWeb({
         place(aroundFrom(payload.current, densityRef.current, locale));
       }
       if (alive) setStatus('ok');
-    })();
+    };
+
+    refetchRef.current = read;
+    void read();
 
     return () => {
       alive = false;
+      if (refetchRef.current === read) refetchRef.current = null;
     };
     // knownName is read once per focus on purpose; locale only phrases subs.
     // eslint-disable-next-line react-hooks/exhaustive-deps

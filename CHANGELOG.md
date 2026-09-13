@@ -6,6 +6,15 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.40] — 2026-09-13 — The map notices when you connect somebody (staging)
+
+**Connections — connecting a person now updates what is on screen.** The popup
+was already folding the new person into its own list; the map behind it was
+not, because the cloud holds its names in memory and only asks the server again
+when you move to somebody else. It now re-reads the facts in place, keeping the
+arrangement it had — the new name fades in where it belongs instead of the
+cloud jumping back to the start.
+
 ## [0.73.39] — 2026-09-13 — Stand on a topic, not only on a person (staging)
 
 **Connections — a word can be the middle of the map.** The little dots joining

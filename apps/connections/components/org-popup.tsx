@@ -37,6 +37,7 @@ import { t, type Locale } from '@/lib/i18n-ui';
 import { usePersonPopup } from '@/components/person-popup';
 import { loadOrg, connectPerson, type OrgCard, type OrgMember } from '@/app/(app)/organisations/actions';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
+import { graphChanged } from '@/lib/graph-changed';
 
 type Ctx = { openOrg: (id: string) => void };
 
@@ -287,6 +288,9 @@ function ConnectPerson({
       return;
     }
     onAdded(chosen.id, chosen.name, title);
+    // The map behind this dialog is showing the same organisation and has no
+    // idea a membership was just written. It re-reads itself on this.
+    graphChanged();
     setChosen(null);
     setTerm('');
     setTitle('');
