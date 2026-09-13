@@ -45,7 +45,7 @@ neither in code nor in a document. That is what this file fixes.
 | 17 | A new full backlog | **Shipped** — [connections-backlog.md](connections-backlog.md) |
 | 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **Backlog** — was MISSED, see below |
 | 19 | **Click a name → popup with name, email, phone, LinkedIn** | **Shipped** v0.73.51 — was MISSED, see below |
-| 20 | **Landscape should work like "as columns" in macOS** | **MISSED** — see below |
+| 20 | **Landscape should work like "as columns" in macOS** | **Not started** — was MISSED; asked about again, next to build |
 | 21 | Where do I change the labels of a reading? | **Answered** — Settings → What you call the steps; per workspace, admin only |
 | 22 | Entries: can I fill in everything? Also tags? | **Answered** + **Backlog** §1.3, §2.6 |
 | 23 | Entries interface error — content under the sidebar | **Shipped** v0.73.46 (hardened; cause not reproduced) |
