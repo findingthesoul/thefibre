@@ -6,6 +6,27 @@ Sjoerd's gathering box. Raw items, captured as they arrive, from any chat.
 be in priority order. Dropping unranked items into it breaks that claim
 quietly. Items land here first, get ranked later, then move.
 
+## There is a second capture file, and here is the line between them
+
+`docs/connections-asks.md` was started 2026-09-13, hours after this one, from
+the same complaint: *"It makes me a bit uncertain what gets picked up and what
+not."* Neither file knew about the other, because this one has been sitting in
+an unmerged draft PR all day.
+
+They are not the same instrument and both should live:
+
+- **This file is the front door for anything not yet assigned to an app.** A
+  brainwave, an irritation, a half-formed idea from any chat. Unranked, in his
+  words, unscoped.
+- **`connections-asks.md` is a receipt ledger for Connections**, one row per
+  ask with a status, logged before any work. It answers "did that get picked
+  up", which this file does not try to.
+
+**So the rule: an ask that clearly belongs to an app with its own ledger goes
+there. Everything else lands here.** When an item here turns out to belong to
+such an app, move it and leave the pointer, the same as moving to the build
+plan.
+
 ## For any session reading this
 
 - **Append, never reorder.** Newest at the bottom of Open.

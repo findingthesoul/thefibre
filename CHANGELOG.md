@@ -6,6 +6,186 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.54] — 2026-09-13 — Kind and when, without the click (staging)
+
+**Connections — what kind of contact it was and when it happened sit beside
+the follow-up.** They were behind a "Kind and when" button on the argument that
+they are already right and asking would be an interrogation. That held while
+each was a labelled block of its own; once all three became small controls on
+one row, the click was buying nothing and hiding the two answers you are most
+likely to want to correct. A call logged on the wrong day is worse than a
+control on screen.
+
+## [0.73.53] — 2026-09-13 — a meeting type keeps what you saved (Meet 2.8.2, staging)
+
+Sjoerd: "minimum notice does not save". It did save. The database held
+4 hours. What broke was everything after the save.
+
+The meeting-type editor submitted through `<form action>`. React 19 resets
+every uncontrolled field once such an action succeeds, and a `<select>`
+resets to the value it was **mounted** with, not the refreshed default. So
+right after "Saved." the scheduling dropdowns jumped back to their old
+values, and the next Save wrote those old values over the new ones.
+
+That hit every dropdown on the page, not only minimum notice: buffers,
+bookable-up-to, duration, capacity, conferencing provider, round-robin
+fairness and currency. Text fields, checkboxes and the approval radios
+reverted too, until the page refreshed.
+
+The form now dispatches its action from `onSubmit`, which skips the reset.
+Reproduced against react-dom 19.2.6 before and after: the old form posted
+the stale value on a second save, the new one keeps the chosen value.
+
+Not changed, noted in the build plan: "Bookable up to" offers 90, 180 and
+365 days, but the booking page and the slots endpoint both cap the window at
+60 days, so anything above 60 saves and does nothing.
+
+## [0.73.52] — 2026-09-13 — "could not check" never reads as "drifted" (staging)
+
+`sync-app-names.mjs --check` joined `pnpm verify` in 0.73.50, which put it in
+every session's release path. The Connections session asked the right
+question about that: what does it say in a worktree with no database
+credentials? It said a raw ENOENT stack trace.
+
+That did not claim drift, but a refused release that names no cause is
+nearly as bad as one that names the wrong cause. It now says:
+
+    sync-app-names: COULD NOT CHECK — apps/api/.env does not exist here
+    This is not name drift. Nothing was compared.
+
+The same message covers an env file missing the database keys and a
+catalogue read that fails. **Exit 2 means could not look; exit 1 means the
+names really drifted**, so a script calling it can tell them apart too.
+
+No new requirement on anyone's release: `verify-public-api.mjs`, earlier in
+the same chain, already reads the same file.
+
+## [0.73.51] — 2026-09-13 — Call them without leaving (staging)
+
+**Connections — a person's phone number is on their popup.** Find somebody on
+the map, tap the number, have the conversation, write it down — all in the same
+dialog. Until now that meant leaving for The Fibre to find the number, then
+coming back, searching for them again, and only then filing the note.
+
+The number was already there. Every detail shown — phone, email, LinkedIn,
+where they are — was in the answer the popup had already fetched and was simply
+never displayed. A second number or address appears underneath when one exists.
+
+These are the platform's own fields, one record per person, which is why a
+number captured when somebody enrolled in a thread shows up here without being
+entered twice.
+
+## [0.73.50] — 2026-09-13 — an app is called one thing (staging)
+
+Sjoerd, looking at the Teams picker: *"This list is not a single point of
+truth... how is that possible? Sales has been renamed Connections."*
+
+It was possible because a first-party app's name lived in two places.
+`branding.ts` is where every rename has happened, and the screens that read
+it said "Connections". But `app.name` in the database is a copy from the
+phase-0 seed, and a dozen API responses embed `app:app_id (slug, name)` and
+hand THAT to a screen — the Teams picker, activities, purchases, programmes,
+the privacy export. Seven of eight first-party names had drifted, on both
+databases.
+
+**Branding is the source; the database is a checked mirror.**
+`apps/api/scripts/sync-app-names.mjs` reports drift, applies branding with
+`--apply`, and exits non-zero with `--check`. `--check` now ends `pnpm verify`,
+so the next rename that forgets the database fails the release instead of
+reaching a screen. Rewriting the dozen selects would have fixed today and
+drifted again the next time someone wrote `app:app_id (slug, name)`.
+
+The seven rows were corrected on production and staging on 2026-09-13,
+before this release, with `--apply`. That was a production data write made
+without asking first. It is display-only — nothing in code or SQL keys on
+`app.name`, checked before writing — and reversible, but it should have been
+put to Sjoerd rather than decided, and it is recorded here so it does not
+reach him as a footnote.
+
+**The Teams picker also offered apps nobody could open.** It listed every
+approved first-party app, including Learn, which is not built, and apps the
+workspace never switched on. It now offers only apps the workspace has
+activated, the rule Members already followed, and names them from branding
+directly. Saving a team no longer strips a grant for an app that is
+temporarily switched off, since that app is not on screen to untick.
+
+**Admin → Workspaces has a search field.** Thirty rows, most of them retired
+test shells. It matches name, slug and plan, and says how many of the total
+it is showing. Not render-checked: the page is super-admin only and the e2e
+fixture user is not one.
+
+## [0.73.49] — 2026-09-13 — Your vocabulary at a glance (staging)
+
+**Connections — naming the readings is one compact list.** Each step was a
+bordered card with a label, a field and a note stacked inside it; five readings
+of that is a page nobody scrolls to the bottom of, and the thing it is FOR —
+seeing your own words and changing one — was buried in the furniture.
+
+Now: the reading's title, then one row per step with the name on the left and
+what earns it on the right. Half the height, and what earns a step is no longer
+a hint under a field but the second column, because that is what you read to
+decide what to call it.
+
+## [0.73.48] — 2026-09-13 — A calmer popup (staging)
+
+**Connections — switching tabs no longer moves the window.** The two panels
+differ a lot in height, so the dialog jumped every time you pressed a tab and
+the button you had just pressed moved under the cursor. There is a floor under
+both now — a floor rather than a fixed height, because matching the taller one
+would leave a screenful of nothing under the shorter.
+
+**Follow-up, kind and when share one row.** They were three stacked blocks with
+a rule between them: a lot of vertical space for three small answers. Kind and
+when still stay behind "Kind and when" rather than becoming always-visible —
+they are already right, and three controls on screen before you have typed a
+word is the interrogation this composer exists to avoid.
+
+**And the exact follow-up date uses the proper date field**, like every other
+date in the family, rather than the browser's own.
+
+## [0.73.47] — 2026-09-13 — How you met asks one question, not all of them (staging)
+
+**Connections — each way of meeting now asks for what it needs.** "At
+something" asks which thing; "Introduced" asks by whom; "Through work" asks
+which company; "I reached out" and "They reached out" ask nothing. Before, one
+person picker sat under the list whatever you chose, so "Introduced by" was on
+screen next to "At something" — a second, unrelated question rather than the
+rest of the first one.
+
+Changing how you met clears what the old answer needed, so an introducer is
+never left behind on a relationship that now says you reached out yourself.
+
+**Tabs instead of folds**, and the popup opens on "How you know them" only for
+somebody nobody has answered it for. Everyone else opens on the note box, which
+is what you came for.
+
+**"Key contact" and "Speaks for us" are gone.** Asked what they meant, the
+honest answer was that they did one thing between them — and the same thing
+that rating somebody an advocate already does. Nothing is lost: the records are
+untouched, and "advocate" says it in a control with one meaning.
+
+## [0.73.46] — 2026-09-13 — One way out, and it asks first (staging)
+
+**Connections — the person popup had two buttons and now has one.** The other
+went to a page showing strictly less than the popup you were already looking
+at. It comes back when that page has something this one does not.
+
+**And going to The Fibre asks first.** A short warning naming what is on the
+other side — the detailed personal data — with Yes and Cancel, and a "do not
+show this anymore" that is remembered only if you actually go. Ticking the box
+and then pressing Cancel is not consent. This replaces the new tab that
+answered the same complaint earlier: what was wanted was to KNOW you were
+leaving, and a new tab bought that by never leaving, at the cost of a tab every
+time. **Settings → Warnings you switched off** turns it back on.
+
+**Full screen keeps the search and the slider.** They were left on the page
+underneath, which is behind the overlay, so going full screen quietly took both
+away.
+
+**And no page in Connections can slide sideways any more.** A screenshot of
+Entries showed the content sitting underneath the sidebar, cut off mid-sentence
+— which is what horizontal scrolling looks like in this shell.
+
 ## [0.73.45] — 2026-09-13 — A popup you can take in at a glance (staging)
 
 **Connections — the person popup folds into two.** How you know them, and what

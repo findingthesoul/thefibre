@@ -1,5 +1,6 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
+import { APPS } from '@thefibre/shared';
 import { userClient, adminClient } from '../db.js';
 import { isAdminRole } from '../lib/workspace-roles.js';
 import { can, needsPlan } from '../lib/plan.js';
@@ -26,16 +27,39 @@ import { syncTeam, syncUsers } from '../lib/team-grants.js';
 
 export const teamsRoutes = new Hono();
 
-// Apps an admin may confer through a team. Same rule as the Members page:
-// first-party, approved, and never the platform itself.
-async function grantableApps(): Promise<{ id: string; slug: string; name: string }[]> {
+// Apps an admin may confer through a team.
+//
+// Only apps this workspace has actually SWITCHED ON — the rule the Members
+// page already follows. Until 2026-09-13 this offered every approved
+// first-party app, so the picker listed Learn (not built) and apps the
+// workspace never activated: a grant that could never open anything.
+//
+// The name comes from branding.ts, not app.name. The database column is a
+// mirror kept in step by scripts/sync-app-names.mjs, and it had drifted:
+// this picker said "Fibre Sales" while the product said "Connections"
+// (Sjoerd: "this list is not a single point of truth"). Reading branding
+// here means the picker cannot be the screen that goes stale next time.
+async function grantableApps(
+  workspaceId: string,
+): Promise<{ id: string; slug: string; name: string }[]> {
   const { data } = await adminClient
-    .from('app')
-    .select('id, slug, name')
-    .eq('status', 'approved')
-    .eq('kind', 'first_party')
-    .neq('slug', 'fibre-platform');
-  return data ?? [];
+    .from('workspace_app')
+    .select('deactivated_at, app:app_id (id, slug, name, status, kind)')
+    .eq('workspace_id', workspaceId)
+    .is('deactivated_at', null);
+  return (data ?? [])
+    .map((w) => (Array.isArray(w.app) ? w.app[0] : w.app))
+    .filter(
+      (a): a is { id: string; slug: string; name: string; status: string; kind: string } =>
+        !!a && a.status === 'approved' && a.kind === 'first_party' && a.slug !== 'fibre-platform',
+    )
+    .map((a) => ({ id: a.id, slug: a.slug, name: appName(a.slug, a.name) }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+}
+
+/** A first-party app's name from branding; a stored name only as fallback. */
+function appName(slug: string, stored: string | null | undefined): string {
+  return (APPS as Record<string, { name: string } | undefined>)[slug]?.name ?? stored ?? slug;
 }
 
 async function callerRole(userId: string, workspaceId: string): Promise<string | null> {
@@ -94,7 +118,7 @@ teamsRoutes.get('/', async (c) => {
     const app = Array.isArray(g.app) ? g.app[0] : g.app;
     if (!app) continue;
     const list = appsByTeam.get(g.team_id) ?? [];
-    list.push({ slug: app.slug, name: app.name, lead_is_app_admin: g.lead_is_app_admin });
+    list.push({ slug: app.slug, name: appName(app.slug, app.name), lead_is_app_admin: g.lead_is_app_admin });
     appsByTeam.set(g.team_id, list);
   }
 
@@ -118,7 +142,7 @@ teamsRoutes.get('/', async (c) => {
     }),
     can_edit_grants: await can(ctx.workspaceId, 'team_access_groups'),
     is_admin: isAdminRole(await callerRole(ctx.userId, ctx.workspaceId)),
-    grantable: await grantableApps(),
+    grantable: await grantableApps(ctx.workspaceId),
   });
 });
 
@@ -249,13 +273,13 @@ teamsRoutes.get('/:id', async (c) => {
       return {
         app_id: g.app_id,
         slug: app?.slug ?? null,
-        name: app?.name ?? null,
+        name: app?.slug ? appName(app.slug, app.name) : null,
         lead_is_app_admin: g.lead_is_app_admin,
       };
     }),
     can_edit_grants: await can(ctx.workspaceId, 'team_access_groups'),
     is_admin: isAdminRole(await callerRole(ctx.userId, ctx.workspaceId)),
-    grantable: await grantableApps(),
+    grantable: await grantableApps(ctx.workspaceId),
   });
 });
 
@@ -332,7 +356,7 @@ teamsRoutes.put('/:id/apps', async (c) => {
   const body = GrantsPut.safeParse(await c.req.json().catch(() => null));
   if (!body.success) return c.json({ error: body.error.flatten() }, 400);
 
-  const grantable = await grantableApps();
+  const grantable = await grantableApps(ctx.workspaceId);
   const bySlug = new Map(grantable.map((a) => [a.slug, a]));
   const wanted = body.data.apps.filter((a) => bySlug.has(a.slug));
   const wantedIds = new Set(wanted.map((a) => bySlug.get(a.slug)!.id));
@@ -342,8 +366,13 @@ teamsRoutes.put('/:id/apps', async (c) => {
     .select('app_id')
     .eq('team_id', id);
 
+  // Only apps the admin could SEE in the picker are the admin's to remove.
+  // A grant for an app the workspace has switched off is not on screen, so
+  // saving must not read its absence as "untick" — otherwise pausing Pulse
+  // for a week would quietly strip it from every team that had it.
+  const visibleIds = new Set(grantable.map((a) => a.id));
   for (const row of existing ?? []) {
-    if (!wantedIds.has(row.app_id)) {
+    if (visibleIds.has(row.app_id) && !wantedIds.has(row.app_id)) {
       await adminClient.from('team_app_grant').delete().eq('team_id', id).eq('app_id', row.app_id);
     }
   }

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Tags, Sparkles, Timer } from 'lucide-react';
+import { BellOff, Sparkles, Tags, Timer } from 'lucide-react';
 import { appName } from '@thefibre/shared';
 import { SettingsCards, platformSettings } from '@thefibre/shared/ui/settings';
 import { PageContainer, PageHeader } from '@thefibre/shared/ui/page';
@@ -40,6 +40,12 @@ export default async function SettingsPage() {
           icon: <Tags size={17} strokeWidth={1.75} />,
           title: t(locale, 'names_card_title'),
           desc: t(locale, 'names_card_desc'),
+        },
+        {
+          href: '/settings/warnings',
+          icon: <BellOff size={17} strokeWidth={1.75} />,
+          title: t(locale, 'warnings_card_title'),
+          desc: t(locale, 'warnings_card_desc'),
         },
       ],
     },

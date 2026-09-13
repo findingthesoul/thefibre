@@ -622,6 +622,9 @@ const RelationshipUpdate = z.object({
   source: z.enum(REL_SOURCE).nullable().optional(),
   source_detail: z.string().max(500).nullable().optional(),
   introduced_by: z.string().uuid().nullable().optional(),
+  /** The company you met them through, for source = client_contact. An id,
+   *  never a name — see the migration header. */
+  via_organisation_id: z.string().uuid().nullable().optional(),
   relationship_strength: z.enum(REL_STRENGTH).nullable().optional(),
   communication_preference: z.enum(REL_COMM).nullable().optional(),
   best_time_to_reach: z.string().max(200).nullable().optional(),

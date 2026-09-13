@@ -132,7 +132,26 @@ export default async function ConnectionsAppLayout({
         />
         {/* Soft-cream content surface so the white cards inside
          (Scope, Details, lists, dialogs) lift cleanly off the page. */}
-        <main className="flex-1 overflow-y-auto bg-surface-sunken">
+        {/* `overflow-x-clip`, and it is a rule rather than a tweak.
+            Sjoerd, 2026-09-13, with a screenshot of Entries: *"Interface
+            error"* — the page had slid sideways and the content was sitting
+            underneath the sidebar, cut off mid-sentence. That is what
+            horizontal scrolling inside this pane looks like: the sidebar is a
+            flex sibling, so anything that scrolls the main area to the right
+            slides its content under the sidebar's right edge.
+
+            I could not reproduce the trigger (the search field and its panel
+            measure clean at 1280 and at 1000, no overflow, panel aligned), so
+            this does not claim to fix the cause. It makes the CONSEQUENCE
+            impossible: one child that is a few pixels too wide can no longer
+            move the whole page. This project's mobile rules already forbid a
+            page that scrolls sideways outright; this enforces it in the one
+            place every page passes through.
+
+            `clip` rather than `hidden` on purpose: `hidden` would make this a
+            scroll container in both axes and quietly break `position: sticky`
+            for anything inside it. */}
+        <main className="flex-1 overflow-y-auto overflow-x-clip bg-surface-sunken">
           {/* One person popup for the whole app, so any list can open
               somebody without leaving the page it is on. The Fibre contacts
               URL is resolved here because a client component cannot read the

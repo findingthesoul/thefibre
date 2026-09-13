@@ -13,11 +13,38 @@
 import { apiFetch, ApiError } from '@/lib/api';
 import type { Note } from './notes';
 
+/**
+ * What the popup shows about a person.
+ *
+ * The contact details were always in the response — `GET /persons/:id` is a
+ * `select('*')` — and were simply never typed or rendered. Sjoerd,
+ * 2026-09-13: *"when I am searching for someone in my network and use maps to
+ * identify them, and want to call them... I need to leave MAPS and go to FIBRE
+ * for more info.. and then when I talked to them, I need to go back to
+ * Connections, search him again and then file the info... That does not seem
+ * user friendly"*.
+ *
+ * He is right, and the round trip was the whole cost: find them, leave, dial,
+ * come back, find them again, write. Everything needed to make the call is on
+ * the row the popup had already fetched.
+ *
+ * These are PLATFORM fields, not Connections' own — one `person` row per
+ * workspace, which is why a number typed during a Thread enrolment shows up
+ * here without being entered twice (brief §2: the platform owns identity, an
+ * app owns its content).
+ */
 export type PersonCard = {
   id: string;
   first_name: string | null;
   last_name: string | null;
+  preferred_name: string | null;
   email: string | null;
+  email_secondary: string | null;
+  phone: string | null;
+  phone_secondary: string | null;
+  linkedin_url: string | null;
+  city: string | null;
+  country: string | null;
 };
 
 export type LoadPersonResult =

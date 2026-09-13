@@ -828,6 +828,86 @@ const CATALOG = {
     de: 'in einem Monat', // MT
     fr: 'dans un mois', // MT
   },
+  warnings_card_title: {
+    en: 'Warnings you switched off',
+    nl: 'Waarschuwingen die je uitzette',
+    es: 'Avisos que has desactivado', // MT
+    pt: 'Avisos que desligaste', // MT
+    de: 'Warnungen, die du ausgeschaltet hast', // MT
+    fr: 'Avertissements que vous avez désactivés', // MT
+  },
+  warnings_card_desc: {
+    en: 'Turn a "do not ask me again" back on.',
+    nl: 'Zet een "vraag het me niet meer" weer aan.',
+    es: 'Vuelve a activar un «no me lo preguntes más».', // MT
+    pt: 'Volta a ligar um «não me perguntes mais».', // MT
+    de: 'Ein „frag mich nicht mehr" wieder einschalten.', // MT
+    fr: 'Réactiver un « ne me demande plus ».', // MT
+  },
+  warnings_intro: {
+    en: 'Anything you told this app to stop asking. Each one is remembered on this device only, so a phone and a laptop answer separately.',
+    nl: 'Alles waarvan je zei dat het niet meer hoeft te vragen. Elk antwoord geldt alleen op dit apparaat, dus een telefoon en een laptop staan los van elkaar.',
+    es: 'Todo lo que le dijiste a esta app que dejara de preguntar. Cada respuesta se recuerda solo en este dispositivo, así que el móvil y el portátil van por separado.', // MT
+    pt: 'Tudo o que disseste a esta app para deixar de perguntar. Cada resposta é guardada só neste dispositivo, por isso o telemóvel e o portátil são independentes.', // MT
+    de: 'Alles, wovon du dieser App gesagt hast, sie solle nicht mehr fragen. Jede Antwort gilt nur auf diesem Gerät, Handy und Laptop also getrennt.', // MT
+    fr: 'Tout ce que vous avez demandé à cette app de ne plus demander. Chaque réponse est retenue sur cet appareil seulement, donc téléphone et portable répondent séparément.', // MT
+  },
+  warnings_on: {
+    en: 'You are still asked before going to The Fibre.',
+    nl: 'Je krijgt nog steeds de vraag voordat je naar The Fibre gaat.',
+    es: 'Todavía se te pregunta antes de ir a The Fibre.', // MT
+    pt: 'Ainda te é perguntado antes de ires para o The Fibre.', // MT
+    de: 'Du wirst weiterhin gefragt, bevor du zu The Fibre gehst.', // MT
+    fr: 'On vous demande encore avant d’aller vers The Fibre.', // MT
+  },
+  warnings_off: {
+    en: 'Switched off on this device — you go straight there.',
+    nl: 'Uitgezet op dit apparaat — je gaat er direct heen.',
+    es: 'Desactivado en este dispositivo: vas directo.', // MT
+    pt: 'Desligado neste dispositivo — vais direto.', // MT
+    de: 'Auf diesem Gerät aus — du gehst direkt dorthin.', // MT
+    fr: 'Désactivé sur cet appareil — vous y allez directement.', // MT
+  },
+  warnings_turn_back_on: {
+    en: 'Ask me again',
+    nl: 'Vraag het me weer',
+    es: 'Volver a preguntarme', // MT
+    pt: 'Voltar a perguntar-me', // MT
+    de: 'Mich wieder fragen', // MT
+    fr: 'Me redemander', // MT
+  },
+  leave_title: {
+    en: 'Leaving Connections',
+    nl: 'Je verlaat Connections',
+    es: 'Vas a salir de Connections', // MT
+    pt: 'Vais sair do Connections', // MT
+    de: 'Du verlässt Connections', // MT
+    fr: 'Vous quittez Connections', // MT
+  },
+  leave_body: {
+    en: 'The Fibre holds the detailed personal data — addresses, phone numbers, everything recorded about this person. You will land there and leave this map behind.',
+    nl: 'In The Fibre staan de gedetailleerde persoonsgegevens — adressen, telefoonnummers, alles wat over deze persoon is vastgelegd. Je komt daar terecht en laat deze kaart achter.',
+    es: 'The Fibre guarda los datos personales detallados: direcciones, teléfonos, todo lo registrado sobre esta persona. Aterrizarás allí y dejarás atrás este mapa.', // MT
+    pt: 'O The Fibre guarda os dados pessoais detalhados — moradas, telefones, tudo o que está registado sobre esta pessoa. Vais parar lá e deixar este mapa para trás.', // MT
+    de: 'The Fibre enthält die detaillierten personenbezogenen Daten — Adressen, Telefonnummern, alles, was über diese Person erfasst ist. Du landest dort und lässt diese Karte zurück.', // MT
+    fr: 'The Fibre contient les données personnelles détaillées — adresses, téléphones, tout ce qui est enregistré sur cette personne. Vous y arriverez et quitterez cette carte.', // MT
+  },
+  leave_dont_ask: {
+    en: 'Do not show this anymore on this device',
+    nl: 'Dit niet meer tonen op dit apparaat',
+    es: 'No mostrar esto más en este dispositivo', // MT
+    pt: 'Não mostrar mais isto neste dispositivo', // MT
+    de: 'Das auf diesem Gerät nicht mehr zeigen', // MT
+    fr: 'Ne plus afficher ceci sur cet appareil', // MT
+  },
+  leave_yes: {
+    en: 'Yes, go there',
+    nl: 'Ja, ga erheen',
+    es: 'Sí, ir allí', // MT
+    pt: 'Sim, ir para lá', // MT
+    de: 'Ja, dorthin gehen', // MT
+    fr: 'Oui, y aller', // MT
+  },
   rel_source_unknown: {
     en: 'Not said',
     nl: 'Niet gezegd',
@@ -6589,6 +6669,38 @@ const CATALOG = {
     pt: 'Procura alguém que conheces', // MT
     de: 'Jemanden suchen, den ihr kennt', // MT
     fr: 'Cherchez quelqu’un que vous connaissez', // MT
+  },
+  rel_at_what: {
+    en: 'At what?',
+    nl: 'Waarbij?',
+    es: '¿En qué?', // MT
+    pt: 'Em quê?', // MT
+    de: 'Wobei?', // MT
+    fr: 'À quoi ?', // MT
+  },
+  rel_at_what_ph: {
+    en: 'A conference, a retreat, a dinner…',
+    nl: 'Een conferentie, een retraite, een diner…',
+    es: 'Un congreso, un retiro, una cena…', // MT
+    pt: 'Uma conferência, um retiro, um jantar…', // MT
+    de: 'Eine Konferenz, ein Retreat, ein Abendessen…', // MT
+    fr: 'Une conférence, une retraite, un dîner…', // MT
+  },
+  rel_via_company: {
+    en: 'Through which company',
+    nl: 'Via welk bedrijf',
+    es: 'A través de qué empresa', // MT
+    pt: 'Através de que empresa', // MT
+    de: 'Über welche Firma', // MT
+    fr: 'Via quelle entreprise', // MT
+  },
+  rel_via_company_search: {
+    en: 'Search a company you know',
+    nl: 'Zoek een bedrijf dat je kent',
+    es: 'Busca una empresa que conoces', // MT
+    pt: 'Procura uma empresa que conheces', // MT
+    de: 'Eine Firma suchen, die ihr kennt', // MT
+    fr: 'Cherchez une entreprise que vous connaissez', // MT
   },
   rel_clear: {
     en: 'Clear',

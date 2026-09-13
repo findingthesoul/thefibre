@@ -720,6 +720,59 @@ export function FocusWeb({
     router.push(focusHref({ kind: n.kind, id: n.id }, pathname));
   };
 
+  /**
+   * Find somebody, and choose how many names stand around them.
+   *
+   * Finding somebody and choosing how many names to show are the same
+   * decision — how much of the community to look at — so they share one row.
+   * Sjoerd, 2026-09-13: *"bring the density button above the capture... and
+   * instead of a person dropdown I like the entry search field... could we
+   * combine that?"*
+   *
+   * Held as a value because it is drawn in TWO places: above the picture
+   * normally, and inside the overlay in full screen. Sjoerd, same day: *"MAPS
+   * full screen.. also keep the search and slider..."* — they had been left on
+   * the page underneath, which is behind the overlay, so going full screen
+   * silently took both away.
+   */
+  const controlRow = (
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {controls ? <div className="min-w-0 flex-1 sm:max-w-sm">{controls}</div> : null}
+      {/* Sjoerd, 2026-09-13, of the first version: *"This is very hard to
+          see... too subtle for older people"*. It was a hairline track and a
+          small grey thumb — `accent-ink` alone leaves the TRACK at the
+          browser's default, which on a dark ground is nearly invisible.
+
+          Fixed by drawing both explicitly rather than by nudging a colour: a
+          real track with a border, a 20px thumb with a ring around it, and a
+          label that is `text-ink` instead of the subtlest grey in the palette.
+          20px also clears the target a finger needs, so this is legibility and
+          reach in one change.
+
+          The two vendor prefixes are both required and are not
+          interchangeable — WebKit and Firefox style the thumb under different
+          selector names, and a rule naming one silently does nothing in the
+          other. */}
+      <label className="flex shrink-0 items-center gap-3">
+        <span className="text-xs font-medium text-ink">{t(locale, 'map_density')}</span>
+        <input
+          type="range"
+          min={DENSITY_MIN}
+          max={DENSITY_MAX}
+          step={1}
+          value={density}
+          onChange={(e) => setDensity(Number(e.target.value))}
+          aria-label={t(locale, 'map_density')}
+          aria-valuetext={String(density)}
+          className="h-5 w-44 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface-sunken
+            [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-surface [&::-moz-range-thumb]:bg-ink
+            [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface [&::-webkit-slider-thumb]:bg-ink"
+        />
+        <span className="w-6 text-sm font-medium tabular-nums text-ink">{density}</span>
+      </label>
+    </div>
+  );
+
   return (
     <div className="mt-4">
       <div className="flex flex-wrap items-center gap-3 text-sm">
@@ -748,48 +801,10 @@ export function FocusWeb({
         </button>
         <span className="text-xs text-ink-subtle">{t(locale, 'map_web_hint')}</span>
       </div>
-
-      {/* Finding somebody and choosing how many names stand around them are
-          the same decision — how much of the community to look at — so they
-          share one row, and it sits above the picture rather than under it.
-          Sjoerd, 2026-09-13: *"bring the density button above the capture...
-          and instead of a person dropdown I like the entry search field...
-          could we combine that?"* */}
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        {controls ? <div className="min-w-0 flex-1 sm:max-w-sm">{controls}</div> : null}
-        {/* Sjoerd, 2026-09-13, of the first version: *"This is very hard to
-            see... too subtle for older people"*. It was a hairline track and a
-            small grey thumb — `accent-ink` alone leaves the TRACK at the
-            browser's default, which on a dark ground is nearly invisible.
-
-            Fixed by drawing both explicitly rather than by nudging a colour: a
-            6px track with a real border, a 20px thumb with a ring around it,
-            and a label that is `text-ink` instead of the subtlest grey in the
-            palette. 20px also clears the 24px-ish target a finger needs, so
-            this is legibility and reach in one change.
-
-            The two vendor prefixes are both required and are not
-            interchangeable — WebKit and Firefox style the thumb under
-            different selector names, and a rule naming one silently does
-            nothing in the other. */}
-        <label className="flex shrink-0 items-center gap-3">
-          <span className="text-xs font-medium text-ink">{t(locale, 'map_density')}</span>
-          <input
-            type="range"
-            min={DENSITY_MIN}
-            max={DENSITY_MAX}
-            step={1}
-            value={density}
-            onChange={(e) => setDensity(Number(e.target.value))}
-            aria-label={t(locale, 'map_density')}
-            aria-valuetext={String(density)}
-            className="h-5 w-44 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface-sunken
-              [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-surface [&::-moz-range-thumb]:bg-ink
-              [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface [&::-webkit-slider-thumb]:bg-ink"
-          />
-          <span className="w-6 text-sm font-medium tabular-nums text-ink">{density}</span>
-        </label>
-      </div>
+      {/* Not while full screen: the overlay draws its own copy, and two
+          sliders on screen disagreeing about which one is live is worse than
+          one that moves. */}
+      {!full && <div className="mt-4">{controlRow}</div>}
 
       {/* The cloud takes the whole width. Sjoerd: *"Make it wide over the
           screen"* — the container breaks out of the page's reading width. */}
@@ -797,20 +812,24 @@ export function FocusWeb({
         <div
           className={
             full
-              ? 'fixed inset-0 z-50 overflow-hidden bg-surface-raised'
+              ? 'fixed inset-0 z-50 flex flex-col overflow-hidden bg-surface-raised'
               : 'relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border'
           }
         >
-          {/* In full screen the way out comes WITH the cloud. Leaving it on
-              the page underneath would put it behind the overlay. */}
+          {/* In full screen the controls and the way out come WITH the cloud.
+              Leaving them on the page underneath puts them behind the
+              overlay, which is what took the search and the slider away. */}
           {full && (
-            <button
-              type="button"
-              onClick={() => setFull(false)}
-              className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm hover:bg-surface-sunken"
-            >
-              <Minimize2 size={14} /> {t(locale, 'map_exit_full')}
-            </button>
+            <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-3">
+              <div className="min-w-0 flex-1">{controlRow}</div>
+              <button
+                type="button"
+                onClick={() => setFull(false)}
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm hover:bg-surface-sunken"
+              >
+                <Minimize2 size={14} /> {t(locale, 'map_exit_full')}
+              </button>
+            </div>
           )}
           <svg
             ref={svgRef}
@@ -818,7 +837,7 @@ export function FocusWeb({
             /* Full screen fills the height too. The drawing keeps its own
                proportions (the default preserveAspectRatio), so a tall screen
                gets margins rather than a stretched cloud. */
-            className={`block touch-none select-none ${full ? 'h-full w-full' : 'h-auto w-full'}`}
+            className={`block touch-none select-none ${full ? 'min-h-0 flex-1 w-full' : 'h-auto w-full'}`}
             role="img"
             aria-label={centreName}
             onPointerMove={(e) => {

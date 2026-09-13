@@ -7,6 +7,7 @@
 // the workspace pays.
 
 import { useState, useTransition } from 'react';
+import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { EmptyState } from '@/components/ui/page';
 import { Button } from '@/components/ui/button';
@@ -48,14 +49,49 @@ export type PlanOption = { id: string; name: string };
 
 export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: PlanOption[] }) {
   const [editing, setEditing] = useState<Workspace | null>(null);
+  const [query, setQuery] = useState('');
 
   if (items.length === 0) {
     return <EmptyState>No workspaces. That should be impossible — check the API log.</EmptyState>;
   }
+
+  // Search (Sjoerd, 2026-09-13) — thirty rows and most of them retired test
+  // shells. Name, slug and plan, because "which ones are on Pro" is the other
+  // question people bring to this page. Client-side on purpose: the list is
+  // already loaded whole, and a round trip per keystroke buys nothing here.
+  const q = query.trim().toLowerCase();
+  const shown = q
+    ? items.filter((w) =>
+        [w.name, w.slug, w.subscription?.plan_name ?? '', w.subscription?.plan_id ?? '']
+          .some((field) => field.toLowerCase().includes(q)),
+      )
+    : items;
+
   return (
     <>
+      <div className="relative mt-4 max-w-sm">
+        <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted" />
+        <input
+          type="search"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search by name, slug or plan"
+          aria-label="Search workspaces"
+          className="w-full h-9 rounded-md border border-line bg-surface-raised pl-9 pr-3 text-sm focus:border-line-strong focus:outline-none placeholder:text-ink-muted"
+        />
+      </div>
+
+      {q && (
+        <p className="mt-2 text-xs text-ink-muted">
+          {shown.length} of {items.length}
+        </p>
+      )}
+
+      {shown.length === 0 ? (
+        <EmptyState>No workspace matches “{query.trim()}”.</EmptyState>
+      ) : (
       <ul className="mt-4 divide-y divide-line overflow-hidden rounded-lg border border-line bg-surface-raised">
-        {items.map((w) => (
+        {shown.map((w) => (
           <li key={w.id} className="px-5 py-4">
             <div className="flex items-baseline justify-between gap-4">
               <div className="min-w-0">
@@ -97,6 +133,7 @@ export function WorkspaceList({ items, plans }: { items: Workspace[]; plans: Pla
           </li>
         ))}
       </ul>
+      )}
 
       {editing && (
         <SubscriptionDialog workspace={editing} plans={plans} onClose={() => setEditing(null)} />

@@ -24,7 +24,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
+import { AtSign, Check, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
@@ -337,7 +337,6 @@ export function Notes({
   const [followUp, setFollowUp] = useState<FollowUp>('none');
   /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
   const [followUpExact, setFollowUpExact] = useState('');
-  const [details, setDetails] = useState(false);
   /**
    * Words this workspace already uses — its tags and the names of the
    * organisations it holds. Fetched once per composer and held here, because
@@ -588,7 +587,6 @@ export function Notes({
     setWhen('');
     setFollowUp('none');
     setFollowUpExact('');
-    setDetails(false);
     // Queued on the device: the box resets so the person can move on, but the
     // status keeps saying where the note actually is.
     setStatus(lastQueued.current ? 'offline' : 'idle');
@@ -701,7 +699,18 @@ export function Notes({
             themselves in a popup meant to be read at a glance, and asking
             somebody to press "nothing planned" was asking a question to get
             the answer it already had. */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        {/* ONE row: follow-up always, kind and when when you open them.
+            Sjoerd, 2026-09-13: *"Follow up [select] | Kind: [select] | Date :
+            [date] can go in 1 row and open..."*. They had been three stacked
+            blocks with a rule between them, which is a lot of vertical space
+            for three small answers in a popup meant to be read at a glance.
+
+            Kind and when stay behind the disclosure rather than becoming
+            always-visible: they are DEFAULTED, and putting three controls on
+            screen before somebody has typed a word is the interrogation this
+            composer was built to avoid. Opening them now widens the row that
+            is already there instead of adding two more. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <label className="flex items-center gap-2">
             <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
             <select
@@ -716,52 +725,59 @@ export function Notes({
               ))}
             </select>
           </label>
-          {followUp === 'exact' && (
-            <input
-              type="datetime-local"
-              value={followUpExact}
-              onChange={(e) => setFollowUpExact(e.target.value)}
-              aria-label={t(locale, 'note_followup_exact')}
-              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-            />
-          )}
-        </div>
 
-        {/* Kind and when: defaulted, editable, never asked. A list rather than
-            six chips — the vocabulary grew to six on 2026-09-13 and a chip row
-            that wraps is worse than a control that does not. */}
-        {details && (
-          <div className="mt-3 space-y-3 border-t border-line pt-3">
-            <label className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as NoteKind)}
-                className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-              >
-                {KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {t(locale, KIND_KEYS[k])}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <DateTimeField label={t(locale, 'note_when')} value={when} onChange={setWhen} />
-          </div>
-        )}
+          {/* The shared date field, not a native input. This app's rule is
+              that dates always go through DateField — it carries the locale's
+              own ordering and the picker people already know. A native
+              `datetime-local` shipped here on 2026-09-13 and was wrong for
+              exactly that reason. */}
+          {followUp === 'exact' && (
+            <div className="min-w-[13rem]">
+              <DateTimeField
+                value={followUpExact}
+                onChange={setFollowUpExact}
+                label={undefined}
+              />
+            </div>
+          )}
+
+          {/* Always here, not behind a click. Sjoerd, 2026-09-13: *"Kind and
+              when should be next to Follow up (not an extra click)"*.
+
+              They were hidden on the argument that they are DEFAULTED and
+              usually right, so asking would be an interrogation. That argument
+              was sound when each one cost a labelled block of its own; once
+              all three became small controls on the row that was already
+              there, the click was buying nothing and hiding the two answers
+              somebody is most likely to want to correct — a call logged on the
+              wrong day is worse than a control on screen. */}
+          <>
+              <label className="flex items-center gap-2">
+                <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as NoteKind)}
+                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+                >
+                  {KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {t(locale, KIND_KEYS[k])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'note_when')}</span>
+                <span className="min-w-[13rem]">
+                  <DateTimeField value={when} onChange={setWhen} label={undefined} />
+                </span>
+              </label>
+          </>
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setDetails((d) => !d)}
-              aria-expanded={details}
-              className="inline-flex items-center gap-1.5 text-xs text-ink-muted hover:text-ink"
-            >
-              <SlidersHorizontal size={13} strokeWidth={1.75} />
-              {t(locale, 'note_change')}
-            </button>
-
             {/* Honest state. Never "saved" while something is in flight. */}
             <span className="text-xs text-ink-muted" aria-live="polite">
               {status === 'queued' && t(locale, 'note_queued')}

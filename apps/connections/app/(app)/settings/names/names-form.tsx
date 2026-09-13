@@ -187,30 +187,43 @@ function AxisNames({
         />
       </label>
 
-      <ul className="mt-3 space-y-3">
+      {/* One row per step: the name on the left, what earns it on the right.
+          Sjoerd, 2026-09-13: *"the lists of readings of the connections...
+          could be flex. Small list... (just title above, and then in a row,
+          classification title : description.. rows below each other)"*.
+
+          It had been six bordered cards per reading, each with a label, a
+          field and a note stacked — five readings' worth of that is a page
+          nobody scrolls to the bottom of, and the thing it is FOR (seeing your
+          vocabulary at a glance and changing a word) was buried in the
+          furniture.
+
+          Two columns and a hairline between rows. The note is not a hint
+          hidden under a field any more; it is the second column, because "what
+          earns this" is what you read to decide what to call it. On a phone
+          the columns stack — a 220px field beside a sentence does not fit
+          375px, and a table that scrolls sideways is forbidden outright here. */}
+      <ul className="mt-3 divide-y divide-line border-y border-line">
         {bands.map((band) => {
           const note = notes[band];
           const shipped = t(locale, BAND_KEYS[axis][band]!);
           return (
-            <li key={band} className="rounded-md border border-line bg-surface-raised px-3 py-3">
-              <label className="block">
-                <span className="block text-xs text-ink-subtle">
-                  {/* The shipped name is the placeholder AND is named here,
-                      because once somebody types over it the placeholder is
-                      gone and there would be no way to see what they are
-                      replacing. */}
-                  {shipped}
-                </span>
-                <input
-                  value={values[band] ?? ''}
-                  onChange={(e) => setValues((v) => ({ ...v, [band]: e.target.value }))}
-                  placeholder={shipped}
-                  disabled={!canEdit}
-                  maxLength={80}
-                  className="mt-1 w-full rounded-md border border-line bg-surface py-2 px-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60"
-                />
-              </label>
-              {note && <p className="mt-2 text-xs text-ink-subtle">{t(locale, note)}</p>}
+            <li
+              key={band}
+              className="flex flex-col gap-1 py-2 sm:flex-row sm:items-center sm:gap-3"
+            >
+              <input
+                value={values[band] ?? ''}
+                onChange={(e) => setValues((v) => ({ ...v, [band]: e.target.value }))}
+                // The shipped name IS the placeholder, so an untouched row
+                // reads as the word it currently uses rather than as a blank.
+                placeholder={shipped}
+                aria-label={shipped}
+                disabled={!canEdit}
+                maxLength={80}
+                className="w-full shrink-0 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60 sm:w-52"
+              />
+              <span className="text-xs text-ink-subtle">{note ? t(locale, note) : null}</span>
             </li>
           );
         })}
