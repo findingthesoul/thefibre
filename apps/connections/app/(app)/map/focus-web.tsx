@@ -23,7 +23,7 @@
 // organisation, being named in the same note — and says so underneath the
 // name. Sharing a word is not knowing someone (system-handbook §12).
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 import { usePersonPopup } from '@/components/person-popup';
@@ -189,6 +189,7 @@ export function FocusWeb({
   knownName,
   locale,
   loaders = SERVER,
+  controls,
 }: {
   focus: Focus;
   /** The name if the page already knows it, so the centre is labelled at once. */
@@ -196,6 +197,9 @@ export function FocusWeb({
   locale: Locale;
   /** The server actions, unless a preview supplies its own data. */
   loaders?: Loaders;
+  /** Goes on the row above the cloud, beside the density slider: the page's
+   *  own way of choosing who to stand next to. */
+  controls?: ReactNode;
 }) {
   const router = useRouter();
   // The page this web lives on, so its links stay on it.
@@ -398,6 +402,7 @@ export function FocusWeb({
       // lets their junction sit in the mouth of that wedge instead of
       // averaging out to somewhere across the cloud.
       const grouped = new Map<string, { label: string; members: Shown[] }>();
+      const previousJoins = joinedBy.current;
       joinedBy.current = new Map();
       for (const n of map.values()) {
         if (n.centre || n.junction || n.leaving) continue;
@@ -406,6 +411,13 @@ export function FocusWeb({
         group.members.push(n);
         grouped.set(key, group);
         joinedBy.current.set(n.id, `junction:${key}`);
+      }
+      // A name that is leaving keeps the junction it already hung from, so its
+      // line fades away with it instead of swinging across to the middle first.
+      for (const n of map.values()) {
+        if (!n.leaving || n.junction || n.centre) continue;
+        const was = previousJoins.get(n.id);
+        if (was && map.has(was)) joinedBy.current.set(n.id, was);
       }
 
       const wanted = new Set([...grouped.keys()].map((k) => `junction:${k}`));
@@ -518,6 +530,14 @@ export function FocusWeb({
   const shown = [...nodes.current.values()].filter(
     (n) =>
       n.centre ||
+      // Whoever is on their way out stays on screen until they have faded.
+      // Thinning reads the reasons of the person now in the MIDDLE, so the
+      // moment the new neighbourhood arrives nobody from the old one is in
+      // that list any more — and without this line they were all dropped in
+      // a single frame while their replacements faded gently in over a
+      // second. That asymmetry was the jump (Sjoerd, 2026-09-13: "there is
+      // still a quick jump.... not slow appearing").
+      n.leaving ||
       // Junctions are the topics the lines run through; they are never thinned
       // away by a checkbox, or the lines would run to nothing.
       n.junction ||
@@ -530,8 +550,9 @@ export function FocusWeb({
 
   // Links whose BOTH ends are currently on screen. A link to somebody thinned
   // away, or not drawn at all, is simply not shown — never a line to nowhere.
-  const present = shown.filter((n) => !n.leaving);
-  const onScreen = new Map(present.map((n) => [n.id, n]));
+  // Including the ones on their way out: a line has to fade with the name it
+  // touches, or the name's slow departure is upstaged by its lines blinking.
+  const onScreen = new Map(shown.map((n) => [n.id, n]));
   const crossLines = links.current.flatMap((l) => {
     const a = onScreen.get(l.a);
     const b = onScreen.get(l.b);
@@ -575,10 +596,33 @@ export function FocusWeb({
         <span className="text-xs text-ink-subtle">{t(locale, 'map_web_hint')}</span>
       </div>
 
+      {/* Finding somebody and choosing how many names stand around them are
+          the same decision — how much of the community to look at — so they
+          share one row, and it sits above the picture rather than under it.
+          Sjoerd, 2026-09-13: *"bring the density button above the capture...
+          and instead of a person dropdown I like the entry search field...
+          could we combine that?"* */}
+      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
+        {controls ? <div className="min-w-0 flex-1 sm:max-w-sm">{controls}</div> : null}
+        <label className="flex shrink-0 items-center gap-3">
+          <span className="text-xs text-ink-subtle">{t(locale, 'map_density')}</span>
+          <input
+            type="range"
+            min={DENSITY_MIN}
+            max={DENSITY_MAX}
+            step={1}
+            value={density}
+            onChange={(e) => setDensity(Number(e.target.value))}
+            className="w-40 accent-ink"
+            aria-label={t(locale, 'map_density')}
+          />
+          <span className="w-6 text-xs tabular-nums text-ink-muted">{density}</span>
+        </label>
+      </div>
+
       {/* The cloud takes the whole width. Sjoerd: *"Make it wide over the
-          screen"* — the controls sit above and below it rather than stealing a
-          column, and the container breaks out of the page's reading width. */}
-      <div className="mt-4">
+          screen"* — the container breaks out of the page's reading width. */}
+      <div className="mt-3">
         <div className="relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border">
           <svg
             ref={svgRef}
@@ -669,7 +713,7 @@ export function FocusWeb({
             {/* The middle joins each junction, and the junction joins the
                 names that share it. Never the middle straight to a name. */}
             {around
-              .filter((n) => n.junction && !n.leaving)
+              .filter((n) => n.junction)
               .map((j) => (
                 <line
                   key={`j-${j.id}`}
@@ -684,7 +728,7 @@ export function FocusWeb({
                 />
               ))}
             {around
-              .filter((n) => !n.junction && !n.leaving)
+              .filter((n) => !n.junction)
               .map((n) => {
                 const j = nodes.current.get(joinedBy.current.get(n.id) ?? '');
                 const from = j ?? centre;
@@ -720,16 +764,6 @@ export function FocusWeb({
                 >
                   <circle r={9} fill="transparent" />
                   <circle r={4} className="fill-surface stroke-ink-muted" strokeWidth={1.2} />
-                  {hoverJunction === j.id && (
-                    <text
-                      textAnchor="middle"
-                      y={-11}
-                      fontSize={12}
-                      className="pointer-events-none fill-ink-muted"
-                    >
-                      {j.label}
-                    </text>
-                  )}
                   <title>{j.label}</title>
                 </g>
               ))}
@@ -806,27 +840,40 @@ export function FocusWeb({
                 </text>
               </g>
             ))}
+            {/* The hovered topic, painted last so it is on top of everything.
+                Sjoerd, 2026-09-13: *"nodes behind a name, the hover shows
+                behind it"* — it used to be drawn inside the junction's own
+                group, and SVG paints in document order, so a name lying over
+                the dot covered the very label you asked for. */}
+            {(() => {
+              const j = hoverJunction ? nodes.current.get(hoverJunction) : null;
+              if (!j || j.leaving) return null;
+              const w = j.label.length * 6.4 + 14;
+              return (
+                <g
+                  transform={`translate(${round(j.x)} ${round(j.y)})`}
+                  className="pointer-events-none"
+                  opacity={j.opacity ?? 1}
+                >
+                  <rect
+                    x={-w / 2}
+                    y={-26}
+                    width={w}
+                    height={19}
+                    rx={9}
+                    className="fill-surface stroke-line"
+                    strokeWidth={1}
+                  />
+                  <text textAnchor="middle" y={-12} fontSize={12} className="fill-ink-muted">
+                    {j.label}
+                  </text>
+                </g>
+              );
+            })()}
           </svg>
         </div>
 
-        {/* Density: how many names stand around the centre. */}
-        <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
-          <label className="flex items-center gap-3">
-            <span className="text-xs text-ink-subtle">{t(locale, 'map_density')}</span>
-            <input
-              type="range"
-              min={DENSITY_MIN}
-              max={DENSITY_MAX}
-              step={1}
-              value={density}
-              onChange={(e) => setDensity(Number(e.target.value))}
-              className="w-40 accent-ink"
-              aria-label={t(locale, 'map_density')}
-            />
-            <span className="w-6 text-xs tabular-nums text-ink-muted">{density}</span>
-          </label>
-          <span className="text-xs text-ink-subtle">{t(locale, 'map_drag_hint')}</span>
-        </div>
+        <p className="mt-3 text-xs text-ink-subtle">{t(locale, 'map_drag_hint')}</p>
 
         <aside className="mt-4 grid gap-x-10 gap-y-3 text-sm sm:grid-cols-2">
           {status === 'loading' && <p className="text-xs text-ink-muted">{t(locale, 'loading')}</p>}

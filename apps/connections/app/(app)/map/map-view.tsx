@@ -35,6 +35,7 @@
 
 import { useMemo, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { Search } from 'lucide-react';
 import { defaultStartPerson, layout, type MapPerson } from '@/lib/map-layout';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { FocusWeb, focusHref, type Focus } from './focus-web';
@@ -82,22 +83,7 @@ export function MapView({
 
   const start = (id: string) => router.push(focusHref({ kind: 'person', id }));
 
-  const picker = (
-    <select
-      className="w-full rounded-md border border-line bg-surface px-2 py-1.5 text-sm"
-      value=""
-      onChange={(e) => e.target.value && start(e.target.value)}
-    >
-      <option value="">{t(locale, 'map_start_from')}</option>
-      {[...people]
-        .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
-        .map((p) => (
-          <option key={p.id} value={p.id}>
-            {p.name}
-          </option>
-        ))}
-    </select>
-  );
+  const picker = <PersonSearch people={people} locale={locale} onPick={start} />;
 
   // The cloud, either because a name was chosen or because this is the landing
   // page and somebody has to be in the middle.
@@ -106,13 +92,14 @@ export function MapView({
   if (shown) {
     return (
       <>
-        <div className="mt-4 max-w-xs">{picker}</div>
         {/* The same FocusWeb stays mounted as the focus changes, which is what
-            lets the clicked name travel to the middle instead of jumping. */}
+            lets the clicked name travel to the middle instead of jumping. The
+            search rides on its controls row, next to the density slider. */}
         <FocusWeb
           focus={shown}
           knownName={shown.kind === 'person' ? (nameOf.get(shown.id) ?? null) : null}
           locale={locale}
+          controls={picker}
         />
       </>
     );
@@ -207,6 +194,111 @@ export function MapView({
           </section>
         )}
       </aside>
+    </div>
+  );
+}
+
+/**
+ * Find somebody by typing their name, rather than scrolling a list of
+ * everybody the workspace knows.
+ *
+ * Sjoerd, 2026-09-13: *"instead of a person dropdown I like the entry search
+ * field"*. It is deliberately the same field as the one on People and on
+ * Entries — magnifier on the left, results underneath — so looking for a name
+ * is one gesture in this app, not three.
+ *
+ * Everyone is already in the browser (the overview payload), so this filters
+ * in place: no request, no waiting, and it works while the cloud is moving.
+ */
+function PersonSearch({
+  people,
+  locale,
+  onPick,
+}: {
+  people: MapPerson[];
+  locale: Locale;
+  onPick: (id: string) => void;
+}) {
+  const [term, setTerm] = useState('');
+  const [active, setActive] = useState(0);
+  const [open, setOpen] = useState(false);
+
+  const matches = useMemo(() => {
+    const q = term.trim().toLowerCase();
+    if (!q) return [];
+    return people
+      .filter((p) => p.name.toLowerCase().includes(q))
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true }))
+      .slice(0, 8);
+  }, [term, people]);
+
+  const pick = (id: string) => {
+    setTerm('');
+    setOpen(false);
+    onPick(id);
+  };
+
+  return (
+    <div className="relative">
+      <Search
+        size={15}
+        strokeWidth={1.75}
+        className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+      />
+      <input
+        value={term}
+        onChange={(e) => {
+          setTerm(e.target.value);
+          setActive(0);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        // Closing on blur has to wait for the click on a result to land.
+        // The result buttons also swallow mousedown, which keeps the field
+        // focused; this is the belt to that pair of braces.
+        onBlur={() => window.setTimeout(() => setOpen(false), 120)}
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') return setOpen(false);
+          if (!matches.length) return;
+          if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            setActive((i) => (i + 1) % matches.length);
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            setActive((i) => (i - 1 + matches.length) % matches.length);
+          } else if (e.key === 'Enter') {
+            e.preventDefault();
+            const m = matches[active];
+            if (m) pick(m.id);
+          }
+        }}
+        placeholder={t(locale, 'map_start_from')}
+        aria-label={t(locale, 'map_start_from')}
+        className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+      />
+      {open && term.trim() ? (
+        <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-lg">
+          {matches.length === 0 ? (
+            <li className="px-3 py-1.5 text-xs text-ink-muted">{t(locale, 'people_none')}</li>
+          ) : (
+            matches.map((p, i) => (
+              <li key={p.id}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setActive(i)}
+                  onClick={() => pick(p.id)}
+                  className={`block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken ${
+                    i === active ? 'bg-surface-sunken' : ''
+                  }`}
+                >
+                  {p.name}
+                </button>
+              </li>
+            ))
+          )}
+        </ul>
+      ) : null}
     </div>
   );
 }

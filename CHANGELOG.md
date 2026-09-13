@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.36] — 2026-09-13 — The other half of the fade, and a search instead of a list (staging)
+
+**Connections — the people you are LEAVING now fade out too.** The map had
+been given a fade twice already and it still jumped, because only half of it
+ever ran. The arithmetic was right; it was running on names that had already
+been taken off the screen. Which names are drawn depends on the reasons of the
+person now in the middle — and the instant a new neighbourhood arrives, nobody
+from the old one has a reason any more. So one half of the cloud vanished in a
+single frame while its replacement drifted gently in over a second, and that
+mismatch is what read as a jump, however slow the half you could watch was.
+
+Now both halves cross over: the old names dim while the new ones brighten, and
+every line dims with the name it is attached to.
+
+**The topic label comes out from behind the names.** Hovering one of the small
+dots shows what the people around it have in common — and it was being drawn
+underneath whichever name happened to lie over the dot, which is exactly when
+you want to read it.
+
+**Find somebody by typing, not by scrolling.** The list of everyone the
+workspace knows is now the same search field used on People and on Entries,
+and it sits on one row with the density slider, above the picture rather than
+under it.
+
 ## [0.73.35] — 2026-09-13 — Connections appear gradually (staging)
 
 **Connections — the lines fade in too.** The names were already fading between
