@@ -6,6 +6,30 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.53] — 2026-09-13 — a meeting type keeps what you saved (Meet 2.8.2, staging)
+
+Sjoerd: "minimum notice does not save". It did save. The database held
+4 hours. What broke was everything after the save.
+
+The meeting-type editor submitted through `<form action>`. React 19 resets
+every uncontrolled field once such an action succeeds, and a `<select>`
+resets to the value it was **mounted** with, not the refreshed default. So
+right after "Saved." the scheduling dropdowns jumped back to their old
+values, and the next Save wrote those old values over the new ones.
+
+That hit every dropdown on the page, not only minimum notice: buffers,
+bookable-up-to, duration, capacity, conferencing provider, round-robin
+fairness and currency. Text fields, checkboxes and the approval radios
+reverted too, until the page refreshed.
+
+The form now dispatches its action from `onSubmit`, which skips the reset.
+Reproduced against react-dom 19.2.6 before and after: the old form posted
+the stale value on a second save, the new one keeps the chosen value.
+
+Not changed, noted in the build plan: "Bookable up to" offers 90, 180 and
+365 days, but the booking page and the slots endpoint both cap the window at
+60 days, so anything above 60 saves and does nothing.
+
 ## [0.73.52] — 2026-09-13 — "could not check" never reads as "drifted" (staging)
 
 `sync-app-names.mjs --check` joined `pnpm verify` in 0.73.50, which put it in

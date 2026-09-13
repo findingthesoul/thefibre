@@ -22,6 +22,15 @@ the queue.
 
 _Last groomed 2026-09-13 (v0.73.25). Done items get removed, not ticked._
 
+**Meet: "Bookable up to" above 60 days does nothing.** Found 2026-09-13
+(v0.73.53) while checking every meeting-type field. The editor offers 90, 180
+and 365 days and the API accepts up to 365, but the booking page
+(`apps/meet/app/[hostSlug]/[mtSlug]/flow.tsx`) and both slots routes in
+`routes/meet.ts` clamp the window with `Math.min(max_advance_days, 60)`. The
+slots routes also never check a caller-supplied `to` against the limit. Either
+lift the cap (check the Google freebusy range limit first) or drop the options
+above 60 from the editor.
+
 **SECURITY — five functions are still executable with the public anon key.**
 Found 2026-09-13 in the same production sweep that found and fixed the identity
 functions (handbook §11.3b). Deliberately NOT fixed with the same revoke,

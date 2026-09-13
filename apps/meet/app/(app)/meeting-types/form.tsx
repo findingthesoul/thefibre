@@ -1,6 +1,6 @@
 'use client';
 
-import { useActionState, useState } from 'react';
+import { startTransition, useActionState, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { User, Users as TeamIcon, Plus, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -218,7 +218,20 @@ export function MeetingTypeForm({
   const visibleTab: Tab = tabs.some((x) => x.value === tab) ? tab : 'basics';
 
   return (
-    <form action={formAction} className="space-y-6">
+    // Submit through onSubmit, not <form action>. React 19 resets every
+    // uncontrolled field after a form action succeeds, and a <select> resets
+    // to the value it MOUNTED with, ignoring the refreshed defaultValue. So
+    // after "Saved." the scheduling selects jumped back to their old values,
+    // and the next save wrote those old values over the new ones. Dispatching
+    // the action ourselves skips the reset and the form keeps what was typed.
+    <form
+      onSubmit={(e: FormEvent<HTMLFormElement>) => {
+        e.preventDefault();
+        const fd = new FormData(e.currentTarget);
+        startTransition(() => formAction(fd));
+      }}
+      className="space-y-6"
+    >
       <div className="sticky top-0 z-10 -mx-10 px-10 bg-surface/80 backdrop-blur border-b border-line">
         <div className="flex items-center justify-between gap-3 py-3">
           <nav className="flex items-center gap-1 text-sm">
