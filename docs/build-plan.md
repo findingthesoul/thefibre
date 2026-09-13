@@ -1063,6 +1063,7 @@ code on 2026-09-12 rather than remembered.
 | D71 | Tags and @mentions marked inside the sentence while typing | `components/tag-highlight-box.tsx`, v0.73.20 |
 | D70 | The desktop map: recency, attention, ladder; who is near and why | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
 | D70b | The moving web: click a name to centre it, companies as boxed nodes, Back (STAGING) | `app/(app)/map/focus-web.tsx`, `lib/web-layout.ts`, v0.73.24 |
+| D70c | The cloud: size = strength, links between the people around you, glide with ease-in-out (STAGING) | `lib/web-layout.ts`, `connections_links_among`, v0.73.26 |
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
@@ -1076,12 +1077,21 @@ code on 2026-09-12 rather than remembered.
    profile timezone. Worth a setting once somebody who works weekends uses
    Today; all-day holidays could also remove the day.
 
-**In production up to v0.73.23** (2026-09-13). v0.73.24, the moving web, is
-on STAGING and waits for Sjoerd to look at it and promote.
+**In production up to v0.73.23**, plus the security migrations 070000-073000
+(2026-09-13). v0.73.24-26 — the moving web and the cloud rebuild — are on
+STAGING and wait for Sjoerd to look and promote.
 
-**Sjoerd has an example video of the interface he means** ("like the
-thesaurus"). Look at it before tuning the web further: speed, how many names,
-whether second-degree connections show faintly.
+**The map's shape came from Sjoerd's Visual Thesaurus screenshots** and his
+description of it: a cloud of names, size showing strength, names connected to
+each other and not only to the middle, and a click gliding the whole cloud so
+the name you came from lands opposite. All of that is in v0.73.26. What is NOT
+done, and would be the next tuning pass if he wants it:
+
+- second-degree names hanging faintly off the surrounding ones, as the
+  thesaurus does;
+- dragging a name to reposition it;
+- a constant gentle drift. Deliberately left out: the movement is the
+  transition, and a permanent animation costs battery and reads as unsettled.
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
