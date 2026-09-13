@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.35] — 2026-09-13 — Connections appear gradually (staging)
+
+**Connections — the lines fade in too.** The names were already fading between
+one person and the next, but the lines and the topic dots were not: they were
+drawn at full strength the instant they existed, so every connection snapped
+into place while the name at its end drifted gently up. A long stroke arriving
+in a single frame is the most visible thing on screen, so that was the jump.
+
+Every line now fades with what it joins — never stronger than its faintest end
+— and a topic dot arrives invisible like the names it holds. The fade is also
+slower, about eight tenths of a second.
+
 ## [0.73.34] — 2026-09-13 — A click is a click, a drag is a drag (staging)
 
 **Connections — two real bugs in the map's handling of clicks and drags.**
