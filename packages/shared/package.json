@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.73.41",
+  "version": "0.73.42",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -9,6 +9,10 @@
     ".": {
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./ui/timeline": {
+      "types": "./dist/ui/timeline.d.ts",
+      "default": "./dist/ui/timeline.js"
     },
     "./ui/date-field": {
       "types": "./dist/ui/date-field.d.ts",

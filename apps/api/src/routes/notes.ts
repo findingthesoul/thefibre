@@ -454,7 +454,13 @@ notesRoutes.get('/', async (c) => {
 
   let query = adminClient
     .from('flow_run_note')
-    .select('id, body, kind, origin, happened_at, happened_tz, follow_up_at, is_draft, created_by, created_at')
+    // `client_ref` is returned so a note can be EDITED. PUT is the only
+    // write path and it upserts on that key, so a surface that wants to
+    // change a note needs the key it was written under — without it the only
+    // way to fix a typo would be a second note saying "I meant".
+    .select(
+      'id, client_ref, body, kind, origin, happened_at, happened_tz, follow_up_at, is_draft, created_by, created_at',
+    )
     .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)
     .order('happened_at', { ascending: false })

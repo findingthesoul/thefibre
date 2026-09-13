@@ -6446,6 +6446,22 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  note_no_words: {
+    en: 'No words — a follow-up only.',
+    nl: 'Geen tekst — alleen een opvolging.',
+    es: 'Sin texto: solo un seguimiento.', // MT
+    pt: 'Sem texto — apenas um seguimento.', // MT
+    de: 'Kein Text — nur eine Nachfassaktion.', // MT
+    fr: 'Pas de texte — un suivi seulement.', // MT
+  },
+  note_edit_tags_note: {
+    en: 'Editing the words does not change the tags already on this person.',
+    nl: 'De tekst aanpassen verandert niets aan de tags die al bij deze persoon staan.',
+    es: 'Editar el texto no cambia las etiquetas que ya tiene esta persona.', // MT
+    pt: 'Editar o texto não muda as etiquetas que esta pessoa já tem.', // MT
+    de: 'Den Text zu ändern ändert nichts an den Tags, die diese Person schon hat.', // MT
+    fr: 'Modifier le texte ne change pas les étiquettes déjà sur cette personne.', // MT
+  },
   tags_as_web: {
     en: 'See {name} as a web',
     nl: 'Zie {name} als web',

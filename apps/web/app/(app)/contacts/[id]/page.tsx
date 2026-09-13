@@ -7,6 +7,7 @@ import { SectionLabel, EmptyState } from '@/components/ui/page';
 import { countryName } from '@/lib/countries';
 import { uiLocale } from '@/lib/locale';
 import { t, INTL_LOCALES } from '@/lib/i18n-ui';
+import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 
 type Person = {
   email: string | null;
@@ -228,24 +229,27 @@ export default async function ContactOverview({
         {activities.length === 0 ? (
           <EmptyState>{t(locale, 'no_activity_yet')}</EmptyState>
         ) : (
-          <ol className="mt-4 border-l border-line pl-6 space-y-6">
+          <Timeline>
             {activities.map((a) => (
-              <li key={a.id} className="relative">
-                <span className="absolute -left-[27px] top-1.5 w-2 h-2 rounded-full bg-ink" />
-                <div className="text-xs uppercase tracking-wider text-ink-muted">
-                  {new Date(a.occurred_at).toLocaleString(INTL_LOCALES[locale], {
-                    dateStyle: 'medium',
-                    timeStyle: 'short',
-                  })}
-                  {' · '}
-                  {a.app ? appName(a.app.slug as AppId) ?? a.app.name : a.app_id}
-                  {' · '}
-                  {a.type}
-                </div>
-                <div className="mt-1 text-sm">{a.subject}</div>
-              </li>
+              <TimelineItem
+                key={a.id}
+                meta={
+                  <>
+                    {new Date(a.occurred_at).toLocaleString(INTL_LOCALES[locale], {
+                      dateStyle: 'medium',
+                      timeStyle: 'short',
+                    })}
+                    {' · '}
+                    {a.app ? appName(a.app.slug as AppId) ?? a.app.name : a.app_id}
+                    {' · '}
+                    {a.type}
+                  </>
+                }
+              >
+                {a.subject}
+              </TimelineItem>
             ))}
-          </ol>
+          </Timeline>
         )}
       </section>
     </>

@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.42] — 2026-09-13 — Notes you can read, change and remove (staging)
+
+**Connections — a conversation can be opened, edited and deleted.** Until now a
+note could be written and never touched again: a typo meant a second note
+saying "I meant". Clicking one opens it — the whole row, because a note is a
+few lines of prose and a pencil on something that small is a target people
+miss — with Save, Cancel and Delete.
+
+One honest limit, said on screen rather than discovered later: editing the
+words does not change the tags already on that person. A tag is a recorded
+fact, and silently removing one because somebody fixed a typo in the sentence
+it came from would be a write nobody asked for. The cost is that an edit
+cannot add a tag either.
+
+**A note with no words now says so** — "a follow-up only" — instead of drawing
+as a blank gap, which read as a bug rather than as the legitimate thing it is.
+
+**And the timeline is The Fibre's timeline.** Date, where it came from, what
+kind of thing it is, then what happened, on a rail with a dot. It was the same
+design already, written twice in two apps; it is now one component both read
+from.
+
 ## [0.73.41] — 2026-09-13 — A sweep through Connections: stuck spinners and tenant filters (staging)
 
 **Connections — five buttons could get stuck for ever, and now cannot.** Every

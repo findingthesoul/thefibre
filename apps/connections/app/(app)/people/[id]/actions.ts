@@ -61,6 +61,88 @@ export async function saveNote(input: SaveNoteInput): Promise<SaveNoteResult> {
   }
 }
 
+export type EditNoteInput = {
+  /** The key the note was written under. PUT upserts on it. */
+  client_ref: string;
+  person_id: string;
+  body: string;
+  kind: NoteKind;
+  /** Kept as it was — an edit fixes the words, not when it happened. */
+  happened_at: string;
+  happened_tz?: string | null;
+  follow_up_at?: string | null;
+};
+
+/**
+ * Change what a note says.
+ *
+ * Sjoerd, 2026-09-13, looking at a note in the popup: *"How can I see the note
+ * from before? Clicking on it? Can I edit it?"*
+ *
+ * Through the same PUT every write goes through, with `is_draft: false` so the
+ * note stays committed. What that means, stated because it is a real
+ * limitation and not an oversight:
+ *
+ *   The derived effects — the follow-up task, the tags, the activity row —
+ *   fire ONCE, on the transition from draft to committed. An edit is not that
+ *   transition, so none of them run again. Tags already attached to the person
+ *   STAY attached, and words newly typed do NOT become tags.
+ *
+ * That is the right way round. A tag on a person is a recorded fact; silently
+ * removing it because somebody fixed a typo in the sentence it came from would
+ * be a write nobody asked for. The cost is that an edit cannot add a tag
+ * either, and the interface says so rather than letting somebody type
+ * `#retreat` into an old note and wonder why nothing happened.
+ *
+ * `happened_at` is sent back unchanged. PUT overwrites the whole row, so
+ * omitting it would silently move the conversation to now.
+ */
+export async function editNote(input: EditNoteInput): Promise<SaveNoteResult> {
+  try {
+    const r = await apiFetch<{ id: string; committed: boolean }>('/api/v1/notes', {
+      method: 'PUT',
+      body: JSON.stringify({
+        ...input,
+        happened_tz: input.happened_tz ?? null,
+        follow_up_at: input.follow_up_at ?? null,
+        origin: 'manual',
+        is_draft: false,
+      }),
+    });
+    return { ok: true, id: r.id, committed: r.committed };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const body = e.body as { error?: unknown } | undefined;
+      const detail = typeof body?.error === 'string' ? body.error : `API ${e.status}`;
+      return { ok: false, error: detail };
+    }
+    return { ok: false, error: 'could not save' };
+  }
+}
+
+export type DeleteNoteResult = { ok: true } | { ok: false; error: string };
+
+/**
+ * Remove a note. Soft, like everything holding personal data (hard rule 4).
+ *
+ * The follow-up task it created is deliberately left alone: it is a commitment
+ * somebody made, it may already be half done, and deleting a sentence is not
+ * the same as saying the next action is off.
+ */
+export async function deleteNote(id: string): Promise<DeleteNoteResult> {
+  try {
+    await apiFetch(`/api/v1/notes/${id}`, { method: 'DELETE' });
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError) {
+      const body = e.body as { error?: unknown } | undefined;
+      const detail = typeof body?.error === 'string' ? body.error : `API ${e.status}`;
+      return { ok: false, error: detail };
+    }
+    return { ok: false, error: 'could not delete' };
+  }
+}
+
 /**
  * The words this workspace already uses: its tags, plus the names of the
  * organisations it holds. Read once per composer.

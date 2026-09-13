@@ -27,7 +27,9 @@ import { useRouter } from 'next/navigation';
 import { AtSign, Check, SlidersHorizontal, X } from 'lucide-react';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
-import { saveNote, fetchVocabulary, type NoteKind } from './actions';
+import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
+import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
+import { safely } from '@/lib/safely';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
 import { TagHighlightBox } from '@/components/tag-highlight-box';
 import {
@@ -43,7 +45,11 @@ import {
 
 export type Note = {
   id: string;
+  /** The key this note was written under. PUT upserts on it, so an edit
+   *  needs it — without it the only way to fix a typo is a second note. */
+  client_ref: string;
   body: string;
+  happened_tz?: string | null;
   kind: string;
   origin: string;
   happened_at: string;
@@ -51,6 +57,167 @@ export type Note = {
   is_draft: boolean;
   created_at: string;
 };
+
+/**
+ * One conversation on the timeline, and the only place a note can be changed.
+ *
+ * Sjoerd, 2026-09-13: *"How can I see the note from before? Clicking on it?
+ * Can I edit it?"* Clicking it, now — the whole row opens, because a note is
+ * a few lines of prose and a pencil icon on something that small is a target
+ * people miss.
+ *
+ * An empty note says so. A note with a follow-up and no words is a legitimate
+ * thing to record — "call them next week", nothing to add — and until now it
+ * drew as a blank gap, which reads as a bug rather than as a choice.
+ */
+function Conversation({
+  note,
+  personId,
+  locale,
+  onChanged,
+}: {
+  note: Note;
+  personId: string;
+  locale: Locale;
+  onChanged: () => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(note.body);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    setBusy(true);
+    setError(null);
+    const r = await safely(
+      () =>
+        editNote({
+          client_ref: note.client_ref,
+          person_id: personId,
+          body: draft,
+          kind: note.kind as NoteKind,
+          // Unchanged on purpose: an edit fixes the words, not when it
+          // happened. PUT overwrites the whole row, so leaving this out would
+          // silently move the conversation to now.
+          happened_at: note.happened_at,
+          happened_tz: note.happened_tz ?? null,
+          follow_up_at: note.follow_up_at,
+        }),
+      (error) => ({ ok: false as const, error }),
+    );
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    setEditing(false);
+    onChanged();
+  }
+
+  async function remove() {
+    setBusy(true);
+    setError(null);
+    const r = await safely(() => deleteNote(note.id), (error) => ({ ok: false as const, error }));
+    setBusy(false);
+    if (!r.ok) return setError(r.error);
+    onChanged();
+  }
+
+  const when = new Intl.DateTimeFormat(INTL_LOCALES[locale], {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(new Date(note.happened_at));
+
+  const meta = (
+    <>
+      {/* The browser's zone, not the server's — hence the hydration opt-out
+          rather than a mismatch. */}
+      <span suppressHydrationWarning>{when}</span>
+      {' · '}
+      {t(locale, kindKey(note.kind))}
+    </>
+  );
+
+  if (editing) {
+    return (
+      <TimelineItem meta={meta}>
+        <textarea
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={4}
+          autoFocus
+          className="w-full rounded-md border border-line bg-surface p-2 text-sm leading-relaxed focus:border-line-strong focus:outline-none"
+        />
+        <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'note_edit_tags_note')}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={save}
+            disabled={busy}
+            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
+          >
+            {busy ? t(locale, 'saving') : t(locale, 'save')}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setDraft(note.body);
+              setEditing(false);
+              setError(null);
+            }}
+            className="text-xs text-ink-muted hover:text-ink"
+          >
+            {t(locale, 'cancel')}
+          </button>
+          <button
+            type="button"
+            onClick={remove}
+            disabled={busy}
+            className="ml-auto text-xs text-ink-muted hover:text-ink disabled:opacity-50"
+          >
+            {t(locale, 'delete')}
+          </button>
+        </div>
+        {error && <p className="mt-1.5 text-xs text-ink">{error}</p>}
+      </TimelineItem>
+    );
+  }
+
+  return (
+    <TimelineItem
+      meta={meta}
+      actions={
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="text-xs text-ink-muted hover:text-ink"
+        >
+          {t(locale, 'edit')}
+        </button>
+      }
+    >
+      <button
+        type="button"
+        onClick={() => setEditing(true)}
+        className="block w-full text-left"
+        aria-label={t(locale, 'edit')}
+      >
+        {note.body.trim() ? (
+          <span className="whitespace-pre-wrap break-words leading-relaxed">{note.body}</span>
+        ) : (
+          <span className="text-ink-muted">{t(locale, 'note_no_words')}</span>
+        )}
+      </button>
+      {note.follow_up_at && (
+        <p className="mt-1.5 text-xs text-ink-muted" suppressHydrationWarning>
+          {t(locale, 'note_followup_on', {
+            date: new Intl.DateTimeFormat(INTL_LOCALES[locale], { dateStyle: 'medium' }).format(
+              new Date(note.follow_up_at),
+            ),
+          })}
+        </p>
+      )}
+      {error && <p className="mt-1.5 text-xs text-ink">{error}</p>}
+    </TimelineItem>
+  );
+}
 
 // Explicit map, never a computed `note_kind_${k}` key — the catalog is typed
 // so a missing translation is a compile error, and a template key throws
@@ -596,27 +763,23 @@ export function Notes({
 
       {notes.length === 0 && <p className="mt-2 text-sm text-ink-muted">{t(locale, 'notes_none')}</p>}
 
+      {/* The same timeline The Fibre draws for activity — Sjoerd, 2026-09-13:
+          *"Is it an idea that the timeline has the same design as the fibre?
+          DATE, TYPE .... Content...."* It was the same design already, written
+          twice; it is now one component in @thefibre/shared and both read from
+          it. */}
       {notes.length > 0 && (
-        <ul className="mt-3 space-y-1.5">
+        <Timeline>
           {notes.map((n) => (
-            <li key={n.id} className="rounded-md border border-line bg-surface-raised px-3 py-2.5">
-              <div className="flex flex-wrap items-baseline justify-between gap-2">
-                <span className="text-xs font-medium">{t(locale, kindKey(n.kind))}</span>
-                {/* The browser's zone, not the server's — hence the
-                    hydration opt-out rather than a mismatch. */}
-                <span className="text-xs text-ink-muted tabular-nums" suppressHydrationWarning>
-                  {dateTime(n.happened_at)}
-                </span>
-              </div>
-              <p className="mt-1 whitespace-pre-wrap break-words text-sm leading-relaxed">{n.body}</p>
-              {n.follow_up_at && (
-                <p className="mt-1.5 text-xs text-ink-muted" suppressHydrationWarning>
-                  {t(locale, 'note_followup_on', { date: dateOnly(n.follow_up_at) })}
-                </p>
-              )}
-            </li>
+            <Conversation
+              key={n.id}
+              note={n}
+              personId={personId}
+              locale={locale}
+              onChanged={() => (onCommitted ? onCommitted() : router.refresh())}
+            />
           ))}
-        </ul>
+        </Timeline>
       )}
     </div>
   );
