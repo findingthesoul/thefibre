@@ -6,6 +6,36 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.26] — 2026-09-13 — The map is a cloud you walk through (staging)
+
+**Connections — the web, rebuilt as Sjoerd described it.** Shown the first
+version he said it was the wrong shape: *"a cloud of words, that are connected.
+Some words are bigger and some are smaller, suggesting stronger connections.
+Some words are not only connected to the central word, but also to other words
+that are shown... If you click on a related word: that word moves towards the
+center... the word you came from moves to the side, opposite to where the
+second word first was."*
+
+- **Size is strength.** The person in the middle is largest; the rest are sized
+  by how strong the connection is, so the cloud reads at a glance.
+- **The people around you are tied to each other.** New SQL function
+  `connections_links_among` answers how the names already on screen connect —
+  a stated relationship, a shared tag, the same organisation, a shared note —
+  with the same rarity weighting as the neighbourhood. Linked names are drawn
+  together, so you see the group's shape rather than a star. Those lines are
+  the faintest on screen, and dashed unless somebody actually recorded the
+  relationship.
+- **Clicking glides the whole cloud** so the name you clicked arrives in the
+  middle, which puts the name you came from on the opposite side. Measured over
+  sixteen cases it never lands on the side you clicked, and typically sits
+  about 148 degrees round.
+- **The movement eases in and out** over half a second, and the springs are
+  quiet while the cloud travels, so it reads as going somewhere rather than
+  lurching and then drifting.
+
+The new function is locked to the API from its first line — `revoke execute`
+from public, anon and authenticated — per the finding earlier today.
+
 ## [0.73.25] — 2026-09-13 — the identity functions stop answering strangers (staging)
 
 **Security, severe.** The Connections session found its read functions
