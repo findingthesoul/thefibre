@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.44] — 2026-09-13 — Two checkboxes that now say what they do (staging)
+
+**Connections — "key contact" and "speaks for us" explain themselves.** Both
+were on the relationship card without a word about what ticking them changes.
+Between them they do exactly one thing: either flag — or a closeness of
+"advocate" — puts somebody on a shorter leash, so they come up in Attention if
+nobody speaks to them for three months. The card says so now.
+
+Which also means the two are, today, the same switch with two names. That is a
+question about what your workspace means by them rather than something to paper
+over, so it is written down as a decision rather than answered by guessing.
+
 ## [0.73.43] — 2026-09-13 — How you know somebody (staging)
 
 **Connections — the one question the landscape cannot answer for you.** Four of

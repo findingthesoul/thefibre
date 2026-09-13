@@ -6566,6 +6566,14 @@ const CATALOG = {
     de: 'Spricht für uns', // MT
     fr: 'Parle pour nous', // MT
   },
+  rel_flags_what: {
+    en: 'Either one puts them on a shorter leash: if nobody speaks to them for three months they come up in Attention.',
+    nl: 'Allebei zetten ze diegene aan een kortere lijn: spreekt niemand ze drie maanden, dan komen ze terug in Aandacht.',
+    es: 'Cualquiera de los dos les pone una correa más corta: si nadie habla con ellos en tres meses, aparecen en Atención.', // MT
+    pt: 'Qualquer um deles encurta a trela: se ninguém falar com eles durante três meses, aparecem em Atenção.', // MT
+    de: 'Beide setzen die Person an eine kürzere Leine: spricht drei Monate niemand mit ihr, taucht sie unter Aufmerksamkeit auf.', // MT
+    fr: 'L’un ou l’autre raccourcit la laisse : si personne ne leur parle pendant trois mois, elles reviennent dans Attention.', // MT
+  },
   rel_forbidden: {
     en: 'You do not have permission to change this.',
     nl: 'Je mag dit niet wijzigen.',

@@ -148,6 +148,40 @@ community app that may be right; for anyone who thinks in institutions it is a
 hole. Decide before adding more into the popup, because a popup that grows a
 third section is a page that has not admitted it yet.
 
+### 2.5 Three controls, one rule — needs Sjoerd's answer
+Sjoerd, 2026-09-13, looking at the card that had just shipped: *"What does KEY
+CONTACT and SPEAKS FOR US mean?"*
+
+Checked rather than recalled. Between them, `is_key_contact` and
+`is_ambassador` have exactly ONE effect in the whole system: either flag — or a
+closeness of `advocate` — puts somebody on a ninety-day leash
+(`ambassador_drifting` in `connections_attention`), so they come up in
+Attention if nobody has spoken to them in that time. Nothing else reads either
+column: no filter, no axis, no list, no report.
+
+So the card has **three controls that do the same thing**. The only difference
+they make is the sentence in the attention queue — "flagged as an ambassador"
+versus "flagged as a key contact" — which is a label, not a behaviour.
+
+That is a question about what the workspace means, not a bug to fix quietly.
+Three honest answers:
+
+1. **They are one thing.** Keep `advocate` on the closeness axis, drop both
+   checkboxes. Fewest controls, and closeness is already the human judgement.
+   Costs the distinction between "close to me" and "speaks for us in public",
+   which are genuinely different for a community organisation.
+2. **They are different things and should behave differently.** An ambassador
+   is someone who represents you to others; a key contact is your way INTO an
+   organisation. Different thresholds (an ambassador going quiet is more
+   urgent), and a key contact probably belongs on the `org_membership` row
+   rather than on the person — it is a fact about a relationship to a company.
+3. **They are labels and that is fine.** Keep both, purely so the attention
+   queue can say WHY. Cheapest, and the interface should then stop implying
+   they are two decisions.
+
+Until it is answered the card says what they actually do, in one line, rather
+than two different-sounding descriptions of one switch.
+
 ### 2.4 Working hours
 Free time assumes Monday–Friday, 09:00–17:00, in the profile timezone. Worth a
 setting the first time somebody who works weekends uses Today. All-day holidays

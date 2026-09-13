@@ -188,6 +188,18 @@ export function RelationshipCard({
         onPick={(id) => void patch({ introduced_by: id })}
       />
 
+      {/* What these two DO, on screen.
+          Sjoerd, 2026-09-13: *"What does KEY CONTACT and SPEAKS FOR US
+          mean?"* — a fair question about two checkboxes I put up without
+          saying. Checked rather than explained from memory: between them they
+          have exactly ONE effect. Either flag, or a closeness of `advocate`,
+          puts somebody on a ninety-day leash — `ambassador_drifting` in
+          connections_attention — so they surface in Attention as "an advocate
+          drifting" if nobody has spoken to them in that time. Nothing else in
+          the app reads either column.
+          Which means the two are, today, the same switch with two names. That
+          is a decision for Sjoerd (backlog §2.5), not something to paper over
+          by writing two different-sounding sentences here. */}
       <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
         <label className="inline-flex items-center gap-2 text-xs">
           <input
@@ -206,6 +218,7 @@ export function RelationshipCard({
           {t(locale, 'rel_ambassador')}
         </label>
       </div>
+      <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'rel_flags_what')}</p>
 
       {error && <p className="mt-2 text-xs text-ink">{error}</p>}
     </section>
