@@ -25,6 +25,36 @@
 // horizontally by ASPECT, so the names use the width a monitor actually has
 // instead of leaving two empty columns either side of a disc.
 //
+// ── Nothing joins directly; everything joins through a topic ──────────────
+//
+// Sjoerd, 2026-09-13, reading the thesaurus: *"If you look, lines are always
+// via nodes"*, *"no direct lines"*, *"the node is that a topic/theme/tag —
+// without showing it... maybe only with a mouseover"*.
+//
+// So a line never runs from the middle straight to a name. It runs to a small
+// JUNCTION, and from there to everyone who shares that one thing — a tag, an
+// employer, a stated relationship. The junction IS the reason, and it carries
+// no label until you hover it, which keeps the picture names-only while making
+// the grouping visible: three people hanging off one dot are three people who
+// share something, and you can see that before you read anything.
+//
+// A junction is a real node in the simulation, not a drawn midpoint. That is
+// what makes the lines bend and flex as the cloud moves (Sjoerd: *"which makes
+// the movements more flex"*) — a computed midpoint would stay rigidly straight.
+//
+// ── Dragging is dragging, not steering (Sjoerd, 2026-09-13) ───────────────
+//
+// *"The drag is actually - click and drag (not just follow...) dragging the
+// item... the rest follows in a delay, forming a flock, that gradually spreads
+// around the item once you dropped."*
+//
+// Drag the name in the middle and the whole cloud streams after it, each name
+// on its own lag — that falls out of the anchors above, which chase the middle
+// wherever it is, pointer included. What did NOT fall out is the landing: the
+// middle used to be sprung to the origin, so letting go snapped the cloud back
+// to where it started. A dropped middle now KEEPS ITS PLACE (`homeX`/`homeY`),
+// and the flock spreads around it there.
+//
 // ── Never fixed (same message) ─────────────────────────────────────────────
 //
 // *"by dragging, you could see people coming in... and moving out.. it is
@@ -128,6 +158,12 @@ export type WebNode = {
   width: number;
   centre: boolean;
   /**
+   * A topic that other names hang from, rather than a name itself. Small,
+   * unlabelled, and given its direction by its members rather than by a slot
+   * of its own.
+   */
+  junction?: boolean;
+  /**
    * Held by the pointer. It follows the finger exactly and feels no forces,
    * while everything else keeps reacting to it — that is what makes dragging
    * reveal a name hidden behind another.
@@ -139,6 +175,13 @@ export type WebNode = {
    */
   hubX?: number;
   hubY?: number;
+  /**
+   * Where the centre is sprung to. The origin until somebody drags it
+   * somewhere and drops it; then it stays where it was put, and the cloud
+   * re-forms around it there.
+   */
+  homeX?: number;
+  homeY?: number;
   /**
    * A direction this name would rather sit in, in radians, measured in the
    * squashed space the ellipse is round in.
@@ -288,11 +331,14 @@ export function step(
       continue;
     }
     if (n.centre) {
-      // Home is (0, 0), or a little way toward the pointer. The soft pull is
-      // what makes it arrive late, which is the whole effect.
+      // Home is wherever it was last dropped — the origin until then — plus a
+      // little way toward the pointer. The soft pull is what makes it arrive
+      // late, which is the whole lean effect.
+      const homeX = n.homeX ?? 0;
+      const homeY = n.homeY ?? 0;
       const k = lean ? LEAN_PULL : CENTRING;
-      n.vx += ((lean?.x ?? 0) - n.x) * k * springs;
-      n.vy += ((lean?.y ?? 0) - n.y) * k * springs;
+      n.vx += (homeX + (lean?.x ?? 0) - n.x) * k * springs;
+      n.vy += (homeY + (lean?.y ?? 0) - n.y) * k * springs;
       continue;
     }
     // Its own anchor comes after the centre, at its own rate. This is what
@@ -465,23 +511,92 @@ export function fontSize(strength: number, centre: boolean): number {
  * lays out the same way twice, and turning the density slider moves the names
  * that were added or removed rather than reshuffling the lot.
  */
+/**
+ * Give every name a direction around the ring, GROUPED BY TOPIC.
+ *
+ * Names that share a topic get neighbouring slots, so each topic owns one
+ * contiguous wedge of the circle and its junction can sit in the mouth of that
+ * wedge. The first version spread names evenly with no regard for their topic,
+ * which scattered a topic's members all round the cloud — its junction then
+ * averaged out to somewhere arbitrary and its lines cut straight across the
+ * middle. Seen in the browser immediately.
+ *
+ * `anchor`, when given, is a direction one name MUST keep — the name you came
+ * from, which belongs exactly opposite the name you clicked. Its group is laid
+ * out first, positioned so that name lands exactly on its required bearing.
+ *
+ * Order is by strength (smallest ring first), so the same neighbourhood lays
+ * out the same way twice.
+ */
 export function assignBearings(
-  nodes: WebNode[],
+  groups: { junction?: WebNode; members: WebNode[] }[],
   anchor?: { id: string; bearing: number },
 ): void {
-  const around = nodes.filter((n) => !n.centre);
-  if (!around.length) return;
-  const anchored = anchor ? around.find((n) => n.id === anchor.id) : undefined;
-  const rest = around.filter((n) => n !== anchored);
-  // Strongest first. targetR is smaller for stronger, so ascending targetR.
-  rest.sort((a, b) => a.targetR - b.targetR || a.id.localeCompare(b.id));
-  const ordered = anchored ? [anchored, ...rest] : rest;
-  // With no anchor, start at the top so a small cloud looks deliberate.
-  const base = anchor ? anchor.bearing : -Math.PI / 2;
-  const step = (Math.PI * 2) / ordered.length;
-  ordered.forEach((n, i) => {
-    n.bearing = base + step * i;
-  });
+  const withMembers = groups.filter((g) => g.members.length > 0);
+  const total = withMembers.reduce((n, g) => n + g.members.length, 0);
+  if (!total) return;
+
+  for (const g of withMembers) {
+    g.members.sort((a, b) => a.targetR - b.targetR || a.id.localeCompare(b.id));
+  }
+  const strength = (g: { members: WebNode[] }) => Math.min(...g.members.map((m) => m.targetR));
+  const ordered = [...withMembers].sort(
+    (a, b) => strength(a) - strength(b) || a.members[0]!.id.localeCompare(b.members[0]!.id),
+  );
+
+  // The anchored group goes first, so the name that must keep its direction
+  // can be placed exactly and everything else spaced around from there.
+  const anchorGroup = anchor
+    ? ordered.find((g) => g.members.some((m) => m.id === anchor.id))
+    : undefined;
+  if (anchorGroup) {
+    ordered.splice(ordered.indexOf(anchorGroup), 1);
+    ordered.unshift(anchorGroup);
+  }
+
+  const step = (Math.PI * 2) / total;
+  let base = -Math.PI / 2; // a small cloud starts at the top, deliberately
+  if (anchor && anchorGroup) {
+    const within = anchorGroup.members.findIndex((m) => m.id === anchor.id);
+    base = anchor.bearing - within * step;
+  }
+
+  let slot = 0;
+  for (const g of ordered) {
+    g.members.forEach((m, i) => {
+      m.bearing = base + (slot + i) * step;
+    });
+    if (g.junction) {
+      // The mouth of this topic's wedge: the middle of its members.
+      g.junction.bearing = base + (slot + (g.members.length - 1) / 2) * step;
+    }
+    slot += g.members.length;
+  }
+}
+
+/**
+ * The direction a junction sits in: the average of the names hanging off it,
+ * as a circular mean so a group straddling due-east does not average to west.
+ */
+export function junctionBearing(memberBearings: number[]): number {
+  if (!memberBearings.length) return 0;
+  let x = 0;
+  let y = 0;
+  for (const b of memberBearings) {
+    x += Math.cos(b);
+    y += Math.sin(b);
+  }
+  // Every member pointing opposite every other leaves nothing to average;
+  // due-east is as good an answer as any and never NaN.
+  if (Math.abs(x) < 1e-9 && Math.abs(y) < 1e-9) return memberBearings[0]!;
+  return Math.atan2(y, x);
+}
+
+/** How far out a junction sits, given the ring its closest member is on. */
+export const JUNCTION_FRACTION = 0.45;
+export function junctionRadius(memberRadii: number[]): number {
+  if (!memberRadii.length) return R_MIN * JUNCTION_FRACTION;
+  return Math.min(...memberRadii) * JUNCTION_FRACTION;
 }
 
 /**

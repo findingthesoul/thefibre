@@ -36,6 +36,7 @@ import {
   panTo,
   panning,
   assignBearings,
+  junctionRadius,
   seedPosition,
   settle,
   step,
@@ -78,7 +79,7 @@ function savedDensity(): number {
 }
 
 type Shown = WebNode & {
-  kind: 'person' | 'org';
+  kind: 'person' | 'org' | 'junction';
   label: string;
   /** One short line under the name: why they are here. */
   sub: string;
@@ -93,7 +94,7 @@ type Shown = WebNode & {
 
 type Around = {
   id: string;
-  kind: 'person' | 'org';
+  kind: 'person' | 'org' | 'junction';
   label: string;
   sub: string;
   solid: boolean;
@@ -212,6 +213,9 @@ export function FocusWeb({
   >(null);
   /** The name you came from, kept visible as the way back. */
   const trailId = useRef<string | null>(null);
+  /** Which junction each name hangs from: nothing joins the middle directly. */
+  const joinedBy = useRef<Map<string, string>>(new Map());
+  const [hoverJunction, setHoverJunction] = useState<string | null>(null);
   /** The direction it must keep: exactly opposite the name that was clicked. */
   const backBearing = useRef<number | null>(null);
   const [density, setDensity] = useState(DENSITY_DEFAULT);
@@ -351,10 +355,58 @@ export function FocusWeb({
           });
         }
       }
-      // Every name gets its own slice of the circle. Without this the link
-      // springs drag the whole cloud onto one side.
+      // Nothing joins the middle directly. Each name hangs off a junction —
+      // the topic they have in common — and the junction joins the middle.
+      // The grouping comes FIRST, because the slots are handed out by topic:
+      // names that share one sit in one wedge of the circle, which is what
+      // lets their junction sit in the mouth of that wedge instead of
+      // averaging out to somewhere across the cloud.
+      const grouped = new Map<string, { label: string; members: Shown[] }>();
+      joinedBy.current = new Map();
+      for (const n of map.values()) {
+        if (n.centre || n.junction) continue;
+        const { key, label } = topicOf(n, locale);
+        const group = grouped.get(key) ?? { label, members: [] };
+        group.members.push(n);
+        grouped.set(key, group);
+        joinedBy.current.set(n.id, `junction:${key}`);
+      }
+
+      const wanted = new Set([...grouped.keys()].map((k) => `junction:${k}`));
+      for (const [id, n] of [...map.entries()]) if (n.junction && !wanted.has(id)) map.delete(id);
+
+      const centreNode = map.get(focus.id)!;
+      const groups = [...grouped.entries()].map(([key, group]) => {
+        const id = `junction:${key}`;
+        let junction = map.get(id);
+        if (!junction) {
+          junction = {
+            id,
+            x: centreNode.x,
+            y: centreNode.y,
+            vx: 0,
+            vy: 0,
+            targetR: 0,
+            centre: false,
+            junction: true,
+            // A junction is a dot: it must not shove names aside.
+            width: 10,
+            kind: 'junction' as const,
+            label: group.label,
+            sub: '',
+            solid: true,
+            strength: 0.5,
+            reasons: [],
+          };
+          map.set(id, junction);
+        }
+        junction.label = group.label;
+        junction.targetR = junctionRadius(group.members.map((m) => m.targetR));
+        return { junction, members: group.members };
+      });
+
       assignBearings(
-        [...map.values()],
+        groups,
         trailId.current && backBearing.current !== null
           ? { id: trailId.current, bearing: backBearing.current }
           : undefined,
@@ -425,7 +477,15 @@ export function FocusWeb({
     ).map((x) => x.id),
   );
   const shown = [...nodes.current.values()].filter(
-    (n) => n.centre || n.trail || n.kind === 'org' || focus.kind === 'org' || visiblePeople.has(n.id),
+    (n) =>
+      n.centre ||
+      // Junctions are the topics the lines run through; they are never thinned
+      // away by a checkbox, or the lines would run to nothing.
+      n.junction ||
+      n.trail ||
+      n.kind === 'org' ||
+      focus.kind === 'org' ||
+      visiblePeople.has(n.id),
   );
   const around = shown.filter((n) => !n.centre);
 
@@ -446,6 +506,8 @@ export function FocusWeb({
   });
 
   const go = (n: Shown) => {
+    // A junction is a topic, not a place you can stand: it has no page.
+    if (n.junction || n.kind === 'junction') return;
     if (n.centre) {
       if (n.kind === 'person') openPerson(n.id);
       return;
@@ -505,8 +567,17 @@ export function FocusWeb({
               const d = drag.current;
               if (!d) return;
               const node = nodes.current.get(d.id);
-              // Let go: it rejoins the cloud and is pulled back to its ring.
-              if (node) node.held = false;
+              if (node) {
+                node.held = false;
+                // A dropped MIDDLE keeps its place, and the flock spreads
+                // around it there. Springing it back to the origin would snap
+                // the whole cloud home the moment you let go, which is not
+                // dragging — it is tugging something on a piece of elastic.
+                if (node.centre && d.moved) {
+                  node.homeX = node.x;
+                  node.homeY = node.y;
+                }
+              }
               drag.current = null;
             }}
             onPointerLeave={() => {
@@ -540,21 +611,72 @@ export function FocusWeb({
                 <title>{l.why}</title>
               </line>
             ))}
-            {around.map((n) => (
-              <line
-                key={`l-${n.id}`}
-                x1={round(centre?.x ?? 0)}
-                y1={round(centre?.y ?? 0)}
-                x2={round(n.x)}
-                y2={round(n.y)}
-                className="text-ink"
-                stroke="currentColor"
-                strokeOpacity={0.18 + 0.4 * n.strength}
-                strokeWidth={1 + 2 * n.strength}
-                strokeDasharray={n.solid ? undefined : '5 5'}
-              />
-            ))}
-            {shown.map((n) => (
+            {/* The middle joins each junction, and the junction joins the
+                names that share it. Never the middle straight to a name. */}
+            {around
+              .filter((n) => n.junction)
+              .map((j) => (
+                <line
+                  key={`j-${j.id}`}
+                  x1={round(centre?.x ?? 0)}
+                  y1={round(centre?.y ?? 0)}
+                  x2={round(j.x)}
+                  y2={round(j.y)}
+                  className="text-ink"
+                  stroke="currentColor"
+                  strokeOpacity={0.3}
+                  strokeWidth={1.4}
+                />
+              ))}
+            {around
+              .filter((n) => !n.junction)
+              .map((n) => {
+                const j = nodes.current.get(joinedBy.current.get(n.id) ?? '');
+                const from = j ?? centre;
+                return (
+                  <line
+                    key={`l-${n.id}`}
+                    x1={round(from?.x ?? 0)}
+                    y1={round(from?.y ?? 0)}
+                    x2={round(n.x)}
+                    y2={round(n.y)}
+                    className="text-ink"
+                    stroke="currentColor"
+                    strokeOpacity={0.18 + 0.4 * n.strength}
+                    strokeWidth={1 + 2 * n.strength}
+                    strokeDasharray={n.solid ? undefined : '5 5'}
+                  />
+                );
+              })}
+            {/* The junctions themselves: a dot, no label until you hover it.
+                The topic is in the shape of the thing, not written on it. */}
+            {around
+              .filter((n) => n.junction)
+              .map((j) => (
+                <g
+                  key={j.id}
+                  transform={`translate(${round(j.x)} ${round(j.y)})`}
+                  onMouseEnter={() => setHoverJunction(j.id)}
+                  onMouseLeave={() => setHoverJunction((h) => (h === j.id ? null : h))}
+                >
+                  <circle r={9} fill="transparent" />
+                  <circle r={4} className="fill-surface stroke-ink-muted" strokeWidth={1.2} />
+                  {hoverJunction === j.id && (
+                    <text
+                      textAnchor="middle"
+                      y={-11}
+                      fontSize={12}
+                      className="pointer-events-none fill-ink-muted"
+                    >
+                      {j.label}
+                    </text>
+                  )}
+                  <title>{j.label}</title>
+                </g>
+              ))}
+            {shown
+              .filter((n) => !n.junction)
+              .map((n) => (
               <g
                 key={n.id}
                 transform={`translate(${round(n.x)} ${round(n.y)})`}
@@ -598,11 +720,6 @@ export function FocusWeb({
                 >
                   {n.label || '…'}
                 </text>
-                {!n.centre && n.sub && (
-                  <text textAnchor="middle" y={15} className="fill-ink-muted text-[10.5px]">
-                    {truncate(n.sub, 30)}
-                  </text>
-                )}
               </g>
             ))}
           </svg>
@@ -674,6 +791,21 @@ export function FocusWeb({
       </div>
     </div>
   );
+}
+
+/**
+ * The topic a name hangs from: its strongest reason, or the way back.
+ *
+ * The KEY groups people — everyone carrying #retreat shares one junction — and
+ * the LABEL is what the junction says when you hover it.
+ */
+function topicOf(n: Shown, locale: Locale): { key: string; label: string } {
+  if (n.trail) return { key: 'back', label: t(locale, 'map_back') };
+  if (n.kind === 'org') return { key: `at:${n.id}`, label: n.sub || n.label };
+  const r = n.reasons[0];
+  if (!r) return { key: 'near', label: t(locale, 'map_near_title') };
+  if (r.kind === 'mentioned') return { key: 'mentioned', label: t(locale, 'map_reason_mentioned') };
+  return { key: `${r.kind}:${r.label}`, label: reasonLine(r, locale) };
 }
 
 function reasonLine(r: Reason, locale: Locale): string {
