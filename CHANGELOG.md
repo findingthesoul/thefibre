@@ -6,6 +6,28 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.28] — 2026-09-13 — The cloud goes wide, and you can push it around (staging)
+
+**Connections — the map fills the screen and moves under your hand.**
+
+- **Wide.** The cloud is an ellipse, not a disc: about 1.75 times wider than
+  tall, using the width a screen actually has. It breaks out of the page's
+  reading column, with the controls above and below rather than beside it.
+- **Density.** A slider from four to twenty names, remembered in your browser.
+  It re-cuts what is already loaded, so moving it costs no request.
+  Organisations are never cut below four — where somebody works is a recorded
+  fact, and worth keeping over one more shared tag.
+- **Draggable.** Take hold of a name and the others give way, which is how you
+  shake out one hidden behind another. Let go and it rejoins the ring. A drag
+  is not a click, so rearranging the cloud never navigates away from it.
+- **Never fixed.** The cloud keeps breathing after it settles, so it reads as
+  alive rather than as a diagram.
+
+Under it: each name is now given its own direction around the ring rather than
+left to find one. The link springs would otherwise drag a cluster, and with it
+the whole cloud, onto one side of the centre — which happened twice, once with
+every name left of the middle.
+
 ## [0.73.27] — 2026-09-13 — The map opens in the cloud (staging)
 
 **Connections — you land inside the web, not on a page of dots.** The cloud
