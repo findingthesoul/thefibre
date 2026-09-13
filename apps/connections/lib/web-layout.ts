@@ -47,23 +47,27 @@
 //
 //   the centre      pulled toward where you are pointing, softly and capped
 //
-// ── And the rest follows, later again (Sjoerd, 2026-09-13) ─────────────────
+// ── And the rest follows, each on its own (Sjoerd, 2026-09-13) ─────────────
 //
 // *"when the center follows, the rest moves — again with a delay — ... some
-// lines become longer, others shorter"*.
+// lines become longer, others shorter"*, and then: *"the following should be
+// all independent connections... not as a block... so the connecting strings
+// stretch and contract independent"*.
 //
-// So the ring the other names sit on is not pinned to the middle of the frame.
-// It hangs from a HUB that trails the centre name on a slower spring. The
-// centre leans after your mouse; the hub comes after the centre; each name
-// comes after the hub. Three delays in a row, and because they are out of step
-// the lines between them stretch and compress as the cloud moves, which is the
-// part that makes it feel like one body rather than a diagram being dragged.
+// So the ring is not pinned to the middle of the frame, and there is no single
+// anchor either. EVERY NAME CARRIES ITS OWN, which trails the centre at its
+// own rate. The centre leans after your mouse; each name comes after the
+// centre at its own pace, some quick, some slow. The strings therefore stretch
+// and contract independently rather than the cloud sliding as one piece — the
+// first version used one shared anchor and moved exactly like a block.
+//
+// The rate is derived from the name's id, so it is that person's own lag: the
+// same every time you visit them, never a random shimmer.
 //   a neighbour     pulled to a ring whose radius is its weight: the most
 //                   valuable connection sits closest
 //   two linked      pulled together, so people who share something sit near
 //   neighbours      each other and the web shows the community's own shape
 //                   rather than a star
-//   every pair      pushed apart, weakly and at a distance.
 //   every name      steered toward its own direction around the ring
 //
 // ── Directions are assigned, not hoped for ─────────────────────────────────
@@ -74,6 +78,11 @@
 // each name is given a slot around the ring and steered toward it
 // (`assignBearings`), and the springs only refine what the slots decide.
 // Emergent spreading looked elegant and did not work.
+//
+// A weak all-pairs push was tried first, against the same problem, and it is
+// gone: measured with the slots in place it changed the widest empty wedge by
+// at most one degree. Slots did the job; the push was a constant with a
+// justification that had stopped being true.
 //   two labels      pushed apart when their names would overlap
 //   everything      damped, so it settles instead of orbiting
 //
@@ -125,6 +134,12 @@ export type WebNode = {
    */
   held?: boolean;
   /**
+   * Where THIS name's ring hangs from: its own anchor, trailing the centre at
+   * its own rate. Set on the first frame it is seen.
+   */
+  hubX?: number;
+  hubY?: number;
+  /**
    * A direction this name would rather sit in, in radians, measured in the
    * squashed space the ellipse is round in.
    *
@@ -172,8 +187,15 @@ const WANDER_SPEED = 0.0007;
 
 /** How firmly a name with a preferred direction is kept in it. */
 const BEARING_PULL = 0.08;
-/** How lazily the ring follows the centre. Lower is a longer delay. */
-const HUB_FOLLOW = 0.045;
+/** The slowest and quickest a name follows the centre. Its own rate sits
+ *  somewhere between, from its id. */
+const LAG_SLOWEST = 0.012;
+const LAG_QUICKEST = 0.075;
+
+/** How fast this particular name trails the centre. Stable per person. */
+export function lagOf(id: string): number {
+  return LAG_SLOWEST + unitHash(id, 17) * (LAG_QUICKEST - LAG_SLOWEST);
+}
 
 /** How far the middle will lean from home, and how lazily it gets there. */
 export const LEAN_MAX = 55;
@@ -192,12 +214,6 @@ const GLIDE_SPRING = 0.15;
 /** A link's pull, and how close it wants its two ends. */
 const LINK_PULL = 0.012;
 const LINK_REST = 150;
-/** The weak all-pairs push that keeps linked clusters from collapsing. */
-const CHARGE = 2200;
-const CHARGE_MAX = 1.8;
-
-/** Where the ring of names hangs from: trailing the centre, never quite on it. */
-export type Hub = { x: number; y: number };
 
 /** A tie between two people already on screen. */
 export type WebLink = { a: string; b: string; weight: number };
@@ -236,12 +252,6 @@ export function step(
   pan?: Pan,
   /** Where the pointer is, in the same units as the nodes. */
   pointer?: { x: number; y: number } | null,
-  /**
-   * Where the ring hangs from. Mutated each frame to trail the centre, so the
-   * names follow it a beat later. Leave it out and the ring is pinned to the
-   * middle of the frame, which is what the tests of the ring itself want.
-   */
-  hub?: Hub,
 ): number {
   const lean = leanToward(pointer);
   // Springs are quiet while the cloud is travelling. See the header.
@@ -258,24 +268,16 @@ export function step(
       n.x += dx;
       n.y += dy;
     }
-    // The hub travels with the cloud; otherwise the ring stays behind for the
-    // whole glide and every name is dragged across the frame after it.
-    if (hub) {
-      hub.x += dx;
-      hub.y += dy;
+    // The anchors travel with the cloud; otherwise every ring stays behind for
+    // the whole glide and drags its name across the frame afterwards.
+    for (const n of nodes) {
+      if (n.hubX !== undefined) n.hubX += dx;
+      if (n.hubY !== undefined) n.hubY += dy;
     }
     pan.done = progress;
   }
 
-  // The hub comes after the centre, slowly. This is the second of the three
-  // delays; the names hanging off it are the third.
   const middle = nodes.find((n) => n.centre);
-  if (hub && middle) {
-    hub.x += (middle.x - hub.x) * HUB_FOLLOW;
-    hub.y += (middle.y - hub.y) * HUB_FOLLOW;
-  }
-  const hx = hub?.x ?? 0;
-  const hy = hub?.y ?? 0;
 
   for (const n of nodes) {
     // A held name is wherever the pointer put it. Everything else still feels
@@ -293,8 +295,22 @@ export function step(
       n.vy += ((lean?.y ?? 0) - n.y) * k * springs;
       continue;
     }
-    // Measured from the hub, in a space squashed horizontally, so the ring it
-    // is pulled to is an ellipse: wide like the screen.
+    // Its own anchor comes after the centre, at its own rate. This is what
+    // makes each string stretch and contract independently.
+    if (n.hubX === undefined || n.hubY === undefined) {
+      n.hubX = middle?.x ?? 0;
+      n.hubY = middle?.y ?? 0;
+    }
+    if (middle) {
+      const lag = lagOf(n.id);
+      n.hubX += (middle.x - n.hubX) * lag;
+      n.hubY += (middle.y - n.hubY) * lag;
+    }
+    const hx = n.hubX;
+    const hy = n.hubY;
+
+    // Measured from its anchor, in a space squashed horizontally, so the ring
+    // it is pulled to is an ellipse: wide like the screen.
     const ex = (n.x - hx) / ASPECT;
     const ey = n.y - hy;
     let d = Math.hypot(ex, ey);
@@ -327,21 +343,6 @@ export function step(
       const b = nodes[j]!;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
-      if (!a.centre && !b.centre && !(a.held && b.held)) {
-        // Inverse-square, floored so two names seeded on top of each other do
-        // not fire apart, and capped so it never overpowers the ring.
-        const d2 = Math.max(dx * dx + dy * dy, 900);
-        const dd = Math.sqrt(d2);
-        const f = Math.min((CHARGE / d2) * springs, CHARGE_MAX);
-        if (!a.held) {
-          a.vx -= (dx / dd) * f;
-          a.vy -= (dy / dd) * f;
-        }
-        if (!b.held) {
-          b.vx += (dx / dd) * f;
-          b.vy += (dy / dd) * f;
-        }
-      }
       const overlapX = (a.width + b.width) / 2 - Math.abs(dx);
       const overlapY = ROW_HEIGHT - Math.abs(dy);
       if (overlapX <= 0 || overlapY <= 0) continue;
@@ -431,10 +432,9 @@ export function settle(
   links: WebLink[] = [],
   pan?: Pan,
   pointer?: { x: number; y: number } | null,
-  hub?: Hub,
 ): number {
   let e = Infinity;
-  for (let i = 0; i < maxSteps && e > 0.01; i += 1) e = step(nodes, links, pan, pointer, hub);
+  for (let i = 0; i < maxSteps && e > 0.01; i += 1) e = step(nodes, links, pan, pointer);
   return e;
 }
 

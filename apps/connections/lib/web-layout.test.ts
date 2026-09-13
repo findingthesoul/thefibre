@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   ASPECT,
+  assignBearings,
   GLIDE_FRAMES,
   R_MAX,
   R_MIN,
@@ -12,6 +13,7 @@ import {
   settle,
   step,
   LEAN_MAX,
+  lagOf,
   leanToward,
   step as rawStep,
   targetRadius,
@@ -47,12 +49,14 @@ describe('the moving web', () => {
   });
 
   it('comes to rest instead of orbiting', () => {
-    // About 1200 frames, not 600: the all-pairs push that keeps linked
-    // clusters from collapsing also lengthens the tail of the settling. The
-    // visible movement is over long before that — what remains is drift too
-    // small to see — but it does come to rest, and that is worth holding.
+    // About 6000 frames now. Two things lengthened the tail: the all-pairs
+    // push that stops linked clusters collapsing, and then each name trailing
+    // the centre on its own slow anchor. The visible movement is over long
+    // before that — what remains is drift too small to see — but it does come
+    // to rest, and that is worth holding, because a cloud that never settles
+    // would churn the processor for as long as the tab is open.
     const nodes = web({ Joost: 3, Aniek: 2, Marja: 1, Daniel: 1, Femke: 2 });
-    expect(settle(nodes, 1500)).toBeLessThanOrEqual(0.01);
+    expect(settle(nodes, 8000)).toBeLessThanOrEqual(0.01);
   });
 
   it('puts the most valuable connection closest', () => {
@@ -76,19 +80,6 @@ describe('the moving web', () => {
         expect(clearX || clearY, `${a.id} / ${b.id}`).toBe(true);
       }
     }
-  });
-
-  it('spreads connections round the whole circle, not one side', () => {
-    const nodes = web({ Joost: 3, Aniek: 2.7, Marja: 2.4, Daniel: 2.1, Femke: 1.8, Pieter: 1.5, Lotte: 1.2, Sanne: 1, Ruben: 0.8 });
-    settle(nodes, 1500);
-    const angles = nodes
-      .filter((n) => !n.centre)
-      .map((n) => Math.atan2(n.y - nodes[0]!.y, n.x - nodes[0]!.x))
-      .sort((x, y) => x - y);
-    const gaps = angles.map((a, i) => (i === 0 ? a + Math.PI * 2 - angles[angles.length - 1]! : a - angles[i - 1]!));
-    // Nine names: an even spread leaves 40 degrees between neighbours. A gap
-    // of more than 120 is a visibly empty side.
-    expect(Math.max(...gaps) * (180 / Math.PI)).toBeLessThan(120);
   });
 
   it('builds the same web the same way twice', () => {
@@ -340,9 +331,9 @@ describe('the breathing', () => {
   });
 });
 
-describe('links must not drag the whole cloud to one side', () => {
+describe('the names spread all the way round, even when linked in clusters', () => {
   /** The widest empty wedge, in degrees, measured where the ellipse is round. */
-  function widestGap(ids: string[], stride: number) {
+  function widestGap(ids: string[], stride: number, assign = true) {
     const weights: Record<string, number> = {};
     ids.forEach((id, k) => {
       weights[id] = 1 - k * 0.08;
@@ -350,10 +341,13 @@ describe('links must not drag the whole cloud to one side', () => {
     const nodes = web(weights);
     const links = [];
     for (let k = 0; k + 1 < ids.length; k += stride) links.push({ a: ids[k]!, b: ids[k + 1]!, weight: 0.9 });
-    settle(nodes, 3000, links);
+    // Exactly what the component does before it lets the springs run.
+    if (assign) assignBearings(nodes);
+    settle(nodes, 8000, links);
+    const centre = nodes.find((n) => n.centre)!;
     const angles = nodes
       .filter((n) => !n.centre)
-      .map((n) => Math.atan2(n.y, n.x / ASPECT))
+      .map((n) => Math.atan2(n.y - centre.y, (n.x - centre.x) / ASPECT))
       .sort((x, y) => x - y);
     const gaps = angles.map((a, i) => (i === 0 ? a + Math.PI * 2 - angles[angles.length - 1]! : a - angles[i - 1]!));
     return (Math.max(...gaps) * 180) / Math.PI;
@@ -366,19 +360,20 @@ describe('links must not drag the whole cloud to one side', () => {
   ];
 
   it('leaves no empty half when several names are linked in chains', () => {
-    // Real communities cluster, and the link springs happily drag a whole
-    // chain to one side: seen in the browser with every name left of the
-    // middle. The all-pairs push is what prevents it.
-    //
-    // Measured over these six cases: with the push the widest empty wedge is
-    // 63-90 degrees; without it, 107-171. The bar sits between them, and a
-    // counted left-versus-right split does NOT separate the two — it was the
-    // first thing tried and it passed either way.
+    // Measured over these six cases: 32-36 degrees with the slots assigned.
     for (const ids of SETS) {
       for (const stride of [2, 3]) {
-        expect(widestGap(ids, stride), `${ids[0]} / stride ${stride}`).toBeLessThan(100);
+        expect(widestGap(ids, stride), `${ids[0]} / stride ${stride}`).toBeLessThan(60);
       }
     }
+  });
+
+  it('needs the slots: without them the links drag the cloud to one side', () => {
+    // The twin. Left to the springs alone the same communities settle with
+    // wedges of 107 to 204 degrees — half the circle empty. This is why the
+    // directions are assigned rather than hoped for.
+    const worst = Math.max(...SETS.map((ids) => widestGap(ids, 2, false)));
+    expect(worst).toBeGreaterThan(100);
   });
 });
 
@@ -426,60 +421,73 @@ describe('the middle leans after the mouse', () => {
   });
 });
 
-describe('and the rest follows, later again', () => {
-  /** A settled cloud, its hub under the centre, then the mouse arrives. */
+describe('and the rest follows, each on its own', () => {
+  /** A settled cloud, then the mouse arrives on the right. */
   function withMouse(frames: number) {
-    const nodes = web({ Joost: 2, Aniek: 1.6, Marja: 1.2, Daniel: 1 });
-    const hub = { x: 0, y: 0 };
-    settle(nodes, 2000, [], undefined, null, hub);
+    const nodes = web({ Joost: 2, Aniek: 1.6, Marja: 1.2, Daniel: 1, Femke: 0.8 });
+    // As the component does. Without it the cloud settles one-sided, and every
+    // line then changes the same way when the middle moves — which is not the
+    // picture this is meant to be testing.
+    assignBearings(nodes);
+    settle(nodes, 4000);
     const centre = nodes.find((n) => n.centre)!;
     const others = nodes.filter((n) => !n.centre);
     const before = { centre: { ...centre }, others: others.map((n) => ({ ...n })) };
     const pointer = { x: 500, y: 0 };
-    for (let i = 0; i < frames; i += 1) step(nodes, [], undefined, pointer, hub);
-    const centreMoved = centre.x - before.centre.x;
-    const othersMoved =
-      others.reduce((sum, n, i) => sum + (n.x - before.others[i]!.x), 0) / others.length;
-    return { centreMoved, othersMoved, nodes, before, hub };
+    for (let i = 0; i < frames; i += 1) step(nodes, [], undefined, pointer);
+    return {
+      centreMoved: centre.x - before.centre.x,
+      eachMoved: others.map((n, i) => n.x - before.others[i]!.x),
+      nodes,
+      before,
+    };
   }
 
   it('moves the other names too, not just the one in the middle', () => {
-    // Before the hub existed the ring was pinned to the frame, so the middle
-    // leaned and nothing else so much as twitched.
-    const { othersMoved } = withMouse(400);
-    expect(othersMoved).toBeGreaterThan(5);
+    // Before their anchors existed the ring was pinned to the frame, so the
+    // middle leaned and nothing else so much as twitched.
+    const { eachMoved } = withMouse(400);
+    const average = eachMoved.reduce((a, b) => a + b, 0) / eachMoved.length;
+    expect(average).toBeGreaterThan(5);
   });
 
   it('moves them LATER than the middle', () => {
     // Ten frames in, the middle has gone a long way and the rest have hardly
-    // started. Measured: 28 against 0.3 with the delay, 28 against 2.1 without
-    // it, so the bar sits between those. An earlier version of this test
-    // compared the two distances as a ratio and passed with the delay removed
-    // — the names lag a little anyway, through their own springs.
-    const { centreMoved, othersMoved } = withMouse(10);
+    // started. An earlier version compared the two as a RATIO and passed with
+    // the delay removed — the names lag a little anyway, through their own
+    // springs — so the bar is on the absolute figures.
+    const { centreMoved, eachMoved } = withMouse(10);
+    const average = eachMoved.reduce((a, b) => a + b, 0) / eachMoved.length;
     expect(centreMoved).toBeGreaterThan(20);
-    expect(othersMoved).toBeLessThan(1);
+    expect(average).toBeLessThan(3);
+  });
+
+  it('moves each name at its OWN pace, not as a block', () => {
+    // Sjoerd: "the following should be all independent connections... not as a
+    // block... so the connecting strings stretch and contract independent".
+    // With one shared anchor every name moved by the same amount; now the
+    // quickest travels several times as far as the slowest at the same moment.
+    const { eachMoved } = withMouse(60);
+    const spread = Math.max(...eachMoved) - Math.min(...eachMoved);
+    expect(spread).toBeGreaterThan(5);
   });
 
   it('stretches some lines and shortens others while it moves', () => {
-    // The point of the delay: the cloud behaves like one body rather than a
-    // picture being slid across the screen.
     const { nodes, before } = withMouse(30);
     const centre = nodes.find((n) => n.centre)!;
     const others = nodes.filter((n) => !n.centre);
-    const lengths = others.map((n, i) => {
+    const change = others.map((n, i) => {
       const now = Math.hypot(n.x - centre.x, n.y - centre.y);
       const was = Math.hypot(before.others[i]!.x - before.centre.x, before.others[i]!.y - before.centre.y);
       return now - was;
     });
-    expect(Math.max(...lengths)).toBeGreaterThan(1);
-    expect(Math.min(...lengths)).toBeLessThan(-1);
+    expect(Math.max(...change)).toBeGreaterThan(1);
+    expect(Math.min(...change)).toBeLessThan(-1);
   });
 
-  it('settles with the hub under the middle once the mouse has gone', () => {
-    const { nodes, hub } = withMouse(400);
-    const centre = nodes.find((n) => n.centre)!;
-    settle(nodes, 3000, [], undefined, null, hub);
-    expect(Math.hypot(hub.x - centre.x, hub.y - centre.y)).toBeLessThan(3);
+  it('gives the same person the same lag every time', () => {
+    // Their own pace, not a random shimmer that differs per visit.
+    expect(lagOf('wilma')).toBe(lagOf('wilma'));
+    expect(lagOf('wilma')).not.toBe(lagOf('joost'));
   });
 });

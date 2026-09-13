@@ -41,7 +41,6 @@ import {
   step,
   targetRadius,
   wander,
-  type Hub,
   type Pan,
   type WebLink,
   type WebNode,
@@ -233,19 +232,13 @@ export function FocusWeb({
   const drag = useRef<{ id: string; moved: boolean } | null>(null);
   /** Where the pointer is over the cloud, so the middle can lean after it. */
   const pointer = useRef<{ x: number; y: number } | null>(null);
-  /**
-   * Where the ring hangs from. It trails the centre, so when the middle leans
-   * after your mouse the other names follow a beat later and the lines between
-   * them stretch and compress.
-   */
-  const hub = useRef<Hub>({ x: 0, y: 0 });
 
   // ── The animation loop ──────────────────────────────────────────────────
   const animate = useCallback(() => {
     if (raf.current !== null) return;
     if (prefersReducedMotion()) {
       pointer.current = null; // no chasing the mouse if motion is unwelcome
-      settle([...nodes.current.values()], 600, webLinks(links.current), pan.current, null, hub.current);
+      settle([...nodes.current.values()], 600, webLinks(links.current), pan.current, null);
       setFrame((f) => f + 1);
       return;
     }
@@ -255,7 +248,7 @@ export function FocusWeb({
     // requestAnimationFrame pauses itself when the tab is hidden.
     const tick = () => {
       const list = [...nodes.current.values()];
-      step(list, webLinks(links.current), pan.current, pointer.current, hub.current);
+      step(list, webLinks(links.current), pan.current, pointer.current);
       wander(list, performance.now());
       setFrame((f) => f + 1);
       raf.current = requestAnimationFrame(tick);

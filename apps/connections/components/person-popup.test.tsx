@@ -158,6 +158,21 @@ describe('the person popup', () => {
     expect(dialogOpen()).toBe(false);
   });
 
+  it('sends you to The Fibre in a NEW tab, not out of Connections', async () => {
+    // Sjoerd, 2026-09-13: "moving to the fibre (more contact info) is
+    // confusing... you're totally left connections then". The link carried an
+    // external-link icon and navigated in place, so following it dropped you
+    // out of the map you were walking through.
+    await click(container.querySelector('a.p1')!);
+    const out = [...document.querySelectorAll('a')].find((a) =>
+      (a.getAttribute('href') ?? '').startsWith('https://example.invalid/contacts'),
+    )!;
+    expect(out, 'the link out to The Fibre').toBeTruthy();
+    expect(out.getAttribute('target')).toBe('_blank');
+    // Without this a new tab can reach back into the one that opened it.
+    expect(out.getAttribute('rel') ?? '').toContain('noopener');
+  });
+
   it('can be opened again after closing', async () => {
     await click(container.querySelector('a.p1')!);
     await act(async () => window.history.back());
