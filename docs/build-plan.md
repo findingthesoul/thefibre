@@ -1065,22 +1065,59 @@ code on 2026-09-12 rather than remembered.
 | D70b | The moving web: click a name to centre it, companies as boxed nodes, Back (STAGING) | `app/(app)/map/focus-web.tsx`, `lib/web-layout.ts`, v0.73.24 |
 | D70c | The cloud: size = strength, links between the people around you, glide with ease-in-out (STAGING) | `lib/web-layout.ts`, `connections_links_among`, v0.73.26 |
 | D70d | You land IN the cloud; wide ellipse, density slider, draggable, breathing, middle leans after the mouse (STAGING) | `app/(app)/map/`, `lib/web-layout.ts`, v0.73.27-29 |
+| D70e | Lines run through topic junctions, never straight to the middle; click and drag told apart by movement and hold (STAGING) | `lib/web-layout.ts`, v0.73.30-34 |
+| D70f | Switching people is a crossfade BOTH ways; search instead of a dropdown, on one row with density above the canvas (STAGING) | `app/(app)/map/focus-web.tsx`, `map-view.tsx`, v0.73.35-36 |
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
 **Open, in the order I would do them**
 
-1. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
-2. **Map clusters.** Placement is a plain hash of the id today, so people who
+1. **The person's page, with what has actually happened on it.** Sjoerd,
+   2026-09-13: *"I want to improve the profile page - with activities - a
+   lot."* Verified against the code the same day, because the gap is larger
+   than it sounds: `apps/connections/app/(app)/people/[id]/load.ts` fetches
+   exactly two things — the person card and their notes. Nothing else this
+   app knows about a person appears on their own page.
+
+   What already exists elsewhere and is missing HERE: the activity log (the
+   platform's append-only record, type + subject — meetings attended,
+   enrolments, purchases, every other app's events), where they sit on the
+   five landscape axes and what earns that band, why they are in the
+   attention list, their tags, their organisations, their follow-ups, and who
+   they are near — the map already computes that neighbourhood and the
+   profile does not show a line of it.
+
+   Questions to answer before building, because "add activities" can mean
+   three different pages:
+   - Is the spine a **single reverse-chronological stream** — notes, activity
+     events, stage changes, calendar meetings, all interleaved? That is the
+     honest shape of "what happened with this person", and it needs the
+     activity read to be merged with `flow_run_note` rather than tabbed
+     beside it.
+   - Or is it a **dossier** — who they are, where they sit, what is open —
+     with history one section among several? Faster to read for "should I
+     call them", worse for "what happened in March".
+   - The platform already has a per-app-tabs profile in Fibre web
+     (`GET /persons/:id/apps`). Does the Connections page become one of those
+     tabs, or stay its own page? Two person pages that disagree is exactly
+     the drift the components-first rule exists to stop.
+
+   Note the data-wall constraint on the first option: activity carries type
+   and subject, never a body (brief §2), so a merged stream shows *that* a
+   thing happened and links out for the rest. Designing it as if the event
+   text were readable would produce a page that cannot be filled.
+
+2. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+3. **Map clusters.** Placement is a plain hash of the id today, so people who
    belong together are not placed together. §5c of connections-desktop.md
    resolves it with a nightly snapshot; named as a gap, not faked.
-3. **Working hours.** Free time assumes Monday to Friday, 9 to 5, in the
+4. **Working hours.** Free time assumes Monday to Friday, 9 to 5, in the
    profile timezone. Worth a setting once somebody who works weekends uses
    Today; all-day holidays could also remove the day.
 
 **In production up to v0.73.23**, plus the security migrations 070000-073000
-(2026-09-13). **v0.73.24-29 are on STAGING only** — Sjoerd's call, and he has
-said staging only for now.
+(2026-09-13). **v0.73.24-36 are on STAGING only** — Sjoerd's call, and he has
+said staging only for now. Thirteen releases, all of them the map.
 
 **The map is the cloud from Sjoerd's Visual Thesaurus screenshots.** Built over
 2026-09-13 in his own words: names not dots, size for strength, names linked to
@@ -1101,6 +1138,16 @@ Three things went wrong in ways worth remembering:
   whole cloud with it, onto one side. Names are now GIVEN a direction each.
   Two tests passed with the fix switched off before a measure was found that
   actually separates the cases (the widest empty wedge).
+- **A fade can be written three times and still jump.** Sjoerd reported the
+  same jump after the names were given a fade, and again after the lines were.
+  Both were real fixes and neither was the cause: the fading arithmetic was
+  running on nodes already filtered OUT of the picture, because which names
+  are drawn depends on the reasons of the person now in the MIDDLE, and the
+  moment a new neighbourhood arrives nobody from the old one has a reason.
+  Half the cloud vanished in one frame while the other half drifted in over a
+  second. **When a fix does not land, measure the thing on the screen before
+  writing a second one** — sampling opacity per frame in the browser found it
+  in minutes after two blind attempts. v0.73.36.
 
 Not done, and the next tuning pass if he wants one:
 
