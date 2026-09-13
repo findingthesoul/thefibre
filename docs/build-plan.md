@@ -1064,6 +1064,7 @@ code on 2026-09-12 rather than remembered.
 | D70 | The desktop map: recency, attention, ladder; who is near and why | `app/(app)/map/`, `connections_neighbourhood`, v0.73.20 |
 | D70b | The moving web: click a name to centre it, companies as boxed nodes, Back (STAGING) | `app/(app)/map/focus-web.tsx`, `lib/web-layout.ts`, v0.73.24 |
 | D70c | The cloud: size = strength, links between the people around you, glide with ease-in-out (STAGING) | `lib/web-layout.ts`, `connections_links_among`, v0.73.26 |
+| D70d | You land IN the cloud; wide ellipse, density slider, draggable, breathing, middle leans after the mouse (STAGING) | `app/(app)/map/`, `lib/web-layout.ts`, v0.73.27-29 |
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
@@ -1078,20 +1079,36 @@ code on 2026-09-12 rather than remembered.
    Today; all-day holidays could also remove the day.
 
 **In production up to v0.73.23**, plus the security migrations 070000-073000
-(2026-09-13). v0.73.24-26 — the moving web and the cloud rebuild — are on
-STAGING and wait for Sjoerd to look and promote.
+(2026-09-13). **v0.73.24-29 are on STAGING only** — Sjoerd's call, and he has
+said staging only for now.
 
-**The map's shape came from Sjoerd's Visual Thesaurus screenshots** and his
-description of it: a cloud of names, size showing strength, names connected to
-each other and not only to the middle, and a click gliding the whole cloud so
-the name you came from lands opposite. All of that is in v0.73.26. What is NOT
-done, and would be the next tuning pass if he wants it:
+**The map is the cloud from Sjoerd's Visual Thesaurus screenshots.** Built over
+2026-09-13 in his own words: names not dots, size for strength, names linked to
+each other and not only to the middle, a click gliding the whole cloud so the
+one you came from lands opposite, easing in and out, wide across the screen, a
+density slider, draggable so it is never fixed, and the middle leaning after
+the mouse.
+
+Three things went wrong in ways worth remembering:
+
+- **You landed on the wrong page.** The cloud was deployed for hours while he
+  reported not seeing it, because `/map` opened on the dot overview with the
+  cloud one click in. The front door is now the cloud.
+- **Staging had no ties.** A scrambled clone of the PEOPLE with almost none of
+  what connects them: 2 tags, 0 relationships across 30 people, so the map drew
+  nothing and read as broken. `scripts/seed-staging-connections.mjs` fixes it.
+- **Emergent spreading does not work.** Link springs drag a cluster, and the
+  whole cloud with it, onto one side. Names are now GIVEN a direction each.
+  Two tests passed with the fix switched off before a measure was found that
+  actually separates the cases (the widest empty wedge).
+
+Not done, and the next tuning pass if he wants one:
 
 - second-degree names hanging faintly off the surrounding ones, as the
   thesaurus does;
-- dragging a name to reposition it;
-- a constant gentle drift. Deliberately left out: the movement is the
-  transition, and a permanent animation costs battery and reads as unsettled.
+- clusters in the overview: placement there is still a plain hash of the id, so
+  people who belong together are not placed together (§5c wants a nightly
+  snapshot).
 
 **D69 is now the sweep's missing half.** The hygiene sweep exists and finds
 things; `retention_policy` still exists and is referenced by nothing, so this
