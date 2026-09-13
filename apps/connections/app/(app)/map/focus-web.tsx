@@ -79,6 +79,15 @@ function savedDensity(): number {
 }
 
 type Shown = WebNode & {
+  /**
+   * 0 to 1. New names fade IN where they appear and old ones fade OUT before
+   * they go, rather than blinking in and out between one person and the next
+   * (Sjoerd, 2026-09-13: "there is a weird jump between one stage and the
+   * other... connected items appear and disappear").
+   */
+  opacity?: number;
+  /** On its way out: fading, then dropped. */
+  leaving?: boolean;
   kind: 'person' | 'org' | 'junction';
   label: string;
   /** One short line under the name: why they are here. */
@@ -228,12 +237,23 @@ export function FocusWeb({
   const [required, setRequired] = useState<Set<Reason['kind']>>(() => new Set());
   const raf = useRef<number | null>(null);
   const svgRef = useRef<SVGSVGElement | null>(null);
-  /**
-   * A drag in progress. `moved` is what tells a drag from a click: a finger
-   * never lands perfectly still, so releasing within a few units still counts
-   * as a tap and opens the name.
-   */
-  const drag = useRef<{ id: string; moved: boolean } | null>(null);
+  /** A press in progress, which may or may not become a drag. */
+  const drag = useRef<{
+    id: string;
+    /** Where the pointer went down, in screen pixels. */
+    startX: number;
+    startY: number;
+    /** The name's offset from the pointer when grabbed, so it never snaps. */
+    offsetX: number;
+    offsetY: number;
+    /** Picked up: following the pointer now. */
+    held: boolean;
+    /** Actually moved. Only this suppresses the click. */
+    moved: boolean;
+    timer: ReturnType<typeof setTimeout> | null;
+  } | null>(null);
+  /** Set on releasing a name that really moved, read by the click that follows. */
+  const suppressClick = useRef(false);
   /** Where the pointer is over the cloud, so the middle can lean after it. */
   const pointer = useRef<{ x: number; y: number } | null>(null);
 
@@ -254,6 +274,15 @@ export function FocusWeb({
       const list = [...nodes.current.values()];
       step(list, webLinks(links.current), pan.current, pointer.current);
       wander(list, performance.now());
+      // Fade in what is arriving, fade out what is leaving, and only then let
+      // it go. Deleting on the spot is the blink.
+      for (const n of list) {
+        const want = n.leaving ? 0 : 1;
+        const now = n.opacity ?? 1;
+        const next = now + (want - now) * FADE;
+        n.opacity = Math.abs(want - next) < 0.01 ? want : next;
+        if (n.leaving && n.opacity === 0) nodes.current.delete(n.id);
+      }
       setFrame((f) => f + 1);
       raf.current = requestAnimationFrame(tick);
     };
@@ -263,6 +292,7 @@ export function FocusWeb({
   useEffect(
     () => () => {
       if (raf.current !== null) cancelAnimationFrame(raf.current);
+      if (drag.current?.timer) clearTimeout(drag.current.timer);
     },
     [],
   );
@@ -310,7 +340,10 @@ export function FocusWeb({
       // Whoever is in the middle is never the faded "way back" name, even if
       // they were a moment ago.
       if (n.centre) n.trail = false;
-      n.targetR = n.centre ? 0 : R_MAX;
+      if (n.centre) n.targetR = 0;
+      // Everyone else KEEPS their ring until the new neighbourhood arrives.
+      // Flinging them to the outer ring first and pulling them back a moment
+      // later is half of the jump between one person and the next.
       n.width = labelWidth(n.label, n.centre, n.strength);
     }
     if (!clicked) {
@@ -339,18 +372,21 @@ export function FocusWeb({
         ];
       }
       const keep = new Set([focus.id, ...around.map((a) => a.id)]);
-      for (const id of [...map.keys()]) if (!keep.has(id)) map.delete(id);
+      for (const [id, n] of map) if (!keep.has(id) && !n.junction) n.leaving = true;
       for (const a of around) {
         const existing = map.get(a.id);
         const targetR = targetRadius(a.strength, 1);
         if (existing) {
           Object.assign(existing, {
             trail: false, ...a, targetR, centre: false,
+            leaving: false,
             width: labelWidth(a.label, false, a.strength),
           });
         } else {
           map.set(a.id, {
             ...a, ...seedPosition(a.id, centre), vx: 0, vy: 0, targetR, centre: false,
+            // Arrives invisible, next to whoever brought it in, and fades up.
+            opacity: 0,
             width: labelWidth(a.label, false, a.strength),
           });
         }
@@ -364,7 +400,7 @@ export function FocusWeb({
       const grouped = new Map<string, { label: string; members: Shown[] }>();
       joinedBy.current = new Map();
       for (const n of map.values()) {
-        if (n.centre || n.junction) continue;
+        if (n.centre || n.junction || n.leaving) continue;
         const { key, label } = topicOf(n, locale);
         const group = grouped.get(key) ?? { label, members: [] };
         group.members.push(n);
@@ -373,7 +409,7 @@ export function FocusWeb({
       }
 
       const wanted = new Set([...grouped.keys()].map((k) => `junction:${k}`));
-      for (const [id, n] of [...map.entries()]) if (n.junction && !wanted.has(id)) map.delete(id);
+      for (const [id, n] of [...map.entries()]) if (n.junction && !wanted.has(id)) n.leaving = true;
 
       const centreNode = map.get(focus.id)!;
       const groups = [...grouped.entries()].map(([key, group]) => {
@@ -400,6 +436,7 @@ export function FocusWeb({
           };
           map.set(id, junction);
         }
+        junction.leaving = false;
         junction.label = group.label;
         junction.targetR = junctionRadius(group.members.map((m) => m.targetR));
         return { junction, members: group.members };
@@ -491,7 +528,8 @@ export function FocusWeb({
 
   // Links whose BOTH ends are currently on screen. A link to somebody thinned
   // away, or not drawn at all, is simply not shown — never a line to nowhere.
-  const onScreen = new Map(shown.map((n) => [n.id, n]));
+  const present = shown.filter((n) => !n.leaving);
+  const onScreen = new Map(present.map((n) => [n.id, n]));
   const crossLines = links.current.flatMap((l) => {
     const a = onScreen.get(l.a);
     const b = onScreen.get(l.b);
@@ -558,14 +596,22 @@ export function FocusWeb({
               if (!d) return;
               const node = nodes.current.get(d.id);
               if (!node) return;
-              if (Math.hypot(at.x - node.x, at.y - node.y) > DRAG_SLOP) d.moved = true;
-              node.x = at.x;
-              node.y = at.y;
+              // Measured from where the press began, in screen pixels.
+              if (Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > DRAG_SLOP_PX) {
+                d.moved = true;
+                d.held = true;
+              }
+              if (!d.held) return;
+              // The grab offset is what stops the name jumping to sit under the
+              // cursor the moment you twitch.
+              node.x = at.x + d.offsetX;
+              node.y = at.y + d.offsetY;
               node.held = true;
             }}
             onPointerUp={() => {
               const d = drag.current;
               if (!d) return;
+              if (d.timer) clearTimeout(d.timer);
               const node = nodes.current.get(d.id);
               if (node) {
                 node.held = false;
@@ -578,6 +624,9 @@ export function FocusWeb({
                   node.homeY = node.y;
                 }
               }
+              // Only a name that really moved swallows the click that follows.
+              // A press that merely lasted a while is still a click.
+              suppressClick.current = d.moved;
               drag.current = null;
             }}
             onPointerLeave={() => {
@@ -585,6 +634,7 @@ export function FocusWeb({
               pointer.current = null;
               const d = drag.current;
               if (d) {
+                if (d.timer) clearTimeout(d.timer);
                 const node = nodes.current.get(d.id);
                 if (node) node.held = false;
               }
@@ -614,7 +664,7 @@ export function FocusWeb({
             {/* The middle joins each junction, and the junction joins the
                 names that share it. Never the middle straight to a name. */}
             {around
-              .filter((n) => n.junction)
+              .filter((n) => n.junction && !n.leaving)
               .map((j) => (
                 <line
                   key={`j-${j.id}`}
@@ -629,7 +679,7 @@ export function FocusWeb({
                 />
               ))}
             {around
-              .filter((n) => !n.junction)
+              .filter((n) => !n.junction && !n.leaving)
               .map((n) => {
                 const j = nodes.current.get(joinedBy.current.get(n.id) ?? '');
                 const from = j ?? centre;
@@ -655,6 +705,7 @@ export function FocusWeb({
               .map((j) => (
                 <g
                   key={j.id}
+                  opacity={j.opacity ?? 1}
                   transform={`translate(${round(j.x)} ${round(j.y)})`}
                   onMouseEnter={() => setHoverJunction(j.id)}
                   onMouseLeave={() => setHoverJunction((h) => (h === j.id ? null : h))}
@@ -681,18 +732,43 @@ export function FocusWeb({
                 key={n.id}
                 transform={`translate(${round(n.x)} ${round(n.y)})`}
                 className={n.held ? 'cursor-grabbing' : 'cursor-pointer'}
-                opacity={n.trail ? 0.55 : 1}
+                opacity={(n.opacity ?? 1) * (n.trail ? 0.55 : 1)}
                 onPointerDown={(e) => {
                   // Dragging a name shakes the others out of its way, which is
                   // how you uncover one hidden behind another.
                   (e.target as Element).releasePointerCapture?.(e.pointerId);
-                  drag.current = { id: n.id, moved: false };
+                  const svg = svgRef.current;
+                  const ctm = svg?.getScreenCTM();
+                  const at = ctm
+                    ? new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse())
+                    : null;
+                  if (drag.current?.timer) clearTimeout(drag.current.timer);
+                  const d = {
+                    id: n.id,
+                    startX: e.clientX,
+                    startY: e.clientY,
+                    offsetX: at ? n.x - at.x : 0,
+                    offsetY: at ? n.y - at.y : 0,
+                    held: false,
+                    moved: false,
+                    timer: null as ReturnType<typeof setTimeout> | null,
+                  };
+                  // Hold still and you still pick it up. Without this a drag
+                  // could only ever start with a flick.
+                  d.timer = setTimeout(() => {
+                    if (drag.current === d) d.held = true;
+                  }, HOLD_MS);
+                  drag.current = d;
                 }}
                 onClick={() => {
                   // A drag is not a click. Without this, letting go of a name
-                  // you dragged would navigate away from the cloud you were
-                  // rearranging.
-                  if (drag.current?.moved) return;
+                  // you dragged navigates away from the cloud you were just
+                  // rearranging — and the guard has to live outside `drag`,
+                  // which pointerup has already cleared by the time this runs.
+                  if (suppressClick.current) {
+                    suppressClick.current = false;
+                    return;
+                  }
                   go(n);
                 }}
                 role="button"
@@ -815,8 +891,30 @@ function reasonLine(r: Reason, locale: Locale): string {
 }
 
 const round = (v: number) => Math.round(v * 10) / 10;
-/** Below this, a pointer that went down and up again was a click, not a drag. */
-const DRAG_SLOP = 6;
+
+// ── Telling a click from a drag ────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-13: *"now we need to clarify click and dragging... maybe
+// timing?"* Both, in the end, and they answer two different questions.
+//
+//   PICKED UP?   You moved more than SLOP, or you held still for HOLD_MS.
+//                The hold is what lets you pick a name up without flinging it,
+//                and it is what makes this work under a finger.
+//   A CLICK?     Only if the name never actually MOVED. A slow, deliberate
+//                click is still a click: it may pass the hold and pick the
+//                name up, but putting it back where it was is not a drag.
+//
+// SLOP is in SCREEN PIXELS, not in the drawing's own units. The cloud is drawn
+// 1240 units wide into whatever width the screen gives it, so a threshold in
+// drawing units means something different on every monitor — and the old one
+// worked out at under four real pixels, tight enough that a steady hand could
+// still miss.
+/** How far the pointer may wander, in screen pixels, and still be a click. */
+const DRAG_SLOP_PX = 5;
+/** How quickly a name fades in or out. */
+const FADE = 0.09;
+/** Hold this long without moving and the name is picked up anyway. */
+const HOLD_MS = 180;
 
 /** Only what the simulation needs from a link. */
 function webLinks(links: Link[]): WebLink[] {
