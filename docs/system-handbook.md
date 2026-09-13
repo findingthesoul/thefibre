@@ -35,23 +35,34 @@ Lab B.V. (Rotterdam, EU-hosted). It is one product family:
   access grants, Circle/Google Workspace integrations; display name may
   become "Hyve" — only branding changes, never the slug).
   https://membership.thethread.app
-- `fibre-sales`, `fibre-learn` — registered slugs, **not built**
-  (`available: false` in the registry).
+- **Connections** (`fibre-sales`) — where everybody stands: a derived
+  landscape over what Thread, Meet, Membership and the ledger already
+  recorded. Owns no tables. https://connections.thethread.app
+  The slug stays `fibre-sales` forever: it tags curator data, and slugs never
+  change. Only the display name moved (`docs/connections-naming.md`).
+- `fibre-learn` — a registered slug, **not built** (`available: false`).
 
 **Two apex domains, deliberately** (since v0.52.0, the "branding pivot"):
-fibre web lives on `thefibre.app`; the five delivery apps live on
-subdomains of `thethread.app` (Thread takes `app.`). The `thethread.app`
-apex itself serves the old standalone Thread V3 landing page (separate
-repo/Vercel project, being decommissioned — the landing must keep serving).
-Sessions cross the two apexes via the SSO hop (§6.3). Naming rationale:
-`docs/naming-brief.md`.
+fibre web lives on `thefibre.app`; the delivery apps live on subdomains of
+`thethread.app` (Thread takes `app.`). The `thethread.app`
+apex serves `apps/website`, this repo's own public site, since the cut on
+2026-09-08; the old standalone Thread V3 landing it replaced is
+decommissioned bar a Vercel project to archive. Sessions cross the two
+apexes via the SSO hop (§6.3). Naming rationale: `docs/naming-brief.md`.
+
+Further surfaces ship from the same repo and are not apps in the catalogue
+sense: `apps/website` above, and `apps/my` (my.thethread.app), the member's
+own portal — shipped v0.68.20, deployed v0.68.24, consolidated into four
+destinations on 2026-09-10. Neither has an AppId, activation or app
+membership; both are entries in the `SURFACES` registry. Which apps exist is
+a question for the `app` table, never for a list in a file.
 
 ---
 
 ## 2. Architecture in one paragraph
 
 A single **Hono API** (`apps/api`, port 8080, deployed on Fly.io) fronts a
-**Supabase** Postgres+Auth project (EU/Ireland). Six **Next.js 15** apps
+**Supabase** Postgres+Auth project (EU/Ireland). The **Next.js 15** apps
 (App Router, React 19) call the API for everything — **no app ever talks to
 Supabase data directly; only Supabase *Auth*** (sign-in, session cookies).
 The API is a thin convenience layer; **Row-Level Security is the real
@@ -114,6 +125,9 @@ apps/
   flow/           Flow                           :3003
   pulse/          Pulse                          :3004
   membership/     Membership                     :3005
+  website/        the public site (thethread.app apex)  :3006
+  my/             the member's own portal (a SURFACE)   :3007
+  connections/    Connections (slug `fibre-sales`)      :3008
 packages/
   shared/         @thefibre/shared — THE shared package (§5)
 supabase/
@@ -131,8 +145,8 @@ Each Next.js app has the same internal shape: `app/` (App Router;
 `components/shell/` (thin shims over shared chrome), `lib/`
 (`api.ts` = apiFetch, `supabase/{client,server}.ts`, `prefs*.ts`,
 `available-apps.ts`, `locale.ts`, `i18n-ui.ts`). Several `lib/` files are
-**byte-identical across all six apps by design** — if you change one, change
-all six identically (check with `md5 -q apps/*/lib/<file>`).
+**byte-identical across the signed-in apps by design** — if you change one,
+change them all identically (check with `md5 -q apps/*/lib/<file>`).
 
 ---
 
@@ -521,15 +535,18 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 | | Production | Staging |
 |---|---|---|
-| Web/apps | thefibre.app + app./meet./flow./pulse./membership.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
+| Web/apps | thefibre.app + thethread.app (site) + app./meet./flow./pulse./membership./my./connections.thethread.app | thefibre.tech + meet./thread./flow./pulse./membership.thefibre.tech |
 | API | `thefibre-api` (Fly, fra) → thefibre-api.fly.dev | `thefibre-api-staging` |
 | DB/Auth | Supabase `zfsyyokepyycefbxiblc` | Supabase `lukhyylwhhjyihqtghvw` |
-| Cookie domain | `.thefibre.app` (web) / `.thethread.app` (five apps) | `.thefibre.tech` |
+| Cookie domain | `.thefibre.app` (web) / `.thethread.app` (the delivery apps) | `.thefibre.tech` |
 | Stripe | live keys | sandbox keys |
 | Deploy trigger | `git push origin main` | `git push origin main:staging` |
 
-- **Vercel**: six projects (`thefibre`, `thefibre-{meet,thread,flow,pulse,
-  membership}`), all in the `sjoerd-1708s-projects` scope. Domains are
+- **Vercel**: one project per app (`thefibre`, then `thefibre-{meet,thread,
+  flow,pulse,membership,website,my,connections}`), all in the
+  `sjoerd-1708s-projects` scope. A new app needs its project created before
+  its first PR, or that PR's checks go red on a Root Directory that does not
+  exist on the branch. Domains are
   attached per-project in Vercel (each domain to ITS OWN project — the
   2026-09-03 misroute lesson); DNS is at **TransIP** (A records
   `76.76.21.21` for the thethread subdomains; trailing dots on external
@@ -592,15 +609,20 @@ Full runbooks: `docs/deploy.md` (prod) and `docs/environments.md`
 
 ## 10. Version management & release procedure
 
-- **One monorepo version** stamped in **nine** `package.json` files (root,
-  six apps, api, shared) **plus** `apps/web/lib/version.ts` (`VERSION`
-  constant — shown in the Fibre sidebar footer and Settings → How The
-  Fibre works). SemVer-ish: features bump minor, fixes bump patch.
+- **One monorepo version** stamped in the `package.json` of **every workspace
+  package** (root, every `apps/*` incl. api, and `packages/shared`) **plus**
+  `apps/web/lib/version.ts` (`VERSION` constant — shown in the Fibre sidebar
+  footer and Settings → How The Fibre works). Never count them by hand:
+  `release.sh` derives the list, and the hand-written counts in this file and
+  in CLAUDE.md were both wrong within days. SemVer-ish: features bump minor,
+  fixes bump patch.
 - **Per-app user-facing versions are decoupled**: Meet shows `v2.x`
   (`apps/meet/app/(app)/layout.tsx`), Thread `v3.x`, Flow / Pulse / Membership
   their own constants in their layouts. Bump those only when app-specific
-  surfaces ship.
-- **Every release = one commit** containing: the code, the nine version
+  surfaces ship; Connections likewise (`0.x`, started 0.1.0 on 2026-09-12).
+  `website` and `my` have no such constant in that pattern — the site has no
+  signed-in chrome, and the portal carries its own in its portal chrome.
+- **Every release = one commit** containing: the code, the version
   bumps, `version.ts`, and a `CHANGELOG.md` entry (top of file, dated,
   narrative style — say *why*, record decisions and reversals explicitly).
   Groom `docs/build-plan.md`'s Open queue in the same ship.

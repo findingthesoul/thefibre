@@ -5,20 +5,33 @@ Living document. Tracks what's queued, what's parked, and how we work.
 For *what's done*, see [CHANGELOG.md](../CHANGELOG.md).
 For *why*, see the canonical spec: [`fibre-technical-brief-v0.4.md`](fibre-technical-brief-v0.4.md).
 
-Current version: **v0.13.108**. Live in production at https://thefibre.app (web on Vercel/fra1), https://meet.thefibre.app (Fibre Meet on Vercel/fra1), https://thread.thefibre.app (The Thread skeleton on Vercel/fra1) + https://thefibre-api.fly.dev (API on Fly.io/fra).
+Live in production: https://thefibre.app (Fibre web, Vercel/fra1),
+https://thethread.app (the website, on the apex since 2026-09-08), and the
+delivery apps on `thethread.app` subdomains, with https://thefibre-api.fly.dev
+(API on Fly.io/fra) behind all of them.
+
+**No version number here on purpose.** This line carried one for two months and
+was forty releases stale when somebody finally read it. `apps/web/lib/version.ts`
+is the platform version, each app's `layout.tsx` holds its own, and the `SURFACES`
+registry in `packages/shared/src/branding.ts` holds the domains. Restating any of
+them here only creates a second copy to be wrong.
 
 ---
 
-## Where the Fibre suite is right now (2026-07-07, v0.13.108 · Thread 3.31.1 · Meet 2.4.1 · Flow 1.10.0)
+## Where the Fibre suite is right now
 
-Four apps live: web (platform), Meet, Thread, Flow. **The Thread rebuild is
-complete** (all 6 phases + certificates + templates + embeds + /my portal);
-the **Invoices area + role tiers + payments SPoT** landed 2026-07-04
-(docs/invoices-and-roles-proposal.md — all decisions resolved). CLAUDE.md's
-"Where we left off" carries the detailed feature inventory; this file keeps
-the queue.
+Seven apps live behind sign-in: web (platform), Meet, Thread, Flow, Pulse,
+Membership, and Connections, which went available on 2026-09-12 under the slug
+`fibre-sales` (the slug never changes; only the display name moved). Two
+further surfaces ship from the same repo and are not apps: the website on the
+thethread.app apex, and `apps/my`, the member portal, consolidated into four
+destinations in the 2026-09-10 slices. CHANGELOG.md carries the narrative and
+CLAUDE.md points at the sources of truth; this file keeps the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
+
+_Unranked items from Sjoerd live in [`inbox.md`](inbox.md) until he ranks
+them. Do not append raw captures here: this list promises priority order._
 
 _Last groomed 2026-09-13 (v0.73.25). Done items get removed, not ticked._
 
@@ -47,7 +60,6 @@ DEFINER function, with an explicit reviewed allowlist of the ones open on
 purpose. Every function written since May was "locked" the wrong way by
 careful authors; a rule in a handbook did not stop them and will not stop the
 next one. A failing test will.
-
 
 **DESIGN — the site designer, and templates that are documents.** Sjoerd,
    2026-09-11, when the three themes shipped: *"In the future I want to
