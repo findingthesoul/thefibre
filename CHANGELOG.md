@@ -6,6 +6,78 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.36] — 2026-09-13 — The other half of the fade, and a search instead of a list (staging)
+
+**Connections — the people you are LEAVING now fade out too.** The map had
+been given a fade twice already and it still jumped, because only half of it
+ever ran. The arithmetic was right; it was running on names that had already
+been taken off the screen. Which names are drawn depends on the reasons of the
+person now in the middle — and the instant a new neighbourhood arrives, nobody
+from the old one has a reason any more. So one half of the cloud vanished in a
+single frame while its replacement drifted gently in over a second, and that
+mismatch is what read as a jump, however slow the half you could watch was.
+
+Now both halves cross over: the old names dim while the new ones brighten, and
+every line dims with the name it is attached to.
+
+**The topic label comes out from behind the names.** Hovering one of the small
+dots shows what the people around it have in common — and it was being drawn
+underneath whichever name happened to lie over the dot, which is exactly when
+you want to read it.
+
+**Find somebody by typing, not by scrolling.** The list of everyone the
+workspace knows is now the same search field used on People and on Entries,
+and it sits on one row with the density slider, above the picture rather than
+under it.
+
+## [0.73.35] — 2026-09-13 — Connections appear gradually (staging)
+
+**Connections — the lines fade in too.** The names were already fading between
+one person and the next, but the lines and the topic dots were not: they were
+drawn at full strength the instant they existed, so every connection snapped
+into place while the name at its end drifted gently up. A long stroke arriving
+in a single frame is the most visible thing on screen, so that was the jump.
+
+Every line now fades with what it joins — never stronger than its faintest end
+— and a topic dot arrives invisible like the names it holds. The fade is also
+slower, about eight tenths of a second.
+
+## [0.73.34] — 2026-09-13 — A click is a click, a drag is a drag (staging)
+
+**Connections — two real bugs in the map's handling of clicks and drags.**
+Dragging a name and letting go navigated away from the very cloud you were
+rearranging: the guard meant to prevent that read a value already cleared, so
+it never once fired. And a name jumped under the cursor the moment you twitched,
+because it was placed at the pointer rather than held where you grabbed it.
+
+The rule now answers two questions separately. A name is **picked up** if you
+move more than five screen pixels, or hold still for a moment — the hold lets
+you pick something up without flinging it, and makes this work under a finger.
+It counts as a **click** only if the name never actually moved, so a slow,
+deliberate click still opens the person.
+
+**Switching people no longer jumps.** Names fade in and out between one person
+and the next instead of blinking, and nobody is flung to the outer edge before
+the new set has even arrived.
+
+## [0.73.33] — 2026-09-13 — Every line runs through its topic (staging)
+
+**Connections — no direct lines.** A line never runs from the middle straight
+to a name any more. It runs to a small dot and on to everyone who shares that
+one thing: a tag, an employer, a recorded relationship. The dot IS the topic,
+and it says nothing until you hover it — so three names hanging off one dot
+read as three people with something in common before you read a word. The
+captions under each name are gone, because the dot carries that now.
+
+Names that share a topic sit together in one wedge of the circle, which is what
+lets their dot sit at the mouth of it. The dot is a real part of the layout
+rather than a drawn midpoint, so the lines bend and flex as the cloud moves.
+
+**Dragging keeps what you dropped.** Drag the name in the middle and the others
+stream after it, each at its own pace; let go and they gather around it where
+you left it. It used to spring back to the centre of the frame the moment you
+released, which is tugging elastic rather than dragging.
+
 ## [0.73.32] — 2026-09-13 — Staging links stay on staging
 
 **Fix, and a safety one.** On the .tech test stack the app switcher sent you to

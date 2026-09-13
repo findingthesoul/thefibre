@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
   ASPECT,
+  JUNCTION_FRACTION,
+  junctionBearing,
+  junctionRadius,
   assignBearings,
   GLIDE_FRAMES,
   R_MAX,
@@ -342,7 +345,8 @@ describe('the names spread all the way round, even when linked in clusters', () 
     const links = [];
     for (let k = 0; k + 1 < ids.length; k += stride) links.push({ a: ids[k]!, b: ids[k + 1]!, weight: 0.9 });
     // Exactly what the component does before it lets the springs run.
-    if (assign) assignBearings(nodes);
+    // One group: the slots spread evenly, as they did before topics existed.
+    if (assign) assignBearings([{ members: nodes.filter((n) => !n.centre) }]);
     settle(nodes, 8000, links);
     const centre = nodes.find((n) => n.centre)!;
     const angles = nodes
@@ -428,7 +432,7 @@ describe('and the rest follows, each on its own', () => {
     // As the component does. Without it the cloud settles one-sided, and every
     // line then changes the same way when the middle moves — which is not the
     // picture this is meant to be testing.
-    assignBearings(nodes);
+    assignBearings([{ members: nodes.filter((n) => !n.centre) }]);
     settle(nodes, 4000);
     const centre = nodes.find((n) => n.centre)!;
     const others = nodes.filter((n) => !n.centre);
@@ -489,5 +493,37 @@ describe('and the rest follows, each on its own', () => {
     // Their own pace, not a random shimmer that differs per visit.
     expect(lagOf('wilma')).toBe(lagOf('wilma'));
     expect(lagOf('wilma')).not.toBe(lagOf('joost'));
+  });
+});
+
+describe('where a topic sits between the middle and its names', () => {
+  const deg = (r: number) => (r * 180) / Math.PI;
+
+  it('points at the average of the names hanging off it', () => {
+    expect(deg(junctionBearing([0, Math.PI / 2]))).toBeCloseTo(45, 5);
+  });
+
+  it('averages correctly across the wrap-around', () => {
+    // Two names either side of due west. A plain arithmetic mean would send
+    // the topic due EAST, to the opposite side of the cloud from its members.
+    const almostPi = Math.PI - 0.2;
+    const justPast = -Math.PI + 0.2;
+    expect(Math.abs(deg(junctionBearing([almostPi, justPast])))).toBeCloseTo(180, 5);
+  });
+
+  it('never returns nothing, even for names pointing exactly apart', () => {
+    const b = junctionBearing([0, Math.PI]);
+    expect(Number.isFinite(b)).toBe(true);
+  });
+
+  it('sits between the middle and its closest name', () => {
+    const r = junctionRadius([300, 400]);
+    expect(r).toBeCloseTo(300 * JUNCTION_FRACTION, 5);
+    expect(r).toBeLessThan(300);
+    expect(r).toBeGreaterThan(0);
+  });
+
+  it('has somewhere to sit even with no names yet', () => {
+    expect(junctionRadius([])).toBeGreaterThan(0);
   });
 });

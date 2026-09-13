@@ -131,6 +131,20 @@ density slider, draggable, and the middle leaning after the mouse. The build
 plan no longer asks for the example video, because he described it in words
 faster than anyone could have watched it.
 
+**One more turn, and it settles the edges question for good** (v0.73.33, from
+him reading the thesaurus again): *"lines are always via nodes", "no direct
+lines", "the node is that a topic/theme/tag, without showing it... maybe only
+with a mouseover"*. So no line runs from the middle straight to a name any
+more. It runs to a JUNCTION and on to everyone sharing that one thing, and the
+junction **is** the reason, unlabelled until you hover it. Three names hanging
+off one dot read as three people who share something before you read a word.
+
+That is a better answer than the dashed lines to the same problem, and worth
+naming as such: the tension in this note was that a shared tag is not a
+relationship but still wants drawing. Making the reason its own node says
+exactly that, structurally. Two people are not joined; they are both joined to
+the thing they share.
+
 **So this item is closed as a request.** Three things are worth carrying
 forward from how it went, all recorded in the build plan:
 
