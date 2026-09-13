@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.30] — 2026-09-13 — The whole cloud follows, a beat later (staging)
+
+**Connections — when the middle leans after your mouse, the rest comes after
+it.** The ring the other names sit on used to be pinned to the middle of the
+frame, so the middle leaned and nothing else moved. It now hangs from a point
+that trails the middle on a slower spring.
+
+Three delays in a row: the middle follows your mouse, that point follows the
+middle, each name follows it. Because they are out of step, the lines stretch
+and compress while the cloud moves, which is what makes it feel like one body
+rather than a picture being dragged.
+
 ## [0.73.29] — 2026-09-13 — The middle leans after your mouse (staging)
 
 **Connections — the name in the middle drifts after the pointer, always a
