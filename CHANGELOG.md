@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.49] — 2026-09-13 — Your vocabulary at a glance (staging)
+
+**Connections — naming the readings is one compact list.** Each step was a
+bordered card with a label, a field and a note stacked inside it; five readings
+of that is a page nobody scrolls to the bottom of, and the thing it is FOR —
+seeing your own words and changing one — was buried in the furniture.
+
+Now: the reading's title, then one row per step with the name on the left and
+what earns it on the right. Half the height, and what earns a step is no longer
+a hint under a field but the second column, because that is what you read to
+decide what to call it.
+
 ## [0.73.48] — 2026-09-13 — A calmer popup (staging)
 
 **Connections — switching tabs no longer moves the window.** The two panels

@@ -62,7 +62,9 @@ neither in code nor in a document. That is what this file fixes.
 | 34 | Follow up, kind and date on one row | **Shipped** v0.73.48 |
 | 35 | Could there also be a team member? | **Waiting** — owner of the relationship, or who had the conversation? |
 | 36 | How does Connections work with individual / teams / workspace? | **Answered** — workspace is the unit; calendar and owed tasks are yours; teams unused |
-| 37 | The list of readings should be flexible — title above, then rows of "name : description" | **In progress** |
+| 37 | The list of readings should be flexible — title above, then rows of "name : description" | **Shipped** v0.73.49 |
+| 38 | Keep Connections at workspace level; admin decides who has access — everyone or a selection | **Answered** — that is exactly what exists |
+| 39 | "I remember we built something like groups... with rights" | **Answered** — teams as access groups, 2026-09-11 |
 
 ### The three that were lost
 
@@ -85,6 +87,30 @@ Connections-owned copy.
 **20 — the landscape as macOS columns.** Acknowledged in one line as "queued"
 and then never logged. A Miller-column browse — readings in the first column,
 bands in the second, people in the third — is a real design item, not a tweak.
+
+### 38 / 39 — the access model he described already exists
+
+He is remembering correctly. `20260911120000_team_access_groups.sql`, from his
+own ask on 2026-09-11: *"I'm adding more apps and I don't want every app
+available to everyone in a workspace."*
+
+  * An admin creates a **team**, which can be **internal** — `is_published`
+    false, so it has no public page, though its slug is still claimed so it
+    can be published later without colliding.
+  * **`team_app_grant`** says which apps that team confers.
+  * Being in the team writes the same `app_membership` row an admin would tick
+    by hand; `lib/team-grants.ts` reconciles it. `team_member.role`
+    (lead | member) carries the app role, so a team lead becomes an app admin.
+  * **`is_direct`** distinguishes a grant somebody ticked by hand from one that
+    arrived through a team.
+
+So both halves of what he asked for are already there: **a selection** is a
+team that grants Connections, and **every seat** is either ticking everyone on
+the Members page or one team that contains them all.
+
+Connections needs no change for this. Its gate is `has_app_membership(
+'fibre-sales')` plus the workspace having the app switched on — which is what
+`app/(app)/layout.tsx` checks on every request.
 
 ## Where this lives
 
