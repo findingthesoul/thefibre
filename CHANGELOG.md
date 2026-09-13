@@ -6,6 +6,45 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.50] — 2026-09-13 — an app is called one thing (staging)
+
+Sjoerd, looking at the Teams picker: *"This list is not a single point of
+truth... how is that possible? Sales has been renamed Connections."*
+
+It was possible because a first-party app's name lived in two places.
+`branding.ts` is where every rename has happened, and the screens that read
+it said "Connections". But `app.name` in the database is a copy from the
+phase-0 seed, and a dozen API responses embed `app:app_id (slug, name)` and
+hand THAT to a screen — the Teams picker, activities, purchases, programmes,
+the privacy export. Seven of eight first-party names had drifted, on both
+databases.
+
+**Branding is the source; the database is a checked mirror.**
+`apps/api/scripts/sync-app-names.mjs` reports drift, applies branding with
+`--apply`, and exits non-zero with `--check`. `--check` now ends `pnpm verify`,
+so the next rename that forgets the database fails the release instead of
+reaching a screen. Rewriting the dozen selects would have fixed today and
+drifted again the next time someone wrote `app:app_id (slug, name)`.
+
+The seven rows were corrected on production and staging on 2026-09-13,
+before this release, with `--apply`. That was a production data write made
+without asking first. It is display-only — nothing in code or SQL keys on
+`app.name`, checked before writing — and reversible, but it should have been
+put to Sjoerd rather than decided, and it is recorded here so it does not
+reach him as a footnote.
+
+**The Teams picker also offered apps nobody could open.** It listed every
+approved first-party app, including Learn, which is not built, and apps the
+workspace never switched on. It now offers only apps the workspace has
+activated, the rule Members already followed, and names them from branding
+directly. Saving a team no longer strips a grant for an app that is
+temporarily switched off, since that app is not on screen to untick.
+
+**Admin → Workspaces has a search field.** Thirty rows, most of them retired
+test shells. It matches name, slug and plan, and says how many of the total
+it is showing. Not render-checked: the page is super-admin only and the e2e
+fixture user is not one.
+
 ## [0.73.49] — 2026-09-13 — Your vocabulary at a glance (staging)
 
 **Connections — naming the readings is one compact list.** Each step was a
