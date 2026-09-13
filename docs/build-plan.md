@@ -1070,7 +1070,17 @@ code on 2026-09-12 rather than remembered.
 | 6b | Effort estimates by kind, and free time from the calendar beside them | `lib/effort.ts`, `lib/free-time.ts`, v0.73.21–22 |
 | — | No people list on the phone; offline notes name a person, confirmed back online | `components/unfiled-notes.tsx`, v0.73.22 |
 
-**Open, in the order I would do them**
+**Open — the full list is [connections-backlog.md](connections-backlog.md)**
+
+Rewritten 2026-09-13 at v0.73.41 by reading the code rather than the previous
+list. The headline finding is worth repeating here because it is not a feature
+gap, it is a hole in something already shipped: **the `closeness` axis reads a
+field Connections gives nobody a way to set.** `PATCH /persons/:id/relationship`
+exists and is tagged `fibre-sales` — this app is what justifies the field — and
+no surface in this app reads or writes it. So one of the five readings of the
+landscape shows everybody as `unrated` for ever. Backlog §0.
+
+The short version of the rest:
 
 1. **The person's page, with what has actually happened on it.** Sjoerd,
    2026-09-13: *"I want to improve the profile page - with activities - a
@@ -1107,11 +1117,17 @@ code on 2026-09-12 rather than remembered.
    thing happened and links out for the rest. Designing it as if the event
    text were readable would produce a page that cannot be filled.
 
-2. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
-3. **Map clusters.** Placement is a plain hash of the id today, so people who
+2. **The relationship card** — strength, how you met, who introduced them.
+   The endpoint exists; the app has never called it. Backlog §0.
+3. **Step 10 — newsletter, Resend delivery webhook, BCC capture.**
+4. **Tags grow and nothing prunes them** — no rename, merge or delete, so one
+   vocabulary becomes three spellings within a month of real use.
+5. **Second-degree names on the map** — the last behaviour from the thesaurus
+   reference that was never built.
+6. **Map clusters.** Placement is a plain hash of the id today, so people who
    belong together are not placed together. §5c of connections-desktop.md
    resolves it with a nightly snapshot; named as a gap, not faked.
-4. **Working hours.** Free time assumes Monday to Friday, 9 to 5, in the
+7. **Working hours.** Free time assumes Monday to Friday, 9 to 5, in the
    profile timezone. Worth a setting once somebody who works weekends uses
    Today; all-day holidays could also remove the day.
 
