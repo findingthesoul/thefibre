@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/membership",
-  "version": "0.73.38",
+  "version": "0.73.39",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3005",

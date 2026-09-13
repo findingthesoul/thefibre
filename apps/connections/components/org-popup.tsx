@@ -34,6 +34,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { Check, Search } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { t, type Locale } from '@/lib/i18n-ui';
+import { usePersonPopup } from '@/components/person-popup';
 import { loadOrg, connectPerson, type OrgCard, type OrgMember } from '@/app/(app)/organisations/actions';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
 
@@ -187,7 +188,7 @@ export function OrgPopupProvider({
                   <ul className="mt-2 space-y-1">
                     {members.map((m) => (
                       <li key={m.id} className="flex flex-wrap items-baseline gap-x-2 text-sm">
-                        <span>{memberName(m)}</span>
+                        <MemberName member={m} />
                         {m.title && <span className="text-xs text-ink-muted">{m.title}</span>}
                       </li>
                     ))}
@@ -201,6 +202,23 @@ export function OrgPopupProvider({
         </Dialog>
       )}
     </OrgPopupContext.Provider>
+  );
+}
+
+/**
+ * A name in the list, which opens that person over this organisation.
+ *
+ * A person with no id — which should not happen, but the API's shape allows
+ * it — is drawn as plain text rather than as a button that would do nothing.
+ */
+function MemberName({ member }: { member: OrgMember }) {
+  const { openPerson } = usePersonPopup();
+  const id = member.person?.id;
+  if (!id) return <span>{memberName(member)}</span>;
+  return (
+    <button type="button" onClick={() => openPerson(id)} className="text-left hover:underline">
+      {memberName(member)}
+    </button>
   );
 }
 
@@ -313,21 +331,27 @@ function ConnectPerson({
           </button>
         </div>
       ) : (
-        <div className="relative mt-2">
-          <Search
-            size={15}
-            strokeWidth={1.75}
-            className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
-          />
-          <input
-            value={term}
-            onChange={(e) => setTerm(e.target.value)}
-            placeholder={t(locale, 'org_connect_search')}
-            aria-label={t(locale, 'org_connect_search')}
-            className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
-          />
+        <div className="mt-2">
+          <div className="relative">
+            <Search
+              size={15}
+              strokeWidth={1.75}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
+            />
+            <input
+              value={term}
+              onChange={(e) => setTerm(e.target.value)}
+              placeholder={t(locale, 'org_connect_search')}
+              aria-label={t(locale, 'org_connect_search')}
+              className="w-full rounded-md border border-line bg-surface-raised py-2 pl-9 pr-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+            />
+          </div>
+          {/* In the flow, not floating. A floating list opens into the
+              bottom edge of the dialog and is clipped — which is exactly what
+              happened the first time this shipped. Letting it take space
+              instead makes the dialog grow, and the dialog already scrolls. */}
           {term.trim() && (
-            <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-56 overflow-y-auto rounded-md border border-line bg-surface py-1 shadow-lg">
+            <ul className="mt-1 max-h-56 overflow-y-auto rounded-md border border-line bg-surface py-1">
               {matches.length === 0 ? (
                 <li className="px-3 py-1.5 text-xs text-ink-muted">{t(locale, 'people_none')}</li>
               ) : (

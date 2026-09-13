@@ -50,3 +50,31 @@ export async function loadOrganisation(
     return { ok: false, error: e instanceof Error ? e.message : 'unknown error' };
   }
 }
+
+/**
+ * A topic, and the people who carry it.
+ *
+ * Sjoerd, 2026-09-13: *"Can you also create a cloud around a location -
+ * space... or tag? So you select people around a NODE?"*
+ *
+ * The same shape as `loadOrganisation`, deliberately: the web that draws an
+ * organisation and its members draws a topic and its people without knowing
+ * the difference, which is what keeps one component instead of three.
+ */
+export async function loadTag(
+  tagId: string,
+): Promise<
+  | { ok: true; tag: { id: string; name: string; people: number }; members: Member[]; links: Link[] }
+  | { ok: false; error: string }
+> {
+  try {
+    const r = await apiFetch<{
+      tag: { id: string; name: string; people: number };
+      members: Member[];
+      links?: Link[];
+    }>(`/api/v1/connections/map/tag/${tagId}`);
+    return { ok: true, tag: r.tag, members: r.members ?? [], links: r.links ?? [] };
+  } catch (e) {
+    return { ok: false, error: e instanceof Error ? e.message : 'unknown error' };
+  }
+}

@@ -40,7 +40,16 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-vi.mock('./actions', () => ({ loadNeighbourhood: async () => ({ ok: false }), loadOrganisation: async () => ({ ok: false }) }));
+vi.mock('./actions', () => ({
+  loadNeighbourhood: async () => ({ ok: false }),
+  loadOrganisation: async () => ({ ok: false }),
+  loadTag: async () => ({ ok: false }),
+}));
+// The tag lookup behind a junction click. Not exercised by these tests, but
+// the module is imported at load, so it needs an answer.
+vi.mock('@/app/(app)/people/[id]/actions', () => ({
+  fetchVocabulary: async () => ({ words: [], people: [] }),
+}));
 vi.mock('next/navigation', () => ({
   useRouter: () => ({ push: () => {}, back: () => {} }),
   usePathname: () => '/map',

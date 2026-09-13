@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.39] — 2026-09-13 — Stand on a topic, not only on a person (staging)
+
+**Connections — a word can be the middle of the map.** The little dots joining
+names together were always topics, and they were somewhere to look rather than
+somewhere to stand. Click one now and the cloud rebuilds around that word, with
+everybody who carries it around the outside. Every tag in the tag cloud has a
+small orbit beside it that does the same.
+
+Two people sharing a word is still not a relationship. Standing on a topic
+answers "who carries this", which is a fact about each person on their own; the
+lines drawn between them come from the same place they always did, so a topic
+cannot invent a tie that a person's own cloud would not show.
+
+**The connect-somebody results were opening into the bottom edge of the popup**
+and being clipped, so you could not see what you were choosing from. The list
+now takes its own space and the popup grows.
+
+**A name in an organisation opens that person, over the top.**
+
 ## [0.73.38] — 2026-09-13 — Open a company, connect somebody to it; the cloud stops standing still (staging)
 
 **Connections — an organisation opens like a person does.** Click the company

@@ -66,8 +66,16 @@ export function MapView({
   const router = useRouter();
   const params = useSearchParams();
   const focusId = params.get('focus');
+  // Three kinds now: a person, an organisation, or a TOPIC (Sjoerd,
+  // 2026-09-13: "So you select people around a NODE?"). Anything unrecognised
+  // reads as a person, which is what every link written before tags existed
+  // meant.
+  const kindParam = params.get('kind');
   const focus: Focus | null = focusId
-    ? { kind: params.get('kind') === 'org' ? 'org' : 'person', id: focusId }
+    ? {
+        kind: kindParam === 'org' ? 'org' : kindParam === 'tag' ? 'tag' : 'person',
+        id: focusId,
+      }
     : null;
 
   const showAll = params.get('view') === 'all';

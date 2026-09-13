@@ -9,6 +9,7 @@
 //                                              every reason why, plus the
 //                                              organisations they belong to
 //   GET /connections/map/org/:orgId            an organisation and its people
+//   GET /connections/map/tag/:tagId            a topic and the people who carry it
 //
 // Both neighbourhood reads also return `links`: how the people they return are
 // tied to EACH OTHER. Sjoerd, 2026-09-13: "some words are not only connected to
@@ -231,6 +232,90 @@ connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
       // first: when a web can show only a dozen names, those are the ones.
       .sort((a, b) => Number(b.is_decision_maker) - Number(a.is_decision_maker) || Number(b.is_primary) - Number(a.is_primary))
       .map((m) => ({ id: m.person_id, name: names.get(m.person_id)!, title: m.title })),
+  });
+});
+
+/**
+ * A topic, and everybody it is on.
+ *
+ * Sjoerd, 2026-09-13: *"Can you also create a cloud around a location -
+ * space... or tag? So you select people around a NODE?"*
+ *
+ * The map already draws topics — every name hangs off a junction, and a
+ * junction IS a tag — but a junction was somewhere you could look and not
+ * somewhere you could stand. This is the standing place: the same web, with a
+ * word in the middle instead of a person.
+ *
+ * ── What this does NOT claim ───────────────────────────────────────────────
+ *
+ * Two people carrying one tag is not a relationship (system-handbook §12), and
+ * this endpoint does not turn it into one. It answers "who carries this word",
+ * which is a fact about each person separately. The lines drawn BETWEEN the
+ * people it returns come from `linksAmong` exactly as they do everywhere else
+ * — real ties, computed the one way they are computed — so standing on a tag
+ * cannot invent an edge that standing on a person would not show.
+ *
+ * ── Rarity is carried, not applied ─────────────────────────────────────────
+ *
+ * connections-model.md §3.5: a tag on three people is a strong link and a tag
+ * on three hundred is not a link at all. The count comes back so the surface
+ * can say so; it is deliberately not a filter here, because "show me everyone
+ * with this word" is a legitimate question even when the word is on everybody,
+ * and an endpoint that silently returned nothing would be lying about the
+ * data rather than reporting it.
+ */
+connectionsMapRoutes.get('/map/tag/:tagId', async (c) => {
+  const ctx = c.get('ctx');
+  const tagId = c.req.param('tagId');
+
+  const { data: tag } = await adminClient
+    .from('tag')
+    .select('id, name')
+    .eq('id', tagId)
+    .eq('workspace_id', ctx.workspaceId)
+    .maybeSingle();
+  // Missing and elsewhere answer the same, as everywhere.
+  if (!tag) return c.json({ error: 'not found' }, 404);
+
+  const { data: pt } = await adminClient
+    .from('person_tag')
+    .select('person_id, created_via')
+    .eq('tag_id', tagId)
+    .limit(500);
+  const carriers = (pt ?? []) as { person_id: string; created_via: string | null }[];
+
+  const names = new Map<string, string>();
+  if (carriers.length) {
+    // person_tag has no workspace column; the person's row decides — the same
+    // shape as org_membership, and the same reason it is filtered here.
+    const { data: people } = await adminClient
+      .from('person')
+      .select('id, first_name, last_name, email')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .is('merged_into', null)
+      .in('id', carriers.map((x) => x.person_id));
+    for (const p of (people ?? []) as PersonRow[]) names.set(p.id, nameOf(p));
+  }
+
+  const present = carriers.filter((x) => names.has(x.person_id));
+  const memberLinks = await linksAmong(present.map((x) => x.person_id), ctx.workspaceId);
+
+  return c.json({
+    tag: { id: tag.id as string, name: tag.name as string, people: present.length },
+    links: memberLinks,
+    members: present
+      // By hand first. Somebody deciding this word belongs on this person is a
+      // firmer statement than a matcher finding it in a sentence, and when a
+      // web can show only a dozen names those are the ones worth showing.
+      .sort((a, b) => Number(a.created_via === 'note') - Number(b.created_via === 'note'))
+      .map((x) => ({
+        id: x.person_id,
+        name: names.get(x.person_id)!,
+        // Where the tag came from, so the surface can say "found in a note"
+        // rather than presenting a guess and a decision as the same thing.
+        title: x.created_via === 'note' ? 'note' : null,
+      })),
   });
 });
 

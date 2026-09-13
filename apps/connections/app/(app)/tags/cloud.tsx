@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Orbit } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
 
 // The tag cloud — Sjoerd, 2026-09-12: *"could be in the form of a list... or
@@ -93,18 +94,33 @@ export function TagCloud({
     <div className="mt-6">
       <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
         {shown.map((tag) => (
-          <Link
-            key={tag.id}
-            href={`/people?tag=${tag.id}`}
-            title={t(locale, 'tags_carried_by', { n: tag.people })}
-            className="leading-tight transition-colors hover:text-ink"
-            style={{
-              fontSize: `${sizeRem(tag.people, max)}rem`,
-              opacity: strength(tag.people, totalPeople),
-            }}
-          >
-            {tag.name}
-          </Link>
+          <span key={tag.id} className="inline-flex items-baseline gap-1.5">
+            <Link
+              href={`/people?tag=${tag.id}`}
+              title={t(locale, 'tags_carried_by', { n: tag.people })}
+              className="leading-tight transition-colors hover:text-ink"
+              style={{
+                fontSize: `${sizeRem(tag.people, max)}rem`,
+                opacity: strength(tag.people, totalPeople),
+              }}
+            >
+              {tag.name}
+            </Link>
+            {/* The same tag, as a web rather than a list. Sjoerd, 2026-09-13:
+                *"Can you also create a cloud around a location - space... or
+                tag? So you select people around a NODE?"* — a separate small
+                target rather than changing where the word itself goes,
+                because "show me the list" and "show me the shape" are both
+                real questions and the list was here first. */}
+            <Link
+              href={`/map?focus=${tag.id}&kind=tag`}
+              aria-label={t(locale, 'tags_as_web', { name: tag.name })}
+              title={t(locale, 'tags_as_web', { name: tag.name })}
+              className="text-ink-subtle transition-colors hover:text-ink"
+            >
+              <Orbit size={13} strokeWidth={1.75} />
+            </Link>
+          </span>
         ))}
       </div>
 

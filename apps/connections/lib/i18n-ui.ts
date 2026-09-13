@@ -6446,6 +6446,22 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  tags_as_web: {
+    en: 'See {name} as a web',
+    nl: 'Zie {name} als web',
+    es: 'Ver {name} como una red', // MT
+    pt: 'Ver {name} como uma teia', // MT
+    de: '{name} als Netz ansehen', // MT
+    fr: 'Voir {name} comme une toile', // MT
+  },
+  map_tag_empty: {
+    en: 'Nobody carries this word yet.',
+    nl: 'Niemand draagt dit woord nog.',
+    es: 'Todavía nadie lleva esta palabra.', // MT
+    pt: 'Ainda ninguém tem esta palavra.', // MT
+    de: 'Noch trägt niemand dieses Wort.', // MT
+    fr: 'Personne ne porte encore ce mot.', // MT
+  },
   map_full: {
     en: 'Full screen',
     nl: 'Volledig scherm',
