@@ -226,17 +226,29 @@ const KIND_KEYS = {
   note: 'note_kind_note',
   call: 'note_kind_call',
   meeting: 'note_kind_meeting',
+  encounter: 'note_kind_encounter',
   message: 'note_kind_message',
   email: 'note_kind_email',
 } as const;
 
-const KINDS: NoteKind[] = ['note', 'call', 'meeting', 'message', 'email'];
+const KINDS: NoteKind[] = ['note', 'call', 'meeting', 'encounter', 'message', 'email'];
 
 function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
   return KIND_KEYS[kind as NoteKind] ?? KIND_KEYS.note;
 }
 
-type FollowUp = 'week' | 'month' | 'none';
+/**
+ * When to come back to this.
+ *
+ * Sjoerd, 2026-09-13: *"No followup" is default. Dropdown is: week, two
+ * weeks, month.. exact date"*. A list rather than three chips, because the
+ * chips took a row to themselves and this popup is meant to be read in one
+ * glance — and because "nothing planned" being the DEFAULT rather than a
+ * third thing to press is the honest arrangement: most notes have no next
+ * action, and making somebody say so was asking a question to get the answer
+ * it already had.
+ */
+type FollowUp = 'none' | 'week' | 'two_weeks' | 'month' | 'exact';
 /**
  * `offline` is the note being safe ON THIS DEVICE and not yet on the server —
  * deliberately distinct from `saved`, because telling somebody a note is saved
@@ -244,6 +256,16 @@ type FollowUp = 'week' | 'month' | 'none';
  * that costs them the note.
  */
 type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error' | 'offline';
+
+const FOLLOW_UP_KEYS = {
+  none: 'note_followup_none',
+  week: 'note_followup_week',
+  two_weeks: 'note_followup_two_weeks',
+  month: 'note_followup_month',
+  exact: 'note_followup_exact',
+} as const;
+
+const FOLLOW_UPS: FollowUp[] = ['none', 'week', 'two_weeks', 'month', 'exact'];
 
 /** Adding a month to the 31st must not land in the month after next. */
 function addMonth(from: Date): Date {
@@ -256,39 +278,31 @@ function addMonth(from: Date): Date {
   return d;
 }
 
-function followUpIso(choice: FollowUp | null): string | null {
+/**
+ * The date a choice means, or null for none.
+ *
+ * `exact` carries its own date, typed into the field the choice reveals; an
+ * `exact` with nothing typed is not a follow-up, because half a date is not
+ * an answer.
+ */
+function followUpIso(choice: FollowUp | null, exact: string): string | null {
   if (choice === 'week') {
     const d = new Date();
     d.setDate(d.getDate() + 7);
     return d.toISOString();
   }
+  if (choice === 'two_weeks') {
+    const d = new Date();
+    d.setDate(d.getDate() + 14);
+    return d.toISOString();
+  }
   if (choice === 'month') return addMonth(new Date()).toISOString();
+  if (choice === 'exact') {
+    if (!exact) return null;
+    const d = new Date(exact);
+    return Number.isNaN(d.getTime()) ? null : d.toISOString();
+  }
   return null; // 'none' and "not answered" are the same write: no follow-up.
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      aria-pressed={active}
-      onClick={onClick}
-      className={`h-8 rounded-full border px-3 text-xs transition-colors ${
-        active
-          ? 'border-ink bg-ink text-ink-inverse'
-          : 'border-line bg-surface-raised text-ink-subtle hover:text-ink'
-      }`}
-    >
-      {children}
-    </button>
-  );
 }
 
 export function Notes({
@@ -320,7 +334,9 @@ export function Notes({
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
   const [when, setWhen] = useState('');
-  const [followUp, setFollowUp] = useState<FollowUp | null>(null);
+  const [followUp, setFollowUp] = useState<FollowUp>('none');
+  /** "YYYY-MM-DDTHH:mm" local, only meaningful while followUp is 'exact'. */
+  const [followUpExact, setFollowUpExact] = useState('');
   const [details, setDetails] = useState(false);
   /**
    * Words this workspace already uses — its tags and the names of the
@@ -370,7 +386,10 @@ export function Notes({
    *  this phone" with a blank status that implies the note went through. */
   const lastQueued = useRef(false);
 
-  const hasContent = body.trim().length > 0 || followUp === 'week' || followUp === 'month';
+  // A note is worth keeping if it says something OR plans something. An
+  // `exact` with no date typed plans nothing, which followUpIso already
+  // decides — so ask it rather than restating the rule here.
+  const hasContent = body.trim().length > 0 || followUpIso(followUp, followUpExact) !== null;
 
   // The waiting count. SENDING is not done here any more: it moved to
   // OfflineSync in the layout, because a note queued in a lift should be sent
@@ -436,7 +455,7 @@ export function Notes({
       kind,
       ...(when ? { happened_at: new Date(when).toISOString() } : {}),
       ...(tz ? { happened_tz: tz } : {}),
-      follow_up_at: followUpIso(followUp),
+      follow_up_at: followUpIso(followUp, followUpExact),
       is_draft: isDraft,
       // Only what is on screen right now. The API applies this list rather
       // than re-detecting, so what the person SAW is what gets written —
@@ -532,7 +551,7 @@ export function Notes({
     // `write` is intentionally not a dep: it is recreated every render and
     // the effect already re-runs on everything it reads.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [body, kind, when, followUp]);
+  }, [body, kind, when, followUp, followUpExact]);
 
   /** Focus left the composer, or Done was pressed. This is what commits. */
   async function commit() {
@@ -567,7 +586,8 @@ export function Notes({
     setBody('');
     setKind('note');
     setWhen('');
-    setFollowUp(null);
+    setFollowUp('none');
+    setFollowUpExact('');
     setDetails(false);
     // Queued on the device: the box resets so the person can move on, but the
     // status keeps saying where the note actually is.
@@ -675,35 +695,57 @@ export function Notes({
           </div>
         )}
 
-        {/* Follow-up: three taps, nothing preselected, closing without one
-            is allowed. Tapping the chosen chip again unchooses it. */}
+        {/* Follow-up: one control, "nothing planned" already chosen.
+            Sjoerd, 2026-09-13: *"\"No followup\" is default. Dropdown is:
+            week, two weeks, month.. exact date"*. Three chips took a row to
+            themselves in a popup meant to be read at a glance, and asking
+            somebody to press "nothing planned" was asking a question to get
+            the answer it already had. */}
         <div className="mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
-          <Chip active={followUp === 'week'} onClick={() => setFollowUp(followUp === 'week' ? null : 'week')}>
-            {t(locale, 'note_followup_week')}
-          </Chip>
-          <Chip
-            active={followUp === 'month'}
-            onClick={() => setFollowUp(followUp === 'month' ? null : 'month')}
-          >
-            {t(locale, 'note_followup_month')}
-          </Chip>
-          <Chip active={followUp === 'none'} onClick={() => setFollowUp(followUp === 'none' ? null : 'none')}>
-            {t(locale, 'note_followup_none')}
-          </Chip>
+          <label className="flex items-center gap-2">
+            <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
+            <select
+              value={followUp}
+              onChange={(e) => setFollowUp(e.target.value as FollowUp)}
+              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+            >
+              {FOLLOW_UPS.map((f) => (
+                <option key={f} value={f}>
+                  {t(locale, FOLLOW_UP_KEYS[f])}
+                </option>
+              ))}
+            </select>
+          </label>
+          {followUp === 'exact' && (
+            <input
+              type="datetime-local"
+              value={followUpExact}
+              onChange={(e) => setFollowUpExact(e.target.value)}
+              aria-label={t(locale, 'note_followup_exact')}
+              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+            />
+          )}
         </div>
 
-        {/* Kind and when: defaulted, editable, never asked. */}
+        {/* Kind and when: defaulted, editable, never asked. A list rather than
+            six chips — the vocabulary grew to six on 2026-09-13 and a chip row
+            that wraps is worse than a control that does not. */}
         {details && (
           <div className="mt-3 space-y-3 border-t border-line pt-3">
-            <div className="flex flex-wrap items-center gap-2">
+            <label className="flex flex-wrap items-center gap-2">
               <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
-              {KINDS.map((k) => (
-                <Chip key={k} active={kind === k} onClick={() => setKind(k)}>
-                  {t(locale, KIND_KEYS[k])}
-                </Chip>
-              ))}
-            </div>
+              <select
+                value={kind}
+                onChange={(e) => setKind(e.target.value as NoteKind)}
+                className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+              >
+                {KINDS.map((k) => (
+                  <option key={k} value={k}>
+                    {t(locale, KIND_KEYS[k])}
+                  </option>
+                ))}
+              </select>
+            </label>
             <DateTimeField label={t(locale, 'note_when')} value={when} onChange={setWhen} />
           </div>
         )}

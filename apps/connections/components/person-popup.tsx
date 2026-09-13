@@ -227,27 +227,50 @@ export function PersonPopupProvider({
                 </a>
               </div>
 
-              {/* How you know them — the one thing about a person this app
-                  asks a human to answer, and the field the landscape's
-                  `closeness` axis reads. Above the composer on purpose: it is
-                  the thing somebody wants to press the moment they put the
-                  phone down, and below a note box it would be below the fold
-                  on every phone. Keyed by person so it never shows the last
-                  person's rating while the new one loads. */}
-              <RelationshipCard key={`rel-${person.id}`} personId={person.id} locale={locale} />
+              {/* Two folds. Sjoerd, 2026-09-13: *"Maybe they can be like an
+                  accordeon: Relation / What happened"*.
 
-              {/* The same composer the page uses, reloading the list INSIDE
-                  the dialog on commit rather than refreshing the page under
-                  it — see Notes' onCommitted. Keyed by person so switching
-                  people never carries a half-typed draft across. */}
-              <Notes
-                key={person.id}
-                personId={person.id}
-                personName={name}
-                notes={notes}
-                locale={locale}
-                onCommitted={() => void load(person.id)}
-              />
+                  `<details>` rather than a component: this is exactly what
+                  the element is for, it needs no JavaScript, it is keyboard
+                  and screen-reader correct for free, and it keeps its own
+                  state. Inventing an Accordion component to do worse would be
+                  the wrong trade.
+
+                  WHAT HAPPENED is open and RELATION is not, because the
+                  reason somebody opens this popup is almost always to type
+                  one line after a conversation. The other is a judgement they
+                  make occasionally. */}
+              <details className="group mt-4 rounded-md border border-line bg-surface-raised px-3 py-2">
+                <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-ink-subtle marker:content-none">
+                  {t(locale, 'popup_relation')}
+                </summary>
+                <div className="pb-1 pt-2">
+                  {/* Keyed by person so it never shows the last person's
+                      rating while the new one loads. */}
+                  <RelationshipCard key={`rel-${person.id}`} personId={person.id} locale={locale} />
+                </div>
+              </details>
+
+              <details
+                open
+                className="group mt-2 rounded-md border border-line bg-surface-raised px-3 py-2"
+              >
+                <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-ink-subtle marker:content-none">
+                  {t(locale, 'popup_what_happened')}
+                </summary>
+                {/* The same composer the page uses, reloading the list INSIDE
+                    the dialog on commit rather than refreshing the page under
+                    it — see Notes' onCommitted. Keyed by person so switching
+                    people never carries a half-typed draft across. */}
+                <Notes
+                  key={person.id}
+                  personId={person.id}
+                  personName={name}
+                  notes={notes}
+                  locale={locale}
+                  onCommitted={() => void load(person.id)}
+                />
+              </details>
             </div>
           )}
         </Dialog>

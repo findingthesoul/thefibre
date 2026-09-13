@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.45] — 2026-09-13 — A popup you can take in at a glance (staging)
+
+**Connections — the person popup folds into two.** How you know them, and what
+happened. The second is open, because the reason to open somebody is almost
+always to type one line after a conversation; the first is a judgement you make
+occasionally.
+
+**Nine chips became three lists.** How close and how you met are dropdowns, and
+so is the follow-up — with **nothing planned already chosen**, since most notes
+have no next action and pressing a chip to say so was a question asked to get
+the answer it already had. The follow-up now offers a week, two weeks, a month,
+or a date you pick.
+
+**A sixth kind of contact: you ran into them.** Not a meeting, not a call.
+
+**The density slider was nearly invisible** — a hairline track and a small grey
+thumb. It now has a real track, a thumb you can see and hit with a finger, and
+a label in full-strength ink.
+
 ## [0.73.44] — 2026-09-13 — Two checkboxes that now say what they do (staging)
 
 **Connections — "key contact" and "speaks for us" explain themselves.** Both

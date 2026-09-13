@@ -828,6 +828,54 @@ const CATALOG = {
     de: 'in einem Monat', // MT
     fr: 'dans un mois', // MT
   },
+  rel_source_unknown: {
+    en: 'Not said',
+    nl: 'Niet gezegd',
+    es: 'Sin indicar', // MT
+    pt: 'Não indicado', // MT
+    de: 'Nicht gesagt', // MT
+    fr: 'Non précisé', // MT
+  },
+  note_kind_encounter: {
+    en: 'Ran into them',
+    nl: 'Tegengekomen',
+    es: 'Me los encontré', // MT
+    pt: 'Encontrei-os', // MT
+    de: 'Zufällig getroffen', // MT
+    fr: 'Croisé par hasard', // MT
+  },
+  note_followup_two_weeks: {
+    en: 'in two weeks',
+    nl: 'Over twee weken',
+    es: 'En dos semanas', // MT
+    pt: 'Daqui a duas semanas', // MT
+    de: 'In zwei Wochen', // MT
+    fr: 'Dans deux semaines', // MT
+  },
+  note_followup_exact: {
+    en: 'on a date…',
+    nl: 'Op een datum…',
+    es: 'En una fecha…', // MT
+    pt: 'Numa data…', // MT
+    de: 'An einem Datum…', // MT
+    fr: 'À une date…', // MT
+  },
+  popup_relation: {
+    en: 'How you know them',
+    nl: 'Hoe je diegene kent',
+    es: 'Cómo le conoces', // MT
+    pt: 'Como o conheces', // MT
+    de: 'Woher ihr euch kennt', // MT
+    fr: 'Comment vous la connaissez', // MT
+  },
+  popup_what_happened: {
+    en: 'What happened',
+    nl: 'Wat er gebeurde',
+    es: 'Qué pasó', // MT
+    pt: 'O que aconteceu', // MT
+    de: 'Was passiert ist', // MT
+    fr: 'Ce qui s’est passé', // MT
+  },
   note_followup_none: {
     en: 'nothing planned',
     nl: 'niets gepland',

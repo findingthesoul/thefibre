@@ -9,6 +9,13 @@
 // `relationship_strength`, and nothing in this app had ever written it, so
 // that axis showed everybody as `unrated` for ever.
 //
+// ── Compact, because it shares a popup ─────────────────────────────────────
+//
+// Sjoerd, 2026-09-13: *"Can that page be more compact: Maybe both Closeness as
+// How we met can be dropdowns."* They were nine chips across two wrapping
+// rows, which is a lot of screen for two answers — and this card sits above a
+// note box somebody opened in order to type. Two lists, one row.
+//
 // ── Every control saves itself ─────────────────────────────────────────────
 //
 // No Save button, because there is no form here — each control is a separate
@@ -124,62 +131,47 @@ export function RelationshipCard({
   const source = value?.source ?? null;
 
   return (
-    <section className="mt-4 rounded-md border border-line bg-surface-raised px-3 py-3">
-      <h3 className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
-        {t(locale, 'rel_title')}
-      </h3>
-
-      <div className="mt-2">
-        <span className="text-xs text-ink-muted">{t(locale, 'rel_strength')}</span>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {STRENGTHS.map((s) => {
-            const on = strength === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                // Pressing the one that is on clears it — back to unrated.
-                onClick={() => void patch({ relationship_strength: on ? null : s })}
-                aria-pressed={on}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                  on
-                    ? 'border-ink bg-ink text-surface'
-                    : 'border-line bg-surface text-ink-muted hover:text-ink'
-                }`}
-              >
+    <section>
+      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+        <label className="flex items-center gap-2">
+          <span className="text-xs text-ink-muted">{t(locale, 'rel_strength')}</span>
+          <select
+            value={strength ?? ''}
+            // '' is the empty option and means unrated — a real answer, not
+            // an absence, so it has to be choosable and not only reachable by
+            // pressing something twice.
+            onChange={(e) =>
+              void patch({ relationship_strength: (e.target.value || null) as Strength | null })
+            }
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+          >
+            <option value="">{t(locale, 'band_unrated')}</option>
+            {STRENGTHS.map((s) => (
+              <option key={s} value={s}>
                 {t(locale, STRENGTH_KEYS[s])}
-              </button>
-            );
-          })}
-        </div>
-        <p className="mt-1.5 text-xs text-ink-subtle">
-          {strength ? t(locale, 'rel_strength_clear') : t(locale, 'rel_unrated')}
-        </p>
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2">
+          <span className="text-xs text-ink-muted">{t(locale, 'rel_source')}</span>
+          <select
+            value={source ?? ''}
+            onChange={(e) => void patch({ source: (e.target.value || null) as Source | null })}
+            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+          >
+            <option value="">{t(locale, 'rel_source_unknown')}</option>
+            {SOURCES.map((s) => (
+              <option key={s} value={s}>
+                {t(locale, SOURCE_KEYS[s])}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
 
-      <div className="mt-3">
-        <span className="text-xs text-ink-muted">{t(locale, 'rel_source')}</span>
-        <div className="mt-1.5 flex flex-wrap gap-1.5">
-          {SOURCES.map((s) => {
-            const on = source === s;
-            return (
-              <button
-                key={s}
-                type="button"
-                onClick={() => void patch({ source: on ? null : s })}
-                aria-pressed={on}
-                className={`rounded-full border px-3 py-1 text-xs transition-colors ${
-                  on
-                    ? 'border-ink bg-ink text-surface'
-                    : 'border-line bg-surface text-ink-muted hover:text-ink'
-                }`}
-              >
-                {t(locale, SOURCE_KEYS[s])}
-              </button>
-            );
-          })}
-        </div>
-      </div>
+      {!strength && <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'rel_unrated')}</p>}
 
       <IntroducedBy
         locale={locale}
