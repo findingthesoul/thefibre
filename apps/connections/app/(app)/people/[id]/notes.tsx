@@ -701,7 +701,18 @@ export function Notes({
             themselves in a popup meant to be read at a glance, and asking
             somebody to press "nothing planned" was asking a question to get
             the answer it already had. */}
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        {/* ONE row: follow-up always, kind and when when you open them.
+            Sjoerd, 2026-09-13: *"Follow up [select] | Kind: [select] | Date :
+            [date] can go in 1 row and open..."*. They had been three stacked
+            blocks with a rule between them, which is a lot of vertical space
+            for three small answers in a popup meant to be read at a glance.
+
+            Kind and when stay behind the disclosure rather than becoming
+            always-visible: they are DEFAULTED, and putting three controls on
+            screen before somebody has typed a word is the interrogation this
+            composer was built to avoid. Opening them now widens the row that
+            is already there instead of adding two more. */}
+        <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
           <label className="flex items-center gap-2">
             <span className="text-xs text-ink-muted">{t(locale, 'note_followup')}</span>
             <select
@@ -716,39 +727,48 @@ export function Notes({
               ))}
             </select>
           </label>
+
+          {/* The shared date field, not a native input. This app's rule is
+              that dates always go through DateField — it carries the locale's
+              own ordering and the picker people already know. A native
+              `datetime-local` shipped here on 2026-09-13 and was wrong for
+              exactly that reason. */}
           {followUp === 'exact' && (
-            <input
-              type="datetime-local"
-              value={followUpExact}
-              onChange={(e) => setFollowUpExact(e.target.value)}
-              aria-label={t(locale, 'note_followup_exact')}
-              className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-            />
+            <div className="min-w-[13rem]">
+              <DateTimeField
+                value={followUpExact}
+                onChange={setFollowUpExact}
+                label={undefined}
+              />
+            </div>
+          )}
+
+          {details && (
+            <>
+              <label className="flex items-center gap-2">
+                <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
+                <select
+                  value={kind}
+                  onChange={(e) => setKind(e.target.value as NoteKind)}
+                  className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
+                >
+                  {KINDS.map((k) => (
+                    <option key={k} value={k}>
+                      {t(locale, KIND_KEYS[k])}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="flex items-center gap-2">
+                <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'note_when')}</span>
+                <span className="min-w-[13rem]">
+                  <DateTimeField value={when} onChange={setWhen} label={undefined} />
+                </span>
+              </label>
+            </>
           )}
         </div>
-
-        {/* Kind and when: defaulted, editable, never asked. A list rather than
-            six chips — the vocabulary grew to six on 2026-09-13 and a chip row
-            that wraps is worse than a control that does not. */}
-        {details && (
-          <div className="mt-3 space-y-3 border-t border-line pt-3">
-            <label className="flex flex-wrap items-center gap-2">
-              <span className="text-xs text-ink-muted">{t(locale, 'kind')}</span>
-              <select
-                value={kind}
-                onChange={(e) => setKind(e.target.value as NoteKind)}
-                className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-              >
-                {KINDS.map((k) => (
-                  <option key={k} value={k}>
-                    {t(locale, KIND_KEYS[k])}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <DateTimeField label={t(locale, 'note_when')} value={when} onChange={setWhen} />
-          </div>
-        )}
 
         <div className="mt-3 flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-3">

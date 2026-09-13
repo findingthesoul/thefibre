@@ -288,6 +288,18 @@ export function PersonPopupProvider({
                 ))}
               </div>
 
+              {/* A floor under both panels. Sjoerd, 2026-09-13: *"Give a
+                  window a minium height so it is more calm switching between
+                  tabs."* The two differ a lot — a handful of controls against
+                  a composer and a timeline — so the dialog jumped every time
+                  somebody pressed a tab, and the buttons they had just pressed
+                  moved under the cursor.
+
+                  A floor, not a fixed height: matching the TALLER panel would
+                  leave a screenful of nothing under the shorter one, and a
+                  dialog that is mostly empty is its own kind of wrong. This
+                  stops the collapse, which is the jump people actually feel. */}
+              <div className="min-h-[22rem]">
               {/* Both stay MOUNTED, and only one is shown. Unmounting the
                   composer would throw away a half-typed note the moment
                   somebody glanced at the other tab. */}
@@ -315,6 +327,7 @@ export function PersonPopupProvider({
                   locale={locale}
                   onCommitted={() => void load(person.id)}
                 />
+              </div>
               </div>
             </div>
           )}

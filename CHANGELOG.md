@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.48] — 2026-09-13 — A calmer popup (staging)
+
+**Connections — switching tabs no longer moves the window.** The two panels
+differ a lot in height, so the dialog jumped every time you pressed a tab and
+the button you had just pressed moved under the cursor. There is a floor under
+both now — a floor rather than a fixed height, because matching the taller one
+would leave a screenful of nothing under the shorter.
+
+**Follow-up, kind and when share one row.** They were three stacked blocks with
+a rule between them: a lot of vertical space for three small answers. Kind and
+when still stay behind "Kind and when" rather than becoming always-visible —
+they are already right, and three controls on screen before you have typed a
+word is the interrogation this composer exists to avoid.
+
+**And the exact follow-up date uses the proper date field**, like every other
+date in the family, rather than the browser's own.
+
 ## [0.73.47] — 2026-09-13 — How you met asks one question, not all of them (staging)
 
 **Connections — each way of meeting now asks for what it needs.** "At
