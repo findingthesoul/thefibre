@@ -18,12 +18,41 @@
 //
 // ── The forces, all of them ────────────────────────────────────────────────
 //
+// ── Wide, because a screen is wide (Sjoerd, 2026-09-13) ────────────────────
+//
+// *"Make it more wide... spread out... Make it wide over the screen."* The
+// cloud is an ELLIPSE, not a circle: the ring a name is pulled to is stretched
+// horizontally by ASPECT, so the names use the width a monitor actually has
+// instead of leaving two empty columns either side of a disc.
+//
+// ── Never fixed (same message) ─────────────────────────────────────────────
+//
+// *"by dragging, you could see people coming in... and moving out.. it is
+// always a bit moving... not fixed.... so you can move it around, and make
+// things visible that are a bit hidden."*
+//
+// Two things do that. A dragged name is `held`: it follows the pointer and
+// every other name reacts, which is how you shake something out from behind a
+// neighbour. And the cloud never fully freezes — a slow WANDER keeps it
+// breathing, so it reads as alive rather than as a diagram.
+//
 //   the centre      pulled to (0, 0)
 //   a neighbour     pulled to a ring whose radius is its weight: the most
 //                   valuable connection sits closest
 //   two linked      pulled together, so people who share something sit near
 //   neighbours      each other and the web shows the community's own shape
 //                   rather than a star
+//   every pair      pushed apart, weakly and at a distance.
+//   every name      steered toward its own direction around the ring
+//
+// ── Directions are assigned, not hoped for ─────────────────────────────────
+//
+// The forces alone do not spread the names. Link springs pull clusters
+// together and the whole cloud slides onto one side of the centre, leaving the
+// other half empty — seen twice in the browser, at two different sizes. So
+// each name is given a slot around the ring and steered toward it
+// (`assignBearings`), and the springs only refine what the slots decide.
+// Emergent spreading looked elegant and did not work.
 //   two labels      pushed apart when their names would overlap
 //   everything      damped, so it settles instead of orbiting
 //
@@ -68,10 +97,28 @@ export type WebNode = {
   /** Approximate label width, so names do not sit on top of each other. */
   width: number;
   centre: boolean;
+  /**
+   * Held by the pointer. It follows the finger exactly and feels no forces,
+   * while everything else keeps reacting to it — that is what makes dragging
+   * reveal a name hidden behind another.
+   */
+  held?: boolean;
+  /**
+   * A direction this name would rather sit in, in radians, measured in the
+   * squashed space the ellipse is round in.
+   *
+   * Used for ONE thing: the name you came from. The glide leaves it exactly
+   * opposite the name you clicked, and then the settling — crowding, a wider
+   * cloud, stiffer horizontal springs — rotates it away, far enough in the
+   * worst case to land back on the side you clicked from. Since "it went to
+   * the opposite side" is the whole point of the movement, it is held there
+   * on purpose rather than left to emerge.
+   */
+  bearing?: number;
 };
 
-export const R_MIN = 130;
-export const R_MAX = 270;
+export const R_MIN = 250;
+export const R_MAX = 365;
 
 /** Closer for a stronger connection. `weight` is relative to the strongest. */
 export function targetRadius(weight: number, maxWeight: number): number {
@@ -96,6 +143,15 @@ export function seedPosition(id: string, from: { x: number; y: number }): { x: n
   return { x: from.x + Math.cos(angle) * 40, y: from.y + Math.sin(angle) * 40 };
 }
 
+/** How much wider than tall the cloud sits. A 16:9 screen wants about this. */
+export const ASPECT = 1.75;
+/** The slow breathing that keeps it from looking frozen. */
+const WANDER = 0.035;
+const WANDER_SPEED = 0.0007;
+
+/** How firmly a name with a preferred direction is kept in it. */
+const BEARING_PULL = 0.08;
+
 const RADIAL = 0.06;
 const CENTRING = 0.12;
 const REPEL = 0.5;
@@ -108,6 +164,9 @@ const GLIDE_SPRING = 0.15;
 /** A link's pull, and how close it wants its two ends. */
 const LINK_PULL = 0.012;
 const LINK_REST = 150;
+/** The weak all-pairs push that keeps linked clusters from collapsing. */
+const CHARGE = 2200;
+const CHARGE_MAX = 1.8;
 
 /** A tie between two people already on screen. */
 export type WebLink = { a: string; b: string; weight: number };
@@ -159,23 +218,42 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
   }
 
   for (const n of nodes) {
+    // A held name is wherever the pointer put it. Everything else still feels
+    // it, through the repulsion and links below.
+    if (n.held) {
+      n.vx = 0;
+      n.vy = 0;
+      continue;
+    }
     if (n.centre) {
       n.vx += -n.x * CENTRING * springs;
       n.vy += -n.y * CENTRING * springs;
       continue;
     }
-    let d = Math.hypot(n.x, n.y);
+    // Measured in a space squashed horizontally, so the ring it is pulled to
+    // is an ellipse: wide like the screen.
+    const ex = n.x / ASPECT;
+    let d = Math.hypot(ex, n.y);
     if (d < 0.001) {
       // Exactly on the centre has no direction to be pushed in; give it one
       // from its id rather than from Math.random, so runs repeat.
       const a = unitHash(n.id, 5) * Math.PI * 2;
-      n.x = Math.cos(a);
+      n.x = Math.cos(a) * ASPECT;
       n.y = Math.sin(a);
       d = 1;
     }
     const pull = (n.targetR - d) * RADIAL * springs;
-    n.vx += (n.x / d) * pull;
+    n.vx += (ex / d) * pull * ASPECT;
     n.vy += (n.y / d) * pull;
+
+    // Keep a preferred direction, if it has one. Acts sideways only, so it
+    // steers without arguing with the ring above about distance.
+    if (n.bearing !== undefined) {
+      const want = { x: Math.cos(n.bearing), y: Math.sin(n.bearing) };
+      const off = { x: want.x * d - ex, y: want.y * d - n.y };
+      n.vx += off.x * BEARING_PULL * springs * ASPECT;
+      n.vy += off.y * BEARING_PULL * springs;
+    }
   }
 
   // Labels are wide and short, so overlap is tested as boxes, not circles.
@@ -185,6 +263,21 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
       const b = nodes[j]!;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
+      if (!a.centre && !b.centre && !(a.held && b.held)) {
+        // Inverse-square, floored so two names seeded on top of each other do
+        // not fire apart, and capped so it never overpowers the ring.
+        const d2 = Math.max(dx * dx + dy * dy, 900);
+        const dd = Math.sqrt(d2);
+        const f = Math.min((CHARGE / d2) * springs, CHARGE_MAX);
+        if (!a.held) {
+          a.vx -= (dx / dd) * f;
+          a.vy -= (dy / dd) * f;
+        }
+        if (!b.held) {
+          b.vx += (dx / dd) * f;
+          b.vy += (dy / dd) * f;
+        }
+      }
       const overlapX = (a.width + b.width) / 2 - Math.abs(dx);
       const overlapY = ROW_HEIGHT - Math.abs(dy);
       if (overlapX <= 0 || overlapY <= 0) continue;
@@ -192,9 +285,12 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
       const alongX = overlapX < overlapY;
       const amount = (alongX ? overlapX : overlapY) * REPEL * 0.5;
       const sign = alongX ? Math.sign(dx) || 1 : Math.sign(dy) || 1;
-      // The centre does not get pushed around by its own neighbours.
-      const shareA = a.centre ? 0 : b.centre ? 1 : 0.5;
-      const shareB = 1 - shareA;
+      // The centre does not get pushed around by its own neighbours, and a
+      // held name does not get pushed off the pointer.
+      let shareA = a.centre || a.held ? 0 : b.centre || b.held ? 1 : 0.5;
+      let shareB = 1 - shareA;
+      if (a.held) shareA = 0;
+      if (b.held) shareB = 0;
       if (alongX) {
         a.vx -= sign * amount * shareA * 2;
         b.vx += sign * amount * shareB * 2;
@@ -214,19 +310,25 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
       const a = byId.get(l.a);
       const b = byId.get(l.b);
       if (!a || !b || a.centre || b.centre) continue;
+      if (a.held && b.held) continue;
       const dx = b.x - a.x;
       const dy = b.y - a.y;
       const d = Math.hypot(dx, dy) || 1;
       const f = (d - LINK_REST) * LINK_PULL * Math.min(1, l.weight) * springs;
-      a.vx += (dx / d) * f;
-      a.vy += (dy / d) * f;
-      b.vx -= (dx / d) * f;
-      b.vy -= (dy / d) * f;
+      if (!a.held) {
+        a.vx += (dx / d) * f;
+        a.vy += (dy / d) * f;
+      }
+      if (!b.held) {
+        b.vx -= (dx / d) * f;
+        b.vy -= (dy / d) * f;
+      }
     }
   }
 
   let energy = 0;
   for (const n of nodes) {
+    if (n.held) continue; // the pointer owns this one
     n.vx *= DAMPING;
     n.vy *= DAMPING;
     n.x += n.vx;
@@ -234,6 +336,28 @@ export function step(nodes: WebNode[], links: WebLink[] = [], pan?: Pan): number
     energy += n.vx * n.vx + n.vy * n.vy;
   }
   return energy;
+}
+
+/**
+ * The breathing. A slow, tiny drift per name so the cloud is never a frozen
+ * diagram — Sjoerd: *"it is always a bit moving... not fixed"*.
+ *
+ * Kept OUT of `step` on purpose: `step` must be able to come to rest, or
+ * `settle` would never return and the tests could not measure anything. The
+ * component calls this each frame instead, and skips it when the viewer asked
+ * for reduced motion.
+ *
+ * Deterministic in `t`, so it is a drift and not a jitter: each name traces its
+ * own slow circle, sized well under a letter's width.
+ */
+export function wander(nodes: WebNode[], t: number): void {
+  for (const n of nodes) {
+    if (n.held || n.centre) continue;
+    const phase = unitHash(n.id, 11) * Math.PI * 2;
+    const speed = 0.6 + unitHash(n.id, 13) * 0.8;
+    n.x += Math.cos(t * WANDER_SPEED * speed + phase) * WANDER * ASPECT;
+    n.y += Math.sin(t * WANDER_SPEED * speed * 1.3 + phase) * WANDER;
+  }
 }
 
 /** Run until still, or `maxSteps`. For tests and for reduced motion. */
@@ -257,4 +381,34 @@ export function fontSize(strength: number, centre: boolean): number {
   if (centre) return CENTRE_FONT;
   const s = Math.max(0, Math.min(1, strength));
   return Math.round((MIN_FONT + s * (MAX_FONT - MIN_FONT)) * 10) / 10;
+}
+
+/**
+ * Give every name its own direction around the ring, evenly spaced.
+ *
+ * `anchor`, when given, is a direction that one node MUST keep — the name you
+ * came from, which belongs exactly opposite the name you clicked. It takes the
+ * first slot and everything else is spaced around from there.
+ *
+ * Order is by strength, so the arrangement is stable: the same neighbourhood
+ * lays out the same way twice, and turning the density slider moves the names
+ * that were added or removed rather than reshuffling the lot.
+ */
+export function assignBearings(
+  nodes: WebNode[],
+  anchor?: { id: string; bearing: number },
+): void {
+  const around = nodes.filter((n) => !n.centre);
+  if (!around.length) return;
+  const anchored = anchor ? around.find((n) => n.id === anchor.id) : undefined;
+  const rest = around.filter((n) => n !== anchored);
+  // Strongest first. targetR is smaller for stronger, so ascending targetR.
+  rest.sort((a, b) => a.targetR - b.targetR || a.id.localeCompare(b.id));
+  const ordered = anchored ? [anchored, ...rest] : rest;
+  // With no anchor, start at the top so a small cloud looks deliberate.
+  const base = anchor ? anchor.bearing : -Math.PI / 2;
+  const step = (Math.PI * 2) / ordered.length;
+  ordered.forEach((n, i) => {
+    n.bearing = base + step * i;
+  });
 }

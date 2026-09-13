@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ASPECT,
   GLIDE_FRAMES,
   R_MAX,
   R_MIN,
@@ -11,6 +12,7 @@ import {
   settle,
   step,
   targetRadius,
+  wander,
   type WebNode,
 } from './web-layout';
 
@@ -42,8 +44,12 @@ describe('the moving web', () => {
   });
 
   it('comes to rest instead of orbiting', () => {
+    // About 1200 frames, not 600: the all-pairs push that keeps linked
+    // clusters from collapsing also lengthens the tail of the settling. The
+    // visible movement is over long before that — what remains is drift too
+    // small to see — but it does come to rest, and that is worth holding.
     const nodes = web({ Joost: 3, Aniek: 2, Marja: 1, Daniel: 1, Femke: 2 });
-    expect(settle(nodes)).toBeLessThan(0.01);
+    expect(settle(nodes, 1500)).toBeLessThanOrEqual(0.01);
   });
 
   it('puts the most valuable connection closest', () => {
@@ -115,8 +121,12 @@ describe('the glide: clicking moves the whole cloud', () => {
     for (const n of nodes) {
       n.centre = n.id === target;
       if (n.centre) n.targetR = 0;
-      else if (n === oldCentre) n.targetR = targetRadius(0, 1);
-      else n.targetR = targetRadius(weights[n.id] ?? 1, max);
+      else if (n === oldCentre) {
+        n.targetR = targetRadius(0, 1);
+        // Opposite the name that was clicked, measured in the squashed space
+        // the ellipse is round in — exactly what the component sets.
+        n.bearing = Math.atan2(-came.y, -came.x / ASPECT);
+      } else n.targetR = targetRadius(weights[n.id] ?? 1, max);
     }
     settle(nodes, 1500, [], pan);
     let diff = Math.abs(Math.atan2(oldCentre.y, oldCentre.x) - Math.atan2(came.y, came.x));
@@ -137,18 +147,11 @@ describe('the glide: clicking moves the whole cloud', () => {
     expect(Math.hypot(clicked.x, clicked.y)).toBeLessThan(3);
   });
 
-  it('never leaves the name you came from on the side you clicked', () => {
-    // The floor, across sixteen cases. Measured worst case is about 105
-    // degrees, in the hardest one: eight equally-weighted names competing for
-    // a single ring.
-    for (const a of allAngles()) expect(a).toBeGreaterThan(95);
-  });
-
-  it('usually puts it clearly opposite, not merely off to one side', () => {
-    // The typical case is what you actually see: the median sits near 148.
-    const sorted = allAngles().sort((x, y) => x - y);
-    const median = sorted[Math.floor(sorted.length / 2)]!;
-    expect(median).toBeGreaterThan(135);
+  it('puts the name you came from exactly opposite the one you clicked', () => {
+    // Measured across sixteen cases: 175 to 180 degrees. It is this reliable
+    // because the bearing is held on purpose — left to the settling alone it
+    // drifted as far as 85 degrees, i.e. back onto the side you clicked from.
+    for (const a of allAngles()) expect(a).toBeGreaterThan(170);
   });
 });
 
@@ -247,5 +250,131 @@ describe('the glide eases in and out', () => {
     expect(easeInOut(0.5)).toBeCloseTo(0.5, 5);
     expect(easeInOut(0.25)).toBeLessThan(0.25);
     expect(easeInOut(0.75)).toBeGreaterThan(0.75);
+  });
+});
+
+describe('wide, because a screen is wide', () => {
+  it('spreads the cloud further sideways than up and down', () => {
+    const nodes = web({ A: 1, B: 1, C: 1, D: 1, E: 1, F: 1, G: 1, H: 1 });
+    settle(nodes, 2000);
+    const around = nodes.filter((n) => !n.centre);
+    const width = Math.max(...around.map((n) => Math.abs(n.x)));
+    const height = Math.max(...around.map((n) => Math.abs(n.y)));
+    expect(width).toBeGreaterThan(height * 1.3);
+  });
+});
+
+describe('dragging a name', () => {
+  it('leaves the held name exactly where the pointer put it', () => {
+    const nodes = web({ Joost: 2, Aniek: 1, Marja: 1 });
+    settle(nodes);
+    const held = nodes.find((n) => n.id === 'Joost')!;
+    held.held = true;
+    held.x = 40;
+    held.y = -25;
+    for (let i = 0; i < 60; i += 1) step(nodes);
+    expect([held.x, held.y]).toEqual([40, -25]);
+  });
+
+  it('makes the others move out of its way, which is how a hidden name appears', () => {
+    const nodes = web({ Joost: 1, Aniek: 1, Marja: 1 });
+    settle(nodes, 2000);
+    const held = nodes.find((n) => n.id === 'Joost')!;
+    const other = nodes.find((n) => n.id === 'Aniek')!;
+    const before = { x: other.x, y: other.y };
+    // Drag Joost right on top of Aniek.
+    held.held = true;
+    held.x = other.x;
+    held.y = other.y;
+    for (let i = 0; i < 120; i += 1) step(nodes);
+    const moved = Math.hypot(other.x - before.x, other.y - before.y);
+    expect(moved).toBeGreaterThan(10);
+  });
+
+  it('lets go cleanly, and the cloud settles again', () => {
+    const nodes = web({ Joost: 2, Aniek: 1 });
+    settle(nodes);
+    const held = nodes.find((n) => n.id === 'Joost')!;
+    held.held = true;
+    held.x = 30;
+    held.y = 30;
+    for (let i = 0; i < 30; i += 1) step(nodes);
+    held.held = false;
+    expect(settle(nodes, 2000)).toBeLessThan(0.01);
+  });
+});
+
+describe('the breathing', () => {
+  it('keeps the cloud moving after it has settled', () => {
+    const nodes = web({ Joost: 2, Aniek: 1 });
+    settle(nodes);
+    const before = nodes.map((n) => ({ x: n.x, y: n.y }));
+    for (let t = 0; t < 400; t += 16) wander(nodes, t);
+    const moved = nodes.map((n, i) => Math.hypot(n.x - before[i]!.x, n.y - before[i]!.y));
+    expect(Math.max(...moved)).toBeGreaterThan(0);
+  });
+
+  it('drifts far less than a name is wide, so it reads as alive and not as jitter', () => {
+    const nodes = web({ Joost: 2, Aniek: 1, Marja: 1 });
+    settle(nodes);
+    const before = nodes.map((n) => ({ x: n.x, y: n.y }));
+    for (let t = 0; t < 4000; t += 16) wander(nodes, t);
+    const moved = nodes.map((n, i) => Math.hypot(n.x - before[i]!.x, n.y - before[i]!.y));
+    expect(Math.max(...moved)).toBeLessThan(25);
+  });
+
+  it('never moves the name in the middle, or a name being dragged', () => {
+    const nodes = web({ Joost: 2, Aniek: 1 });
+    settle(nodes);
+    const centre = nodes[0]!;
+    const held = nodes.find((n) => n.id === 'Joost')!;
+    held.held = true;
+    const cBefore = { x: centre.x, y: centre.y };
+    const hBefore = { x: held.x, y: held.y };
+    for (let t = 0; t < 2000; t += 16) wander(nodes, t);
+    expect([centre.x, centre.y]).toEqual([cBefore.x, cBefore.y]);
+    expect([held.x, held.y]).toEqual([hBefore.x, hBefore.y]);
+  });
+});
+
+describe('links must not drag the whole cloud to one side', () => {
+  /** The widest empty wedge, in degrees, measured where the ellipse is round. */
+  function widestGap(ids: string[], stride: number) {
+    const weights: Record<string, number> = {};
+    ids.forEach((id, k) => {
+      weights[id] = 1 - k * 0.08;
+    });
+    const nodes = web(weights);
+    const links = [];
+    for (let k = 0; k + 1 < ids.length; k += stride) links.push({ a: ids[k]!, b: ids[k + 1]!, weight: 0.9 });
+    settle(nodes, 3000, links);
+    const angles = nodes
+      .filter((n) => !n.centre)
+      .map((n) => Math.atan2(n.y, n.x / ASPECT))
+      .sort((x, y) => x - y);
+    const gaps = angles.map((a, i) => (i === 0 ? a + Math.PI * 2 - angles[angles.length - 1]! : a - angles[i - 1]!));
+    return (Math.max(...gaps) * 180) / Math.PI;
+  }
+
+  const SETS = [
+    ['Joost de Graaf', 'Aniek Smit', 'Marja van Dam', 'Daniel Okafor', 'Femke Bos', 'Pieter Jansen', 'Lotte Visser', 'Sanne de Wit', 'Ruben Mulder', 'Eva Kok', 'EBBF'],
+    ['Name number 0', 'Name number 1', 'Name number 2', 'Name number 3', 'Name number 4', 'Name number 5', 'Name number 6', 'Name number 7', 'Name number 8', 'Name number 9', 'Name number 10'],
+    ['Bram', 'Sofie', 'Hugo', 'Iris', 'Karel', 'Lieve', 'Mees', 'Nina', 'Otto', 'Puck', 'Quinn', 'Rosa'],
+  ];
+
+  it('leaves no empty half when several names are linked in chains', () => {
+    // Real communities cluster, and the link springs happily drag a whole
+    // chain to one side: seen in the browser with every name left of the
+    // middle. The all-pairs push is what prevents it.
+    //
+    // Measured over these six cases: with the push the widest empty wedge is
+    // 63-90 degrees; without it, 107-171. The bar sits between them, and a
+    // counted left-versus-right split does NOT separate the two — it was the
+    // first thing tried and it passed either way.
+    for (const ids of SETS) {
+      for (const stride of [2, 3]) {
+        expect(widestGap(ids, stride), `${ids[0]} / stride ${stride}`).toBeLessThan(100);
+      }
+    }
   });
 });

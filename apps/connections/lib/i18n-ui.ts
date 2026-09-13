@@ -7064,6 +7064,22 @@ const CATALOG = {
     de: 'Deine Gemeinschaft als Wolke. Der Name in der Mitte ist, wo du stehst; die Namen darum herum sind seine Verbindungen, näher und größer, je stärker sie sind. Klicke auf einen Namen, um dorthin zu gehen.', // MT
     fr: 'Votre communauté comme un nuage. Le nom au centre est là où vous êtes ; ceux autour sont ses liens, plus près et plus grands quand ils sont plus forts. Cliquez sur un nom pour y aller.', // MT
   },
+  map_density: {
+    en: 'How many names',
+    nl: 'Hoeveel namen',
+    es: 'Cuántos nombres', // MT
+    pt: 'Quantos nomes', // MT
+    de: 'Wie viele Namen', // MT
+    fr: 'Combien de noms', // MT
+  },
+  map_drag_hint: {
+    en: 'Drag a name to move it; the others give way.',
+    nl: 'Sleep een naam om die te verplaatsen; de anderen gaan opzij.',
+    es: 'Arrastra un nombre para moverlo; los demás se apartan.', // MT
+    pt: 'Arrasta um nome para o mover; os outros afastam-se.', // MT
+    de: 'Zieh einen Namen, um ihn zu bewegen; die anderen weichen aus.', // MT
+    fr: 'Faites glisser un nom pour le déplacer ; les autres s’écartent.', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);
