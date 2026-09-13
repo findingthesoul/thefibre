@@ -201,10 +201,63 @@ export const APPS: Record<AppId, AppBrand> = {
  * Pass `env` from your runtime (`process.env` on the server). Falls back to
  * the registry URL if the override is empty/undefined.
  */
-export function appUrl(slug: AppId, env?: Record<string, string | undefined>): string {
+/**
+ * The staging apex. The .tech stack is a full twin of production, and the same
+ * apps live on it under their own labels.
+ */
+export const STAGING_APEX = 'thefibre.tech';
+
+/** The label each app answers on, on the staging apex. Null = the apex itself. */
+const STAGING_LABEL: Record<AppId, string | null> = {
+  'fibre-platform': null,
+  'the-thread': 'thread',
+  'fibre-meet': 'meet',
+  'fibre-flow': 'flow',
+  'fibre-pulse': 'pulse',
+  membership: 'membership',
+  'fibre-sales': 'connections',
+  'fibre-learn': 'learn',
+};
+
+/** Is this host part of the staging stack? */
+export function isStagingHost(host?: string | null): boolean {
+  if (!host) return false;
+  const bare = host.split(':')[0]!.toLowerCase();
+  return bare === STAGING_APEX || bare.endsWith(`.${STAGING_APEX}`);
+}
+
+/** Where an app lives on the staging stack. */
+export function stagingAppUrl(slug: AppId): string {
+  const label = STAGING_LABEL[slug];
+  return label ? `https://${label}.${STAGING_APEX}` : `https://${STAGING_APEX}`;
+}
+
+/**
+ * Where an app lives.
+ *
+ * `urlEnv` wins, because a deployment may be told exactly where its siblings
+ * are. Failing that, THE HOST WE ARE BEING SERVED FROM decides: a page on
+ * `*.thefibre.tech` links to its siblings on `.tech`, not to production.
+ *
+ * That fallback exists because of what happens without it (Sjoerd, 2026-09-13,
+ * on staging: *"The menu brings me from .tech to .app"*). A staging project
+ * that has not been given every sibling's URL sends you to PRODUCTION from a
+ * menu, while you believe you are still on the test stack — so you would be
+ * editing real people's records thinking you were safe. The constants below
+ * are production, so a missing variable fails toward the live system, which is
+ * the wrong way round for a mistake to fall.
+ */
+export function appUrl(
+  slug: AppId,
+  env?: Record<string, string | undefined>,
+  /** The host serving this page, e.g. from Next's `headers()`. */
+  host?: string | null,
+): string {
   const meta = APPS[slug];
   const fromEnv = env?.[meta.urlEnv];
-  return (fromEnv && fromEnv.trim()) || meta.url;
+  if (fromEnv && fromEnv.trim()) return fromEnv.trim();
+  if (isStagingHost(host)) return stagingAppUrl(slug);
+  return meta.url;
 }
 
 /** The "from" line we want emails to use. Mirrors `EMAIL_FROM` env or builds

@@ -28,10 +28,18 @@ export function buildAppList({
   currentApp,
   memberships,
   workspaceApps,
+  host,
 }: {
   currentApp: AppId;
   memberships: Membership[];
   workspaceApps: WorkspaceApp[];
+  /**
+   * The host serving this page. Without it a staging deployment that was never
+   * given its siblings' URLs points the whole menu at PRODUCTION, so you leave
+   * the test stack without noticing (Sjoerd, 2026-09-13: "The menu brings me
+   * from .tech to .app"). See appUrl in @thefibre/shared.
+   */
+  host?: string | null;
 }): AppEntry[] {
   const memberSlugs = new Set(
     memberships.map((m) => slugOf(m.app)).filter((s): s is string => !!s),
@@ -59,7 +67,11 @@ export function buildAppList({
     ) {
       continue;
     }
-    out.push({ slug, name: meta.name, url: crossAppHref(currentApp, slug, process.env) });
+    out.push({
+      slug,
+      name: meta.name,
+      url: crossAppHref(currentApp, slug, process.env, undefined, host),
+    });
   }
   // Canonical display order (Sjoerd 2026-09-07): the platform first, then
   // the family as the launcher poster reads.
