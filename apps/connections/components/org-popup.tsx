@@ -38,6 +38,7 @@ import { usePersonPopup } from '@/components/person-popup';
 import { loadOrg, connectPerson, type OrgCard, type OrgMember } from '@/app/(app)/organisations/actions';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
 import { graphChanged } from '@/lib/graph-changed';
+import { safely } from '@/lib/safely';
 
 type Ctx = { openOrg: (id: string) => void };
 
@@ -281,7 +282,10 @@ function ConnectPerson({
     if (!chosen) return;
     setSaving(true);
     setError(null);
-    const r = await connectPerson(orgId, chosen.id, title);
+    const r = await safely(
+      () => connectPerson(orgId, chosen.id, title),
+      (error) => ({ ok: false as const, error }),
+    );
     setSaving(false);
     if (!r.ok) {
       setError(r.error === 'forbidden' ? t(locale, 'org_connect_forbidden') : r.error);

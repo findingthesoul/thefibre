@@ -61,11 +61,29 @@ function label(p: PersonRow | undefined | null, fallback: string) {
   return [p.first_name, p.last_name].filter(Boolean).join(' ').trim() || p.email || fallback;
 }
 
-async function peopleByIds(ids: string[]) {
+/**
+ * Names for a set of people.
+ *
+ * `workspaceId` is not optional and is not decoration. This runs on the
+ * SERVICE client, which bypasses RLS, so the tenant filter is ours — and a
+ * helper whose safety depends on every caller having scoped its ids first is
+ * one refactor away from leaking a name from another workspace. Today every
+ * caller does scope them (the ids come out of workspace-scoped functions);
+ * this makes that an enforced fact rather than a thing a reader has to go and
+ * verify at each call site.
+ *
+ * Soft-deleted and merged-away rows are left out for the same reason they are
+ * everywhere else: a name that should no longer be shown should no longer be
+ * shown, whichever surface is asking.
+ */
+async function peopleByIds(ids: string[], workspaceId: string) {
   if (ids.length === 0) return new Map<string, PersonRow>();
   const { data } = await adminClient
     .from('person')
     .select('id, first_name, last_name, email')
+    .eq('workspace_id', workspaceId)
+    .is('deleted_at', null)
+    .is('merged_into', null)
     .in('id', ids);
   return new Map(((data ?? []) as PersonRow[]).map((p) => [p.id, p]));
 }
@@ -243,7 +261,7 @@ connectionsEntriesRoutes.get('/entries', async (c) => {
   }
 
   const rows = (data ?? []) as unknown as EntryRow[];
-  const byId = await peopleByIds([...new Set(rows.map((r) => r.via_person_id))]);
+  const byId = await peopleByIds([...new Set(rows.map((r) => r.via_person_id))], ctx.workspaceId);
 
   // A path through somebody marked `sceptic` is a warning, not an
   // opportunity — so it never heads a list of opportunities, however strong

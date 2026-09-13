@@ -43,6 +43,7 @@ import {
   type BandLabels,
 } from '../../landscape/axes';
 import { saveAxisConfig, saveBandLabels } from '../actions';
+import { safely } from '@/lib/safely';
 
 export function NamesForm({
   initial,
@@ -133,12 +134,18 @@ function AxisNames({
       // goes first: if it fails on permission the band write would fail the
       // same way, and reporting the first refusal is clearer than reporting
       // the second.
-      const a = await saveAxisConfig({ [axis]: { title, hidden: !shown } });
+      const a = await safely(
+        () => saveAxisConfig({ [axis]: { title, hidden: !shown } }),
+        (error) => ({ ok: false as const, error }),
+      );
       if (!a.ok) {
         setError(a.error === 'forbidden' ? t(locale, 'names_forbidden') : a.error);
         return;
       }
-      const r = await saveBandLabels(axis, values);
+      const r = await safely(
+        () => saveBandLabels(axis, values),
+        (error) => ({ ok: false as const, error }),
+      );
       if (r.ok) {
         setSaved(true);
         // Long enough to notice, short enough not to sit there claiming a

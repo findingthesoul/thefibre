@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.41] — 2026-09-13 — A sweep through Connections: stuck spinners and tenant filters (staging)
+
+**Connections — five buttons could get stuck for ever, and now cannot.** Every
+server action in this app is written not to throw, which makes the call sites
+read as if nothing can go wrong. Half true: the CALL is still a network request,
+and a dropped connection means the line that clears "Saving…" is one of the
+lines that never runs. Nothing appears on screen — the button simply stops
+working until the page is reloaded. It had already shipped twice here. Saving
+band names, saving the axes, saving effort defaults, acting on a hygiene
+finding, connecting somebody to an organisation and switching workspace all go
+through one helper now, so a failed call becomes a message instead of a
+freeze.
+
+**And every read of a person now names the workspace it is reading.** Three
+service-role reads relied on their ids having been scoped somewhere earlier.
+They had been — this changes no behaviour — but that is a fact a reader had to
+go and verify, and it is the exact shape of every cross-tenant leak this
+codebase has had.
+
 ## [0.73.40] — 2026-09-13 — The map notices when you connect somebody (staging)
 
 **Connections — connecting a person now updates what is on screen.** The popup

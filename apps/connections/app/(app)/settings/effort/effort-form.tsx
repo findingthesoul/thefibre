@@ -10,6 +10,7 @@ import { Check } from 'lucide-react';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { EFFORT_KIND_KEYS } from '@/lib/effort-format';
 import { saveEffortDefaults } from '../actions';
+import { safely } from '@/lib/safely';
 
 export type EffortKindRow = {
   kind: string;
@@ -56,7 +57,10 @@ export function EffortForm({
       minutes[k.kind] = v === '' ? null : Number(v);
     }
     startTransition(async () => {
-      const r = await saveEffortDefaults(minutes);
+      const r = await safely(
+        () => saveEffortDefaults(minutes),
+        (error) => ({ ok: false as const, error }),
+      );
       if (r.ok) {
         setBaseline(values);
         setSaved(true);

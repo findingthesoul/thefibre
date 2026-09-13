@@ -5,6 +5,7 @@
 // savePref, workspace switching, sign-out — as injected callbacks.
 
 import { useRouter } from 'next/navigation';
+import { safely } from '@/lib/safely';
 import { UserMenu as SharedUserMenu, type WorkspaceChoice } from '@thefibre/shared/ui/user-menu';
 import type { SidebarMode, Theme } from '@/lib/prefs-shared';
 import { browserSupabase } from '@/lib/supabase/client';
@@ -44,7 +45,12 @@ export function UserMenu(props: {
       onSavePref={savePref}
       onSidebarChanged={() => router.refresh()}
       onSwitchWorkspace={async (id) => {
-        const result = await switchWorkspace(id);
+        // A failed CALL — not a failed switch — used to reject out of this
+        // handler, leaving the menu's own spinner running with nothing said.
+        const result = await safely(
+          () => switchWorkspace(id),
+          (error) => ({ error }),
+        );
         if (result.error) return { error: result.error };
         // The workspace lives in the token, so recording the choice changes
         // nothing until a new token is issued. refreshSession() re-runs the

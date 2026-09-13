@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/website",
-  "version": "0.73.40",
+  "version": "0.73.41",
   "private": true,
   "scripts": {
     "dev": "next dev -p 3006",
