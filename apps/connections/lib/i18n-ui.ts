@@ -6446,6 +6446,134 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  rel_title: {
+    en: 'How you know them',
+    nl: 'Hoe je diegene kent',
+    es: 'Cómo le conoces', // MT
+    pt: 'Como o conheces', // MT
+    de: 'Woher ihr euch kennt', // MT
+    fr: 'Comment vous la connaissez', // MT
+  },
+  rel_strength: {
+    en: 'How close',
+    nl: 'Hoe dichtbij',
+    es: 'Cómo de cerca', // MT
+    pt: 'Quão próximo', // MT
+    de: 'Wie nah', // MT
+    fr: 'À quel point proche', // MT
+  },
+  rel_unrated: {
+    en: 'Not answered yet. This is the one thing the landscape cannot work out on its own.',
+    nl: 'Nog niet beantwoord. Dit is het enige dat het landschap niet zelf kan afleiden.',
+    es: 'Aún sin responder. Es lo único que el paisaje no puede deducir por sí solo.', // MT
+    pt: 'Ainda por responder. É a única coisa que a paisagem não consegue deduzir sozinha.', // MT
+    de: 'Noch unbeantwortet. Das Einzige, was die Landschaft nicht selbst ableiten kann.', // MT
+    fr: 'Pas encore répondu. La seule chose que le paysage ne peut pas déduire seul.', // MT
+  },
+  rel_strength_clear: {
+    en: 'Press it again to unsay it.',
+    nl: 'Druk er nog eens op om het terug te nemen.',
+    es: 'Púlsalo otra vez para deshacerlo.', // MT
+    pt: 'Carrega outra vez para desfazer.', // MT
+    de: 'Nochmal drücken, um es zurückzunehmen.', // MT
+    fr: 'Appuyez à nouveau pour le retirer.', // MT
+  },
+  rel_source: {
+    en: 'How you met',
+    nl: 'Hoe jullie elkaar ontmoetten',
+    es: 'Cómo os conocisteis', // MT
+    pt: 'Como se conheceram', // MT
+    de: 'Wie ihr euch kennengelernt habt', // MT
+    fr: 'Comment vous vous êtes rencontrés', // MT
+  },
+  rel_source_event: {
+    en: 'At something',
+    nl: 'Bij iets',
+    es: 'En algo', // MT
+    pt: 'Num evento', // MT
+    de: 'Bei etwas', // MT
+    fr: 'Lors d’un événement', // MT
+  },
+  rel_source_referral: {
+    en: 'Introduced',
+    nl: 'Voorgesteld',
+    es: 'Por presentación', // MT
+    pt: 'Apresentado', // MT
+    de: 'Vorgestellt', // MT
+    fr: 'Présenté', // MT
+  },
+  rel_source_cold: {
+    en: 'I reached out',
+    nl: 'Ik nam contact op',
+    es: 'Contacté yo', // MT
+    pt: 'Fui eu que contactei', // MT
+    de: 'Ich habe mich gemeldet', // MT
+    fr: 'C’est moi qui ai écrit', // MT
+  },
+  rel_source_client: {
+    en: 'Through work',
+    nl: 'Via werk',
+    es: 'Por trabajo', // MT
+    pt: 'Através do trabalho', // MT
+    de: 'Über die Arbeit', // MT
+    fr: 'Par le travail', // MT
+  },
+  rel_source_inbound: {
+    en: 'They reached out',
+    nl: 'Diegene nam contact op',
+    es: 'Contactaron ellos', // MT
+    pt: 'Foram eles que contactaram', // MT
+    de: 'Sie haben sich gemeldet', // MT
+    fr: 'C’est elle qui a écrit', // MT
+  },
+  rel_introduced_by: {
+    en: 'Introduced by',
+    nl: 'Voorgesteld door',
+    es: 'Presentado por', // MT
+    pt: 'Apresentado por', // MT
+    de: 'Vorgestellt von', // MT
+    fr: 'Présenté par', // MT
+  },
+  rel_introduced_search: {
+    en: 'Search someone you know',
+    nl: 'Zoek iemand die je kent',
+    es: 'Busca a alguien que conoces', // MT
+    pt: 'Procura alguém que conheces', // MT
+    de: 'Jemanden suchen, den ihr kennt', // MT
+    fr: 'Cherchez quelqu’un que vous connaissez', // MT
+  },
+  rel_clear: {
+    en: 'Clear',
+    nl: 'Wissen',
+    es: 'Borrar', // MT
+    pt: 'Limpar', // MT
+    de: 'Löschen', // MT
+    fr: 'Effacer', // MT
+  },
+  rel_key_contact: {
+    en: 'Key contact',
+    nl: 'Belangrijk contact',
+    es: 'Contacto clave', // MT
+    pt: 'Contacto-chave', // MT
+    de: 'Wichtiger Kontakt', // MT
+    fr: 'Contact clé', // MT
+  },
+  rel_ambassador: {
+    en: 'Speaks for us',
+    nl: 'Spreekt voor ons',
+    es: 'Habla por nosotros', // MT
+    pt: 'Fala por nós', // MT
+    de: 'Spricht für uns', // MT
+    fr: 'Parle pour nous', // MT
+  },
+  rel_forbidden: {
+    en: 'You do not have permission to change this.',
+    nl: 'Je mag dit niet wijzigen.',
+    es: 'No tienes permiso para cambiar esto.', // MT
+    pt: 'Não tens permissão para mudar isto.', // MT
+    de: 'Du darfst das nicht ändern.', // MT
+    fr: 'Vous n’avez pas la permission de modifier ceci.', // MT
+  },
   note_no_words: {
     en: 'No words — a follow-up only.',
     nl: 'Geen tekst — alleen een opvolging.',

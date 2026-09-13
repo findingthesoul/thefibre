@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.43] — 2026-09-13 — How you know somebody (staging)
+
+**Connections — the one question the landscape cannot answer for you.** Four of
+the five readings of your community are worked out from what happened. The
+fifth, how close somebody is, cannot be: it is a judgement, and only a person
+can make it. The field for it has existed since the first migration and this
+app had never once written to it — so that reading showed everybody as
+"unrated", for ever.
+
+Open anybody and it is there now, above the note box: how close, how you met,
+who introduced them, whether they are a key contact or somebody who speaks for
+you. Every control saves itself the moment you press it — there is no Save
+button, because each one is a separate thing to say and you should be able to
+press "warm" and close the popup the moment you put the phone down.
+
+Pressing the one that is already on unsays it. "Not rated" is a real answer,
+and you have to be able to go back to it.
+
 ## [0.73.42] — 2026-09-13 — Notes you can read, change and remove (staging)
 
 **Connections — a conversation can be opened, edited and deleted.** Until now a

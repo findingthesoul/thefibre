@@ -34,6 +34,7 @@ import { Dialog } from '@thefibre/shared/ui/dialog';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { Notes, type Note } from '@/app/(app)/people/[id]/notes';
 import { loadPerson, type PersonCard } from '@/app/(app)/people/[id]/load';
+import { RelationshipCard } from '@/components/relationship-card';
 
 type Ctx = { openPerson: (id: string) => void };
 
@@ -225,6 +226,15 @@ export function PersonPopupProvider({
                   <ExternalLink size={11} strokeWidth={1.75} />
                 </a>
               </div>
+
+              {/* How you know them — the one thing about a person this app
+                  asks a human to answer, and the field the landscape's
+                  `closeness` axis reads. Above the composer on purpose: it is
+                  the thing somebody wants to press the moment they put the
+                  phone down, and below a note box it would be below the fold
+                  on every phone. Keyed by person so it never shows the last
+                  person's rating while the new one loads. */}
+              <RelationshipCard key={`rel-${person.id}`} personId={person.id} locale={locale} />
 
               {/* The same composer the page uses, reloading the list INSIDE
                   the dialog on commit rather than refreshing the page under
