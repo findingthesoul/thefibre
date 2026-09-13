@@ -13,6 +13,7 @@ import {
   step,
   LEAN_MAX,
   leanToward,
+  step as rawStep,
   targetRadius,
   wander,
   type WebNode,
@@ -422,5 +423,63 @@ describe('the middle leans after the mouse', () => {
   it('stays put when there is no pointer at all', () => {
     expect(leanToward(null)).toBeNull();
     expect(leanToward(undefined)).toBeNull();
+  });
+});
+
+describe('and the rest follows, later again', () => {
+  /** A settled cloud, its hub under the centre, then the mouse arrives. */
+  function withMouse(frames: number) {
+    const nodes = web({ Joost: 2, Aniek: 1.6, Marja: 1.2, Daniel: 1 });
+    const hub = { x: 0, y: 0 };
+    settle(nodes, 2000, [], undefined, null, hub);
+    const centre = nodes.find((n) => n.centre)!;
+    const others = nodes.filter((n) => !n.centre);
+    const before = { centre: { ...centre }, others: others.map((n) => ({ ...n })) };
+    const pointer = { x: 500, y: 0 };
+    for (let i = 0; i < frames; i += 1) step(nodes, [], undefined, pointer, hub);
+    const centreMoved = centre.x - before.centre.x;
+    const othersMoved =
+      others.reduce((sum, n, i) => sum + (n.x - before.others[i]!.x), 0) / others.length;
+    return { centreMoved, othersMoved, nodes, before, hub };
+  }
+
+  it('moves the other names too, not just the one in the middle', () => {
+    // Before the hub existed the ring was pinned to the frame, so the middle
+    // leaned and nothing else so much as twitched.
+    const { othersMoved } = withMouse(400);
+    expect(othersMoved).toBeGreaterThan(5);
+  });
+
+  it('moves them LATER than the middle', () => {
+    // Ten frames in, the middle has gone a long way and the rest have hardly
+    // started. Measured: 28 against 0.3 with the delay, 28 against 2.1 without
+    // it, so the bar sits between those. An earlier version of this test
+    // compared the two distances as a ratio and passed with the delay removed
+    // — the names lag a little anyway, through their own springs.
+    const { centreMoved, othersMoved } = withMouse(10);
+    expect(centreMoved).toBeGreaterThan(20);
+    expect(othersMoved).toBeLessThan(1);
+  });
+
+  it('stretches some lines and shortens others while it moves', () => {
+    // The point of the delay: the cloud behaves like one body rather than a
+    // picture being slid across the screen.
+    const { nodes, before } = withMouse(30);
+    const centre = nodes.find((n) => n.centre)!;
+    const others = nodes.filter((n) => !n.centre);
+    const lengths = others.map((n, i) => {
+      const now = Math.hypot(n.x - centre.x, n.y - centre.y);
+      const was = Math.hypot(before.others[i]!.x - before.centre.x, before.others[i]!.y - before.centre.y);
+      return now - was;
+    });
+    expect(Math.max(...lengths)).toBeGreaterThan(1);
+    expect(Math.min(...lengths)).toBeLessThan(-1);
+  });
+
+  it('settles with the hub under the middle once the mouse has gone', () => {
+    const { nodes, hub } = withMouse(400);
+    const centre = nodes.find((n) => n.centre)!;
+    settle(nodes, 3000, [], undefined, null, hub);
+    expect(Math.hypot(hub.x - centre.x, hub.y - centre.y)).toBeLessThan(3);
   });
 });

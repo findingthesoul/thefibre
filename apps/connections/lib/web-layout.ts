@@ -46,6 +46,18 @@
 // stretch across the screen.
 //
 //   the centre      pulled toward where you are pointing, softly and capped
+//
+// ── And the rest follows, later again (Sjoerd, 2026-09-13) ─────────────────
+//
+// *"when the center follows, the rest moves — again with a delay — ... some
+// lines become longer, others shorter"*.
+//
+// So the ring the other names sit on is not pinned to the middle of the frame.
+// It hangs from a HUB that trails the centre name on a slower spring. The
+// centre leans after your mouse; the hub comes after the centre; each name
+// comes after the hub. Three delays in a row, and because they are out of step
+// the lines between them stretch and compress as the cloud moves, which is the
+// part that makes it feel like one body rather than a diagram being dragged.
 //   a neighbour     pulled to a ring whose radius is its weight: the most
 //                   valuable connection sits closest
 //   two linked      pulled together, so people who share something sit near
@@ -160,6 +172,9 @@ const WANDER_SPEED = 0.0007;
 
 /** How firmly a name with a preferred direction is kept in it. */
 const BEARING_PULL = 0.08;
+/** How lazily the ring follows the centre. Lower is a longer delay. */
+const HUB_FOLLOW = 0.045;
+
 /** How far the middle will lean from home, and how lazily it gets there. */
 export const LEAN_MAX = 55;
 const LEAN_FRACTION = 0.16;
@@ -180,6 +195,9 @@ const LINK_REST = 150;
 /** The weak all-pairs push that keeps linked clusters from collapsing. */
 const CHARGE = 2200;
 const CHARGE_MAX = 1.8;
+
+/** Where the ring of names hangs from: trailing the centre, never quite on it. */
+export type Hub = { x: number; y: number };
 
 /** A tie between two people already on screen. */
 export type WebLink = { a: string; b: string; weight: number };
@@ -218,6 +236,12 @@ export function step(
   pan?: Pan,
   /** Where the pointer is, in the same units as the nodes. */
   pointer?: { x: number; y: number } | null,
+  /**
+   * Where the ring hangs from. Mutated each frame to trail the centre, so the
+   * names follow it a beat later. Leave it out and the ring is pinned to the
+   * middle of the frame, which is what the tests of the ring itself want.
+   */
+  hub?: Hub,
 ): number {
   const lean = leanToward(pointer);
   // Springs are quiet while the cloud is travelling. See the header.
@@ -234,8 +258,24 @@ export function step(
       n.x += dx;
       n.y += dy;
     }
+    // The hub travels with the cloud; otherwise the ring stays behind for the
+    // whole glide and every name is dragged across the frame after it.
+    if (hub) {
+      hub.x += dx;
+      hub.y += dy;
+    }
     pan.done = progress;
   }
+
+  // The hub comes after the centre, slowly. This is the second of the three
+  // delays; the names hanging off it are the third.
+  const middle = nodes.find((n) => n.centre);
+  if (hub && middle) {
+    hub.x += (middle.x - hub.x) * HUB_FOLLOW;
+    hub.y += (middle.y - hub.y) * HUB_FOLLOW;
+  }
+  const hx = hub?.x ?? 0;
+  const hy = hub?.y ?? 0;
 
   for (const n of nodes) {
     // A held name is wherever the pointer put it. Everything else still feels
@@ -253,27 +293,28 @@ export function step(
       n.vy += ((lean?.y ?? 0) - n.y) * k * springs;
       continue;
     }
-    // Measured in a space squashed horizontally, so the ring it is pulled to
-    // is an ellipse: wide like the screen.
-    const ex = n.x / ASPECT;
-    let d = Math.hypot(ex, n.y);
+    // Measured from the hub, in a space squashed horizontally, so the ring it
+    // is pulled to is an ellipse: wide like the screen.
+    const ex = (n.x - hx) / ASPECT;
+    const ey = n.y - hy;
+    let d = Math.hypot(ex, ey);
     if (d < 0.001) {
-      // Exactly on the centre has no direction to be pushed in; give it one
-      // from its id rather than from Math.random, so runs repeat.
+      // Exactly on the hub has no direction to be pushed in; give it one from
+      // its id rather than from Math.random, so runs repeat.
       const a = unitHash(n.id, 5) * Math.PI * 2;
-      n.x = Math.cos(a) * ASPECT;
-      n.y = Math.sin(a);
+      n.x = hx + Math.cos(a) * ASPECT;
+      n.y = hy + Math.sin(a);
       d = 1;
     }
     const pull = (n.targetR - d) * RADIAL * springs;
     n.vx += (ex / d) * pull * ASPECT;
-    n.vy += (n.y / d) * pull;
+    n.vy += (ey / d) * pull;
 
     // Keep a preferred direction, if it has one. Acts sideways only, so it
     // steers without arguing with the ring above about distance.
     if (n.bearing !== undefined) {
       const want = { x: Math.cos(n.bearing), y: Math.sin(n.bearing) };
-      const off = { x: want.x * d - ex, y: want.y * d - n.y };
+      const off = { x: want.x * d - ex, y: want.y * d - ey };
       n.vx += off.x * BEARING_PULL * springs * ASPECT;
       n.vy += off.y * BEARING_PULL * springs;
     }
@@ -384,9 +425,16 @@ export function wander(nodes: WebNode[], t: number): void {
 }
 
 /** Run until still, or `maxSteps`. For tests and for reduced motion. */
-export function settle(nodes: WebNode[], maxSteps = 600, links: WebLink[] = [], pan?: Pan): number {
+export function settle(
+  nodes: WebNode[],
+  maxSteps = 600,
+  links: WebLink[] = [],
+  pan?: Pan,
+  pointer?: { x: number; y: number } | null,
+  hub?: Hub,
+): number {
   let e = Infinity;
-  for (let i = 0; i < maxSteps && e > 0.01; i += 1) e = step(nodes, links, pan);
+  for (let i = 0; i < maxSteps && e > 0.01; i += 1) e = step(nodes, links, pan, pointer, hub);
   return e;
 }
 
