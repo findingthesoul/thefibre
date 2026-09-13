@@ -20,7 +20,34 @@ the queue.
 
 ### Open queue (in priority order — THE to-do list, keep it current)
 
-_Last groomed 2026-09-11 (v0.69.8). Done items get removed, not ticked._
+_Last groomed 2026-09-13 (v0.73.25). Done items get removed, not ticked._
+
+**SECURITY — five functions are still executable with the public anon key.**
+Found 2026-09-13 in the same production sweep that found and fixed the identity
+functions (handbook §11.3b). Deliberately NOT fixed with the same revoke,
+because four of them are RLS helpers evaluated as `authenticated` inside row
+policies, and revoking them from that role would blank the app for every
+signed-in user:
+
+  can_see_person        can_see_activity        can_see_organisation
+  meet_is_team_lead     workspace_meet_fee
+
+For each: read the body. If it reads the caller from `auth.uid()` / JWT claims
+and only returns a boolean about that caller, anon gets `false` and the
+exposure is nil — revoke `anon` only, keep `authenticated`, and move on. If it
+takes the TARGET as a parameter and answers about someone else, it is a real
+leak and needs a redesign, not a grant change. `workspace_meet_fee` returns a
+workspace's fee to anyone who names the workspace: low severity, and probably
+just revoke anon.
+
+**And a standing guard, so the next function does not repeat this.** The
+calibrated probe from that night — malformed uuid as anon, `42501` closed,
+`22P02` open — as an integration test against staging, over every SECURITY
+DEFINER function, with an explicit reviewed allowlist of the ones open on
+purpose. Every function written since May was "locked" the wrong way by
+careful authors; a rule in a handbook did not stop them and will not stop the
+next one. A failing test will.
+
 
 **DESIGN — the site designer, and templates that are documents.** Sjoerd,
    2026-09-11, when the three themes shipped: *"In the future I want to
