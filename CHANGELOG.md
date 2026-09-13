@@ -6,6 +6,26 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.52] — 2026-09-13 — "could not check" never reads as "drifted" (staging)
+
+`sync-app-names.mjs --check` joined `pnpm verify` in 0.73.50, which put it in
+every session's release path. The Connections session asked the right
+question about that: what does it say in a worktree with no database
+credentials? It said a raw ENOENT stack trace.
+
+That did not claim drift, but a refused release that names no cause is
+nearly as bad as one that names the wrong cause. It now says:
+
+    sync-app-names: COULD NOT CHECK — apps/api/.env does not exist here
+    This is not name drift. Nothing was compared.
+
+The same message covers an env file missing the database keys and a
+catalogue read that fails. **Exit 2 means could not look; exit 1 means the
+names really drifted**, so a script calling it can tell them apart too.
+
+No new requirement on anyone's release: `verify-public-api.mjs`, earlier in
+the same chain, already reads the same file.
+
 ## [0.73.51] — 2026-09-13 — Call them without leaving (staging)
 
 **Connections — a person's phone number is on their popup.** Find somebody on

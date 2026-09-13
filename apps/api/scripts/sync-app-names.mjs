@@ -35,8 +35,32 @@ import { APPS } from '../../../packages/shared/dist/branding.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const envFile = process.env.FIBRE_ENV_FILE ?? '.env';
+const envPath = resolve(__dirname, '..', envFile);
+
+// "Could not check" must never read like "drifted" — a refused release that
+// names the wrong cause sends the next person chasing the wrong thing (the
+// Connections session, 2026-09-13, which keeps no apps/api/.env between
+// releases on purpose). Exit codes keep the two apart too:
+//   1 = the names really have drifted
+//   2 = this script could not look
+function cannotCheck(why) {
+  console.error(
+    `\nsync-app-names: COULD NOT CHECK — ${why}\n` +
+      'This is not name drift. Nothing was compared.\n' +
+      `It needs database credentials in apps/api/${envFile} ` +
+      '(NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY).',
+  );
+  process.exit(2);
+}
+
+let raw;
+try {
+  raw = readFileSync(envPath, 'utf-8');
+} catch {
+  cannotCheck(`apps/api/${envFile} does not exist here`);
+}
 const env = Object.fromEntries(
-  readFileSync(resolve(__dirname, '..', envFile), 'utf-8')
+  raw
     .split('\n')
     .filter((l) => l && !l.startsWith('#') && l.includes('='))
     .map((l) => {
@@ -44,6 +68,9 @@ const env = Object.fromEntries(
       return [l.slice(0, i).trim(), l.slice(i + 1).trim()];
     }),
 );
+if (!env.NEXT_PUBLIC_SUPABASE_URL || !env.SUPABASE_SERVICE_ROLE_KEY) {
+  cannotCheck(`apps/api/${envFile} is missing the database URL or service key`);
+}
 
 const APPLY = process.argv.includes('--apply');
 const CHECK = process.argv.includes('--check');
@@ -56,10 +83,7 @@ const { data: rows, error } = await db
   .from('app')
   .select('slug, name, kind')
   .eq('kind', 'first_party');
-if (error) {
-  console.error(`could not read the app catalogue: ${error.message}`);
-  process.exit(2);
-}
+if (error) cannotCheck(`the app catalogue could not be read: ${error.message}`);
 
 const drift = [];
 for (const row of rows ?? []) {
