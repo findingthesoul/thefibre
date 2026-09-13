@@ -32,7 +32,11 @@ export const notesRoutes = new Hono();
 /** Vocabulary lives here, not in a CHECK constraint — adding one is a deploy.
  *  Broadcast kinds are separated deliberately: a newsletter is not a
  *  conversation, and only personal kinds count as "last spoken" (D19). */
-const PERSONAL_KINDS = ['call', 'meeting', 'message', 'note'] as const;
+// `encounter` added 2026-09-13 on Sjoerd's ask — the thing that is not a
+// meeting and not a call: you ran into somebody. Adding one is a DEPLOY and
+// not a migration, deliberately: `kind` is plain text with no CHECK, which is
+// the same call made for app-key scopes and person.created_via.
+const PERSONAL_KINDS = ['call', 'meeting', 'encounter', 'message', 'note'] as const;
 const BROADCAST_KINDS = ['email'] as const;
 const KINDS = [...PERSONAL_KINDS, ...BROADCAST_KINDS] as const;
 const ORIGINS = ['manual', 'calendar_scan', 'bcc', 'import'] as const;

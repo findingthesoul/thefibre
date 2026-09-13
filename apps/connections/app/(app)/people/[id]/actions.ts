@@ -14,7 +14,14 @@
 
 import { apiFetch, ApiError } from '@/lib/api';
 
-export type NoteKind = 'note' | 'call' | 'meeting' | 'message' | 'email';
+/**
+ * What kind of contact this was. Mirrors the API's KINDS.
+ *
+ * `encounter` — you ran into them — added 2026-09-13 on Sjoerd's ask. The
+ * column has no CHECK by design, so a new kind is a deploy and not a
+ * migration; the two lists still have to be changed together.
+ */
+export type NoteKind = 'note' | 'call' | 'meeting' | 'encounter' | 'message' | 'email';
 
 export type SaveNoteInput = {
   /** Minted once per note by the client. Same value on every write. */

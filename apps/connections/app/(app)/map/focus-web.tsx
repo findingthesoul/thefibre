@@ -757,8 +757,23 @@ export function FocusWeb({
           could we combine that?"* */}
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
         {controls ? <div className="min-w-0 flex-1 sm:max-w-sm">{controls}</div> : null}
+        {/* Sjoerd, 2026-09-13, of the first version: *"This is very hard to
+            see... too subtle for older people"*. It was a hairline track and a
+            small grey thumb — `accent-ink` alone leaves the TRACK at the
+            browser's default, which on a dark ground is nearly invisible.
+
+            Fixed by drawing both explicitly rather than by nudging a colour: a
+            6px track with a real border, a 20px thumb with a ring around it,
+            and a label that is `text-ink` instead of the subtlest grey in the
+            palette. 20px also clears the 24px-ish target a finger needs, so
+            this is legibility and reach in one change.
+
+            The two vendor prefixes are both required and are not
+            interchangeable — WebKit and Firefox style the thumb under
+            different selector names, and a rule naming one silently does
+            nothing in the other. */}
         <label className="flex shrink-0 items-center gap-3">
-          <span className="text-xs text-ink-subtle">{t(locale, 'map_density')}</span>
+          <span className="text-xs font-medium text-ink">{t(locale, 'map_density')}</span>
           <input
             type="range"
             min={DENSITY_MIN}
@@ -766,10 +781,13 @@ export function FocusWeb({
             step={1}
             value={density}
             onChange={(e) => setDensity(Number(e.target.value))}
-            className="w-40 accent-ink"
             aria-label={t(locale, 'map_density')}
+            aria-valuetext={String(density)}
+            className="h-5 w-44 cursor-pointer appearance-none rounded-full border border-line-strong bg-surface-sunken
+              [&::-moz-range-thumb]:h-5 [&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:cursor-pointer [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:border-2 [&::-moz-range-thumb]:border-surface [&::-moz-range-thumb]:bg-ink
+              [&::-webkit-slider-thumb]:h-5 [&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:border-2 [&::-webkit-slider-thumb]:border-surface [&::-webkit-slider-thumb]:bg-ink"
           />
-          <span className="w-6 text-xs tabular-nums text-ink-muted">{density}</span>
+          <span className="w-6 text-sm font-medium tabular-nums text-ink">{density}</span>
         </label>
       </div>
 

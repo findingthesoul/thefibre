@@ -110,7 +110,43 @@ build order (`connections-overview.md` §6). Design is in
 `docs/connections-newsletter.md`; D21 (audience = saved query or hand-built
 list) is unanswered and blocks the shape of the audience picker, not the send.
 
-### 1.3 Tags grow and nothing prunes them
+### 1.3 Entries ignores tags, and cannot be told about a stranger
+Sjoerd, 2026-09-13: *"in Entries: I thought you could fill in everything. Also
+tags?"*
+
+Both halves checked against the source, and both are real.
+
+**Entries is a question box, not a form.** You search for somebody or something
+the workspace ALREADY holds, and it answers "who can get you in". There is no
+way to name a target it has no record of — which is precisely the cold-start
+case, because the company you most need an introduction to is the one you have
+nothing on. Today the only route is to create the organisation first, somewhere
+else, and then come back and search for it.
+
+**And tags are used nowhere in it.** `connections_entries` reads `relationship`,
+`person_relationship_context`, `org_membership` and `thread_enrolment` — the
+word "tag" does not appear in the function. The degrade, which answers when no
+path exists, matches on the organisation's `sector` and `country` and nothing
+else. So the app asks you to build a vocabulary on every note and then ignores
+it in the one surface whose whole job is "who is near this".
+
+**Tags belong in the DEGRADE, not in the paths, and the distinction is the
+whole design.** A tag shared by two people is co-occurrence, and co-occurrence
+is not a relationship (handbook §12) — so a tag must never become a path,
+because a path is a claim that somebody can introduce you. But the degrade
+already says out loud that its answers are *explicitly not entries*: "nobody
+here can get you in, they are simply the nearest thing the data knows". A
+shared word is exactly that kind of nearest thing. Shown, never computed on.
+
+Which makes the order: sector, then country, then tags — each tried when the
+one before comes back empty, the same degrade the function already performs.
+Rarity matters here too (§3.5): a tag on three people is a strong signal and a
+tag on three hundred is noise, so the tag attempt should prefer rare ones
+rather than treating every word alike.
+
+The "name a stranger" half is a bigger decision and is §2.6.
+
+### 1.4 Tags grow and nothing prunes them
 Tags are detected while writing (v0.73.10) and organisations are tags. There is
 a tag cloud and a tag filter, and no way to rename, merge or delete a tag.
 A vocabulary that only grows is a vocabulary that stops meaning anything —
@@ -147,6 +183,60 @@ popup says so by deliberately not offering an "open the full page" link. For a
 community app that may be right; for anyone who thinks in institutions it is a
 hole. Decide before adding more into the popup, because a popup that grows a
 third section is a page that has not admitted it yet.
+
+### 2.6 Naming a target the workspace has never heard of
+The other half of §1.3. "Can we reach Acme?" is the question Entries exists for,
+and it cannot be asked about an Acme with no row.
+
+Three shapes, increasing in cost and in mess:
+1. **Create the organisation from the search box** when nothing matches — one
+   field, and it lands a real `organisation` row. Cheap, and it fills the
+   database with half-known companies somebody typed once, which is the
+   failure mode the hygiene sweep then has to clean up.
+2. **A target that is not a record** — a string you asked about, kept only as
+   a question. Answers nothing better than (1) does, because the degrade needs
+   a sector or a country to match on and a typed name carries neither.
+3. **Ask for the one fact the degrade needs**: name plus sector (or country).
+   Then a stranger gets a real answer — "three people you know work in that
+   sector" — which is the whole point of the degrade, and the row is worth
+   keeping because it carries more than a name.
+
+(3) is the only one that makes the feature work for a stranger, and it is
+barely more interface than (1).
+
+### 2.5 Three controls, one rule — needs Sjoerd's answer
+Sjoerd, 2026-09-13, looking at the card that had just shipped: *"What does KEY
+CONTACT and SPEAKS FOR US mean?"*
+
+Checked rather than recalled. Between them, `is_key_contact` and
+`is_ambassador` have exactly ONE effect in the whole system: either flag — or a
+closeness of `advocate` — puts somebody on a ninety-day leash
+(`ambassador_drifting` in `connections_attention`), so they come up in
+Attention if nobody has spoken to them in that time. Nothing else reads either
+column: no filter, no axis, no list, no report.
+
+So the card has **three controls that do the same thing**. The only difference
+they make is the sentence in the attention queue — "flagged as an ambassador"
+versus "flagged as a key contact" — which is a label, not a behaviour.
+
+That is a question about what the workspace means, not a bug to fix quietly.
+Three honest answers:
+
+1. **They are one thing.** Keep `advocate` on the closeness axis, drop both
+   checkboxes. Fewest controls, and closeness is already the human judgement.
+   Costs the distinction between "close to me" and "speaks for us in public",
+   which are genuinely different for a community organisation.
+2. **They are different things and should behave differently.** An ambassador
+   is someone who represents you to others; a key contact is your way INTO an
+   organisation. Different thresholds (an ambassador going quiet is more
+   urgent), and a key contact probably belongs on the `org_membership` row
+   rather than on the person — it is a fact about a relationship to a company.
+3. **They are labels and that is fine.** Keep both, purely so the attention
+   queue can say WHY. Cheapest, and the interface should then stop implying
+   they are two decisions.
+
+Until it is answered the card says what they actually do, in one line, rather
+than two different-sounding descriptions of one switch.
 
 ### 2.4 Working hours
 Free time assumes Monday–Friday, 09:00–17:00, in the profile timezone. Worth a

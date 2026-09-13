@@ -6,6 +6,37 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.45] — 2026-09-13 — A popup you can take in at a glance (staging)
+
+**Connections — the person popup folds into two.** How you know them, and what
+happened. The second is open, because the reason to open somebody is almost
+always to type one line after a conversation; the first is a judgement you make
+occasionally.
+
+**Nine chips became three lists.** How close and how you met are dropdowns, and
+so is the follow-up — with **nothing planned already chosen**, since most notes
+have no next action and pressing a chip to say so was a question asked to get
+the answer it already had. The follow-up now offers a week, two weeks, a month,
+or a date you pick.
+
+**A sixth kind of contact: you ran into them.** Not a meeting, not a call.
+
+**The density slider was nearly invisible** — a hairline track and a small grey
+thumb. It now has a real track, a thumb you can see and hit with a finger, and
+a label in full-strength ink.
+
+## [0.73.44] — 2026-09-13 — Two checkboxes that now say what they do (staging)
+
+**Connections — "key contact" and "speaks for us" explain themselves.** Both
+were on the relationship card without a word about what ticking them changes.
+Between them they do exactly one thing: either flag — or a closeness of
+"advocate" — puts somebody on a shorter leash, so they come up in Attention if
+nobody speaks to them for three months. The card says so now.
+
+Which also means the two are, today, the same switch with two names. That is a
+question about what your workspace means by them rather than something to paper
+over, so it is written down as a decision rather than answered by guessing.
+
 ## [0.73.43] — 2026-09-13 — How you know somebody (staging)
 
 **Connections — the one question the landscape cannot answer for you.** Four of
