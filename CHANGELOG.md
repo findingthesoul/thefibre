@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.31] — 2026-09-13 — Each name trails on its own; The Fibre opens in a new tab (staging)
+
+**Connections — the cloud stopped moving as a block.** Every name used to hang
+from one shared anchor, so when the middle leaned after your mouse the whole
+picture slid as a single piece. Each name now carries its own anchor and trails
+the middle at its own pace, taken from who they are, so it is the same on every
+visit. The strings between them stretch and contract independently.
+
+**Connections — "more contact info" no longer throws you out of the app.** The
+link to The Fibre on a person carried an external-link icon but opened in the
+same tab, so following it dropped you out of the map you were walking through,
+with only the Back button to return. It opens in a new tab now.
+
+Removed: a weak all-pairs push added earlier to stop linked clusters collapsing
+to one side. Now that every name is given its own direction around the ring, it
+changes the widest empty gap by at most one degree.
+
 ## [0.73.30] — 2026-09-13 — The whole cloud follows, a beat later (staging)
 
 **Connections — when the middle leans after your mouse, the rest comes after

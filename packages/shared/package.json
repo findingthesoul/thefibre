@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.73.30",
+  "version": "0.73.31",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
