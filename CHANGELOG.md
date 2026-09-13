@@ -6,6 +6,24 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.32] — 2026-09-13 — Staging links stay on staging
+
+**Fix, and a safety one.** On the .tech test stack the app switcher sent you to
+**production**. Every app's address is the production one unless a deployment
+is told otherwise, and the Connections staging project was never given its
+siblings' addresses — so the menu quietly moved you to the live system while
+you believed you were still testing. You could have edited real people's
+records thinking they were fixtures.
+
+An app's address is now resolved against the host actually serving the page. An
+explicit setting still wins; failing that, a page on the .tech stack links to
+the .tech stack. The same applies to the sign-in handoff between apps, so a hop
+started on staging cannot land on production.
+
+Checked against the usual traps: production still goes to production, local
+development is untouched, and a host that merely ends in the same letters is
+not mistaken for staging.
+
 ## [0.73.31] — 2026-09-13 — Each name trails on its own; The Fibre opens in a new tab (staging)
 
 **Connections — the cloud stopped moving as a block.** Every name used to hang
