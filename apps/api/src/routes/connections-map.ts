@@ -10,6 +10,11 @@
 //                                              organisations they belong to
 //   GET /connections/map/org/:orgId            an organisation and its people
 //
+// Both neighbourhood reads also return `links`: how the people they return are
+// tied to EACH OTHER. Sjoerd, 2026-09-13: "some words are not only connected to
+// the central word, but also to other words that are shown". Without it the web
+// is a star and says nothing about the community's own shape.
+//
 // Organisations in the web (Sjoerd, 2026-09-13: "company needs to be connected
 // to the person"). A current org_membership is a RECORDED fact — somebody put
 // that person in that organisation — so it is an edge, drawn solid, unlike a
@@ -120,6 +125,11 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
   const rows = (data ?? []) as { person_id: string; weight: number; reasons: { kind: string; label: string }[] }[];
 
   const organisations = await currentOrganisations(personId, ctx.workspaceId);
+
+  // How the neighbours are tied to each other. The centre is excluded: its own
+  // lines are the neighbourhood weights above, and including it would return
+  // every one of them a second time.
+  const links = await linksAmong(rows.map((r) => r.person_id), ctx.workspaceId);
   const ids = rows.map((r) => r.person_id);
 
   const names = new Map<string, string>();
@@ -134,6 +144,7 @@ connectionsMapRoutes.get('/map/:personId/neighbourhood', async (c) => {
 
   return c.json({
     organisations,
+    links,
     neighbours: rows
       // A neighbour whose name could not be read was filtered by the workspace
       // above — drop it rather than show an anonymous dot.
@@ -206,8 +217,14 @@ connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
     for (const p of (people ?? []) as PersonRow[]) names.set(p.id, nameOf(p));
   }
 
+  const memberLinks = await linksAmong(
+    memberships.filter((m) => names.has(m.person_id)).map((m) => m.person_id),
+    ctx.workspaceId,
+  );
+
   return c.json({
     organisation: org,
+    links: memberLinks,
     members: memberships
       .filter((m) => names.has(m.person_id))
       // Decision makers and people for whom this is their main organisation
@@ -216,3 +233,28 @@ connectionsMapRoutes.get('/map/org/:orgId', async (c) => {
       .map((m) => ({ id: m.person_id, name: names.get(m.person_id)!, title: m.title })),
   });
 });
+
+type LinkRow = { a_person_id: string; b_person_id: string; weight: number; reasons: { kind: string; label: string }[] };
+
+/**
+ * How a set of people are tied to each other. Never throws and never fails the
+ * page: a web without its cross-links is still a web, and the star from the
+ * centre is the part that carries the meaning.
+ */
+async function linksAmong(personIds: string[], workspaceId: string) {
+  if (personIds.length < 2) return [];
+  const { data, error } = await adminClient.rpc('connections_links_among', {
+    p_workspace: workspaceId,
+    p_people: personIds,
+  });
+  if (error) {
+    console.error('[connections/map] links_among failed', error.message);
+    return [];
+  }
+  return ((data ?? []) as LinkRow[]).map((r) => ({
+    a: r.a_person_id,
+    b: r.b_person_id,
+    weight: r.weight,
+    reasons: r.reasons,
+  }));
+}

@@ -30,15 +30,20 @@ import { usePersonPopup } from '@/components/person-popup';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import {
   R_MAX,
+  fontSize,
   labelWidth,
+  panTo,
+  panning,
   seedPosition,
   settle,
   step,
   targetRadius,
+  type Pan,
+  type WebLink,
   type WebNode,
 } from '@/lib/web-layout';
 import { thin } from '@/lib/map-layout';
-import { loadNeighbourhood, loadOrganisation, type Reason } from './actions';
+import { loadNeighbourhood, loadOrganisation, type Link, type Reason } from './actions';
 
 export type Focus = { kind: 'person' | 'org'; id: string };
 
@@ -103,6 +108,13 @@ export function FocusWeb({
   const [centreName, setCentreName] = useState(knownName ?? '');
   const [status, setStatus] = useState<'loading' | 'ok' | 'failed'>('loading');
   const [allReasons, setAllReasons] = useState<Map<string, Reason[]>>(new Map());
+  // How the names around the centre are tied to EACH OTHER. Sjoerd: "some
+  // words are not only connected to the central word, but also to other words
+  // that are shown".
+  const links = useRef<Link[]>([]);
+  // Translation the cloud still owes, so a click slides everything instead of
+  // teleporting the clicked name (lib/web-layout.ts, the glide).
+  const pan = useRef<Pan | undefined>(undefined);
   const [required, setRequired] = useState<Set<Reason['kind']>>(() => new Set());
   const raf = useRef<number | null>(null);
 
@@ -110,14 +122,14 @@ export function FocusWeb({
   const animate = useCallback(() => {
     if (raf.current !== null) return;
     if (prefersReducedMotion()) {
-      settle([...nodes.current.values()]);
+      settle([...nodes.current.values()], 600, webLinks(links.current), pan.current);
       setFrame((f) => f + 1);
       return;
     }
     const tick = () => {
-      const energy = step([...nodes.current.values()]);
+      const energy = step([...nodes.current.values()], webLinks(links.current), pan.current);
       setFrame((f) => f + 1);
-      raf.current = energy > 0.01 ? requestAnimationFrame(tick) : null;
+      raf.current = energy > 0.01 || panning(pan.current) ? requestAnimationFrame(tick) : null;
     };
     raf.current = requestAnimationFrame(tick);
   }, []);
@@ -139,19 +151,22 @@ export function FocusWeb({
     // before moving anything would make the click feel ignored.
     const clicked = map.get(focus.id);
     const previous = [...map.values()].find((n) => n.centre && n.id !== focus.id) ?? null;
+    // Slide the whole cloud so the clicked name ends up in the middle. This is
+    // what puts the name you came FROM on the opposite side, for free.
+    pan.current = clicked ? panTo(clicked) : undefined;
     for (const n of map.values()) {
       n.centre = n.id === focus.id;
       // Whoever is in the middle is never the faded "way back" name, even if
       // they were a moment ago.
       if (n.centre) n.trail = false;
       n.targetR = n.centre ? 0 : R_MAX;
-      n.width = labelWidth(n.label, n.centre);
+      n.width = labelWidth(n.label, n.centre, n.strength);
     }
     if (!clicked) {
       map.clear();
       map.set(focus.id, {
         id: focus.id, x: 0, y: 0, vx: 0, vy: 0, targetR: 0, centre: true,
-        width: labelWidth(knownName ?? '', true), kind: focus.kind,
+        width: labelWidth(knownName ?? '', true, 1), kind: focus.kind,
         label: knownName ?? '', sub: '', solid: true, strength: 1, reasons: [],
       });
     } else {
@@ -179,11 +194,14 @@ export function FocusWeb({
         const existing = map.get(a.id);
         const targetR = targetRadius(a.strength, 1);
         if (existing) {
-          Object.assign(existing, { trail: false, ...a, targetR, centre: false, width: labelWidth(a.label, false) });
+          Object.assign(existing, {
+            trail: false, ...a, targetR, centre: false,
+            width: labelWidth(a.label, false, a.strength),
+          });
         } else {
           map.set(a.id, {
             ...a, ...seedPosition(a.id, centre), vx: 0, vy: 0, targetR, centre: false,
-            width: labelWidth(a.label, false),
+            width: labelWidth(a.label, false, a.strength),
           });
         }
       }
@@ -197,6 +215,7 @@ export function FocusWeb({
         if (!r.ok) return setStatus('failed');
         const max = Math.max(1, ...r.neighbours.map((n) => n.weight));
         setAllReasons(new Map(r.neighbours.map((n) => [n.id, n.reasons])));
+        links.current = r.links;
         // Organisations first: they are recorded facts about THIS person and
         // are never thinned away by a checkbox about shared attributes.
         place([
@@ -223,6 +242,7 @@ export function FocusWeb({
           c.width = labelWidth(c.label, true);
         }
         setAllReasons(new Map());
+        links.current = r.links;
         place(
           r.members.slice(0, MAX_AROUND).map((m) => ({
             id: m.id, kind: 'person' as const, label: m.name, sub: m.title ?? '',
@@ -246,7 +266,7 @@ export function FocusWeb({
   const centre = nodes.current.get(focus.id);
   if (centre && !centre.label && centreName) {
     centre.label = centreName;
-    centre.width = labelWidth(centreName, true);
+    centre.width = labelWidth(centreName, true, 1);
   }
 
   // Thinning applies to people only; organisations are facts, not reasons.
@@ -260,6 +280,22 @@ export function FocusWeb({
     (n) => n.centre || n.trail || n.kind === 'org' || focus.kind === 'org' || visiblePeople.has(n.id),
   );
   const around = shown.filter((n) => !n.centre);
+
+  // Links whose BOTH ends are currently on screen. A link to somebody thinned
+  // away, or not drawn at all, is simply not shown — never a line to nowhere.
+  const onScreen = new Map(shown.map((n) => [n.id, n]));
+  const crossLines = links.current.flatMap((l) => {
+    const a = onScreen.get(l.a);
+    const b = onScreen.get(l.b);
+    if (!a || !b || a.centre || b.centre) return [];
+    return [{
+      a,
+      b,
+      weight: l.weight,
+      solid: l.reasons.some((r) => r.kind === 'stated'),
+      why: l.reasons.map((r) => (r.kind === 'tag' ? `#${r.label}` : r.label)).join(', '),
+    }];
+  });
 
   const go = (n: Shown) => {
     if (n.centre) {
@@ -292,6 +328,26 @@ export function FocusWeb({
       <div className="mt-4 grid gap-6 lg:grid-cols-[minmax(0,1fr)_16rem]">
         <div className="overflow-hidden rounded-lg border border-line bg-surface-raised">
           <svg viewBox="-390 -285 780 570" className="block h-auto w-full touch-manipulation" role="img" aria-label={centreName}>
+            {/* Between the people around the centre. Drawn first and faintest:
+                they are the shape of the group, not the answer to "who is near
+                this person", which is the star below. A shared tag is dashed —
+                sharing a word is not knowing someone (handbook §12). */}
+            {crossLines.map((l) => (
+              <line
+                key={`x-${l.a.id}-${l.b.id}`}
+                x1={round(l.a.x)}
+                y1={round(l.a.y)}
+                x2={round(l.b.x)}
+                y2={round(l.b.y)}
+                className="text-ink"
+                stroke="currentColor"
+                strokeOpacity={0.1 + 0.18 * Math.min(1, l.weight)}
+                strokeWidth={0.8 + 1.2 * Math.min(1, l.weight)}
+                strokeDasharray={l.solid ? undefined : '4 5'}
+              >
+                <title>{l.why}</title>
+              </line>
+            ))}
             {around.map((n) => (
               <line
                 key={`l-${n.id}`}
@@ -328,10 +384,13 @@ export function FocusWeb({
                   className={n.kind === 'org' ? 'fill-surface stroke-line-strong' : 'fill-surface-raised'}
                   strokeWidth={n.kind === 'org' ? 1.2 : 0}
                 />
+                {/* Bigger name, stronger connection (Sjoerd: "Some words are
+                    bigger and some are smaller"). */}
                 <text
                   textAnchor="middle"
                   y={n.centre ? 7 : n.sub ? 1 : 5}
-                  className={`fill-ink ${n.centre ? 'text-[20px] font-semibold' : 'text-[14px] font-medium hover:underline'}`}
+                  fontSize={fontSize(n.strength, n.centre)}
+                  className={`fill-ink ${n.centre ? 'font-semibold' : 'font-medium hover:underline'}`}
                 >
                   {n.label || '…'}
                 </text>
@@ -401,4 +460,9 @@ function reasonLine(r: Reason, locale: Locale): string {
 }
 
 const round = (v: number) => Math.round(v * 10) / 10;
+
+/** Only what the simulation needs from a link. */
+function webLinks(links: Link[]): WebLink[] {
+  return links.map((l) => ({ a: l.a, b: l.b, weight: l.weight }));
+}
 const truncate = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
