@@ -6,6 +6,27 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.47] — 2026-09-13 — How you met asks one question, not all of them (staging)
+
+**Connections — each way of meeting now asks for what it needs.** "At
+something" asks which thing; "Introduced" asks by whom; "Through work" asks
+which company; "I reached out" and "They reached out" ask nothing. Before, one
+person picker sat under the list whatever you chose, so "Introduced by" was on
+screen next to "At something" — a second, unrelated question rather than the
+rest of the first one.
+
+Changing how you met clears what the old answer needed, so an introducer is
+never left behind on a relationship that now says you reached out yourself.
+
+**Tabs instead of folds**, and the popup opens on "How you know them" only for
+somebody nobody has answered it for. Everyone else opens on the note box, which
+is what you came for.
+
+**"Key contact" and "Speaks for us" are gone.** Asked what they meant, the
+honest answer was that they did one thing between them — and the same thing
+that rating somebody an advocate already does. Nothing is lost: the records are
+untouched, and "advocate" says it in a control with one meaning.
+
 ## [0.73.46] — 2026-09-13 — One way out, and it asks first (staging)
 
 **Connections — the person popup had two buttons and now has one.** The other

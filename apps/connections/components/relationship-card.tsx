@@ -9,12 +9,17 @@
 // `relationship_strength`, and nothing in this app had ever written it, so
 // that axis showed everybody as `unrated` for ever.
 //
-// ── Compact, because it shares a popup ─────────────────────────────────────
+// ── One question at a time ─────────────────────────────────────────────────
 //
-// Sjoerd, 2026-09-13: *"Can that page be more compact: Maybe both Closeness as
-// How we met can be dropdowns."* They were nine chips across two wrapping
-// rows, which is a lot of screen for two answers — and this card sits above a
-// note box somebody opened in order to type. Two lists, one row.
+// *"SHould this not be contextuel: At something: what (text) / Introduced:
+// (search: person) / I reached out (nothing) / Through work: (search:
+// company) / They reach out: nothing"*.
+//
+// He was right, and the reason is worth stating: the person picker used to sit
+// under the list whatever you had chosen, so "Introduced by" appeared next to
+// "At something" — which reads as a second, unrelated question rather than as
+// the rest of the first one. Each way of meeting now asks for exactly what it
+// needs, and two of the five ask for nothing.
 //
 // ── Every control saves itself ─────────────────────────────────────────────
 //
@@ -24,17 +29,24 @@
 // popup. A form would make that four actions instead of one, and the thing
 // this app is trying to beat is the CRM nobody fills in.
 //
-// The cost is that a failure has to be visible without a Save button to attach
-// it to, hence the per-row error line and the fact that the chip does not move
-// until the write comes back.
+// The exception is the free-text one, which saves on blur: a write per
+// keystroke would be a hundred rows for one sentence.
 //
-// ── Unrated is an answer ───────────────────────────────────────────────────
+// ── Two controls that were one ─────────────────────────────────────────────
 //
-// Pressing the chip that is already on clears it. `unrated` is a real band on
-// the landscape rather than a silent default — calling four hundred unassessed
-// people "weak" would be a judgement nobody made — so somebody must be able to
-// put a person back into it, and the only honest control for that is the one
-// they used to leave it.
+// "Key contact" and "Speaks for us" used to be here. Sjoerd asked what they
+// meant; reading the system, they did exactly ONE thing between them, and the
+// same thing a closeness of `advocate` already does — put somebody on a
+// ninety-day leash (`ambassador_drifting`). Three controls, one rule, and the
+// only difference was which sentence the attention queue printed.
+//
+// He then said he still did not know what they meant WITH the explanation on
+// screen, so they are gone rather than re-worded. Nothing is lost: the columns
+// are untouched, anybody already flagged still trips the rule, and `advocate`
+// says "speaks for us" in a control that has exactly one meaning. The concepts
+// come back the day they behave differently — an ambassador going quiet being
+// more urgent than a contact, or "key contact" living on the org membership
+// where it is really a fact about a company (backlog §2.5).
 
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
@@ -45,6 +57,7 @@ import { loadRelationship, saveRelationship } from '@/app/(app)/people/[id]/rela
 // those arrive in the browser as proxies and `STRENGTHS.map` throws.
 import {
   SOURCES,
+  SOURCE_NEEDS,
   STRENGTHS,
   type Relationship,
   type Source,
@@ -70,21 +83,34 @@ const SOURCE_KEYS: Record<Source, UiKey> = {
   inbound: 'rel_source_inbound',
 };
 
+const EMPTY: Relationship = {
+  relationship_strength: null,
+  source: null,
+  source_detail: null,
+  introduced_by: null,
+  via_organisation_id: null,
+  is_key_contact: false,
+  is_ambassador: false,
+};
+
 export function RelationshipCard({
   personId,
   locale,
-  /** Somebody this person should never be able to be introduced by. */
-  excludeId,
+  /** Already loaded by the popup, which needs it to choose the opening tab. */
+  initial,
 }: {
   personId: string;
   locale: Locale;
-  excludeId?: string;
+  initial?: Relationship | null;
 }) {
-  const [value, setValue] = useState<Relationship | null>(null);
-  const [loaded, setLoaded] = useState(false);
+  const [value, setValue] = useState<Relationship | null>(initial ?? null);
+  const [loaded, setLoaded] = useState(initial !== undefined);
   const [error, setError] = useState<string | null>(null);
 
+  // Only when nobody handed it in. The popup does; a surface that drops this
+  // card in on its own should not have to.
   useEffect(() => {
+    if (initial !== undefined) return;
     let alive = true;
     setLoaded(false);
     void safely(
@@ -99,7 +125,7 @@ export function RelationshipCard({
     return () => {
       alive = false;
     };
-  }, [personId]);
+  }, [personId, initial]);
 
   async function patch(p: Partial<Relationship>) {
     setError(null);
@@ -111,35 +137,27 @@ export function RelationshipCard({
       setError(r.error === 'forbidden' ? t(locale, 'rel_forbidden') : r.error);
       return;
     }
-    // Only once the write is back. A chip that moved and then silently did
+    // Only once the write is back. A control that moved and then silently did
     // not save is worse than one that takes a moment.
-    setValue((prev) => ({
-      relationship_strength: null,
-      source: null,
-      source_detail: null,
-      introduced_by: null,
-      is_key_contact: false,
-      is_ambassador: false,
-      ...(prev ?? {}),
-      ...p,
-    }));
+    setValue((prev) => ({ ...EMPTY, ...(prev ?? {}), ...p }));
   }
 
   if (!loaded) return null;
 
   const strength = value?.relationship_strength ?? null;
   const source = value?.source ?? null;
+  const needs = source ? SOURCE_NEEDS[source] : null;
 
   return (
     <section>
-      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
+      <div className="flex flex-wrap gap-x-4 gap-y-2">
         <label className="flex items-center gap-2">
           <span className="text-xs text-ink-muted">{t(locale, 'rel_strength')}</span>
           <select
             value={strength ?? ''}
-            // '' is the empty option and means unrated — a real answer, not
-            // an absence, so it has to be choosable and not only reachable by
-            // pressing something twice.
+            // '' is the empty option and means unrated — a real answer, not an
+            // absence, so it has to be choosable rather than only reachable by
+            // undoing something.
             onChange={(e) =>
               void patch({ relationship_strength: (e.target.value || null) as Strength | null })
             }
@@ -158,7 +176,18 @@ export function RelationshipCard({
           <span className="text-xs text-ink-muted">{t(locale, 'rel_source')}</span>
           <select
             value={source ?? ''}
-            onChange={(e) => void patch({ source: (e.target.value || null) as Source | null })}
+            // Changing HOW you met clears what the old answer needed. Leaving
+            // an introducer behind on a relationship that now says "I reached
+            // out" would be a fact nobody ever stated.
+            onChange={(e) => {
+              const next = (e.target.value || null) as Source | null;
+              void patch({
+                source: next,
+                source_detail: null,
+                introduced_by: null,
+                via_organisation_id: null,
+              });
+            }}
             className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
           >
             <option value="">{t(locale, 'rel_source_unknown')}</option>
@@ -173,44 +202,41 @@ export function RelationshipCard({
 
       {!strength && <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'rel_unrated')}</p>}
 
-      <IntroducedBy
-        locale={locale}
-        current={value?.introduced_by ?? null}
-        excludeIds={[personId, ...(excludeId ? [excludeId] : [])]}
-        onPick={(id) => void patch({ introduced_by: id })}
-      />
+      {/* The rest of the question, when there is one. */}
+      {needs === 'text' && (
+        <label className="mt-3 block">
+          <span className="block text-xs text-ink-muted">{t(locale, 'rel_at_what')}</span>
+          <TextDetail
+            value={value?.source_detail ?? ''}
+            placeholder={t(locale, 'rel_at_what_ph')}
+            onCommit={(v) => void patch({ source_detail: v || null })}
+          />
+        </label>
+      )}
 
-      {/* What these two DO, on screen.
-          Sjoerd, 2026-09-13: *"What does KEY CONTACT and SPEAKS FOR US
-          mean?"* — a fair question about two checkboxes I put up without
-          saying. Checked rather than explained from memory: between them they
-          have exactly ONE effect. Either flag, or a closeness of `advocate`,
-          puts somebody on a ninety-day leash — `ambassador_drifting` in
-          connections_attention — so they surface in Attention as "an advocate
-          drifting" if nobody has spoken to them in that time. Nothing else in
-          the app reads either column.
-          Which means the two are, today, the same switch with two names. That
-          is a decision for Sjoerd (backlog §2.5), not something to paper over
-          by writing two different-sounding sentences here. */}
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
-        <label className="inline-flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={value?.is_key_contact ?? false}
-            onChange={(e) => void patch({ is_key_contact: e.target.checked })}
-          />
-          {t(locale, 'rel_key_contact')}
-        </label>
-        <label className="inline-flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
-            checked={value?.is_ambassador ?? false}
-            onChange={(e) => void patch({ is_ambassador: e.target.checked })}
-          />
-          {t(locale, 'rel_ambassador')}
-        </label>
-      </div>
-      <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'rel_flags_what')}</p>
+      {needs === 'person' && (
+        <PickOne
+          label={t(locale, 'rel_introduced_by')}
+          placeholder={t(locale, 'rel_introduced_search')}
+          locale={locale}
+          kind="people"
+          current={value?.introduced_by ?? null}
+          exclude={[personId]}
+          onPick={(id) => void patch({ introduced_by: id })}
+        />
+      )}
+
+      {needs === 'organisation' && (
+        <PickOne
+          label={t(locale, 'rel_via_company')}
+          placeholder={t(locale, 'rel_via_company_search')}
+          locale={locale}
+          kind="organisations"
+          current={value?.via_organisation_id ?? null}
+          exclude={[]}
+          onPick={(id) => void patch({ via_organisation_id: id })}
+        />
+      )}
 
       {error && <p className="mt-2 text-xs text-ink">{error}</p>}
     </section>
@@ -218,50 +244,106 @@ export function RelationshipCard({
 }
 
 /**
- * Who introduced you.
+ * A line of text that saves when you leave it.
  *
- * A person id, never a typed name (handbook §12: attach by identifier). The
- * field searches the workspace's own people and hands over an id; the results
- * sit in the flow rather than floating, because this card lives inside a
- * dialog and a floating list opens into its bottom edge — the exact bug the
- * organisation popup shipped with on 2026-09-13.
+ * Not on every keystroke: this writes a row, and a row per character is a
+ * hundred writes for one sentence. Not on Enter alone either — people close a
+ * popup without pressing it, and losing what they typed is worse than an extra
+ * write.
  */
-function IntroducedBy({
+function TextDetail({
+  value,
+  placeholder,
+  onCommit,
+}: {
+  value: string;
+  placeholder: string;
+  onCommit: (v: string) => void;
+}) {
+  const [draft, setDraft] = useState(value);
+  // The row can change underneath — another field saved, the popup reloaded —
+  // and the box should follow.
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <input
+      value={draft}
+      onChange={(e) => setDraft(e.target.value)}
+      onBlur={() => {
+        if (draft.trim() !== value.trim()) onCommit(draft.trim());
+      }}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter') (e.target as HTMLInputElement).blur();
+      }}
+      placeholder={placeholder}
+      maxLength={500}
+      className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-xs placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+    />
+  );
+}
+
+/**
+ * Pick one person, or one company.
+ *
+ * Always an id, never a typed name (handbook §12: attach by identifier). Both
+ * lists come from the vocabulary the `@` picker already reads, so there is one
+ * answer to "who and what does this workspace know" rather than two that can
+ * disagree.
+ *
+ * The results sit IN THE FLOW rather than floating: this card lives inside a
+ * dialog, and a floating list opens into the dialog's bottom edge — the exact
+ * bug the organisation popup shipped with on 2026-09-13.
+ */
+function PickOne({
+  label,
+  placeholder,
   locale,
+  kind,
   current,
-  excludeIds,
+  exclude,
   onPick,
 }: {
+  label: string;
+  placeholder: string;
   locale: Locale;
+  kind: 'people' | 'organisations';
   current: string | null;
-  excludeIds: string[];
+  exclude: string[];
   onPick: (id: string | null) => void;
 }) {
-  const [people, setPeople] = useState<{ id: string; name: string }[]>([]);
+  const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
   const [term, setTerm] = useState('');
 
   useEffect(() => {
     let alive = true;
     void fetchVocabulary().then((v) => {
-      if (alive) setPeople(v.people);
+      if (!alive) return;
+      setOptions(
+        kind === 'people'
+          ? v.people
+          : // A word that names an organisation carries its id; a word that is
+            // only a tag does not, which is exactly how the two are told apart.
+            v.words
+              .filter((w) => w.organisationId)
+              .map((w) => ({ id: w.organisationId!, name: w.name })),
+      );
     });
     return () => {
       alive = false;
     };
-  }, []);
+  }, [kind]);
 
-  const chosen = useMemo(() => people.find((p) => p.id === current) ?? null, [people, current]);
+  const chosen = useMemo(() => options.find((o) => o.id === current) ?? null, [options, current]);
 
   const matches = useMemo(() => {
     const q = term.trim().toLowerCase();
     if (!q) return [];
-    const skip = new Set(excludeIds);
-    return people.filter((p) => !skip.has(p.id) && p.name.toLowerCase().includes(q)).slice(0, 6);
-  }, [term, people, excludeIds]);
+    const skip = new Set(exclude);
+    return options.filter((o) => !skip.has(o.id) && o.name.toLowerCase().includes(q)).slice(0, 6);
+  }, [term, options, exclude]);
 
   return (
     <div className="mt-3">
-      <span className="text-xs text-ink-muted">{t(locale, 'rel_introduced_by')}</span>
+      <span className="text-xs text-ink-muted">{label}</span>
 
       {current ? (
         <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
@@ -270,11 +352,7 @@ function IntroducedBy({
                 it beats showing nothing, which would read as "not set". */}
             {chosen?.name ?? `${current.slice(0, 8)}…`}
           </span>
-          <button
-            type="button"
-            onClick={() => onPick(null)}
-            className="text-ink-muted hover:text-ink"
-          >
+          <button type="button" onClick={() => onPick(null)} className="text-ink-muted hover:text-ink">
             {t(locale, 'rel_clear')}
           </button>
         </div>
@@ -289,8 +367,8 @@ function IntroducedBy({
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
-              placeholder={t(locale, 'rel_introduced_search')}
-              aria-label={t(locale, 'rel_introduced_search')}
+              placeholder={placeholder}
+              aria-label={placeholder}
               className="w-full rounded-md border border-line bg-surface py-1.5 pl-8 pr-3 text-xs placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
             />
           </div>
@@ -299,18 +377,18 @@ function IntroducedBy({
               {matches.length === 0 ? (
                 <li className="px-3 py-1.5 text-xs text-ink-muted">{t(locale, 'people_none')}</li>
               ) : (
-                matches.map((p) => (
-                  <li key={p.id}>
+                matches.map((o) => (
+                  <li key={o.id}>
                     <button
                       type="button"
                       onMouseDown={(e) => e.preventDefault()}
                       onClick={() => {
-                        onPick(p.id);
+                        onPick(o.id);
                         setTerm('');
                       }}
                       className="block w-full px-3 py-1.5 text-left text-xs hover:bg-surface-sunken"
                     >
-                      {p.name}
+                      {o.name}
                     </button>
                   </li>
                 ))

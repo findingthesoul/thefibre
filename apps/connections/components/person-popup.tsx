@@ -34,6 +34,12 @@ import { t, type Locale } from '@/lib/i18n-ui';
 import { Notes, type Note } from '@/app/(app)/people/[id]/notes';
 import { loadPerson, type PersonCard } from '@/app/(app)/people/[id]/load';
 import { suppressWarning, warningSuppressed } from '@/lib/leaving-warning';
+import { loadRelationship } from '@/app/(app)/people/[id]/relationship';
+import {
+  relationshipAnswered,
+  type Relationship,
+} from '@/app/(app)/people/[id]/relationship-vocab';
+import { safely } from '@/lib/safely';
 import { RelationshipCard } from '@/components/relationship-card';
 
 type Ctx = { openPerson: (id: string) => void };
@@ -70,6 +76,21 @@ export function PersonPopupProvider({
   /** Where we are about to go, while the warning is on screen. */
   const [leavingTo, setLeavingTo] = useState<string | null>(null);
   const [dontAsk, setDontAsk] = useState(false);
+  /**
+   * Loaded HERE rather than inside the card, because which tab opens depends
+   * on it and a tab that switched itself a moment after appearing would be
+   * worse than either default.
+   */
+  const [relationship, setRelationship] = useState<Relationship | null>(null);
+  /**
+   * Which tab. Sjoerd, 2026-09-13: *"Maybe tabs instead of accordeon.. and the
+   * 'how we met' is only open when it is not filled in"*.
+   *
+   * So the default is the QUESTION for somebody nobody has answered it for,
+   * and the note box for everybody else — which is the right way round: you
+   * open a person you already know in order to write down what just happened.
+   */
+  const [tab, setTab] = useState<'happened' | 'relation'>('happened');
 
   const load = useCallback(async (personId: string) => {
     setLoading(true);
@@ -95,6 +116,17 @@ export function PersonPopupProvider({
     }
     setPerson(r.person);
     setNotes(r.notes);
+
+    // After the person, not in parallel: the notes are what the popup is for,
+    // and holding them behind a second request to decide a tab would make the
+    // whole thing feel slower to serve a smaller decision.
+    const rel = await safely(
+      () => loadRelationship(personId),
+      () => ({ ok: false as const, error: '' }),
+    );
+    const value = rel.ok ? rel.relationship : null;
+    setRelationship(value);
+    setTab(relationshipAnswered(value) ? 'happened' : 'relation');
   }, []);
 
   // ── Back closes the popup ─────────────────────────────────────────────────
@@ -128,6 +160,7 @@ export function PersonPopupProvider({
     setId(null);
     setPerson(null);
     setNotes([]);
+    setRelationship(null);
     setError(null);
   }, []);
 
@@ -157,6 +190,7 @@ export function PersonPopupProvider({
       // somebody type into the wrong person's composer.
       setPerson(null);
       setNotes([]);
+      setRelationship(null);
       void load(personId);
     },
     [load],
@@ -225,37 +259,50 @@ export function PersonPopupProvider({
                 </button>
               </div>
 
-              {/* Two folds. Sjoerd, 2026-09-13: *"Maybe they can be like an
-                  accordeon: Relation / What happened"*.
+              {/* Tabs, not folds. Sjoerd, 2026-09-13: *"Maybe tabs instead
+                  of accordeon.. and the 'how we met' is only open when it is
+                  not filled in"*. Two folds meant both headings and neither
+                  body, or scrolling past one to reach the other; two tabs mean
+                  one body and both always one press away.
 
-                  `<details>` rather than a component: this is exactly what
-                  the element is for, it needs no JavaScript, it is keyboard
-                  and screen-reader correct for free, and it keeps its own
-                  state. Inventing an Accordion component to do worse would be
-                  the wrong trade.
+                  Plain buttons rather than a tablist with roving focus: there
+                  are two of them, they are in a dialog that already traps
+                  focus, and `aria-selected` on a button carries the state a
+                  screen reader needs without inventing a keyboard model
+                  nobody asked for. */}
+              <div className="mt-4 flex gap-1 border-b border-line">
+                {(['happened', 'relation'] as const).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    onClick={() => setTab(k)}
+                    aria-selected={tab === k}
+                    className={`-mb-px border-b-2 px-3 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${
+                      tab === k
+                        ? 'border-ink text-ink'
+                        : 'border-transparent text-ink-subtle hover:text-ink'
+                    }`}
+                  >
+                    {t(locale, k === 'happened' ? 'popup_what_happened' : 'popup_relation')}
+                  </button>
+                ))}
+              </div>
 
-                  WHAT HAPPENED is open and RELATION is not, because the
-                  reason somebody opens this popup is almost always to type
-                  one line after a conversation. The other is a judgement they
-                  make occasionally. */}
-              <details className="group mt-4 rounded-md border border-line bg-surface-raised px-3 py-2">
-                <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-ink-subtle marker:content-none">
-                  {t(locale, 'popup_relation')}
-                </summary>
-                <div className="pb-1 pt-2">
-                  {/* Keyed by person so it never shows the last person's
-                      rating while the new one loads. */}
-                  <RelationshipCard key={`rel-${person.id}`} personId={person.id} locale={locale} />
-                </div>
-              </details>
+              {/* Both stay MOUNTED, and only one is shown. Unmounting the
+                  composer would throw away a half-typed note the moment
+                  somebody glanced at the other tab. */}
+              <div className="pt-3" hidden={tab !== 'relation'}>
+                {/* Keyed by person so it never shows the last person's rating
+                    while the new one loads. */}
+                <RelationshipCard
+                  key={`rel-${person.id}`}
+                  personId={person.id}
+                  locale={locale}
+                  initial={relationship}
+                />
+              </div>
 
-              <details
-                open
-                className="group mt-2 rounded-md border border-line bg-surface-raised px-3 py-2"
-              >
-                <summary className="cursor-pointer list-none text-xs font-medium uppercase tracking-wide text-ink-subtle marker:content-none">
-                  {t(locale, 'popup_what_happened')}
-                </summary>
+              <div className="pt-1" hidden={tab !== 'happened'}>
                 {/* The same composer the page uses, reloading the list INSIDE
                     the dialog on commit rather than refreshing the page under
                     it — see Notes' onCommitted. Keyed by person so switching
@@ -268,7 +315,7 @@ export function PersonPopupProvider({
                   locale={locale}
                   onCommitted={() => void load(person.id)}
                 />
-              </details>
+              </div>
             </div>
           )}
         </Dialog>
