@@ -6,6 +6,20 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.29] — 2026-09-13 — The middle leans after your mouse (staging)
+
+**Connections — the name in the middle drifts after the pointer, always a
+little behind.** It leans rather than follows: a fraction of the way toward
+your cursor and no further than a set distance, on a soft spring. A middle that
+chased the cursor into the corner would stop being the middle of anything, and
+every line would stretch across the screen. When the mouse leaves the cloud, it
+drifts home.
+
+One thing worth recording: the mouse leaving is handled by a listener on the
+element itself rather than React's `onPointerLeave`, which React synthesises
+from other events. With the React handler the middle stayed leaning after the
+pointer had gone.
+
 ## [0.73.28] — 2026-09-13 — The cloud goes wide, and you can push it around (staging)
 
 **Connections — the map fills the screen and moves under your hand.**
