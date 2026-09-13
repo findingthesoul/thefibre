@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.38] — 2026-09-13 — Open a company, connect somebody to it; the cloud stops standing still (staging)
+
+**Connections — an organisation opens like a person does.** Click the company
+in the middle of the map and it opens in a popup: who works there, and a field
+to say that somebody else does. You pick the person from the workspace's own
+list, never by typing a name — a name in a sentence is a hint, and belonging
+somewhere is a fact, so the two do not share a door.
+
+**The map's names now move past one another.** Every name was given a
+direction and held there, so the cloud could drift and breathe while no two
+names ever changed places. They now swing slowly around their own spot, far
+enough to overtake a neighbour — so somebody hidden behind another name comes
+out from behind them on their own. The way back keeps its direction, because
+that one is the whole point of the movement that put it there.
+
+**A full screen button**, next to Back. Escape closes it.
+
 ## [0.73.37] — 2026-09-13 — You choose which readings you use, and what they are called (staging)
 
 **Connections — the landscape is yours to name and to narrow.** Renaming the

@@ -194,6 +194,19 @@ export type WebNode = {
    * on purpose rather than left to emerge.
    */
   bearing?: number;
+  /**
+   * The slot `assignBearings` gave this node, before any drift. `bearing` is
+   * this plus a slow swing, so the thing that decides the spread and the
+   * thing that makes it move stay separable.
+   */
+  bearingBase?: number;
+  /**
+   * How far either side of its slot this node may swing, in radians. Zero
+   * pins it — the name you came from has to stay exactly opposite the one you
+   * clicked, and a drifting one would wander off the direction it exists to
+   * show.
+   */
+  bearingSwing?: number;
 };
 
 export const R_MIN = 250;
@@ -230,6 +243,27 @@ const WANDER_SPEED = 0.0007;
 
 /** How firmly a name with a preferred direction is kept in it. */
 const BEARING_PULL = 0.08;
+/**
+ * How far a name may swing around its slot, as a fraction of the gap to its
+ * neighbour. Sjoerd, 2026-09-13: *"it seems the position of the cloud names,
+ * relative to each other stay the same... they can also move"*.
+ *
+ * He was right and it was structural, not a missing animation: `bearing` was
+ * a constant per name and `BEARING_PULL` held every name at it, so the whole
+ * cloud could breathe and drift without any two names ever changing places.
+ *
+ * 0.62 is chosen so they genuinely OVERTAKE. Neighbours sit one gap apart, so
+ * two adjacent names swinging in opposite directions cross once their offsets
+ * differ by more than one gap — which needs an amplitude over half a gap, and
+ * 0.62 clears it with enough margin to be seen rather than merely computed.
+ * Much beyond that and the ordering stops meaning anything: the wedges a
+ * topic's members share would interleave with their neighbours' and the
+ * junction lines would cross the cloud, which is the failure `assignBearings`
+ * was written to fix.
+ */
+const BEARING_SWING = 0.62;
+/** Slow enough to be a drift rather than a wobble: a full swing is ~40s. */
+const BEARING_SWING_SPEED = 0.00016;
 /** The slowest and quickest a name follows the centre. Its own rate sits
  *  somewhere between, from its id. */
 const LAG_SLOWEST = 0.012;
@@ -471,6 +505,37 @@ export function wander(nodes: WebNode[], t: number): void {
   }
 }
 
+/**
+ * Let the names slide around their slots, so the cloud's order is never fixed.
+ *
+ * Each name swings around the bearing it was given, at its own rate and phase,
+ * far enough that neighbours overtake one another — so a name that was on the
+ * left of another will later be on its right, and something hidden behind a
+ * neighbour comes out from behind it without anybody dragging anything.
+ *
+ * Deliberately NOT a constant rotation. Every name drifting the same way is a
+ * carousel: the picture turns and the relationships within it stay exactly as
+ * they were, which is the thing being fixed here. Opposed swings at different
+ * rates are what make two names actually trade places.
+ *
+ * Separate from `wander`, which moves a name in x and y around wherever it
+ * already is. This moves where it BELONGS; `step` then pulls it there. Fold
+ * the two together and the pull would fight the nudge.
+ */
+export function driftBearings(nodes: WebNode[], t: number): void {
+  for (const n of nodes) {
+    if (n.bearingBase === undefined) continue;
+    const swing = n.bearingSwing ?? 0;
+    if (!swing) {
+      n.bearing = n.bearingBase;
+      continue;
+    }
+    const phase = unitHash(n.id, 17) * Math.PI * 2;
+    const speed = 0.55 + unitHash(n.id, 19) * 0.9;
+    n.bearing = n.bearingBase + Math.sin(t * BEARING_SWING_SPEED * speed + phase) * swing;
+  }
+}
+
 /** Run until still, or `maxSteps`. For tests and for reduced motion. */
 export function settle(
   nodes: WebNode[],
@@ -561,14 +626,26 @@ export function assignBearings(
     base = anchor.bearing - within * step;
   }
 
+  const swing = step * BEARING_SWING;
+
   let slot = 0;
   for (const g of ordered) {
     g.members.forEach((m, i) => {
-      m.bearing = base + (slot + i) * step;
+      m.bearingBase = base + (slot + i) * step;
+      m.bearing = m.bearingBase;
+      // The way back does not drift. It is the one name whose direction
+      // carries meaning — exactly opposite the one you clicked — and a name
+      // that wandered off it would quietly undo the movement that put it
+      // there.
+      m.bearingSwing = anchor && m.id === anchor.id ? 0 : swing;
     });
     if (g.junction) {
       // The mouth of this topic's wedge: the middle of its members.
-      g.junction.bearing = base + (slot + (g.members.length - 1) / 2) * step;
+      g.junction.bearingBase = base + (slot + (g.members.length - 1) / 2) * step;
+      g.junction.bearing = g.junction.bearingBase;
+      // Half, so the junction stays inside the wedge its members are swinging
+      // within rather than leading them out of it.
+      g.junction.bearingSwing = swing / 2;
     }
     slot += g.members.length;
   }

@@ -6446,6 +6446,94 @@ const CATALOG = {
     de: 'Was jemanden auf eine Stufe bringt, wird aus dem Geschehenen abgeleitet und ist hier nicht änderbar — deshalb muss es niemand pflegen. Die Zeile unter jedem Namen sagt, was sie verdient.', // MT
     fr: 'Ce qui place quelqu’un sur une étape est déduit de ce qui s’est passé et ne se change pas ici — c’est pourquoi personne n’a à l’entretenir. La ligne sous chaque nom dit ce qui la vaut.', // MT
   },
+  map_full: {
+    en: 'Full screen',
+    nl: 'Volledig scherm',
+    es: 'Pantalla completa', // MT
+    pt: 'Ecrã inteiro', // MT
+    de: 'Vollbild', // MT
+    fr: 'Plein écran', // MT
+  },
+  map_exit_full: {
+    en: 'Close full screen',
+    nl: 'Volledig scherm sluiten',
+    es: 'Salir de pantalla completa', // MT
+    pt: 'Sair do ecrã inteiro', // MT
+    de: 'Vollbild schließen', // MT
+    fr: 'Quitter le plein écran', // MT
+  },
+  map_org_title: {
+    en: 'Organisation',
+    nl: 'Organisatie',
+    es: 'Organización', // MT
+    pt: 'Organização', // MT
+    de: 'Organisation', // MT
+    fr: 'Organisation', // MT
+  },
+  org_load_failed: {
+    en: 'Could not open this organisation.',
+    nl: 'Kon deze organisatie niet openen.',
+    es: 'No se pudo abrir esta organización.', // MT
+    pt: 'Não foi possível abrir esta organização.', // MT
+    de: 'Diese Organisation konnte nicht geöffnet werden.', // MT
+    fr: 'Impossible d’ouvrir cette organisation.', // MT
+  },
+  org_members: {
+    en: 'Who works here',
+    nl: 'Wie hier werkt',
+    es: 'Quién trabaja aquí', // MT
+    pt: 'Quem trabalha aqui', // MT
+    de: 'Wer hier arbeitet', // MT
+    fr: 'Qui travaille ici', // MT
+  },
+  org_no_members: {
+    en: 'Nobody is recorded here yet.',
+    nl: 'Hier staat nog niemand bij.',
+    es: 'Aquí todavía no hay nadie registrado.', // MT
+    pt: 'Ainda não há ninguém registado aqui.', // MT
+    de: 'Hier ist noch niemand vermerkt.', // MT
+    fr: 'Personne n’est encore enregistré ici.', // MT
+  },
+  org_connect_title: {
+    en: 'Connect someone',
+    nl: 'Iemand koppelen',
+    es: 'Conectar a alguien', // MT
+    pt: 'Ligar alguém', // MT
+    de: 'Jemanden verknüpfen', // MT
+    fr: 'Relier quelqu’un', // MT
+  },
+  org_connect_search: {
+    en: 'Search someone you know',
+    nl: 'Zoek iemand die je kent',
+    es: 'Busca a alguien que conoces', // MT
+    pt: 'Procura alguém que conheces', // MT
+    de: 'Jemanden suchen, den ihr kennt', // MT
+    fr: 'Cherchez quelqu’un que vous connaissez', // MT
+  },
+  org_connect_role: {
+    en: 'What they do here (optional)',
+    nl: 'Wat diegene hier doet (optioneel)',
+    es: 'Qué hace aquí (opcional)', // MT
+    pt: 'O que faz aqui (opcional)', // MT
+    de: 'Was die Person hier macht (optional)', // MT
+    fr: 'Ce qu’elle y fait (facultatif)', // MT
+  },
+  org_connect_do: {
+    en: 'Connect',
+    nl: 'Koppelen',
+    es: 'Conectar', // MT
+    pt: 'Ligar', // MT
+    de: 'Verknüpfen', // MT
+    fr: 'Relier', // MT
+  },
+  org_connect_forbidden: {
+    en: 'You do not have permission to change who works here.',
+    nl: 'Je mag niet wijzigen wie hier werkt.',
+    es: 'No tienes permiso para cambiar quién trabaja aquí.', // MT
+    pt: 'Não tens permissão para mudar quem trabalha aqui.', // MT
+    de: 'Du darfst nicht ändern, wer hier arbeitet.', // MT
+    fr: 'Vous n’avez pas la permission de changer qui travaille ici.', // MT
+  },
   names_axis_title: {
     en: 'What you call this',
     nl: 'Hoe jullie dit noemen',

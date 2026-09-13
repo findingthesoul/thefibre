@@ -12,6 +12,7 @@ import { buildAppList } from '@/lib/available-apps';
 import { APPS, appUrl, tileArtUrl } from '@thefibre/shared';
 import { crossAppHref } from '@thefibre/shared/sso-hop';
 import { PersonPopupProvider } from '@/components/person-popup';
+import { OrgPopupProvider } from '@/components/org-popup';
 import { OfflineSync } from '@/components/offline-sync';
 import { UnfiledNotes } from '@/components/unfiled-notes';
 
@@ -145,7 +146,7 @@ export default async function ConnectionsAppLayout({
             <div className="px-4 pt-4 empty:hidden sm:px-6">
               <UnfiledNotes workspaceId={me.workspace?.id ?? null} locale={locale} />
             </div>
-            {children}
+            <OrgPopupProvider locale={locale}>{children}</OrgPopupProvider>
           </PersonPopupProvider>
           {/* Records the active workspace, sends notes queued offline when the
               signal returns, and registers the service worker — on every

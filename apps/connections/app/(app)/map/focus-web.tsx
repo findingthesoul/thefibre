@@ -25,8 +25,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Maximize2, Minimize2 } from 'lucide-react';
 import { usePersonPopup } from '@/components/person-popup';
+import { useOrgPopup } from '@/components/org-popup';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import {
   ASPECT,
@@ -36,6 +37,7 @@ import {
   panTo,
   panning,
   assignBearings,
+  driftBearings,
   junctionRadius,
   seedPosition,
   settle,
@@ -205,6 +207,7 @@ export function FocusWeb({
   // The page this web lives on, so its links stay on it.
   const pathname = usePathname();
   const { openPerson } = usePersonPopup();
+  const { openOrg } = useOrgPopup();
   const nodes = useRef<Map<string, Shown>>(new Map());
   const [, setFrame] = useState(0);
   const [centreName, setCentreName] = useState(knownName ?? '');
@@ -260,6 +263,18 @@ export function FocusWeb({
   const suppressClick = useRef(false);
   /** Where the pointer is over the cloud, so the middle can lean after it. */
   const pointer = useRef<{ x: number; y: number } | null>(null);
+  /**
+   * The cloud filling the screen. Sjoerd, 2026-09-13: *"also add a full
+   * screen button"*.
+   *
+   * A fixed overlay rather than the browser's Fullscreen API, and the choice
+   * is deliberate. The native one is refused outright in some embedded
+   * contexts, hides the browser's own chrome — and Back is how this map is
+   * navigated — and leaves the page in a state this component cannot reliably
+   * read back. An overlay always works, keeps every control, and Escape
+   * leaves it, which is the gesture people try first anyway.
+   */
+  const [full, setFull] = useState(false);
 
   // ── The animation loop ──────────────────────────────────────────────────
   const animate = useCallback(() => {
@@ -276,6 +291,10 @@ export function FocusWeb({
     // requestAnimationFrame pauses itself when the tab is hidden.
     const tick = () => {
       const list = [...nodes.current.values()];
+      // Where each name BELONGS moves first, then the forces pull it there.
+      // The other way round and every frame would be a step towards a target
+      // that had already moved.
+      driftBearings(list, performance.now());
       step(list, webLinks(links.current), pan.current, pointer.current);
       wander(list, performance.now());
       // Fade in what is arriving, fade out what is leaving, and only then let
@@ -300,6 +319,23 @@ export function FocusWeb({
     },
     [],
   );
+
+  // Escape leaves full screen, and the page underneath does not scroll while
+  // the cloud covers it — a background that scrolls behind an overlay is what
+  // makes one feel broken.
+  useEffect(() => {
+    if (!full) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFull(false);
+    };
+    window.addEventListener('keydown', onKey);
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      document.body.style.overflow = previous;
+    };
+  }, [full]);
 
   // The mouse leaving is a NATIVE listener, not React's onPointerLeave.
   // React synthesises enter/leave from pointerout/pointerover, which a test
@@ -570,7 +606,12 @@ export function FocusWeb({
     // A junction is a topic, not a place you can stand: it has no page.
     if (n.junction || n.kind === 'junction') return;
     if (n.centre) {
+      // The same rule for both kinds: the middle opens its details. An
+      // organisation's details are its people and a way to add one
+      // (Sjoerd, 2026-09-13), which is why clicking a company in the middle
+      // is worth something rather than a no-op.
       if (n.kind === 'person') openPerson(n.id);
+      else if (n.kind === 'org') openOrg(n.id);
       return;
     }
     router.push(focusHref({ kind: n.kind, id: n.id }, pathname));
@@ -592,6 +633,15 @@ export function FocusWeb({
           className="rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
         >
           {t(locale, 'map_overview')}
+        </button>
+        <button
+          type="button"
+          onClick={() => setFull((v) => !v)}
+          className="inline-flex items-center gap-1.5 rounded-md px-2 py-1.5 text-ink-muted hover:text-ink"
+          aria-pressed={full}
+        >
+          {full ? <Minimize2 size={14} /> : <Maximize2 size={14} />}
+          {t(locale, full ? 'map_exit_full' : 'map_full')}
         </button>
         <span className="text-xs text-ink-subtle">{t(locale, 'map_web_hint')}</span>
       </div>
@@ -623,11 +673,31 @@ export function FocusWeb({
       {/* The cloud takes the whole width. Sjoerd: *"Make it wide over the
           screen"* — the container breaks out of the page's reading width. */}
       <div className="mt-3">
-        <div className="relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border">
+        <div
+          className={
+            full
+              ? 'fixed inset-0 z-50 overflow-hidden bg-surface-raised'
+              : 'relative -mx-4 overflow-hidden border-y border-line bg-surface-raised sm:-mx-6 lg:mx-0 lg:rounded-lg lg:border'
+          }
+        >
+          {/* In full screen the way out comes WITH the cloud. Leaving it on
+              the page underneath would put it behind the overlay. */}
+          {full && (
+            <button
+              type="button"
+              onClick={() => setFull(false)}
+              className="absolute right-3 top-3 z-10 inline-flex items-center gap-1.5 rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm hover:bg-surface-sunken"
+            >
+              <Minimize2 size={14} /> {t(locale, 'map_exit_full')}
+            </button>
+          )}
           <svg
             ref={svgRef}
             viewBox="-620 -300 1240 600"
-            className="block h-auto w-full touch-none select-none"
+            /* Full screen fills the height too. The drawing keeps its own
+               proportions (the default preserveAspectRatio), so a tall screen
+               gets margins rather than a stretched cloud. */
+            className={`block touch-none select-none ${full ? 'h-full w-full' : 'h-auto w-full'}`}
             role="img"
             aria-label={centreName}
             onPointerMove={(e) => {
