@@ -425,6 +425,8 @@ export function FocusWeb({
             targetR: 0,
             centre: false,
             junction: true,
+            // Arrives invisible and fades up, like the names it holds.
+            opacity: 0,
             // A junction is a dot: it must not shove names aside.
             width: 10,
             kind: 'junction' as const,
@@ -654,7 +656,10 @@ export function FocusWeb({
                 y2={round(l.b.y)}
                 className="text-ink"
                 stroke="currentColor"
-                strokeOpacity={0.1 + 0.18 * Math.min(1, l.weight)}
+                strokeOpacity={
+                  (0.1 + 0.18 * Math.min(1, l.weight)) *
+                  Math.min(l.a.opacity ?? 1, l.b.opacity ?? 1)
+                }
                 strokeWidth={0.8 + 1.2 * Math.min(1, l.weight)}
                 strokeDasharray={l.solid ? undefined : '4 5'}
               >
@@ -674,7 +679,7 @@ export function FocusWeb({
                   y2={round(j.y)}
                   className="text-ink"
                   stroke="currentColor"
-                  strokeOpacity={0.3}
+                  strokeOpacity={0.3 * (j.opacity ?? 1)}
                   strokeWidth={1.4}
                 />
               ))}
@@ -692,7 +697,10 @@ export function FocusWeb({
                     y2={round(n.y)}
                     className="text-ink"
                     stroke="currentColor"
-                    strokeOpacity={0.18 + 0.4 * n.strength}
+                    strokeOpacity={
+                      (0.18 + 0.4 * n.strength) *
+                      Math.min(n.opacity ?? 1, from?.opacity ?? 1)
+                    }
                     strokeWidth={1 + 2 * n.strength}
                     strokeDasharray={n.solid ? undefined : '5 5'}
                   />
@@ -911,8 +919,9 @@ const round = (v: number) => Math.round(v * 10) / 10;
 // still miss.
 /** How far the pointer may wander, in screen pixels, and still be a click. */
 const DRAG_SLOP_PX = 5;
-/** How quickly a name fades in or out. */
-const FADE = 0.09;
+/** How quickly a name fades in or out. About 0.8s, which reads as gradual;
+ *  at twice that speed it still looked like an appearance rather than a fade. */
+const FADE = 0.05;
 /** Hold this long without moving and the name is picked up anyway. */
 const HOLD_MS = 180;
 
