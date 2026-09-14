@@ -128,6 +128,7 @@ export function PayMethodSwitch({
 export function InvoiceBillingFields({
   labels,
   inputClassName = `mt-1 ${FIELD_INPUT_CLASS}`,
+  labelClassName = 'text-xs text-ink-subtle',
 }: {
   labels: {
     company: ReactNode;
@@ -140,10 +141,12 @@ export function InvoiceBillingFields({
   /** Thread's public pages pass their own class so embed CSS (te-input)
    *  keeps reaching the fields. */
   inputClassName?: string;
+  /** Match the labels of the form the fields sit in. */
+  labelClassName?: string;
 }) {
   const field = (key: string, label: ReactNode, autoComplete: string) => (
     <label className="block">
-      <span className="text-xs text-ink-subtle">{label}</span>
+      <span className={labelClassName}>{label}</span>
       <input name={`billing_${key}`} className={inputClassName} autoComplete={autoComplete} />
     </label>
   );

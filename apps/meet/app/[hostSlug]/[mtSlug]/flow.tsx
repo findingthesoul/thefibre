@@ -104,6 +104,7 @@ function PaymentSection({
           className="space-y-4"
         >
           <InvoiceBillingFields
+            labelClassName="text-sm text-ink-subtle"
             labels={{
               company: 'Company / organisation (for the invoice)',
               address: 'Billing address',

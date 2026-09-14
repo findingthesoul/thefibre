@@ -31,6 +31,7 @@ type MeetingType = {
   default_location: string | null;
   price_cents: number | null;
   price_currency: string | null;
+  payment_methods?: ('stripe' | 'invoice')[] | null;
   intake_form: IntakeForm | null;
   event_type?: string;
   capacity?: number | null;
@@ -218,7 +219,13 @@ function Card({
                         style: 'currency',
                         currency: (meetingType.price_currency ?? 'eur').toUpperCase(),
                       }).format(meetingType.price_cents / 100)}{' '}
-                      <span className="text-neutral-500">— paid at checkout</span>
+                      <span className="text-neutral-500">
+                        {meetingType.payment_methods?.includes('invoice')
+                          ? meetingType.payment_methods.includes('stripe')
+                            ? '— pay online or by invoice'
+                            : '— paid by invoice'
+                          : '— paid at checkout'}
+                      </span>
                     </span>
                   </li>
                 ) : null}
