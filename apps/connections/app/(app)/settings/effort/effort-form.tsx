@@ -7,6 +7,8 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
+import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { EFFORT_KIND_KEYS } from '@/lib/effort-format';
 import { saveEffortDefaults } from '../actions';
@@ -90,7 +92,7 @@ export function EffortForm({
                     onChange={(e) => setValues((v) => ({ ...v, [k.kind]: e.target.value }))}
                     placeholder={String(k.default_minutes)}
                     disabled={!canEdit}
-                    className="w-20 rounded-md border border-line bg-surface px-2 py-1.5 text-right tabular-nums placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60"
+                    className={`${FIELD_CLASS_INLINE} w-20 text-right tabular-nums disabled:opacity-60`}
                   />
                   <span className="text-xs text-ink-muted">
                     {t(locale, k.per_person ? 'effort_unit_per_person' : 'effort_unit')}
@@ -106,14 +108,9 @@ export function EffortForm({
 
       {canEdit && (
         <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={save}
-            disabled={!dirty || invalid || pending}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
-          >
+          <Button type="button" onClick={save} disabled={!dirty || invalid || pending}>
             {pending ? t(locale, 'saving') : t(locale, 'save')}
-          </button>
+          </Button>
           {invalid && <span className="text-xs text-ink">{t(locale, 'effort_invalid')}</span>}
           {saved && (
             <span className="inline-flex items-center gap-1 text-xs text-ink-muted">

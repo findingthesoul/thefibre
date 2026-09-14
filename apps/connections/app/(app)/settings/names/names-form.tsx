@@ -32,6 +32,8 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
+import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import {
   AXES,
@@ -183,7 +185,7 @@ function AxisNames({
           placeholder={shippedTitle}
           disabled={!canEdit}
           maxLength={80}
-          className="mt-1 w-full rounded-md border border-line bg-surface py-2 px-3 text-sm placeholder:text-ink-muted focus:border-line-strong focus:outline-none disabled:opacity-60"
+          className={`mt-1 ${FIELD_CLASS} disabled:opacity-60`}
         />
       </label>
 
@@ -233,14 +235,9 @@ function AxisNames({
 
       {canEdit && (
         <div className="mt-3 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={save}
-            disabled={!dirty || pending}
-            className="inline-flex h-8 items-center rounded-md border border-line bg-surface-raised px-3 text-sm hover:bg-surface-sunken disabled:opacity-50"
-          >
+          <Button type="button" onClick={save} disabled={!dirty || pending}>
             {pending ? t(locale, 'saving') : t(locale, 'save')}
-          </button>
+          </Button>
           {saved && (
             <span className="inline-flex items-center gap-1 text-xs text-ink-muted">
               <Check size={13} /> {t(locale, 'saved')}

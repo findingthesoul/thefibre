@@ -50,6 +50,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
+import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { loadRelationship, saveRelationship } from '@/app/(app)/people/[id]/relationship';
@@ -150,62 +151,43 @@ export function RelationshipCard({
 
   return (
     <section>
-      <div className="flex flex-wrap gap-x-4 gap-y-2">
-        <label className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'rel_strength')}</span>
-          <select
-            value={strength ?? ''}
-            // '' is the empty option and means unrated — a real answer, not an
-            // absence, so it has to be choosable rather than only reachable by
-            // undoing something.
-            onChange={(e) =>
-              void patch({ relationship_strength: (e.target.value || null) as Strength | null })
-            }
-            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-          >
-            <option value="">{t(locale, 'band_unrated')}</option>
-            {STRENGTHS.map((s) => (
-              <option key={s} value={s}>
-                {t(locale, STRENGTH_KEYS[s])}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'rel_source')}</span>
-          <select
-            value={source ?? ''}
-            // Changing HOW you met clears what the old answer needed. Leaving
-            // an introducer behind on a relationship that now says "I reached
-            // out" would be a fact nobody ever stated.
-            onChange={(e) => {
-              const next = (e.target.value || null) as Source | null;
-              void patch({
-                source: next,
-                source_detail: null,
-                introduced_by: null,
-                via_organisation_id: null,
-              });
-            }}
-            className="rounded-md border border-line bg-surface px-2 py-1.5 text-xs"
-          >
-            <option value="">{t(locale, 'rel_source_unknown')}</option>
-            {SOURCES.map((s) => (
-              <option key={s} value={s}>
-                {t(locale, SOURCE_KEYS[s])}
-              </option>
-            ))}
-          </select>
-        </label>
+      {/* The shared fields, like every form in The Fibre (Sjoerd, 2026-09-14:
+          one single point of truth, not a second smaller style). */}
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField
+          label={t(locale, 'rel_strength')}
+          value={strength ?? ''}
+          // '' is the empty option and means unrated — a real answer, not an
+          // absence, so it has to be choosable rather than only reachable by
+          // undoing something.
+          onChange={(e) => void patch({ relationship_strength: (e.target.value || null) as Strength | null })}
+          options={[
+            { value: '', label: t(locale, 'band_unrated') },
+            ...STRENGTHS.map((s) => ({ value: s, label: t(locale, STRENGTH_KEYS[s]) })),
+          ]}
+          hint={!strength ? t(locale, 'rel_unrated') : undefined}
+        />
+        <SelectField
+          label={t(locale, 'rel_source')}
+          value={source ?? ''}
+          // Changing HOW you met clears what the old answer needed. Leaving an
+          // introducer behind on a relationship that now says "I reached out"
+          // would be a fact nobody ever stated.
+          onChange={(e) => {
+            const next = (e.target.value || null) as Source | null;
+            void patch({ source: next, source_detail: null, introduced_by: null, via_organisation_id: null });
+          }}
+          options={[
+            { value: '', label: t(locale, 'rel_source_unknown') },
+            ...SOURCES.map((s) => ({ value: s, label: t(locale, SOURCE_KEYS[s]) })),
+          ]}
+        />
       </div>
-
-      {!strength && <p className="mt-1.5 text-xs text-ink-subtle">{t(locale, 'rel_unrated')}</p>}
 
       {/* The rest of the question, when there is one. */}
       {needs === 'text' && (
-        <label className="mt-3 block">
-          <span className="block text-xs text-ink-muted">{t(locale, 'rel_at_what')}</span>
+        <label className="mt-4 block">
+          <span className={FIELD_LABEL_CLASS}>{t(locale, 'rel_at_what')}</span>
           <TextDetail
             value={value?.source_detail ?? ''}
             placeholder={t(locale, 'rel_at_what_ph')}
@@ -276,7 +258,7 @@ function TextDetail({
       }}
       placeholder={placeholder}
       maxLength={500}
-      className="mt-1 w-full rounded-md border border-line bg-surface px-2 py-1.5 text-xs placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+      className={`mt-1 ${FIELD_CLASS}`}
     />
   );
 }
@@ -342,11 +324,11 @@ function PickOne({
   }, [term, options, exclude]);
 
   return (
-    <div className="mt-3">
-      <span className="text-xs text-ink-muted">{label}</span>
+    <div className="mt-4">
+      <span className={FIELD_LABEL_CLASS}>{label}</span>
 
       {current ? (
-        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs">
+        <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
           <span className="rounded-full border border-line bg-surface px-3 py-1">
             {/* Before the vocabulary arrives the id is all there is. Showing
                 it beats showing nothing, which would read as "not set". */}
@@ -357,25 +339,25 @@ function PickOne({
           </button>
         </div>
       ) : (
-        <div className="mt-1.5">
+        <div className="mt-1">
           <div className="relative">
             <Search
-              size={14}
+              size={15}
               strokeWidth={1.75}
-              className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-ink-muted"
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-ink-muted"
             />
             <input
               value={term}
               onChange={(e) => setTerm(e.target.value)}
               placeholder={placeholder}
               aria-label={placeholder}
-              className="w-full rounded-md border border-line bg-surface py-1.5 pl-8 pr-3 text-xs placeholder:text-ink-muted focus:border-line-strong focus:outline-none"
+              className={`${FIELD_CLASS} pl-9`}
             />
           </div>
           {term.trim() && (
             <ul className="mt-1 max-h-40 overflow-y-auto rounded-md border border-line bg-surface py-1">
               {matches.length === 0 ? (
-                <li className="px-3 py-1.5 text-xs text-ink-muted">{t(locale, 'people_none')}</li>
+                <li className="px-3 py-1.5 text-sm text-ink-muted">{t(locale, 'people_none')}</li>
               ) : (
                 matches.map((o) => (
                   <li key={o.id}>
@@ -386,7 +368,7 @@ function PickOne({
                         onPick(o.id);
                         setTerm('');
                       }}
-                      className="block w-full px-3 py-1.5 text-left text-xs hover:bg-surface-sunken"
+                      className="block w-full px-3 py-1.5 text-left text-sm hover:bg-surface-sunken"
                     >
                       {o.name}
                     </button>

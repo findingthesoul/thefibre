@@ -98,6 +98,7 @@ neither in code nor in a document. That is what this file fixes.
 | 65 | "From a meeting transcript…" should say "AI report as input" | **Shipped** v0.74.3 |
 | 66 | Follow up and Done on one line | **Shipped** v0.74.3 — wraps below on a phone |
 | 67 | The follow-up's date field can just be a calendar icon | **Shipped** v0.74.4 — an icon until a date is picked, then the icon and a short date; shared DateTimeField gained size="icon" |
+| 68 | "Why do we have two styles? It should be one single point of truth" — the note box against Thread's editor; "The Thread is way more clear" | **Shipped** v0.74.6 — Connections' forms rebuilt on the shared SelectField / DateTimeField / Button; the extra date sizes (sm, icon) removed from shared; hand-written control classes across Connections replaced by the shared FIELD_CLASS. Supersedes the look of 63, 64, 66 and 67: labelled fields in Thread's style instead of one tinted line |
 
 ### The three that were lost
 

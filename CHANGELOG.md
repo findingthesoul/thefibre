@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.6] — 2026-09-14 — Connections uses The Fibre's one form style (staging)
+
+**Connections looks like Thread now.** The note box, "How you know them", the
+connect-a-person form, the leaving warning, Settings, tag cleaning, Team
+updates and the Movement filters had grown a smaller style of their own. They
+now use the same labelled fields, date field and buttons as Thread's editor:
+kind, when and team with labels above; what happened; then, under a rule, the
+follow-up and when; Done at the bottom right.
+
+**Shared:** the `sm` and `icon` sizes added to `DateTimeField` in v0.74.3–4 are
+removed again — one date field. `@thefibre/shared/ui/fields` exports
+`FIELD_CLASS`, `FIELD_CLASS_INLINE` and `FIELD_LABEL_CLASS` for the rare
+control that cannot be a `TextField`/`SelectField` (a search box with an icon,
+the highlighted note box), so nobody writes the classes by hand again.
+
 ## [0.74.5] — 2026-09-14 — the RSVP panel lines up with the form (staging)
 
 Sjoerd, on the engagement dialog: *"The visual interface alignment and

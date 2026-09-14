@@ -12,6 +12,7 @@
 // never stored.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { foldKey } from '@/lib/detect-tags';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
@@ -117,7 +118,7 @@ export function UnfiledNotes({ workspaceId, locale }: { workspaceId: string | nu
                   type="search"
                   value={query}
                   onChange={(e) => setSearch((s) => ({ ...s, [note.client_ref]: e.target.value }))}
-                  className="mt-1 w-full rounded-md border border-line bg-surface px-2.5 py-1.5 text-sm"
+                  className={`mt-1 ${FIELD_CLASS}`}
                 />
               </label>
               {people === null && <p className="mt-2 text-xs text-ink-muted">{t(locale, 'loading')}</p>}

@@ -176,7 +176,10 @@ describe('the follow-up date', () => {
   });
 
   it('sends what the follow-up is as the task title', async () => {
-    const kindSelect = container.querySelector<HTMLSelectElement>('select[aria-label="What the follow-up is"]')!;
+    // The follow-up's list is the one offering "Get in touch" (value 'touch').
+    const kindSelect = [...container.querySelectorAll('select')].find((el) =>
+      [...el.options].some((o) => o.value === 'touch'),
+    )!;
     const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
     await act(async () => {
       setter.call(kindSelect, 'call');

@@ -29,6 +29,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
+import { Button } from '@/components/ui/button';
 import { ExternalLink } from 'lucide-react';
 import { ContactRow } from '@/components/contact-row';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -338,37 +339,35 @@ export function PersonPopupProvider({
       {/* Over the person popup, because that is where it was asked for and
           because leaving is a decision about the thing you are looking at. */}
       {leavingTo && (
-        <Dialog open onClose={() => setLeavingTo(null)} title={t(locale, 'leave_title')}>
-          <p className="text-sm text-ink-muted">{t(locale, 'leave_body')}</p>
-          <label className="mt-4 flex items-center gap-2 text-xs text-ink-muted">
-            <input
-              type="checkbox"
-              checked={dontAsk}
-              onChange={(e) => setDontAsk(e.target.checked)}
-            />
+        <Dialog
+          open
+          onClose={() => setLeavingTo(null)}
+          title={t(locale, 'leave_title')}
+          size="sm"
+          // The Fibre's dialog bottom bar: Cancel · confirm on the right.
+          footer={
+            <>
+              <Button variant="secondary" onClick={() => setLeavingTo(null)}>
+                {t(locale, 'cancel')}
+              </Button>
+              <Button
+                onClick={() => {
+                  // Remembered only when they actually go. Ticking the box and
+                  // then pressing Cancel is not consent to skip the warning.
+                  if (dontAsk) suppressWarning();
+                  window.location.assign(leavingTo);
+                }}
+              >
+                {t(locale, 'leave_yes')}
+              </Button>
+            </>
+          }
+        >
+          <p className="text-sm text-ink-subtle">{t(locale, 'leave_body')}</p>
+          <label className="mt-4 flex items-center gap-2 text-sm text-ink-subtle">
+            <input type="checkbox" checked={dontAsk} onChange={(e) => setDontAsk(e.target.checked)} />
             {t(locale, 'leave_dont_ask')}
           </label>
-          <div className="mt-5 flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={() => setLeavingTo(null)}
-              className="text-sm text-ink-muted hover:text-ink"
-            >
-              {t(locale, 'cancel')}
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                // Remembered only when they actually go. Ticking the box and
-                // then pressing Cancel is not consent to skip the warning.
-                if (dontAsk) suppressWarning();
-                window.location.assign(leavingTo);
-              }}
-              className="inline-flex h-8 items-center rounded-md border border-ink bg-ink px-3 text-sm text-ink-inverse"
-            >
-              {t(locale, 'leave_yes')}
-            </button>
-          </div>
         </Dialog>
       )}
     </PersonPopupContext.Provider>
