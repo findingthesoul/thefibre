@@ -159,6 +159,19 @@ default, and the guard. `docs/testing-approach.md` counts what exists today.
 | Definer audit, prod | 7 open — migrations pending, expected |
 | Stripe webhooks, staging | 4 known |
 
+## Closed the next day (2026-09-15)
+
+- Production promoted through v0.74.4 on Sjoerd's word, migrations first,
+  API deployed; later promotions by other sessions carried the rest.
+- Staging's Stripe webhooks recreated by script; the verifier fixed (it read
+  a field Stripe never returns); **production's Thread and Meet webhooks
+  found in platform mode and recreated in connected-account mode** — see the
+  incident record in `docs/data-protection-approach.md` §4.
+- A third filter injection (purchases search) found and fixed by the Meet
+  session; `orIlike()`/`orEq()` now carry all three.
+- Security headers, the public-POST brake and Dependabot shipped as v0.75.0;
+  `docs/data-protection-approach.md` written.
+
 ## Open for you
 
 1. Push the six migrations to production and deploy the production API

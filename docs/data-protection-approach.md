@@ -247,6 +247,20 @@ followed a written rule.
   standing guard test.
 - **2026-09-14 — two PostgREST filter injections** in the contact searches,
   present since May, bounded by RLS. Fixed by `orIlike()`.
+- **2026-09-14 — three PostgREST filter injections**, not two: the purchases
+  search had the same shape and was found by the Meet session in review.
+  Fixed on `orIlike()` and a new `orEq()`, both proven against staging.
+- **2026-09-15 — production's Thread and Meet webhooks in the wrong mode.**
+  The webhook verifier had read `connect`, a field Stripe never returns, so
+  for a week every endpoint reported as platform-mode and the report was
+  ignored as noise. Corrected to read the Connect application id, the audit
+  run on production with a one-off restricted read key showed Membership and
+  Billing right and Thread and Meet wrong: a paid Thread enrolment or Meet
+  booking would have stayed pending after the customer paid, since those
+  charges land on connected accounts. Recreated in connected-account mode by
+  `register-stripe-webhooks.mjs --live`, signing secrets pushed to Fly in the
+  same run, verified all green. Both restricted keys deleted afterwards; one
+  had been echoed to a terminal, which is why the runbook now says `read -s`.
 
 The lesson each time was the same: **a rule that is not a failing test is a
 hope**. The guard tests in §3 exist because of these three.
