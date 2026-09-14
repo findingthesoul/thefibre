@@ -74,6 +74,17 @@ cd apps/api && node scripts/seed-ebbf.mjs
 
 Creates the brief §8 worked example: EBBF Athens 2026 conference + post-Athens journey + board working session, 7 people, EBBF org with members + identity + system context, ~11 enrolments, ~21 activity events spread across 90 days, per-app curator data for Marja and Daniel. Idempotent — safe to re-run.
 
+### Brand design (Sjoerd, 2026-09-14 — binding)
+
+**Read [`docs/brand-design.md`](docs/brand-design.md) before building any
+screen.** Every visible thing is defined once and reused: colours are role
+tokens (`packages/shared/src/design/tokens.ts`), recurring looks are recipes
+(`packages/shared/src/ui/recipes.ts`), things with behaviour are shared
+components. Never type a colour, border or field size in an app; never add
+`colors` to an app's `tailwind.config.ts` or a colour variable to its
+`globals.css` — `packages/shared/src/design/tokens.test.ts` fails the release.
+Yellow (`save`) means saving and nothing else.
+
 ### Components first (Sjoerd, 2026-09-05 — binding)
 
 Before building ANY UI surface: check `packages/shared/src/ui` and the

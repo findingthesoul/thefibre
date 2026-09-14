@@ -31,7 +31,7 @@ export function Switch({
       {label && <span className="text-sm text-ink-subtle select-none">{label}</span>}
       <span
         className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-          checked ? 'bg-yellow-400' : 'bg-surface-sunken ring-1 ring-line'
+          checked ? 'bg-save' : 'bg-surface-sunken ring-1 ring-line'
         }`}
       >
         <span

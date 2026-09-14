@@ -1,5 +1,6 @@
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { INSET, SECTION_LABEL } from './recipes.js';
 
 // The page-chrome kit (extraction phase 2, docs/component-inventory.md).
 // Superset of the four app copies: `align` (meet/membership sit left of the
@@ -73,12 +74,12 @@ export function createBreadcrumb(LinkComponent: LinkLike) {
 }
 
 export function SectionLabel({ children }: { children: ReactNode }) {
-  return <div className="text-[10px] uppercase tracking-wider text-ink-muted">{children}</div>;
+  return <div className={SECTION_LABEL}>{children}</div>;
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
+    <div className={`mt-3 ${INSET} p-5 text-sm text-ink-subtle`}>
       {children}
     </div>
   );

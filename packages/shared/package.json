@@ -1,6 +1,6 @@
 {
   "name": "@thefibre/shared",
-  "version": "0.75.6",
+  "version": "0.75.7",
   "private": true,
   "type": "module",
   "main": "./dist/index.js",
@@ -237,6 +237,18 @@
     "./ui/sign-out": {
       "types": "./dist/ui/sign-out.d.ts",
       "default": "./dist/ui/sign-out.js"
+    },
+    "./design/tokens": {
+      "types": "./dist/design/tokens.d.ts",
+      "default": "./dist/design/tokens.js"
+    },
+    "./design/tailwind-preset": {
+      "types": "./dist/design/tailwind-preset.d.ts",
+      "default": "./dist/design/tailwind-preset.js"
+    },
+    "./ui/recipes": {
+      "types": "./dist/ui/recipes.d.ts",
+      "default": "./dist/ui/recipes.js"
     }
   },
   "files": [

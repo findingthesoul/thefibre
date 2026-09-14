@@ -6,6 +6,57 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.7] — 2026-09-14 — one reference for every look (staging)
+
+Sjoerd: *"make a brand design document as instruction for the interface...
+Ideally you make one reference per item and reuse that, so that changes are
+simple, and app-wide implemented. Think about the old fashioned object
+oriented programming."*
+
+**The document:** `docs/brand-design.md` — colour roles, type, size and shape,
+a "use this, for that" catalogue of every shared component and recipe, how to
+change something, and the deliberate exceptions. CLAUDE.md now points every
+session at it before building a screen.
+
+**The references.** Until today the palette was copied by hand into eight
+`tailwind.config.ts` and eight `globals.css` files and had drifted into two
+palettes and four values for `--accent`. Now there are four layers, each
+defined once:
+
+- **Tokens** — `packages/shared/src/design/tokens.ts`. A colour is a ROLE
+  (`ink-subtle`, `surface-raised`, `save`), never a colour name, with a light
+  and dark value.
+- **Preset** — `packages/shared/src/design/tailwind-preset.ts`. Every product
+  app's Tailwind config is now `presets: [fibrePreset]` plus content globs, and
+  its `globals.css` holds no colour values at all.
+- **Recipes** — `packages/shared/src/ui/recipes.ts`. The looks that were being
+  typed out by hand: `CARD` (103 copies), `ERROR_TEXT` (160), `NOTICE.*` (the
+  error box alone, 54), `PILL` + `PILL_TONE.*`, `CHIP` + `CHIP_STATE.*`,
+  `SECTION_LABEL`, `INSET`. `SectionLabel`, `EmptyState` and `FormError` now
+  read them.
+- **Components** — unchanged in role; the switch and the save button now read
+  the new `save` token instead of a Tailwind yellow.
+
+**Proved to change nothing you can see.** Compiled CSS for all eight apps,
+before and after, resolved through the cascade: every colour variable is
+identical in light and dark mode; the only addition is `--save`; no class was
+lost except the two yellow classes that `bg-save` replaced. The Thread builds
+for production with the preset.
+
+**A guard, because a rule did not stop the drift.**
+`packages/shared/src/design/tokens.test.ts` reads every product app and fails
+if one adds `colors` to its Tailwind config or a colour variable to its
+`globals.css`. It was checked by copying a colour back into Meet: it failed.
+
+**One deliberate exception, and it is a decision for Sjoerd.** Connections,
+Flow and Pulse have used a cool slate ground in light mode since before this.
+They keep it as one light-only override block, which the guard allows and the
+document records. Unifying the two palettes is a single deletion if he wants it.
+
+**Not yet done:** the hand-written copies inside the apps still look right but
+are not yet instances of the recipes. They are converted app by app, The
+Thread first, so a visual change traces to one app.
+
 ## [0.75.6] — 2026-09-14 — Save, in yellow (staging)
 
 **Connections — the note box's button says Save.** It was "Done". Your draft is

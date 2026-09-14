@@ -25,7 +25,7 @@ const VARIANTS: Record<Variant, string> = {
   primary: 'bg-ink text-ink-inverse hover:opacity-90',
   // The yellow of the switches and of the website's "Start a Thread". Dark
   // text on it in both themes: yellow does not invert.
-  save: 'bg-yellow-400 text-neutral-900 hover:bg-yellow-300',
+  save: 'bg-save text-neutral-900 hover:bg-save/85',
   secondary: 'border border-line bg-surface-raised text-ink hover:bg-surface-sunken',
   ghost: 'text-ink-subtle hover:text-ink hover:bg-surface-sunken',
   danger:
