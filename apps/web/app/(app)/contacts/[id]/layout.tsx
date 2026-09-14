@@ -33,6 +33,12 @@ export default async function ContactLayout({
     // Non-fatal — no app tabs if endpoint fails.
   }
 
+  // Invoices (2026-09-14) appears the way the app tabs do: only when there
+  // is something behind it. Asked as the workspace first; a non-admin is
+  // refused that and asked again as themselves, so the tab shows for an
+  // organiser exactly when they have sold this person something.
+  const hasInvoices = await personHasVisibleInvoices(id);
+
   const orderedApps = APP_ORDER.filter(
     (slug) => appSlugs.includes(slug) && isAppSlug(slug),
   );
@@ -45,6 +51,7 @@ export default async function ContactLayout({
   const tabs = [
     { href: `/contacts/${id}`, label: t(locale, 'overview') },
     { href: `/contacts/${id}/profile`, label: t(locale, 'profile_title') },
+    ...(hasInvoices ? [{ href: `/contacts/${id}/invoices`, label: t(locale, 'nav_invoices') }] : []),
     ...orderedApps
       .filter((slug) => slug !== 'fibre-platform')
       .map((slug) => ({
@@ -69,4 +76,21 @@ export default async function ContactLayout({
       <div className="mt-8">{children}</div>
     </PageContainer>
   );
+}
+
+async function personHasVisibleInvoices(personId: string): Promise<boolean> {
+  for (const scope of ['workspace', 'me'] as const) {
+    try {
+      const r = await apiFetch<{ totals?: { count?: number } }>(
+        `/api/v1/purchases?scope=${scope}&person_id=${encodeURIComponent(personId)}`,
+      );
+      return (r.totals?.count ?? 0) > 0;
+    } catch (e) {
+      // 403 = not an admin; try as themselves. Anything else: no tab, and
+      // the profile still renders — a missing tab beats a broken page.
+      if (e instanceof ApiError && e.status === 403 && scope === 'workspace') continue;
+      return false;
+    }
+  }
+  return false;
 }

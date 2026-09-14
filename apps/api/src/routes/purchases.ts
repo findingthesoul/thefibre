@@ -33,8 +33,13 @@ import {
   workspaceInvoiceDetails,
 } from '../lib/payment-accounts.js';
 import { platformFeeCents } from '../lib/fees.js';
+import { orIlike, orEq } from '../lib/postgrest-filter.js';
 
 export const purchasesRoutes = new Hono();
+
+// Columns the invoice search reads.
+const SEARCH_COLUMNS = ['payer_name', 'payer_email', 'item_label'] as const;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const PURCHASE_SELECT =
   'id, app:app_id (slug, name), person_id, payer_name, payer_email, item_label, item_ref, organiser_user_id, team_id, amount_cents, currency, platform_fee_cents, vendor_share_cents, org_share_cents, method, status, stripe_payment_intent, stripe_invoice_url, stripe_account_id, stripe_session_id, billing, paid_at, refunded_at, created_at';
@@ -52,9 +57,6 @@ async function workspaceRole(userId: string, workspaceId: string): Promise<strin
 const isAdmin = (role: string) => role === 'admin' || role === 'super_admin';
 
 // Escape PostgREST .or() specials in the search needle.
-function likeNeedle(q: string): string {
-  return q.replace(/[%,()\\]/g, ' ').trim();
-}
 
 // GET /api/v1/purchases?scope=me|team|workspace&team_id=&q=&app=&cursor=
 purchasesRoutes.get('/', async (c) => {
@@ -69,6 +71,34 @@ purchasesRoutes.get('/', async (c) => {
 
     if (scope === 'workspace' && !isAdmin(role)) {
       return c.json({ error: 'workspace scope needs an admin role' }, 403);
+    }
+
+    // One person's money — the Invoices tab on a contact (2026-09-14). The
+    // ledger has two identity keys and either alone drops rows: a purchase
+    // written before the payer had a person row carries only their email,
+    // one written after carries the person_id. So the filter is an OR of
+    // both, quoted with orEq, never interpolated.
+    //
+    // The person is read through the caller's RLS client, so a person_id
+    // from another workspace resolves to nothing and filters to nothing.
+    // Scope still applies on top: an organiser sees this person's purchases
+    // from their own sales, an admin with scope=workspace sees all of them.
+    let personFilter: string | null = null;
+    const personId = c.req.query('person_id');
+    if (personId) {
+      if (!UUID.test(personId)) return c.json({ error: 'person_id must be a uuid' }, 400);
+      const { data: person } = await db
+        .from('person')
+        .select('id, email')
+        .eq('id', personId)
+        .is('deleted_at', null)
+        .maybeSingle();
+      if (!person) {
+        return c.json({ items: [], next_cursor: null, totals: { count: 0, currencies: [] }, role });
+      }
+      const pairs: [string, string][] = [['person_id', person.id]];
+      if (person.email) pairs.push(['payer_email', person.email]);
+      personFilter = orEq(pairs);
     }
 
     let query = db
@@ -89,14 +119,8 @@ purchasesRoutes.get('/', async (c) => {
         .maybeSingle();
       if (app) query = query.eq('app_id', app.id);
     }
-    if (q) {
-      const needle = likeNeedle(q);
-      if (needle) {
-        query = query.or(
-          `payer_name.ilike.%${needle}%,payer_email.ilike.%${needle}%,item_label.ilike.%${needle}%`,
-        );
-      }
-    }
+    if (q) query = query.or(orIlike(SEARCH_COLUMNS, q));
+    if (personFilter) query = query.or(personFilter);
     if (cursor) query = query.lt('created_at', cursor); // keyset pagination (rule #6)
 
     const { data, error } = await query;
@@ -120,14 +144,8 @@ purchasesRoutes.get('/', async (c) => {
         .maybeSingle();
       if (app) totalsQuery = totalsQuery.eq('app_id', app.id);
     }
-    if (q) {
-      const needle = likeNeedle(q);
-      if (needle) {
-        totalsQuery = totalsQuery.or(
-          `payer_name.ilike.%${needle}%,payer_email.ilike.%${needle}%,item_label.ilike.%${needle}%`,
-        );
-      }
-    }
+    if (q) totalsQuery = totalsQuery.or(orIlike(SEARCH_COLUMNS, q));
+    if (personFilter) totalsQuery = totalsQuery.or(personFilter);
     const { data: totalRows } = await totalsQuery;
     // Per-currency totals — mixed currencies must never be summed together.
     const byCurrency = new Map<

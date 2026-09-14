@@ -6,6 +6,47 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.14] — 2026-09-14 — a contact's invoices, on the contact (staging)
+
+Sjoerd: *"I should be able to open a contact… with a tab with invoices… see
+invoices… resend (single point of truth)."*
+
+**An Invoices tab on the Fibre contact profile.** It is THE shared invoices
+area — the same list, search, totals, detail dialog and Resend that Thread,
+Meet and Membership use on their Invoices pages — narrowed to one person. A
+resend from a contact is the resend, not a second copy of it. The shared
+component gained one optional prop, `personId`; every existing use is
+unchanged.
+
+Placed on the profile rather than a popup, by call: the profile already has
+the tab machinery and a half-built billing folder, and invoices are platform
+ledger data about a person, not any one app's content. A popup would have
+meant building tabs a second time.
+
+**The tab appears only when there is something behind it**, the way the app
+tabs do. An admin gets it when the workspace holds any invoice with this
+person; an organiser gets it when they have sold this person something.
+
+**One person's money needs both identity keys.** A purchase written before
+its payer had a person row carries only their email; one written after
+carries the person_id. The API matches either — `person_id` OR `payer_email`
+— because either alone drops rows. The person is read through the caller's
+row-level security, so an id from another workspace filters to nothing.
+
+**And a leftover injection gap is closed.** The invoice search still wrote
+the search term straight into a PostgREST filter string, the pattern the two
+contact searches were fixed for earlier today. Its sanitiser stripped some of
+the grammar's characters and not others. It is deleted, and the search now
+goes through `orIlike`. The person filter uses a new companion, `orEq`, which
+quotes exact-match values with one layer of escaping, since an equality has
+no LIKE layer behind it.
+
+Proven against staging's real PostgREST, not only in unit tests: hostile
+values return rows or none and never a 400; a real payer email is found (the
+check that catches a quoting mistake which silently matches nothing); a
+purchase carrying only an email is found by the person filter; and two
+filters applied together AND rather than the second replacing the first.
+
 ## [0.75.13] — 2026-09-14 — Settings → Website saves (staging)
 
 **Nothing chosen in Settings → Website has ever been saved.** Sjoerd picked the
