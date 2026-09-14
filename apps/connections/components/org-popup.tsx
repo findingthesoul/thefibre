@@ -33,7 +33,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { Check, Search } from 'lucide-react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
-import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { usePersonPopup } from '@/components/person-popup';
@@ -329,7 +329,7 @@ function ConnectPerson({
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t(locale, 'org_connect_role')}
             maxLength={200}
-            className={FIELD_CLASS}
+            className={FIELD_INPUT_CLASS}
           />
           <Button type="button" onClick={save} disabled={saving}>
             {saving ? t(locale, 'saving') : t(locale, 'org_connect_do')}
@@ -348,7 +348,7 @@ function ConnectPerson({
               onChange={(e) => setTerm(e.target.value)}
               placeholder={t(locale, 'org_connect_search')}
               aria-label={t(locale, 'org_connect_search')}
-              className={`${FIELD_CLASS} pl-9`}
+              className={`${FIELD_INPUT_CLASS} pl-9`}
             />
           </div>
           {/* In the flow, not floating. A floating list opens into the

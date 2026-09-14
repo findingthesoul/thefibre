@@ -50,11 +50,96 @@ const EntriesQuery = z
   .object({
     org_id: z.string().uuid().optional(),
     person_id: z.string().uuid().optional(),
+    /** A tag or a place: answered with the people around it, not with paths. */
+    tag_id: z.string().uuid().optional(),
+    location: z.string().trim().min(1).max(80).optional(),
     limit: z.coerce.number().int().min(1).max(200).default(50),
   })
-  .refine((v) => Boolean(v.org_id) !== Boolean(v.person_id), {
-    message: 'exactly one of org_id or person_id',
+  .refine((v) => [v.org_id, v.person_id, v.tag_id, v.location].filter(Boolean).length === 1, {
+    message: 'exactly one of org_id, person_id, tag_id or location',
   });
+
+// ---------------------------------------------------------------------------
+// Around a tag or a place.
+//
+// Sjoerd, 2026-09-13 and again 2026-09-14: *"why can I only search for a
+// person or an org and not on other things like tags or location?"*
+//
+// A tag or a city is not something anybody can get you INTO, and sharing one
+// is co-occurrence, not a relationship (handbook §12) — so these never become
+// paths and never run through connections_entries. What they answer is the
+// honest neighbour of the question: who in this workspace carries this word or
+// lives in this place, the people you know best first. The interface says in
+// words that these are not introductions.
+// ---------------------------------------------------------------------------
+
+const CLOSENESS: Record<string, number> = { advocate: 4, strong: 3, warm: 2, weak: 1 };
+
+type Around = {
+  person_id: string;
+  person: PersonRow | null;
+  /** Your closeness to them, or null when nobody has said. */
+  strength: string | null;
+  /** Where they are, for a location answer; the tag's name for a tag answer. */
+  note: string;
+};
+
+async function peopleAround(
+  workspaceId: string,
+  target: { kind: 'tag'; tagId: string; tagName: string } | { kind: 'location'; place: string },
+  limit: number,
+): Promise<Around[]> {
+  let ids: string[] = [];
+  const where = new Map<string, string>();
+
+  if (target.kind === 'tag') {
+    const { data } = await adminClient.from('person_tag').select('person_id').eq('tag_id', target.tagId).limit(2000);
+    ids = [...new Set((data ?? []).map((r) => r.person_id as string))];
+  } else {
+    // City OR country, as two typed queries merged by id: a place typed by a
+    // person is a value, never PostgREST filter syntax. ilike without
+    // wildcards is a case-insensitive equals.
+    const place = safeLike(target.place);
+    if (!place) return [];
+    const base = () =>
+      adminClient
+        .from('person')
+        .select('id, city, country')
+        .eq('workspace_id', workspaceId)
+        .is('deleted_at', null)
+        .is('merged_into', null)
+        .limit(1000);
+    const [byCity, byCountry] = await Promise.all([base().ilike('city', place), base().ilike('country', place)]);
+    for (const r of [...(byCity.data ?? []), ...(byCountry.data ?? [])]) {
+      where.set(r.id as string, [r.city, r.country].filter(Boolean).join(', '));
+    }
+    ids = [...where.keys()];
+  }
+  if (ids.length === 0) return [];
+
+  // peopleByIds scopes to the workspace — person_tag carries no workspace_id.
+  const [people, ctxRes] = await Promise.all([
+    peopleByIds(ids, workspaceId),
+    adminClient.from('person_relationship_context').select('person_id, relationship_strength').in('person_id', ids),
+  ]);
+  const strength = new Map(
+    (ctxRes.data ?? []).map((r) => [r.person_id as string, (r.relationship_strength as string | null) ?? null]),
+  );
+
+  return [...people.values()]
+    .map((p) => ({
+      person_id: p.id,
+      person: p,
+      strength: strength.get(p.id) ?? null,
+      note: target.kind === 'tag' ? `#${target.tagName}` : (where.get(p.id) ?? target.place),
+    }))
+    .sort(
+      (a, b) =>
+        (CLOSENESS[b.strength ?? ''] ?? 0) - (CLOSENESS[a.strength ?? ''] ?? 0) ||
+        label(a.person, '').localeCompare(label(b.person, '')),
+    )
+    .slice(0, limit);
+}
 
 function label(p: PersonRow | undefined | null, fallback: string) {
   if (!p) return fallback;
@@ -195,7 +280,28 @@ connectionsEntriesRoutes.get('/entries', async (c) => {
   const ctx = c.get('ctx');
   const parsed = EntriesQuery.safeParse(Object.fromEntries(new URL(c.req.url).searchParams));
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
-  const { org_id, person_id, limit } = parsed.data;
+  const { org_id, person_id, tag_id, location, limit } = parsed.data;
+
+  // A tag or a place: the people around it, never paths (see peopleAround).
+  if (tag_id) {
+    const { data: tag } = await adminClient
+      .from('tag')
+      .select('id, name')
+      .eq('id', tag_id)
+      .eq('workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!tag) return c.json({ error: 'not found' }, 404);
+    const around = await peopleAround(
+      ctx.workspaceId,
+      { kind: 'tag', tagId: tag.id as string, tagName: tag.name as string },
+      limit,
+    );
+    return c.json({ target: { id: tag.id, kind: 'tag', name: `#${tag.name}` }, items: [], related: [], around });
+  }
+  if (location) {
+    const around = await peopleAround(ctx.workspaceId, { kind: 'location', place: location }, limit);
+    return c.json({ target: { id: location, kind: 'location', name: location }, items: [], related: [], around });
+  }
 
   // Resolve the target inside this workspace first — an id from another
   // workspace must read as "not found", not as an empty result that looks
@@ -355,8 +461,45 @@ connectionsEntriesRoutes.get('/entries/targets', async (c) => {
     for (const p of (r.data ?? []) as PersonRow[]) merged.set(p.id, p);
   }
 
+  // Tags (not organisation tags — the organisation itself is already listed)
+  // and places people are in. Places come from the people rows themselves,
+  // city and country, so only somewhere somebody actually is can be offered.
+  const placeBase = () =>
+    adminClient
+      .from('person')
+      .select('city, country')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('deleted_at', null)
+      .is('merged_into', null)
+      .limit(200);
+  const [tagRes, cityRes, countryRes] = await Promise.all([
+    adminClient
+      .from('tag')
+      .select('id, name')
+      .eq('workspace_id', ctx.workspaceId)
+      .is('organisation_id', null)
+      .ilike('name', `%${q}%`)
+      .order('name')
+      .limit(8),
+    placeBase().ilike('city', `%${q}%`),
+    placeBase().ilike('country', `%${q}%`),
+  ]);
+  const places = new Map<string, number>();
+  const count = (v: unknown) => {
+    const s = typeof v === 'string' ? v.trim() : '';
+    if (s && s.toLowerCase().includes(q.toLowerCase())) places.set(s, (places.get(s) ?? 0) + 1);
+  };
+  for (const r of cityRes.data ?? []) count(r.city);
+  for (const r of countryRes.data ?? []) count(r.country);
+
   return c.json({
     organisations: orgs ?? [],
     people: [...merged.values()].slice(0, 10),
+    tags: tagRes.data ?? [],
+    // Busiest first: the place most people are in is the likeliest meaning.
+    locations: [...places.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .slice(0, 6)
+      .map(([name, people]) => ({ name, people })),
   });
 });

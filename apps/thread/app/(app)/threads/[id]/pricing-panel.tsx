@@ -6,6 +6,7 @@
 // server actions on mount (the caller stays a dumb layout).
 
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
+import { PaymentMethodsPicker, type PayMethod } from '@thefibre/shared/ui/payment-methods';
 import { useRouter } from 'next/navigation';
 import { Plus, Ticket, TicketPercent, Gift, CreditCard } from 'lucide-react';
 import {
@@ -530,13 +531,14 @@ function PayoutSection({
 // Settings → Payments; custom overrides here; tickets can override again.
 function PaymentMethodsSection({ locale, thread }: { locale: Locale; thread: ThreadRow }) {
   const router = useRouter();
-  const [custom, setCustom] = useState<boolean>(!!thread.payment_methods?.length);
-  const [stripeOn, setStripeOn] = useState(thread.payment_methods?.includes('stripe') ?? true);
-  const [invoiceOn, setInvoiceOn] = useState(thread.payment_methods?.includes('invoice') ?? false);
+  const [value, setValue] = useState<PayMethod[] | null>(
+    thread.payment_methods?.length ? (thread.payment_methods as PayMethod[]) : null,
+  );
   const [pending, startTransition] = useTransition();
   const [note, setNote] = useState<string | null>(null);
 
-  function persist(next: ('stripe' | 'invoice')[] | null) {
+  function persist(next: PayMethod[] | null) {
+    setValue(next);
     setNote(null);
     startTransition(async () => {
       const r = await updateThread(thread.id, { payment_methods: next });
@@ -548,71 +550,19 @@ function PaymentMethodsSection({ locale, thread }: { locale: Locale; thread: Thr
   return (
     <section>
       <SectionLabel>{t(locale, 'payment_options')}</SectionLabel>
-      <div className="mt-2 flex flex-wrap items-center gap-4">
-        <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-          <input
-            type="radio"
-            name="pm-mode"
-            checked={!custom}
-            onChange={() => {
-              setCustom(false);
-              persist(null);
-            }}
-          />
-          {t(locale, 'inherit_account')}
-        </label>
-        <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-          <input
-            type="radio"
-            name="pm-mode"
-            checked={custom}
-            onChange={() => {
-              setCustom(true);
-              persist([
-                ...(stripeOn ? (['stripe'] as const) : []),
-                ...(invoiceOn ? (['invoice'] as const) : []),
-              ]);
-            }}
-          />
-          {t(locale, 'custom_thread')}
-        </label>
-        {custom && (
-          <span className="inline-flex items-center gap-4">
-            <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
-              <input
-                type="checkbox"
-                checked={stripeOn}
-                disabled={pending}
-                onChange={(e) => {
-                  setStripeOn(e.target.checked);
-                  const next = [
-                    ...(e.target.checked ? (['stripe'] as const) : []),
-                    ...(invoiceOn ? (['invoice'] as const) : []),
-                  ];
-                  if (next.length) persist(next);
-                }}
-              />
-              {t(locale, 'pay_online')}
-            </label>
-            <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
-              <input
-                type="checkbox"
-                checked={invoiceOn}
-                disabled={pending}
-                onChange={(e) => {
-                  setInvoiceOn(e.target.checked);
-                  const next = [
-                    ...(stripeOn ? (['stripe'] as const) : []),
-                    ...(e.target.checked ? (['invoice'] as const) : []),
-                  ];
-                  if (next.length) persist(next);
-                }}
-              />
-              {t(locale, 'pay_per_invoice')}
-            </label>
-          </span>
-        )}
-        {note && <span className="text-xs text-ink-muted">{note}</span>}
+      <div className="mt-2">
+        <PaymentMethodsPicker
+          value={value}
+          onChange={persist}
+          disabled={pending}
+          labels={{
+            inherit: t(locale, 'inherit_account'),
+            custom: t(locale, 'custom_thread'),
+            online: t(locale, 'pay_online'),
+            invoice: t(locale, 'pay_per_invoice'),
+          }}
+          note={note && <span className="text-xs text-ink-muted">{note}</span>}
+        />
       </div>
       <p className="mt-1.5 text-xs text-ink-muted">{t(locale, 'tickets_override')}</p>
     </section>

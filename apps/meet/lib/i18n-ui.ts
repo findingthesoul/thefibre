@@ -1125,6 +1125,127 @@ const CATALOG = {
     de: 'Willkommen, {name}', // MT
     fr: 'Bienvenue, {name}', // MT
   },
+  // ── pay by invoice (copied from Thread's catalogues, 2026-09-14) ──
+  payment_options: {
+    en: 'Payment options',
+    nl: 'Betaalopties',
+    es: 'Opciones de pago', // MT
+    pt: 'Opções de pagamento', // MT
+    de: 'Zahlungsoptionen', // MT
+    fr: 'Options de paiement', // MT
+  },
+  inherit_account: {
+    en: 'Inherit from my account settings',
+    nl: 'Overnemen van mijn accountinstellingen',
+    es: 'Heredar de la configuración de mi cuenta', // MT
+    pt: 'Herdar das configurações da minha conta', // MT
+    de: 'Von meinen Kontoeinstellungen erben', // MT
+    fr: 'Hériter des réglages de mon compte', // MT
+  },
+  pay_online: {
+    en: 'Pay online',
+    nl: 'Online betalen',
+    es: 'Pago en línea', // MT
+    pt: 'Pagar online', // MT
+    de: 'Online bezahlen', // MT
+    fr: 'Payer en ligne', // MT
+  },
+  pay_by_invoice: {
+    en: 'Receive an invoice',
+    nl: 'Op factuur',
+    es: 'Recibir una factura',
+    pt: 'Receber uma fatura',
+    de: 'Auf Rechnung',
+    fr: 'Recevoir une facture', // MT
+  },
+  payment_method: {
+    en: 'Payment',
+    nl: 'Betaling',
+    es: 'Pago',
+    pt: 'Pagamento',
+    de: 'Zahlung',
+    fr: 'Paiement', // MT
+  },
+  company_name: {
+    en: 'Company / organisation (for the invoice)',
+    nl: 'Bedrijf / organisatie (voor de factuur)',
+    es: 'Empresa / organización (para la factura)',
+    pt: 'Empresa / organização (para a fatura)',
+    de: 'Firma / Organisation (für die Rechnung)',
+    fr: 'Entreprise / organisation (pour la facture)', // MT
+  },
+  billing_address: {
+    en: 'Billing address',
+    nl: 'Factuuradres',
+    es: 'Dirección de facturación',
+    pt: 'Endereço de faturamento',
+    de: 'Rechnungsadresse',
+    fr: 'Adresse de facturation', // MT
+  },
+  postal_code: {
+    en: 'Postal code',
+    nl: 'Postcode',
+    es: 'Código postal',
+    pt: 'Código postal',
+    de: 'Postleitzahl',
+    fr: 'Code postal', // MT
+  },
+  city: {
+    en: 'City',
+    nl: 'Plaats',
+    es: 'Ciudad',
+    pt: 'Cidade',
+    de: 'Ort',
+    fr: 'Ville', // MT
+  },
+  country: {
+    en: 'Country',
+    nl: 'Land',
+    es: 'País',
+    pt: 'País',
+    de: 'Land',
+    fr: 'Pays', // MT
+  },
+  tax_number: {
+    en: 'Tax / VAT number (optional)',
+    nl: 'Btw-nummer (optioneel)',
+    es: 'NIF / número de IVA (opcional)',
+    pt: 'NIF / número de IVA (opcional)',
+    de: 'USt-IdNr. (optional)',
+    fr: 'Numéro de TVA (facultatif)', // MT
+  },
+  invoice_note_confirmed: {
+    en: 'Your host will send you an invoice.',
+    nl: 'Je host stuurt je een factuur.',
+    es: 'Tu anfitrión te enviará una factura.', // MT
+    pt: 'O seu anfitrião vai enviar-lhe uma fatura.', // MT
+    de: 'Dein Gastgeber schickt dir eine Rechnung.', // MT
+    fr: 'Ton hôte t’enverra une facture.', // MT
+  },
+  your_pages: {
+    en: 'Your pages',
+    nl: 'Jouw pagina’s',
+    es: 'Tus páginas', // MT
+    pt: 'As suas páginas', // MT
+    de: 'Deine Seiten', // MT
+    fr: 'Tes pages', // MT
+  },
+  your_pages_desc: {
+    en: 'Everything people can book with you, on one page each.',
+    nl: 'Alles wat mensen bij je kunnen boeken, per pagina.',
+    es: 'Todo lo que la gente puede reservar contigo, en una página cada uno.', // MT
+    pt: 'Tudo o que as pessoas podem marcar consigo, numa página cada.', // MT
+    de: 'Alles, was man bei dir buchen kann, jeweils auf einer Seite.', // MT
+    fr: 'Tout ce qu’on peut réserver avec toi, sur une page chacun.', // MT
+  },
+  your_personal_page: {
+    en: 'Your personal page',
+    nl: 'Je persoonlijke pagina',
+    es: 'Tu página personal', // MT
+    pt: 'A sua página pessoal', // MT
+    de: 'Deine persönliche Seite', // MT
+    fr: 'Ta page personnelle', // MT
+  },
   quick_links: {
     en: 'Quick links',
     nl: 'Snelle links',
@@ -1970,6 +2091,14 @@ const CATALOG = {
     de: 'Kostenlos', // MT
     fr: 'Gratuit', // MT
   },
+  paid: {
+    en: 'Paid',
+    nl: 'Betaald',
+    es: 'De pago', // MT
+    pt: 'Pago', // MT
+    de: 'Kostenpflichtig', // MT
+    fr: 'Payant', // MT
+  },
   paid_via_stripe: {
     en: 'Paid (via Stripe Checkout)',
     nl: 'Betaald (via Stripe Checkout)',
@@ -2003,12 +2132,12 @@ const CATALOG = {
     fr: 'Devise', // MT
   },
   pricing_note_prefix: {
-    en: 'Connect Stripe at',
-    nl: 'Koppel Stripe via',
-    es: 'Conecta Stripe en', // MT
-    pt: 'Ligue o Stripe em', // MT
-    de: 'Verbinde Stripe unter', // MT
-    fr: 'Connecte Stripe via', // MT
+    en: 'Online payment needs Stripe connected in',
+    nl: 'Online betalen vraagt een gekoppelde Stripe in',
+    es: 'El pago en línea necesita Stripe conectado en', // MT
+    pt: 'O pagamento online precisa do Stripe ligado em', // MT
+    de: 'Online-Zahlung braucht ein verbundenes Stripe unter', // MT
+    fr: 'Le paiement en ligne demande Stripe connecté dans', // MT
   },
   settings_payments_link: {
     en: 'Settings → Payments',
@@ -2019,12 +2148,12 @@ const CATALOG = {
     fr: 'Paramètres → Paiements', // MT
   },
   pricing_note_suffix: {
-    en: 'before saving a paid price. Stripe Checkout on the booking flow is queued for Phase 3 — saving a price today reserves the field but won’t yet trigger payment.',
-    nl: 'voordat je een betaalde prijs opslaat. Stripe Checkout in de boekingsflow staat gepland voor fase 3 — een prijs opslaan reserveert nu het veld maar start nog geen betaling.',
-    es: 'antes de guardar un precio de pago. Stripe Checkout en el flujo de reserva está previsto para la fase 3: guardar un precio hoy reserva el campo pero aún no activa el pago.', // MT
-    pt: 'antes de guardar um preço pago. O Stripe Checkout no fluxo de reserva está previsto para a fase 3 — guardar um preço hoje reserva o campo mas ainda não aciona o pagamento.', // MT
-    de: 'bevor du einen kostenpflichtigen Preis speicherst. Stripe Checkout im Buchungsablauf ist für Phase 3 geplant — ein Preis reserviert heute das Feld, löst aber noch keine Zahlung aus.', // MT
-    fr: 'avant d’enregistrer un prix payant. Stripe Checkout dans le parcours de réservation est prévu pour la phase 3 — enregistrer un prix aujourd’hui réserve le champ mais ne déclenche pas encore de paiement.', // MT
+    en: '. Payment by invoice works without it: the booking confirms, and you mark the invoice paid under Invoices.',
+    nl: '. Betalen per factuur werkt zonder: de boeking wordt bevestigd en je zet de factuur op betaald onder Facturen.',
+    es: '. El pago por factura funciona sin él: la reserva se confirma y marcas la factura como pagada en Facturas.', // MT
+    pt: '. O pagamento por fatura funciona sem ele: a marcação é confirmada e marca a fatura como paga em Faturas.', // MT
+    de: '. Zahlung per Rechnung geht auch ohne: Die Buchung wird bestätigt und du markierst die Rechnung unter Rechnungen als bezahlt.', // MT
+    fr: '. Le paiement par facture fonctionne sans : la réservation est confirmée et tu marques la facture payée dans Factures.', // MT
   },
   intake_section: {
     en: 'Intake form',

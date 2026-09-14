@@ -15,6 +15,7 @@ type Me = {
   user: { full_name: string | null; email: string };
 };
 type Host = { id: string; slug: string };
+type Team = { id: string; slug: string; name: string; is_active: boolean };
 type MT = {
   id: string;
   slug: string;
@@ -64,6 +65,7 @@ export default async function MeetDashboard() {
   let host: Host | null = null;
   let mts: MT[] = [];
   let bookings: Booking[] = [];
+  let teams: Team[] = [];
   let error: string | null = null;
 
   try {
@@ -71,12 +73,14 @@ export default async function MeetDashboard() {
       apiFetch<Me>('/api/v1/auth/me'),
       apiFetch<Host>('/api/v1/meet/me'),
     ]);
-    const [a, b] = await Promise.all([
+    const [a, b, tm] = await Promise.all([
       apiFetch<{ items: MT[] }>('/api/v1/meet/meeting-types').catch(() => ({ items: [] })),
       apiFetch<{ items: Booking[] }>('/api/v1/meet/bookings').catch(() => ({ items: [] })),
+      apiFetch<{ items: Team[] }>('/api/v1/meet/teams').catch(() => ({ items: [] })),
     ]);
     mts = a.items;
     bookings = b.items;
+    teams = tm.items;
   } catch (e) {
     error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
   }
@@ -112,6 +116,34 @@ export default async function MeetDashboard() {
       };
     });
 
+  // The pages that list everything bookable: yours, then each team's
+  // (Sjoerd, 2026-09-14: "on the home should be a link to my personal home
+  // page ... and for each team a link to the team landing page").
+  const pageLinks: QuickLink[] = [
+    ...(host
+      ? [
+          {
+            id: `host-${host.id}`,
+            name: t(locale, 'your_personal_page'),
+            team: null,
+            durationMinutes: null,
+            path: `/${host.slug}`,
+            url: `${baseUrl}/${host.slug}`,
+          },
+        ]
+      : []),
+    ...teams
+      .filter((tm) => tm.is_active)
+      .map((tm) => ({
+        id: `team-${tm.id}`,
+        name: tm.name,
+        team: t(locale, 'team'),
+        durationMinutes: null,
+        path: `/${tm.slug}`,
+        url: `${baseUrl}/${tm.slug}`,
+      })),
+  ];
+
   const todayBookings = bookings.filter((b) => isToday(b.starts_at));
   const nextUp = bookings.filter((b) => !isToday(b.starts_at)).slice(0, 5);
 
@@ -120,6 +152,20 @@ export default async function MeetDashboard() {
       <PageHeader title={t(locale, 'welcome', { name: firstName })} description={today} />
 
       {error && <ErrorBanner>{t(locale, 'couldnt_load_some', { error })}</ErrorBanner>}
+
+      {pageLinks.length > 0 && (
+        <section className="mt-10">
+          <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">
+            {t(locale, 'your_pages')}
+          </div>
+          <p className="mt-1 text-sm text-ink-subtle">{t(locale, 'your_pages_desc')}</p>
+          <div className="mt-4 rounded-lg border border-line bg-surface-raised divide-y divide-line overflow-hidden">
+            {pageLinks.map((q) => (
+              <QuickLinkRow key={q.id} link={q} locale={locale} />
+            ))}
+          </div>
+        </section>
+      )}
 
       <section className="mt-10">
         <div className="text-[10px] uppercase tracking-[0.18em] text-ink-muted">

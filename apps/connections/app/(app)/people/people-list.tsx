@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { PersonLink } from '@/components/person-popup';
 import { useRouter } from 'next/navigation';
 import { Search } from 'lucide-react';
-import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { ButtonLink } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 // Band labels for whichever axis the landscape sent us in on. Imported
@@ -126,7 +126,7 @@ export function PeopleList({
           onChange={(e) => setTerm(e.target.value)}
           placeholder={t(locale, 'people_search_ph')}
           aria-label={t(locale, 'search')}
-          className={`${FIELD_CLASS} pl-9`}
+          className={`${FIELD_INPUT_CLASS} pl-9`}
         />
       </div>
 

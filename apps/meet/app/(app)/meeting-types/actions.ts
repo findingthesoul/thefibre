@@ -111,7 +111,18 @@ function bodyFromForm(formData: FormData) {
         strOrNull(formData.get('pricing_visible')) ??
         'free';
       if (pricingMode !== 'paid') {
-        return { price_cents: null, price_currency: null };
+        return { price_cents: null, price_currency: null, payment_methods: null };
+      }
+      // Empty = inherit the account default (null on the row).
+      let payment_methods: ('stripe' | 'invoice')[] | null = null;
+      const pmRaw = strOrNull(formData.get('payment_methods_json'));
+      if (pmRaw) {
+        try {
+          const parsed = JSON.parse(pmRaw);
+          if (Array.isArray(parsed) && parsed.length) payment_methods = parsed;
+        } catch {
+          // ignore — inherit
+        }
       }
       const major = strOrNull(formData.get('price_major'));
       const cents = major ? Math.round(parseFloat(major) * 100) : 0;
@@ -120,6 +131,7 @@ function bodyFromForm(formData: FormData) {
       return {
         price_cents: Number.isFinite(cents) && cents > 0 ? cents : 0,
         price_currency: currency,
+        payment_methods,
       };
     })(),
     team_id: teamId && teamId !== 'personal' ? teamId : null,

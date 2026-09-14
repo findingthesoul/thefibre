@@ -82,7 +82,11 @@ export function meetingPrompt({
     '- Do not name anyone who is not in the transcript. Do not guess at facts that are not in it.',
     '- Keep the whole note under 120 words.',
     '',
-    'Reply with the note only.',
+    // Sjoerd, 2026-09-14: "if the data from what is there is not clear enough,
+    // maybe the prompt can help to ask a few questions to clarify it?"
+    'Before you write: if something essential is unclear — who a person or organisation is, what was actually agreed, or what the next step is and who takes it — ask me up to three short, numbered questions first, and nothing else. Write the note after I answer. If everything essential is clear, skip the questions.',
+    '',
+    'When you write the note, reply with the note only.',
     '',
     '--- TRANSCRIPT (paste here, or leave empty if it is already in this chat) ---',
     '',

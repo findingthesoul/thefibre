@@ -66,6 +66,12 @@ export async function updateOrganisation(
   const body = {
     name: strOrNull(formData.get('name')) ?? undefined,
     legal_name: strOrNull(formData.get('legal_name')),
+    short_name: strOrNull(formData.get('short_name')),
+    // One name per line. The API trims, drops blanks and de-duplicates.
+    other_names: String(formData.get('other_names') ?? '')
+      .split(/\r?\n/)
+      .map((n) => n.trim())
+      .filter(Boolean),
     domain: strOrNull(formData.get('domain')),
     website: strOrNull(formData.get('website')),
     linkedin_url: strOrNull(formData.get('linkedin_url')),

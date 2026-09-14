@@ -32,7 +32,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
-import { FIELD_CLASS } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS } from '@thefibre/shared/ui/fields';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import {
@@ -185,7 +185,7 @@ function AxisNames({
           placeholder={shippedTitle}
           disabled={!canEdit}
           maxLength={80}
-          className={`mt-1 ${FIELD_CLASS} disabled:opacity-60`}
+          className={`mt-1 ${FIELD_INPUT_CLASS} disabled:opacity-60`}
         />
       </label>
 

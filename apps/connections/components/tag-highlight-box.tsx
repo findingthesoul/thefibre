@@ -45,7 +45,7 @@ const TINT: Record<HighlightRange['kind'], string> = {
 };
 
 /** Shared by both layers so they cannot drift apart. */
-const METRICS = 'w-full text-[15px] leading-relaxed tracking-normal whitespace-pre-wrap break-words';
+const METRICS = 'w-full text-sm leading-relaxed tracking-normal whitespace-pre-wrap break-words';
 
 export function TagHighlightBox({
   value,

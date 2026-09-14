@@ -35,6 +35,21 @@ them. Do not append raw captures here: this list promises priority order._
 
 _Last groomed 2026-09-14 (v0.75.0). Done items get removed, not ticked._
 
+**Booking terms: a generic set, replaceable per workspace.** Sjoerd asked
+2026-09-14: "Is there a conditions and terms? Maybe a generic one, that could
+be replaced by a workspace one." Today there are none for invitees or
+participants. `/terms` is the platform's own terms with organisers, and
+Thread's enrol form asks only for the privacy statement (`lib/policies.ts`).
+Shape: a platform default document plus an optional workspace terms URL or
+text, one checkbox on Thread enrolment and Meet booking, the accepted version
+stored on the enrolment or booking. The generic text needs a lawyer's read,
+like the other legal pages.
+
+**Meet invoice bookings: Send payment link.** Shipped v0.75.17 without it.
+`purchases.ts` send-payment-link still refuses non-Thread, non-Membership
+purchases. Meet needs a checkout session against the host account that
+settles the booking through the existing Meet webhook.
+
 **SECURITY roadmap — `docs/data-protection-approach.md` §5 is the list.** P1
 before the first paid enterprise workspace: CSP report-only, explicit cookie
 flags, MFA for super admins, log redaction, an admin-action audit table, a

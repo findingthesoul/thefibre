@@ -1174,21 +1174,28 @@ const CATALOG = {
     de: 'Erst dein Gesicht und deine Stimme, dann das Programm. Für Leute, die schon dazugehören.', // MT
     fr: 'D’abord ton visage et ta voix, puis le programme. Pour ceux qui font déjà partie.', // MT
   },
+  dash_your_site: { en: 'Your site', nl: 'Je site', es: 'Tu sitio', pt: 'Seu site', de: 'Deine Website', fr: 'Ton site' }, // MT es/pt/de/fr
+  site_tab_design: { en: 'Design', nl: 'Ontwerp', es: 'Diseño', pt: 'Design', de: 'Design', fr: 'Design' }, // MT es/pt/de/fr
+  site_tab_brand: { en: 'Name & images', nl: 'Naam & beelden', es: 'Nombre e imágenes', pt: 'Nome e imagens', de: 'Name & Bilder', fr: 'Nom et images' }, // MT es/pt/de/fr
+  site_tab_words: { en: 'Text', nl: 'Tekst', es: 'Texto', pt: 'Texto', de: 'Text', fr: 'Texte' }, // MT es/pt/de/fr
+  site_tab_menu: { en: 'Menu & footer', nl: 'Menu & footer', es: 'Menú y pie', pt: 'Menu e rodapé', de: 'Menü & Fußzeile', fr: 'Menu et pied de page' }, // MT es/pt/de/fr
+  site_tab_contact: { en: 'Contact', nl: 'Contact', es: 'Contacto', pt: 'Contato', de: 'Kontakt', fr: 'Contact' }, // MT es/pt/de/fr
+  site_preview: { en: 'Preview', nl: 'Voorbeeld', es: 'Vista previa', pt: 'Pré-visualizar', de: 'Vorschau', fr: 'Aperçu' }, // MT es/pt/de/fr
   site_name_label: {
-    en: 'Site name',
-    nl: 'Naam van de site',
-    es: 'Nombre del sitio', // MT
-    pt: 'Nome do site', // MT
-    de: 'Name der Website', // MT
-    fr: 'Nom du site', // MT
+    en: 'Display name',
+    nl: 'Weergavenaam',
+    es: 'Nombre visible', // MT
+    pt: 'Nome exibido', // MT
+    de: 'Anzeigename', // MT
+    fr: 'Nom affiché', // MT
   },
   site_name_hint: {
-    en: 'Leave empty to use the workspace name.',
-    nl: 'Laat leeg om de naam van de workspace te gebruiken.',
-    es: 'Déjalo vacío para usar el nombre del espacio de trabajo.', // MT
-    pt: 'Deixe vazio para usar o nome do workspace.', // MT
-    de: 'Leer lassen, um den Workspace-Namen zu verwenden.', // MT
-    fr: 'Laisse vide pour utiliser le nom de l’espace de travail.', // MT
+    en: 'Starts as your workspace name. Change it to show a different name on your site.',
+    nl: 'Begint als de naam van je workspace. Wijzig het om een andere naam op je site te tonen.',
+    es: 'Empieza con el nombre de tu espacio de trabajo. Cámbialo para mostrar otro nombre en tu sitio.', // MT
+    pt: 'Começa com o nome do seu workspace. Altere para mostrar outro nome no seu site.', // MT
+    de: 'Startet mit dem Namen deines Workspace. Ändere ihn, um einen anderen Namen auf deiner Website zu zeigen.', // MT
+    fr: 'Commence avec le nom de ton espace de travail. Modifie-le pour afficher un autre nom sur ton site.', // MT
   },
   site_logo: {
     en: 'Logo',
@@ -6655,6 +6662,14 @@ const CATALOG = {
     pt: 'Aparência', // MT
     de: 'Darstellung', // MT
     fr: 'Apparence', // MT
+  },
+  agenda_off_for_thread: {
+    en: 'Off for this thread',
+    nl: 'Uit voor deze thread',
+    es: 'Desactivado en este thread', // MT
+    pt: 'Desligado neste thread', // MT
+    de: 'Für diesen Thread aus', // MT
+    fr: 'Désactivé pour ce thread', // MT
   },
   public_agenda_off_warning: {
     en: 'With this off, the public page has no agenda section at all — so each item\u2019s own "Show on the public agenda" switch does nothing, however it is set.',

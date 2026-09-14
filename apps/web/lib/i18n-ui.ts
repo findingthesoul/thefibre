@@ -5902,6 +5902,47 @@ const CATALOG = {
     de: 'Beta', // MT
     fr: 'Bêta', // MT
   },
+  // ── organisation names (2026-09-14) ──────────────────────────────────
+  org_short_name: {
+    en: 'Abbreviation',
+    nl: 'Afkorting',
+    es: 'Abreviatura', // MT
+    pt: 'Abreviação', // MT
+    de: 'Abkürzung', // MT
+    fr: 'Abréviation', // MT
+  },
+  org_other_names: {
+    en: 'Also known as',
+    nl: 'Ook bekend als',
+    es: 'También conocida como', // MT
+    pt: 'Também conhecida como', // MT
+    de: 'Auch bekannt als', // MT
+    fr: 'Aussi connue sous le nom', // MT
+  },
+  org_other_names_hint: {
+    en: 'Trade names and former names, one per line. Search finds the organisation by any of them.',
+    nl: 'Handelsnamen en vroegere namen, één per regel. Zoeken vindt de organisatie op elk ervan.',
+    es: 'Nombres comerciales y nombres anteriores, uno por línea. La búsqueda encuentra la organización por cualquiera de ellos.', // MT
+    pt: 'Nomes comerciais e nomes anteriores, um por linha. A busca encontra a organização por qualquer um deles.', // MT
+    de: 'Handelsnamen und frühere Namen, einer pro Zeile. Die Suche findet die Organisation unter jedem davon.', // MT
+    fr: 'Noms commerciaux et anciens noms, un par ligne. La recherche trouve l’organisation par n’importe lequel.', // MT
+  },
+  org_also_known_as: {
+    en: 'also',
+    nl: 'ook',
+    es: 'también', // MT
+    pt: 'também', // MT
+    de: 'auch', // MT
+    fr: 'aussi', // MT
+  },
+  search_org_any_name: {
+    en: 'Search by any name, abbreviation or domain',
+    nl: 'Zoek op elke naam, afkorting of domein',
+    es: 'Buscar por cualquier nombre, abreviatura o dominio', // MT
+    pt: 'Buscar por qualquer nome, abreviação ou domínio', // MT
+    de: 'Nach jedem Namen, jeder Abkürzung oder Domain suchen', // MT
+    fr: 'Rechercher par nom, abréviation ou domaine', // MT
+  },
 } satisfies Record<string, I18nEntry>;
 
 export const t = makeT(CATALOG);

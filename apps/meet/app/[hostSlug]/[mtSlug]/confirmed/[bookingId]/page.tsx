@@ -115,6 +115,13 @@ export default async function ConfirmedPage({
                     enabled yet — ask them if you need a VAT invoice.)
                   </>
                 )}
+              {(booking.payment_status === 'invoice_pending' ||
+                booking.payment_status === 'invoice_sent') && (
+                <>
+                  {' '}You chose to pay by invoice, so {hostName ?? 'your host'} will
+                  send it to you separately.
+                </>
+              )}
             </div>
 
             <div className="mt-8 flex flex-col sm:flex-row gap-3">

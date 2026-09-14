@@ -6,6 +6,7 @@
 // date badges on a left rail. Click a card to edit; dashed add-button with a
 // type menu at the bottom. Thread settings live behind the gear in a dialog.
 
+import { Tabs } from '@thefibre/shared/ui/tabs';
 import { useEffect, useMemo, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -1079,25 +1080,7 @@ function SettingsTabs({
 
   return (
     <div>
-      <nav className="border-b border-line -mt-1">
-        <ul className="flex gap-1 -mb-px">
-          {tabs.map((tb) => (
-            <li key={tb.value}>
-              <button
-                type="button"
-                onClick={() => onTabChange(tb.value)}
-                className={`inline-block px-3 py-2 text-sm border-b-2 transition-colors ${
-                  tab === tb.value
-                    ? 'border-ink text-ink'
-                    : 'border-transparent text-ink-subtle hover:text-ink hover:border-line-strong'
-                }`}
-              >
-                {tb.label}
-              </button>
-            </li>
-          ))}
-        </ul>
-      </nav>
+      <Tabs tabs={tabs} value={tab} onChange={onTabChange} className="-mt-1" />
       <div className={`pt-5 ${tab === 'basics' ? '' : 'hidden'}`}>
         <fieldset disabled={locked} className="min-w-0 border-0 p-0 m-0">
           <ThreadEditorForm

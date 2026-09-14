@@ -30,7 +30,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowDown, ArrowUp, Sparkles } from 'lucide-react';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { SelectField } from '@thefibre/shared/ui/fields';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { usePersonPopup } from '@/components/person-popup';
@@ -138,74 +138,51 @@ export function MovementBoard({
   }, [reading, groupBy, value, facets, onlyMoved]);
 
   const label = (rung: string) => bandName(locale, labels, axis, rung);
-  const select = FIELD_CLASS_INLINE;
 
   return (
     <div className="mt-6">
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-        <label className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'landscape_col_readings')}</span>
-          <select value={axis} onChange={(e) => setAxis(e.target.value as Axis)} className={select}>
-            {axes.map((a) => (
-              <option key={a} value={a}>
-                {axisTitle(locale, config, a)}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'move_period')}</span>
-          <select value={days} onChange={(e) => setDays(Number(e.target.value))} className={select}>
-            {PERIODS.map((d) => (
-              <option key={d} value={d}>
-                {t(locale, 'move_days', { n: d })}
-              </option>
-            ))}
-          </select>
-        </label>
-
-        <label className="flex items-center gap-2">
-          <span className="text-xs text-ink-muted">{t(locale, 'move_group_by')}</span>
-          <select
-            value={groupBy}
-            onChange={(e) => {
-              setGroupBy(e.target.value as GroupBy);
-              setValue(null);
-            }}
-            className={select}
-          >
-            {GROUPS.map((g) => (
-              <option key={g} value={g}>
-                {t(locale, GROUP_KEYS[g])}
-              </option>
-            ))}
-          </select>
-        </label>
-
+      {/* The shared fields with labels above, like every form in The Fibre. */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <SelectField
+          label={t(locale, 'landscape_col_readings')}
+          value={axis}
+          onChange={(e) => setAxis(e.target.value as Axis)}
+          options={axes.map((a) => ({ value: a, label: axisTitle(locale, config, a) }))}
+        />
+        <SelectField
+          label={t(locale, 'move_period')}
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+          options={PERIODS.map((d) => ({ value: String(d), label: t(locale, 'move_days', { n: d }) }))}
+        />
+        <SelectField
+          label={t(locale, 'move_group_by')}
+          value={groupBy}
+          onChange={(e) => {
+            setGroupBy(e.target.value as GroupBy);
+            setValue(null);
+          }}
+          options={GROUPS.map((g) => ({ value: g, label: t(locale, GROUP_KEYS[g]) }))}
+        />
         {groupBy !== 'none' && (
-          <label className="flex items-center gap-2">
-            <select
-              value={value ?? ''}
-              onChange={(e) => setValue(e.target.value || null)}
-              className={select}
-              aria-label={t(locale, GROUP_KEYS[groupBy])}
-            >
-              <option value="">{t(locale, 'move_group_all')}</option>
-              {options.map((o) => (
-                <option key={o.value} value={o.value}>
-                  {groupBy === 'tag' ? `#${o.value}` : o.value} · {o.count}
-                </option>
-              ))}
-            </select>
-          </label>
+          <SelectField
+            label={t(locale, GROUP_KEYS[groupBy])}
+            value={value ?? ''}
+            onChange={(e) => setValue(e.target.value || null)}
+            options={[
+              { value: '', label: t(locale, 'move_group_all') },
+              ...options.map((o) => ({
+                value: o.value,
+                label: `${groupBy === 'tag' ? `#${o.value}` : o.value} · ${o.count}`,
+              })),
+            ]}
+          />
         )}
-
-        <label className="flex items-center gap-2 text-xs text-ink-muted">
-          <input type="checkbox" checked={onlyMoved} onChange={(e) => setOnlyMoved(e.target.checked)} />
-          {t(locale, 'move_only_moved')}
-        </label>
       </div>
+      <label className="mt-3 flex items-center gap-2 text-sm text-ink-subtle">
+        <input type="checkbox" checked={onlyMoved} onChange={(e) => setOnlyMoved(e.target.checked)} />
+        {t(locale, 'move_only_moved')}
+      </label>
 
       {facetError && <p className="mt-2 text-xs text-ink">{facetError}</p>}
       {!reading && <p className="mt-6 text-xs text-ink-muted">{t(locale, 'loading')}</p>}

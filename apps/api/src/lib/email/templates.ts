@@ -31,6 +31,9 @@ type Common = {
   meetAppUrl: string;
   hostSlug: string;
   meetingTypeSlug: string;
+  /** Pay-by-invoice bookings: e.g. "€60.00 — the host will send you an
+   *  invoice." Shown on the invitee's confirmation only. */
+  paymentNote?: string | null;
 };
 
 function fmt(d: Date, tz: string): string {
@@ -174,7 +177,7 @@ export function bookingConfirmationInvitee(c: Common): {
 You're booked.
 
 ${detailsText(c)}
-
+${c.paymentNote ? `\n${c.paymentNote}\n` : ''}
 Add to your calendar: ${icsUrl(c)}
 Need a different time? ${rescheduleUrl(c)}
 Need to cancel? ${cancel}
@@ -184,6 +187,7 @@ ${emailSignoff()}`;
     'Booking confirmed',
     `<h1 style="margin:8px 0 0 0;font-size:24px;font-weight:500;letter-spacing:-0.01em;">You're booked, ${escapeHtml(c.inviteeName.split(' ')[0] ?? '')}.</h1>
 ${detailsHtml(c)}
+${c.paymentNote ? `<p style="margin-top:20px;font-size:14px;color:#171717;">${escapeHtml(c.paymentNote)}</p>` : ''}
 <div style="margin-top:28px;font-size:13px;color:#525252;"><a href="${icsUrl(c)}" style="color:#171717;">Add to calendar</a> &nbsp;·&nbsp; <a href="${rescheduleUrl(c)}" style="color:#171717;">Reschedule</a> &nbsp;·&nbsp; <a href="${cancel}" style="color:#171717;">Cancel</a></div>`,
   );
   return { subject, text, html };

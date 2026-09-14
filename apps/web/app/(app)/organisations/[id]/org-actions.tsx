@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Dialog, ConfirmDialog } from '@/components/ui/dialog';
-import { TextField, SelectField } from '@/components/ui/field';
+import { TextField, TextAreaField, SelectField } from '@/components/ui/field';
 import { CountryCombobox } from '@/components/ui/country-combobox';
 import { updateOrganisation, deleteOrganisation, type ActionResult } from '../actions';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -14,6 +14,10 @@ export type EditableOrg = {
   id: string;
   name: string;
   legal_name: string | null;
+  /** The abbreviation — "ebbf". */
+  short_name: string | null;
+  /** Trade names and former names. */
+  other_names: string[] | null;
   domain: string | null;
   website: string | null;
   linkedin_url: string | null;
@@ -144,6 +148,25 @@ function EditDialog({
       <form id="org-edit-form" ref={formRef} onSubmit={onSubmit} className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <TextField label={t(locale, 'name')} name="name" defaultValue={org.name} required errors={state.fieldErrors?.name} />
         <TextField label={t(locale, 'legal_name')} name="legal_name" defaultValue={org.legal_name ?? ''} errors={state.fieldErrors?.legal_name} />
+        <TextField
+          label={t(locale, 'org_short_name')}
+          name="short_name"
+          defaultValue={org.short_name ?? ''}
+          placeholder="ebbf"
+          errors={state.fieldErrors?.short_name}
+        />
+        <div className="md:col-span-2">
+          {/* One per line rather than a chips input: no shared chips
+              component exists, and a textarea needs none. */}
+          <TextAreaField
+            label={t(locale, 'org_other_names')}
+            name="other_names"
+            defaultValue={(org.other_names ?? []).join('\n')}
+            rows={2}
+            hint={t(locale, 'org_other_names_hint')}
+            errors={state.fieldErrors?.other_names}
+          />
+        </div>
         <TextField label={t(locale, 'domain')} name="domain" defaultValue={org.domain ?? ''} placeholder="example.org" errors={state.fieldErrors?.domain} />
         <TextField label={t(locale, 'website')} name="website" defaultValue={org.website ?? ''} placeholder="thefibre.app or https://thefibre.app" errors={state.fieldErrors?.website} />
         <TextField label="LinkedIn" name="linkedin_url" defaultValue={org.linkedin_url ?? ''} placeholder="linkedin.com/company/…" errors={state.fieldErrors?.linkedin_url} />

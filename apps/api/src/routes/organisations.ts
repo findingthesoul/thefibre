@@ -5,6 +5,32 @@ import { promises as dns } from 'node:dns';
 import { userClient, adminClient } from '../db.js';
 import { orIlike } from '../lib/postgrest-filter.js';
 
+
+/**
+ * The search term, stripped the same way search_names is stored
+ * (20260914191000): no accents, no apostrophes, lower-case. The two sides
+ * must agree or a match fails silently — "bahai" found nothing in
+ * "European Bahá'í Business Forum" until both did this.
+ */
+export function normaliseSearch(q: string): string {
+  return (
+    q
+      .toLowerCase()
+      // Letters NFD does not decompose but Postgres unaccent does rewrite.
+      // Without these, "søren" typed would never meet "soren" stored.
+      .replace(/ß/g, 'ss')
+      .replace(/æ/g, 'ae')
+      .replace(/œ/g, 'oe')
+      .replace(/ø/g, 'o')
+      .replace(/đ/g, 'd')
+      .replace(/ł/g, 'l')
+      .normalize('NFD')
+      .replace(/\p{Mn}/gu, '')
+      .replace(/['’ʼ`]/g, '')
+      .trim()
+  );
+}
+
 export const organisationsRoutes = new Hono();
 
 const ListQuery = z.object({
@@ -23,13 +49,19 @@ organisationsRoutes.get('/', async (c) => {
 
   let query = db
     .from('organisation')
-    .select('id, name, domain, country, sector, org_type, created_at')
+    .select('id, name, short_name, other_names, domain, country, sector, org_type, created_at')
     .is('deleted_at', null)
     .order('id', { ascending: true })
     .limit(limit + 1);
 
   if (after) query = query.gt('id', after);
-  if (q) query = query.or(orIlike(['name', 'domain'], q));
+  // search_names carries name, abbreviation, legal name, other names and
+  // domain in one lower-cased string (trigger-maintained), so "ebbf" and the
+  // name an organisation USED to have both find it.
+  if (q) {
+    const term = normaliseSearch(q);
+    if (term) query = query.or(orIlike(['search_names'], term));
+  }
 
   const { data, error } = await query;
   if (error) return c.json({ error: error.message }, 500);
@@ -40,8 +72,30 @@ organisationsRoutes.get('/', async (c) => {
   return c.json({ items, next: hasMore ? items[items.length - 1]?.id : null });
 });
 
+
+// Trade names and former names (20260914190000). Trimmed, blanks dropped,
+// duplicates removed case-insensitively, and never a copy of the current name
+// — that is `name`, and repeating it here only adds noise to the card.
+const OtherNames = z
+  .array(z.string().max(200))
+  .max(20)
+  .transform((list) => {
+    const seen = new Set<string>();
+    const out: string[] = [];
+    for (const raw of list) {
+      const v = raw.trim();
+      const key = v.toLowerCase();
+      if (!v || seen.has(key)) continue;
+      seen.add(key);
+      out.push(v);
+    }
+    return out;
+  });
+
 const OrgCreate = z.object({
   name: z.string().min(1).max(200),
+  short_name: z.string().max(50).optional(),
+  other_names: OtherNames.optional(),
   domain: z.string().max(255).optional(),
   country: z.string().length(2).optional(),
   sector: z.string().max(100).optional(),
@@ -90,6 +144,9 @@ organisationsRoutes.get('/:id', async (c) => {
 const OrgUpdate = z.object({
   name: z.string().min(1).max(200).optional(),
   legal_name: z.string().max(200).nullable().optional(),
+  // The abbreviation column existed from phase 0 and nothing could write it.
+  short_name: z.string().max(50).nullable().optional(),
+  other_names: OtherNames.optional(),
   domain: z.string().max(255).nullable().optional(),
   // Accept any string (display layer prepends https://). Brief intent was a URL
   // but strict .url() validation rejects "thefibre.app" — bad UX.

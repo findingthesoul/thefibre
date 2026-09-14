@@ -1,3 +1,4 @@
+import { ERROR_TEXT } from './recipes.js';
 import { AlertCircle } from 'lucide-react';
 
 /** The error line in a dialog's footer.
@@ -11,7 +12,7 @@ export function FormError({ message }: { message: string }) {
     <p
       role="alert"
       title={message}
-      className="mr-auto flex min-w-0 items-start gap-1.5 text-sm text-red-700"
+      className={`mr-auto flex min-w-0 items-start gap-1.5 ${ERROR_TEXT}`}
     >
       <AlertCircle size={14} className="mt-0.5 shrink-0" />
       <span className="min-w-0">{message}</span>

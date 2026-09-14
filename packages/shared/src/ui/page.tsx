@@ -1,5 +1,6 @@
 import { ChevronLeft } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { INSET, SECTION_LABEL } from './recipes.js';
 
 // The page-chrome kit (extraction phase 2, docs/component-inventory.md).
 // Superset of the four app copies: `align` (meet/membership sit left of the
@@ -13,7 +14,9 @@ export function PageContainer({
   align = 'center',
 }: {
   children: ReactNode;
-  max?: 'md' | '3xl' | '4xl' | '5xl';
+  /** `full` for a workspace-like page that uses the whole window — Connections'
+   *  Landscape columns (Sjoerd, 2026-09-14: "Why is this not full screen?"). */
+  max?: 'md' | '3xl' | '4xl' | '5xl' | 'full';
   align?: 'center' | 'left';
 }) {
   const MAX: Record<string, string> = {
@@ -21,6 +24,7 @@ export function PageContainer({
     '3xl': 'max-w-3xl',
     '4xl': 'max-w-4xl',
     '5xl': 'max-w-5xl',
+    full: 'max-w-none',
   };
   return align === 'left' ? (
     <div className={`${MAX[max]} px-10 py-10`}>{children}</div>
@@ -73,12 +77,12 @@ export function createBreadcrumb(LinkComponent: LinkLike) {
 }
 
 export function SectionLabel({ children }: { children: ReactNode }) {
-  return <div className="text-[10px] uppercase tracking-wider text-ink-muted">{children}</div>;
+  return <div className={SECTION_LABEL}>{children}</div>;
 }
 
 export function EmptyState({ children }: { children: ReactNode }) {
   return (
-    <div className="mt-3 rounded-lg border border-line bg-surface-sunken p-5 text-sm text-ink-subtle">
+    <div className={`mt-3 ${INSET} p-5 text-sm text-ink-subtle`}>
       {children}
     </div>
   );

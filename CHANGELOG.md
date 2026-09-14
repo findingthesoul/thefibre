@@ -6,6 +6,414 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.17] — 2026-09-14 — Meet takes payment by invoice (Meet 2.9.0, staging)
+
+Sjoerd: "Meet on thethread has different payment options than in Suite. In
+Suite you can also pay per invoice."
+
+**A paid meeting type can now be paid online, by invoice, or either.** The
+Pricing tab has the same picker Thread's pricing panel uses. Left on
+"inherit", a meeting type follows the payment defaults in Settings →
+Payments. Until now Meet's payments page offered that invoice default too,
+and nothing in Meet read it.
+
+On the booking page, the invitee picks a method when both are offered. Paying
+by invoice asks for company, address and tax number. The booking then
+**confirms straight away**, as it did in Suite. This is where Meet differs
+from Thread: a Thread invoice enrolment waits for "mark paid", but a booking
+holds a time slot. The confirmation email and page say an invoice will follow.
+The Invoices area gets a pending row, and Mark paid already knew how to settle
+a Meet booking.
+
+- **Online payment is hidden** when the host offers both methods but has no
+  Stripe account connected. The page never shows a button that can only fail.
+- **Setting a price** no longer demands Stripe when invoice is on offer. The
+  check also reads the payments single point of truth now. It used to read
+  `meet_host.stripe_account_id`, a fallback column, so a host who connected
+  Stripe in The Fibre could still be told to connect Stripe.
+- **One component, three places.** The method picker, the buyer's switch and
+  the billing fields moved to `@thefibre/shared/ui/payment-methods`. Thread's
+  pricing panel, ticket dialog and enrol form now use it.
+- **Meet's home** lists your personal booking page and each team's page, with
+  copy and open. The Teams list has the same two buttons per team.
+- **The team page's add-member form** is one card in two aligned rows. The
+  relationship hint no longer shoves one field up, and the Add button no
+  longer sits on a line of its own.
+
+Migration `20260914200000_meet_meeting_type_payment_methods` (additive, one
+nullable column). Applied to staging; production needs it before promotion.
+
+Not in this release: "Send payment link" for a Meet invoice. The Invoices
+area still answers that it is Thread and Membership only.
+
+## [0.75.16] — 2026-09-14 — promotion stops for migrations (staging)
+
+**`scripts/promote.sh` no longer promotes past a migration it has only
+mentioned.** It used to print "apply them to production first" and then push
+to main in the same breath, so the warning scrolled past after it could change
+anything. v0.75.3 made the cost concrete: two migrations organisation search
+depends on, applied to staging only, one promotion away from shipping the code
+without them.
+
+A range that adds migrations now stops, pushes nothing, and says what to do:
+
+    ./scripts/db-push-prod.sh
+    MIGRATIONS_ON_PROD=yes ./scripts/promote.sh
+
+A range without migrations promotes exactly as before.
+
+**And it says when the API still needs deploying.** The push to main deploys
+the web apps, because Vercel builds main, but not the API, which runs on Fly
+and deploys only when told. So after promoting a range that touches the API
+or the shared package, it prints `fly deploy --remote-only`. Code and
+database drift apart per environment exactly this way; staging's API was once
+three hours behind its own database. Suggested by the stress-test session.
+
+It is a deliberate confirmation rather than a check against the production
+database. A check would need production database credentials wherever promote
+runs, and would parse CLI table output that changes between versions; a guard
+that fails for the wrong reason blocks promotions, and this one cannot. Tested
+on a copy with the push swapped for an echo — never the real script —
+refusing without the flag and continuing with it. Against today's staging it
+lists exactly the two organisation-name migrations.
+
+Also: `e2e/contact-invoices.spec.ts`, the signed-in check for v0.75.14's
+Invoices tab — a contact with a purchase gets the tab and it lists the row; a
+contact without gets no tab. Resend is not clicked, because it emails the
+payer and staging's ledger carries real addresses.
+
+## [0.75.15] — 2026-09-14 — The landscape, full width (staging)
+
+**Connections — Landscape.** The page uses the whole window. Browse and
+Movement are The Fibre's tab bar. The people column has a search: press the
+magnifier, type part of a name, and picking somebody opens their step and them.
+The person on the right has the same two tabs as the popup, What happened and
+How you know them, instead of both stacked.
+
+**Connections — the person popup** is wider, so Kind, When and Team sit on one
+line. The person who introduced somebody, and the company you met them through,
+now open when you click them.
+
+**Shared:** `PageContainer max="full"`; `Tabs` items take an `href` and the bar a
+`link` component, for views that live in the URL. Both in docs/brand-design.md.
+
+## [0.75.14] — 2026-09-14 — a contact's invoices, on the contact (staging)
+
+Sjoerd: *"I should be able to open a contact… with a tab with invoices… see
+invoices… resend (single point of truth)."*
+
+**An Invoices tab on the Fibre contact profile.** It is THE shared invoices
+area — the same list, search, totals, detail dialog and Resend that Thread,
+Meet and Membership use on their Invoices pages — narrowed to one person. A
+resend from a contact is the resend, not a second copy of it. The shared
+component gained one optional prop, `personId`; every existing use is
+unchanged.
+
+Placed on the profile rather than a popup, by call: the profile already has
+the tab machinery and a half-built billing folder, and invoices are platform
+ledger data about a person, not any one app's content. A popup would have
+meant building tabs a second time.
+
+**The tab appears only when there is something behind it**, the way the app
+tabs do. An admin gets it when the workspace holds any invoice with this
+person; an organiser gets it when they have sold this person something.
+
+**One person's money needs both identity keys.** A purchase written before
+its payer had a person row carries only their email; one written after
+carries the person_id. The API matches either — `person_id` OR `payer_email`
+— because either alone drops rows. The person is read through the caller's
+row-level security, so an id from another workspace filters to nothing.
+
+**And a leftover injection gap is closed.** The invoice search still wrote
+the search term straight into a PostgREST filter string, the pattern the two
+contact searches were fixed for earlier today. Its sanitiser stripped some of
+the grammar's characters and not others. It is deleted, and the search now
+goes through `orIlike`. The person filter uses a new companion, `orEq`, which
+quotes exact-match values with one layer of escaping, since an equality has
+no LIKE layer behind it.
+
+Proven against staging's real PostgREST, not only in unit tests: hostile
+values return rows or none and never a 400; a real payer email is found (the
+check that catches a quoting mistake which silently matches nothing); a
+purchase carrying only an email is found by the person filter; and two
+filters applied together AND rather than the second replacing the first.
+
+## [0.75.13] — 2026-09-14 — Settings → Website saves (staging)
+
+**Nothing chosen in Settings → Website has ever been saved.** Sjoerd picked the
+Festival design and uploaded a logo on production, and his public page stayed
+plain: *"The website stuff does not show up in the front end."*
+
+The cause was mine, in v0.69.4. The site fields were added to the wrong Zod
+schema — `OrganiserUpdate`, behind `PATCH /me` — because a text replacement
+matched an identical `invoice_details` block there before the one in
+`SettingsUpdate`. The Website screen calls `PATCH /settings`. That route
+answered 200, and Zod silently removed every field it did not know. Production
+confirms it: soul.com's settings row was written minutes before the report,
+and still says `plain` with no logo.
+
+It went unnoticed for three days because the only check at the time wrote the
+design straight into the database and then looked at the public page. That
+proved the themes render and skipped the one step a real user takes.
+
+**The fix** moves the fields onto the settings schema. **The test that
+should have existed**, `src/integration/site-settings.int.test.ts`, sends the
+exact payload the Website form sends through the real middleware and route,
+reads the row back, and reads the public page a visitor gets. It passes on the
+fix and fails on the old code.
+
+**On production after promotion.** The fix is on staging; promoting it also
+carries everything else waiting on staging. Once promoted, the design has to be
+saved once more — nothing from the earlier attempts was stored.
+
+## [0.75.12] — 2026-09-14 — One tab bar (staging)
+
+**Connections — the person popup uses The Fibre's tab bar.** "What happened"
+and "How you know them" now look exactly like the tabs in Thread's dialogs
+(the shared `ui/tabs` from v0.75.11) instead of a smaller uppercase bar of
+their own. A note you are halfway through still survives switching tabs.
+
+## [0.75.11] — 2026-09-14 — the website settings get tabs, and your site is one click away (staging)
+
+Four things Sjoerd asked for while looking at Settings → Website and the
+dashboard.
+
+- **Tabs** — *"Make tabs for different parts of the design."* Design · Name &
+  images · Text · Menu & footer · Contact. One Save still sends everything: the
+  panels stay mounted and are only hidden, because an unmounted tab's fields
+  would be missing from the form and silently cleared.
+- **Display name, prefilled** — *"Fill in site name as workspace… You can do
+  'appearing name'."* The field is now "Display name" and starts as the
+  workspace name. Saving that unchanged name stores nothing, so renaming the
+  workspace later still reaches the site; only a name somebody changed is kept.
+- **Preview** — *"the website page should also have a preview link."* A
+  Preview button in the page header, where it is seen before scrolling. It opens
+  the live public page, so it shows what is saved.
+- **Your site, from the dashboard** — *"Where can I find a link to my
+  homepage?"* It was only reachable by knowing the address. The dashboard header
+  now has a "Your site" button. Both links read one helper,
+  `apps/thread/lib/public-site-url.ts`, so they cannot disagree about where the
+  site is.
+
+**A new shared component, `@thefibre/shared/ui/tabs`.** This was the second
+screen to need a tab bar; the first, Thread's thread-settings dialog, had the
+markup written inline. Per docs/brand-design.md it is now one reference, and
+that dialog renders it with identical classes.
+
+Not visually checked: both screens are behind sign-in.
+
+## [0.75.10] — 2026-09-14 — the agenda warning becomes a hint, and stays visible where it matters (staging)
+
+Sjoerd asked for the amber "With this off, the public page has no agenda
+section at all…" box to follow the house pattern: an ⓘ you hover for the
+explanation, instead of a standing paragraph.
+
+**On the Appearance tab** the box is gone; the explanation sits in an ⓘ beside
+"Public agenda". Safe there, because the switch the hint sits on is the cause.
+
+**In the event dialog** the box is gone too, but not silently. That box only
+ever appeared when the thread's agenda is off — the one moment the event's own
+"Show on the public agenda" switch does nothing, which once cost Sjoerd half an
+hour. A hint you have to hover is invisible exactly then. So the ⓘ appears only
+in that situation, with the full explanation, and a short amber "Off for this
+thread" line under the label stays on screen. Put to Sjoerd before building;
+he agreed.
+
+Not visually checked: both screens are behind sign-in.
+
+## [0.75.9] — 2026-09-14 — a blank thread can be created (staging)
+
+Found while chasing Sjoerd's *"templates do not work... nothing shows up"*.
+Reproduced against staging through the real API route with a signed-in
+fixture: all five standard templates and a saved template ("Single event")
+create a thread with its engagements, and the editor loads them. Those paths
+work at the API.
+
+What did not: creating a thread WITHOUT a template. The form sends
+`library_template: null` for a blank thread, and the API's schema said
+`.optional()`, which accepts a missing key but refuses null. So every blank
+thread failed with a 400, shown as a raw JSON dump of the validation error.
+Both lines date from v0.67.1; it went unnoticed because the picker defaults to
+the first template. The schema now accepts null as "no template".
+
+This may not be the problem Sjoerd saw. The template paths themselves are
+verified working at the API, so if he still sees nothing, the fault is in the
+browser and needs one observation from him.
+
+## [0.75.8] — 2026-09-14 — A date that fits (staging)
+
+**All apps — date fields stay on one line.** A date-only field reads
+"14 Sep 2026" (no weekday) and never wraps inside its box; a date-and-time
+field keeps its weekday, which matters when scheduling, and is cut off rather
+than wrapped when space is short.
+
+**Connections.** In a narrow place the note box's fields stack instead of
+squeezing. "When" no longer shows a required star. The AI prompt asks you up to
+three short questions first when the transcript leaves something essential
+unclear. The Entries "Careful" warning uses the shared warning style.
+
+## [0.75.7] — 2026-09-14 — one reference for every look (staging)
+
+Sjoerd: *"make a brand design document as instruction for the interface...
+Ideally you make one reference per item and reuse that, so that changes are
+simple, and app-wide implemented. Think about the old fashioned object
+oriented programming."*
+
+**The document:** `docs/brand-design.md` — colour roles, type, size and shape,
+a "use this, for that" catalogue of every shared component and recipe, how to
+change something, and the deliberate exceptions. CLAUDE.md now points every
+session at it before building a screen.
+
+**The references.** Until today the palette was copied by hand into eight
+`tailwind.config.ts` and eight `globals.css` files and had drifted into two
+palettes and four values for `--accent`. Now there are four layers, each
+defined once:
+
+- **Tokens** — `packages/shared/src/design/tokens.ts`. A colour is a ROLE
+  (`ink-subtle`, `surface-raised`, `save`), never a colour name, with a light
+  and dark value.
+- **Preset** — `packages/shared/src/design/tailwind-preset.ts`. Every product
+  app's Tailwind config is now `presets: [fibrePreset]` plus content globs, and
+  its `globals.css` holds no colour values at all.
+- **Recipes** — `packages/shared/src/ui/recipes.ts`. The looks that were being
+  typed out by hand: `CARD` (103 copies), `ERROR_TEXT` (160), `NOTICE.*` (the
+  error box alone, 54), `PILL` + `PILL_TONE.*`, `CHIP` + `CHIP_STATE.*`,
+  `SECTION_LABEL`, `INSET`. `SectionLabel`, `EmptyState` and `FormError` now
+  read them.
+- **Components** — unchanged in role; the switch and the save button now read
+  the new `save` token instead of a Tailwind yellow.
+
+**Proved to change nothing you can see.** Compiled CSS for all eight apps,
+before and after, resolved through the cascade: every colour variable is
+identical in light and dark mode; the only addition is `--save`; no class was
+lost except the two yellow classes that `bg-save` replaced. The Thread builds
+for production with the preset.
+
+**A guard, because a rule did not stop the drift.**
+`packages/shared/src/design/tokens.test.ts` reads every product app and fails
+if one adds `colors` to its Tailwind config or a colour variable to its
+`globals.css`. It was checked by copying a colour back into Meet: it failed.
+
+**One deliberate exception, and it is a decision for Sjoerd.** Connections,
+Flow and Pulse have used a cool slate ground in light mode since before this.
+They keep it as one light-only override block, which the guard allows and the
+document records. Unifying the two palettes is a single deletion if he wants it.
+
+**Not yet done:** the hand-written copies inside the apps still look right but
+are not yet instances of the recipes. They are converted app by app, The
+Thread first, so a visual change traces to one app.
+
+## [0.75.6] — 2026-09-14 — Save, in yellow (staging)
+
+**Connections — the note box's button says Save.** It was "Done". Your draft is
+already kept while you type; Save makes it final, into Conversations with its
+follow-up and tags. It is outlined until there is something to keep, then
+yellow — the colour saving has in every app since v0.75.4. The note text is
+back to the compact size of the other fields.
+
+## [0.75.5] — 2026-09-14 — the organisation search, checked in a browser (staging)
+
+`e2e/org-names.spec.ts`: six signed-in Playwright checks on staging for what
+v0.75.3 promised. Search finds the European Bahá'í Business Forum by "ebbf",
+by "bahai", by "Bahá'í" typed with its accents, and by "european bahai"; the
+list shows the abbreviation beside the name; and a term that matches nothing
+shows nothing rather than everything.
+
+v0.75.3 was proven at the database with the exact filter the API builds. This
+is the layer above it — the API's normalisation of the search term, and the
+list — which only a browser can vouch for. It depends on the staging EBBF seed
+and says so by failing, not by passing on an empty list.
+
+(Prepared as 0.75.4; another release took that number while this one was in
+the gate, and nothing of this landed until renumbered.)
+
+## [0.75.4] — 2026-09-14 — fields go compact again, and saving is yellow (staging)
+
+Sjoerd, on The Thread's dialogs after v0.75.1: *"The design of the thread
+popups just went rogue. It was great. Now it is terrible."* v0.75.1 had grown
+every text field and dropdown to the date field's taller size, answering his
+own earlier complaint in the Connections chat that the two did not match.
+
+Both requests were put to him side by side, and he chose: **compact, with the
+date field shrinking to match**. So every field is one box again — the one The
+Thread's dialogs had — and the consistency he asked for in Connections
+survives. The box is `FIELD_BOX` in `packages/shared/src/ui/fields.tsx`,
+`h-[38px] px-3 text-sm`: exactly the height of Thread's In person / Virtual
+control that sits beside these fields. It is a fixed height rather than
+padding, because Safari draws a native select at its own height and ignores
+padding; dropdowns keep the drawn arrow for the same reason. DateField and
+DateTimeField use the same box.
+
+**Saving is yellow** — *"the whole app, for SAVE when SAVE is an option or
+needed: Yellow/Orange please"*, confirmed against his earlier "keep black" in
+the Connections chat. The shared Button gains `variant="save"`, the yellow of
+the switches. A primary button that submits a form wears it automatically, so
+nobody has to remember: across all apps those are Save / Save changes in 43
+places and Create / Add in most of the rest. Primary buttons that do not save
+stay black. A save that is not a form submit, like Connections' Done on an
+autosaving note, says `variant="save"`.
+
+Not visually checked here: every surface these touch is behind sign-in. All
+nine apps typecheck against it.
+
+## [0.75.3] — 2026-09-14 — an organisation answers to every name it has had (staging)
+
+Sjoerd: *"Organisation should have extra fields for tradenames or
+abbreviations. For example: the European Bahá'í Business Forum is now Ethical
+Business Building the Future, or ebbf."*
+
+That one example is three kinds of name — a former name, the current name and
+an abbreviation — and the table could already hold two of them, badly.
+`short_name` has existed since the phase-0 schema, and EBBF's row already said
+"EBBF", but no form could edit it, the API would not accept it, and search did
+not read it. A column that existed and could not be reached.
+
+**Abbreviation** is now in the edit form, beside legal name.
+
+**Also known as** is new: trade names and former names, one per line, in a
+single untyped list. Whether a name is "former" or "trade" is a distinction
+nobody has asked to filter on, and a typed list would ask every person to
+classify a name before they could save it.
+
+**Search finds an organisation by any of them.** The list searched only name
+and domain, so "ebbf" matched EBBF by the accident of its domain being
+ebbf.org. A trigger now keeps one lower-cased search column from the name,
+abbreviation, legal name, other names and domain, and search reads that.
+
+**And it ignores accents and apostrophes**, on both sides. The first version
+failed the very example that prompted it: "European Bahá'í Business Forum"
+has two accents and an apostrophe, nobody types either, and "bahai" found
+nothing. The stored search column now drops them through Postgres `unaccent`,
+and the API strips the search term the same way before asking. Six tests pin
+the term side, including the letters Unicode normalisation leaves alone but
+`unaccent` rewrites, so "søren" still meets "soren". What people typed for
+display keeps every accent; only the machine column loses them.
+
+The header now reads the other names under the title, and the list shows the
+abbreviation beside the name.
+
+Two migrations, applied to **staging only**: `20260914190000` and
+`20260914191000`. Both are additive — new columns with defaults and a plain,
+non-definer trigger function — so production code that does not know about
+them is unaffected until promotion. Verified on staging with a throwaway row
+in the fixtures workspace, since removed: found by abbreviation, by the former
+name, and by the current name after a rename.
+
+## [0.75.2] — 2026-09-14 — Entries by tag and by place (staging)
+
+**Connections — Entries searches tags and places.** Type a word and the list
+now offers matching tags and places (the cities and countries people are in),
+next to people and organisations. A tag or place answers with the people
+around it, the ones you know best first, and says plainly that these are not
+introductions — sharing a tag or a city is not knowing somebody.
+
+**Shared — exact field sizes for the controls that are not fields.**
+`FIELD_INPUT_CLASS` (and `_INLINE`) give a single-line input exactly the
+TextField/DateField box; `FieldSelect` is a SelectField without a label, for
+filter bars. `FIELD_CLASS_INLINE` is removed — it had no fixed height and so
+never quite matched. Connections' search boxes and filters use them; the
+Movement board's filters are labelled fields.
+
 ## [0.75.1] — 2026-09-14 — Every field the same size (staging)
 
 **All apps — one field size.** Text fields, dropdowns and text areas are now

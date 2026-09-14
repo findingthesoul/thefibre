@@ -65,12 +65,52 @@ const CATALOG = {
     fr: 'Qui veux-tu atteindre ?', // MT
   },
   entries_search_hint: {
-    en: 'Search a person or an organisation',
-    nl: 'Zoek een persoon of organisatie',
-    es: 'Busca una persona o una organización', // MT
-    pt: 'Busque uma pessoa ou uma organização', // MT
-    de: 'Suche eine Person oder eine Organisation', // MT
-    fr: 'Cherche une personne ou une organisation', // MT
+    en: 'Search a person, an organisation, a tag or a place',
+    nl: 'Zoek een persoon, organisatie, tag of plaats',
+    es: 'Busca una persona, una organización, una etiqueta o un lugar', // MT
+    pt: 'Busque uma pessoa, uma organização, uma etiqueta ou um lugar', // MT
+    de: 'Suche eine Person, eine Organisation, einen Tag oder einen Ort', // MT
+    fr: 'Cherche une personne, une organisation, un tag ou un lieu', // MT
+  },
+  entries_kind_tag: {
+    en: 'Tag',
+    nl: 'Tag',
+    es: 'Etiqueta', // MT
+    pt: 'Etiqueta', // MT
+    de: 'Tag', // MT
+    fr: 'Tag', // MT
+  },
+  entries_kind_location: {
+    en: 'Place',
+    nl: 'Plaats',
+    es: 'Lugar', // MT
+    pt: 'Lugar', // MT
+    de: 'Ort', // MT
+    fr: 'Lieu', // MT
+  },
+  entries_around_title: {
+    en: 'People around {target}',
+    nl: 'Mensen rond {target}',
+    es: 'Personas en torno a {target}', // MT
+    pt: 'Pessoas em torno de {target}', // MT
+    de: 'Menschen rund um {target}', // MT
+    fr: 'Personnes autour de {target}', // MT
+  },
+  entries_around_body: {
+    en: 'Not introductions — the people in this workspace who share this, the ones you know best first.',
+    nl: 'Geen introducties — de mensen in deze workspace die dit delen, wie je het best kent eerst.',
+    es: 'No son presentaciones: las personas de este espacio que comparten esto, primero las que mejor conoces.', // MT
+    pt: 'Não são apresentações: as pessoas deste espaço que partilham isto, primeiro as que conheces melhor.', // MT
+    de: 'Keine Vorstellungen – die Menschen in diesem Workspace, die das teilen, die du am besten kennst zuerst.', // MT
+    fr: 'Pas des introductions : les personnes de cet espace qui partagent cela, celles que vous connaissez le mieux d’abord.', // MT
+  },
+  entries_around_none: {
+    en: 'Nobody here yet.',
+    nl: 'Nog niemand.',
+    es: 'Todavía nadie.', // MT
+    pt: 'Ainda ninguém.', // MT
+    de: 'Noch niemand.', // MT
+    fr: 'Personne pour l’instant.', // MT
   },
   entries_kind_organisation: {
     en: 'Organisation',
@@ -1091,6 +1131,14 @@ const CATALOG = {
     pt: 'Escolhe alguém para o ver aqui.', // MT
     de: 'Wähle jemanden, um die Person hier zu sehen.', // MT
     fr: 'Choisissez quelqu’un pour le voir ici.', // MT
+  },
+  landscape_search_people: {
+    en: 'Find a person',
+    nl: 'Zoek een persoon',
+    es: 'Buscar a una persona', // MT
+    pt: 'Procurar uma pessoa', // MT
+    de: 'Person suchen', // MT
+    fr: 'Trouver une personne', // MT
   },
   landscape_none_here: {
     en: 'Nobody is on this step.',

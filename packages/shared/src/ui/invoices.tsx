@@ -85,6 +85,10 @@ export type ListPurchasesArgs = {
   q?: string | undefined;
   app?: string | undefined;
   cursor?: string | null | undefined;
+  /** One person's money only — the Invoices tab on a contact (2026-09-14).
+   *  The API matches the ledger's two identity keys, person_id OR
+   *  payer_email. Apps whose actions ignore it simply show everything. */
+  personId?: string | undefined;
 };
 
 type ListResult = { ok: true; data: PurchaseList } | { ok: false; error: string };
@@ -181,6 +185,7 @@ export function InvoicesArea({
   defaultApp = 'all',
   appOptions = DEFAULT_APP_OPTIONS,
   actions,
+  personId,
 }: {
   teams: { id: string; name: string }[];
   /** Which app's sales to show first — the current app, typically. */
@@ -190,6 +195,10 @@ export function InvoicesArea({
   /** Membership lands admins on 'workspace' — membership sales have no
    *  personal seller, so 'me' is empty there (Sjoerd, 2026-09-06). */
   defaultScope?: Scope;
+  /** Narrow the whole area to one person — a contact's Invoices tab.
+   *  Search, app chips, the detail dialog and resend all keep working;
+   *  they just act inside that person's rows. */
+  personId?: string;
 }) {
   const locale: Locale = useLocale();
   const intl = INTL_LOCALES[locale];
@@ -218,6 +227,7 @@ export function InvoicesArea({
         q: q.trim() || undefined,
         app: app === 'all' ? undefined : app,
         cursor,
+        personId,
       });
       if (!r.ok) {
         // A non-admin landing on a workspace default (Membership opens
@@ -232,7 +242,7 @@ export function InvoicesArea({
       setError(null);
       return r.data;
     },
-    [scope, teamId, q, app, actions],
+    [scope, teamId, q, app, actions, personId],
   );
 
   useEffect(() => {

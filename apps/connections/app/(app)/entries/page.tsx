@@ -26,8 +26,24 @@ export default async function EntriesPage() {
       const r = await apiFetch<{
         organisations: { id: string; name: string; sector: string | null; country: string | null }[];
         people: { id: string; first_name: string | null; last_name: string | null; email: string | null }[];
+        tags?: { id: string; name: string }[];
+        locations?: { name: string; people: number }[];
       }>(`/api/v1/connections/entries/targets?q=${encodeURIComponent(query)}`);
       return [
+        // Tags and places too. Sjoerd, 2026-09-14: "why can I only search for
+        // a person or an org and not on other things like tags or location?"
+        ...(r.tags ?? []).map((tg) => ({
+          value: `tag:${tg.id}`,
+          label: `#${tg.name}`,
+          kind: 'tag' as const,
+          hint: null,
+        })),
+        ...(r.locations ?? []).map((l) => ({
+          value: `loc:${encodeURIComponent(l.name)}`,
+          label: l.name,
+          kind: 'location' as const,
+          hint: null,
+        })),
         ...r.organisations.map((o) => ({
           value: `org:${o.id}`,
           label: o.name,
@@ -54,11 +70,14 @@ export default async function EntriesPage() {
   /** A chosen target → the paths to it, or the degrade. */
   async function findEntries(value: string): Promise<EntriesResult> {
     'use server';
-    const [kind, id] = value.split(':');
-    const param = kind === 'org' ? 'org_id' : 'person_id';
+    const at = value.indexOf(':');
+    const kind = value.slice(0, at);
+    // Location values are URI-encoded in the option value (a place can hold a colon).
+    const id = kind === 'loc' ? decodeURIComponent(value.slice(at + 1)) : value.slice(at + 1);
+    const param = { org: 'org_id', person: 'person_id', tag: 'tag_id', loc: 'location' }[kind] ?? 'person_id';
     try {
       return await apiFetch<EntriesResult>(
-        `/api/v1/connections/entries?${param}=${encodeURIComponent(id)}&limit=50`,
+        `/api/v1/connections/entries?${param}=${encodeURIComponent(id ?? '')}&limit=50`,
       );
     } catch (e) {
       return {

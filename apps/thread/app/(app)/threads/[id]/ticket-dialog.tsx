@@ -4,6 +4,7 @@
 // (thethread-v3 model: a LIST of ticket prices, each opening this dialog).
 
 import { useState, useTransition } from 'react';
+import { PaymentMethodsPicker, type PayMethod } from '@thefibre/shared/ui/payment-methods';
 import { Trash2 } from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { t } from '@/lib/i18n-ui';
@@ -53,9 +54,9 @@ export function TicketDialog({
   const isNew = !ticket;
   const [confirmDelete, setConfirmDelete] = useState(false);
   // Payment options: null = inherit (thread → account default).
-  const [pmCustom, setPmCustom] = useState<boolean>(!!ticket?.payment_methods?.length);
-  const [pmStripe, setPmStripe] = useState(ticket?.payment_methods?.includes('stripe') ?? true);
-  const [pmInvoice, setPmInvoice] = useState(ticket?.payment_methods?.includes('invoice') ?? false);
+  const [methods, setMethods] = useState<PayMethod[] | null>(
+    ticket?.payment_methods?.length ? (ticket.payment_methods as PayMethod[]) : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -77,16 +78,9 @@ export function TicketDialog({
       quantity_limit: limit ? Number(limit) : null,
       available_until: fromLocalInput(String(fd.get('available_until') ?? '')),
       is_active: fd.get('is_active') === 'on',
-      payment_methods: pmCustom
-        ? ([
-            ...(pmStripe ? (['stripe'] as const) : []),
-            ...(pmInvoice ? (['invoice'] as const) : []),
-          ] as ('stripe' | 'invoice')[])
-        : null,
+      // The shared picker never lets a custom list go empty.
+      payment_methods: methods,
     };
-    if (pmCustom && payload.payment_methods && payload.payment_methods.length === 0) {
-      return setError(t(locale, 'err_keep_one_or_inherit'));
-    }
 
     startTransition(async () => {
       const r = isNew
@@ -178,27 +172,18 @@ export function TicketDialog({
         />
         <div>
           <span className="text-xs text-ink-subtle">{t(locale, 'payment_options')}</span>
-          <div className="mt-1.5 flex flex-wrap items-center gap-4">
-            <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-              <input type="radio" name="pm-mode-ticket" checked={!pmCustom} onChange={() => setPmCustom(false)} />
-              {t(locale, 'inherit')}
-            </label>
-            <label className="inline-flex items-center gap-2 text-sm text-ink-subtle cursor-pointer">
-              <input type="radio" name="pm-mode-ticket" checked={pmCustom} onChange={() => setPmCustom(true)} />
-              {t(locale, 'custom_ticket')}
-            </label>
-            {pmCustom && (
-              <span className="inline-flex items-center gap-4">
-                <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
-                  <input type="checkbox" checked={pmStripe} onChange={(e) => setPmStripe(e.target.checked)} />
-                  {t(locale, 'pay_online')}
-                </label>
-                <label className="inline-flex items-center gap-1.5 text-sm text-ink-subtle cursor-pointer">
-                  <input type="checkbox" checked={pmInvoice} onChange={(e) => setPmInvoice(e.target.checked)} />
-                  {t(locale, 'pay_per_invoice')}
-                </label>
-              </span>
-            )}
+          <div className="mt-1.5">
+            <PaymentMethodsPicker
+              name="pm-mode-ticket"
+              value={methods}
+              onChange={setMethods}
+              labels={{
+                inherit: t(locale, 'inherit'),
+                custom: t(locale, 'custom_ticket'),
+                online: t(locale, 'pay_online'),
+                invoice: t(locale, 'pay_per_invoice'),
+              }}
+            />
           </div>
         </div>
 

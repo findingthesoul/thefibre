@@ -43,8 +43,9 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
-import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { FIELD_INPUT_CLASS, FieldSelect } from '@thefibre/shared/ui/fields';
+import { Tabs } from '@thefibre/shared/ui/tabs';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import {
@@ -142,6 +143,28 @@ export function LandscapeColumns({
       .sort((a, b) => (a.name ? 0 : 1) - (b.name ? 0 : 1) || a.name.localeCompare(b.name));
   }, [reading, band, names]);
 
+  const [searching, setSearching] = useState(false);
+  const [query, setQuery] = useState('');
+  // Everybody in this reading whose name has a word starting with each typed word.
+  const found = useMemo(() => {
+    const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    if (!reading?.ok || words.length === 0) return [];
+    return reading.people
+      .map((p) => ({ id: p.person_id, rung: p.rung, name: names.get(p.person_id) ?? '' }))
+      .filter((p) => {
+        const parts = p.name.toLowerCase().split(/\s+/);
+        return p.name && words.every((w) => parts.some((n) => n.startsWith(w)));
+      })
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .slice(0, 12);
+  }, [query, reading, names]);
+  const pickFound = (p: { id: string; rung: string }) => {
+    setBand(p.rung);
+    setPersonId(p.id);
+    setSearching(false);
+    setQuery('');
+  };
+
   // The deepest open level — what a phone shows.
   const level: Level = personId ? 'person' : band ? 'people' : 'step';
   const back = () => {
@@ -183,18 +206,15 @@ export function LandscapeColumns({
         {/* 2 · Steps in the chosen reading. */}
         <div className={`${column} border-r ${phoneHidden('step')}`}>
           <ColumnHead>
-            <select
-              value={axis}
-              onChange={(e) => void openReading(e.target.value as Axis)}
-              className={`${FIELD_CLASS_INLINE} md:hidden`}
-              aria-label={t(locale, 'landscape_col_readings')}
-            >
-              {axes.map((a) => (
-                <option key={a} value={a}>
-                  {axisTitle(locale, config, a)}
-                </option>
-              ))}
-            </select>
+            <span className="md:hidden">
+              <FieldSelect
+                inline
+                value={axis}
+                onChange={(e) => void openReading(e.target.value as Axis)}
+                aria-label={t(locale, 'landscape_col_readings')}
+                options={axes.map((a) => ({ value: a, label: axisTitle(locale, config, a) }))}
+              />
+            </span>
             <span className="hidden md:inline">{t(locale, 'landscape_col_steps')}</span>
           </ColumnHead>
           <p className="px-3 pb-2 text-xs text-ink-subtle">{t(locale, AXIS_QUESTION_KEYS[axis])}</p>
@@ -233,17 +253,64 @@ export function LandscapeColumns({
         {/* 3 · People on the chosen step. */}
         <div className={`${column} border-r ${phoneHidden('people')}`}>
           <ColumnHead>
-            {band ? bandName(locale, labels, axis, band) : t(locale, 'landscape_col_people')}
+            <span className="min-w-0 flex-1 truncate">
+              {band ? bandName(locale, labels, axis, band) : t(locale, 'landscape_col_people')}
+            </span>
+            {/* Search everybody in this reading. Sjoerd, 2026-09-14: "third
+                column a loop symbol that can open a search which selects
+                people". Picking somebody opens their step and them. */}
+            <button
+              type="button"
+              onClick={() => {
+                setSearching((s) => !s);
+                setQuery('');
+              }}
+              aria-expanded={searching}
+              aria-label={t(locale, 'landscape_search_people')}
+              title={t(locale, 'landscape_search_people')}
+              className="ml-2 shrink-0 text-ink-muted hover:text-ink"
+            >
+              <Search size={15} strokeWidth={1.75} />
+            </button>
           </ColumnHead>
-          {!band && <p className="px-3 text-xs text-ink-muted">{t(locale, 'landscape_pick_step')}</p>}
-          {band && (() => {
+          {searching && (
+            <div className="px-3 pb-2 pt-1">
+              <input
+                autoFocus
+                type="search"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Escape') setSearching(false);
+                  if (e.key === 'Enter' && found[0]) pickFound(found[0]);
+                }}
+                placeholder={t(locale, 'landscape_search_people')}
+                className={FIELD_INPUT_CLASS}
+              />
+              {query.trim() && found.length === 0 && (
+                <p className="pt-2 text-xs text-ink-muted">{t(locale, 'landscape_none_here')}</p>
+              )}
+              <ul className="pt-1">
+                {found.map((p) => (
+                  <Row key={p.id} on={p.id === personId} open onClick={() => pickFound(p)}>
+                    <span className="min-w-0 flex-1 truncate">{p.name}</span>
+                    <span className="shrink-0 truncate text-xs text-ink-muted">
+                      {bandName(locale, labels, axis, p.rung)}
+                    </span>
+                  </Row>
+                ))}
+              </ul>
+            </div>
+          )}
+          {!searching && !band && <p className="px-3 text-xs text-ink-muted">{t(locale, 'landscape_pick_step')}</p>}
+          {!searching && band && (() => {
             const note = BAND_NOTE_KEYS[axis][band];
             return note ? <p className="px-3 pb-2 text-xs text-ink-subtle">{t(locale, note)}</p> : null;
           })()}
-          {band && people.length === 0 && (
+          {!searching && band && people.length === 0 && (
             <p className="px-3 text-xs text-ink-muted">{t(locale, 'landscape_none_here')}</p>
           )}
-          <ul>
+          <ul hidden={searching}>
             {people.map((p) => (
               <Row key={p.id} on={p.id === personId} open onClick={() => setPersonId(p.id)}>
                 <span className="truncate">{p.name || '…'}</span>
@@ -315,14 +382,15 @@ function Movement({ net }: { net: number }) {
 /**
  * The fourth column: the same person the popup shows, laid out inline.
  *
- * Built from the popup's own pieces rather than a copy of it. What it leaves
- * out is the popup's chrome — the dialog, the tabs, the warning before leaving
- * — because a column has room for both halves at once.
+ * Built from the popup's own pieces rather than a copy of it, including the
+ * popup's two tabs (Sjoerd, 2026-09-14: stacked halves were not what he
+ * expected). What it leaves out is the dialog itself.
  */
 function PersonColumn({ personId, locale }: { personId: string; locale: Locale }) {
   const [person, setPerson] = useState<PersonCard | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'happened' | 'relation'>('happened');
 
   const load = useCallback(async () => {
     const r = await safely(() => loadPerson(personId), (e) => ({ ok: false as const, error: e }));
@@ -342,23 +410,25 @@ function PersonColumn({ personId, locale }: { personId: string; locale: Locale }
     [person.first_name, person.last_name].filter(Boolean).join(' ').trim() || person.email || '…';
 
   return (
-    <div className="space-y-4 p-4">
-      <div>
-        <h2 className="text-base font-medium">{name}</h2>
-        <div className="mt-1">
-          <ContactRow person={person} />
-        </div>
+    <div className="p-4">
+      <h2 className="text-base font-medium">{name}</h2>
+      <div className="mt-1">
+        <ContactRow person={person} />
       </div>
-      <section>
-        <h3 className="mb-2 text-xs font-medium uppercase tracking-wide text-ink-subtle">
-          {t(locale, 'popup_relation')}
-        </h3>
-        <RelationshipCard personId={person.id} locale={locale} />
-      </section>
-      <section>
-        <h3 className="text-xs font-medium uppercase tracking-wide text-ink-subtle">
-          {t(locale, 'popup_what_happened')}
-        </h3>
+      {/* The same two tabs as the popup, not both halves stacked. Sjoerd,
+          2026-09-14: "why is How you know them and What happened below each
+          other and not two tabs". Both panels stay mounted — a half-written
+          note survives a switch. */}
+      <Tabs
+        className="mt-4"
+        value={tab}
+        onChange={setTab}
+        tabs={[
+          { value: 'happened', label: t(locale, 'popup_what_happened') },
+          { value: 'relation', label: t(locale, 'popup_relation') },
+        ]}
+      />
+      <div className="pt-4" hidden={tab !== 'happened'}>
         <Notes
           personId={person.id}
           personName={name}
@@ -366,7 +436,10 @@ function PersonColumn({ personId, locale }: { personId: string; locale: Locale }
           locale={locale}
           onCommitted={() => void load()}
         />
-      </section>
+      </div>
+      <div className="pt-4" hidden={tab !== 'relation'}>
+        <RelationshipCard personId={person.id} locale={locale} />
+      </div>
     </div>
   );
 }

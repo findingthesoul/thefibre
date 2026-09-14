@@ -11,6 +11,7 @@ import { ButtonLink } from '@/components/ui/button';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
 import { MEET_HOST } from '@/lib/public-host';
+import { CopyLinkButton, OpenBookingLink } from '@/components/copy-link-button';
 
 type Team = {
   id: string;
@@ -65,6 +66,14 @@ export default async function TeamsPage() {
                     <span className="uppercase tracking-wider text-ink-muted">
                       {tm.my_role === 'lead' ? t(locale, 'role_lead') : t(locale, 'role_member')}
                     </span>
+                    {/* The team's public landing page, one click from the list
+                        (Sjoerd, 2026-09-14). */}
+                    <CopyLinkButton
+                      url={`/${tm.slug}`}
+                      label={t(locale, 'copy_link')}
+                      copiedLabel={t(locale, 'copied')}
+                    />
+                    <OpenBookingLink href={`/${tm.slug}`} label={t(locale, 'open_booking_page')} />
                   </>
                 }
               />

@@ -6,6 +6,11 @@ import { publicFetch, PublicApiError } from '@/lib/public-api';
 import type { PublicTicket, RegistrationField } from '@/lib/thread-types';
 import { t, DEFAULT_LOCALE, type Locale } from '@/lib/i18n';
 import { POLICIES, policiesVersion } from '@/lib/policies';
+import {
+  PayMethodSwitch,
+  InvoiceBillingFields,
+  readBillingFields,
+} from '@thefibre/shared/ui/payment-methods';
 
 function fmtPrice(cents: number | null, currency: string | null): string {
   if (!cents) return '';
@@ -164,14 +169,7 @@ export function EnrolCard({
           ...(activePriceCents ? { payment_method: effectiveMethod } : {}),
           ...(activePriceCents && effectiveMethod === 'invoice'
             ? {
-                billing: {
-                  company: String(fd.get('billing_company') ?? '').trim() || undefined,
-                  address: String(fd.get('billing_address') ?? '').trim() || undefined,
-                  postal_code: String(fd.get('billing_postal_code') ?? '').trim() || undefined,
-                  city: String(fd.get('billing_city') ?? '').trim() || undefined,
-                  country: String(fd.get('billing_country') ?? '').trim() || undefined,
-                  tax_no: String(fd.get('billing_tax_no') ?? '').trim() || undefined,
-                },
+                billing: readBillingFields(fd),
               }
             : {}),
           answers,
@@ -383,56 +381,26 @@ export function EnrolCard({
           )}
 
           {(activePriceCents ?? 0) > 0 && activeMethods.length > 1 && (
-            <div>
-              <span className="text-xs text-ink-subtle">{t(locale, 'payment_method')}</span>
-              <div className="mt-1 grid grid-cols-2 rounded-md border border-line overflow-hidden h-[34px] text-sm">
-                {(['stripe', 'invoice'] as const).map((m) => (
-                  <button
-                    key={m}
-                    type="button"
-                    onClick={() => setPayMethod(m)}
-                    className={
-                      effectiveMethod === m
-                        ? 'bg-surface-sunken text-ink font-medium'
-                        : 'bg-surface text-ink-subtle hover:text-ink hover:bg-surface-sunken'
-                    }
-                  >
-                    {t(locale, m === 'stripe' ? 'pay_online' : 'pay_by_invoice')}
-                  </button>
-                ))}
-              </div>
-            </div>
+            <PayMethodSwitch
+              value={effectiveMethod}
+              onChange={setPayMethod}
+              label={t(locale, 'payment_method')}
+              labels={{ online: t(locale, 'pay_online'), invoice: t(locale, 'pay_by_invoice') }}
+            />
           )}
 
           {(activePriceCents ?? 0) > 0 && effectiveMethod === 'invoice' && (
-            <>
-              <label className="block">
-                <span className="text-xs text-ink-subtle">{t(locale, 'company_name')}</span>
-                <input name="billing_company" className={INPUT} autoComplete="organization" />
-              </label>
-              <label className="block">
-                <span className="text-xs text-ink-subtle">{t(locale, 'billing_address')}</span>
-                <input name="billing_address" className={INPUT} autoComplete="street-address" />
-              </label>
-              <div className="grid grid-cols-2 gap-3">
-                <label className="block">
-                  <span className="text-xs text-ink-subtle">{t(locale, 'postal_code')}</span>
-                  <input name="billing_postal_code" className={INPUT} autoComplete="postal-code" />
-                </label>
-                <label className="block">
-                  <span className="text-xs text-ink-subtle">{t(locale, 'city')}</span>
-                  <input name="billing_city" className={INPUT} autoComplete="address-level2" />
-                </label>
-              </div>
-              <label className="block">
-                <span className="text-xs text-ink-subtle">{t(locale, 'country')}</span>
-                <input name="billing_country" className={INPUT} autoComplete="country-name" />
-              </label>
-              <label className="block">
-                <span className="text-xs text-ink-subtle">{t(locale, 'tax_number')}</span>
-                <input name="billing_tax_no" className={INPUT} autoComplete="off" />
-              </label>
-            </>
+            <InvoiceBillingFields
+              inputClassName={INPUT}
+              labels={{
+                company: t(locale, 'company_name'),
+                address: t(locale, 'billing_address'),
+                postalCode: t(locale, 'postal_code'),
+                city: t(locale, 'city'),
+                country: t(locale, 'country'),
+                taxNo: t(locale, 'tax_number'),
+              }}
+            />
           )}
 
           <label className="block">

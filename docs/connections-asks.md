@@ -106,6 +106,17 @@ neither in code nor in a document. That is what this file fixes.
 | 73 | "When" defaults to now | **Shipped** v0.75.1 — as today's date, see 74 |
 | 74 | "Time may not be so relevant… take it out... just date" | **Shipped** v0.75.1 — the note's When is a date (today by default); the timeline shows dates only |
 | 75 | The AI prompt should also work in a chat that has already worked on the transcript | **Shipped** v0.75.1 — it looks below OR earlier in the chat, keeps earlier corrections, and its format wins |
+| 76 | "Again: Entries… why can I only search for a person or an org and not on other things like tags or location?" | **Shipped** v0.75.2 — search offers tags and places too; a tag or place answers with the people around it, closest first, labelled as NOT introductions (sharing a word is not knowing somebody, handbook §12). Closes the tag half of backlog §1.3 |
+| 77 | Field size and Save colour, settled across two chats: compact fields with the date field to match; saving is yellow in every app | **Shipped** v0.75.4 (by the Thread session, shared) — decided by Sjoerd with both asks side by side |
+| 78 | "Done should also be something else… maybe add… why not save then?" | **Shipped** v0.75.6 — the composer's button says Save, in the save colour, outlined until there is something to keep |
+| 79 | In a narrow column the note box's date wraps over four lines; "size is great.. datum needs to fit.. write format that works" | **Shipped** v0.75.8 — the composer's fields stack when there is no room (auto-fit grid); shared DateField shows "14 Sep 2026" (no weekday) and never wraps; DateTimeField keeps the weekday and truncates. When loses its asterisk |
+| 80 | "Did you solve my AI report question?" | **Answered** — yes: 75 (v0.75.1), the prompt works in a chat already working on the transcript |
+| 81 | If the transcript is not clear enough, the prompt could ask a few questions to clarify | **Shipped** v0.75.8 — at most three numbered questions, only about who, what was agreed, or the next step; skipped when all is clear |
+| 82 | Landscape: "Why is this not full screen?" | **Shipped** v0.75.15 — the page uses the whole window (shared PageContainer max="full") |
+| 83 | Landscape's person column: "why is How you know them and What happened below each other and not two tabs" | **Shipped** v0.75.15 — the same two tabs as the popup |
+| 84 | "Why is the introduced by not clickable" | **Shipped** v0.75.15 — the introducer opens the person popup; a company under Through work opens the organisation |
+| 85 | Third Landscape column: a magnifier that opens a search which selects people | **Shipped** v0.75.15 — searches everybody in the reading; picking opens their step and them |
+| 86 | "Why is Kind When and Team over two lines? You can also make the popup a little wider?" | **Shipped** v0.75.15 — the person popup is the roomy dialog size and the fields sit side by side down to 10rem |
 
 ### The three that were lost
 

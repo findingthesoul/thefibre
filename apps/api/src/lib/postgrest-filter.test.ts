@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orIlike } from './postgrest-filter.js';
+import { orIlike, orEq } from './postgrest-filter.js';
 
 describe('orIlike', () => {
   it('builds one quoted ilike clause per column', () => {
@@ -23,5 +23,25 @@ describe('orIlike', () => {
     // Doubled: PostgREST unquotes one layer, Postgres reads the other.
     expect(orIlike(['name'], '100%_done')).toBe('name.ilike."%100\\\\%\\\\_done%"');
     expect(orIlike(['name'], 'a\\b')).toBe('name.ilike."%a\\\\\\\\b%"');
+  });
+});
+
+describe('orEq', () => {
+  it('builds one quoted eq clause per pair', () => {
+    expect(orEq([['person_id', 'abc'], ['payer_email', 'a@b.com']])).toBe(
+      'person_id.eq."abc",payer_email.eq."a@b.com"',
+    );
+  });
+
+  it('keeps commas, parens and dots inert inside the quotes', () => {
+    expect(orEq([['payer_email', 'a,b).c']])).toBe('payer_email.eq."a,b).c"');
+  });
+
+  it('escapes a double quote and a backslash ONCE — there is no LIKE layer', () => {
+    expect(orEq([['payer_email', 'o"b\\c']])).toBe('payer_email.eq."o\\"b\\\\c"');
+  });
+
+  it('never touches % or _, which mean nothing to eq', () => {
+    expect(orEq([['payer_email', '100%_x@y.z']])).toBe('payer_email.eq."100%_x@y.z"');
   });
 });

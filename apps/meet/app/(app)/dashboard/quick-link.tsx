@@ -7,7 +7,8 @@ export type QuickLink = {
   id: string;
   name: string;
   team: string | null;
-  durationMinutes: number;
+  /** Null for a whole page (personal or team) rather than one meeting type. */
+  durationMinutes: number | null;
   path: string;
   url: string;
 };
@@ -36,7 +37,8 @@ export function QuickLinkRow({ link, locale }: { link: QuickLink; locale: Locale
           )}
         </div>
         <div className="mt-1 text-xs text-ink-muted truncate">
-          {link.durationMinutes} min · {link.path}
+          {link.durationMinutes != null ? `${link.durationMinutes} min · ` : ''}
+          {link.path}
         </div>
       </div>
       <div className="flex shrink-0 items-center gap-3">

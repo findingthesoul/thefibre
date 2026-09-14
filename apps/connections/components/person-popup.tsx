@@ -30,6 +30,7 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { Dialog } from '@thefibre/shared/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { Tabs } from '@thefibre/shared/ui/tabs';
 import { ExternalLink } from 'lucide-react';
 import { ContactRow } from '@/components/contact-row';
 import { t, type Locale } from '@/lib/i18n-ui';
@@ -220,7 +221,10 @@ export function PersonPopupProvider({
           open
           onClose={close}
           title={name || (error ? t(locale, 'nav_people') : t(locale, 'loading'))}
-          size="lg"
+          // The roomy dialog (Thread's editor width). Sjoerd, 2026-09-14: "Why
+          // is Kind When and Team over two lines? You can also make the popup
+          // a little wider?" At lg the three fields could not sit side by side.
+          size="xl"
           // How to reach them sits directly under the name, and the full
           // profile is an icon at the end of the name's line, next to the
           // close. Sjoerd, 2026-09-14: *"Put the email direct under the name
@@ -263,28 +267,19 @@ export function PersonPopupProvider({
                   body, or scrolling past one to reach the other; two tabs mean
                   one body and both always one press away.
 
-                  Plain buttons rather than a tablist with roving focus: there
-                  are two of them, they are in a dialog that already traps
-                  focus, and `aria-selected` on a button carries the state a
-                  screen reader needs without inventing a keyboard model
-                  nobody asked for. */}
-              <div className="mt-4 flex gap-1 border-b border-line">
-                {(['happened', 'relation'] as const).map((k) => (
-                  <button
-                    key={k}
-                    type="button"
-                    onClick={() => setTab(k)}
-                    aria-selected={tab === k}
-                    className={`-mb-px border-b-2 px-3 py-2 text-xs font-medium uppercase tracking-wide transition-colors ${
-                      tab === k
-                        ? 'border-ink text-ink'
-                        : 'border-transparent text-ink-subtle hover:text-ink'
-                    }`}
-                  >
-                    {t(locale, k === 'happened' ? 'popup_what_happened' : 'popup_relation')}
-                  </button>
-                ))}
-              </div>
+                  The shared tab bar (docs/brand-design.md), the same one
+                  Thread's dialogs use — this bar had been written inline, in
+                  uppercase, a second look. Panels stay mounted below, hidden
+                  when inactive, so a half-written note survives a switch. */}
+              <Tabs
+                className="mt-1"
+                value={tab}
+                onChange={setTab}
+                tabs={[
+                  { value: 'happened', label: t(locale, 'popup_what_happened') },
+                  { value: 'relation', label: t(locale, 'popup_relation') },
+                ]}
+              />
 
               {/* A floor under both panels. Sjoerd, 2026-09-13: *"Give a
                   window a minium height so it is more calm switching between

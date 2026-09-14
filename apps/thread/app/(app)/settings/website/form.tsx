@@ -14,6 +14,7 @@ import { useRouter } from 'next/navigation';
 import { ExternalLink, ImagePlus, Plus, X } from 'lucide-react';
 import type { Locale } from '@thefibre/shared';
 import { Button } from '@/components/ui/button';
+import { Tabs } from '@thefibre/shared/ui/tabs';
 import { SwitchField } from '@/components/ui/switch';
 import { RichTextField } from '@/components/ui/rich-text';
 import { uploadAsset } from '@/lib/upload';
@@ -173,10 +174,13 @@ export function WebsiteForm({
   locale,
   settings,
   publicUrl,
+  workspaceName,
 }: {
   locale: Locale;
   settings: SiteSettings;
   publicUrl: string | null;
+  /** Prefills the display name. Null when the brand read failed. */
+  workspaceName: string | null;
 }) {
   const router = useRouter();
   const [theme, setTheme] = useState<SiteTheme>(settings.site_theme ?? 'plain');
@@ -187,6 +191,18 @@ export function WebsiteForm({
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
   const [pending, start] = useTransition();
+  // Tabs (Sjoerd, 2026-09-14: "Make tabs for different parts of the design").
+  // Panels stay mounted and are only hidden, so one Save still sends every
+  // field — an unmounted tab's inputs would be missing from the FormData and
+  // silently cleared.
+  const [tab, setTab] = useState<'design' | 'brand' | 'words' | 'menu' | 'contact'>('design');
+  const tabs = [
+    { value: 'design', label: t(locale, 'site_tab_design') },
+    { value: 'brand', label: t(locale, 'site_tab_brand') },
+    { value: 'words', label: t(locale, 'site_tab_words') },
+    { value: 'menu', label: t(locale, 'site_tab_menu') },
+    { value: 'contact', label: t(locale, 'site_tab_contact') },
+  ] as const;
 
   const clean = (v: FormDataEntryValue | null) => {
     const s = typeof v === 'string' ? v.trim() : '';
@@ -205,7 +221,7 @@ export function WebsiteForm({
     start(async () => {
       const r = await updateWorkspaceSettings({
         site_theme: theme,
-        site_name: clean(fd.get('site_name')),
+        site_name: ((v) => (v && v !== workspaceName ? v : null))(clean(fd.get('site_name'))),
         site_logo_url: logo,
         site_hero_url: hero,
         site_headline: clean(fd.get('site_headline')),
@@ -223,8 +239,10 @@ export function WebsiteForm({
   }
 
   return (
-    <form onSubmit={onSubmit} className="mt-8 space-y-10 max-w-xl">
-      <section>
+    <form onSubmit={onSubmit} className="mt-8 max-w-xl">
+      <Tabs tabs={tabs} value={tab} onChange={setTab} className="mb-8" />
+      <div className="space-y-10">
+      <section hidden={tab !== 'design'}>
         <span className="text-sm text-ink-subtle">{t(locale, 'site_design')}</span>
         <p className="mt-0.5 text-xs text-ink-muted leading-relaxed">
           {t(locale, 'site_design_desc')}
@@ -254,12 +272,16 @@ export function WebsiteForm({
         </div>
       </section>
 
-      <section className="space-y-6">
+      <section className="space-y-6" hidden={tab !== 'brand'}>
         <label className="block">
           <span className="text-sm text-ink-subtle">{t(locale, 'site_name_label')}</span>
+          {/* Starts as the workspace name (Sjoerd, 2026-09-14: "Fill in site
+              name as workspace"). Saving that same name stores NOTHING, so
+              renaming the workspace later still flows through to the site;
+              only a name somebody actually changed is kept as an override. */}
           <input
             name="site_name"
-            defaultValue={settings.site_name ?? ''}
+            defaultValue={settings.site_name ?? workspaceName ?? ''}
             className="mt-1 w-full rounded-md border border-line bg-surface px-3 py-2 text-sm"
           />
           <span className="mt-1 block text-xs text-ink-muted">{t(locale, 'site_name_hint')}</span>
@@ -283,6 +305,9 @@ export function WebsiteForm({
           aspect="h-20 w-36"
         />
 
+      </section>
+
+      <section className="space-y-6" hidden={tab !== 'words'}>
         <label className="block">
           <span className="text-sm text-ink-subtle">{t(locale, 'site_headline')}</span>
           <input
@@ -304,7 +329,7 @@ export function WebsiteForm({
         />
       </section>
 
-      <section>
+      <section hidden={tab !== 'menu'}>
         <span className="text-sm text-ink-subtle">{t(locale, 'site_links')}</span>
         <p className="mt-0.5 text-xs text-ink-muted">{t(locale, 'site_links_hint')}</p>
         <div className="mt-2 space-y-2">
@@ -348,7 +373,7 @@ export function WebsiteForm({
         )}
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4" hidden={tab !== 'menu'}>
         <label className="block">
           <span className="text-sm text-ink-subtle">{t(locale, 'site_footer_note')}</span>
           <textarea
@@ -361,7 +386,7 @@ export function WebsiteForm({
         </label>
       </section>
 
-      <section className="space-y-4">
+      <section className="space-y-4" hidden={tab !== 'contact'}>
         <span className="text-sm text-ink-subtle">{t(locale, 'site_contact')}</span>
         <SwitchField
           label={t(locale, 'site_contact_enable')}
@@ -398,28 +423,19 @@ export function WebsiteForm({
         )}
       </section>
 
+      </div>
+
       {error && (
         <p className="text-sm text-red-700 border border-red-200 bg-red-50 rounded-md px-3 py-2">
           {error}
         </p>
       )}
 
-      <div className="flex items-center gap-4">
+      <div className="mt-10 flex items-center gap-4">
         <Button type="submit" disabled={pending}>
           {pending ? t(locale, 'saving') : t(locale, 'save')}
         </Button>
         {saved && <span className="text-sm text-ink-subtle">{t(locale, 'saved')}</span>}
-        {publicUrl && (
-          <a
-            href={publicUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="ml-auto inline-flex items-center gap-1.5 text-sm text-ink-subtle hover:text-ink"
-          >
-            {t(locale, 'view_public_page')}
-            <ExternalLink size={13} strokeWidth={1.75} />
-          </a>
-        )}
       </div>
     </form>
   );

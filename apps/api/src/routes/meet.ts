@@ -59,7 +59,7 @@ import { pickRoundRobinHost, isFairness, type Fairness } from '../lib/meet/round
 import { platformFromAddress, sendEmail } from '../lib/email/client.js';
 import { stripeOrNull } from '../lib/stripe/client.js';
 import { recordPurchase } from '../lib/purchases.js';
-import { personalStripeAccount } from '../lib/payment-accounts.js';
+import { personalStripeAccount, defaultPaymentMethods } from '../lib/payment-accounts.js';
 import {
   bookingConfirmationInvitee,
   bookingNotificationHost,
@@ -333,7 +333,7 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
   const { data: host, error: hErr } = await adminClient
     .from('meet_host')
     .select(
-      'id, slug, bio, photo_url, location, timezone, workspace_id, user:user_id (full_name, email, avatar_url)',
+      'id, slug, bio, photo_url, location, timezone, workspace_id, user_id, user:user_id (full_name, email, avatar_url)',
     )
     .eq('slug', hostSlug)
     .single();
@@ -366,7 +366,11 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
   const userObj = Array.isArray(host.user) ? host.user[0] : host.user;
   const mtHostProfile = await profileFor((host as { user_id?: string }).user_id ?? '');
   return c.json({
-    meeting_type: { ...mt, poll_slots: pollSlots },
+    meeting_type: {
+      ...mt,
+      poll_slots: pollSlots,
+      payment_methods: await meetingTypePaymentMethods(mt),
+    },
     host: {
       id: host.id,
       slug: host.slug,
@@ -380,6 +384,46 @@ meetRoutes.get('/public/host/:host_slug/mt/:mt_slug', async (c) => {
   });
 });
 
+type PayMethod = 'stripe' | 'invoice';
+
+/** How an invitee may pay for this meeting type. The MT's own list wins;
+ *  NULL inherits the owner's account default from Settings → Payments (the
+ *  same inheritance Thread uses). Online payment is dropped when the owner
+ *  has no connected Stripe account but invoice is on offer, so the page
+ *  never offers a button that can only fail. */
+async function meetingTypePaymentMethods(mt: {
+  payment_methods?: string[] | null;
+  host_id: string;
+}): Promise<PayMethod[]> {
+  const { data: owner } = await adminClient
+    .from('meet_host')
+    .select('user_id')
+    .eq('id', mt.host_id)
+    .maybeSingle();
+  const own = (mt.payment_methods ?? []).filter(
+    (m): m is PayMethod => m === 'stripe' || m === 'invoice',
+  );
+  const methods: PayMethod[] = own.length
+    ? own
+    : owner?.user_id
+      ? await defaultPaymentMethods(owner.user_id)
+      : ['stripe'];
+  if (methods.includes('stripe') && methods.includes('invoice') && owner?.user_id) {
+    if (!(await personalStripeAccount(owner.user_id))) return ['invoice'];
+  }
+  return methods;
+}
+
+/** Billing details an invoice needs — same shape as Thread's enrol form. */
+const InvoiceBilling = z.object({
+  company: z.string().max(200).optional(),
+  address: z.string().max(500).optional(),
+  postal_code: z.string().max(30).optional(),
+  city: z.string().max(120).optional(),
+  country: z.string().max(120).optional(),
+  tax_no: z.string().max(60).optional(),
+});
+
 // POST /api/v1/meet/public/bookings
 // Creates a booking. If the invitee email matches an existing person in the
 // host's workspace, links to it; otherwise creates a new person row.
@@ -390,6 +434,9 @@ const CreateBookingBody = z.object({
   invitee_answers: z.record(z.unknown()).optional(),
   starts_at: z.string().datetime(),
   request_id: z.string().min(8).max(80),
+  // Paid meeting types only. Absent = the first method on offer.
+  payment_method: z.enum(['stripe', 'invoice']).optional(),
+  billing: InvoiceBilling.optional(),
 });
 
 meetRoutes.post('/public/bookings', async (c) => {
@@ -402,7 +449,7 @@ meetRoutes.post('/public/bookings', async (c) => {
   const { data: mt, error: mErr } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness',
+      'id, slug, host_id, team_id, event_type, workspace_id, name, description, duration_minutes, buffer_before_minutes, buffer_after_minutes, min_notice_minutes, conferencing_provider, default_location, is_active, capacity, fixed_starts_at, fixed_ends_at, requires_approval, price_cents, price_currency, round_robin_fairness, payment_methods',
     )
     .eq('id', data.meeting_type_id)
     .single();
@@ -600,7 +647,24 @@ meetRoutes.post('/public/bookings', async (c) => {
   const isPaidBooking = !!(mt.price_cents && mt.price_cents > 0);
   const bookingStatus =
     isPaidBooking ? 'confirmed' : effectiveRequiresApproval ? 'pending_approval' : 'confirmed';
-  const initialPaymentStatus = isPaidBooking ? 'pending' : 'not_required';
+
+  // Pay by invoice (Suite parity, 2026-09-14). Unlike Thread, where an
+  // invoice enrolment waits for mark-paid, a booking holds a time slot — so,
+  // as in Suite, it confirms at once and the payment stays open on the
+  // ledger until the host marks it paid.
+  let isInvoiceBooking = false;
+  if (isPaidBooking) {
+    const offered = await meetingTypePaymentMethods(mt);
+    if (data.payment_method && !offered.includes(data.payment_method)) {
+      return c.json({ error: 'that payment method is not offered for this meeting' }, 400);
+    }
+    isInvoiceBooking = (data.payment_method ?? offered[0] ?? 'stripe') === 'invoice';
+  }
+  const initialPaymentStatus = isInvoiceBooking
+    ? 'invoice_pending'
+    : isPaidBooking
+      ? 'pending'
+      : 'not_required';
 
   const { data: booking, error: bErr } = await adminClient
     .from('meet_booking')
@@ -616,6 +680,8 @@ meetRoutes.post('/public/bookings', async (c) => {
       ends_at: ends.toISOString(),
       status: bookingStatus,
       payment_status: initialPaymentStatus,
+      payment_method: isInvoiceBooking ? 'invoice' : 'stripe',
+      invoice_details: isInvoiceBooking ? (data.billing ?? {}) : null,
       conferencing_provider: mt.conferencing_provider,
       alternative_location: mt.default_location,
       request_id: data.request_id,
@@ -643,7 +709,33 @@ meetRoutes.post('/public/bookings', async (c) => {
   // payment_status='paid' and triggers the deferred side-effects
   // (Calendar event, confirmation email, activity). See
   // POST /meet/stripe-webhook below.
-  if (isPaidBooking && booking) {
+  if (isInvoiceBooking && booking) {
+    const { data: invoiceOwner } = await adminClient
+      .from('meet_host')
+      .select('user_id')
+      .eq('id', mt.host_id)
+      .maybeSingle();
+    // Ledger row, pending: the Invoices area shows it with Mark paid, which
+    // already knows how to settle a fibre-meet booking.
+    await recordPurchase({
+      appSlug: 'fibre-meet',
+      workspaceId: mt.workspace_id,
+      itemRef: booking.id,
+      personId: personId ?? null,
+      payerName: data.invitee_name,
+      payerEmail: data.invitee_email,
+      itemLabel: mt.name,
+      organiserUserId: invoiceOwner?.user_id ?? null,
+      teamId: (mt as { team_id?: string | null }).team_id ?? null,
+      amountCents: mt.price_cents!,
+      currency: (mt.price_currency ?? 'EUR').toUpperCase(),
+      method: 'invoice',
+      status: 'pending',
+      billing: data.billing ?? null,
+    });
+  }
+
+  if (isPaidBooking && !isInvoiceBooking && booking) {
     const stripe = stripeOrNull();
     if (!stripe) {
       console.error('[meet bookings] STRIPE_SECRET_KEY missing — cannot collect payment');
@@ -788,7 +880,9 @@ meetRoutes.post('/public/bookings', async (c) => {
   // exit the side-effects block early — the host will trigger the rest via
   // POST /meet/bookings/:id/approve.
   let resolvedMeetUrl: string | null = null;
-  if (effectiveRequiresApproval && booking) {
+  // A paid booking never waits for approval: payment (or the invoice) is
+  // the gate, the rule the Stripe path has always followed.
+  if (effectiveRequiresApproval && !isPaidBooking && booking) {
     const hostEmail = hostUser?.email ?? null;
     const inviteeName = data.invitee_name;
     const inviteeEmail = data.invitee_email;
@@ -941,6 +1035,9 @@ meetRoutes.post('/public/bookings', async (c) => {
       meetAppUrl: meetAppUrl(),
       hostSlug: hostRow.slug ?? '',
       meetingTypeSlug: mt.slug,
+      paymentNote: isInvoiceBooking
+        ? `${new Intl.NumberFormat('en-GB', { style: 'currency', currency: (mt.price_currency ?? 'EUR').toUpperCase() }).format(mt.price_cents! / 100)} — ${hostUser?.full_name ?? 'your host'} will send you an invoice.`
+        : null,
     };
     try {
       const invitee = bookingConfirmationInvitee(common);
@@ -2496,6 +2593,20 @@ meetRoutes.get('/meeting-types', async (c) => {
   return c.json({ items: data ?? [] });
 });
 
+/** A price needs a way to be paid. Invoice needs nothing connected; online
+ *  payment needs the owner's Stripe account, read through the payments SPoT.
+ *  (This used to read meet_host.stripe_account_id, a fallback column, so a
+ *  host who connected Stripe in The Fibre could be told to connect Stripe.) */
+async function paidNeedsStripe(
+  userId: string,
+  methods: PayMethod[] | null,
+): Promise<string | null> {
+  const effective = methods?.length ? methods : await defaultPaymentMethods(userId);
+  if (effective.includes('invoice')) return null;
+  if (await personalStripeAccount(userId)) return null;
+  return 'connect Stripe in Settings → Payments, or offer payment by invoice, before setting a price';
+}
+
 const MeetingTypeUpsert = z.object({
   slug: z
     .string()
@@ -2530,6 +2641,8 @@ const MeetingTypeUpsert = z.object({
     .regex(/^[a-z]{3}$/, 'Currency must be a 3-letter ISO code (e.g. eur)')
     .nullable()
     .optional(),
+  // How invitees may pay. NULL = inherit the account default.
+  payment_methods: z.array(z.enum(['stripe', 'invoice'])).min(1).nullable().optional(),
   // When set, the meeting type lives under the team's slug instead of the
   // host's. The caller must be a lead of the team.
   team_id: z.string().uuid().nullable().optional(),
@@ -2574,15 +2687,9 @@ meetRoutes.post('/meeting-types', async (c) => {
   if (!host) return c.json({ error: 'host not found' }, 404);
 
   // Phase 2 guard: a paid MT requires a Stripe Connect account on the host.
-  if (
-    body.data.price_cents &&
-    body.data.price_cents > 0 &&
-    !host.stripe_account_id
-  ) {
-    return c.json(
-      { error: 'connect Stripe in Settings → Payments before setting a price' },
-      400,
-    );
+  if (body.data.price_cents && body.data.price_cents > 0) {
+    const blocked = await paidNeedsStripe(ctx.userId, body.data.payment_methods ?? null);
+    if (blocked) return c.json({ error: blocked }, 400);
   }
 
   // If team-owned, verify current user is a lead of that team. RLS would
@@ -2710,17 +2817,8 @@ meetRoutes.patch('/meeting-types/:id', async (c) => {
 
   // Phase 2 guard: paid MT requires the host to have connected Stripe.
   if (body.data.price_cents && body.data.price_cents > 0) {
-    const { data: host } = await adminClient
-      .from('meet_host')
-      .select('stripe_account_id')
-      .eq('user_id', ctx.userId)
-      .maybeSingle();
-    if (!host?.stripe_account_id) {
-      return c.json(
-        { error: 'connect Stripe in Settings → Payments before setting a price' },
-        400,
-      );
-    }
+    const blocked = await paidNeedsStripe(ctx.userId, body.data.payment_methods ?? null);
+    if (blocked) return c.json({ error: blocked }, 400);
   }
 
   // If the caller is moving the MT from personal → team (or between teams),
@@ -4088,7 +4186,7 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
   const { data: mt } = await adminClient
     .from('meet_meeting_type')
     .select(
-      'id, slug, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, event_type, capacity, fixed_starts_at, fixed_ends_at, host:host_id (slug, user:user_id (full_name, avatar_url))',
+      'id, slug, host_id, name, description, duration_minutes, conferencing_provider, default_location, price_cents, price_currency, payment_methods, event_type, capacity, fixed_starts_at, fixed_ends_at, host:host_id (slug, user:user_id (full_name, avatar_url))',
     )
     .eq('team_id', team.id)
     .eq('slug', mtSlug)
@@ -4104,7 +4202,12 @@ meetRoutes.get('/public/team/:team_slug/mt/:mt_slug', async (c) => {
       .order('starts_at', { ascending: true });
     pollSlots = ps ?? [];
   }
-  return c.json({ ...mt, poll_slots: pollSlots, team });
+  return c.json({
+    ...mt,
+    poll_slots: pollSlots,
+    payment_methods: await meetingTypePaymentMethods(mt),
+    team,
+  });
 });
 
 // GET /api/v1/meet/public/team/:team_slug/mt/:mt_slug/slots
