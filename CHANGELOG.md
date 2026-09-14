@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.59] — 2026-09-14 — Teams organise what people record (staging)
+
+**Connections — file what happened under one of your teams.** If you are in a
+team, the note box says it is by you and offers your teams, with your default
+already chosen. Pick another and it offers to make that your default. People in
+no team see nothing new.
+
+**Team updates on Today.** Open it, pick a team and the last 7, 14 or 30 days,
+and everybody in the team is listed with what each of them filed — including
+the people who filed nothing, because they are in the meeting too. Tap a name
+to open that person.
+
+**A team organises; it does not hide.** A note filed under a team is exactly as
+visible as any other note. And a note can only be filed under a team its author
+is in.
+
 ## [0.73.58] — 2026-09-14 — See who moved, side by side (staging)
 
 **Connections — the landscape has a Movement view.** Every step of a reading

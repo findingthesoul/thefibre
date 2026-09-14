@@ -35,7 +35,16 @@ import {
 } from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
-import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
+import {
+  saveNote,
+  editNote,
+  deleteNote,
+  fetchVocabulary,
+  loadMyTeams,
+  setDefaultTeam,
+  type MyTeam,
+  type NoteKind,
+} from './actions';
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 import { safely } from '@/lib/safely';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
@@ -56,6 +65,8 @@ export type Note = {
   /** The key this note was written under. PUT upserts on it, so an edit
    *  needs it — without it the only way to fix a typo is a second note. */
   client_ref: string;
+  /** The team it is filed under, if any. Read back so an edit can keep it. */
+  team_id?: string | null;
   body: string;
   happened_tz?: string | null;
   kind: string;
@@ -116,6 +127,9 @@ function Conversation({
         editNote({
           client_ref: note.client_ref,
           person_id: personId,
+          // Kept as it was. Leaving it out would take the note out of its
+          // team's update meeting for the sake of fixing a word.
+          team_id: note.team_id ?? null,
           body: draft,
           kind: note.kind as NoteKind,
           // Unchanged on purpose: an edit fixes the words, not when it
@@ -444,6 +458,16 @@ export function Notes({
    * carries and, more to the point, what it deliberately does not.
    */
   const [meeting, setMeeting] = useState(false);
+  /**
+   * Which of my teams this note is filed under. Sjoerd, 2026-09-14: *"I'm
+   * automatically selected... when I do what happened, I can open it, and then
+   * I can see the teams I am part of... I can have a default team"*.
+   *
+   * Preselected to my default once the teams arrive, and left alone after a
+   * commit — the next note is usually for the same team.
+   */
+  const [teams, setTeams] = useState<MyTeam[]>([]);
+  const [teamId, setTeamId] = useState<string | null>(null);
   const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
@@ -516,6 +540,18 @@ export function Notes({
     return () => {
       window.removeEventListener(QUEUE_CHANGED, refresh);
       window.removeEventListener('online', refresh);
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
+    void loadMyTeams().then((mine) => {
+      if (!alive) return;
+      setTeams(mine);
+      setTeamId(mine.find((t) => t.is_default)?.id ?? null);
+    });
+    return () => {
+      alive = false;
     };
   }, []);
 
@@ -606,6 +642,7 @@ export function Notes({
     return {
       client_ref: clientRef.current,
       person_id: personId,
+      team_id: teamId,
       body,
       kind,
       ...(when ? { happened_at: new Date(when).toISOString() } : {}),
@@ -774,6 +811,48 @@ export function Notes({
             text box is untouched — the tints are painted behind it — so
             typing, autocorrect and the caret behave exactly as before. See
             TagHighlightBox for why that trade was made. */}
+        {/* By you, for a team. Only when there IS a team to choose: most
+            workspaces never use teams this way, and a picker with one option
+            reading "no team" would be noise on every note. */}
+        {teams.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+            <span>{t(locale, 'team_by_you')}</span>
+            <label className="flex items-center gap-1.5">
+              <span>{t(locale, 'team_for')}</span>
+              <select
+                value={teamId ?? ''}
+                onChange={(e) => setTeamId(e.target.value || null)}
+                className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+              >
+                <option value="">{t(locale, 'team_none')}</option>
+                {teams.map((tm) => (
+                  <option key={tm.id} value={tm.id}>
+                    {tm.name}
+                    {tm.is_default ? ` · ${t(locale, 'team_default')}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* Offered only when the choice differs from the default, so the
+                control appears exactly when it would do something. */}
+            {teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const r = await safely(
+                    () => setDefaultTeam(teamId),
+                    (error) => ({ ok: false as const, error }),
+                  );
+                  if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
+                }}
+                className="underline-offset-2 hover:text-ink hover:underline"
+              >
+                {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
+              </button>
+            )}
+          </div>
+        )}
+
         <TagHighlightBox
           rows={meeting ? 10 : 3}
           value={body}

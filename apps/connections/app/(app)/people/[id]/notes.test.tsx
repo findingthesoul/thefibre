@@ -32,9 +32,16 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const saveNote = vi.fn();
 
+const editNote = vi.fn(async () => ({ ok: true, id: 'n1', committed: true }));
+let myTeams: { id: string; name: string; is_default: boolean }[] = [];
+
 vi.mock('./actions', () => ({
   saveNote: (...args: unknown[]) => saveNote(...args),
+  editNote: (...args: unknown[]) => editNote(...(args as [])),
+  deleteNote: async () => ({ ok: true }),
   fetchVocabulary: async () => ({ words: [], people: [] }),
+  loadMyTeams: async () => myTeams,
+  setDefaultTeam: async () => ({ ok: true }),
 }));
 vi.mock('@/components/ui/date-field', () => ({ DateTimeField: () => null }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
@@ -124,5 +131,83 @@ describe('the composer offline', () => {
     await type('First attempt, offline. Back online now.');
     await pressDone();
     expect(saveNote.mock.calls.length).toBeGreaterThan(before);
+  });
+});
+
+// ── Teams ────────────────────────────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-14: file what happened under one of your teams, with a
+// default preselected. Two properties are pinned, because either failing is
+// silent: a note that quietly lands under no team never shows up in that
+// team's update meeting, and nobody would know why.
+
+describe('filing under a team', () => {
+  const render = async (notes: Parameters<typeof Notes>[0]['notes'] = []) => {
+    await act(async () => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(<Notes personId="p1" personName="Wilma" notes={notes} locale="en" />);
+    });
+    await settle();
+  };
+
+  afterEach(() => {
+    myTeams = [];
+    editNote.mockClear();
+  });
+
+  it('shows no team picker for somebody in no team', async () => {
+    myTeams = [];
+    await render();
+    expect(container.textContent).not.toContain('By you');
+  });
+
+  it('preselects my default team and sends it with the note', async () => {
+    myTeams = [
+      { id: 't-ops', name: 'Operations', is_default: false },
+      { id: 't-comm', name: 'Community', is_default: true },
+    ];
+    await render();
+    const select = [...container.querySelectorAll('select')].find((el) =>
+      [...el.options].some((o) => o.value === 't-comm'),
+    )!;
+    expect(select.value).toBe('t-comm');
+
+    saveNote.mockResolvedValue({ ok: true, id: 'n1', committed: true });
+    await type('Talked about the spring gathering.');
+    await pressDone();
+    const sent = saveNote.mock.calls.at(-1)?.[0] as { team_id?: string | null };
+    expect(sent.team_id).toBe('t-comm');
+  });
+
+  it('keeps a note in its team when the words are edited', async () => {
+    // PUT overwrites the whole row. Without sending team_id back, fixing a
+    // typo would take the note out of its team's update meeting.
+    await render([
+      {
+        id: 'n1',
+        client_ref: '11111111-1111-1111-1111-111111111111',
+        team_id: 't-comm',
+        body: 'Old words',
+        kind: 'note',
+        origin: 'manual',
+        happened_at: '2026-09-13T10:00:00.000Z',
+        follow_up_at: null,
+        is_draft: false,
+        created_at: '2026-09-13T10:00:00.000Z',
+      },
+    ]);
+    const edit = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Edit')!;
+    await act(async () => edit.click());
+    const box = [...container.querySelectorAll('textarea')].find((el) => el.value === 'Old words')!;
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(box, 'New words');
+      box.dispatchEvent(new Event('input', { bubbles: true }));
+    });
+    const save = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save')!;
+    await act(async () => save.click());
+    await settle();
+    expect(editNote).toHaveBeenCalledWith(expect.objectContaining({ team_id: 't-comm', body: 'New words' }));
   });
 });

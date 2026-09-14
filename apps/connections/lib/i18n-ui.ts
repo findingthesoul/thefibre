@@ -1196,6 +1196,78 @@ const CATALOG = {
     de: 'von {step}', // MT
     fr: 'depuis {step}', // MT
   },
+  team_by_you: {
+    en: 'By you',
+    nl: 'Door jou',
+    es: 'Por ti', // MT
+    pt: 'Por ti', // MT
+    de: 'Von dir', // MT
+    fr: 'Par vous', // MT
+  },
+  team_for: {
+    en: 'for',
+    nl: 'voor',
+    es: 'para', // MT
+    pt: 'para', // MT
+    de: 'für', // MT
+    fr: 'pour', // MT
+  },
+  team_none: {
+    en: 'no team',
+    nl: 'geen team',
+    es: 'ningún equipo', // MT
+    pt: 'nenhuma equipa', // MT
+    de: 'kein Team', // MT
+    fr: 'aucune équipe', // MT
+  },
+  team_default: {
+    en: 'default',
+    nl: 'standaard',
+    es: 'predeterminado', // MT
+    pt: 'predefinida', // MT
+    de: 'Standard', // MT
+    fr: 'par défaut', // MT
+  },
+  team_make_default: {
+    en: 'Make this my default',
+    nl: 'Maak dit mijn standaard',
+    es: 'Hacerlo mi predeterminado', // MT
+    pt: 'Tornar predefinida', // MT
+    de: 'Als Standard festlegen', // MT
+    fr: 'En faire ma valeur par défaut', // MT
+  },
+  team_clear_default: {
+    en: 'No default team',
+    nl: 'Geen standaardteam',
+    es: 'Sin equipo predeterminado', // MT
+    pt: 'Sem equipa predefinida', // MT
+    de: 'Kein Standardteam', // MT
+    fr: 'Pas d’équipe par défaut', // MT
+  },
+  team_updates_title: {
+    en: 'Team updates',
+    nl: 'Team-updates',
+    es: 'Novedades del equipo', // MT
+    pt: 'Novidades da equipa', // MT
+    de: 'Team-Updates', // MT
+    fr: 'Nouvelles de l’équipe', // MT
+  },
+  team_updates_count: {
+    en: '{n} updates',
+    nl: '{n} updates',
+    es: '{n} novedades', // MT
+    pt: '{n} novidades', // MT
+    de: '{n} Updates', // MT
+    fr: '{n} nouvelles', // MT
+  },
+  team_updates_none: {
+    en: 'Nothing filed under this team in the period.',
+    nl: 'Niets onder dit team vastgelegd in deze periode.',
+    es: 'Nada registrado en este equipo en el periodo.', // MT
+    pt: 'Nada registado nesta equipa no período.', // MT
+    de: 'In diesem Zeitraum nichts unter diesem Team erfasst.', // MT
+    fr: 'Rien d’enregistré pour cette équipe sur la période.', // MT
+  },
   ac_tags: {
     en: 'Matching tags',
     nl: 'Passende tags',
