@@ -6,12 +6,13 @@ import { AlertTriangle, ArrowRight } from 'lucide-react';
 import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
 import { SectionLabel, ErrorBanner } from '@thefibre/shared/ui/page';
 import { t, type Locale } from '@/lib/i18n-ui';
+import { PersonLink } from '@/components/person-popup';
 
 /** What the search offers. `hint` widens to null because the API returns
  *  null for an organisation with no sector — the shared option type only
  *  allows undefined, and mapping to it happens where the label is built. */
 export type TargetOption = Omit<SearchSelectOption, 'hint'> & {
-  kind: 'organisation' | 'person';
+  kind: 'organisation' | 'person' | 'tag' | 'location';
   hint: string | null;
 };
 
@@ -41,12 +42,29 @@ export type Entry = {
 
 export type Related = { person_id: string; note: string; person: Person | null };
 
+/** Somebody who carries a tag or is in a place — not an introduction. */
+export type Around = {
+  person_id: string;
+  person: Person | null;
+  strength: 'weak' | 'warm' | 'strong' | 'advocate' | null;
+  note: string;
+};
+
 export type EntriesResult = {
-  target: { id: string; kind: 'organisation' | 'person'; name: string } | null;
+  target: { id: string; kind: 'organisation' | 'person' | 'tag' | 'location'; name: string } | null;
   items: Entry[];
   related: Related[];
+  /** Present for a tag or a place. */
+  around?: Around[];
   error?: string;
 };
+
+const STRENGTH_KEYS = {
+  weak: 'band_weak',
+  warm: 'band_warm',
+  strong: 'band_strong',
+  advocate: 'band_advocate',
+} as const;
 
 // Explicit maps, never a computed t() key — the catalog is typed so a missing
 // translation is a compile error, and a template key throws that away.
@@ -58,6 +76,8 @@ const HOP_KEYS = {
 const KIND_KEYS = {
   organisation: 'entries_kind_organisation',
   person: 'entries_kind_person',
+  tag: 'entries_kind_tag',
+  location: 'entries_kind_location',
 } as const;
 
 function name(p: Person | null, fallback: string) {
@@ -127,7 +147,39 @@ export function EntriesClient({
         <ErrorBanner>{t(locale, 'entries_error', { error: result.error })}</ErrorBanner>
       )}
 
-      {!pending && result && !result.error && (
+      {/* A tag or a place: the people around it, the ones you know best
+          first. Said in words that these are not introductions — sharing a
+          word or a city is not knowing somebody (handbook §12). */}
+      {!pending && result && !result.error && result.around && (
+        <div className="mt-8">
+          <h2 className="text-sm font-medium">
+            {t(locale, 'entries_around_title', { target: targetName })}
+            <span className="ml-2 text-ink-muted tabular-nums">{result.around.length}</span>
+          </h2>
+          <p className="mt-1 max-w-2xl text-xs text-ink-muted">{t(locale, 'entries_around_body')}</p>
+          {result.around.length === 0 ? (
+            <p className="mt-4 text-sm text-ink-muted">{t(locale, 'entries_around_none')}</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {result.around.map((a) => (
+                <li key={a.person_id} className="rounded-md border border-line bg-surface-raised px-3 py-2.5">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <PersonLink personId={a.person_id} className="text-sm font-medium hover:underline">
+                      {name(a.person, a.person_id.slice(0, 8))}
+                    </PersonLink>
+                    <span className="text-xs text-ink-muted">
+                      {a.strength ? t(locale, STRENGTH_KEYS[a.strength]) : t(locale, 'band_unrated')}
+                    </span>
+                  </div>
+                  <p className="mt-1 break-words text-xs text-ink-muted">{a.note}</p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {!pending && result && !result.error && !result.around && (
         <div className="mt-8">
           {result.items.length > 0 && (
             <>

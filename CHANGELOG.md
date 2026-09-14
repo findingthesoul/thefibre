@@ -6,6 +6,21 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.2] — 2026-09-14 — Entries by tag and by place (staging)
+
+**Connections — Entries searches tags and places.** Type a word and the list
+now offers matching tags and places (the cities and countries people are in),
+next to people and organisations. A tag or place answers with the people
+around it, the ones you know best first, and says plainly that these are not
+introductions — sharing a tag or a city is not knowing somebody.
+
+**Shared — exact field sizes for the controls that are not fields.**
+`FIELD_INPUT_CLASS` (and `_INLINE`) give a single-line input exactly the
+TextField/DateField box; `FieldSelect` is a SelectField without a label, for
+filter bars. `FIELD_CLASS_INLINE` is removed — it had no fixed height and so
+never quite matched. Connections' search boxes and filters use them; the
+Movement board's filters are labelled fields.
+
 ## [0.75.1] — 2026-09-14 — Every field the same size (staging)
 
 **All apps — one field size.** Text fields, dropdowns and text areas are now

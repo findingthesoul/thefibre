@@ -11,7 +11,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS_INLINE, FieldSelect } from '@thefibre/shared/ui/fields';
 import { Button } from '@/components/ui/button';
 import { ConfirmDialog } from '@/components/ui/dialog';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
@@ -98,20 +98,15 @@ export function TagCleaningList({ data, locale }: { data: TagCleaning; locale: L
                     <span className="ml-auto flex items-center gap-2">
                       <label className="flex items-center gap-1 text-xs text-ink-muted">
                         {t(locale, 'tagclean_keep')}
-                        <select
+                        {/* Two organisations never reach this list, so at most
+                            one member names one; keeping a plain word over it
+                            still hands the organisation on. */}
+                        <FieldSelect
+                          inline
                           value={keepId}
                           onChange={(e) => setKeepChoice((c) => ({ ...c, [key]: e.target.value }))}
-                          className={FIELD_CLASS_INLINE}
-                          // Two organisations never reach this list, so at
-                          // most one member names one; keeping a plain word
-                          // over it still hands the organisation on.
-                        >
-                          {members.map((m) => (
-                            <option key={m.id} value={m.id}>
-                              #{m.name}
-                            </option>
-                          ))}
-                        </select>
+                          options={members.map((m) => ({ value: m.id, label: `#${m.name}` }))}
+                        />
                       </label>
                       <Button size="sm" disabled={busy} onClick={() => void run(() => mergeTags(keep.id, from))}>
                         {t(locale, 'tagclean_merge')}
@@ -176,7 +171,7 @@ export function TagCleaningList({ data, locale }: { data: TagCleaning; locale: L
                       autoFocus
                       value={renaming.name}
                       onChange={(e) => setRenaming({ id: tg.id, name: e.target.value })}
-                      className={FIELD_CLASS_INLINE}
+                      className={FIELD_INPUT_CLASS_INLINE}
                     />
                     <Button size="sm" type="submit" disabled={busy || !renaming.name.trim()}>
                       {t(locale, 'save')}

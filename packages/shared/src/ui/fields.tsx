@@ -17,16 +17,56 @@ const SELECT_CLASS = `mt-1 h-11 appearance-none pr-10 ${SURFACE}`;
 const TEXTAREA_CLASS = `mt-1 py-2.5 ${SURFACE}`;
 
 /**
- * The look of every text input, select and textarea, for the rare control that
- * cannot be a TextField/SelectField — a search box with an icon inside, or a
- * textarea with highlights painted behind it. Use the fields when you can;
- * use this instead of writing the classes again. Exported 2026-09-14 after
- * Connections grew a second, smaller form style next to this one.
+ * For controls that cannot be a TextField/SelectField/TextAreaField — use the
+ * components whenever there is a label. Exported 2026-09-14 after Connections
+ * grew a second, smaller form style next to this one. Pick by shape:
+ *
+ *   FIELD_CLASS             a textarea, or a wrapper around multi-line text
+ *   FIELD_INPUT_CLASS(_INLINE)  a single-line <input> (search box, cell)
+ *   <FieldSelect>           a select without a label (filter bar)
+ *   FIELD_LABEL_CLASS       the label above any of them
  */
 export const FIELD_CLASS = `py-2.5 ${SURFACE}`;
 
-/** The same, without `w-full` — for a control in a row (a filter bar) that sizes to its content. */
-export const FIELD_CLASS_INLINE = FIELD_CLASS.replace('w-full ', '');
+/**
+ * A single-line `<input>` that is not a TextField (a search box with an icon
+ * inside, a builder cell): exactly TextField's box — h-11 — so it lines up with
+ * every other field. FIELD_CLASS is for textareas and multi-line wrappers.
+ */
+export const FIELD_INPUT_CLASS = `h-11 ${SURFACE}`;
+/** The same, sized to its content or a width you give it. */
+export const FIELD_INPUT_CLASS_INLINE = FIELD_INPUT_CLASS.replace('w-full ', '');
+
+type FieldSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className'> & {
+  options: { value: string; label: string; disabled?: boolean }[];
+  /** Size to the content (a filter bar) instead of filling the row. */
+  inline?: boolean;
+};
+
+/**
+ * SelectField without the label — for a filter bar or a row of controls. The
+ * same box and the same drawn arrow as SelectField, so the two never differ.
+ * Give it an `aria-label` when there is no visible label beside it.
+ */
+export function FieldSelect({ options, inline = false, ...rest }: FieldSelectProps) {
+  return (
+    <span className={`relative ${inline ? 'inline-block' : 'block'}`}>
+      <select className={`h-11 appearance-none pr-10 ${inline ? SURFACE.replace('w-full ', '') : SURFACE}`} {...rest}>
+        {options.map((o) => (
+          <option key={o.value} value={o.value} disabled={o.disabled}>
+            {o.label}
+          </option>
+        ))}
+      </select>
+      <ChevronDown
+        size={16}
+        strokeWidth={1.75}
+        aria-hidden="true"
+        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted"
+      />
+    </span>
+  );
+}
 
 /** The label above a field, for the same rare controls. */
 export const FIELD_LABEL_CLASS = 'text-sm text-ink-subtle';

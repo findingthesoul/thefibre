@@ -7,7 +7,7 @@
 
 import { useState, useTransition } from 'react';
 import { Check } from 'lucide-react';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS_INLINE } from '@thefibre/shared/ui/fields';
 import { Button } from '@/components/ui/button';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { EFFORT_KIND_KEYS } from '@/lib/effort-format';
@@ -92,7 +92,7 @@ export function EffortForm({
                     onChange={(e) => setValues((v) => ({ ...v, [k.kind]: e.target.value }))}
                     placeholder={String(k.default_minutes)}
                     disabled={!canEdit}
-                    className={`${FIELD_CLASS_INLINE} w-20 text-right tabular-nums disabled:opacity-60`}
+                    className={`${FIELD_INPUT_CLASS_INLINE} w-20 text-right tabular-nums disabled:opacity-60`}
                   />
                   <span className="text-xs text-ink-muted">
                     {t(locale, k.per_person ? 'effort_unit_per_person' : 'effort_unit')}

@@ -50,7 +50,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { Search } from 'lucide-react';
-import { FIELD_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
+import { FIELD_INPUT_CLASS, FIELD_LABEL_CLASS, SelectField } from '@thefibre/shared/ui/fields';
 import { t, type Locale, type UiKey } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { loadRelationship, saveRelationship } from '@/app/(app)/people/[id]/relationship';
@@ -260,7 +260,7 @@ function TextDetail({
       }}
       placeholder={placeholder}
       maxLength={500}
-      className={`mt-1 ${FIELD_CLASS}`}
+      className={`mt-1 ${FIELD_INPUT_CLASS}`}
     />
   );
 }
@@ -353,7 +353,7 @@ function PickOne({
               onChange={(e) => setTerm(e.target.value)}
               placeholder={placeholder}
               aria-label={placeholder}
-              className={`${FIELD_CLASS} pl-9`}
+              className={`${FIELD_INPUT_CLASS} pl-9`}
             />
           </div>
           {term.trim() && (

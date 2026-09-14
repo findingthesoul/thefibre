@@ -18,7 +18,7 @@
 
 import { useEffect, useState } from 'react';
 import { ChevronDown, ChevronRight } from 'lucide-react';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { FieldSelect } from '@thefibre/shared/ui/fields';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import { usePersonPopup } from '@/components/person-popup';
@@ -88,30 +88,20 @@ export function TeamUpdatesPanel({ locale }: { locale: Locale }) {
       {open && (
         <div className="border-t border-line px-4 pb-4 pt-3">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-            <select
+            <FieldSelect
+              inline
               value={teamId ?? ''}
               onChange={(e) => setTeamId(e.target.value || null)}
-              className={FIELD_CLASS_INLINE}
               aria-label={t(locale, 'team_for')}
-            >
-              {teams.map((tm) => (
-                <option key={tm.id} value={tm.id}>
-                  {tm.name}
-                </option>
-              ))}
-            </select>
-            <select
+              options={teams.map((tm) => ({ value: tm.id, label: tm.name }))}
+            />
+            <FieldSelect
+              inline
               value={days}
               onChange={(e) => setDays(Number(e.target.value))}
-              className={FIELD_CLASS_INLINE}
               aria-label={t(locale, 'move_period')}
-            >
-              {PERIODS.map((d) => (
-                <option key={d} value={d}>
-                  {t(locale, 'move_days', { n: d })}
-                </option>
-              ))}
-            </select>
+              options={PERIODS.map((d) => ({ value: String(d), label: t(locale, 'move_days', { n: d }) }))}
+            />
             {total !== null && (
               <span className="text-xs text-ink-muted">{t(locale, 'team_updates_count', { n: total })}</span>
             )}

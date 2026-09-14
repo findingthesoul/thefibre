@@ -44,7 +44,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { ArrowDown, ArrowUp, ChevronLeft, ChevronRight } from 'lucide-react';
-import { FIELD_CLASS_INLINE } from '@thefibre/shared/ui/fields';
+import { FieldSelect } from '@thefibre/shared/ui/fields';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { safely } from '@/lib/safely';
 import {
@@ -183,18 +183,15 @@ export function LandscapeColumns({
         {/* 2 · Steps in the chosen reading. */}
         <div className={`${column} border-r ${phoneHidden('step')}`}>
           <ColumnHead>
-            <select
-              value={axis}
-              onChange={(e) => void openReading(e.target.value as Axis)}
-              className={`${FIELD_CLASS_INLINE} md:hidden`}
-              aria-label={t(locale, 'landscape_col_readings')}
-            >
-              {axes.map((a) => (
-                <option key={a} value={a}>
-                  {axisTitle(locale, config, a)}
-                </option>
-              ))}
-            </select>
+            <span className="md:hidden">
+              <FieldSelect
+                inline
+                value={axis}
+                onChange={(e) => void openReading(e.target.value as Axis)}
+                aria-label={t(locale, 'landscape_col_readings')}
+                options={axes.map((a) => ({ value: a, label: axisTitle(locale, config, a) }))}
+              />
+            </span>
             <span className="hidden md:inline">{t(locale, 'landscape_col_steps')}</span>
           </ColumnHead>
           <p className="px-3 pb-2 text-xs text-ink-subtle">{t(locale, AXIS_QUESTION_KEYS[axis])}</p>
