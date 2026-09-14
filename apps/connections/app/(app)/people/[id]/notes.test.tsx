@@ -43,7 +43,7 @@ vi.mock('./actions', () => ({
   loadMyTeams: async () => myTeams,
   setDefaultTeam: async () => ({ ok: true }),
 }));
-vi.mock('@/components/ui/date-field', () => ({ DateTimeField: () => null }));
+vi.mock('@/components/ui/date-field', () => ({ DateTimeField: () => <div data-testid="date-field" /> }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: () => {} }) }));
 
 import { Notes } from './notes';
@@ -131,6 +131,37 @@ describe('the composer offline', () => {
     await type('First attempt, offline. Back online now.');
     await pressDone();
     expect(saveNote.mock.calls.length).toBeGreaterThan(before);
+  });
+});
+
+// ── The follow-up date ───────────────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-14: *"Calendar icon should only appear if the option is: on
+// date"*. A date control beside "tomorrow" read as a second date.
+
+describe('the follow-up date', () => {
+  const followUpSelect = () =>
+    [...container.querySelectorAll('select')].find((el) => [...el.options].some((o) => o.value === 'tomorrow'))!;
+  const choose = async (value: string) => {
+    const el = followUpSelect();
+    const setter = Object.getOwnPropertyDescriptor(HTMLSelectElement.prototype, 'value')!.set!;
+    await act(async () => {
+      setter.call(el, value);
+      el.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+  };
+  const dateFields = () => container.querySelectorAll('[data-testid="date-field"]').length;
+
+  it('shows no date control for a relative follow-up', async () => {
+    expect(dateFields()).toBe(0);
+    await choose('tomorrow');
+    expect(dateFields()).toBe(0);
+  });
+
+  it('shows the date control only once "on a date" is chosen', async () => {
+    expect([...followUpSelect().options].map((o) => o.value)).toContain('exact');
+    await choose('exact');
+    expect(dateFields()).toBe(1);
   });
 });
 

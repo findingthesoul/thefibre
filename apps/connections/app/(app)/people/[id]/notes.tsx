@@ -23,7 +23,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, CalendarDays, Check, ClipboardCopy, X } from 'lucide-react';
+import { AtSign, Check, ClipboardCopy, X } from 'lucide-react';
 import { meetingPrompt } from '@/lib/meeting-prompt';
 import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
@@ -1063,29 +1063,14 @@ export function Notes({
                   {t(locale, FOLLOW_UP_KEYS[f])}
                 </option>
               ))}
-              {/* Only present while a picked date is the answer, so the list
-                  can show that something is set rather than a wrong option. */}
-              {followUp === 'exact' && (
-                <option value="exact">{t(locale, 'note_followup_exact')}</option>
-              )}
+              {/* "On a date…" is the last line of the list, and the date
+                  field appears only when it is chosen. Sjoerd, 2026-09-14:
+                  *"Calendar icon should only appear if the option is: on
+                  date"* — a standalone icon beside the list read as a second
+                  date control even when a follow-up like "tomorrow" was set. */}
+              <option value="exact">{t(locale, 'note_followup_exact')}</option>
             </select>
           </label>
-          {/* A picked date is a calendar icon, not a line in the list. Sjoerd,
-              2026-09-14: *"there is 'on a date'. We just need a date icon"*. */}
-          <button
-            type="button"
-            onClick={() => setFollowUp(followUp === 'exact' ? 'none' : 'exact')}
-            aria-pressed={followUp === 'exact'}
-            aria-label={t(locale, 'note_followup_exact')}
-            title={t(locale, 'note_followup_exact')}
-            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
-              followUp === 'exact'
-                ? 'border-ink bg-ink text-ink-inverse'
-                : 'border-line bg-surface text-ink-muted hover:text-ink'
-            }`}
-          >
-            <CalendarDays size={14} strokeWidth={1.75} />
-          </button>
 
           {/* The shared date field, not a native input. This app's rule is
               that dates always go through DateField — it carries the locale's
