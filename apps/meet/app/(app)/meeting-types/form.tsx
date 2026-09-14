@@ -18,6 +18,7 @@ import {
 import { t, type Locale } from '@/lib/i18n-ui';
 import { createMeetingType, savePollSlots, saveIntakeFields, updateMeetingType, type SaveResult } from './actions';
 import { MEET_HOST } from '@/lib/public-host';
+import { PaymentMethodsPicker, type PayMethod } from '@thefibre/shared/ui/payment-methods';
 
 export type MeetingTypeFormValues = {
   id?: string;
@@ -47,6 +48,8 @@ export type MeetingTypeFormValues = {
   intake_form?: { id: string; name: string; fields: IntakeField[] } | null;
   price_cents?: number | null;
   price_currency?: string | null;
+  /** NULL = inherit the account default from Settings → Payments. */
+  payment_methods?: PayMethod[] | null;
 };
 
 export type TeamOption = { id: string; name: string; slug?: string };
@@ -159,6 +162,9 @@ export function MeetingTypeForm({
   );
   const [calIds, setCalIds] = useState<Set<string>>(
     new Set(initial.conflict_calendar_ids ?? []),
+  );
+  const [payMethods, setPayMethods] = useState<PayMethod[] | null>(
+    initial.payment_methods?.length ? initial.payment_methods : null,
   );
   const [pricing, setPricing] = useState<'free' | 'paid'>(
     initial.price_cents && initial.price_cents > 0 ? 'paid' : 'free',
@@ -274,6 +280,11 @@ export function MeetingTypeForm({
         value={calMode === 'custom' ? JSON.stringify(Array.from(calIds)) : ''}
       />
       <input type="hidden" name="pricing_mode" value={pricing} />
+      <input
+        type="hidden"
+        name="payment_methods_json"
+        value={payMethods ? JSON.stringify(payMethods) : ''}
+      />
 
       {/*
         Each tab below stays in the DOM and is just hidden when inactive.
@@ -685,7 +696,7 @@ export function MeetingTypeForm({
                 checked={pricing === 'paid'}
                 onChange={() => setPricing('paid')}
               />
-              <span>{t(locale, 'paid_via_stripe')}</span>
+              <span>{t(locale, 'paid')}</span>
             </label>
           </div>
 
@@ -718,11 +729,30 @@ export function MeetingTypeForm({
               />
             </div>
           )}
+          {pricing === 'paid' && (
+            // Suite let a meeting type be paid by invoice; Meet only knew
+            // Stripe until 2026-09-14. Same picker as Thread's pricing panel.
+            <div className="mt-4">
+              <div className="text-sm text-ink-subtle">{t(locale, 'payment_options')}</div>
+              <div className="mt-1.5">
+                <PaymentMethodsPicker
+                  value={payMethods}
+                  onChange={setPayMethods}
+                  labels={{
+                    inherit: t(locale, 'inherit_account'),
+                    custom: t(locale, 'custom_for_mt'),
+                    online: t(locale, 'pay_online'),
+                    invoice: t(locale, 'pay_per_invoice'),
+                  }}
+                />
+              </div>
+            </div>
+          )}
           <p className="mt-3 text-xs text-ink-muted">
             {t(locale, 'pricing_note_prefix')}{' '}
             <Link href="/settings/payments" className="underline underline-offset-2">
               {t(locale, 'settings_payments_link')}
-            </Link>{' '}
+            </Link>
             {t(locale, 'pricing_note_suffix')}
           </p>
         </Section>

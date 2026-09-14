@@ -8,7 +8,7 @@
 // Slots come from /api/v1/meet/public/{host|team}/.../slots — the ownerKind
 // prop selects which endpoint.
 
-import { useEffect, useMemo, useState, useTransition } from 'react';
+import { useEffect, useMemo, useRef, useState, useTransition, type RefObject } from 'react';
 import { useRouter } from 'next/navigation';
 import { Globe, ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,12 @@ import { IntakeFieldsRenderer } from '@/components/intake-fields-renderer';
 import type { IntakeField } from '@/lib/intake';
 import { publicFetch, PublicApiError } from '@/lib/public-api';
 import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/search-select';
+import {
+  PayMethodSwitch,
+  InvoiceBillingFields,
+  readBillingFields,
+  type PayMethod,
+} from '@thefibre/shared/ui/payment-methods';
 
 /** Set when the page was opened as ?reschedule=<booking id>: the flow then
  *  moves an existing booking instead of creating one. Same picker, no
@@ -45,8 +51,73 @@ type Props = {
     fixed_starts_at?: string | null;
     fixed_ends_at?: string | null;
     poll_slots?: { starts_at: string; ends_at: string }[];
+    price_cents?: number | null;
+    /** Resolved by the API (own list, else the owner's account default). */
+    payment_methods?: PayMethod[] | null;
   };
 };
+
+// ──────────────────────────────────────────────────────────────────────────
+// Paying: online or by invoice (Suite parity, 2026-09-14). Shared by the
+// slot flow and the one-off flow, which book through the same endpoint.
+// ──────────────────────────────────────────────────────────────────────────
+function usePayment(meetingType: Props['meetingType']) {
+  const paid = (meetingType.price_cents ?? 0) > 0;
+  const offered: PayMethod[] = meetingType.payment_methods?.length
+    ? meetingType.payment_methods
+    : ['stripe'];
+  const [method, setMethod] = useState<PayMethod>(offered[0] ?? 'stripe');
+  const billingRef = useRef<HTMLFormElement>(null);
+  function bookingFields(): Record<string, unknown> {
+    if (!paid) return {};
+    if (method !== 'invoice') return { payment_method: method };
+    return {
+      payment_method: 'invoice',
+      billing: billingRef.current ? readBillingFields(new FormData(billingRef.current)) : {},
+    };
+  }
+  return { paid, offered, method, setMethod, billingRef, bookingFields };
+}
+
+function PaymentSection({
+  payment,
+}: {
+  payment: ReturnType<typeof usePayment>;
+}) {
+  if (!payment.paid) return null;
+  return (
+    <div className="space-y-4">
+      {payment.offered.length > 1 && (
+        <PayMethodSwitch
+          value={payment.method}
+          onChange={payment.setMethod}
+          label="Payment"
+          labels={{ online: 'Pay online', invoice: 'Receive an invoice' }}
+        />
+      )}
+      {payment.method === 'invoice' && (
+        // Its own <form> only so the fields can be read as FormData; the
+        // booking is submitted by the button below, not by this form.
+        <form
+          ref={payment.billingRef as RefObject<HTMLFormElement>}
+          onSubmit={(e) => e.preventDefault()}
+          className="space-y-4"
+        >
+          <InvoiceBillingFields
+            labels={{
+              company: 'Company / organisation (for the invoice)',
+              address: 'Billing address',
+              postalCode: 'Postal code',
+              city: 'City',
+              country: 'Country',
+              taxNo: 'Tax / VAT number (optional)',
+            }}
+          />
+        </form>
+      )}
+    </div>
+  );
+}
 
 type Clock = '24h' | 'ampm';
 
@@ -173,6 +244,7 @@ function SlotPickerFlow({
   const router = useRouter();
   const [pending, start] = useTransition();
   const [step, setStep] = useState<'pick' | 'details'>('pick');
+  const payment = usePayment(meetingType);
   const [tz, setTz] = useState<string>(() => detectTz(hostTimezone));
   const [clock, setClock] = useState<Clock>('24h');
 
@@ -334,6 +406,7 @@ function SlotPickerFlow({
               invitee_answers: answers,
               starts_at: selectedSlot.toISOString(),
               request_id: requestId,
+              ...payment.bookingFields(),
             }),
           },
         );
@@ -562,6 +635,7 @@ function SlotPickerFlow({
             />
           </div>
         )}
+        <PaymentSection payment={payment} />
       </div>
       )}
 
@@ -728,6 +802,7 @@ function OneOffFlow({
   const [email, setEmail] = useState('');
   const [answers, setAnswers] = useState<Record<string, unknown>>({});
   const [error, setError] = useState<string | null>(null);
+  const payment = usePayment(meetingType);
 
   const fixed = meetingType.fixed_starts_at
     ? new Date(meetingType.fixed_starts_at)
@@ -757,6 +832,7 @@ function OneOffFlow({
               invitee_answers: answers,
               starts_at: fixed.toISOString(),
               request_id: requestId,
+              ...payment.bookingFields(),
             }),
           },
         );
@@ -840,6 +916,7 @@ function OneOffFlow({
             />
           </div>
         )}
+        <PaymentSection payment={payment} />
       </div>
 
       {error && (

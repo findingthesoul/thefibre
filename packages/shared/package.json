@@ -246,6 +246,10 @@
       "types": "./dist/design/tailwind-preset.d.ts",
       "default": "./dist/design/tailwind-preset.js"
     },
+    "./ui/payment-methods": {
+      "types": "./dist/ui/payment-methods.d.ts",
+      "default": "./dist/ui/payment-methods.js"
+    },
     "./ui/recipes": {
       "types": "./dist/ui/recipes.d.ts",
       "default": "./dist/ui/recipes.js"
