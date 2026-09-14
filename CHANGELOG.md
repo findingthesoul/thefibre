@@ -6,6 +6,14 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.6] — 2026-09-14 — Save, in yellow (staging)
+
+**Connections — the note box's button says Save.** It was "Done". Your draft is
+already kept while you type; Save makes it final, into Conversations with its
+follow-up and tags. It is outlined until there is something to keep, then
+yellow — the colour saving has in every app since v0.75.4. The note text is
+back to the compact size of the other fields.
+
 ## [0.75.5] — 2026-09-14 — the organisation search, checked in a browser (staging)
 
 `e2e/org-names.spec.ts`: six signed-in Playwright checks on staging for what

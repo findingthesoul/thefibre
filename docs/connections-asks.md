@@ -107,6 +107,8 @@ neither in code nor in a document. That is what this file fixes.
 | 74 | "Time may not be so relevant… take it out... just date" | **Shipped** v0.75.1 — the note's When is a date (today by default); the timeline shows dates only |
 | 75 | The AI prompt should also work in a chat that has already worked on the transcript | **Shipped** v0.75.1 — it looks below OR earlier in the chat, keeps earlier corrections, and its format wins |
 | 76 | "Again: Entries… why can I only search for a person or an org and not on other things like tags or location?" | **Shipped** v0.75.2 — search offers tags and places too; a tag or place answers with the people around it, closest first, labelled as NOT introductions (sharing a word is not knowing somebody, handbook §12). Closes the tag half of backlog §1.3 |
+| 77 | Field size and Save colour, settled across two chats: compact fields with the date field to match; saving is yellow in every app | **Shipped** v0.75.4 (by the Thread session, shared) — decided by Sjoerd with both asks side by side |
+| 78 | "Done should also be something else… maybe add… why not save then?" | **Shipped** v0.75.6 — the composer's button says Save, in the save colour, outlined until there is something to keep |
 
 ### The three that were lost
 

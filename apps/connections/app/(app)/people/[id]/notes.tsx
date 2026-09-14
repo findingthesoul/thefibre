@@ -1153,18 +1153,20 @@ export function Notes({
             </span>
           </div>
 
-          {/* Outlined until there is something to keep, filled once there is.
-              Sjoerd, 2026-09-14: make Done clearly ready once somebody has
-              started typing — in The Fibre's black, not a new colour. Both
-              are the shared Button's own variants. */}
+          {/* SAVE, in the save colour. Sjoerd, 2026-09-14: Done "should also be
+              something else... maybe add... why not save then?", and saving is
+              yellow in every app. The draft is already kept while typing ("Draft
+              saved"); this makes it final — into Conversations, with its
+              follow-up task and tags. Outlined until there is something to
+              keep. Both are the shared Button's own variants. */}
           <Button
             type="button"
-            variant={hasContent ? 'primary' : 'secondary'}
+            variant={hasContent ? 'save' : 'secondary'}
             onClick={() => void commit()}
             disabled={!hasContent}
             leading={<Check size={15} strokeWidth={2.25} />}
           >
-            {t(locale, 'done')}
+            {t(locale, 'save')}
           </Button>
         </div>
       </div>

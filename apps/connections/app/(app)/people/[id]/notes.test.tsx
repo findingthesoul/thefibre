@@ -75,8 +75,10 @@ async function type(text: string) {
   });
 }
 
+// The composer's commit button ("Save" since 2026-09-14; it was "Done"). The
+// first Save on the page: the composer renders above the timeline.
 const done = () =>
-  [...container.querySelectorAll('button')].find((b) => /done/i.test(b.textContent ?? ''))!;
+  [...container.querySelectorAll('button')].find((b) => (b.textContent ?? '').trim() === 'Save')!;
 
 async function pressDone() {
   await act(async () => {
@@ -289,7 +291,8 @@ describe('filing under a team', () => {
       setter.call(box, 'New words');
       box.dispatchEvent(new Event('input', { bubbles: true }));
     });
-    const save = [...container.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Save')!;
+    // The edit's Save, below the composer's own Save.
+    const save = [...container.querySelectorAll('button')].filter((b) => b.textContent?.trim() === 'Save').at(-1)!;
     await act(async () => save.click());
     await settle();
     expect(editNote).toHaveBeenCalledWith(expect.objectContaining({ team_id: 't-comm', body: 'New words' }));
