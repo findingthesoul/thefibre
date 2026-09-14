@@ -6,6 +6,46 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.17] — 2026-09-14 — Meet takes payment by invoice (Meet 2.9.0, staging)
+
+Sjoerd: "Meet on thethread has different payment options than in Suite. In
+Suite you can also pay per invoice."
+
+**A paid meeting type can now be paid online, by invoice, or either.** The
+Pricing tab has the same picker Thread's pricing panel uses. Left on
+"inherit", a meeting type follows the payment defaults in Settings →
+Payments. Until now Meet's payments page offered that invoice default too,
+and nothing in Meet read it.
+
+On the booking page, the invitee picks a method when both are offered. Paying
+by invoice asks for company, address and tax number. The booking then
+**confirms straight away**, as it did in Suite. This is where Meet differs
+from Thread: a Thread invoice enrolment waits for "mark paid", but a booking
+holds a time slot. The confirmation email and page say an invoice will follow.
+The Invoices area gets a pending row, and Mark paid already knew how to settle
+a Meet booking.
+
+- **Online payment is hidden** when the host offers both methods but has no
+  Stripe account connected. The page never shows a button that can only fail.
+- **Setting a price** no longer demands Stripe when invoice is on offer. The
+  check also reads the payments single point of truth now. It used to read
+  `meet_host.stripe_account_id`, a fallback column, so a host who connected
+  Stripe in The Fibre could still be told to connect Stripe.
+- **One component, three places.** The method picker, the buyer's switch and
+  the billing fields moved to `@thefibre/shared/ui/payment-methods`. Thread's
+  pricing panel, ticket dialog and enrol form now use it.
+- **Meet's home** lists your personal booking page and each team's page, with
+  copy and open. The Teams list has the same two buttons per team.
+- **The team page's add-member form** is one card in two aligned rows. The
+  relationship hint no longer shoves one field up, and the Add button no
+  longer sits on a line of its own.
+
+Migration `20260914200000_meet_meeting_type_payment_methods` (additive, one
+nullable column). Applied to staging; production needs it before promotion.
+
+Not in this release: "Send payment link" for a Meet invoice. The Invoices
+area still answers that it is Thread and Membership only.
+
 ## [0.75.16] — 2026-09-14 — promotion stops for migrations (staging)
 
 **`scripts/promote.sh` no longer promotes past a migration it has only
