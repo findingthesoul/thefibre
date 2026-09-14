@@ -166,6 +166,8 @@ Belongs with §1.1 rather than beside it: this IS the header of the person's
 page.
 
 ### 1.4 Tags grow and nothing prunes them
+**Shipped v0.73.61** — Settings → Tag cleaning (ask 60). What follows is the reasoning it was built on.
+
 Tags are detected while writing (v0.73.10) and organisations are tags. There is
 a tag cloud and a tag filter, and no way to rename, merge or delete a tag.
 A vocabulary that only grows is a vocabulary that stops meaning anything —

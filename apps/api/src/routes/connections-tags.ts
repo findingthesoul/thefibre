@@ -16,6 +16,7 @@
 import { Hono } from 'hono';
 import { z } from 'zod';
 import { adminClient } from '../db.js';
+import { findDoubles, findStale, findUnused, mentions, type TagFacts } from '../lib/tag-cleaning.js';
 
 export const connectionsTagsRoutes = new Hono();
 
@@ -203,4 +204,234 @@ connectionsTagsRoutes.get('/tags', async (c) => {
     .sort((a, b) => b.people - a.people || a.name.localeCompare(b.name));
 
   return c.json({ tags: out });
+});
+
+// ── Tag cleaning ─────────────────────────────────────────────────────────────
+//
+// Sjoerd, 2026-09-14: *"there should be tag cleaning. Look for doubles...
+// look for ones that have not been used for a long time... present a list for
+// cleaning once in a while."* The rules are in lib/tag-cleaning.ts; these
+// routes read the rows and apply what a person decided.
+//
+// Changing the vocabulary changes it for everybody in the workspace, so the
+// three writes are for workspace admins — the same bar as renaming the steps.
+
+const STALE_DAYS = 180;
+
+async function isWorkspaceAdmin(ctx: { auth: string; userId: string; workspaceId: string }): Promise<boolean> {
+  if (ctx.auth !== 'user') return false;
+  const { data } = await adminClient
+    .from('workspace_member')
+    .select('workspace_role')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('user_id', ctx.userId)
+    .maybeSingle();
+  return data?.workspace_role === 'admin' || data?.workspace_role === 'super_admin';
+}
+
+/**
+ * What wants tidying: probable doubles, tags on nobody, and tags not used in
+ * six months. `count` alone is what Today's once-in-a-while nudge reads.
+ *
+ * "Used" is the later of somebody being tagged and a note in the period
+ * mentioning the word. The second matters: a tag already on a person is not
+ * re-dated when a new note mentions it again (the link is ignore-on-conflict),
+ * so link dates alone would call a word used every week stale. The note bodies
+ * are read here, in memory, only to answer yes/no per tag — nothing of them is
+ * returned.
+ */
+connectionsTagsRoutes.get('/tags/cleaning', async (c) => {
+  const ctx = c.get('ctx');
+
+  const { data: tags, error } = await adminClient
+    .from('tag')
+    .select('id,name,organisation_id')
+    .eq('workspace_id', ctx.workspaceId)
+    .limit(2000);
+  if (error) return c.json({ error: error.message }, 500);
+
+  const ids = (tags ?? []).map((t) => t.id as string);
+  const people = new Map<string, Set<string>>();
+  const lastLinked = new Map<string, number>();
+  if (ids.length) {
+    const { data: links, error: lErr } = await adminClient
+      .from('person_tag')
+      .select('tag_id,person_id,created_at')
+      .in('tag_id', ids)
+      .limit(20000);
+    if (lErr) return c.json({ error: lErr.message }, 500);
+    for (const l of links ?? []) {
+      const tid = l.tag_id as string;
+      (people.get(tid) ?? people.set(tid, new Set()).get(tid)!).add(l.person_id as string);
+      const at = Date.parse(l.created_at as string);
+      // The epoch marks links from before dates were recorded: no honest date.
+      if (at > 0) lastLinked.set(tid, Math.max(lastLinked.get(tid) ?? 0, at));
+    }
+  }
+
+  const since = new Date(Date.now() - STALE_DAYS * 86_400_000).toISOString();
+  const { data: notes, error: nErr } = await adminClient
+    .from('flow_run_note')
+    .select('body,happened_at')
+    .eq('workspace_id', ctx.workspaceId)
+    .is('deleted_at', null)
+    .gte('happened_at', since)
+    .order('happened_at', { ascending: false })
+    .limit(5000);
+  if (nErr) return c.json({ error: nErr.message }, 500);
+
+  const facts: TagFacts[] = (tags ?? []).map((t) => {
+    const id = t.id as string;
+    let used = lastLinked.get(id) ?? 0;
+    // Newest first, so the first mention is the latest one.
+    const hit = (notes ?? []).find((n) => mentions((n.body as string | null) ?? '', t.name as string));
+    if (hit) used = Math.max(used, Date.parse(hit.happened_at as string));
+    return {
+      id,
+      name: t.name as string,
+      organisation_id: (t.organisation_id as string | null) ?? null,
+      people: people.get(id)?.size ?? 0,
+      last_used: used > 0 ? new Date(used).toISOString() : null,
+    };
+  });
+
+  const doubles = findDoubles(facts);
+  const unused = findUnused(facts);
+  const stale = findStale(facts, new Date(), STALE_DAYS);
+  return c.json({
+    doubles,
+    unused,
+    stale,
+    stale_days: STALE_DAYS,
+    count: doubles.length + unused.length + stale.length,
+    can_edit: await isWorkspaceAdmin(ctx),
+  });
+});
+
+const MergeBody = z.object({
+  into: z.string().uuid(),
+  from: z.array(z.string().uuid()).min(1).max(50),
+});
+
+/**
+ * Fold tags into one. Everybody carrying any of them ends up carrying `into`,
+ * keeping when and how they were first tagged; the others are then removed.
+ *
+ * No transaction across PostgREST calls, so the order is what makes a failure
+ * safe: links are copied BEFORE anything is deleted, and the copy ignores
+ * links that already exist — running the same merge again finishes the job.
+ */
+connectionsTagsRoutes.post('/tags/merge', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json({ error: 'admins only' }, 403);
+  const parsed = MergeBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'invalid body' }, 400);
+  const from = [...new Set(parsed.data.from)].filter((id) => id !== parsed.data.into);
+  if (!from.length) return c.json({ error: 'nothing to merge' }, 400);
+
+  const { data: rows, error } = await adminClient
+    .from('tag')
+    .select('id,organisation_id')
+    .eq('workspace_id', ctx.workspaceId)
+    .in('id', [parsed.data.into, ...from]);
+  if (error) return c.json({ error: error.message }, 500);
+  if ((rows ?? []).length !== from.length + 1) return c.json({ error: 'tag not found' }, 404);
+  const into = rows!.find((r) => r.id === parsed.data.into)!;
+  // Two organisations are two real things; never fold one into the other.
+  const orgs = rows!.filter((r) => r.organisation_id);
+  if (orgs.length > 1) return c.json({ error: 'two organisations cannot be merged' }, 409);
+
+  const { data: links, error: lErr } = await adminClient
+    .from('person_tag')
+    .select('person_id,created_at,created_via,note_id')
+    .in('tag_id', from)
+    .limit(20000);
+  if (lErr) return c.json({ error: lErr.message }, 500);
+  if (links?.length) {
+    const { error: upErr } = await adminClient.from('person_tag').upsert(
+      links.map((l) => ({
+        person_id: l.person_id as string,
+        tag_id: into.id as string,
+        created_at: l.created_at as string,
+        created_via: (l.created_via as string | null) ?? null,
+        note_id: (l.note_id as string | null) ?? null,
+      })),
+      { onConflict: 'person_id,tag_id', ignoreDuplicates: true },
+    );
+    if (upErr) return c.json({ error: upErr.message }, 500);
+  }
+
+  // An organisation's tag folded in hands its pointer to the survivor. Read
+  // before the delete, written after it: the unique (workspace, organisation)
+  // index would refuse two tags holding the same pointer at once.
+  const orgFrom = orgs.find((r) => r.id !== into.id);
+
+  const { error: delErr } = await adminClient
+    .from('tag')
+    .delete()
+    .eq('workspace_id', ctx.workspaceId)
+    .in('id', from);
+  if (delErr) return c.json({ error: delErr.message }, 500);
+
+  if (orgFrom && !into.organisation_id) {
+    const { error: pErr } = await adminClient
+      .from('tag')
+      .update({ organisation_id: orgFrom.organisation_id })
+      .eq('id', into.id as string)
+      .eq('workspace_id', ctx.workspaceId);
+    if (pErr) return c.json({ error: pErr.message }, 500);
+  }
+  return c.json({ ok: true, moved: links?.length ?? 0 });
+});
+
+const RenameBody = z.object({ name: z.string().trim().min(1).max(80) });
+
+/** Rename a tag. A name another tag already has is a merge, and says so. */
+connectionsTagsRoutes.patch('/tags/:id', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json({ error: 'admins only' }, 403);
+  const parsed = RenameBody.safeParse(await c.req.json().catch(() => null));
+  if (!parsed.success) return c.json({ error: 'invalid body' }, 400);
+  const id = c.req.param('id');
+
+  const { data: clash, error: cErr } = await adminClient
+    .from('tag')
+    .select('id')
+    .eq('workspace_id', ctx.workspaceId)
+    .eq('name', parsed.data.name)
+    .neq('id', id)
+    .maybeSingle();
+  if (cErr) return c.json({ error: cErr.message }, 500);
+  if (clash) return c.json({ error: 'name taken', existing_id: clash.id }, 409);
+
+  const { data, error } = await adminClient
+    .from('tag')
+    .update({ name: parsed.data.name })
+    .eq('id', id)
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id')
+    .maybeSingle();
+  if (error) return c.json({ error: error.message }, 500);
+  if (!data) return c.json({ error: 'tag not found' }, 404);
+  return c.json({ ok: true });
+});
+
+/**
+ * Remove a tag, and with it the tag on everybody who had it. The words in
+ * notes are untouched: a note is what somebody wrote, and this removes a
+ * label, not a sentence.
+ */
+connectionsTagsRoutes.delete('/tags/:id', async (c) => {
+  const ctx = c.get('ctx');
+  if (!(await isWorkspaceAdmin(ctx))) return c.json({ error: 'admins only' }, 403);
+  const { data, error } = await adminClient
+    .from('tag')
+    .delete()
+    .eq('id', c.req.param('id'))
+    .eq('workspace_id', ctx.workspaceId)
+    .select('id')
+    .maybeSingle();
+  if (error) return c.json({ error: error.message }, 500);
+  if (!data) return c.json({ error: 'tag not found' }, 404);
+  return c.json({ ok: true });
 });

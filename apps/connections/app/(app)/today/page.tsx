@@ -7,6 +7,7 @@ import { Today } from './client';
 import { HORIZONS, type Horizon, type TodayPayload } from './shape';
 import { Agenda, type AgendaPayload } from './agenda';
 import { TeamUpdatesPanel } from './team-updates';
+import { TagCleaningNudge } from './tag-nudge';
 import { INTL_LOCALES } from '@/lib/i18n-ui';
 import type { BandLabels } from '../landscape/axes';
 
@@ -94,6 +95,7 @@ export default async function TodayPage({
       {/* A team's updates over a period, for an update meeting — renders
           nothing at all for somebody who is in no team. */}
       <TeamUpdatesPanel locale={locale} />
+      <TagCleaningNudge locale={locale} />
     </PageContainer>
   );
 }

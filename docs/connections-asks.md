@@ -87,6 +87,11 @@ neither in code nor in a document. That is what this file fixes.
 | 54 | Landscape: see the movement — the steps as columns next to each other | **Shipped** v0.73.58 — a Movement tab beside Browse |
 | 55 | Landscape: an extra column to sub-group by tag, location, company… | **Shipped** v0.73.58 — group by tag, location or company |
 | 56 | "Make it all work" — everything open: production, movement board, sub-groups, prompt, highlighting, teams | **Done except production** — v0.73.57–59; the production push was refused by the permission classifier |
+| 57 | connections.thefibre.tech/dashboard should be connections.thefibre.tech | **Shipped** v0.73.60 — /dashboard never existed here (404); sign-in, SSO, the logo and workspace switch now go to the root, and /dashboard redirects there |
+| 58 | (found while fixing 57) The Help link in the Connections sidebar also answers 404 — there is no help page | **Backlog** — needs content, not a redirect |
+| 59 | `#` and `@` may run over a space — type the words, press Enter, and it becomes a tag, person or organisation | **Shipped** v0.73.61 — up to three words; `#` offers a new tag; `@` picks existing people and organisations only (a new person is backlog §1.3) |
+| 60 | Tag cleaning: find doubles, find tags unused for a long time, and present a list for a clean-up now and then | **Shipped** v0.73.61 — Settings → Tag cleaning; merge, rename, delete for admins; a nudge on Today at most every 30 days |
+| 61 | The date field is double in the composer — take the bottom one away | **Shipped** v0.73.61 — the note is dated when written; the calendar icon is the follow-up |
 
 ### The three that were lost
 
