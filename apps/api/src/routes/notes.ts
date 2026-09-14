@@ -47,6 +47,12 @@ const NoteUpsert = z.object({
   person_id: z.string().uuid().nullable().optional(),
   organisation_id: z.string().uuid().nullable().optional(),
   flow_run_id: z.string().uuid().nullable().optional(),
+  /**
+   * The team this is filed under — organising, not visibility (see
+   * 20260914090000_teams_organise_notes.sql). Optional and nullable: omitted
+   * and null both mean "no team".
+   */
+  team_id: z.string().uuid().nullable().optional(),
   body: z.string().max(20000).default(''),
   kind: z.enum(KINDS).default('note'),
   origin: z.enum(ORIGINS).default('manual'),
@@ -161,11 +167,29 @@ notesRoutes.put('/', async (c) => {
     return c.json({ error: `${owned.field} not found` }, 404);
   }
 
+  // A note can only be filed under a team the AUTHOR is in, in this
+  // workspace. The same shape of check as the refs above, for the same reason:
+  // this route writes through the service client, so nothing else is checking.
+  // Filing under somebody else's team would put a note into their update
+  // meeting that nobody in it wrote.
+  if (d.team_id) {
+    const { data: membership } = await adminClient
+      .from('team_member')
+      .select('team_id, team:team_id!inner(workspace_id)')
+      .eq('team_id', d.team_id)
+      .eq('user_id', ctx.userId)
+      .eq('status', 'active')
+      .eq('team.workspace_id', ctx.workspaceId)
+      .maybeSingle();
+    if (!membership) return c.json({ error: 'team_id not found' }, 404);
+  }
+
   const row = {
     workspace_id: ctx.workspaceId,
     person_id: d.person_id ?? null,
     organisation_id: d.organisation_id ?? null,
     flow_run_id: d.flow_run_id ?? null,
+    team_id: d.team_id ?? null,
     body: d.body,
     kind: d.kind,
     origin: d.origin,
@@ -463,7 +487,7 @@ notesRoutes.get('/', async (c) => {
     // change a note needs the key it was written under — without it the only
     // way to fix a typo would be a second note saying "I meant".
     .select(
-      'id, client_ref, body, kind, origin, happened_at, happened_tz, follow_up_at, is_draft, created_by, created_at',
+      'id, client_ref, team_id, body, kind, origin, happened_at, happened_tz, follow_up_at, is_draft, created_by, created_at',
     )
     .eq('workspace_id', ctx.workspaceId)
     .is('deleted_at', null)

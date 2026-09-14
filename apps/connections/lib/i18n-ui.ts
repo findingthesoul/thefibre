@@ -924,6 +924,382 @@ const CATALOG = {
     de: 'Zufällig getroffen', // MT
     fr: 'Croisé par hasard', // MT
   },
+  note_followup_today: {
+    en: 'today',
+    nl: 'vandaag',
+    es: 'hoy', // MT
+    pt: 'hoje', // MT
+    de: 'heute', // MT
+    fr: 'aujourd’hui', // MT
+  },
+  note_followup_tomorrow: {
+    en: 'tomorrow',
+    nl: 'morgen',
+    es: 'mañana', // MT
+    pt: 'amanhã', // MT
+    de: 'morgen', // MT
+    fr: 'demain', // MT
+  },
+  note_followup_this_week: {
+    en: 'this week',
+    nl: 'deze week',
+    es: 'esta semana', // MT
+    pt: 'esta semana', // MT
+    de: 'diese Woche', // MT
+    fr: 'cette semaine', // MT
+  },
+  landscape_back: {
+    en: 'Back',
+    nl: 'Terug',
+    es: 'Atrás', // MT
+    pt: 'Voltar', // MT
+    de: 'Zurück', // MT
+    fr: 'Retour', // MT
+  },
+  landscape_col_readings: {
+    en: 'Readings',
+    nl: 'Kijken',
+    es: 'Lecturas', // MT
+    pt: 'Leituras', // MT
+    de: 'Sichten', // MT
+    fr: 'Lectures', // MT
+  },
+  landscape_col_steps: {
+    en: 'Steps',
+    nl: 'Stappen',
+    es: 'Pasos', // MT
+    pt: 'Passos', // MT
+    de: 'Stufen', // MT
+    fr: 'Étapes', // MT
+  },
+  landscape_col_people: {
+    en: 'People',
+    nl: 'Mensen',
+    es: 'Personas', // MT
+    pt: 'Pessoas', // MT
+    de: 'Personen', // MT
+    fr: 'Personnes', // MT
+  },
+  landscape_pick_step: {
+    en: 'Choose a step to see who is on it.',
+    nl: 'Kies een stap om te zien wie erop staat.',
+    es: 'Elige un paso para ver quién está en él.', // MT
+    pt: 'Escolhe um passo para ver quem está nele.', // MT
+    de: 'Wähle eine Stufe, um zu sehen, wer darauf steht.', // MT
+    fr: 'Choisissez une étape pour voir qui s’y trouve.', // MT
+  },
+  landscape_pick_person: {
+    en: 'Choose somebody to see them here.',
+    nl: 'Kies iemand om diegene hier te zien.',
+    es: 'Elige a alguien para verle aquí.', // MT
+    pt: 'Escolhe alguém para o ver aqui.', // MT
+    de: 'Wähle jemanden, um die Person hier zu sehen.', // MT
+    fr: 'Choisissez quelqu’un pour le voir ici.', // MT
+  },
+  landscape_none_here: {
+    en: 'Nobody is on this step.',
+    nl: 'Niemand staat op deze stap.',
+    es: 'Nadie está en este paso.', // MT
+    pt: 'Ninguém está neste passo.', // MT
+    de: 'Niemand steht auf dieser Stufe.', // MT
+    fr: 'Personne n’est à cette étape.', // MT
+  },
+  landscape_period: {
+    en: 'Last {days} days: {arrived} arrived, {moved} moved.',
+    nl: 'Laatste {days} dagen: {arrived} nieuw, {moved} verschoven.',
+    es: 'Últimos {days} días: {arrived} llegaron, {moved} se movieron.', // MT
+    pt: 'Últimos {days} dias: {arrived} chegaram, {moved} mudaram.', // MT
+    de: 'Letzte {days} Tage: {arrived} neu, {moved} verschoben.', // MT
+    fr: '{days} derniers jours : {arrived} arrivés, {moved} déplacés.', // MT
+  },
+  meeting_open: {
+    en: 'From a meeting transcript…',
+    nl: 'Uit een vergaderverslag…',
+    es: 'Desde una transcripción…', // MT
+    pt: 'A partir de uma transcrição…', // MT
+    de: 'Aus einem Meeting-Transkript…', // MT
+    fr: 'À partir d’une transcription…', // MT
+  },
+  meeting_close: {
+    en: 'Close',
+    nl: 'Sluiten',
+    es: 'Cerrar', // MT
+    pt: 'Fechar', // MT
+    de: 'Schließen', // MT
+    fr: 'Fermer', // MT
+  },
+  meeting_step_copy: {
+    en: 'Copy the prompt below.',
+    nl: 'Kopieer de prompt hieronder.',
+    es: 'Copia el prompt de abajo.', // MT
+    pt: 'Copia o prompt abaixo.', // MT
+    de: 'Kopiere den Prompt unten.', // MT
+    fr: 'Copiez le prompt ci-dessous.', // MT
+  },
+  meeting_step_paste: {
+    en: 'Paste it into ChatGPT, Claude or Gemini, with your transcript after it.',
+    nl: 'Plak hem in ChatGPT, Claude of Gemini, met je transcript erachter.',
+    es: 'Pégalo en ChatGPT, Claude o Gemini, con tu transcripción detrás.', // MT
+    pt: 'Cola-o no ChatGPT, Claude ou Gemini, com a tua transcrição a seguir.', // MT
+    de: 'Füge ihn in ChatGPT, Claude oder Gemini ein, mit deinem Transkript dahinter.', // MT
+    fr: 'Collez-le dans ChatGPT, Claude ou Gemini, suivi de votre transcription.', // MT
+  },
+  meeting_step_back: {
+    en: 'Paste the short note it gives you into the box above.',
+    nl: 'Plak de korte notitie die je terugkrijgt in het vak hierboven.',
+    es: 'Pega la nota breve que te devuelva en el cuadro de arriba.', // MT
+    pt: 'Cola a nota curta que receberes na caixa acima.', // MT
+    de: 'Füge die kurze Notiz, die du bekommst, oben ins Feld ein.', // MT
+    fr: 'Collez la note courte obtenue dans la zone ci-dessus.', // MT
+  },
+  meeting_copy: {
+    en: 'Copy prompt',
+    nl: 'Prompt kopiëren',
+    es: 'Copiar prompt', // MT
+    pt: 'Copiar prompt', // MT
+    de: 'Prompt kopieren', // MT
+    fr: 'Copier le prompt', // MT
+  },
+  meeting_copied: {
+    en: 'Copied',
+    nl: 'Gekopieerd',
+    es: 'Copiado', // MT
+    pt: 'Copiado', // MT
+    de: 'Kopiert', // MT
+    fr: 'Copié', // MT
+  },
+  meeting_copy_failed: {
+    en: 'Your browser would not copy it.',
+    nl: 'Je browser wilde het niet kopiëren.',
+    es: 'Tu navegador no ha permitido copiarlo.', // MT
+    pt: 'O teu navegador não deixou copiar.', // MT
+    de: 'Dein Browser hat das Kopieren verweigert.', // MT
+    fr: 'Votre navigateur a refusé de le copier.', // MT
+  },
+  meeting_privacy: {
+    en: 'The prompt holds this person’s name and your topic tags — no other names from your workspace. The transcript goes only where you paste it.',
+    nl: 'De prompt bevat de naam van deze persoon en jullie onderwerp-tags — geen andere namen uit jullie workspace. Het transcript gaat alleen waar jij het plakt.',
+    es: 'El prompt lleva el nombre de esta persona y vuestras etiquetas de tema, ningún otro nombre del espacio. La transcripción solo va donde tú la pegues.', // MT
+    pt: 'O prompt leva o nome desta pessoa e as vossas etiquetas de tema — nenhum outro nome do espaço. A transcrição só vai onde a colares.', // MT
+    de: 'Der Prompt enthält den Namen dieser Person und eure Themen-Tags — keine anderen Namen aus dem Workspace. Das Transkript geht nur dorthin, wo du es einfügst.', // MT
+    fr: 'Le prompt contient le nom de cette personne et vos étiquettes de sujet — aucun autre nom de l’espace. La transcription ne va que là où vous la collez.', // MT
+  },
+  landscape_view_browse: {
+    en: 'Browse',
+    nl: 'Bladeren',
+    es: 'Explorar', // MT
+    pt: 'Explorar', // MT
+    de: 'Durchsuchen', // MT
+    fr: 'Parcourir', // MT
+  },
+  landscape_view_movement: {
+    en: 'Movement',
+    nl: 'Beweging',
+    es: 'Movimiento', // MT
+    pt: 'Movimento', // MT
+    de: 'Bewegung', // MT
+    fr: 'Mouvement', // MT
+  },
+  move_period: {
+    en: 'Over',
+    nl: 'Over',
+    es: 'En', // MT
+    pt: 'Em', // MT
+    de: 'Über', // MT
+    fr: 'Sur', // MT
+  },
+  move_days: {
+    en: 'the last {n} days',
+    nl: 'de laatste {n} dagen',
+    es: 'los últimos {n} días', // MT
+    pt: 'os últimos {n} dias', // MT
+    de: 'die letzten {n} Tage', // MT
+    fr: 'les {n} derniers jours', // MT
+  },
+  move_group_by: {
+    en: 'Group by',
+    nl: 'Groepeer op',
+    es: 'Agrupar por', // MT
+    pt: 'Agrupar por', // MT
+    de: 'Gruppieren nach', // MT
+    fr: 'Grouper par', // MT
+  },
+  move_group_none: {
+    en: 'nothing',
+    nl: 'niets',
+    es: 'nada', // MT
+    pt: 'nada', // MT
+    de: 'nichts', // MT
+    fr: 'rien', // MT
+  },
+  move_group_tag: {
+    en: 'tag',
+    nl: 'tag',
+    es: 'etiqueta', // MT
+    pt: 'etiqueta', // MT
+    de: 'Tag', // MT
+    fr: 'étiquette', // MT
+  },
+  move_group_location: {
+    en: 'location',
+    nl: 'plaats',
+    es: 'lugar', // MT
+    pt: 'local', // MT
+    de: 'Ort', // MT
+    fr: 'lieu', // MT
+  },
+  move_group_company: {
+    en: 'company',
+    nl: 'bedrijf',
+    es: 'empresa', // MT
+    pt: 'empresa', // MT
+    de: 'Firma', // MT
+    fr: 'entreprise', // MT
+  },
+  move_group_all: {
+    en: 'all of them',
+    nl: 'allemaal',
+    es: 'todos', // MT
+    pt: 'todos', // MT
+    de: 'alle', // MT
+    fr: 'tous', // MT
+  },
+  move_only_moved: {
+    en: 'Only who moved',
+    nl: 'Alleen wie verschoof',
+    es: 'Solo quien se movió', // MT
+    pt: 'Só quem mudou', // MT
+    de: 'Nur wer sich bewegt hat', // MT
+    fr: 'Seulement qui a bougé', // MT
+  },
+  move_turnover: {
+    en: '{in} in · {out} out',
+    nl: '{in} erbij · {out} weg',
+    es: '{in} entran · {out} salen', // MT
+    pt: '{in} entraram · {out} saíram', // MT
+    de: '{in} dazu · {out} weg', // MT
+    fr: '{in} entrés · {out} sortis', // MT
+  },
+  move_new: {
+    en: 'new',
+    nl: 'nieuw',
+    es: 'nuevo', // MT
+    pt: 'novo', // MT
+    de: 'neu', // MT
+    fr: 'nouveau', // MT
+  },
+  move_from: {
+    en: 'from {step}',
+    nl: 'van {step}',
+    es: 'desde {step}', // MT
+    pt: 'de {step}', // MT
+    de: 'von {step}', // MT
+    fr: 'depuis {step}', // MT
+  },
+  team_by_you: {
+    en: 'By you',
+    nl: 'Door jou',
+    es: 'Por ti', // MT
+    pt: 'Por ti', // MT
+    de: 'Von dir', // MT
+    fr: 'Par vous', // MT
+  },
+  team_for: {
+    en: 'for',
+    nl: 'voor',
+    es: 'para', // MT
+    pt: 'para', // MT
+    de: 'für', // MT
+    fr: 'pour', // MT
+  },
+  team_none: {
+    en: 'no team',
+    nl: 'geen team',
+    es: 'ningún equipo', // MT
+    pt: 'nenhuma equipa', // MT
+    de: 'kein Team', // MT
+    fr: 'aucune équipe', // MT
+  },
+  team_default: {
+    en: 'default',
+    nl: 'standaard',
+    es: 'predeterminado', // MT
+    pt: 'predefinida', // MT
+    de: 'Standard', // MT
+    fr: 'par défaut', // MT
+  },
+  team_make_default: {
+    en: 'Make this my default',
+    nl: 'Maak dit mijn standaard',
+    es: 'Hacerlo mi predeterminado', // MT
+    pt: 'Tornar predefinida', // MT
+    de: 'Als Standard festlegen', // MT
+    fr: 'En faire ma valeur par défaut', // MT
+  },
+  team_clear_default: {
+    en: 'No default team',
+    nl: 'Geen standaardteam',
+    es: 'Sin equipo predeterminado', // MT
+    pt: 'Sem equipa predefinida', // MT
+    de: 'Kein Standardteam', // MT
+    fr: 'Pas d’équipe par défaut', // MT
+  },
+  team_updates_title: {
+    en: 'Team updates',
+    nl: 'Team-updates',
+    es: 'Novedades del equipo', // MT
+    pt: 'Novidades da equipa', // MT
+    de: 'Team-Updates', // MT
+    fr: 'Nouvelles de l’équipe', // MT
+  },
+  team_updates_count: {
+    en: '{n} updates',
+    nl: '{n} updates',
+    es: '{n} novedades', // MT
+    pt: '{n} novidades', // MT
+    de: '{n} Updates', // MT
+    fr: '{n} nouvelles', // MT
+  },
+  team_updates_none: {
+    en: 'Nothing filed under this team in the period.',
+    nl: 'Niets onder dit team vastgelegd in deze periode.',
+    es: 'Nada registrado en este equipo en el periodo.', // MT
+    pt: 'Nada registado nesta equipa no período.', // MT
+    de: 'In diesem Zeitraum nichts unter diesem Team erfasst.', // MT
+    fr: 'Rien d’enregistré pour cette équipe sur la période.', // MT
+  },
+  ac_tags: {
+    en: 'Matching tags',
+    nl: 'Passende tags',
+    es: 'Etiquetas que coinciden', // MT
+    pt: 'Etiquetas correspondentes', // MT
+    de: 'Passende Tags', // MT
+    fr: 'Étiquettes correspondantes', // MT
+  },
+  ac_people: {
+    en: 'Matching people and organisations',
+    nl: 'Passende mensen en organisaties',
+    es: 'Personas y organizaciones que coinciden', // MT
+    pt: 'Pessoas e organizações correspondentes', // MT
+    de: 'Passende Personen und Organisationen', // MT
+    fr: 'Personnes et organisations correspondantes', // MT
+  },
+  ac_kind_person: {
+    en: 'person',
+    nl: 'persoon',
+    es: 'persona', // MT
+    pt: 'pessoa', // MT
+    de: 'Person', // MT
+    fr: 'personne', // MT
+  },
+  ac_kind_org: {
+    en: 'organisation',
+    nl: 'organisatie',
+    es: 'organización', // MT
+    pt: 'organização', // MT
+    de: 'Organisation', // MT
+    fr: 'organisation', // MT
+  },
   note_followup_two_weeks: {
     en: 'in two weeks',
     nl: 'Over twee weken',

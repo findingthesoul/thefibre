@@ -6,6 +6,89 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.59] — 2026-09-14 — Teams organise what people record (staging)
+
+**Connections — file what happened under one of your teams.** If you are in a
+team, the note box says it is by you and offers your teams, with your default
+already chosen. Pick another and it offers to make that your default. People in
+no team see nothing new.
+
+**Team updates on Today.** Open it, pick a team and the last 7, 14 or 30 days,
+and everybody in the team is listed with what each of them filed — including
+the people who filed nothing, because they are in the meeting too. Tap a name
+to open that person.
+
+**A team organises; it does not hide.** A note filed under a team is exactly as
+visible as any other note. And a note can only be filed under a team its author
+is in.
+
+## [0.73.58] — 2026-09-14 — See who moved, side by side (staging)
+
+**Connections — the landscape has a Movement view.** Every step of a reading
+stands next to the others, lowest on the left, with each person on the step
+they are on now. Anyone who moved during the period carries an arrow and the
+step they came from; anyone new says so. Each step shows how many came in and
+how many left, so a step that kept its size but turned over still shows it.
+Pick the last 7, 14, 30 or 90 days, and tick "only who moved" for an update
+meeting.
+
+**Group by tag, location or company**, then pick one — `#retreat`, Amsterdam,
+EBBF — and the board shows only those people and how they moved. Location is
+the city, or the country when there is no city; company is where somebody is
+recorded as working now.
+
+Browse — the Finder columns — is still there beside it, one tab away.
+
+## [0.73.57] — 2026-09-14 — Notes from a meeting, and tags you can see afterwards (staging)
+
+**Connections — turn a meeting transcript into a short note.** Under the note
+box, "From a meeting transcript…" makes the box bigger and gives you a prompt to
+copy. Paste it into ChatGPT, Claude or Gemini with your transcript after it, and
+paste the short note you get back into the box. The prompt asks for a few
+sentences, what was agreed and what happens next, with people and organisations
+written as @names and topics as #tags in the form this app recognises — so the
+tags and names light up the moment you paste.
+
+The Fibre never sends the transcript anywhere; it goes only where you paste it.
+And the prompt carries this person's name and your topic tags, but no other
+names from your workspace, even though that would make the result match better.
+
+**Saved notes now show their tags and @names marked** in the timeline, the same
+way the box marks them while you type.
+
+## [0.73.56] — 2026-09-14 — The landscape, browsed like Finder (staging)
+
+**Connections — the landscape is four columns.** Readings, then the steps in the
+one you pick, then the people on a step, then the person. Each choice opens the
+next column and leaves the earlier ones standing, so you can always see how you
+got there and step back one level without starting over — the way macOS shows a
+disk as columns.
+
+The person is shown right there in the last column — how to reach them, how you
+know them, what happened — so you can call somebody and write the line without
+a popup covering the path you walked. Steps carry their count and how many
+moved in or out over the last thirty days. The path is in the address, so a
+view can be bookmarked and shared.
+
+On a phone there is room for one column, so you see one at a time with Back.
+
+## [0.73.55] — 2026-09-14 — # and @ offer what you mean, and follow-ups for today (staging)
+
+**Connections — type `#f` and your tags that start with it appear; type `@` and
+people and organisations do.** Arrow keys and Enter pick, Escape closes it for
+that word, and the mouse works too. What gets written is exactly what detection
+already recognises, so a picked tag is highlighted the moment it lands — a
+multi-word tag like "deep democracy" becomes `#deep-democracy` and still resolves
+to the same tag. An email address never opens the list.
+
+**Follow up now offers today, tomorrow and this week**, alongside the longer
+horizons. They land at a working hour — today at the end of the day, tomorrow at
+nine, this week on Friday afternoon — and never in the past: a late-evening
+"today" or a weekend "this week" means now.
+
+**A picked date is a calendar icon** beside the list rather than a line in it,
+and the second "When" label is gone.
+
 ## [0.73.54] — 2026-09-13 — Kind and when, without the click (staging)
 
 **Connections — what kind of contact it was and when it happened sit beside

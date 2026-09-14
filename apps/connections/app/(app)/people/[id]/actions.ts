@@ -27,6 +27,8 @@ export type SaveNoteInput = {
   /** Minted once per note by the client. Same value on every write. */
   client_ref: string;
   person_id: string;
+  /** The team this is filed under, or null for none. Organising only. */
+  team_id?: string | null;
   body: string;
   kind: NoteKind;
   /** ISO 8601 with offset. Omitted means "now", decided by the API. */
@@ -72,6 +74,12 @@ export type EditNoteInput = {
   /** The key the note was written under. PUT upserts on it. */
   client_ref: string;
   person_id: string;
+  /**
+   * Sent back unchanged. PUT overwrites the whole row, so an edit that left
+   * this out would quietly take the note out of its team — and out of that
+   * team's update meeting — just for fixing a typo.
+   */
+  team_id: string | null;
   body: string;
   kind: NoteKind;
   /** Kept as it was — an edit fixes the words, not when it happened. */
@@ -186,5 +194,69 @@ export async function fetchVocabulary(): Promise<{
   } catch {
     // Nothing detected is a working composer; a thrown error is not.
     return { words: [], people: [] };
+  }
+}
+
+export type MyTeam = { id: string; name: string; is_default: boolean };
+
+/**
+ * The teams I can file a note under, in this workspace.
+ *
+ * Empty for most people and most workspaces, and that is not an error: the
+ * composer shows no team picker at all when there is nothing to pick.
+ */
+export async function loadMyTeams(): Promise<MyTeam[]> {
+  try {
+    const r = await apiFetch<{ teams: MyTeam[] }>('/api/v1/connections/my-teams');
+    return r.teams ?? [];
+  } catch {
+    return [];
+  }
+}
+
+/** Make a team my default, or clear the default with null. */
+export async function setDefaultTeam(teamId: string | null): Promise<{ ok: true } | { ok: false; error: string }> {
+  try {
+    await apiFetch('/api/v1/connections/my-teams/default', {
+      method: 'PUT',
+      body: JSON.stringify({ team_id: teamId }),
+    });
+    return { ok: true };
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: `API ${e.status}` };
+    return { ok: false, error: e instanceof Error ? e.message : 'unknown error' };
+  }
+}
+
+export type TeamUpdate = {
+  id: string;
+  body: string;
+  kind: string;
+  happened_at: string;
+  follow_up_at: string | null;
+  person: { id: string; name: string } | null;
+};
+
+export type TeamUpdates =
+  | {
+      ok: true;
+      team: { id: string; name: string };
+      sinceDays: number;
+      members: { user_id: string; role: string; name: string; updates: TeamUpdate[] }[];
+    }
+  | { ok: false; error: string };
+
+/** Everybody in a team, and what each filed under it over the period. */
+export async function loadTeamUpdates(teamId: string, sinceDays: number): Promise<TeamUpdates> {
+  try {
+    const r = await apiFetch<{
+      team: { id: string; name: string };
+      since_days: number;
+      members: { user_id: string; role: string; name: string; updates: TeamUpdate[] }[];
+    }>(`/api/v1/connections/team-updates?team_id=${encodeURIComponent(teamId)}&since_days=${sinceDays}`);
+    return { ok: true, team: r.team, sinceDays: r.since_days, members: r.members ?? [] };
+  } catch (e) {
+    if (e instanceof ApiError) return { ok: false, error: `API ${e.status}` };
+    return { ok: false, error: e instanceof Error ? e.message : 'unknown error' };
   }
 }

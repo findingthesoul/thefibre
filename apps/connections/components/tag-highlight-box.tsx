@@ -55,6 +55,9 @@ export function TagHighlightBox({
   placeholder,
   ariaLabel,
   rows = 3,
+  textareaRef,
+  onKeyDown,
+  onCaret,
 }: {
   value: string;
   onChange: (next: string) => void;
@@ -64,6 +67,12 @@ export function TagHighlightBox({
   placeholder: string;
   ariaLabel: string;
   rows?: number;
+  /** For the `#`/`@` suggestions, which need to put the caret back after a pick. */
+  textareaRef?: React.Ref<HTMLTextAreaElement>;
+  /** Arrow keys and Enter belong to the suggestion list while it is open. */
+  onKeyDown?: (e: React.KeyboardEvent<HTMLTextAreaElement>) => void;
+  /** Where the caret is, on every change, click and arrow key. */
+  onCaret?: (caret: number) => void;
 }) {
   const mirror = useRef<HTMLDivElement>(null);
 
@@ -109,8 +118,16 @@ export function TagHighlightBox({
         {parts}
       </div>
       <textarea
+        ref={textareaRef}
         value={value}
-        onChange={(e) => onChange(e.target.value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          onCaret?.(e.target.selectionStart);
+        }}
+        // `select` fires for clicks and arrow keys too, which is what lets the
+        // list close when somebody moves the caret away from the word.
+        onSelect={(e) => onCaret?.(e.currentTarget.selectionStart)}
+        onKeyDown={onKeyDown}
         // The mirror has to scroll with the text it sits under, or a long note
         // shows its highlights against the wrong lines.
         onScroll={(e) => {
@@ -123,4 +140,46 @@ export function TagHighlightBox({
       />
     </div>
   );
+}
+
+/**
+ * A saved note, with its tags and names marked the same way the box marks
+ * them while typing.
+ *
+ * Sjoerd, 2026-09-13: *"In de timeline, highlight tags. companies or people
+ * should be an @ and also highlighted."* Lost that day (ask 18) and built the
+ * next. The TINT lives in this file once, so a word looks like the same thing
+ * in the box you type it into and in the timeline you read it back from.
+ *
+ * Unlike the mirror above, the text here is the visible text — there is no
+ * textarea on top — so the letters keep their colour and only the ground is
+ * tinted.
+ */
+export function HighlightedText({ text, ranges }: { text: string; ranges: HighlightRange[] }) {
+  const parts: React.ReactNode[] = [];
+  let at = 0;
+  ranges.forEach((r, i) => {
+    if (r.start < at) return; // overlapping ranges: the first one wins
+    if (r.start > at) parts.push(text.slice(at, r.start));
+    parts.push(
+      <mark
+        key={i}
+        data-kind={r.kind}
+        className="text-inherit"
+        style={{
+          background: TINT[r.kind],
+          color: 'inherit',
+          borderRadius: 3,
+          boxShadow: `0 0 0 1.5px ${TINT[r.kind]}`,
+          boxDecorationBreak: 'clone',
+          WebkitBoxDecorationBreak: 'clone',
+        }}
+      >
+        {text.slice(r.start, r.end)}
+      </mark>,
+    );
+    at = r.end;
+  });
+  if (at < text.length) parts.push(text.slice(at));
+  return <>{parts}</>;
 }

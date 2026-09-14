@@ -1,28 +1,14 @@
-import { apiFetch, ApiError } from '@/lib/api';
-import { PageContainer, PageHeader, ErrorBanner } from '@thefibre/shared/ui/page';
+import { apiFetch } from '@/lib/api';
+import { PageContainer, PageHeader } from '@thefibre/shared/ui/page';
 import { uiLocale } from '@/lib/locale';
 import { t } from '@/lib/i18n-ui';
-import {
-  Bands,
-  isAxis,
-  visibleAxes,
-  type Axis,
-  type AxisConfig,
-  type Band,
-  type BandLabels,
-  type Moved,
-} from './bands';
-import { AxisPicker } from './axis-picker';
-
-type Landscape = {
-  total: number;
-  since_days: number;
-  axis?: Axis;
-  bands: Band[];
-  arrived: number;
-  moved: Moved[];
-  moved_total: number;
-};
+// From axes, not bands: this is a server component, and values it reads must
+// come from a module with no directive (see the header of axes.ts).
+import { isAxis, visibleAxes, type Axis, type AxisConfig, type BandLabels } from './axes';
+import Link from 'next/link';
+import { LandscapeColumns } from './columns';
+import { MovementBoard } from './movement';
+import { loadReading } from './actions';
 
 // The shape of the community, as proportions rather than people. A vast
 // network does not fit on a screen and would not help if it did — see
@@ -36,10 +22,11 @@ type Landscape = {
 export default async function LandscapePage({
   searchParams,
 }: {
-  searchParams: Promise<{ axis?: string }>;
+  searchParams: Promise<{ axis?: string; band?: string; person?: string; view?: string }>;
 }) {
   const locale = await uiLocale();
-  const raw = (await searchParams).axis;
+  const sp = await searchParams;
+  const raw = sp.axis;
 
   // The vocabulary read comes FIRST, and on purpose, because which axis to
   // show depends on it: a workspace can now switch an axis off, and the
@@ -65,40 +52,63 @@ export default async function LandscapePage({
   // they stopped using, and the first one they DO use is the honest answer.
   const axis: Axis = isAxis(raw) && shown.includes(raw) ? raw : (shown[0] ?? 'maturity');
 
-  let data: Landscape | null = null;
-  let error: string | null = null;
-  try {
-    data = await apiFetch<Landscape>(
-      `/api/v1/connections/landscape?since_days=30&axis=${axis}`,
-    );
-  } catch (e) {
-    error = e instanceof ApiError ? `API ${e.status}` : 'unknown error';
-  }
+  // The first reading, with everybody's place on it, so the columns open on
+  // something rather than on a spinner. Further readings load in the browser.
+  const initialReading = await loadReading(axis);
 
   return (
     <PageContainer>
       <PageHeader title={t(locale, 'nav_landscape')} />
       <p className="mt-2 max-w-2xl text-sm text-ink-muted">{t(locale, 'landscape_intro')}</p>
 
-      <AxisPicker axis={axis} locale={locale} axes={shown} config={axisConfig} />
+      {/* Columns, the way Finder browses a disk. Sjoerd, 2026-09-13: *"Landscape:
+          would be nice if this works like 'As columns' in OsX."* This replaces
+          the chip picker and the band list rather than sitting beside them:
+          two ways to do the same thing would each be half-used. */}
+      {/* Two views of the same readings, switched in the URL so a view can be
+          shared. Links rather than a client toggle: it works before any
+          JavaScript arrives. Browse finds somebody; Movement shows who moved
+          (Sjoerd, 2026-09-14: "I want to see the movement — like columns next
+          to each other"). */}
+      <nav className="mt-6 flex gap-1 border-b border-line text-sm">
+        {(['browse', 'movement'] as const).map((v) => {
+          const on = (sp.view === 'movement' ? 'movement' : 'browse') === v;
+          return (
+            <Link
+              key={v}
+              href={`?view=${v}&axis=${axis}`}
+              aria-current={on ? 'page' : undefined}
+              className={`-mb-px border-b-2 px-3 py-2 ${
+                on ? 'border-ink text-ink' : 'border-transparent text-ink-muted hover:text-ink'
+              }`}
+            >
+              {t(locale, v === 'browse' ? 'landscape_view_browse' : 'landscape_view_movement')}
+            </Link>
+          );
+        })}
+      </nav>
 
-      {error && <ErrorBanner>{error}</ErrorBanner>}
-
-      {data && data.total === 0 && (
+      {initialReading.ok && initialReading.total === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">{t(locale, 'landscape_empty')}</p>
-      )}
-
-      {data && data.total > 0 && (
-        <Bands
-          bands={data.bands}
-          total={data.total}
-          arrived={data.arrived}
-          moved={data.moved}
-          movedTotal={data.moved_total}
-          sinceDays={data.since_days}
-          axis={axis}
-          labels={labels}
+      ) : sp.view === 'movement' ? (
+        <MovementBoard
           locale={locale}
+          axes={shown}
+          config={axisConfig}
+          labels={labels}
+          initialAxis={axis}
+          initialReading={initialReading}
+        />
+      ) : (
+        <LandscapeColumns
+          locale={locale}
+          axes={shown}
+          config={axisConfig}
+          labels={labels}
+          initialAxis={axis}
+          initialBand={sp.band?.trim() || null}
+          initialPerson={sp.person?.trim() || null}
+          initialReading={initialReading}
         />
       )}
     </PageContainer>

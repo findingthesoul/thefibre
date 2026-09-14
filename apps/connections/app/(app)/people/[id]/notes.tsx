@@ -24,14 +24,31 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { AtSign, Check, X } from 'lucide-react';
+import { AtSign, CalendarDays, Check, ClipboardCopy, X } from 'lucide-react';
+import { meetingPrompt } from '@/lib/meeting-prompt';
+import {
+  activeToken,
+  applySuggestion,
+  suggest,
+  type ActiveToken,
+  type Suggestion,
+} from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
-import { saveNote, editNote, deleteNote, fetchVocabulary, type NoteKind } from './actions';
+import {
+  saveNote,
+  editNote,
+  deleteNote,
+  fetchVocabulary,
+  loadMyTeams,
+  setDefaultTeam,
+  type MyTeam,
+  type NoteKind,
+} from './actions';
 import { Timeline, TimelineItem } from '@thefibre/shared/ui/timeline';
 import { safely } from '@/lib/safely';
 import { QUEUE_CHANGED, currentWorkspace, queueNote, queuedNotes } from '@/lib/offline-notes';
-import { TagHighlightBox } from '@/components/tag-highlight-box';
+import { HighlightedText, TagHighlightBox } from '@/components/tag-highlight-box';
 import {
   detectMentions,
   detectTags,
@@ -48,6 +65,8 @@ export type Note = {
   /** The key this note was written under. PUT upserts on it, so an edit
    *  needs it — without it the only way to fix a typo is a second note. */
   client_ref: string;
+  /** The team it is filed under, if any. Read back so an edit can keep it. */
+  team_id?: string | null;
   body: string;
   happened_tz?: string | null;
   kind: string;
@@ -75,12 +94,26 @@ function Conversation({
   personId,
   locale,
   onChanged,
+  vocabulary,
+  mentionable,
 }: {
   note: Note;
   personId: string;
   locale: Locale;
   onChanged: () => void;
+  /** The same words and people the composer detects against. */
+  vocabulary: KnownTag[];
+  mentionable: KnownPerson[];
 }) {
+  // Detection counts a word only once something follows it, so a tag that
+  // ends a saved note would never light up. A trailing space settles that
+  // without moving any range: every index it produces is inside the body.
+  const readBody = `${note.body} `;
+  const noteRanges = highlightRanges(
+    readBody,
+    detectTags(readBody, vocabulary),
+    detectMentions(readBody, mentionable, vocabulary),
+  ).filter((r) => r.end <= note.body.length);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(note.body);
   const [busy, setBusy] = useState(false);
@@ -94,6 +127,9 @@ function Conversation({
         editNote({
           client_ref: note.client_ref,
           person_id: personId,
+          // Kept as it was. Leaving it out would take the note out of its
+          // team's update meeting for the sake of fixing a word.
+          team_id: note.team_id ?? null,
           body: draft,
           kind: note.kind as NoteKind,
           // Unchanged on purpose: an edit fixes the words, not when it
@@ -200,7 +236,9 @@ function Conversation({
         aria-label={t(locale, 'edit')}
       >
         {note.body.trim() ? (
-          <span className="whitespace-pre-wrap break-words leading-relaxed">{note.body}</span>
+          <span className="whitespace-pre-wrap break-words leading-relaxed">
+            <HighlightedText text={note.body} ranges={noteRanges} />
+          </span>
         ) : (
           <span className="text-ink-muted">{t(locale, 'note_no_words')}</span>
         )}
@@ -248,7 +286,15 @@ function kindKey(kind: string): (typeof KIND_KEYS)[keyof typeof KIND_KEYS] {
  * action, and making somebody say so was asking a question to get the answer
  * it already had.
  */
-type FollowUp = 'none' | 'week' | 'two_weeks' | 'month' | 'exact';
+export type FollowUp =
+  | 'none'
+  | 'today'
+  | 'tomorrow'
+  | 'this_week'
+  | 'week'
+  | 'two_weeks'
+  | 'month'
+  | 'exact';
 /**
  * `offline` is the note being safe ON THIS DEVICE and not yet on the server —
  * deliberately distinct from `saved`, because telling somebody a note is saved
@@ -257,15 +303,44 @@ type FollowUp = 'none' | 'week' | 'two_weeks' | 'month' | 'exact';
  */
 type Status = 'idle' | 'queued' | 'saving' | 'saved' | 'error' | 'offline';
 
+/** The reader's language, named for the assistant the prompt is pasted into. */
+const LANGUAGE_NAMES: Record<Locale, string> = {
+  en: 'English',
+  nl: 'Dutch',
+  es: 'Spanish',
+  pt: 'Portuguese',
+  de: 'German',
+  fr: 'French',
+};
+
 const FOLLOW_UP_KEYS = {
   none: 'note_followup_none',
+  today: 'note_followup_today',
+  tomorrow: 'note_followup_tomorrow',
+  this_week: 'note_followup_this_week',
   week: 'note_followup_week',
   two_weeks: 'note_followup_two_weeks',
   month: 'note_followup_month',
   exact: 'note_followup_exact',
 } as const;
 
-const FOLLOW_UPS: FollowUp[] = ['none', 'week', 'two_weeks', 'month', 'exact'];
+/**
+ * The follow-ups the LIST offers. `exact` is deliberately not one of them:
+ * Sjoerd, 2026-09-14 — *"there is 'on a date'. We just need a date icon"* — so a
+ * picked date is reached through the calendar button beside the list, and only
+ * appears in the list while one is chosen (so the list can show what is set).
+ *
+ * Today, tomorrow and this week added the same day, at his ask: the shortest
+ * horizons are the ones somebody reaches for straight after a call.
+ */
+const FOLLOW_UPS: FollowUp[] = ['none', 'today', 'tomorrow', 'this_week', 'week', 'two_weeks', 'month'];
+
+/** Local time at an hour on a given day. */
+function at(day: Date, hour: number): Date {
+  const d = new Date(day);
+  d.setHours(hour, 0, 0, 0);
+  return d;
+}
 
 /** Adding a month to the 31st must not land in the month after next. */
 function addMonth(from: Date): Date {
@@ -285,7 +360,41 @@ function addMonth(from: Date): Date {
  * `exact` with nothing typed is not a follow-up, because half a date is not
  * an answer.
  */
-function followUpIso(choice: FollowUp | null, exact: string): string | null {
+export function followUpIso(
+  choice: FollowUp | null,
+  exact: string,
+  now = new Date(),
+): string | null {
+  // The short horizons land at a working hour rather than at "now plus a
+  // day", because a follow-up due at 23:14 tomorrow is a follow-up nobody
+  // will see as due until the day after.
+  if (choice === 'today') {
+    // End of the working day — or right now if that has already passed, so a
+    // late-evening "today" is due, not scheduled into the past.
+    const end = at(now, 17);
+    return (end > now ? end : now).toISOString();
+  }
+  if (choice === 'tomorrow') {
+    const d = new Date(now);
+    d.setDate(d.getDate() + 1);
+    return at(d, 9).toISOString();
+  }
+  if (choice === 'this_week') {
+    // Friday at the end of the day. On a Friday afternoon, a Saturday or a
+    // Sunday "this week" has nowhere left to go, so it means today.
+    const dow = now.getDay(); // 0 Sunday … 6 Saturday
+    // The weekend first, and explicitly. The first version computed "days to
+    // Friday" as `dow <= 5 ? 5 - dow : 0`, which sent a SUNDAY to the
+    // following Friday (0 is <= 5) and a Saturday to 17:00 that Saturday —
+    // both contradicting this comment, and caught by the test before it
+    // shipped.
+    if (dow === 0 || dow === 6) return now.toISOString();
+    const toFriday = 5 - dow;
+    const friday = new Date(now);
+    friday.setDate(friday.getDate() + toFriday);
+    const end = at(friday, 17);
+    return (end > now ? end : now).toISOString();
+  }
   if (choice === 'week') {
     const d = new Date();
     d.setDate(d.getDate() + 7);
@@ -331,6 +440,35 @@ export function Notes({
   const router = useRouter();
 
   const [body, setBody] = useState('');
+  /**
+   * The `#` / `@` word under the caret, and which suggestion is highlighted.
+   * Sjoerd, 2026-09-14: *"if I start with the hashtag... hashtag f, that it
+   * shows in a drop down some of the options... And with the @, the company
+   * or the people"*. The rules for what counts live in lib/autocomplete.ts,
+   * tested on their own.
+   */
+  const [caret, setCaret] = useState(0);
+  const [pickIndex, setPickIndex] = useState(0);
+  /** Escape closes the list for THIS word only; typing on reopens it. */
+  const [dismissedAt, setDismissedAt] = useState<number | null>(null);
+  const boxRef = useRef<HTMLTextAreaElement | null>(null);
+  /**
+   * "From a meeting": a bigger box and a prompt to take to an AI assistant.
+   * Sjoerd, 2026-09-14 — see lib/meeting-prompt.ts for what the prompt
+   * carries and, more to the point, what it deliberately does not.
+   */
+  const [meeting, setMeeting] = useState(false);
+  /**
+   * Which of my teams this note is filed under. Sjoerd, 2026-09-14: *"I'm
+   * automatically selected... when I do what happened, I can open it, and then
+   * I can see the teams I am part of... I can have a default team"*.
+   *
+   * Preselected to my default once the teams arrive, and left alone after a
+   * commit — the next note is usually for the same team.
+   */
+  const [teams, setTeams] = useState<MyTeam[]>([]);
+  const [teamId, setTeamId] = useState<string | null>(null);
+  const [copied, setCopied] = useState<'idle' | 'copied' | 'failed'>('idle');
   const [kind, setKind] = useState<NoteKind>('note');
   /** "YYYY-MM-DDTHH:mm" local, or '' meaning "now" — decided by the API. */
   const [when, setWhen] = useState('');
@@ -407,6 +545,18 @@ export function Notes({
 
   useEffect(() => {
     let alive = true;
+    void loadMyTeams().then((mine) => {
+      if (!alive) return;
+      setTeams(mine);
+      setTeamId(mine.find((t) => t.is_default)?.id ?? null);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let alive = true;
     fetchVocabulary()
       .then((v) => {
         if (!alive) return;
@@ -439,6 +589,48 @@ export function Notes({
   // results the chips show, so the two can never disagree about a word.
   const ranges = highlightRanges(body, tags, mentions);
 
+  const token: ActiveToken | null = activeToken(body, caret);
+  const suggestions: Suggestion[] =
+    token && dismissedAt !== token.start ? suggest(token, vocabulary, mentionable) : [];
+  const listOpen = suggestions.length > 0;
+
+  function pick(sug: Suggestion) {
+    if (!token) return;
+    const next = applySuggestion(body, token, sug);
+    setBody(next.text);
+    setCaret(next.caret);
+    setPickIndex(0);
+    // Put the caret where the insert ended. The textarea is controlled, so the
+    // new value lands on the next render — the caret has to wait for it.
+    requestAnimationFrame(() => {
+      const el = boxRef.current;
+      if (el) {
+        el.focus();
+        el.setSelectionRange(next.caret, next.caret);
+      }
+    });
+  }
+
+  function onBoxKey(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (!listOpen) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setPickIndex((i) => (i + 1) % suggestions.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setPickIndex((i) => (i - 1 + suggestions.length) % suggestions.length);
+    } else if (e.key === 'Enter' || e.key === 'Tab') {
+      // Enter normally makes a new line in the note; while the list is open it
+      // picks instead, which is what every autocomplete people know does.
+      e.preventDefault();
+      const sug = suggestions[Math.min(pickIndex, suggestions.length - 1)];
+      if (sug) pick(sug);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      if (token) setDismissedAt(token.start);
+    }
+  }
+
   function payload(isDraft: boolean) {
     if (!clientRef.current) clientRef.current = crypto.randomUUID();
     let tz: string | undefined;
@@ -450,6 +642,7 @@ export function Notes({
     return {
       client_ref: clientRef.current,
       person_id: personId,
+      team_id: teamId,
       body,
       kind,
       ...(when ? { happened_at: new Date(when).toISOString() } : {}),
@@ -618,14 +811,167 @@ export function Notes({
             text box is untouched — the tints are painted behind it — so
             typing, autocorrect and the caret behave exactly as before. See
             TagHighlightBox for why that trade was made. */}
+        {/* By you, for a team. Only when there IS a team to choose: most
+            workspaces never use teams this way, and a picker with one option
+            reading "no team" would be noise on every note. */}
+        {teams.length > 0 && (
+          <div className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+            <span>{t(locale, 'team_by_you')}</span>
+            <label className="flex items-center gap-1.5">
+              <span>{t(locale, 'team_for')}</span>
+              <select
+                value={teamId ?? ''}
+                onChange={(e) => setTeamId(e.target.value || null)}
+                className="rounded-md border border-line bg-surface px-2 py-1 text-xs"
+              >
+                <option value="">{t(locale, 'team_none')}</option>
+                {teams.map((tm) => (
+                  <option key={tm.id} value={tm.id}>
+                    {tm.name}
+                    {tm.is_default ? ` · ${t(locale, 'team_default')}` : ''}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {/* Offered only when the choice differs from the default, so the
+                control appears exactly when it would do something. */}
+            {teamId !== (teams.find((tm) => tm.is_default)?.id ?? null) && (
+              <button
+                type="button"
+                onClick={async () => {
+                  const r = await safely(
+                    () => setDefaultTeam(teamId),
+                    (error) => ({ ok: false as const, error }),
+                  );
+                  if (r.ok) setTeams((prev) => prev.map((tm) => ({ ...tm, is_default: tm.id === teamId })));
+                }}
+                className="underline-offset-2 hover:text-ink hover:underline"
+              >
+                {t(locale, teamId ? 'team_make_default' : 'team_clear_default')}
+              </button>
+            )}
+          </div>
+        )}
+
         <TagHighlightBox
+          rows={meeting ? 10 : 3}
           value={body}
-          onChange={setBody}
+          onChange={(v) => {
+            setBody(v);
+            setPickIndex(0);
+          }}
+          textareaRef={boxRef}
+          onKeyDown={onBoxKey}
+          onCaret={(c) => {
+            setCaret(c);
+            // Moving to a different word forgets an Escape on the last one.
+            if (dismissedAt !== null && activeToken(body, c)?.start !== dismissedAt) setDismissedAt(null);
+          }}
           ranges={ranges}
           activeKey={activeKey}
           placeholder={t(locale, 'note_placeholder')}
           ariaLabel={`${t(locale, 'notes_heading')} — ${personName}`}
         />
+
+        {/* From a meeting. Sjoerd, 2026-09-14: *"a proper prompt that someone
+            could paste into their ChatGPT or Claude or Gemini... and that
+            summary could be pasted in the what happened"*.
+
+            This app does not call an AI itself. The person takes the prompt to
+            the assistant THEY already use, with a transcript they already
+            have, and brings back a short note — so no transcript is ever sent
+            anywhere by The Fibre, and nobody has to hand this platform a key to
+            a service it does not run. */}
+        <div className="mt-2">
+          <button
+            type="button"
+            onClick={() => setMeeting((m) => !m)}
+            aria-expanded={meeting}
+            className="text-xs text-ink-muted underline-offset-2 hover:text-ink hover:underline"
+          >
+            {t(locale, meeting ? 'meeting_close' : 'meeting_open')}
+          </button>
+          {meeting && (
+            <div className="mt-2 rounded-md border border-line bg-surface px-3 py-2.5 text-xs text-ink-muted">
+              <ol className="list-decimal space-y-0.5 pl-4">
+                <li>{t(locale, 'meeting_step_copy')}</li>
+                <li>{t(locale, 'meeting_step_paste')}</li>
+                <li>{t(locale, 'meeting_step_back')}</li>
+              </ol>
+              <div className="mt-2 flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const text = meetingPrompt({
+                      personName,
+                      languageName: LANGUAGE_NAMES[locale],
+                      // Topic tags only. Organisation words are left out on
+                      // purpose — see the header of lib/meeting-prompt.ts.
+                      topicTags: vocabulary.filter((w) => !w.organisationId).map((w) => w.name),
+                    });
+                    try {
+                      await navigator.clipboard.writeText(text);
+                      setCopied('copied');
+                    } catch {
+                      // A browser that refuses the clipboard should not leave
+                      // somebody thinking it worked.
+                      setCopied('failed');
+                    }
+                    setTimeout(() => setCopied('idle'), 2500);
+                  }}
+                  className="inline-flex h-8 items-center gap-1.5 rounded-md border border-line bg-surface-raised px-3 text-sm text-ink hover:bg-surface-sunken"
+                >
+                  <ClipboardCopy size={14} strokeWidth={1.75} />
+                  {t(locale, 'meeting_copy')}
+                </button>
+                {copied === 'copied' && <span className="inline-flex items-center gap-1"><Check size={13} /> {t(locale, 'meeting_copied')}</span>}
+                {copied === 'failed' && <span className="text-ink">{t(locale, 'meeting_copy_failed')}</span>}
+              </div>
+              <p className="mt-2 text-ink-subtle">{t(locale, 'meeting_privacy')}</p>
+            </div>
+          )}
+        </div>
+
+        {/* `#` and `@` suggestions for the word under the caret.
+
+            IN THE FLOW, not floating. This composer lives inside a dialog, and
+            a floating list opens into the dialog's bottom edge and is clipped
+            — the exact bug the organisation popup shipped with on 2026-09-13.
+            Pushing the controls down for a moment is the lesser cost.
+
+            `onMouseDown` prevents the textarea losing focus before the click
+            lands, so picking with the mouse keeps the caret in the note. */}
+        {listOpen && (
+          <ul
+            role="listbox"
+            aria-label={t(locale, token?.trigger === '#' ? 'ac_tags' : 'ac_people')}
+            className="mt-1 max-h-48 overflow-y-auto rounded-md border border-line bg-surface py-1"
+          >
+            {suggestions.map((sug, i) => (
+              <li key={`${sug.kind}:${sug.id ?? sug.name}`} role="option" aria-selected={i === pickIndex}>
+                <button
+                  type="button"
+                  onMouseDown={(e) => e.preventDefault()}
+                  onMouseEnter={() => setPickIndex(i)}
+                  onClick={() => pick(sug)}
+                  className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm ${
+                    i === pickIndex ? 'bg-surface-sunken' : ''
+                  }`}
+                >
+                  <span className="w-3 text-center text-xs text-ink-subtle">
+                    {sug.kind === 'tag' ? '#' : '@'}
+                  </span>
+                  <span>{sug.name}</span>
+                  {sug.kind !== 'tag' && (
+                    <span className="ml-auto text-xs text-ink-subtle">
+                      {t(locale, sug.kind === 'person' ? 'ac_kind_person' : 'ac_kind_org')}
+                    </span>
+                  )}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
 
         {/* Tags found in what was just written.
             
@@ -723,8 +1069,29 @@ export function Notes({
                   {t(locale, FOLLOW_UP_KEYS[f])}
                 </option>
               ))}
+              {/* Only present while a picked date is the answer, so the list
+                  can show that something is set rather than a wrong option. */}
+              {followUp === 'exact' && (
+                <option value="exact">{t(locale, 'note_followup_exact')}</option>
+              )}
             </select>
           </label>
+          {/* A picked date is a calendar icon, not a line in the list. Sjoerd,
+              2026-09-14: *"there is 'on a date'. We just need a date icon"*. */}
+          <button
+            type="button"
+            onClick={() => setFollowUp(followUp === 'exact' ? 'none' : 'exact')}
+            aria-pressed={followUp === 'exact'}
+            aria-label={t(locale, 'note_followup_exact')}
+            title={t(locale, 'note_followup_exact')}
+            className={`inline-flex h-7 w-7 items-center justify-center rounded-md border transition-colors ${
+              followUp === 'exact'
+                ? 'border-ink bg-ink text-ink-inverse'
+                : 'border-line bg-surface text-ink-muted hover:text-ink'
+            }`}
+          >
+            <CalendarDays size={14} strokeWidth={1.75} />
+          </button>
 
           {/* The shared date field, not a native input. This app's rule is
               that dates always go through DateField — it carries the locale's
@@ -767,12 +1134,14 @@ export function Notes({
                 </select>
               </label>
 
-              <label className="flex items-center gap-2">
-                <span className="shrink-0 text-xs text-ink-muted">{t(locale, 'note_when')}</span>
-                <span className="min-w-[13rem]">
-                  <DateTimeField value={when} onChange={setWhen} label={undefined} />
-                </span>
-              </label>
+              {/* No "When" label. Sjoerd, 2026-09-14: *"'when' can be taken
+                  away. It is there twice"* — the field's own placeholder already
+                  says pick a date and time, so the label was the same word
+                  printed beside itself. Its accessible name stays, for the
+                  people who cannot see the placeholder. */}
+              <span className="min-w-[13rem]" aria-label={t(locale, 'note_when')}>
+                <DateTimeField value={when} onChange={setWhen} label={undefined} />
+              </span>
           </>
         </div>
 
@@ -834,6 +1203,8 @@ export function Notes({
               note={n}
               personId={personId}
               locale={locale}
+              vocabulary={vocabulary}
+              mentionable={mentionable}
               onChanged={() => (onCommitted ? onCommitted() : router.refresh())}
             />
           ))}

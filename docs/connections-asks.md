@@ -43,9 +43,9 @@ neither in code nor in a document. That is what this file fixes.
 | 15 | After connecting somebody, the screen should update | **Shipped** v0.73.40 |
 | 16 | A full debug and optimisation pass | **Shipped** v0.73.41 |
 | 17 | A new full backlog | **Shipped** — [connections-backlog.md](connections-backlog.md) |
-| 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **Backlog** — was MISSED, see below |
+| 18 | **Timeline: highlight tags; companies and people as @, highlighted** | **Shipped** v0.73.57 — was MISSED |
 | 19 | **Click a name → popup with name, email, phone, LinkedIn** | **Shipped** v0.73.51 — was MISSED, see below |
-| 20 | **Landscape should work like "as columns" in macOS** | **Not started** — was MISSED; asked about again, next to build |
+| 20 | **Landscape should work like "as columns" in macOS** | **Shipped** v0.73.56 |
 | 21 | Where do I change the labels of a reading? | **Answered** — Settings → What you call the steps; per workspace, admin only |
 | 22 | Entries: can I fill in everything? Also tags? | **Answered** + **Backlog** §1.3, §2.6 |
 | 23 | Entries interface error — content under the sidebar | **Shipped** v0.73.46 (hardened; cause not reproduced) |
@@ -60,7 +60,7 @@ neither in code nor in a document. That is what this file fixes.
 | 32 | Key contact / speaks for us — what do they mean? | **Shipped** v0.73.47 — removed; they were one switch with two names |
 | 33 | A minimum height so tabs are calm | **Shipped** v0.73.48 |
 | 34 | Follow up, kind and date on one row | **Shipped** v0.73.48 |
-| 35 | Could there also be a team member? | **Waiting** — owner of the relationship, or who had the conversation? |
+| 35 | Could there also be a team member? | **Answered** by 44 — the author is you, and the note is filed under a team |
 | 36 | How does Connections work with individual / teams / workspace? | **Answered** — workspace is the unit; calendar and owed tasks are yours; teams unused |
 | 37 | The list of readings should be flexible — title above, then rows of "name : description" | **Shipped** v0.73.49 |
 | 38 | Keep Connections at workspace level; admin decides who has access — everyone or a selection | **Answered** — that is exactly what exists |
@@ -69,6 +69,24 @@ neither in code nor in a document. That is what this file fixes.
 | 41 | Is the staging branch mine? (peer session, blocked release) | **Answered** — three stale premises corrected; peer released on top |
 | 42 | Kind and when should sit next to Follow up, not behind a click | **Shipped** v0.73.54 |
 | 43 | Peer: is the invoices tab yours? | **Answered** — evidence points at The Fibre contact profile, which already has the tab machinery |
+
+## 2026-09-14
+
+| # | Asked | Status |
+|---|---|---|
+| 44 | Teams as an organising layer: a person in several teams; a note is filed under one of mine, with a default team; I am the author automatically | **Shipped** v0.73.59 — the Fibre session had ended, so built as proposed: a filter, not a wall |
+| 45 | An update view: pick a team and a period (last week, two weeks, custom) and see every shift by everyone in it — for update meetings | **Shipped** v0.73.59 — on Today; notes only, since nothing else carries a team yet |
+| 46 | A longer "what happened" for meetings, plus a copyable prompt to paste a transcript into ChatGPT / Claude / Gemini that returns a short summary with @ and # | **Shipped** v0.73.57 |
+| 47 | Typing `#f` shows a dropdown of matching tags; typing `@` shows people and companies | **Shipped** v0.73.55 |
+| 48 | A tag should look like a tag inside the sentence; it need not also be listed at the bottom | **Answered** — it already shows inside the sentence; the chips stay because their X is the only way to take a tag off without deleting the word |
+| 49 | Landscape as macOS columns: person inline in the last column, or the popup? | **Decided** — inline, since it went unanswered; reversible |
+| 50 | Production: three migrations missing after the promotion — go or no-go? | **Blocked** — "make it all work" taken as go; the push was refused by the permission classifier. Sjoerd to run it. |
+| 51 | "When" appears twice in the composer — remove the label | **Shipped** v0.73.55 |
+| 52 | "On a date" in the follow-up list needs only a calendar icon, not the word | **Shipped** v0.73.55 |
+| 53 | Follow-up list gains today, tomorrow and this week | **Shipped** v0.73.55 |
+| 54 | Landscape: see the movement — the steps as columns next to each other | **Shipped** v0.73.58 — a Movement tab beside Browse |
+| 55 | Landscape: an extra column to sub-group by tag, location, company… | **Shipped** v0.73.58 — group by tag, location or company |
+| 56 | "Make it all work" — everything open: production, movement board, sub-groups, prompt, highlighting, teams | **Done except production** — v0.73.57–59; the production push was refused by the permission classifier |
 
 ### The three that were lost
 
