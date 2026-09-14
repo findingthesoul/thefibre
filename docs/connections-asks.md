@@ -97,6 +97,7 @@ neither in code nor in a document. That is what this file fixes.
 | 64 | The note box is inconsistent — small, big, over two lines; put the inputs on one line | **Shipped** v0.74.3 — kind, time and team on one line, every control the same small height (shared DateTimeField gained size="sm") |
 | 65 | "From a meeting transcript…" should say "AI report as input" | **Shipped** v0.74.3 |
 | 66 | Follow up and Done on one line | **Shipped** v0.74.3 — wraps below on a phone |
+| 67 | The follow-up's date field can just be a calendar icon | **Shipped** v0.74.4 — an icon until a date is picked, then the icon and a short date; shared DateTimeField gained size="icon" |
 
 ### The three that were lost
 

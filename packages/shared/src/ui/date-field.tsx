@@ -533,7 +533,7 @@ export function DateTimeField({
    * Connections note box, where the md field was twice the height of its
    * neighbours.
    */
-  size?: 'md' | 'sm';
+  size?: 'md' | 'sm' | 'icon';
   /** Shown when empty, instead of "Pick date & time". */
   placeholder?: string;
 }) {
@@ -590,6 +590,29 @@ export function DateTimeField({
         </span>
       )}
       {name && <input type="hidden" name={name} value={hasValue ? `${date}T${time}` : ''} />}
+      {size === 'icon' ? (
+        // Just a calendar icon until a date is picked, then the icon and a
+        // short date. Sjoerd, 2026-09-14: "The date field can just be a
+        // calendar icon". The popover can clear it, so no X here.
+        <button
+          ref={btnRef}
+          type="button"
+          onClick={toggle}
+          aria-label={placeholder ?? chromeT(locale, 'pick_datetime')}
+          title={placeholder ?? chromeT(locale, 'pick_datetime')}
+          className={`inline-flex h-7 items-center justify-center gap-1.5 rounded-md border border-line bg-surface text-xs text-ink-muted hover:border-line-strong hover:text-ink focus:border-line-strong focus:outline-none ${
+            selected ? 'px-2' : 'w-7'
+          }`}
+        >
+          <CalendarDays size={14} strokeWidth={1.75} />
+          {selected && (
+            <span className="text-ink tabular-nums">
+              {new Intl.DateTimeFormat(INTL_LOCALES[locale], { day: 'numeric', month: 'short' }).format(selected)}{' '}
+              {time}
+            </span>
+          )}
+        </button>
+      ) : (
       <button
         ref={btnRef}
         type="button"
@@ -624,6 +647,7 @@ export function DateTimeField({
           <CalendarDays size={size === 'sm' ? 13 : 17} strokeWidth={1.75} />
         </span>
       </button>
+      )}
       {hint && <span className="mt-1 block text-xs text-ink-muted">{hint}</span>}
       {open && anchor && (
         <DateTimePopover

@@ -6,6 +6,13 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.74.4] — 2026-09-14 — A follow-up date is a calendar icon (staging)
+
+**Connections.** Choosing "on a date…" for a follow-up shows a calendar icon,
+not a date field. Pick a date and the icon shows it, short ("15 Sep 09:00").
+
+**Shared:** `DateTimeField` has `size="icon"`.
+
 ## [0.74.3] — 2026-09-14 — The note box on two tidy lines (staging)
 
 **Connections — one height, fewer lines.** The top of the note box is one line:

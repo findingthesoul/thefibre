@@ -1163,9 +1163,13 @@ export function Notes({
               `datetime-local` shipped here on 2026-09-13 and was wrong for
               exactly that reason. */}
           {followUp === 'exact' && (
-            <span className="w-[12.5rem]">
-              <DateTimeField size="sm" value={followUpExact} onChange={setFollowUpExact} label={undefined} />
-            </span>
+            <DateTimeField
+              size="icon"
+              value={followUpExact}
+              onChange={setFollowUpExact}
+              placeholder={t(locale, 'note_followup_exact')}
+              label={undefined}
+            />
           )}
         </div>
 
