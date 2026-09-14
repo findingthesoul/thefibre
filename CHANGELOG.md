@@ -6,6 +6,35 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.4] — 2026-09-14 — fields go compact again, and saving is yellow (staging)
+
+Sjoerd, on The Thread's dialogs after v0.75.1: *"The design of the thread
+popups just went rogue. It was great. Now it is terrible."* v0.75.1 had grown
+every text field and dropdown to the date field's taller size, answering his
+own earlier complaint in the Connections chat that the two did not match.
+
+Both requests were put to him side by side, and he chose: **compact, with the
+date field shrinking to match**. So every field is one box again — the one The
+Thread's dialogs had — and the consistency he asked for in Connections
+survives. The box is `FIELD_BOX` in `packages/shared/src/ui/fields.tsx`,
+`h-[38px] px-3 text-sm`: exactly the height of Thread's In person / Virtual
+control that sits beside these fields. It is a fixed height rather than
+padding, because Safari draws a native select at its own height and ignores
+padding; dropdowns keep the drawn arrow for the same reason. DateField and
+DateTimeField use the same box.
+
+**Saving is yellow** — *"the whole app, for SAVE when SAVE is an option or
+needed: Yellow/Orange please"*, confirmed against his earlier "keep black" in
+the Connections chat. The shared Button gains `variant="save"`, the yellow of
+the switches. A primary button that submits a form wears it automatically, so
+nobody has to remember: across all apps those are Save / Save changes in 43
+places and Create / Add in most of the rest. Primary buttons that do not save
+stay black. A save that is not a form submit, like Connections' Done on an
+autosaving note, says `variant="save"`.
+
+Not visually checked here: every surface these touch is behind sign-in. All
+nine apps typecheck against it.
+
 ## [0.75.3] — 2026-09-14 — an organisation answers to every name it has had (staging)
 
 Sjoerd: *"Organisation should have extra fields for tradenames or

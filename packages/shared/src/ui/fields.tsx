@@ -2,19 +2,32 @@ import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes,
 import { ChevronDown } from 'lucide-react';
 import { chromeT, useLocale } from './i18n-ui.js';
 
-// ONE size for every field: the date field's. Sjoerd, 2026-09-14, looking at a
-// form with a select beside a date: "Why are the dropdowns another format than
-// the date... this is bad design." They were: inputs and selects were
-// px-3 py-2 text-sm (and Safari draws a native select at its own, shorter
-// height, ignoring the padding), while DateField/DateTimeField were
-// h-11 px-3.5 text-[15px] — the size he asked for on 2026-07-02 ("more
-// spacious, bigger fonts"). Everything now matches the date field.
+// ONE size for every field, and it is the compact one (Sjoerd, 2026-09-14).
+//
+// The history, because this box has now moved twice in a day and the reason
+// matters more than the number. Text inputs and selects were compact
+// (px-3 py-2 text-sm) while DateField was taller (h-11 px-3.5 text-[15px]), and
+// Sjoerd called the mismatch bad design in the Connections chat, so v0.75.1
+// grew every field to the date field's size. Seeing that on The Thread's
+// dialogs he said: "The design of the thread popups just went rogue. It was
+// great. Now it is terrible." Asked which he wanted everywhere, with both of
+// his requests put to him side by side, he chose: compact, and the date field
+// shrinks to match. So consistency survived and the size went back.
+//
+// FIXED HEIGHT rather than vertical padding, deliberately: Safari draws a
+// native <select> at its own height and ignores padding, which was half of
+// the original complaint. h-[38px] is what px-3 py-2 text-sm with a 1px border
+// renders to, and it is exactly the height of The Thread's In person / Virtual
+// segmented control, which sits beside these fields in the engagement dialog.
+// DateField and DateTimeField use the same box (date-field.tsx). If you change
+// one, change FIELD_BOX and those two triggers in the same commit.
+export const FIELD_BOX = 'h-[38px] px-3 text-sm';
 const SURFACE =
-  'w-full rounded-md border border-line bg-surface-raised px-3.5 text-[15px] focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
-const INPUT_CLASS = `mt-1 h-11 ${SURFACE}`;
+  'w-full rounded-md border border-line bg-surface-raised focus:border-line-strong focus:outline-none placeholder:text-ink-muted';
+const INPUT_CLASS = `mt-1 ${FIELD_BOX} ${SURFACE}`;
 // appearance-none so Safari honours the height; the arrow is drawn instead.
-const SELECT_CLASS = `mt-1 h-11 appearance-none pr-10 ${SURFACE}`;
-const TEXTAREA_CLASS = `mt-1 py-2.5 ${SURFACE}`;
+const SELECT_CLASS = `mt-1 ${FIELD_BOX} appearance-none pr-9 ${SURFACE}`;
+const TEXTAREA_CLASS = `mt-1 px-3 py-2 text-sm ${SURFACE}`;
 
 /**
  * For controls that cannot be a TextField/SelectField/TextAreaField — use the
@@ -26,14 +39,14 @@ const TEXTAREA_CLASS = `mt-1 py-2.5 ${SURFACE}`;
  *   <FieldSelect>           a select without a label (filter bar)
  *   FIELD_LABEL_CLASS       the label above any of them
  */
-export const FIELD_CLASS = `py-2.5 ${SURFACE}`;
+export const FIELD_CLASS = `px-3 py-2 text-sm ${SURFACE}`;
 
 /**
  * A single-line `<input>` that is not a TextField (a search box with an icon
- * inside, a builder cell): exactly TextField's box — h-11 — so it lines up with
+ * inside, a builder cell): exactly TextField's box (FIELD_BOX) — so it lines up with
  * every other field. FIELD_CLASS is for textareas and multi-line wrappers.
  */
-export const FIELD_INPUT_CLASS = `h-11 ${SURFACE}`;
+export const FIELD_INPUT_CLASS = `${FIELD_BOX} ${SURFACE}`;
 /** The same, sized to its content or a width you give it. */
 export const FIELD_INPUT_CLASS_INLINE = FIELD_INPUT_CLASS.replace('w-full ', '');
 
@@ -51,7 +64,7 @@ type FieldSelectProps = Omit<SelectHTMLAttributes<HTMLSelectElement>, 'className
 export function FieldSelect({ options, inline = false, ...rest }: FieldSelectProps) {
   return (
     <span className={`relative ${inline ? 'inline-block' : 'block'}`}>
-      <select className={`h-11 appearance-none pr-10 ${inline ? SURFACE.replace('w-full ', '') : SURFACE}`} {...rest}>
+      <select className={`${FIELD_BOX} appearance-none pr-9 ${inline ? SURFACE.replace('w-full ', '') : SURFACE}`} {...rest}>
         {options.map((o) => (
           <option key={o.value} value={o.value} disabled={o.disabled}>
             {o.label}
@@ -62,7 +75,7 @@ export function FieldSelect({ options, inline = false, ...rest }: FieldSelectPro
         size={16}
         strokeWidth={1.75}
         aria-hidden="true"
-        className="pointer-events-none absolute right-3.5 top-1/2 -translate-y-1/2 text-ink-muted"
+        className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-ink-muted"
       />
     </span>
   );
@@ -139,7 +152,7 @@ export function SelectField({ label, required, errors, hint, options, ...rest }:
           size={16}
           strokeWidth={1.75}
           aria-hidden="true"
-          className="pointer-events-none absolute right-3.5 top-1/2 mt-0.5 -translate-y-1/2 text-ink-muted"
+          className="pointer-events-none absolute right-3 top-1/2 mt-0.5 -translate-y-1/2 text-ink-muted"
         />
       </span>
     </FieldShell>

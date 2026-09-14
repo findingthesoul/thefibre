@@ -456,7 +456,7 @@ export function DateField({
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className="mt-1 w-full h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
+        className="mt-1 w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
       >
         <span className={selected ? 'text-ink' : 'text-ink-muted'}>
           {selected
@@ -583,7 +583,7 @@ export function DateTimeField({
         ref={btnRef}
         type="button"
         onClick={toggle}
-        className={`w-full h-11 rounded-md border border-line bg-surface-raised px-3.5 text-[15px] text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
+        className={`w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none ${
           label !== undefined ? 'mt-1' : ''
         }`}
       >
