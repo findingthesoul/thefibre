@@ -5,7 +5,9 @@ import { t } from '@/lib/i18n-ui';
 // From axes, not bands: this is a server component, and values it reads must
 // come from a module with no directive (see the header of axes.ts).
 import { isAxis, visibleAxes, type Axis, type AxisConfig, type BandLabels } from './axes';
+import Link from 'next/link';
 import { LandscapeColumns } from './columns';
+import { MovementBoard } from './movement';
 import { loadReading } from './actions';
 
 // The shape of the community, as proportions rather than people. A vast
@@ -20,7 +22,7 @@ import { loadReading } from './actions';
 export default async function LandscapePage({
   searchParams,
 }: {
-  searchParams: Promise<{ axis?: string; band?: string; person?: string }>;
+  searchParams: Promise<{ axis?: string; band?: string; person?: string; view?: string }>;
 }) {
   const locale = await uiLocale();
   const sp = await searchParams;
@@ -63,8 +65,40 @@ export default async function LandscapePage({
           would be nice if this works like 'As columns' in OsX."* This replaces
           the chip picker and the band list rather than sitting beside them:
           two ways to do the same thing would each be half-used. */}
+      {/* Two views of the same readings, switched in the URL so a view can be
+          shared. Links rather than a client toggle: it works before any
+          JavaScript arrives. Browse finds somebody; Movement shows who moved
+          (Sjoerd, 2026-09-14: "I want to see the movement — like columns next
+          to each other"). */}
+      <nav className="mt-6 flex gap-1 border-b border-line text-sm">
+        {(['browse', 'movement'] as const).map((v) => {
+          const on = (sp.view === 'movement' ? 'movement' : 'browse') === v;
+          return (
+            <Link
+              key={v}
+              href={`?view=${v}&axis=${axis}`}
+              aria-current={on ? 'page' : undefined}
+              className={`-mb-px border-b-2 px-3 py-2 ${
+                on ? 'border-ink text-ink' : 'border-transparent text-ink-muted hover:text-ink'
+              }`}
+            >
+              {t(locale, v === 'browse' ? 'landscape_view_browse' : 'landscape_view_movement')}
+            </Link>
+          );
+        })}
+      </nav>
+
       {initialReading.ok && initialReading.total === 0 ? (
         <p className="mt-8 text-sm text-ink-muted">{t(locale, 'landscape_empty')}</p>
+      ) : sp.view === 'movement' ? (
+        <MovementBoard
+          locale={locale}
+          axes={shown}
+          config={axisConfig}
+          labels={labels}
+          initialAxis={axis}
+          initialReading={initialReading}
+        />
       ) : (
         <LandscapeColumns
           locale={locale}

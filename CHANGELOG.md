@@ -6,6 +6,23 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.73.58] — 2026-09-14 — See who moved, side by side (staging)
+
+**Connections — the landscape has a Movement view.** Every step of a reading
+stands next to the others, lowest on the left, with each person on the step
+they are on now. Anyone who moved during the period carries an arrow and the
+step they came from; anyone new says so. Each step shows how many came in and
+how many left, so a step that kept its size but turned over still shows it.
+Pick the last 7, 14, 30 or 90 days, and tick "only who moved" for an update
+meeting.
+
+**Group by tag, location or company**, then pick one — `#retreat`, Amsterdam,
+EBBF — and the board shows only those people and how they moved. Location is
+the city, or the country when there is no city; company is where somebody is
+recorded as working now.
+
+Browse — the Finder columns — is still there beside it, one tab away.
+
 ## [0.73.57] — 2026-09-14 — Notes from a meeting, and tags you can see afterwards (staging)
 
 **Connections — turn a meeting transcript into a short note.** Under the note

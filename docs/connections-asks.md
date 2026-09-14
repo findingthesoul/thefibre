@@ -84,8 +84,8 @@ neither in code nor in a document. That is what this file fixes.
 | 51 | "When" appears twice in the composer — remove the label | **Shipped** v0.73.55 |
 | 52 | "On a date" in the follow-up list needs only a calendar icon, not the word | **Shipped** v0.73.55 |
 | 53 | Follow-up list gains today, tomorrow and this week | **Shipped** v0.73.55 |
-| 54 | Landscape: see the movement — the steps as columns next to each other | **In progress** — after the Finder columns land |
-| 55 | Landscape: an extra column to sub-group by tag, location, company… | **In progress** — shape proposed with 54 |
+| 54 | Landscape: see the movement — the steps as columns next to each other | **Shipped** v0.73.58 — a Movement tab beside Browse |
+| 55 | Landscape: an extra column to sub-group by tag, location, company… | **Shipped** v0.73.58 — group by tag, location or company |
 | 56 | "Make it all work" — everything open: production, movement board, sub-groups, prompt, highlighting, teams | **In progress** — taken as the go for production too |
 
 ### The three that were lost

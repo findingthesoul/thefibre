@@ -177,7 +177,109 @@ connectionsRoutes.get('/landscape', async (c) => {
     moved_total: moved.length,
     // Additive and omitted unless asked for, so every existing caller sees
     // the response it already saw.
-    ...(parsed.data.people ? { people: now.map((r) => ({ person_id: r.person_id, rung: r.rung })) } : {}),
+    //
+    // `was` added 2026-09-14 for the movement board (Sjoerd: *"I want to see
+    // the movement — like columns next to each other"*). Where each person
+    // stood at the START of the period, or null when they did not exist yet —
+    // the handler already held it in `before`. Without it the board could
+    // only arrow the forty people `moved` is capped at, and would read as if
+    // everybody else had stood still.
+    ...(parsed.data.people
+      ? {
+          people: now.map((r) => ({
+            person_id: r.person_id,
+            rung: r.rung,
+            was: before.get(r.person_id) ?? null,
+          })),
+        }
+      : {}),
+  });
+});
+
+// GET /connections/facets — what each person can be GROUPED by.
+//
+// Sjoerd, 2026-09-14, of the landscape: *"maybe there could be sub categories
+// (extra column) like tag, location, company, etc."*
+//
+// One read per facet for the whole workspace, not per person, returned as
+// person → values so the browser can group any reading without asking again.
+// Workspaces here are hundreds of people, and the landscape already returns a
+// row per person; this is the same order of size.
+//
+// ── Grouping is not a relationship ─────────────────────────────────────────
+//
+// Two people under one tag, or in one city, are shown TOGETHER here. That is
+// all. Nothing computes on it and nothing is inferred from it (handbook §12),
+// which is exactly why grouping lives in the browser and never feeds a band.
+//
+// ── What "company" means ───────────────────────────────────────────────────
+//
+// A CURRENT org_membership: somebody recorded that this person belongs there.
+// Not an organisation named in a note — that is a tag, and is grouped under
+// Tag if anywhere.
+connectionsRoutes.get('/facets', async (c) => {
+  const ctx = c.get('ctx');
+  const ws = ctx.workspaceId;
+
+  const [peopleRes, tagRes, memRes] = await Promise.all([
+    adminClient
+      .from('person')
+      .select('id, city, country')
+      .eq('workspace_id', ws)
+      .is('deleted_at', null)
+      .is('merged_into', null)
+      .limit(5000),
+    adminClient
+      .from('tag')
+      .select('id, name, organisation_id, person_tag(person_id)')
+      .eq('workspace_id', ws)
+      .limit(2000),
+    adminClient
+      .from('organisation')
+      .select('id, name, org_membership(person_id, ended_at)')
+      .eq('workspace_id', ws)
+      .is('deleted_at', null)
+      .limit(2000),
+  ]);
+  const failed = peopleRes.error ?? tagRes.error ?? memRes.error;
+  if (failed) {
+    console.error('[connections/facets] failed', failed.message);
+    return c.json({ error: failed.message }, 500);
+  }
+
+  type Facets = { tags: string[]; location: string | null; companies: string[] };
+  const out = new Map<string, Facets>();
+  for (const p of (peopleRes.data ?? []) as { id: string; city: string | null; country: string | null }[]) {
+    // City when there is one, otherwise the country: "Amsterdam" groups more
+    // usefully than "NL", and a person with only a country still belongs
+    // somewhere rather than nowhere.
+    out.set(p.id, { tags: [], location: p.city?.trim() || p.country?.trim() || null, companies: [] });
+  }
+
+  for (const t of (tagRes.data ?? []) as {
+    name: string;
+    organisation_id: string | null;
+    person_tag: { person_id: string }[] | null;
+  }[]) {
+    // An organisation tag is grouped under Company by its membership, not
+    // twice under Tag as well.
+    if (t.organisation_id) continue;
+    for (const pt of t.person_tag ?? []) out.get(pt.person_id)?.tags.push(t.name);
+  }
+
+  for (const o of (memRes.data ?? []) as {
+    name: string;
+    org_membership: { person_id: string; ended_at: string | null }[] | null;
+  }[]) {
+    for (const m of o.org_membership ?? []) {
+      if (m.ended_at) continue;
+      const f = out.get(m.person_id);
+      if (f && !f.companies.includes(o.name)) f.companies.push(o.name);
+    }
+  }
+
+  return c.json({
+    people: [...out.entries()].map(([person_id, f]) => ({ person_id, ...f })),
   });
 });
 

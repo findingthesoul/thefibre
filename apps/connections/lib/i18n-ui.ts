@@ -1084,6 +1084,118 @@ const CATALOG = {
     de: 'Der Prompt enthält den Namen dieser Person und eure Themen-Tags — keine anderen Namen aus dem Workspace. Das Transkript geht nur dorthin, wo du es einfügst.', // MT
     fr: 'Le prompt contient le nom de cette personne et vos étiquettes de sujet — aucun autre nom de l’espace. La transcription ne va que là où vous la collez.', // MT
   },
+  landscape_view_browse: {
+    en: 'Browse',
+    nl: 'Bladeren',
+    es: 'Explorar', // MT
+    pt: 'Explorar', // MT
+    de: 'Durchsuchen', // MT
+    fr: 'Parcourir', // MT
+  },
+  landscape_view_movement: {
+    en: 'Movement',
+    nl: 'Beweging',
+    es: 'Movimiento', // MT
+    pt: 'Movimento', // MT
+    de: 'Bewegung', // MT
+    fr: 'Mouvement', // MT
+  },
+  move_period: {
+    en: 'Over',
+    nl: 'Over',
+    es: 'En', // MT
+    pt: 'Em', // MT
+    de: 'Über', // MT
+    fr: 'Sur', // MT
+  },
+  move_days: {
+    en: 'the last {n} days',
+    nl: 'de laatste {n} dagen',
+    es: 'los últimos {n} días', // MT
+    pt: 'os últimos {n} dias', // MT
+    de: 'die letzten {n} Tage', // MT
+    fr: 'les {n} derniers jours', // MT
+  },
+  move_group_by: {
+    en: 'Group by',
+    nl: 'Groepeer op',
+    es: 'Agrupar por', // MT
+    pt: 'Agrupar por', // MT
+    de: 'Gruppieren nach', // MT
+    fr: 'Grouper par', // MT
+  },
+  move_group_none: {
+    en: 'nothing',
+    nl: 'niets',
+    es: 'nada', // MT
+    pt: 'nada', // MT
+    de: 'nichts', // MT
+    fr: 'rien', // MT
+  },
+  move_group_tag: {
+    en: 'tag',
+    nl: 'tag',
+    es: 'etiqueta', // MT
+    pt: 'etiqueta', // MT
+    de: 'Tag', // MT
+    fr: 'étiquette', // MT
+  },
+  move_group_location: {
+    en: 'location',
+    nl: 'plaats',
+    es: 'lugar', // MT
+    pt: 'local', // MT
+    de: 'Ort', // MT
+    fr: 'lieu', // MT
+  },
+  move_group_company: {
+    en: 'company',
+    nl: 'bedrijf',
+    es: 'empresa', // MT
+    pt: 'empresa', // MT
+    de: 'Firma', // MT
+    fr: 'entreprise', // MT
+  },
+  move_group_all: {
+    en: 'all of them',
+    nl: 'allemaal',
+    es: 'todos', // MT
+    pt: 'todos', // MT
+    de: 'alle', // MT
+    fr: 'tous', // MT
+  },
+  move_only_moved: {
+    en: 'Only who moved',
+    nl: 'Alleen wie verschoof',
+    es: 'Solo quien se movió', // MT
+    pt: 'Só quem mudou', // MT
+    de: 'Nur wer sich bewegt hat', // MT
+    fr: 'Seulement qui a bougé', // MT
+  },
+  move_turnover: {
+    en: '{in} in · {out} out',
+    nl: '{in} erbij · {out} weg',
+    es: '{in} entran · {out} salen', // MT
+    pt: '{in} entraram · {out} saíram', // MT
+    de: '{in} dazu · {out} weg', // MT
+    fr: '{in} entrés · {out} sortis', // MT
+  },
+  move_new: {
+    en: 'new',
+    nl: 'nieuw',
+    es: 'nuevo', // MT
+    pt: 'novo', // MT
+    de: 'neu', // MT
+    fr: 'nouveau', // MT
+  },
+  move_from: {
+    en: 'from {step}',
+    nl: 'van {step}',
+    es: 'desde {step}', // MT
+    pt: 'de {step}', // MT
+    de: 'von {step}', // MT
+    fr: 'depuis {step}', // MT
+  },
   ac_tags: {
     en: 'Matching tags',
     nl: 'Passende tags',
