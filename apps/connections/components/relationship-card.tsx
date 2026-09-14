@@ -65,6 +65,8 @@ import {
   type Strength,
 } from '@/app/(app)/people/[id]/relationship-vocab';
 import { fetchVocabulary } from '@/app/(app)/people/[id]/actions';
+import { usePersonPopup } from '@/components/person-popup';
+import { useOrgPopup } from '@/components/org-popup';
 
 // Explicit maps, never a computed `rel_strength_${k}` key — the catalog is
 // typed so a missing translation is a compile error, and a template key throws
@@ -296,6 +298,8 @@ function PickOne({
 }) {
   const [options, setOptions] = useState<{ id: string; name: string }[]>([]);
   const [term, setTerm] = useState('');
+  const { openPerson } = usePersonPopup();
+  const { openOrg } = useOrgPopup();
 
   useEffect(() => {
     let alive = true;
@@ -331,11 +335,18 @@ function PickOne({
 
       {current ? (
         <div className="mt-1 flex flex-wrap items-center gap-2 text-sm">
-          <span className="rounded-full border border-line bg-surface px-3 py-1">
+          {/* Opens who or what it names. Sjoerd, 2026-09-14: "why is the
+              'introduced by' not clickable". A person opens the person popup
+              over this one; a company opens the organisation popup. */}
+          <button
+            type="button"
+            onClick={() => (kind === 'people' ? openPerson(current) : openOrg(current))}
+            className="rounded-full border border-line bg-surface px-3 py-1 hover:border-line-strong hover:underline"
+          >
             {/* Before the vocabulary arrives the id is all there is. Showing
                 it beats showing nothing, which would read as "not set". */}
             {chosen?.name ?? `${current.slice(0, 8)}…`}
-          </span>
+          </button>
           <button type="button" onClick={() => onPick(null)} className="text-ink-muted hover:text-ink">
             {t(locale, 'rel_clear')}
           </button>

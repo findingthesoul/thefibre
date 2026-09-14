@@ -1132,6 +1132,14 @@ const CATALOG = {
     de: 'Wähle jemanden, um die Person hier zu sehen.', // MT
     fr: 'Choisissez quelqu’un pour le voir ici.', // MT
   },
+  landscape_search_people: {
+    en: 'Find a person',
+    nl: 'Zoek een persoon',
+    es: 'Buscar a una persona', // MT
+    pt: 'Procurar uma pessoa', // MT
+    de: 'Person suchen', // MT
+    fr: 'Trouver une personne', // MT
+  },
   landscape_none_here: {
     en: 'Nobody is on this step.',
     nl: 'Niemand staat op deze stap.',
