@@ -56,6 +56,10 @@ function fmtDisplay(d: Date, intl: string): string {
     year: 'numeric',
   }).format(d);
 }
+/** "14 Sep 2026" — short enough for a narrow field, still unambiguous. */
+function fmtDateOnly(d: Date, intl: string): string {
+  return new Intl.DateTimeFormat(intl, { day: 'numeric', month: 'short', year: 'numeric' }).format(d);
+}
 function sameDay(a: Date, b: Date): boolean {
   return (
     a.getFullYear() === b.getFullYear() &&
@@ -458,12 +462,17 @@ export function DateField({
         onClick={toggle}
         className="mt-1 w-full h-[38px] rounded-md border border-line bg-surface-raised px-3 text-sm text-left flex items-center justify-between gap-2 hover:border-line-strong focus:border-line-strong focus:outline-none"
       >
-        <span className={selected ? 'text-ink' : 'text-ink-muted'}>
+        {/* One line, always: "14 Sep 2026", no weekday, and truncated rather
+            than wrapped. Sjoerd, 2026-09-14, a date in a third-width column
+            showing "Mon, 14 Sep 2026" over two lines: "datum needs to fit..
+            write format that works". DateTimeField keeps the weekday — for
+            scheduling a session it is the fact an organiser checks. */}
+        <span className={`min-w-0 truncate whitespace-nowrap ${selected ? 'text-ink' : 'text-ink-muted'}`}>
           {selected
-            ? fmtDisplay(selected, INTL_LOCALES[locale])
+            ? fmtDateOnly(selected, INTL_LOCALES[locale])
             : placeholder ?? chromeT(locale, 'pick_date')}
         </span>
-        <span className="flex items-center gap-1.5 text-ink-muted">
+        <span className="flex shrink-0 items-center gap-1.5 text-ink-muted">
           {value && (
             <X
               size={15}
@@ -587,7 +596,7 @@ export function DateTimeField({
           label !== undefined ? 'mt-1' : ''
         }`}
       >
-        <span className={`truncate ${selected ? 'text-ink' : 'text-ink-muted'}`}>
+        <span className={`min-w-0 truncate whitespace-nowrap ${selected ? 'text-ink' : 'text-ink-muted'}`}>
           {selected ? (
             <>
               {fmtDisplay(selected, INTL_LOCALES[locale])}

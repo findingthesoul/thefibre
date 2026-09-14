@@ -6,6 +6,18 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.8] — 2026-09-14 — A date that fits (staging)
+
+**All apps — date fields stay on one line.** A date-only field reads
+"14 Sep 2026" (no weekday) and never wraps inside its box; a date-and-time
+field keeps its weekday, which matters when scheduling, and is cut off rather
+than wrapped when space is short.
+
+**Connections.** In a narrow place the note box's fields stack instead of
+squeezing. "When" no longer shows a required star. The AI prompt asks you up to
+three short questions first when the transcript leaves something essential
+unclear. The Entries "Careful" warning uses the shared warning style.
+
 ## [0.75.7] — 2026-09-14 — one reference for every look (staging)
 
 Sjoerd: *"make a brand design document as instruction for the interface...

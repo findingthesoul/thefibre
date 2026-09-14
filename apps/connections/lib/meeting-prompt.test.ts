@@ -36,6 +36,14 @@ describe('the meeting prompt', () => {
     expect(meetingPrompt(base).trimEnd().endsWith('already in this chat) ---')).toBe(true);
   });
 
+  it('asks a few questions first when the transcript leaves something essential unclear', () => {
+    // Sjoerd, 2026-09-14. Capped, so an assistant does not interrogate, and
+    // skipped when nothing essential is missing.
+    const p = meetingPrompt(base);
+    expect(p).toContain('ask me up to three short, numbered questions first');
+    expect(p).toContain('skip the questions');
+  });
+
   it('also works in a chat that has already worked on the transcript', () => {
     // Sjoerd, 2026-09-14. Pasted into an ongoing conversation, there is no
     // transcript below it — the prompt has to say to look earlier, and that
