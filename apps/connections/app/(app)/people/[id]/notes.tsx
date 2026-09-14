@@ -26,13 +26,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AtSign, CalendarDays, Check, ClipboardCopy, X } from 'lucide-react';
 import { meetingPrompt } from '@/lib/meeting-prompt';
-import {
-  activeToken,
-  applySuggestion,
-  suggest,
-  type ActiveToken,
-  type Suggestion,
-} from '@/lib/autocomplete';
+import { applySuggestion, lookup, type ActiveToken, type Suggestion } from '@/lib/autocomplete';
 import { DateTimeField } from '@/components/ui/date-field';
 import { t, INTL_LOCALES, type Locale } from '@/lib/i18n-ui';
 import {
@@ -589,9 +583,10 @@ export function Notes({
   // results the chips show, so the two can never disagree about a word.
   const ranges = highlightRanges(body, tags, mentions);
 
-  const token: ActiveToken | null = activeToken(body, caret);
-  const suggestions: Suggestion[] =
-    token && dismissedAt !== token.start ? suggest(token, vocabulary, mentionable) : [];
+  // A word or a short phrase (spaces allowed, up to three words) — see lookup().
+  const looked = lookup(body, caret, vocabulary, mentionable);
+  const token: ActiveToken | null = looked?.token ?? null;
+  const suggestions: Suggestion[] = looked && dismissedAt !== looked.token.start ? looked.suggestions : [];
   const listOpen = suggestions.length > 0;
 
   function pick(sug: Suggestion) {
@@ -865,7 +860,9 @@ export function Notes({
           onCaret={(c) => {
             setCaret(c);
             // Moving to a different word forgets an Escape on the last one.
-            if (dismissedAt !== null && activeToken(body, c)?.start !== dismissedAt) setDismissedAt(null);
+            if (dismissedAt !== null && lookup(body, c, vocabulary, mentionable)?.token.start !== dismissedAt) {
+              setDismissedAt(null);
+            }
           }}
           ranges={ranges}
           activeKey={activeKey}
@@ -948,7 +945,11 @@ export function Notes({
             className="mt-1 max-h-48 overflow-y-auto rounded-md border border-line bg-surface py-1"
           >
             {suggestions.map((sug, i) => (
-              <li key={`${sug.kind}:${sug.id ?? sug.name}`} role="option" aria-selected={i === pickIndex}>
+              <li
+                key={`${sug.isNew ? 'new' : sug.kind}:${sug.id ?? sug.name}`}
+                role="option"
+                aria-selected={i === pickIndex}
+              >
                 <button
                   type="button"
                   onMouseDown={(e) => e.preventDefault()}
@@ -962,6 +963,11 @@ export function Notes({
                     {sug.kind === 'tag' ? '#' : '@'}
                   </span>
                   <span>{sug.name}</span>
+                  {sug.isNew && (
+                    <span className="ml-auto text-xs text-ink-subtle">
+                      {t(locale, 'ac_new_tag')} · ↵
+                    </span>
+                  )}
                   {sug.kind !== 'tag' && (
                     <span className="ml-auto text-xs text-ink-subtle">
                       {t(locale, sug.kind === 'person' ? 'ac_kind_person' : 'ac_kind_org')}

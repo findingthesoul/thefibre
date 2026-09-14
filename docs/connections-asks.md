@@ -89,6 +89,8 @@ neither in code nor in a document. That is what this file fixes.
 | 56 | "Make it all work" — everything open: production, movement board, sub-groups, prompt, highlighting, teams | **Done except production** — v0.73.57–59; the production push was refused by the permission classifier |
 | 57 | connections.thefibre.tech/dashboard should be connections.thefibre.tech | **Shipped** v0.73.60 — /dashboard never existed here (404); sign-in, SSO, the logo and workspace switch now go to the root, and /dashboard redirects there |
 | 58 | (found while fixing 57) The Help link in the Connections sidebar also answers 404 — there is no help page | **Backlog** — needs content, not a redirect |
+| 59 | `#` and `@` may run over a space — type the words, press Enter, and it becomes a tag, person or organisation | **In progress** |
+| 60 | Tag cleaning: find doubles, find tags unused for a long time, and present a list for a clean-up now and then | **In progress** — was Backlog §1.4 |
 
 ### The three that were lost
 

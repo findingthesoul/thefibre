@@ -1292,6 +1292,14 @@ const CATALOG = {
     de: 'Person', // MT
     fr: 'personne', // MT
   },
+  ac_new_tag: {
+    en: 'new tag',
+    nl: 'nieuwe tag',
+    es: 'etiqueta nueva', // MT
+    pt: 'nova etiqueta', // MT
+    de: 'neuer Tag', // MT
+    fr: 'nouveau tag', // MT
+  },
   ac_kind_org: {
     en: 'organisation',
     nl: 'organisatie',

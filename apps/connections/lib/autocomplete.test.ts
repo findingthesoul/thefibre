@@ -7,7 +7,7 @@
 // words that silently never become tags.
 
 import { describe, expect, it } from 'vitest';
-import { activeToken, applySuggestion, suggest, tokenText } from './autocomplete';
+import { activeToken, applySuggestion, lookup, suggest, tokenText } from './autocomplete';
 import { detectMentions, detectTags } from './detect-tags';
 
 const WORDS = [
@@ -123,5 +123,62 @@ describe('what a pick writes, and whether detection then agrees', () => {
     const text = `Visited ${tokenText('@', 'Zaailing Collectief')} today`;
     const mentions = detectMentions(text, PEOPLE, WORDS);
     expect(mentions).toEqual([expect.objectContaining({ kind: 'organisation', id: 'o2' })]);
+  });
+});
+
+// Sjoerd, 2026-09-14: type the words, a space is allowed, Enter makes it a tag,
+// person or organisation.
+describe('a lookup over a space', () => {
+  const at = (text: string) => lookup(text, text.length, WORDS, PEOPLE);
+
+  it('keeps looking up a two-word tag after the space', () => {
+    const found = at('About #deep dem');
+    expect(found?.token).toMatchObject({ trigger: '#', query: 'deep dem', start: 6 });
+    expect(found?.suggestions[0]).toMatchObject({ name: 'deep democracy', id: 't3' });
+  });
+
+  it('stays open on the space itself, before the next word', () => {
+    expect(at('About #deep ')?.suggestions.map((s) => s.name)).toContain('deep democracy');
+  });
+
+  it('finds a person by first name and the start of a surname', () => {
+    expect(at('Met @Fenna de')?.suggestions).toEqual([expect.objectContaining({ kind: 'person', id: 'p2' })]);
+  });
+
+  it('offers a NEW tag made of what was typed, spaces and all, which detection then makes', () => {
+    const text = 'Talked about #spring gathering';
+    const found = at(text)!;
+    const fresh = found.suggestions.find((s) => s.isNew)!;
+    expect(fresh).toMatchObject({ kind: 'tag', name: 'spring gathering' });
+    const out = applySuggestion(text, found.token, fresh);
+    expect(out.text).toBe('Talked about #spring-gathering ');
+    expect(detectTags(out.text, WORDS).map((t) => t.name.replace(/[^a-z]+/g, ' ').trim())).toContain(
+      'spring gathering',
+    );
+  });
+
+  it('does not offer a new tag that already exists', () => {
+    expect(at('#facilitation')?.suggestions.filter((s) => s.isNew)).toEqual([]);
+  });
+
+  it('never offers to invent a person', () => {
+    expect(at('Met @Nobody Here')).toBeNull();
+  });
+
+  it('opens nothing when the first word is already a whole name and the sentence carries on', () => {
+    expect(at('#facilitation went well')).toBeNull();
+    expect(at('Visited @EBBF with Jan')).toBeNull();
+  });
+
+  it('ends at punctuation', () => {
+    expect(at('#spring gathering. Then')).toBeNull();
+  });
+
+  it('stops after three words', () => {
+    expect(at('#one two three four')).toBeNull();
+  });
+
+  it('still does not open inside an email address', () => {
+    expect(at('Mail jan@ebbf org')).toBeNull();
   });
 });
