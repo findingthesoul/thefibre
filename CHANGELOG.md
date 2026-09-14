@@ -6,6 +6,22 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.5] — 2026-09-14 — the organisation search, checked in a browser (staging)
+
+`e2e/org-names.spec.ts`: six signed-in Playwright checks on staging for what
+v0.75.3 promised. Search finds the European Bahá'í Business Forum by "ebbf",
+by "bahai", by "Bahá'í" typed with its accents, and by "european bahai"; the
+list shows the abbreviation beside the name; and a term that matches nothing
+shows nothing rather than everything.
+
+v0.75.3 was proven at the database with the exact filter the API builds. This
+is the layer above it — the API's normalisation of the search term, and the
+list — which only a browser can vouch for. It depends on the staging EBBF seed
+and says so by failing, not by passing on an empty list.
+
+(Prepared as 0.75.4; another release took that number while this one was in
+the gate, and nothing of this landed until renumbered.)
+
 ## [0.75.4] — 2026-09-14 — fields go compact again, and saving is yellow (staging)
 
 Sjoerd, on The Thread's dialogs after v0.75.1: *"The design of the thread
