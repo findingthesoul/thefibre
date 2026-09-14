@@ -7,6 +7,7 @@ import { SearchSelect, type SearchSelectOption } from '@thefibre/shared/ui/searc
 import { SectionLabel, ErrorBanner } from '@thefibre/shared/ui/page';
 import { t, type Locale } from '@/lib/i18n-ui';
 import { PersonLink } from '@/components/person-popup';
+import { CARD, NOTICE, PILL, PILL_TONE } from '@thefibre/shared/ui/recipes';
 
 /** What the search offers. `hint` widens to null because the API returns
  *  null for an organisation with no sector — the shared option type only
@@ -195,9 +196,9 @@ export function EntriesClient({
                 {result.items.map((e) => (
                   <li
                     key={e.via_person_id}
-                    className={`rounded-md border bg-surface-raised px-3 py-3 ${
-                      e.warning ? 'border-amber-400/70' : 'border-line'
-                    }`}
+                    // Shared recipes, named by meaning (docs/brand-design.md):
+                    // a path through a sceptic is a warning box, the rest cards.
+                    className={e.warning ? NOTICE.warning : `${CARD} px-3 py-3`}
                   >
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <Link
@@ -210,7 +211,7 @@ export function EntriesClient({
                         {t(locale, HOP_KEYS[e.hops === 1 ? 1 : 2])}
                       </span>
                       {e.warning && (
-                        <span className="inline-flex items-center gap-1 rounded-full border border-amber-400/70 px-2 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                        <span className={`${PILL} ${PILL_TONE.attention} gap-1 font-medium`}>
                           <AlertTriangle className="h-3 w-3" aria-hidden />
                           {t(locale, 'entries_careful')}
                         </span>
