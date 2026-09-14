@@ -29,6 +29,7 @@ import { DateField, DateTimeField } from '@/components/ui/date-field';
 import { RichTextField } from '@/components/ui/rich-text';
 import { Button } from '@/components/ui/button';
 import { Switch, SwitchField } from '@/components/ui/switch';
+import { InfoHint } from '@thefibre/shared/ui/info-hint';
 import { ImageUpload } from '@/components/ui/image-upload';
 
 /** ISO → value for the date-time picker in the browser's zone. */
@@ -795,13 +796,33 @@ export function EngagementDialog({
                   showing, the reason three screens away. The Appearance tab
                   groups the settings, but whoever ticks THIS is looking at an
                   item, so it has to say so here too. */}
-              {threadAgendaOff && (
-                <p className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-                  {t(locale, 'public_agenda_off_warning')}
-                </p>
-              )}
+              {/* Sjoerd, 2026-09-14: the standing amber paragraph becomes the
+                  house ⓘ hint. But the one thing it must not become is
+                  invisible, because this is exactly the moment the switch
+                  lies: the thread's agenda is off, so ticking this does
+                  nothing. So the explanation moves into the hint, and a short
+                  amber line under the label stays on screen — the part you
+                  can't miss without having to read a paragraph. */}
               <SwitchField
-                label={t(locale, 'show_on_agenda')}
+                label={
+                  threadAgendaOff ? (
+                    <span className="inline-flex items-center gap-1.5">
+                      {t(locale, 'show_on_agenda')}
+                      <InfoHint label={t(locale, 'what_is_this')}>
+                        {t(locale, 'public_agenda_off_warning')}
+                      </InfoHint>
+                    </span>
+                  ) : (
+                    t(locale, 'show_on_agenda')
+                  )
+                }
+                hint={
+                  threadAgendaOff ? (
+                    <span className="text-amber-700 dark:text-amber-300">
+                      {t(locale, 'agenda_off_for_thread')}
+                    </span>
+                  ) : undefined
+                }
                 name="show_in_agenda"
                 defaultChecked={engagement?.show_in_agenda ?? family === 'activity'}
                 onChange={() => setDirty(true)}

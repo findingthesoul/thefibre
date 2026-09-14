@@ -6656,6 +6656,14 @@ const CATALOG = {
     de: 'Darstellung', // MT
     fr: 'Apparence', // MT
   },
+  agenda_off_for_thread: {
+    en: 'Off for this thread',
+    nl: 'Uit voor deze thread',
+    es: 'Desactivado en este thread', // MT
+    pt: 'Desligado neste thread', // MT
+    de: 'Für diesen Thread aus', // MT
+    fr: 'Désactivé pour ce thread', // MT
+  },
   public_agenda_off_warning: {
     en: 'With this off, the public page has no agenda section at all — so each item\u2019s own "Show on the public agenda" switch does nothing, however it is set.',
     nl: 'Als dit uit staat heeft de publieke pagina helemaal geen agenda — de schakelaar "Tonen op de publieke agenda" bij een los item doet dan niets, hoe je die ook zet.',

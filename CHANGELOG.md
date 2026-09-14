@@ -6,6 +6,25 @@ The displayed version comes from the `VERSION` constant in `apps/web/lib/version
 
 ## [Unreleased]
 
+## [0.75.10] — 2026-09-14 — the agenda warning becomes a hint, and stays visible where it matters (staging)
+
+Sjoerd asked for the amber "With this off, the public page has no agenda
+section at all…" box to follow the house pattern: an ⓘ you hover for the
+explanation, instead of a standing paragraph.
+
+**On the Appearance tab** the box is gone; the explanation sits in an ⓘ beside
+"Public agenda". Safe there, because the switch the hint sits on is the cause.
+
+**In the event dialog** the box is gone too, but not silently. That box only
+ever appeared when the thread's agenda is off — the one moment the event's own
+"Show on the public agenda" switch does nothing, which once cost Sjoerd half an
+hour. A hint you have to hover is invisible exactly then. So the ⓘ appears only
+in that situation, with the full explanation, and a short amber "Off for this
+thread" line under the label stays on screen. Put to Sjoerd before building;
+he agreed.
+
+Not visually checked: both screens are behind sign-in.
+
 ## [0.75.9] — 2026-09-14 — a blank thread can be created (staging)
 
 Found while chasing Sjoerd's *"templates do not work... nothing shows up"*.

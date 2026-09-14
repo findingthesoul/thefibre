@@ -30,6 +30,7 @@ import { t } from '@/lib/i18n-ui';
 import { updateThread } from '../actions';
 import type { ThreadRow } from '@/lib/thread-types';
 import { SwitchField } from '@/components/ui/switch';
+import { InfoHint } from '@thefibre/shared/ui/info-hint';
 import { uploadAsset } from '@/lib/upload';
 
 export function AppearancePanel({
@@ -150,20 +151,24 @@ export function AppearancePanel({
       </div>
 
       <div>
+        {/* The explanation lives in the ⓘ (Sjoerd, 2026-09-14: hover for
+            info, not standing paragraphs). Here that is safe: the switch the
+            hint sits on IS the cause, so nobody is misled while reading it.
+            The item-level switch in the engagement dialog keeps a visible
+            amber line, because there the cause is somewhere else. */}
         <SwitchField
-          label={t(locale, 'public_agenda')}
+          label={
+            <span className="inline-flex items-center gap-1.5">
+              {t(locale, 'public_agenda')}
+              <InfoHint label={t(locale, 'what_is_this')}>
+                {t(locale, 'public_agenda_off_warning')}
+              </InfoHint>
+            </span>
+          }
           hint={t(locale, 'public_agenda_hint')}
           checked={agenda}
           onChange={setAgenda}
         />
-        {/* The whole reason this tab exists. With this off, every item's own
-            "Show on the public agenda" switch is inert, and nothing on the
-            item said so. */}
-        {!agenda && (
-          <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3.5 py-2.5 text-xs leading-relaxed text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-200">
-            {t(locale, 'public_agenda_off_warning')}
-          </p>
-        )}
       </div>
 
       {/* How an overview opens this thread (Luma-style choice). */}
